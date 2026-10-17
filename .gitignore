@@ -1,0 +1,34 @@
+# Rust output and local dependency caches. Keep the root Cargo.lock tracked.
+**/target/
+/.cargo-home/
+/crates/kirby_assist_core/Cargo.lock
+*.nro
+*.nso
+*.elf
+
+# Generated installation folders and compressed release packages.
+/releases/
+
+# Runtime diagnostics and Python tooling caches.
+*.log
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Machine-specific editor settings and operating-system files.
+/.vscode/
+/.idea/
+.DS_Store
+._*
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Local credentials/configuration; examples may be checked in deliberately.
+.env
+.env.*
+!.env.example

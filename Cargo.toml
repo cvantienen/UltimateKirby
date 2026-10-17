@@ -1,0 +1,39 @@
+# Main package: a Skyline plugin compiled for the Switch, not a desktop binary.
+# Build with cargo skyline build --release from this directory.
+# The nested core is a separate crate; use --manifest-path to test it on the host.
+[package]
+name = "kirby_assist"
+version = "0.1.0"
+authors = []
+edition = "2021"
+description = "Pro Controller analog-stick auto-mash and auto-tech for human-controlled Kirby"
+license = "MIT"
+
+[package.metadata.skyline]
+titleid = "01006A800016E000" # Smash Ultimate
+
+# Skyline loads a native dynamic library. rlib also supports Rust-side tooling.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Skyline supplies hooks/native bindings; our local core supplies testable policy.
+# A Cargo dependency imports code, not physical controller packets.
+[dependencies]
+skyline = "0.6.0"
+kirby_assist_core = { path = "crates/kirby_assist_core" }
+
+# Logging is a compile-time choice, independent of optimized/debug profiles.
+# The default build is silent. Add --features diagnostic-logging for testing.
+# Features are decided by the compiler and cannot be toggled in config.txt.
+# Runtime settings are read from the SD file by LiveConfig::parse instead.
+[features]
+default = []
+diagnostic-logging = []
+
+[profile.dev]
+panic = "abort"
+
+# Release optimization changes compilation, not the tool's runtime settings.
+[profile.release]
+panic = "abort"
+lto = true

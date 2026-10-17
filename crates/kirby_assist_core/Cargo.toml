@@ -1,0 +1,16 @@
+# Standalone host-testable logic crate; intentionally has no Skyline dependency.
+# From the project root:
+# cargo test --manifest-path crates/kirby_assist_core/Cargo.toml
+# cargo run --manifest-path crates/kirby_assist_core/Cargo.toml --example walkthrough
+# Add portable policy/helpers here; keep native game calls in the main plugin.
+[package]
+name = "kirby_assist_core"
+version = "0.1.0"
+edition = "2021"
+description = "Platform-independent assist decision and input arbitration logic"
+license = "MIT"
+
+# A crate is a Rust compilation unit. This library is imported by the plugin
+# through its path dependency; running a core example runs on the host computer.
+[lib]
+path = "src/lib.rs"
