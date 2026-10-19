@@ -43,6 +43,10 @@ const _: () = {
 // Declarations do not execute queries: a call such as game::status_kind(object)
 // in live.rs does. Changing a type here changes how that call crosses the ABI.
 extern "C" {
+    // Global battle-ready query: no fighter/module pointer is required. The
+    // signature matches the pinned skyline-smash sv_information binding.
+    #[link_name = "\u{1}_ZN3app14sv_information11is_ready_goEv"]
+    pub fn is_ready_go() -> bool;
     // Identity, state, and timers used to decide whether assistance applies.
     #[link_name = "\u{1}_ZN3app7utility8get_kindEPKNS_26BattleObjectModuleAccessorE"]
     pub fn fighter_kind(module_accessor: *mut Object) -> i32;

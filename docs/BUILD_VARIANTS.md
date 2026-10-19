@@ -27,7 +27,7 @@ Each command writes `target/aarch64-skyline-switch/release/libkirby_assist.nro`.
 python3 tools/build_variants.py
 ```
 
-The helper builds each variant sequentially, verifies the NRO header and selected logger/message markers, snapshots the binary/config, and checks the ZIP contents. It does not flash or install anything. It requires no third-party Python packages. If your Cargo cache needs an isolated directory, pass `--cargo-home /path/to/cache`; this changes only the build process's environment.
+The helper builds each variant sequentially, verifies the NRO header and selected logger/message markers, snapshots the binary/config, and checks the ZIP contents. It does not flash or install anything. It requires Python 3.11 or newer and no third-party Python packages. If your Cargo cache needs an isolated directory, pass `--cargo-home /path/to/cache`; this changes only the build process's environment.
 
 Outputs:
 
@@ -37,6 +37,32 @@ releases/kirby_assist-diagnostic.zip
 releases/silent/atmosphere/...
 releases/diagnostic/atmosphere/...
 ```
+
+After the selected build or builds finish, the helper also creates
+`kirby_assist-<version>-source.zip` in `Latestbuild-<version>` beside the silent NRO and
+config. The source backup contains the project under a `kirby_assist_v2/`
+folder. Generated `target`, `releases`, cache, and Git metadata directories are
+excluded. The helper reopens the archive and verifies its CRC and file list.
+Refreshing the NRO/config preserves source ZIPs from earlier releases.
+The output directory is beside the project and uses `Latestbuild-<RELEASE_VERSION>`;
+change `[package].version` in the root `Cargo.toml` to create a separate release directory.
+That is the single release-version source: the builder reads it and Rust uses
+`CARGO_PKG_VERSION` for the diagnostic startup message. Cargo updates its lockfile
+when building; the core library has its own independent package version.
+
+All maintained guides and assets are packaged under `docs/`, alongside the
+root `mkdocs.yml` and `requirements-docs.txt`. New pages are picked up
+automatically. See [maintaining the docs](MAINTAINING.md) for preview and build
+commands. Generated `site/` HTML and `.venv-docs/` are excluded from source ZIPs.
+
+Set `[package].description` in the root `Cargo.toml` to the desired release
+summary. On each run, the builder generates or overwrites
+`releases/RELEASE_SUMMARY-<version>.txt` using exactly that parsed string, with no
+extra heading or appended newline. TOML multiline strings are supported. A
+missing, empty or whitespace-only description stops the build before compilation.
+The text is copied to the versioned Latestbuild directory, included in both
+release packages, and retained in the source ZIP. Edit Cargo's description rather
+than maintaining the generated summary file by hand.
 
 Use `--variant silent` or `--variant diagnostic` to rebuild just one.
 
@@ -57,7 +83,7 @@ The plugin still reads `SD:/ultimate/kirby_assist/config.txt`, loads through Sky
 
 Silent does not delete/truncate a previous `status.log`; an old file may therefore remain unchanged after switching variants. If config is invalid, the mod is disabled, or the executable signature is unsupported, the silent build returns without giving a diagnostic. Switch to the diagnostic build to investigate.
 
-Diagnostic writes to console and `SD:/ultimate/kirby_assist/status.log`. Its first line identifies `Kirby Assist diagnostic build v18`. `tech_debug = false` disables detailed tech messages but leaves basic/startup logging enabled.
+Diagnostic writes to console and `SD:/ultimate/kirby_assist/status.log`. Its first line identifies `Kirby Assist diagnostic build <version>`. `tech_debug = false` disables detailed tech messages but leaves basic/startup logging enabled.
 
 ## Verification and remaining limits
 
@@ -74,8 +100,6 @@ cargo skyline clippy --no-default-features
 cargo skyline clippy --no-default-features --features diagnostic-logging
 ```
 
-The next source build identifies v18 and includes [predictive grounded ledge assistance](LEDGE_TRAP.md) plus [analog-stick mashing](ANALOG_MASH.md). Ledge fixes include exact hanging-status checks, missed-option recovery, startup-aware shield grabs, and tilt retries after a release without an extra timer. The supplied config selects forward tilt for normal get-up and outward throws after capture; post-punish recovery returns to the ledge stance. Host checks do not refresh release ZIPs; install the rebuilt plugin and updated config together.
+The source includes [predictive grounded ledge assistance](LEDGE_TRAP.md) plus [analog-stick mashing](ANALOG_MASH.md). Ledge fixes include exact hanging-status checks, missed-option recovery, startup-aware shield grabs, and tilt retries after a release without an extra timer. The supplied config selects forward tilt for normal get-up and outward throws after capture; post-punish recovery returns to the ledge stance. Host checks do not refresh release ZIPs; install the rebuilt plugin and updated config together.
 
-Use A=Attack, R=Grab, ZR=Shield, and Tap Jump off. Set `ledge_getup_attack = forward_tilt` to try the downward-angled forward tilt for normal get-up. Other ledge options retain up tilt or Grab responses. Both variants share the gameplay policy; silent keeps logging compiled out. Device testing remains required, including the Pichu-on-FD small-character baseline. No guaranteed frame-perfect coverage is claimed.
-
-v18 adds smoother homing, early catch-state anchor reads, two-observation target retention without stale output, and separate tilt/grab approach distances. Copy the updated config to get the 9-unit stance. Source checks do not regenerate release packages.
+Use A=Attack, R=Grab, ZR=Shield, and Tap Jump off. Set `ledge_getup_attack = forward_tilt` to try the downward-angled forward tilt for normal get-up. Ledge jumps use short-hop neutral air; roll and get-up attack responses use Grab. Both variants share the gameplay policy; silent keeps logging compiled out. Device testing remains required, including the Pichu-on-FD small-character baseline. No guaranteed frame-perfect coverage is claimed.

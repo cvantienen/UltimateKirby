@@ -1,5 +1,8 @@
 # Hold Left/Right for directional turbo crouch
 
+With `auto_ledge_trump = true`, D-pad Down is separately reserved for a
+[one-shot ledge trump](LEDGE_TRUMP.md), which takes priority over turbo.
+
 This control is included in both silent and diagnostic builds. With the supplied config:
 
 - Hold D-pad Left: alternate crouch/release and move slightly left during the release phase.
@@ -7,7 +10,7 @@ This control is included in both silent and diagnostic builds. With the supplied
 - Release the D-pad: restore your current physical left-stick input immediately.
 - Hold both directions: suppress side taunts but cancel the macro's stick movement.
 
-The normal side-taunt buttons are consumed during valid selected-player gameplay while this feature is enabled. Standalone D-pad Up and right-stick inputs are unaffected by turbo. Diagonal directions involved in a macro press are consumed through release so they cannot cause another taunt. The new source-only [ledge assist](LEDGE_TRAP.md) separately reserves D-pad Down when enabled; Down takes priority over turbo movement. The macro temporarily owns the left stick only while it is actually running. In menus or when no fresh valid fighter observation is available, physical controls pass through.
+The normal side-taunt buttons are consumed during valid selected-player gameplay while this feature is enabled. Standalone D-pad Up/Down and right-stick inputs are unaffected by turbo. Diagonal directions involved in a macro press are consumed through release so they cannot cause another taunt. The [ledge assist](LEDGE_TRAP.md) separately reserves the left-stick click (L3) when enabled; L3 takes priority over turbo movement. The macro temporarily owns the left stick only while it is actually running. In menus or when no fresh valid fighter observation is available, physical controls pass through.
 
 The current fighter scope remains the configured human-controlled Kirby using a Pro Controller. The macro runs only while grounded in idle, walking, running, turning, or crouch states. Airborne movement, attacks, grabs/damage, hitstop, mash, and predicted tech situations suspend the stick macro. Re-entry starts from the crouch phase. No status changes are forced.
 

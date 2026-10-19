@@ -407,28 +407,29 @@ mod tests {
         );
     }
     #[test]
-    fn down_trigger_and_attack_release_share_one_consistent_history() {
-        use crate::ledge_trap::DPAD_DOWN;
+    fn left_stick_trigger_and_attack_release_share_one_consistent_history() {
+        use crate::ledge_trap::{DPAD_DOWN, LEDGE_TRIGGER};
         use crate::native_input::MAPPER_A;
         let human = ButtonTrace {
-            held: DPAD_DOWN,
-            previous: DPAD_DOWN,
-            pressed: DPAD_DOWN,
-            released: DPAD_DOWN,
+            held: LEDGE_TRIGGER | DPAD_DOWN,
+            previous: LEDGE_TRIGGER | DPAD_DOWN,
+            pressed: LEDGE_TRIGGER,
+            released: LEDGE_TRIGGER,
         };
         let mut overlay = ManualOverlay::default();
         let press = overlay.apply_controls(
             human,
             [0.1, 0.2],
             TurboOutput::default(),
-            DPAD_DOWN,
+            LEDGE_TRIGGER,
             MAPPER_A,
             MAPPER_A,
         );
-        assert_eq!(press.buttons.held, MAPPER_A);
+        assert_eq!(press.buttons.held, MAPPER_A | DPAD_DOWN);
         assert_eq!(press.buttons.pressed, MAPPER_A);
-        assert_eq!(press.buttons.previous & DPAD_DOWN, 0);
-        assert_eq!(press.buttons.released & DPAD_DOWN, 0);
+        assert_eq!(press.buttons.previous & LEDGE_TRIGGER, 0);
+        assert_eq!(press.buttons.released & LEDGE_TRIGGER, 0);
+        assert_ne!(press.buttons.held & DPAD_DOWN, 0);
         let release = overlay.apply(ButtonTrace::default(), [0.1, 0.2], TurboOutput::default());
         assert_eq!(release.buttons.released, MAPPER_A);
         assert_eq!(release.stick, [0.1, 0.2]);

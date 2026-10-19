@@ -1,4 +1,4 @@
-//! Hold-Down reactive ledge assistance. Native observations, not assumed
+//! Reactive ledge assistance while the live toggle is enabled. Native observations, not assumed
 //! controller-poll frame counts, gate anti-air and shield/grab transitions.
 //! Geometry gates are conservative tunable limits, not an exact hitbox model.
 //!
@@ -10,6 +10,7 @@ use crate::native_input::{
 };
 
 pub const DPAD_DOWN: u32 = 1 << 2;
+pub const LEDGE_TRIGGER: u32 = 1 << 16; // Left-stick click (L3)
 pub const CLIFF_CATCH_MOVE: i32 = 0x75;
 pub const CLIFF_WAIT: i32 = 0x77;
 pub const CLIFF_ATTACK: i32 = 0x78;
@@ -42,9 +43,9 @@ const GUARD_ON: i32 = 0x1b;
 const GUARD: i32 = 0x1c;
 const GUARD_OFF: i32 = 0x1d;
 const GUARD_DAMAGE: i32 = 0x1e;
-const UP_TILT: i32 = 0x2b;
 const DOWN_TILT: i32 = 0x2c;
 const FORWARD_TILT: i32 = 0x2a;
+const ATTACK_AIR: i32 = 0x33;
 const GRAB_START: i32 = 0x37;
 const DASH_GRAB_START: i32 = 0x39;
 const TURN_GRAB_START: i32 = 0x3b;
@@ -58,12 +59,22 @@ const GRAB_PUMMEL: i32 = 0x3d;
 // not an arbitrary extra timer; animation acceptance and budgets bound them.
 const FOLLOW_UPDATES: u16 = 48;
 const MAX_ATTEMPTS: u8 = 6;
-// Retain identity/anchor through a short missed observation, but emit no
-// movement or attacks until fresh native facts return. Counts mapper updates.
-const MISSING_UPDATES: u8 = 2;
+
+/// Native readiness term for the grab selected by the current movement state.
+pub fn grab_transition_term(status: i32) -> i32 {
+    match status {
+        0x3 | 0x4 => 0x1e000070, // CONT_CATCH_DASH
+        0x7 | 0x8 => 0x1e000071, // CONT_CATCH_TURN
+        _ => 0x1e00006f,         // CONT_CATCH
+    }
+}
+
+// Roll punishes deliberately settle into native WAIT before requesting catch.
+// Changing a startup number alone cannot convert a running/shield grab to catch.
+const ROLL_GRAB_STARTUP: u8 = 6;
 
 /// Grounded normal-getup punish. Forward tilt is angled down for low targets;
-/// choosing it does not change the up-tilt jump response or roll/shield grabs.
+/// choosing it does not change the neutral-air jump response or roll/shield grabs.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum GetupAttack {
     #[default]
@@ -104,6 +115,8 @@ pub fn frames_until(frame: f32, deadline: f32, rate: f32) -> Option<f32> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeSettings {
     pub enabled: bool,
+    /// Shield a witnessed ledge release into generic airborne movement.
+    pub drop_defense: bool,
     pub getup_attack: GetupAttack,
     // Ranges/heights/stance distances are WORLD units, not stick percentages.
     // Increasing reach only makes the policy willing to attack from farther
@@ -116,10 +129,6 @@ pub struct LedgeSettings {
     /// Separate attack limits prevent treating acquisition range as hitbox reach.
     pub tilt_range: f32,
     pub grab_range: f32,
-    /// Desired pursuit separations, independent of the attack eligibility gates.
-    /// These must be smaller than the matching range in the text config.
-    pub tilt_approach_distance: f32,
-    pub grab_approach_distance: f32,
     // Follow limits keep the acquired opponent through its get-up travel;
     // acquisition limits above decide whether to acquire it in the first place.
     pub follow_range: f32,
@@ -127,6 +136,8 @@ pub struct LedgeSettings {
     pub auto_position: bool,
     /// Heuristic stage-side stance offset, not a universal optimal location.
     pub stand_distance: f32,
+    /// Optional measured ledge-to-roll-end distance. None latches a motion estimate.
+    pub roll_distance: Option<f32>,
     // Unlike distances, move_strength is normalized stick magnitude (0..1).
     // grab_buffer_frames permits one early input near native shieldstun end;
     // it does not shorten shieldstun or the native grab animation.
@@ -142,6 +153,7 @@ impl Default for LedgeSettings {
     fn default() -> Self {
         Self {
             enabled: false,
+            drop_defense: true,
             getup_attack: GetupAttack::DownTilt,
             anti_air_range: 8.0,
             anti_air_height: 18.0,
@@ -149,12 +161,11 @@ impl Default for LedgeSettings {
             vertical_range: 10.0,
             tilt_range: 10.0,
             grab_range: 8.0,
-            tilt_approach_distance: 6.0,
-            grab_approach_distance: 5.0,
             follow_range: 40.0,
             follow_vertical_range: 48.0,
             auto_position: true,
-            stand_distance: 9.0,
+            stand_distance: 8.0,
+            roll_distance: None,
             move_strength: 1.0,
             grab_buffer_frames: 3,
             throw_outward: true,
@@ -229,7 +240,7 @@ pub struct LedgeContext {
     pub can_grab: bool,
     pub shield_stun_frames: Option<i32>,
     pub shield_attacker: Option<u32>,
-    /// Native hit infliction during Kirby's current tilt, not just animation start.
+    /// Native hit infliction during Kirby's current assisted attack.
     pub hit_confirmed: bool,
     /// Ground support along a short swept lookahead, left then right.
     pub safe_ground: [bool; 2],
@@ -237,7 +248,7 @@ pub struct LedgeContext {
 /// Proposed inputs, applied by ManualOverlay rather than written into game state.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct LedgeOutput {
-    pub consume_down: bool,
+    pub consume_trigger: bool,
     pub stick: Option<[f32; 2]>,
     /// Buttons to hold for this update (a mask of native controller bits).
     pub requested: u32,
@@ -251,8 +262,9 @@ pub struct LedgeOutput {
 enum OptionPlan {
     #[default]
     Watch,
-    UpTilt,
+    NeutralAir,
     Roll,
+    DropShield,
     Shield {
         blocked: bool,
     },
@@ -263,7 +275,7 @@ enum Pending {
     None,
     DownTilt,
     ForwardTilt,
-    UpTilt,
+    NeutralAir,
     Grab,
 }
 /// Identical native animation observations are one decision, even if the
@@ -275,7 +287,14 @@ struct Observation {
     opponent: Opponent,
 }
 
-/// Memory for one held-Down sequence. No native game pointers are stored here.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct RollIntercept {
+    endpoint: f32,
+    stand_x: f32,
+    facing: f32,
+}
+
+/// Memory for one held-L3 sequence. No native game pointers are stored here.
 #[derive(Default)]
 pub struct LedgeTrap {
     // Visit identity and stance: anchor is the stage ledge, inward points from
@@ -292,8 +311,6 @@ pub struct LedgeTrap {
     pending: Pending,
     last_status: i32,
     outside_updates: u16,
-    missing_updates: u8,
-    stance_moving: bool,
     // Requested pulses and observed animations have separate budgets: a request
     // can be ignored, and an accepted animation can still whiff. Both are bounded.
     attempts: u8,
@@ -301,6 +318,9 @@ pub struct LedgeTrap {
     grab_ready_seen: bool,
     grab_in_progress: bool,
     grab_animations: u8,
+    roll_phase: &'static str,
+    roll_intercept: Option<RollIntercept>,
+    expected_grab_status: Option<i32>,
     tilt_in_progress: bool,
     tilt_animations: u8,
     // Copy snapshots only. Same-animation root travel supplements kinetic speed
@@ -325,9 +345,22 @@ impl LedgeTrap {
     pub fn target(&self) -> Option<u32> {
         self.target
     }
+    /// Seed a stage-derived stance before an opponent is acquired.
+    pub fn prepare_stance(&mut self, anchor: [f32; 2], inward: f32) {
+        self.anchor = Some(anchor);
+        self.inward = inward;
+    }
+    /// Locked roll endpoint, standing position and facing for diagnostics.
+    pub fn roll_interception(&self) -> Option<[f32; 3]> {
+        self.roll_intercept
+            .map(|spot| [spot.endpoint, spot.stand_x, spot.facing])
+    }
     /// Read-only diagnostic snapshot of the velocity used for target prediction.
     pub fn observed_target_velocity(&self) -> [f32; 2] {
         self.observed_velocity
+    }
+    pub fn expected_grab_status(&self) -> Option<i32> {
+        self.expected_grab_status
     }
     pub fn action_name(&self) -> &'static str {
         if self.finished {
@@ -343,8 +376,10 @@ impl LedgeTrap {
         }
         match self.plan {
             OptionPlan::Watch => "watch_then_grounded_tilt",
-            OptionPlan::UpTilt => "grounded_up_tilt",
+            OptionPlan::NeutralAir => "short_hop_neutral_air",
+            OptionPlan::Roll if !self.roll_phase.is_empty() => self.roll_phase,
             OptionPlan::Roll => "wait_roll_then_grab",
+            OptionPlan::DropShield => "shield_ledge_drop_aerial",
             OptionPlan::Shield { blocked: false } => "shield_wait_for_block",
             OptionPlan::Shield { blocked: true } if self.shield_pursuing => {
                 "close_distance_then_grab"
@@ -360,6 +395,9 @@ impl LedgeTrap {
             self.grounded_tilt_prepared = false;
             self.attempts = 0;
             self.pending = Pending::None;
+            self.roll_phase = "";
+            self.roll_intercept = None;
+            self.expected_grab_status = None;
             self.grab_buffer_sent = false;
             self.grab_ready_seen = false;
             self.shield_pursuing = false;
@@ -454,7 +492,7 @@ impl LedgeTrap {
         // Actual button/stick takeover is added only after tracking and native
         // eligibility checks below. None stick means leave physical movement.
         let mut out = LedgeOutput {
-            consume_down: true,
+            consume_trigger: true,
             ..LedgeOutput::default()
         };
         // Confirm before target lookup: a hit can launch the opponent outside
@@ -466,15 +504,10 @@ impl LedgeTrap {
                 self.complete_punish(settings, ctx, &mut out);
                 return out;
             }
-            self.missing_updates = self.missing_updates.saturating_add(1);
-            if self.target.is_some() && self.missing_updates <= MISSING_UPDATES {
-                return out;
-            }
             self.target = None;
             self.plan = OptionPlan::Watch;
             return out;
         };
-        self.missing_updates = 0;
         // 1. Acquire/follow one opponent; reset the visit on a new target/regrab.
         let dx = enemy.position[0] - ctx.position[0];
         let dy = enemy.position[1] - ctx.position[1];
@@ -485,8 +518,12 @@ impl LedgeTrap {
                 && ctx.facing.is_finite();
         let on_ledge = (CLIFF_CATCH_MOVE..=CLIFF_JUMP3).contains(&enemy.status);
         let recent_option = (CLIFF_ATTACK..=CLIFF_JUMP3).contains(&enemy.previous_status);
+        let recent_drop = settings.drop_defense
+            && enemy.situation == 2
+            && is_hanging(enemy.previous_status)
+            && self.last_status != enemy.status;
         if nearby
-            && (on_ledge || recent_option)
+            && (on_ledge || recent_option || recent_drop)
             && (self.target != Some(enemy.id)
                 || (is_hanging(enemy.status) && !is_hanging(self.last_status))
                 || (on_ledge && !(CLIFF_CATCH_MOVE..=CLIFF_JUMP3).contains(&self.last_status)))
@@ -495,6 +532,8 @@ impl LedgeTrap {
             // different opponent or an earlier regrab.
             *self = Self {
                 target: Some(enemy.id),
+                anchor: self.anchor,
+                inward: self.inward,
                 ..Self::default()
             };
         }
@@ -508,6 +547,11 @@ impl LedgeTrap {
         let tracked = nearby
             && self.target == Some(enemy.id)
             && (on_ledge || self.outside_updates <= FOLLOW_UPDATES);
+        let dropped = settings.drop_defense
+            && enemy.situation == 2
+            && !on_ledge
+            && !recent_option
+            && (is_hanging(self.last_status) || is_hanging(enemy.previous_status));
         self.last_status = enemy.status;
         if !tracked {
             if self.finished {
@@ -537,7 +581,7 @@ impl LedgeTrap {
         enemy.velocity = self.target_velocity(enemy, ctx.stopped);
 
         // 2. Confirm previous requests before selecting this update's response.
-        self.choose_response(ctx, enemy);
+        self.choose_response(ctx, enemy, dropped);
         if self.finished {
             self.complete_punish(settings, ctx, &mut out);
             return out;
@@ -546,8 +590,10 @@ impl LedgeTrap {
         // unowned neutral output here used to release ZR on block impact. Only
         // preserve shield in native guard states: damage/air actions stay free.
         if ctx.stopped {
-            if matches!(self.plan, OptionPlan::Shield { .. })
-                && !self.shield_pursuing
+            if matches!(
+                self.plan,
+                OptionPlan::Shield { .. } | OptionPlan::DropShield
+            ) && !self.shield_pursuing
                 && !self.finished
                 && ctx.situation == 0
                 && matches!(ctx.status, GUARD_ON | GUARD | GUARD_DAMAGE)
@@ -569,11 +615,18 @@ impl LedgeTrap {
         }
         // 3. Each response changes only the proposed stick/button output.
         match self.plan {
-            OptionPlan::UpTilt => self.respond_to_jump(settings, ctx, enemy, &mut out),
+            OptionPlan::NeutralAir => self.respond_to_jump(settings, ctx, enemy, &mut out),
             OptionPlan::Shield { .. } => {
                 self.respond_to_getup_attack(settings, ctx, enemy, &mut out)
             }
             OptionPlan::Roll => self.respond_to_roll(settings, ctx, enemy, &mut out),
+            OptionPlan::DropShield => {
+                // Own neutral movement and shield only. The normal tracking
+                // timeout bounds this defense; toggle L3 off for a manual punish.
+                if ctx.situation == 0 {
+                    out.requested = MAPPER_ZR;
+                }
+            }
             OptionPlan::Watch => self.watch_ledge(settings, ctx, enemy, &mut out),
         }
         out
@@ -582,12 +635,7 @@ impl LedgeTrap {
     /// Finish a capture using ordinary directional throw input, then recover
     /// the original stance. A successful punish ends attacks for this visit,
     /// not positioning for the next one. A new ledge visit resets the session.
-    fn complete_punish(
-        &mut self,
-        settings: LedgeSettings,
-        ctx: LedgeContext,
-        out: &mut LedgeOutput,
-    ) {
+    fn complete_punish(&self, settings: LedgeSettings, ctx: LedgeContext, out: &mut LedgeOutput) {
         if !ctx.can_control || ctx.stopped || ctx.situation != 0 {
             return;
         }
@@ -616,13 +664,13 @@ impl LedgeTrap {
         let tilting = match self.pending {
             Pending::DownTilt => status == DOWN_TILT,
             Pending::ForwardTilt => status == FORWARD_TILT,
-            Pending::UpTilt => status == UP_TILT,
+            Pending::NeutralAir => status == ATTACK_AIR,
             _ => false,
         };
         // A requested input is only an attempt. Native status confirms which
         // animation started; a grab additionally needs a captured opponent.
         self.finished |= match self.pending {
-            Pending::DownTilt | Pending::ForwardTilt | Pending::UpTilt => {
+            Pending::DownTilt | Pending::ForwardTilt | Pending::NeutralAir => {
                 tilting && ctx.hit_confirmed
             }
             Pending::Grab => matches!(status, GRAB_PULL | DASH_GRAB_PULL | GRAB_HOLD | GRAB_PUMMEL),
@@ -640,6 +688,12 @@ impl LedgeTrap {
             && matches!(status, GRAB_START | DASH_GRAB_START | TURN_GRAB_START);
         if grabbing && !self.grab_in_progress {
             self.grab_animations += 1;
+            if self
+                .expected_grab_status
+                .is_some_and(|expected| expected != status)
+            {
+                self.roll_phase = "roll_grab_type_mismatch";
+            }
         }
         if self.grab_in_progress && !grabbing && !self.finished {
             self.attempts = 0;
@@ -654,7 +708,7 @@ impl LedgeTrap {
     }
 
     /// An observed ledge option selects a response; shield needs block evidence.
-    fn choose_response(&mut self, ctx: LedgeContext, enemy: Opponent) {
+    fn choose_response(&mut self, ctx: LedgeContext, enemy: Opponent, dropped: bool) {
         // Recover a transition missed between input samples for ALL options,
         // not only jump. Current ledge state always wins over older history.
         let option = if (CLIFF_CATCH_MOVE..=CLIFF_JUMP3).contains(&enemy.status) {
@@ -663,7 +717,9 @@ impl LedgeTrap {
             enemy.previous_status
         };
         if !self.finished {
-            if option == CLIFF_ATTACK {
+            if dropped {
+                self.set_plan(OptionPlan::DropShield);
+            } else if option == CLIFF_ATTACK {
                 if !matches!(self.plan, OptionPlan::Shield { .. }) {
                     self.set_plan(OptionPlan::Shield { blocked: false });
                 }
@@ -676,7 +732,7 @@ impl LedgeTrap {
             {
                 // Remember the option even if Kirby is still recovering. The
                 // native previous status also catches a short missed transition.
-                self.set_plan(OptionPlan::UpTilt);
+                self.set_plan(OptionPlan::NeutralAir);
             }
         }
         if matches!(self.plan, OptionPlan::Shield { .. })
@@ -741,8 +797,8 @@ impl LedgeTrap {
         velocity
     }
 
-    /// Prepare up tilt and intersect its active window with the predicted
-    /// first hittable position, rather than attacking the current root alone.
+    /// Start short-hop neutral air when its future active window intersects the
+    /// opponent's predicted first hittable position.
     fn respond_to_jump(
         &mut self,
         settings: LedgeSettings,
@@ -753,19 +809,17 @@ impl LedgeTrap {
         if ctx.situation != 0 || !ctx.can_act {
             return;
         }
+        // X+A invokes the game's short-hop aerial input. Kirby's three-frame
+        // jump squat plus neutral air's frame-8 startup puts the first hitbox
+        // 11 frames after this request; its lingering hitboxes last through 34.
         let window = AttackWindow {
-            first: 4,
-            last: 10,
+            first: 11,
+            last: 34,
             range: settings.anti_air_range,
             height: [-6.0, settings.anti_air_height],
             front_only: false,
         };
-        // Moderate Up chooses up tilt with A rather than an up-smash flick.
-        // Tap Jump must be off in the player's controls. This stays grounded;
-        // no jump/forward-air sequence is generated by this response.
-        let prepared =
-            self.last_output.stick == Some([0.0, 0.6]) && self.last_output.owned & MAPPER_A != 0;
-        let predicted = predicted_offset(ctx, enemy, 4.0);
+        let predicted = predicted_offset(ctx, enemy, f32::from(window.first));
         if !window.may_connect(ctx, enemy) && predicted[0].abs() > settings.anti_air_range {
             self.approach(
                 settings,
@@ -776,10 +830,11 @@ impl LedgeTrap {
             );
             return;
         }
-        // Holding Up while a low target rises avoids another preparation poll.
-        out.stick = Some([0.0, 0.6]);
-        if prepared && window.may_connect(ctx, enemy) && self.try_tilt(Pending::UpTilt) {
-            out.requested = MAPPER_A;
+        // Neutral stick prevents the simultaneous attack from becoming a
+        // directional aerial. No tilt-preparation update delays this request.
+        out.stick = Some([0.0, 0.0]);
+        if window.may_connect(ctx, enemy) && self.try_tilt(Pending::NeutralAir) {
+            out.requested = MAPPER_X | MAPPER_A;
         }
     }
 
@@ -835,15 +890,7 @@ impl LedgeTrap {
                     if settings.auto_position && dx * ctx.facing < -0.5 {
                         self.ground_move(settings, ctx, dx, out);
                     } else {
-                        self.approach(
-                            settings,
-                            ctx,
-                            dx,
-                            settings
-                                .grab_approach_distance
-                                .min((settings.grab_range - 0.5).max(0.0)),
-                            out,
-                        );
+                        self.approach(settings, ctx, dx, settings.grab_range - 1.0, out);
                     }
                 }
             }
@@ -862,8 +909,12 @@ impl LedgeTrap {
             });
         let legal_guard =
             matches!(ctx.status, GUARD_ON | GUARD) && (ctx.can_grab || ctx.status == GUARD);
+        // After a confirmed block, native shieldstun/readiness controls when
+        // Grab can start. Waiting for the attacker's hitboxes to disappear
+        // can miss the buffer window even though the hit has already blocked.
+        // Without block evidence, still require observed hitboxes to clear.
         if may_punish
-            && enemy.attack_active != Some(true)
+            && (blocked || enemy.attack_active != Some(true))
             && in_reach
             && window.may_connect(ctx, enemy)
             && enemy.situation == 0
@@ -874,7 +925,8 @@ impl LedgeTrap {
         }
     }
 
-    /// Follow roll travel and time Grab's active frames against vulnerability.
+    /// Commit once to a roll interception spot; only hit timing keeps observing
+    /// the opponent. Never chase its current root after committing the route.
     fn respond_to_roll(
         &mut self,
         settings: LedgeSettings,
@@ -882,59 +934,110 @@ impl LedgeTrap {
         enemy: Opponent,
         out: &mut LedgeOutput,
     ) {
-        // Pursuit and grab eligibility must aim at the SAME startup horizon.
-        // Different horizons made Kirby chase one point while rejecting grabs
-        // against another. predicted_offset still caps travel at animation end.
-        let startup = grab_startup(ctx);
-        let projected = predicted_offset(ctx, enemy, f32::from(startup));
-        if settings.auto_position && ctx.can_act && enemy.situation == 0 {
-            self.approach(
-                settings,
-                ctx,
-                projected[0],
-                settings
-                    .grab_approach_distance
-                    .min((settings.grab_range - 0.5).max(0.0)),
-                out,
-            );
-        }
-        if enemy.situation != 0 {
-            return;
-        }
-        // Dash/run grabs start later than standing grabs. Prebuffer only when
-        // native invincibility timing and predicted reach support that startup.
-        // Startup estimates differ by Kirby's current movement. This checks
-        // where the target may be when Grab becomes active, not just where its
-        // invincible roll root is right now. Unknown expiry waits for vulnerability.
-        let window = AttackWindow {
-            first: startup,
-            last: startup + 1,
-            range: settings.grab_range,
-            height: [-5.0, 5.0],
-            front_only: true,
-        };
-        let timed_roll =
-            enemy.status == CLIFF_ESCAPE && (enemy.vulnerable || enemy.vulnerable_in.is_some());
-        if enemy.status == CLIFF_ESCAPE && !timed_roll {
-            return;
-        }
-        if projected[0] * ctx.facing < -0.5 && ctx.can_act {
-            self.ground_move(settings, ctx, projected[0], out);
-            return;
-        }
-        if !window.may_connect(ctx, enemy) {
-            return;
-        }
         out.stick = Some([0.0, 0.0]);
-        if ctx.can_act {
-            if self.try_grab(settings, false) {
-                out.requested = settings.grab_button;
+        self.roll_phase = "roll_wait_grounded";
+        if ctx.situation != 0 || enemy.situation != 0 || ctx.facing.abs() < 0.5 {
+            return;
+        }
+        if self.roll_intercept.is_none() {
+            let endpoint = if let Some(distance) = settings.roll_distance {
+                self.anchor
+                    .filter(|_| self.inward.abs() == 1.0)
+                    .map(|anchor| anchor[0] + self.inward * distance)
+            } else if enemy.status != CLIFF_ESCAPE {
+                Some(enemy.position[0])
+            } else if let Some(remaining) = enemy
+                .motion
+                .and_then(|m| m.remaining)
+                .filter(|left| left.is_finite() && (0.0..=120.0).contains(left))
+            {
+                if remaining == 0.0 || enemy.velocity[0].abs() > 0.05 {
+                    Some(enemy.position[0] + enemy.velocity[0] * remaining)
+                } else {
+                    None
+                }
+            } else if enemy.vulnerable {
+                Some(enemy.position[0])
+            } else {
+                None
+            };
+            if let Some(endpoint) = endpoint
+                .filter(|x| x.is_finite() && (*x - ctx.position[0]).abs() <= settings.follow_range)
+            {
+                // Pick the nearest standing position with a reach margin. This
+                // avoids running through the endpoint to stand on its far side.
+                let reach = (settings.grab_range - 1.5).max(0.5);
+                let stand_x = ctx.position[0].clamp(endpoint - reach, endpoint + reach);
+                let facing = if (endpoint - stand_x).abs() > 0.1 {
+                    (endpoint - stand_x).signum()
+                } else {
+                    ctx.facing.signum()
+                };
+                self.roll_intercept = Some(RollIntercept {
+                    endpoint,
+                    stand_x,
+                    facing,
+                });
             }
-        } else if matches!(ctx.status, GUARD_ON | GUARD) {
-            out.requested = MAPPER_ZR;
-            if (ctx.can_grab || ctx.status == GUARD) && self.try_grab(settings, false) {
-                out.requested |= settings.grab_button;
+        }
+        let Some(spot) = self.roll_intercept else {
+            self.roll_phase = "roll_wait_endpoint_data";
+            return;
+        };
+        let dx = spot.stand_x - ctx.position[0];
+        if dx.abs() > 0.75 {
+            self.roll_phase = "roll_move_to_intercept";
+            if settings.auto_position && ctx.can_act {
+                let predicted = dx - finite(ctx.velocity[0]) * 3.0;
+                if predicted.abs() > 0.4 && predicted.signum() == dx.signum() {
+                    let strength = if dx.abs() > 12.0 {
+                        settings.move_strength
+                    } else {
+                        (predicted.abs() * 0.06).clamp(0.2, 0.45)
+                    };
+                    if ctx.safe_ground[usize::from(dx > 0.0)] {
+                        out.stick = Some([dx.signum() * strength, 0.0]);
+                    }
+                }
             }
+            return;
+        }
+        self.roll_phase = "roll_settle_for_standing_grab";
+        if ctx.status != 0 || !ctx.can_act || finite(ctx.velocity[0]).abs() > 0.12 {
+            return;
+        }
+        if ctx.facing * spot.facing < 0.5 {
+            self.roll_phase = "roll_face_intercept";
+            if settings.auto_position && ctx.safe_ground[usize::from(spot.facing > 0.0)] {
+                out.stick = Some([spot.facing * 0.3, 0.0]);
+            }
+            return;
+        }
+        // Actual opponent observations still gate the hit: a fixed destination
+        // is not permission to grab through protection or outside real reach.
+        let timed = (ROLL_GRAB_STARTUP..=ROLL_GRAB_STARTUP + 1).any(|frame| {
+            let [x, y] = predicted_offset(ctx, enemy, f32::from(frame));
+            x.abs() <= settings.grab_range
+                && y.abs() <= 5.0
+                && x * ctx.facing >= -0.5
+                && (enemy.vulnerable
+                    || enemy.vulnerable_in.is_some_and(|left| {
+                        left.is_finite() && left >= 0.0 && left <= f32::from(frame)
+                    }))
+        });
+        self.roll_phase = "roll_wait_interception_window";
+        if !timed {
+            return;
+        }
+        self.roll_phase = "roll_wait_grab_ready";
+        if !ctx.can_grab {
+            return;
+        }
+        self.roll_phase = "roll_grab_release_or_attempt_limit";
+        if self.try_grab(settings, false) {
+            self.expected_grab_status = Some(GRAB_START);
+            self.roll_phase = "roll_request_standing_grab";
+            out.requested |= settings.grab_button;
         }
     }
 
@@ -951,12 +1054,8 @@ impl LedgeTrap {
             self.grounded_tilt_prepared = false;
             return;
         }
-        if is_hanging(enemy.status) && ctx.can_act {
-            out.stick = Some([0.0, 0.6]);
-            self.grounded_tilt_prepared = false;
-            return;
-        }
-        if !ctx.can_act || enemy.situation != 0 {
+
+        if !ctx.can_act || ctx.status != 0 || enemy.situation != 0 {
             self.grounded_tilt_prepared = false;
             return;
         }
@@ -979,24 +1078,21 @@ impl LedgeTrap {
             height: [-5.0, 3.0],
             front_only: true,
         };
-        let projected = predicted_offset(ctx, enemy, f32::from(first));
-        // A normal get-up outside poke range used to wait forever. Close on
-        // supported ground, then prepare the chosen direction before A.
-        if self.climb_seen && projected[0].abs() > settings.tilt_range {
-            self.approach(
-                settings,
-                ctx,
-                projected[0],
-                settings
-                    .tilt_approach_distance
-                    .min((settings.tilt_range - 0.5).max(0.0)),
-                out,
-            );
+        if dx * ctx.facing < -0.5 {
             self.grounded_tilt_prepared = false;
             return;
         }
-        if dx * ctx.facing < -0.5 {
-            self.ground_move(settings, ctx, dx, out);
+        if settings.getup_attack == GetupAttack::ForwardTilt {
+            self.grounded_tilt_prepared = false;
+            // Moderate tilt direction + A together; never pre-hold forward
+            // while waiting for protection, reach, or a retry release edge.
+            if self.climb_seen && window.may_connect(ctx, enemy) && self.try_tilt(pending) {
+                out.stick = Some(stick);
+                out.requested = MAPPER_A;
+            }
+            return;
+        }
+        if predicted_offset(ctx, enemy, f32::from(first))[0].abs() > settings.tilt_range {
             self.grounded_tilt_prepared = false;
             return;
         }
@@ -1011,7 +1107,7 @@ impl LedgeTrap {
     /// Shared by hanging coverage and post-punish recovery. Returning true
     /// reserves this sample for movement/turning; never add an attack to it.
     fn position_at_ledge(
-        &mut self,
+        &self,
         settings: LedgeSettings,
         ctx: LedgeContext,
         out: &mut LedgeOutput,
@@ -1023,26 +1119,11 @@ impl LedgeTrap {
             return false;
         };
         // The anchor is the stage edge, not the launched opponent's position.
-        let actual_error = anchor[0] + self.inward * settings.stand_distance - ctx.position[0];
-        let speed = finite(ctx.velocity[0]);
-        let error = actual_error - speed * 2.0;
-        // Hysteresis: begin outside 1.25 units, settle inside 0.5. Retain the
-        // phase between those thresholds instead of restarting movement on
-        // every small root-position change. Neutral stick lets momentum decay
-        // when the lookahead says that continuing would overshoot.
-        if self.inward != 0.0 {
-            self.stance_moving |= actual_error.abs() > 1.25 || error.abs() > 1.25;
-            if self.stance_moving {
-                if actual_error.abs() <= 0.5 && speed.abs() <= 0.2 {
-                    self.stance_moving = false;
-                } else {
-                    out.stick = Some([0.0, 0.0]);
-                    if error.abs() >= 0.5 && error * actual_error > 0.0 {
-                        self.ground_move(settings, ctx, error, out);
-                    }
-                    return true;
-                }
-            }
+        let error = anchor[0] + self.inward * settings.stand_distance
+            - (ctx.position[0] + finite(ctx.velocity[0]) * 2.0);
+        if self.inward != 0.0 && error.abs() > 0.75 {
+            self.ground_move(settings, ctx, error, out);
+            return true;
         }
         let toward = anchor[0] - ctx.position[0];
         if toward * ctx.facing < -0.5 {
@@ -1067,18 +1148,10 @@ impl LedgeTrap {
         // position/velocity; the game still applies Kirby's ordinary acceleration.
         let index = usize::from(error > 0.0);
         if ctx.safe_ground[index] {
-            // Reduce deflection continuously near the target; cap turns so
-            // facing correction does not become a full-speed run away from it.
-            let maximum = if settings.move_strength.is_finite() {
-                settings.move_strength.clamp(0.1, 1.0)
+            let strength = if error.abs() < 3.0 || error * ctx.facing < 0.0 {
+                0.3
             } else {
-                0.65
-            };
-            let strength = (error.abs() * 0.12).clamp(maximum.min(0.15), maximum);
-            let strength = if error * ctx.facing < 0.0 {
-                strength.min(0.3)
-            } else {
-                strength
+                settings.move_strength
             };
             out.stick = Some([error.signum() * strength, 0.0]);
         }
@@ -1102,7 +1175,7 @@ impl LedgeTrap {
 fn grab_startup(ctx: LedgeContext) -> u8 {
     match ctx.status {
         0x3 | 0x4 => 9, // Dash/run grab
-        0x2 | 0x7 | 0x8 | GUARD_ON | GUARD | GUARD_DAMAGE => 10,
+        0x7 | 0x8 | GUARD_ON | GUARD | GUARD_DAMAGE => 10,
         _ => 6,
     }
 }

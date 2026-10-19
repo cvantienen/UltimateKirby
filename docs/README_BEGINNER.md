@@ -26,7 +26,7 @@ From this repository's root directory, run:
 cargo run --manifest-path crates/kirby_assist_core/Cargo.toml --example walkthrough
 ```
 
-Open [the walkthrough source](crates/kirby_assist_core/examples/walkthrough.rs) beside its output. It contains a complete **pretend** adapter and uses the same `AssistRuntime` a live adapter would use.
+Open `crates/kirby_assist_core/examples/walkthrough.rs` from the project root beside its output. It contains a complete **pretend** adapter and uses the same `AssistRuntime` a live adapter would use.
 
 In this example, the human holds Jump throughout. The pretend game reports these situations:
 
@@ -77,7 +77,7 @@ There is no root Cargo workspace declaration here. Use `--manifest-path` when yo
 
 For the code that actually runs on Switch, start with `crates/kirby_assist_core/src/ledge_trap.rs`. `src/live.rs` collects native observations, calls that policy, and passes its requested controls to `ManualOverlay`. The generic teaching flow below illustrates the reusable engine; it is not the exact hook sequence of the live mod.
 
-The ledge policy now stays grounded. Read `sample`, then `evaluate`, then the response method selected by `OptionPlan`: `watch_ledge`, `respond_to_jump`, `respond_to_roll`, or `respond_to_getup_attack`. `observe_action` checks startup, actual hit/capture, and whiff recovery; `choose_response` remembers the option even when Kirby is busy. `AttackWindow` uses approximate future reach and reported invincibility expiry, while `target_velocity` supplements native speed with animation-timed root movement. A requested button is an attempt: a tilt animation is different from a confirmed hit, and a grab animation is different from capturing an opponent. `GetupAttack` selects down tilt or downward-angled forward tilt for normal get-up; jump still uses grounded up tilt.
+The ledge policy keeps its normal-get-up and roll responses grounded. Read `sample`, then `evaluate`, then the response method selected by `OptionPlan`: `watch_ledge`, `respond_to_jump`, `respond_to_roll`, or `respond_to_getup_attack`. `observe_action` checks startup, actual hit/capture, and whiff recovery; `choose_response` remembers the option even when Kirby is busy. `AttackWindow` uses approximate future reach and reported invincibility expiry, while `target_velocity` supplements native speed with animation-timed root movement. A requested button is an attempt: an attack animation is different from a confirmed hit, and a grab animation is different from capturing an opponent. `GetupAttack` selects down tilt or downward-angled forward tilt for normal get-up; ledge jump uses short-hop neutral air.
 
 `LedgeContext` is the input data, `LedgeSettings` is the tuning, and `LedgeOutput` is the proposed result. `requested` names the buttons to hold; `owned` names the buttons the assist replaces, including releases. Native status constants give names to game state numbers. Host regression examples live separately in `src/ledge_trap/tests.rs` inside the core crate.
 
@@ -240,11 +240,11 @@ Each `.rule()` builds ordinary configuration. It does not start a background tas
 
 The generic teaching preset `AutoMash` means “pulse selected buttons during Clatter.” The live Switch translation now uses that scenario decision to produce a left-stick direction instead. Neither path directly shortens game timers. A valid input may still fail to cause an action because of the fighter's state or the game's input processing.
 
-Buttons are combined as sets. Human Jump plus assist Attack becomes Jump + Attack. The core never removes a player-held button. Consequently, if you already hold Attack, an assist Attack pulse cannot create a new Attack press after a release; it stays held.
+Buttons are combined as sets. Human Jump plus assist Attack becomes Jump + Attack. The core never removes a player-held button. Consequently, if you already hold Attack, an assist Attack pulse cannot create a new Attack press after a release; it stays held. 
 
-That paragraph describes the generic logical core. The direct Switch path additionally implements `takeover`: it suppresses physical action buttons/C-stick during analog mash, or releases ZR during a tech attempt when a fresh press is needed. The live mash stick is owned only while its mashable scenario is active.
+That paragraph describes the generic logical core. The direct Switch path additionally implements `takeover`: it suppresses physical action buttons/C-stick during analog mash, or releases ZR during a tech attempt when a fresh press is needed. The live mash stick is owned only while its mashable scenario is active. 
 
-Once a fighter has been associated, the mapper resolves its live accessor by object ID and refreshes detection before consuming that same update’s input. It does not retain a pointer across updates. For auto tech, ZR is pressed immediately if the last game-visible ZR state is released; only a held ZR needs a release update first.
+Once a fighter has been associated, the mapper resolves its live accessor by object ID and refreshes detection before consuming that same update’s input. It does not retain a pointer across updates. For auto tech, ZR is pressed immediately if the last game-visible ZR state is released; only a held ZR needs a release update first. 
 
 The live path caches both results of one update: `update_with_buttons` returns a ZR button request (zero during mash), and `mash_stick()` returns an optional left-stick direction. Clatter cycles Right → Up → Left → Down on distinct input updates. `None` means return the fresh physical stick. The mapper supplies matching digital direction bits as well as normalized stick floats. With takeover enabled, action buttons and C-stick are cleared during mash, then restored when it ends. See [ANALOG_MASH.md](ANALOG_MASH.md).
 
@@ -452,4 +452,4 @@ Passing the tests proves the tested logical behavior. Building the `.nro` proves
 
 For learning Rust beyond this project, the official [Rust Book](https://doc.rust-lang.org/book/) is a useful companion. Start with variables, structs, enums, ownership/borrowing, and traits, then reread the walkthrough with those concepts in mind.
 
-For the new hold-Down opponent-state tool, read [LEDGE_TRAP.md](LEDGE_TRAP.md). It walks through observations, state, and input composition. This addition is source-only until built later.
+For the toggle-L3 opponent-state tool, read [LEDGE_TRAP.md](LEDGE_TRAP.md). It walks through observations, state, and input composition. This addition is source-only until built later.

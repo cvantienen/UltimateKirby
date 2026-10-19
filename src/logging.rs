@@ -13,7 +13,11 @@ pub fn start() {
     let _ = std::fs::create_dir_all("sd:/ultimate/kirby_assist");
     let _ = std::fs::write(
         LOG_PATH,
-        "Kirby Assist diagnostic build v18; on-device validation required\n",
+        concat!(
+            "Kirby Assist diagnostic build ",
+            env!("CARGO_PKG_VERSION"),
+            "; on-device validation required\n"
+        ),
     );
 }
 

@@ -1,0 +1,2 @@
+# Isolated documentation tooling; no effect on the Rust/Switch build.
+mkdocs==1.6.1

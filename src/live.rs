@@ -12,10 +12,12 @@
 //! in the core, and verified button translations in `native_input.rs`. Defining
 //! a Scenario alone does not make the live integration detect or output it.
 use crate::game_ffi as game;
+use kirby_assist_core::ledge_position::{nearest_ground_ledge, LedgePosition};
 use kirby_assist_core::ledge_trap::{
-    frames_until, in_tracking_range, LedgeContext, LedgeOutput, LedgeTrap, MotionTiming, Opponent,
-    CLIFF_CATCH_MOVE, CLIFF_JUMP3, DPAD_DOWN,
+    frames_until, grab_transition_term, in_tracking_range, LedgeContext, LedgeOutput, LedgeTrap,
+    MotionTiming, Opponent, CLIFF_CATCH_MOVE, CLIFF_JUMP3, DPAD_DOWN, LEDGE_TRIGGER,
 };
+use kirby_assist_core::ledge_trump::{nearest_floor_edge, LedgeTrump};
 use kirby_assist_core::live_input::{
     unique_instruction_offset, LiveConfig as Config, RawAutoControls, ASSIST_BUTTONS, HID_ZR,
 };
@@ -169,6 +171,8 @@ struct LedgeDiagnostic {
     vulnerable: bool,
     kirby_status: i32,
     can_act: bool,
+    can_grab: bool,
+    expected_grab_status: Option<i32>,
     hit_confirmed: bool,
     enemy_frame: i32,
     requested: u32,
@@ -197,7 +201,12 @@ struct State {
     // Turbo/ledge must also respect grounded movement and native busy states.
     turbo_ready: bool,
     ledge: Option<LedgeTrap>,
+    ledge_active: bool,
+    ledge_seek_tick: Option<i64>,
+    ledge_position: Option<LedgePosition>,
     ledge_output: LedgeOutput,
+    trump: Option<LedgeTrump>,
+    trump_output: LedgeOutput,
     // HID-named request bits are an internal message format; the mapper overlay
     // translates them to Smash's different raw bit positions before writing.
     requested: u64,
@@ -250,8 +259,18 @@ impl State {
             manual_overlay: None,
             turbo_ready: false,
             ledge: None,
+            ledge_active: false,
+            ledge_seek_tick: None,
+            ledge_position: None,
+            trump: None,
+            trump_output: LedgeOutput {
+                consume_trigger: false,
+                stick: None,
+                requested: 0,
+                owned: 0,
+            },
             ledge_output: LedgeOutput {
-                consume_down: false,
+                consume_trigger: false,
                 stick: None,
                 requested: 0,
                 owned: 0,
@@ -284,6 +303,15 @@ impl State {
     }
     // Use for actual cancellation/reassignment. Hitstop deliberately does NOT
     // call this: resetting there would forget cooldown and input history.
+    fn end_session(&mut self) {
+        self.cancel();
+        self.associated_object = None;
+        self.mapping_index = None;
+        self.raw_connected = false;
+        self.raw_seen = None;
+        self.raw_buttons = 0;
+    }
+
     fn cancel(&mut self) {
         self.requested = 0;
         self.mash_stick = None;
@@ -298,7 +326,12 @@ impl State {
         self.manual_overlay = None;
         self.turbo_ready = false;
         self.ledge = None;
+        self.ledge_active = false;
+        self.ledge_seek_tick = None;
+        self.ledge_position = None;
         self.ledge_output = LedgeOutput::default();
+        self.trump = None;
+        self.trump_output = LedgeOutput::default();
         self.last_output_buttons = 0;
         #[cfg(feature = "diagnostic-logging")]
         {
@@ -307,6 +340,27 @@ impl State {
             self.last_ledge_diagnostic = None;
             self.pending_ledge_log = None;
         }
+    }
+}
+
+// Gate BEFORE dereferencing a controller wrapper, enumerating fighters or
+// following a fighter's ControlModule chain. Intro/connection/menu callbacks
+// also invoke the mapper, but do not establish valid gameplay module lifetimes.
+unsafe fn gameplay_ready() -> bool {
+    if !game::is_ready_go() {
+        return false;
+    }
+    let slot = MANAGER_SLOT.load(Ordering::Relaxed);
+    if slot == 0 {
+        return false;
+    }
+    let manager = (slot as *const *mut game::Object).read();
+    !manager.is_null() && !game::is_result(manager)
+}
+
+fn end_session() {
+    if let Ok(mut state) = STATE.lock() {
+        state.end_session();
     }
 }
 
@@ -335,6 +389,11 @@ unsafe fn map_controls(
     wrapper: *mut c_void,
     arg: bool,
 ) {
+    if !gameplay_ready() {
+        end_session();
+        original!()(mappings, index, output, wrapper, arg);
+        return;
+    }
     // Keep the untouched trace for restoration after original!(). The original
     // mapper receives the overlay only during this call; output keeps the mapped
     // result while the physical Controller memory is restored afterwards.
@@ -344,6 +403,8 @@ unsafe fn map_controls(
     // make the next callback mistake automation for a real physical hold.
     let mut restore = None;
     let mut reserved_dpad = 0;
+    #[cfg(feature = "diagnostic-logging")]
+    let mut trump_pressed = false;
     #[cfg(feature = "diagnostic-logging")]
     let mut ledge_edge = None;
     #[cfg(feature = "diagnostic-logging")]
@@ -358,6 +419,16 @@ unsafe fn map_controls(
                 .add(0x10)
                 .cast::<*mut Controller>()
                 .read();
+            // Clearing state is not enough: do not fall through to roster
+            // discovery or fighter observation after a disconnect/style change.
+            if !controller.is_null()
+                && (*controller).npad == config.npad
+                && ((*controller).style != 5 || (*controller).connected == 0)
+            {
+                end_session();
+                original!()(mappings, index, output, wrapper, arg);
+                return;
+            }
             #[cfg(feature = "diagnostic-logging")]
             if !controller.is_null()
                 && SEEN_MAPPERS.fetch_or(1 << index, Ordering::Relaxed) & (1 << index) == 0
@@ -368,6 +439,10 @@ unsafe fn map_controls(
                 // Read physical input before applying any assist. Reusing last
                 // output as "human input" would keep automated buttons latched.
                 let physical = trace(controller);
+                #[cfg(feature = "diagnostic-logging")]
+                {
+                    trump_pressed = physical.pressed & DPAD_DOWN != 0;
+                }
                 let physical_stick = [(*controller).left_stick_x, (*controller).left_stick_y];
                 let physical_right_stick =
                     [(*controller).right_stick_x, (*controller).right_stick_y];
@@ -398,6 +473,15 @@ unsafe fn map_controls(
                         state.raw_tick = state.raw_tick.wrapping_add(1);
                         state.raw_seen = Some(now);
                         state.raw_connected = true;
+                        let ledge_pressed = physical.held & LEDGE_TRIGGER != 0
+                            && state.raw_buttons & LEDGE_TRIGGER == 0;
+                        if config.controls.enabled && config.ledge.enabled && ledge_pressed {
+                            state.ledge_active = !state.ledge_active;
+                            state.ledge = None;
+                            state.ledge_position = None;
+                            state.ledge_seek_tick = None;
+                            state.ledge_output = LedgeOutput::default();
+                        }
                         state.raw_buttons = physical.held;
                         if physical.held & MAPPER_MENU != 0 {
                             state.cancel();
@@ -467,7 +551,11 @@ unsafe fn map_controls(
                         // gameplay scope, independently of the 35ms request TTL.
                         let enabled_dpad = if manual_scope {
                             (if config.turbo.enabled { DPAD_SIDES } else { 0 })
-                                | (if config.ledge.enabled { DPAD_DOWN } else { 0 })
+                                | (if config.auto_ledge_trump {
+                                    DPAD_DOWN
+                                } else {
+                                    0
+                                })
                         } else {
                             0
                         };
@@ -475,15 +563,30 @@ unsafe fn map_controls(
                             .dpad_reservation
                             .get_or_insert_with(DpadReservation::default)
                             .sample(enabled_dpad, physical.held, manual_scope);
-                        // Down takes priority over side-D-pad movement. A stale
-                        // observation or physical release cancels immediately.
-                        let ledge = if fresh && physical.held & DPAD_DOWN != 0 {
+                        // Latched L3 mode takes priority over side-D-pad movement.
+                        // Stale observations still release automation ownership.
+                        let mut ledge = if fresh && state.ledge_active {
                             state.ledge_output
                         } else {
                             LedgeOutput::default()
                         };
-                        if config.ledge.enabled && manual_scope && physical.held & DPAD_DOWN != 0 {
+                        if config.ledge.enabled && manual_scope && state.ledge_active {
                             turbo_output.stick = ledge.stick;
+                        }
+                        // A tapped Down owns its run-off sequence until catch;
+                        // it outranks L3/turbo but still yields to mash and tech.
+                        if fresh && !mash_takeover && state.trump_output.owned != 0 {
+                            ledge = state.trump_output;
+                            turbo_output.stick = ledge.stick;
+                        }
+                        #[cfg(feature = "diagnostic-logging")]
+                        if trump_pressed {
+                            messages.push(format!(
+                                "trump input: enabled={}, scope={}, fresh={}, action={}, stick={:?}, reserved={reserved_dpad:#x}",
+                                config.auto_ledge_trump, manual_scope, fresh,
+                                state.trump.as_ref().map_or("unobserved", LedgeTrump::action_name),
+                                state.trump_output.stick,
+                            ));
                         }
                         // Mash wins over both D-pad tools while trapped. Its
                         // separate None-on-exit returns the fresh physical stick.
@@ -509,7 +612,12 @@ unsafe fn map_controls(
                                 assisted,
                                 physical_stick,
                                 turbo_output,
-                                reserved_dpad,
+                                reserved_dpad
+                                    | if config.ledge.enabled && manual_scope {
+                                        LEDGE_TRIGGER
+                                    } else {
+                                        0
+                                    },
                                 ledge.requested,
                                 ledge.owned | blocked_stick_buttons,
                             );
@@ -575,6 +683,14 @@ unsafe fn map_controls(
         (*mapped).buttons = suppress_reserved_taunts((*mapped).buttons, reserved_dpad);
     }
     #[cfg(feature = "diagnostic-logging")]
+    if trump_pressed {
+        let mapped = &*output.cast::<MappedInputs>();
+        messages.push(format!(
+            "trump mapped: buttons={:#x}, left=({},{})",
+            mapped.buttons, mapped.left_x, mapped.left_y
+        ));
+    }
+    #[cfg(feature = "diagnostic-logging")]
     if let Some(requested) = ledge_edge {
         let mapped = &*output.cast::<MappedInputs>();
         messages.push(format!(
@@ -606,6 +722,10 @@ unsafe fn map_controls(
 #[skyline::hook(replace = game_command_flags)]
 unsafe fn observe_commands(object: *mut game::Object, category: i32) -> i32 {
     let flags = original!()(object, category);
+    if !gameplay_ready() {
+        end_session();
+        return flags;
+    }
     if category == 0 && !object.is_null() {
         observe_fighter(object);
     }
@@ -625,9 +745,21 @@ unsafe fn observe_fighter(object: *mut game::Object) {
     let Some(config) = CONFIG.get().copied() else {
         return;
     };
+    if !config.controls.enabled || !gameplay_ready() {
+        end_session();
+        return;
+    }
+    if object.is_null() {
+        return;
+    }
     // BattleObjectModuleAccessor category is encoded in the object's ID.
     let object_id = object.cast::<u8>().add(8).cast::<u32>().read();
-    if object_id >> 28 != 0 {
+    if object_id >> 28 != 0 || !game::is_active(object_id) {
+        return;
+    }
+    // Validate the current accessor before walking its nested control pointers.
+    // A cached ID alone is not proof that this object still owns those modules.
+    if game::module_accessor(object_id) != object {
         return;
     }
     // ControlModule +0x118 -> +0x58 -> +8 -> index at +8.
@@ -639,11 +771,30 @@ unsafe fn observe_fighter(object: *mut game::Object) {
         }
         return;
     };
-    let (tick, target) = {
+    let (tick, target, find_trump_edge, find_trap_edge) = {
         let Ok(state) = STATE.lock() else {
             return;
         };
-        (state.raw_tick, state.mapping_index)
+        let down = state.raw_buttons & DPAD_DOWN != 0;
+        (
+            state.raw_tick,
+            state.mapping_index,
+            config.auto_ledge_trump
+                && state
+                    .trump
+                    .as_ref()
+                    .is_none_or(|trump| trump.needs_edge(down))
+                && down,
+            config.ledge.enabled
+                && state.ledge_active
+                && state
+                    .ledge_seek_tick
+                    .is_none_or(|last| state.raw_tick.wrapping_sub(last) >= 30)
+                && state
+                    .ledge_position
+                    .as_ref()
+                    .is_none_or(|p| p.spot().is_none()),
+        )
     };
     // Exclude CPU actors before reporting associations; multiple CPUs otherwise
     // produce misleading repeated routing messages for the human's controller.
@@ -694,13 +845,20 @@ unsafe fn observe_fighter(object: *mut game::Object) {
     // does not mean the cooldown is ready or that the game will accept a tech.
     let assessment = assess_tech(object, config.lookahead, stopped);
     let tech = !clatter && assessment.reason == "collision_predicted";
+    if matches!(assessment.status, 0xb5 | 0xb6 | 0x1d6 | 0x1d9..=0x1db) {
+        if let Ok(mut state) = STATE.lock() {
+            state.cancel();
+        }
+        return;
+    }
+
     // Read native data outside STATE's mutex to avoid re-entrant deadlocks.
-    let ledge_motion_frame = if config.ledge.enabled {
+    let ledge_motion_frame = if config.ledge.enabled || config.auto_ledge_trump {
         game::motion_frame(object)
     } else {
         0.0
     };
-    let ledge_observation = if config.ledge.enabled {
+    let ledge_observation = if config.ledge.enabled || config.auto_ledge_trump {
         let position = [game::pos_x(object), game::pos_y(object)];
         let velocity = [game::speed_x(object, -1), game::speed_y(object, -1)];
         let shield_stun_frames =
@@ -727,10 +885,10 @@ unsafe fn observe_fighter(object: *mut game::Object) {
             velocity,
             facing: game::facing(object),
             previous_status: game::previous_status(object, 0),
-            can_grab: game::transition_enabled(object, 0x1e00006f),
+            can_grab: game::transition_enabled(object, grab_transition_term(assessment.status)),
             shield_stun_frames,
             shield_attacker,
-            hit_confirmed: matches!(assessment.status, 0x2a..=0x2c)
+            hit_confirmed: (matches!(assessment.status, 0x2a..=0x2c) || assessment.status == 0x33)
                 && game::attack_infliction(object, game::COLLISION_KIND_MASK_HIT),
             safe_ground: if assessment.situation == 0 {
                 ground_support(object, position, velocity[0])
@@ -738,7 +896,51 @@ unsafe fn observe_fighter(object: *mut game::Object) {
                 [false, false]
             },
         };
-        Some((context, nearest_ledge_opponent(object, object_id)))
+        // The trump uses Kirby's current floor geometry, independently of the
+        // opponent roster or L3 acquisition range. Query native rays outside STATE.
+        let edge = if find_trump_edge
+            && turbo_movement_allowed(context.status, context.situation, stopped)
+            && !clatter
+            && !tech
+        {
+            nearest_floor_edge(position, context.facing, |probe| {
+                let origin = game::Vector2 {
+                    x: probe[0],
+                    y: probe[1] + 2.0,
+                };
+                let delta = game::Vector2 { x: 0.0, y: -6.0 };
+                game::ray_check(object, &origin, &delta, true) != 0
+            })
+        } else {
+            None
+        };
+        let spot = if find_trap_edge
+            && turbo_movement_allowed(context.status, context.situation, stopped)
+            && !clatter
+            && !tech
+        {
+            nearest_ground_ledge(
+                position,
+                context.facing,
+                |probe| {
+                    let origin = game::Vector2 {
+                        x: probe[0],
+                        y: probe[1] + 2.0,
+                    };
+                    let delta = game::Vector2 { x: 0.0, y: -6.0 };
+                    game::ray_check(object, &origin, &delta, true) != 0
+                },
+                config.ledge.stand_distance,
+            )
+        } else {
+            None
+        };
+        Some((
+            context,
+            nearest_ledge_opponent(object, object_id),
+            edge,
+            spot,
+        ))
     } else {
         None
     };
@@ -821,8 +1023,20 @@ unsafe fn observe_fighter(object: *mut game::Object) {
         state.turbo_ready = !clatter
             && !tech
             && turbo_movement_allowed(assessment.status, assessment.situation, stopped);
-        if let Some((mut context, opponent)) = ledge_observation {
-            let held = state.raw_buttons & DPAD_DOWN != 0;
+        if let Some((mut context, opponent, edge, spot)) = ledge_observation {
+            context.can_act = state.turbo_ready;
+            let down = state.raw_buttons & DPAD_DOWN != 0;
+            state.trump_output = state.trump.get_or_insert_with(LedgeTrump::default).sample(
+                config.auto_ledge_trump,
+                tick,
+                down,
+                LedgeContext {
+                    gameplay: !clatter && !tech,
+                    ..context
+                },
+                edge,
+            );
+            let held = state.ledge_active;
             // This assist stays grounded. Keep ownership through its tilt,
             // shield, and grab animations; mash/tech keep their existing priority.
             // The policy can preserve ZR during native guard hitstop.
@@ -833,15 +1047,63 @@ unsafe fn observe_fighter(object: *mut game::Object) {
             // can_act permits a new grounded action. can_control also covers
             // our ongoing shield/tilt/grab, allowing ownership without repeatedly
             // launching actions during recovery. Do not collapse these flags.
-            context.held = held;
+            context.held = held && state.trump_output.owned == 0;
             context.can_act = state.turbo_ready;
             context.can_control = can_control;
+            if context.situation != 0 {
+                state.ledge_position = None;
+                state.ledge_seek_tick = None;
+            }
+            if held && context.situation == 0 {
+                if find_trap_edge && state.turbo_ready && !stopped && !clatter && !tech {
+                    state.ledge_seek_tick = Some(tick);
+                }
+                state
+                    .ledge_position
+                    .get_or_insert_with(LedgePosition::default)
+                    .lock(spot);
+                if let Some(spot) = state.ledge_position.as_ref().and_then(LedgePosition::spot) {
+                    state
+                        .ledge
+                        .get_or_insert_with(LedgeTrap::default)
+                        .prepare_stance(spot.edge, spot.inward);
+                }
+            }
             state.ledge_output = state.ledge.get_or_insert_with(LedgeTrap::default).sample(
                 config.ledge,
                 tick,
                 context,
                 opponent,
             );
+            // Keep observing options during approach. An actionable opponent
+            // response takes priority immediately; hanging/no-target uses the
+            // locked, damped preparation controller instead of root chasing.
+            #[cfg(feature = "diagnostic-logging")]
+            let mut positioning_action = None;
+            if held && context.situation == 0 && state.trump_output.owned == 0 && !clatter && !tech
+            {
+                let preparing = state.ledge_output.owned == 0
+                    || state.ledge.as_ref().is_some_and(|trap| {
+                        matches!(trap.action_name(), "finished" | "return_to_ledge")
+                    })
+                    || opponent.is_some_and(|e| (CLIFF_CATCH_MOVE..=0x77).contains(&e.status));
+                if preparing {
+                    let movement = state
+                        .ledge_position
+                        .get_or_insert_with(LedgePosition::default)
+                        .sample(tick, context, config.ledge);
+                    #[cfg(feature = "diagnostic-logging")]
+                    {
+                        positioning_action = state
+                            .ledge_position
+                            .as_ref()
+                            .map(LedgePosition::action_name);
+                    }
+                    if movement.owned != 0 {
+                        state.ledge_output = movement;
+                    }
+                }
+            }
             #[cfg(feature = "diagnostic-logging")]
             if held {
                 let key = LedgeDiagnostic {
@@ -850,6 +1112,11 @@ unsafe fn observe_fighter(object: *mut game::Object) {
                     vulnerable: opponent.is_some_and(|enemy| enemy.vulnerable),
                     kirby_status: assessment.status,
                     can_act: context.can_act,
+                    can_grab: context.can_grab,
+                    expected_grab_status: state
+                        .ledge
+                        .as_ref()
+                        .and_then(LedgeTrap::expected_grab_status),
                     hit_confirmed: context.hit_confirmed,
                     enemy_frame: if config.controls.tech_debug {
                         opponent
@@ -859,11 +1126,13 @@ unsafe fn observe_fighter(object: *mut game::Object) {
                         -1
                     },
                     requested: state.ledge_output.requested,
-                    action: state.ledge.as_ref().map_or("none", LedgeTrap::action_name),
+                    action: positioning_action.unwrap_or_else(|| {
+                        state.ledge.as_ref().map_or("none", LedgeTrap::action_name)
+                    }),
                 };
                 if state.last_ledge_diagnostic != Some(key) {
                     state.last_ledge_diagnostic = Some(key);
-                    state.pending_ledge_log = Some(format!("ledge observation: input_update={tick}, target={:?}, enemy_status={:#x}, vulnerable={}, kirby_status={:#x}, can_act={}, requested={:#x}, action={}, situation={}, motion_frame={:.2}, previous_status={:#x}, can_grab={}, hit_confirmed={}, shield_stun={:?}, safe_ground={:?}, position={:?}, target_position={:?}, target_vulnerable_in={:?}, target_previous_status={:?}, target_motion={:?}, target_observed_velocity={:?}, getup_attack={:?}", key.target, key.enemy_status, key.vulnerable, key.kirby_status, key.can_act, key.requested, key.action, assessment.situation, ledge_motion_frame, context.previous_status, context.can_grab, context.hit_confirmed, context.shield_stun_frames, context.safe_ground, context.position, opponent.map(|enemy|enemy.position), opponent.and_then(|enemy|enemy.vulnerable_in), opponent.map(|enemy| enemy.previous_status), opponent.and_then(|enemy| enemy.motion), state.ledge.as_ref().map(LedgeTrap::observed_target_velocity), config.ledge.getup_attack));
+                    state.pending_ledge_log = Some(format!("ledge observation: input_update={tick}, target={:?}, enemy_status={:#x}, vulnerable={}, kirby_status={:#x}, can_act={}, requested={:#x}, action={}, situation={}, motion_frame={:.2}, previous_status={:#x}, can_grab={}, hit_confirmed={}, shield_stun={:?}, safe_ground={:?}, position={:?}, target_position={:?}, target_vulnerable_in={:?}, target_previous_status={:?}, target_motion={:?}, target_observed_velocity={:?}, getup_attack={:?}, expected_grab_status={:?}, locked_ledge={:?}, stance_distance={}, roll_interception={:?}", key.target, key.enemy_status, key.vulnerable, key.kirby_status, key.can_act, key.requested, key.action, assessment.situation, ledge_motion_frame, context.previous_status, context.can_grab, context.hit_confirmed, context.shield_stun_frames, context.safe_ground, context.position, opponent.map(|enemy|enemy.position), opponent.and_then(|enemy|enemy.vulnerable_in), opponent.map(|enemy| enemy.previous_status), opponent.and_then(|enemy| enemy.motion), state.ledge.as_ref().map(LedgeTrap::observed_target_velocity), config.ledge.getup_attack, key.expected_grab_status, state.ledge_position.as_ref().and_then(LedgePosition::spot), config.ledge.stand_distance, state.ledge.as_ref().and_then(LedgeTrap::roll_interception)));
                 }
             } else {
                 state.last_ledge_diagnostic = None;
@@ -871,6 +1140,7 @@ unsafe fn observe_fighter(object: *mut game::Object) {
             }
         } else {
             state.ledge_output = LedgeOutput::default();
+            state.trump_output = LedgeOutput::default();
         }
         state.requested = requested;
         state.mash_stick = if stopped {
@@ -985,15 +1255,16 @@ unsafe fn selected_fighter(index: i32) -> Option<u32> {
     None
 }
 
-// Prefer the existing tracked target through the end of its get-up. The pure
-// policy bounds this follow-up to 48 input updates and enforces proximity.
+// Prefer the tracked opponent through its get-up; selection uses the existing
+// bounded follow box. All stage preparation queries are ground-only.
 unsafe fn nearest_ledge_opponent(object: *mut game::Object, own_id: u32) -> Option<Opponent> {
-    let tracked = STATE
-        .lock()
-        .ok()?
-        .ledge
-        .as_ref()
-        .and_then(LedgeTrap::target);
+    let (tracked, locked_spot) = {
+        let state = STATE.lock().ok()?;
+        (
+            state.ledge.as_ref().and_then(LedgeTrap::target),
+            state.ledge_position.as_ref().and_then(LedgePosition::spot),
+        )
+    };
     let position = [game::pos_x(object), game::pos_y(object)];
     let team = game::team(object);
     let mut nearest: Option<(f32, Opponent)> = None;
@@ -1008,15 +1279,15 @@ unsafe fn nearest_ledge_opponent(object: *mut game::Object, own_id: u32) -> Opti
         let status = game::status_kind(enemy);
         let previous_status = game::previous_status(enemy, 0);
         let on_ledge = (CLIFF_CATCH_MOVE..=CLIFF_JUMP3).contains(&status);
-        let recent_option = (0x78..=CLIFF_JUMP3).contains(&previous_status);
+        let recent_option = (0x78..=CLIFF_JUMP3).contains(&previous_status)
+            || CONFIG.get().is_some_and(|c| c.ledge.drop_defense)
+                && game::situation_kind(enemy) == 2
+                && (CLIFF_CATCH_MOVE..=0x77).contains(&previous_status);
         if !on_ledge && !recent_option && tracked != Some(id) {
             continue;
         }
         let vulnerable = game::hit_status(enemy, 0) == 0;
-        // Capture/catch-move can precede a very short CLIFF_WAIT. Read and
-        // validate the anchor in all hanging/catch states, not only wait.
-        // Never use an unbounded cliff read from an unrelated ordinary state.
-        let cliff_position = if (CLIFF_CATCH_MOVE..=0x77).contains(&status) {
+        let cliff_position = if status == 0x77 {
             let p = game::cliff_position(enemy);
             (p.x.is_finite()
                 && p.y.is_finite()
@@ -1026,6 +1297,11 @@ unsafe fn nearest_ledge_opponent(object: *mut game::Object, own_id: u32) -> Opti
         } else {
             None
         };
+        if let (Some(spot), Some(cliff)) = (locked_spot, cliff_position) {
+            if (spot.edge[0] - cliff[0]).abs() > 4.0 || (spot.edge[1] - cliff[1]).abs() > 6.0 {
+                continue;
+            }
+        }
         let frame = game::motion_frame(enemy);
         let rate = game::motion_rate(enemy);
         let kind = game::motion_kind(enemy);
@@ -1210,6 +1486,6 @@ pub fn install() {
         MAPPING_OFFSET.store(offset, Ordering::Relaxed);
         MANAGER_SLOT.store(slot, Ordering::Relaxed);
         skyline::install_hooks!(map_controls, observe_commands);
-        log!(&format!("hooks installed; mapper={offset:#x}; config={config:?}; direct raw mapper output supports configurable mash groups and ZR tech; no game-mode restriction"));
+        log!(&format!("hooks installed; mapper={offset:#x}; config={config:?}; direct raw mapper output supports configurable mash groups and ZR tech; assistance gated to ready gameplay, bypassing intros/menus/results"));
     }
 }

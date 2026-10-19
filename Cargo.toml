@@ -3,11 +3,12 @@
 # The nested core is a separate crate; use --manifest-path to test it on the host.
 [package]
 name = "kirby_assist"
-version = "0.1.0"
-authors = []
+# Required by the source syntax, dependency imports, and array iteration rules.
 edition = "2021"
-description = "Pro Controller analog-stick auto-mash and auto-tech for human-controlled Kirby"
-license = "MIT"
+# Single release-version source: logger and release builder read this value.
+version = "1.0.5"
+description = "Down B implementation Nueutel getup"
+
 
 [package.metadata.skyline]
 titleid = "01006A800016E000" # Smash Ultimate

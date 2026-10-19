@@ -1,112 +1,638 @@
-# UltimateKirby
+# Kirby Assist
 
-Auto mash and auto tech for human-controlled Kirby, using **raw Pro Controller stick/button states** before Smash's controller mapping. There is no training-mode restriction.
+Kirby Assist is a Rust plugin for Super Smash Bros. Ultimate. It adds configurable
+controller-input assists for a human-controlled Kirby. The plugin targets a
+Nintendo Switch running Skyline and uses a Pro Controller.
 
-**v6 adds [directional turbo crouch](TURBO_CONTROLS.md):** hold D-pad Left or Right to crouch/release rapidly while moving slightly that direction. Side taunts are suppressed; releasing restores physical stick control. Timing and movement strength are configurable. This is included in both builds.
+> **Testing status:** Host tests check the shared logic, but they do not verify
+> gameplay or compatibility on a Switch. Test device changes carefully.
 
-**Two optimized builds:** silent (plugin file/console logging compiled out) and diagnostic (startup/activity logs plus optional detailed tech logs). Gameplay policy is shared. See [build variants and installation](BUILD_VARIANTS.md). The existing tech retry fix, analog-stick mashing, and prediction remain in both.
+## Features
 
-The plugin now contains a raw controller-mapping hook and fighter-state observation. **This is a compiled on-device test candidate, not a hardware-verified release.** Auto tech uses a collision-prediction heuristic; its timing and compatibility need testing on the target Switch.
+- Auto mash and auto tech
+- Directional turbo crouch
+- Configurable ledge assist and ledge trump
+- Silent and diagnostic plugin builds
 
-Start with [installation, settings, and the status-log guide](INTEGRATION.md). The build helper generates `releases/kirby_assist-silent.zip` and `releases/kirby_assist-diagnostic.zip` locally. Generated packages, build output, logs, caches, and machine-specific editor settings are excluded from Git. Install exactly one variant.
+Settings are read from `SD:/ultimate/kirby_assist/config.txt` when Smash starts.
+Restart the game after changing the file. Install only one build variant.
 
-## Source checkout
+## Quick start
 
-```sh
-git clone https://github.com/cvantienen/UltimateKirby.git
-cd UltimateKirby
-```
-
-The repository/folder is **UltimateKirby**; the existing Rust package and installable plugin remain `kirby_assist` / `libkirby_assist.nro` so installation paths stay compatible. After installing the Rust/Skyline prerequisites in [BUILD_VARIANTS.md](BUILD_VARIANTS.md), build a silent package with:
-
-```sh
-python3 tools/build_variants.py --variant silent
-```
-
-For Cargo cache permission problems, add `--cargo-home /private/tmp/kirby-assist-build-cargo`. Source checks do not refresh release NROs/ZIPs.
-
-## What it does
-
-- Auto mash: cycle the left stick Right → Up → Left → Down while the game's clatter timer is positive; one full-strength direction per observed input update.
-- Auto tech: raw ZR pulse near a predicted stage collision in an eligible tumble state.
-- Mash takeover suppresses physical action buttons and C-stick during the left-stick cycle. Tech still owns only ZR. Physical controls return when the active tool ends; manual turbo owns the left stick while held in eligible movement.
-- Manual control: hold D-pad Left/Right for directional turbo crouch during normal grounded movement.
-- Targets one configured Pro Controller and its human-controlled Kirby.
-- Leaves control mapping, input recognition, tech eligibility, and lockouts to Smash.
-
-This temporarily overlays raw controller button memory and its press/release history before the game maps it, then restores the physical input structure. It does not generate actual USB/Bluetooth hardware packets or claim universal indistinguishability from physical controller signals.
-
-Runs directly on your Switch with your Pro Controller; no extra controller hardware, network connection, or computer is needed during play.
-
-The default controller is the first Pro Controller (`npad_id = 0`). ZR must be mapped to Shield. Change individual tools in `SD:/ultimate/kirby_assist/config.txt` and restart Smash.
-
-## Understand or extend the code
-
-Read the [Rust beginner guide](README_BEGINNER.md) for structs, enums, traits, rules, timing, and the logical frame flow. Run its pretend-adapter example locally:
-
-```sh
-cargo run --manifest-path crates/kirby_assist_core/Cargo.toml --example walkthrough
-```
-
-| File | Purpose |
-| --- | --- |
-| `src/lib.rs` | Starts the live integration. |
-| `crates/kirby_assist_core/src/manual_controls.rs` | D-pad triggers, crouch/move phases, taunt suppression, and stick hand-back. |
-| `src/logging.rs` | File/console logger, compiled only into the diagnostic variant. |
-| `tools/build_variants.py` | Builds, verifies, and packages separate silent/diagnostic artifacts. |
-| `src/live.rs` | Raw controller-memory hook, controller association, fighter observation, collision prediction. |
-| `crates/kirby_assist_core/src/native_input.rs` | Pinned controller ownership chain and raw held/pressed/released overlay. |
-| `crates/kirby_assist_core/src/tech_prediction.rs` | Swept collision probes around the approximate fighter footprint. |
-| `crates/kirby_assist_core/src/ledge_trap.rs` | Hold-Down ledge acquisition, tilt preparation, shield response, and cancellation (source addition). |
-| `src/game_ffi.rs` | Narrow game ABI declarations checked against pinned upstream bindings. |
-| `crates/kirby_assist_core/src/live_input.rs` | Live settings, analog mash/ZR request policy, duplicate-observation handling, signature scanning. |
-| `crates/kirby_assist_core/src/tools.rs` | Auto-tech and auto-mash logical presets. |
-| `crates/kirby_assist_core/src/config.rs` | Scenario rules, timing, toggles, fighter/controller scope. |
-| `crates/kirby_assist_core/src/assist.rs` | Stateless priority selection and logical decisions. |
-| `crates/kirby_assist_core/src/input.rs` | Logical controller values and additive arbitration. |
-| `crates/kirby_assist_core/src/runtime.rs` | Generic adapter runner used by the teaching example. |
-| `crates/kirby_assist_core/src/sequence.rs` | Sequence sampling; recorded scenario playback remains unimplemented. |
-
-The Switch mapping path uses `RawAutoControls` and `AssistEngine`; it does not use the generic runner to rebuild a native controller. Live mash translation produces normalized left-stick floats and matching direction bits, while tech produces raw ZR. The older button-group/interval config entries are ignored. [ANALOG_MASH.md](ANALOG_MASH.md) explains the cycle, takeover, cancellation, and device tests. Actual escape speed has not been benchmarked on Switch.
-
-## Build and check
-
-From this project folder, build the Switch plugin with:
-
-```sh
-# Default feature set is silent.
-cargo skyline build --release
-
-# To include the plugin logger for testing:
-cargo skyline build --release --features diagnostic-logging
-
-# Build/package both variants in separate folders:
-python3 tools/build_variants.py
-```
-
-`cargo skyline` must already be installed and its Switch toolchain configured. `--release` selects the optimized build. Ordinary `cargo build` is not the Switch plugin build command.
-
-The command creates `target/aarch64-skyline-switch/release/libkirby_assist.nro`. It does not install it on your Switch or refresh the prebuilt ZIP. See [rebuilding the SD-card package](INTEGRATION.md#rebuild-the-sd-card-packages) for the copy/ZIP commands.
-
-For checks and formatting:
+Run the host-side tests from the project root:
 
 ```sh
 cargo test --manifest-path crates/kirby_assist_core/Cargo.toml
-cargo clippy --manifest-path crates/kirby_assist_core/Cargo.toml --all-targets -- -D warnings
-cargo fmt --all
-cargo fmt --manifest-path crates/kirby_assist_core/Cargo.toml
-cargo skyline clippy
+```
+
+Build the Switch plugin with a configured Skyline toolchain:
+
+```sh
 cargo skyline build --release
 ```
 
-Release output: `target/aarch64-skyline-switch/release/libkirby_assist.nro`.
+See [installation and configuration](docs/INTEGRATION.md) for setup details.
 
-The integration guide records the exact upstream ABI sources, current limitations, deployment paths, and on-device checks. The `.nro` build verifies compilation; a hardware test is required to establish that Smash accepts the intended inputs.
+## TODO
 
-## Hold-Down ledge assist (source only)
+- [ ] Fix ledge-trap homing issues.
+- [ ] Fix predicted grab-startup issues.
+- [ ] Investigate the 14 known host-test failures.
+- [ ] Validate the ledge-drop shield-defense option.
+- [ ] Add dynamic ledge-trap options loaded from config for each character.
 
-Hold D-pad Down before a nearby opponent chooses a ledge option. The v18 source uses an 9-unit inward stance with momentum-aware positioning, pursues normal-get-up/roll travel, and predicts target position and invincibility expiry across attack active frames. It remembers short jump transitions and retries recovered tilt whiffs until a hit is confirmed, within a bounded budget. Shield holds and direct R follow-ups remain. Use **A=Attack, R=Grab, ZR=Shield, Tap Jump off**.
+## Documentation
 
-The supplied config now selects downward-angled forward tilt for normal get-up; `ledge_getup_attack = down_tilt` remains available. v18 fixes normal idle being treated as hanging, recovers missed get-up/roll transitions, removes the extra tilt retry timer, and predicts shield-grab reach/vulnerability. Confirmed captures throw toward the remembered ledge with `ledge_throw_outward = true`; after a punish Kirby returns to the original stance while Down stays held. Jump still uses up tilt, and roll/shield follow-ups use Grab. [LEDGE_TRAP.md](LEDGE_TRAP.md) explains the model and the planned Pichu-on-FD device checks. Synthetic policy tests do not establish collision results or frame-perfect coverage. Rebuild and install the plugin plus updated config; existing ZIPs were not refreshed for v18.
+- [Controls and ledge assist](docs/LEDGE_TRAP.md)
+- [Directional turbo](docs/TURBO_CONTROLS.md)
+- [Analog mash](docs/ANALOG_MASH.md)
+- [Build variants](docs/BUILD_VARIANTS.md)
+- [Rust beginner guide](docs/README_BEGINNER.md)
+- [All project documentation](docs/index.md)
 
-The v18 positioning update acquires cliff anchors during catch/catch-move, tolerates two missing mapper observations while suspending output, and separates pursuit distances from attack range. Movement tapers near the target and the stance uses different start/stop thresholds to reduce oscillation. Tune `ledge_tilt_approach_distance` and `ledge_grab_approach_distance` separately from hit/grab range; the supplied stance is 9 world units inward.
+
+
+The main function is [`watch_ledge()` in ledge_trap.rs](/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/crates/kirby_assist_core/src/ledge_trap.rs:1045). It handles **waiting at the ledge and punishing normal get-up**.
+
+The important distinction is that this code **doesn’t wait a fixed number of frames after recognizing get-up**. Every eligible observation, it asks: “If I press Attack now, could one of the attack’s predicted active frames reach a vulnerable opponent?”
+
+I’ll go through its executable lines in order, then explain the timing helpers and how the other ledge options select their responses.
+
+**1. The function’s inputs**
+
+```rust
+fn watch_ledge(
+    &mut self,
+    settings: LedgeSettings,
+    ctx: LedgeContext,
+    enemy: Opponent,
+    out: &mut LedgeOutput,
+) {
+```
+
+| Input | Meaning |
+|---|---|
+| `&mut self` | The remembered ledge-trap state. `mut` permits changing things such as preparation flags and attempt counts. |
+| `settings` | Config values: selected attack, reach limits, stance distance, movement strength, etc. |
+| `ctx` | Kirby’s current observations: position, facing, native status, velocity, readiness. |
+| `enemy` | Opponent observations: status, position, estimated velocity, vulnerability and animation timing. |
+| `out` | The proposed stick/button input. This function edits the proposal; it does not directly force a game action. |
+
+`return;` anywhere below ends this function for the current observation. It does not permanently disable the tool.
+
+**2. Calculate the opponent’s horizontal position relative to Kirby**
+
+```rust
+let dx = enemy.position[0] - ctx.position[0];
+```
+
+`position[0]` means horizontal position, or X.
+
+For example:
+
+```text
+Kirby X = 50
+Enemy X = 55
+dx = +5 → enemy is to Kirby’s right
+```
+
+A negative `dx` means the enemy is to his left. This alone doesn’t say whether they are in front: that also depends on Kirby’s facing.
+
+**3. Position Kirby while the opponent is hanging**
+
+```rust
+if is_hanging(enemy.status)
+    && self.position_at_ledge(settings, ctx, out)
+{
+    self.grounded_tilt_prepared = false;
+    return;
+}
+```
+
+- `is_hanging(enemy.status)` checks whether the opponent is catching or hanging on the ledge.
+- `&&` means both conditions must be true.
+- `position_at_ledge(...)` may supply movement or turning input. It returns `true` when it reserves this observation for positioning.
+- `grounded_tilt_prepared = false` clears any previous tilt preparation because Kirby is repositioning.
+- `return` prevents adding an attack on that positioning observation.
+
+This is the older policy-level positioning path. In the current L3 mode, the ground-positioning controller in `ledge_position.rs` can replace the hanging-position output afterward. **After the opponent begins normal get-up, that hanging override no longer applies.**
+
+**4. The remaining hanging behavior**
+
+```rust
+if is_hanging(enemy.status) && ctx.can_act {
+    out.stick = Some([0.0, 0.6]);
+    self.grounded_tilt_prepared = false;
+    return;
+}
+```
+
+If the opponent is still hanging and Kirby can act:
+
+```rust
+Some([0.0, 0.6])
+```
+
+proposes:
+
+- X stick: `0.0` — no horizontal input.
+- Y stick: `0.6` — upward input.
+
+It does not press Attack.
+
+Again, the current ground-positioning controller normally replaces this hanging output with its own positioning or neutral waiting input. This upward stick is **not** the forward-tilt punish.
+
+**5. Once get-up begins, start with neutral stick**
+
+```rust
+out.stick = Some([0.0, 0.0]);
+```
+
+This explicitly proposes centered stick.
+
+`Some(...)` means the assist is providing a stick value. It differs from `None`, which means no stick proposal.
+
+This line is part of the walking fix: the normal-get-up branch starts neutral instead of carrying forward input while waiting.
+
+```rust
+if !ctx.can_act || ctx.status != 0 || enemy.situation != 0 {
+    self.grounded_tilt_prepared = false;
+    return;
+}
+```
+
+Here:
+
+- `!ctx.can_act` means Kirby is not currently considered actionable.
+- `ctx.status != 0` means Kirby is not in native idle/WAIT.
+- `enemy.situation != 0` means the opponent is not grounded.
+- `||` means **any one** of these conditions is enough to stop.
+
+If any condition fails, Kirby keeps the neutral-stick proposal and makes no attack request.
+
+The native-idle requirement prevents starting this punish while Kirby is walking, turning, or braking. `can_act` is the adapter’s general eligibility flag; the game still decides whether it accepts the actual attack input.
+
+**6. Select the attack and its timing model**
+
+```rust
+let (stick, pending, first, last) = match settings.getup_attack {
+```
+
+`match` chooses a branch based on:
+
+```ini
+ledge_getup_attack = forward_tilt
+```
+
+The chosen branch supplies four values:
+
+| Value | Purpose |
+|---|---|
+| `stick` | Direction to use for the move. |
+| `pending` | Which requested move the policy should watch for afterward. |
+| `first` | First modeled active frame after the input. |
+| `last` | Last modeled active frame after the input. |
+
+For down tilt:
+
+```rust
+GetupAttack::DownTilt => (
+    [0.0, -0.6],
+    Pending::DownTilt,
+    4,
+    6,
+),
+```
+
+This means:
+
+- No horizontal input.
+- Downward stick at `-0.6`.
+- Remember the request as `DownTilt`.
+- Test predicted connections at offsets **4, 5, and 6**.
+
+The actual source writes that branch on one line; the expanded form above has the same meaning.
+
+For forward tilt:
+
+```rust
+GetupAttack::ForwardTilt => (
+    [ctx.facing.signum() * 0.6, -0.3],
+    Pending::ForwardTilt,
+    5,
+    8,
+),
+```
+
+Line by line:
+
+```rust
+ctx.facing.signum()
+```
+
+produces the facing direction’s sign: normally `+1` when facing right or `-1` when facing left.
+
+```rust
+ctx.facing.signum() * 0.6
+```
+
+therefore becomes either:
+
+```text
+Facing right → +0.6 horizontal stick
+Facing left  → -0.6 horizontal stick
+```
+
+```rust
+-0.3
+```
+
+adds a downward angle.
+
+```rust
+Pending::ForwardTilt
+```
+
+records which animation should confirm that the request was accepted.
+
+```rust
+5,
+8,
+```
+
+make the predictor examine offsets **5, 6, 7, and 8**.
+
+**These numbers describe the move’s modeled active window. They are not an extra delay before pressing A.** Changing them changes the prediction, not Kirby’s actual move speed.
+
+**7. Build the reach and timing check**
+
+```rust
+let window = AttackWindow {
+    first,
+    last,
+    range: settings.tilt_range,
+    height: [-5.0, 3.0],
+    front_only: true,
+};
+```
+
+Each field controls a separate condition:
+
+```rust
+first,
+last,
+```
+
+Use the timing offsets selected above.
+
+```rust
+range: settings.tilt_range,
+```
+
+Uses:
+
+```ini
+ledge_tilt_range = 15.0
+```
+
+from your current config.
+
+This is a permitted **predicted root-position separation**. It does not enlarge the hitbox. A value that is too generous can authorize attacks that physically miss.
+
+```rust
+height: [-5.0, 3.0],
+```
+
+Allows the opponent’s predicted root to be between 5 units below and 3 units above Kirby’s predicted root.
+
+These are world-position differences, not controller-stick values.
+
+```rust
+front_only: true,
+```
+
+Requires the predicted opponent position to be in front of Kirby, with a small tolerance explained below.
+
+**8. Refuse to turn-walk after get-up starts**
+
+```rust
+if dx * ctx.facing < -0.5 {
+    self.grounded_tilt_prepared = false;
+    return;
+}
+```
+
+Multiplying by facing converts left/right separation into front/behind separation.
+
+Examples:
+
+```text
+Enemy right, Kirby facing right → positive → in front
+Enemy right, Kirby facing left  → negative → behind
+```
+
+If the enemy is more than `0.5` units behind:
+
+- Clear preparation.
+- Keep neutral stick.
+- Make no attack request.
+
+This deliberately does **not** turn and chase. Changing this threshold doesn’t make an attack hit behind Kirby; it only changes when the policy permits an attempt.
+
+The current stray comment:
+
+```rust
+/// attack for
+```
+
+has no timing or control effect.
+
+**9. Forward tilt: direction and A together**
+
+```rust
+if settings.getup_attack == GetupAttack::ForwardTilt {
+```
+
+This selects the forward-tilt-specific input behavior.
+
+```rust
+self.grounded_tilt_prepared = false;
+```
+
+Forward tilt no longer uses the preparation flag. That was the forward-stick-before-A behavior that could make Kirby walk.
+
+```rust
+if self.climb_seen
+    && window.may_connect(ctx, enemy)
+    && self.try_tilt(pending)
+{
+```
+
+All three conditions must pass, in this order:
+
+1. **`self.climb_seen`** — normal get-up has been observed during this ledge visit.
+2. **`window.may_connect(...)`** — at least one modeled active frame is both in reach and vulnerable.
+3. **`self.try_tilt(pending)`** — a fresh attack request is permitted by release history and attempt limits.
+
+Rust’s `&&` short-circuits. If the timing check fails, `try_tilt()` is not called, so waiting does not spend an attempt.
+
+```rust
+out.stick = Some(stick);
+out.requested = MAPPER_A;
+```
+
+These propose the selected angled stick and Attack **on the same observation**.
+
+```rust
+return;
+```
+
+Ends the forward-tilt path.
+
+If the three-condition check failed, the function still returns—but the stick remains neutral and A was not requested.
+
+**10. Down tilt: retain downward preparation**
+
+Everything after the forward-tilt `return` is the down-tilt path.
+
+```rust
+if predicted_offset(ctx, enemy, f32::from(first))[0].abs()
+    > settings.tilt_range
+{
+    self.grounded_tilt_prepared = false;
+    return;
+}
+```
+
+Breaking down the expression:
+
+- `f32::from(first)` converts the integer timing offset into a floating-point number.
+- `predicted_offset(...)` estimates the opponent’s relative future position.
+- `[0]` selects horizontal separation.
+- `.abs()` removes the sign, giving distance.
+- `> settings.tilt_range` asks whether that prediction is too far away.
+
+If it is too far, Kirby stays neutral. He does not approach.
+
+```rust
+out.stick = Some(stick);
+```
+
+For down tilt, `stick` is:
+
+```rust
+[0.0, -0.6]
+```
+
+So this prepares downward input without horizontal walking.
+
+```rust
+let prepared =
+    self.grounded_tilt_prepared
+    && self.last_output.stick == Some(stick);
+```
+
+Both must be true:
+
+- The previous state says tilt preparation was established.
+- The previous output actually used the same stick direction.
+
+That prevents stale preparation from surviving an intervening stick change.
+
+```rust
+if prepared
+    && self.climb_seen
+    && window.may_connect(ctx, enemy)
+    && self.try_tilt(pending)
+{
+    out.requested = MAPPER_A;
+}
+```
+
+This is the same attack gate as forward tilt, with one additional requirement: **downward preparation must already exist**.
+
+```rust
+self.grounded_tilt_prepared = true;
+```
+
+Records that this observation supplied the downward preparation.
+
+Consequently, down tilt normally needs a preparation observation before the A request. Forward tilt currently does not.
+
+**11. Where the vulnerability timing comes from**
+
+The actual timing decision is in [`AttackWindow::may_connect()`](/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/crates/kirby_assist_core/src/ledge_trap.rs:1203):
+
+```rust
+(self.first..=self.last).any(|frame| {
+```
+
+`..=` includes both ends. For forward tilt, it tests `5`, `6`, `7`, and `8`.
+
+`.any(...)` returns true as soon as one of those offsets passes every condition.
+
+```rust
+let lead = f32::from(frame);
+```
+
+Converts that offset for position/timing calculations.
+
+```rust
+let hittable = enemy.vulnerable
+    || enemy.vulnerable_in.is_some_and(|remaining| {
+        remaining.is_finite()
+            && remaining >= 0.0
+            && remaining <= lead
+    });
+```
+
+The opponent is considered hittable at that future offset if either:
+
+- They are vulnerable now; or
+- A known, valid protection-expiry estimate says they will become vulnerable by then.
+
+`Option` matters here:
+
+```text
+Some(6.0) → estimated protection expiry is 6 updates away
+None      → expiry is unknown
+```
+
+Unknown does not mean zero. If protection is unknown and the opponent isn’t currently vulnerable, the attack waits.
+
+```rust
+let [x, y] = predicted_offset(ctx, enemy, lead);
+```
+
+Gets the predicted horizontal and vertical separation at that offset.
+
+```rust
+hittable
+    && x.abs() <= self.range
+    && (self.height[0]..=self.height[1]).contains(&y)
+    && (!self.front_only || x * ctx.facing >= -0.5)
+```
+
+A connection is permitted only when the **same future offset** passes:
+
+- Vulnerability.
+- Horizontal range.
+- Vertical range.
+- Facing.
+
+For example, with forward tilt’s modeled `5–8` window:
+
+| Protection expires in… | Timing result, assuming reach/facing pass |
+|---|---|
+| 9 updates | Wait: none of offsets 5–8 is vulnerable. |
+| 8 updates | May press A now: offset 8 can overlap vulnerability. |
+| 6 updates | May press A now: offsets 6–8 can overlap vulnerability. |
+| Unknown | Wait until actual vulnerability is observed. |
+
+That is why the attack can be requested **before protection expires**.
+
+**12. How future position is estimated**
+
+[`predicted_offset()`](/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/crates/kirby_assist_core/src/ledge_trap.rs:1223) approximately calculates:
+
+```text
+Future separation =
+    current enemy position − current Kirby position
+    + estimated enemy travel
+    − estimated Kirby travel
+```
+
+For normal get-up and roll, enemy travel is capped at the reported animation time remaining. It avoids continuing the animation’s measured movement indefinitely after the animation ends.
+
+Kirby’s own momentum contribution is limited to two timing units:
+
+```rust
+finite(ctx.velocity[0]) * lead.min(2.0)
+```
+
+This is a prediction assumption, not a measured stopping simulation. The model does not calculate exact animated hitbox/hurtbox collision.
+
+**13. What controls retries**
+
+[`try_tilt()`](/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/crates/kirby_assist_core/src/ledge_trap.rs:410) rejects a new request when:
+
+```rust
+self.last_output.requested & MAPPER_A != 0
+```
+
+A was requested on the previous output. A release observation is required before another press.
+
+```rust
+self.attempts >= MAX_ATTEMPTS
+```
+
+The request budget has been reached.
+
+```rust
+self.tilt_animations >= MAX_ATTEMPTS
+```
+
+The accepted-animation budget has been reached.
+
+`MAX_ATTEMPTS` is currently `6`.
+
+If permitted:
+
+```rust
+self.attempts += 1;
+self.pending = pending;
+true
+```
+
+It counts the request and remembers which move should appear.
+
+Elsewhere, `observe_action()` distinguishes:
+
+```text
+Requested A → observed tilt animation → observed hit confirmation
+```
+
+A request alone is not a confirmed attack or hit. An accepted tilt pauses further requests while its animation is in progress. A confirmed hit finishes the punish; a recovered whiff can reopen requests within the remaining limits.
+
+**14. Where the other options select their controls**
+
+[`choose_response()`](/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist_v2/crates/kirby_assist_core/src/ledge_trap.rs:711) selects the plan:
+
+| Observed option | Plan | Response function |
+|---|---|---|
+| Normal get-up: `CLIFF_CLIMB` | `Watch` | `watch_ledge()` |
+| Roll: `CLIFF_ESCAPE` | `Roll` | `respond_to_roll()` |
+| Get-up attack: `CLIFF_ATTACK` | `Shield` | `respond_to_getup_attack()` |
+| Standard ledge jump | `NeutralAir` | `respond_to_jump()` |
+| Witnessed ledge drop, when enabled | `DropShield` | Shield response in `evaluate()` |
+
+It uses current native ledge status when available, otherwise previous-status history. That helps recover an option whose initial transition was missed.
+
+Normal-get-up detection is also remembered through:
+
+```rust
+self.climb_seen |=
+    enemy.status == CLIFF_CLIMB
+    || enemy.previous_status == CLIFF_CLIMB;
+```
+
+`|=` means “keep this true once either condition becomes true.” Thus the normal-get-up punish can continue after the opponent enters ordinary idle.
+
+**15. Which values to adjust for each symptom**
+
+| Symptom or desired change | Relevant control |
+|---|---|
+| Choose forward tilt versus down tilt | `ledge_getup_attack` |
+| Change initial waiting position | `ledge_stand_distance` |
+| Change how far away the predictor permits a tilt | `ledge_tilt_range` |
+| Change forward tilt’s direction/angle | `[ctx.facing.signum() * 0.6, -0.3]` |
+| Correct the attack’s startup/active-window model | Forward tilt `5, 8`; down tilt `4, 6` |
+| Change allowed vertical separation | `height: [-5.0, 3.0]` |
+| Change retry budget | `MAX_ATTEMPTS`, which also affects other responses |
+| Change roll interception travel | `ledge_roll_distance`; unrelated to neutral-get-up tilt timing |
+
+**Don’t change `5–8` merely to make the attack “faster.”** Increasing those offsets can make the predictor authorize an earlier input because it looks farther ahead, but the actual move still follows the game’s timing. Those values should represent the real input-to-active timing. A deliberate extra delay should be implemented separately rather than hidden inside incorrect move data.
+
+Your current `ledge_tilt_range = 15.0` is also worth evaluating carefully: the code accepts it as a prediction threshold, but it has not established that every target is physically hittable from that separation.
+
+No code was changed or built for this explanation.

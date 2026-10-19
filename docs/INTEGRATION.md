@@ -69,7 +69,7 @@ Edit `SD:/ultimate/kirby_assist/config.txt`, then restart Smash. No Rust editing
 | `tech_lookahead_frames` | `3` | Collision-ray prediction horizon, 1 through 5; the included config uses 5. |
 | `tech_cooldown_frames` | `40` | Minimum observed input updates between automated ZR presses. |
 
-The sample config is in [deployment/ultimate/kirby_assist/config.txt](deployment/ultimate/kirby_assist/config.txt). Missing config uses the table defaults. The supplied config enables `takeover` for stick-only mashing and sets lookahead to five. The removed `alternate_mash`, `mash_buttons_per_frame`, and `mash_interval_frames` keys are ignored if present in an older config. Diagnostic packages enable `tech_debug`; silent packages disable it and cannot log even if it is changed to true. Invalid or unknown keys stop installation and write a diagnostic, rather than silently using mistaken settings. Keys are read once at startup.
+The sample config is `deployment/ultimate/kirby_assist/config.txt` in the project root. Missing config uses the table defaults. The supplied config enables `takeover` for stick-only mashing and sets lookahead to five. The removed `alternate_mash`, `mash_buttons_per_frame`, and `mash_interval_frames` keys are ignored if present in an older config. Diagnostic packages enable `tech_debug`; silent packages disable it and cannot log even if it is changed to true. Invalid or unknown keys stop installation and write a diagnostic, rather than silently using mistaken settings. Keys are read once at startup.
 
 Auto mash supplies the left stick, not an Attack-button binding. Auto tech always requests raw ZR, so ZR must be assigned to Shield. Ledge responses retain their A=Attack/R=Grab requirements.
 
@@ -151,7 +151,7 @@ SD:/ultimate/kirby_assist/status.log
 | `predicted_tech_collision=true` | The heuristic found an eligible nearby collision. |
 | `raw Pro Controller mapper button overlay confirmed` | The raw button trace was changed before mapping. This does not prove the game accepted an action. |
 
-The diagnostic first line identifies `Kirby Assist diagnostic build v18`. An earlier version identifies an older plugin. An unchanged old file is expected when switching to silent.
+The diagnostic first line identifies `Kirby Assist diagnostic build v17`. An earlier version identifies an older plugin. An unchanged old file is expected when switching to silent.
 
 The log resets at launch. It records scenario changes and first confirmations, not a full per-frame trace. A startup crash may occur before a usable log if another mod/runtime is incompatible; a signature match cannot validate every ABI field.
 
@@ -224,16 +224,36 @@ See [build variants](BUILD_VARIANTS.md) for individual Cargo commands, the optio
 
 ## Opponent ledge observations (source addition)
 
-The mapper enumerates fighter-manager entries and tracks one nearby non-team opponent through its ledge option. Hold Down arms the grounded policy. Mash/tech retain priority; ledge assistance does not control airborne movement. See [LEDGE_TRAP.md](LEDGE_TRAP.md) for controls, limits, and Pichu-on-FD test cases. No release NRO/ZIP was produced for v18.
+The mapper enumerates fighter-manager entries and tracks one nearby non-team opponent through its ledge option. Click L3 to toggle the policy and nearest-ledge preparation. Mash/tech retain priority. See [LEDGE_TRAP.md](LEDGE_TRAP.md) for controls, limits, and Pichu-on-FD test cases. No release NRO/ZIP was produced for v17.
 
 Observations now include target motion kind/frame/rate/end, native previous status, invincibility expiry, attack presence, root positions/velocity, Kirby's velocity and hit flag, shield history, catch readiness, and floor support. All game queries remain outside STATE's mutex. Four added read-only declarations match the pinned primary bindings: MotionModule rate/end_frame and AttackModule is_infliction_status/is_attack. The HIT mask is 0x2. No status/timer/velocity writes were added.
 
-The default stance is now 9 units inward, with a short momentum lookahead. Acquired targets use separate follow-up limits. Root displacement over the same advancing animation supplements missing kinetic travel; repeated polls of one animation frame reuse the estimate. Rate-adjusted motion deadlines feed a linear active-window/protection model. This is not a hurtbox simulator.
+The default stance is now 8 units inward, with a short momentum lookahead. Acquired targets use separate follow-up limits. Root displacement over the same advancing animation supplements missing kinetic travel; repeated polls of one animation frame reuse the estimate. Rate-adjusted motion deadlines feed a linear active-window/protection model. This is not a hurtbox simulator.
 
-Normal get-up pursues range before preparing down tilt or optional downward-angled forward tilt. Jumps are remembered even while Kirby is busy; native previous status catches a short missed transition. Up tilt predicts the rising target across active frames. Roll grabs can be requested before status exit when known protection expiry and predicted reach support standing/dash/pivot startup. Unknown expiry requires actual vulnerability. Tilt whiffs now retry after recovery, within six observed animation attempts; native hit infliction completes the attack phase. v18 returns to the original ledge stance after recovery, even if the hit launched the target out of tracking range. Confirmed captures request a horizontal throw toward the acquired ledge anchor in catch-wait when `ledge_throw_outward=true`. No throw is guessed without that anchor. Hanging checks use the actual status range, so ordinary idle no longer cancels the prepared normal-getup punish. Native previous-status recovery now includes roll and normal get-up. The shield-grab predictor includes remaining shieldstun and future protection/reach; tilt retries need a release without an additional timer.
+Normal get-up pursues range before preparing down tilt or optional downward-angled forward tilt. Jumps are remembered even while Kirby is busy; native previous status catches a short missed transition. Up tilt predicts the rising target across active frames. Roll grabs can be requested before status exit when known protection expiry and predicted reach support standing/dash/pivot startup. Unknown expiry requires actual vulnerability. Tilt whiffs now retry after recovery, within three observed animation attempts; native hit infliction completes the attack phase. v17 returns to the original ledge stance after recovery, even if the hit launched the target out of tracking range. Confirmed captures request a horizontal throw toward the acquired ledge anchor in catch-wait when `ledge_throw_outward=true`. No throw is guessed without that anchor. Hanging checks use the actual status range, so ordinary idle no longer cancels the prepared normal-getup punish. Native previous-status recovery now includes roll and normal get-up. The shield-grab predictor includes remaining shieldstun and future protection/reach; tilt retries need a release without an additional timer.
 
 Shield retains its continuous ZR hold and release-aware R buffer. Pushback pursuit commits through guard-off without re-raising shield. A witnessed get-up attack whose hitboxes clear can also receive a whiff punish; empty startup alone is insufficient. Hitbox gaps, later multi-hits, and multi-opponent hit confirmation remain limitations. Native action acceptance and first hittable collision need Switch validation.
 
 Diagnostic snapshots add target motion/rate, previous status, observed speed, selected grounded move, and own hit confirmation. Detailed snapshots can update on target animation frames when tech_debug is true. Silent excludes their construction. Both variants keep the existing analog mash, tech, and turbo behavior. Copy the updated config with the new plugin; an old explicit stance=6 overrides the new default.
 
-The v18 adapter reads the validated cliff anchor in native catch/catch-move/hang (0x75–0x77). The policy preserves target identity for at most two absent mapper observations while emitting no stale movement or attacks. Stance hysteresis and distance-scaled stick strength reduce oscillation; the default stance is 9 units inward. Roll pursuit and grab eligibility share a startup horizon. New `ledge_tilt_approach_distance` / `ledge_grab_approach_distance` keys decouple pursuit spacing from attack gates and must be smaller than the corresponding ranges. Existing narrow-range configs without those keys receive fitted defaults.
+## Match-introduction and teardown guards (unbuilt source)
+
+Both hooks now bypass assistance outside ready gameplay. The mapper checks the
+global native `sv_information::is_ready_go()` flag before dereferencing its
+controller wrapper or discovering fighters; a null/result-mode FighterManager
+also blocks assistance. The command hook returns the game's original flags
+without observation outside that scope. Ordinary input mapping still runs.
+This deliberately excludes the VS introduction, pre-GO countdown and results.
+
+Leaving the scope ends the session: cached fighter association, mapper routing,
+connection freshness, output ownership and the L3 toggle are cleared. Invalid
+controller styles/disconnection now return immediately after cancellation rather
+than falling through to fighter discovery. Fighter observation checks active ID
+and matching current module accessor before following the nested control chain.
+
+The global-ready FFI signature matches the pinned skyline-smash binding; its
+implementation does not require a fighter pointer. These are defenses against
+transition lifetime errors, not confirmation of a specific crash cause. An
+Atmosphere crash report/backtrace is required to identify the faulting module
+and offset. Formatting was checked; no build, packaging or hardware validation
+was performed. Re-enable L3 after gameplay begins; no mode persists across menus.

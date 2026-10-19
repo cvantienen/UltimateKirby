@@ -74,6 +74,7 @@ impl Default for LiveSettings {
 /// invalid values reject the configuration instead of silently enabling tools.
 #[derive(Clone, Copy, Debug)]
 pub struct LiveConfig {
+    pub auto_ledge_trump: bool,
     pub controls: LiveSettings,
     pub turbo: TurboSettings,
     pub ledge: LedgeSettings,
@@ -85,6 +86,7 @@ pub struct LiveConfig {
 impl Default for LiveConfig {
     fn default() -> Self {
         Self {
+            auto_ledge_trump: true,
             controls: LiveSettings::default(),
             turbo: TurboSettings::default(),
             ledge: LedgeSettings::default(),
@@ -101,8 +103,6 @@ impl LiveConfig {
         // `.parse()` infers a type from the destination field (bool/u16/f32).
         // `?` propagates Err immediately: no partially parsed config is installed.
         let mut config = Self::default();
-        let mut explicit_tilt_approach = false;
-        let mut explicit_grab_approach = false;
         for (number, line) in contents.lines().enumerate() {
             let line = line.split('#').next().unwrap_or("").trim();
             if line.is_empty() {
@@ -114,6 +114,9 @@ impl LiveConfig {
             let (key, value) = line.split_once('=').ok_or_else(invalid)?;
             let value = value.trim();
             match key.trim() {
+                "auto_ledge_trump" => {
+                    config.auto_ledge_trump = value.parse().map_err(|_| invalid())?
+                }
                 "enabled" => config.controls.enabled = value.parse().map_err(|_| invalid())?,
                 "auto_mash" => config.controls.auto_mash = value.parse().map_err(|_| invalid())?,
                 "auto_tech" => config.controls.auto_tech = value.parse().map_err(|_| invalid())?,
@@ -128,6 +131,9 @@ impl LiveConfig {
                 "mash_interval_frames" | "alternate_mash" | "mash_buttons_per_frame" => {}
                 "takeover" => config.controls.takeover = value.parse().map_err(|_| invalid())?,
                 "ledge_trap" => config.ledge.enabled = value.parse().map_err(|_| invalid())?,
+                "ledge_drop_defense" => {
+                    config.ledge.drop_defense = value.parse().map_err(|_| invalid())?
+                }
                 "ledge_trap_range" => {
                     config.ledge.horizontal_range = value.parse().map_err(|_| invalid())?
                 }
@@ -147,14 +153,6 @@ impl LiveConfig {
                 "ledge_grab_range" => {
                     config.ledge.grab_range = value.parse().map_err(|_| invalid())?
                 }
-                "ledge_tilt_approach_distance" => {
-                    config.ledge.tilt_approach_distance = value.parse().map_err(|_| invalid())?;
-                    explicit_tilt_approach = true;
-                }
-                "ledge_grab_approach_distance" => {
-                    config.ledge.grab_approach_distance = value.parse().map_err(|_| invalid())?;
-                    explicit_grab_approach = true;
-                }
                 "ledge_follow_range" => {
                     config.ledge.follow_range = value.parse().map_err(|_| invalid())?
                 }
@@ -167,6 +165,13 @@ impl LiveConfig {
                 "ledge_stand_distance" => {
                     config.ledge.stand_distance = value.parse().map_err(|_| invalid())?
                 }
+                "ledge_roll_distance" => {
+                    config.ledge.roll_distance = if value.eq_ignore_ascii_case("auto") {
+                        None
+                    } else {
+                        Some(value.parse().map_err(|_| invalid())?)
+                    };
+                }
                 "ledge_move_strength" => {
                     config.ledge.move_strength = value.parse().map_err(|_| invalid())?
                 }
@@ -178,7 +183,7 @@ impl LiveConfig {
                 }
                 // Compatibility only: ignore removed aerial settings in old SD
                 // configs so their presence cannot disable mash/tech/ledge tools.
-                // Ledge jumps now always use grounded up tilt.
+                // Ledge jumps now always use short-hop neutral air.
                 "ledge_jump_response"
                 | "ledge_fair_range"
                 | "ledge_fair_vertical_range"
@@ -230,40 +235,6 @@ impl LiveConfig {
         {
             return Err("ledge attack ranges must be finite 1..20".into());
         }
-        // Older SD configs may specify a narrow attack range without the new
-        // approach keys. Fit omitted defaults inside that range for compatibility.
-        if !explicit_tilt_approach {
-            config.ledge.tilt_approach_distance = config
-                .ledge
-                .tilt_approach_distance
-                .min((config.ledge.tilt_range - 0.5).max(0.5));
-        }
-        if !explicit_grab_approach {
-            config.ledge.grab_approach_distance = config
-                .ledge
-                .grab_approach_distance
-                .min((config.ledge.grab_range - 0.5).max(0.5));
-        }
-        // Distances are independent tuning fields, but pursuit must reach a
-        // point inside its matching attack gate rather than stop outside it.
-        for (name, distance, range) in [
-            (
-                "ledge_tilt_approach_distance",
-                config.ledge.tilt_approach_distance,
-                config.ledge.tilt_range,
-            ),
-            (
-                "ledge_grab_approach_distance",
-                config.ledge.grab_approach_distance,
-                config.ledge.grab_range,
-            ),
-        ] {
-            if !distance.is_finite() || !(0.5..=20.0).contains(&distance) || distance >= range {
-                return Err(format!(
-                    "{name} must be finite, 0.5..20, and smaller than its attack range"
-                ));
-            }
-        }
         if [
             config.ledge.follow_range,
             config.ledge.follow_vertical_range,
@@ -277,6 +248,13 @@ impl LiveConfig {
             || config.ledge.grab_buffer_frames > 6
         {
             return Err("invalid ledge follow, position, or grab buffer settings".into());
+        }
+        if config
+            .ledge
+            .roll_distance
+            .is_some_and(|distance| !distance.is_finite() || !(2.0..=100.0).contains(&distance))
+        {
+            return Err("ledge_roll_distance must be auto or finite 2..100".into());
         }
         if !config.ledge.anti_air_range.is_finite()
             || !(1.0..=20.0).contains(&config.ledge.anti_air_range)
@@ -651,7 +629,7 @@ mod tests {
         assert_eq!(config.ledge.follow_range, 40.0);
         assert_eq!(config.ledge.follow_vertical_range, 48.0);
         assert!(config.ledge.auto_position);
-        assert_eq!(config.ledge.stand_distance, 9.0);
+        assert_eq!(config.ledge.stand_distance, 8.0);
         assert_eq!(config.ledge.move_strength, 0.65);
         assert_eq!(config.ledge.grab_buffer_frames, 3);
         assert_eq!(config.ledge.grab_button, crate::native_input::MAPPER_R);
@@ -747,31 +725,6 @@ mod tests {
             supplied.ledge.getup_attack,
             crate::ledge_trap::GetupAttack::ForwardTilt
         );
-    }
-
-    #[test]
-    fn approach_distances_are_validated_without_breaking_older_narrow_ranges() {
-        let old = LiveConfig::parse("ledge_tilt_range = 2\nledge_grab_range = 1").unwrap();
-        assert_eq!(old.ledge.tilt_approach_distance, 1.5);
-        assert_eq!(old.ledge.grab_approach_distance, 0.5);
-        let independent =
-            LiveConfig::parse("ledge_grab_range = 10\nledge_grab_approach_distance = 4").unwrap();
-        assert_eq!(independent.ledge.grab_approach_distance, 4.0);
-        for bad in [
-            "ledge_tilt_approach_distance = NaN",
-            "ledge_grab_approach_distance = 0.4",
-            "ledge_grab_range = 5\nledge_grab_approach_distance = 5",
-            "ledge_tilt_range = 3\nledge_tilt_approach_distance = 4",
-        ] {
-            assert!(LiveConfig::parse(bad).is_err(), "{bad}");
-        }
-        let bundled = LiveConfig::parse(include_str!(
-            "../../../deployment/ultimate/kirby_assist/config.txt"
-        ))
-        .unwrap();
-        assert_eq!(bundled.ledge.stand_distance, 9.0);
-        assert_eq!(bundled.ledge.tilt_approach_distance, 6.0);
-        assert_eq!(bundled.ledge.grab_approach_distance, 5.0);
     }
 
     #[test]
@@ -987,5 +940,25 @@ mod tests {
         assert_eq!(unique_instruction_offset(&[0, 1, 2, 3, 4], &pattern), None);
         assert_eq!(unique_instruction_offset(&pattern, &[]), None);
         assert_eq!(unique_instruction_offset(&[], &pattern), None);
+    }
+    #[test]
+    fn roll_distance_accepts_auto_or_a_measured_finite_endpoint_distance() {
+        assert_eq!(
+            LiveConfig::parse("ledge_roll_distance = auto")
+                .unwrap()
+                .ledge
+                .roll_distance,
+            None
+        );
+        assert_eq!(
+            LiveConfig::parse("ledge_roll_distance = 25.0")
+                .unwrap()
+                .ledge
+                .roll_distance,
+            Some(25.0)
+        );
+        for value in ["NaN", "inf", "1", "101", "wrong"] {
+            assert!(LiveConfig::parse(&format!("ledge_roll_distance = {value}")).is_err());
+        }
     }
 }

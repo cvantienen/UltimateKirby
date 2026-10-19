@@ -53,5 +53,7 @@ pub mod tech_prediction;
 
 pub mod manual_controls;
 
-// Hold-Down opponent-state policy; the native adapter supplies observations.
+// Toggle-L3 opponent-state policy; the native adapter supplies observations.
+pub mod ledge_position;
 pub mod ledge_trap;
+pub mod ledge_trump;

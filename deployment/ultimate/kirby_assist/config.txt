@@ -39,45 +39,51 @@ tech_cooldown_frames = 40
 # Diagonals involved in a macro press are consumed through release.
 dpad_turbo = true
 # Observed mapper updates per crouch/release phase (1 to 10).
-turbo_phase_frames = 1
+turbo_phase_frames = 2
 # Normalized horizontal stick strength during the move phase (0.05 to 0.6).
-turbo_walk_strength = 0.25
+turbo_walk_strength = 0.6
 
-# Hold D-pad Down near a ledge opponent to arm the grounded ledge assist.
-# Requires A=Attack, R=Grab, ZR=Shield, and Tap Jump OFF.
-# Takes over both sticks/buttons while a nearby target is tracked and Kirby is eligible.
-# Releasing Down returns physical control. Timing and spacing still affect hits.
+# Click L3 to toggle ledge assist: prepare at the nearest detected stage ledge.
+# Requires A=Attack, X=Jump, R=Grab, ZR=Shield, Tap Jump OFF.
+# Ground-only: waits in air, selects the current floor edge on landing, then positions.
+# Click L3 again to return physical control. Timing/geometry still limit coverage.
 ledge_trap = true
+# Witnessed ledge drop -> jump/aerial: stop moving and shield; no blind grab.
+# Active while L3 mode is toggled on. Click L3 again for a manual punish.
+ledge_drop_defense = true
+# Tap D-pad Down: find the nearest floor edge, run off, Down, then inward to catch.
+# No opponent is required. Enabled by default even when this key is omitted.
+# The sequence ends at ledge catch; choose your own follow-up. L3 is separate.
+auto_ledge_trump = true
 # Normal get-up only: down_tilt (low poke) or forward_tilt (angled down).
-# Jump still uses up tilt; roll/get-up-attack follow-ups still use Grab.
+# Jump uses short-hop neutral air; roll/get-up-attack follow-ups still use Grab.
 ledge_getup_attack = forward_tilt
 
-# Jump response: prepare Up while hanging, then A for grounded up tilt.
+# Jump response: neutral X+A timed for the predicted neutral-air active window.
 # Root-position gates, not exact hitboxes: range 1..20, height 1..40.
 ledge_anti_air_range = 8.0
 ledge_anti_air_height = 18.0
 
 # Initial opponent acquisition limits (world units, finite 1..20).
-ledge_trap_range = 12.0
+ledge_trap_range = 20.0
 ledge_trap_vertical_range = 10.0
 # Separate proximity gates for normal-getup down tilt and roll/shield grabs.
-ledge_tilt_range = 7.0
-ledge_grab_range = 6.0
-# Movement targets are separate from hit/grab eligibility. Increasing an attack
-# range no longer makes Kirby deliberately stop farther away while pursuing.
-# Each distance must be at least 0.5 and smaller than its matching attack range.
-ledge_tilt_approach_distance = 6.0
-ledge_grab_approach_distance = 5.0
+ledge_tilt_range = 15.0
+ledge_grab_range = 9.0
 
 # Continue following acquired opponents outside the initial box (1..100).
 ledge_follow_range = 40.0
 ledge_follow_vertical_range = 48.0
-# Ground-probed stance and pursuit; default 9 units inward leaves more room
+# Ground-probed stance and pursuit; default 8 units inward leaves more room
 # to react to rolls. Momentum prediction reduces stance overshoot. This offset
 # is a tunable starting point, not a universal coverage position.
 ledge_auto_position = true
-ledge_stand_distance = 9.0
-ledge_move_strength = 0.65
+ledge_stand_distance = 10.0
+# Roll endpoint distance inward from the ledge: auto = estimate ONCE from motion.
+# A measured numeric value (2..100) commits immediately when the roll is read.
+# This is travel distance, not grab reach; character-specific tuning is required.
+ledge_roll_distance = auto
+ledge_move_strength = 0.85
 
 # One early Grab pulse near shieldstun end when close (0..6).
 ledge_grab_buffer_frames = 3
