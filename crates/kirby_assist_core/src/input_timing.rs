@@ -13,7 +13,11 @@ impl Action {
         match self {
             Self::Jump => status == 0xa,
             Self::Attack(0x33) => status == 0x33 && motion == 0xc3a4e2597,
-            Self::Attack(wanted) => status == wanted || wanted == 0x32 && status == 0x30,
+            Self::Attack(wanted) => {
+                status == wanted
+                    || wanted == 0x32 && status == 0x30
+                    || wanted == 0x2f && status == 0x2d
+            }
             Self::AirDodge => matches!(status, 0x22..=0x23),
             Self::Grab => matches!(status, 0x37 | 0x39 | 0x3b),
         }
@@ -222,5 +226,12 @@ mod tests {
             None
         );
         assert_eq!(timing.delay(), 0.0);
+    }
+    #[test]
+    fn forward_smash_startup_confirms_the_requested_smash_without_waiting_for_its_hitbox() {
+        assert!(Action::Attack(0x2f).accepted(0x2d, 1));
+        assert!(Action::Attack(0x2f).accepted(0x2f, 1));
+        assert!(!Action::Attack(0x2f).accepted(0x2a, 1));
+        assert!(!Action::Attack(0x2f).accepted(0x30, 1));
     }
 }

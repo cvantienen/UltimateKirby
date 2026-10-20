@@ -177,6 +177,26 @@ The diagnostic first line identifies `Kirby Assist diagnostic build v17`. An ear
 
 The log resets at launch. It records scenario changes and first confirmations, not a full per-frame trace. A startup crash may occur before a usable log if another mod/runtime is incompatible; a signature match cannot validate every ABI field.
 
+### Diagnose an online ledge-jump nair
+
+Ledge-jump cover supplies neutral jump+attack together, using the game's normal
+short-hop attack input. It no longer waits for a second delayed observation to
+begin sending A. Once committed, it finishes from Kirby's own state, independent
+of target lookup or aerial-readiness flags. Normal-getup and shield-hop nairs
+share that follow-through. None of these paths reads the online input queue.
+
+In a newly built diagnostic plugin, `short-hop mapped pair` reports whether the
+original mapper produced both JUMP and ATTACK with neutral stick. A missing bit
+points to mapping/input generation; both bits present confirms mapping only.
+The following ledge observations must show native status `0x33` with motion
+`0xc3a4e2597` (`attack_air_n`) to establish nair acceptance. Hit confirmation is a
+separate event. Keep the full request/mapping/native-state sequence when comparing
+offline and Arena failures. The 35 ms request watchdog is a wall-clock freshness
+limit, not a game-frame timer or a measurement of network delay.
+
+Source edits do not update an installed NRO. Build and install the diagnostic
+variant only when requested, then restart Smash before comparing results.
+
 ### Diagnose the reported spike test
 
 A spike is not automatically a legal tech opportunity. In Ultimate, a meteor hit on an already-grounded standing opponent cannot be floor-teched. An airborne hit into the floor is a different case and can still be untechable depending on the native collision/knockback rules. Compare a manually successful ZR tech in the exact same setup before treating the failed automation as a timing failure. [SmashWiki tech mechanics](https://www.ssbwiki.com/Tech)
@@ -188,10 +208,11 @@ In the diagnostic build with `tech_debug = true`, the mod queues state-change di
 | `native_passive_disabled` | The checked native flag blocks the prediction; the mod leaves it unchanged. |
 | `not_airborne` | The current detector requires an airborne tumble state. |
 | `outside_supported_tumble` | Damage/knockdown status is outside the supported tumble range. |
-| `hitstop_wait` | Assistance is neutral while stopped; policy/cooldown history is retained rather than reset. |
+| `hitstop_wait` | No late-hitstop tech buffer is ready; cooldown history is retained. Late damage-hitstop may predict and buffer a tech. |
 | `no_collision_predicted` | The probes did not find a surface in the prediction horizon. |
-| `collision_predicted` | Contact was predicted; the line also includes request mask and scheduler cooldown. |
+| `collision_predicted` | Contact was predicted; includes estimated contact time, hitstop remaining, learned delay, request mask and scheduler cooldown. |
 | `tech ZR applied` | A raw ZR press edge was supplied to the mapper during a predicted tech opportunity. This does not prove a successful tech. |
+| `tech mapped: fresh GUARD edge confirmed` | The original mapper produced a fresh shield press. Our cooldown starts here; native tech acceptance remains separate. |
 | `tech_status_observed` | The fighter entered a native tech status. This does not establish whether the mod or a human caused it. |
 
 If an airborne collision that you can tech manually still fails, provide the full log plus the stage, percent, attack, and whether Kirby was grounded or airborne when hit. Do not shorten the cooldown blindly: additional shield presses can interact with native lockouts. To stop the extra logging after testing, set `tech_debug = false` and restart.

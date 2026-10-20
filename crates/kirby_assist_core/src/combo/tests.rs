@@ -21,6 +21,7 @@ fn context() -> ComboContext {
             motion_kind: 1,
             position: [0.0, 0.0],
             velocity: [0.0, 0.0],
+            ground_brake: Some(0.1),
             facing: 1.0,
             previous_status: 0,
             can_grab: true,

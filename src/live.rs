@@ -13,6 +13,9 @@
 //! in the core, and verified button translations in `native_input.rs`. Defining
 //! a Scenario alone does not make the live integration detect or output it.
 use crate::game_ffi as game;
+use kirby_assist_core::combat_assist::{
+    SdiContext, SdiState, TripContext, TripFollowup, TripTarget,
+};
 #[cfg(feature = "diagnostic-logging")]
 use kirby_assist_core::diagnostics::DiagnosticGate;
 use kirby_assist_core::input_timing::{Action as TimedAction, InputTiming, Sample as TimingSample};
@@ -35,7 +38,10 @@ use kirby_assist_core::native_input::{
 };
 use kirby_assist_core::session::{MatchSession, SessionTicket};
 use kirby_assist_core::slide::{SlideContext, SlideState};
-use kirby_assist_core::tech_prediction::{tech_gate, tech_probes, TechGate};
+use kirby_assist_core::tech_input::{TechContext, TechInput, TechOutput};
+use kirby_assist_core::tech_prediction::{
+    first_contact_in, grounded_ganon_contact_in, tech_gate, TechGate, CATCHED_GANON,
+};
 use kirby_assist_core::timing::{AnimationClock, AnimationSample};
 use skyline::hooks::{getRegionAddress, Region};
 use std::{
@@ -230,6 +236,9 @@ struct State {
     policy: Option<RawAutoControls>,
     animation_clock: Option<AnimationClock>,
     input_timing: Option<InputTiming>,
+    tech_input: Option<TechInput>,
+    tech_output: TechOutput,
+    last_mapped_guard: bool,
     policy_tick: Option<i64>,
     // Separate state for side-D-pad consumption and temporary left-stick control.
     turbo: Option<TurboState>,
@@ -239,6 +248,10 @@ struct State {
     // Turbo/ledge must also respect grounded movement and native busy states.
     turbo_ready: bool,
     facing: f32,
+    trip_followup: Option<TripFollowup>,
+    trip_output: LedgeOutput,
+    sdi: Option<SdiState>,
+    sdi_context: Option<SdiContext>,
     slide: Option<SlideState>,
     slide_output: LedgeOutput,
     ledge_walk_ready: bool,
@@ -281,6 +294,10 @@ struct State {
     #[cfg(feature = "diagnostic-logging")]
     pending_tech_log: Option<String>,
     #[cfg(feature = "diagnostic-logging")]
+    pending_combat_log: Option<String>,
+    #[cfg(feature = "diagnostic-logging")]
+    last_combat_diagnostic: (bool, bool, u32),
+    #[cfg(feature = "diagnostic-logging")]
     ledge_diagnostics: DiagnosticGate<LedgeDiagnostic>,
     #[cfg(feature = "diagnostic-logging")]
     ledge_log_origin: Option<Instant>,
@@ -304,12 +321,27 @@ impl State {
             policy: None,
             animation_clock: None,
             input_timing: None,
+            tech_input: None,
+            tech_output: TechOutput {
+                press: false,
+                owns_guard: false,
+            },
+            last_mapped_guard: false,
             policy_tick: None,
             turbo: None,
             dpad_reservation: None,
             manual_overlay: None,
             turbo_ready: false,
             facing: 1.0,
+            trip_followup: None,
+            trip_output: LedgeOutput {
+                consume_trigger: false,
+                stick: None,
+                requested: 0,
+                owned: 0,
+            },
+            sdi: None,
+            sdi_context: None,
             slide: None,
             slide_output: LedgeOutput {
                 consume_trigger: false,
@@ -357,6 +389,10 @@ impl State {
             #[cfg(feature = "diagnostic-logging")]
             pending_tech_log: None,
             #[cfg(feature = "diagnostic-logging")]
+            pending_combat_log: None,
+            #[cfg(feature = "diagnostic-logging")]
+            last_combat_diagnostic: (false, false, 0),
+            #[cfg(feature = "diagnostic-logging")]
             ledge_diagnostics: DiagnosticGate::new(),
             #[cfg(feature = "diagnostic-logging")]
             ledge_log_origin: None,
@@ -386,11 +422,18 @@ impl State {
         self.policy = None;
         self.animation_clock = None;
         self.input_timing = None;
+        self.tech_input = None;
+        self.tech_output = TechOutput::default();
+        self.last_mapped_guard = false;
         self.policy_tick = None;
         self.turbo = None;
         self.dpad_reservation = None;
         self.manual_overlay = None;
         self.turbo_ready = false;
+        self.trip_followup = None;
+        self.trip_output = LedgeOutput::default();
+        self.sdi = None;
+        self.sdi_context = None;
         self.slide = None;
         self.slide_output = LedgeOutput::default();
         self.ledge_walk_ready = false;
@@ -406,6 +449,8 @@ impl State {
         {
             self.last_tech_diagnostic = None;
             self.pending_tech_log = None;
+            self.pending_combat_log = None;
+            self.last_combat_diagnostic = (false, false, 0);
             self.ledge_diagnostics = DiagnosticGate::new();
             self.ledge_log_origin = None;
             self.pending_ledge_log = None;
@@ -466,6 +511,7 @@ unsafe fn map_controls(
     let mut restore = None;
     let mut reserved_dpad = 0;
     let mut timing_edge = None;
+    let mut tech_applied = false;
     #[cfg(feature = "diagnostic-logging")]
     let mut trump_pressed = false;
     #[cfg(feature = "diagnostic-logging")]
@@ -645,7 +691,14 @@ unsafe fn map_controls(
                         } else {
                             LedgeOutput::default()
                         };
-                        if config.ledge.enabled && manual_scope && state.ledge_active {
+                        if config.ledge.enabled
+                            && manual_scope
+                            && state.ledge_active
+                            && !state
+                                .ledge
+                                .as_ref()
+                                .is_some_and(LedgeTrap::manual_after_grab)
+                        {
                             let walking = if fresh
                                 && config.ledge.manual_spacing
                                 && state.ledge_walk_ready
@@ -677,10 +730,31 @@ unsafe fn map_controls(
                                 state.trump_output.stick,
                             ));
                         }
+                        let trip_takeover =
+                            fresh && manual_scope && !mash_takeover && state.trip_output.owned != 0;
+                        if trip_takeover {
+                            ledge = state.trip_output;
+                            turbo_output.stick = ledge.stick;
+                            reserved_dpad |= 0xf;
+                        }
                         // Mash wins over both D-pad tools while trapped. Its
                         // separate None-on-exit returns the fresh physical stick.
                         if mash_stick.is_some() {
                             turbo_output.stick = mash_stick;
+                        }
+                        let sdi_context = state.sdi_context;
+                        let sdi_enabled = config.auto_sdi && manual_scope && fresh;
+                        let sdi_stick = sdi_context.and_then(|context| {
+                            state.sdi.get_or_insert_with(SdiState::default).sample(
+                                sdi_enabled,
+                                context,
+                                physical_stick,
+                            )
+                        });
+                        if let Some(stick) = sdi_stick {
+                            turbo_output.stick = Some(stick);
+                        } else if !sdi_enabled || sdi_context.is_none() {
+                            state.sdi = None;
                         }
                         // A held C-stick can otherwise inject an attack while
                         // left-stick-only mashing. Block its digital aliases too.
@@ -713,12 +787,25 @@ unsafe fn map_controls(
                                         0
                                     },
                                 ledge.requested | mapper_buttons(requested),
-                                ledge.owned | blocked_stick_buttons | mapper_buttons(owned),
+                                ledge.owned
+                                    | blocked_stick_buttons
+                                    | mapper_buttons(owned)
+                                    | if owned & HID_ZR != 0 {
+                                        kirby_assist_core::native_input::MAPPER_ZL
+                                            | kirby_assist_core::native_input::MAPPER_ZR
+                                            | kirby_assist_core::native_input::MAPPER_L
+                                            | kirby_assist_core::native_input::MAPPER_R
+                                    } else {
+                                        0
+                                    },
                             );
                         let modified = manual.buttons;
+                        tech_applied = requested & HID_ZR != 0 && modified.pressed & MAPPER_ZR != 0;
                         let edge = ledge.requested & modified.pressed;
                         timing_edge = if edge & MAPPER_X != 0 {
                             Some((TimedAction::Jump, 0x4 | 0x40))
+                        } else if edge & MAPPER_A != 0 && trip_takeover {
+                            Some((TimedAction::Attack(0x2f), 0x1))
                         } else if edge & MAPPER_A != 0 {
                             state
                                 .ledge
@@ -737,6 +824,10 @@ unsafe fn map_controls(
                             ledge_edge = Some(ledge.requested);
                         }
                         #[cfg(feature = "diagnostic-logging")]
+                        if let Some(message) = state.pending_combat_log.take() {
+                            messages.push(message);
+                        }
+                        #[cfg(feature = "diagnostic-logging")]
                         if let Some(message) = state.pending_tech_log.take() {
                             messages.push(message);
                         }
@@ -751,6 +842,13 @@ unsafe fn map_controls(
                             && requested & HID_ZR != 0
                         {
                             messages.push(format!("tech ZR applied: input_update={}, held={:#x}, previous={:#x}, pressed={:#x}", state.raw_tick, modified.held, modified.previous, modified.pressed));
+                            messages.push(format!(
+                                "tech request timing: {:?}",
+                                state
+                                    .tech_input
+                                    .as_ref()
+                                    .and_then(TechInput::last_observation)
+                            ));
                         }
                         state.last_output_buttons = modified.held;
                         #[cfg(feature = "diagnostic-logging")]
@@ -788,6 +886,34 @@ unsafe fn map_controls(
     // original!() is Skyline's trampoline to the function we replaced. Calling
     // map_controls itself here would recurse into our hook instead.
     original!()(mappings, index, output, wrapper, arg);
+    if restore.is_some() && !output.is_null() {
+        let guard = (*output.cast::<MappedInputs>()).buttons & 0x8 != 0;
+        if let Ok(mut state) = STATE.lock() {
+            if state.mapping_index == Some(index) && state.session.accepts(session_ticket) {
+                if tech_applied && guard && !state.last_mapped_guard {
+                    if let Some(tech) = state.tech_input.as_mut() {
+                        tech.mapped_press();
+                    }
+                    #[cfg(feature = "diagnostic-logging")]
+                    if CONFIG
+                        .get()
+                        .is_some_and(|config| config.controls.tech_debug)
+                    {
+                        messages.push(
+                            "tech mapped: fresh GUARD edge confirmed; request cooldown committed"
+                                .into(),
+                        );
+                    }
+                }
+                if !tech_applied && guard && !state.last_mapped_guard {
+                    if let Some(tech) = state.tech_input.as_mut() {
+                        tech.mapped_human_guard();
+                    }
+                }
+                state.last_mapped_guard = guard;
+            }
+        }
+    }
     if let Some((action, expected_buttons)) = timing_edge {
         if !output.is_null() && (*output.cast::<MappedInputs>()).buttons & expected_buttons != 0 {
             if let Ok(mut state) = STATE.lock() {
@@ -819,6 +945,14 @@ unsafe fn map_controls(
             "ledge mapper: raw_request={requested:#x}, mapped_buttons={:#x}, left=({},{})",
             mapped.buttons, mapped.left_x, mapped.left_y
         ));
+        if requested & (MAPPER_X | MAPPER_A) == (MAPPER_X | MAPPER_A) {
+            messages.push(format!(
+                "short-hop mapped pair: jump={}, attack={}, neutral_stick={}; native ATTACK_AIR/attack_air_n still confirms acceptance",
+                mapped.buttons & (0x4 | 0x40) != 0,
+                mapped.buttons & 0x1 != 0,
+                mapped.left_x == 0 && mapped.left_y == 0,
+            ));
+        }
     }
     // Restore every field we changed, including C-stick and repeat flags.
     // A new field added to the overlay must also be captured and restored here.
@@ -937,7 +1071,21 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let Some(_observation_guard) = FighterObservationGuard::acquire() else {
         return;
     };
-    if discover_roster && observe_ledge {
+    let trip_kirby = config.down_tilt_trip_smash && game::fighter_kind(object_id) == 6;
+    let native_status = game::status_kind(object);
+    let damage_stop = config.auto_sdi
+        && (0x47..=0x5b).contains(&native_status)
+        && game::is_stop(object)
+        && game::is_damage_stop(object);
+    let trip_watch = trip_kirby
+        && (matches!(native_status, 0x2a | 0x2c)
+            || STATE.lock().ok().is_some_and(|state| {
+                state
+                    .trip_followup
+                    .as_ref()
+                    .is_some_and(TripFollowup::watching)
+            }));
+    if discover_roster && (observe_ledge || trip_watch || damage_stop) {
         let needs_roster = STATE.lock().ok().is_some_and(|state| {
             state
                 .ledge_roster
@@ -985,7 +1133,12 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let clatter = !stopped && clatter_remaining.is_finite() && clatter_remaining > 0.0;
     // Prediction is evaluated separately from the scheduler: finding contact
     // does not mean the cooldown is ready or that the game will accept a tech.
-    let assessment = assess_tech(object, config.lookahead, stopped);
+    let estimated_delay = STATE
+        .lock()
+        .ok()
+        .and_then(|state| state.input_timing.as_ref().map(InputTiming::delay))
+        .unwrap_or(0.0);
+    let assessment = assess_tech(object, config.lookahead, stopped, estimated_delay);
     let tech = !clatter && assessment.reason == "collision_predicted";
     if matches!(assessment.status, 0xb5 | 0xb6 | 0x1d6 | 0x1d9..=0x1db) {
         if let Ok(mut state) = STATE.lock() {
@@ -1032,6 +1185,12 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             motion_kind: own_motion_kind,
             position,
             velocity,
+            ground_brake: if observe_ledge {
+                let brake = game::param_float(object, 0x0c8cc9db76, 0); // ground_brake
+                (brake.is_finite() && (0.001..=3.0).contains(&brake)).then_some(brake)
+            } else {
+                None
+            },
             facing: game::facing(object),
             previous_status: game::previous_status(object, 0),
             can_grab: game::transition_enabled(object, grab_transition_term(assessment.status)),
@@ -1118,6 +1277,33 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     } else {
         None
     };
+    let (trip_targets, outward) = if trip_watch || damage_stop {
+        combat_targets(object, object_id, trip_watch, damage_stop)
+    } else {
+        ([None; 8], 1.0)
+    };
+    let trip_context = TripContext {
+        object: object_id,
+        kirby: trip_kirby,
+        status: assessment.status,
+        motion: own_motion_kind,
+        frame: ledge_motion_frame,
+        grounded: assessment.situation == 0,
+        stopped,
+        facing: game::facing(object),
+        targets: trip_targets,
+    };
+    let mut sdi_context = SdiContext {
+        object: object_id,
+        damage_stop,
+        input_delay: 0.0,
+        remaining: if damage_stop {
+            game::hitstop_remaining(object)
+        } else {
+            0
+        },
+        outward,
+    };
     #[cfg(feature = "diagnostic-logging")]
     let mut scenario_changed = false;
     #[cfg(feature = "diagnostic-logging")]
@@ -1155,6 +1341,32 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             state.button_mod_logged |= first_button_write;
             acquired = state.observed_object != Some(object_id);
         }
+        state.trip_output = state
+            .trip_followup
+            .get_or_insert_with(TripFollowup::default)
+            .sample(
+                config.down_tilt_trip_smash && !clatter && !tech,
+                trip_context,
+            );
+        #[cfg(feature = "diagnostic-logging")]
+        {
+            let key = (
+                state
+                    .trip_followup
+                    .as_ref()
+                    .is_some_and(TripFollowup::watching),
+                sdi_context.damage_stop && (1..=120).contains(&sdi_context.remaining),
+                state.trip_output.requested,
+            );
+            if key != state.last_combat_diagnostic {
+                state.last_combat_diagnostic = key;
+                state.pending_combat_log = Some(format!(
+                    "combat assist: trip_queued={}, SDI_damage_stop={}, trip_request={:#x}, native_hitstop_remaining={}",
+                    key.0, key.1, key.2, sdi_context.remaining));
+            }
+        }
+        sdi_context.input_delay = state.input_timing.as_ref().map_or(0.0, InputTiming::delay);
+        state.sdi_context = Some(sdi_context);
         state.observed_object = Some(object_id);
         state.evaluated_tick = Some(tick);
         // Tech needs the last GAME-visible ZR to decide whether a release is
@@ -1167,11 +1379,18 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         #[cfg(feature = "diagnostic-logging")]
         if config.controls.tech_debug {
             let relevant = (0x47..=0x5b).contains(&assessment.status)
-                || (0x67..=0x6b).contains(&assessment.status);
+                || (0x67..=0x6b).contains(&assessment.status)
+                || (CATCHED_GANON..=0xc1).contains(&assessment.status);
             let key = (assessment.status, assessment.situation, assessment.reason);
             if relevant && state.last_tech_diagnostic != Some(key) {
                 state.last_tech_diagnostic = Some(key);
                 state.pending_tech_log = Some(format!("tech observation: input_update={tick}, status={:#x}, situation={}, reason={}, velocity=({:.2},{:.2}), lookahead={:.1}", assessment.status, assessment.situation, assessment.reason, assessment.velocity[0], assessment.velocity[1], config.lookahead));
+                if let Some(message) = state.pending_tech_log.as_mut() {
+                    message.push_str(&format!(
+                        ", contact_in={:?}, hitstop_remaining={}, input_delay={estimated_delay:.1}, capture_clock={:?}",
+                        assessment.contact_in, assessment.remaining_stop, assessment.capture_clock
+                    ));
+                }
             } else if !relevant {
                 state.last_tech_diagnostic = None;
             }
@@ -1197,27 +1416,62 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 policy.pause_inputs();
             }
         }
-        let requested = if let Some(policy_tick) = policy_tick {
+        let mash_requested = if let Some(policy_tick) = policy_tick {
             state
                 .policy
                 .get_or_insert_with(RawAutoControls::default)
                 .update_with_buttons(
-                    config.controls,
+                    kirby_assist_core::live_input::LiveSettings {
+                        auto_tech: false,
+                        ..config.controls
+                    },
                     policy_tick,
                     object_id,
                     clatter,
-                    tech,
+                    false,
                     previous_buttons,
                 )
         } else {
             0
         };
+        let previous_guard = state.last_mapped_guard;
+        state.tech_output = state
+            .tech_input
+            .get_or_insert_with(TechInput::default)
+            .sample(
+                config.controls.enabled && config.controls.auto_tech,
+                config.controls.takeover,
+                config.controls.tech_cooldown,
+                TechContext {
+                    object: object_id,
+                    status: assessment.status,
+                    motion: assessment
+                        .capture_clock
+                        .map_or(own_motion_kind, |clock| clock.0),
+                    frame: assessment
+                        .capture_clock
+                        .map_or(ledge_motion_frame, |clock| clock.1),
+                    rate: assessment
+                        .capture_clock
+                        .map_or(timing_rate, |clock| clock.2),
+                    stopped,
+                    remaining_stop: assessment.remaining_stop,
+                    contact_in: if !clatter && tech {
+                        assessment.contact_in
+                    } else {
+                        None
+                    },
+                    input_delay: estimated_delay,
+                    previous_guard,
+                },
+            );
+        let requested = mash_requested | if state.tech_output.press { HID_ZR } else { 0 };
         #[cfg(feature = "diagnostic-logging")]
         if config.controls.tech_debug {
             let cooldown = state
-                .policy
+                .tech_input
                 .as_ref()
-                .map_or(0, RawAutoControls::tech_cooldown_remaining);
+                .map_or(0.0, TechInput::cooldown_remaining);
             if let Some(message) = state.pending_tech_log.as_mut() {
                 message.push_str(&format!(", requested={requested:#x}, cooldown={cooldown}"));
             }
@@ -1234,6 +1488,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             && turbo_movement_allowed(assessment.status, assessment.situation, stopped);
         if let Some((mut context, opponent, edge, spot)) = ledge_observation {
             let timing_ready = state.turbo_ready
+                || context.can_down_smash
                 || context.can_air_attack
                 || can_slide_air_dodge
                 || context.can_jump;
@@ -1349,6 +1604,10 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             #[cfg(feature = "diagnostic-logging")]
             let mut positioning_action = None;
             if held
+                && !state
+                    .ledge
+                    .as_ref()
+                    .is_some_and(LedgeTrap::manual_after_grab)
                 && !config.ledge.manual_spacing
                 && !config.ledge.distance_agnostic
                 && context.situation == 0
@@ -1480,15 +1739,12 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             state.policy.as_ref().and_then(RawAutoControls::mash_stick)
         };
         // Mash takeover suppresses competing physical action buttons; it never
-        // presses them. Tech still owns only ZR, and neutral owns no buttons.
-        state.owned = if config.controls.takeover && policy_tick.is_some() {
-            if state.mash_stick.is_some() {
-                ASSIST_BUTTONS
-            } else if tech && config.controls.auto_tech {
-                HID_ZR
-            } else {
-                0
-            }
+        // presses them. Tech requests ZR; its takeover release also clears the
+        // other shoulder buttons so mapped GUARD can have a fresh edge.
+        state.owned = if config.controls.takeover && state.mash_stick.is_some() {
+            ASSIST_BUTTONS
+        } else if config.controls.takeover && state.tech_output.owns_guard {
+            HID_ZR
         } else {
             0
         };
@@ -1557,6 +1813,63 @@ unsafe fn ground_support(object: *mut game::Object, position: [f32; 2], vx: f32)
             game::ray_check(object, &origin, &delta, true) != 0
         })
     })
+}
+
+// Reuse callback-discovered IDs. Never enumerate the roster from the mapper.
+// Trip recognition needs only opponent status. Last-attacker attribution is
+// used exclusively for SDI direction, never to gate the trip follow-up.
+unsafe fn combat_targets(
+    own: *mut game::Object,
+    own_id: u32,
+    watch_trip: bool,
+    watch_sdi: bool,
+) -> ([Option<TripTarget>; 8], f32) {
+    let roster = STATE
+        .lock()
+        .ok()
+        .and_then(|state| state.ledge_roster.map(|r| r.0));
+    let own_x = game::pos_x(own);
+    let mut outward = if own_x.is_finite() && own_x > 0.0 {
+        -1.0
+    } else {
+        1.0
+    };
+    let mut targets = [None; 8];
+    let Some(roster) = roster else {
+        return (targets, outward);
+    };
+    let attacker_entry = if watch_sdi {
+        game::work_int(own, 0x100000b3)
+    } else {
+        -1
+    };
+    let own_team = game::team(own);
+    for (slot, id) in roster.into_iter().enumerate() {
+        let Some(id) = id.filter(|id| *id != own_id && *id >> 28 == 0 && game::is_active(*id))
+        else {
+            continue;
+        };
+        let enemy = game::module_accessor(id);
+        if enemy.is_null()
+            || enemy.cast::<u8>().add(8).cast::<u32>().read() != id
+            || game::team(enemy) == own_team
+        {
+            continue;
+        }
+        if watch_sdi && game_entry_id(id) == attacker_entry {
+            let dx = own_x - game::pos_x(enemy);
+            if dx.is_finite() && dx.abs() > 0.5 {
+                outward = dx.signum();
+            }
+        }
+        if watch_trip {
+            targets[slot] = Some(TripTarget {
+                id,
+                status: game::status_kind(enemy),
+            });
+        }
+    }
+    (targets, outward)
 }
 
 // Read the roster from the manager instead of waiting for opponents to query
@@ -1778,12 +2091,51 @@ struct TechAssessment {
     situation: i32,
     velocity: [f32; 2],
     reason: &'static str,
+    contact_in: Option<f32>,
+    remaining_stop: u64,
+    // A grounded command grab can freeze the victim's animation. Its linked
+    // captor's native clock supplies progress without counting controller polls.
+    capture_clock: Option<(u64, f32, f32)>,
+}
+
+unsafe fn grounded_ganon_timing(object: *mut game::Object) -> Option<(f32, u64, f32, f32)> {
+    if !game::is_link(object, 0) {
+        return None;
+    }
+    let id = u32::try_from(game::link_object_id(object, 0)).ok()?;
+    let own_id = object.cast::<u8>().add(8).cast::<u32>().read();
+    if id == own_id || id >> 28 != 0 || !game::is_active(id) {
+        return None;
+    }
+    let captor = game::module_accessor(id);
+    if captor.is_null() || captor.cast::<u8>().add(8).cast::<u32>().read() != id {
+        return None;
+    }
+    let motion = game::motion_kind(captor);
+    if motion == 0 {
+        return None;
+    }
+    let frame = game::motion_frame(captor);
+    let rate = game::motion_rate(captor);
+    let remaining = grounded_ganon_contact_in(
+        game::status_kind(object),
+        game::fighter_kind(id),
+        game::status_kind(captor),
+        frame,
+        rate,
+    )?;
+    Some((remaining, motion, frame, rate))
 }
 
 // Start with native status/eligibility gates, then test swept stage rays. Keep
 // the fixed body offsets in tech_prediction.rs separate so they can be tested
 // on the host and tuned without scattering geometry through native FFI code.
-unsafe fn assess_tech(object: *mut game::Object, horizon: f32, stopped: bool) -> TechAssessment {
+unsafe fn assess_tech(
+    object: *mut game::Object,
+    horizon: f32,
+    stopped: bool,
+    input_delay: f32,
+) -> TechAssessment {
     let status = game::status_kind(object);
     let situation = game::situation_kind(object);
     let disabled = (0x49..=0x4f).contains(&status) && game::is_flag(object, 0x21000016);
@@ -1793,16 +2145,41 @@ unsafe fn assess_tech(object: *mut game::Object, horizon: f32, stopped: bool) ->
         situation,
         velocity: [0.0; 2],
         reason: gate.label(),
+        contact_in: None,
+        remaining_stop: if stopped && game::is_damage_stop(object) {
+            game::hitstop_remaining(object)
+        } else {
+            0
+        },
+        capture_clock: None,
     };
     if (0x67..=0x6b).contains(&status) {
         assessment.reason = "tech_status_observed";
         return assessment;
     }
+    if status == CATCHED_GANON {
+        assessment.reason = "ganon_ground_capture_timing_unavailable";
+        if let Some((contact, motion, frame, rate)) = grounded_ganon_timing(object) {
+            assessment.contact_in = Some(contact);
+            assessment.capture_clock = Some((motion, frame, rate));
+            assessment.reason = "collision_predicted";
+        }
+        return assessment;
+    }
+    if (0xbf..=0xc1).contains(&status) {
+        assessment.reason = "ganon_aerial_slam_untechable";
+        return assessment;
+    }
     // Read damage velocity for diagnostics even when the native flag blocks tech.
     if (0x47..=0x5b).contains(&status) {
-        assessment.velocity = [game::speed_x(object, 1), game::speed_y(object, 1)];
+        // ALL includes damage knockback as well as main/gravity velocity.
+        // MAIN (1) alone can omit the force carrying Kirby toward the surface.
+        assessment.velocity = [game::speed_x(object, -1), game::speed_y(object, -1)];
     }
-    if gate != TechGate::Predict {
+    let late_hitstop = gate == TechGate::Hitstop
+        && assessment.remaining_stop > 0
+        && assessment.remaining_stop as f32 <= input_delay.clamp(0.0, 12.0) + 2.0;
+    if gate != TechGate::Predict && !late_hitstop {
         return assessment;
     }
     let x = game::pos_x(object);
@@ -1813,7 +2190,8 @@ unsafe fn assess_tech(object: *mut game::Object, horizon: f32, stopped: bool) ->
         return assessment;
     }
     assessment.reason = "no_collision_predicted";
-    for probe in tech_probes(x, y, vx, vy, horizon).into_iter().flatten() {
+    let horizon = (horizon + input_delay.clamp(0.0, 12.0)).clamp(1.0, 20.0);
+    assessment.contact_in = first_contact_in(x, y, vx, vy, horizon, |probe| {
         let origin = game::Vector2 {
             x: probe.origin[0],
             y: probe.origin[1],
@@ -1822,10 +2200,11 @@ unsafe fn assess_tech(object: *mut game::Object, horizon: f32, stopped: bool) ->
             x: probe.delta[0],
             y: probe.delta[1],
         };
-        if game::ray_check(object, &origin, &path, true) != 0 {
-            assessment.reason = "collision_predicted";
-            break;
-        }
+        game::ray_check(object, &origin, &path, true) != 0
+    })
+    .map(|flight| flight + assessment.remaining_stop as f32);
+    if assessment.contact_in.is_some() {
+        assessment.reason = "collision_predicted";
     }
     assessment
 }

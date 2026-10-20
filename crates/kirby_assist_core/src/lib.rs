@@ -23,6 +23,7 @@
 // implement traits. Copy permits copying a small value, Debug supports {:?}
 // formatting, Default supplies initial values, and PartialEq supports == checks.
 pub mod assist;
+pub mod combat_assist;
 pub mod combo;
 pub mod config;
 pub mod diagnostics;
@@ -57,6 +58,7 @@ pub use state::{
 };
 
 pub mod native_input;
+pub mod tech_input;
 pub mod tech_prediction;
 
 pub mod manual_controls;

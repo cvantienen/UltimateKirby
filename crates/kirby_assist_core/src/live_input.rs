@@ -75,6 +75,8 @@ impl Default for LiveSettings {
 /// invalid values reject the configuration instead of silently enabling tools.
 #[derive(Clone, Copy, Debug)]
 pub struct LiveConfig {
+    pub down_tilt_trip_smash: bool,
+    pub auto_sdi: bool,
     pub auto_ledge_trump: bool,
     pub dpad_slide: bool,
     pub combo: ComboSettings,
@@ -90,6 +92,8 @@ pub struct LiveConfig {
 impl Default for LiveConfig {
     fn default() -> Self {
         Self {
+            down_tilt_trip_smash: true,
+            auto_sdi: true,
             auto_ledge_trump: true,
             dpad_slide: true,
             combo: ComboSettings::default(),
@@ -120,6 +124,10 @@ impl LiveConfig {
             let (key, value) = line.split_once('=').ok_or_else(invalid)?;
             let value = value.trim();
             match key.trim() {
+                "down_tilt_trip_smash" => {
+                    config.down_tilt_trip_smash = value.parse().map_err(|_| invalid())?
+                }
+                "auto_sdi" => config.auto_sdi = value.parse().map_err(|_| invalid())?,
                 "combo_enabled" => config.combo.enabled = value.parse().map_err(|_| invalid())?,
                 "combo_starter" => {
                     config.combo.starter = match value {
@@ -197,6 +205,9 @@ impl LiveConfig {
                 "ledge_roll_dash_range" | "ledge_roll_smash_range" => {
                     config.ledge.roll_dash_range = value.parse().map_err(|_| invalid())?
                 }
+                "ledge_roll_hit_window_frames" => {
+                    config.ledge.roll_hit_window_frames = value.parse().map_err(|_| invalid())?
+                }
                 "ledge_auto_position" => {
                     config.ledge.auto_position = value.parse().map_err(|_| invalid())?
                 }
@@ -258,6 +269,9 @@ impl LiveConfig {
                 }
                 _ => return Err(invalid()),
             }
+        }
+        if !(1..=13).contains(&config.ledge.roll_hit_window_frames) {
+            return Err("ledge_roll_hit_window_frames must be 1..13".into());
         }
         if !config.ledge.walk_strength.is_finite()
             || !(0.1..=0.45).contains(&config.ledge.walk_strength)
@@ -781,8 +795,8 @@ mod tests {
     }
 
     #[test]
-    fn outward_throw_setting_is_optional_and_bundled_neutral_air_is_selected() {
-        assert!(LiveConfig::default().ledge.throw_outward);
+    fn legacy_throw_setting_stays_parseable_and_bundled_capture_is_manual() {
+        assert!(!LiveConfig::default().ledge.throw_outward);
         assert!(
             !LiveConfig::parse("ledge_throw_outward = false")
                 .unwrap()
@@ -794,7 +808,7 @@ mod tests {
             "../../../deployment/ultimate/kirby_assist/config.txt"
         ))
         .unwrap();
-        assert!(supplied.ledge.throw_outward);
+        assert!(!supplied.ledge.throw_outward);
         assert_eq!(
             supplied.ledge.getup_attack,
             crate::ledge_trap::GetupAttack::NeutralAir
@@ -1069,6 +1083,38 @@ mod tests {
         assert_eq!(LiveConfig::parse("npad_id = 2").unwrap().player_index, 2);
         for invalid in ["player_index = 8", "player_index = -1"] {
             assert!(LiveConfig::parse(invalid).is_err());
+        }
+    }
+}
+
+#[cfg(test)]
+mod combat_config_tests {
+    use super::LiveConfig;
+    #[test]
+    fn trip_and_sdi_defaults_disable_independently_and_reject_bad_values() {
+        let defaults = LiveConfig::parse("").unwrap();
+        assert!(defaults.down_tilt_trip_smash && defaults.auto_sdi);
+        let disabled = LiveConfig::parse("down_tilt_trip_smash = false\nauto_sdi = false").unwrap();
+        assert!(!disabled.down_tilt_trip_smash && !disabled.auto_sdi);
+        assert!(LiveConfig::parse("auto_sdi = fastest").is_err());
+        assert!(LiveConfig::parse("down_tilt_trip_smash = maybe").is_err());
+    }
+}
+
+#[cfg(test)]
+mod roll_hit_window_tests {
+    use super::LiveConfig;
+
+    #[test]
+    fn roll_hit_window_defaults_to_five_and_accepts_only_active_frame_counts() {
+        assert_eq!(LiveConfig::default().ledge.roll_hit_window_frames, 5);
+        for value in [1, 5, 13] {
+            let config =
+                LiveConfig::parse(&format!("ledge_roll_hit_window_frames = {value}")).unwrap();
+            assert_eq!(config.ledge.roll_hit_window_frames, value);
+        }
+        for value in ["0", "14", "-1", "NaN", "2.5"] {
+            assert!(LiveConfig::parse(&format!("ledge_roll_hit_window_frames = {value}")).is_err());
         }
     }
 }

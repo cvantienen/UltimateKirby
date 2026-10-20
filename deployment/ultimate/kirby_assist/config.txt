@@ -26,16 +26,18 @@ player_index = 0
 # Auto mash uses the left stick: Right -> Up -> Left -> Down, one full-strength
 # direction per distinct mashable mapper update. It generates no mash buttons.
 # takeover suppresses competing physical action buttons and C-stick while mashing;
-# during tech it still owns only ZR. Physical control returns when the tool ends.
+# during tech it releases shoulder buttons as needed, then requests ZR.
+# Physical control returns when the tool ends.
 takeover = true
 # Old alternate_mash / mash_buttons_per_frame / mash_interval_frames entries are
 # ignored for compatibility. Stick mashing has no added interval/release gap.
 
-# Predict stage contact this many motion frames ahead (1 to 5).
+# Base stage-contact lookahead (1 to 5 game frames). Learned input delay extends it.
 tech_lookahead_frames = 5
 
-# Minimum observed input updates between automated ZR presses.
-# This does not change the game's actual tech lockout.
+# Cooldown starts only after a fresh mapped shield press, excluding hitstop.
+# An observed successful tech clears our cooldown; native lockout is unchanged.
+# Grounded Ganon Side B uses its linked capture clock; the aerial slam is untechable.
 tech_cooldown_frames = 40
 
 # Side D-pad: tap for one short-hop/downward-angled-air-dodge attempt; hold to repeat.
@@ -60,8 +62,11 @@ ledge_manual_spacing = true
 # Ignore attack/acquisition distances except for automatic roll interception.
 ledge_distance_agnostic = true
 ledge_walk_strength = 0.35
-# Roll starts a bounded dash within this range plus follow range, then requests A in native dash/run.
+# Roll locks an endpoint, stops nearby within this attack range, then down smashes.
 ledge_roll_dash_range = 10.0
+# Plan hits during this many opening down-smash active frames (1..13).
+# Default 5 targets frames 7..11, overlapping vulnerability before roll recovery.
+ledge_roll_hit_window_frames = 5
 # Unrecognized ledge drops hold shield; recognized get-up attacks retain a grab after a confirmed block, regardless of distance.
 ledge_drop_defense = true
 # Tap D-pad Down: find the nearest floor edge, run off, Down, then inward to catch.
@@ -82,7 +87,7 @@ ledge_anti_air_height = 18.0
 ledge_trap_range = 20.0
 ledge_trap_vertical_range = 10.0
 # Legacy normal/jump/grab proximity gates apply only when ledge_distance_agnostic=false.
-# Roll approach uses ledge_roll_dash_range above; attack input does not require a range forecast.
+# Roll approaches one locked endpoint and checks that it remains in down-smash reach.
 ledge_tilt_range = 15.0
 ledge_grab_range = 9.0
 
@@ -93,9 +98,9 @@ ledge_follow_vertical_range = 48.0
 # Your stick determines spacing; directional punishes aim automatically.
 ledge_auto_position = false
 ledge_stand_distance = 10.0
-# Legacy roll endpoint setting; the current roll response ignores this value.
-# A measured numeric value (2..100) commits immediately when the roll is read.
-# This is travel distance, not grab reach; character-specific tuning is required.
+# Auto projects a locked endpoint from observed travel and remaining roll time.
+# A measured numeric value (2..100) overrides the endpoint distance from the ledge.
+# Auto applies to every character; a numeric override requires matchup tuning.
 ledge_roll_distance = auto
 ledge_move_strength = 0.65
 
@@ -105,10 +110,9 @@ ledge_grab_buffer_frames = 3
 # Retries require a release; native startup pauses them and capture ends them.
 # Shield stays held through block hitstop. Manual mode never pursues pushback.
 ledge_grab_button = R
-# After a confirmed grab, choose a horizontal throw toward the remembered ledge.
-# Waits for native catch-wait; never presses A for pummels. Requires acquiring
-# the cliff anchor while hanging. Set false to keep manual throw selection.
-ledge_throw_outward = true
+# A successful grab ends ledge autopilot immediately; you choose pummels/throws.
+# Release and hold Y again to rearm. Legacy key is parsed but no longer acts.
+ledge_throw_outward = false
 
 # Combo policy is retained for future work, with no live key binding.
 combo_enabled = false
@@ -116,3 +120,13 @@ combo_starter = grab
 combo_max_start_percent = 0.5
 combo_grab_range = 6.0
 combo_fair_range = 12.0
+
+# Kirby down/forward tilt + opponent trip: override controls and buffer forward smash.
+# Independent of held Y. No attribution, range, or smash-readiness gates.
+down_tilt_trip_smash = true
+
+# During damage hitstop, alternate neutral/full stick at native hitstop cadence.
+# Hold a stick direction to choose SDI; neutral defaults away from the last attacker.
+# If attacker identity is unavailable, default toward stage center (world X=0).
+# Only the stick is overridden; normal input/DI resumes when damage hitstop ends.
+auto_sdi = true

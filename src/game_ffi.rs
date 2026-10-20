@@ -43,6 +43,12 @@ const _: () = {
 // Declarations do not execute queries: a call such as game::status_kind(object)
 // in live.rs does. Changing a type here changes how that call crosses the ABI.
 extern "C" {
+    // Capture-link queries, checked against the pinned cpp.rs bindings.
+    // LINK_NO_CAPTURE = 0. Resolve IDs anew; never retain the returned accessor.
+    #[link_name = "\u{1}_ZN3app8lua_bind24LinkModule__is_link_implEPNS_26BattleObjectModuleAccessorEi"]
+    pub fn is_link(module_accessor: *mut Object, link: i32) -> bool;
+    #[link_name = "\u{1}_ZN3app8lua_bind35LinkModule__get_node_object_id_implEPNS_26BattleObjectModuleAccessorEi"]
+    pub fn link_object_id(module_accessor: *mut Object, link: i32) -> u64;
     // Identity, state, and timers used to decide whether assistance applies.
     #[link_name = "\u{1}_ZN3app8lua_bind36ControlModule__get_clatter_time_implEPNS_26BattleObjectModuleAccessorEi"]
     pub fn clatter_time(module_accessor: *mut Object, arg2: i32) -> f32;
@@ -54,6 +60,14 @@ extern "C" {
     pub fn is_stop(module_accessor: *mut Object) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind24WorkModule__is_flag_implEPNS_26BattleObjectModuleAccessorEi"]
     pub fn is_flag(module_accessor: *mut Object, flag: i32) -> bool;
+    // Same pinned bindings: damage hitstop distinguishes the victim from an
+    // attacker's hitlag and from shield/global freeze. Remaining time dedups SDI.
+    #[link_name = "\u{1}_ZN3app8lua_bind26StopModule__is_damage_implEPNS_26BattleObjectModuleAccessorE"]
+    pub fn is_damage_stop(module_accessor: *mut Object) -> bool;
+    #[link_name = "\u{1}_ZN3app8lua_bind40StopModule__get_hit_stop_real_frame_implEPNS_26BattleObjectModuleAccessorE"]
+    pub fn hitstop_remaining(module_accessor: *mut Object) -> u64;
+    #[link_name = "\u{1}_ZN3app16sv_battle_object4kindEj"]
+    pub fn fighter_kind(object_id: u32) -> i32;
     // Read-only ledge observations, verified in the same pinned cpp.rs bindings.
     #[link_name = "\u{1}_ZN3app8lua_bind22PostureModule__lr_implEPNS_26BattleObjectModuleAccessorE"]
     pub fn facing(module_accessor: *mut Object) -> f32;
