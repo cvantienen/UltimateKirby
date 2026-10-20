@@ -18,6 +18,7 @@ pub struct SlideContext {
     pub can_jump: bool,
     pub can_air_dodge: bool,
     pub safe_ground: [bool; 2],
+    pub input_delay: f32,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -98,13 +99,13 @@ impl SlideState {
                         }
                     }
                     Phase::Takeoff => {
-                        if tick.saturating_sub(self.started) > 8 {
+                        if tick.saturating_sub(self.started) > 24 {
                             self.phase = Phase::Idle;
                         } else if ctx.situation == 2 {
-                            // Native jump frame, not mapper poll count or a
-                            // fabricated height-to-frame conversion. A missed
-                            // early window aborts rather than dodging high up.
-                            if ctx.status == 0xb && (0.0..=1.0).contains(&ctx.motion_frame) {
+                            // Online acceptance can miss the very first air sample.
+                            // Retry only during early native jump frames, never
+                            // turn a missed slide into an arbitrary high dodge.
+                            if ctx.status == 0xb && (0.0..=6.0).contains(&ctx.motion_frame) {
                                 out = owned();
                                 if ctx.can_air_dodge {
                                     out.stick = Some([
@@ -128,12 +129,15 @@ impl SlideState {
                         {
                             self.phase = Phase::Landing;
                             out = owned(); // Release ZR, retain slide momentum.
-                        } else if tick.saturating_sub(self.started) > 8 {
+                        } else if tick.saturating_sub(self.started)
+                            > 8 + ctx.input_delay.ceil().clamp(0.0, 12.0) as i64
+                        {
                             self.phase = Phase::Idle;
                         } else {
                             out = owned();
-                            // Release ZR but preserve the angle until native
-                            // acceptance; a buffered dodge must not see neutral.
+                            // Keep shield and the angle until native acceptance;
+                            // a delayed command must not lose its follow-up.
+                            out.requested = MAPPER_ZR;
                             out.stick =
                                 Some([f32::from(self.direction) * SLIDE_STICK_X, SLIDE_STICK_Y]);
                         }
@@ -192,6 +196,7 @@ mod tests {
             can_jump: true,
             can_air_dodge: false,
             safe_ground: [true; 2],
+            input_delay: 0.0,
         }
     }
     fn air(frame: f32) -> SlideContext {
@@ -278,18 +283,18 @@ mod tests {
         );
     }
     #[test]
-    fn missed_or_unavailable_first_air_frame_never_becomes_a_late_dodge() {
+    fn a_missed_early_window_never_becomes_a_high_air_dodge() {
         for ctx in [
-            air(2.0),
+            air(7.0),
             SlideContext {
                 can_air_dodge: false,
-                ..air(1.0)
+                ..air(7.0)
             },
         ] {
             let mut state = SlideState::default();
             state.sample(true, 0, DPAD_RIGHT, ground());
             assert_eq!(state.sample(true, 1, DPAD_RIGHT, ctx).requested, 0);
-            assert_eq!(state.sample(true, 2, DPAD_RIGHT, air(3.0)).requested, 0);
+            assert_eq!(state.sample(true, 2, DPAD_RIGHT, air(8.0)).requested, 0);
         }
     }
     #[test]
@@ -439,7 +444,7 @@ mod tests {
         assert_eq!(release.buttons.released & MAPPER_ZR, MAPPER_ZR);
     }
     #[test]
-    fn downward_angle_is_preserved_until_native_dodge_acceptance_with_zr_released() {
+    fn downward_angle_and_guard_are_preserved_until_native_dodge_acceptance() {
         for (button, direction) in [(DPAD_RIGHT, 1.0), (DPAD_LEFT, -1.0)] {
             let mut state = SlideState::default();
             state.sample(true, 0, button, ground());
@@ -449,7 +454,7 @@ mod tests {
             assert_eq!(request.requested, MAPPER_ZR);
             let awaiting = state.sample(true, 2, button, air(2.0));
             assert_eq!(awaiting.stick, Some(angle));
-            assert_eq!(awaiting.requested, 0);
+            assert_eq!(awaiting.requested, MAPPER_ZR);
             let accepted = state.sample(
                 true,
                 3,
@@ -595,6 +600,87 @@ mod tests {
         assert_eq!(
             state.sample(true, 90, DPAD_RIGHT, ground()).requested,
             MAPPER_X
+        );
+    }
+}
+
+#[cfg(test)]
+mod online_tests {
+    use super::*;
+    #[test]
+    fn delayed_takeoff_and_dodge_readiness_still_complete_the_requested_slide() {
+        let ground = SlideContext {
+            gameplay: true,
+            stopped: false,
+            status: 0,
+            situation: 0,
+            motion_frame: 0.0,
+            can_jump: true,
+            can_air_dodge: false,
+            safe_ground: [true; 2],
+            input_delay: 5.0,
+        };
+        let mut slide = SlideState::default();
+        assert_eq!(
+            slide.sample(true, 0, DPAD_RIGHT, ground).requested,
+            MAPPER_X
+        );
+        for tick in 1..10 {
+            assert_eq!(
+                slide
+                    .sample(
+                        true,
+                        tick,
+                        0,
+                        SlideContext {
+                            can_jump: false,
+                            motion_frame: tick as f32,
+                            ..ground
+                        }
+                    )
+                    .requested,
+                0
+            );
+        }
+        let air = SlideContext {
+            status: 0xb,
+            situation: 2,
+            motion_frame: 3.0,
+            can_jump: false,
+            can_air_dodge: true,
+            ..ground
+        };
+        let request = slide.sample(true, 10, 0, air);
+        assert_eq!(request.requested, MAPPER_ZR);
+        for tick in 11..15 {
+            assert_eq!(
+                slide
+                    .sample(
+                        true,
+                        tick,
+                        0,
+                        SlideContext {
+                            motion_frame: (tick - 7) as f32,
+                            ..air
+                        }
+                    )
+                    .requested,
+                MAPPER_ZR
+            );
+        }
+        assert_eq!(
+            slide
+                .sample(
+                    true,
+                    15,
+                    0,
+                    SlideContext {
+                        status: 0x23,
+                        ..air
+                    }
+                )
+                .requested,
+            0
         );
     }
 }

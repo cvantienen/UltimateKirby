@@ -268,6 +268,8 @@ mod tests {
             can_grab: true,
             can_tilt: true,
             can_dash_attack: true,
+            input_delay: 0.0,
+            can_down_smash: true,
             can_jump: true,
             can_air_attack: true,
             air_physics: None,

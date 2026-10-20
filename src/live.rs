@@ -15,6 +15,7 @@
 use crate::game_ffi as game;
 #[cfg(feature = "diagnostic-logging")]
 use kirby_assist_core::diagnostics::DiagnosticGate;
+use kirby_assist_core::input_timing::{Action as TimedAction, InputTiming, Sample as TimingSample};
 use kirby_assist_core::ledge_position::{nearest_ground_ledge, LedgePosition};
 use kirby_assist_core::ledge_trap::{
     frames_until, grab_transition_term, in_tracking_range, LedgeContext, LedgeOutput, LedgeTrap,
@@ -29,8 +30,8 @@ use kirby_assist_core::manual_controls::{
     ManualOverlay, TurboState, DPAD_SIDES, TURBO_TRIGGER,
 };
 use kirby_assist_core::native_input::{
-    controller_index, mapper_buttons, selected_controller_mapper, ButtonTrace, MAPPER_MENU,
-    MAPPER_ZR,
+    controller_index, mapper_buttons, selected_controller_mapper, ButtonTrace, MAPPER_A,
+    MAPPER_MENU, MAPPER_X, MAPPER_ZR,
 };
 use kirby_assist_core::session::{MatchSession, SessionTicket};
 use kirby_assist_core::slide::{SlideContext, SlideState};
@@ -228,6 +229,7 @@ struct State {
     // Option permits lazy construction and a clean reset by assigning None.
     policy: Option<RawAutoControls>,
     animation_clock: Option<AnimationClock>,
+    input_timing: Option<InputTiming>,
     policy_tick: Option<i64>,
     // Separate state for side-D-pad consumption and temporary left-stick control.
     turbo: Option<TurboState>,
@@ -301,6 +303,7 @@ impl State {
             raw_connected: false,
             policy: None,
             animation_clock: None,
+            input_timing: None,
             policy_tick: None,
             turbo: None,
             dpad_reservation: None,
@@ -382,6 +385,7 @@ impl State {
         self.evaluated_tick = None;
         self.policy = None;
         self.animation_clock = None;
+        self.input_timing = None;
         self.policy_tick = None;
         self.turbo = None;
         self.dpad_reservation = None;
@@ -461,6 +465,7 @@ unsafe fn map_controls(
     // make the next callback mistake automation for a real physical hold.
     let mut restore = None;
     let mut reserved_dpad = 0;
+    let mut timing_edge = None;
     #[cfg(feature = "diagnostic-logging")]
     let mut trump_pressed = false;
     #[cfg(feature = "diagnostic-logging")]
@@ -711,6 +716,22 @@ unsafe fn map_controls(
                                 ledge.owned | blocked_stick_buttons | mapper_buttons(owned),
                             );
                         let modified = manual.buttons;
+                        let edge = ledge.requested & modified.pressed;
+                        timing_edge = if edge & MAPPER_X != 0 {
+                            Some((TimedAction::Jump, 0x4 | 0x40))
+                        } else if edge & MAPPER_A != 0 {
+                            state
+                                .ledge
+                                .as_ref()
+                                .and_then(LedgeTrap::requested_attack_status)
+                                .map(|status| (TimedAction::Attack(status), 0x1))
+                        } else if edge & MAPPER_ZR != 0 && state.slide_output.owned != 0 {
+                            Some((TimedAction::AirDodge, 0x8))
+                        } else if edge & config.ledge.grab_button != 0 {
+                            Some((TimedAction::Grab, 0x10))
+                        } else {
+                            None
+                        };
                         #[cfg(feature = "diagnostic-logging")]
                         if ledge.requested & modified.pressed != 0 {
                             ledge_edge = Some(ledge.requested);
@@ -767,6 +788,18 @@ unsafe fn map_controls(
     // original!() is Skyline's trampoline to the function we replaced. Calling
     // map_controls itself here would recurse into our hook instead.
     original!()(mappings, index, output, wrapper, arg);
+    if let Some((action, expected_buttons)) = timing_edge {
+        if !output.is_null() && (*output.cast::<MappedInputs>()).buttons & expected_buttons != 0 {
+            if let Ok(mut state) = STATE.lock() {
+                if state.mapping_index == Some(index) && state.session.accepts(session_ticket) {
+                    state
+                        .input_timing
+                        .get_or_insert_with(InputTiming::default)
+                        .mapped(action);
+                }
+            }
+        }
+    }
     if reserved_dpad != 0 {
         let mapped = output.cast::<MappedInputs>();
         (*mapped).buttons = suppress_reserved_taunts((*mapped).buttons, reserved_dpad);
@@ -967,6 +1000,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let can_slide_jump = config.dpad_slide
         && (matches!(assessment.status, 0..=0x9 | 0x11..=0x19 | 0x1b..=0x1d | 0x22..=0x23)
             || game::cancel_enabled(object));
+    let timing_rate = game::motion_rate(object);
     let can_slide_air_dodge = config.dpad_slide && game::transition_enabled(object, 0x1e00003d);
     let ledge_observation = if config.ledge.enabled
         || config.auto_ledge_trump
@@ -1006,10 +1040,13 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 match config.ledge.getup_attack {
                     kirby_assist_core::ledge_trap::GetupAttack::DownTilt => 0x1e000057,
                     kirby_assist_core::ledge_trap::GetupAttack::ForwardTilt => 0x1e000055,
+                    kirby_assist_core::ledge_trap::GetupAttack::NeutralAir => 0x1e000062,
                 },
             ),
             // CONT_ATTACK_DASH; standing full-stick+A is not a dash attack.
             can_dash_attack: game::transition_enabled(object, 0x1e000054),
+            input_delay: 0.0,
+            can_down_smash: game::transition_enabled(object, 0x1e00005f),
             can_jump: game::transition_enabled(object, 0x1e00002c),
             can_air_attack: game::transition_enabled(object, 0x1e000062),
             air_physics: observe_ledge.then(|| native_air_physics(object)).flatten(),
@@ -1020,7 +1057,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             },
             shield_stun_frames,
             shield_attacker,
-            hit_confirmed: (matches!(assessment.status, 0x29..=0x2c | 0x2f)
+            hit_confirmed: (matches!(assessment.status, 0x29..=0x2c | 0x2f..=0x32)
                 || assessment.status == 0x33)
                 && game::attack_infliction(object, game::COLLISION_KIND_MASK_HIT),
             safe_ground: if assessment.situation == 0 {
@@ -1196,6 +1233,29 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             && !tech
             && turbo_movement_allowed(assessment.status, assessment.situation, stopped);
         if let Some((mut context, opponent, edge, spot)) = ledge_observation {
+            let timing_ready = state.turbo_ready
+                || context.can_air_attack
+                || can_slide_air_dodge
+                || context.can_jump;
+            let learned = state
+                .input_timing
+                .get_or_insert_with(InputTiming::default)
+                .observe(TimingSample {
+                    object: object_id,
+                    status: context.status,
+                    motion: context.motion_kind,
+                    frame: context.motion_frame,
+                    rate: timing_rate,
+                    stopped,
+                    ready: timing_ready,
+                });
+            context.input_delay = state.input_timing.as_ref().map_or(0.0, InputTiming::delay);
+            #[cfg(feature = "diagnostic-logging")]
+            if let Some(delay) = learned {
+                state.pending_tech_log = Some(format!("input timing: clean mapped-to-action delay={delay:.1} game frames, compensation={:.1}", context.input_delay));
+            }
+            #[cfg(not(feature = "diagnostic-logging"))]
+            let _ = learned;
             context.can_act = state.turbo_ready;
             state.facing = context.facing;
             let slide_buttons = state.raw_buttons;
@@ -1217,6 +1277,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                         can_jump: context.can_jump && can_slide_jump,
                         can_air_dodge: can_slide_air_dodge,
                         safe_ground: context.safe_ground,
+                        input_delay: context.input_delay,
                     },
                 )
             } else {
@@ -1241,7 +1302,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             // The policy can preserve ZR during native guard hitstop.
             let grounded = assessment.situation == 0
                 && (state.turbo_ready
-                    || matches!(assessment.status, 0x1b..=0x1e | 0x29..=0x2f | 0x37..=0x3d));
+                    || matches!(assessment.status, 0x1b..=0x1e | 0x29..=0x32 | 0x37..=0x3d));
             let owned_jump = state
                 .ledge
                 .as_ref()

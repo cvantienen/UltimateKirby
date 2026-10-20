@@ -27,6 +27,7 @@ pub mod combo;
 pub mod config;
 pub mod diagnostics;
 pub mod input;
+pub mod input_timing;
 pub mod live_input;
 pub mod runtime;
 pub mod sequence;

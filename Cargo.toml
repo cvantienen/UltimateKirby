@@ -6,8 +6,8 @@ name = "kirby_assist"
 # Required by the source syntax, dependency imports, and array iteration rules.
 edition = "2021"
 # Single release-version source: logger and release builder read this value.
-version = "1.1.8"
-description = "online Correction & DashAttack 2"
+version = "1.1.9"
+description = "online timing fix & downsmash roll & nair for n getup"
 
 
 [package.metadata.skyline]

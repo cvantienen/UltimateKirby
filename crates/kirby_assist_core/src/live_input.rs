@@ -167,6 +167,7 @@ impl LiveConfig {
                 }
                 "ledge_getup_attack" => {
                     config.ledge.getup_attack = match value.to_ascii_lowercase().as_str() {
+                        "neutral_air" | "nair" => crate::ledge_trap::GetupAttack::NeutralAir,
                         "down_tilt" => crate::ledge_trap::GetupAttack::DownTilt,
                         "forward_tilt" => crate::ledge_trap::GetupAttack::ForwardTilt,
                         _ => return Err(invalid()),
@@ -767,7 +768,7 @@ mod tests {
         let default = LiveConfig::parse("ledge_trap = true").unwrap();
         assert_eq!(
             default.ledge.getup_attack,
-            crate::ledge_trap::GetupAttack::DownTilt
+            crate::ledge_trap::GetupAttack::NeutralAir
         );
         let forward =
             LiveConfig::parse("ledge_trap = true\nledge_getup_attack = FORWARD_TILT").unwrap();
@@ -780,7 +781,7 @@ mod tests {
     }
 
     #[test]
-    fn outward_throw_setting_is_optional_and_bundled_forward_tilt_is_selected() {
+    fn outward_throw_setting_is_optional_and_bundled_neutral_air_is_selected() {
         assert!(LiveConfig::default().ledge.throw_outward);
         assert!(
             !LiveConfig::parse("ledge_throw_outward = false")
@@ -796,7 +797,7 @@ mod tests {
         assert!(supplied.ledge.throw_outward);
         assert_eq!(
             supplied.ledge.getup_attack,
-            crate::ledge_trap::GetupAttack::ForwardTilt
+            crate::ledge_trap::GetupAttack::NeutralAir
         );
     }
 

@@ -68,9 +68,9 @@ ledge_drop_defense = true
 # No opponent is required. Enabled by default even when this key is omitted.
 # The sequence ends at ledge catch; choose your own follow-up. Y assist is separate.
 auto_ledge_trump = true
-# Normal get-up only: down_tilt (low poke) or forward_tilt (angled down).
-# Jump uses short-hop neutral air; roll uses dash attack; get-up attack uses Grab.
-ledge_getup_attack = forward_tilt
+# Normal get-up: neutral_air starts its hitbox about 3 frames before protection ends.
+# Legacy options: down_tilt / forward_tilt. Jump uses nair; roll uses down smash.
+ledge_getup_attack = neutral_air
 
 # Jump response: prepare the hop during launch, then timed neutral-stick+A in air.
 # Distance-agnostic mode uses vulnerability/recovery timing without reach prediction.

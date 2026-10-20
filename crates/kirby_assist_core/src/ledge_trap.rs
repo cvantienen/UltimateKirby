@@ -46,7 +46,7 @@ const GUARD_OFF: i32 = 0x1d;
 const GUARD_DAMAGE: i32 = 0x1e;
 const DOWN_TILT: i32 = 0x2c;
 const FORWARD_TILT: i32 = 0x2a;
-const DASH_ATTACK: i32 = 0x29;
+const DOWN_SMASH: i32 = 0x32;
 const ATTACK_AIR: i32 = 0x33;
 // Hash40("attack_air_n"); status ATTACK_AIR alone does not identify an aerial.
 const NEUTRAL_AIR_MOTION: u64 = 0xc3a4e2597;
@@ -54,6 +54,8 @@ const JUMP_SQUAT: i32 = 0xa;
 const NEUTRAL_AIR_FIRST: u8 = 8;
 const NEUTRAL_AIR_LAST: u8 = 32;
 const JUMP_SQUAT_FRAMES: u8 = 3;
+// Start nair hitboxes three frames before known normal-getup protection ends.
+const GETUP_NAIR_LEAD: f32 = 3.0;
 const GRAB_START: i32 = 0x37;
 const DASH_GRAB_START: i32 = 0x39;
 const TURN_GRAB_START: i32 = 0x3b;
@@ -77,19 +79,21 @@ pub fn grab_transition_term(status: i32) -> i32 {
     }
 }
 
-// Dash attack: active frames 9–34, with weakening late phases.
+// Kirby down smash: active frames 7–19 across its front/back phases.
 // https://ultimateframedata.com/kirby . Root reach is a conservative heuristic,
 // separate from grab tuning; this does not model the lunge/hitbox exactly.
-const ROLL_DASH_FIRST: u8 = 9;
-const ROLL_DASH_LAST: u8 = 34;
+const ROLL_SMASH_FIRST: u8 = 7;
+const ROLL_SMASH_LAST: u8 = 19;
 
-/// Grounded normal-getup punish. Forward tilt is angled down for low targets;
-/// choosing it does not change the neutral-air jump response, roll dash attack, or shield grabs.
+/// Normal-getup punish; short-hop neutral air is the default. Legacy forward tilt
+/// is angled down for low targets;
+/// choosing it does not change the neutral-air jump response, roll down smash, or shield grabs.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum GetupAttack {
-    #[default]
     DownTilt,
     ForwardTilt,
+    #[default]
+    NeutralAir,
 }
 
 /// Read-only animation timing; remaining values are converted to game frames.
@@ -199,7 +203,7 @@ pub struct LedgeSettings {
     pub distance_agnostic: bool,
     /// Maximum horizontal raw-stick magnitude in manual spacing mode.
     pub walk_strength: f32,
-    /// Root-position range for the roll dash attack.
+    /// Root-position range for the roll down smash.
     pub roll_dash_range: f32,
     pub auto_position: bool,
     /// Heuristic stage-side stance offset, not a universal optimal location.
@@ -222,7 +226,7 @@ impl Default for LedgeSettings {
         Self {
             enabled: false,
             drop_defense: true,
-            getup_attack: GetupAttack::DownTilt,
+            getup_attack: GetupAttack::NeutralAir,
             anti_air_range: 12.0,
             anti_air_height: 18.0,
             horizontal_range: 12.0,
@@ -322,6 +326,9 @@ pub struct LedgeContext {
     pub can_grab: bool,
     pub can_tilt: bool,
     pub can_dash_attack: bool,
+    pub can_down_smash: bool,
+    /// Learned mapped-input delay in advancing native game frames.
+    pub input_delay: f32,
     pub can_jump: bool,
     pub can_air_attack: bool,
     pub air_physics: Option<AirPhysics>,
@@ -363,7 +370,7 @@ enum Pending {
     None,
     DownTilt,
     ForwardTilt,
-    DashAttack,
+    DownSmash,
     NeutralAir,
     Grab,
 }
@@ -468,7 +475,8 @@ impl LedgeTrap {
             return "finished";
         }
         match self.plan {
-            OptionPlan::Watch => "watch_then_grounded_tilt",
+            OptionPlan::Watch if self.jump_committed => "normal_getup_nair",
+            OptionPlan::Watch => "watch_ledge",
             OptionPlan::NeutralAir if self.movement_preparing => "prepare_neutral_air",
             OptionPlan::NeutralAir => "short_hop_neutral_air",
             OptionPlan::Roll if !self.roll_phase.is_empty() => self.roll_phase,
@@ -519,6 +527,15 @@ impl LedgeTrap {
             self.shield_nair = false;
             self.getup_hitboxes_seen = false;
             self.getup_hitboxes_ended = false;
+        }
+    }
+    pub fn requested_attack_status(&self) -> Option<i32> {
+        match self.pending {
+            Pending::DownTilt => Some(DOWN_TILT),
+            Pending::ForwardTilt => Some(FORWARD_TILT),
+            Pending::DownSmash => Some(DOWN_SMASH),
+            Pending::NeutralAir => Some(ATTACK_AIR),
+            _ => None,
         }
     }
     /// Fresh pulses have a release gap and bounded retries. A pulse is not an
@@ -824,14 +841,14 @@ impl LedgeTrap {
         let tilting = match self.pending {
             Pending::DownTilt => status == DOWN_TILT,
             Pending::ForwardTilt => status == FORWARD_TILT,
-            Pending::DashAttack => status == DASH_ATTACK,
+            Pending::DownSmash => matches!(status, 0x30..=DOWN_SMASH),
             Pending::NeutralAir => status == ATTACK_AIR && ctx.motion_kind == NEUTRAL_AIR_MOTION,
             _ => false,
         };
         // A requested input is only an attempt. Native status confirms which
         // animation started; a grab additionally needs a captured opponent.
         self.finished |= match self.pending {
-            Pending::DashAttack => status == DASH_ATTACK && ctx.hit_confirmed,
+            Pending::DownSmash => status == DOWN_SMASH && ctx.hit_confirmed,
             Pending::DownTilt | Pending::ForwardTilt | Pending::NeutralAir => {
                 tilting && ctx.hit_confirmed
             }
@@ -982,13 +999,12 @@ impl LedgeTrap {
                 height: [-6.0, settings.anti_air_height],
                 front_only: false,
             };
+            // Complete an already committed hop once native aerial input is legal.
+            // An expired/unknown opponent recovery forecast must not strand a hop.
             if (settings.distance_agnostic
-                && window.timing_contact(enemy, enemy.actionable_in).is_some()
-                || !settings.distance_agnostic
-                    && jump_contact(window, ctx, enemy, false, self.jump_floor_y))
+                || jump_contact(window, ctx, enemy, false, self.jump_floor_y))
                 && self.try_tilt(Pending::NeutralAir)
             {
-                // Neutral stick is essential: directional A selects fair/bair.
                 out.requested = MAPPER_A;
             }
             return;
@@ -1030,7 +1046,9 @@ impl LedgeTrap {
                 || (enemy.position[0] - ctx.position[0]).abs() <= settings.anti_air_range
                     && (enemy.position[1] - ctx.position[1]).abs() <= settings.anti_air_height);
         let jump_timed = if settings.distance_agnostic {
-            window.timing_contact(enemy, enemy.actionable_in).is_some()
+            window
+                .timing_contact(ctx, enemy, enemy.actionable_in)
+                .is_some()
         } else {
             jump_contact(window, ctx, enemy, true, Some(ctx.position[1]))
         };
@@ -1240,8 +1258,7 @@ impl LedgeTrap {
         }
     }
 
-    /// Start a bounded dash toward a recognized roll, then pulse A from native
-    /// DASH/RUN when its lingering hitbox can cover the known vulnerability.
+    /// Approach a short-horizon roll endpoint, then down smash in recovery.
     fn respond_to_roll(
         &mut self,
         settings: LedgeSettings,
@@ -1254,16 +1271,11 @@ impl LedgeTrap {
         if ctx.situation != 0 {
             return;
         }
-        if enemy.status != CLIFF_ESCAPE && enemy.previous_status != CLIFF_ESCAPE {
+        if enemy.status != CLIFF_ESCAPE {
             self.roll_phase = "roll_punish_window_missed";
             return;
         }
-        let running = matches!(ctx.status, 0x3 | 0x4);
-        let lead = enemy
-            .vulnerable_in
-            .filter(|frames| frames.is_finite() && *frames >= 0.0)
-            .unwrap_or(0.0)
-            .min(f32::from(ROLL_DASH_FIRST));
+        let lead = enemy.actionable_in.unwrap_or(12.0).clamp(0.0, 12.0);
         let dx = predicted_offset(ctx, enemy, lead)[0];
         let direction = if dx.abs() > 0.5 {
             dx.signum()
@@ -1275,43 +1287,73 @@ impl LedgeTrap {
             stand_x: ctx.position[0],
             facing: direction,
         });
-        if running {
-            // A native dash is the only action state needed to send dash
-            // attack. Unknown protection/recovery and stage probes do not
-            // suppress the input once the roll has been recognized.
-            if !enemy.vulnerable
-                && enemy
-                    .vulnerable_in
-                    .is_some_and(|frames| frames.is_finite() && frames > f32::from(ROLL_DASH_LAST))
+        // Approach while there is still time. Once startup is due, attempting
+        // the punish takes precedence over a perfect spacing estimate.
+        let due = enemy.vulnerable
+            || enemy
+                .vulnerable_in
+                .is_some_and(|left| left <= f32::from(ROLL_SMASH_FIRST) + ctx.input_delay);
+        if dx.abs() > settings.roll_dash_range && !due {
+            self.roll_phase = "roll_close_attack_range";
+            let limit = if settings.distance_agnostic {
+                settings.follow_range
+            } else {
+                8.0
+            };
+            if ctx.can_act
+                && (settings.auto_position || settings.manual_spacing)
+                && dx.abs() <= settings.roll_dash_range + limit
+                && self
+                    .roll_dash_origin
+                    .is_none_or(|origin| (ctx.position[0] - origin).abs() < limit)
+                && ctx.safe_ground[usize::from(direction > 0.0)]
             {
-                out.stick = Some([direction, 0.0]);
-                self.roll_phase = "roll_wait_vulnerability";
-                return;
-            }
-            self.roll_phase = "roll_wait_attack_release";
-            if self.try_tilt(Pending::DashAttack) {
-                out.stick = Some([direction, 0.0]);
-                out.requested = MAPPER_A;
-                self.roll_phase = "roll_request_dash_attack";
+                self.prepare_roll_dash(ctx, direction, out);
             }
             return;
         }
-        let approach_limit = if settings.distance_agnostic {
-            settings.follow_range
-        } else {
-            8.0
+        let window = AttackWindow {
+            first: ROLL_SMASH_FIRST,
+            last: ROLL_SMASH_LAST,
+            range: settings.roll_dash_range,
+            height: [-6.0, 8.0],
+            front_only: false,
         };
-        let gap = enemy.position[0] - ctx.position[0];
-        self.roll_phase = "roll_start_dash";
-        if ctx.can_act
-            && ctx.safe_ground[usize::from(direction > 0.0)]
-            && gap.abs() <= settings.roll_dash_range + approach_limit
-            && (enemy.position[1] - ctx.position[1]).abs() <= 5.0
-            && self
-                .roll_dash_origin
-                .is_none_or(|origin| (ctx.position[0] - origin).abs() < approach_limit)
+        if window
+            .timing_contact(
+                ctx,
+                enemy,
+                enemy
+                    .actionable_in
+                    .or_else(|| enemy.motion.and_then(|m| m.remaining)),
+            )
+            .is_none()
         {
-            self.prepare_roll_dash(ctx, direction, out);
+            self.roll_phase = "roll_wait_vulnerability";
+            return;
+        }
+        // Release horizontal approach before the fresh down+A smash flick.
+        if self
+            .last_output
+            .stick
+            .is_some_and(|stick| stick[0].abs() > 0.1)
+        {
+            self.movement_preparing = true;
+            self.roll_phase = "roll_release_approach";
+            return;
+        }
+        if !ctx.can_down_smash && !self.tilt_in_progress {
+            // Neutral brakes the approach. Sending A during uncancellable dash
+            // would select dash attack rather than the requested down smash.
+            self.movement_preparing = true;
+            self.roll_phase = "roll_wait_smash_ready";
+            return;
+        }
+        self.roll_phase = "roll_wait_attack_release";
+        if !self.tilt_in_progress && self.try_tilt(Pending::DownSmash) {
+            out.stick = Some([0.0, -1.0]);
+            out.requested = MAPPER_A;
+            self.roll_phase = "roll_request_down_smash";
         }
     }
 
@@ -1341,6 +1383,89 @@ impl LedgeTrap {
         }
     }
 
+    /// Normal getup: stage the lingering nair before protection expires.
+    fn respond_to_normal_nair(
+        &mut self,
+        settings: LedgeSettings,
+        ctx: LedgeContext,
+        enemy: Opponent,
+        out: &mut LedgeOutput,
+    ) {
+        if !self.climb_seen || self.tilt_animations > 0 {
+            return;
+        }
+        let airborne = self.jump_committed && ctx.situation == 2;
+        if self.jump_committed {
+            out.stick = Some([0.0, 0.0]);
+            if ctx.status == JUMP_SQUAT {
+                return;
+            } // Release X for short hop.
+            if airborne {
+                self.jump_air_seen = true;
+                if matches!(ctx.status, 0xb | 0xe | 0xf)
+                    && ctx.can_air_attack
+                    && self.try_tilt(Pending::NeutralAir)
+                {
+                    out.requested = MAPPER_A;
+                }
+            }
+            // A committed hop completes even if the opponent's window changes.
+            // One actual hop/nair per visit; no landing chase or repeated jumps.
+            return;
+        }
+        if enemy.status != CLIFF_CLIMB || ctx.situation != 0 || !ctx.can_act || !ctx.can_jump {
+            return;
+        }
+        let Some(vulnerable_in) = (if enemy.vulnerable {
+            Some(0.0)
+        } else {
+            enemy.vulnerable_in
+        })
+        .filter(|left| left.is_finite() && (0.0..=120.0).contains(left)) else {
+            return;
+        };
+        // Jump and aerial A are separate mapped requests, each paying transport delay.
+        let first_active = f32::from(JUMP_SQUAT_FRAMES + NEUTRAL_AIR_FIRST) + 2.0 * ctx.input_delay;
+        if vulnerable_in > first_active + GETUP_NAIR_LEAD
+            || enemy
+                .actionable_in
+                .is_some_and(|left| !left.is_finite() || left <= first_active)
+        {
+            return;
+        }
+        if !settings.distance_agnostic {
+            let window = AttackWindow {
+                first: JUMP_SQUAT_FRAMES + NEUTRAL_AIR_FIRST,
+                last: JUMP_SQUAT_FRAMES + NEUTRAL_AIR_LAST,
+                range: settings.anti_air_range,
+                height: [-6.0, settings.anti_air_height],
+                front_only: false,
+            };
+            if !jump_contact(
+                window,
+                LedgeContext {
+                    input_delay: 2.0 * ctx.input_delay,
+                    ..ctx
+                },
+                enemy,
+                true,
+                Some(ctx.position[1]),
+            ) {
+                return;
+            }
+        }
+        if self.last_output.requested & (MAPPER_X | MAPPER_A) != 0
+            || self.jump_attempts >= MAX_ATTEMPTS
+        {
+            return;
+        }
+        self.jump_attempts += 1;
+        self.jump_committed = true;
+        self.jump_floor_y = Some(ctx.position[1]);
+        out.stick = Some([0.0, 0.0]);
+        out.requested = MAPPER_X;
+    }
+
     /// Position while hanging; prepare the selected grounded normal-getup tilt.
     fn watch_ledge(
         &mut self,
@@ -1357,6 +1482,10 @@ impl LedgeTrap {
         if is_hanging(enemy.status) && ctx.can_act {
             out.stick = Some([0.0, 0.6]);
             self.grounded_tilt_prepared = false;
+            return;
+        }
+        if settings.getup_attack == GetupAttack::NeutralAir {
+            self.respond_to_normal_nair(settings, ctx, enemy, out);
             return;
         }
         // Wait in place during a normal get-up. Only a bounded, eligible
@@ -1376,6 +1505,7 @@ impl LedgeTrap {
         let (pending, first, last) = match settings.getup_attack {
             GetupAttack::DownTilt => (Pending::DownTilt, 4, 6),
             GetupAttack::ForwardTilt => (Pending::ForwardTilt, 5, 8),
+            GetupAttack::NeutralAir => unreachable!("handled before grounded tilt selection"),
         };
         let forecast = AttackWindow {
             first,
@@ -1396,6 +1526,7 @@ impl LedgeTrap {
         let stick = match settings.getup_attack {
             GetupAttack::DownTilt => [0.0, -0.6],
             GetupAttack::ForwardTilt => [direction * 0.6, -0.3],
+            GetupAttack::NeutralAir => unreachable!("handled before grounded tilt selection"),
         };
         if aim * ctx.facing < -0.5 {
             if self.climb_seen
@@ -1546,6 +1677,7 @@ struct AttackWindow {
 impl AttackWindow {
     fn timing_contact(
         self,
+        ctx: LedgeContext,
         enemy: Opponent,
         actionable_in: Option<f32>,
     ) -> Option<PredictedContact> {
@@ -1554,7 +1686,7 @@ impl AttackWindow {
             last: u16::from(self.last),
         }
         .first_contact(
-            0.0,
+            ctx.input_delay,
             RecoveryWindow {
                 vulnerable_in: if enemy.vulnerable {
                     Some(0.0)
@@ -1575,7 +1707,7 @@ impl AttackWindow {
         ignore_distance: bool,
     ) -> Option<PredictedContact> {
         if ignore_distance {
-            self.timing_contact(enemy, actionable_in)
+            self.timing_contact(ctx, enemy, actionable_in)
         } else {
             self.contact_before(ctx, enemy, actionable_in)
         }
@@ -1592,7 +1724,7 @@ impl AttackWindow {
             last: u16::from(self.last),
         }
         .first_contact(
-            0.0,
+            ctx.input_delay,
             RecoveryWindow {
                 vulnerable_in: if enemy.vulnerable {
                     Some(0.0)
@@ -1623,7 +1755,7 @@ fn jump_contact(
         last: u16::from(window.last),
     }
     .first_contact(
-        0.0,
+        ctx.input_delay,
         RecoveryWindow {
             vulnerable_in: if enemy.vulnerable {
                 Some(0.0)
