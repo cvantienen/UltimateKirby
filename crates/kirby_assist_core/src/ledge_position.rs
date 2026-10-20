@@ -38,7 +38,8 @@ impl LedgePosition {
     }
     pub fn lock(&mut self, spot: Option<LedgeSpot>) {
         if self.spot.is_none() {
-            self.spot = spot;
+            self.spot = spot
+                .filter(|spot| spot.edge.iter().all(|v| v.is_finite()) && spot.inward.abs() == 1.0);
         }
     }
     pub fn action_name(&self) -> &'static str {
@@ -57,16 +58,13 @@ impl LedgePosition {
             *self = Self::default();
             return LedgeOutput::default();
         }
-        if self.last_tick == Some(tick) {
-            return self.output;
+        if self.last_tick.is_some_and(|last| tick < last) {
+            *self = Self::default();
         }
-        self.last_tick = Some(tick);
-        let mut out = LedgeOutput::default();
-        let Some(spot) = self.spot else {
-            self.output = out;
-            return out;
-        };
-        if !settings.auto_position
+        // Eligibility and cancellation must win over a duplicate-tick cache.
+        if !settings.enabled
+            || !ctx.held
+            || !settings.auto_position
             || !ctx.can_act
             || ctx.stopped
             || !ctx.gameplay
@@ -77,9 +75,18 @@ impl LedgePosition {
                 .all(|v| v.is_finite())
             || !ctx.facing.is_finite()
         {
+            self.output = LedgeOutput::default();
+            return self.output;
+        }
+        if self.last_tick == Some(tick) {
+            return self.output;
+        }
+        self.last_tick = Some(tick);
+        let mut out = LedgeOutput::default();
+        let Some(spot) = self.spot else {
             self.output = out;
             return out;
-        }
+        };
         out.owned = LEDGE_BUTTONS;
         out.stick = Some([0.0, 0.0]);
         let dx = spot.edge[0] + spot.inward * settings.stand_distance - ctx.position[0];
@@ -99,7 +106,10 @@ impl LedgePosition {
             if ctx.safe_ground[usize::from(dx > 0.0)] {
                 out.stick = Some([dx.signum() * strength, 0.0]);
             }
-        } else if self.settled && ctx.facing * -spot.inward < 0.0 {
+        } else if self.settled
+            && ctx.facing * -spot.inward < 0.0
+            && ctx.safe_ground[usize::from(-spot.inward > 0.0)]
+        {
             out.stick = Some([-spot.inward * 0.3, 0.0]);
         }
         self.output = out;
@@ -120,11 +130,18 @@ mod tests {
             status: 0,
             situation: 0,
             motion_frame: 0.0,
+            motion_kind: 1,
             position: [50.0, 0.0],
             velocity: [0.0, 0.0],
             facing: 1.0,
             previous_status: 0,
             can_grab: true,
+            can_tilt: true,
+            can_dash_attack: true,
+            can_jump: true,
+            can_air_attack: true,
+            air_physics: None,
+            short_hop_speed: None,
             shield_stun_frames: None,
             shield_attacker: None,
             hit_confirmed: false,
@@ -133,6 +150,7 @@ mod tests {
     }
     fn settings() -> LedgeSettings {
         LedgeSettings {
+            enabled: true,
             stand_distance: 10.0,
             ..LedgeSettings::default()
         }
@@ -195,5 +213,38 @@ mod tests {
         let out = nav.sample(1, displaced, settings());
         assert_eq!(out.requested, 0);
         assert_eq!(out.stick, Some([0.0, 0.0]));
+    }
+    #[test]
+    fn same_tick_damage_and_toggle_off_release_navigation_and_invalid_spots_are_rejected() {
+        let mut nav = LedgePosition::default();
+        nav.lock(Some(LedgeSpot {
+            edge: [f32::NAN, 0.0],
+            inward: 1.0,
+        }));
+        assert_eq!(nav.spot(), None);
+        nav.lock(Some(LedgeSpot {
+            edge: [60.0, 0.0],
+            inward: -1.0,
+        }));
+        let ctx = LedgeContext {
+            position: [20.0, 0.0],
+            ..context()
+        };
+        assert!(nav.sample(0, ctx, settings()).stick.unwrap()[0] > 0.0);
+        assert_eq!(
+            nav.sample(
+                0,
+                LedgeContext {
+                    can_act: false,
+                    ..ctx
+                },
+                settings()
+            ),
+            LedgeOutput::default()
+        );
+        assert_eq!(
+            nav.sample(0, LedgeContext { held: false, ..ctx }, settings()),
+            LedgeOutput::default()
+        );
     }
 }

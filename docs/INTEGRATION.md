@@ -1,4 +1,4 @@
-# Raw Pro Controller build: install, behavior, and verification
+# Raw controller build: install, behavior, and verification
 
 ## Current status
 
@@ -8,7 +8,7 @@ This build contains actual Switch hooks and raw controller-memory stick/button w
 
 This is a direct on-Switch mod. No extra controller hardware, Wi-Fi transport, or computer during play is required.
 
-The target is an actual Switch, a Pro Controller, and ZR mapped to Shield. Record the exact installed Smash version when reporting a problem. The unique instruction-signature search avoids assuming an old mapper address, but does not validate every internal structure for an arbitrary game version.
+The target is an actual Switch, the selected player input slot, and ZR mapped to Shield. Record the exact installed Smash version when reporting a problem. The unique instruction-signature search avoids assuming an old mapper address, but does not validate every internal structure for an arbitrary game version.
 
 ## What the buttons really are
 
@@ -33,8 +33,8 @@ The old live path also required a particular single-state SDK HID hook to run; o
 1. Fully close Smash.
 2. Choose `releases/kirby_assist-silent.zip` or `releases/kirby_assist-diagnostic.zip`. Copy its `atmosphere` and `ultimate` directories to the SD-card root, preserving the directory structure. Install only one; see [build variants](BUILD_VARIANTS.md).
 3. Confirm there is only one `libkirby_assist.nro` installed. Do not leave an older differently named copy of this mod in the plugins directory.
-4. Make your Pro Controller the first controller in Change Grip/Order (`npad_id = 0`). Use your normal control profile with ZR = Shield. This build supports the FullKey/Pro Controller input path; it does not support GameCube or individual Joy-Con paths.
-5. Start Smash and select Kirby for that controller. The code has no training-mode check. Use a reproducible local match for the initial test so the result can be inspected.
+4. Use local controller 1 (`player_index = 0`) with the required control mappings. Physical Npad identity selects the controller; its mapper slot is followed dynamically. Controller style is unrestricted.
+5. Start Smash and select your fighter. The code has no character or training-mode activation check. Move timings remain tuned for Kirby.
 
 The ZIP contains:
 
@@ -65,7 +65,7 @@ Edit `SD:/ultimate/kirby_assist/config.txt`, then restart Smash. No Rust editing
 | `takeover` | `false` | During analog mash, suppress physical action buttons and C-stick; during tech, own only ZR. The supplied config enables it. |
 | `auto_tech` | `true` | Request raw ZR on predicted contact, then throttle retries with the configured cooldown. |
 | `tech_debug` | `false` | Diagnostic build only: log native gate reasons and ZR edges. Its supplied config enables this; silent compiles the logger out. |
-| `npad_id` | `0` | Select one Pro Controller, numbered 0 through 7. |
+| `player_index` | `0` | Local physical controller number, 0 through 7. Its mapper slot is discovered dynamically; this is not the Arena battle position. |
 | `tech_lookahead_frames` | `3` | Collision-ray prediction horizon, 1 through 5; the included config uses 5. |
 | `tech_cooldown_frames` | `40` | Minimum observed input updates between automated ZR presses. |
 
@@ -81,7 +81,7 @@ Hold D-pad Left/Right for rapid crouch/release with slight left/right movement. 
 
 ### Auto mash
 
-The observer checks `ControlModule::get_clatter_time(object, 0)`. A positive value selects the mashable Clatter scenario. The live policy emits **Right → Up → Left → Down**, one normalized full-strength direction per distinct non-stopped mapper update. It emits no mash action buttons. Duplicate observations reuse the direction; exit, disable, reassignment, and clock reset cancel/restart the cycle. Hitstop publishes no mash stick and freezes progression.
+The observer checks `ControlModule::get_clatter_time(object, 0)`. A positive value selects the mashable Clatter scenario. The live policy emits **Right → Up → Left → Down**, one normalized full-strength direction per distinct non-stopped native progress sample (animation or remaining clatter timer). It emits no mash action buttons. Duplicate observations reuse the direction; exit, disable, reassignment, and clock reset cancel/restart the cycle. Hitstop publishes no mash stick and freezes progression.
 
 With the supplied `takeover = true`, physical A/B/X/Y/L/R/ZL/ZR and C-stick input are suppressed during the cycle to avoid mixing action inputs with stick mashing. With takeover false, physical buttons/C-stick remain available; the automated left stick still runs. At scenario exit, the mapper uses the current physical sticks/buttons. Mash has priority over D-pad stick tools while trapped; tech keeps its existing priority and ZR timing.
 
@@ -103,14 +103,14 @@ The 40-update cooldown is the mod's request-throttling setting. It is not presen
 
 ```text
 Game ControlModule query hook (returns original command flags unchanged)
-    discovers matching human Kirby through its controller ownership chain
+    discovers human fighter IDs and their controller ownership slots
+    → reads native state and publishes copied input proposals
                                │
                                ▼
 Raw controller-mapping hook
     captures fresh physical buttons; advances selected input-update counter
-    → resolves associated fighter's live accessor from its object ID
-    → refreshes clatter / swept collision prediction
-    → RawAutoControls → AssistEngine → analog mash stick or ZR request
+    → binds the selected physical controller to its current mapper slot
+    → refreshes that slot's callback-discovered, revalidated fighter
     → overlays left-stick floats/direction bits and raw button history
     → calls original mapper → restores physical controller structure
                                │
@@ -120,11 +120,34 @@ Smash's normal mapping, buffering, eligibility, and fighter logic
 
 `AssistRuntime` and the pretend-adapter examples remain useful for learning and host testing. The live path instead uses `RawAutoControls`/`AssistEngine` and overlays native stick values/button words. It does not rebuild the native controller from the core's limited `ControllerFrame`.
 
-The selected mapper's invocation counter advances on each matching connected controller-mapping call. Once associated, the fighter is evaluated at most once per input-update counter; subsequent command callbacks reuse that decision. The mapper refreshes before applying input, so it need not defer a newly detected opportunity to another mapping call. The v8 mapper also enumerates the fighter manager on first association, avoiding a wait for a later command callback. These are observed input updates, not a measured global simulation clock, and prediction-to-contact timing remains hardware-dependent.
+The selected mapper's invocation counter advances on each matching connected
+controller-mapping call. Live fighter command callbacks validate identity, query
+native observations and publish copied proposals. They also cache human fighter
+IDs by input slot, even before the selected controller's mapper is known. The
+mapper re-resolves and validates only a recently discovered fighter ID, then
+refreshes its state before mapping, as the working 1.0.4 path did. It never
+enumerates the fighter manager's roster.
 
-The mapper releases the shared lock before resolving or querying the game object, and again before invoking the original mapper. It re-resolves the accessor by active object ID rather than retaining a pointer across frames. Requests expire after 35 ms. Expiry removes the assist and emits any needed release history. Disconnect, reassignment, or raw Plus/Minus cancels assistance. Pause/resume and watchdog behavior still need device validation.
+The mapper selects physical Npad identity instead of assuming mapper index 0.
+The shared observation path validates active identity,
+controller ownership, and human control before publishing. Character kind and
+roster enumeration do not gate independent controls. A 250 ms observation gap
+resets the route, object association, overlay edge history, and tool state.
+Session tickets reject in-flight observations from an earlier epoch. Inactive
+objects and accessor identity mismatches are rejected before controller-chain
+access. Controller samples allow 250 ms of scheduling delay; attack proposals
+still expire after 35 ms. A mapper poll advancing during a native query no longer
+discards that observation; publication uses the latest mapper tick and rejects
+superseded native observations. Physical input passes through
+when no fresh eligible snapshot exists. Binding consumption uses the recent human
+route rather than the shorter attack-proposal expiry. A reentrancy guard prevents
+nested native observations during synchronous refresh. Native callbacks bootstrap
+discovery; input-callback timing and the first actionable frame need hardware
+measurement. These observed updates are not a verified global simulation clock.
 
-Player routing follows `npad_number` → mapper input index → fighter controller ownership chain. CPU fighters are excluded. Only one configured Pro Controller and human Kirby are supported, independently of game mode.
+Player routing follows configured physical controller → actual mapper slot →
+human fighter ownership chain. CPU fighters are excluded. Character and battle
+mode do not gate activation. Current move timings and ranges remain tuned for Kirby.
 
 ## Read the status log before changing code
 
@@ -145,11 +168,10 @@ SD:/ultimate/kirby_assist/status.log
 | `mapper observed index ...` | Shows the controller ID, style, connection, and configured ID; useful for correcting routing. |
 | `Pro Controller npad ... mapped ... raw mapper reads confirmed` | The configured Pro Controller has reached the mapper hook. |
 | `fighter controller ownership chain unavailable ...` | No valid index was resolved yet; persistent absence of fighter confirmation needs investigation. |
-| `selected controller is not Kirby ...` | This build still has a Kirby-only fighter scope; game mode is unrestricted. |
-| `observing human Kirby ...` | A matching human Kirby is reaching the observer. |
+| `observing human fighter ...` | The selected controller's fighter is reaching the observer, regardless of character. |
 | `scenario: mashable=true ...` | The native clatter timer is positive. |
 | `predicted_tech_collision=true` | The heuristic found an eligible nearby collision. |
-| `raw Pro Controller mapper button overlay confirmed` | The raw button trace was changed before mapping. This does not prove the game accepted an action. |
+| `raw controller mapper button overlay confirmed` | The raw button trace was changed before mapping. This does not prove the game accepted an action. |
 
 The diagnostic first line identifies `Kirby Assist diagnostic build v17`. An earlier version identifies an older plugin. An unchanged old file is expected when switching to silent.
 
@@ -159,7 +181,7 @@ The log resets at launch. It records scenario changes and first confirmations, n
 
 A spike is not automatically a legal tech opportunity. In Ultimate, a meteor hit on an already-grounded standing opponent cannot be floor-teched. An airborne hit into the floor is a different case and can still be untechable depending on the native collision/knockback rules. Compare a manually successful ZR tech in the exact same setup before treating the failed automation as a timing failure. [SmashWiki tech mechanics](https://www.ssbwiki.com/Tech)
 
-In the diagnostic build with `tech_debug = true`, the mod queues state-change diagnostics and writes them after the original mapper consumes the input. These do not print every frame:
+In the diagnostic build with `tech_debug = true`, the mod queues state-change diagnostics after the mapper consumes the input. A bounded background writer batches console/SD writes; the gameplay callbacks do not perform that I/O. Ledge wait snapshots are capped at two per second; action changes and input edges remain immediate queue events:
 
 | Diagnostic | Meaning |
 | --- | --- |
@@ -224,7 +246,7 @@ See [build variants](BUILD_VARIANTS.md) for individual Cargo commands, the optio
 
 ## Opponent ledge observations (source addition)
 
-The mapper enumerates fighter-manager entries and tracks one nearby non-team opponent through its ledge option. Click L3 to toggle the policy and nearest-ledge preparation. Mash/tech retain priority. See [LEDGE_TRAP.md](LEDGE_TRAP.md) for controls, limits, and Pichu-on-FD test cases. No release NRO/ZIP was produced for v17.
+The mapper enumerates fighter-manager entries and tracks one nearby non-team opponent through its ledge option. Hold Y for conditional automatic responses with manual capped spacing; hold L3 separately for turbo creep/teabag. Releasing each button disengages its own tool. Y is consumed before jump mapping. D-pad Left/Right now request short-hop/horizontal-air-dodge slide attempts. The supplied mode does not navigate or turn Kirby for you. Mash/tech retain priority. See [LEDGE_TRAP.md](LEDGE_TRAP.md) for controls and limits. These new bindings are source-only and have not been built. The older local builds under `target/manual-spacing/` and existing release packages retain their previous controls.
 
 Observations now include target motion kind/frame/rate/end, native previous status, invincibility expiry, attack presence, root positions/velocity, Kirby's velocity and hit flag, shield history, catch readiness, and floor support. All game queries remain outside STATE's mutex. Four added read-only declarations match the pinned primary bindings: MotionModule rate/end_frame and AttackModule is_infliction_status/is_attack. The HIT mask is 0x2. No status/timer/velocity writes were added.
 
@@ -236,24 +258,42 @@ Shield retains its continuous ZR hold and release-aware R buffer. Pushback pursu
 
 Diagnostic snapshots add target motion/rate, previous status, observed speed, selected grounded move, and own hit confirmation. Detailed snapshots can update on target animation frames when tech_debug is true. Silent excludes their construction. Both variants keep the existing analog mash, tech, and turbo behavior. Copy the updated config with the new plugin; an old explicit stance=6 overrides the new default.
 
-## Match-introduction and teardown guards (unbuilt source)
+Controller routing now follows the working 1.0.4 physical-controller selection:
+`player_index=0` selects the Player 1 Npad and follows its actual mapper slot.
+The legacy `npad_id` key remains an alias. Controller style and character are
+unrestricted. Unlike 1.0.4, bootstrap discovery does not enumerate fighters in
+the mapper: native callbacks cache human routes and roster IDs, and synchronous
+refresh revalidates those IDs. Install the rebuilt plugin before testing.
 
-Both hooks now bypass assistance outside ready gameplay. The mapper checks the
-global native `sv_information::is_ready_go()` flag before dereferencing its
-controller wrapper or discovering fighters; a null/result-mode FighterManager
-also blocks assistance. The command hook returns the game's original flags
-without observation outside that scope. Ordinary input mapping still runs.
-This deliberately excludes the VS introduction, pre-GO countdown and results.
+## Online warm-up transition hardening (source update)
 
-Leaving the scope ends the session: cached fighter association, mapper routing,
-connection freshness, output ownership and the L3 toggle are cleared. Invalid
-controller styles/disconnection now return immediately after cancellation rather
-than falling through to fighter discovery. Fighter observation checks active ID
-and matching current module accessor before following the nested control chain.
+The reported symptom is a crash between online warm-up and the fighter reveal.
+The previous mapper path could enumerate partially initialized fighter entries
+or follow a cached fighter's module pointers during that transition. This audit
+removed fighter queries from the mapper, added session invalidation, moved
+active/accessor identity checks ahead of controller
+pointer traversal, and limited ledge opponent scans to held-Y operation. Invalid
+roster counts and stale fighter-entry identities now fail closed. Nonfinite poses
+do not reach native ground rays, and missing motion metadata does not invoke a
+protection-frame query with an invalid motion hash. Pointer-chain
+null/sentinel/alignment checks do not establish memory lifetime; that is why
+native callbacks and the lifecycle gates are also required. The later
+mode-compatibility fix stopped using the global ready-go flags as hard gates:
+the mapper now samples Player 1 independently of those flags or manager roster
+readiness. The native callback validates active identity and human input ownership.
+Roster enumeration is used only for ledge opponent selection. The CPU/human
+information query also runs during a revalidated pre-map refresh. Observation gaps expire
+the session across loading transitions.
 
-The global-ready FFI signature matches the pinned skyline-smash binding; its
-implementation does not require a fighter pointer. These are defenses against
-transition lifetime errors, not confirmation of a specific crash cause. An
-Atmosphere crash report/backtrace is required to identify the faulting module
-and offset. Formatting was checked; no build, packaging or hardware validation
-was performed. Re-enable L3 after gameplay begins; no mode persists across menus.
+Diagnostic stdout errors are ignored instead of using `println!`, whose output
+failure could panic across a native hook. The diagnostic performance follow-up
+moves file/console writes into a bounded background logger; see
+[diagnostic performance](BUILD_VARIANTS.md#diagnostic-performance). File I/O errors remain nonfatal.
+
+Host tests cover warm-up/loading/match session tickets and invalid controller
+chain addresses. Both root compilation paths are checked without generating an
+NRO. There is no crash report or on-device verification of this source update,
+so these are fixes for identified hazards, not proof of the exact crash cause or
+a guarantee of online stability. The patch does not bypass network validation,
+change simulation states, or establish network compatibility on every game/mod
+combination. Rebuild and install the patch before retesting the transition.

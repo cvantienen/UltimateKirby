@@ -47,6 +47,132 @@ impl InputSequence<'_> {
     }
 }
 
+/// A reactive combo step: send one input, then wait for the requested native
+/// action (and optionally its hit). A rejected input or whiff cannot advance it.
+#[derive(Clone, Copy, Debug)]
+pub struct ConfirmedStep {
+    pub recipe: InputRecipe,
+    pub accepted_status: i32,
+    pub require_hit: bool,
+    pub timeout_frames: u16,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SequenceObservation {
+    /// A real simulation-frame ID supplied by the adapter, never a hook count.
+    pub frame: u64,
+    pub target: u32,
+    pub status: i32,
+    pub can_act: bool,
+    pub hit_confirmed: bool,
+    pub stopped: bool,
+    pub interrupted: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SequenceState {
+    Ready,
+    WaitingForConfirmation,
+    Complete,
+    Cancelled,
+}
+
+/// Building block for measured combos. Not wired to live playback slots: each
+/// combo still needs a verified trigger, simulation clock and move/hit evidence.
+pub struct ConfirmedSequence<'a> {
+    steps: &'a [ConfirmedStep],
+    target: u32,
+    index: usize,
+    issued: bool,
+    age: u64,
+    last_frame: Option<u64>,
+    state: SequenceState,
+    output: InputRecipe,
+}
+
+impl<'a> ConfirmedSequence<'a> {
+    pub fn new(steps: &'a [ConfirmedStep], target: u32) -> Self {
+        Self {
+            steps,
+            target,
+            index: 0,
+            issued: false,
+            age: 0,
+            last_frame: None,
+            state: if steps.is_empty() {
+                SequenceState::Complete
+            } else {
+                SequenceState::Ready
+            },
+            output: InputRecipe::NONE,
+        }
+    }
+
+    pub fn state(&self) -> SequenceState {
+        self.state
+    }
+
+    pub fn sample(&mut self, observation: SequenceObservation) -> InputRecipe {
+        // Cancellation wins over the duplicate-frame cache, including damage
+        // or target reassignment between callbacks in the same simulation frame.
+        if observation.interrupted
+            || observation.target != self.target
+            || self.last_frame.is_some_and(|last| observation.frame < last)
+        {
+            self.state = SequenceState::Cancelled;
+        }
+        if matches!(
+            self.state,
+            SequenceState::Complete | SequenceState::Cancelled
+        ) {
+            return InputRecipe::NONE;
+        }
+        if observation.stopped {
+            self.last_frame = Some(observation.frame);
+            self.output = InputRecipe::NONE;
+            return self.output;
+        }
+        if self.last_frame == Some(observation.frame) {
+            return self.output;
+        }
+        let elapsed = self.last_frame.map_or(0, |last| observation.frame - last);
+        self.last_frame = Some(observation.frame);
+        self.output = InputRecipe::NONE;
+        let step = self.steps[self.index];
+        self.age = self.age.saturating_add(elapsed);
+        if self.issued {
+            if self.age > u64::from(step.timeout_frames.max(1)) {
+                self.state = SequenceState::Cancelled;
+                return self.output;
+            }
+            if observation.status == step.accepted_status
+                && (!step.require_hit || observation.hit_confirmed)
+            {
+                self.index += 1;
+                self.issued = false;
+                self.age = 0;
+                self.state = if self.index == self.steps.len() {
+                    SequenceState::Complete
+                } else {
+                    SequenceState::Ready
+                };
+                // Separate confirmation and the next request by a release frame.
+                return self.output;
+            }
+            if self.age >= u64::from(step.timeout_frames.max(1)) {
+                self.state = SequenceState::Cancelled;
+            }
+        } else if self.age >= u64::from(step.timeout_frames.max(1)) {
+            self.state = SequenceState::Cancelled;
+        } else if observation.can_act && observation.status != step.accepted_status {
+            self.output = step.recipe;
+            self.issued = true;
+            self.state = SequenceState::WaitingForConfirmation;
+        }
+        self.output
+    }
+}
+
 // Compiled only by cargo test on the host; these assertions are not live
 // Switch logging or gameplay callbacks. Add regressions here for new behavior.
 #[cfg(test)]

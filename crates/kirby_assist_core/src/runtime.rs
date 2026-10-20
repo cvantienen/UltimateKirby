@@ -13,14 +13,19 @@ pub struct AssistRuntime {
 impl AssistRuntime {
     /// Call once per simulation frame, using fresh human input rather than the
     /// previous merged output. The adapter owns frame counters and resets them
-    /// on scenario re-entry. Missing state cancels this frame with no write.
+    /// on scenario re-entry. Missing fighter state releases to fresh human input when available.
     pub fn process_frame(&self, adapter: &mut impl GameAdapter) -> Option<FrameDecision> {
         // `?` unwraps Some(value), or returns None immediately if a read fails.
-        // No output is written on that path. An adapter retaining output across
-        // frames must provide its own cancellation/watchdog for missing data.
-        let context = adapter.read_context()?;
-        let observation = adapter.observe_fighter()?;
+        // A missing human input read cannot safely reconstruct physical input;
+        // adapters retaining output need a watchdog for that particular path.
         let human = adapter.read_human_input()?;
+        let Some((context, observation)) = adapter.read_context().zip(adapter.observe_fighter())
+        else {
+            // Fresh physical input is available: release any previous recipe
+            // even when a fighter observation/context disappears during loading.
+            adapter.write_merged_input(human);
+            return None;
+        };
         // &self reads configuration; &mut adapter permits the later output
         // write. The engine returns a value rather than holding that mutable
         // borrow across observation or input application.
@@ -121,6 +126,7 @@ mod tests {
         adapter.human = Some(human);
         adapter.context = None;
         assert!(runtime.process_frame(&mut adapter).is_none());
-        assert_eq!(adapter.writes.len(), count);
+        assert_eq!(adapter.writes.len(), count + 2);
+        assert_eq!(adapter.writes.last(), Some(&human));
     }
 }

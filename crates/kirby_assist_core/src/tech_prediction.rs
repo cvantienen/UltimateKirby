@@ -61,6 +61,9 @@ pub fn tech_probes(x: f32, y: f32, vx: f32, vy: f32, horizon: f32) -> [Option<Co
     if ![x, y, vx, vy, horizon].iter().all(|v| v.is_finite()) || !(1.0..=5.0).contains(&horizon) {
         return probes;
     }
+    if ![vx * horizon, vy * horizon].iter().all(|v| v.is_finite()) {
+        return probes;
+    }
     // Side offsets and wall heights approximate Kirby's body. These constants
     // are not queried collision bounds; slopes/platform motion remain heuristic.
     // velocity * horizon sweeps ahead rather than checking only the current point.
@@ -145,6 +148,7 @@ mod tests {
             (f32::NAN, 5.0),
             (2.0, 0.0),
             (2.0, f32::INFINITY),
+            (f32::MAX, 5.0),
         ] {
             assert!(tech_probes(0.0, 0.0, vx, 0.0, horizon)
                 .iter()

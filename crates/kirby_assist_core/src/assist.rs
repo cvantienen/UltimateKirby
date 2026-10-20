@@ -270,9 +270,22 @@ mod tests {
     }
 
     #[test]
-    fn local_kirby_is_allowed_without_any_game_mode_requirement() {
-        assert!(crate::AssistScope::default().allows(LOCAL_KIRBY));
+    fn local_fighters_are_allowed_without_a_character_or_game_mode_requirement() {
+        for fighter in [FighterKind::Kirby, FighterKind::Other, FighterKind::Unknown] {
+            assert!(crate::AssistScope::default().allows(RunContext {
+                fighter,
+                ..LOCAL_KIRBY
+            }));
+        }
         assert!(!crate::AssistScope::default().allows(RunContext {
+            is_locally_human_controlled: false,
+            ..LOCAL_KIRBY
+        }));
+        assert!(!crate::AssistScope {
+            require_kirby: true,
+            ..crate::AssistScope::default()
+        }
+        .allows(RunContext {
             fighter: FighterKind::Other,
             ..LOCAL_KIRBY
         }));

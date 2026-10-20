@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build/package both logging variants without installing anything on a Switch.
+"""Build/package logging variants. Upload separately with tools/upload_switch.py.
 
 This uses only Python 3.11+'s standard library. Run it from any working directory;
 ROOT comes from this script's own location, not the shell's current directory.
@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 from pathlib import Path
 import subprocess
 import tomllib
@@ -67,6 +68,14 @@ def read_release_summary() -> bytes:
     return description.encode("utf-8")
 
 
+def variant_release_summary(variant: str) -> bytes:
+    """Label the packaged summary while preserving the Cargo description body."""
+    if variant not in ("silent", "diagnostic"):
+        raise ValueError("Release summary requires a single build variant")
+    heading = f"Kirby Assist {RELEASE_VERSION}\nBuild: {variant.upper()}\n\n"
+    return heading.encode("utf-8") + read_release_summary()
+
+
 def documentation_files() -> dict[str, bytes]:
     """Package the maintained guides and assets without a hard-coded page list."""
     docs = ROOT / "docs"
@@ -86,7 +95,7 @@ def documentation_files() -> dict[str, bytes]:
 def build_variant(name: str, env: dict[str, str]) -> Path:
     """Compile once, then snapshot the result before the next build overwrites it."""
     diagnostic = name == "diagnostic"
-    summary = read_release_summary()
+    summary = variant_release_summary(name)
     command = ["cargo", "skyline", "build", "--release", "--no-default-features"]
     if diagnostic:
         command += ["--features", "diagnostic-logging"]
@@ -119,43 +128,23 @@ Close Smash fully. Copy atmosphere/ and ultimate/ to the SD-card root, replacing
 this mod's plugin/config. Install ONE variant at a time: both use the same .nro
 name and destination. Do not rename them and install both together.
 
-Use the first Pro Controller (npad_id = 0), human Kirby, and ZR mapped to Shield.
-Gameplay policy is shared: left-stick mash, tech, and directional turbo crouch.
-Mash cycles Right/Up/Left/Down every distinct mashable input update, with no
-automated action buttons. Supplied takeover blocks physical action buttons and
-C-stick during mash, then restores them. See docs/ANALOG_MASH.md for device checks.
-Hold D-pad Left/Right for turbo crouch with slight movement that direction.
-Both held cancels movement; release restores physical stick. Side taunts are
-consumed during valid gameplay. Runs only in normal grounded movement for Kirby.
-Tune turbo_phase_frames / turbo_walk_strength in the config and restart Smash.
-Hold the left-stick click (L3) near an opponent hanging at ledge for reactive ledge assistance.
-Tap D-pad Down for a run-off ledge-catch/trump attempt, with no opponent required.
-The nearest floor edge is detected independently (up to 100 world units).
-Control returns at ledge catch; choose your own follow-up. The feature defaults
-on; auto_ledge_trump=false restores Down taunt. This remains Kirby-only.
-See docs/LEDGE_TRUMP.md for starting conditions and device-test limits.
-With ledge_drop_defense=true (default), L3 also shields witnessed ledge-drop
-double-jump/aerial approaches without walking in or grabbing blindly.
-Release L3 to choose a manual punish after blocking. See docs/LEDGE_TRAP.md.
+Use the Player 1 controller (player_index = 0), human Kirby, and ZR mapped to Shield.
+Gameplay policy is shared between the silent and diagnostic variants.
+Hold Y for ledge assist and manual walk spacing; release Y to disengage.
+Hold L3 separately for facing-direction creep/turbo teabag.
+Tap D-pad Left/Right for one short-hop/downward-angled-air-dodge slide attempt;
+hold to repeat when native landing recovery allows. Tap Down for ledge trump.
 Requires A=Attack, X=Jump, R=Grab, ZR=Shield, Tap Jump OFF.
-Start near the ledge; coverage depends on spacing and native action timing. See docs/LEDGE_TRAP.md for scope/limitations and docs/TURBO_CONTROLS.md for turbo.
-The ledge policy needs hardware testing. 1.0.0 predicts active-window reach and
-invincibility expiry, pursues normal get-up/roll/jump travel, and retries attacks.
-The supplied stance is 12 units inward: copy the new config with the new plugin.
-The supplied responses are downward-angled forward_tilt for normal get-up,
-neutral_air for ledge jump, and down_smash after shielding get-up attack.
-Down tilt, neutral air, and shield grab remain selectable in config.txt.
-1.0.0 fixes idle being mistaken for hanging, recovers missed option transitions,
-removes extra tilt retry delay, and predicts shield-grab reach/protection.
-With ledge_throw_outward=true, a confirmed capture gets a directional throw
-toward the remembered ledge. After recovery Kirby returns to his ledge stance.
-1.0.0 acquires anchors in catch/catch-move as well as hang, retains identity
-through two missing mapper observations without acting on stale data, tapers
-movement near targets, and uses stance hysteresis to reduce oscillation.
-Normal get-up uses a configurable minimum/approach/outer spacing band. Roll uses
-approach, brake, face, and ready phases so a failed timing gate stays neutral.
-Tilt, jump, and grab pursuit separations are independently configurable.
-No frame-perfect/unavoidable coverage is claimed. See docs/LEDGE_TRAP.md.
+Native readiness and vulnerability gate automatic responses. You space normal
+and jump get-up responses; roll approaches automatically. See the controls docs.
+Collision coverage and frame-perfect timing require device testing.
+Upload separately with tools/upload_switch.py IP -v {RELEASE_VERSION} -s (silent)
+or -d (diagnostic). Before replacing the installed config, release summary,
+optional source ZIP and plugin NRO, the uploader saves their previous installed
+bytes to ultimate/kirby_assist/bak/ and verifies every backup.
+It then overwrites and verifies the new files at their original destinations.
+The flat bak directory keeps one previous installed set, overwritten each upload.
+Other files remain untouched. Building never uploads.
 
 
 Silent: no explicit plugin file/console logger, startup log creation, or detailed
@@ -208,7 +197,7 @@ Read docs/BUILD_VARIANTS.md for scope, build commands, and hardware verification
         legacy = stage / legacy_name
         if legacy.is_file():
             legacy.unlink()
-    output = ROOT / "releases" / f"kirby_assist-{name}.zip"
+    output = ROOT / "releases" / f"kirby_assist-{RELEASE_VERSION}-{name}.zip"
     # Stage 3: Python compresses the already compiled files here. The ZIP is
     # an SD-card folder bundle, not another program or another compilation.
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -226,9 +215,9 @@ Read docs/BUILD_VARIANTS.md for scope, build commands, and hardware verification
     return output
 
 def copy_release_output(source: Path, destination: Path) -> None:
-    """Refresh silent NRO/config without deleting earlier source backups."""
+    """Copy one variant's plugin, config and summary into its own flat folder."""
     destination.mkdir(parents=True, exist_ok=True)
-    for file in (PLUGIN, CONFIG):
+    for file in (PLUGIN, CONFIG, Path(RELEASE_SUMMARY_NAME)):
         target = destination / file.name
         target.write_bytes((source / file).read_bytes())
     print(f"Copied {source} to {destination}", flush=True)
@@ -272,34 +261,44 @@ def create_source_backup(destination: Path) -> Path:
     print(f"Verified source backup {output}: {len(source_files)} files", flush=True)
     return output
 
-def main() -> None:
+def parse_options(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--variant", choices=("all", "silent", "diagnostic"), default="all")
+    parser.add_argument("-v", "--variant", choices=("all", "silent", "diagnostic"), default="all",
+                        help="Build variant (default: all — silent and diagnostic)")
     parser.add_argument("--cargo-home", type=Path, help="Optional isolated Cargo cache")
-    # --variant silent/diagnostic selects one package; the default "all" builds
-    # both in order. --cargo-home changes dependency cache location only, not
-    # runtime configuration or which gameplay features the plugin contains.
-    options = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main() -> None:
+    options = parse_options()
     summary = read_release_summary()
     summary_path = ROOT / "releases" / RELEASE_SUMMARY_NAME
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_bytes(summary)
-    env = os.environ.copy()  # Do not mutate the caller's shell configuration.
+    env = os.environ.copy()
     if options.cargo_home:
         env["CARGO_HOME"] = str(options.cargo_home.expanduser().resolve())
     variants = ("silent", "diagnostic") if options.variant == "all" else (options.variant,)
     latest_build = ROOT.parent / f"Latestbuild-{RELEASE_VERSION}"
-    for variant in variants:  # Keep builds sequential: their Cargo output path is shared.
+    for variant in variants:  # Sequential: Cargo output path is shared.
         build_variant(variant, env)
-        if variant == "silent":
-            copy_release_output(
-                ROOT / "releases" / variant,
-                latest_build,
-            )
-    latest_build.mkdir(parents=True, exist_ok=True)
-    (latest_build / RELEASE_SUMMARY_NAME).write_bytes(summary)
-    print(f"Copied release summary to {latest_build / RELEASE_SUMMARY_NAME}", flush=True)
-    create_source_backup(latest_build)
+    # Publish each selected variant separately. A single-variant build never
+    # refreshes the other variant or copies its NRO from a shared target path.
+    for variant in variants:
+        copy_release_output(ROOT / "releases" / variant, latest_build / variant)
+    # Source is identical for both feature selections. Archive it once, then
+    # copy those exact verified bytes into the other selected variant folder.
+    source_archive = create_source_backup(latest_build / variants[0])
+    with source_archive.open("rb") as archive_file:
+        source_hash = hashlib.file_digest(archive_file, "sha256").digest()
+    for variant in variants[1:]:
+        target = latest_build / variant / source_archive.name
+        shutil.copy2(source_archive, target)
+        with target.open("rb") as archive_file:
+            if hashlib.file_digest(archive_file, "sha256").digest() != source_hash:
+                raise RuntimeError(f"Source backup copy differs: {target}")
+        print(f"Copied verified source backup to {target}", flush=True)
+
 
 
 if __name__ == "__main__":

@@ -113,7 +113,7 @@ impl LedgeTrump {
         if self.last_tick.is_some_and(|last| tick < last) {
             *self = Self::default();
         }
-        if self.last_tick == Some(tick) {
+        if self.last_tick == Some(tick) && self.last_context == Some(ctx) && self.held == down {
             return self.output;
         }
         self.last_tick = Some(tick);
@@ -164,10 +164,15 @@ impl LedgeTrump {
                 }
             && (ctx.position[1] - attempt.anchor[1]).abs() <= 16.0
             && attempt.updates <= 120;
-        // Grounded movement or ordinary fall only: damage, jumps and attacks
-        // immediately hand back control. No forced recovery or follow-up attack.
+        // Native stop makes can_act false even during an otherwise valid run.
+        // Freeze that attempt; damage/attacks still cancel, including in stop.
+        let supported_state =
+            crate::manual_controls::turbo_movement_allowed(ctx.status, ctx.situation, false)
+                || ctx.situation == 2 && ctx.status == FALL;
         if !bounded
-            || !(ctx.can_act && ctx.situation == 0 || ctx.situation == 2 && ctx.status == FALL)
+            || !supported_state
+            || !ctx.stopped
+                && !(ctx.can_act && ctx.situation == 0 || ctx.situation == 2 && ctx.status == FALL)
         {
             self.attempt = None;
             return self.output;
@@ -255,11 +260,18 @@ mod tests {
             status: 0,
             situation: 0,
             motion_frame: 0.0,
+            motion_kind: 1,
             position: [8.0, 0.0],
             velocity: [0.0, 0.0],
             facing: -1.0,
             previous_status: 0,
             can_grab: true,
+            can_tilt: true,
+            can_dash_attack: true,
+            can_jump: true,
+            can_air_attack: true,
+            air_physics: None,
+            short_hop_speed: None,
             shield_stun_frames: None,
             shield_attacker: None,
             hit_confirmed: false,
@@ -504,5 +516,25 @@ mod tests {
             // Native history must not reintroduce the down-taunt action.
             assert_eq!(suppress_reserved_taunts(0x1000 | 1, consumed), 1);
         }
+    }
+    #[test]
+    fn hitstop_preserves_a_run_but_same_tick_damage_cancels_cached_movement() {
+        let mut state = LedgeTrump::default();
+        let ctx = context();
+        assert_ne!(state.sample(true, 0, true, ctx, Some(edge())).owned, 0);
+        let stopped = LedgeContext {
+            stopped: true,
+            can_act: false,
+            ..ctx
+        };
+        assert_eq!(state.sample(true, 1, false, stopped, None).owned, 0);
+        assert_ne!(state.sample(true, 2, false, ctx, None).owned, 0);
+        let damage = LedgeContext {
+            status: 0x49,
+            can_act: false,
+            ..ctx
+        };
+        assert_eq!(state.sample(true, 2, false, damage, None).owned, 0);
+        assert_eq!(state.sample(true, 3, false, ctx, None).owned, 0);
     }
 }

@@ -6,6 +6,7 @@
 //! Flow: parse text settings -> advance scenario/cooldown history once per
 //! observed mapper update -> evaluate presets -> choose a mash stick or ZR press.
 //! Extend detection in src/live.rs and raw translation in native_input.rs too.
+use crate::combo::{ComboSettings, ComboStarter};
 use crate::ledge_trap::LedgeSettings;
 use crate::manual_controls::TurboSettings;
 use crate::{
@@ -75,11 +76,14 @@ impl Default for LiveSettings {
 #[derive(Clone, Copy, Debug)]
 pub struct LiveConfig {
     pub auto_ledge_trump: bool,
+    pub dpad_slide: bool,
+    pub combo: ComboSettings,
     pub controls: LiveSettings,
     pub turbo: TurboSettings,
     pub ledge: LedgeSettings,
-    /// Switch controller number, not fighter entry ID or mapper input index.
-    pub npad: u32,
+    /// Local physical controller number: 0 = Player 1. Its game mapper slot
+    /// is discovered dynamically; battle participant position is irrelevant.
+    pub player_index: u32,
     /// Linear velocity horizon for collision rays; not a complete physics model.
     pub lookahead: f32,
 }
@@ -87,10 +91,12 @@ impl Default for LiveConfig {
     fn default() -> Self {
         Self {
             auto_ledge_trump: true,
+            dpad_slide: true,
+            combo: ComboSettings::default(),
             controls: LiveSettings::default(),
             turbo: TurboSettings::default(),
             ledge: LedgeSettings::default(),
-            npad: 0,
+            player_index: 0,
             lookahead: 3.0,
         }
     }
@@ -114,6 +120,23 @@ impl LiveConfig {
             let (key, value) = line.split_once('=').ok_or_else(invalid)?;
             let value = value.trim();
             match key.trim() {
+                "combo_enabled" => config.combo.enabled = value.parse().map_err(|_| invalid())?,
+                "combo_starter" => {
+                    config.combo.starter = match value {
+                        "grab" => ComboStarter::Grab,
+                        "down_air" => ComboStarter::DownAir,
+                        _ => return Err(invalid()),
+                    }
+                }
+                "combo_max_start_percent" => {
+                    config.combo.max_start_percent = value.parse().map_err(|_| invalid())?
+                }
+                "combo_grab_range" => {
+                    config.combo.grab_range = value.parse().map_err(|_| invalid())?
+                }
+                "combo_fair_range" => {
+                    config.combo.fair_range = value.parse().map_err(|_| invalid())?
+                }
                 "auto_ledge_trump" => {
                     config.auto_ledge_trump = value.parse().map_err(|_| invalid())?
                 }
@@ -130,6 +153,8 @@ impl LiveConfig {
                 // config still loads. Analog mashing advances every update.
                 "mash_interval_frames" | "alternate_mash" | "mash_buttons_per_frame" => {}
                 "takeover" => config.controls.takeover = value.parse().map_err(|_| invalid())?,
+                "dpad_slide" => config.dpad_slide = value.parse().map_err(|_| invalid())?,
+                "l3_turbo" => config.turbo.enabled = value.parse().map_err(|_| invalid())?,
                 "ledge_trap" => config.ledge.enabled = value.parse().map_err(|_| invalid())?,
                 "ledge_drop_defense" => {
                     config.ledge.drop_defense = value.parse().map_err(|_| invalid())?
@@ -159,6 +184,18 @@ impl LiveConfig {
                 "ledge_follow_vertical_range" => {
                     config.ledge.follow_vertical_range = value.parse().map_err(|_| invalid())?
                 }
+                "ledge_distance_agnostic" => {
+                    config.ledge.distance_agnostic = value.parse().map_err(|_| invalid())?
+                }
+                "ledge_manual_spacing" => {
+                    config.ledge.manual_spacing = value.parse().map_err(|_| invalid())?
+                }
+                "ledge_walk_strength" => {
+                    config.ledge.walk_strength = value.parse().map_err(|_| invalid())?
+                }
+                "ledge_roll_dash_range" | "ledge_roll_smash_range" => {
+                    config.ledge.roll_dash_range = value.parse().map_err(|_| invalid())?
+                }
                 "ledge_auto_position" => {
                     config.ledge.auto_position = value.parse().map_err(|_| invalid())?
                 }
@@ -183,7 +220,7 @@ impl LiveConfig {
                 }
                 // Compatibility only: ignore removed aerial settings in old SD
                 // configs so their presence cannot disable mash/tech/ledge tools.
-                // Ledge jumps now always use short-hop neutral air.
+                // Ledge jumps now use a confirmed short hop into back air.
                 "ledge_jump_response"
                 | "ledge_fair_range"
                 | "ledge_fair_vertical_range"
@@ -212,12 +249,31 @@ impl LiveConfig {
                 "turbo_walk_strength" => {
                     config.turbo.walk_strength = value.parse().map_err(|_| invalid())?
                 }
-                "npad_id" => config.npad = value.parse().map_err(|_| invalid())?,
+                "player_index" | "npad_id" => {
+                    config.player_index = value.parse().map_err(|_| invalid())?
+                }
                 "tech_lookahead_frames" => {
                     config.lookahead = value.parse().map_err(|_| invalid())?
                 }
                 _ => return Err(invalid()),
             }
+        }
+        if !config.ledge.walk_strength.is_finite()
+            || !(0.1..=0.45).contains(&config.ledge.walk_strength)
+            || !config.ledge.roll_dash_range.is_finite()
+            || !(1.0..=20.0).contains(&config.ledge.roll_dash_range)
+        {
+            return Err(
+                "ledge walk strength must be finite 0.1..0.45; roll smash range 1..20".into(),
+            );
+        }
+        if !config.combo.max_start_percent.is_finite()
+            || !(0.0..=50.0).contains(&config.combo.max_start_percent)
+            || [config.combo.grab_range, config.combo.fair_range]
+                .iter()
+                .any(|r| !r.is_finite() || !(1.0..=20.0).contains(r))
+        {
+            return Err("combo percent must be 0..50 and ranges finite 1..20".into());
         }
         // Validate after parsing so all paths share the same bounds. Floating
         // point parsing accepts NaN/infinity, hence is_finite in addition to range
@@ -271,11 +327,11 @@ impl LiveConfig {
                 "turbo_phase_frames must be 1..10; turbo_walk_strength must be 0.05..0.6".into(),
             );
         }
-        if config.npad > 7
+        if config.player_index > 7
             || !config.lookahead.is_finite()
             || !(1.0..=5.0).contains(&config.lookahead)
         {
-            return Err("npad_id must be 0..7; tech_lookahead_frames must be 1..5".into());
+            return Err("player_index must be 0..7; tech_lookahead_frames must be 1..5".into());
         }
         Ok(config)
     }
@@ -339,6 +395,13 @@ impl RawAutoControls {
         *self = Self::default();
     }
 
+    /// Stop/unknown native timing releases cached pulses without forgetting
+    /// cooldowns. Resuming the same frozen animation must not replay a press.
+    pub fn pause_inputs(&mut self) {
+        self.proposed = 0;
+        self.mash_stick = None;
+    }
+
     // Convenience entry for host examples that assume the previous ZR output
     // was released. The live adapter calls update_with_buttons with real history.
     pub fn update(
@@ -386,6 +449,13 @@ impl RawAutoControls {
         // the proposal prevents those queries from advancing the mash pattern
         // or using up cooldown multiple times before input is actually mapped.
         if self.last_tick == Some(input_tick) {
+            // Cancellation/readiness changes outrank cached timed output.
+            if !clatter_active || !settings.auto_mash {
+                self.mash_stick = None;
+            }
+            if !tech_opportunity || !settings.auto_tech {
+                self.proposed = 0;
+            }
             return self.proposed;
         }
         self.last_tick = Some(input_tick);
@@ -437,14 +507,13 @@ impl RawAutoControls {
                 ScenarioSample::EMPTY,
             ],
         };
-        // The live adapter has already established human control and Kirby
-        // identity before calling this policy; these context values reflect that
-        // contract rather than discovering those facts from a controller mask.
+        // The live adapter has established local human input ownership. Raw
+        // controls apply to every fighter; no character identity is required.
         let decision = AssistEngine.evaluate(
             config,
             RunContext {
                 is_locally_human_controlled: true,
-                fighter: FighterKind::Kirby,
+                fighter: FighterKind::Unknown,
             },
             observation,
             ControllerFrame::default(),
@@ -546,7 +615,7 @@ mod tests {
             "../../../deployment/ultimate/kirby_assist/config.txt"
         ))
         .unwrap();
-        assert_eq!(config.npad, 0);
+        assert_eq!(config.player_index, 0);
         assert!(config.controls.takeover);
         assert!(config.controls.auto_mash && config.controls.auto_tech);
     }
@@ -622,22 +691,26 @@ mod tests {
         ))
         .unwrap();
         assert!(config.ledge.enabled);
-        assert_eq!(config.ledge.horizontal_range, 12.0);
+        assert_eq!(config.ledge.horizontal_range, 20.0);
         assert_eq!(config.ledge.vertical_range, 10.0);
-        assert_eq!(config.ledge.tilt_range, 7.0);
-        assert_eq!(config.ledge.grab_range, 6.0);
+        assert_eq!(config.ledge.tilt_range, 15.0);
+        assert_eq!(config.ledge.grab_range, 9.0);
         assert_eq!(config.ledge.follow_range, 40.0);
         assert_eq!(config.ledge.follow_vertical_range, 48.0);
-        assert!(config.ledge.auto_position);
-        assert_eq!(config.ledge.stand_distance, 8.0);
+        assert!(!config.ledge.auto_position);
+        assert!(config.ledge.manual_spacing);
+        assert_eq!(config.ledge.walk_strength, 0.35);
+        assert_eq!(config.ledge.roll_dash_range, 10.0);
+        assert_eq!(config.ledge.stand_distance, 10.0);
         assert_eq!(config.ledge.move_strength, 0.65);
         assert_eq!(config.ledge.grab_buffer_frames, 3);
         assert_eq!(config.ledge.grab_button, crate::native_input::MAPPER_R);
-        assert_eq!(config.ledge.anti_air_range, 8.0);
+        assert_eq!(config.ledge.anti_air_range, 12.0);
         assert_eq!(config.ledge.anti_air_height, 18.0);
         assert!(config.turbo.enabled);
-        assert_eq!(config.turbo.phase_frames, 1);
-        assert_eq!(config.turbo.walk_strength, 0.25);
+        assert!(config.dpad_slide);
+        assert_eq!(config.turbo.phase_frames, 2);
+        assert_eq!(config.turbo.walk_strength, 0.35);
         assert_eq!(config.lookahead, 5.0);
     }
 
@@ -732,7 +805,7 @@ mod tests {
         let config = LiveConfig::parse("ledge_trap = true\nledge_grab_button = l\nledge_jump_response = fair\nledge_fair_range = 11.0\nledge_fair_vertical_range = 10.0\nledge_fair_delay_frames = 0.0\nledge_fair_lead_frames = 4.0\nledge_fair_jump_squat_buffer = true\nledge_fair_buffer_frame = 1.0").unwrap();
         assert!(config.ledge.enabled);
         assert_eq!(config.ledge.grab_button, crate::native_input::MAPPER_L);
-        assert_eq!(config.ledge.anti_air_range, 8.0);
+        assert_eq!(config.ledge.anti_air_range, 12.0);
         assert!(config.controls.auto_mash);
         assert!(config.controls.auto_tech);
     }
@@ -755,7 +828,7 @@ mod tests {
         assert!(!config.controls.enabled);
         assert!(!config.controls.auto_tech);
         assert!(config.controls.auto_mash);
-        assert_eq!(config.npad, 2);
+        assert_eq!(config.player_index, 2);
         assert_eq!(config.lookahead, 4.0);
         for invalid in [
             "enabled = yes",
@@ -959,6 +1032,42 @@ mod tests {
         );
         for value in ["NaN", "inf", "1", "101", "wrong"] {
             assert!(LiveConfig::parse(&format!("ledge_roll_distance = {value}")).is_err());
+        }
+    }
+    #[test]
+    fn manual_spacing_config_rejects_nonfinite_and_dash_strength_settings() {
+        for source in [
+            "ledge_walk_strength = NaN",
+            "ledge_walk_strength = 0.46",
+            "ledge_walk_strength = 0.0",
+            "ledge_roll_smash_range = inf",
+            "ledge_roll_smash_range = 0.0",
+            "ledge_manual_spacing = maybe",
+        ] {
+            assert!(LiveConfig::parse(source).is_err(), "{source}");
+        }
+        let config = LiveConfig::parse(
+            "ledge_manual_spacing = true\nledge_walk_strength = 0.4\nledge_roll_smash_range = 8.5",
+        )
+        .unwrap();
+        assert!(config.ledge.manual_spacing);
+        assert_eq!(config.ledge.walk_strength, 0.4);
+        assert_eq!(config.ledge.roll_dash_range, 8.5);
+    }
+    #[test]
+    fn player_slot_defaults_to_player_one_and_accepts_legacy_config_key() {
+        assert_eq!(LiveConfig::default().player_index, 0);
+        assert_eq!(
+            LiveConfig::parse("player_index = 0").unwrap().player_index,
+            0
+        );
+        assert_eq!(
+            LiveConfig::parse("player_index = 3").unwrap().player_index,
+            3
+        );
+        assert_eq!(LiveConfig::parse("npad_id = 2").unwrap().player_index, 2);
+        for invalid in ["player_index = 8", "player_index = -1"] {
+            assert!(LiveConfig::parse(invalid).is_err());
         }
     }
 }

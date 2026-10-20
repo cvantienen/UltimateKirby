@@ -120,7 +120,7 @@ impl Default for AssistScope {
     fn default() -> Self {
         Self {
             require_locally_human_controlled: true,
-            require_kirby: true,
+            require_kirby: false,
         }
     }
 }

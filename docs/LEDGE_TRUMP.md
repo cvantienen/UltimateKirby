@@ -3,12 +3,12 @@
 Install build 1.0.1 or later and tap D-pad Down while grounded and actionable. No
 opponent is required. The feature defaults on, including with older configs
 that omit `auto_ledge_trump`. Set it to false to restore Down taunt.
-This feature uses the existing human Kirby/Pro Controller scope.
+This feature uses the existing human Kirby/player-input scope.
 
 On activation only, native floor-support rays search both directions up to 100
 world units for the nearest boundary of Kirby's current floor. The nearer edge
 wins regardless of facing; equal distances prefer the direction Kirby faces.
-There is no opponent or L3 acquisition-range requirement. An undetected edge
+There is no opponent or Y-assist acquisition-range requirement. An undetected edge
 means no movement, but Down taunt is still consumed. Start on the main flat
 stage floor: this finds collision edges, not proof of a grabbable native cliff.
 Platforms, slopes, moving terrain and irregular stages need device testing.
@@ -33,7 +33,7 @@ These observations are not a verified simulation-frame timer. Plus/Minus uses
 the existing cancellation path. A failed catch hands back physical control;
 there is no automated recovery. Tap again after release for another attempt.
 
-L3 continues to activate the existing ledge trap. Trump takes priority over L3
+Holding Y activates the ledge assist; L3 only controls turbo teabag. Trump takes priority over Y assist and L3
 and side-D-pad turbo while active; mash and tech retain priority. Down taunt is
 reserved while the feature is enabled. Disable the setting to restore it.
 
@@ -41,7 +41,7 @@ Diagnostic builds identify the root Cargo package version at startup. `trump inp
 gameplay scope, request freshness, phase and stick output when Down is pressed.
 `trump mapped:` logs final mapped buttons and stick, after taunt suppression.
 If Down still taunts, check the loaded NRO/version, SD config, selected fighter
-(Kirby), Pro Controller and `npad_id`. A host build cannot verify the SD install.
+(Kirby), selected player input slot and `player_index`. A host build cannot verify the SD install.
 
 The run-off/Down/inward approach follows the manual technique demonstrated in
 [How To Ledge Trump Like A Pro](https://www.youtube.com/watch?v=V6B0g3a0KpU).

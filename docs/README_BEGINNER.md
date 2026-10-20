@@ -2,7 +2,7 @@
 
 ## 1. What you have right now
 
-The project now has a decision system **and an implemented Switch input path**. The live path observes the controlled Kirby and applies raw mash and ZR button states to raw Pro Controller memory before mapping. It is a compiled test candidate that still needs verification on the actual Switch. Choose a [silent or diagnostic build](BUILD_VARIANTS.md), then start with [INTEGRATION.md](INTEGRATION.md) to install it; you do not need to write an adapter yourself for the included tools.
+The project now has a decision system **and an implemented Switch input path**. The live path observes the controlled Kirby and applies raw mash and ZR button states to raw controller memory before mapping. It is a compiled test candidate that still needs verification on the actual Switch. Choose a [silent or diagnostic build](BUILD_VARIANTS.md), then start with [INTEGRATION.md](INTEGRATION.md) to install it; you do not need to write an adapter yourself for the included tools.
 
 This guide teaches the reusable Rust core and a pretend adapter so you can understand and extend it. The generic `AssistRuntime` path shown below is educational. The live code in `src/live.rs` instead passes requests between a game-state callback and a raw controller-mapping callback; [the live architecture](INTEGRATION.md#the-actual-live-architecture) explains that difference.
 
@@ -11,7 +11,7 @@ This guide teaches the reusable Rust core and a pretend adapter so you can under
 | Auto-tech and auto-mash settings | Yes | Describe when to propose Shield or Attack. |
 | Scenario priority, timing, and merging | Yes | Select and combine logical assistance with player input. |
 | Demonstration adapter | Yes | Simulate game data using ordinary variables. |
-| Live Switch hooks | Yes, device verification pending | Observe human Kirby and modify raw Pro Controller button states and press/release history. |
+| Live Switch hooks | Yes, device verification pending | Observe human Kirby and modify raw controller button states and press/release history. |
 | SD-card config loader | Yes | Set tool toggles, controller ID, and timing at startup. |
 | In-game settings menu | No | No interactive settings menu is implemented. |
 | Scenario-triggered recorded playback | No | Sequence sampling exists, but recording/playback is not connected. |
@@ -77,7 +77,7 @@ There is no root Cargo workspace declaration here. Use `--manifest-path` when yo
 
 For the code that actually runs on Switch, start with `crates/kirby_assist_core/src/ledge_trap.rs`. `src/live.rs` collects native observations, calls that policy, and passes its requested controls to `ManualOverlay`. The generic teaching flow below illustrates the reusable engine; it is not the exact hook sequence of the live mod.
 
-The ledge policy keeps its normal-get-up and roll responses grounded. Read `sample`, then `evaluate`, then the response method selected by `OptionPlan`: `watch_ledge`, `respond_to_jump`, `respond_to_roll`, or `respond_to_getup_attack`. `observe_action` checks startup, actual hit/capture, and whiff recovery; `choose_response` remembers the option even when Kirby is busy. `AttackWindow` uses approximate future reach and reported invincibility expiry, while `target_velocity` supplements native speed with animation-timed root movement. A requested button is an attempt: an attack animation is different from a confirmed hit, and a grab animation is different from capturing an opponent. `GetupAttack` selects down tilt or downward-angled forward tilt for normal get-up; ledge jump uses short-hop neutral air.
+The ledge policy keeps its normal-get-up and roll responses grounded. Read `sample`, then `evaluate`, then the response method selected by `OptionPlan`: `watch_ledge`, `respond_to_jump`, `respond_to_roll`, or `respond_to_getup_attack`. `observe_action` checks startup, actual hit/capture, and whiff recovery; `choose_response` remembers the option even when Kirby is busy. `AttackWindow` uses approximate future reach and reported invincibility expiry, while `target_velocity` supplements native speed with animation-timed root movement. A requested button is an attempt: an attack animation is different from a confirmed hit, and a grab animation is different from capturing an opponent. `GetupAttack` selects down tilt or downward-angled forward tilt for normal get-up; ledge jump uses short-hop back air.
 
 `LedgeContext` is the input data, `LedgeSettings` is the tuning, and `LedgeOutput` is the proposed result. `requested` names the buttons to hold; `owned` names the buttons the assist replaces, including releases. Native status constants give names to game state numbers. Host regression examples live separately in `src/ledge_trap/tests.rs` inside the core crate.
 
@@ -196,7 +196,7 @@ In the runtime:
 let context = adapter.read_context()?;
 ```
 
-`?` unwraps `Some(context)` and continues. If the result is `None`, it immediately returns `None` from `process_frame`. The observation and human-input reads work the same way, so no write occurs if any required read is unavailable.
+`?` unwraps `Some(context)` and continues. If the result is `None`, it immediately returns `None` from `process_frame`. If fighter context or observation is missing but fresh human input is available, the runtime writes that human input to release the previous assist. If human input itself is unavailable, the adapter needs its own watchdog.
 
 This is a normal unavailable-state path, not an exception. The adapter still owns cleanup of previously cached game output.
 

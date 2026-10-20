@@ -11,6 +11,8 @@ use super::*;
 fn settings() -> LedgeSettings {
     LedgeSettings {
         enabled: true,
+        manual_spacing: false,
+        distance_agnostic: false,
         ..LedgeSettings::default()
     }
 }
@@ -24,11 +26,18 @@ fn context() -> LedgeContext {
         status: 0,
         situation: 0,
         motion_frame: 0.0,
+        motion_kind: 0,
         position: [0.0, 0.0],
         velocity: [0.0, 0.0],
         facing: 1.0,
         previous_status: 0,
         can_grab: true,
+        can_tilt: true,
+        can_dash_attack: true,
+        can_jump: true,
+        can_air_attack: true,
+        air_physics: None,
+        short_hop_speed: None,
         shield_stun_frames: None,
         shield_attacker: None,
         hit_confirmed: false,
@@ -48,6 +57,8 @@ fn enemy(status: i32, vulnerable: bool) -> Opponent {
         vulnerable_in: None,
         motion: None,
         attack_active: None,
+        air_physics: None,
+        actionable_in: None,
     }
 }
 // &mut retains one state machine across successive calls; constructing a new
@@ -446,7 +457,7 @@ fn shield_grab_refuses_out_of_range_or_invincible_opponents() {
             2,
             guard,
             Opponent {
-                position: [8.0, 0.0],
+                position: [8.5, 0.0],
                 ..attack
             }
         )
@@ -472,49 +483,17 @@ fn shield_grab_refuses_out_of_range_or_invincible_opponents() {
     );
 }
 #[test]
-fn rolls_never_down_tilt_and_are_punished_only_after_exit_and_at_grab_range() {
-    let mut state = LedgeTrap::default();
-    assert_eq!(
-        step(&mut state, 0, context(), enemy(CLIFF_ESCAPE, false)).requested,
-        0
-    );
-    let far = Opponent {
-        position: [9.0, 0.0],
-        ..enemy(0, true)
-    };
-    let wait = step(&mut state, 1, context(), far);
-    assert_eq!(wait.stick, Some([0.65, 0.0]));
-    assert_eq!(wait.requested, 0);
-    assert_eq!(
-        step(&mut state, 2, context(), enemy(0, true)).requested,
-        MAPPER_R
-    );
-    let guard = LedgeContext {
-        status: 0x1c,
-        can_act: false,
-        ..context()
-    };
-    assert_eq!(
-        step(&mut state, 3, guard, enemy(0, true)).requested,
-        MAPPER_ZR
-    );
-    assert_eq!(
-        step(&mut state, 5, guard, enemy(0, true)).requested,
-        MAPPER_ZR | MAPPER_R
-    );
-}
-#[test]
-fn crossed_up_roll_turns_before_entering_shield() {
+fn rolls_do_not_grab_or_smash_after_the_punish_window_has_closed() {
     let mut state = LedgeTrap::default();
     step(&mut state, 0, context(), enemy(CLIFF_ESCAPE, false));
-    let behind = Opponent {
-        position: [-5.0, 0.0],
-        ..enemy(0, true)
-    };
-    let turn = step(&mut state, 1, context(), behind);
-    assert_eq!(turn.requested, 0);
-    assert_eq!(turn.stick, Some([-0.3, 0.0]));
+    for tick in 1..8 {
+        let out = step(&mut state, tick, context(), enemy(0, true));
+        assert_eq!(out.requested, 0);
+        assert_eq!(out.stick, Some([0.0, 0.0]));
+    }
+    assert_eq!(state.action_name(), "roll_punish_window_missed");
 }
+
 #[test]
 fn down_tilt_prepares_during_invincibility_but_never_uses_acquisition_range_as_reach() {
     let mut state = LedgeTrap::default();
@@ -543,7 +522,7 @@ fn down_tilt_prepares_during_invincibility_but_never_uses_acquisition_range_as_r
     );
     let mut state = LedgeTrap::default();
     let far = Opponent {
-        position: [10.0, 0.0],
+        position: [10.5, 0.0],
         ..enemy(CLIFF_CLIMB, true)
     };
     for tick in 0..5 {
@@ -561,7 +540,7 @@ fn vulnerable_hang_does_not_precommit_an_attack_before_a_roll_or_jump() {
     }
     let roll = step(&mut state, 8, context(), enemy(CLIFF_ESCAPE, false));
     assert_eq!(roll.requested, 0);
-    assert_eq!(roll.stick, Some([0.0, 0.0]));
+    assert_eq!(roll.stick, Some([1.0, 0.0]));
 }
 #[test]
 fn release_damage_and_target_loss_stop_owned_inputs() {
@@ -593,7 +572,7 @@ fn input_retries_are_bounded_and_stopped_polls_do_not_expire_the_target() {
     for tick in 0..15 {
         presses += usize::from(step(&mut state, tick, context(), climb).requested == MAPPER_A);
     }
-    assert_eq!(presses, 3);
+    assert_eq!(presses, usize::from(MAX_ATTEMPTS));
     for tick in 15..100 {
         step(
             &mut state,
@@ -694,7 +673,7 @@ fn tracked_jump_survives_acquisition_box_without_requesting_an_aerial_sequence()
     assert!(in_tracking_range(settings(), [0.0, 0.0], rising, true));
     let pursuit = step(&mut state, 1, context(), rising);
     assert_eq!(state.target(), Some(2));
-    assert_eq!(pursuit.stick, Some([0.65, 0.0]));
+    assert_eq!(pursuit.stick, Some([settings().move_strength, 0.0]));
     assert_eq!(pursuit.requested, 0);
     let airborne = LedgeContext {
         status: 0xb,
@@ -705,61 +684,7 @@ fn tracked_jump_survives_acquisition_box_without_requesting_an_aerial_sequence()
     };
     assert_eq!(step(&mut state, 2, airborne, rising).owned, 0);
 }
-#[test]
-fn roll_travel_is_followed_beyond_acquisition_range_without_attacking_during_roll() {
-    let mut state = LedgeTrap::default();
-    step(&mut state, 0, context(), enemy(CLIFF_ESCAPE, false));
-    let travel = Opponent {
-        position: [28.0, 0.0],
-        velocity: [2.0, 0.0],
-        ..enemy(CLIFF_ESCAPE, false)
-    };
-    let following = step(&mut state, 1, context(), travel);
-    assert_eq!(following.requested, 0);
-    assert_eq!(following.stick, Some([0.65, 0.0]));
-    assert_eq!(state.target(), Some(2));
-    let unsupported = LedgeContext {
-        safe_ground: [true, false],
-        ..context()
-    };
-    assert_eq!(
-        step(&mut state, 2, unsupported, travel).stick,
-        Some([0.0, 0.0])
-    );
-    let endpoint = Opponent {
-        position: [28.0, 0.0],
-        ..enemy(0, true)
-    };
-    let closed = LedgeContext {
-        position: [22.0, 0.0],
-        ..context()
-    };
-    assert_eq!(step(&mut state, 3, closed, endpoint).requested, MAPPER_R);
-    step(
-        &mut state,
-        4,
-        LedgeContext {
-            status: 0x1c,
-            can_act: false,
-            ..closed
-        },
-        endpoint,
-    );
-    assert_eq!(
-        step(
-            &mut state,
-            6,
-            LedgeContext {
-                status: 0x1c,
-                can_act: false,
-                ..closed
-            },
-            endpoint
-        )
-        .requested,
-        MAPPER_ZR | MAPPER_R
-    );
-}
+
 #[test]
 fn previous_guard_damage_recovers_a_missed_shieldstun_observation() {
     let mut state = LedgeTrap::default();
@@ -838,7 +763,10 @@ fn shield_pushback_releases_guard_closes_distance_and_grabs_without_reentering()
         ..context()
     };
     assert_eq!(step(&mut state, 3, off, far).requested, 0);
-    assert_eq!(step(&mut state, 4, context(), far).stick, Some([0.65, 0.0]));
+    assert_eq!(
+        step(&mut state, 4, context(), far).stick,
+        Some([settings().move_strength, 0.0])
+    );
     let closed = LedgeContext {
         position: [5.0, 0.0],
         ..context()
@@ -944,125 +872,34 @@ fn direct_r_grab_gets_fresh_edges_even_if_the_physical_r_button_is_held() {
     );
     assert_eq!(applied.buttons.released & MAPPER_R, MAPPER_R);
 }
+
 #[test]
-fn default_jump_response_requests_short_hop_neutral_air_at_the_predicted_window() {
+fn neutral_air_waits_for_vertical_reach_before_starting_short_hop() {
     let mut state = LedgeTrap::default();
-    let config = LedgeSettings {
-        enabled: true,
-        ..LedgeSettings::default()
+    let ctx = LedgeContext {
+        facing: -1.0,
+        ..context()
     };
-    let hang = state.sample(config, 0, context(), Some(enemy(CLIFF_WAIT, true)));
-    assert_eq!(hang.stick, Some([0.0, 0.6]));
-    assert_eq!(hang.requested, 0);
-    let jump = Opponent {
-        situation: 2,
-        position: [5.0, 8.0],
-        ..enemy(CLIFF_JUMP1, true)
-    };
-    let attack = state.sample(config, 1, context(), Some(jump));
-    assert_eq!(attack.stick, Some([0.0, 0.0]));
-    assert_eq!(attack.requested, MAPPER_X | MAPPER_A);
-    state.sample(
-        config,
-        2,
-        LedgeContext {
-            status: ATTACK_AIR,
-            hit_confirmed: true,
-            can_act: false,
-            ..context()
-        },
-        Some(jump),
-    );
-    assert_eq!(state.action_name(), "finished");
-}
-#[test]
-fn grounded_anti_air_waits_neutral_until_a_jump_rises_into_reach() {
-    let mut state = LedgeTrap::default();
-    let config = LedgeSettings {
-        enabled: true,
-        ..LedgeSettings::default()
-    };
+    step(&mut state, 0, ctx, enemy(CLIFF_WAIT, false));
     let low = Opponent {
         situation: 2,
         position: [5.0, -12.0],
         ..enemy(CLIFF_JUMP1, true)
     };
-    // Acquire via a hanging snapshot first, then follow the rising target.
-    state.sample(config, 0, context(), Some(enemy(CLIFF_WAIT, true)));
-    let waiting = state.sample(config, 1, context(), Some(low));
-    assert_eq!(waiting.stick, Some([0.0, 0.0]));
-    assert_eq!(waiting.requested, 0);
-    let in_reach = Opponent {
+    assert_eq!(step(&mut state, 1, ctx, low).requested, 0);
+    let high = Opponent {
         position: [5.0, 5.0],
         ..low
     };
-    assert_eq!(
-        state.sample(config, 2, context(), Some(in_reach)).requested,
-        MAPPER_X | MAPPER_A
-    );
+    assert_eq!(step(&mut state, 2, ctx, high).requested, MAPPER_X);
 }
-#[test]
-fn neutral_air_range_invulnerability_and_release_gates_are_respected() {
-    let mut state = LedgeTrap::default();
-    let config = LedgeSettings {
-        enabled: true,
-        ..LedgeSettings::default()
-    };
-    let jump = Opponent {
-        position: [-5.0, 8.0],
-        situation: 2,
-        ..enemy(CLIFF_JUMP1, false)
-    };
-    let prepare = state.sample(config, 0, context(), Some(jump));
-    assert_eq!(prepare.requested, 0);
-    assert_eq!(prepare.stick, Some([0.0, 0.0]));
-    let protected = Opponent {
-        vulnerable: false,
-        vulnerable_in: Some(40.0),
-        ..jump
-    };
-    assert_eq!(
-        state
-            .sample(config, 1, context(), Some(protected))
-            .requested,
-        0
-    );
-    let high = Opponent {
-        position: [-5.0, 30.0],
-        ..jump
-    };
-    assert_eq!(state.sample(config, 2, context(), Some(high)).requested, 0);
-    assert_eq!(
-        state
-            .sample(
-                config,
-                3,
-                context(),
-                Some(Opponent {
-                    vulnerable: true,
-                    ..jump
-                })
-            )
-            .requested,
-        MAPPER_X | MAPPER_A
-    );
-    assert_eq!(
-        state.sample(
-            config,
-            4,
-            LedgeContext {
-                held: false,
-                ..context()
-            },
-            Some(jump)
-        ),
-        LedgeOutput::default()
-    );
-}
+
 #[test]
 fn grab_retries_after_one_release_update_without_the_attack_cooldown() {
     let mut state = LedgeTrap::default();
-    step(&mut state, 0, context(), enemy(CLIFF_ESCAPE, false));
+    step(&mut state, 0, context(), enemy(CLIFF_ATTACK, false));
+    state.plan = OptionPlan::Shield { blocked: true };
+    state.shield_pursuing = true;
     assert_eq!(
         step(&mut state, 1, context(), enemy(0, true)).requested,
         MAPPER_R
@@ -1103,7 +940,9 @@ fn an_early_grab_buffer_does_not_consume_the_fresh_ready_guard_budget() {
 #[test]
 fn whiffed_grab_animation_is_not_capture_and_can_retry_on_recovery() {
     let mut state = LedgeTrap::default();
-    step(&mut state, 0, context(), enemy(CLIFF_ESCAPE, false));
+    step(&mut state, 0, context(), enemy(CLIFF_ATTACK, false));
+    state.plan = OptionPlan::Shield { blocked: true };
+    state.shield_pursuing = true;
     let target = enemy(0, true);
     assert_eq!(step(&mut state, 1, context(), target).requested, MAPPER_R);
     let startup = LedgeContext {
@@ -1124,16 +963,18 @@ fn whiffed_grab_animation_is_not_capture_and_can_retry_on_recovery() {
     assert_eq!(step(&mut state, 5, context(), target).requested, 0);
 }
 #[test]
-fn actual_grab_whiff_retries_are_bounded_to_three_animation_starts() {
+fn actual_grab_whiff_retries_are_bounded_to_six_animation_starts() {
     let mut state = LedgeTrap::default();
-    step(&mut state, 0, context(), enemy(CLIFF_ESCAPE, false));
+    step(&mut state, 0, context(), enemy(CLIFF_ATTACK, false));
+    state.plan = OptionPlan::Shield { blocked: true };
+    state.shield_pursuing = true;
     let target = enemy(0, true);
     let startup = LedgeContext {
         status: 0x37,
         can_act: false,
         ..context()
     };
-    for attempt in 0..3 {
+    for attempt in 0..6 {
         let tick = attempt * 2 + 1;
         assert_eq!(
             step(&mut state, tick, context(), target).requested,
@@ -1141,7 +982,7 @@ fn actual_grab_whiff_retries_are_bounded_to_three_animation_starts() {
         );
         step(&mut state, tick + 1, startup, target);
     }
-    assert_eq!(step(&mut state, 7, context(), target).requested, 0);
+    assert_eq!(step(&mut state, 13, context(), target).requested, 0);
 }
 
 #[test]
@@ -1160,11 +1001,13 @@ fn native_motion_deadlines_respect_rates_and_reject_unknown_metadata() {
 }
 
 #[test]
-fn small_fast_jump_is_intercepted_before_current_root_enters_the_old_box() {
-    // Synthetic low-root/fast-rise case for a Pichu-like target, not recorded
-    // Pichu hurtbox data. Prediction must see the root at attack startup.
+fn small_fast_jump_is_predicted_before_current_root_enters_neutral_air_box() {
     let mut state = LedgeTrap::default();
-    step(&mut state, 0, context(), enemy(CLIFF_WAIT, false));
+    let ctx = LedgeContext {
+        facing: -1.0,
+        ..context()
+    };
+    step(&mut state, 0, ctx, enemy(CLIFF_WAIT, false));
     let rising = Opponent {
         situation: 2,
         position: [5.0, -15.0],
@@ -1172,10 +1015,7 @@ fn small_fast_jump_is_intercepted_before_current_root_enters_the_old_box() {
         vulnerable_in: Some(4.0),
         ..enemy(CLIFF_JUMP1, false)
     };
-    assert_eq!(
-        step(&mut state, 1, context(), rising).requested,
-        MAPPER_X | MAPPER_A
-    );
+    assert_eq!(step(&mut state, 1, ctx, rising).requested, MAPPER_X);
 }
 
 #[test]
@@ -1190,7 +1030,7 @@ fn jump_that_will_leave_reach_is_followed_instead_of_poking_its_current_root() {
     };
     let out = step(&mut state, 1, context(), escaping);
     assert_eq!(out.requested, 0);
-    assert_eq!(out.stick, Some([0.65, 0.0]));
+    assert_eq!(out.stick, Some([settings().move_strength, 0.0]));
     let unsupported = LedgeContext {
         safe_ground: [true, false],
         ..context()
@@ -1202,48 +1042,17 @@ fn jump_that_will_leave_reach_is_followed_instead_of_poking_its_current_root() {
 }
 
 #[test]
-fn jump_prediction_overlaps_active_frames_with_reported_expiry_and_requires_known_protection() {
-    let mut state = LedgeTrap::default();
-    step(&mut state, 0, context(), enemy(CLIFF_WAIT, false));
-    let jump = Opponent {
-        situation: 2,
-        position: [5.0, 0.0],
-        velocity: [0.0, 0.5],
-        ..enemy(CLIFF_JUMP1, false)
-    };
-    assert_eq!(step(&mut state, 1, context(), jump).requested, 0);
-    assert_eq!(
-        step(
-            &mut state,
-            2,
-            context(),
-            Opponent {
-                vulnerable_in: Some(40.0),
-                ..jump
-            }
-        )
-        .requested,
-        0
-    );
-    assert_eq!(
-        step(
-            &mut state,
-            3,
-            context(),
-            Opponent {
-                vulnerable_in: Some(30.0),
-                ..jump
-            }
-        )
-        .requested,
-        MAPPER_X | MAPPER_A
-    );
-}
-
-#[test]
 fn short_jump_status_is_recovered_from_native_history_and_remembered_while_kirby_is_busy() {
     let mut state = LedgeTrap::default();
-    step(&mut state, 0, context(), enemy(CLIFF_WAIT, false));
+    step(
+        &mut state,
+        0,
+        LedgeContext {
+            facing: -1.0,
+            ..context()
+        },
+        enemy(CLIFF_WAIT, false),
+    );
     let jumping = Opponent {
         situation: 2,
         position: [5.0, 5.0],
@@ -1252,7 +1061,10 @@ fn short_jump_status_is_recovered_from_native_history_and_remembered_while_kirby
     let busy = LedgeContext {
         status: GUARD_OFF,
         can_act: false,
-        ..context()
+        ..LedgeContext {
+            facing: -1.0,
+            ..context()
+        }
     };
     step(&mut state, 1, busy, jumping);
     assert_eq!(state.action_name(), "short_hop_neutral_air");
@@ -1262,15 +1074,53 @@ fn short_jump_status_is_recovered_from_native_history_and_remembered_while_kirby
         ..jumping
     };
     assert_eq!(
-        step(&mut state, 2, context(), air).requested,
-        MAPPER_X | MAPPER_A
+        step(
+            &mut state,
+            2,
+            LedgeContext {
+                facing: -1.0,
+                ..context()
+            },
+            air
+        )
+        .requested,
+        MAPPER_X
     );
-    assert_eq!(step(&mut state, 3, context(), air).requested, 0);
-    let mut missed = LedgeTrap::default();
-    step(&mut missed, 0, context(), enemy(CLIFF_WAIT, false));
     assert_eq!(
-        step(&mut missed, 1, context(), air).requested,
-        MAPPER_X | MAPPER_A
+        step(
+            &mut state,
+            3,
+            LedgeContext {
+                facing: -1.0,
+                ..context()
+            },
+            air
+        )
+        .requested,
+        0
+    );
+    let mut missed = LedgeTrap::default();
+    step(
+        &mut missed,
+        0,
+        LedgeContext {
+            facing: -1.0,
+            ..context()
+        },
+        enemy(CLIFF_WAIT, false),
+    );
+    assert_eq!(
+        step(
+            &mut missed,
+            1,
+            LedgeContext {
+                facing: -1.0,
+                ..context()
+            },
+            air
+        )
+        .requested,
+        MAPPER_X
     );
 }
 
@@ -1380,7 +1230,7 @@ fn forward_tilt_waits_neutral_during_protection_recovery_and_retry_release() {
 }
 
 #[test]
-fn forward_tilt_does_not_chase_or_turn_walk_after_normal_getup_starts() {
+fn forward_tilt_waits_out_of_range_and_turns_when_rear_target_can_be_hit() {
     let config = LedgeSettings {
         getup_attack: GetupAttack::ForwardTilt,
         ..settings()
@@ -1391,247 +1241,49 @@ fn forward_tilt_does_not_chase_or_turn_walk_after_normal_getup_starts() {
             position: [x, 0.0],
             ..enemy(CLIFF_CLIMB, true)
         };
-        let out = state.sample(config, 0, context(), Some(climb));
-        assert_eq!(out.stick, Some([0.0, 0.0]));
+        state.sample(config, 0, context(), Some(enemy(CLIFF_WAIT, false)));
+        let out = state.sample(config, 1, context(), Some(climb));
+        assert_eq!(out.stick, Some([if x < 0.0 { -0.3 } else { 0.0 }, 0.0]));
         assert_eq!(out.requested, 0);
     }
 }
 
-#[test]
-fn roll_grab_can_start_before_roll_exit_when_known_expiry_and_capped_travel_match_grab_startup() {
-    let mut state = LedgeTrap::default();
-    let roll = Opponent {
-        position: [2.0, 0.0],
-        velocity: [1.0, 0.0],
-        vulnerable_in: Some(6.0),
+// Vulnerability and recovery are game-frame deadlines supplied by native motion.
+fn timed_roll(vulnerable_in: f32, recovery: f32) -> Opponent {
+    Opponent {
+        velocity: [0.1, 0.0],
+        vulnerable_in: Some(vulnerable_in),
         motion: Some(MotionTiming {
             kind: 1,
-            frame: 20.0,
+            frame: 10.0,
             rate: 1.0,
-            remaining: Some(2.0),
+            remaining: Some(recovery),
         }),
         ..enemy(CLIFF_ESCAPE, false)
-    };
-    assert_eq!(
-        step(
-            &mut state,
-            0,
-            context(),
-            Opponent {
-                vulnerable_in: Some(8.0),
-                ..roll
-            }
-        )
-        .requested,
-        0
-    );
-    assert_eq!(step(&mut state, 1, context(), roll).requested, MAPPER_R);
-    let mut dash = LedgeTrap::default();
-    let running = LedgeContext {
-        status: 0x3,
-        ..context()
-    };
-    assert_eq!(
-        step(
-            &mut dash,
-            0,
-            running,
-            Opponent {
-                vulnerable_in: Some(9.0),
-                ..roll
-            }
-        )
-        .requested,
-        0
-    );
+    }
 }
 
 #[test]
-fn roll_grab_uses_standing_timing_and_waits_until_idle() {
-    for status in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, GUARD_ON, GUARD, GUARD_OFF] {
+fn dash_attack_waits_for_known_protection_and_recovery_without_spending_attempts() {
+    for (expiry, recovery) in [
+        (None, Some(30.0)),
+        (Some(13.0), None),
+        (Some(f32::NAN), Some(30.0)),
+        (Some(13.0), Some(f32::NAN)),
+    ] {
         let mut state = LedgeTrap::default();
-        let ctx = LedgeContext {
-            status,
-            ..context()
-        };
-        let roll = Opponent {
-            motion: Some(MotionTiming {
-                kind: 1,
-                frame: 40.0,
-                rate: 1.0,
-                remaining: Some(0.0),
-            }),
-            vulnerable_in: Some(8.0),
-            ..enemy(CLIFF_ESCAPE, false)
-        };
-        assert_eq!(step(&mut state, 0, ctx, roll).requested, 0);
-        assert_eq!(state.last_output.stick, Some([0.0, 0.0]));
-        let ready = Opponent {
-            vulnerable_in: Some(7.0),
-            ..roll
-        };
-        let out = step(&mut state, 1, ctx, ready);
-        assert_eq!(out.requested, if status == 0 { MAPPER_R } else { 0 });
-        assert_eq!(out.stick, Some([0.0, 0.0]));
-        if status != 0 {
-            let out = step(&mut state, 2, context(), ready);
-            assert_eq!(out.requested, MAPPER_R);
-            assert_eq!(out.stick, Some([0.0, 0.0]));
+        let mut roll = timed_roll(13.0, 30.0);
+        roll.vulnerable_in = expiry;
+        roll.motion.as_mut().unwrap().remaining = recovery;
+        for tick in 0..10 {
+            assert_eq!(step(&mut state, tick, context(), roll).requested, 0);
         }
-        assert_eq!(state.expected_grab_status(), Some(GRAB_START));
+        assert_eq!(state.attempts, 0);
     }
 }
 
 #[test]
-fn roll_grab_unknown_protection_stops_movement_in_reach_without_spending_attempts() {
-    let mut state = LedgeTrap::default();
-    let roll = enemy(CLIFF_ESCAPE, false);
-    for tick in 0..8 {
-        let out = step(&mut state, tick, context(), roll);
-        assert_eq!(out.stick, Some([0.0, 0.0]));
-        assert_eq!(out.requested, 0);
-    }
-    assert_eq!(state.attempts, 0);
-    assert_eq!(state.action_name(), "roll_wait_endpoint_data");
-    assert_eq!(
-        step(&mut state, 8, context(), enemy(CLIFF_ESCAPE, true)).requested,
-        MAPPER_R
-    );
-}
-
-#[test]
-fn roll_grab_waits_for_native_readiness_then_requests_without_an_extra_prep_update() {
-    let mut state = LedgeTrap::default();
-    let roll = enemy(CLIFF_ESCAPE, true);
-    let not_ready = LedgeContext {
-        can_grab: false,
-        ..context()
-    };
-    for tick in 0..12 {
-        let out = step(&mut state, tick, not_ready, roll);
-        assert_eq!(out.requested, 0);
-        assert_eq!(out.stick, Some([0.0, 0.0]));
-    }
-    assert_eq!(state.attempts, 0);
-    assert_eq!(state.action_name(), "roll_wait_grab_ready");
-    assert_eq!(step(&mut state, 12, context(), roll).requested, MAPPER_R);
-    assert_eq!(step(&mut state, 13, context(), roll).requested, 0);
-    assert_eq!(step(&mut state, 14, context(), roll).requested, MAPPER_R);
-}
-
-#[test]
-fn roll_grab_second_active_frame_is_checked_before_deciding_to_turn() {
-    let mut state = LedgeTrap::default();
-    let roll = Opponent {
-        position: [-7.0, 0.0],
-        velocity: [1.0, 0.0],
-        motion: Some(MotionTiming {
-            kind: 1,
-            frame: 20.0,
-            rate: 1.0,
-            remaining: Some(7.0),
-        }),
-        vulnerable_in: Some(7.0),
-        ..enemy(CLIFF_ESCAPE, false)
-    };
-    // At startup frame 6 the predicted root is behind; at frame 7 it is
-    // within the policy's forward gate and vulnerable. Do not preempt it with a turn.
-    let out = step(&mut state, 0, context(), roll);
-    assert_eq!(out.requested, MAPPER_R);
-    assert_eq!(out.stick, Some([0.0, 0.0]));
-}
-
-#[test]
-fn roll_grab_brakes_instead_of_turning_toward_a_future_crossing() {
-    let mut state = LedgeTrap::default();
-    let running = LedgeContext {
-        status: 4,
-        velocity: [1.0, 0.0],
-        ..context()
-    };
-    let out = step(&mut state, 0, running, enemy(CLIFF_ESCAPE, true));
-    assert_eq!(out.requested, 0);
-    assert_eq!(out.stick, Some([0.0, 0.0]));
-    assert_eq!(state.action_name(), "roll_settle_for_standing_grab");
-}
-
-#[test]
-fn roll_grab_turns_for_an_actual_crossup_and_waits_out_native_turn_status() {
-    let mut state = LedgeTrap::default();
-    let roll = Opponent {
-        position: [-5.0, 0.0],
-        ..enemy(CLIFF_ESCAPE, true)
-    };
-    let turning = step(&mut state, 0, context(), roll);
-    assert_eq!(turning.stick, Some([-0.3, 0.0]));
-    assert_eq!(turning.requested, 0);
-    let ctx = LedgeContext {
-        status: 6,
-        facing: -1.0,
-        ..context()
-    };
-    assert_eq!(step(&mut state, 1, ctx, roll).requested, 0);
-    assert_eq!(state.last_output.stick, Some([0.0, 0.0]));
-    assert_eq!(
-        step(&mut state, 2, LedgeContext { status: 0, ..ctx }, roll).requested,
-        MAPPER_R
-    );
-}
-
-#[test]
-fn roll_grab_releases_run_and_shield_without_spending_attempts() {
-    for status in [3, 4, GUARD_ON, GUARD, GUARD_OFF] {
-        let mut state = LedgeTrap::default();
-        let roll = enemy(CLIFF_ESCAPE, true);
-        for tick in 0..3 {
-            let out = step(
-                &mut state,
-                tick,
-                LedgeContext {
-                    status,
-                    ..context()
-                },
-                roll,
-            );
-            assert_eq!(out.requested, 0);
-            assert_eq!(out.stick, Some([0.0, 0.0]));
-            assert_eq!(state.expected_grab_status(), None);
-        }
-        let out = step(&mut state, 3, context(), roll);
-        assert_eq!(out.requested, MAPPER_R);
-        assert_eq!(out.stick, Some([0.0, 0.0]));
-        assert_eq!(state.expected_grab_status(), Some(GRAB_START));
-    }
-}
-
-#[test]
-fn roll_grab_approaches_only_while_separated_and_brakes_for_closing_momentum() {
-    let roll = Opponent {
-        position: [12.0, 0.0],
-        velocity: [1.0, 0.0],
-        motion: Some(MotionTiming {
-            kind: 1,
-            frame: 20.0,
-            rate: 1.0,
-            remaining: Some(1.0),
-        }),
-        ..enemy(CLIFF_ESCAPE, false)
-    };
-    let mut state = LedgeTrap::default();
-    assert!(step(&mut state, 0, context(), roll).stick.unwrap()[0] > 0.0);
-    let closing = LedgeContext {
-        position: [3.0, 0.0],
-        velocity: [1.5, 0.0],
-        status: 5,
-        ..context()
-    };
-    let out = step(&mut state, 1, closing, roll);
-    assert_eq!(out.stick, Some([0.0, 0.0]));
-    assert_eq!(out.requested, 0);
-}
-
-#[test]
-fn roll_grab_native_transition_terms_match_selected_movement() {
+fn shield_grab_native_transition_terms_match_selected_movement() {
     for status in [0, 1, 2, GUARD, GUARD_DAMAGE] {
         assert_eq!(grab_transition_term(status), 0x1e00006f);
     }
@@ -1652,30 +1304,24 @@ fn root_displacement_follows_animation_driven_rolls_when_kinetic_velocity_is_zer
             kind: 7,
             frame: 10.0,
             rate: 0.5,
-            remaining: Some(20.0),
+            remaining: Some(10.0),
         }),
         ..enemy(CLIFF_ESCAPE, false)
     };
-    assert_eq!(step(&mut state, 0, context(), roll).stick, Some([0.0, 0.0]));
+    assert_eq!(step(&mut state, 0, context(), roll).stick, Some([1.0, 0.0]));
     let moving = Opponent {
         position: [4.0, 0.0],
         motion: Some(MotionTiming {
             kind: 7,
             frame: 10.5,
             rate: 0.5,
-            remaining: Some(19.0),
+            remaining: Some(9.0),
         }),
         ..roll
     };
-    assert_eq!(
-        step(&mut state, 1, context(), moving).stick,
-        Some([0.65, 0.0])
-    );
-    assert_eq!(
-        step(&mut state, 2, context(), moving).stick,
-        Some([0.65, 0.0]),
-        "another poll of the same animation frame keeps the estimate"
-    );
+    step(&mut state, 1, context(), moving);
+    assert_eq!(state.observed_velocity[0], 2.0);
+    assert_eq!(step(&mut state, 2, context(), moving).requested, 0);
 }
 
 #[test]
@@ -1713,7 +1359,7 @@ fn whiffed_tilts_retry_on_recovery_but_are_bounded_and_hit_confirmation_ends_the
     let mut state = LedgeTrap::default();
     let climb = enemy(CLIFF_CLIMB, true);
     step(&mut state, 0, context(), climb);
-    for attempt in 0..3 {
+    for attempt in 0..i64::from(MAX_ATTEMPTS) {
         let tick = attempt * 3 + 1;
         assert_eq!(step(&mut state, tick, context(), climb).requested, MAPPER_A);
         let whiff = LedgeContext {
@@ -1725,7 +1371,16 @@ fn whiffed_tilts_retry_on_recovery_but_are_bounded_and_hit_confirmation_ends_the
         assert_ne!(state.action_name(), "finished");
         step(&mut state, tick + 2, context(), climb);
     }
-    assert_eq!(step(&mut state, 11, context(), climb).requested, 0);
+    assert_eq!(
+        step(
+            &mut state,
+            i64::from(MAX_ATTEMPTS) * 3 + 2,
+            context(),
+            climb
+        )
+        .requested,
+        0
+    );
     let mut hit = LedgeTrap::default();
     step(&mut hit, 0, context(), climb);
     step(&mut hit, 1, context(), climb);
@@ -1834,10 +1489,7 @@ fn native_history_recovers_missed_roll_and_normal_getup_before_first_acquisition
         previous_status: CLIFF_ESCAPE,
         ..enemy(0, true)
     };
-    assert_eq!(
-        step(&mut roll, 0, context(), after_roll).requested,
-        MAPPER_R
-    );
+    assert_eq!(step(&mut roll, 0, context(), after_roll).requested, 0);
     assert_eq!(roll.target(), Some(after_roll.id));
 
     let mut climb = LedgeTrap::default();
@@ -1933,9 +1585,9 @@ fn confirmed_block_buffers_grab_before_getup_attack_hitboxes_clear() {
     );
 }
 
-// Acquire the real ledge anchor, then request a roll grab from a stage-side
+// Acquire the real ledge anchor, then request a shield grab from a stage-side
 // position. This prepares native-like capture observations for both ledges.
-fn roll_grab_at_ledge(anchor_x: f32, inward: f32) -> (LedgeTrap, LedgeContext, Opponent) {
+fn shield_grab_at_ledge(anchor_x: f32, inward: f32) -> (LedgeTrap, LedgeContext, Opponent) {
     let mut state = LedgeTrap::default();
     let ctx = LedgeContext {
         position: [anchor_x + inward * 8.0, 0.0],
@@ -1950,17 +1602,25 @@ fn roll_grab_at_ledge(anchor_x: f32, inward: f32) -> (LedgeTrap, LedgeContext, O
     step(&mut state, 0, ctx, hanging);
     let rolling = Opponent {
         position: [anchor_x + inward * 4.0, 0.0],
-        ..enemy(CLIFF_ESCAPE, true)
+        ..enemy(CLIFF_ATTACK, true)
     };
-    assert_eq!(step(&mut state, 1, ctx, rolling).requested, MAPPER_R);
+    let blocked = LedgeContext {
+        status: GUARD_DAMAGE,
+        shield_stun_frames: Some(0),
+        ..ctx
+    };
+    assert_eq!(
+        step(&mut state, 1, blocked, rolling).requested,
+        MAPPER_ZR | MAPPER_R
+    );
     (state, ctx, rolling)
 }
 
 #[test]
-fn captured_roll_throws_toward_each_ledge_from_either_facing_without_pummeling() {
+fn captured_shield_grab_throws_toward_each_ledge_from_either_facing_without_pummeling() {
     for (anchor, inward) in [(0.0, 1.0), (100.0, -1.0)] {
         for facing in [-1.0, 1.0] {
-            let (mut state, ctx, rolling) = roll_grab_at_ledge(anchor, inward);
+            let (mut state, ctx, rolling) = shield_grab_at_ledge(anchor, inward);
             let captured = Opponent {
                 status: 0x42,
                 ..rolling
@@ -1994,7 +1654,7 @@ fn captured_roll_throws_toward_each_ledge_from_either_facing_without_pummeling()
 
 #[test]
 fn outward_throw_respects_setting_hitstop_and_missing_ledge_anchor() {
-    let (mut state, ctx, rolling) = roll_grab_at_ledge(0.0, 1.0);
+    let (mut state, ctx, rolling) = shield_grab_at_ledge(0.0, 1.0);
     let hold = LedgeContext {
         status: GRAB_HOLD,
         can_act: false,
@@ -2016,7 +1676,16 @@ fn outward_throw_respects_setting_hitstop_and_missing_ledge_anchor() {
     assert_eq!(step(&mut state, 4, hold, rolling).stick, Some([-1.0, 0.0]));
 
     let mut no_anchor = LedgeTrap::default();
-    step(&mut no_anchor, 0, context(), enemy(CLIFF_ESCAPE, true));
+    step(
+        &mut no_anchor,
+        0,
+        LedgeContext {
+            status: GUARD_DAMAGE,
+            shield_stun_frames: Some(0),
+            ..context()
+        },
+        enemy(CLIFF_ATTACK, true),
+    );
     let hold = LedgeContext {
         status: GRAB_HOLD,
         can_act: false,
@@ -2030,7 +1699,7 @@ fn outward_throw_respects_setting_hitstop_and_missing_ledge_anchor() {
 
 #[test]
 fn hit_confirmation_survives_target_loss_returns_to_stance_and_rearms_on_regrab() {
-    let (mut state, ctx, rolling) = roll_grab_at_ledge(0.0, 1.0);
+    let (mut state, ctx, rolling) = shield_grab_at_ledge(0.0, 1.0);
     // Switch to normal get-up, prepare and request the tilt.
     let climb = Opponent {
         status: CLIFF_CLIMB,
@@ -2051,7 +1720,7 @@ fn hit_confirmation_survives_target_loss_returns_to_stance_and_rearms_on_regrab(
         ..ctx
     };
     let returning = state.sample(settings(), 5, displaced, None);
-    assert_eq!(returning.stick, Some([-0.65, 0.0]));
+    assert_eq!(returning.stick, Some([-settings().move_strength, 0.0]));
     assert_eq!(returning.requested, 0);
     let unsafe_floor = LedgeContext {
         safe_ground: [false, true],
@@ -2068,7 +1737,20 @@ fn hit_confirmation_survives_target_loss_returns_to_stance_and_rearms_on_regrab(
     };
     step(&mut state, 7, ctx, next_hang);
     assert_ne!(state.action_name(), "finished");
-    assert_eq!(step(&mut state, 8, ctx, rolling).requested, MAPPER_R);
+    assert_eq!(
+        step(
+            &mut state,
+            8,
+            LedgeContext {
+                status: GUARD_DAMAGE,
+                shield_stun_frames: Some(0),
+                ..ctx
+            },
+            rolling
+        )
+        .requested,
+        MAPPER_ZR | MAPPER_R
+    );
 }
 
 #[test]
@@ -2089,7 +1771,7 @@ fn normal_getup_entering_idle_keeps_the_prepared_punish_instead_of_becoming_a_ha
 
 #[test]
 fn completed_punish_rearms_when_new_ledge_visit_skips_the_hanging_sample() {
-    let (mut state, ctx, rolling) = roll_grab_at_ledge(0.0, 1.0);
+    let (mut state, ctx, rolling) = shield_grab_at_ledge(0.0, 1.0);
     let hold = LedgeContext {
         status: GRAB_HOLD,
         can_act: false,
@@ -2121,124 +1803,1671 @@ fn completed_punish_rearms_when_new_ledge_visit_skips_the_hanging_sample() {
     };
     let response = step(&mut state, 4, ctx, jump);
     assert_eq!(state.action_name(), "short_hop_neutral_air");
-    assert_eq!(response.requested, MAPPER_X | MAPPER_A);
+    assert_eq!(response.requested, MAPPER_X);
+    assert_eq!(response.stick, Some([0.0, 0.0]));
     assert_eq!(step(&mut state, 5, ctx, jump).requested, 0);
 }
 
 #[test]
-fn roll_interception_commits_on_recognition_and_never_chases_current_root() {
-    let config = LedgeSettings {
-        roll_distance: Some(25.0),
-        ..settings()
-    };
+fn dash_attack_duplicate_polls_reuse_one_press_and_release_when_animation_advances() {
     let mut state = LedgeTrap::default();
-    state.prepare_stance([0.0, 0.0], 1.0);
+    let roll = timed_roll(13.0, 30.0);
+    let press = step(
+        &mut state,
+        0,
+        LedgeContext {
+            status: 0x3,
+            ..context()
+        },
+        roll,
+    );
+    assert_eq!(press.requested, MAPPER_A);
+    for tick in 1..5 {
+        assert_eq!(
+            step(
+                &mut state,
+                tick,
+                LedgeContext {
+                    status: 0x3,
+                    ..context()
+                },
+                roll
+            ),
+            press
+        );
+        assert_eq!(state.attempts, 1);
+    }
+    let advanced = LedgeContext {
+        motion_frame: 1.0,
+        ..LedgeContext {
+            status: 0x3,
+            ..context()
+        }
+    };
+    let release = step(&mut state, 5, advanced, roll);
+    assert_eq!(release.requested, 0);
+    assert_eq!(release.stick, Some([0.0, 0.0]));
+}
+
+#[test]
+fn same_tick_damage_and_invalid_motion_do_not_reuse_a_cached_attack() {
+    let mut state = LedgeTrap::default();
+    let roll = timed_roll(13.0, 30.0);
+    assert_eq!(
+        step(
+            &mut state,
+            0,
+            LedgeContext {
+                status: 0x3,
+                ..context()
+            },
+            roll
+        )
+        .requested,
+        MAPPER_A
+    );
+    let damaged = LedgeContext {
+        status: 0x49,
+        can_act: false,
+        can_control: false,
+        ..LedgeContext {
+            status: 0x3,
+            ..context()
+        }
+    };
+    assert_eq!(step(&mut state, 0, damaged, roll).owned, 0);
+    let bad = Opponent {
+        velocity: [f32::NAN, 0.0],
+        ..roll
+    };
+    assert_eq!(
+        step(
+            &mut state,
+            0,
+            LedgeContext {
+                status: 0x3,
+                ..context()
+            },
+            bad
+        )
+        .owned,
+        0
+    );
+    assert_ne!(state.pending, Pending::DashAttack);
+}
+
+#[test]
+fn losing_target_discards_pending_attack_and_cannot_confirm_an_unrelated_later_hit() {
+    let mut state = LedgeTrap::default();
+    let climb = enemy(CLIFF_CLIMB, true);
+    step(&mut state, 0, context(), climb);
+    step(&mut state, 1, context(), climb);
+    assert_eq!(state.pending, Pending::DownTilt);
+    state.sample(settings(), 2, context(), None);
+    assert_eq!(state.pending, Pending::None);
+    state.sample(
+        settings(),
+        3,
+        LedgeContext {
+            status: DOWN_TILT,
+            hit_confirmed: true,
+            ..context()
+        },
+        None,
+    );
+    assert!(!state.finished);
+}
+
+#[test]
+fn own_native_clock_alone_deduplicates_inputs_when_opponent_motion_is_unknown() {
+    let mut state = LedgeTrap::default();
     let ctx = LedgeContext {
-        position: [10.0, 0.0],
+        facing: -1.0,
+        motion_kind: 1,
+        ..context()
+    };
+    let jump = Opponent {
+        situation: 2,
+        ..enemy(CLIFF_JUMP1, true)
+    };
+    assert_eq!(step(&mut state, 0, ctx, jump).requested, MAPPER_X);
+    for tick in 1..20 {
+        assert_eq!(step(&mut state, tick, ctx, jump).requested, MAPPER_X);
+    }
+    assert_eq!(state.jump_attempts, 1);
+    assert_eq!(
+        step(
+            &mut state,
+            20,
+            LedgeContext {
+                motion_frame: 1.0,
+                ..ctx
+            },
+            jump
+        )
+        .requested,
+        0
+    );
+}
+
+#[test]
+fn damage_aborts_the_owned_hop_instead_of_resuming_it_after_hitstun() {
+    let mut state = LedgeTrap::default();
+    let ctx = LedgeContext {
         facing: -1.0,
         ..context()
     };
-    let roll = enemy(CLIFF_ESCAPE, false);
-    let first = state.sample(config, 0, ctx, Some(roll));
-    assert!(first.stick.unwrap()[0] > 0.0);
-    let locked = state.roll_interception().unwrap();
-    assert_eq!(locked, [25.0, 18.5, 1.0]);
-    for (tick, root) in [(1, 3.0), (2, 15.0), (3, 30.0)] {
-        state.sample(
-            config,
-            tick,
-            ctx,
-            Some(Opponent {
-                position: [root, 0.0],
-                ..roll
-            }),
-        );
-        assert_eq!(state.roll_interception(), Some(locked));
-    }
-    let arrived = LedgeContext {
-        position: [18.5, 0.0],
-        facing: 1.0,
-        ..ctx
+    let jump = Opponent {
+        situation: 2,
+        ..enemy(CLIFF_JUMP1, true)
     };
-    let waiting = state.sample(config, 4, arrived, Some(roll));
-    assert_eq!(waiting.stick, Some([0.0, 0.0]));
-    assert_eq!(waiting.requested, 0);
-    assert_eq!(state.roll_interception(), Some(locked));
-}
-
-#[test]
-fn roll_interception_times_first_eligible_standing_grab_before_roll_ends() {
-    let config = LedgeSettings {
-        roll_distance: Some(25.0),
-        ..settings()
-    };
-    let mut state = LedgeTrap::default();
-    state.prepare_stance([0.0, 0.0], 1.0);
-    let roll = enemy(CLIFF_ESCAPE, false);
-    let initial = LedgeContext {
-        position: [10.0, 0.0],
-        ..context()
-    };
-    state.sample(config, 0, initial, Some(roll));
-    let arrived = LedgeContext {
-        position: [18.5, 0.0],
-        ..context()
-    };
-    let protected = Opponent {
-        position: [20.0, 0.0],
-        velocity: [1.0, 0.0],
-        vulnerable_in: Some(8.0),
-        motion: Some(MotionTiming {
-            kind: 1,
-            frame: 20.0,
-            rate: 1.0,
-            remaining: Some(5.0),
-        }),
-        ..roll
-    };
-    let waiting = state.sample(config, 1, arrived, Some(protected));
-    assert_eq!(waiting.stick, Some([0.0, 0.0]));
-    assert_eq!(waiting.requested, 0);
-    let ready = Opponent {
-        vulnerable_in: Some(7.0),
-        ..protected
-    };
-    let request = state.sample(config, 2, arrived, Some(ready));
-    assert_eq!(request.stick, Some([0.0, 0.0]));
-    assert_eq!(request.requested, MAPPER_R);
-    assert_eq!(state.expected_grab_status(), Some(GRAB_START));
-}
-
-#[test]
-fn roll_interception_auto_latches_once_from_reliable_motion() {
-    let mut state = LedgeTrap::default();
-    let initial = enemy(CLIFF_ESCAPE, false);
-    assert_eq!(step(&mut state, 0, context(), initial).requested, 0);
-    assert_eq!(state.roll_interception(), None);
-    let moving = Opponent {
-        position: [5.0, 0.0],
-        velocity: [1.0, 0.0],
-        motion: Some(MotionTiming {
-            kind: 1,
-            frame: 10.0,
-            rate: 1.0,
-            remaining: Some(20.0),
-        }),
-        ..initial
-    };
-    step(&mut state, 1, context(), moving);
-    let locked = state.roll_interception().unwrap();
-    assert_eq!(locked[0], 25.0);
+    step(&mut state, 0, ctx, jump);
+    assert!(state.owns_jump_state(0xb));
     step(
         &mut state,
-        2,
-        context(),
+        1,
+        LedgeContext {
+            status: 0x49,
+            situation: 2,
+            can_control: false,
+            can_act: false,
+            ..ctx
+        },
+        jump,
+    );
+    assert!(!state.owns_jump_state(0xe));
+}
+
+#[test]
+fn airborne_back_air_forecast_accounts_for_kirbys_own_travel_to_the_hit_frame() {
+    let mut state = LedgeTrap::default();
+    let ctx = LedgeContext {
+        facing: -1.0,
+        ..context()
+    };
+    let jump = Opponent {
+        situation: 2,
+        position: [5.0, 10.0],
+        ..enemy(CLIFF_JUMP1, true)
+    };
+    assert_eq!(step(&mut state, 0, ctx, jump).requested, MAPPER_X);
+    let rising = LedgeContext {
+        status: 0xb,
+        situation: 2,
+        can_act: false,
+        velocity: [0.0, 3.0],
+        ..ctx
+    };
+    assert_eq!(step(&mut state, 1, rising, jump).requested, 0);
+}
+
+fn manual_settings() -> LedgeSettings {
+    LedgeSettings {
+        manual_spacing: true,
+        // Manual mode overrides even an old config's explicit navigation flag.
+        auto_position: true,
+        ..settings()
+    }
+}
+
+#[test]
+fn manual_tilts_start_from_walk_without_preparation_and_release_after_pulse() {
+    for attack in [GetupAttack::ForwardTilt, GetupAttack::DownTilt] {
+        let config = LedgeSettings {
+            getup_attack: attack,
+            ..manual_settings()
+        };
+        let ctx = LedgeContext {
+            status: 1,
+            velocity: [0.1, 0.0],
+            ..context()
+        };
+        let target = enemy(CLIFF_CLIMB, true);
+        let mut state = LedgeTrap::default();
+        assert_eq!(
+            state.sample(config, 0, ctx, Some(target)).requested,
+            MAPPER_A
+        );
+        // No accepted animation yet: release A but return horizontal movement.
+        let out = state.sample(
+            config,
+            1,
+            LedgeContext {
+                motion_frame: 1.0,
+                ..ctx
+            },
+            Some(target),
+        );
+        assert_eq!(out.requested, 0);
+        assert_eq!(out.stick, None);
+        assert_eq!(out.owned, LEDGE_BUTTONS);
+        let blocked = LedgeContext {
+            can_tilt: false,
+            ..ctx
+        };
+        assert_eq!(
+            LedgeTrap::default().sample(config, 0, blocked, Some(target)),
+            LedgeOutput {
+                consume_trigger: true,
+                ..LedgeOutput::default()
+            }
+        );
+    }
+}
+
+#[test]
+fn manual_jump_requires_native_readiness_and_no_observed_active_hitbox() {
+    let target = Opponent {
+        situation: 2,
+        position: [-5.0, 5.0],
+        ..enemy(CLIFF_JUMP1, true)
+    };
+    assert_eq!(
+        LedgeTrap::default()
+            .sample(manual_settings(), 0, context(), Some(target))
+            .requested,
+        MAPPER_X
+    );
+    for (ctx, target) in [
+        (
+            LedgeContext {
+                can_jump: false,
+                ..context()
+            },
+            target,
+        ),
+        (
+            context(),
+            Opponent {
+                attack_active: Some(true),
+                ..target
+            },
+        ),
+    ] {
+        assert_eq!(
+            LedgeTrap::default().sample(manual_settings(), 0, ctx, Some(target)),
+            LedgeOutput {
+                consume_trigger: true,
+                ..LedgeOutput::default()
+            }
+        );
+    }
+}
+
+#[test]
+fn neutral_air_hops_without_turning_and_attacks_neutrally_on_either_side() {
+    for side in [-1.0, 1.0] {
+        for facing in [-1.0, 1.0] {
+            let mut state = LedgeTrap::default();
+            let ctx = LedgeContext {
+                facing,
+                ..context()
+            };
+            let target = Opponent {
+                position: [side * 5.0, 6.0],
+                situation: 2,
+                ..enemy(CLIFF_JUMP1, true)
+            };
+            let hop = state.sample(manual_settings(), 0, ctx, Some(target));
+            assert_eq!(hop.requested, MAPPER_X);
+            assert_eq!(hop.stick, Some([0.0, 0.0]));
+            let squat = LedgeContext {
+                status: JUMP_SQUAT,
+                can_act: false,
+                ..ctx
+            };
+            assert_eq!(
+                state
+                    .sample(manual_settings(), 1, squat, Some(target))
+                    .requested,
+                0
+            );
+            let air = LedgeContext {
+                status: 0xb,
+                situation: 2,
+                can_act: false,
+                ..ctx
+            };
+            let attack = state.sample(manual_settings(), 2, air, Some(target));
+            assert_eq!(attack.requested, MAPPER_A);
+            assert_eq!(attack.stick, Some([0.0, 0.0]));
+            let actual = LedgeContext {
+                status: ATTACK_AIR,
+                motion_kind: NEUTRAL_AIR_MOTION,
+                hit_confirmed: true,
+                ..air
+            };
+            assert_eq!(
+                state
+                    .sample(manual_settings(), 3, actual, Some(target))
+                    .requested,
+                0
+            );
+            assert!(state.finished);
+        }
+    }
+}
+
+#[test]
+fn neutral_air_requires_its_exact_native_motion_and_a_hit_to_finish() {
+    for (motion, hit, finished) in [
+        (0x0c33f869bc, true, false),
+        (NEUTRAL_AIR_MOTION, false, false),
+        (NEUTRAL_AIR_MOTION, true, true),
+    ] {
+        let mut state = LedgeTrap::default();
+        let target = Opponent {
+            position: [5.0, 6.0],
+            situation: 2,
+            ..enemy(CLIFF_JUMP1, true)
+        };
+        step(&mut state, 0, context(), target);
+        let air = LedgeContext {
+            status: 0xb,
+            situation: 2,
+            can_act: false,
+            ..context()
+        };
+        assert_eq!(step(&mut state, 1, air, target).requested, MAPPER_A);
+        step(
+            &mut state,
+            2,
+            LedgeContext {
+                status: ATTACK_AIR,
+                motion_kind: motion,
+                hit_confirmed: hit,
+                ..air
+            },
+            target,
+        );
+        assert_eq!(state.finished, finished);
+    }
+}
+
+#[test]
+fn neutral_air_lingering_window_requires_protection_and_range_at_contact() {
+    for (expiry, x, expected) in [
+        (Some(35.0), 5.0, MAPPER_X),
+        (Some(36.0), 5.0, 0),
+        (None, 5.0, 0),
+        (Some(11.0), 30.0, 0),
+    ] {
+        let target = Opponent {
+            position: [x, 6.0],
+            situation: 2,
+            vulnerable_in: expiry,
+            ..enemy(CLIFF_JUMP1, false)
+        };
+        assert_eq!(
+            LedgeTrap::default()
+                .sample(manual_settings(), 0, context(), Some(target))
+                .requested,
+            expected
+        );
+    }
+}
+
+#[test]
+fn roll_starts_dash_without_attack_then_uses_native_dash_attack_gate_on_both_sides() {
+    for side in [-1.0, 1.0] {
+        for facing in [-1.0, 1.0] {
+            let mut state = LedgeTrap::default();
+            // A ledge option may still report cliff/air situation early in its animation.
+            let target = Opponent {
+                position: [side * 5.0, 0.0],
+                velocity: [0.0, 0.0],
+                situation: 3,
+                ..timed_roll(20.0, 40.0)
+            };
+            let ctx = LedgeContext {
+                facing,
+                ..context()
+            };
+            let dash = state.sample(manual_settings(), 0, ctx, Some(target));
+            assert_eq!(dash.requested, 0, "standing A must never select smash");
+            assert_eq!(dash.stick, Some([side, 0.0]));
+            let running = LedgeContext {
+                status: 0x3,
+                facing: side,
+                ..ctx
+            };
+            let attack = state.sample(manual_settings(), 1, running, Some(target));
+            assert_eq!(attack.requested, MAPPER_A);
+            assert_eq!(attack.stick, Some([side, 0.0]));
+            let actual = LedgeContext {
+                status: DASH_ATTACK,
+                can_act: false,
+                hit_confirmed: false,
+                ..running
+            };
+            assert_eq!(
+                state
+                    .sample(manual_settings(), 2, actual, Some(target))
+                    .requested,
+                0
+            );
+            assert!(!state.finished);
+            state.sample(
+                manual_settings(),
+                3,
+                LedgeContext {
+                    hit_confirmed: true,
+                    ..actual
+                },
+                Some(target),
+            );
+            assert!(state.finished);
+        }
+    }
+}
+
+#[test]
+fn dash_attack_is_not_requested_from_standing_smash_or_turn_dash() {
+    let target = Opponent {
+        velocity: [0.0, 0.0],
+        ..timed_roll(12.0, 30.0)
+    };
+    for ctx in [
+        LedgeContext {
+            status: 0x7,
+            ..context()
+        },
+        LedgeContext {
+            status: 0x2d,
+            can_act: false,
+            ..context()
+        },
+    ] {
+        let mut state = LedgeTrap::default();
+        let out = state.sample(manual_settings(), 0, ctx, Some(target));
+        assert_eq!(out.requested, 0);
+        assert_eq!(state.attempts, 0);
+    }
+}
+
+#[test]
+fn dash_attack_input_uses_lingering_frames_without_recovery_gate() {
+    for (expiry, recovery, expected) in [
+        (9.0, 10.0, MAPPER_A),
+        (34.0, 35.0, MAPPER_A),
+        (35.0, 40.0, 0),
+        (9.0, 9.0, MAPPER_A),
+        (20.0, 20.0, MAPPER_A),
+        (20.0, 21.0, MAPPER_A),
+    ] {
+        let target = Opponent {
+            velocity: [0.0, 0.0],
+            ..timed_roll(expiry, recovery)
+        };
+        let ctx = LedgeContext {
+            status: 0x3,
+            ..context()
+        };
+        assert_eq!(
+            LedgeTrap::default()
+                .sample(manual_settings(), 0, ctx, Some(target))
+                .requested,
+            expected,
+            "expiry={expiry}, recovery={recovery}"
+        );
+    }
+}
+
+#[test]
+fn roll_presses_during_native_dash_without_optional_metadata_or_ground_probe() {
+    let running = LedgeContext {
+        status: 0x3,
+        ..context()
+    };
+    for target in [
         Opponent {
-            position: [10.0, 0.0],
-            velocity: [3.0, 0.0],
+            vulnerable_in: None,
+            ..timed_roll(12.0, 30.0)
+        },
+        Opponent {
             motion: None,
-            ..moving
+            ..timed_roll(12.0, 30.0)
+        },
+    ] {
+        assert_eq!(
+            LedgeTrap::default()
+                .sample(manual_settings(), 0, running, Some(target))
+                .requested,
+            MAPPER_A
+        );
+    }
+    let unsafe_standing = LedgeContext {
+        safe_ground: [false; 2],
+        ..context()
+    };
+    let waiting = LedgeTrap::default().sample(
+        manual_settings(),
+        0,
+        unsafe_standing,
+        Some(timed_roll(12.0, 30.0)),
+    );
+    assert_eq!(waiting.requested, 0);
+    assert_ne!(waiting.stick, Some([1.0, 0.0]));
+    let unsafe_running = LedgeContext {
+        safe_ground: [false; 2],
+        ..running
+    };
+    assert_eq!(
+        LedgeTrap::default()
+            .sample(
+                manual_settings(),
+                0,
+                unsafe_running,
+                Some(timed_roll(12.0, 30.0))
+            )
+            .requested,
+        MAPPER_A
+    );
+}
+
+#[test]
+fn actual_vulnerability_allows_dash_attack_without_an_expiry_estimate() {
+    let target = Opponent {
+        vulnerable: true,
+        vulnerable_in: None,
+        ..timed_roll(12.0, 30.0)
+    };
+    assert_eq!(
+        LedgeTrap::default()
+            .sample(
+                manual_settings(),
+                0,
+                LedgeContext {
+                    status: 0x3,
+                    ..context()
+                },
+                Some(target)
+            )
+            .requested,
+        MAPPER_A
+    );
+}
+
+#[test]
+fn dash_staging_releases_immediately_on_damage_target_loss_and_y_release() {
+    for (ctx, target) in [
+        (
+            LedgeContext {
+                held: false,
+                ..context()
+            },
+            Some(timed_roll(12.0, 30.0)),
+        ),
+        (
+            LedgeContext {
+                status: 0x47,
+                can_control: false,
+                can_act: false,
+                ..context()
+            },
+            Some(timed_roll(12.0, 30.0)),
+        ),
+        (context(), None),
+    ] {
+        let mut state = LedgeTrap::default();
+        state.sample(
+            manual_settings(),
+            0,
+            context(),
+            Some(timed_roll(12.0, 30.0)),
+        );
+        let out = state.sample(manual_settings(), 1, ctx, target);
+        assert_eq!(out.requested, 0);
+        assert_eq!(out.owned, 0);
+        assert_eq!(out.stick, None);
+    }
+}
+
+#[test]
+fn manual_drop_fallback_holds_shield_through_stop_but_known_roll_and_jump_override_it() {
+    let drop = Opponent {
+        situation: 2,
+        previous_status: CLIFF_WAIT,
+        position: [5.0, -3.0],
+        ..enemy(0xe, true)
+    };
+    for option in [CLIFF_ESCAPE, CLIFF_JUMP1, CLIFF_CLIMB] {
+        let mut state = LedgeTrap::default();
+        assert_eq!(
+            state
+                .sample(manual_settings(), 0, context(), Some(drop))
+                .requested,
+            MAPPER_ZR
+        );
+        let guard = LedgeContext {
+            status: GUARD,
+            can_act: false,
+            ..context()
+        };
+        assert_eq!(
+            state
+                .sample(
+                    manual_settings(),
+                    1,
+                    LedgeContext {
+                        stopped: true,
+                        ..guard
+                    },
+                    Some(drop)
+                )
+                .requested,
+            MAPPER_ZR
+        );
+        let target = Opponent {
+            previous_status: CLIFF_WAIT,
+            position: [5.0, 0.0],
+            situation: if option == CLIFF_JUMP1 { 2 } else { 0 },
+            status: option,
+            ..timed_roll(20.0, 40.0)
+        };
+        assert_eq!(
+            state
+                .sample(manual_settings(), 2, guard, Some(target))
+                .requested
+                & MAPPER_ZR,
+            0
+        );
+        assert!(!matches!(state.plan, OptionPlan::DropShield));
+        assert_eq!(
+            state
+                .sample(
+                    manual_settings(),
+                    3,
+                    LedgeContext {
+                        held: false,
+                        ..guard
+                    },
+                    Some(target)
+                )
+                .owned,
+            0
+        );
+    }
+}
+
+#[test]
+fn directional_tilts_turn_to_target_then_attack_after_native_facing_confirmation() {
+    for attack in [GetupAttack::DownTilt, GetupAttack::ForwardTilt] {
+        for side in [-1.0, 1.0] {
+            let config = LedgeSettings {
+                getup_attack: attack,
+                ..manual_settings()
+            };
+            let mut state = LedgeTrap::default();
+            let target = Opponent {
+                position: [side * 5.0, 0.0],
+                ..enemy(CLIFF_CLIMB, true)
+            };
+            let ctx = LedgeContext {
+                facing: -side,
+                ..context()
+            };
+            let turn = state.sample(config, 0, ctx, Some(target));
+            assert_eq!(turn.requested, 0);
+            assert_eq!(turn.stick, Some([side * 0.3, 0.0]));
+            let input = state.sample(
+                config,
+                1,
+                LedgeContext {
+                    facing: side,
+                    ..ctx
+                },
+                Some(target),
+            );
+            assert_eq!(input.requested, MAPPER_A);
+        }
+    }
+}
+
+#[test]
+fn roll_dash_range_key_accepts_old_config_alias() {
+    use crate::live_input::LiveConfig;
+    assert_eq!(
+        LiveConfig::parse("ledge_roll_dash_range = 9.5")
+            .unwrap()
+            .ledge
+            .roll_dash_range,
+        9.5
+    );
+    assert_eq!(
+        LiveConfig::parse("ledge_roll_smash_range = 9.5")
+            .unwrap()
+            .ledge
+            .roll_dash_range,
+        9.5
+    );
+}
+
+#[test]
+fn native_dash_and_turn_failures_do_not_take_movement_forever() {
+    for target in [
+        timed_roll(20.0, 40.0),
+        Opponent {
+            position: [-5.0, 0.0],
+            ..enemy(CLIFF_CLIMB, true)
+        },
+    ] {
+        let mut state = LedgeTrap::default();
+        for tick in 0..=i64::from(MAX_ATTEMPTS) {
+            let ctx = LedgeContext {
+                motion_kind: 10,
+                motion_frame: tick as f32,
+                ..context()
+            };
+            let out = state.sample(manual_settings(), tick, ctx, Some(target));
+            assert_eq!(out.requested, 0);
+            if tick == i64::from(MAX_ATTEMPTS) {
+                assert_eq!(out.stick, None);
+                assert_eq!(out.owned, 0);
+            }
+        }
+    }
+}
+
+#[test]
+fn crossed_up_getup_attack_releases_shield_turns_and_grabs_with_confirmed_facing() {
+    let mut state = LedgeTrap::default();
+    let target = Opponent {
+        position: [-5.0, 0.0],
+        attack_active: Some(true),
+        ..enemy(CLIFF_ATTACK, true)
+    };
+    state.sample(manual_settings(), 0, context(), Some(target));
+    // A real block establishes permission to punish. Hold shield through stun.
+    let stunned = LedgeContext {
+        status: GUARD_DAMAGE,
+        can_act: false,
+        shield_attacker: Some(2),
+        shield_stun_frames: Some(8),
+        ..context()
+    };
+    state.sample(manual_settings(), 1, stunned, Some(target));
+    let ended = Opponent {
+        attack_active: Some(false),
+        ..target
+    };
+    let guard = LedgeContext {
+        status: GUARD,
+        can_act: false,
+        ..context()
+    };
+    assert_eq!(
+        state
+            .sample(manual_settings(), 2, guard, Some(ended))
+            .requested,
+        0
+    );
+    let turn = state.sample(manual_settings(), 3, context(), Some(ended));
+    assert_eq!(turn.stick, Some([-0.3, 0.0]));
+    let grab = state.sample(
+        manual_settings(),
+        4,
+        LedgeContext {
+            facing: -1.0,
+            ..context()
+        },
+        Some(ended),
+    );
+    assert_eq!(grab.requested, MAPPER_R);
+}
+
+#[test]
+fn roll_can_close_a_short_gap_before_its_attack_forecast_is_in_range() {
+    for side in [-1.0, 1.0] {
+        let mut state = LedgeTrap::default();
+        let config = LedgeSettings {
+            horizontal_range: 20.0,
+            ..manual_settings()
+        };
+        let roll = Opponent {
+            position: [side * 16.0, 0.0],
+            velocity: [0.0, 0.0],
+            ..timed_roll(18.0, 30.0)
+        };
+        let dash = state.sample(config, 0, context(), Some(roll));
+        assert_eq!(dash.requested, 0);
+        assert_eq!(dash.stick, Some([side, 0.0]));
+        let running = LedgeContext {
+            status: 0x3,
+            facing: side,
+            position: [side * 7.0, 0.0],
+            ..context()
+        };
+        let attack = state.sample(config, 1, running, Some(roll));
+        assert_eq!(attack.requested, MAPPER_A);
+        assert_eq!(attack.stick, Some([side, 0.0]));
+    }
+}
+
+#[test]
+fn roll_approach_remains_bounded_but_native_dash_presses_without_protection_metadata() {
+    for (x, y, expiry, recovery) in [
+        (40.0, 0.0, Some(18.0), 30.0),
+        (16.0, 8.0, Some(18.0), 30.0),
+        (16.0, 0.0, Some(18.0), 9.0),
+    ] {
+        let target = Opponent {
+            position: [x, y],
+            velocity: [0.0, 0.0],
+            vulnerable_in: expiry,
+            ..timed_roll(18.0, recovery)
+        };
+        let out = LedgeTrap::default().sample(manual_settings(), 0, context(), Some(target));
+        assert_eq!(out.requested, 0);
+        assert_eq!(out.stick, None);
+    }
+    let target = Opponent {
+        position: [16.0, 0.0],
+        velocity: [0.0, 0.0],
+        vulnerable_in: None,
+        ..timed_roll(18.0, 30.0)
+    };
+    let mut state = LedgeTrap::default();
+    assert_eq!(
+        state
+            .sample(manual_settings(), 0, context(), Some(target))
+            .requested,
+        0
+    );
+    let running = LedgeContext {
+        status: 0x3,
+        position: [7.0, 0.0],
+        ..context()
+    };
+    assert_eq!(
+        state
+            .sample(manual_settings(), 1, running, Some(target))
+            .requested,
+        MAPPER_A
+    );
+    assert_eq!(state.action_name(), "roll_request_dash_attack");
+}
+
+#[test]
+fn rising_jump_is_intercepted_before_landing_with_native_gravity_and_own_hop_rise() {
+    let physics = AirPhysics::new(0.1, 1.5);
+    let mut state = LedgeTrap::default();
+    let ground = LedgeContext {
+        air_physics: physics,
+        short_hop_speed: Some(2.5),
+        ..context()
+    };
+    let launch = Opponent {
+        position: [5.0, 6.0],
+        velocity: [0.0, 3.0],
+        situation: 2,
+        vulnerable_in: Some(12.0),
+        ..enemy(CLIFF_JUMP1, false)
+    };
+    assert_eq!(
+        state
+            .sample(manual_settings(), 0, ground, Some(launch))
+            .requested,
+        MAPPER_X
+    );
+    let rising = Opponent {
+        status: CLIFF_JUMP3,
+        position: [5.0, 15.0],
+        velocity: [0.0, 2.7],
+        vulnerable_in: Some(8.0),
+        actionable_in: Some(16.0),
+        air_physics: physics,
+        ..launch
+    };
+    let own_air = LedgeContext {
+        status: 0xb,
+        situation: 2,
+        can_act: false,
+        position: [0.0, 2.5],
+        velocity: [0.0, 2.4],
+        ..ground
+    };
+    let attack = state.sample(manual_settings(), 1, own_air, Some(rising));
+    assert_eq!(attack.requested, MAPPER_A);
+    assert_eq!(attack.stick, Some([0.0, 0.0]));
+}
+
+#[test]
+fn jump_punish_does_not_wait_for_landing_then_attack_an_actionable_target() {
+    let mut state = LedgeTrap::default();
+    let launch = Opponent {
+        position: [5.0, 6.0],
+        situation: 2,
+        ..enemy(CLIFF_JUMP1, true)
+    };
+    assert_eq!(
+        state
+            .sample(manual_settings(), 0, context(), Some(launch))
+            .requested,
+        MAPPER_X
+    );
+    let own_air = LedgeContext {
+        status: 0xb,
+        situation: 2,
+        can_act: false,
+        ..context()
+    };
+    let expired = Opponent {
+        status: CLIFF_JUMP3,
+        actionable_in: Some(8.0),
+        ..launch
+    };
+    assert_eq!(
+        state
+            .sample(manual_settings(), 1, own_air, Some(expired))
+            .requested,
+        0
+    );
+    let landed = Opponent {
+        status: 0,
+        situation: 0,
+        position: [5.0, 0.0],
+        ..launch
+    };
+    let out = state.sample(manual_settings(), 2, own_air, Some(landed));
+    assert_eq!(out.requested, 0);
+    assert_eq!(out.owned, 0);
+    assert!(!state.owns_jump_state(0xb));
+}
+
+#[test]
+fn hop_preparation_does_not_require_the_launch_pose_to_extrapolate_into_attack_range() {
+    let mut state = LedgeTrap::default();
+    let ctx = LedgeContext {
+        air_physics: AirPhysics::new(0.08, 1.2),
+        short_hop_speed: None,
+        ..context()
+    };
+    let target = Opponent {
+        position: [5.0, -4.0],
+        velocity: [0.0, 4.0],
+        situation: 2,
+        ..enemy(CLIFF_JUMP1, false)
+    };
+    assert_eq!(
+        state
+            .sample(manual_settings(), 0, ctx, Some(target))
+            .requested,
+        MAPPER_X
+    );
+    let air = LedgeContext {
+        status: 0xb,
+        situation: 2,
+        can_act: false,
+        velocity: [0.0, 2.0],
+        ..ctx
+    };
+    assert_eq!(
+        state
+            .sample(manual_settings(), 1, air, Some(target))
+            .requested,
+        0,
+        "preparation does not assume protection already ended"
+    );
+}
+
+#[test]
+fn native_cancel_deadline_wins_over_longer_animation_end() {
+    assert_eq!(recovery_frames(10.0, 50.0, 30.0, 2.0), Some(10.0));
+    assert_eq!(recovery_frames(30.0, 50.0, 30.0, 1.0), Some(0.0));
+    assert_eq!(recovery_frames(35.0, 50.0, 30.0, 1.0), Some(0.0));
+    assert_eq!(recovery_frames(10.0, 50.0, 0.0, 2.0), Some(20.0));
+    assert_eq!(recovery_frames(10.0, f32::NAN, 30.0, 1.0), None);
+    assert_eq!(recovery_frames(10.0, 50.0, 30.0, 0.0), None);
+}
+
+#[test]
+fn native_gravity_is_validated_and_terminal_fall_speed_is_respected() {
+    for (gravity, terminal) in [
+        (0.0, 1.5),
+        (f32::NAN, 1.5),
+        (0.1, -1.0),
+        (0.1, f32::INFINITY),
+    ] {
+        assert!(AirPhysics::new(gravity, terminal).is_none());
+    }
+    let physics = AirPhysics::new(0.1, 1.5).unwrap();
+    assert!((physics.displacement(-1.5, 10.0) + 15.0).abs() < 0.001);
+    assert!(physics.displacement(2.5, 30.0) < 2.5 * 30.0);
+}
+
+#[test]
+fn shield_grab_is_timed_before_known_getup_attack_recovery_expires() {
+    for (deadline, should_grab) in [(10.0, false), (11.0, true)] {
+        let mut state = LedgeTrap::default();
+        let target = Opponent {
+            attack_active: Some(true),
+            actionable_in: Some(30.0),
+            ..enemy(CLIFF_ATTACK, true)
+        };
+        state.sample(manual_settings(), 0, context(), Some(target));
+        let stunned = LedgeContext {
+            status: GUARD_DAMAGE,
+            shield_attacker: Some(2),
+            shield_stun_frames: Some(8),
+            can_act: false,
+            ..context()
+        };
+        state.sample(manual_settings(), 1, stunned, Some(target));
+        let guard = LedgeContext {
+            status: GUARD,
+            can_act: false,
+            ..context()
+        };
+        let out = state.sample(
+            manual_settings(),
+            2,
+            guard,
+            Some(Opponent {
+                actionable_in: Some(deadline),
+                ..target
+            }),
+        );
+        assert_eq!(out.requested & MAPPER_R != 0, should_grab);
+        assert_eq!(out.requested & MAPPER_ZR, MAPPER_ZR);
+    }
+}
+
+#[test]
+fn neutral_air_forecast_does_not_keep_its_hitbox_after_predicted_landing() {
+    let physics = AirPhysics::new(0.1, 1.5);
+    let ctx = LedgeContext {
+        status: 0xe,
+        situation: 2,
+        position: [0.0, 2.0],
+        velocity: [0.0, -1.5],
+        air_physics: physics,
+        ..context()
+    };
+    let target = Opponent {
+        position: [5.0, 0.0],
+        situation: 2,
+        ..enemy(CLIFF_JUMP3, true)
+    };
+    let window = AttackWindow {
+        first: NEUTRAL_AIR_FIRST,
+        last: NEUTRAL_AIR_LAST,
+        range: 12.0,
+        height: [-6.0, 18.0],
+        front_only: false,
+    };
+    assert!(!jump_contact(window, ctx, target, false, Some(0.0)));
+}
+
+#[test]
+fn normal_getup_keeps_the_existing_tilt_but_respects_an_earlier_cancel_deadline() {
+    let config = LedgeSettings {
+        getup_attack: GetupAttack::ForwardTilt,
+        ..manual_settings()
+    };
+    for (deadline, expected) in [(5.0, 0), (6.0, MAPPER_A)] {
+        let target = Opponent {
+            actionable_in: Some(deadline),
+            ..enemy(CLIFF_CLIMB, true)
+        };
+        assert_eq!(
+            LedgeTrap::default()
+                .sample(config, 0, context(), Some(target))
+                .requested,
+            expected
+        );
+    }
+}
+
+#[test]
+fn moving_roll_does_not_have_to_stop_or_enter_future_attack_reach_before_dash_preparation() {
+    let mut state = LedgeTrap::default();
+    let roll = Opponent {
+        velocity: [1.5, 0.0],
+        ..timed_roll(20.0, 30.0)
+    };
+    let input = state.sample(manual_settings(), 0, context(), Some(roll));
+    assert_eq!(input.requested, 0);
+    assert_eq!(input.stick, Some([1.0, 0.0]));
+    // A long run is not permitted just because future roll extrapolation moves away.
+    let moved = LedgeContext {
+        status: 0x3,
+        position: [8.0, 0.0],
+        ..context()
+    };
+    let distant = Opponent {
+        position: [20.0, 0.0],
+        ..timed_roll(40.0, 50.0)
+    };
+    let stop = state.sample(manual_settings(), 1, moved, Some(distant));
+    assert_eq!(stop.requested, 0);
+    assert_eq!(stop.stick, None);
+}
+
+fn timing_only_settings() -> LedgeSettings {
+    LedgeSettings {
+        distance_agnostic: true,
+        getup_attack: GetupAttack::ForwardTilt,
+        ..manual_settings()
+    }
+}
+
+#[test]
+fn timing_only_normal_getup_ignores_distance_height_and_acquisition_box() {
+    for position in [[5.0, 0.0], [500.0, 200.0]] {
+        let mut state = LedgeTrap::default();
+        let target = Opponent {
+            position,
+            vulnerable_in: Some(5.0),
+            actionable_in: Some(10.0),
+            ..enemy(CLIFF_CLIMB, false)
+        };
+        let out = state.sample(timing_only_settings(), 0, context(), Some(target));
+        assert_eq!(out.requested, MAPPER_A);
+        assert_eq!(out.stick, Some([0.6, -0.3]));
+    }
+}
+
+#[test]
+fn timing_only_jump_hops_and_requests_nair_at_any_distance() {
+    for position in [[5.0, 6.0], [500.0, 200.0]] {
+        let mut state = LedgeTrap::default();
+        let target = Opponent {
+            situation: 2,
+            position,
+            vulnerable_in: Some(12.0),
+            actionable_in: Some(20.0),
+            ..enemy(CLIFF_JUMP1, false)
+        };
+        assert_eq!(
+            state
+                .sample(timing_only_settings(), 0, context(), Some(target))
+                .requested,
+            MAPPER_X
+        );
+        let air = LedgeContext {
+            status: 0xb,
+            situation: 2,
+            can_act: false,
+            ..context()
+        };
+        let later = Opponent {
+            vulnerable_in: Some(8.0),
+            actionable_in: Some(12.0),
+            ..target
+        };
+        assert_eq!(
+            state
+                .sample(timing_only_settings(), 1, air, Some(later))
+                .requested,
+            MAPPER_A
+        );
+    }
+}
+
+#[test]
+fn distance_independent_timing_still_obeys_unknown_protection_readiness_and_recovery() {
+    let target = Opponent {
+        position: [500.0, 200.0],
+        vulnerable_in: Some(5.0),
+        actionable_in: Some(10.0),
+        ..enemy(CLIFF_CLIMB, false)
+    };
+    for (ctx, target) in [
+        (
+            LedgeContext {
+                can_tilt: false,
+                ..context()
+            },
+            target,
+        ),
+        (
+            context(),
+            Opponent {
+                actionable_in: Some(5.0),
+                ..target
+            },
+        ),
+        (
+            context(),
+            Opponent {
+                vulnerable_in: None,
+                ..target
+            },
+        ),
+        (
+            LedgeContext {
+                held: false,
+                ..context()
+            },
+            target,
+        ),
+    ] {
+        assert_eq!(
+            LedgeTrap::default()
+                .sample(timing_only_settings(), 0, ctx, Some(target))
+                .requested,
+            0
+        );
+    }
+}
+
+#[test]
+fn confirmed_getup_attack_block_buffers_grab_without_distance_protection_or_recovery_gates() {
+    let mut state = LedgeTrap::default();
+    let target = Opponent {
+        position: [500.0, 100.0],
+        situation: 3,
+        actionable_in: Some(0.0),
+        attack_active: Some(true),
+        ..enemy(CLIFF_ATTACK, false)
+    };
+    assert_eq!(
+        state
+            .sample(timing_only_settings(), 0, context(), Some(target))
+            .requested,
+        MAPPER_ZR
+    );
+    let stun = LedgeContext {
+        status: GUARD_DAMAGE,
+        can_act: false,
+        can_grab: false,
+        shield_attacker: Some(2),
+        shield_stun_frames: Some(8),
+        ..context()
+    };
+    assert_eq!(
+        state
+            .sample(timing_only_settings(), 1, stun, Some(target))
+            .requested,
+        MAPPER_ZR
+    );
+    let buffer = LedgeContext {
+        shield_stun_frames: Some(2),
+        ..stun
+    };
+    assert_eq!(
+        state
+            .sample(timing_only_settings(), 2, buffer, Some(target))
+            .requested,
+        MAPPER_ZR | MAPPER_R
+    );
+    assert_eq!(
+        state
+            .sample(
+                timing_only_settings(),
+                3,
+                LedgeContext {
+                    motion_frame: 1.0,
+                    ..buffer
+                },
+                Some(target)
+            )
+            .requested,
+        MAPPER_ZR
+    );
+}
+
+#[test]
+fn distance_independent_mode_preserves_automatic_roll_approach_and_native_dash_attack() {
+    let mut state = LedgeTrap::default();
+    let target = Opponent {
+        position: [30.0, 0.0],
+        velocity: [0.0, 0.0],
+        ..timed_roll(20.0, 40.0)
+    };
+    let approach = state.sample(timing_only_settings(), 0, context(), Some(target));
+    assert_eq!(approach.stick, Some([1.0, 0.0]));
+    assert_eq!(approach.requested, 0);
+    let near = LedgeContext {
+        status: 0x3,
+        position: [23.0, 0.0],
+        ..context()
+    };
+    assert_eq!(
+        state
+            .sample(timing_only_settings(), 1, near, Some(target))
+            .requested,
+        MAPPER_A
+    );
+}
+
+#[test]
+fn distance_independent_policy_is_default_and_can_be_disabled_in_config() {
+    use crate::live_input::LiveConfig;
+    assert!(LiveConfig::parse("").unwrap().ledge.distance_agnostic);
+    assert!(
+        !LiveConfig::parse("ledge_distance_agnostic = false")
+            .unwrap()
+            .ledge
+            .distance_agnostic
+    );
+    assert!(LiveConfig::parse("ledge_distance_agnostic = maybe").is_err());
+}
+
+#[test]
+fn timed_dash_attack_is_pressed_in_native_dash_or_run_even_when_transition_flag_is_false() {
+    for status in [0x3, 0x4] {
+        for direction in [-1.0, 1.0] {
+            let mut state = LedgeTrap::default();
+            let target = Opponent {
+                position: [direction * 5.0, 0.0],
+                velocity: [0.0, 0.0],
+                ..timed_roll(12.0, 30.0)
+            };
+            let ctx = LedgeContext {
+                status,
+                facing: direction,
+                can_dash_attack: false,
+                ..context()
+            };
+            let press = state.sample(manual_settings(), 0, ctx, Some(target));
+            assert_eq!(press.requested, MAPPER_A);
+            assert_eq!(press.stick, Some([direction, 0.0]));
+            assert_eq!(state.action_name(), "roll_request_dash_attack");
+            let actual = LedgeContext {
+                status: DASH_ATTACK,
+                can_act: false,
+                motion_frame: 1.0,
+                ..ctx
+            };
+            assert_eq!(
+                state
+                    .sample(manual_settings(), 1, actual, Some(target))
+                    .requested,
+                0
+            );
+            assert!(
+                !state.finished,
+                "requesting A is not itself a confirmed hit"
+            );
+        }
+    }
+}
+
+#[test]
+fn native_dash_attack_request_is_not_blocked_by_approach_gates() {
+    for status in [0x3, 0x4] {
+        for facing in [-1.0, 1.0] {
+            let mut state = LedgeTrap::default();
+            let ctx = LedgeContext {
+                status,
+                facing,
+                can_act: false,
+                can_dash_attack: false,
+                safe_ground: [false; 2],
+                ..context()
+            };
+            let target = Opponent {
+                position: [-facing * 100.0, 100.0],
+                velocity: [0.0, 0.0],
+                ..timed_roll(12.0, 30.0)
+            };
+            let press = state.sample(timing_only_settings(), 0, ctx, Some(target));
+            assert_eq!(press.requested, MAPPER_A);
+            assert_eq!(press.stick, Some([-facing, 0.0]));
+        }
+    }
+}
+
+#[test]
+fn roll_detected_from_previous_status_still_requests_dash_attack() {
+    let roll = Opponent {
+        status: 0,
+        previous_status: CLIFF_ESCAPE,
+        position: [5.0, 0.0],
+        velocity: [0.0, 0.0],
+        vulnerable_in: None,
+        motion: None,
+        ..timed_roll(12.0, 30.0)
+    };
+    let running = LedgeContext {
+        status: 0x3,
+        ..context()
+    };
+    let output = LedgeTrap::default().sample(manual_settings(), 0, running, Some(roll));
+    assert_eq!(output.requested, MAPPER_A);
+    assert_eq!(output.stick, Some([1.0, 0.0]));
+}
+
+#[test]
+fn running_roll_waits_only_when_known_vulnerability_is_beyond_dash_attack() {
+    let mut state = LedgeTrap::default();
+    let running = LedgeContext {
+        status: 0x3,
+        ..context()
+    };
+    let roll = timed_roll(40.0, 60.0);
+    let early = state.sample(manual_settings(), 0, running, Some(roll));
+    assert_eq!(early.requested, 0);
+    assert_eq!(state.action_name(), "roll_wait_vulnerability");
+    let ready = Opponent {
+        vulnerable_in: Some(34.0),
+        ..roll
+    };
+    let attack = state.sample(manual_settings(), 1, running, Some(ready));
+    assert_eq!(attack.requested, MAPPER_A);
+    assert_eq!(state.action_name(), "roll_request_dash_attack");
+}
+
+#[test]
+fn restored_walking_roll_approach_still_overrides_the_walk_cap() {
+    use crate::manual_controls::{ledge_walk_stick, ManualOverlay, TurboOutput};
+    use crate::native_input::ButtonTrace;
+    let mut state = LedgeTrap::default();
+    let target = Opponent {
+        position: [30.0, 0.0],
+        velocity: [0.0, 0.0],
+        ..timed_roll(12.0, 30.0)
+    };
+    let walking = LedgeContext {
+        status: 1,
+        ..context()
+    };
+    let dash = state.sample(timing_only_settings(), 0, walking, Some(target));
+    assert_eq!(dash.requested, 0);
+    assert_eq!(dash.stick, Some([1.0, 0.0]));
+    // Match live mapper priority: the owned roll stick wins over manual walking.
+    let stick = dash.stick.or(Some(ledge_walk_stick([1.0, 0.0], 0.35)));
+    let frame = ManualOverlay::default().apply(
+        ButtonTrace::default(),
+        [1.0, 0.0],
+        TurboOutput {
+            stick,
+            ..TurboOutput::default()
         },
     );
-    assert_eq!(state.roll_interception(), Some(locked));
+    assert_eq!(frame.stick, [1.0, 0.0]);
+    let running = LedgeContext {
+        status: 0x3,
+        position: [23.0, 0.0],
+        motion_frame: 1.0,
+        ..walking
+    };
+    let attack = state.sample(timing_only_settings(), 1, running, Some(target));
+    assert_eq!(attack.requested, MAPPER_A);
+}
+
+#[test]
+fn roll_attack_pulse_keeps_dash_direction_and_replaces_physical_directions() {
+    use crate::manual_controls::{ManualOverlay, TurboOutput, LEFT_STICK_DIRECTIONS};
+    use crate::native_input::ButtonTrace;
+    for side in [-1.0, 1.0] {
+        let mut state = LedgeTrap::default();
+        let mut mapper = ManualOverlay::default();
+        let target = Opponent {
+            position: [side * 5.0, 0.0],
+            velocity: [0.0, 0.0],
+            ..timed_roll(12.0, 30.0)
+        };
+        let facing = LedgeContext {
+            facing: side,
+            ..context()
+        };
+        let dash = state.sample(manual_settings(), 0, facing, Some(target));
+        assert_eq!(dash.requested, 0);
+        assert_eq!(dash.stick, Some([side, 0.0]));
+        let human = ButtonTrace {
+            held: LEFT_STICK_DIRECTIONS,
+            ..ButtonTrace::default()
+        };
+        mapper.apply_controls(
+            human,
+            [side, 0.0],
+            TurboOutput {
+                stick: dash.stick,
+                ..TurboOutput::default()
+            },
+            0,
+            dash.requested,
+            dash.owned,
+        );
+        let run = LedgeContext {
+            status: 0x3,
+            motion_frame: 1.0,
+            ..facing
+        };
+        let attack = state.sample(manual_settings(), 1, run, Some(target));
+        assert_eq!(attack.requested, MAPPER_A);
+        let applied = mapper.apply_controls(
+            human,
+            [side, 0.0],
+            TurboOutput {
+                stick: attack.stick,
+                ..TurboOutput::default()
+            },
+            0,
+            attack.requested,
+            attack.owned,
+        );
+        assert_eq!(applied.stick, [side, 0.0]);
+        assert_eq!(
+            applied.buttons.held & LEFT_STICK_DIRECTIONS,
+            if side > 0.0 { 1 << 21 } else { 1 << 23 }
+        );
+        assert_eq!(applied.buttons.pressed & MAPPER_A, MAPPER_A);
+        let accepted = LedgeContext {
+            status: DASH_ATTACK,
+            can_act: false,
+            motion_frame: 2.0,
+            ..run
+        };
+        assert_eq!(
+            state
+                .sample(manual_settings(), 2, accepted, Some(target))
+                .requested,
+            0
+        );
+    }
+}
+
+#[test]
+fn rear_getup_attack_block_jumps_directly_out_of_shield_then_nairs_without_turning() {
+    for side in [-1.0, 1.0] {
+        let mut state = LedgeTrap::default();
+        let config = timing_only_settings();
+        let ctx = LedgeContext {
+            facing: -side,
+            ..context()
+        };
+        let target = Opponent {
+            position: [side * 50.0, 0.0],
+            attack_active: Some(true),
+            ..enemy(CLIFF_ATTACK, true)
+        };
+        state.sample(config, 0, ctx, Some(target));
+        let stun = LedgeContext {
+            status: GUARD_DAMAGE,
+            can_act: false,
+            shield_attacker: Some(2),
+            shield_stun_frames: Some(1),
+            ..ctx
+        };
+        assert_eq!(
+            state.sample(config, 1, stun, Some(target)).requested,
+            MAPPER_ZR
+        );
+        let guard = LedgeContext {
+            status: GUARD,
+            can_act: false,
+            can_jump: true,
+            ..ctx
+        };
+        let hop = state.sample(config, 2, guard, Some(target));
+        assert_eq!(hop.requested, MAPPER_X);
+        assert_eq!(hop.stick, Some([0.0, 0.0]));
+        assert!(state.owns_jump_state(JUMP_SQUAT));
+        let squat = LedgeContext {
+            status: JUMP_SQUAT,
+            can_act: false,
+            ..ctx
+        };
+        assert_eq!(state.sample(config, 3, squat, Some(target)).requested, 0);
+        let air = LedgeContext {
+            status: 0xb,
+            situation: 2,
+            can_act: false,
+            can_air_attack: true,
+            ..ctx
+        };
+        let attack = state.sample(config, 4, air, Some(target));
+        assert_eq!(attack.requested, MAPPER_A);
+        assert_eq!(attack.stick, Some([0.0, 0.0]));
+        assert_eq!(state.pending, Pending::NeutralAir);
+        let actual = LedgeContext {
+            status: ATTACK_AIR,
+            motion_kind: NEUTRAL_AIR_MOTION,
+            ..air
+        };
+        assert_eq!(state.sample(config, 5, actual, Some(target)).requested, 0);
+        let landed = state.sample(config, 6, ctx, Some(target));
+        assert_eq!(landed.requested, 0);
+        assert_eq!(landed.owned, 0);
+    }
+}
+
+#[test]
+fn rear_block_nair_sequence_preserves_hitstop_shield_and_cancels_on_y_release() {
+    let mut state = LedgeTrap::default();
+    let config = timing_only_settings();
+    let target = Opponent {
+        position: [-5.0, 0.0],
+        attack_active: Some(true),
+        ..enemy(CLIFF_ATTACK, true)
+    };
+    state.sample(config, 0, context(), Some(target));
+    let stun = LedgeContext {
+        status: GUARD_DAMAGE,
+        can_act: false,
+        shield_attacker: Some(2),
+        shield_stun_frames: Some(1),
+        ..context()
+    };
+    state.sample(config, 1, stun, Some(target));
+    assert_eq!(
+        state
+            .sample(
+                config,
+                2,
+                LedgeContext {
+                    stopped: true,
+                    ..stun
+                },
+                Some(target)
+            )
+            .requested,
+        MAPPER_ZR
+    );
+    let out = state.sample(
+        config,
+        3,
+        LedgeContext {
+            held: false,
+            ..context()
+        },
+        Some(target),
+    );
+    assert_eq!(out.owned, 0);
+    assert_eq!(out.requested, 0);
+    assert_eq!(out.stick, None);
 }

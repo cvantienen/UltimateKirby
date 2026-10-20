@@ -2,7 +2,7 @@
 # Accepted keys and ranges are defined in LiveConfig::parse in live_input.rs.
 # To add a new setting, extend the Rust field/default/parser and its tests first;
 # adding an arbitrary key here makes config parsing fail rather than adding a tool.
-# Kirby Assist: Pro Controller direct raw controller-memory button input build.
+# Kirby Assist: direct raw controller-memory button input build.
 # Read once when Smash starts. Restart the game after editing.
 # Editing workflow: change one value, save, copy this file to the Switch at
 # SD:/ultimate/kirby_assist/config.txt, fully close Smash, then reopen to reload.
@@ -12,12 +12,16 @@
 enabled = true
 auto_mash = true
 auto_tech = true
-# Diagnostic build only: record gate reasons and actual ZR press edges.
+# Diagnostic: extra tech details plus ledge wait snapshots at most twice/second.
+# Action changes and attack edges remain logged when false. Background I/O is buffered.
 # Silent compiles the logger out regardless of this setting.
 tech_debug = true
 
-# First Switch controller is 0; second is 1, etc. Pro Controller only.
-npad_id = 0
+# Local physical controller: 0 = Player 1, 1 = Player 2, etc. No style filter.
+# Follows that controller's actual mapper slot; this is not your Arena battle position.
+# All human-controlled fighters use the same inputs in every battle mode.
+# Move timing/range defaults are still tuned for Kirby.
+player_index = 0
 
 # Auto mash uses the left stick: Right -> Up -> Left -> Down, one full-strength
 # direction per distinct mashable mapper update. It generates no mash buttons.
@@ -34,65 +38,81 @@ tech_lookahead_frames = 5
 # This does not change the game's actual tech lockout.
 tech_cooldown_frames = 40
 
-# Hold D-pad Left/Right: crouch/release with a slight movement that direction.
-# Reserves side taunts during valid gameplay; both directions held cancel movement.
-# Diagonals involved in a macro press are consumed through release.
-dpad_turbo = true
-# Observed mapper updates per crouch/release phase (1 to 10).
+# Side D-pad: tap for one short-hop/downward-angled-air-dodge attempt; hold to repeat.
+# The first airborne native frame must permit the dodge; otherwise it aborts.
+dpad_slide = true
+# Hold L3: creep in current facing while alternating crouch/release.
+# L3 is turbo only. Hold Y separately for ledge assist; punish inputs take priority.
+l3_turbo = true
+# Observed native animation updates per crouch/release phase (1 to 10).
 turbo_phase_frames = 2
-# Normalized horizontal stick strength during the move phase (0.05 to 0.6).
-turbo_walk_strength = 0.6
+# Normalized creep strength (L3 caps this to 0.45).
+turbo_walk_strength = 0.35
 
-# Click L3 to toggle ledge assist: prepare at the nearest detected stage ledge.
+# Hold Y for timed responses; you space normal/jump/grab. Roll approaches automatically.
 # Requires A=Attack, X=Jump, R=Grab, ZR=Shield, Tap Jump OFF.
-# Ground-only: waits in air, selects the current floor edge on landing, then positions.
-# Click L3 again to return physical control. Timing/geometry still limit coverage.
+# Without held L3 turbo, grounded physical input is capped for fine spacing.
+# Directional attack recipes temporarily override the cap only when eligible.
+# Only its own jump punish retains aerial input ownership.
+# Release Y to disengage ledge assist. Y is consumed instead of jumping.
 ledge_trap = true
-# Witnessed ledge drop -> jump/aerial: stop moving and shield; no blind grab.
-# Active while L3 mode is toggled on. Click L3 again for a manual punish.
+ledge_manual_spacing = true
+# Ignore attack/acquisition distances except for automatic roll interception.
+ledge_distance_agnostic = true
+ledge_walk_strength = 0.35
+# Roll starts a bounded dash within this range plus follow range, then requests A in native dash/run.
+ledge_roll_dash_range = 10.0
+# Unrecognized ledge drops hold shield; recognized get-up attacks retain a grab after a confirmed block, regardless of distance.
 ledge_drop_defense = true
 # Tap D-pad Down: find the nearest floor edge, run off, Down, then inward to catch.
 # No opponent is required. Enabled by default even when this key is omitted.
-# The sequence ends at ledge catch; choose your own follow-up. L3 is separate.
+# The sequence ends at ledge catch; choose your own follow-up. Y assist is separate.
 auto_ledge_trump = true
 # Normal get-up only: down_tilt (low poke) or forward_tilt (angled down).
-# Jump uses short-hop neutral air; roll/get-up-attack follow-ups still use Grab.
+# Jump uses short-hop neutral air; roll uses dash attack; get-up attack uses Grab.
 ledge_getup_attack = forward_tilt
 
-# Jump response: neutral X+A timed for the predicted neutral-air active window.
+# Jump response: prepare the hop during launch, then timed neutral-stick+A in air.
+# Distance-agnostic mode uses vulnerability/recovery timing without reach prediction.
 # Root-position gates, not exact hitboxes: range 1..20, height 1..40.
-ledge_anti_air_range = 8.0
+ledge_anti_air_range = 12.0
 ledge_anti_air_height = 18.0
 
 # Initial opponent acquisition limits (world units, finite 1..20).
 ledge_trap_range = 20.0
 ledge_trap_vertical_range = 10.0
-# Separate proximity gates for normal-getup down tilt and roll/shield grabs.
+# Legacy normal/jump/grab proximity gates apply only when ledge_distance_agnostic=false.
+# Roll approach uses ledge_roll_dash_range above; attack input does not require a range forecast.
 ledge_tilt_range = 15.0
 ledge_grab_range = 9.0
 
 # Continue following acquired opponents outside the initial box (1..100).
 ledge_follow_range = 40.0
 ledge_follow_vertical_range = 48.0
-# Ground-probed stance and pursuit; default 8 units inward leaves more room
-# to react to rolls. Momentum prediction reduces stance overshoot. This offset
-# is a tunable starting point, not a universal coverage position.
-ledge_auto_position = true
+# Legacy navigation settings below are ignored while manual spacing is on.
+# Your stick determines spacing; directional punishes aim automatically.
+ledge_auto_position = false
 ledge_stand_distance = 10.0
-# Roll endpoint distance inward from the ledge: auto = estimate ONCE from motion.
+# Legacy roll endpoint setting; the current roll response ignores this value.
 # A measured numeric value (2..100) commits immediately when the roll is read.
 # This is travel distance, not grab reach; character-specific tuning is required.
 ledge_roll_distance = auto
-ledge_move_strength = 0.85
+ledge_move_strength = 0.65
 
 # One early Grab pulse near shieldstun end when close (0..6).
 ledge_grab_buffer_frames = 3
 # Button actually mapped to Grab: R/L/ZL. ZR remains Shield.
 # Retries require a release; native startup pauses them and capture ends them.
-# Shield stays held through block hitstop. Pushback pursuit drops it once and
-# waits through guard-off before moving/grabbing, without raising Shield again.
+# Shield stays held through block hitstop. Manual mode never pursues pushback.
 ledge_grab_button = R
 # After a confirmed grab, choose a horizontal throw toward the remembered ledge.
 # Waits for native catch-wait; never presses A for pummels. Requires acquiring
 # the cliff anchor while hanging. Set false to keep manual throw selection.
 ledge_throw_outward = true
+
+# Combo policy is retained for future work, with no live key binding.
+combo_enabled = false
+combo_starter = grab
+combo_max_start_percent = 0.5
+combo_grab_range = 6.0
+combo_fair_range = 12.0

@@ -4,6 +4,7 @@
 //! mapping; this module only proposes a trace and left-stick position.
 use crate::native_input::{ButtonTrace, MapperButtonOverlay};
 
+pub const TURBO_TRIGGER: u32 = 1 << 16; // Left-stick click (L3).
 pub const DPAD_UP: u32 = 1;
 pub const DPAD_RIGHT: u32 = 1 << 1;
 pub const DPAD_LEFT: u32 = 1 << 3;
@@ -11,6 +12,27 @@ pub const DPAD_SIDES: u32 = DPAD_LEFT | DPAD_RIGHT;
 pub const LEFT_STICK_DIRECTIONS: u32 = 0xf << 20;
 pub const RIGHT_STICK_DIRECTIONS: u32 = 0xf << 24;
 pub const STICK_CLICKS: u32 = 3 << 16;
+
+/// Preserve fine physical input and crouching while capping horizontal motion
+/// below full-flick/dash thresholds. Attack recipes bypass this cap explicitly.
+pub fn ledge_walk_stick(physical: [f32; 2], maximum: f32) -> [f32; 2] {
+    let cap = if maximum.is_finite() {
+        maximum.clamp(0.1, 0.45)
+    } else {
+        0.35
+    };
+    let x = if physical[0].is_finite() {
+        physical[0].clamp(-cap, cap)
+    } else {
+        0.0
+    };
+    let y = if physical[1].is_finite() {
+        physical[1].clamp(-1.0, 1.0)
+    } else {
+        0.0
+    };
+    [x, y]
+}
 
 /// A diagonal press can include Up even when the intended trigger is Left/Right.
 /// Quarantine all D-pad bits involved in a macro press until their release, so
@@ -75,6 +97,45 @@ pub struct TurboState {
     last_output: TurboOutput,
 }
 impl TurboState {
+    /// Held L3 drives the existing crouch/move oscillator in native facing.
+    /// The side-D-pad sampler remains a pure legacy helper, never the live bind.
+    pub fn sample_facing(
+        &mut self,
+        settings: TurboSettings,
+        tick: i64,
+        held: bool,
+        facing: f32,
+        gameplay: bool,
+        can_move: bool,
+    ) -> TurboOutput {
+        let direction = if held && facing.is_finite() && facing.abs() >= 0.5 {
+            if facing < 0.0 {
+                DPAD_LEFT
+            } else {
+                DPAD_RIGHT
+            }
+        } else {
+            0
+        };
+        let mut out = self.sample(settings, tick, direction, gameplay, can_move);
+        // Start creeping on the first crouch phase too, rather than spending
+        // the initial updates planted. Native crouch/walk rules still apply.
+        if let Some(stick) = out.stick.as_mut() {
+            let strength = if settings.walk_strength.is_finite() {
+                settings.walk_strength.clamp(0.05, 0.45)
+            } else {
+                0.25
+            };
+            stick[0] = if direction == DPAD_LEFT {
+                -strength
+            } else {
+                strength
+            };
+        }
+        out.consume_dpad = false;
+        out
+    }
+
     /// A held trigger repeats; an edge-triggered "just pressed" check would only
     /// run once. Both directions held cancel movement and still suppress taunts.
     pub fn sample(
@@ -175,6 +236,7 @@ impl ManualOverlay {
             && output.stick.is_none()
             && extra_consumed == 0
             && owned_buttons == 0
+            && requested_buttons == 0
         {
             // One final history update releases any synthetic attack/shield
             // before returning ownership to fresh physical input.
@@ -541,5 +603,117 @@ mod tests {
             state.sample(settings, 0, DPAD_RIGHT, true, true).stick,
             Some([0.0, -1.0])
         );
+    }
+    #[test]
+    fn manual_ledge_walk_caps_both_sides_preserves_fine_input_and_vertical_control() {
+        for (input, expected) in [
+            ([1.0, 0.0], [0.35, 0.0]),
+            ([-1.0, -1.0], [-0.35, -1.0]),
+            ([0.12, 0.7], [0.12, 0.7]),
+            ([0.0, 0.0], [0.0, 0.0]),
+        ] {
+            assert_eq!(ledge_walk_stick(input, 0.35), expected);
+        }
+        assert_eq!(
+            ledge_walk_stick([f32::NAN, f32::INFINITY], f32::NAN),
+            [0.0, 0.0]
+        );
+        assert_eq!(ledge_walk_stick([1.0, 0.0], 1.0), [0.45, 0.0]);
+    }
+    #[test]
+    fn walk_cap_clears_full_stick_direction_bits_and_returns_physical_input_on_exit() {
+        use crate::native_input::MAPPER_A;
+        for direction in [-1.0, 1.0] {
+            let mut overlay = ManualOverlay::default();
+            let human = ButtonTrace {
+                held: MAPPER_A | LEFT_STICK_DIRECTIONS,
+                previous: MAPPER_A | LEFT_STICK_DIRECTIONS,
+                ..ButtonTrace::default()
+            };
+            let physical = [direction, 0.0];
+            let output = TurboOutput {
+                consume_dpad: false,
+                stick: Some(ledge_walk_stick(physical, 0.35)),
+            };
+            let frame = overlay.apply_controls(human, physical, output, 0, 0, 0);
+            assert_eq!(frame.stick, [direction * 0.35, 0.0]);
+            assert_eq!(frame.buttons.held & LEFT_STICK_DIRECTIONS, 0);
+            assert_eq!(frame.buttons.held & MAPPER_A, MAPPER_A);
+            assert_ne!(frame.clear_autorepeat & LEFT_STICK_DIRECTIONS, 0);
+            let restored = overlay.apply_controls(human, physical, TurboOutput::default(), 0, 0, 0);
+            assert_eq!(restored.stick, physical);
+            assert_eq!(restored.buttons.held, human.held);
+        }
+    }
+    #[test]
+    fn held_l3_turbo_creeps_in_facing_immediately_and_stops_on_release() {
+        let settings = TurboSettings {
+            enabled: true,
+            walk_strength: 0.35,
+            phase_frames: 1,
+        };
+        for facing in [-1.0, 1.0] {
+            let mut state = TurboState::default();
+            let first = state.sample_facing(settings, 0, true, facing, true, true);
+            assert_eq!(first.stick, Some([facing * 0.35, -1.0]));
+            assert!(!first.consume_dpad);
+            assert_eq!(
+                state
+                    .sample_facing(settings, 1, true, facing, true, true)
+                    .stick,
+                Some([facing * 0.35, 0.0])
+            );
+            assert_eq!(
+                state.sample_facing(settings, 1, false, facing, true, true),
+                TurboOutput::default()
+            );
+            assert_eq!(
+                state
+                    .sample_facing(settings, 2, true, -facing, true, true)
+                    .stick,
+                Some([-facing * 0.35, -1.0])
+            );
+            assert_eq!(
+                state
+                    .sample_facing(settings, 3, true, facing, true, false)
+                    .stick,
+                None
+            );
+        }
+    }
+    #[test]
+    fn y_assist_and_l3_turbo_have_independent_consumed_bindings() {
+        use crate::ledge_trap::LEDGE_TRIGGER;
+        use crate::native_input::{MAPPER_X, MAPPER_Y};
+        assert_eq!(LEDGE_TRIGGER, MAPPER_Y);
+        assert_eq!(LEDGE_TRIGGER & TURBO_TRIGGER, 0);
+        for held in [LEDGE_TRIGGER, TURBO_TRIGGER, LEDGE_TRIGGER | TURBO_TRIGGER] {
+            let mut overlay = ManualOverlay::default();
+            let human = ButtonTrace {
+                held,
+                previous: held,
+                ..ButtonTrace::default()
+            };
+            let frame = overlay.apply_controls(
+                human,
+                [0.2, 0.0],
+                TurboOutput::default(),
+                LEDGE_TRIGGER | TURBO_TRIGGER,
+                0,
+                0,
+            );
+            assert_eq!(frame.buttons.held & (MAPPER_Y | TURBO_TRIGGER), 0);
+            assert_eq!(frame.buttons.pressed & MAPPER_Y, 0);
+            assert_eq!(frame.stick, [0.2, 0.0]);
+            let jump = overlay.apply_controls(
+                human,
+                [0.0, 0.0],
+                TurboOutput::default(),
+                LEDGE_TRIGGER | TURBO_TRIGGER,
+                MAPPER_X,
+                MAPPER_X,
+            );
+            assert_eq!(jump.buttons.pressed & MAPPER_X, MAPPER_X);
+        }
     }
 }

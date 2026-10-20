@@ -12,11 +12,13 @@ nav:
   - Installation and configuration: INTEGRATION.md
   - Controls:
       - Analog mash: ANALOG_MASH.md
-      - Turbo crouch: TURBO_CONTROLS.md
-      - L3 ledge trap: LEDGE_TRAP.md
+      - L3 turbo teabag: TURBO_CONTROLS.md
+      - D-pad slide attempts: SLIDE_CONTROLS.md
+      - Y ledge trap: LEDGE_TRAP.md
       - D-pad Down ledge trump: LEDGE_TRUMP.md
   - Development:
       - Rust beginner guide: README_BEGINNER.md
+      - Rust reliability review: RUST_RELIABILITY_REVIEW.md
       - Builds and releases: BUILD_VARIANTS.md
       - TODO and task template: TODO.md
       - Maintaining the docs: MAINTAINING.md

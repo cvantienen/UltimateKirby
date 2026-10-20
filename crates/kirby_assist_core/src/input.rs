@@ -35,6 +35,10 @@ impl ButtonSet {
         Self(self.0 | other.0)
     }
 
+    pub const fn difference(self, other: Self) -> Self {
+        Self(self.0 & !other.0)
+    }
+
     pub const fn is_empty(self) -> bool {
         self.0 == 0
     }
@@ -152,7 +156,7 @@ pub const fn arbitrate(
             left_trigger: user.left_trigger,
             right_trigger: user.right_trigger,
         },
-        added_buttons: recipe.buttons_to_add,
+        added_buttons: recipe.buttons_to_add.difference(user.buttons),
         blocked_left_stick_request,
     }
 }

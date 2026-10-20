@@ -23,15 +23,22 @@
 // implement traits. Copy permits copying a small value, Debug supports {:?}
 // formatting, Default supplies initial values, and PartialEq supports == checks.
 pub mod assist;
+pub mod combo;
 pub mod config;
+pub mod diagnostics;
 pub mod input;
 pub mod live_input;
 pub mod runtime;
 pub mod sequence;
+pub mod session;
+pub mod slide;
 pub mod state;
+pub mod timing;
 pub mod tools;
 pub use runtime::AssistRuntime;
-pub use sequence::{InputSequence, InputStep};
+pub use sequence::{
+    ConfirmedSequence, ConfirmedStep, InputSequence, InputStep, SequenceObservation, SequenceState,
+};
 pub use tools::{AutoMash, AutoTech};
 
 pub use assist::{AssistEngine, DecisionStatus, FrameDecision};
