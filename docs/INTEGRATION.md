@@ -179,8 +179,8 @@ The log resets at launch. It records scenario changes and first confirmations, n
 
 ### Diagnose an online ledge-jump nair
 
-Ledge-jump cover supplies neutral jump+attack together, using the game's normal
-short-hop attack input. It no longer waits for a second delayed observation to
+Ledge-jump and normal-getup cover supply neutral jump+attack together, using the
+game's normal short-hop attack input. It no longer waits for a second delayed observation to
 begin sending A. Once committed, it finishes from Kirby's own state, independent
 of target lookup or aerial-readiness flags. Normal-getup and shield-hop nairs
 share that follow-through. None of these paths reads the online input queue.

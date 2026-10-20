@@ -62,7 +62,7 @@ ledge_manual_spacing = true
 # Ignore attack/acquisition distances except for automatic roll interception.
 ledge_distance_agnostic = true
 ledge_walk_strength = 0.35
-# Roll locks an endpoint, stops nearby within this attack range, then down smashes.
+# Legacy reach key; roll positioning now uses ledge_roll_distance below.
 ledge_roll_dash_range = 10.0
 # Plan hits during this many opening down-smash active frames (1..13).
 # Default 5 targets frames 7..11, overlapping vulnerability before roll recovery.
@@ -73,11 +73,11 @@ ledge_drop_defense = true
 # No opponent is required. Enabled by default even when this key is omitted.
 # The sequence ends at ledge catch; choose your own follow-up. Y assist is separate.
 auto_ledge_trump = true
-# Normal get-up: neutral_air starts its hitbox about 3 frames before protection ends.
+# Normal get-up: neutral_air starts its hitbox about 8 frames before protection ends.
 # Legacy options: down_tilt / forward_tilt. Jump uses nair; roll uses down smash.
 ledge_getup_attack = neutral_air
 
-# Jump response: prepare the hop during launch, then timed neutral-stick+A in air.
+# Normal/jump get-up nair: neutral jump+A together; keep A buffered through squat.
 # Distance-agnostic mode uses vulnerability/recovery timing without reach prediction.
 # Root-position gates, not exact hitboxes: range 1..20, height 1..40.
 ledge_anti_air_range = 12.0
@@ -87,7 +87,7 @@ ledge_anti_air_height = 18.0
 ledge_trap_range = 20.0
 ledge_trap_vertical_range = 10.0
 # Legacy normal/jump/grab proximity gates apply only when ledge_distance_agnostic=false.
-# Roll approaches one locked endpoint and checks that it remains in down-smash reach.
+# Roll uses a fixed common coverage point; it does not chase the opponent root.
 ledge_tilt_range = 15.0
 ledge_grab_range = 9.0
 
@@ -98,10 +98,10 @@ ledge_follow_vertical_range = 48.0
 # Your stick determines spacing; directional punishes aim automatically.
 ledge_auto_position = false
 ledge_stand_distance = 10.0
-# Auto projects a locked endpoint from observed travel and remaining roll time.
-# A measured numeric value (2..100) overrides the endpoint distance from the ledge.
-# Auto applies to every character; a numeric override requires matchup tuning.
-ledge_roll_distance = auto
+# Common roll coverage point: world units inward from the remembered ledge.
+# Applied immediately to all characters; it is a coverage preset, not an exact endpoint.
+# A numeric value (2..100) tunes the spot; legacy "auto" now also uses 25 units.
+ledge_roll_distance = 25.0
 ledge_move_strength = 0.65
 
 # One early Grab pulse near shieldstun end when close (0..6).

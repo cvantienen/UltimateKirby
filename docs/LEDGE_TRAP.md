@@ -17,9 +17,9 @@ recovery and native action readiness.
 | Opponent option | Response |
 | --- | --- |
 | Hang | Keep manual capped walking. |
-| Normal get-up | Short-hop nair, targeting the first active hitbox three frames before known invincibility ends. Neutral stick avoids facing-dependent aerials. |
+| Normal get-up | Short-hop nair, targeting the first active hitbox eight frames before known invincibility ends. Neutral stick avoids facing-dependent aerials. |
 | Jump get-up | Prepare a short hop, release X during squat, then neutral-stick A as soon as aerial input is legal after the committed takeoff. Ignore reach and height. |
-| Roll | Lock one projected endpoint, move to a nearby standing area, brake and wait; pulse down-stick+A within the vulnerability window, with no follow-up chase. |
+| Roll | Immediately move to one common ledge-roll coverage point, brake and pulse down-stick+A during vulnerability. No per-character endpoint prediction or chase. |
 | Get-up attack | Hold shield; after a confirmed block, buffer grab regardless of distance or target protection metadata. If facing away, jump directly out of shield and request neutral air at the first observed aerial-ready update; do not turn or grab. No whiff-only grab in this mode. |
 | Generic ledge drop | Hold shield as fallback. Recognized ledge options take priority. |
 | Confirmed capture | End autopilot immediately; physical controls choose pummels, throws and follow-ups. Release and hold Y again to rearm. |
@@ -48,6 +48,7 @@ ledge_drop_defense = true
 ledge_getup_attack = neutral_air
 ledge_roll_dash_range = 10.0
 ledge_roll_hit_window_frames = 5
+ledge_roll_distance = 25.0
 ledge_follow_range = 40.0
 ```
 
@@ -56,48 +57,36 @@ Setting it false restores the previous reach-gated normal/jump/grab policy.
 Legacy tilt, grab, anti-air and acquisition distances remain parsed but do not
 gate those responses in the default mode.
 
-Roll interception applies to every character. Auto mode projects an endpoint
-once from observed horizontal travel and the native remaining roll time, then
-locks it for that roll. Animation-root displacement supplements kinetic velocity;
-if travel/timing is unknown, it waits instead of pursuing the current root.
-The estimate does not read an exact future animation path and can be inaccurate
-when a roll's speed changes. A measured `ledge_roll_distance` can override the
-endpoint distance inward from a remembered ledge.
+Roll coverage now uses one fixed spot for every character: by default,
+**25 world units inward from the remembered ledge**. `ledge_roll_distance` tunes
+this coverage preset from 2–100; an old `auto` value also uses 25. This is a common
+coverage area, not a measured endpoint or a guarantee that every character's
+roll is caught. Correct spacing still needs device testing.
 
-Kirby heads toward a standing area 80% of `ledge_roll_dash_range` short of that
-endpoint (eight units back with the default ten-unit range), leaving more slide
-margin. The target remains locked for that roll. Before reaching it, the policy
-estimates queued coasting from current speed and learned input delay, then sums
-neutral deceleration using the native `ground_brake` instance parameter
-([parameter labels](https://github.com/ultimate-research/param-labels/blob/master/ParamLabels.csv)).
-It releases forward early when that stopping estimate reaches the target and
-uses gentle walking earlier in the approach. A braking forecast is not treated
-as proof of arrival; a short approach correction still aims at the same fixed
-spot. Missing/invalid braking data uses gentle walking instead of a full dash.
-Once inside the standing area, it waits for residual approach speed to settle
-before requesting down smash inside the existing vulnerability window. An opening timing window never marks an
-out-of-range Kirby as positioned; he continues toward the standing area.
-Movement stays within `ledge_follow_range` from the starting position (eight
-units in the legacy reach-gated mode) and respects the floor probe. If a distant
-projection exceeds this budget, the standing destination is clamped to the budget
-instead of blocking all movement. Once positioned,
-he never resumes pursuit or reverses to chase a moved opponent. He attempts one
-actual down-smash animation per roll; recovery or a whiff does not start a chase.
-`ledge_roll_smash_range` remains an alias for `ledge_roll_dash_range`.
-Stopping and endpoint calculations remain estimates: surface traction, slopes,
-status multipliers, acceleration during queued input, and changing online delay
-can affect the actual stop. Device validation is required.
+As soon as a roll is recognized, Kirby moves toward that point without waiting
+for opponent velocity, root-travel forecasts or protection metadata. The ledge
+anchor determines direction; if no anchor was observed, the first roll position
+is the fallback origin. The destination is locked for that roll and bounded by
+`ledge_follow_range`. Roll navigation runs even when legacy automatic positioning
+is disabled. Floor probes still prevent movement across unsupported ground.
+
+Native speed, learned input delay and ground braking guide early stick release;
+the final short approach slows down near the fixed point. Missing braking data
+uses a short coasting estimate instead of blocking movement. Arrival, not an
+opening timing window, ends navigation. Opponent movement cannot drag the spot
+farther away. A missed punish window never becomes a chase.
+
+At the spot, the policy releases horizontal input and sends down+A when the
+native down-smash transition is ready and the hit window overlaps vulnerability
+before roll recovery ends. Separate velocity, endpoint-reach and height vetoes
+have been removed from this timing path. Rejected down+A inputs get release gaps
+and retries during the window; only one actual down-smash animation is attempted.
 
 `ledge_roll_hit_window_frames` defaults to **5**, planning contact during attack
-frames **7–11**. Set 1–13 to use a shorter window or extend it through frame 19.
-At least one planned frame, plus learned input delay, must overlap the opponent's
-known vulnerability before native roll recovery ends. This is a contact window,
-not a fixed delay after detecting roll, and it does not change actual hitboxes.
-Kirby must be within the estimated endpoint's down-smash range. Horizontal input
-is released first; native down-smash readiness prevents a dash attack. Rejected
-A inputs get release gaps and retries while the window remains open, without
-spending a six-attempt budget. Unknown protection waits; a missed window releases
-control instead of chasing.
+frames **7–11**. Set 1–13 to extend or shorten that window through frame 19.
+The learned input delay is included. Unknown protection still waits for observed
+vulnerability; these settings do not change actual hitboxes or guarantee
+opponent-relative frame-perfect timing online.
 
 ## Timing and limits
 
@@ -133,10 +122,11 @@ cannot replace it. Damage, landing, Y release and session changes end the
 sequence. One actual hop/nair is attempted per visit/block; an accepted aerial
 alone does not count as a confirmed hit.
 
-Normal get-up still schedules its initial hop from protection timing and sends A
-on observed takeoff. It shares the same committed follow-through and retries an
-unaccepted X press with release gaps. Its scheduling estimate includes the delay
-of two separate requests; ledge-jump's paired input uses one request instead.
+Normal get-up now also sends neutral jump+A together, using the same built-in
+short-hop attack recipe as ledge-jump cover. Scheduling includes one transport
+delay, not two. Rejected ground requests retry the pair with release gaps. X is
+released in jump squat while A stays buffered, including frozen squat samples.
+Both options share the committed follow-through through target loss and takeoff.
 
 These changes require a newly built and installed plugin. Existing NROs do not
 change when source files are edited. Native observations and mapped-input
@@ -172,9 +162,15 @@ restart Smash to use them.
 Normal get-up now defaults to `neutral_air` (`nair` is also accepted). The
 bundled config selects it; an existing config explicitly selecting a legacy tilt
 continues to select that tilt until updated. Hop scheduling includes three jump
-squat frames, eight nair startup frames and the learned delay for each of the
-two input requests. It launches when that total is within three frames of known
-protection expiry, then releases X and requests neutral A once natively airborne.
+squat frames, eight nair startup frames and one learned transport delay for the
+paired jump+A request. It launches when that total is within eight frames of
+known protection expiry, then releases X while keeping neutral A buffered.
+The target hitbox window is **8 frames before protection ends through 16 frames
+after it ends** (25 active frames, nair frames 8–32). Protection ending on get-up
+frame 32–34 targets the first hitbox on frame 24–26. With one or two frames of
+late execution, the first hitbox still starts seven or six frames before expiry.
+This is the planned animation window; spacing, landing, late recognition and
+unmeasured online delay can reduce actual coverage.
 Late recognition/action readiness can reduce that lead. Unknown protection waits
 for observed vulnerability. An expired recovery estimate does not veto the
 normal-getup hop, and previous-status evidence can recover a missed get-up

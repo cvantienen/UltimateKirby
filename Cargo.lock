@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "kirby_assist"
-version = "1.2.7"
+version = "1.2.9"
 dependencies = [
  "kirby_assist_core",
  "skyline",

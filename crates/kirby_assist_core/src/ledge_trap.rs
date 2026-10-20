@@ -54,8 +54,9 @@ const JUMP_SQUAT: i32 = 0xa;
 const NEUTRAL_AIR_FIRST: u8 = 8;
 const NEUTRAL_AIR_LAST: u8 = 32;
 const JUMP_SQUAT_FRAMES: u8 = 3;
-// Start nair hitboxes three frames before known normal-getup protection ends.
-const GETUP_NAIR_LEAD: f32 = 3.0;
+// Start nair hitboxes eight frames before known normal-getup protection ends.
+// An expiry at get-up frame 32–34 targets first activity at frame 24–26.
+const GETUP_NAIR_LEAD: f32 = 8.0;
 const GRAB_START: i32 = 0x37;
 const DASH_GRAB_START: i32 = 0x39;
 const TURN_GRAB_START: i32 = 0x3b;
@@ -84,6 +85,8 @@ pub fn grab_transition_term(status: i32) -> i32 {
 // separate from grab tuning; this does not model the lunge/hitbox exactly.
 const ROLL_SMASH_FIRST: u8 = 7;
 const ROLL_SMASH_LAST: u8 = 19;
+// Common ledge-roll coverage point, not a claim about every character's travel.
+const DEFAULT_ROLL_DISTANCE: f32 = 25.0;
 
 /// Normal-getup punish; short-hop neutral air is the default. Legacy forward tilt
 /// is angled down for low targets;
@@ -203,14 +206,15 @@ pub struct LedgeSettings {
     pub distance_agnostic: bool,
     /// Maximum horizontal raw-stick magnitude in manual spacing mode.
     pub walk_strength: f32,
-    /// Root-position range for the roll down smash.
+    /// Legacy reach setting retained for config compatibility; roll navigation
+    /// now uses the common roll_distance point instead of a reach forecast.
     pub roll_dash_range: f32,
     /// Plan contact within this many opening active frames of down smash (1..13).
     pub roll_hit_window_frames: u8,
     pub auto_position: bool,
     /// Heuristic stage-side stance offset, not a universal optimal location.
     pub stand_distance: f32,
-    /// Optional measured endpoint distance inward from the remembered ledge.
+    /// Common roll coverage distance inward from the ledge; auto uses 25 units.
     pub roll_distance: Option<f32>,
     // Unlike distances, move_strength is normalized stick magnitude (0..1).
     // grab_buffer_frames permits one early input near native shieldstun end;
@@ -490,7 +494,7 @@ impl LedgeTrap {
             OptionPlan::NeutralAir if self.movement_preparing => "prepare_neutral_air",
             OptionPlan::NeutralAir => "short_hop_neutral_air",
             OptionPlan::Roll if !self.roll_phase.is_empty() => self.roll_phase,
-            OptionPlan::Roll => "wait_roll_then_dash_attack",
+            OptionPlan::Roll => "roll_move_then_down_smash",
             OptionPlan::DropShield => "shield_ledge_drop_aerial",
             OptionPlan::Shield { blocked: false } => "shield_wait_for_block",
             OptionPlan::Shield { blocked: true } if self.shield_nair => {
@@ -1239,7 +1243,7 @@ impl LedgeTrap {
         }
     }
 
-    /// Move once toward a locked roll endpoint, then wait for a hit window.
+    /// Move immediately to one common coverage point, then time down smash.
     fn respond_to_roll(
         &mut self,
         settings: LedgeSettings,
@@ -1262,53 +1266,31 @@ impl LedgeTrap {
             return;
         }
         if self.roll_intercept.is_none() {
-            let remaining = enemy
-                .actionable_in
-                .or_else(|| enemy.motion.and_then(|m| m.remaining))
-                .filter(|left| left.is_finite() && (0.0..=120.0).contains(left));
+            let ledge_x = self
+                .anchor
+                .or(enemy.cliff_position)
+                .map_or(enemy.position[0], |p| p[0]);
+            let inward = if self.inward.abs() > 0.5 {
+                self.inward.signum()
+            } else if (ctx.position[0] - ledge_x).abs() > 0.5 {
+                (ctx.position[0] - ledge_x).signum()
+            } else if enemy.velocity[0].abs() > 0.05 {
+                enemy.velocity[0].signum()
+            } else {
+                -ctx.facing.signum()
+            };
+            // Commit immediately to one common coverage point. Do not wait for
+            // roll velocity, predict a character's root path or chase its body.
             let endpoint =
-                if let (Some(distance), Some(anchor)) = (settings.roll_distance, self.anchor) {
-                    Some(anchor[0] + self.inward * distance)
-                } else if enemy.vulnerable {
-                    Some(enemy.position[0])
-                } else {
-                    // Use the full remaining animation, not a rolling 12-frame
-                    // target that keeps following the opponent. Animation-root
-                    // observations supply velocity when kinetic speed is zero.
-                    remaining
-                        .filter(|_| enemy.velocity[0].abs() > 0.05)
-                        .map(|left| enemy.position[0] + enemy.velocity[0] * left)
-                };
-            let Some(endpoint) = endpoint.filter(|x| x.is_finite()) else {
-                self.roll_phase = "roll_wait_endpoint";
-                return;
-            };
-            let dx = endpoint - ctx.position[0];
-            let direction = if dx.abs() > 0.5 {
-                dx.signum()
-            } else {
-                ctx.facing.signum()
-            };
-            // Stand toward the near side of the attack's reach, keeping room
-            // for residual slide rather than aiming deep into the roll endpoint.
-            let stand_off = settings.roll_dash_range * 0.8;
-            let travel_limit = if settings.distance_agnostic {
-                settings.follow_range
-            } else {
-                8.0
-            };
-            let stand_x = if dx.abs() <= stand_off {
-                ctx.position[0]
-            } else {
-                endpoint - direction * stand_off
-            };
+                ledge_x + inward * settings.roll_distance.unwrap_or(DEFAULT_ROLL_DISTANCE);
+            let travel_limit = settings.follow_range;
+            let stand_x =
+                ctx.position[0] + (endpoint - ctx.position[0]).clamp(-travel_limit, travel_limit);
+            let dx = stand_x - ctx.position[0];
             self.roll_intercept = Some(RollIntercept {
                 endpoint,
-                // A distant estimate must not veto all movement. Approach up
-                // to the travel budget, then stop instead of chasing farther.
-                stand_x: ctx.position[0]
-                    + (stand_x - ctx.position[0]).clamp(-travel_limit, travel_limit),
-                facing: direction,
+                stand_x,
+                facing: if dx.abs() > 0.5 { dx.signum() } else { inward },
             });
             self.roll_dash_origin = Some(ctx.position[0]);
         }
@@ -1329,35 +1311,28 @@ impl LedgeTrap {
                 .or_else(|| enemy.motion.and_then(|m| m.remaining)),
         );
         let error = spot.stand_x - ctx.position[0];
-        let in_attack_range = (spot.endpoint - ctx.position[0]).abs() <= settings.roll_dash_range;
         let approach_speed = (ctx.velocity[0] * spot.facing).max(0.0);
-        let stopping_distance = roll_stopping_distance(ctx, spot.facing);
-        // Timing alone cannot stop an out-of-range approach. Move into the
-        // standing area first, or brake in reach when the hit window is open.
-        self.roll_positioned |= error * spot.facing <= 1.5
-            || contact.is_some() && in_attack_range && approach_speed <= 0.35;
+        let stopping_distance = roll_stopping_distance(ctx, spot.facing)
+            .unwrap_or(approach_speed * (ctx.input_delay.clamp(0.0, 12.0) + 2.0));
+        // Only actual arrival ends navigation. The opponent's timing or current
+        // root position must not freeze Kirby before the fixed coverage spot.
+        self.roll_positioned |= error * spot.facing <= 1.5;
         self.movement_preparing = true;
         if !self.roll_positioned {
             // Releasing at the destination is too late: old forward input can
             // remain queued, and native momentum continues after stick release.
             // Brake ahead of that point without declaring actual arrival yet.
-            if approach_speed > 0.35
-                && (stopping_distance.is_some_and(|distance| distance + 1.5 >= error * spot.facing)
-                    || contact.is_some() && in_attack_range)
-            {
+            if approach_speed > 0.35 && stopping_distance + 1.5 >= error * spot.facing {
                 self.roll_phase = "roll_brake_before_destination";
                 return;
             }
             self.roll_phase = "roll_close_attack_range";
             let direction = error.signum();
-            if ctx.can_act
-                && (settings.auto_position || settings.manual_spacing)
-                && ctx.safe_ground[usize::from(direction > 0.0)]
-            {
+            if ctx.can_act && ctx.safe_ground[usize::from(direction > 0.0)] {
                 // Ease off near the standing area instead of sprinting through
                 // it. A changed opponent root cannot move this destination.
-                let slow_distance = stopping_distance.unwrap_or(0.0) + settings.roll_dash_range;
-                if stopping_distance.is_none() || error.abs() <= slow_distance.max(4.0) {
+                let slow_distance = stopping_distance + 3.0;
+                if error.abs() <= slow_distance {
                     self.movement_preparing = true;
                     out.stick = Some([direction * 0.3, 0.0]);
                 } else {
@@ -1368,14 +1343,6 @@ impl LedgeTrap {
         }
         if contact.is_none() {
             self.roll_phase = "roll_wait_vulnerability";
-            return;
-        }
-        if approach_speed > 0.35 {
-            self.roll_phase = "roll_wait_braking";
-            return;
-        }
-        if !in_attack_range || (enemy.position[1] - ctx.position[1]).abs() > 8.0 {
-            self.roll_phase = "roll_endpoint_out_of_reach";
             return;
         }
         if self
@@ -1454,16 +1421,16 @@ impl LedgeTrap {
         if ctx.stopped {
             if matches!(ctx.status, GUARD_ON | GUARD | GUARD_DAMAGE) {
                 out.requested = MAPPER_ZR;
-            } else if ctx.situation == 2
-                && matches!(ctx.status, 0xb | 0xe | 0xf)
-                && self.pending == Pending::NeutralAir
+            } else if self.pending == Pending::NeutralAir
+                && (ctx.status == JUMP_SQUAT
+                    || ctx.situation == 2 && matches!(ctx.status, 0xb | 0xe | 0xf))
             {
                 out.requested = MAPPER_A;
             }
             return;
         }
         if ctx.status == JUMP_SQUAT {
-            if self.plan == OptionPlan::NeutralAir && self.pending == Pending::NeutralAir {
+            if self.pending == Pending::NeutralAir {
                 out.requested = MAPPER_A;
             }
             return; // Release X; keep a paired short-hop attack buffered.
@@ -1493,8 +1460,7 @@ impl LedgeTrap {
         {
             self.jump_attempts = self.jump_attempts.saturating_add(1);
             out.requested = MAPPER_X;
-            if self.plan == OptionPlan::NeutralAir {
-                self.pending = Pending::NeutralAir;
+            if self.pending == Pending::NeutralAir {
                 out.requested |= MAPPER_A;
             }
         }
@@ -1526,8 +1492,8 @@ impl LedgeTrap {
         .filter(|left| left.is_finite() && (0.0..=120.0).contains(left)) else {
             return;
         };
-        // Jump and aerial A are separate mapped requests, each paying transport delay.
-        let first_active = f32::from(JUMP_SQUAT_FRAMES + NEUTRAL_AIR_FIRST) + 2.0 * ctx.input_delay;
+        // Jump+A are one paired request; transport delay is paid once.
+        let first_active = f32::from(JUMP_SQUAT_FRAMES + NEUTRAL_AIR_FIRST) + ctx.input_delay;
         if vulnerable_in > first_active + GETUP_NAIR_LEAD {
             return;
         }
@@ -1539,27 +1505,20 @@ impl LedgeTrap {
                 height: [-6.0, settings.anti_air_height],
                 front_only: false,
             };
-            if !jump_contact(
-                window,
-                LedgeContext {
-                    input_delay: 2.0 * ctx.input_delay,
-                    ..ctx
-                },
-                enemy,
-                true,
-                Some(ctx.position[1]),
-            ) {
+            if !jump_contact(window, ctx, enemy, true, Some(ctx.position[1])) {
                 return;
             }
         }
         if self.last_output.requested & (MAPPER_X | MAPPER_A) != 0 {
             return;
         }
-        self.jump_attempts += 1;
+        self.jump_attempts = self.jump_attempts.saturating_add(1);
         self.jump_committed = true;
         self.jump_floor_y = Some(ctx.position[1]);
+        self.pending = Pending::NeutralAir;
+        self.attempts = self.attempts.saturating_add(1);
         out.stick = Some([0.0, 0.0]);
-        out.requested = MAPPER_X;
+        out.requested = MAPPER_X | MAPPER_A;
     }
 
     /// Position while hanging; prepare the selected grounded normal-getup tilt.
