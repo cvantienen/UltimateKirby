@@ -1,15 +1,17 @@
 # D-pad Down: ledge trump attempt
 
-Install build 1.0.1 or later and tap D-pad Down while grounded and actionable. No
+D-pad Down triggers ledge trump only while the menu is hidden. L+R3 opens or closes the menu; Minus toggles auto-mash. While open, the D-pad only navigates the [saved choices](LEDGE_MENU.md). Hidden Left/Right triggers slides; hidden Up remains normal mapped input. Opening or closing cancels queued tools, and menu-held directions must be released before they can start a tool.
+
+Tap D-pad Down while grounded and actionable. No
 opponent is required. The feature defaults on, including with older configs
-that omit `auto_ledge_trump`. Set it to false to restore Down taunt.
-This feature uses the existing human Kirby/player-input scope.
+that omit `auto_ledge_trump`. Set it to false to disable the trump assist.
+This feature uses the selected human fighter/controller scope.
 
 On activation only, native floor-support rays search both directions up to 100
-world units for the nearest boundary of Kirby's current floor. The nearer edge
-wins regardless of facing; equal distances prefer the direction Kirby faces.
-There is no opponent or Y-assist acquisition-range requirement. An undetected edge
-means no movement, but Down taunt is still consumed. Start on the main flat
+world units for the nearest boundary of the controlled fighter's current floor. The nearer edge
+wins regardless of facing; equal distances prefer the controlled fighter’s facing.
+There is no opponent acquisition-range requirement. An undetected edge
+means no movement, and D-pad Down is still reserved. Start on the main flat
 stage floor: this finds collision edges, not proof of a grabbable native cliff.
 Platforms, slopes, moving terrain and irregular stages need device testing.
 
@@ -19,7 +21,7 @@ off the selected edge. The Down step uses native animation progress rather than
 counting repeated mapper polls. This is an input-only attempt: no position,
 velocity, status, invincibility or ledge-occupancy writes are made.
 
-Tapping starts the whole sequence; holding Down cannot repeat it. At native
+Tapping starts the whole sequence; holding D-pad Down cannot repeat it. At native
 ledge catch/catch-move, ownership ends immediately. Choose the follow-up
 yourself. Catching an occupied ledge is not separately confirmed as a successful
 trump: the opponent can escape or otherwise prevent the displacement.
@@ -29,19 +31,19 @@ three units past the selected edge while still grounded, a drop more than 16
 units below/above the anchor, separation over 12 units after the initial fall,
 or 120 changing non-stopped own-state observations. Approach distance is bounded
 by the initial distance plus four units.
-These observations are not a verified simulation-frame timer. Plus/Minus uses
+These observations are not a verified simulation-frame timer. Plus uses
 the existing cancellation path. A failed catch hands back physical control;
 there is no automated recovery. Tap again after release for another attempt.
 
-Holding Y activates the ledge assist; L3 only controls turbo teabag. Trump takes priority over Y assist and L3
-and side-D-pad turbo while active; mash and tech retain priority. Down taunt is
+Holding L activates ledge autopilot. R3 alone controls turbo teabag; L3 selects
+Kirby recovery cover. Trump takes priority over ledge autopilot, shortcuts and
+side-D-pad slides while active; mash and tech retain priority. D-pad Down is
 reserved while the feature is enabled. Disable the setting to restore it.
 
 Diagnostic builds identify the root Cargo package version at startup. `trump input:` logs enablement,
-gameplay scope, request freshness, phase and stick output when Down is pressed.
+gameplay scope, request freshness, phase and stick output when D-pad Down is pressed.
 `trump mapped:` logs final mapped buttons and stick, after taunt suppression.
-If Down still taunts, check the loaded NRO/version, SD config, selected fighter
-(Kirby), selected player input slot and `player_index`. A host build cannot verify the SD install.
+If D-pad Down does not trigger the attempt, check the loaded NRO/version, SD config, selected human fighter, selected player input slot and `player_index`. A host build cannot verify the SD install.
 
 The run-off/Down/inward approach follows the manual technique demonstrated in
 [How To Ledge Trump Like A Pro](https://www.youtube.com/watch?v=V6B0g3a0KpU).

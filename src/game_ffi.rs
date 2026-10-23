@@ -92,6 +92,10 @@ extern "C" {
     // alone proves neither a successful hit nor a safely ended get-up attack.
     #[link_name = "\u{1}_ZN3app8lua_bind39AttackModule__is_infliction_status_implEPNS_26BattleObjectModuleAccessorEj"]
     pub fn attack_infliction(module_accessor: *mut Object, mask: i32) -> bool;
+    // Fresh collision on this update; unlike is_infliction_status, this cannot
+    // carry an earlier fair hit forward into a later hitbox interval.
+    #[link_name = "\u{1}_ZN3app8lua_bind32AttackModule__is_infliction_implEPNS_26BattleObjectModuleAccessorEj"]
+    pub fn attack_infliction_now(module_accessor: *mut Object, mask: i32) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind28AttackModule__is_attack_implEPNS_26BattleObjectModuleAccessorEib"]
     pub fn attack_active(module_accessor: *mut Object, index: i32, alternate: bool) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind35StatusModule__prev_status_kind_implEPNS_26BattleObjectModuleAccessorEj"]
@@ -155,4 +159,7 @@ extern "C" {
     pub fn is_cpu(arg1: *mut Object) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind35FighterManager__is_result_mode_implEPNS_14FighterManagerE"]
     pub fn is_result(arg1: *mut Object) -> bool;
+    // Pinned cpp.rs: FighterManager::is_ready_go, read-only battle phase.
+    #[link_name = "\u{1}_ZN3app8lua_bind32FighterManager__is_ready_go_implEPNS_14FighterManagerE"]
+    pub fn is_ready_go(arg1: *mut Object) -> bool;
 }

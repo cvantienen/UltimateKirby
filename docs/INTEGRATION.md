@@ -1,10 +1,17 @@
+> Fighter responses, menu choices are compiled Rust code/data.
+> Only shared config.txt settings load from SD. No fighter JSON file is loaded
+> or deployed. Latest source edits need a separately built and installed NRO.
+> See [the compiled fighter guide](FIGHTER_CONFIGS.md).
+
 # Raw controller build: install, behavior, and verification
 
 ## Current status
 
 This build contains actual Switch hooks and raw controller-memory stick/button writes. It is no longer the empty plugin shell described in the project's first version.
 
-**It compiles, but has not been tested on a physical Switch. Treat it as an on-device test build, not a confirmed fully working release.** A successful build cannot verify the latest executable's internal layouts, actual controller routing, or auto-tech timing. The diagnostic build's status log makes the next verification concrete. The silent build intentionally has no plugin log.
+**Package version is 1.5.3; source edits can be newer than a same-version artifact.**
+Supplied diagnostic logs confirm native grab startup and some captures, but
+the latest approach changes have not been compiled or Switch-validated. A successful build cannot verify the latest executable's internal layouts, actual controller routing, or auto-tech timing. The diagnostic build's status log makes the next verification concrete. The silent build intentionally has no plugin log.
 
 This is a direct on-Switch mod. No extra controller hardware, Wi-Fi transport, or computer during play is required.
 
@@ -26,15 +33,16 @@ The controller prefix and mapper hook are checked against the [Training Modpack 
 
 The old observer treated `ControlModule + 8` as a controller index. The upstream accessor instead follows `ModuleAccessor + 0x48 → ControlModule + 0x118 → +0x58 → +8 → index at +8`. Reading the wrong field prevented the selected fighter from publishing mash/tech requests. A regression test now constructs the ownership chain with a deliberately different value at the former address.
 
-The old live path also required a particular single-state SDK HID hook to run; output now happens directly at the mapper. The tech policy no longer adds a release delay when the previous game-visible ZR state was already released. There is no game-mode or Ready/Go restriction; active local-human Kirby selection, pause/stop handling, and legal scenario detection still apply.
+The old live path also required a particular single-state SDK HID hook to run; output now happens directly at the mapper. The tech policy no longer adds a release delay when the previous game-visible ZR state was already released. There is no game-mode or Ready/Go restriction; active selected local-human fighter, pause/stop handling, and legal scenario detection still apply.
 
 ## Installation with an existing compatible Skyline setup
 
 1. Fully close Smash.
-2. Choose `releases/kirby_assist-silent.zip` or `releases/kirby_assist-diagnostic.zip`. Copy its `atmosphere` and `ultimate` directories to the SD-card root, preserving the directory structure. Install only one; see [build variants](BUILD_VARIANTS.md).
+2. Choose `releases/kirby_assist-<version>-silent.zip` or `releases/kirby_assist-<version>-diagnostic.zip`. Copy its `atmosphere` and `ultimate` directories to the SD-card root, preserving the directory structure. Install only one; see [build variants](BUILD_VARIANTS.md).
 3. Confirm there is only one `libkirby_assist.nro` installed. Do not leave an older differently named copy of this mod in the plugins directory.
 4. Use local controller 1 (`player_index = 0`) with the required control mappings. Physical Npad identity selects the controller; its mapper slot is followed dynamically. Controller style is unrestricted.
-5. Start Smash and select your fighter. The code has no character or training-mode activation check. Move timings remain tuned for Kirby.
+5. Start Smash and select your fighter. There is no training-only gate. Configured fighters use their own compiled
+profiles; valid unconfigured kinds fall back to Kirby’s profile.
 
 The ZIP contains:
 
@@ -43,13 +51,10 @@ atmosphere/contents/01006A800016E000/romfs/skyline/plugins/libkirby_assist.nro
 ultimate/kirby_assist/config.txt
 INSTALL.txt
 VALIDATION.json
-README.md
-README_BEGINNER.md
-INTEGRATION.md
-BUILD_VARIANTS.md
-TURBO_CONTROLS.md
-LEDGE_TRAP.md
-ANALOG_MASH.md
+RELEASE_SUMMARY-<version>.txt
+docs/
+mkdocs.yml
+requirements-docs.txt
 ```
 
 It does not include Skyline, Atmosphere, other plugins, game data, or an installer that changes your Switch. Skyline documents its general [plugin installation directory](https://github.com/skyline-dev/skyline).
@@ -75,7 +80,7 @@ Auto mash supplies the left stick, not an Attack-button binding. Auto tech alway
 
 ## Directional turbo control
 
-Hold D-pad Left/Right for rapid crouch/release with slight left/right movement. Releasing returns current physical stick input; both held cancels movement. It runs only during normal grounded movement for the selected Kirby. See [settings, implementation, and device checks](TURBO_CONTROLS.md). Both logging variants include it.
+Hold R3 alone for rapid crouch/walk cancel with slight forward creep. Press X for a paired X+ZL short hop (both mapped to Jump). Releasing returns current physical stick input. It runs only during normal grounded movement for the selected fighter. See [settings, implementation, and device checks](TURBO_CONTROLS.md). Both logging variants include it.
 
 ## What each tool does
 
@@ -153,7 +158,8 @@ mode do not gate activation. Current move timings and ranges remain tuned for Ki
 
 Use the **diagnostic** variant for this section. Silent does not create/truncate or append to this log; an unchanged older log may remain on the SD card.
 
-After launching Smash and entering a match, inspect:
+Use the diagnostic variant and fully restart Smash. The startup header should
+exist even before entering a match. On the SD card, inspect:
 
 ```text
 SD:/ultimate/kirby_assist/status.log
@@ -173,7 +179,22 @@ SD:/ultimate/kirby_assist/status.log
 | `predicted_tech_collision=true` | The heuristic found an eligible nearby collision. |
 | `raw controller mapper button overlay confirmed` | The raw button trace was changed before mapping. This does not prove the game accepted an action. |
 
-The diagnostic first line identifies `Kirby Assist diagnostic build v17`. An earlier version identifies an older plugin. An unchanged old file is expected when switching to silent.
+The first line identifies `Kirby Assist diagnostic build <version>`, using the
+Cargo package version (currently 1.5.3). The version alone cannot distinguish
+later edits built without a version bump; compare the intended package and
+installed artifact. Silent does not create or update this file.
+
+If the file is missing, check the SD-root path `/ultimate/kirby_assist/status.log`,
+the selected variant and plugin loading. The uploader defaults to silent; use
+`-d` to select a prepared diagnostic build. Replace only one NRO and fully restart
+Smash. A menu appearing does not prove diagnostic was installed: both variants
+include it. Directory/file-open/thread failures now report to the diagnostic
+console. If still missing, retain the upload command and verification output.
+
+For grab failures, collect a few attempts, release L, wait one second for the
+writer, then copy the log. [Roll-grab trace fields and result labels](BUILD_VARIANTS.md#diagnostic-performance)
+separate movement/timing gates, mapped CATCH, native startup and capture. A
+request or startup without capture is a different observation from a lost input.
 
 The log resets at launch. It records scenario changes and first confirmations, not a full per-frame trace. A startup crash may occur before a usable log if another mod/runtime is incompatible; a signature match cannot validate every ABI field.
 
@@ -188,7 +209,7 @@ share that follow-through. None of these paths reads the online input queue.
 In a newly built diagnostic plugin, `short-hop mapped pair` reports whether the
 original mapper produced both JUMP and ATTACK with neutral stick. A missing bit
 points to mapping/input generation; both bits present confirms mapping only.
-The following ledge observations must show native status `0x33` with motion
+The following ledge observations must show native status `0x36` with motion
 `0xc3a4e2597` (`attack_air_n`) to establish nair acceptance. Hit confirmation is a
 separate event. Keep the full request/mapping/native-state sequence when comparing
 offline and Arena failures. The 35 ms request watchdog is a wall-clock freshness
@@ -210,7 +231,7 @@ In the diagnostic build with `tech_debug = true`, the mod queues state-change di
 | `outside_supported_tumble` | Damage/knockdown status is outside the supported tumble range. |
 | `hitstop_wait` | No late-hitstop tech buffer is ready; cooldown history is retained. Late damage-hitstop may predict and buffer a tech. |
 | `no_collision_predicted` | The probes did not find a surface in the prediction horizon. |
-| `collision_predicted` | Contact was predicted; includes estimated contact time, hitstop remaining, learned delay, request mask and scheduler cooldown. |
+| `collision_predicted` | Contact was predicted; includes estimated contact time, hitstop remaining, extra input delay (zero in live code), request mask and scheduler cooldown. |
 | `tech ZR applied` | A raw ZR press edge was supplied to the mapper during a predicted tech opportunity. This does not prove a successful tech. |
 | `tech mapped: fresh GUARD edge confirmed` | The original mapper produced a fresh shield press. Our cooldown starts here; native tech acceptance remains separate. |
 | `tech_status_observed` | The fighter entered a native tech status. This does not establish whether the mod or a human caused it. |
@@ -238,7 +259,12 @@ These describe the ABI inputs used to write this integration; they are not proof
 - [Input-mapper hook signature at that revision](https://github.com/jugeeya/UltimateTrainingModpack/blob/077a8e43b11d1f61ce57169156fb82e92e784c79/src/training/mod.rs).
 - [ModuleAccessor layout showing the ControlModule pointer](https://github.com/HDR-Development/HewDraw-Remix/blob/pre-release/fighters/common/src/function_hooks/mod.rs). The prefix places ControlModule at `+0x48`; the index is resolved through the ownership chain, not read directly from ControlModule.
 
-Native layout reads are isolated in `src/live.rs` and `crates/kirby_assist_core/src/native_input.rs`. The mapper is installed only after one aligned instruction-signature match is found. There is no hard-coded-address fallback. Other internal layouts are sourced as described above and remain a compatibility risk until checked on the target executable.
+Native layout reads are isolated in the `src/live.rs` adapter, its
+`src/live/controller.rs` and `observations.rs` helpers, and
+`crates/kirby_assist_core/src/native_input.rs`. The mapper is installed only
+after one aligned instruction-signature match is found. There is no
+hard-coded-address fallback. Other internal layouts are sourced as described
+above and remain a compatibility risk until checked on the target executable.
 
 ## Build from source
 
@@ -267,17 +293,41 @@ See [build variants](BUILD_VARIANTS.md) for individual Cargo commands, the optio
 
 ## Opponent ledge observations (source addition)
 
-The mapper enumerates fighter-manager entries and tracks one nearby non-team opponent through its ledge option. Hold Y for conditional automatic responses with manual capped spacing; hold L3 separately for turbo creep/teabag. Releasing each button disengages its own tool. Y is consumed before jump mapping. D-pad Left/Right now request short-hop/horizontal-air-dodge slide attempts. The supplied mode does not navigate or turn Kirby for you. Mash/tech retain priority. See [LEDGE_TRAP.md](LEDGE_TRAP.md) for controls and limits. These new bindings are source-only and have not been built. The older local builds under `target/manual-spacing/` and existing release packages retain their previous controls.
+Hold **L** for ledge autopilot. Tap **Y** for a neutral-B reverse attempt;
+press **X** for a paired X+ZL short hop (both mapped to Jump). Hold **R3 alone**
+for fast crouch/walk-cancel turbo teabag. **L+R3** shows/hides the menu; **Minus** toggles auto-mash. While visible, **Up/Down**
+selects one of five rows (Neutral, Jump, Roll, Attack, Drop), and **Left/Right**
+cycles its saved responses. While hidden, Left/Right slides, Down starts ledge
+trump, and Up is normal. Directions held when closing must be released before
+starting gameplay tools. L+R3 is reserved for menu toggling and does not teabag.
+Auto-mash stays enabled in the supplied startup configuration.
+
+Fighter-manager enumeration remains callback-only; the mapper uses cached routes. See [the current ledge menu](LEDGE_MENU.md).
 
 Observations now include target motion kind/frame/rate/end, native previous status, invincibility expiry, attack presence, root positions/velocity, Kirby's velocity and hit flag, shield history, catch readiness, and floor support. All game queries remain outside STATE's mutex. Four added read-only declarations match the pinned primary bindings: MotionModule rate/end_frame and AttackModule is_infliction_status/is_attack. The HIT mask is 0x2. No status/timer/velocity writes were added.
 
-The default stance is now 8 units inward, with a short momentum lookahead. Acquired targets use separate follow-up limits. Root displacement over the same advancing animation supplements missing kinetic travel; repeated polls of one animation frame reuse the estimate. Rate-adjusted motion deadlines feed a linear active-window/protection model. This is not a hurtbox simulator.
+The supplied configuration uses manual spacing and `ledge_stand_distance=10`;
+legacy automatic positioning is disabled. Normal and Jump responses use the
+selected fighter's compiled handler, not a universal tilt/nair recipe. See
+[fighters](FIGHTERS.md) and [current Kirby/Yoshi timing](KIRBY_YOSHI_LEDGE.md).
+Native previous-status evidence can recover an option missed between samples.
 
-Normal get-up pursues range before preparing down tilt or optional downward-angled forward tilt. Jumps are remembered even while Kirby is busy; native previous status catches a short missed transition. Up tilt predicts the rising target across active frames. Roll grabs can be requested before status exit when known protection expiry and predicted reach support standing/dash/pivot startup. Unknown expiry requires actual vulnerability. Tilt whiffs now retry after recovery, within three observed animation attempts; native hit infliction completes the attack phase. v17 returns to the original ledge stance after recovery, even if the hit launched the target out of tracking range. Confirmed captures request a horizontal throw toward the acquired ledge anchor in catch-wait when `ledge_throw_outward=true`. No throw is guessed without that anchor. Hanging checks use the actual status range, so ordinary idle no longer cancels the prepared normal-getup punish. Native previous-status recovery now includes roll and normal get-up. The shield-grab predictor includes remaining shieldstun and future protection/reach; tilt retries need a release without an additional timer.
+Roll smashes use the common configured point. Kirby/Yoshi walking grabs can
+extend inward from observed travel and avoid braking outside the navigation
+area. All shared roll-grab requests require forecast reach/facing, height and
+vulnerability on the same active frame. These are approximate root forecasts.
+Confirmed capture ends autopilot immediately: pummels and throws are manual,
+including when the legacy `ledge_throw_outward` key is present.
 
-Shield retains its continuous ZR hold and release-aware R buffer. Pushback pursuit commits through guard-off without re-raising shield. A witnessed get-up attack whose hitboxes clear can also receive a whiff punish; empty startup alone is insufficient. Hitbox gaps, later multi-hits, and multi-opponent hit confirmation remain limitations. Native action acceptance and first hittable collision need Switch validation.
+Shield responses preserve guard through shieldstun. Rear-side nair uses paired
+neutral jump+A. Selected alternative aerial/special responses have their own
+native acceptance gates. Hitbox gaps, multi-opponent attribution and actual
+collision remain limitations. Input requests do not prove contact.
 
-Diagnostic snapshots add target motion/rate, previous status, observed speed, selected grounded move, and own hit confirmation. Detailed snapshots can update on target animation frames when tech_debug is true. Silent excludes their construction. Both variants keep the existing analog mash, tech, and turbo behavior. Copy the updated config with the new plugin; an old explicit stance=6 overrides the new default.
+Diagnostic builds rate-limit general ledge snapshots and use a fixed-size grab
+recorder, formatted by the background logger. Silent excludes this telemetry.
+Neither build learns input delay. New source edits require a separately built
+and installed artifact; old settings continue to override supported defaults.
 
 Controller routing now follows the working 1.0.4 physical-controller selection:
 `player_index=0` selects the Player 1 Npad and follows its actual mapper slot.
@@ -290,10 +340,10 @@ refresh revalidates those IDs. Install the rebuilt plugin before testing.
 
 The reported symptom is a crash between online warm-up and the fighter reveal.
 The previous mapper path could enumerate partially initialized fighter entries
-or follow a cached fighter's module pointers during that transition. This audit
-removed fighter queries from the mapper, added session invalidation, moved
+or follow a cached fighter's module pointers during that transition. Transition hardening
+removed mapper roster discovery, added session invalidation, moved
 active/accessor identity checks ahead of controller
-pointer traversal, and limited ledge opponent scans to held-Y operation. Invalid
+pointer traversal, and gated ledge opponent queries to active assistance. Invalid
 roster counts and stale fighter-entry identities now fail closed. Nonfinite poses
 do not reach native ground rays, and missing motion metadata does not invoke a
 protection-frame query with an invalid motion hash. Pointer-chain
@@ -302,18 +352,17 @@ native callbacks and the lifecycle gates are also required. The later
 mode-compatibility fix stopped using the global ready-go flags as hard gates:
 the mapper now samples Player 1 independently of those flags or manager roster
 readiness. The native callback validates active identity and human input ownership.
-Roster enumeration is used only for ledge opponent selection. The CPU/human
+Roster discovery remains in callbacks; validated cached IDs feed bounded active-tool observations. The CPU/human
 information query also runs during a revalidated pre-map refresh. Observation gaps expire
 the session across loading transitions.
 
-Diagnostic stdout errors are ignored instead of using `println!`, whose output
-failure could panic across a native hook. The diagnostic performance follow-up
-moves file/console writes into a bounded background logger; see
+Gameplay file/console output uses a bounded background logger. Startup directory,
+file-open and writer-thread failures are reported to the diagnostic console; see
 [diagnostic performance](BUILD_VARIANTS.md#diagnostic-performance). File I/O errors remain nonfatal.
 
-Host tests cover warm-up/loading/match session tickets and invalid controller
-chain addresses. Both root compilation paths are checked without generating an
-NRO. There is no crash report or on-device verification of this source update,
+Source fixtures cover warm-up/loading/match session tickets and invalid controller
+chain addresses. They are regression cases, not current compilation results.
+The transition crash has not been reproduced from a crash report here,
 so these are fixes for identified hazards, not proof of the exact crash cause or
 a guarantee of online stability. The patch does not bypass network validation,
 change simulation states, or establish network compatibility on every game/mod

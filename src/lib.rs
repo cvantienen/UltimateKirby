@@ -1,9 +1,11 @@
 //! Start here: this is the Switch plugin's entry point, not a desktop program.
 //! Skyline calls `main` when it loads this plugin inside Smash. `live::install`
-//! loads settings, checks the executable signature, and registers callbacks.
+//! loads shared text settings and the compiled fighter catalog, checks the executable signature,
+//! and registers callbacks.
 //!
-//! Reading order: `live.rs` for integration, `live_input.rs` for tool timing,
-//! `native_input.rs` for raw button conversion, then the core's logical rules.
+//! Reading order: `live.rs` for integration, core `live_input/config.rs` for
+//! settings, `ledge_trap.rs` for response dispatch, and `native_input.rs` for
+//! raw button conversion. docs/CODE_MAP.md connects those pieces step by step.
 // Beginner map: this package connects to Smash; crates/kirby_assist_core holds
 // ordinary Rust calculations. Start with that crate's examples/walkthrough.rs
 // if pointers/hooks are new to you, then return here to follow the real path.
@@ -12,6 +14,10 @@ mod game_ffi;
 mod live;
 // The entire logger module is absent from the silent binary, not just disabled
 // by a setting. Config cannot turn it back on without rebuilding this feature.
+#[cfg(feature = "diagnostic-logging")]
+mod calibration;
+#[cfg(feature = "diagnostic-logging")]
+mod grab_diagnostics;
 #[cfg(feature = "diagnostic-logging")]
 mod logging;
 

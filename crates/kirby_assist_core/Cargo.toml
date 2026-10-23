@@ -14,3 +14,7 @@ license = "MIT"
 # through its path dependency; running a core example runs on the host computer.
 [lib]
 path = "src/lib.rs"
+
+# No external runtime or test parser dependencies: fighter responses are Rust.
+[features]
+diagnostic-logging = []

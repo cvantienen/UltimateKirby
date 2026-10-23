@@ -1,6 +1,6 @@
 # Analog-stick auto mash
 
-The v16 source replaces the live button-mash groups with a full-strength left-stick cycle. It runs for the selected human Kirby while the native clatter timer is positive and the game is not stopped. It generates no automated action-button presses for mash.
+Live automatic mash uses a full-strength left-stick cycle. It runs for the selected human fighter while the native clatter timer is positive and the game is not stopped. It generates no automated action-button presses for mash.
 
 | Mashable input update | Left stick |
 | --- | --- |
@@ -10,7 +10,8 @@ The v16 source replaces the live button-mash groups with a full-strength left-st
 | 3 | Down: `(0.0, -1.0)` |
 | 4 | Right again |
 
-Each distinct update advances one direction, without neutral gaps or an additional interval. Repeated observations of the same update reuse the result. A new mashable episode, fighter replacement, or reversed input clock restarts at Right. Hitstop publishes no automated mash stick and pauses progression. These updates are mapper calls, not a verified gameplay-frame clock.
+Each distinct update advances one direction, without neutral gaps or an additional interval. Repeated observations of the same update reuse the result. A new mashable episode, fighter replacement, or reversed input clock restarts at Right. Hitstop publishes no automated mash stick and pauses progression. Progress is deduplicated from native observations rather than raw mapper-poll
+counts; it is not a verified global simulation-frame clock.
 
 ## Settings and control
 
@@ -21,7 +22,7 @@ auto_mash = true
 takeover = true
 ```
 
-`takeover = true` suppresses physical A/B/X/Y/L/R/ZL/ZR, stick clicks, and C-stick input only during active analog mashing. This keeps physical action inputs from being mixed with the left-stick cycle. Plus/Minus remain available for cancellation. With takeover false, physical action buttons/C-stick pass through while the automated left stick still runs.
+`takeover = true` suppresses physical A/B/X/Y/L/R/ZL/ZR, stick clicks, and C-stick input only during active analog mashing. This keeps physical action inputs from being mixed with the left-stick cycle. Plus retains its cancellation path; Minus toggles auto-mash. With takeover false, physical action buttons/C-stick pass through while the automated left stick still runs.
 
 The mapper uses the current physical controls as soon as the mashable state ends; it does not force a neutral frame after escape. Disabling the tool, stale requests, menu cancellation, disconnect, and controller reassignment also remove its stick override. The native controller memory is restored after every mapper call. Turbo and ledge stick requests cannot override an active mash cycle. Tech retains its existing priority, ZR button, and cooldown.
 

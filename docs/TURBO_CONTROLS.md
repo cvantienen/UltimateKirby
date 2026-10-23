@@ -1,35 +1,51 @@
-# Hold L3 for facing-direction turbo teabag
+# Stick-click and Y shortcuts
 
-**Source change only: no NRO has been rebuilt for these controls.**
+Hold **R3 alone** for fast crouch/walk-cancel turbo teabag, with slight creep
+in your current facing direction. It alternates every observed native update;
+older `turbo_phase_frames` values do not slow this dedicated binding.
+Release R3 to stop. **L+R3** keeps its menu-toggle function;
+the click must be released after that chord before it can start teabagging.
+Busy, airborne and stopped states suspend teabagging.
 
-Hold **L3** to start creeping in Kirby's current facing direction while
-alternating crouch and release. Creep input starts on the first eligible update,
-including the crouch phase. Release L3 to disengage immediately and return fresh
-physical input. Pressing again starts a new cycle. No side-D-pad direction is used.
+Press **X** on the ground for a paired **X+ZL** short-hop attempt. Both
+physical buttons must be mapped to Jump. The request survives brief readiness
+changes and explicitly releases both buttons through native jump squat. Holding
+X cannot generate a second jump on takeoff; release and press X again for an
+ordinary midair jump. This replaces the former L3 short-hop binding.
 
-L3 is exclusively turbo; it does not activate autopilot. Hold **Y** separately
-for [ledge assist](LEDGE_TRAP.md). With only Y held, you retain manual capped
-walk control. If both are held, eligible automatic punishes override turbo.
-Releasing either button disengages only that button's tool.
+Hold **L3 as Kirby** for [down-tilt recovery cover](TWO_FRAME.md). Releasing L3
+immediately stops that mode. It has no new L3 assist binding on other fighters.
 
-[Side-D-pad slide attempts](SLIDE_CONTROLS.md) and the [D-pad Down trump](LEDGE_TRUMP.md)
-take priority over turbo and ledge assist. Mash and tech retain priority. Native busy
-states, damage, air movement and hitstop suspend turbo. The macro never forces a
-status change or cancels an attack.
+Tap **Y** for one neutral-special B-reverse attempt: one observed neutral-stick
+update, B with neutral stick, then a backward flick on the next observed update,
+then physical control returns. It uses B mapped to Special and captures the
+opposite of your fighter's facing when Y is pressed. Stick direction does not
+choose or change the reverse. The tool supplies neutral B and the opposite
+flick automatically; you do not need to move the stick yourself. It does not start 2-frame mode. The game determines
+whether that fighter's current special supports reversal; no status, facing or
+velocity is forced. Skipped observations, stale data and interruptions cancel
+rather than executing a delayed flick. Input delay/jitter can still affect it.
+
+Tech/mash keep priority. The hop and B-reverse shortcuts also yield to slides,
+ledge trump and the trip follow-up. Menu directions keep their existing behavior.
+The shortcuts reuse the native motion observation and shared controller overlay;
+there is no new target scan, geometry scan, networking or runtime file loading.
 
 ```text
-l3_turbo = true
-turbo_phase_frames = 2
-turbo_walk_strength = 0.35
+r3_turbo = true
+turbo_phase_frames = 1
 ```
 
-Phase length accepts 1–10 observed native updates per crouch/release phase.
-Strength is normalized stick magnitude; the L3 sampler caps it at 0.45. A phase
-uses horizontal creep in both halves, with vertical -1 for crouch and 0 for release.
-Native movement rules determine the actual speed. Set `l3_turbo=false` to disable
-teabag movement without disabling the ledge responses. The old `dpad_turbo` config
-key is retained as an alias for the turbo enable setting; it does not restore a
-side-D-pad binding. Use only one enable key to avoid order-dependent overrides.
+The legacy oscillator phase setting accepts 1–10 observed native updates;
+R3 always overrides it to 1. `turbo_walk_strength` controls the gentle forward
+creep, capped to 0.45. The old `l3_turbo` key remains an enable alias for R3,
+so old SD-card configuration still loads. Use only one enable key.
 
-Restart Smash after config changes. The plugin must be rebuilt later to use
-these new bindings; existing NRO packages still contain the previous controls.
+The menu filter preserves Y internally for native special-readiness reads while
+the final input overlay still suppresses its normal mapped action. This allows
+the first Y press to start the shortcut; it does not require an already active
+shortcut to open its own readiness queries.
+
+Source changes require a later build and deployment. No build/upload or Rust
+test execution was performed for this revision; controller acceptance and
+online timing still need device testing.

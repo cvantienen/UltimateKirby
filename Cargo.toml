@@ -6,8 +6,176 @@ name = "kirby_assist"
 # Required by the source syntax, dependency imports, and array iteration rules.
 edition = "2021"
 # Single release-version source: logger and release builder read this value.
-version = "1.2.9"
-description = "neutrel getup timing fix"
+version = "1.5.4"
+description = """ grab fix
+Fixes Kirby/Yoshi roll-grab walk/brake stuttering exposed by diagnostic logs.
+Their approach may extend inward from observed roll travel; shared roll grabs
+check predicted reach/facing and protection on the same native active frame.
+Reuses existing observations; down-smash movement is unchanged. Source only,
+not built or Switch-validated.
+
+Adds diagnostic-only bounded roll-grab traces: approach/timing gates, raw-to-mapped
+Grab delivery, native startup, capture/miss and cancellation evidence. Fixed-size
+checkpoints are formatted by the background logger; general ledge snapshots are
+rate-limited. No gameplay timing changes; not built or Switch-performance-validated.
+
+Removes learned per-action input-delay compensation and runtime sampling.
+Live observations use zero extra compensation; configured move timings and
+native action acceptance checks remain in use. Not built or device-validated.
+
+
+Restores the 1.4.6 source baseline before Yoshi-only calibration. Jump-getup
+nair immediately pairs neutral jump+A for a short hop and applies full horizontal
+stick toward the opponent after native nair acceptance. Neutral-getup nair uses
+a 15-frame hitbox lead. Roll down-smash stands two world units closer to the
+ledge than the configured coverage point. Yoshi's roll tongue grab now uses its
+own fixed spot 18 world units inward from the ledge (one-unit tolerance), with
+active duration centered on vulnerable recovery and no opponent-root tracking.
+Other fighters and shared grab helpers retain the 1.4.6 implementation. No new build/device validation is claimed.
+
+Roll grabs brake before arrival, keep any usable position inside grab reach,
+and use walking corrections toward the nearest side after overshoot instead
+of reverse-dashing across the target. The first active grab frame aims up to
+three frames inside the vulnerable recovery window, with a midpoint target
+for narrow windows. Applies to shared fighter roll grabs, including Kirby/Yoshi.
+
+
+
+Y's automatic B-reverse captures opposite fighter facing on activation,
+regardless of physical stick direction, and supplies the reverse flick itself.
+
+Fixes grab requests being disabled by approach animation loops or a shared
+movement/turn budget. Native catch readiness permits the request independently
+of movement readiness. Dedicated bounded delivery holds R until acceptance,
+then uses clean release/retry edges without a special-move retry timer.
+
+Fixes Y being removed before B-reverse readiness checks. R3 restores the old
+crouch/walk-cancel turbo with one native update per phase and slight forward
+creep; older phase settings no longer slow its dedicated binding.
+
+Roll grabs approach from the nearest side, keep an already usable standing
+spot, account for stopping distance and retain the grab input until native
+acceptance or a bounded delivery window. Stance preparation cannot override rolls.
+R3 alone uses fast crouch/walk-cancel teabag; X requests paired X+ZL short hop; held L3 selects Kirby down-tilt recovery cover; Y attempts neutral-B
+reverse instead of 2-frame. L+R3 still toggles the menu; Minus toggles mash.
+Restores one-module-per-fighter source layout and fighter-specific grab reach.
+
+Completes the non-DLC compiled roster, including echoes, Pokemon forms and Miis.
+Adds fighter-specific move windows, named responses and selectable defaults,
+with reference movement statistics documented per fighter. Existing profiles
+remain intact. New stationary aerials use neutral drift/native hop forecasts.
+Adds front-only roll-smash facing and a body down-tilt roll alternative; treats
+projectile travel and resource/custom-native-state requirements explicitly.
+Dark Samus shares verified Samus recipes; Meta Knight/shoto/pellet exceptions
+avoid ambiguous generic inputs. Bayonetta fair recognizes its custom native state.
+No combo playback, runtime fighter JSON, new roster/weapon scans or networking.
+These source-checked attempts still need device calibration and build validation;
+frame-perfect contact, universal optimality and measured performance aren't claimed.
+
+L+R3 now shows/hides the menu. Minus toggles auto-mash, with cached ON/OFF
+status displayed below the five response lists. Mash starts from startup config
+and its toggle survives stock/fighter/match changes; disabling immediately releases
+cached mash takeover without disabling tech. L remains the autopilot trigger.
+
+Expands Samus with stationary homing/Super Missile coverage for Neutral, Jump,
+Roll and Drop; adds flame fair/up-air alternatives and neutral cannon f-smash.
+Missiles reuse bounded native input delivery, with a neutral primer, directional B,
+startup release and manual handback. Existing defaults and indices are preserved.
+Ranged labels explicitly flag projectile travel; no simulated arrival guarantees,
+weapon/roster scans, networking or new per-frame observation paths are added.
+
+Expands Yoshi's compiled ledge menu: neutral up-tilt/headbutt f-smash, jump
+up-air/fair, roll tongue grab, shield up-air, and risky drop fair/dair chases.
+Keeps existing defaults and indices, reuses paired aerial input/native acceptance,
+and adds spacing hints for drop fair. No new scans, services or runtime parsing.
+
+Adds cached, fighter-specific qualitative spacing hints beside punish names.
+Grabs, passive shield and automatic roll approaches omit range estimates.
+Labels describe approximate coverage, not measured maximum contact distances;
+this display change adds no gameplay observations or attack timing changes.
+
+Removed live combo playback, fighter combo libraries, combo configuration fields,
+combo target acquisition, C-stick playback overlays, and the Combo/Mode menu rows.
+L remains held ledge autopilot. Y is now always held 2-frame coverage. Automatic
+mash starts enabled in the supplied configuration and Minus toggles it. Existing
+tech, SDI, L3 creep, hidden side-D-pad slides and Down ledge trump are retained.
+L+R3 opens/closes the menu; visible D-pad edits the five saved response lists:
+Neutral, Jump, Roll, Attack and Drop. Hidden Up retains ordinary input.
+
+Adds Sonic, King K. Rool, Isabelle, Pac-Man and Little Mac as part of the original
+15 compiled profiles, now retained within the complete base-game roster.
+Keeps existing profiles, including Samus roll grab,
+immediate drop Bomb, and selectable zair responses. Sonic offers nair/tilts for
+Neutral, nair for Jump, down-smash/grab for Roll, shield-nair/grab for Attack,
+and shield/down-tilt-then-shield for Drop. Uses Sonic native move windows; no
+combos or new observation loops. Fighter JSON is not loaded.
+King K. Rool and Isabelle add 4 Neutral, 3 Jump, 2 Roll, 3 Attack and 4 Drop
+choices each. Defaults prioritize lingering nair, shield-to-nair, safe drop shield,
+and roll grab for K. Rool / down-smash for Isabelle. Extra single-move variants
+include up-air/fair, K. Rool belly flop/spike, Isabelle party popper/slingshot/turnip.
+Jump+A stay paired through squat/airborne delivery; exact native aerial motion
+confirms acceptance. Smashes use a neutral flick primer and release on startup.
+Single-move variants are bounded by native progress and hand back afterward.
+Published active windows are not extended; projectile travel and spacing remain
+limitations. No guaranteed frame-perfect contact or optimal matchup is claimed.
+Pac-Man adds nair/tilts/ghost f-smash, aerial jump coverage, long roll grab or
+lingering down-smash ghosts, shield-nair/grab/trampoline, and grounded drop
+coverage or short-hop fair. His grab has 22 native active frames; the lingering
+roll ghost choice covers a bounded 13-frame span inside its real active window.
+Little Mac defaults to grounded up tilt for Neutral/Jump, roll down-smash,
+shield-up-B, and drop shield. Alternatives include fast tilts, armored f-smash,
+a separately timed down-angled smash, grab, low sweep and explicitly labeled
+weak-aerial jokes. No default offstage hop, blind KO Punch or charge logic.
+Both reuse existing single-move delivery/acceptance paths with no new scans.
+Aerial execution is now declared in each fighter profile, separately from move
+frame data. Kirby keeps its original explicit short-hop plan. Other profiles use
+native-physics adaptive jump coverage: prefer a feasible short hop, otherwise a
+full hop. Little Mac's default grounded up-tilt remains grounded. Normal and
+shield nairs stay explicitly short unless a profile changes their policy.
+Full hops hold X through squat and buffer A only after observed takeoff; their
+forecast includes the extra input-delivery leg. Extra single-move jump aerials
+use the same profile policy. Missing native parameters retain a documented short
+fallback; unknown launch/coverage waits rather than inventing a jump speed.
+Native full-hop speed is queried only during active ledge observation. Adaptive
+height forecasts use constant-cost gravity integration within bounded windows.
+These are approximate reach/trajectory forecasts, not measured hitbox geometry.
+Range envelopes, drift and universal optimal contact still require device tuning.
+Response settings are cached until a fighter or saved choice changes; GUI strings
+are cached until a row/choice/visibility revision. The compact bottom-left UI
+still uses the existing imgui-smash host and persists through stock loss.
+
+Full ledge/movement observations and ground-support rays now run only while
+ledge/2-frame, slide, or trump needs them, rather than whenever tools are enabled.
+In-flight slide/trump attempts continue after trigger release; idle history is
+cleared without native observations. No active tool frame cadence was throttled.
+No new network/service calls, dependencies, gameplay-state writes or timing hooks.
+
+Source changes only: no build, upload or Rust tests executed for this revision.
+Formatting and static source checks do not establish runtime performance or
+online reliability. The installed 1.3.4 build is unchanged by these source edits;
+heat reduction and Switch frame-time impact require device measurement.
+
+
+Documentation update: refreshes current controls, timing, diagnostics and build
+instructions, with a single Fighters overview in the sidebar. Adds individual
+source-based pages for all 77 registered fighter identities, including five
+saved response lists, defaults, move windows and grab data. Adds a documentation
+refresh/check helper and preserves authored execution notes. Records ongoing
+docs maintenance and append-only Cargo description summaries. No gameplay
+changes, version bump, mod build or upload; documentation validation only.
+
+
+Menu readability update: shortens display-only move names while preserving
+qualitative spacing hints, action IDs, choice order and gameplay timing. Narrows
+the panel from 410 to 360 reference pixels, raises text from 17 to 19 and adds a
+small offset pass for heavier text. Labels remain cached; long options wrap.
+Updates menu/control guides and all individual fighter references from the
+compact-label aliases. Docs checks only; no mod build, upload or Switch visual
+validation performed.
+
+
+Diagnostic-only frozen calibration cards now cover Neutral, Jump, Roll, Attack and Drop responses. Completed cards show available configured move windows, hop/lead/drift, input mapping and native startup evidence, protection timing, root spacing and wait gates; full details use the existing background status.log writer. Fixed-size observation storage and cached rendering add no native queries or gameplay timing changes. Silent builds exclude the feature. Cards hide with L+R3 and clear outside battle/on fighter change. Added source fixtures and calibration documentation; mod compilation and Switch validation remain pending.
+"""
 
 
 [package.metadata.skyline]
@@ -21,6 +189,7 @@ crate-type = ["cdylib", "rlib"]
 # A Cargo dependency imports code, not physical controller packets.
 [dependencies]
 skyline = "0.6.0"
+imgui-api = { git = "https://github.com/Coolsonickirby/imgui-api", rev = "9259902433138ec9c9ef9e4b152de01403f9456f", optional = true }
 kirby_assist_core = { path = "crates/kirby_assist_core" }
 
 # Logging is a compile-time choice, independent of optimized/debug profiles.
@@ -28,8 +197,11 @@ kirby_assist_core = { path = "crates/kirby_assist_core" }
 # Features are decided by the compiler and cannot be toggled in config.txt.
 # Runtime settings are read from the SD file by LiveConfig::parse instead.
 [features]
-default = []
-diagnostic-logging = []
+default = ["imgui-menu"]
+diagnostic-logging = ["kirby_assist_core/diagnostic-logging"]
+# The battle combo engine is always available; only rendering is optional.
+# Disable default features for a headless build without the external ImGui host.
+imgui-menu = ["dep:imgui-api"]
 
 [profile.dev]
 panic = "abort"

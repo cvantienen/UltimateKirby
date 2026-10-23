@@ -111,6 +111,8 @@ def upload_payloads(source: Path) -> tuple[tuple[PurePosixPath, bytes], ...]:
     if payloads[-1][1][0x10:0x14] != b"NRO0":
         raise RuntimeError("libkirby_assist.nro does not have the expected NRO header")
     verify_build_variant(payloads[-1][1], payloads[1][1])
+    # Fighter responses/combos are compiled. Ignore obsolete profile files in
+    # older prepared folders; they are not part of the upload allowlist.
     archives = list(source.glob("kirby_assist-*-source.zip"))
     stable_archive = source / "kirby_assist-source.zip"
     if stable_archive.exists() or stable_archive.is_symlink():

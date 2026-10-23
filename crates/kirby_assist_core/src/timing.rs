@@ -222,3 +222,15 @@ mod tests {
         );
     }
 }
+
+/// Hash40 motion identifier, used by ledge-policy regression fixtures.
+pub fn motion_hash(name: &str) -> u64 {
+    let mut crc = !0u32;
+    for byte in name.bytes() {
+        crc ^= u32::from(byte);
+        for _ in 0..8 {
+            crc = (crc >> 1) ^ (0xedb88320 & (0u32.wrapping_sub(crc & 1)));
+        }
+    }
+    ((name.len() as u64) << 32) | u64::from(!crc)
+}

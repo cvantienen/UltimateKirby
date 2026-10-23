@@ -92,13 +92,17 @@ def documentation_files() -> dict[str, bytes]:
     return files
 
 
+def variant_features(diagnostic: bool) -> list[str]:
+    """Both releases include the GUI; only the diagnostic release has logging."""
+    return ["imgui-menu"] + (["diagnostic-logging"] if diagnostic else [])
+
+
 def build_variant(name: str, env: dict[str, str]) -> Path:
     """Compile once, then snapshot the result before the next build overwrites it."""
     diagnostic = name == "diagnostic"
     summary = variant_release_summary(name)
     command = ["cargo", "skyline", "build", "--release", "--no-default-features"]
-    if diagnostic:
-        command += ["--features", "diagnostic-logging"]
+    command += ["--features", ",".join(variant_features(diagnostic))]
     # Stage 1: Cargo/Skyline compiles Rust and produces the NRO. check=True
     # stops this script on any build failure; it does not package an older NRO
     # as if the current build succeeded. Cargo itself does not create our ZIP.
@@ -128,12 +132,24 @@ Close Smash fully. Copy atmosphere/ and ultimate/ to the SD-card root, replacing
 this mod's plugin/config. Install ONE variant at a time: both use the same .nro
 name and destination. Do not rename them and install both together.
 
-Use the Player 1 controller (player_index = 0), human Kirby, and ZR mapped to Shield.
+Use the Player 1 controller (player_index = 0), a registered human fighter, and ZR mapped to Shield.
+Compiled fighter catalogs cover the non-DLC roster, including echoes, Pokemon forms and Miis.
+Existing profiles are retained; new choices use fighter-specific windows and native movement forecasts.
+See docs/NON_DLC_ROSTER.md for defaults, projectile/resource exceptions and validation limits.
 Gameplay policy is shared between the silent and diagnostic variants.
-Hold Y for ledge assist and manual walk spacing; release Y to disengage.
-Hold L3 separately for facing-direction creep/turbo teabag.
-Tap D-pad Left/Right for one short-hop/downward-angled-air-dodge slide attempt;
-hold to repeat when native landing recovery allows. Tap Down for ledge trump.
+Fighter response functions and saved menu choices are compiled into the plugin.
+Only config.txt supplies startup numeric adjustments and global settings.
+Hold L for ledge autopilot; tap Y for neutral-B reverse. No combo or mode selection.
+Automatic mash starts enabled in the supplied config; Minus toggles it on/off.
+Hold R3 alone for fast crouch/walk-cancel turbo teabag; press X for paired X+ZL short hop (both mapped to Jump).
+Hold L and click R3 to show/hide the bottom-left menu, which shows mash ON/OFF.
+While open, D-pad Up/Down
+selects a row and Left/Right cycles its saved options. While closed, sides
+slide, Down starts ledge trump, and Up keeps normal input.
+Both builds include the imgui-smash battle menu.
+Reuse ONE matching libimgui_smash.nro host (the same library as Online Deluxe).
+The host is not bundled or installed by this packager. See docs/LEDGE_MENU.md.
+The menu shows saved ledge choices only, with no live statistics or control hints.
 Requires A=Attack, X=Jump, R=Grab, ZR=Shield, Tap Jump OFF.
 Native readiness and vulnerability gate automatic responses. You space normal
 and jump get-up responses; roll approaches automatically. See the controls docs.
@@ -167,7 +183,8 @@ Read docs/BUILD_VARIANTS.md for scope, build commands, and hardware verification
         "build_id": RELEASE_VERSION,
         "variant": name,
         "release_optimized": True,
-        "cargo_features": ["diagnostic-logging"] if diagnostic else [],
+        "cargo_features": variant_features(diagnostic),
+        "requires_imgui_smash_host": True,
         "explicit_plugin_logging": diagnostic,
         "logging_marker_checks": markers,
         "plugin_sha256": hashlib.sha256(binary).hexdigest(),
@@ -215,8 +232,12 @@ Read docs/BUILD_VARIANTS.md for scope, build commands, and hardware verification
     return output
 
 def copy_release_output(source: Path, destination: Path) -> None:
-    """Copy one variant's plugin, config and summary into its own flat folder."""
+    """Copy one variant's plugin, startup configs and summary to its flat folder."""
     destination.mkdir(parents=True, exist_ok=True)
+    # Retire only this known former generated payload; preserve unrelated files.
+    obsolete = destination / "fighter_configs.json"
+    if obsolete.is_file() or obsolete.is_symlink():
+        obsolete.unlink()
     for file in (PLUGIN, CONFIG, Path(RELEASE_SUMMARY_NAME)):
         target = destination / file.name
         target.write_bytes((source / file).read_bytes())

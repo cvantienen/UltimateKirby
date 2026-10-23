@@ -1,3 +1,6 @@
+# Fighter responses, menu choices are compiled Rust functions/data.
+# This file supplies shared settings and supported numeric timing adjustments only.
+# Global enable flags, controls and shared settings still come from this file.
 # This file changes startup settings without recompiling Rust. Restart Smash.
 # Accepted keys and ranges are defined in LiveConfig::parse in live_input.rs.
 # To add a new setting, extend the Rust field/default/parser and its tests first;
@@ -10,6 +13,7 @@
 # Values below override Rust defaults. Deleting a key restores its Rust default,
 # which may differ from this supplied file (especially turbo/ledge/takeover).
 enabled = true
+# Automatic mash stays enabled; there is no in-match controller toggle.
 auto_mash = true
 auto_tech = true
 # Diagnostic: extra tech details plus ledge wait snapshots at most twice/second.
@@ -40,23 +44,30 @@ tech_lookahead_frames = 5
 # Grounded Ganon Side B uses its linked capture clock; the aerial slam is untechable.
 tech_cooldown_frames = 40
 
-# Side D-pad: tap for one short-hop/downward-angled-air-dodge attempt; hold to repeat.
-# The first airborne native frame must permit the dodge; otherwise it aborts.
+# Menu starts visible each match and stays through stocks/respawn until Minus hides it.
+# Minus opens/closes it; entry/countdown editing is available once the local fighter is known.
+# While open, D-pad Up/Down selects a row and
+# Left/Right cycles options, even with L held. Menu input never starts tools.
+# While closed, Left/Right slides and Down starts ledge trump (no L needed).
+# Hidden Up is normal. Y holds 2-frame cover; L holds ledge autopilot.
+# Directions held while closing must be released before starting a tool.
 dpad_slide = true
-# Hold L3: creep in current facing while alternating crouch/release.
-# L3 is turbo only. Hold Y separately for ledge assist; punish inputs take priority.
-l3_turbo = true
-# Observed native animation updates per crouch/release phase (1 to 10).
-turbo_phase_frames = 2
-# Normalized creep strength (L3 caps this to 0.45).
+# Hold R3 alone: fast crouch/walk-cancel turbo, with slight forward creep.
+# L+R3 toggles the menu. R3 turbo always uses one native update per phase.
+# Press X: paired X+ZL short hop on the ground (both mapped to Jump).
+# Hold L3 as Kirby: down-tilt two-frame recovery forecast; release to stop.
+r3_turbo = true
+# Legacy oscillator phase length (1 to 10); dedicated R3 turbo overrides to 1.
+turbo_phase_frames = 1
+# Gentle forward creep used by the R3 crouch/walk cancel (capped to 0.45).
 turbo_walk_strength = 0.35
 
-# Hold Y for timed responses; you space normal/jump/grab. Roll approaches automatically.
-# Requires A=Attack, X=Jump, R=Grab, ZR=Shield, Tap Jump OFF.
-# Without held L3 turbo, grounded physical input is capped for fine spacing.
+# Hold L for timed responses; you space normal/jump/grab. Roll approaches automatically.
+# Requires A=Attack, B=Special, X/ZL=Jump, R=Grab, ZR=Shield, Tap Jump OFF.
+# Grounded physical input during L assist is capped for fine spacing.
 # Directional attack recipes temporarily override the cap only when eligible.
 # Only its own jump punish retains aerial input ownership.
-# Release Y to disengage ledge assist. Y is consumed instead of jumping.
+# Release L to disengage ledge assist. Tap Y for neutral-B reverse.
 ledge_trap = true
 ledge_manual_spacing = true
 # Ignore attack/acquisition distances except for automatic roll interception.
@@ -70,11 +81,12 @@ ledge_roll_hit_window_frames = 5
 # Unrecognized ledge drops hold shield; recognized get-up attacks retain a grab after a confirmed block, regardless of distance.
 ledge_drop_defense = true
 # Tap D-pad Down: find the nearest floor edge, run off, Down, then inward to catch.
-# No opponent is required. Enabled by default even when this key is omitted.
-# The sequence ends at ledge catch; choose your own follow-up. Y assist is separate.
+# Only while the menu is closed. No opponent is required. Enabled by default.
+# The sequence ends at ledge catch; choose your own follow-up. Held-L assist is separate.
 auto_ledge_trump = true
 # Normal get-up: neutral_air starts its hitbox about 8 frames before protection ends.
-# Legacy options: down_tilt / forward_tilt. Jump uses nair; roll uses down smash.
+# Legacy parser key below is retained; the compiled menu selects actual response functions.
+# Jump uses nair; roll uses down smash.
 ledge_getup_attack = neutral_air
 
 # Normal/jump get-up nair: neutral jump+A together; keep A buffered through squat.
@@ -111,22 +123,25 @@ ledge_grab_buffer_frames = 3
 # Shield stays held through block hitstop. Manual mode never pursues pushback.
 ledge_grab_button = R
 # A successful grab ends ledge autopilot immediately; you choose pummels/throws.
-# Release and hold Y again to rearm. Legacy key is parsed but no longer acts.
+# Release and hold L again to rearm. Legacy key is parsed but no longer acts.
 ledge_throw_outward = false
-
-# Combo policy is retained for future work, with no live key binding.
-combo_enabled = false
-combo_starter = grab
-combo_max_start_percent = 0.5
-combo_grab_range = 6.0
-combo_fair_range = 12.0
 
 # Kirby down/forward tilt + opponent trip: override controls and buffer forward smash.
 # Independent of held Y. No attribution, range, or smash-readiness gates.
 down_tilt_trip_smash = true
+# Kirby fair first-hit landing confirm -> upward-angled forward smash.
+kirby_fair1_smash = true
 
 # During damage hitstop, alternate neutral/full stick at native hitstop cadence.
-# Hold a stick direction to choose SDI; neutral defaults away from the last attacker.
+# Auto-SDI goes away from the attacker; move the stick after a hit to take control.
 # If attacker identity is unavailable, default toward stage center (world X=0).
 # Only the stick is overridden; normal input/DI resumes when damage hitstop ends.
 auto_sdi = true
+
+# Numeric-only adjustments to compiled response functions (read once at startup).
+# These keys cannot define functions, sequences, menu entries or new fighters.
+ledge_nair_hit_lead_frames = 8
+ledge_stone_hit_lead_frames = 0
+# Actual grounded Stone startup used by the timing model, not an animation edit.
+ledge_stone_startup_frames = 11
+ledge_drop_request_timeout_frames = 30

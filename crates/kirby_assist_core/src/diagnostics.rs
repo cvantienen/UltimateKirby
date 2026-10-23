@@ -39,6 +39,24 @@ impl<K: PartialEq> DiagnosticGate<K> {
             None
         }
     }
+    /// Bound bulky progress logs even when readiness/requests chatter. Dedicated
+    /// grab traces preserve critical edges separately before this throttle.
+    pub fn sample_throttled(
+        &mut self,
+        key: K,
+        now_ms: u64,
+        periodic: bool,
+        minimum_ms: u64,
+    ) -> Option<DiagnosticEmission> {
+        if self
+            .last_emission_ms
+            .is_some_and(|last| now_ms >= last && now_ms - last < minimum_ms)
+        {
+            self.coalesced = self.coalesced.saturating_add(1);
+            return None;
+        }
+        self.sample(key, now_ms, periodic)
+    }
 }
 impl<K: PartialEq> Default for DiagnosticGate<K> {
     fn default() -> Self {
@@ -49,6 +67,17 @@ impl<K: PartialEq> Default for DiagnosticGate<K> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn changing_progress_keys_cannot_bypass_the_formatting_rate_limit() {
+        let mut gate = DiagnosticGate::new();
+        let emissions = (0..=1000)
+            .filter_map(|ms| gate.sample_throttled(ms, ms, true, 125))
+            .collect::<Vec<_>>();
+        assert_eq!(emissions.len(), 9);
+        assert_eq!(emissions[1].coalesced_updates, 124);
+        // A backwards/reset clock rearms instead of silencing diagnostics.
+        assert!(gate.sample_throttled(2000, 0, true, 125).is_some());
+    }
     #[test]
     fn waiting_frames_are_coalesced_but_attack_and_hit_events_are_immediate() {
         let mut gate = DiagnosticGate::new();

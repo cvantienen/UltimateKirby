@@ -8,10 +8,12 @@ The predictor now reads **ALL kinetic reserves**, including damage knockback.
 The previous MAIN-only query could miss the velocity driving a stage collision.
 Swept floor, wall and ceiling body probes estimate the first contact time by
 bounded ray refinement. `tech_lookahead_frames` remains a base horizon of 1–5;
-learned input delay extends the actual search, capped at 20 frames.
+the live adapter supplies zero extra input delay, so it adds no learned-delay
+extension to that horizon. Explicit core callers can still supply a delay.
 
 For an eligible damage-air/tumble state, the live scheduler compares contact
-time with learned input arrival delay. Late damage hitstop can buffer a request
+time with the configured native lead and remaining hitstop. Live extra input
+delay is zero; no per-action samples or medians are collected. Late damage hitstop can buffer a request
 before movement resumes; its remaining stop time is included in the forecast.
 Early/global stop, invalid prediction and the native passive-disabled flag do
 not generate a tech request. A valid damage-hitstop timer can supply timing even
@@ -30,7 +32,7 @@ assumption that the victim has normal downward knockback.
 
 The linked clock also drives scheduler progress when the victim's capture pose
 is frozen. The shield request targets four frames before predicted impact after
-learned input delay; ordinary tumble retains its existing nine-frame lead.
+any explicit core delay (zero in the live adapter); ordinary tumble retains its existing nine-frame lead.
 Held shields still require release and a fresh mapped press. Invalid/missing
 capture links or clocks do not fabricate a throw deadline. This timing assumes
 the vanilla move script and still requires on-device verification.

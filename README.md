@@ -1,7 +1,7 @@
 # Kirby Assist
 
 Kirby Assist is a Rust plugin for Super Smash Bros. Ultimate. It adds configurable
-controller-input assists for a human-controlled Kirby. The plugin targets a
+controller-input assists for the selected human-controlled fighter. The plugin targets a
 Nintendo Switch running Skyline and uses the Player 1 controller.
 
 > **Testing status:** Host tests check the shared logic, but they do not verify
@@ -10,12 +10,15 @@ Nintendo Switch running Skyline and uses the Player 1 controller.
 ## Features
 
 - Auto mash and auto tech
-- Directional turbo crouch
+- R3 turbo teabag, X short hop, Y B-reverse and Kirby L3 recovery cover
 - Configurable ledge assist and ledge trump
 - Silent and diagnostic plugin builds
 
 Settings are read from `SD:/ultimate/kirby_assist/config.txt` when Smash starts.
-Restart the game after changing the file. Install only one build variant.
+All non-DLC fighter profiles, menu lists and action sequences are compiled Rust.
+No fighter JSON is loaded. Restart after editing shared settings; new Rust
+responses require a separate rebuild/install. Install only one build variant.
+See [current controls](docs/CONTROLS.md) and [fighters](docs/FIGHTERS.md).
 
 ## Quick start
 
@@ -35,10 +38,11 @@ See [installation and configuration](docs/INTEGRATION.md) for setup details.
 
 ## TODO
 
-- [ ] Fix ledge-trap homing issues.
-- [ ] Fix predicted grab-startup issues.
-- [ ] Validate the ledge-drop shield-defense option.
-- [ ] Add dynamic ledge-trap options loaded from config for each character.
+- [ ] Investigate doubles connection error.
+- [ ] Review menu size on device.
+- [ ] Future combo work; live combo playback is currently removed.
+- [ ] Extend and calibrate fighter response options.
+- [x] Superseded fighter JSON with compiled per-fighter response functions and timing data.
 
 ## Documentation
 
@@ -47,4 +51,6 @@ See [installation and configuration](docs/INTEGRATION.md) for setup details.
 - [Analog mash](docs/ANALOG_MASH.md)
 - [Build variants](docs/BUILD_VARIANTS.md)
 - [Rust beginner guide](docs/README_BEGINNER.md)
+- [Source map](docs/CODE_MAP.md)
+- [Compiled fighter settings](docs/FIGHTER_CONFIGS.md)
 - [All project documentation](docs/index.md)

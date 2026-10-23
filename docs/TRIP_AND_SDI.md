@@ -1,6 +1,6 @@
 # Down-tilt trip follow-up and auto SDI
 
-Both tools apply to the selected human player's controller without holding Y.
+Both tools apply to the selected human player's controller without holding the ledge-assist button.
 They respect the global `enabled` setting and existing controller/session checks.
 No parry feature or ZL/ZR chord was added.
 
@@ -11,7 +11,7 @@ auto_sdi = true
 
 ## Tilt trip to forward smash
 
-This tool is Kirby-specific and independent of held Y. When an opponent is
+This tool is Kirby-specific and independent of L autopilot or the Y shortcut. When an opponent is
 observed in a native trip state during Kirby's down tilt, it queues forward
 smash. The existing forward-tilt starter remains supported too. Recognition
 uses only the tilt and trip states; it does not require a separate hit flag,
@@ -40,20 +40,21 @@ ordinary hitstun, the attacker's hitlag, shield freeze or global stop. The nativ
 remaining-hitstop timer distinguishes advancing samples even when the animation
 is frozen. Repeated mapper polls at one timer value reuse one output.
 
-The stick alternates full deflection and neutral at each observed timer change,
-creating repeated fresh flicks. Hold the physical stick at least 0.4 magnitude
-to choose direction. With a neutral physical stick it uses horizontal movement
-away from the last attributed opposing fighter. Missing attacker/roster data
-falls back toward world X=0; this is a stage-center heuristic.
+The automatic stick alternates horizontal full deflection away from the attacker
+and neutral at each observed timer change. A direction already held when hitstop
+starts does not override it. Moving the stick at least 0.4 from its entry position,
+with at least 0.4 magnitude, hands full physical control back for the rest of
+that hitstop. Releasing to neutral and pressing a direction again also counts.
+SDI resumes automatically on a later hitstop session; ordinary DI after hitstop
+is always physical.
 
-Buttons remain physical, and fresh physical stick input returns immediately
-when damage hitstop ends. With a learned input delay, flicks stop that many frames
-earlier so queued SDI inputs have time to clear before normal control resumes.
-This compensation is an estimate, not access to the online input queue. The macro does not force SDI displacement, modify move
-SDI multipliers, bypass native SDI restrictions, or change launch physics. Actual
-accepted SDI rate depends on the game, move, observation cadence and online input
-delay. An outward default cannot escape every combo and may be wrong for some
-situations; use the stick to select another direction or disable the tool.
+Direction uses the attributed attacker's current horizontal position. If that
+attribution is unavailable and exactly one opponent is known, it uses that
+opponent. If direction is unknown or both roots overlap, it leaves the physical
+stick alone instead of guessing toward center stage. Buttons remain physical.
+Live learned-delay compensation has been removed. This does not change native
+SDI multipliers, restrictions or launch physics; actual movement still depends
+on the move, native acceptance and observation cadence.
 
 ## Validation
 

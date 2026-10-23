@@ -1,5 +1,8 @@
 # Kirby Assist: a beginner's guide to the code and real input integration
 
+For the current file layout, a ledge-response walkthrough, and how loaded
+fighter profiles fit, start with [the source map](CODE_MAP.md).
+
 ## 1. What you have right now
 
 The project now has a decision system **and an implemented Switch input path**. The live path observes the controlled Kirby and applies raw mash and ZR button states to raw controller memory before mapping. It is a compiled test candidate that still needs verification on the actual Switch. Choose a [silent or diagnostic build](BUILD_VARIANTS.md), then start with [INTEGRATION.md](INTEGRATION.md) to install it; you do not need to write an adapter yourself for the included tools.
@@ -77,7 +80,18 @@ There is no root Cargo workspace declaration here. Use `--manifest-path` when yo
 
 For the code that actually runs on Switch, start with `crates/kirby_assist_core/src/ledge_trap.rs`. `src/live.rs` collects native observations, calls that policy, and passes its requested controls to `ManualOverlay`. The generic teaching flow below illustrates the reusable engine; it is not the exact hook sequence of the live mod.
 
-The ledge policy keeps its normal-get-up and roll responses grounded. Read `sample`, then `evaluate`, then the response method selected by `OptionPlan`: `watch_ledge`, `respond_to_jump`, `respond_to_roll`, or `respond_to_getup_attack`. `observe_action` checks startup, actual hit/capture, and whiff recovery; `choose_response` remembers the option even when Kirby is busy. `AttackWindow` uses approximate future reach and reported invincibility expiry, while `target_velocity` supplements native speed with animation-timed root movement. A requested button is an attempt: an attack animation is different from a confirmed hit, and a grab animation is different from capturing an opponent. `GetupAttack` selects down tilt or downward-angled forward tilt for normal get-up; ledge jump uses short-hop back air.
+Read `sample`, then `evaluate`, then the response selected by `OptionPlan`.
+Responses now live in `ledge_trap/aerial.rs`, `roll.rs`, `shield.rs` and
+`grounded.rs`, all as methods on the same `LedgeTrap` instance. Normal get-up
+defaults to short-hop nair; ledge jump also requests neutral jump+A together.
+Roll moves to a common coverage point before timing down smash. Get-up attack
+uses shield and a block response; confirmed capture returns control to you.
+`observe_action` checks startup, actual hit/capture and whiff recovery;
+`choose_response` remembers the opponent's option even when Kirby is busy.
+`AttackWindow` in `prediction.rs` calculates timing and optional approximate
+reach. A requested button is an attempt: an attack animation is different from
+a confirmed hit, and a grab animation is different from capturing an opponent.
+`GetupAttack` still supports legacy down/forward tilts for normal get-up configs.
 
 `LedgeContext` is the input data, `LedgeSettings` is the tuning, and `LedgeOutput` is the proposed result. `requested` names the buttons to hold; `owned` names the buttons the assist replaces, including releases. Native status constants give names to game state numbers. Host regression examples live separately in `src/ledge_trap/tests.rs` inside the core crate.
 
@@ -446,10 +460,12 @@ cargo skyline build --release --features diagnostic-logging
 
 After changing Rust code, build again and copy the newly generated `target/aarch64-skyline-switch/release/libkirby_assist.nro` into your SD card's `atmosphere/contents/01006A800016E000/romfs/skyline/plugins/` directory while Smash is closed. Replace the existing file and restart Smash. Building alone does not update the Switch or the downloadable ZIP. For a fresh copyable folder and ZIP, follow [the packaging commands](INTEGRATION.md#rebuild-the-sd-card-packages).
 
-Changing only `SD:/ultimate/kirby_assist/config.txt` needs a game restart, not a Rust rebuild. Editing a README needs neither a rebuild nor a game restart.
+Changing supported numbers in `SD:/ultimate/kirby_assist/config.txt` needs a game restart. Fighter functions, menu registrations and compiled timing defaults are Rust source changes and require an authorized rebuild/redeploy. There is no fighter JSON file. Editing a README needs neither a rebuild nor a game restart.
 
 Passing the tests proves the tested logical behavior. Building the `.nro` proves compilation for the target. Only testing a concrete live adapter in the target game can demonstrate that the game receives and responds to the intended input.
 
 For learning Rust beyond this project, the official [Rust Book](https://doc.rust-lang.org/book/) is a useful companion. Start with variables, structs, enums, ownership/borrowing, and traits, then reread the walkthrough with those concepts in mind.
 
-For the toggle-L3 opponent-state tool, read [LEDGE_TRAP.md](LEDGE_TRAP.md). It walks through observations, state, and input composition. This addition is source-only until built later.
+For held-L ledge autopilot, read [LEDGE_TRAP.md](LEDGE_TRAP.md).
+Held-L3 Kirby recovery cover is documented in [TWO_FRAME.md](TWO_FRAME.md). These guides walk through observations, state and input composition. Source
+changes need a separately built and installed NRO.

@@ -125,6 +125,14 @@ class UploadTests(unittest.TestCase):
             self.assertEqual(fake.files[path], fake.original[path])
         self.assertEqual(fake.connection, ("192.0.2.10", 5000, 30))
 
+    def test_obsolete_fighter_json_is_ignored_and_not_uploaded(self):
+        (self.source / "fighter_configs.json").write_bytes(b"no longer parsed, even if invalid")
+        fake = FakeFTP()
+        with patch.object(builder.ftplib, "FTP", return_value=fake):
+            builder.upload_files(self.source, "192.0.2.10")
+        self.assertEqual(len(fake.stores), 3)
+        self.assertFalse(any("fighter_configs" in path for path in fake.stores))
+
     def test_optional_source_zip_is_fourth_allowlisted_file_and_plugin_stays_last(self):
         source_zip = self.source / "kirby_assist-1.1.0-source.zip"
         with zipfile.ZipFile(source_zip, "w") as archive:

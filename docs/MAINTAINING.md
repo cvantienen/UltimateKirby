@@ -15,8 +15,8 @@ system Python. To update the pinned MkDocs version, edit `requirements-docs.txt`
 reinstall it, and run the strict build below.
 
 This workspace's environment was created with `/usr/bin/python3` (Python 3.9),
-because its Homebrew Python 3.14 cannot import `pyexpat`. If your `python3`
-installation has that error, use `/usr/bin/python3 -m venv .venv-docs` when
+after Homebrew Python environment setup failed. If `python3 -m venv` fails in
+`ensurepip` or cannot import `pyexpat`, use `/usr/bin/python3 -m venv .venv-docs` when
 creating a fresh environment. The project does not change system Python.
 
 ## Preview while editing
@@ -42,7 +42,8 @@ publish a website or change the Switch plugin.
 ## Add or edit a guide
 
 1. Edit Markdown in `docs/`, or create a new `.md` file there.
-2. Add new pages to `nav` in the root `mkdocs.yml`.
+2. Add general pages to `nav` in `mkdocs.yml`. For fighter guides, link them from
+   `FIGHTERS.md` and list their paths in `not_in_nav` so they stay out of the sidebar.
 3. Link guides relative to each other, for example `[Ledge trap](LEDGE_TRAP.md)`.
 4. Use inline code for project-relative source/config paths outside `docs/`;
    those files are not published as documentation assets.
@@ -51,10 +52,26 @@ publish a website or change the Switch plugin.
 Record planned work using the [TODO template](TODO.md). State which release a
 behavior applies to, and distinguish host checks from Switch measurements.
 
+Each registered fighter has a page under `docs/fighters/`, linked from the
+[Fighters overview](FIGHTERS.md). Refresh its generated choices/defaults and
+frame data after changing compiled fighter declarations:
+
+```sh
+python3 tools/update_fighter_docs.py
+python3 tools/update_fighter_docs.py --check
+```
+
+This reads static Rust declarations without compiling the mod. It rejects
+unrecognized catalog syntax before writing pages. Keep authored notes outside
+the generated markers; the updater preserves them. Add new guides below the
+overview rather than putting every fighter in the sidebar.
+
 ## Release documentation
 
 Change `[package].version` in the root `Cargo.toml` for a new release.
-Set `[package].description` to the release summary. The builder reads both
+Append a small summary of completed changes to `[package].description`; preserve
+all existing text and earlier summaries. Do not replace, reorder or remove old
+entries. Keep the docs aligned with each behavior/tooling change. The builder reads both
 fields from Cargo and generates `releases/RELEASE_SUMMARY-<version>.txt` from the
 description automatically; manual edits to that generated file are overwritten. The [release builder](BUILD_VARIANTS.md) packages the complete
 `docs/` tree and MkDocs setup alongside the release summary. New Markdown pages

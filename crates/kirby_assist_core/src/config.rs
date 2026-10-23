@@ -1,6 +1,7 @@
 //! Declarative rules: what situation activates a tool, when it fires, and what
 //! logical input it requests. These types neither detect game state nor install
-//! hooks. Text-file settings are parsed separately in live_input.rs.
+//! hooks. Shared text settings are parsed in live_input/config.rs; fighter
+//! response functions are compiled Rust registrations.
 //!
 //! Extending the Scenario enum also requires updating its priority and this
 //! fixed rule capacity; adding a new field alone does not wire a new live tool.

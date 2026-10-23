@@ -9,16 +9,21 @@ The two variants share the same gameplay code. Logging is selected at compile ti
 
 Silent means this plugin's explicit logger and diagnostic collection are absent. It does **not** hide the loaded NRO or hooks, erase old logs, suppress crashes, or control Skyline/OS/game reporting. It is not a ban-prevention or hardware-indistinguishability guarantee.
 
+Keep the maintained docs aligned with changes. Append a short change summary to
+`[package].description` in `Cargo.toml`, preserving all earlier entries. The
+packager reads the accumulated description verbatim; it does not replace it
+with a newly written summary.
+
 ## Build commands
 
 From the project root with a configured Skyline toolchain:
 
 ```sh
 # Silent, optimized plugin. This is also the default for cargo skyline build --release.
-cargo skyline build --release --no-default-features
+cargo skyline build --release --no-default-features --features imgui-menu
 
 # Diagnostic, optimized plugin.
-cargo skyline build --release --no-default-features --features diagnostic-logging
+cargo skyline build --release --no-default-features --features imgui-menu,diagnostic-logging
 ```
 
 Each command writes `target/aarch64-skyline-switch/release/libkirby_assist.nro`. Copy that result before building the other variant, or use the helper below to keep them separate automatically.
@@ -194,9 +199,9 @@ python3 -m unittest discover -s tools -p 'test_*.py' -v
 1. Fully close Smash.
 2. Extract your chosen ZIP and copy its `atmosphere/` and `ultimate/` directories to the SD-card root.
 3. Replace the existing plugin and config. Both variants install as `libkirby_assist.nro` at the same path. Do not rename them and load both.
-4. Restart Smash. Use Player 1 (`player_index = 0`), select Kirby, and map ZR to Shield.
+4. Restart Smash. Use Player 1 (`player_index = 0`), select your fighter, and use the [required controller mapping](CONTROLS.md#controller-mapping).
 
-The supplied gameplay settings are identical, including [held-L3 turbo teabag](TURBO_CONTROLS.md), held-Y ledge assist and [D-pad slide attempts](SLIDE_CONTROLS.md). Silent's config has `tech_debug = false`; diagnostic's has it set to `true`. Changing that key cannot bring logging back into a silent binary. Logging can affect callback timing/IO overhead even though the gameplay policy is shared.
+The supplied gameplay settings are identical: held-L ledge autopilot, Y B-reverse, X short hop, held-R3 teabag, held-L3 Kirby recovery cover, and automatic mash initially enabled with Minus toggling it. L+R3 toggles the five-row ledge menu, which also displays mash ON/OFF; hidden D-pad sides slide, Down trumps, Up is normal. Silent uses `tech_debug = false`; diagnostic uses `true`. Logging can affect callback timing/IO overhead even though gameplay policy is shared.
 
 ## What silent actually excludes
 
@@ -216,14 +221,44 @@ buffers console/file output and flushes about every 250 ms. If output stalls and
 the queue fills, new messages are dropped and a later `diagnostic queue: dropped`
 line reports the count. Gameplay never waits for the file/console writer.
 
-Ledge observations are formatted on meaningful changes (option/target, readiness,
-action phase, motion, input request or hit confirmation), rather than every
-animation frame. `tech_debug=true` also enables a waiting-state snapshot at most
-twice per second. `periodic=true` identifies those snapshots;
-`coalesced_updates` counts suppressed unchanged observations. Exact animation
-frames, positions, protection/recovery metadata and native gates remain in each
-emitted snapshot. Actual `ledge mapper` input-edge and tech-edge logs remain.
-Set `tech_debug=false` for event-only ledge logging and fewer tech details.
+Bulky general ledge observations are capped at eight messages per second, even
+when readiness or input requests chatter. `tech_debug=true` also enables a waiting
+snapshot at most twice per second. `periodic=true` identifies those snapshots;
+`coalesced_updates` counts suppressed observations. Tech-edge logging remains.
+
+Roll grabs use a dedicated `roll grab trace:` report instead of those general
+snapshots and repeated mapper lines. Each attempt has a fixed 32-checkpoint ring,
+plus retained first-observation, first-request, first-native-start, last-wait and last
+snapshots. Movement is sampled at most eight times per second; request, mapping,
+native-start and outcome edges are recorded immediately as copied numbers. The
+background writer formats the entire report after capture, the roll window ends,
+tracking ends, release, menu changes or session cancellation. A three-second
+diagnostic watchdog also finishes a report without changing gameplay. Look for:
+
+- `no_grab_requested_check_last_gate`: inspect the final movement/readiness/timing gate.
+- `request_not_seen_by_mapper`: the policy proposed a grab, but no matching mapper sample was observed.
+- `overlay_not_delivered...`: inspect mapper priority/expired-observation gates.
+- `raw_button_not_mapped_to_CATCH...`: the physical grab button did not produce logical Grab.
+- `mapped_CATCH_no_native_start_observed`: mapped Grab was seen without observed grab startup.
+- `native_grab_started_no_capture_observed`: the animation started; inspect spacing, facing and protection timing.
+- `capture_confirmed`: native capture was observed and control handed back.
+
+Reports include own/enemy positions and motion frames, speed/facing, endpoint and
+signed gaps, configured usable reach, active frames, raw/adjusted vulnerability
+opening, recovery deadline, request/animation counts, raw/mapped button evidence
+and cancellation reason. `overwritten` reports ring saturation; logger queue
+drops are reported separately. Signed target gap is negative behind the fighter.
+Reach remains an approximate root-based envelope, not a measured hurtbox or grab
+collision. A report pinpoints the observed stage of failure; it cannot prove every
+collision cause or infer missing native observations. No additional game queries,
+fighter scans, timing compensation or input changes are added. Silent builds
+exclude the recorder, core telemetry fields, formatting and logger entirely.
+
+For testing, try a few rolls from different starting distances, include a miss
+and a success, release L after each trial, then allow one second before collecting
+`SD:/ultimate/kirby_assist/status.log`. `tech_debug=false` reduces unrelated tech
+details; focused grab reports still work. No per-frame SD writes or screenshots
+are needed.
 
 This reduces logging overhead but is not an on-device FPS guarantee. The final
 buffered messages can be lost in a crash/power loss; allow at least a moment for
@@ -245,6 +280,20 @@ cargo skyline clippy --no-default-features
 cargo skyline clippy --no-default-features --features diagnostic-logging
 ```
 
-The source includes [predictive grounded ledge assistance](LEDGE_TRAP.md) plus [analog-stick mashing](ANALOG_MASH.md). Ledge fixes include exact hanging-status checks, missed-option recovery, startup-aware shield grabs, and tilt retries after a release without an extra timer. The supplied config selects forward tilt for normal get-up and outward throws after capture; post-punish recovery returns to the ledge stance. Host checks do not refresh release ZIPs; install the rebuilt plugin and updated config together.
+The source includes [predictive grounded ledge assistance](LEDGE_TRAP.md) plus [analog-stick mashing](ANALOG_MASH.md). Ledge fixes include exact hanging-status checks, missed-option recovery, startup-aware shield grabs, and tilt retries after a release without an extra timer. The supplied config selects neutral air; each fighter’s saved menu choices resolve its actual response. Captures always return manual control, without automatic pummel or throw. Host checks do not refresh release ZIPs; install the rebuilt plugin and updated config together.
 
-Use A=Attack, R=Grab, ZR=Shield, and Tap Jump off. Set `ledge_getup_attack = forward_tilt` to try the downward-angled forward tilt for normal get-up. Ledge jumps use short-hop back air; roll uses uncharged forward smash and get-up attack uses Grab. Both variants share the gameplay policy; silent keeps logging compiled out. Device testing remains required, including the Pichu-on-FD small-character baseline. No guaranteed frame-perfect coverage is claimed.
+Use A=Attack, B=Special, R=Grab, ZR=Shield, X=Jump and ZL=Jump, with Tap Jump off. Kirby attack-cancel bair also needs Tilt Attack C-stick. The menu selects fighter-specific responses; it does not use a universal bair/forward-smash sequence. Both variants share the gameplay policy; silent keeps logging compiled out. Device testing remains required, including the Pichu-on-FD small-character baseline. No guaranteed frame-perfect coverage is claimed.
+
+## Battle ledge menu
+
+Both release variants include `imgui-menu`, sharing a matching imgui-smash host with Online Deluxe when installed. The [ledge menu guide](LEDGE_MENU.md) documents controls and prerequisites. The input engine works in every valid battle mode, including online; logging selection does not change its behavior. No build or deployment was performed for this source change.
+
+
+## Frozen diagnostic calibration results
+
+Diagnostic builds provide a [frozen result card](CALIBRATION_CARD.md) for all
+five ledge response lists. The compact card appears beside the menu after an
+attempt ends; L+R3 hides/shows both. It records available configured timing,
+request/mapping/startup evidence, root spacing and waiting gates. Full detail
+is written to `status.log`. Missing metadata stays unknown; configured frames
+are not measured hitboxes. Silent builds exclude this feature.

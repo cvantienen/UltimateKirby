@@ -7,8 +7,9 @@
 //! `pub mod` exposes a module; `pub use` re-exports selected names so callers can
 //! write `kirby_assist_core::AutoMash` instead of the full module path.
 //!
-//! To add a tool: define/choose a Scenario, supply a ScenarioRule, implement live
-//! detection and output translation, then test transitions and cancellation.
+//! Generic scenario tools use Scenario/ScenarioRule; the live ledge, slide and
+//! combat tools have dedicated state machines. Both need live detection and
+//! input translation, plus checks for transitions and cancellation.
 //! This crate can be tested on a computer without Skyline or a connected Switch.
 
 // Suggested learning order inside this crate:
@@ -17,6 +18,8 @@
 // 3. examples/walkthrough.rs: a complete, pretend frame loop on your computer.
 // 4. live_input.rs: real mash/tech scheduling; manual_controls.rs: D-pad tools.
 // 5. ledge_trap.rs: the larger state machine, backed by ledge_trap/tests.rs.
+//    ledge_trap/types.rs defines its data; its response files contain recipes.
+// See docs/CODE_MAP.md for module roles and docs/FIGHTER_CONFIGS.md for compiled fighter catalogs.
 // `pub` is Rust's visibility keyword. Tests can exercise these public helpers
 // without loading the Switch plugin or depending on a native game allocation.
 // Common Rust syntax in these files: #[derive(...)] asks the compiler to
@@ -24,11 +27,13 @@
 // formatting, Default supplies initial values, and PartialEq supports == checks.
 pub mod assist;
 pub mod combat_assist;
-pub mod combo;
 pub mod config;
 pub mod diagnostics;
+pub mod ledge_menu;
+// Compiled fighter registrations, named responses, move data.
+pub mod fighter_profiles;
 pub mod input;
-pub mod input_timing;
+
 pub mod live_input;
 pub mod runtime;
 pub mod sequence;
@@ -63,7 +68,8 @@ pub mod tech_prediction;
 
 pub mod manual_controls;
 
-// Toggle-L3 opponent-state policy; the native adapter supplies observations.
+// Held-L ledge autopilot; the recovery 2-frame policy remains available to core callers.
 pub mod ledge_position;
 pub mod ledge_trap;
 pub mod ledge_trump;
+pub mod two_frame;
