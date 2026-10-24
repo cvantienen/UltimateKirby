@@ -67,11 +67,22 @@ Paths below are relative to the project root. Core paths begin with
 | File | Responsibility |
 | --- | --- |
 | `docs/FIGHTER_ADDITIONS.md` | Luigi/Falcon source, timing, performance and validation notes. |
-| Core `ledge_menu.rs` | Five saved response choices, L+R3 menu chord, Minus mash toggle and trigger reservation. |
+| Core `ledge_menu.rs` | Five saved ledge choices, Kirby Roll read/Y mode rows, R3 menu binding, Auto-mash row and trigger reservation. |
+| Core `button_modes.rs` | Kirby Y Finisher choices: Fair 1 > Fsmash and Dair > Dsmash. |
+| Core `finisher.rs` | One short-hop starter per Y press, fast fall and hit-confirmed landing smash. See [Finisher sequences](FINISHERS.md). |
+| Core `opponent_data.rs` and `opponent_data/generated.rs` | Exact-kind compiled stats/move facts, eight roster bindings and pure native recovery validation. |
+| Core `whiff_punish.rs` and `src/live/whiff.rs` | Parked prototype, not wired into the live build/menu. |
+| Core `action_owner.rs` | One committed input owner, explicit interruption rules and losing-plan cancellation. |
+| `data/opponent_reference.json` / `tools/update_opponent_data.py` | Source-only numerical snapshot/importer; never loaded during matches. |
+| Core `autopilot_guard/duck.rs` | Held-Y crouch/shield ownership; legacy move fixtures remain separate from live geometry. |
+| Core `autopilot_guard/duck_geometry.rs` | Allocation-free swept hitbox/body-envelope tests and calibration bounds. |
+| `src/live/duck_hits.rs` | Disabled reference implementation; its native hitbox scans, source tracking and ATTACK hook are not enabled. |
+| Core `two_frame.rs` | Kirby-only recovery-cover registration and native-clock timing inside L autopilot. |
 | `src/lib.rs` | Skyline entry point; calls installation once. |
 | `src/live.rs` | Hook orchestration, profile selection, shared session state and tool priority. |
 | `src/live/config.rs` | Startup-only I/O for config.txt; initialize/validate compiled fighter catalog. |
 | `src/live/controller.rs` | Native controller layout, offset checks and button-history reads/writes. |
+| Core `training_test.rs` | Diagnostic/Training-only R3-to-ledge-policy mapping and isolated test settings. |
 | `src/live/observations.rs` | Read-only fighter, opponent, physics, roster and floor queries. |
 | `src/live/tech.rs` | Native tech eligibility and predicted contact/capture timing. |
 | `src/game_ffi.rs` | Declarations of functions supplied by Smash; their memory/calling contract. |
@@ -80,6 +91,7 @@ Paths below are relative to the project root. Core paths begin with
 | `src/calibration.rs` | Diagnostic-only fixed observation recorder, completed result formatting and cached card publication. |
 | Core `ledge_trap/diagnostics.rs` | Read-only response metadata for all five rows and detailed roll-grab snapshots. |
 | Core `live_input.rs` | Mash/tech request policy and compatibility helpers. |
+| Core `roll_read.rs` / `roll_read/smash.rs` | Optional ordinary onstage roll-through punish, separate from ledge Roll responses. |
 | Core `ledge_trap.rs` | Held-trigger visit history, response selection and native action confirmation. |
 | Core `ledge_trap/types.rs` | Settings, copied observations, output values and animation/physics helpers. |
 | Core `fighter_profiles.rs` | Typed compiled fighter data, profile selection and catalog validation. |
@@ -94,9 +106,10 @@ Paths below are relative to the project root. Core paths begin with
 | Core `ledge_trap/prediction.rs` | Approximate reach, braking and attack-window overlap calculations. |
 | Core `ledge_position.rs` / `ledge_trump.rs` | Grounded stance preparation / run-off ledge trump. |
 | Core `manual_controls.rs` / `native_input.rs` | Trigger reservation and shared input overlay / raw button conversion. |
-| Core `combat_assist.rs` | Trip-to-forward-smash follow-up and damage-hitstop SDI. |
+| Core `combat_assist.rs` | Either tilt trip to forward smash, and damage-hitstop SDI. |
 | Core `tech_prediction.rs` / `tech_input.rs` | Pure collision timing / shield request and acknowledgment scheduling. |
-| Core `timing.rs` | Forecast overlap and deduplicate native progress. Learned input-delay compensation has been removed. |
+| Core `timing.rs` / `timing/progress.rs` | Share motion-progress classification, event deduplication, simulation-frame arithmetic and forecast overlap. No learned compensation. |
+| Core `observation.rs` / adapter `live/frame.rs` | Lazy fixed-size facts shared across policies for one observation; see [shared observations and timing](OBSERVATIONS_AND_TIMING.md). |
 | Core `slide.rs` | D-pad slide sequence. |
 | Core `session.rs` / `diagnostics.rs` | Invalidate stale requests between matches / limit diagnostic snapshots. |
 | Core `state.rs` / `input.rs` | Generic observation contracts / logical buttons, sticks and merging. |

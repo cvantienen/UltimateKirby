@@ -14,7 +14,7 @@ input priority, spacing decision or response timing.
    opponent perform that ledge option. Training is useful for repeatable tests.
 3. Once the attempt ends, a compact card appears **to the right of the menu**.
    It freezes there while you try again; the next completed result replaces it.
-4. **L+R3** hides/shows both panels. Results still record while hidden. Cards
+4. **R3** hides/shows both panels. Results still record while hidden. Cards
    clear when the battle ends or the controlled fighter changes; stock loss
    alone does not clear the last completed card.
 5. Read the full report in `SD:/ultimate/kirby_assist/status.log`. Search for
@@ -33,7 +33,7 @@ setup. Queued results from a previous battle/fighter cannot reappear later.
 | --- | --- |
 | Fighter / row / choice | Which compiled response was selected. The full log also records the actual native fighter kind, so a fallback profile can be identified. |
 | Config window | Configured first/last move frames, not a measurement of collision boxes. Missing bounds show unknown. For some specials only startup is known. |
-| Hop / lead / drift | Committed short/full hop, configured early lead where exposed, signed horizontal stick drift and its end frame when available. Positive drift is world-right, not always toward the opponent. Unknown or not applicable stays unknown. |
+| Hop / lead / drift / fast fall | Committed short/full hop, configured early lead where exposed, signed horizontal stick drift and its end frame when available. Positive drift is world-right, not always toward the opponent. Opted-in fast fall shows its minimum nair animation frame and descent requirement. Unknown or not applicable stays unknown. |
 | Read | First observation of the recognized response, with opponent status, native motion frame and motion rate. |
 | Protection off | First sampled observation of the opponent being vulnerable; absence does not prove they stayed invincible. |
 | Request | First intended attack, grab, special or shield request. Preparatory jump/shield requests do not replace this spacing snapshot. |

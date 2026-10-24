@@ -34,6 +34,8 @@ pub const FORWARD_SMASH: MoveFrames = MoveFrames {
 };
 // Projectile generation/collision startup is not its arrival time at the ledge.
 pub const HOMING_MISSILE_STARTUP: u8 = 18;
+// Clear side-special selection after mapping without a full smash-stick flick.
+pub const HOMING_MISSILE_STICK: f32 = 0.70;
 pub const SUPER_MISSILE_STARTUP: u8 = 21;
 
 // Zair's two consecutive phases have no inactive gap: 8-15, then 16-19.

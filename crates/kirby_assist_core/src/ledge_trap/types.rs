@@ -163,7 +163,8 @@ pub struct LedgeSettings {
     pub manual_spacing: bool,
     /// Player owns spacing; normal/jump/grab timing does not test reach.
     pub distance_agnostic: bool,
-    /// Maximum horizontal raw-stick magnitude in manual spacing mode.
+    /// Baseline horizontal walk strength: normal cap is -0.02, near-full
+    /// horizontal cap is +0.03, both bounded to 0.1..0.45.
     pub walk_strength: f32,
     /// Legacy reach setting retained for config compatibility; roll navigation
     /// now uses the common roll_distance point instead of a reach forecast.

@@ -13,9 +13,17 @@
 # Values below override Rust defaults. Deleting a key restores its Rust default,
 # which may differ from this supplied file (especially turbo/ledge/takeover).
 enabled = true
-# Automatic mash stays enabled; there is no in-match controller toggle.
+# Initial mash state; change ON/OFF from the Auto-mash menu row mid-match.
 auto_mash = true
 auto_tech = true
+# Hold L: approximate grounded defense against nearby active fighter attacks.
+# Uses a short root-position/velocity envelope, not exact hitbox collision.
+# Does not track projectiles or shield grabs; restart after changing this value.
+autopilot_shield = true
+# Auto-duck is temporarily disabled in code, including its hitbox-reader hook.
+# Retained legacy setting; true cannot restore it in this build.
+# Kirby Y now attempts the selected Finisher menu route, once per press.
+kirby_auto_duck = false
 # Diagnostic: extra tech details plus ledge wait snapshots at most twice/second.
 # Action changes and attack edges remain logged when false. Background I/O is buffered.
 # Silent compiles the logger out regardless of this setting.
@@ -36,7 +44,7 @@ takeover = true
 # Old alternate_mash / mash_buttons_per_frame / mash_interval_frames entries are
 # ignored for compatibility. Stick mashing has no added interval/release gap.
 
-# Base stage-contact lookahead (1 to 5 game frames). Learned input delay extends it.
+# Base stage-contact lookahead (1 to 5 game frames); no learned-delay adjustment.
 tech_lookahead_frames = 5
 
 # Cooldown starts only after a fresh mapped shield press, excluding hitstop.
@@ -44,22 +52,23 @@ tech_lookahead_frames = 5
 # Grounded Ganon Side B uses its linked capture clock; the aerial slam is untechable.
 tech_cooldown_frames = 40
 
-# Menu starts visible each match and stays through stocks/respawn until Minus hides it.
+# Menu starts visible each match; R3 toggles it (R3 in diagnostic Training).
+# Training ZL save/load keeps menu visibility and resumes on release; menus/recording resume with R3.
 # Minus opens/closes it; entry/countdown editing is available once the local fighter is known.
 # While open, D-pad Up/Down selects a row and
 # Left/Right cycles options, even with L held. Menu input never starts tools.
 # While closed, Left/Right slides and Down starts ledge trump (no L needed).
-# Hidden Up is normal. Y holds 2-frame cover; L holds ledge autopilot.
+# Hidden Up is normal. Y holds its selected mode (Kirby Auto-duck); L runs autopilot.
 # Directions held while closing must be released before starting a tool.
 dpad_slide = true
-# Hold R3 alone: fast crouch/walk-cancel turbo, with slight forward creep.
-# L+R3 toggles the menu. R3 turbo always uses one native update per phase.
-# Press X: paired X+ZL short hop on the ground (both mapped to Jump).
-# Hold L3 as Kirby: down-tilt two-frame recovery forecast; release to stop.
+# Hold L3 without L: turbo teabag with slight forward creep. R3 toggles the menu.
+# R3 toggles the menu; Auto-mash has an ON/OFF menu row.
+# Press X: X short-hop tap on the ground (both mapped to Jump).
+# Hold L as Kirby: includes in-range down-tilt recovery cover, with no R3 binding.
 r3_turbo = true
-# Legacy oscillator phase length (1 to 10); dedicated R3 turbo overrides to 1.
+# Legacy oscillator phase length (1 to 10); L3 turbo always uses one native update per phase.
 turbo_phase_frames = 1
-# Gentle forward creep used by the R3 crouch/walk cancel (capped to 0.45).
+# Gentle forward creep used by the L3 crouch/walk cancel (capped to 0.45).
 turbo_walk_strength = 0.35
 
 # Hold L for timed responses; you space normal/jump/grab. Roll approaches automatically.
@@ -67,11 +76,13 @@ turbo_walk_strength = 0.35
 # Grounded physical input during L assist is capped for fine spacing.
 # Directional attack recipes temporarily override the cap only when eligible.
 # Only its own jump punish retains aerial input ownership.
-# Release L to disengage ledge assist. Tap Y for neutral-B reverse.
+# Release L to disengage ledge assist. Press Y for its selected Finisher attempt.
 ledge_trap = true
 ledge_manual_spacing = true
 # Ignore attack/acquisition distances except for automatic roll interception.
 ledge_distance_agnostic = true
+# Baseline: normal horizontal cap 0.33; nearly full horizontal cap 0.50 with dash aliases suppressed.
+# Fast cap requires abs(X) >= 0.95 and abs(Y) <= 0.15; vertical input is preserved.
 ledge_walk_strength = 0.35
 # Legacy reach key; roll positioning now uses ledge_roll_distance below.
 ledge_roll_dash_range = 10.0
@@ -126,7 +137,7 @@ ledge_grab_button = R
 # Release and hold L again to rearm. Legacy key is parsed but no longer acts.
 ledge_throw_outward = false
 
-# Kirby down/forward tilt + opponent trip: override controls and buffer forward smash.
+# Kirby down/forward tilt + trip/re-hit: buffer forward smash in current facing.
 # Independent of held Y. No attribution, range, or smash-readiness gates.
 down_tilt_trip_smash = true
 # Kirby fair first-hit landing confirm -> upward-angled forward smash.
@@ -137,6 +148,20 @@ kirby_fair1_smash = true
 # If attacker identity is unavailable, default toward stage center (world X=0).
 # Only the stick is overridden; normal input/DI resumes when damage hitstop ends.
 auto_sdi = true
+
+# Hold launch DI during the final 3 observed victim-hitstop frames; SDI owns earlier frames.
+# Adaptive: weaker launches favor attacker separation; stronger launches favor survival.
+# This is a launch-axis heuristic, not a blast-zone or guaranteed combo-escape solver.
+# Move the physical stick after the hit to take control. No buttons or recovery inputs.
+auto_di = true
+auto_di_mode = adaptive
+# Native launch-speed magnitude, not damage percent or a universal KO threshold.
+auto_di_survival_speed = 3.0
+
+# Constant grab defense, no held trigger: ordinary standing/dash/pivot grabs.
+# Four-frame timing/root-reach forecast; special command grabs are not modeled.
+# Requires native grounded dodge readiness; ledge/roll and punish modes win priority.
+auto_spot_dodge = true
 
 # Numeric-only adjustments to compiled response functions (read once at startup).
 # These keys cannot define functions, sequences, menu entries or new fighters.

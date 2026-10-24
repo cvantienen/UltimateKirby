@@ -99,7 +99,21 @@ impl TechInput {
                     && ctx.frame >= last.frame
                     && (ctx.rate - last.rate).abs() < 0.001
                 {
-                    ((ctx.frame - last.frame) / ctx.rate).clamp(0.0, 4.0)
+                    crate::timing::motion_progress(
+                        // Preserve this cooldown's existing stable-rate policy.
+                        Some(crate::timing::MotionStamp::new(
+                            last.status,
+                            last.motion,
+                            last.frame,
+                            ctx.rate,
+                        )),
+                        crate::timing::MotionStamp::new(
+                            ctx.status, ctx.motion, ctx.frame, ctx.rate,
+                        ),
+                    )
+                    .elapsed(0.0, 1.0)
+                    .unwrap_or(1.0)
+                    .clamp(0.0, 4.0)
                 } else {
                     1.0
                 };

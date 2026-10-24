@@ -72,7 +72,7 @@ fn tap_runs_both_ledges_and_releases_at_catch_without_a_followup() {
             ..context()
         };
         let start = state.sample(true, 0, true, ground, Some(edge()));
-        assert_eq!(start.stick, Some([-side, 0.0]));
+        assert_eq!(start.stick, Some([-side * 0.55, 0.0]));
         assert_eq!(start.requested, 0);
         let falling = LedgeContext {
             situation: 2,
@@ -82,7 +82,7 @@ fn tap_runs_both_ledges_and_releases_at_catch_without_a_followup() {
             ..ground
         };
         let down = state.sample(true, 1, false, falling, None);
-        assert_eq!(down.stick, Some([0.0, -1.0]));
+        assert_eq!(down.stick, Some([side, -1.0]));
         // Extra mapper polls must not skip the Down input before a native frame.
         assert_eq!(state.sample(true, 2, false, falling, None), down);
         let inward = state.sample(

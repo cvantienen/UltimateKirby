@@ -20,7 +20,8 @@ excluded because it needs a separate charge/release implementation.
 
 Nair uses the existing paired X+A delivery. Roll uses the shared locked coverage
 point and braking logic; a successful grab hands control back for pummels/throws.
-Y attempts B-reverse. Held-L3 recovery cover is Kirby-only; Sonic has no live
+Y is reserved for configured held modes; B-reverse is unbound. Integrated held-L
+recovery cover is Kirby-only; Sonic has no live
 two-frame-cover binding. These are punish
 attempts, not guaranteed contact: spacing and online delivery still matter.
 

@@ -16,11 +16,51 @@ const QUEUE_CAPACITY: usize = 128;
 const FLUSH_INTERVAL: Duration = Duration::from_millis(250);
 enum Message {
     Text(String),
+    Modes(usize, Box<kirby_assist_core::diagnostics::modes::Report>),
+    Configuration(Box<kirby_assist_core::diagnostics::modes::Configuration>),
     Grab(Box<crate::grab_diagnostics::Report>),
     Calibration(Box<crate::calibration::Report>),
 }
 static SENDER: OnceLock<SyncSender<Message>> = OnceLock::new();
 static DROPPED: AtomicUsize = AtomicUsize::new(0);
+
+// Generation tags prevent a queued report from an old match repopulating the UI.
+static SNAPSHOT_EPOCH: AtomicUsize = AtomicUsize::new(0);
+#[cfg(any(feature = "imgui-menu", test))]
+static SNAPSHOT_CARD: std::sync::Mutex<Option<(usize, std::ffi::CString)>> =
+    std::sync::Mutex::new(None);
+pub fn clear_snapshot() {
+    SNAPSHOT_EPOCH.fetch_add(1, Ordering::AcqRel);
+    #[cfg(any(feature = "imgui-menu", test))]
+    if let Ok(mut card) = SNAPSHOT_CARD.try_lock() {
+        *card = None;
+    }
+}
+#[cfg(any(feature = "imgui-menu", test))]
+fn publish_snapshot(epoch: usize, text: String) {
+    if epoch != SNAPSHOT_EPOCH.load(Ordering::Acquire) {
+        return;
+    }
+    if let Ok(text) = std::ffi::CString::new(text) {
+        if let Ok(mut card) = SNAPSHOT_CARD.lock() {
+            if epoch == SNAPSHOT_EPOCH.load(Ordering::Acquire) {
+                *card = Some((epoch, text));
+            }
+        }
+    }
+}
+#[cfg(any(feature = "imgui-menu", test))]
+pub fn with_snapshot(draw: impl FnOnce(&std::ffi::CStr)) -> bool {
+    if let Ok(card) = SNAPSHOT_CARD.try_lock() {
+        if let Some((epoch, text)) = card.as_ref() {
+            if *epoch == SNAPSHOT_EPOCH.load(Ordering::Acquire) {
+                draw(text);
+                return true;
+            }
+        }
+    }
+    false
+}
 
 /// Startup I/O happens before hooks are installed. Gameplay never opens files.
 pub fn start() {
@@ -73,6 +113,21 @@ pub fn write_calibration(report: crate::calibration::Report) {
     }
 }
 
+pub fn write_modes(report: kirby_assist_core::diagnostics::modes::Report) {
+    if let Some(sender) = SENDER.get() {
+        enqueue(
+            sender,
+            &DROPPED,
+            Message::Modes(SNAPSHOT_EPOCH.load(Ordering::Acquire), Box::new(report)),
+        );
+    }
+}
+pub fn write_configuration(config: kirby_assist_core::diagnostics::modes::Configuration) {
+    if let Some(sender) = SENDER.get() {
+        enqueue(sender, &DROPPED, Message::Configuration(Box::new(config)));
+    }
+}
+
 fn enqueue<T>(sender: &SyncSender<T>, dropped: &AtomicUsize, message: T) {
     // No waiting for a slow/full logger. Memory is bounded by queue capacity;
     // the worker reports dropped messages when it can make progress again.
@@ -104,7 +159,9 @@ fn writer_loop(receiver: Receiver<Message>) {
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => {
                 if let Some(file) = file.as_mut() {
-                    let _ = file.flush();
+                    if let Err(error) = file.flush() {
+                        eprintln!("[kirby_assist] LOG FLUSH ERROR: {error}; latest SD snapshots may be missing: {LOG_PATH}");
+                    }
                 }
                 let _ = console.flush();
                 break;
@@ -119,8 +176,9 @@ fn writer_loop(receiver: Receiver<Message>) {
             );
         }
         if flushed.elapsed() >= FLUSH_INTERVAL {
-            if let Some(file) = file.as_mut() {
-                let _ = file.flush();
+            if let Some(error) = file.as_mut().and_then(|file| file.flush().err()) {
+                let _ = writeln!(console, "[kirby_assist] LOG FLUSH ERROR: {error}. Continuing console logging; SD log may be incomplete: {LOG_PATH}");
+                file = None;
             }
             let _ = console.flush();
             flushed = Instant::now();
@@ -135,6 +193,14 @@ fn output_message(
 ) {
     match message {
         Message::Text(message) => output(file, console, &message),
+        Message::Modes(epoch, report) => {
+            #[cfg(any(feature = "imgui-menu", test))]
+            publish_snapshot(epoch, report.card_text());
+            #[cfg(not(any(feature = "imgui-menu", test)))]
+            let _ = epoch;
+            output(file, console, &report.format());
+        }
+        Message::Configuration(config) => output(file, console, &config.format()),
         Message::Grab(report) => output(file, console, &report.format()),
         Message::Calibration(report) => {
             let formatted = report.format();
@@ -152,14 +218,39 @@ fn output(
     // BufWriter owns a stdout handle, not its lock. No global console lock is
     // held while waiting for another queue message. Batch flushes run here only.
     let _ = writeln!(console, "[kirby_assist] {message}");
-    if let Some(file) = file.as_mut() {
-        let _ = writeln!(file, "{message}");
+    if let Some(error) = file
+        .as_mut()
+        .and_then(|file| writeln!(file, "{message}").err())
+    {
+        let _ = writeln!(console, "[kirby_assist] LOG FILE ERROR: {error}. Continuing console logging; SD log may be incomplete: {LOG_PATH}");
+        *file = None;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn snapshot_cache_rejects_previous_matches_and_never_blocks_rendering() {
+        clear_snapshot();
+        let epoch = SNAPSHOT_EPOCH.load(Ordering::Acquire);
+        publish_snapshot(epoch, "LATEST SNAPSHOT: roll read".into());
+        assert!(with_snapshot(|card| assert!(card
+            .to_str()
+            .unwrap()
+            .contains("roll read"))));
+        {
+            let _busy = SNAPSHOT_CARD.lock().unwrap();
+            assert!(!with_snapshot(|_| panic!(
+                "rendering must not wait for a busy cache"
+            )));
+        }
+        clear_snapshot();
+        publish_snapshot(epoch, "stale match".into());
+        assert!(!with_snapshot(|_| panic!(
+            "old queued reports must remain hidden"
+        )));
+    }
     #[test]
     fn full_queue_drops_instead_of_waiting_and_preserves_queued_event() {
         let (sender, receiver) = mpsc::sync_channel::<String>(1);

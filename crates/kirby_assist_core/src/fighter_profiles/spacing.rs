@@ -110,6 +110,7 @@ pub fn hint(fighter_kind: i32, slot: PresetSlot, choice: &str) -> &'static str {
         }
         "forward_air" if fighter_kind == 0x46 => "~ranged / front",
         "forward_air" | "shield_fair" => "~mid / front",
+        "bair" if fighter_kind == 5 => "~close / rear",
         "slingshot" => "~ranged / front",
         "short_hop_dair"
             if matches!(

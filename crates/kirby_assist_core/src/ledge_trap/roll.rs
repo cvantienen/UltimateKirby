@@ -88,6 +88,7 @@ impl LedgeTrap {
         punish: RollPunish,
     ) {
         let grab = punish == RollPunish::Grab;
+        let fixed_grab = grab && self.fixed_roll_grab_inset.is_some();
         let inward_walk_grab = grab
             && matches!(
                 settings.implementation,
@@ -124,6 +125,10 @@ impl LedgeTrap {
             return;
         }
         if self.roll_intercept.is_none() {
+            if fixed_grab && self.anchor.or(enemy.cliff_position).is_none() {
+                self.roll_phase = "roll_fixed_grab_wait_ledge_anchor";
+                return; // Do not substitute a moving opponent root for a ledge.
+            }
             let ledge_x = self
                 .anchor
                 .or(enemy.cliff_position)
@@ -141,11 +146,15 @@ impl LedgeTrap {
             // roll velocity, predict a character's root path or chase its body.
             let endpoint = ledge_x
                 + inward
-                    * settings
-                        .roll_distance
+                    * self
+                        .fixed_roll_grab_inset
+                        .filter(|_| grab)
+                        .or(settings.roll_distance)
                         .unwrap_or(settings.fighter.common_roll_distance);
             let travel_limit = settings.follow_range;
-            let destination = if grab {
+            let destination = if fixed_grab {
+                endpoint
+            } else if grab {
                 let dx = endpoint - ctx.position[0];
                 let reach = settings.fighter.grab.roll_standoff();
                 // Keep an already useful spot. Otherwise approach from the
@@ -165,8 +174,12 @@ impl LedgeTrap {
             };
             // Keep the full calculated approach and the enemy timing endpoint.
             let travel = (destination - ctx.position[0]).clamp(-travel_limit, travel_limit);
-            let mut stand_x = ctx.position[0] + travel;
-            if inward_walk_grab && (stand_x - ctx.position[0]) * inward < 0.0 {
+            let mut stand_x = if fixed_grab {
+                destination
+            } else {
+                ctx.position[0] + travel
+            };
+            if inward_walk_grab && !fixed_grab && (stand_x - ctx.position[0]) * inward < 0.0 {
                 // Already beyond the approach point: hold here rather than
                 // walking back toward the ledge and reversing the grab.
                 stand_x = ctx.position[0];
@@ -184,7 +197,7 @@ impl LedgeTrap {
             self.roll_dash_origin = Some(ctx.position[0]);
         }
         let mut spot = self.roll_intercept.unwrap();
-        if inward_walk_grab {
+        if inward_walk_grab && !fixed_grab {
             // The common 25-unit point is only an initial approach estimate.
             // Extend it when native root travel shows a deeper roll. Never move
             // the aim back toward the ledge as the opponent passes our body.
@@ -260,7 +273,17 @@ impl LedgeTrap {
                 && ctx.can_grab
                 && (!inward_walk_grab || ctx.facing * spot.facing > 0.5)
                 && ctx.velocity[0] * spot.facing >= -0.15;
-            if !can_catch_here && !self.position_for_roll_grab(settings, ctx, spot, out) {
+            // Kirby's fixed stance must be reached before waiting for a catch.
+            // Tracked approaches can still take a legal catch along the way.
+            if fixed_grab {
+                if !self.position_for_fixed_roll_grab(ctx, spot, out) {
+                    return;
+                }
+            }
+            if !fixed_grab
+                && !can_catch_here
+                && !self.position_for_roll_grab(settings, ctx, spot, out)
+            {
                 return;
             }
         } else {
@@ -381,9 +404,53 @@ impl LedgeTrap {
         }
     }
 
-    /// Reach the calculated grab destination. After braking, corrections use
-    /// walking inputs; the later grab request performs no facing correction.
-    fn position_for_roll_grab(
+    /// Kirby runs to his fixed stance, brakes, then waits for native grab timing.
+    /// The rolling opponent cannot move this destination or trigger an early grab.
+    fn position_for_fixed_roll_grab(
+        &mut self,
+        ctx: LedgeContext,
+        spot: RollIntercept,
+        out: &mut LedgeOutput,
+    ) -> bool {
+        let error = spot.stand_x - ctx.position[0];
+        self.roll_positioned = error.abs() <= 1.0;
+        out.owned |= crate::manual_controls::LEFT_STICK_DIRECTIONS;
+        if !self.roll_positioned {
+            self.roll_phase = "roll_fixed_grab_run_to_spot";
+            let direction = error.signum();
+            let coast =
+                roll_stopping_distance(ctx, direction).unwrap_or(ctx.velocity[0].abs() * 2.0);
+            if ctx.velocity[0] * direction < -0.15
+                || ctx.velocity[0] * direction > 0.2 && coast >= error.abs() - 1.0
+            {
+                return false;
+            }
+            if (ctx.can_act || ctx.can_control && matches!(ctx.status, 0x3 | 0x4))
+                && ctx.safe_ground[usize::from(direction > 0.0)]
+            {
+                if error.abs() < 3.0 {
+                    // Fine correction stays below the dash threshold.
+                    out.stick = Some([direction * 0.3, 0.0]);
+                } else {
+                    // Let the mapper deliver the full-stick dash flick here.
+                    out.owned &= !crate::manual_controls::LEFT_STICK_DIRECTIONS;
+                    self.prepare_roll_dash(ctx, direction, out);
+                }
+            }
+            return false;
+        }
+        if ctx.facing * spot.facing < 0.5 {
+            self.roll_phase = "roll_fixed_grab_face_center";
+            if ctx.can_act {
+                out.stick = Some([spot.facing * 0.3, 0.0]);
+            }
+            return false;
+        }
+        self.roll_phase = "roll_fixed_grab_wait_timing";
+        true
+    }
+
+    pub(super) fn position_for_roll_grab(
         &mut self,
         settings: LedgeSettings,
         ctx: LedgeContext,

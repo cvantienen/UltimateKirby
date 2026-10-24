@@ -11,7 +11,7 @@ use crate::native_input::{ButtonTrace, MapperButtonOverlay};
 
 mod shortcuts;
 pub use shortcuts::{ShortcutContext, Shortcuts};
-pub const TURBO_TRIGGER: u32 = 1 << 17; // Right-stick click (R3), without L.
+pub const TURBO_TRIGGER: u32 = 1 << 16; // Left-stick click (L3), without L.
 pub const SHORT_HOP_TRIGGER: u32 = crate::native_input::MAPPER_X; // Physical X.
 pub const DPAD_UP: u32 = 1;
 pub const DPAD_RIGHT: u32 = 1 << 1;
@@ -22,12 +22,24 @@ pub const RIGHT_STICK_DIRECTIONS: u32 = 0xf << 24;
 pub const STICK_CLICKS: u32 = 3 << 16;
 
 /// Preserve fine physical input and crouching while capping horizontal motion
-/// below full-flick/dash thresholds. Attack recipes bypass this cap explicitly.
+/// for manual ledge spacing. Attack recipes bypass this cap explicitly.
 pub fn ledge_walk_stick(physical: [f32; 2], maximum: f32) -> [f32; 2] {
-    let cap = if maximum.is_finite() {
+    let base = if maximum.is_finite() {
         maximum.clamp(0.1, 0.45)
     } else {
         0.35
+    };
+    // The existing setting remains the baseline for old config files. Use a
+    // slightly lower cap normally, with a fixed fast-walk request near full
+    // horizontal. The overlay also clears digital stick-flick aliases.
+    let full_horizontal = physical[0].is_finite()
+        && physical[1].is_finite()
+        && physical[0].abs() >= 0.95
+        && physical[1].abs() <= 0.15;
+    let cap = if full_horizontal {
+        0.5 // Full analog deflection can dash even with digital flick aliases cleared.
+    } else {
+        (base - 0.02).clamp(0.1, 0.45)
     };
     let x = if physical[0].is_finite() {
         physical[0].clamp(-cap, cap)
@@ -97,6 +109,98 @@ pub struct TurboOutput {
     pub stick: Option<[f32; 2]>,
 }
 
+/// Cleans up a deliberate full-stick reversal during a native dash/run. The
+/// two-update hold is advanced by the shared game tick, never mapper polls, so
+/// online input sampling cannot shorten the pivot window.
+#[derive(Default)]
+pub struct DashPivotAssist {
+    last_direction: i8,
+    active_direction: i8,
+    dash_walk_direction: i8,
+    updates_left: u8,
+    last_tick: Option<i64>,
+    last_output: TurboOutput,
+}
+impl DashPivotAssist {
+    pub fn sample(
+        &mut self,
+        tick: i64,
+        status: i32,
+        situation: i32,
+        stopped: bool,
+        physical_stick: [f32; 2],
+    ) -> TurboOutput {
+        if self.last_tick == Some(tick) {
+            return self.last_output;
+        }
+        if situation != 0 || stopped || !physical_stick[0].is_finite() {
+            *self = Self::default();
+            return TurboOutput::default();
+        }
+        let x = physical_stick[0];
+        let direction = if x >= 0.8 {
+            1
+        } else if x <= -0.8 {
+            -1
+        } else {
+            0
+        };
+        // Native common statuses 3..=8 cover dash/turn-dash/run/brake/turn-run.
+        // Do not reshape ordinary walking, crouching, attacks, or aerial input.
+        let movement_status = (3..=8).contains(&status);
+        if movement_status
+            && direction != 0
+            && self.last_direction != 0
+            && direction == -self.last_direction
+        {
+            self.active_direction = direction;
+            self.updates_left = 2;
+        }
+        // A full dash followed by a deliberate same-direction stick ease is a
+        // dash-walk gesture. Keep the eased input at the fastest value below
+        // the digital dash threshold; a continuously full stick still runs.
+        if status == 3 && direction != 0 {
+            self.dash_walk_direction = direction;
+        }
+        let gentle_direction = if (0.1..0.8).contains(&x) {
+            1
+        } else if (-0.8..-0.1).contains(&x) {
+            -1
+        } else {
+            0
+        };
+        let dash_walking = self.dash_walk_direction != 0
+            && gentle_direction == self.dash_walk_direction
+            && (0..=8).contains(&status);
+        if x.abs() < 0.1
+            || direction != 0 && direction != self.dash_walk_direction
+            || gentle_direction != 0 && gentle_direction != self.dash_walk_direction
+        {
+            self.dash_walk_direction = 0;
+        }
+        if direction != 0 {
+            self.last_direction = direction;
+        }
+        let output = if self.updates_left != 0 {
+            self.updates_left -= 1;
+            TurboOutput {
+                consume_dpad: false,
+                stick: Some([f32::from(self.active_direction), 0.0]),
+            }
+        } else if dash_walking {
+            TurboOutput {
+                consume_dpad: false,
+                stick: Some([f32::from(self.dash_walk_direction) * 0.49, 0.0]),
+            }
+        } else {
+            TurboOutput::default()
+        };
+        self.last_tick = Some(tick);
+        self.last_output = output;
+        output
+    }
+}
+
 #[derive(Default)]
 pub struct TurboState {
     direction: i8,
@@ -105,7 +209,7 @@ pub struct TurboState {
     last_output: TurboOutput,
 }
 impl TurboState {
-    /// Held R3 restores the original crouch/walk cancel with one native update
+    /// Held L3 restores the original crouch/walk cancel with one native update
     /// per phase. The gentle facing-direction walk is intentional: neutral-only
     /// release lets the ordinary crouch recovery play instead of this turbo.
     /// The legacy phase setting does not slow this dedicated turbo binding.
@@ -131,7 +235,7 @@ impl TurboState {
         )
     }
 
-    /// Facing-direction crouch/walk oscillator, also reused by R3 turbo.
+    /// Facing-direction crouch/walk oscillator, also reused by L3 turbo.
     pub fn sample_facing(
         &mut self,
         settings: TurboSettings,
@@ -305,10 +409,10 @@ impl ManualOverlay {
             // Analog values remain authoritative. These coarse direction bits
             // keep full crouch input consistent without marking gentle walking
             // as a fully deflected digital stick direction.
-            if x >= 0.5 {
+            if x >= 0.5 && consumed & (1 << 21) == 0 {
                 requested |= 1 << 21;
             }
-            if x <= -0.5 {
+            if x <= -0.5 && consumed & (1 << 23) == 0 {
                 requested |= 1 << 23;
             }
             if y >= 0.5 {

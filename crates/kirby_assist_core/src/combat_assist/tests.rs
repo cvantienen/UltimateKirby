@@ -14,6 +14,7 @@ fn ctx(status: i32, target_status: i32) -> TripContext {
             Some(TripTarget {
                 id: 2,
                 status: target_status,
+                previous_status: 0,
             }),
             None,
             None,
@@ -108,7 +109,7 @@ fn either_tilt_trip_flicks_in_existing_facing_and_new_tilt_rearms() {
                 assert_eq!(state.sample(true, trip).requested, 0);
                 let attack = state.sample(true, TripContext { frame: 2.0, ..trip });
                 assert_eq!(attack.requested, MAPPER_A);
-                assert_eq!(attack.stick, Some([facing, 0.0]));
+                assert_eq!(attack.stick, Some([facing, 0.]));
                 state.sample(
                     true,
                     TripContext {

@@ -30,10 +30,10 @@ pub(crate) const MENU: MenuPresets = MenuPresets {
                 prepare_neutral_down_tilt,
             ),
             SavedChoice::new(
-                "forward_tilt",
-                "Forward tilt",
-                respond_to_neutral_getup_forward_tilt,
-                prepare_neutral_forward_tilt,
+                "down_smash",
+                "Down smash",
+                respond_to_neutral_getup_down_smash,
+                prepare_neutral_down_smash,
             ),
             SavedChoice::new(
                 "stone",
@@ -170,7 +170,29 @@ fn respond_to_neutral_getup_nair(
     respond_to_neutral_getup_configured(trap, s, ctx, enemy, out);
     if !committed && trap.jump_committed {
         set_nair_nudge(trap, ctx, enemy);
+    } else if !trap.jump_committed {
+        walk_before_neutral_nair(trap, s, ctx, enemy, out);
     }
+}
+
+/// Attack-first preparation shared with other explicitly opted-in choices.
+fn walk_before_neutral_nair(
+    trap: &mut LedgeTrap,
+    s: LedgeSettings,
+    ctx: LedgeContext,
+    enemy: Opponent,
+    out: &mut LedgeOutput,
+) {
+    use crate::fighter_profiles::kirby::{NEUTRAL_NAIR_EDGE_INSET, NEUTRAL_NAIR_WALK_STICK};
+    super::common::walk_before_neutral_nair(
+        trap,
+        s,
+        ctx,
+        enemy,
+        out,
+        NEUTRAL_NAIR_WALK_STICK,
+        NEUTRAL_NAIR_EDGE_INSET,
+    );
 }
 fn set_nair_nudge(trap: &mut LedgeTrap, ctx: LedgeContext, enemy: Opponent) {
     let dx = enemy.position[0] - ctx.position[0];
@@ -190,14 +212,73 @@ fn respond_to_neutral_getup_down_tilt(
 ) {
     respond_to_neutral_getup_configured(trap, s, ctx, enemy, out);
 }
-fn respond_to_neutral_getup_forward_tilt(
+fn respond_to_neutral_getup_down_smash(
     trap: &mut LedgeTrap,
     s: LedgeSettings,
     ctx: LedgeContext,
     enemy: Opponent,
     out: &mut LedgeOutput,
 ) {
-    respond_to_neutral_getup_configured(trap, s, ctx, enemy, out);
+    // Kirby's active window is 7–19. Start two frames earlier than its
+    // midpoint alignment: aim protection expiry at animation frame 15.
+    // Include OneShot's one-update neutral smash primer, then use its normal
+    // bounded press/release and native-startup confirmation. Only the existing
+    // waiting window may be used for a walk; arrival never gates the attack.
+    let frames = s.fighter.down_smash;
+    let midpoint = frames.first + (frames.last - frames.first) / 2;
+    let target = midpoint
+        .saturating_add(crate::fighter_profiles::kirby::NEUTRAL_DOWN_SMASH_EARLY_FRAMES)
+        .min(frames.last);
+    let opens = if enemy.vulnerable {
+        Some(0.0)
+    } else {
+        enemy.vulnerable_in
+    };
+    if !opens.is_some_and(|left| {
+        left.is_finite() && left >= 0.0 && left <= f32::from(target) + 1.0 + ctx.input_delay
+    }) {
+        if !s.manual_spacing
+            && s.responses.neutral_getup
+            && trap.climb_seen
+            && enemy.status == super::super::CLIFF_CLIMB
+            && opens.is_some_and(|left| left.is_finite() && left > 0.0 && left <= 120.0)
+        {
+            super::common::walk_toward_ledge(
+                trap,
+                ctx,
+                out,
+                crate::fighter_profiles::kirby::NEUTRAL_NAIR_WALK_STICK,
+                crate::fighter_profiles::kirby::NEUTRAL_NAIR_EDGE_INSET,
+            );
+        }
+        return;
+    }
+    // Brake on the timing boundary even if the native smash term has not yet
+    // opened. Walking must never consume another update of the attack window.
+    if trap.climb_seen && enemy.status == super::super::CLIFF_CLIMB {
+        trap.movement_preparing = true;
+        out.stick = Some([0.0, 0.0]);
+    }
+    super::variety::neutral(
+        trap,
+        LedgeSettings {
+            distance_agnostic: true,
+            ..s
+        },
+        ctx,
+        enemy,
+        out,
+        super::one_shot::Move {
+            kind: super::one_shot::MoveKind::Ground {
+                startup: 0x30,
+                attack: 0x32,
+            },
+            first: frames.first,
+            last: frames.last,
+            stick: [0.0, -1.0],
+            drift: 0.0,
+        },
+    );
 }
 fn respond_to_neutral_getup_stone(
     trap: &mut LedgeTrap,
@@ -224,6 +305,7 @@ fn respond_to_roll_grab(
     enemy: Opponent,
     out: &mut LedgeOutput,
 ) {
+    trap.fixed_roll_grab_inset = Some(crate::fighter_profiles::kirby::ROLL_GRAB_LEDGE_INSET);
     trap.respond_to_roll_grab(s, ctx, enemy, out);
 }
 fn prepare_neutral_inhale(mut s: LedgeSettings) -> LedgeSettings {
@@ -327,9 +409,8 @@ fn prepare_neutral_down_tilt(mut s: LedgeSettings) -> LedgeSettings {
     s.getup_attack = GetupAttack::DownTilt;
     s
 }
-fn prepare_neutral_forward_tilt(mut s: LedgeSettings) -> LedgeSettings {
+fn prepare_neutral_down_smash(mut s: LedgeSettings) -> LedgeSettings {
     s.responses.neutral_getup = true;
-    s.getup_attack = GetupAttack::ForwardTilt;
     s
 }
 fn prepare_neutral_stone(mut s: LedgeSettings) -> LedgeSettings {

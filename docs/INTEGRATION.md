@@ -5,11 +5,15 @@
 
 # Raw controller build: install, behavior, and verification
 
+All live assistants share a callback-local lazy fighter snapshot and common
+progress arithmetic. Readiness checks remain live and existing move timings
+are preserved; see [shared observations and timing](OBSERVATIONS_AND_TIMING.md).
+
 ## Current status
 
 This build contains actual Switch hooks and raw controller-memory stick/button writes. It is no longer the empty plugin shell described in the project's first version.
 
-**Package version is 1.5.3; source edits can be newer than a same-version artifact.**
+**Read the current package version from Cargo.toml; source edits can be newer than a same-version artifact.**
 Supplied diagnostic logs confirm native grab startup and some captures, but
 the latest approach changes have not been compiled or Switch-validated. A successful build cannot verify the latest executable's internal layouts, actual controller routing, or auto-tech timing. The diagnostic build's status log makes the next verification concrete. The silent build intentionally has no plugin log.
 
@@ -59,7 +63,61 @@ requirements-docs.txt
 
 It does not include Skyline, Atmosphere, other plugins, game data, or an installer that changes your Switch. Skyline documents its general [plugin installation directory](https://github.com/skyline-dev/skyline).
 
-## Settings
+## Training Modpack compatibility
+
+Kirby Assist and Training Modpack both hook the final controller mapper (FIM).
+The original startup panic occurred because Kirby Assist patched its entry
+before Training Modpack searched for the original instructions. Kirby Assist
+now resolves the mapper at startup but defers installing its mapper hook until
+the first non-null category-0 fighter command callback. This leaves FIM intact
+during plug-in entrypoints. Its Skyline trampoline chains the existing hook.
+
+If Training Modpack loaded first, the resolver accepts only the unique original
+signature or known Skyline entry-patch layouts with the remaining instructions
+intact. Ambiguous/unknown patterns disable assist installation; there is no
+fixed-address fallback. Scanning happens at startup, not during each frame.
+
+The companion/bridge approach has been removed. Use stock Training Modpack; no
+Training code changes, extra NROs or rebuilt Training plug-in are required.
+The workaround is gated by **all three** conditions: diagnostic build, the
+standard `libtraining_modpack.nro` detected at startup, and actual Training Mode.
+The filename is checked once, not every frame.
+
+In diagnostic Training compatibility, **R3 toggles Kirby Assist's menu**.
+D-pad Up/Down selects a row and Left/Right changes it while visible. R3 creates
+only an internal menu event: it never fabricates a real Minus or L button for
+Training. **L** remains ledge autopilot; **Y** remains its selected held mode;
+**X** remains the paired short hop. Mash, tech, SDI, teabag, slides, follow-ups,
+Roll read and Kirby recovery cover retain their normal startup/menu settings.
+The former held-R3 requirement and reduced ledge-only settings are removed.
+
+Real **Minus/Plus** and the known **B/ZL/ZR + D-pad Up/Down** Training chords
+cancel pending assist inputs and hand the untouched controller to Training.
+Default **ZL+Up load / ZL+Down save** is momentary: our panel stays visible,
+saved selections remain intact and held-L practice resumes on release without
+an R3 press. For the other chords, handoff persists after release because a Training menu
+or recording can remain active. Finish/close Training's menu or recording, then
+**tap R3** to resume Kirby Assist with its menu visible. Tap R3 again to hide it
+before using hidden-pad slides/trump. Normal L/Y/X actions need no R3 hold.
+
+Physical releases and controller freshness are still observed during handoff;
+this preserves release-to-arm protection after resets. The observer does not
+regenerate recipes while Training owns input. No Training-private menu state
+or custom shortcut assignments are inspected. Leave R3 unassigned in Training;
+custom chords beyond the defaults are not automatically detected.
+
+Silent builds, Switches without Training Modpack and non-Training battles use
+**R3** for Kirby Assist's menu. This compatibility path changes only the
+diagnostic Training input routing, using the existing hook chain and stock
+Training NRO. It does not patch Training or add another hook.
+
+Test R3/menu navigation, L autopilot, Y, X, mash/tech/SDI and Minus/save/record
+handoff separately. Disable any overlapping Training player-assist settings
+when testing the same Kirby action. Host tests cannot establish zero conflicts
+or actual in-game input acceptance; Switch testing is required. Only Kirby
+Assist needs a future rebuild/install for these source changes.
+
+## Shared settings
 
 Edit `SD:/ultimate/kirby_assist/config.txt`, then restart Smash. No Rust editing is needed.
 
@@ -69,6 +127,8 @@ Edit `SD:/ultimate/kirby_assist/config.txt`, then restart Smash. No Rust editing
 | `auto_mash` | `true` | Request mash inputs while the game reports a positive clatter timer. |
 | `takeover` | `false` | During analog mash, suppress physical action buttons and C-stick; during tech, own only ZR. The supplied config enables it. |
 | `auto_tech` | `true` | Request raw ZR on predicted contact, then throttle retries with the configured cooldown. |
+| `autopilot_shield` | `true` | Held-L grounded defense using native shield readiness, active/known imminent attacks, a three-frame swept root envelope and up to four native frames of tail hold; no projectile/grab or exact hitbox detection. |
+| `kirby_auto_duck` | `false` | Retained legacy setting. Auto-duck, its hitbox scanning and ATTACK observer-hook installation are disabled even if an older config sets true. Y now attempts the selected [Finisher](FINISHERS.md). |
 | `tech_debug` | `false` | Diagnostic build only: log native gate reasons and ZR edges. Its supplied config enables this; silent compiles the logger out. |
 | `player_index` | `0` | Local physical controller number, 0 through 7. Its mapper slot is discovered dynamically; this is not the Arena battle position. |
 | `tech_lookahead_frames` | `3` | Collision-ray prediction horizon, 1 through 5; the included config uses 5. |
@@ -80,7 +140,7 @@ Auto mash supplies the left stick, not an Attack-button binding. Auto tech alway
 
 ## Directional turbo control
 
-Hold R3 alone for rapid crouch/walk cancel with slight forward creep. Press X for a paired X+ZL short hop (both mapped to Jump). Releasing returns current physical stick input. It runs only during normal grounded movement for the selected fighter. See [settings, implementation, and device checks](TURBO_CONTROLS.md). Both logging variants include it.
+Hold R3 alone for rapid crouch/walk cancel with slight forward creep. Press X for a X short-hop tap (X mapped to Jump). Releasing returns current physical stick input. It runs only during normal grounded movement for the selected fighter. See [settings, implementation, and device checks](TURBO_CONTROLS.md). Both logging variants include it.
 
 ## What each tool does
 
@@ -137,11 +197,11 @@ The mapper selects physical Npad identity instead of assuming mapper index 0.
 The shared observation path validates active identity,
 controller ownership, and human control before publishing. Character kind and
 roster enumeration do not gate independent controls. A 250 ms observation gap
-resets the route, object association, overlay edge history, and tool state.
+normally resets the route, object association, overlay edge history, and tool state.
 Session tickets reject in-flight observations from an earlier epoch. Inactive
 objects and accessor identity mismatches are rejected before controller-chain
 access. Controller samples allow 250 ms of scheduling delay; attack proposals
-still expire after 35 ms. A mapper poll advancing during a native query no longer
+expire after 35 ms, with no frozen-progress exception. A mapper poll advancing during a native query no longer
 discards that observation; publication uses the latest mapper tick and rejects
 superseded native observations. Physical input passes through
 when no fresh eligible snapshot exists. Binding consumption uses the recent human
@@ -214,6 +274,10 @@ The following ledge observations must show native status `0x36` with motion
 separate event. Keep the full request/mapping/native-state sequence when comparing
 offline and Arena failures. The 35 ms request watchdog is a wall-clock freshness
 limit, not a game-frame timer or a measurement of network delay.
+
+The committed-input stall-preservation feature has been removed. All proposals
+again obey the 35 ms request and 250 ms observation-gap watchdogs, even when
+native fighter progress appears frozen. No learned delay compensation is enabled.
 
 Source edits do not update an installed NRO. Build and install the diagnostic
 variant only when requested, then restart Smash before comparing results.
@@ -293,13 +357,16 @@ See [build variants](BUILD_VARIANTS.md) for individual Cargo commands, the optio
 
 ## Opponent ledge observations (source addition)
 
-Hold **L** for ledge autopilot. Tap **Y** for a neutral-B reverse attempt;
-press **X** for a paired X+ZL short hop (both mapped to Jump). Hold **R3 alone**
-for fast crouch/walk-cancel turbo teabag. **L+R3** shows/hides the menu; **Minus** toggles auto-mash. While visible, **Up/Down**
-selects one of five rows (Neutral, Jump, Roll, Attack, Drop), and **Left/Right**
+Hold **L** for ledge autopilot, including Kirby's in-range recovery cover.
+Press **Y** for its selected [Finisher attempt](FINISHERS.md); B-reverse is unbound;
+Kirby retains Fair/Dair choices and Yoshi now has Bair drag > Fsmash. Their
+automatic whiff punish is currently removed from the live build/menu. Opponent facts
+are [compiled reference tables](OPPONENT_DATA.md), never match-time file/network loads.
+Press **X** for an X short-hop tap (X mapped to Jump). **R3** shows/hides the menu; the **Auto-mash** menu row toggles auto-mash. While visible, **Up/Down**
+selects a row (Neutral, Jump, Roll, Attack, Drop; Kirby/Yoshi also have Roll read/Y mode; Auto-mash is shared), and **Left/Right**
 cycles its saved responses. While hidden, Left/Right slides, Down starts ledge
 trump, and Up is normal. Directions held when closing must be released before
-starting gameplay tools. L+R3 is reserved for menu toggling and does not teabag.
+starting gameplay tools. R3 is reserved for menu toggling and does not teabag.
 Auto-mash stays enabled in the supplied startup configuration.
 
 Fighter-manager enumeration remains callback-only; the mapper uses cached routes. See [the current ledge menu](LEDGE_MENU.md).

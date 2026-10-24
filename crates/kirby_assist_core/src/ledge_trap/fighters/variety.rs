@@ -106,6 +106,11 @@ fn timed(
         v.is_finite() && v >= 0.0 && v <= f32::from(first + (last - first).min(8)) + c.input_delay
     });
     let launching = jumping && matches!(e.status, CLIFF_JUMP1 | 0x7c);
+    // Grounded directional moves turn while protection is still up, rather
+    // than spending their short attack window waiting for facing confirmation.
+    if !aerial && !face(t, c, e, recipe, o) {
+        return;
+    }
     if !(early || launching)
         || window
             .scheduled_contact(c, e, e.actionable_in, s.distance_agnostic)

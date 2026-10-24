@@ -9,7 +9,7 @@ Start with [current controls](CONTROLS.md), [fighters](FIGHTERS.md), or
 
 ## Current source and installed builds
 
-The manifest currently identifies **1.5.3**. These maintained docs describe the
+The release version is recorded in `Cargo.toml`. These maintained docs describe the
 current working source, including later Kirby/Yoshi nair and roll-grab edits.
 An existing 1.5.3 NRO or source ZIP may predate those edits: editing source or docs
 does not update an installed plugin. Check the built package and diagnostic
@@ -26,18 +26,20 @@ successful documentation build do not establish gameplay or online accuracy.
 | Input | Action |
 | --- | --- |
 | Hold L | Ledge autopilot |
-| L+R3 | Show/hide the five-row menu |
+| R3 | Show/hide the saved-options menu |
+| Hold L3 without L | Turbo teabag; release to stop |
 | D-pad, menu visible | Up/Down selects a row; Left/Right cycles its response |
 | D-pad, menu hidden | Left/Right slides; Down ledge trump; Up normal |
-| Minus | Toggle auto-mash |
-| Hold R3 alone | Turbo teabag |
-| X | Paired X+ZL short hop |
-| Y | B-reverse opposite fighter facing |
-| Hold L3 as Kirby | Down-tilt recovery cover |
+| Auto-mash row, Left/Right | Toggle mash ON/OFF |
+| X | X short-hop tap |
+| Press Y as Kirby | Selected [Finisher attempt](FINISHERS.md) |
+| Press Y as Yoshi | Bair drag-down > Fsmash attempt |
+| Hold L as Kirby | Ledge responses plus in-range recovery cover |
 
 Required mapping, menu behavior and automatic tools are documented in
-[the full control reference](CONTROLS.md). Combo playback and Y-mode cycling
-are removed. Moves and menu choices come from compiled fighter profiles;
+[the full control reference](CONTROLS.md). The older combo engine and B-reverse
+binding remain removed; Kirby now has two explicit [Finisher attempts](FINISHERS.md)
+on Y. Moves and menu choices come from compiled fighter profiles;
 only shared settings and supported numeric adjustments load from `config.txt`.
 
 ## Fighters and ledge responses

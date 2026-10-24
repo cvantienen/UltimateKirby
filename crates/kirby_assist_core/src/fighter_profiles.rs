@@ -185,6 +185,10 @@ pub struct FighterProfile {
     pub menu_options: presets::MenuPresets,
 }
 impl FighterProfile {
+    /// Same compiled facts used for opponent recognition, without file loading.
+    pub fn reference(&self) -> Option<&'static crate::opponent_data::Reference> {
+        crate::opponent_data::profile(self.fighter_kind)
+    }
     pub fn apply(&self, mut settings: LedgeSettings) -> LedgeSettings {
         settings.implementation =
             crate::ledge_trap::ResponseImplementation::for_kind(self.fighter_kind);

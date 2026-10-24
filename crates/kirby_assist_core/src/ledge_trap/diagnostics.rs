@@ -54,6 +54,7 @@ pub struct CalibrationMove {
     pub full_hop: Option<bool>,
     pub drift: Option<f32>,
     pub drift_until: Option<u8>,
+    pub fast_fall_from: Option<u8>,
 }
 impl CalibrationMove {
     pub const fn unknown() -> Self {
@@ -65,6 +66,7 @@ impl CalibrationMove {
             full_hop: None,
             drift: None,
             drift_until: None,
+            fast_fall_from: None,
         }
     }
 }
@@ -139,6 +141,7 @@ impl LedgeTrap {
                 drift: self.jump_committed.then_some(self.neutral_nair_drift),
                 drift_until: (self.neutral_nair_drift != 0.0)
                     .then_some(super::NAIR_NUDGE_END_FRAME),
+                fast_fall_from: None,
             };
         } else if self.pending == Pending::Grab
             || matches!(choice, "grab" | "shield_grab" | "shield_rear")
@@ -321,6 +324,11 @@ impl LedgeTrap {
                 "inhale" => Some(f32::from(crate::fighter_profiles::kirby::INHALE_HIT_LEAD)),
                 "bair" if settings.implementation == Some(super::ResponseImplementation::Kirby) => {
                     Some(f32::from(crate::fighter_profiles::kirby::NEUTRAL_BAIR_LEAD))
+                }
+                "bair" if settings.implementation == Some(super::ResponseImplementation::Yoshi) => {
+                    Some(f32::from(
+                        crate::fighter_profiles::yoshi::NEUTRAL_BAIR_MIDDLE_LEAD,
+                    ))
                 }
                 "zair" => Some(f32::from(crate::fighter_profiles::samus::ZAIR_HIT_LEAD)),
                 _ => None,

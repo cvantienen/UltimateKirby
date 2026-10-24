@@ -1,12 +1,110 @@
 # Ledge autopilot
 
-Hold **L** for ledge autopilot. Tap **Y** for a neutral-B reverse attempt;
-press **X** for a paired X+ZL short hop (both mapped to Jump). Hold **R3 alone**
-for fast crouch/walk-cancel turbo teabag. **L+R3** shows/hides the menu; **Minus** toggles auto-mash. While visible, **Up/Down**
-selects one of five rows (Neutral, Jump, Roll, Attack, Drop), and **Left/Right**
+## Input freshness
+
+The original wall-clock watchdogs apply to every ledge input: requests expire
+after 35 ms and an observation gap of 250 ms resets the controller association.
+The stall-preserving committed-input exception has been removed. No automatic
+delay learning or compensation is enabled; configured fighter timings remain.
+
+## Held-L defensive shield
+
+With `autopilot_shield = true` (the default), held-L autopilot can request normal
+ZR shielding on the ground against a nearby fighter's active or known imminent attack.
+The opponent need not have grabbed the ledge. Releasing L releases this assist.
+
+The check uses the existing bounded fighter roster, validated live accessors,
+attack-active flags and both fighters' root positions/velocities. It tests a
+three-frame swept relative path against an approximate envelope of 24 horizontal
+and 28 vertical world units. For explicitly configured opponents, forward/down
+tilt, down smash (including a separate rear sweep) and exact neutral-air motion
+can warn up to three game frames before first activity, using native motion rate
+and that fighter's compiled data. Unconfigured opponents never use Kirby's data
+for this prediction; active fighter attacks still use the geometric fallback.
+It does **not** read individual hitbox shapes or hurtboxes, or track projectile/
+item objects. The wider envelope is deliberately forgiving and can shield early.
+It can
+shield against attacks facing away or miss attacks whose reach extends beyond
+that envelope. This is a warning heuristic, not guaranteed collision prediction.
+
+Shield input requires native guard availability or an existing guard/shieldstun
+state. Native guard availability is checked without an idle/walk-only status
+filter, so crouching and other legitimately shield-ready states qualify too.
+Committed punishes (including onstage Roll read), capture/manual handback,
+mash/tech, slide and trump
+retain priority. Defense overrides idle/preparation movement only; movement is
+neutral while shielding to avoid adding dodge direction. An existing defensive
+shield is held through native shield hitstop. A fixed-size hold bridges small
+gaps for up to four advancing native frames after the last warning; repeated
+polls and hitstop do not spend that interval. Release, menu/tool cancellation,
+or lost native shield readiness still stop it immediately. Once that tail ends it hands
+control back; it does not automatically grab, attack or parry afterward.
+
+This cannot shield through hitstun, shield break or uncancellable move recovery.
+It does not parry, detect grabs, or guarantee collision coverage.
+
+The added native reads run only for grounded, guard-eligible, L-held ledge
+autopilot observations. There are no new hooks, threads, weapon scans or live
+file reads. Runtime cost and online effectiveness still require Switch testing.
+Diagnostic ledge snapshots label the action `autopilot_defensive_shield`.
+Disable with `autopilot_shield = false` in startup `config.txt`, then restart.
+
+## Kirby auto-duck
+
+**Currently disabled**, including its Y binding, source tracking and ATTACK
+observer-hook installation. The legacy config cannot restore it. Y instead
+attempts the selected [Finisher](FINISHERS.md). The retained implementation
+below documents the former behavior for future offline calibration.
+The live path no longer uses a Falcon Punch/move-name allowlist. It reads active
+hitbox sphere/capsule endpoints in world coordinates from nearby enemy fighters
+and cached projectile/item objects, including size and root velocity.
+
+A fixed six-frame swept envelope predicts incoming contact. It requests normal
+down-stick crouching when the detected hitbox overlaps an estimated standing
+Kirby body but clears the estimated crouching body. Multiple high hitboxes may
+be ducked together; a low/large/descending hitbox intersecting the crouching
+bound chooses shield if native shielding is ready. Native crouch readiness is
+required; an already raised shield is not replaced with down+shield. Damage,
+committed punishes and other higher-priority tools still take precedence.
+Down is not requested on passable platforms or for nonstandard Kirby sizes.
+
+The calibration model in `autopilot_guard/duck_geometry.rs` uses standing height
+12, crouching top 4.5 and horizontal/depth half-width 4 world units. **These are
+estimates, not live native hurtboxes or universal clearance guarantees.** Capsule
+bounds are deliberately conservative. Native crouch startup, changing joint
+poses, slopes, hitstop and delayed inputs can still defeat the prediction.
+Only currently active attacks are visible; this is not prediction of attacks
+that have not spawned hitboxes yet. Grabs are not covered.
+
+One deferred `sv_animcmd::ATTACK` observer, installed only when auto-duck is
+configured on, calls the existing hook chain unchanged and remembers IDs in a
+32-slot atomic ring while the selected fighter is Kirby. It never edits attack
+arguments. This enables weapon/item discovery without traversing an unknown
+object-manager layout. The cache is retained while Y is released so a projectile
+already in flight can be considered when Y is pressed. Battle end clears it.
+Only held-Y observations scan geometry: up to eight cached fighters and 32
+weapon/item IDs, eight active slots per object and at most 32 active hitbox
+transforms per observation. There are no new threads, per-observation allocations,
+render effects or per-frame log strings. This is bounded work, not measured
+Switch performance. The additional ATTACK hook needs on-device coexistence
+validation with Training Modpack; its Lua arguments and original call are untouched.
+
+Objects not seen through the normal ATTACK command, evicted cached objects,
+secondary attack banks, unusual scaling rules and stage hazards can be missed.
+No claim is made that every hitbox can be ducked, that every projectile is
+tracked, or that this is exact collision prediction. Validate offline before
+relying on it. L's separate fighter-only shield policy is unchanged.
+
+## Controls
+
+Hold **L** for ledge autopilot. Kirby also watches in-range low recoveries with
+[down-tilt recovery cover](TWO_FRAME.md), without a separate toggle or R3 binding.
+Press **Y** for its selected [Finisher attempt](FINISHERS.md); B-reverse is unbound;
+Press **X** for an X short-hop tap (X mapped to Jump). **R3** shows/hides the menu; the **Auto-mash** menu row toggles auto-mash. While visible, **Up/Down**
+selects Neutral, Jump, Roll, Attack, Drop (plus Kirby's Roll read/Y mode and shared Auto-mash), and **Left/Right**
 cycles its saved responses. While hidden, Left/Right slides, Down starts ledge
 trump, and Up is normal. Directions held when closing must be released before
-starting gameplay tools. L+R3 is reserved for menu toggling and does not teabag.
+starting gameplay tools. R3 is reserved for menu toggling; hold L3 without L for turbo teabag.
 Auto-mash stays enabled in the supplied startup configuration.
 
 Use A=Attack, B=Special, X=Jump, ZL=Jump, R=Grab, ZR=Shield and Tap Jump off.
@@ -18,10 +116,12 @@ compiled profiles. Valid unconfigured kinds fall back to Kirby; invalid routing
 stays inactive. See [fighters](FIGHTERS.md).
 
 Kirby's **Drop → Short-hop dair** option reacts to a witnessed ledge release
-with directional **X+A together**, down held to select dair, and drift toward
-the ledge. It requests the action as soon as native grounded jump/actionability
+with **neutral X first**, then **down+A during native jump squat/takeoff**,
+releasing Jump for a short hop. The attack-selection stick is 0.6 toward the
+ledge and -1 down. Separating the initial Jump from Attack prevents the first
+request from selecting nair. It requests the action as soon as native grounded jump/actionability
 allows, without a spacing, facing-turn, reach or vulnerability timing gate.
-X releases during jump squat while down+A stays queued through takeoff, even
+Down+A stays queued through takeoff, even
 if the opponent disappears from tracking. Once the actual dair starts, A/down
 release and full horizontal drift continues through startup. At dair animation
 frame 18 ([first active frame](https://ultimateframedata.com/kirby)), control
@@ -46,7 +146,18 @@ recovery and native action readiness.
 | Generic ledge drop | Shield by default; alternatives are one native-confirmed down tilt then shield, or short-hop dair. There are no Off entries. Recognized ledge options take priority. |
 | Confirmed capture | End autopilot immediately; physical controls choose pummels, throws and follow-ups. Release and hold L again to rearm. |
 
-Manual horizontal input stays capped at `ledge_walk_strength` while waiting.
+Manual horizontal input has two caps while waiting: the
+`ledge_walk_strength` baseline minus 0.02 normally, or a fixed **0.50** when
+horizontal stick magnitude is at least 0.95 and vertical magnitude at most 0.15.
+The supplied baseline gives **0.33 normal / 0.50 near-full horizontal**.
+The fast-walk cap is 50% stick deflection, not a guaranteed 50% of native walk
+velocity. Full analog deflection is no longer sent for manual autopilot spacing.
+Weak inputs remain proportional and vertical input is preserved. Digital
+stick-flick aliases are cleared; native fast-walk versus dash behavior still
+needs device validation. These are stick strengths, not world-units/frame;
+each fighter's native walk curve determines movement speed. This affects manual
+spacing only, not recipe-controlled roll approaches, ledge-walk preparation,
+punish drift or attack input timing.
 Only roll approaches automatically; normal-getup turning is a bounded facing
 correction. No automatic return to a standing spot occurs. Actual punish recipes
 briefly own their necessary inputs, then restore player spacing. R3 teabag
@@ -117,17 +228,19 @@ have been removed from this timing path. Rejected down+A inputs get release gaps
 and retries during the window; only one actual down-smash animation is attempted.
 
 Roll grabs use the fighter's own configured grab reach, startup and active
-length. Their initial common endpoint is an approach hint. Kirby/Yoshi extend
-that hint inward when observed roll travel projects beyond it, with a bounded
-six-frame navigation forecast. They keep walking at 0.65 stick into a usable area
-instead of repeatedly braking outside its edge. Braking still prevents crossing
-the opponent; there is no chase back toward the ledge. Other fighters retain their
-existing navigation style.
+length. Kirby's experimental Roll → Grab runs directly to **20 units inward
+from the witnessed ledge**, brakes, uses a small walking correction near arrival,
+stops within one unit and faces center stage. Arrival precedes the timed catch;
+his destination does not extend from enemy movement or subtract grab reach.
+Yoshi instead uses shared tracked 0.65-stick walking again. Existing timed grab
+checks remain; a fixed inset is not stage-specific or a guaranteed catch.
+Other fighters retain their existing navigation style.
 
 The approach area extends up to 60% of configured standing reach. The request
 itself requires predicted opponent reach, facing, height AND vulnerability on the
 same active grab frame, using the full configured standing range. An already
-useful position can request without reaching the common point. These are root
+useful tracked position can request without reaching the common point; Kirby's
+fixed-stance experiment instead requires arrival. These are root
 position/velocity estimates, not an animated grab/hurtbox model. Diagnostic gate
 `roll_wait_actual_grab_reach` means timing is available but forecast geometry fails.
 
@@ -221,8 +334,11 @@ releases X while keeping neutral A buffered. With uninterrupted native activity,
 that plans the first hitbox ten frames before protection expiry and the last
 fourteen frames after expiry (nair frames 8–32). An expiry at get-up frame
 32–34 therefore targets first activity around frame 22–24. Yoshi uses a separate
-17-frame Neutral lead and immediate Jump nair. Both use a quarter-stick nudge
-only before native nair animation frame 4; see [Kirby/Yoshi](KIRBY_YOSHI_LEDGE.md).
+16-frame Neutral early-hit lead: short-hop/drift immediately with X+ZL (both
+mapped to Jump), then delay neutral A using the takeoff protection snapshot and
+native game progress. Jump nair is still immediate. Kirby Neutral uses its
+quarter-stick nudge below nair frame 4; Yoshi has brief full-stick nudges;
+see [Kirby/Yoshi](KIRBY_YOSHI_LEDGE.md).
 This is the planned animation window; spacing, landing, late recognition and
 unmeasured online delay can reduce actual coverage.
 Late recognition/action readiness can reduce that lead. Unknown protection waits

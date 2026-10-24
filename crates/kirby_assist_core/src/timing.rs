@@ -1,6 +1,10 @@
 //! Shared game-frame forecasts. These calculate timing, not collision certainty.
 //! Callers supply measured deadlines and geometry; unknown protection never
 //! silently becomes vulnerability. Animation end is only a recovery estimate.
+mod progress;
+pub use progress::{
+    motion_elapsed, motion_progress, simulation_elapsed, MotionProgress, MotionStamp,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActiveWindow {
@@ -86,7 +90,13 @@ impl AnimationClock {
         {
             return None;
         }
-        if self.previous != Some(sample) {
+        let stamp = |s: AnimationSample| MotionStamp::new(s.status, s.kind, s.frame, 1.0);
+        let progress = motion_progress(self.previous.map(stamp), stamp(sample));
+        let changed = progress != MotionProgress::Duplicate
+            || self
+                .previous
+                .is_none_or(|old| old.object != sample.object || old.auxiliary != sample.auxiliary);
+        if changed {
             self.tick = self.tick.wrapping_add(1);
             self.previous = Some(sample);
         }

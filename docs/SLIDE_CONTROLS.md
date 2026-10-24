@@ -4,11 +4,11 @@ With the menu hidden, tap D-pad Left or Right for one short-hop/downward-angled
 air-dodge attempt. No L modifier is required. Holding the side repeats after
 landing when native jumping is ready. Both sides together cancel.
 
-**L+R3** shows/hides the menu. Minus toggles auto-mash. While open, D-pad Up/Down selects a row and
+**R3** shows/hides the menu. Auto-mash is changed from its menu row. While open, D-pad Up/Down selects a row and
 Left/Right cycles options, including with L held. Opening the menu cancels any
 queued/active slide or trump. Directions held when closing must be released
-before they can start tools. The panel starts visible each match; use L+R3 to hide it before sliding. With the panel hidden, hidden Down starts ledge
-trump. Hidden Up is normal; Y now attempts neutral-B reverse.
+before they can start tools. The panel starts visible each match; use R3 to hide it before sliding. With the panel hidden, hidden Down starts ledge
+trump. Hidden Up is normal; Y runs its selected held mode (currently Kirby Auto-duck).
 
 The input sequence is:
 
@@ -34,7 +34,7 @@ A tap during hitstop is remembered until progression resumes. Damage,
 unsupported states, both-side conflicts, disabled scope and loss of valid
 controller routing cancel the sequence. Native hitstop freezes progression.
 Down trump takes priority; mash and tech retain their normal priority.
-Slide requests override R3 teabag and the X/Y shortcuts and suspend the ledge response policy.
+Slide requests override passive posture and the X/Y shortcuts and suspend the ledge response policy.
 
 The trigger is consumed before taunt mapping, including diagonal/release history.
 The macro shares the same X/ZR edge history as other tools. It requires X=Jump

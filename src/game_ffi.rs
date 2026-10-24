@@ -31,6 +31,59 @@ pub struct Vector3 {
     pub y: f32,
     pub z: f32,
 }
+// Read-only AttackData prefix from the pinned skyline-smash cpp.rs. Never
+// retain this pointer across native calls; copy only currently active slots.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct AttackGeometry {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub padding: u32,
+    pub x2: f32,
+    pub y2: f32,
+    pub z2: f32,
+    pub padding2: u32,
+    pub power: f32,
+    pub size: f32,
+    pub angle: i32,
+    pub kbg: i32,
+    pub fkb: i32,
+    pub bkb: i32,
+    pub slip: f32,
+    pub hitlag: f32,
+    pub sdi: f32,
+    pub node: u64,
+    pub check_type: u16,
+    pub situation: u16,
+}
+const _: () = {
+    assert!(std::mem::offset_of!(AttackGeometry, size) == 0x24);
+    assert!(std::mem::offset_of!(AttackGeometry, node) == 0x48);
+    assert!(std::mem::offset_of!(AttackGeometry, situation) == 0x52);
+};
+extern "C" {
+    #[link_name = "\u{1}_ZN3app10sv_animcmd6ATTACKEP9lua_State"]
+    pub fn attack_command(lua_state: u64);
+    #[link_name = "\u{1}_ZN3app9sv_system29battle_object_module_accessorEP9lua_State"]
+    pub fn lua_object(lua_state: u64) -> *mut Object;
+    #[link_name = "\u{1}_ZN3app8lua_bind30AttackModule__attack_data_implEPNS_26BattleObjectModuleAccessorEib"]
+    pub fn attack_geometry(
+        object: *mut Object,
+        slot: i32,
+        secondary: bool,
+    ) -> *const AttackGeometry;
+    #[link_name = "\u{1}_ZN3app8lua_bind51ModelModule__joint_global_position_with_offset_implEPNS_26BattleObjectModuleAccessorEN3phx6Hash40ERKNS3_8Vector3fERS5_b"]
+    pub fn joint_position(
+        object: *mut Object,
+        node: u64,
+        offset: *const Vector3,
+        result: *mut Vector3,
+        transformed: bool,
+    );
+    #[link_name = "\u{1}_ZN3app8lua_bind25PostureModule__pos_z_implEPNS_26BattleObjectModuleAccessorE"]
+    pub fn pos_z(object: *mut Object) -> f32;
+}
 const _: () = {
     assert!(std::mem::size_of::<Vector3>() == 12);
 };
@@ -43,6 +96,9 @@ const _: () = {
 // Declarations do not execute queries: a call such as game::status_kind(object)
 // in live.rs does. Changing a type here changes how that call crosses the ABI.
 extern "C" {
+    // Pinned skyline-smash cpp.rs, app::smashball::is_training_mode.
+    #[link_name = "\u{1}_ZN3app9smashball16is_training_modeEv"]
+    pub fn is_training_mode() -> bool;
     // Capture-link queries, checked against the pinned cpp.rs bindings.
     // LINK_NO_CAPTURE = 0. Resolve IDs anew; never retain the returned accessor.
     #[link_name = "\u{1}_ZN3app8lua_bind24LinkModule__is_link_implEPNS_26BattleObjectModuleAccessorEi"]
@@ -71,6 +127,12 @@ extern "C" {
     // Read-only ledge observations, verified in the same pinned cpp.rs bindings.
     #[link_name = "\u{1}_ZN3app8lua_bind22PostureModule__lr_implEPNS_26BattleObjectModuleAccessorE"]
     pub fn facing(module_accessor: *mut Object) -> f32;
+    // Read-only size/floor checks for the narrow Kirby duck allowlist, verified
+    // against the same pinned cpp.rs. Down input must not drop through a platform.
+    #[link_name = "\u{1}_ZN3app8lua_bind25PostureModule__scale_implEPNS_26BattleObjectModuleAccessorE"]
+    pub fn scale(module_accessor: *mut Object) -> f32;
+    #[link_name = "\u{1}_ZN3app8lua_bind37GroundModule__is_passable_ground_implEPNS_26BattleObjectModuleAccessorE"]
+    pub fn passable_ground(module_accessor: *mut Object) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind24TeamModule__team_no_implEPNS_26BattleObjectModuleAccessorE"]
     pub fn team(module_accessor: *mut Object) -> u64;
     #[link_name = "\u{1}_ZN3app8lua_bind32HitModule__get_total_status_implEPNS_26BattleObjectModuleAccessorEi"]

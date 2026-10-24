@@ -202,6 +202,7 @@ pub struct LedgeTrap {
     roll_positioned: bool,
     // Once braking starts, only walking corrections may finish this approach.
     roll_grab_braking: bool,
+    fixed_roll_grab_inset: Option<f32>,
     roll_turn_attempts: u8,
     movement_preparing: bool,
     movement_attempts: u8,
@@ -211,6 +212,7 @@ pub struct LedgeTrap {
     jump_attempts: u8,
     jump_floor_y: Option<f32>,
     neutral_nair_drift: f32,
+    neutral_nair_drift_end_frame: Option<u8>,
     tilt_in_progress: bool,
     tilt_animations: u8,
     // Copy snapshots only. Same-animation root travel supplements kinetic speed
@@ -257,6 +259,24 @@ impl LedgeTrap {
     }
     pub fn samus_zair_active(&self) -> bool {
         self.samus_zair.is_some()
+    }
+    /// Only an existing move/input sequence may survive a frozen game clock.
+    /// Waiting, roll navigation and walk-to-ledge preparation are excluded.
+    pub fn committed_input_pending(&self) -> bool {
+        !self.finished
+            && !self.manual_after_response()
+            && (self.jump_committed
+                || self.fighter_move.is_some()
+                || self.drop_dair.is_some()
+                || self.samus_zair.is_some()
+                || self.grab_delivery.is_some()
+                || matches!(
+                    self.pending,
+                    Pending::DownSpecial
+                        | Pending::NeutralSpecial
+                        | Pending::UpSpecial
+                        | Pending::Bomb
+                ))
     }
     pub fn attack_cancel_right_stick(&self) -> Option<[f32; 2]> {
         self.fighter_move
@@ -370,6 +390,7 @@ impl LedgeTrap {
             self.jump_attempts = 0;
             self.jump_floor_y = None;
             self.neutral_nair_drift = 0.0;
+            self.neutral_nair_drift_end_frame = None;
             self.tilt_in_progress = false;
             self.tilt_animations = 0;
             self.grab_in_progress = false;
@@ -936,7 +957,12 @@ impl LedgeTrap {
                         && previous.status == enemy.status
                         && old.kind == current.kind
                     {
-                        let elapsed = (current.frame - old.frame) / current.rate;
+                        let elapsed = crate::timing::motion_elapsed(
+                            // Velocity estimation retains its current-rate basis.
+                            Some((0, old.kind, old.frame, current.rate)),
+                            (0, current.kind, current.frame, current.rate),
+                            0.0,
+                        );
                         if current.frame == old.frame {
                             return self.observed_velocity;
                         }

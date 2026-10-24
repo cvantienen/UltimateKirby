@@ -307,6 +307,8 @@ pub fn unique_instruction_offset(text: &[u8], needle: &[u8]) -> Option<usize> {
     found
 }
 
+pub mod mapper_hook;
+
 // Compiled only by cargo test on the host; these assertions are not live
 // Switch logging or gameplay callbacks. Add regressions here for new behavior.
 #[cfg(test)]

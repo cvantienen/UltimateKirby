@@ -4,7 +4,7 @@
 //! Grounded special recipes use B instead and release on listed native statuses.
 use super::super::{
     attempt::NativeAttempt, LedgeContext, LedgeOutput, ATTACK_AIR, GUARD, GUARD_DAMAGE, GUARD_ON,
-    JUMP_SQUAT, LEDGE_BUTTONS,
+    JUMP_SQUAT,
 };
 use crate::manual_controls::RIGHT_STICK_DIRECTIONS;
 use crate::native_input::{
@@ -86,11 +86,14 @@ pub(crate) struct OneShot {
     drift_until: Option<u8>,
     full_hop: bool,
     jump_before_attack: bool,
+    paired_jump: bool,
     turn_before_jump: bool,
     attack_cancel: bool,
     cancel_mapped: bool,
     cancel_right_stick: Option<[f32; 2]>,
     jump_requested: bool,
+    buffer_in_squat: bool,
+    air_request_start: Option<f32>,
     facing: f32,
     attempt: NativeAttempt,
     primed: bool,
@@ -114,11 +117,14 @@ impl OneShot {
             drift_until: None,
             full_hop: false,
             jump_before_attack: false,
+            paired_jump: recipe.aerial(),
             turn_before_jump: false,
             attack_cancel: false,
             cancel_mapped: false,
             cancel_right_stick: None,
             jump_requested: false,
+            buffer_in_squat: false,
+            air_request_start: None,
             facing: facing.signum(),
             attempt: NativeAttempt::default(),
             primed: false,
@@ -132,6 +138,14 @@ impl OneShot {
         self.full_hop = full && self.aerial();
         self
     }
+    /// A directional special can pair stick+B immediately. Opt in explicitly;
+    /// smash/flick recipes retain their neutral preparation update.
+    pub(super) fn with_immediate_special(mut self) -> Self {
+        if matches!(self.recipe.kind, MoveKind::Special { .. }) {
+            self.primed = true;
+        }
+        self
+    }
     /// Bound the stick nudge using native animation time, not mapper polls.
     pub(super) fn with_drift_until(mut self, frame: u8) -> Self {
         self.drift_until = Some(frame);
@@ -143,10 +157,17 @@ impl OneShot {
     pub(super) fn with_turn_before_jump(mut self) -> Self {
         self.turn_before_jump = true;
         self.jump_before_attack = true;
+        self.paired_jump = true;
         self
     }
-    pub(super) fn with_attack_cancel(mut self) -> Self {
-        self.attack_cancel = true;
+    /// Select a directional aerial once native jump squat is confirmed.
+    pub(super) fn with_squat_buffer(mut self) -> Self {
+        self.buffer_in_squat = true;
+        self
+    }
+    /// Opt-in two-Jump short-hop input; existing recipes retain their buttons.
+    pub(super) fn with_paired_jump(mut self) -> Self {
+        self.paired_jump = true;
         self
     }
     pub fn right_stick(&self) -> Option<[f32; 2]> {
@@ -208,7 +229,16 @@ impl OneShot {
         if !self.aerial() && started {
             return self.finish();
         }
-        let supported = if c.situation == 0 {
+        // Native takeoff/ATTACK_AIR may precede the situation flag update.
+        // Trust an aerial status rather than cancelling the accepted jump as
+        // a landing or buffering another grounded Jump.
+        let air_status = self.aerial()
+            && matches!(c.situation, 0 | 2)
+            && (matches!(c.status, 0xb | 0xe | 0xf | ATTACK_AIR)
+                || self.recipe.native_air_status(c.status));
+        let supported = if air_status {
+            true
+        } else if c.situation == 0 {
             matches!(c.status, 0..=JUMP_SQUAT | 0x11..=0x18 | GUARD_ON | GUARD | GUARD_DAMAGE)
                 || self.attack_cancel && matches!(c.status, 0x27..=0x2c) && c.motion_frame <= 2.0
         } else {
@@ -217,12 +247,21 @@ impl OneShot {
                 && (matches!(c.status, 0xb | 0xe | 0xf | ATTACK_AIR)
                     || self.recipe.native_air_status(c.status))
         };
-        if !supported || self.jump_seen && c.situation == 0 && c.status != JUMP_SQUAT {
+        if !supported || self.jump_seen && c.situation == 0 && c.status != JUMP_SQUAT && !air_status
+        {
             return self.finish();
         }
-        self.jump_seen |= c.status == JUMP_SQUAT || c.situation == 2;
+        self.jump_seen |= c.status == JUMP_SQUAT || c.situation == 2 || air_status;
         if c.status == ATTACK_AIR || self.recipe.native_air_status(c.status) {
-            if !started || c.motion_frame > f32::from(self.recipe.last) {
+            // A configured drift tail can outlast the final active hit without
+            // claiming extra hitbox activity. Native landing/interruption still
+            // ends the sequence through the checks above.
+            if !started
+                || c.motion_frame > f32::from(self.recipe.last)
+                    && self
+                        .drift_until
+                        .is_none_or(|end| c.motion_frame >= f32::from(end))
+            {
                 return self.finish();
             }
             self.accepted = true;
@@ -279,14 +318,14 @@ impl OneShot {
             }
         }
         if self.turn_before_jump && self.jump_seen && c.facing * self.facing < 0.5 {
-            if c.situation == 2 {
+            if c.situation == 2 || air_status {
                 return self.finish(); // No A into a forward-facing airborne state.
             }
             self.output = controls([self.facing * 0.6, 0.0], 0);
             return self.output;
         }
         let stick = [self.facing * self.recipe.stick[0], self.recipe.stick[1]];
-        if self.aerial() && (c.status == JUMP_SQUAT || c.situation == 2) {
+        if self.aerial() && crate::move_input::aerial_ready(c.status, c.situation) {
             if self.attack_cancel {
                 // The tilt already buffered attack. Do not inject a second A
                 // into the cancel; only select its direction after native turn.
@@ -298,9 +337,21 @@ impl OneShot {
                 return self.output;
             }
             self.output = if self.full_hop && c.status == JUMP_SQUAT {
-                controls([0.0; 2], MAPPER_X) // Full hop: never pair A before takeoff.
+                controls([0.0; 2], crate::move_input::FULL_HOP)
+            } else if c.status == JUMP_SQUAT
+                && self.recipe.stick != [0.0; 2]
+                && !self.buffer_in_squat
+            {
+                // A during turnaround/squat can resolve as a tilt or fair in
+                // another mapper. Release both Jump buttons and wait for air.
+                controls([0.0; 2], 0)
             } else {
-                controls(stick, MAPPER_A)
+                let now = self.attempt.elapsed();
+                let started = *self.air_request_start.get_or_insert(now);
+                // Fresh A edges for rejected delivery, never mapper-poll or
+                // wall-clock retries. Acceptance above immediately releases A.
+                let press = (now - started) % 4.0 < 3.0;
+                controls(stick, if press { MAPPER_A } else { 0 })
             };
             return self.output;
         }
@@ -316,7 +367,7 @@ impl OneShot {
         if self.full_hop {
             if c.can_jump
                 && (c.can_act || matches!(c.status, GUARD_ON | GUARD))
-                && (self.jump_requested || self.attempt.issue(c, previous, MAPPER_X))
+                && (self.jump_requested || self.attempt.issue_move(c, previous, MAPPER_X))
             {
                 self.jump_requested = true;
                 self.output = controls([0.0; 2], MAPPER_X);
@@ -331,17 +382,37 @@ impl OneShot {
         if self.jump_before_attack && self.aerial() {
             if c.can_jump
                 && (c.can_act || self.turn_before_jump)
-                && self.attempt.issue(c, previous, MAPPER_X)
+                && self.attempt.issue_move(c, previous, MAPPER_X)
             {
-                self.output = controls([0.0; 2], MAPPER_X);
+                self.output = controls(
+                    [0.0; 2],
+                    MAPPER_X | if self.paired_jump { MAPPER_ZL } else { 0 },
+                );
             }
             return self.output;
         }
-        if (c.can_act || self.aerial() && matches!(c.status, GUARD_ON | GUARD))
+        // Native jump readiness permits an aerial launch out of turnaround;
+        // locomotion's generic can_act flag may remain false for that frame.
+        if (c.can_act || self.aerial() && matches!(c.status, 0x7 | 0x8 | GUARD_ON | GUARD))
             && (!self.aerial() || c.can_jump)
-            && (self.attempt.holding_special(c) || self.attempt.issue(c, previous, button))
+            && (self.attempt.holding_special(c) || self.attempt.issue_move(c, previous, button))
         {
-            self.output = controls(stick, button | if self.aerial() { MAPPER_X } else { 0 });
+            self.output = if self.aerial() {
+                // Neutral nair may safely pair Jump+Attack. Directional
+                // aerials always launch neutrally, then select in squat/air.
+                self.jump_before_attack = true;
+                self.paired_jump = true;
+                controls(
+                    [0.0; 2],
+                    if self.recipe.stick == [0.0; 2] {
+                        crate::move_input::SHORT_HOP_ATTACK
+                    } else {
+                        crate::move_input::SHORT_HOP
+                    },
+                )
+            } else {
+                controls(stick, button)
+            };
         }
         self.output
     }
@@ -353,12 +424,9 @@ impl OneShot {
     }
 }
 fn controls(stick: [f32; 2], requested: u32) -> LedgeOutput {
-    LedgeOutput {
-        owned: LEDGE_BUTTONS,
-        consume_trigger: true,
-        stick: Some(stick),
-        requested,
-    }
+    let mut output = crate::move_input::output(stick, requested);
+    output.consume_trigger = true;
+    output
 }
 
 #[cfg(test)]
@@ -385,6 +453,66 @@ mod tests {
         }
     }
     #[test]
+    fn bair_turnaround_never_emits_grounded_attack_in_either_direction() {
+        for away in [-1.0, 1.0] {
+            for facing in [away, -away] {
+                let recipe = Move {
+                    kind: MoveKind::Aerial {
+                        motion: motion_hash("attack_air_b"),
+                    },
+                    first: 6,
+                    last: 12,
+                    stick: [-1.0, 0.0],
+                    drift: -0.25,
+                };
+                let mut action = OneShot::new(recipe, away).with_turn_before_jump();
+                let grounded = LedgeContext { facing, ..own(0.0) };
+                let first = action.sample(grounded);
+                assert_eq!(first.requested & MAPPER_A, 0);
+                let turned = LedgeContext {
+                    status: 7,
+                    facing: away,
+                    ..own(1.0)
+                };
+                if facing != away {
+                    assert_eq!(
+                        action.sample(turned).requested,
+                        crate::move_input::SHORT_HOP
+                    );
+                } else {
+                    assert_eq!(first.requested, crate::move_input::SHORT_HOP);
+                }
+                let squat = LedgeContext {
+                    status: JUMP_SQUAT,
+                    facing: away,
+                    ..own(0.0)
+                };
+                let release = action.sample(squat);
+                assert_eq!(release.requested, 0);
+                assert!(
+                    action.right_stick().is_none(),
+                    "no grounded tilt flick survives the turnaround"
+                );
+                let air = LedgeContext {
+                    status: 0xb,
+                    situation: 2,
+                    facing: away,
+                    ..own(0.0)
+                };
+                let attack = action.sample(air);
+                assert_eq!(attack.requested, MAPPER_A);
+                assert_eq!(attack.stick, Some([-away, 0.0]));
+                let accepted = LedgeContext {
+                    status: ATTACK_AIR,
+                    motion_kind: motion_hash("attack_air_b"),
+                    ..air
+                };
+                assert_eq!(action.sample(accepted).requested, 0);
+                assert!(!action.finished());
+            }
+        }
+    }
+    #[test]
     fn fighter_specific_first_fair_keeps_native_ownership_but_never_chains_a_followup() {
         let recipe = Move {
             kind: MoveKind::NativeAerial {
@@ -397,7 +525,10 @@ mod tests {
             drift: 0.0,
         };
         let mut action = OneShot::new(recipe, 1.0);
-        assert_eq!(action.sample(own(0.0)).requested, MAPPER_X | MAPPER_A);
+        assert_eq!(
+            action.sample(own(0.0)).requested,
+            crate::move_input::SHORT_HOP
+        );
         assert!(action.owns_jump_state(0x1e1));
         let native = LedgeContext {
             status: 0x1e1,
@@ -439,9 +570,12 @@ mod tests {
         assert_eq!(out.stick, Some([0.0, 1.0]));
     }
     #[test]
-    fn paired_up_air_buffers_through_frozen_squat_and_delayed_air_acceptance() {
+    fn directional_aerial_releases_jump_in_squat_and_selects_only_after_takeoff() {
         let mut action = OneShot::new(aerial(), 1.0);
-        assert_eq!(action.sample(own(0.0)).requested, MAPPER_X | MAPPER_A);
+        assert_eq!(
+            action.sample(own(0.0)).requested,
+            crate::move_input::SHORT_HOP
+        );
         let squat = LedgeContext {
             status: JUMP_SQUAT,
             motion_kind: motion_hash("jump_squat"),
@@ -450,8 +584,8 @@ mod tests {
             ..own(1.0)
         };
         let output = action.sample(squat);
-        assert_eq!(output.requested, MAPPER_A);
-        assert_eq!(output.stick, Some([0.0, 1.0]));
+        assert_eq!(output.requested, 0);
+        assert_eq!(output.stick, Some([0.0, 0.0]));
         let air = LedgeContext {
             status: 0xb,
             situation: 2,
@@ -476,6 +610,35 @@ mod tests {
             LedgeOutput::default()
         );
         assert!(action.finished());
+    }
+    #[test]
+    fn accepted_takeoff_survives_grounded_situation_overlap() {
+        let mut action = OneShot::new(aerial(), 1.0);
+        action.sample(own(0.0));
+        action.sample(LedgeContext {
+            status: JUMP_SQUAT,
+            motion_kind: motion_hash("jump_squat"),
+            ..own(0.0)
+        });
+        let air = LedgeContext {
+            status: 0xb,
+            situation: 0,
+            motion_kind: motion_hash("jump_f"),
+            ..own(0.0)
+        };
+        assert_eq!(action.sample(air).requested, MAPPER_A);
+        assert!(!action.finished());
+        assert_eq!(
+            action
+                .sample(LedgeContext {
+                    status: ATTACK_AIR,
+                    motion_kind: motion_hash("attack_air_hi"),
+                    ..air
+                })
+                .requested,
+            0
+        );
+        assert!(!action.finished());
     }
     #[test]
     fn smash_primes_a_flick_and_releases_on_startup_without_charging() {
@@ -522,5 +685,65 @@ mod tests {
             LedgeOutput::default()
         );
         assert!(action.finished());
+    }
+    #[test]
+    fn rejected_smashes_retry_after_native_release_gap_and_stop_on_acceptance() {
+        for (startup, attack, stick) in [(0x2d, 0x2f, [1.0, 0.0]), (0x30, 0x32, [0.0, -1.0])] {
+            let recipe = Move {
+                kind: MoveKind::Ground { startup, attack },
+                first: 7,
+                last: 8,
+                stick,
+                drift: 0.0,
+            };
+            for delay in [0.0, 3.0] {
+                let own = |frame| LedgeContext {
+                    input_delay: delay,
+                    ..own(frame)
+                };
+                let mut action = OneShot::new(recipe, 1.0);
+                assert_eq!(action.sample(own(0.0)).requested, 0);
+                let first = action.sample(own(1.0));
+                assert_eq!(first.requested, MAPPER_A);
+                for _ in 0..64 {
+                    assert_eq!(action.sample(own(1.0)), first);
+                }
+                assert_eq!(
+                    action.sample(LedgeContext {
+                        stopped: true,
+                        ..own(1.0)
+                    }),
+                    first
+                );
+                let hold_end = delay as u8 + 3;
+                for frame in 2..hold_end {
+                    assert_eq!(action.sample(own(f32::from(frame))).requested, MAPPER_A);
+                }
+                for frame in hold_end..hold_end + 2 {
+                    let released = action.sample(own(f32::from(frame)));
+                    assert_eq!(released.requested, 0);
+                    assert_eq!(
+                        released.stick,
+                        Some([0.0; 2]),
+                        "fresh neutral before a retry flick"
+                    );
+                }
+                assert_eq!(
+                    action.sample(own(f32::from(hold_end + 2))).requested,
+                    MAPPER_A
+                );
+                assert_eq!(
+                    action
+                        .sample(LedgeContext {
+                            status: startup,
+                            motion_kind: motion_hash("attack_start"),
+                            ..own(0.0)
+                        })
+                        .requested,
+                    0
+                );
+                assert!(action.finished());
+            }
+        }
     }
 }

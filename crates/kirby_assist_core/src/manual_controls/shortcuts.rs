@@ -2,7 +2,7 @@
 //! Native animation progress, not mapper poll count, advances each sequence.
 use super::SHORT_HOP_TRIGGER;
 use crate::ledge_trap::LedgeOutput;
-use crate::native_input::{MAPPER_B, MAPPER_X, MAPPER_Y, MAPPER_ZL};
+use crate::native_input::{MAPPER_B, MAPPER_X, MAPPER_Y};
 
 #[derive(Clone, Copy, Debug)]
 pub struct ShortcutContext {
@@ -39,6 +39,9 @@ pub struct Shortcuts {
     hop_quarantined: bool,
 }
 impl Shortcuts {
+    pub fn cancel_pending(&mut self) {
+        self.cancel();
+    } // Keep physical edge history.
     pub fn active(&self) -> bool {
         self.phase.is_some()
     }
@@ -57,7 +60,7 @@ impl Shortcuts {
         allowed: bool,
         ctx: Option<ShortcutContext>,
     ) -> LedgeOutput {
-        let pressed = buttons & !self.previous_buttons.unwrap_or(buttons);
+        let pressed = buttons & !self.previous_buttons.unwrap_or(0);
         self.previous_buttons = Some(buttons);
         if buttons & MAPPER_X == 0 {
             self.hop_quarantined = false;
@@ -76,11 +79,29 @@ impl Shortcuts {
             return self.output;
         };
         if ctx.stopped {
-            // Freeze an existing paired hop through native stop; never arm a
-            // new request from a button pressed while the fighter is stopped.
             if matches!(self.phase, Some(Phase::Hop | Phase::HopRelease))
                 && Self::hop_bufferable(ctx)
             {
+                if ctx.status == 0xa {
+                    self.phase = Some(Phase::HopRelease);
+                    self.output = Self::hop_release();
+                }
+                return self.output;
+            }
+            // Like a physical jump, retain a fresh grounded press through
+            // native stop. No frame budget is spent while stopped.
+            if self.phase.is_none() && pressed & SHORT_HOP_TRIGGER != 0 && Self::hop_bufferable(ctx)
+            {
+                self.phase = Some(Phase::Hop);
+                self.hop_requested = true;
+                self.hop_quarantined = true;
+                self.clock = Some(ctx);
+                self.age = 0.0;
+                self.output = LedgeOutput {
+                    requested: MAPPER_X,
+                    owned: MAPPER_X,
+                    ..LedgeOutput::default()
+                };
                 return self.output;
             }
             self.cancel();
@@ -112,11 +133,16 @@ impl Shortcuts {
             self.age = 0.0;
         } else {
             let previous = self.clock.unwrap();
-            let delta = if ctx.status == previous.status && ctx.motion == previous.motion {
-                (ctx.frame - previous.frame) / previous.rate
-            } else {
-                1.0
-            };
+            let delta = crate::timing::motion_elapsed(
+                Some((
+                    previous.status,
+                    previous.motion,
+                    previous.frame,
+                    previous.rate,
+                )),
+                (ctx.status, ctx.motion, ctx.frame, ctx.rate),
+                1.0,
+            );
             if !delta.is_finite() || !(0.0..=4.0).contains(&delta) {
                 self.cancel();
                 return self.output;
@@ -129,30 +155,28 @@ impl Shortcuts {
         }
         self.output = match self.phase {
             Some(Phase::Hop) => {
-                let delay = if ctx.input_delay.is_finite() {
-                    ctx.input_delay.clamp(0.0, 12.0)
-                } else {
-                    0.0
-                };
                 if ctx.situation != 0
                     || (!Self::hop_bufferable(ctx) && !ctx.can_short_hop)
-                    || self.age >= delay + 8.0
+                    || self.age >= 8.0
                 {
                     self.cancel();
                     self.output = Self::hop_release();
                     return self.output;
                 }
-                if ctx.status == 0xa && (self.hop_requested || ctx.frame >= 3.0) {
+                // Emit X for one native update, then release it even if online
+                // delay postpones visible jump-squat confirmation. Repeated
+                // mapper polls have delta zero and reuse the same press trace.
+                if ctx.status == 0xa || self.hop_requested && self.age >= 1.0 {
                     self.phase = Some(Phase::HopRelease);
                     self.age = 0.0;
                     Self::hop_release()
                 } else {
-                    // Keep BOTH jump buttons together until native squat/air
-                    // acceptance. A transient disabled term is not a rejection.
+                    // A one-update jump-button tap produces a short hop without
+                    // injecting shield. ZL could be mapped to shield and roll.
                     self.hop_requested = true;
                     LedgeOutput {
-                        requested: MAPPER_X | MAPPER_ZL,
-                        owned: MAPPER_X | MAPPER_ZL,
+                        requested: MAPPER_X,
+                        owned: MAPPER_X,
                         ..LedgeOutput::default()
                     }
                 }
@@ -210,7 +234,7 @@ impl Shortcuts {
     }
     fn hop_release() -> LedgeOutput {
         LedgeOutput {
-            owned: MAPPER_X | MAPPER_ZL,
+            owned: MAPPER_X,
             ..LedgeOutput::default()
         }
     }
@@ -253,11 +277,73 @@ mod tests {
         }
     }
     #[test]
-    fn hop_pairs_both_jump_buttons_and_stops_at_native_squat_without_repeating() {
+    fn first_x_press_is_immediate_and_survives_stop_without_full_hop_or_extra_jump() {
+        let mut tool = Shortcuts::default();
+        let stopped = ShortcutContext {
+            stopped: true,
+            ..ctx(0.0)
+        };
+        let press = tool.sample(MAPPER_X, true, Some(stopped));
+        assert_eq!(press.requested, MAPPER_X);
+        assert_eq!(press.stick, None);
+        for _ in 0..100 {
+            assert_eq!(tool.sample(MAPPER_X, true, Some(stopped)), press);
+        }
+        let squat = ShortcutContext {
+            status: 0xa,
+            motion: 2,
+            ..stopped
+        };
+        assert_eq!(tool.sample(MAPPER_X, true, Some(squat)).requested, 0);
+        assert_eq!(
+            tool.sample(
+                MAPPER_X,
+                true,
+                Some(ShortcutContext {
+                    status: 0xb,
+                    situation: 2,
+                    stopped: false,
+                    ..squat
+                })
+            )
+            .requested,
+            0
+        );
+        assert_eq!(tool.consumed_buttons(), MAPPER_X);
+        tool.sample(
+            0,
+            true,
+            Some(ShortcutContext {
+                status: 0xb,
+                situation: 2,
+                ..ctx(1.0)
+            }),
+        );
+        assert_eq!(
+            tool.sample(
+                MAPPER_X,
+                true,
+                Some(ShortcutContext {
+                    status: 0xb,
+                    situation: 2,
+                    ..ctx(2.0)
+                })
+            )
+            .owned,
+            0
+        );
+        assert_eq!(
+            tool.consumed_buttons(),
+            0,
+            "a fresh air jump remains physical"
+        );
+    }
+    #[test]
+    fn hop_taps_x_without_shield_and_stops_at_native_squat_without_repeating() {
         let mut tool = Shortcuts::default();
         tool.sample(0, true, Some(ctx(0.0)));
         let hop = tool.sample(SHORT_HOP_TRIGGER, true, Some(ctx(0.0)));
-        assert_eq!(hop.requested, MAPPER_X | MAPPER_ZL);
+        assert_eq!(hop.requested, MAPPER_X);
         assert_eq!(hop.stick, None);
         assert_eq!(tool.sample(SHORT_HOP_TRIGGER, true, Some(ctx(0.0))), hop);
         let squat = ShortcutContext {
@@ -274,6 +360,85 @@ mod tests {
             tool.sample(SHORT_HOP_TRIGGER, true, Some(ctx(1.0))),
             Shortcuts::hop_release()
         );
+    }
+    #[test]
+    fn held_x_is_one_short_hop_until_physical_release() {
+        let mut tool = Shortcuts::default();
+        tool.sample(0, true, Some(ctx(0.0)));
+        assert_eq!(
+            tool.sample(MAPPER_X, true, Some(ctx(0.0))).requested,
+            MAPPER_X
+        );
+        let squat = ShortcutContext {
+            status: 0xa,
+            motion: 2,
+            frame: 0.0,
+            ..ctx(0.0)
+        };
+        for frame in 0..8 {
+            let release = tool.sample(
+                MAPPER_X,
+                true,
+                Some(ShortcutContext {
+                    frame: frame as f32,
+                    ..squat
+                }),
+            );
+            assert_eq!(release.requested, 0);
+            assert_eq!(release.owned, MAPPER_X);
+        }
+        let air = ShortcutContext {
+            status: 0xb,
+            situation: 2,
+            motion: 3,
+            frame: 0.0,
+            ..ctx(0.0)
+        };
+        for frame in 0..20 {
+            assert_eq!(
+                tool.sample(
+                    MAPPER_X,
+                    true,
+                    Some(ShortcutContext {
+                        frame: frame as f32,
+                        ..air
+                    })
+                )
+                .requested,
+                0
+            );
+            assert_eq!(tool.consumed_buttons(), MAPPER_X);
+        }
+        // Landing while X remains held is not a new press.
+        assert_eq!(tool.sample(MAPPER_X, true, Some(ctx(0.0))).requested, 0);
+        tool.sample(0, true, Some(ctx(1.0)));
+        assert_eq!(tool.consumed_buttons(), 0);
+        assert_eq!(
+            tool.sample(MAPPER_X, true, Some(ctx(1.0))).requested,
+            MAPPER_X
+        );
+    }
+    #[test]
+    fn online_delayed_jump_status_still_emits_exactly_one_native_x_update() {
+        let mut tool = Shortcuts::default();
+        tool.sample(0, true, Some(ctx(0.0)));
+        let press = tool.sample(MAPPER_X, true, Some(ctx(0.0)));
+        assert_eq!(press.requested, MAPPER_X);
+        // Extra mapper samples on the same game update reuse the press.
+        for _ in 0..12 {
+            assert_eq!(tool.sample(MAPPER_X, true, Some(ctx(0.0))), press);
+        }
+        // The next native update releases X even if delayed status feedback
+        // still reports standing instead of jump squat.
+        let release = tool.sample(MAPPER_X, true, Some(ctx(1.0)));
+        assert_eq!(release.requested, 0);
+        assert_eq!(release.owned, MAPPER_X);
+        for frame in 2..8 {
+            assert_eq!(
+                tool.sample(MAPPER_X, true, Some(ctx(frame as f32))).requested,
+                0
+            );
+        }
     }
     #[test]
     fn reverse_primes_neutral_then_b_then_opposite_facing_and_releases() {

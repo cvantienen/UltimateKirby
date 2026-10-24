@@ -25,16 +25,27 @@
 // Common Rust syntax in these files: #[derive(...)] asks the compiler to
 // implement traits. Copy permits copying a small value, Debug supports {:?}
 // formatting, Default supplies initial values, and PartialEq supports == checks.
+pub mod action_owner;
 pub mod assist;
+pub mod auto_di;
+pub mod autopilot_guard;
+pub mod button_modes;
 pub mod combat_assist;
 pub mod config;
 pub mod diagnostics;
+pub mod finisher;
 pub mod ledge_menu;
+pub mod opponent_data;
+pub mod spot_dodge;
+pub mod option_read;
+pub mod whiff_punish;
 // Compiled fighter registrations, named responses, move data.
 pub mod fighter_profiles;
 pub mod input;
 
 pub mod live_input;
+pub mod observation;
+pub mod roll_read;
 pub mod runtime;
 pub mod sequence;
 pub mod session;
@@ -42,6 +53,7 @@ pub mod slide;
 pub mod state;
 pub mod timing;
 pub mod tools;
+pub mod training_test;
 pub use runtime::AssistRuntime;
 pub use sequence::{
     ConfirmedSequence, ConfirmedStep, InputSequence, InputStep, SequenceObservation, SequenceState,
@@ -66,7 +78,11 @@ pub mod native_input;
 pub mod tech_input;
 pub mod tech_prediction;
 
+pub mod jab_grab;
+pub mod jab_lock;
+pub mod kirby_posture;
 pub mod manual_controls;
+pub mod move_input;
 
 // Held-L ledge autopilot; the recovery 2-frame policy remains available to core callers.
 pub mod ledge_position;

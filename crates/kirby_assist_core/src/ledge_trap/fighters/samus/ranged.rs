@@ -4,7 +4,7 @@
 use super::*;
 use crate::fighter_profiles::samus as data;
 use crate::ledge_trap::fighters::{
-    one_shot::{Move, MoveKind},
+    one_shot::{Move, MoveKind, OneShot},
     variety,
 };
 
@@ -15,7 +15,7 @@ const HOMING: Move = Move {
     },
     first: data::HOMING_MISSILE_STARTUP,
     last: data::HOMING_MISSILE_STARTUP,
-    stick: [0.45, 0.0], // Below smash-stick threshold: ordinary homing missile.
+    stick: [data::HOMING_MISSILE_STICK, 0.0],
     drift: 0.0,
 };
 const SUPER: Move = Move {
@@ -66,6 +66,23 @@ fn missile(t: &mut LedgeTrap, c: LedgeContext, e: Opponent, o: &mut LedgeOutput,
         t.start_fighter_move(c, o, recipe, false);
     }
 }
+
+fn homing_missile(t: &mut LedgeTrap, c: LedgeContext, e: Opponent, o: &mut LedgeOutput) {
+    if c.situation != 0 || !c.can_act || !c.can_control || c.stopped {
+        return;
+    }
+    let dx = e.position[0] - c.position[0];
+    let direction = if dx.abs() > 0.5 {
+        dx.signum()
+    } else {
+        c.facing.signum()
+    };
+    // Pair a deliberate side input with B on the first actionable recognition
+    // sample, even if currently facing away. Do not send neutral B or wait for
+    // vulnerability/arrival timing; native side-special startup ends the request.
+    t.fighter_move = Some(OneShot::new(HOMING, direction).with_immediate_special());
+    t.continue_fighter_move(c, o);
+}
 pub(super) fn neutral_homing(
     t: &mut LedgeTrap,
     s: LedgeSettings,
@@ -74,7 +91,7 @@ pub(super) fn neutral_homing(
     o: &mut LedgeOutput,
 ) {
     if s.responses.neutral_getup && t.climb_seen && e.status == CLIFF_CLIMB {
-        missile(t, c, e, o, HOMING);
+        homing_missile(t, c, e, o);
     }
 }
 pub(super) fn neutral_super(
@@ -98,7 +115,7 @@ pub(super) fn jump_homing(
     if s.responses.jump_getup
         && (e.situation == 2 || (CLIFF_JUMP1..=CLIFF_JUMP3).contains(&e.status))
     {
-        missile(t, c, e, o, HOMING);
+        homing_missile(t, c, e, o);
     }
 }
 pub(super) fn jump_super(
@@ -122,7 +139,7 @@ pub(super) fn roll_homing(
     o: &mut LedgeOutput,
 ) {
     if s.responses.roll_getup {
-        missile(t, c, e, o, HOMING);
+        homing_missile(t, c, e, o);
     }
 }
 pub(super) fn roll_super(
@@ -144,7 +161,7 @@ pub(super) fn drop_homing(
     o: &mut LedgeOutput,
 ) {
     if s.drop_defense {
-        missile(t, c, e, o, HOMING);
+        homing_missile(t, c, e, o);
     }
 }
 pub(super) fn drop_super(

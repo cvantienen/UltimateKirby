@@ -38,6 +38,32 @@ pub(super) fn neutral_inhale(
     enemy: Opponent,
     out: &mut LedgeOutput,
 ) {
+    // Turn during the existing get-up wait, before sending neutral B. Keep B
+    // released until native facing confirms the turn so this cannot become a
+    // side special or an inhale aimed away from the ledge.
+    if trap.pending != Pending::NeutralSpecial
+        && s.responses.neutral_getup
+        && trap.climb_seen
+        && enemy.status == CLIFF_CLIMB
+        && ctx.situation == 0
+        && ctx.can_act
+        && ctx.can_control
+        && !ctx.stopped
+    {
+        let ledge_x = trap.anchor.map_or(enemy.position[0], |anchor| anchor[0]);
+        let dx = ledge_x - ctx.position[0];
+        let toward = if dx.abs() > 0.5 {
+            dx.signum()
+        } else {
+            -trap.inward
+        };
+        if toward.is_finite() && toward.abs() >= 0.5 && ctx.facing * toward < 0.5 {
+            trap.movement_preparing = true;
+            out.stick = Some([toward.signum() * 0.6, 0.0]);
+            out.requested = 0;
+            return;
+        }
+    }
     timed_special(
         trap,
         s,

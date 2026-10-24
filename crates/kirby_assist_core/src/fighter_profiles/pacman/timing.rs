@@ -30,3 +30,6 @@ pub const FORWARD_SMASH: MoveFrames = MoveFrames {
 };
 pub const UP_AIR: MoveFrames = MoveFrames { first: 9, last: 16 };
 pub const FORWARD_AIR: MoveFrames = MoveFrames { first: 5, last: 8 };
+// Bonus Fruit throw is 12 (+7 entry) frames, not projectile arrival time.
+// The player supplies a stored fruit; this response never selects/charges it.
+pub const FRUIT_THROW_STARTUP: u8 = 19;

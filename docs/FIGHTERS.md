@@ -3,13 +3,18 @@
 Every configured fighter has its own page, linked below. Individual pages stay
 off the sidebar; shared guides provide additional execution notes.
 Every configured fighter has compiled response functions for **Neutral, Jump,
-Roll, Attack and Drop**. Open the menu with **L+R3** and use the D-pad to select
+Roll, Attack and Drop**. Open the menu with **R3** and use the D-pad to select
 and cycle its saved choices. See [current controls](CONTROLS.md).
 
 All non-DLC playable fighter forms have profiles, including echoes, Pokémon
 forms and Miis. Valid unconfigured fighter kinds use the Kirby fallback; that
 does not make Kirby's move timings appropriate for those fighters. There is no
 runtime fighter JSON, combo library or action interpreter.
+
+The [compiled reference dataset](OPPONENT_DATA.md) retains baseline weight,
+movement and move facts for 90 native kinds, including DLC opponents. These facts
+do not add ledge recipes. Automatic whiff punishing is currently disconnected
+from the live build/menu; each fighter page retains its reference stats.
 
 <!-- BEGIN INDIVIDUAL FIGHTER LINKS -->
 

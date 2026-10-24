@@ -319,8 +319,9 @@ The roster expansion adds immutable data/functions and startup catalog entries.
 Only the selected fighter/response runs. No per-frame all-fighter simulation,
 weapon scan, background file loading, network traffic or new UI telemetry is
 introduced. Code/data size grows; actual performance and heat require profiling.
-Current bindings are L autopilot, L+R3 menu, Minus mash toggle, Y B-reverse,
-and held-L3 Kirby recovery cover. See [controls](CONTROLS.md).
+Current bindings are L autopilot (including Kirby in-range recovery cover),
+R3 menu, Auto-mash menu row and held Y for configured modes (Kirby Auto-duck).
+B-reverse and the separate R3 recovery binding are removed. See [controls](CONTROLS.md).
 
 ## Roll-grab placement
 

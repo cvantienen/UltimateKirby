@@ -70,7 +70,8 @@ margins are not guarantees when no native deadline exists.
 
 `sequence.rs` retains generic teaching and confirmed-sequence helpers. These
 are not a live combo engine. Fighter combo definitions, combo playback, combo
-menu rows and Y-mode cycling have been removed from gameplay. Future sequences
+menu rows remain removed from gameplay. The current Y mode list selects compiled
+held actions (Kirby Auto-duck), with B-reverse unbound. Future sequences
 need real action/hit evidence and an appropriate native clock rather than raw
 mapper update counts.
 

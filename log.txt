@@ -510,3 +510,31 @@ tech observation: input_update=7652, status=0x67, situation=0, reason=tech_statu
 observing human fighter object 0x0, input index 0
 trump input: enabled=true, scope=true, fresh=true, action=run_to_edge, stick=Some([1.0, 0.0]), reserved=0xe
 trump mapped: buttons=0x0, left=(127,0)
+
+
+Work on these fixes 
+
+8. make mode that grounded with kirby it walkays makes sure im crouched when not moving or doing anything, so for example when i immediatly stop walking
+    kirby should crouch and not just stand there. crouch should esentailly be the default state when grounded and not moving, it shouldent affect my inputs at all
+    this should help more with enemys that are jumping over. the ones that are trying to roll in around me, downsmash / grab config will take prioritys
+
+9. give kirby auto turnaround mode, that when im holding down on the left stick and down tilt is pressed it will turn aorund and face the oppenent for me immeidtaly
+
+2. for kirbys kill confirms the fair need correction. in training mod i see it does short hop, but he just does fiar right after and floats.  he should short hop wait for apex of jump to output foward air, then fast fall so only hit 1 of fair come out. then f smash right after.
+
+1. training mod control fix, with it configured to both sticks click to open menu. change it to the way tith R3 click brings up menu alone and im able to use and test all my cutom features.
+cant use features correctly, as well as the system monitor dev tool, may be conflicting with traning mod, need solution for this, could be anohter app or somthing doesnt matter just need system stats to ensure not overworkign
+
+3. controls univeral change: some input are sometime incorret, like when i say have them fast fall nair, short hop bair, instand turn arounnd bair with c stik. some of the ones will do itlits etc. i want to get a universal mapping of
+inputs to corrisponding move thats universial so we always knwo the inputs are corerct and not an issue. so once we have the correct controls for coorisponding move like biar, nair, instant bair, short hop, full how, fast fall etc. 
+they will be used univerally as the inputs for moves to ensure improper input is a reason for excuse, so there should be fast fall, short hop, f smash, etc. some of these may have to be slightly uniqe due to charichter varions like jump size
+while doing that try and get the instant turn around bair to work using c stick method or what ever it is, and confiure kirby to do that when facing fowards for jump/neuteral getup punish bair options
+
+4. ledge trunmmp fix sometime charihcters just run off. see causing that issue and make sure ledge trumps happen realiably and asap when needed.
+
+5. configure menu to go on top left of screen instead of bottom and not do the word warp all should be one straight line essentailly 
+
+6. give yoshi the roll read feature like kirby where if enemy rolls in range they get downsmashed reagrdless,down smash and grab configured
+
+7. full horizontal stick on autopilot should be max walk speed, unless max keep the same speed they walk now
+

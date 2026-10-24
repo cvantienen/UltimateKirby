@@ -32,7 +32,7 @@ fn own(frame: f32) -> LedgeContext {
 #[test]
 fn ranged_missiles_fire_from_far_without_roll_chasing_and_finish_on_native_startup() {
     for (id, amount, startup) in [
-        ("homing_missile", 0.45, 0x1eb),
+        ("homing_missile", 0.70, 0x1eb),
         ("super_missile", 1.0, 0x1ed),
     ] {
         for slot in [
@@ -83,9 +83,14 @@ fn ranged_missiles_fire_from_far_without_roll_chasing_and_finish_on_native_start
                     },
                     Some(target),
                 );
-                assert_eq!(primer.requested, 0);
-                assert_eq!(primer.stick, Some([0.0, 0.0])); // No approach.
-                                                            // Once committed, target loss must not drop the B+direction.
+                if id == "homing_missile" {
+                    assert_eq!(primer.requested, MAPPER_B);
+                    assert_eq!(primer.stick, Some([amount * facing, 0.0]));
+                } else {
+                    assert_eq!(primer.requested, 0);
+                    assert_eq!(primer.stick, Some([0.0, 0.0]));
+                }
+                // Once committed, target loss must not drop the B+direction.
                 let out = trap.sample(
                     s,
                     2,

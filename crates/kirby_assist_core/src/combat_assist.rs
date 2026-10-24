@@ -1,7 +1,7 @@
 //! Input-only trip follow-up and damage-hitstop SDI. No status/physics writes.
 //!
 //! Two independent tools share this file: `TripFollowup` remembers a recognized
-//! trip and retries forward smash; `SdiState` chooses a stick flick during damage
+//! trip and retries forward smash after either tilt; `SdiState` chooses a stick flick during damage
 //! hitstop. Each `sample` receives copied facts and returns an input proposal.
 //! Native detection and tool priority live in the Switch adapter, not here.
 mod fair_followup;
@@ -16,6 +16,7 @@ const TRIP_BUTTONS: u32 = LEDGE_BUTTONS | 0xf;
 pub struct TripTarget {
     pub id: u32,
     pub status: i32,
+    pub previous_status: i32,
 }
 fn trip_tilt(status: i32) -> bool {
     matches!(status, 0x2a | 0x2c)
@@ -45,6 +46,11 @@ pub struct TripFollowup {
     facing: f32,
 }
 impl TripFollowup {
+    pub fn cancel_pending(&mut self) {
+        self.queued = false;
+        self.spent = true;
+        self.output = LedgeOutput::default();
+    }
     pub fn watching(&self) -> bool {
         self.queued
     }
@@ -68,16 +74,15 @@ impl TripFollowup {
         if new_tilt && !self.queued {
             self.spent = false;
         }
-        // Recognition is deliberately just tilt + opponent trip. No hit flag,
-        // last-attacker attribution, trip age, spacing or protection checks.
+        // Recognize current trips and grounded re-hit damage whose immediate
+        // previous state was a trip. No new-trip transition or hit flag required.
         let recognized = !self.queued
             && !self.spent
             && trip_tilt(ctx.status)
-            && ctx
-                .targets
-                .iter()
-                .flatten()
-                .any(|enemy| tripping(enemy.status));
+            && ctx.targets.iter().flatten().any(|enemy| {
+                tripping(enemy.status)
+                    || tripping(enemy.previous_status) && matches!(enemy.status, 0x47 | 0x5a)
+            });
         if recognized {
             self.queued = true;
             self.facing = if ctx.facing.is_finite() && ctx.facing < 0.0 {
@@ -101,11 +106,14 @@ impl TripFollowup {
                 out.owned = TRIP_BUTTONS;
                 out.stick = Some([0.0, 0.0]);
                 // First release the physical tilt/A. Then keep sending fresh
-                // forward+A flicks into the game's normal buffer until smash
+                // directional+A flicks into the game's normal buffer until smash
                 // startup is observed. No readiness gate or six-pulse cutoff.
                 if !recognized && !ctx.stopped && self.output.requested & MAPPER_A == 0 {
                     out.requested = MAPPER_A;
-                    out.stick = Some([self.facing, 0.0]);
+                    out.stick = Some(crate::move_input::smash_stick(
+                        crate::move_input::Smash::Forward,
+                        self.facing,
+                    ));
                 }
             }
         }

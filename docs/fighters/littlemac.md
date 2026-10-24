@@ -9,7 +9,8 @@ it is not a device-calibration result. No fighter file loads during a match.
 
 ## Saved ledge responses
 
-Open the menu with **L+R3**. Up/Down selects a row; Left/Right cycles its
+Open the menu with **R3**.
+Up/Down selects a row; Left/Right cycles its
 choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
@@ -21,7 +22,7 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 | Drop | **Shield**; Dtilt > Shield; Low sweep (spacing); F-tilt poke |
 
 These are the compact UI names; SH means short hop and Msl means missile.
-Labels omit the UI's cached spacing hints. Capture returns control for manual
+Compact move labels match the menu without spacing hints. Capture returns control for manual
 pummels/throws. Selecting a choice does not add a combo or change native hitboxes.
 
 ## Compiled move windows
@@ -56,6 +57,26 @@ delays or proof that every phase of a multihit move stays active.
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 Shared roll grabs test predicted range/facing, height and vulnerability on the
 same active frame. Native catch readiness and input delivery still matter.
+
+## Baseline reference stats
+
+Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
+instance modifiers or a replacement for existing ledge tuning.
+
+| Stat | Reference |
+| --- | --- |
+| Weight | 87 |
+| Walk speed | 1.386 |
+| Initial dash | 2.365 |
+| Run speed | 2.464 |
+| Air speed | 1.208 |
+| Gravity | 0.09 |
+| Fall speed | 1.95 |
+| Fast fall | 3.12 |
+| Short-hop height | 12.53 |
+| Full-hop height | 26 |
+
+[Move source](https://ultimateframedata.com/little_mac) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 

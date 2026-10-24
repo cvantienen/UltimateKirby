@@ -15,8 +15,11 @@ Hold L to use the saved responses. No fighter files load during the match.
 
 Missiles are selectable in Neutral, Jump, Roll and Drop. Each starts one grounded
 side-B attempt at the first actionable opportunity after recognizing that option,
-turning toward the opponent if needed. A neutral primer precedes moderate
-horizontal+B for homing, or a full flick+B for Super Missile. The bounded native
+aimed toward the opponent. Homing pairs **0.70 horizontal stick+B immediately**,
+including when facing away: it has no neutral primer, separate turn wait or
+vulnerability countdown gate. This replaces the shallow 0.45 input that could
+select Charge Shot. Super Missile keeps its separate turn and neutral primer
+before a full flick+B. The bounded native
 input path holds B with its direction through delivery and releases on generic
 side-special or the corresponding Samus grounded missile startup. It then hands
 control back, including on a whiff. Release/re-hold L to start a new attempt.
@@ -108,7 +111,8 @@ dispatch, neutral/jump/drop/shield zair inputs, target-loss continuation,
 hitstop, full active-window ownership, roll destinations, Bomb startup and grab
 handoff. No Rust tests, build, upload or Switch match testing ran for this edit.
 Additional source fixtures cover distant missile dispatch in both directions,
-all four missile rows, neutral priming, target loss, frozen native clocks, and
+all four missile rows, immediate homing input versus Super neutral priming,
+target loss, frozen native clocks, and
 release/manual handback on missile startup. Formatting and static registration
 checks are separate from execution; missile type selection and actual contact
 still require device validation.

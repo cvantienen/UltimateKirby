@@ -1,0 +1,28 @@
+ke them do in terms of movement and tech thats not normally possible that would even be reliable in the online delay/latency.
+Search only for if i have tass control smash frame perfectly whats cool stuff i could make them do in terms of movment and tech thats not normally possible that would even be reliable in the online delay/latency.
+
+AI Overview
+Assuming you are referring to a TAS (Tool-Assisted Superplay) script or macro execution device paired with frame-perfect inputs on Super Smash Bros. Ultimate or Melee, you have a unique advantage. Even in an online environment with variable delay and latency, mechanics that rely entirely on sequential, muscle-memory input timings (relative only to your own character) will execute perfectly once the initial delay buffer passes.
+Because online delay applies a uniform buffer to when your sequence starts, any frame-perfect sequence where the timing between Input A, Input B, and Input C is fixed will remain 100% consistent.
+Here is the coolest, broken movement and tech you can weaponize online that is usually too risky or difficult for human hands:
+1. Zero-Frame Perfect Instant Dash Dances & Pivots
+Humans constantly miss the exact 1-frame windows for changing direction, leading to accidental initial dashes or getting stuck in turn-around animations.
+The Tech: You can execute perfectly spaced micro-dash dances where your character rapidly flickers back and forth on the exact minimum frame allowed by the game engine.
+Why it's broken online: It creates an impossible-to-read "shimmering" spacing hurtbox. Your opponent cannot react to your position because you are micro-adjusting faster than the online delay can register to their screen.
+2. Micro-Spaced Teleporting Wavelands & Slidewalks
+In Melee (or Ultimate using specific characters like Kazuya/Inkling), perfect angular inputs yield pixel-perfect results.
+The Tech: Executing a jump and an immediate, maximum-angle perfect airdodge down-forward to the ground on the very first possible frame (a frame-perfect Waveland).
+Why it's broken online: In delay netcode, human players rely heavily on visual cues to see an aerial approach. A perfect waveland or perfect platform-drop waveland makes your character look like they are instantly teleporting across flat surfaces, completely bypassing the opponent's reaction window.
+3. Ultimate Frame-Perfect Tech
+If playing Smash Ultimate, certain high-level tech is dropped by top pros online due to tight windows. A TAS-level macro completely ignores this restriction:
+Perfect Attack Cancel Back-Airs (RAR): Instantly jumping out of an initial dash while canceling a forward-tilt into an instantaneous, full-momentum back-air.
+Instant Teleport Cancels: Characters like Palutena, Mewtwo, or Zelda have teleports that can edge-cancel perfectly. A frame-perfect macro allows you to teleport from anywhere on the stage straight to a platform edge, instantly canceling the lag to act immediately.
+Kazuya Electric Wind God Fist (EWGF): Automating the exact forward, neutral, down, down-forward + A input so that the attack button registers exactly on the down-forward frame. You can seamlessly loop EWGF combos without the online latency causing a standard God Fist drop.
+4. Melee Frame-Perfect Tech
+If playing Melee online (via Slippi or Netplay), a frame-perfect controller profile unlocks mechanics that border on magic:
+Perfect Multi-Shines: Performing Fox or Falco's Reflector, jumping out of it on the first frame, and shinning again on the exact frame before leaving the ground. Doing this 3 to 4 times consecutively breaks shields instantly.
+Ledgedashing (Max Invincibility): Dropping from the ledge, instantly double-jumping, and perfectly wavelanding onto the stage to keep all of your ledge invincibility frames active while standing. Online, doing this manually is terrifying because a missed input means death. Your macro makes you untouchable upon standing up.
+Why Online Delay Doesn't Ruin This
+Smash online uses a delay-based netcode (unless using a platform like Slippi for Melee which uses Rollback). When you press a button or start your macro, the game pauses that input for a fixed number of frames (e.g., 5–11 frames) before it happens on screen.
+Because your macro handles the subsequent timings inside its own script internally, the connection delay only affects the start of the move, not the execution of the technique itself. Once the sequence initiates, it will play out flawlessly.
+If you want to optimize your macro setups, would you like to focus on character-specific combos (like Steve or Kazuya), or do you want the exact input frame sequences for universal movement options?

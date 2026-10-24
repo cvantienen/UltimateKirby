@@ -22,7 +22,7 @@ auto_mash = true
 takeover = true
 ```
 
-`takeover = true` suppresses physical A/B/X/Y/L/R/ZL/ZR, stick clicks, and C-stick input only during active analog mashing. This keeps physical action inputs from being mixed with the left-stick cycle. Plus retains its cancellation path; Minus toggles auto-mash. With takeover false, physical action buttons/C-stick pass through while the automated left stick still runs.
+`takeover = true` suppresses physical A/B/X/Y/L/R/ZL/ZR, stick clicks, and C-stick input only during active analog mashing. This keeps physical action inputs from being mixed with the left-stick cycle. Plus retains its cancellation path; Auto-mash is changed from its menu row. With takeover false, physical action buttons/C-stick pass through while the automated left stick still runs.
 
 The mapper uses the current physical controls as soon as the mashable state ends; it does not force a neutral frame after escape. Disabling the tool, stale requests, menu cancellation, disconnect, and controller reassignment also remove its stick override. The native controller memory is restored after every mapper call. Turbo and ledge stick requests cannot override an active mash cycle. Tech retains its existing priority, ZR button, and cooldown.
 

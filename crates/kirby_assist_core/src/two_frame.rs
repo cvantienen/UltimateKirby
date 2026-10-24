@@ -26,6 +26,18 @@ const ROOT_BELOW_EDGE: f32 = 6.0;
 const MAX_FORECAST: f32 = 32.0;
 const MAX_STAND_DISTANCE: f32 = 16.0;
 
+/// Compiled fighter opt-in for recovery cover inside normal held-L autopilot.
+/// Other fighters retain their ordinary ledge responses until explicitly added.
+pub fn autopilot_settings(kind: i32, base: LedgeSettings) -> Option<LedgeSettings> {
+    (kind == crate::fighter_profiles::kirby::FIGHTER_KIND && base.enabled).then_some(
+        LedgeSettings {
+            two_frame: true,
+            two_frame_down_tilt: true,
+            ..base
+        },
+    )
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum Phase {
     #[default]
@@ -48,6 +60,9 @@ pub struct TwoFrame {
     output: LedgeOutput,
 }
 impl TwoFrame {
+    pub fn committed_input_pending(&self) -> bool {
+        matches!(self.phase, Phase::Release | Phase::Press)
+    }
     pub fn target(&self) -> Option<u32> {
         if self.phase == Phase::Waiting {
             None
@@ -242,21 +257,23 @@ impl TwoFrame {
         {
             return None;
         }
-        let delta = match self.previous {
-            None => 1.0,
-            Some((status, motion, frame, rate))
-                if status == ctx.status && motion == ctx.motion_kind =>
-            {
-                if ctx.motion_frame < frame && self.phase == Phase::Waiting {
-                    // An idle animation may loop while watching. Pending
-                    // requests instead expire on a rewind/unknown time gap.
-                    1.0
-                } else {
-                    (ctx.motion_frame - frame) / rate
-                }
-            }
-            Some(_) => 1.0,
-        };
+        let progress = crate::timing::motion_progress(
+            self.previous
+                .map(|(s, m, f, r)| crate::timing::MotionStamp::new(s, m, f, r)),
+            crate::timing::MotionStamp::new(
+                ctx.status,
+                ctx.motion_kind,
+                ctx.motion_frame,
+                ctx.motion_rate,
+            ),
+        );
+        let delta =
+            if progress == crate::timing::MotionProgress::Rewind && self.phase == Phase::Waiting {
+                // Idle loops can keep watching; committed requests still cancel.
+                1.0
+            } else {
+                progress.elapsed(1.0, 1.0).unwrap_or(f32::NAN)
+            };
         self.previous = Some((
             ctx.status,
             ctx.motion_kind,
@@ -352,4 +369,5 @@ fn approach_in(spot: LedgeSpot, enemy: RecoveryTarget) -> Option<f32> {
 }
 
 #[cfg(test)]
+#[path = "two_frame/tests.rs"]
 mod tests;

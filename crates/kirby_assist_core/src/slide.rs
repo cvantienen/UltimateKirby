@@ -11,10 +11,10 @@ use crate::manual_controls::{DPAD_LEFT, DPAD_RIGHT, DPAD_SIDES};
 use crate::native_input::{MAPPER_X, MAPPER_ZR};
 
 // Requested raw controller values; on-device slide distance is not established.
-// A 45-degree downward diagonal gives both axes a clear directional input.
+// Restore the shallow downward vector used before the vertical-angle change.
 // Retain the same vector with ZR until native dodge acceptance.
-pub const SLIDE_STICK_X: f32 = 0.7071;
-pub const SLIDE_STICK_Y: f32 = -0.7071;
+pub const SLIDE_STICK_X: f32 = 0.9588;
+pub const SLIDE_STICK_Y: f32 = -0.2839;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SlideContext {
@@ -52,6 +52,23 @@ impl SlideState {
     /// Keep sampling an in-flight tool after its physical trigger is released.
     pub fn active(&self) -> bool {
         self.phase != Phase::Idle
+    }
+
+    /// Preserve only an already-owned hop/dodge through native stop. Never
+    /// issue a new press or hold Jump while no native clock is available.
+    pub fn frozen_output(&self, ctx: SlideContext) -> LedgeOutput {
+        if !ctx.gameplay
+            || !ctx.stopped
+            || !ctx.motion_frame.is_finite()
+            || !matches!(ctx.situation, 0 | 2)
+        {
+            return LedgeOutput::default();
+        }
+        match self.phase {
+            Phase::Takeoff if matches!(ctx.status, 0..=0xb | 0x11..=0x15) => owned(),
+            Phase::Dodge if matches!(ctx.status, 0xa | 0xb) => self.last_output,
+            _ => LedgeOutput::default(),
+        }
     }
 
     pub fn sample(
@@ -114,31 +131,31 @@ impl SlideState {
                     Phase::Takeoff => {
                         if tick.saturating_sub(self.started) > 24 {
                             self.phase = Phase::Idle;
+                        } else if (ctx.status == 0xa
+                            && ctx.situation == 0
+                            && ctx.motion_frame >= 2.0)
+                            || ctx.status == 0xb
+                                && matches!(ctx.situation, 0 | 2)
+                                && (0.0..=6.0).contains(&ctx.motion_frame)
+                        {
+                            // Native squat/jump proves the hop was accepted.
+                            // Buffer Guard before another observation round trip;
+                            // the engine still decides when air dodge becomes legal.
+                            out = owned();
+                            out.stick =
+                                Some([f32::from(self.direction) * SLIDE_STICK_X, SLIDE_STICK_Y]);
+                            out.requested = MAPPER_ZR;
+                            self.phase = Phase::Dodge;
+                            self.started = tick;
                         } else if ctx.situation == 2 {
-                            // Online acceptance can miss the very first air sample.
-                            // Retry only during early native jump frames, never
-                            // turn a missed slide into an arbitrary high dodge.
-                            if ctx.status == 0xb && (0.0..=6.0).contains(&ctx.motion_frame) {
-                                out = owned();
-                                if ctx.can_air_dodge {
-                                    out.stick = Some([
-                                        f32::from(self.direction) * SLIDE_STICK_X,
-                                        SLIDE_STICK_Y,
-                                    ]);
-                                    out.requested = MAPPER_ZR;
-                                    self.phase = Phase::Dodge;
-                                    self.started = tick;
-                                }
-                            } else {
-                                self.phase = Phase::Idle;
-                            }
+                            self.phase = Phase::Idle; // Never begin a late/high dodge.
                         } else {
                             out = owned(); // Release X during jump squat.
                         }
                     }
                     Phase::Dodge => {
                         if matches!(ctx.status, 0x22..=0x23)
-                            || ctx.situation == 0 && ctx.status != 0xa
+                            || ctx.situation == 0 && !matches!(ctx.status, 0xa | 0xb)
                         {
                             self.phase = Phase::Landing;
                             out = owned(); // Release ZR, retain slide momentum.
@@ -175,6 +192,9 @@ impl SlideState {
                 out = owned();
                 out.requested = MAPPER_X;
             }
+        }
+        if ctx.stopped && supported_status && physical & DPAD_SIDES != DPAD_SIDES {
+            out = self.frozen_output(ctx);
         }
         self.last_sample = Some(key);
         self.last_output = out;

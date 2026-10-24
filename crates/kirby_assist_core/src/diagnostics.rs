@@ -110,3 +110,6 @@ mod tests {
         assert!(gate.sample(2, 10_002, false).is_some());
     }
 }
+
+#[cfg(feature = "diagnostic-logging")]
+pub mod modes;

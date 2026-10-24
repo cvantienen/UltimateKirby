@@ -16,6 +16,11 @@ with a newly written summary.
 
 ## Build commands
 
+If compilation reports E0015 for `LedgeOutput::default()` inside `State::new`,
+the source needs the const-compatible empty struct initializer. The shared
+startup constructor is `const fn`; ordinary `Default::default()` is not const.
+This source fix applies to both variants without changing the empty output.
+
 From the project root with a configured Skyline toolchain:
 
 ```sh
@@ -201,7 +206,7 @@ python3 -m unittest discover -s tools -p 'test_*.py' -v
 3. Replace the existing plugin and config. Both variants install as `libkirby_assist.nro` at the same path. Do not rename them and load both.
 4. Restart Smash. Use Player 1 (`player_index = 0`), select your fighter, and use the [required controller mapping](CONTROLS.md#controller-mapping).
 
-The supplied gameplay settings are identical: held-L ledge autopilot, Y B-reverse, X short hop, held-R3 teabag, held-L3 Kirby recovery cover, and automatic mash initially enabled with Minus toggling it. L+R3 toggles the five-row ledge menu, which also displays mash ON/OFF; hidden D-pad sides slide, Down trumps, Up is normal. Silent uses `tech_debug = false`; diagnostic uses `true`. Logging can affect callback timing/IO overhead even though gameplay policy is shared.
+The supplied gameplay settings are identical: held-L ledge autopilot with Kirby-only in-range recovery cover, pressed-Y [Finisher attempts](FINISHERS.md) for Kirby, X short hop, R3 menu toggling, and automatic mash initially enabled and toggled from its Auto-mash row. Auto-duck and its hitbox-reader hook are disabled. R3 toggles the saved-options menu (five ledge rows, Kirby/Yoshi Roll read/Finisher, shared Auto-mash and Kirby posture rows), which also displays mash ON/OFF; hidden D-pad sides slide, Down trumps, Up is normal. Silent uses `tech_debug = false`; diagnostic uses `true`. Logging can affect callback timing/IO overhead even though gameplay policy is shared.
 
 ## What silent actually excludes
 
@@ -293,7 +298,7 @@ Both release variants include `imgui-menu`, sharing a matching imgui-smash host 
 
 Diagnostic builds provide a [frozen result card](CALIBRATION_CARD.md) for all
 five ledge response lists. The compact card appears beside the menu after an
-attempt ends; L+R3 hides/shows both. It records available configured timing,
+attempt ends; R3 hides/shows both. It records available configured timing,
 request/mapping/startup evidence, root spacing and waiting gates. Full detail
 is written to `status.log`. Missing metadata stays unknown; configured frames
 are not measured hitboxes. Silent builds exclude this feature.

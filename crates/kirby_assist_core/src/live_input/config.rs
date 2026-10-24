@@ -44,9 +44,15 @@ impl Default for LiveSettings {
 /// invalid values reject the configuration instead of silently enabling tools.
 #[derive(Clone, Copy, Debug)]
 pub struct LiveConfig {
+    /// L-held approximate defense against nearby active fighter attacks.
+    pub autopilot_shield: bool,
+    /// Legacy setting; Auto-duck is disabled in the live adapter for now.
+    pub kirby_auto_duck: bool,
     pub down_tilt_trip_smash: bool,
     pub kirby_fair1_smash: bool,
     pub auto_sdi: bool,
+    pub auto_di: crate::auto_di::Settings,
+    pub auto_spot_dodge: bool,
     pub auto_ledge_trump: bool,
     pub dpad_slide: bool,
     pub controls: LiveSettings,
@@ -61,9 +67,13 @@ pub struct LiveConfig {
 impl Default for LiveConfig {
     fn default() -> Self {
         Self {
+            autopilot_shield: true,
+            kirby_auto_duck: false,
             down_tilt_trip_smash: true,
             kirby_fair1_smash: true,
             auto_sdi: true,
+            auto_di: crate::auto_di::Settings::default(),
+            auto_spot_dodge: true,
             auto_ledge_trump: true,
             dpad_slide: false,
             controls: LiveSettings::default(),
@@ -93,6 +103,12 @@ impl LiveConfig {
             let (key, value) = line.split_once('=').ok_or_else(invalid)?;
             let value = value.trim();
             match key.trim() {
+                "autopilot_shield" => {
+                    config.autopilot_shield = value.parse().map_err(|_| invalid())?
+                }
+                "kirby_auto_duck" => {
+                    config.kirby_auto_duck = value.parse().map_err(|_| invalid())?
+                }
                 "down_tilt_trip_smash" => {
                     config.down_tilt_trip_smash = value.parse().map_err(|_| invalid())?
                 }
@@ -100,6 +116,21 @@ impl LiveConfig {
                     config.kirby_fair1_smash = value.parse().map_err(|_| invalid())?
                 }
                 "auto_sdi" => config.auto_sdi = value.parse().map_err(|_| invalid())?,
+                "auto_spot_dodge" => {
+                    config.auto_spot_dodge = value.parse().map_err(|_| invalid())?
+                }
+                "auto_di" => config.auto_di.enabled = value.parse().map_err(|_| invalid())?,
+                "auto_di_mode" => {
+                    config.auto_di.mode = match value {
+                        "adaptive" => crate::auto_di::Mode::Adaptive,
+                        "survival" => crate::auto_di::Mode::Survival,
+                        "escape" => crate::auto_di::Mode::Escape,
+                        _ => return Err(invalid()),
+                    }
+                }
+                "auto_di_survival_speed" => {
+                    config.auto_di.survival_speed = value.parse().map_err(|_| invalid())?
+                }
                 // Old SD files remain usable; removed combo keys do nothing.
                 "combo_enabled"
                 | "combo_starter"
@@ -330,6 +361,11 @@ impl LiveConfig {
             || !(1.0..=5.0).contains(&config.lookahead)
         {
             return Err("player_index must be 0..7; tech_lookahead_frames must be 1..5".into());
+        }
+        if !config.auto_di.survival_speed.is_finite()
+            || !(0.1..=30.0).contains(&config.auto_di.survival_speed)
+        {
+            return Err("auto_di_survival_speed must be finite and 0.1..30".into());
         }
         Ok(config)
     }

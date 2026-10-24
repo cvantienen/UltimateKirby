@@ -1,10 +1,16 @@
-# Kirby held-L3 down-tilt recovery cover
+# Kirby recovery cover inside ledge autopilot
 
-**Hold L3 as Kirby** to watch an opponent's low recovery approach. **Release L3**
-to immediately stop the policy and release pending inputs. Y remains B-reverse;
-L remains ledge autopilot. When both L and L3 are held, L3 selects recovery cover.
-L3 has no new assist binding on other fighters. Menu navigation and higher-priority
-mash/tech retain their existing behavior.
+**Hold L as Kirby** for the normal saved ledge responses and in-range low-recovery
+coverage with down tilt. **Release L** to stop. There is no separate recovery
+toggle, menu row or standalone R3 binding. Other fighters retain their existing
+ledge options until explicitly configured. Diagnostic Training compatibility uses R3 only for its menu; normal L
+autopilot includes this Kirby coverage.
+
+Normal get-up responses keep their settings and priority. Recovery cover starts
+only while no ledge punish, roll navigation, capture handback or other higher
+priority tool owns the action. Once its tilt primer/request is committed, the
+shared input path protects that short delivery from shield/preparation movement
+and onstage Roll read. It never combines a recovery tilt with another punish.
 
 Stand near the actual ledge and face outward. The policy can turn toward the
 ledge before preparing the attack; it does not run to the edge. It declines
@@ -25,8 +31,12 @@ window. Exact contact is not guaranteed online or offline. Test the requested
 input, actual attack startup, position and contact on Switch.
 
 The legacy core down-smash recipe remains available to core callers when
-`two_frame_down_tilt=false`; the live Kirby L3 binding selects down tilt.
+`two_frame_down_tilt=false`; `two_frame::autopilot_settings` explicitly registers
+Kirby with down tilt. It does not register another fighter by fallback.
 No new roster discovery, game-state writes, animation edits or networking is
-added by this binding. Recovery queries run only while the mode is active.
+added by this binding. Recovery queries use the existing cached roster while
+Kirby holds L near a locked ledge; positions outside 1–10 units inside that ledge
+skip the recovery scan. Standard ledge observations remain unchanged for others.
 
-No build/upload or Rust test execution was performed for this source revision.
+Host scheduling regressions cover tilt timing, range, facing, release, duplicate
+polls and missed forecasts. Actual recovery contact still needs Switch testing.

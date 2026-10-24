@@ -1,6 +1,6 @@
 # D-pad Down: ledge trump attempt
 
-D-pad Down triggers ledge trump only while the menu is hidden. L+R3 opens or closes the menu; Minus toggles auto-mash. While open, the D-pad only navigates the [saved choices](LEDGE_MENU.md). Hidden Left/Right triggers slides; hidden Up remains normal mapped input. Opening or closing cancels queued tools, and menu-held directions must be released before they can start a tool.
+D-pad Down triggers ledge trump only while the menu is hidden. R3 opens or closes the menu; Auto-mash is changed from its menu row. While open, the D-pad only navigates the [saved choices](LEDGE_MENU.md). Hidden Left/Right triggers slides; hidden Up remains normal mapped input. Opening or closing cancels queued tools, and menu-held directions must be released before they can start a tool.
 
 Tap D-pad Down while grounded and actionable. No
 opponent is required. The feature defaults on, including with older configs
@@ -35,8 +35,7 @@ These observations are not a verified simulation-frame timer. Plus uses
 the existing cancellation path. A failed catch hands back physical control;
 there is no automated recovery. Tap again after release for another attempt.
 
-Holding L activates ledge autopilot. R3 alone controls turbo teabag; L3 selects
-Kirby recovery cover. Trump takes priority over ledge autopilot, shortcuts and
+Holding L activates ledge autopilot, including Kirby recovery cover. R3 toggles the menu. Trump takes priority over ledge autopilot, shortcuts and
 side-D-pad slides while active; mash and tech retain priority. D-pad Down is
 reserved while the feature is enabled. Disable the setting to restore it.
 
@@ -53,6 +52,13 @@ No universal fastest timing or successful Switch trump has been measured here.
 Test both ledges on Final Destination first, starting close to the edge; check
 both catch success and immediate manual follow-up. Then vary distance and
 opponent. A stalled run-off may need a dash-to-walk refinement after device data.
+
+The approach now changes from full run input to 0.55 walking input within eight
+units of the selected edge, suppressing dash aliases there. On the first native
+airborne observation it sends inward+Down, then releases Down after native
+progress and keeps inward input. This reduces outward carry during the former
+Down-only phase. It cannot make an ungrabbable platform edge catchable, erase
+native ledge lockouts, or guarantee a trump; verify both sides on Switch.
 
 Policy: `crates/kirby_assist_core/src/ledge_trump.rs`. The live adapter composes
 its output through the existing shared stick/button overlay.

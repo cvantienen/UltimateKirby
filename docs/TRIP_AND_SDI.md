@@ -9,29 +9,26 @@ down_tilt_trip_smash = true
 auto_sdi = true
 ```
 
-## Tilt trip to forward smash
+## Tilt trip follow-up
 
-This tool is Kirby-specific and independent of L autopilot or the Y shortcut. When an opponent is
-observed in a native trip state during Kirby's down tilt, it queues forward
-smash. The existing forward-tilt starter remains supported too. Recognition
-uses only the tilt and trip states; it does not require a separate hit flag,
-last-attacker attribution, trip-age limit, distance, spacing, or facing check.
+This Kirby-only tool is independent of L and Y. **Down tilt → Forward smash**;
+forward tilt also uses forward smash. Recognition accepts an
+opponent in native trip states `0x86..=0x88`, including an already-tripped target.
+It also accepts grounded damage (`0x47`) or downed damage (`0x5a`) immediately
+following one of those trip states. Re-hits can replace the trip status before
+the next observation, so a new trip transition is not required. Unrelated damage,
+air launch, and trip get-up/roll states do not qualify through this fallback.
+There is no extra attribution, spacing, age or hit-confirm requirement.
 
-From recognition onward, the macro overrides physical attack, jump, shield,
-grab, taunt, and stick inputs. It first releases the tilt input to create a fresh
-stick flick, then sends full horizontal stick in Kirby's existing facing
-direction + A, alternating with neutral release samples. These inputs begin
-while tilt lag remains, using the game's normal buffer; no separate smash
-readiness check delays them and no six-attempt limit exhausts them. Repeated
-identical native observations reuse the current output.
+Recognition owns competing controls, releases the old tilt input, then alternates
+neutral releases with **facing-direction+A** for either tilt. These are ordinary buffered inputs during native tilt recovery; they cannot
+cancel native lag. No additional smash-readiness gate or six-pulse limit is added.
+Repeated identical observations reuse output. Native startup of the selected
+smash releases A so it does not deliberately charge. Damage/air/unsupported own
+states, disabling the feature and route/session changes still cancel.
 
-Once queued, the follow-up does not recheck the opponent's state or require the
-roster to remain available. Smash startup releases the macro's A and stick so it
-does not deliberately charge. Damage, leaving the ground, another unsupported
-player action, disabling the feature, or a controller/session change cancels it.
-Ordinary controls return afterward. The macro does not cancel native attack lag;
-the game decides the first legal frame on which buffered forward smash starts.
-The existing `down_tilt_trip_smash` config key is unchanged.
+Each new tilt can rearm the follow-up even when the opponent remains in trip
+wait across attempts. The existing `down_tilt_trip_smash` config key is unchanged.
 
 ## SDI
 

@@ -9,19 +9,20 @@ it is not a device-calibration result. No fighter file loads during a match.
 
 ## Saved ledge responses
 
-Open the menu with **L+R3**. Up/Down selects a row; Left/Right cycles its
+Open the menu with **R3**.
+Up/Down selects a row; Left/Right cycles its
 choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | **Nair**; Dtilt; Ftilt; Ghost f-smash |
-| Jump | **Nair**; Uair; Fair |
+| Neutral | **Nair**; Dtilt; Ftilt; Ghost f-smash; Fruit (stored) |
+| Jump | **Nair**; Uair; Fair; Fruit (stored) |
 | Roll | Lingering ghosts; **Long grab** |
 | Attack | **Shield Nair**; Grab/rear Nair; Shield Tramp |
 | Drop | **Shield**; Dtilt > Shield; SH Bite; Low ghosts (spacing) |
 
 These are the compact UI names; SH means short hop and Msl means missile.
-Labels omit the UI's cached spacing hints. Capture returns control for manual
+Compact move labels match the menu without spacing hints. Capture returns control for manual
 pummels/throws. Selecting a choice does not add a combo or change native hitboxes.
 
 ## Compiled move windows
@@ -55,6 +56,26 @@ Reach is an approximate root-based reference, not an animated grab/hurtbox model
 Shared roll grabs test predicted range/facing, height and vulnerability on the
 same active frame. Native catch readiness and input delivery still matter.
 
+## Baseline reference stats
+
+Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
+instance modifiers or a replacement for existing ledge tuning.
+
+| Stat | Reference |
+| --- | --- |
+| Weight | 95 |
+| Walk speed | 1.097 |
+| Initial dash | 1.87 |
+| Run speed | 1.672 |
+| Air speed | 1.092 |
+| Gravity | 0.072 |
+| Fall speed | 1.35 |
+| Fast fall | 2.16 |
+| Short-hop height | 16.48 |
+| Full-hop height | 34.1 |
+
+[Move source](https://ultimateframedata.com/pac_man) · [Stats source](https://ultimateframedata.com/stats.php)
+
 ## Execution and calibration
 
 The profile declares adaptive short/full-hop selection for generic Jump coverage;
@@ -84,6 +105,31 @@ These are compiled choices; source changes need a separately authorized build/in
 Refresh this reference with `python3 tools/update_fighter_docs.py` after catalog edits.
 
 <!-- END GENERATED FIGHTER REFERENCE -->
+
+## Immediate stored-fruit response
+
+Neutral and Jump each have an additional **Fruit (stored)** choice. Prepare the
+trampoline/spacing yourself and charge-cancel the desired fruit beforehand.
+The response does not charge/select fruit, inspect its identity, set up Pac-Jump
+or read/edit trampoline color. Existing choices/defaults remain unchanged.
+
+On recognizing the selected get-up, grounded/actionable Pac-Man requests neutral
+B immediately, with no protection-expiry, projectile-arrival or range wait. If
+facing away, a 0.6-stick turn comes first; neutral B follows native facing
+confirmation. B releases on observed neutral-special entry, leaving one attempt
+per L hold. Release/re-hold L to rearm. The player must supply stored fruit:
+without it this can enter ordinary Bonus Fruit charging. There is no automatic
+fruit selection or recovery from a missing-fruit setup.
+
+Tapping Special releases a stored fruit; holding it resumes cycling, according
+to the [Prima Ultimate guide](https://primagames.com/eguides/prima-games-8-eguide/pac-man/brawler-arsenal).
+The stored startup reference is 12+7=19 frames from
+[Ultimate Frame Data](https://ultimateframedata.com/pac_man), not projectile
+arrival time. This is an immediate throw input, not an immediate hitbox.
+
+The proposed fruit-double-hit-to-red trampoline interaction has not been
+verified. These responses neither guarantee that conversion nor an automatic KO;
+test each fruit/spacing/get-up combination in Training before relying on it.
 
 ## Lingering ghosts and long grab
 

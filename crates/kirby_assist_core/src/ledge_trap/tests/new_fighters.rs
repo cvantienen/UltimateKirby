@@ -58,15 +58,19 @@ fn expanded_roster_up_air_dispatch_buffers_paired_inputs_until_exact_native_acce
         };
         let mut trap = LedgeTrap::default();
         let out = trap.sample(config, 0, own(0.0), Some(target));
-        assert_eq!(out.requested, MAPPER_X | MAPPER_A, "kind {kind:#x}");
-        assert_eq!(out.stick, Some([0.0, 1.0]));
+        assert_eq!(
+            out.requested,
+            crate::move_input::SHORT_HOP,
+            "kind {kind:#x}"
+        );
+        assert_eq!(out.stick, Some([0.0, 0.0]));
         let squat = LedgeContext {
             status: JUMP_SQUAT,
             stopped: true,
             can_act: false,
             ..own(1.0)
         };
-        assert_eq!(trap.sample(config, 1, squat, None).requested, MAPPER_A);
+        assert_eq!(trap.sample(config, 1, squat, None).requested, 0);
         let air = LedgeContext {
             status: 0xb,
             situation: 2,
@@ -175,8 +179,8 @@ fn up_air_options_pair_jump_attack_and_survive_target_loss_through_acceptance() 
             ..enemy(CLIFF_JUMP1, true)
         };
         let out = trap.sample(config, 0, own(0.0), Some(target));
-        assert_eq!(out.requested, MAPPER_X | MAPPER_A);
-        assert_eq!(out.stick, Some([0.0, 1.0]));
+        assert_eq!(out.requested, crate::move_input::SHORT_HOP);
+        assert_eq!(out.stick, Some([0.0, 0.0]));
         assert!(trap.owns_jump_state(JUMP_SQUAT));
         let squat = LedgeContext {
             status: JUMP_SQUAT,
@@ -185,7 +189,7 @@ fn up_air_options_pair_jump_attack_and_survive_target_loss_through_acceptance() 
             stopped: true,
             ..own(1.0)
         };
-        assert_eq!(trap.sample(config, 1, squat, None).requested, MAPPER_A);
+        assert_eq!(trap.sample(config, 1, squat, None).requested, 0);
         let air = LedgeContext {
             status: 0xb,
             situation: 2,
@@ -264,8 +268,8 @@ fn drop_chases_use_directional_jump_attack_together_for_each_fighter() {
             ..enemy(0xe, true)
         };
         let out = trap.sample(config, 1, own(1.0), Some(target));
-        assert_eq!(out.requested, MAPPER_X | MAPPER_A);
-        assert_eq!(out.stick, Some([0.6, -1.0]));
+        assert_eq!(out.requested, crate::move_input::SHORT_HOP);
+        assert_eq!(out.stick, Some([0.0, 0.0]));
     }
 }
 
@@ -299,8 +303,8 @@ fn yoshi_drop_fair_faces_outward_and_hands_back_after_its_actual_active_window()
         },
         Some(dropped),
     );
-    assert_eq!(out.requested, MAPPER_X | MAPPER_A);
-    assert_eq!(out.stick, Some([-1.0, 0.0]));
+    assert_eq!(out.requested, crate::move_input::SHORT_HOP);
+    assert_eq!(out.stick, Some([0.0, 0.0]));
     let accepted = LedgeContext {
         situation: 2,
         status: ATTACK_AIR,
@@ -1414,7 +1418,7 @@ fn kirby_neutral_bair_short_hops_three_frames_early_without_drift() {
             ..target
         }),
     );
-    assert_eq!(launch.requested, MAPPER_X);
+    assert_eq!(launch.requested, crate::move_input::SHORT_HOP);
     let squat = LedgeContext {
         status: JUMP_SQUAT,
         can_act: false,
@@ -1422,7 +1426,7 @@ fn kirby_neutral_bair_short_hops_three_frames_early_without_drift() {
         motion_frame: 1.0,
         ..ctx
     };
-    assert_eq!(trap.sample(settings, 2, squat, None).requested, MAPPER_A);
+    assert_eq!(trap.sample(settings, 2, squat, None).requested, 0);
     let bair = LedgeContext {
         status: ATTACK_AIR,
         situation: 2,
@@ -1453,7 +1457,7 @@ fn kirby_bair_already_backwards_launches_without_turn_or_locomotion_readiness() 
             ..own(0.0)
         };
         let jump = trap.sample(settings, 0, ctx, Some(target));
-        assert_eq!(jump.requested, MAPPER_X);
+        assert_eq!(jump.requested, crate::move_input::SHORT_HOP);
         assert_eq!(jump.stick, Some([0.0, 0.0]));
         assert!(
             trap.owns_jump_state(6),
@@ -1505,10 +1509,7 @@ fn isabelle_stationary_slingshot_covers_neutral_roll_and_drop_without_chasing() 
                 ..enemy(status, true)
             };
             let launch = trap.sample(settings, 0, ctx, Some(target));
-            assert_eq!(
-                launch.requested,
-                if back { MAPPER_X } else { MAPPER_X | MAPPER_A }
-            );
+            assert_eq!(launch.requested, crate::move_input::SHORT_HOP);
             let squat = LedgeContext {
                 status: JUMP_SQUAT,
                 can_act: false,
@@ -1517,8 +1518,8 @@ fn isabelle_stationary_slingshot_covers_neutral_roll_and_drop_without_chasing() 
                 ..ctx
             };
             let attack = trap.sample(settings, 1, squat, None);
-            assert_eq!(attack.requested, MAPPER_A);
-            assert_eq!(attack.stick, Some([1.0, 0.0]));
+            assert_eq!(attack.requested, 0);
+            assert_eq!(attack.stick, Some([0.0, 0.0]));
             let air = LedgeContext {
                 status: ATTACK_AIR,
                 situation: 2,
@@ -1563,10 +1564,7 @@ fn isabelle_slingshot_shields_until_confirmed_block_then_fires_from_either_facin
         assert!(trap.fighter_move.is_none());
         trap.plan = OptionPlan::Shield { blocked: true };
         (choice.respond)(&mut trap, settings, ctx, target, &mut out);
-        assert_eq!(
-            out.requested,
-            if back { MAPPER_X } else { MAPPER_X | MAPPER_A }
-        );
+        assert_eq!(out.requested, crate::move_input::SHORT_HOP);
         assert!(trap.fighter_move.is_some());
     }
 }

@@ -467,5 +467,5 @@ Passing the tests proves the tested logical behavior. Building the `.nro` proves
 For learning Rust beyond this project, the official [Rust Book](https://doc.rust-lang.org/book/) is a useful companion. Start with variables, structs, enums, ownership/borrowing, and traits, then reread the walkthrough with those concepts in mind.
 
 For held-L ledge autopilot, read [LEDGE_TRAP.md](LEDGE_TRAP.md).
-Held-L3 Kirby recovery cover is documented in [TWO_FRAME.md](TWO_FRAME.md). These guides walk through observations, state and input composition. Source
+Integrated held-L Kirby recovery cover is documented in [TWO_FRAME.md](TWO_FRAME.md). These guides walk through observations, state and input composition. Source
 changes need a separately built and installed NRO.

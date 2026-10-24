@@ -1,6 +1,6 @@
 //! Existing regression cases for `slide`. Kept outside the runtime code.
 use super::*;
-fn ground() -> SlideContext {
+pub(super) fn ground() -> SlideContext {
     SlideContext {
         gameplay: true,
         stopped: false,
@@ -156,7 +156,7 @@ fn damage_scope_loss_and_clock_rewind_cancel_but_stop_freezes_without_dodging() 
                 ..air(1.0)
             }
         ),
-        LedgeOutput::default()
+        owned() // Keep ownership without pressing Jump or Guard during stop.
     );
     assert_eq!(
         state.sample(true, 2, DPAD_RIGHT, air(1.0)).requested,
@@ -247,7 +247,7 @@ fn slide_recipe_has_real_jump_and_shield_edges_with_the_shared_overlay() {
     assert_eq!(dodge.stick, [SLIDE_STICK_X, SLIDE_STICK_Y]);
     assert_eq!(
         dodge.buttons.held & LEFT_STICK_DIRECTIONS,
-        (1 << 21) | (1 << 22)
+        1 << 21 // Shallow analog Down stays below the digital Down threshold.
     );
     let release = apply(state.sample(
         true,
@@ -266,7 +266,7 @@ fn downward_angle_and_guard_are_preserved_until_native_dodge_acceptance() {
         let mut state = SlideState::default();
         state.sample(true, 0, button, ground());
         let request = state.sample(true, 1, button, air(1.0));
-        let angle = [direction * 0.7071, -0.7071];
+        let angle = [direction * 0.9588, -0.2839];
         assert_eq!(request.stick, Some(angle));
         assert_eq!(request.requested, MAPPER_ZR);
         let awaiting = state.sample(true, 2, button, air(2.0));

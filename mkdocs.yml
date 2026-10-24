@@ -15,15 +15,23 @@ nav:
       - Control reference: CONTROLS.md
       - Saved ledge menu: LEDGE_MENU.md
       - Ledge autopilot: LEDGE_TRAP.md
+      - Onstage Roll read: ROLL_READ.md
+      - Kirby finisher attempts: FINISHERS.md
       - Analog mash: ANALOG_MASH.md
       - Automatic tech: AUTO_TECH.md
       - Trip follow-up and SDI: TRIP_AND_SDI.md
-      - Shortcuts and R3 teabag: TURBO_CONTROLS.md
+      - Shortcuts: TURBO_CONTROLS.md
+      - Input recipes and posture: INPUT_RECIPES.md
+      - Training and monitoring: TRAINING_MONITOR.md
       - D-pad slides: SLIDE_CONTROLS.md
-      - Kirby L3 recovery cover: TWO_FRAME.md
+      - Kirby recovery cover: TWO_FRAME.md
       - D-pad Down ledge trump: LEDGE_TRUMP.md
   - Development:
       - Source map: CODE_MAP.md
+      - Shared observations and timing: OBSERVATIONS_AND_TIMING.md
+      - Action ownership: ACTION_OWNERSHIP.md
+      - Parked whiff prototype: WHIFF_PUNISH.md
+      - Opponent reference data: OPPONENT_DATA.md
       - Diagnostic result card: CALIBRATION_CARD.md
       - Ledge menu source review: COMBO_REVIEW.md
       - Removed combo system: CUSTOM_COMBOS.md

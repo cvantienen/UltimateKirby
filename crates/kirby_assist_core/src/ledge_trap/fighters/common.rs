@@ -7,6 +7,80 @@ use super::super::{
 use crate::fighter_profiles::presets::{MenuPresets, PresetSlot};
 use crate::native_input::{MAPPER_A, MAPPER_ZR};
 
+/// Optional approach during an existing neutral-nair wait. Call the attack
+/// handler FIRST: position must never become a prerequisite for launching.
+pub(super) fn walk_before_neutral_nair(
+    trap: &mut LedgeTrap,
+    s: LedgeSettings,
+    ctx: LedgeContext,
+    enemy: Opponent,
+    out: &mut LedgeOutput,
+    stick: f32,
+    inset: f32,
+) {
+    let launch_in = f32::from(super::super::JUMP_SQUAT_FRAMES + s.fighter.neutral_air.first)
+        + ctx.input_delay
+        + f32::from(s.fighter.normal_hit_lead_frames);
+    if enemy.status == super::super::CLIFF_CLIMB
+        && trap.climb_seen
+        && !enemy.vulnerable
+        && enemy
+            .vulnerable_in
+            .is_some_and(|left| left.is_finite() && left <= 120.0 && left > launch_in)
+    {
+        walk_toward_ledge(trap, ctx, out, stick, inset);
+    }
+}
+
+/// Shared movement only; each opt-in response decides whether it is still
+/// waiting. Never issue buttons or modify an attack's timing/commit state.
+pub(super) fn walk_toward_ledge(
+    trap: &mut LedgeTrap,
+    ctx: LedgeContext,
+    out: &mut LedgeOutput,
+    stick: f32,
+    inset: f32,
+) {
+    if trap.jump_committed
+        || ctx.stopped
+        || ctx.situation != 0
+        || !ctx.can_act
+        || !ctx.can_control
+        || !matches!(ctx.status, 0..=2)
+        || out.requested != 0
+    {
+        return;
+    }
+    let Some(anchor) = trap.anchor.filter(|p| p.iter().all(|v| v.is_finite())) else {
+        return;
+    };
+    if !ctx
+        .position
+        .iter()
+        .chain(ctx.velocity.iter())
+        .all(|v| v.is_finite())
+        || (ctx.position[1] - anchor[1]).abs() > 6.0
+        || !trap.inward.is_finite()
+        || trap.inward.abs() < 0.5
+    {
+        return;
+    }
+    let inward = trap.inward.signum();
+    let toward_ledge = -inward;
+    let gap = (ctx.position[0] - anchor[0]) * inward - inset;
+    let coast = super::super::prediction::roll_stopping_distance(ctx, toward_ledge)
+        .unwrap_or(ctx.velocity[0].abs() * 2.0);
+    // Keep ownership while braking so physical input cannot push past the stop.
+    trap.movement_preparing = true;
+    // Explicit ownership lets the native overlay suppress horizontal flick
+    // aliases while preserving this fast analog walk request.
+    out.owned |= crate::manual_controls::LEFT_STICK_DIRECTIONS;
+    out.stick = Some([0.0, 0.0]);
+    if gap > coast + 0.5 && ctx.safe_ground[usize::from(toward_ledge > 0.0)] {
+        out.stick = Some([toward_ledge * stick, 0.0]);
+    }
+}
+
 pub(super) fn dispatch(
     menu: &MenuPresets,
     trap: &mut LedgeTrap,

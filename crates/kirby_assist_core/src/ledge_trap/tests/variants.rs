@@ -410,7 +410,7 @@ fn roll_grab_arrives_before_request_and_capture_returns_all_controls() {
 }
 
 #[test]
-fn drop_dair_immediately_pairs_jump_attack_down_and_outward_drift() {
+fn drop_dair_jumps_neutrally_then_buffers_directional_attack() {
     let s = configured(PresetSlot::Drop, "short_hop_dair");
     assert_eq!(s.drop_action, LedgeDropAction::ShortHopDair);
     let mut trap = LedgeTrap::default();
@@ -420,11 +420,8 @@ fn drop_dair_immediately_pairs_jump_attack_down_and_outward_drift() {
         ..drop()
     };
     let out = trap.sample(s, 0, own(0.0), Some(target));
-    assert_eq!(out.requested, MAPPER_X | MAPPER_A);
-    assert_eq!(
-        out.stick,
-        Some([crate::fighter_profiles::kirby::DROP_DAIR_SELECT_DRIFT, -1.0])
-    );
+    assert_eq!(out.requested, MAPPER_X);
+    assert_eq!(out.stick, Some([0.0, 0.0]));
     assert!(trap.drop_dair_active());
     assert_eq!(trap.action_name(), "short_hop_dair_ledge_drop");
     // Changed opponent coordinates must not consume our native request clock.
@@ -443,11 +440,8 @@ fn drop_dair_uses_locked_ledge_direction_and_continues_without_a_target() {
     let mut trap = LedgeTrap::default();
     trap.prepare_stance([-8.0, 0.0], 1.0);
     let first = trap.sample(s, 0, own(0.0), Some(drop()));
-    assert_eq!(first.requested, MAPPER_X | MAPPER_A);
-    assert_eq!(
-        first.stick.unwrap()[0],
-        -crate::fighter_profiles::kirby::DROP_DAIR_SELECT_DRIFT
-    );
+    assert_eq!(first.requested, MAPPER_X);
+    assert_eq!(first.stick, Some([0.0, 0.0]));
     assert!(trap.owns_jump_state(JUMP_SQUAT));
     let squat = LedgeContext {
         status: JUMP_SQUAT,
@@ -561,7 +555,7 @@ fn drop_dair_rejected_inputs_have_releases_and_expire_in_native_time() {
     let mut trap = LedgeTrap::default();
     assert_eq!(
         trap.sample(s, 0, own(0.0), Some(drop())).requested,
-        MAPPER_X | MAPPER_A
+        MAPPER_X
     );
     assert_eq!(trap.sample(s, 1, own(1.0), None).requested, 0);
     for frame in 2..35 {

@@ -1,5 +1,5 @@
-//! Kirby bair responses: backward C-stick -> short-hop jump -> forward stick
-//! when front-facing, direct short-hop bair when already back-facing.
+//! Jump bair: ordinary grounded turnaround -> paired short hop -> buffered bair.
+//! Neutral bair also uses a native-facing-confirmed turn, never a grounded tilt.
 //! Timing follows observed native states; no wall-clock waits or status writes.
 use super::super::super::{
     LedgeContext, LedgeOutput, LedgeSettings, LedgeTrap, Opponent, CLIFF_CLIMB, CLIFF_JUMP1,
@@ -21,12 +21,13 @@ pub(super) fn respond(
     if !s.responses.jump_getup
         || c.stopped
         || c.situation != 0
+        || !c.can_control
         || !c.can_jump
         || e.situation == 0 && !(CLIFF_JUMP1..=CLIFF_JUMP3).contains(&e.status)
     {
         return;
     }
-    start(t, c, e, o, JUMP_BAIR_DRIFT);
+    start(t, c, e, o, JUMP_BAIR_DRIFT, true);
 }
 
 pub(super) fn neutral(
@@ -45,11 +46,21 @@ pub(super) fn neutral(
         || e.status != CLIFF_CLIMB
         || c.stopped
         || c.situation != 0
+        || !c.can_control
         || !c.can_jump
     {
         return;
     }
     o.stick = Some([0.0, 0.0]);
+    o.owned = super::super::super::LEDGE_BUTTONS;
+    let away = away_from(c, e);
+    if c.facing * away < 0.5 {
+        t.movement_preparing = true;
+        if c.can_act || matches!(c.status, 0x7 | 0x8) {
+            o.stick = Some([away * 0.6, 0.0]);
+        }
+        return; // Turn during the waiting window, with no grounded A/C-stick.
+    }
     let Some(opens) = (if e.vulnerable {
         Some(0.0)
     } else {
@@ -65,7 +76,7 @@ pub(super) fn neutral(
     {
         return;
     }
-    start(t, c, e, o, NEUTRAL_BAIR_DRIFT);
+    start(t, c, e, o, NEUTRAL_BAIR_DRIFT, false);
 }
 
 fn away_from(c: LedgeContext, e: Opponent) -> f32 {
@@ -78,7 +89,14 @@ fn away_from(c: LedgeContext, e: Opponent) -> f32 {
     -toward
 }
 
-fn start(t: &mut LedgeTrap, c: LedgeContext, e: Opponent, o: &mut LedgeOutput, drift: f32) {
+fn start(
+    t: &mut LedgeTrap,
+    c: LedgeContext,
+    e: Opponent,
+    o: &mut LedgeOutput,
+    drift: f32,
+    turn_only: bool,
+) {
     let away = away_from(c, e);
     let recipe = Move {
         kind: MoveKind::Aerial {
@@ -90,8 +108,14 @@ fn start(t: &mut LedgeTrap, c: LedgeContext, e: Opponent, o: &mut LedgeOutput, d
         drift: -drift,
     };
     let action = OneShot::new(recipe, away);
-    t.fighter_move = Some(if c.facing * away < 0.5 {
-        action.with_attack_cancel()
+    t.fighter_move = Some(if turn_only {
+        // No C-stick or grounded A: those could leave Kirby doing a tilt.
+        // The shared sequence sends a turn input, waits for native facing,
+        // then pairs X+ZL, releases in squat and selects bair after takeoff.
+        action
+            .with_turn_before_jump()
+            .with_paired_jump()
+            .with_squat_buffer()
     } else {
         action.with_turn_before_jump()
     });

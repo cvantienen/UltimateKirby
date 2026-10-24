@@ -180,6 +180,31 @@ fn respond_to_roll_grab(
     e: Opponent,
     o: &mut LedgeOutput,
 ) {
+    // Prepare Samus's inward facing immediately, before the shared range/timing
+    // path can send a tether grab while she is still looking at the ledge.
+    // Do not interrupt an issued or native-accepted grab.
+    if s.responses.roll_getup
+        && e.status == super::super::CLIFF_ESCAPE
+        && !t.grab_in_progress
+        && t.pending != Pending::Grab
+        && c.situation == 0
+        && c.can_act
+        && c.can_control
+        && !c.stopped
+    {
+        let inward = if t.anchor.is_some() {
+            t.inward
+        } else {
+            e.cliff_position
+                .map_or(0.0, |ledge| (c.position[0] - ledge[0]).signum())
+        };
+        if inward.is_finite() && inward.abs() > 0.5 && c.facing * inward < 0.5 {
+            t.movement_preparing = true;
+            o.stick = Some([inward.signum() * 0.6, 0.0]);
+            o.requested = 0;
+            return;
+        }
+    }
     t.respond_to_roll_grab(s, c, e, o);
 }
 fn respond_to_roll_zair(

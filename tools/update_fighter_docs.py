@@ -24,6 +24,11 @@ NAMES = {
     "dr_mario": "Dr. Mario", "rosalina_and_luma": "Rosalina & Luma",
     "ice_climbers": "Ice Climbers (Popo)", "ice_climbers_nana": "Ice Climbers (Nana)",
 }
+
+@lru_cache(maxsize=1)
+def opponent_reference():
+    snapshot = json.loads((ROOT / "data/opponent_reference.json").read_text())
+    return {f["kind"]: f for f in snapshot["fighters"]}
 ROWS = ["Neutral", "Jump", "Roll", "Attack", "Drop"]
 
 
@@ -156,7 +161,8 @@ def render(module):
              "Native fighter kind **%s** (`%s`). This reference follows the compiled source;" % (kind, module),
              "it is not a device-calibration result. No fighter file loads during a match.", "",
              "## Saved ledge responses", "",
-             "Open the menu with **L+R3**. Up/Down selects a row; Left/Right cycles its",
+             "Open the menu with **R3**.",
+             "Up/Down selects a row; Left/Right cycles its",
              "choices. Hold **L** to run the selected responses. Defaults are bold.", "",
              "| Row | Saved choices, in menu order |", "| --- | --- |"]
     for name, row in zip(ROWS, menu):
@@ -165,7 +171,7 @@ def render(module):
                    for index, name in enumerate(names)]
         lines.append("| %s | %s |" % (name, "; ".join(choices)))
     lines += ["", "These are the compact UI names; SH means short hop and Msl means missile.",
-              "Labels omit the UI's cached spacing hints. Capture returns control for manual",
+              "Compact move labels match the menu without spacing hints. Capture returns control for manual",
               "pummels/throws. Selecting a choice does not add a combo or change native hitboxes.", "",
               "## Compiled move windows", "",
               "These are stored inclusive animation-frame spans. They are not total input-to-hit",
@@ -194,6 +200,21 @@ def render(module):
               "Shared roll grabs test predicted range/facing, height and vulnerability on the",
               "same active frame. Native catch readiness and input delivery still matter.", "",
               "## Execution and calibration", ""]
+    facts = opponent_reference().get(int(kind))
+    if facts:
+        table = {s["key"]: s["value"] for s in facts["stats"]}
+        section = ["## Baseline reference stats", "",
+                   "Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not",
+                   "instance modifiers or a replacement for existing ledge tuning.", "",
+                   "| Stat | Reference |", "| --- | --- |"]
+        for key, label in [("weight.weight", "Weight"), ("walkspeed.walkspeed", "Walk speed"),
+                           ("dashandrun.initialdash", "Initial dash"), ("dashandrun.runspeed", "Run speed"),
+                           ("airspeed.airspeed", "Air speed"), ("gravityt.gravity", "Gravity"),
+                           ("fallspeed.regularfall", "Fall speed"), ("fallspeed.fastfall", "Fast fall"),
+                           ("jumpheight.shorthop", "Short-hop height"), ("jumpheight.fullhop", "Full-hop height")]:
+            section.append("| %s | %s |" % (label, table.get(key, "Unknown")))
+        section += ["", "[Move source](%s) · [Stats source](https://ultimateframedata.com/stats.php)" % facts["source"], ""]
+        lines[-2:-2] = section
     if "AerialExecution::SHORT" in profile:
         lines += ["The profile declares short hops for common nair responses."]
     else:

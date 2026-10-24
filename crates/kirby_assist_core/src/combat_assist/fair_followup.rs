@@ -28,9 +28,22 @@ pub struct FairFollowup {
     spent: bool,
     age: f32,
     facing: f32,
+    down_held: bool,
 }
 impl FairFollowup {
+    pub fn cancel_pending(&mut self) {
+        self.finish();
+        self.output = LedgeOutput::default();
+    }
     pub fn sample(&mut self, enabled: bool, ctx: FairContext) -> LedgeOutput {
+        self.sample_with_velocity(enabled, ctx, 0.0)
+    }
+    pub fn sample_with_velocity(
+        &mut self,
+        enabled: bool,
+        ctx: FairContext,
+        velocity_y: f32,
+    ) -> LedgeOutput {
         if !enabled
             || !ctx.kirby
             || !ctx.frame.is_finite()
@@ -57,6 +70,7 @@ impl FairFollowup {
             });
         if new_fair && !self.queued {
             self.spent = false;
+            self.down_held = false;
         }
         let recognized = !self.queued
             && !self.spent
@@ -69,13 +83,12 @@ impl FairFollowup {
             self.age = 0.0;
             self.facing = ctx.facing.signum();
         } else if self.queued && !ctx.stopped {
-            let delta = self.last.map_or(0.0, |last| {
-                if last.status == ctx.status && last.motion == ctx.motion {
-                    (ctx.frame - last.frame) / last.rate
-                } else {
-                    1.0
-                }
-            });
+            let delta = crate::timing::motion_elapsed(
+                self.last
+                    .map(|last| (last.status, last.motion, last.frame, last.rate)),
+                (ctx.status, ctx.motion, ctx.frame, ctx.rate),
+                0.0,
+            );
             if !delta.is_finite() || !(0.0..=8.0).contains(&delta) {
                 self.finish();
             } else {
@@ -96,6 +109,12 @@ impl FairFollowup {
             } else {
                 out.owned = TRIP_BUTTONS;
                 out.stick = Some([0.0, 0.0]);
+                if !ctx.grounded {
+                    self.down_held |= !ctx.stopped && velocity_y.is_finite() && velocity_y < -0.05;
+                    if self.down_held {
+                        out.stick = Some([0.0, -1.0]);
+                    }
+                }
                 if ctx.status == 0x2d {
                     // Release A to avoid charge, but preserve the angle through
                     // startup until native forward-smash attack selection.
@@ -123,6 +142,7 @@ impl FairFollowup {
     }
     fn finish(&mut self) {
         self.queued = false;
+        self.down_held = false;
         self.spent = true;
     }
 }

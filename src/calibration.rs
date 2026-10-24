@@ -88,6 +88,36 @@ pub struct Report {
     was_native: bool,
     ending: Option<&'static str>,
 }
+/// Worker-only explanation; retain unknown gate names with readable spacing.
+fn readable_gate(gate: &str) -> std::borrow::Cow<'_, str> {
+    let known = match gate {
+        "watch_ledge" => "Watching for an opponent ledge option",
+        "native stop" => "Hitstop/native stop: waiting without spending timing frames",
+        "native control unavailable" => "Current game state does not permit control",
+        "normal_getup_nair" => "Timing neutral air against neutral getup",
+        "prepare_neutral_air" => "Preparing jump and neutral-air selection",
+        "short_hop_neutral_air" => "Delivering the short-hop neutral-air route",
+        "roll_wait_grounded" => "Waiting to be grounded before punishing the roll",
+        "roll_punish_window_missed" => "Recovery window expired; avoiding a late punish",
+        "roll_close_attack_range" => "Walking into the predicted roll-punish range",
+        "roll_brake_before_destination" | "roll_release_approach" => {
+            "Releasing movement before the punish input"
+        }
+        "roll_face_grab" => "Turning toward the projected grab contact point",
+        "roll_wait_smash_ready" => "Waiting for native down-smash readiness",
+        "roll_wait_tilt_ready" => "Waiting for native down-tilt readiness",
+        "roll_wait_attack_release" => "Releasing attack so the next press has a fresh edge",
+        "shield_wait_for_block" => "Holding shield while waiting for a block",
+        "shield_grab_after_stun" => "Waiting for shield stun/recovery before grab",
+        "two_frame_watch_recovery" => "Watching the opponent's recovery toward the ledge",
+        "two_frame_prepare_input" => "Releasing input before the two-frame punish window",
+        "two_frame_attack_request" => "Requesting the precisely timed two-frame attack",
+        "finished" | "two_frame_handoff" => "Attempt finished; returning control",
+        "not observed" => "No mapper delivery sample was recorded",
+        _ => return gate.replace('_', " ").into(),
+    };
+    known.into()
+}
 impl Report {
     fn result(&self) -> &'static str {
         if self.captured {
@@ -109,79 +139,71 @@ impl Report {
         }
     }
 
-    /// Short cached display; the separate log preserves every observed channel.
-    #[cfg(feature = "imgui-menu")]
+    fn explanation(&self) -> &'static str {
+        if self.captured {
+            "The game confirmed a capture."
+        } else if self.hit.is_some() {
+            "A hit flag was observed; the victim is not verified."
+        } else if self.blocked {
+            "A block was observed; this is not an attack hit."
+        } else if self.move_start.is_some() {
+            "The selected move started, but no hit was confirmed. Timing or spacing may explain the miss; the log cannot prove which."
+        } else if self.action_requested() && self.action_mapped() {
+            "Input reached mapping, but the selected move was not observed before this attempt ended. Check the last native state and interruption reason."
+        } else if self.action_requested() {
+            "A move was requested, but mapped delivery was not observed. Check the mapper gate below."
+        } else if self.jump_start.is_some() {
+            "A jump was observed without a confirmed selected move. Check the attack channel and last waiting gate."
+        } else if self.last.context.stopped {
+            "Native stop froze progression; the controller waited instead of spending timing frames."
+        } else if !self.last.context.can_control {
+            "Native control was unavailable, so the controller did not start a move."
+        } else if self.last.enemy.is_none() {
+            "No opponent was available in the last observation; no selected move was requested."
+        } else if !self.last.context.can_act {
+            "A new grounded action was unavailable in the last native state."
+        } else {
+            "No selected move was requested. Check the last gate, protection countdown and spacing below for the unsatisfied conditions."
+        }
+    }
+
+    /// Compact frozen summary; all formatting happens on the logger worker.
+    #[cfg(any(feature = "imgui-menu", test))]
     fn card_text(&self) -> String {
-        let mut text = String::with_capacity(1_536);
+        let mut text = String::with_capacity(768);
         let _ = writeln!(
             text,
             "{} | {:?} > {}",
             self.fighter, self.first.slot, self.choice
         );
         let _ = writeln!(text, "{}", self.result());
+        let _ = writeln!(text, "Why: {}", self.explanation());
+        let at =
+            |stamp: Option<Stamp>| stamp.map_or_else(|| "?".into(), |s| format!("+{}ms", s.ms));
         let _ = writeln!(
             text,
-            "Config window: {}-{}f; hop: {}",
-            number(self.model.first.map(f32::from)),
-            number(self.model.last.map(f32::from)),
-            self.model
-                .full_hop
-                .map_or("? / n.a.", |v| if v { "full" } else { "short" })
+            "Jump: {} | move: {}",
+            at(self.jump_start),
+            at(self.move_start)
         );
         let _ = writeln!(
             text,
-            "Lead: {}f; drift: {}; until: {}f",
-            number(self.last.lead.or(self.first.lead)),
-            number(self.model.drift),
-            number(self.model.drift_until.map(f32::from))
+            "Protection off: {} | hit: {}",
+            at(self.vulnerable),
+            at(self.hit)
         );
-        let _ = writeln!(text, "Read: {}", self.first_stamp.describe());
-        let _ = writeln!(text, "Protection off: {}", point(self.vulnerable));
-        let request = match self.model.kind {
-            CalibrationKind::Attack => self.requests[1],
-            CalibrationKind::Grab | CalibrationKind::Zair => self.requests[2],
-            CalibrationKind::Special => self.requests[3],
-            CalibrationKind::Shield => self.requests[4],
-            CalibrationKind::Unknown => None,
-        };
-        let _ = writeln!(text, "Request: {}", point(request));
         let _ = writeln!(
             text,
-            "Mapped J/A/G/B/S: {}/{}/{}/{}/{}",
-            self.mapped[0], self.mapped[1], self.mapped[2], self.mapped[3], self.mapped[4]
+            "Last: {} f{:.1}",
+            kirby_assist_core::diagnostics::modes::native_name(self.last.context.status),
+            self.last.context.motion_frame
         );
-        let _ = writeln!(text, "Native jump: {}", point(self.jump_start));
-        let _ = writeln!(text, "Native move: {}", point(self.move_start));
-        let _ = writeln!(
-            text,
-            "Own last: {:#x} f{:.1}; window pose: {}",
-            self.last.context.status,
-            self.last.context.motion_frame,
-            number(self.activity_frame)
-        );
-        let f = self.first_request.unwrap_or(self.last);
-        let _ = writeln!(
-            text,
-            "Request/last gap: {}; height: {}; ref: {}",
-            number(
-                f.enemy
-                    .map(|e| (e.position[0] - f.context.position[0]) * f.context.facing)
-            ),
-            number(f.enemy.map(|e| e.position[1] - f.context.position[1])),
-            number(f.configured_range)
-        );
-        if let Some(spot) = self.last.endpoint {
-            let _ = writeln!(text, "Roll aim / stand: {:.1} / {:.1}", spot[0], spot[1]);
-        }
-        let _ = writeln!(
-            text,
-            "Wait: {}\nMapper: {}",
-            self.last_wait, self.mapper_gate
-        );
-        let _ = writeln!(text, "End: {} (+{}ms)", self.end, self.last_stamp.ms);
-        text.push_str("Frames = motion-local. Config window != hitbox proof.\nFull detail in status.log; ? = unknown.");
+        let _ = writeln!(text, "Wait: {}", readable_gate(self.last_wait));
+        let _ = writeln!(text, "End: {}", self.end.replace('_', " "));
+        text.push_str("? = unobserved. Full evidence: status.log");
         text
     }
+
     fn elapsed(&self, now: Instant) -> u64 {
         now.saturating_duration_since(self.origin)
             .as_millis()
@@ -196,6 +218,15 @@ impl Report {
             CalibrationKind::Unknown => false,
         }
     }
+    fn action_mapped(&self) -> bool {
+        match self.model.kind {
+            CalibrationKind::Attack => self.mapped[1],
+            CalibrationKind::Grab | CalibrationKind::Zair => self.mapped[2],
+            CalibrationKind::Special => self.mapped[3],
+            CalibrationKind::Shield => self.mapped[4],
+            CalibrationKind::Unknown => false,
+        }
+    }
     /// Worker thread only. Native frames and wall time are kept separate.
     pub fn format(&self) -> String {
         let mut text = String::with_capacity(3_072);
@@ -207,6 +238,7 @@ impl Report {
             kirby_assist_core::fighter_profiles::presets::PresetSlot::Drop => "DROP",
         };
         let result = self.result();
+        let _ = writeln!(text, "What happened: {result}\nWhy: {}", self.explanation());
         let _ = writeln!(
             text,
             "LEDGE RESULT | {} ({:#x}) | {label} > {}",
@@ -239,6 +271,12 @@ impl Report {
                 |full| if full { "full" } else { "short" },
             );
         let _ = writeln!(text, "Configured move window: {first}-{last}; hop: {hop}");
+        if let Some(frame) = self.model.fast_fall_from {
+            let _ = writeln!(
+                text,
+                "Configured fast fall: accepted nair f{frame}+; downward velocity required"
+            );
+        }
         if let Some(lead) = self.last.lead.or(self.first.lead) {
             let _ = writeln!(text, "Configured early lead: {lead:.1}f");
         }
@@ -269,14 +307,22 @@ impl Report {
         if let Some(start) = self.move_start {
             let _ = writeln!(
                 text,
-                "Own start: status {:#x}, motion f{:.1}",
-                start.own_status, start.own_frame
+                "Own start: {} (status {:#x}), animation frame {:.1}",
+                kirby_assist_core::diagnostics::modes::native_name(start.own_status),
+                start.own_status,
+                start.own_frame
             );
         }
         let _ = writeln!(
             text,
-            "Last own: status {:#x}, motion {:#x}@{:.1}",
-            self.last.context.status, self.last.context.motion_kind, self.last.context.motion_frame
+            "Last own: {} (status {:#x}), animation {} at frame {:.1}",
+            kirby_assist_core::diagnostics::modes::native_name(self.last.context.status),
+            self.last.context.status,
+            kirby_assist_core::diagnostics::modes::motion_name(
+                self.last.context.status,
+                self.last.context.motion_kind
+            ),
+            self.last.context.motion_frame
         );
         let _ = writeln!(
             text,
@@ -331,8 +377,10 @@ impl Report {
         }
         let _ = writeln!(
             text,
-            "Last wait: {} | mapper: {}",
-            self.last_wait, self.mapper_gate
+            "Last waiting condition: {} [gate: {}]\nInput delivery: {}",
+            readable_gate(self.last_wait),
+            self.last_wait,
+            readable_gate(self.mapper_gate)
         );
         let _ = writeln!(
             text,

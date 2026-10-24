@@ -245,6 +245,59 @@ fn turbo_starts_down_on_first_poll_and_in_grounded_running_states() {
         );
     }
 }
+
+#[test]
+fn dash_pivot_holds_a_full_reversal_for_two_native_updates_only() {
+    let mut pivot = DashPivotAssist::default();
+    assert_eq!(pivot.sample(1, 3, 0, false, [1.0, 0.0]).stick, None);
+    assert_eq!(
+        pivot.sample(2, 3, 0, false, [-0.82, 0.1]).stick,
+        Some([-1.0, 0.0])
+    );
+    // Repeated controller polls on one game update cannot consume the window.
+    assert_eq!(
+        pivot.sample(2, 3, 0, false, [-0.82, 0.1]).stick,
+        Some([-1.0, 0.0])
+    );
+    assert_eq!(
+        pivot.sample(3, 4, 0, false, [-0.82, 0.1]).stick,
+        Some([-1.0, 0.0])
+    );
+    assert_eq!(pivot.sample(4, 4, 0, false, [-0.82, 0.1]).stick, None);
+}
+
+#[test]
+fn dash_pivot_does_not_rewrite_walk_air_or_hitstop_input() {
+    for (status, situation, stopped) in [(1, 0, false), (3, 1, false), (3, 0, true)] {
+        let mut pivot = DashPivotAssist::default();
+        pivot.sample(1, 3, 0, false, [1.0, 0.0]);
+        assert_eq!(
+            pivot
+                .sample(2, status, situation, stopped, [-1.0, 0.0])
+                .stick,
+            None
+        );
+    }
+}
+
+#[test]
+fn full_dash_then_same_direction_ease_becomes_max_walk_without_blocking_run() {
+    let mut movement = DashPivotAssist::default();
+    assert_eq!(movement.sample(1, 3, 0, false, [1.0, 0.0]).stick, None);
+    assert_eq!(
+        movement.sample(2, 3, 0, false, [0.3, 0.0]).stick,
+        Some([0.49, 0.0])
+    );
+    assert_eq!(
+        movement.sample(3, 1, 0, false, [0.3, 0.0]).stick,
+        Some([0.49, 0.0])
+    );
+    assert_eq!(movement.sample(4, 1, 0, false, [0.0, 0.0]).stick, None);
+
+    let mut running = DashPivotAssist::default();
+    assert_eq!(running.sample(1, 3, 0, false, [1.0, 0.0]).stick, None);
+    assert_eq!(running.sample(2, 6, 0, false, [1.0, 0.0]).stick, None);
+}
 #[test]
 fn phase_length_and_reentry_do_not_keep_old_direction_or_clock() {
     let settings = TurboSettings {
@@ -272,8 +325,8 @@ fn phase_length_and_reentry_do_not_keep_old_direction_or_clock() {
 #[test]
 fn manual_ledge_walk_caps_both_sides_preserves_fine_input_and_vertical_control() {
     for (input, expected) in [
-        ([1.0, 0.0], [0.35, 0.0]),
-        ([-1.0, -1.0], [-0.35, -1.0]),
+        ([1.0, 0.0], [0.5, 0.0]),
+        ([-1.0, -1.0], [-(0.35 - 0.02), -1.0]),
         ([0.12, 0.7], [0.12, 0.7]),
         ([0.0, 0.0], [0.0, 0.0]),
     ] {
@@ -283,7 +336,7 @@ fn manual_ledge_walk_caps_both_sides_preserves_fine_input_and_vertical_control()
         ledge_walk_stick([f32::NAN, f32::INFINITY], f32::NAN),
         [0.0, 0.0]
     );
-    assert_eq!(ledge_walk_stick([1.0, 0.0], 1.0), [0.45, 0.0]);
+    assert_eq!(ledge_walk_stick([1.0, 0.0], 1.0), [0.5, 0.0]);
 }
 #[test]
 fn walk_cap_clears_full_stick_direction_bits_and_returns_physical_input_on_exit() {
@@ -300,8 +353,8 @@ fn walk_cap_clears_full_stick_direction_bits_and_returns_physical_input_on_exit(
             consume_dpad: false,
             stick: Some(ledge_walk_stick(physical, 0.35)),
         };
-        let frame = overlay.apply_controls(human, physical, output, 0, 0, 0);
-        assert_eq!(frame.stick, [direction * 0.35, 0.0]);
+        let frame = overlay.apply_controls(human, physical, output, (1 << 21) | (1 << 23), 0, 0);
+        assert_eq!(frame.stick, [direction * 0.5, 0.0]);
         assert_eq!(frame.buttons.held & LEFT_STICK_DIRECTIONS, 0);
         assert_eq!(frame.buttons.held & MAPPER_A, MAPPER_A);
         assert_ne!(frame.clear_autorepeat & LEFT_STICK_DIRECTIONS, 0);
@@ -383,8 +436,9 @@ fn l_assist_and_l3_turbo_have_independent_consumed_bindings() {
 }
 
 #[test]
-fn r3_turbo_restores_facing_walk_cancel_at_one_update_per_phase() {
-    assert_eq!(TURBO_TRIGGER, 1 << 17);
+fn l3_turbo_restores_facing_walk_cancel_at_one_update_per_phase() {
+    assert_eq!(TURBO_TRIGGER, 1 << 16);
+    assert_eq!(TURBO_TRIGGER & crate::ledge_menu::MENU_STICK_CLICK, 0);
     assert_eq!(SHORT_HOP_TRIGGER, crate::native_input::MAPPER_X);
     for facing in [-1.0, 1.0] {
         let mut tool = TurboState::default();

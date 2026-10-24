@@ -22,7 +22,10 @@ pub(super) struct TechAssessment {
     pub(super) capture_clock: Option<(u64, f32, f32)>,
 }
 
-unsafe fn grounded_ganon_timing(object: *mut game::Object) -> Option<(f32, u64, f32, f32)> {
+unsafe fn grounded_ganon_timing(
+    reads: &super::frame::FrameReads,
+    object: *mut game::Object,
+) -> Option<(f32, u64, f32, f32)> {
     if !game::is_link(object, 0) {
         return None;
     }
@@ -35,16 +38,16 @@ unsafe fn grounded_ganon_timing(object: *mut game::Object) -> Option<(f32, u64, 
     if captor.is_null() || captor.cast::<u8>().add(8).cast::<u32>().read() != id {
         return None;
     }
-    let motion = game::motion_kind(captor);
+    let motion = reads.motion_kind(captor);
     if motion == 0 {
         return None;
     }
-    let frame = game::motion_frame(captor);
-    let rate = game::motion_rate(captor);
+    let frame = reads.motion_frame(captor);
+    let rate = reads.motion_rate(captor);
     let remaining = grounded_ganon_contact_in(
-        game::status_kind(object),
+        reads.status_kind(object),
         game::fighter_kind(id),
-        game::status_kind(captor),
+        reads.status_kind(captor),
         frame,
         rate,
     )?;
@@ -55,13 +58,14 @@ unsafe fn grounded_ganon_timing(object: *mut game::Object) -> Option<(f32, u64, 
 // the fixed body offsets in tech_prediction.rs separate so they can be tested
 // on the host and tuned without scattering geometry through native FFI code.
 pub(super) unsafe fn assess_tech(
+    reads: &super::frame::FrameReads,
     object: *mut game::Object,
     horizon: f32,
     stopped: bool,
     input_delay: f32,
 ) -> TechAssessment {
-    let status = game::status_kind(object);
-    let situation = game::situation_kind(object);
+    let status = reads.status_kind(object);
+    let situation = reads.situation_kind(object);
     let disabled = (0x49..=0x4f).contains(&status) && game::is_flag(object, 0x21000016);
     let gate = tech_gate(status, situation, disabled, stopped);
     let mut assessment = TechAssessment {
@@ -83,7 +87,7 @@ pub(super) unsafe fn assess_tech(
     }
     if status == CATCHED_GANON {
         assessment.reason = "ganon_ground_capture_timing_unavailable";
-        if let Some((contact, motion, frame, rate)) = grounded_ganon_timing(object) {
+        if let Some((contact, motion, frame, rate)) = grounded_ganon_timing(reads, object) {
             assessment.contact_in = Some(contact);
             assessment.capture_clock = Some((motion, frame, rate));
             assessment.reason = "collision_predicted";
@@ -98,7 +102,7 @@ pub(super) unsafe fn assess_tech(
     if (0x47..=0x5b).contains(&status) {
         // ALL includes damage knockback as well as main/gravity velocity.
         // MAIN (1) alone can omit the force carrying Kirby toward the surface.
-        assessment.velocity = [game::speed_x(object, -1), game::speed_y(object, -1)];
+        assessment.velocity = [reads.speed_x(object, -1), reads.speed_y(object, -1)];
     }
     let late_hitstop = gate == TechGate::Hitstop
         && assessment.remaining_stop > 0
@@ -106,8 +110,8 @@ pub(super) unsafe fn assess_tech(
     if gate != TechGate::Predict && !late_hitstop {
         return assessment;
     }
-    let x = game::pos_x(object);
-    let y = game::pos_y(object);
+    let x = reads.pos_x(object);
+    let y = reads.pos_y(object);
     let [vx, vy] = assessment.velocity;
     if ![x, y, vx, vy].iter().all(|value| value.is_finite()) {
         assessment.reason = "invalid_motion";

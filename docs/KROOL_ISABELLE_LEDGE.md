@@ -1,7 +1,8 @@
 # King K. Rool and Isabelle
 
 Both have independent compiled profiles, native move data and five saved lists.
-Controls are unchanged: [L autopilot, Y B-reverse, L+R3 menu](LEDGE_MENU.md).
+Controls: [L autopilot and R3 menu](LEDGE_MENU.md). Y is reserved for configured
+held modes; B-reverse is currently unbound.
 Bold entries below are defaults.
 
 | Row | King K. Rool | Isabelle |

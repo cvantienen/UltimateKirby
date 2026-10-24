@@ -205,9 +205,14 @@ impl LedgeTrap {
             if ctx.status == ATTACK_AIR
                 && ctx.motion_kind == NEUTRAL_AIR_MOTION
                 && self.neutral_nair_drift != 0.0
-                && ctx.motion_frame < f32::from(super::NAIR_NUDGE_END_FRAME)
+                && ctx.motion_frame
+                    < f32::from(
+                        self.neutral_nair_drift_end_frame
+                            .unwrap_or(super::NAIR_NUDGE_END_FRAME),
+                    )
             {
-                out.stick = Some([self.neutral_nair_drift, 0.0]);
+                let vertical = out.stick.map_or(0.0, |stick| stick[1]);
+                out.stick = Some([self.neutral_nair_drift, vertical]);
             }
             if self.tilt_animations == 0 && matches!(ctx.status, 0xb | 0xe | 0xf) {
                 if self.pending != Pending::NeutralAir {

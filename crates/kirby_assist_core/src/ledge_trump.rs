@@ -85,6 +85,10 @@ pub struct LedgeTrump {
 }
 
 impl LedgeTrump {
+    pub fn cancel_pending(&mut self) {
+        self.attempt = None;
+        self.output = LedgeOutput::default(); // Keep held-Down history.
+    }
     /// Keep sampling an in-flight tool after its physical trigger is released.
     pub fn active(&self) -> bool {
         self.attempt.is_some()
@@ -194,20 +198,23 @@ impl LedgeTrump {
                     self.attempt = None;
                     return self.output;
                 }
-                [attempt.outward, 0.0]
+                // Stop sprinting before the boundary. Excess run momentum
+                // used to carry fighters beyond catch range during Down.
+                let gap = (attempt.anchor[0] - ctx.position[0]) * attempt.outward;
+                [attempt.outward * if gap <= 8.0 { 0.55 } else { 1.0 }, 0.0]
             }
             Phase::Approach => {
                 attempt.phase = Phase::Down {
                     status: ctx.status,
                     frame: ctx.motion_frame,
                 };
-                [0.0, -1.0]
+                [-attempt.outward, -1.0]
             }
             Phase::Down { status, frame } if ctx.situation == 2 => {
                 // Mapper polls are not frames. Hold Down until the fighter's
                 // native animation advances, then stop Down so ledge catch is legal.
                 if ctx.status == status && ctx.motion_frame <= frame {
-                    [0.0, -1.0]
+                    [-attempt.outward, -1.0]
                 } else {
                     attempt.phase = Phase::Return;
                     [-attempt.outward, 0.0]
@@ -222,7 +229,12 @@ impl LedgeTrump {
         self.attempt = Some(attempt);
         self.output = LedgeOutput {
             stick: Some(stick),
-            owned: LEDGE_BUTTONS,
+            owned: LEDGE_BUTTONS
+                | if stick[0].abs() < 1.0 {
+                    crate::manual_controls::LEFT_STICK_DIRECTIONS
+                } else {
+                    0
+                },
             ..LedgeOutput::default()
         };
         self.output

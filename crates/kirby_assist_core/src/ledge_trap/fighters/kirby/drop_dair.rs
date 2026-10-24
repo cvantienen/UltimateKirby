@@ -89,18 +89,11 @@ impl DropDair {
         }
         let previous_buttons = self.output.requested;
         self.output = self.controls([0.0, 0.0], 0);
-        if ctx.can_act
-            && ctx.can_jump
-            && self
-                .attempt
-                .issue(ctx, previous_buttons, MAPPER_X | MAPPER_A)
-        {
-            // Built-in short-hop attack input, sent as one directional X+A pair.
-            // Down is the stronger axis so forward drift does not request fair.
-            self.output = self.controls(
-                [self.direction * DROP_DAIR_SELECT_DRIFT, -1.0],
-                MAPPER_X | MAPPER_A,
-            );
+        if ctx.can_act && ctx.can_jump && self.attempt.issue(ctx, previous_buttons, MAPPER_X) {
+            // Jump first so the initial A cannot be interpreted as neutral air.
+            // Like Yoshi's jump-then-directional-attack recipe, release Jump
+            // and buffer down+A as soon as native squat/takeoff is observed.
+            self.output = self.controls([0.0, 0.0], MAPPER_X);
         }
         self.output
     }

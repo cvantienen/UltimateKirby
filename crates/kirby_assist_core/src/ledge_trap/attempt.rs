@@ -12,6 +12,9 @@ pub(super) struct NativeAttempt {
     pub expired: bool,
 }
 impl NativeAttempt {
+    pub fn elapsed(&self) -> f32 {
+        self.age
+    }
     /// Keep a special request paired with its direction through a short native
     /// delivery window. Hitstop/duplicate polls do not spend the held duration.
     pub fn holding_special(&self, ctx: LedgeContext) -> bool {
@@ -43,15 +46,16 @@ impl NativeAttempt {
             ctx.motion_frame,
             ctx.motion_rate,
         );
-        let delta = match self.previous {
-            None => 0.0,
-            Some((status, motion, frame, rate))
-                if status == ctx.status && motion == ctx.motion_kind =>
-            {
-                (ctx.motion_frame - frame) / rate
-            }
-            Some(_) => 1.0,
-        };
+        let delta = crate::timing::motion_elapsed(
+            self.previous,
+            (
+                ctx.status,
+                ctx.motion_kind,
+                ctx.motion_frame,
+                ctx.motion_rate,
+            ),
+            0.0,
+        );
         if !delta.is_finite() || !(0.0..=8.0).contains(&delta) {
             self.expired = true;
             return true;
@@ -63,6 +67,25 @@ impl NativeAttempt {
         fresh
     }
     pub fn issue(&mut self, ctx: LedgeContext, previous_buttons: u32, button: u32) -> bool {
+        self.issue_after(ctx, previous_buttons, button, 8.0)
+    }
+    /// Single-move delivery holds for delay+2 frames, then allows two release
+    /// frames before retrying. Duplicate mapper polls cannot spend this gap.
+    pub fn issue_move(&mut self, ctx: LedgeContext, previous_buttons: u32, button: u32) -> bool {
+        self.issue_after(
+            ctx,
+            previous_buttons,
+            button,
+            ctx.input_delay.clamp(0.0, 12.0).ceil() + 4.0,
+        )
+    }
+    fn issue_after(
+        &mut self,
+        ctx: LedgeContext,
+        previous_buttons: u32,
+        button: u32,
+        spacing: f32,
+    ) -> bool {
         if !ctx.input_delay.is_finite() || !(0.0..=120.0).contains(&ctx.input_delay) {
             self.expired = true;
             return false;
@@ -70,10 +93,9 @@ impl NativeAttempt {
         if self.accepted || self.expired || previous_buttons & button != 0 {
             return false;
         }
-        if self
-            .last_issue
-            .is_some_and(|last| self.age - last < (ctx.input_delay.clamp(0.0, 12.0) + 2.0).max(8.0))
-        {
+        if self.last_issue.is_some_and(|last| {
+            self.age - last < (ctx.input_delay.clamp(0.0, 12.0) + 2.0).max(spacing)
+        }) {
             return false;
         }
         if self.requests >= MAX_ATTEMPTS {
@@ -122,18 +144,16 @@ impl GrabDelivery {
         {
             return None;
         }
-        let (status, motion, frame, rate) = self.previous;
-        if !frame.is_finite() || frame < 0.0 || !rate.is_finite() || rate <= 0.0 {
-            return None;
-        }
-        let delta =
-            if ctx.status == status && ctx.motion_kind == motion && ctx.motion_frame >= frame {
-                (ctx.motion_frame - frame) / rate
-            } else {
-                // A native status transition or animation wrap is one observed
-                // update. It is not evidence that the player failed to request R.
-                1.0
-            };
+        let delta = crate::timing::motion_elapsed(
+            Some(self.previous),
+            (
+                ctx.status,
+                ctx.motion_kind,
+                ctx.motion_frame,
+                ctx.motion_rate,
+            ),
+            0.0,
+        );
         if !delta.is_finite() || !(0.0..=8.0).contains(&delta) {
             return None;
         }

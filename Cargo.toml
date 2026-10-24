@@ -6,8 +6,29 @@ name = "kirby_assist"
 # Required by the source syntax, dependency imports, and array iteration rules.
 edition = "2021"
 # Single release-version source: logger and release builder read this value.
-version = "1.5.4"
-description = """ grab fix
+version = "1.7.2"
+description = """ 
+
+Hardens recent movement controls for online sampling: held X is a single native
+update tap even before delayed jump-squat feedback, while dash pivot/walk state
+advances only from fresh fighter observations and not extra mapper polls.
+
+Adds low-priority dash-walk correction: ease the stick after a full dash and it
+holds maximum non-dash walk strength; keeping full input still permits running.
+
+Locks held physical X to one short-hop tap: X releases on native jump squat,
+remains quarantined through the jump and landing, and rearms only after release.
+
+Adds a low-priority dash-pivot correction for deliberate full-stick reversals.
+It holds the reverse for two native game updates, ignores repeated mapper polls,
+and yields to every combat, ledge, read, safety, combo, and shortcut owner.
+
+Correcction online timings for the roll,spot,grab,downsmash,etc. 
+the past few auto read features wokred good in training mode, but online 
+
+multiple more modes,
+
+
 Fixes Kirby/Yoshi roll-grab walk/brake stuttering exposed by diagnostic logs.
 Their approach may extend inward from observed roll travel; shared roll grabs
 check predicted reach/facing and protection on the same native active frame.
@@ -175,6 +196,548 @@ validation performed.
 
 
 Diagnostic-only frozen calibration cards now cover Neutral, Jump, Roll, Attack and Drop responses. Completed cards show available configured move windows, hop/lead/drift, input mapping and native startup evidence, protection timing, root spacing and wait gates; full details use the existing background status.log writer. Fixed-size observation storage and cached rendering add no native queries or gameplay timing changes. Silent builds exclude the feature. Cards hide with L+R3 and clear outside battle/on fighter change. Added source fixtures and calibration documentation; mod compilation and Switch validation remain pending.
+
+
+Yoshi Neutral get-up nair now forces short-hop selection and pairs X+ZL+A, releasing Jump during squat. Its early lead is centered at 8 frames before protection expiry; fast fall is allowed only during accepted, descending nair at animation frame 15 or later. Brief horizontal nudge is retained. Diagnostic result cards/logs expose the configured fast-fall threshold. Other nair recipes are unchanged. Updated fighter/calibration guides and added source fixtures; no mod build, upload or on-device validation performed.
+
+
+Added Yoshi Neutral Bair (hit 2) as an appended saved choice: turn away on recognition, confirm native facing, then paired X+ZL short hop with directional A buffered during jump squat. Targets bair second hit at frame 14 against predicted protection expiry, with a separate configurable early lead (default zero), no C-stick tilt-cancel, drift or fast fall. Discrete hit windows 11, 14, 18–19 are recorded separately; diagnostic metadata targets only hit 2. Updated fighter/sequence guides and added source fixtures. No mod build, upload or Switch validation performed.
+
+
+README reference update: adds the current control table and copyable commands for
+documentation setup/validation, fighter-page generation, host checks, packaged
+silent/diagnostic builds, FTP dry-run/upload/verification, diagnostic logs and
+the release checklist. Documentation only; no mod build or upload performed.
+
+The README backlog is now placed near the top and split into character-specific
+calibration/fix tasks and system-level compatibility, performance and timing work.
+
+Training Modpack coexistence: defers mapper-hook installation until fighter
+callbacks so Training can resolve FIM during startup; recognizes original or
+known Skyline-patched mapper entries with unique-match validation. Chains the
+existing mapper hook. With the standard Training Modpack NRO installed, Training
+Mode requires held L for assists and passes menu/save/load/recording chords
+through unchanged. Outside Training Mode controls are unchanged. Adds resolver
+regression checks and documents the explicit recording/playback handoff.
+Diagnostic build requested for Switch validation; no live latency compensation.
+
+Adds held-L grounded defensive shielding against nearby currently active fighter
+attacks, including opponents without a ledge grab. Uses existing roster IDs,
+validated native attack-active flags and a two-frame swept root-position warning
+envelope (not exact hitbox collision or projectile tracking). Native guard
+availability, committed response/manual handback and higher-priority tools gate
+the request; shield hitstop retains guard and clearing danger returns control.
+Adds default-on autopilot_shield startup setting, geometric/config fixtures and
+control/implementation documentation. Source-only while the compatibility build
+is being tested; no new Switch build or upload for this feature.
+
+Fixes Training passthrough starving the menu's release-to-arm tracking: physical
+release samples are now observed without consuming input, editing the menu or
+running tools, and retained through first profile selection/session resets.
+Adds focused regression tests for L rearming and avoiding phantom menu taps.
+Prepares a corrected diagnostic test build; Switch confirmation remains needed.
+
+Kirby Neutral nair adds a fighter-specific walk during the existing pre-launch
+wait: 0.65 fast-walk input toward the remembered ledge anchor, aiming six world
+units inside the edge with native braking and ground-support checks. Existing
+nair timing, paired delivery, drift and other fighter/choice handlers are
+unchanged; arrival never delays the launch gate. Adds focused host regressions
+and documents the custom handler/shared-helper structure and tuning constants.
+Source only; no Switch build, upload or on-device spacing validation.
+
+Replaces the unreliable Training L-only bypass with a versioned read-only
+ownership bridge in a pinned v7.1.1 Training Modpack companion. Restores usual
+shortcuts during ordinary Training gameplay; yields for actual menus, menu-close
+cooldown, configured chords, recording/standby/lockout and playback. Keeps routing
+fresh and observes physical releases while suspended; hides the assist panel and
+stops recipe progression until Training releases input. Other battle modes and
+standalone operation keep the normal policy. Stock Training without the bridge
+disables Training assists explicitly instead of guessing input ownership. Adds
+host bridge/handoff regressions, a pinned sparse-source preparation/build helper
+and updated controls/integration docs. Matched NROs require Switch validation;
+this does not establish zero conflicts with arbitrary mods.
+
+Withdraws the companion Training bridge and its preparation tooling. Replaces
+it with a small diagnostic-only, stock-Training workaround gated by diagnostic
+feature + detected Training NRO + Training Mode: held L3 enables only ledge
+trap/trump/menu, with L3 translated to L inside policy only. Release L3 or use a
+default Training menu/save/record chord to pass physical input through. Retains
+release tracking/session freshness; disables unrelated assists in a temporary
+test settings copy. Silent builds, standalone consoles and other modes retain
+normal controls/settings. No Training rebuild or new external plug-in required.
+Adds isolation/handoff tests and updates docs. Source only; no build or upload.
+
+Reuses attack-first ledge-walk preparation for Kirby Jump nair and Yoshi Neutral
+nair. Walking uses existing wait frames only, brakes toward a six-unit inset
+and never requires arrival before attack launch. Kirby Jump nair gains a brief
+0.30 drift nudge; Neutral drift, Yoshi short-hop/fast-fall and attack timing stay
+unchanged. Adds focused host regressions and updates fighter/sequence docs.
+
+Fixes diagnostic Training L3 autopilot activation by reading the physical hold
+independently of normal L's release-to-arm latch after resets/reassignment.
+Menu edits/navigation and Training shortcuts still suspend responses. Silent
+build and non-Training activation remain unchanged; adds hold/reset regressions.
+
+Kirby Neutral Inhale now turns toward the ledge before its timed neutral-B
+request. Jump bair replaces the failing tilt-cancel setup with a native-facing
+confirmed grounded turn, paired X+ZL short hop and buffered bair in jump squat;
+already back-facing Kirby skips the turn. Keeps drift and Neutral bair behavior.
+Adds both-side direction regressions and updates Kirby execution documentation.
+
+Replaces Kirby's Neutral get-up Forward tilt choice with stationary Down smash,
+aiming protection expiry at frame 13, midway through its 7–19 active window.
+Accounts for the neutral smash primer and releases A on native startup; adds
+a timing/menu regression and refreshes Kirby's generated and authored docs.
+
+Adjusts Yoshi Neutral nair for small-fighter coverage: launches eight frames
+earlier (16-frame active lead) and permits fast fall on the first confirmed
+nair descent instead of waiting until animation frame 15. Keeps paired short
+hop, brief drift, optional approach and Jump nair unchanged. Adds descent and
+launch regressions; updates timing docs. Height/contact require Switch testing.
+
+Samus Roll Grab immediately prepares inward facing on roll recognition when
+looking toward the ledge, then resumes existing grab positioning and timing.
+Already inward-facing or issued grabs keep their existing path. Shared Dark
+Samus recipes inherit the preparation. Adds mirrored direction regression/docs.
+
+Fixes Samus/Dark Samus homing missile selection by pairing a deliberate 0.70
+side input with B immediately on actionable option recognition across Neutral,
+Jump, Roll and Drop. Removes homing's neutral primer and separate facing wait;
+Super Missile keeps its prior flick path. Adds direction/dispatch/startup and
+Super-preservation regressions, updates missile documentation. Switch validation
+is still required for native missile selection and projectile contact.
+
+Makes committed ledge input delivery respect native game progress across stalls:
+fixed-size snapshots of both actors permit an expired request/session to survive
+only after fresh identity, controller-route and unchanged native-state checks.
+Progress, unknown clocks, release/menu edits and invalid actors retain normal
+expiry/cancellation; waiting movement and unrelated assists keep their watchdogs.
+No learned delay, timing offsets, network changes or new hooks. Applies to both
+variants; adds frozen/progress/identity regressions and updates delivery docs.
+
+Adds Pac-Man Fruit (stored) choices to Neutral and Jump get-up lists, preserving
+defaults. With player-prepared fruit/trampoline/spacing, requests neutral B on
+first actionable recognition without a vulnerability/travel wait; wrong-facing
+turns first. Releases B on native entry to avoid continued fruit charge. No
+auto-setup, item/article scans, fruit selection or trampoline edits. Adds both-
+side dispatch/release tests and docs; red-trampoline conversion is unverified.
+
+Adds independent fighter-configured onstage Roll read, initially Kirby only:
+saved menu Off (default) / Down smash. Filters normal forward/back ground rolls,
+tracks approach/body crossing with fixed-size state, and uses native instance
+protection/recovery timing plus Kirby's active window and estimated reach.
+No chase movement or ledge-roll setting changes; menu edits and higher-priority
+assists cancel pending input. Off skips extra opponent reads; no new hooks,
+item scans, delay learning or live files. Adds menu/geometry/input regressions
+and documents separate opponent-distance/move-offset ledge calibration.
+
+Fixes E0015 in both variants by initializing Roll read's empty output with a
+const-compatible struct literal inside State::new. Gameplay behavior unchanged.
+
+Improves held-L auto-shield: removes the idle/walk-only readiness prefilter,
+uses native guard availability, widens the swept warning envelope to 24x28 units
+over three frames, and forecasts configured opponents' tilt/down-smash/nair
+startup up to three frames ahead. Adds a four-native-frame tail to bridge small
+attack gaps without counting mapper polls or hitstop. Committed punishes retain
+priority; release/readiness loss cancels immediately. No projectile/grab scans,
+delay learning or new hooks. Adds startup/rate/hold regressions and updates docs.
+
+Adds two manual ledge-spacing walk caps relative to the existing config baseline:
+normal -0.02 (0.33 by default), near-full horizontal +0.03 (0.38), requiring
+95% horizontal and at most 15% vertical input. Preserves fine/vertical control
+and the 0.45 ceiling. Recipe movement, aerial drift and punish timing unchanged.
+Updates movement regressions, config comments and maintained controls docs.
+Adds lightweight Kirby held-L auto-duck as an opt-out exception to defensive
+shielding. Starts with verified normal grounded Falcon Punch only; requires
+early native crouch confirmation, near-stationary same-level solid-ground
+spacing and normal sizes. Competing/late threats retain shielding and committed
+punishes keep priority. Reuses the bounded roster pass and fixed-size state;
+adds no hooks, weapon scans or live HUD. Updates policy tests and maintained docs.
+Moves Kirby Auto-duck to an independent held-Y action with a saved Y mode row,
+ready for future compiled modes; removes the B-reverse binding. Integrates
+Kirby's in-range frame-4 down-tilt recovery forecast into normal held-L ledge
+autopilot, without a separate L3 binding or toggle; other fighters do not inherit
+it. Adds Kirby onstage Roll read Grab beside Off/Down smash, using standing-grab
+timing, in-place facing confirmation and bounded delivery with immediate native
+grab handback. Preserves ledge Roll grab and diagnostic Training's held-L3 test
+scope. Updates regression coverage, control references and fighter documentation.
+Reworks the saved menu as a transparent bottom-left single column with larger
+outlined text, gold selection and colored mode/mash states, using cached strings
+and the existing font. Minus now toggles visibility; Auto-mash is an editable
+menu row. Diagnostic Training compatibility uses L3 for our menu while retaining
+all configured gameplay features and normal L/Y/X controls. Training menu/save/
+record shortcuts hand raw input back until a fresh L3 tap resumes with our menu
+visible. No stock Training patch, new hooks, font assets or network changes.
+Updates input handoff regressions, generated fighter references and docs.
+
+Uses L3 to open/close the saved-options menu in all builds. X short-hop now
+requests only X and releases it at native jump squat, avoiding injected ZL
+shield/roll inputs with horizontal movement. X must be mapped to Jump. Updates
+control references and focused host regressions; no Switch build or upload.
+
+
+Makes menu visibility independent of the cached ImGui snapshot lock so an L3
+close request suppresses drawing without waiting for text publication. Defaults
+the configured onstage Roll read selection to Down smash; unsupported fighters
+remain excluded. L3 itself blocks roll-read activation during menu toggles.
+Adds close-after-edit/reopen regression coverage and verifies roll punish tests.
+Source only; no Switch build or upload.
+
+
+Removes committed-input stall preservation and its snapshots/native checks,
+restoring the 35 ms request expiry and 250 ms observation-gap reset everywhere.
+Yoshi Neutral nair enforces Short at execution, uses neutral X+A without ZL and
+releases Jump in native squat; its existing timing lead/drift/fast fall remain.
+Appends Yoshi Neutral Down smash using his front active frames 7-8 and the
+normal smash primer/startup-release sequence. Updates docs and host regressions.
+Source only; no Switch build, upload or hardware timing validation.
+
+
+Changes menu open/close to the L3+R3 chord, accepting either press order and
+one toggle per completed press; R3 alone retains turbo. Training shortcut
+handoff resumes with the same chord. Yoshi defaults to Roll tongue grab and
+Get-up Attack shield-grab; existing alternatives and nair drift are unchanged.
+Adds chord/default regressions and refreshes controls and fighter references.
+Source only; no Switch build or upload.
+
+
+Yoshi Neutral and Jump nair now apply full forward stick only during confirmed
+nair animation frames below 2, shortening the old 0.25-stick/below-4 nudge.
+Other fighters retain their existing drift windows; attack timings are unchanged.
+Updates fighter documentation and pulse/release host regression coverage.
+Source only; no Switch build or upload.
+
+
+Extends Yoshi Neutral and Jump nair full-forward drift to native animation
+frame 30 (about half a second at normal speed), ending on landing/interruption.
+Jump nair can retain a drift-only tail after its last hit; hitbox timings stay
+unchanged. Neutral nair preserves descending fast fall during horizontal drift.
+Updates docs and drift-tail/release regressions; no Switch build or upload.
+
+
+Yoshi Neutral nair now faces the remembered ledge, confirms native facing and
+immediately requests neutral X+A short hop on Neutral get-up recognition, with
+no vulnerability-time/spacing gate or waiting walk. Existing full-forward drift,
+jump release and descending fast fall remain. Adds unknown-timing and mirrored
+turn/launch regressions; updates fighter execution docs. No build or upload.
+
+
+Yoshi Jump nair now turns toward the remembered ledge and confirms native
+facing before short-hop launch, matching Neutral nair preparation. A correctly
+facing stance skips the turn. Aerial launch accepts native jump-ready turning
+states without waiting for locomotion readiness. Existing drift and attack
+timings remain. Extends mirrored-facing tests and docs; no build or upload.
+
+
+Adds immediate Yoshi Neutral Dair: confirm ledge-facing stance, short-hop with
+X and buffer down+A while releasing Jump in native squat, without timing or
+spacing waits. Retains full forward drift through animation frame 30 after
+dair acceptance; no automatic dair fast fall. Removes Yoshi Neutral Bair,
+Forward tilt and Up tilt choices/handlers. Updates catalog, docs and mirrored
+turn/jump/dair regressions. Source only; no Switch build or upload.
+
+
+Raises the near-full-horizontal manual ledge-spacing cap to fixed 0.60, retaining
+the slower baseline-minus-0.02 mode, threshold/vertical handling and digital
+stick-flick suppression. Recipe movement and attack timing are unchanged.
+Updates control/config references and host regressions; no build or upload.
+
+
+Restores Yoshi Neutral and Jump nair to a brief full-stick forward nudge below
+native nair animation frame 2, then neutral horizontal input. Neutral dair
+retains its separate frame-30 drift window. Other timings and movement settings
+are unchanged. Updates docs and nudge/release tests; no build or upload.
+
+
+Fixes Kirby Neutral bair forward-facing tilt failure by removing its attack-
+cancel route: prepare an owned 0.6-stick turnaround on recognition, confirm
+native facing, then neutral X short hop and backward+A during squat. Neutral
+launch does not inject ZL. Existing timing lead and drift remain. Adds mirrored
+front/back-facing regression coverage and updates docs; no build or upload.
+
+
+Replaces live Kirby Auto-duck's Falcon-only allowlist with active sphere/capsule
+world-geometry checks for cached fighters and up to 32 remembered weapon/item
+objects. A deferred ATTACK observer preserves its original arguments/call and
+records IDs only while selected Kirby is present. Held-Y reads use six-frame
+swept bounds and at most 32 active geometry slots; estimated crouch clearance
+requests down, low/large contacts choose shield. Normal-size solid-floor/native
+readiness gates and existing priorities remain. No hitbox/status writes. Adds
+geometry/defense tests and documents estimated bounds, discovery limits and
+required offline validation. No Switch build/upload or hardware safety claim.
+
+
+Broadens Kirby onstage Down-smash roll read to nearby ordinary rolls without a
+crossing requirement, observing up to 64 units and walking at 0.60 stick only
+when native walk/brake data, floor support and recovery budget permit. Releases
+movement in reach, uses the active window with a two-frame tail reserve, and bounds delivery
+until native startup. Onstage Grab and ledge-roll responses remain unchanged.
+Down-tilt trip follow-up now uses Down smash and recognizes grounded/downed
+re-hit damage immediately after trip states; forward-tilt trips retain forward
+smash. Adds approach, cancellation, nearby-roll and retrip tests and docs.
+No new hooks for these changes, Switch build, upload or hardware guarantee.
+
+
+Kirby Neutral down smash now uses its existing wait for a 0.65-stick ledge
+approach with the six-unit inset, floor support and braking, without delaying
+the frame-14 primer/frame-13 attack target for arrival or range. Explicit
+horizontal flick suppression keeps opt-in approaches as analog walking. Jump
+nair retains attack-first walking and now uses full forward drift after native
+nair acceptance through frame 32, neutral at 33 or landing/interruption. Updates
+priority/drift/input regressions and docs; no Switch build or upload.
+
+Kirby's ledge Roll Grab now walks immediately to a fixed 27.5-unit inward ledge
+inset, without tracking or reach subtraction, then uses existing timed grab
+checks. Other fighters and onstage Roll read are unchanged. Host regressions
+pass; this experimental spacing still needs Switch validation.
+Kirby ledge Roll Grab now dashes toward a 24.5-unit inward ledge inset; Yoshi
+uses the same fixed-stance approach at 20 units. Both retain one-unit arrival
+tolerance, braking and existing grab timing/reach checks. Host regressions pass;
+no Switch build or upload performed.
+Kirby/Yoshi fixed ledge-roll grabs return to 0.65-stick walking, retaining
+24.5/20-unit insets and one-unit tolerance; legal timed catches can interrupt
+the approach before arrival. Kirby onstage Roll read takes over on recognition,
+walks toward the short projection while waiting, and prioritizes the full native
+7–19 down-smash timing window over arrival/range. No delay learning or new hooks.
+Host regressions pass; Switch timing/spacing still need validation.
+Kirby Drop short-hop dair now launches with neutral X, then buffers directional
+down+A in native squat/takeoff instead of pairing Attack on the initial jump.
+The saved menu omits appended spacing hints and narrows to 275 pixels at 720p,
+retaining 21-pixel text and vertical wrapping. Host dair regression passes;
+no Switch build or upload performed.
+Advances Kirby Neutral get-up Down smash by two frames: neutral primer at 16
+frames before predicted vulnerability and Down+A at 15, targeting protection
+expiry at move frame 15 inside native activity 7–19. Keeps attack priority over
+walking/arrival; other down-smash responses are unchanged. Host regressions
+pass; no Switch build or upload performed.
+Yoshi Neutral get-up Nair now immediately short-hops with X+ZL (both mapped
+to Jump) and nudges toward the ledge, releasing both in squat. Neutral A waits
+for a native-frame schedule from the takeoff protection snapshot, retaining
+the 16-frame early-hit lead and existing accepted-nair drift/fast fall. Landing
+or interruption cancels; unknown timing withholds A. Other nair recipes stay
+unchanged. Adds delayed-input/short-hop regressions and docs; no Switch build
+or upload performed.
+Replaces Kirby's Y Auto-duck binding with a Finisher menu: one two-button
+short-hop Fair 1 > upward Fsmash or Dair > Dsmash attempt per press. Fresh
+hurtbox-hit confirmation gates the landing smash; shield/whiff, interruption,
+mode edits and native-time limits cancel. Native startup releases charge and
+held Y never loops. Auto-duck source tracking/scans and ATTACK observer hook
+installation are disabled, including with old configs; legacy default is false.
+No new hooks, enemy scans, runtime scripts or delay learning. Adds host route,
+binding and cancellation tests plus docs. Switch spacing/timing/performance
+still require validation; no Switch build or upload performed.
+Adds a compiled opponent-reference snapshot for 90 native fighter kinds and
+4,076 move entries: movement/weight/air physics, active spans, startup/total/
+landing/autocancel facts, shield/damage and additional stats with source hashes.
+No runtime JSON/network reads or opponent Kirby fallback; unknowns stay absent.
+Adds an initially-Off Whiff punish menu row for Kirby/Yoshi, verifying known
+grounded no-contact recovery against native motion, active hits, cancel ability
+and end timing. Kirby chooses reachable Dtilt/Fsmash; Yoshi attempts a confirmed
+turn, two-button short-hop bair drag-down into conditional landing Fsmash, also
+available on Y. Shared input priority/Training/session fences remain; no new
+hooks. Adds importer/data/policy/sequence tests and documentation. Initial
+spacing, combo validity, static-data cost and performance need Switch testing;
+no Switch build or upload performed.
+Restores Yoshi's shared tracked walking ledge-roll grab. Kirby now runs to a
+20-unit inward ledge inset, brakes within one unit and waits for native timed
+grab contact instead of taking an early approach grab. Finisher starters buffer
+directional A in confirmed jump squat, release both Jump buttons and retry
+unaccepted attacks with native-progress hold/release gaps until exact aerial
+acceptance. Adds regression coverage and documents static profile startup/cache
+behavior. No version bump, Switch build, upload or on-device validation.
+Verifies Yoshi's bair finisher shares Kirby's squat-buffered A delivery and
+native-progress retry/release path. Extends raw-overlay regression coverage to
+Yoshi in both directions, duplicate polls, hitstop, ignored attacks and exact
+bair acceptance; existing turnaround/early-hit/landing-Fsmash checks remain.
+Documentation updated; no gameplay timing changes, Switch build or upload.
+Shares lazy, fixed-size per-observation fighter facts across all live assist
+readers, with no retained native pointers or cross-callback cache. Centralizes
+motion-progress arithmetic and event deduplication across action schedulers;
+keeps existing move timing, transition allowances, rate bases, timeout policies
+and freshness fences. Readiness/contact/geometry queries stay live. Adds snapshot
+and clock regressions plus extension documentation; host-only validation, no
+Switch build/upload or verified online/performance guarantee.
+Restores Kirby down-tilt trip follow-ups to forward smash: the helper previously
+explicitly selected down smash. Disconnects live whiff punish and removes its
+menu row while retaining reference/prototype source. Onstage roll down smash
+now requires approaching/crossing history, feasible movement and simultaneous
+reach/vulnerability overlap; timing alone cannot force an out-of-range attack.
+Adds explicit shared action ownership, interruption rules and losing-plan
+cancellation, separating manual finishers from automatic fair confirms. Adds
+policy and actual live-wiring host regressions; no Switch build/upload.
+Removes a redundant preliminary shortcut assignment reported by the 1.6.5
+build; final action ownership still selects and delivers shortcut inputs.
+R3 alone now toggles the top-left single-line menu, with a separate classic
+monitor-chord handoff. Adds opt-in Kirby idle crouch and down-tilt facing rows,
+Yoshi onstage roll-smash/grab profiles with distinct front/rear sweep windows,
+shared move input recipes and airborne directional-aerial selection. Kirby Fair
+finisher waits for the short-hop apex and fast-falls during accepted startup.
+Ledge trump slows near the boundary and countersteers on runoff; full horizontal
+autopilot spacing requests maximum walk input with dash aliases suppressed.
+Source/host checks only; on-console timing and monitoring still need validation.
+Restores hold-L3 turbo teabag with the existing native-progress crouch/walk
+oscillator; R3 remains dedicated to menu visibility. Legacy turbo config aliases
+are preserved. No Switch build or upload performed for this control change.
+Compacts the top-left menu with 19px reference text, tighter row spacing/padding
+and a closer corner inset; retains bold shadows, colors and single-line rows.
+Fixes idle crouch bobbing by retaining Down through native crouch states and
+idle animation wraps; physical input and higher-priority actions still take over.
+Changes Kirby Dtilt face to a downward-diagonal reversal toward the latest
+opponent direction, including during down-tilt recovery. Preserves physical
+mashed Attack edges; removes the standing-turn sequence and queued attack.
+Fixes the Y Fair finisher dropping confirmed hits at frame 17. Any actual fair
+hit, including landing-transition contact, now retains the up-angled Fsmash
+follow-up and aims it toward the nearest opponent on landing. Dair is unchanged.
+Caps full-horizontal manual autopilot spacing at 0.50 stick instead of 1.00,
+retaining dash-flick suppression and the existing lighter-input walking cap.
+Keeps the saved-options panel visible during default Training ZL save/load;
+resumes on shortcut release without R3 and rearms held-L ledge practice only.
+Persistent Training menus/recording retain their explicit R3 resume behavior.
+Fixes Dtilt facing losing its horizontal reversal bits to the walk filter.
+Uses a 0.80 downward-diagonal aim, preserves aim across down-tilt recovery gaps,
+and discovers opponents with Dtilt face enabled independently of other assists.
+Physical down-tilt aim now uses manual-tool priority over ledge preparation.
+
+Kirby Idle crouch and Dtilt face default on; held L suspends idle crouch.
+Adds default-on Jab > Grab: neutral held A confirms jab 1 and requests a legal
+standing grab after six advancing frames; taps remain physical and held A does
+not auto-pummel. Reuses manual action ownership and native catch readiness.
+
+Dtilt facing prepares the directional Down angle before A and preserves manual
+input priority through native down-tilt recovery gaps. Physical attack edges
+remain unchanged; pre-attack aiming stays passive. Source/host checked only.
+
+Adds default-off Yoshi Jab lock menu mode: only attributed down-tilt hits arm
+a bounded ground-checked chase; missed techs attempt jab 1 into confirmed-lock
+down smash, while techs attempt grabs using native readiness/recovery windows.
+Shared detector and fighter policy; dedicated ownership overrides background
+roll reads. No new hook or runtime file loads. Host checked; Switch tuning needed.
+
+Fixes premature finisher cancellation while buffered Jump waits for native
+acceptance: bounded 24-frame budget, released Jump, no added scheduling delay.
+Native takeoff status/situation overlap no longer cancels finishers or shared
+ledge aerials. Dtilt aim survives its hitstop and preserves physical tilt-stick
+Down instead of clearing C-stick for left-stick-only ownership. Yoshi jab-lock
+acceptance gets the same bounded budget. No delay learning or move-timing edits.
+Host regressions added; online validation still required.
+
+Moves Kirby jab-to-grab from held A to a neutral A+B chord; A alone is normal.
+Consumes B before mapping to avoid A+B Smash, stands from crouch before jab,
+confirms jab 1 and releases A even in hitstop, then waits for jab recovery and
+native grab readiness. Releasing the chord keeps the committed attempt; bounded
+delivery tolerates queued inputs. Capture returns control without automatic
+pummels/specials. Updates controls/docs and host regressions; no build/upload.
+
+Allows Down smash Roll read to acquire punishable rolls while shielding.
+Releases physical/automatic shield and commits ownership through shield drop,
+budgets shield-release plus attack/approach time, and attacks only on native
+smash readiness. Shieldstun, late rolls and unknown timing remain excluded.
+Adds held-shield and recovery regressions; no new hooks/reads or build/upload.
+
+Unifies Yoshi neutral/jump get-up nair as immediate neutral Jump+A; buffers
+Yoshi dair and Kirby jump bair in confirmed jump squat. Restores Kirby jump
+nair's brief nudge and preserves manual spacing for neutral down smash.
+Prepares grounded facing during protection and shortens rejected single-move
+input retry gaps using native progress. Portable regressions only; no mod build
+or Switch/online validation.
+
+Prioritizes ledge trapping and roll reads over optional punishes and manual
+helpers; only native safety responses interrupt their committed sequences.
+Keeps crouch/turnaround-tilt assistance last, reserves armed ledge waits, and
+removes lower-mode vetoes and stale input filters from timed punish delivery.
+Portable ownership/integration checks only; no mod build or Switch validation.
+
+Adds diagnostic-only readable mode/priority explanations and saved-choice
+summaries, with fixed-size evidence batched at most four times per second and
+formatted by the existing bounded background logger. Clarifies ledge outcomes
+without claiming unverified hits. Stacks the compact diagnostic result below
+saved options along the left edge. Portable checks only; no mod build/upload.
+
+Restores the shared manual walk cap during armed ledge-autopilot waits for all
+fighters. Explicit attack/drift inputs, owned release frames and roll reads
+retain priority. Host regressions cover both directions across the compiled
+fighter catalog; no mod build or Switch validation.
+
+Allows Kirby Y starters through grounded walking, running, turning and braking,
+with a bounded pending launch when native jump readiness changes. Jab-to-grab
+uses actual native jab-cancel plus catch readiness instead of waiting for idle;
+a short forward walk is only a legal fallback when catch is not yet available.
+Preserves ledge/roll priority. Portable checks only; no mod build or Switch timing
+claim, including no guaranteed 14-frame grab.
+
+Fixes static live-state initialization by using a const-compatible jab-grab
+readiness literal. The host integration check now compiles that production
+initializer in a const context. No gameplay timing changes or mod build/upload.
+
+Adds configurable adaptive auto-DI for all fighters: weak-launch attacker
+separation or strong-launch survival-axis heuristics using copied reserved
+launch velocity. Holds DI over the final three victim-hitstop observations,
+shares safety priority with SDI, and yields to deliberate manual input. Bounded
+cached calculations and diagnostic explanations; no trajectory/KO/combo guarantee,
+mod build, upload or on-device validation.
+
+Restores the pre-vertical-change shallow air-dodge slide vector (0.9588,
+-0.2839). Buffers Guard in confirmed late jump squat/early native jump instead
+of waiting for later airborne/readiness snapshots, handles mixed takeoff flags,
+and retains pending hop/dodge ownership through native stop without new presses.
+Host timing/angle regressions only; no mod build/upload or online validation.
+
+Adds constant configurable spot-dodge defense against nearby ordinary standing,
+dash and pivot grabs, using opponent timing/reach/facing plus a bounded roster
+forecast. Requests Down+Guard only with native ground-dodge readiness, once per
+observed grab, and yields to ledge/roll/punish priority. Includes diagnostic
+proposal/acceptance evidence; command grabs and guaranteed collision avoidance
+are not modeled. Host checks only; no mod build/upload or device validation.
+
+Adds saved Spot punish and Grab dodge+punish toggles, with close down-smash and
+far forward-smash recovery coverage. Roll D/F-smash mode gains far forward-smash
+coverage. These option reads outrank ledge and other optional modes, remain
+eligible while L is held, and share one input owner; native safety/readiness
+still apply. Bounded copied-roster forecasts and one attempt per option; reach
+estimates require calibration. No docs, mod build/upload or device validation.
+
+Fixes the live grab-dodge handoff borrow through MutexGuard by ending the helper
+borrow before recording the punish target. Adds a host compile/runtime regression
+using the actual production handoff block and MutexGuard. No gameplay timing or
+version changes; no mod build/upload.
+
+Kirby jab-grab now gives one gentle forward frame at native recovery, then
+retries grab with fresh native-frame presses until startup, without a range gate.
+
+Adds a Kirby A+B menu choice between jab-to-grab and jab-to-down-smash,
+with native-frame retries until startup and no Off selection.
+
+Idle crouch now caps grounded walking below native dash onset and ducks near
+opponents or observed duckable fighter/projectile hitboxes at posture priority.
+
+Adds Crouch menu choices Auto, Always (idle), and Off, retaining posture priority.
+
+Kirby combo starters can acquire airborne jumps/falls with a native floor/physics
+landing forecast. Both routes retain descending Down through airtime; delayed
+dair acceptance rearms its fast-fall flick. Automatic fair follow-ups also hold Down.
+
+Auto-read smash, roll-grab and grab-dodge delivery now retries bounded native-frame
+press/release inputs until acceptance while retaining reach/recovery checks. Frozen
+idle clocks use observed opponent progress; no fixed network-delay offset is added.
+
+Audits remaining native input delivery: opening jab and jab-lock requests now
+retry with release gaps until acceptance, retaining live legality/range windows.
+
+Restores original idle-only crouch and On/Off menu, removing proximity, hitbox
+and walk-cap changes. Fixes airborne starter ray closure f32 inference.
+
+Sets the requested release version to 1.7.1 for versioned build output.
+
+Diagnostic snapshots now explain every mode, native actions and animation frames.
+The left menu shows live mode snapshots alongside completed ledge results;
+stale-match cards are invalidated and SD write/flush failures are reported.
+
+Verifies idle crouch yields immediately to every other action owner, including
+spot/grab punish preparation, without blocking proposal generation.
+
+X short hop retains fresh grounded presses through native stop. Kirby combo
+starters request X immediately without ZL or a jump-term wait, preserve takeoff
+stick input, and release at native squat while retaining higher-mode priorities.
 """
 
 

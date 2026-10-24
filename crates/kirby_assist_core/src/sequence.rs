@@ -135,7 +135,9 @@ impl<'a> ConfirmedSequence<'a> {
         if self.last_frame == Some(observation.frame) {
             return self.output;
         }
-        let elapsed = self.last_frame.map_or(0, |last| observation.frame - last);
+        // Backward frames already cancel above; duplicate frames already return.
+        let elapsed =
+            crate::timing::simulation_elapsed(self.last_frame, observation.frame).unwrap_or(0);
         self.last_frame = Some(observation.frame);
         self.output = InputRecipe::NONE;
         let step = self.steps[self.index];
