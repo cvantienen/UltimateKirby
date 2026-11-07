@@ -527,14 +527,14 @@ fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames(
     for frame in 0..69 {
         let side = if frame < 35 { -1. } else { 1. };
         let own = Context {
-            status: 0x1e2,
+            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
             grounded: false,
             can_up_special: false,
             shield_ready: false,
             ..c(frame as f32)
         };
         let context = GameplayContext {
-            status: 0x1e2,
+            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
             situation: 2,
             ..lc(frame as f32)
         };
@@ -564,12 +564,12 @@ fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames(
     let ended = o.sample_automatic_configured(
         true,
         Context {
-            status: 0x1e2,
+            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
             grounded: false,
             ..c(69.)
         },
         GameplayContext {
-            status: 0x1e2,
+            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
             situation: 2,
             ..lc(69.)
         },
@@ -596,11 +596,11 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
         let mut o = OutOfShield::new();
         sample(&mut o, true, c(0.), lc(0.), targets(-10.));
         let own = Context {
-            status: 0x1e1,
+            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
             ..c(0.)
         };
         let context = GameplayContext {
-            status: 0x1e1,
+            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
             ..lc(0.)
         };
         assert_eq!(
@@ -663,12 +663,12 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
             .sample_automatic_configured(
                 true,
                 Context {
-                    status: 0x1e2,
+                    status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
                     grounded: false,
                     ..c(0.)
                 },
                 GameplayContext {
-                    status: 0x1e2,
+                    status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
                     situation: 2,
                     ..lc(0.)
                 },
@@ -751,11 +751,11 @@ fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clo
     let mut o = OutOfShield::new();
     sample(&mut o, true, c(0.), lc(0.), targets(-10.));
     let own = Context {
-        status: 0x1e1,
+        status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
         ..c(0.)
     };
     let context = GameplayContext {
-        status: 0x1e1,
+        status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
         ..lc(0.)
     };
     assert_eq!(

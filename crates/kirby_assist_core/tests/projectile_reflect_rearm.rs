@@ -52,7 +52,15 @@ fn complete(engine: &mut Reflector, key: ProjectileKey, status: i32, gauge: f32)
     engine.mapped(i64::from(key.generation));
     assert_eq!(
         engine
-            .sample(true, Some(config()), own(0x1e3, gauge), incoming(key))
+            .sample(
+                true,
+                Some(config()),
+                own(
+                    kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT_START,
+                    gauge,
+                ),
+                incoming(key),
+            )
             .requested,
         MAPPER_B
     );
@@ -83,7 +91,12 @@ fn repeated_samus_missile_articles_rearm_on_the_first_legal_observation_without_
             key.generation
         );
         assert_eq!(output.stick, Some([0., -1.]));
-        complete(&mut engine, key, 0x1e6, 0.);
+        complete(
+            &mut engine,
+            key,
+            kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_REFLECT,
+            0.,
+        );
         assert_eq!(
             engine
                 .sample(true, Some(config()), own(0, 0.), incoming(key))
@@ -115,7 +128,12 @@ fn successive_charge_shots_rearm_with_partial_gauge_and_full_bucket_never_dumps_
             MAPPER_B,
             "no extra rearm frame once the game's transition is legal"
         );
-        complete(&mut engine, key, 0x1e5, gauge);
+        complete(
+            &mut engine,
+            key,
+            kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_CATCH,
+            gauge,
+        );
     }
     let key = shot(&sources);
     assert_eq!(
@@ -178,12 +196,28 @@ fn a_fresh_attack_on_the_tracked_object_does_not_restart_an_inflight_bucket() {
     let next = shot(&sources);
     assert_eq!(
         engine
-            .sample(true, Some(config()), own(0x1e3, 0.), incoming(next))
+            .sample(
+                true,
+                Some(config()),
+                own(
+                    kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT_START,
+                    0.,
+                ),
+                incoming(next),
+            )
             .requested,
         MAPPER_B
     );
     assert_eq!(engine.target(), Some(SHOT));
-    engine.sample(true, Some(config()), own(0x1e6, 0.), incoming(next));
+    engine.sample(
+        true,
+        Some(config()),
+        own(
+            kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_REFLECT,
+            0.,
+        ),
+        incoming(next),
+    );
     assert_eq!(
         engine
             .sample(true, Some(config()), own(0, 0.), incoming(first))

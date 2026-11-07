@@ -163,7 +163,10 @@ fn native_confirmation_wins_at_delivery_limit_and_preserves_all_69_drift_frames(
         response.mapped_up_special(tick, 2);
     }
     for frame in 1..4 {
-        let c = own(frame as f32, 0x1de);
+        let c = own(
+            frame as f32,
+            kirby_assist_core::native_states::status::SPECIAL_HI,
+        );
         assert_eq!(
             engine
                 .sample_simple(
@@ -189,7 +192,10 @@ fn native_confirmation_wins_at_delivery_limit_and_preserves_all_69_drift_frames(
     for frame in 4..73 {
         let c = GameplayContext {
             situation: 2,
-            ..own(frame as f32, 0x1e1)
+            ..own(
+                frame as f32,
+                kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+            )
         };
         let a = engine.sample_simple(
             true,
@@ -209,11 +215,16 @@ fn native_confirmation_wins_at_delivery_limit_and_preserves_all_69_drift_frames(
         true,
         &rules,
         settings(),
-        own(73., 0x1de),
+        own(73., kirby_assist_core::native_states::status::SPECIAL_HI),
         [None; 8],
         Some(enemy(73.)),
     );
-    response.sample(true, settings(), own(73., 0x1de), Some(enemy(73.)));
+    response.sample(
+        true,
+        settings(),
+        own(73., kirby_assist_core::native_states::status::SPECIAL_HI),
+        Some(enemy(73.)),
+    );
     assert!(!engine.committed());
     assert!(!response.automatic_up_b());
 }
@@ -249,7 +260,7 @@ fn used_roll_survives_a_roster_gap_but_a_known_native_end_rearms_the_next_roll()
         true,
         &rules,
         settings(),
-        own(1., 0x1de),
+        own(1., kirby_assist_core::native_states::status::SPECIAL_HI),
         targets(3.),
         Some(enemy(3.)),
     );
@@ -504,7 +515,7 @@ fn another_fighter_reusing_a_roster_slot_cannot_erase_a_consumed_event() {
         true,
         &rules,
         settings(),
-        own(1., 0x1de),
+        own(1., kirby_assist_core::native_states::status::SPECIAL_HI),
         targets(3.),
         Some(enemy(3.)),
     );

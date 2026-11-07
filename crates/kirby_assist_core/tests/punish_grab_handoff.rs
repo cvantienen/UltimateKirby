@@ -330,7 +330,14 @@ fn confirmed_up_b_tracks_for_69_native_frames_and_can_follow_air_spin() {
     assert_eq!(punish(&mut dodge, own(0., 0)).requested, MAPPER_B);
     for frame in 1..4 {
         assert_eq!(
-            punish(&mut dodge, own(frame as f32, 0x1de)).requested,
+            punish(
+                &mut dodge,
+                own(
+                    frame as f32,
+                    kirby_assist_core::native_states::status::SPECIAL_HI,
+                ),
+            )
+            .requested,
             MAPPER_B
         );
     }
@@ -346,14 +353,24 @@ fn confirmed_up_b_tracks_for_69_native_frames_and_can_follow_air_spin() {
             settings(),
             GameplayContext {
                 situation: 2,
-                ..own(frame as f32, 0x1e1)
+                ..own(
+                    frame as f32,
+                    kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+                )
             },
             Some(e),
         );
         assert_eq!(out.requested, 0, "frame {frame}");
         assert_eq!(out.stick, Some([x.signum(), 0.]), "frame {frame}");
     }
-    assert_eq!(punish(&mut dodge, own(73., 0x1de)).requested, 0);
+    assert_eq!(
+        punish(
+            &mut dodge,
+            own(73., kirby_assist_core::native_states::status::SPECIAL_HI)
+        )
+        .requested,
+        0
+    );
     assert!(!dodge.direct_up_b());
 }
 

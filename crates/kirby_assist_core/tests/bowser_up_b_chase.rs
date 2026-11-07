@@ -30,11 +30,11 @@ fn context(frame: u32, h: &ManualTakeover) -> GameplayContext {
         gameplay: true,
         can_act: frame == 0,
         status: if frame == 0 {
-            0x1c
+            kirby_assist_core::native_states::status::GUARD
         } else if frame < 20 {
-            0x1e1
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G
         } else {
-            0x1e2
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A
         },
         situation: if frame < 20 { 0 } else { 2 },
         motion_kind: 1,
@@ -52,9 +52,9 @@ fn enemy(frame: u32) -> Opponent {
         status: if frame == 0 {
             0x20
         } else if frame < 4 {
-            0x49
+            kirby_assist_core::native_states::status::DAMAGE_FLY
         } else {
-            0x77
+            kirby_assist_core::native_states::status::CLIFF_WAIT
         },
         position: [
             if frame < 12 { -10. } else { 80. },
@@ -354,7 +354,7 @@ fn other_fighters_keep_movement_handback_and_literal_manual_actions_keep_the_ori
                 status: if frame == 0 {
                     kirby_assist_core::native_states::GUARD
                 } else {
-                    0x1de
+                    kirby_assist_core::native_states::status::SPECIAL_HI
                 },
                 ..context(frame, &h)
             },

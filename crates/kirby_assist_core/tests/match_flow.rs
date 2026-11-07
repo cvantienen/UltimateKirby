@@ -80,7 +80,14 @@ fn finished_auto_react_keeps_its_neutral_release_owned_through_duplicate_mapper_
             true,
             &rules,
             LedgeSettings::default(),
-            context(frame, if frame == 0. { 0 } else { 0x1de }),
+            context(
+                frame,
+                if frame == 0. {
+                    0
+                } else {
+                    kirby_assist_core::native_states::status::SPECIAL_HI
+                },
+            ),
             targets,
             Some(e),
         );

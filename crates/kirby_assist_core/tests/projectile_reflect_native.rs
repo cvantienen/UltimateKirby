@@ -280,7 +280,7 @@ fn busy_captured_full_unready_and_shielding_states_never_read_projectile_geometr
         kirby_assist_core::native_states::status::DOWN,
         kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE,
         kirby_assist_core::native_states::status::SPECIAL_HI,
-        0x1e7,
+        kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_SHOOT,
     ] {
         let mut own = reset();
         own.status = status;
@@ -416,7 +416,7 @@ fn crowded_projectiles_and_hitstop_keep_native_work_bounded() {
     assert_eq!(GEOMETRY.with(Cell::get), 16);
     assert!(JOINTS.with(Cell::get) <= 32);
     let mut own = reset();
-    own.status = 0x1e4;
+    own.status = kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT;
     own.stopped = true;
     projectile(|_| {});
     let (_, context, threat) = unsafe {
@@ -439,7 +439,7 @@ fn crowded_projectiles_and_hitstop_keep_native_work_bounded() {
 #[test]
 fn an_existing_target_is_not_replaced_by_another_projectile_mid_bucket() {
     let mut own = reset();
-    own.status = 0x1e4;
+    own.status = kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT;
     OBJECTS.with(|v| {
         let mut nearer = Box::new(game_ffi::Object::new(0x10000003));
         nearer.team = 2;
@@ -466,11 +466,31 @@ fn an_existing_target_is_not_replaced_by_another_projectile_mid_bucket() {
 #[test]
 fn attached_pikmin_and_luma_never_trigger_bucket_but_incoming_reflectable_pikmin_can() {
     for (kind, status, allowed) in [
-        (0x9d, 0x17, false),
-        (0x9d, 0x18, false),
-        (0x9d, 0x19, false),
-        (0xe6, 0x15, false),
-        (0x9d, 0x15, true),
+        (
+            kirby_assist_core::battle_objects::WEAPON_KIND_PIKMIN_PIKMIN,
+            kirby_assist_core::native_states::status::LANDING_LIGHT,
+            false,
+        ),
+        (
+            kirby_assist_core::battle_objects::WEAPON_KIND_PIKMIN_PIKMIN,
+            kirby_assist_core::native_states::status::LANDING_ATTACK_AIR,
+            false,
+        ),
+        (
+            kirby_assist_core::battle_objects::WEAPON_KIND_PIKMIN_PIKMIN,
+            kirby_assist_core::native_states::status::LANDING_FALL_SPECIAL,
+            false,
+        ),
+        (
+            kirby_assist_core::battle_objects::WEAPON_KIND_ROSETTA_TICO,
+            kirby_assist_core::native_states::status::SQUAT_RV,
+            false,
+        ),
+        (
+            kirby_assist_core::battle_objects::WEAPON_KIND_PIKMIN_PIKMIN,
+            kirby_assist_core::native_states::status::SQUAT_RV,
+            true,
+        ),
     ] {
         let mut own = reset();
         projectile(|p| {

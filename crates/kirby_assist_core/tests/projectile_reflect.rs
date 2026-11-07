@@ -229,7 +229,7 @@ fn first_legal_observation_emits_down_b_without_waiting_and_busy_states_emit_not
         kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE,
         kirby_assist_core::native_states::status::DEAD,
         kirby_assist_core::native_states::status::SPECIAL_HI,
-        0x1e7,
+        kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_SHOOT,
     ] {
         let output =
             Reflector::new().sample(true, Some(config()), own(0., status), threat(2, 7., 1.));
@@ -282,7 +282,15 @@ fn ground_turn_is_confirmed_before_bucket_and_air_does_not_fake_a_turn() {
 
 #[test]
 fn full_bucket_catch_reflect_and_changed_native_move_never_select_an_oil_attack() {
-    for next in [0x1e5, 0x1e6, 0x1e7, 0x1e8, 0x47, 0x37, 0x1de] {
+    for next in [
+        kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_CATCH,
+        kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_REFLECT,
+        kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_SHOOT,
+        kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_END,
+        kirby_assist_core::native_states::status::DAMAGE,
+        kirby_assist_core::native_states::status::CATCH,
+        kirby_assist_core::native_states::status::SPECIAL_HI,
+    ] {
         let mut engine = Reflector::new();
         engine.sample(true, Some(config()), own(0., 0), threat(2, 7., 1.));
         engine.mapped(1);
@@ -313,7 +321,15 @@ fn full_bucket_catch_reflect_and_changed_native_move_never_select_an_oil_attack(
     engine.sample(true, Some(config()), own(0., 0), threat(2, 7., 1.));
     assert_eq!(
         engine
-            .sample(true, Some(config()), own(1., 0x1e4), threat(2, 6., 1.))
+            .sample(
+                true,
+                Some(config()),
+                own(
+                    1.,
+                    kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT,
+                ),
+                threat(2, 6., 1.),
+            )
             .owned,
         0
     );
@@ -338,13 +354,29 @@ fn duplicated_polls_hitstop_failed_delivery_and_threat_loss_have_bounded_handoff
     assert!(engine.active());
     assert_eq!(
         engine
-            .sample(true, Some(config()), own(1., 0x1e3), threat(2, 6., 1.))
+            .sample(
+                true,
+                Some(config()),
+                own(
+                    1.,
+                    kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT_START,
+                ),
+                threat(2, 6., 1.),
+            )
             .requested,
         MAPPER_B
     );
     assert_eq!(
         engine
-            .sample(true, Some(config()), own(2., 0x1e4), None)
+            .sample(
+                true,
+                Some(config()),
+                own(
+                    2.,
+                    kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT,
+                ),
+                None,
+            )
             .owned,
         0
     );
@@ -387,7 +419,10 @@ fn confirmed_bucket_has_a_finite_native_hold_and_never_retries_after_a_cancel() 
                 .sample(
                     true,
                     Some(config()),
-                    own(frame as f32, 0x1e4),
+                    own(
+                        frame as f32,
+                        kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT,
+                    ),
                     threat(2, 1., 1.)
                 )
                 .requested,
@@ -396,7 +431,15 @@ fn confirmed_bucket_has_a_finite_native_hold_and_never_retries_after_a_cancel() 
     }
     assert_eq!(
         engine
-            .sample(true, Some(config()), own(46., 0x1e4), threat(2, 1., 1.))
+            .sample(
+                true,
+                Some(config()),
+                own(
+                    46.,
+                    kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT,
+                ),
+                threat(2, 1., 1.),
+            )
             .owned,
         0
     );
@@ -433,7 +476,15 @@ fn delayed_native_receipt_does_not_hold_movement_or_allow_a_competing_grab() {
         assert_eq!(output.stick, None);
         assert!(engine.active());
     }
-    let confirmed = engine.sample(true, Some(config()), own(12., 0x1e3), threat(2, 1., 1.));
+    let confirmed = engine.sample(
+        true,
+        Some(config()),
+        own(
+            12.,
+            kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT_START,
+        ),
+        threat(2, 1., 1.),
+    );
     assert_eq!(confirmed.requested, MAPPER_B);
     assert!(engine.active());
     engine = Reflector::new();

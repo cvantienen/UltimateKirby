@@ -73,6 +73,8 @@ and 16 actions per recipe, validates fighter/situation/choice IDs, and copies
 fixed recipes into normal native-confirmed Nair, OneShot and grab execution.
 Missing sections retain compiled behavior; no SD reads/parsing occur in play.
 
+Centralizes verified native fighter statuses, transition terms, work IDs, fighter and weapon kinds, and object categories; replaces audited raw IDs throughout Rust logic and regression fixtures without changing behavior.
+
 Fixes intermittent ordinary-grab spot-dodge misses: use each opponent's
 compiled standing/dash/pivot grab timing and reach (including DLC data), accept
 any grounded state with native dodge readiness, and preserve an unaccepted

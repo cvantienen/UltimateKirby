@@ -604,7 +604,11 @@ fn drift_keeps_exclusive_ownership_across_interior_clock_gap_and_air_transition(
             20.,
             true,
             GameplayContext {
-                status: if n == 0 { 0 } else { 0x1de },
+                status: if n == 0 {
+                    0
+                } else {
+                    kirby_assist_core::native_states::status::SPECIAL_HI
+                },
                 ..c(n as f32)
             },
         );
@@ -636,7 +640,11 @@ fn drift_keeps_exclusive_ownership_across_interior_clock_gap_and_air_transition(
             20.,
             true,
             GameplayContext {
-                status: if n == 0 { 0 } else { 0x1de },
+                status: if n == 0 {
+                    0
+                } else {
+                    kirby_assist_core::native_states::status::SPECIAL_HI
+                },
                 ..c(n as f32)
             },
         );
@@ -929,7 +937,11 @@ fn wrong_native_moves_and_finished_up_b_return_control_without_extra_drift() {
             "{status:#x}"
         );
     }
-    for special in [0x1de, 0x1e1, 0x1e2] {
+    for special in [
+        kirby_assist_core::native_states::status::SPECIAL_HI,
+        kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+        kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
+    ] {
         let mut e = Engine::default();
         let settings = LedgeSettings {
             fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
@@ -1032,7 +1044,7 @@ fn manual_intent_hands_back_confirmed_up_b_drift_without_cutting_its_b_pulse() {
                 status: if n == 0 {
                     kirby_assist_core::native_states::GUARD
                 } else {
-                    0x1de
+                    kirby_assist_core::native_states::status::SPECIAL_HI
                 },
                 manual_input_epoch: u64::from(n >= fresh_at),
                 ..c(n as f32)

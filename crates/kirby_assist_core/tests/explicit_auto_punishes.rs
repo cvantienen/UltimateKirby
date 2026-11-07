@@ -288,7 +288,7 @@ fn deleting_a_configured_backup_stops_its_active_spin_without_another_attack_or_
         0
     );
     let c = Context {
-        status: 0x1e1,
+        status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
         frame: 1.,
         ..c
     };

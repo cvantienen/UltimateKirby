@@ -100,7 +100,23 @@ fn ledge_toggle_reserves_auto_modes_through_manual_pauses_but_safety_and_shield_
 }
 #[test]
 fn rising_up_b_warning_covers_startup_and_first_character_continuation_without_reacting_to_idle() {
-    for (kind, status, previous) in [(15, 0x1de, 0), (15, 0x1e1, 0), (6, 0x1fc, 0x1de)] {
+    for (kind, status, previous) in [
+        (
+            kirby_assist_core::fighter_kinds::BOWSER,
+            kirby_assist_core::native_states::status::SPECIAL_HI,
+            0,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::BOWSER,
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+            0,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::KIRBY,
+            kirby_assist_core::native_states::fighter_status::KIRBY_SPECIAL_HI2,
+            kirby_assist_core::native_states::status::SPECIAL_HI,
+        ),
+    ] {
         assert!(recovery_warning(
             kind,
             status,
@@ -139,7 +155,7 @@ fn rising_up_b_warning_covers_startup_and_first_character_continuation_without_r
         !recovery_warning(
             6,
             0x1e6,
-            0x1de,
+            kirby_assist_core::native_states::status::SPECIAL_HI,
             [0.; 2],
             [0.; 2],
             [0., -40.],
@@ -160,7 +176,7 @@ fn rising_up_b_warning_covers_startup_and_first_character_continuation_without_r
     ));
     assert!(!recovery_warning(
         6,
-        0x1de,
+        kirby_assist_core::native_states::status::SPECIAL_HI,
         0,
         [0.; 2],
         [0.; 2],

@@ -205,7 +205,10 @@ fn ledge_suspension_and_capture_links_disable_all_search_and_follow() {
         (0, 0),
         (kirby_assist_core::native_states::GUARD, 0),
         (kirby_assist_core::native_states::ESCAPE, 0),
-        (0x1e1, 2),
+        (
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+            2,
+        ),
     ] {
         assert!(
             !Scope::new(true, status, air, false, false, true, true, true, true).observe_targets()
@@ -214,7 +217,17 @@ fn ledge_suspension_and_capture_links_disable_all_search_and_follow() {
             !Scope::new(false, status, air, false, true, true, true, true, true).observe_targets()
         );
     }
-    let spin = Scope::new(false, 0x1e1, 2, false, false, true, true, false, false);
+    let spin = Scope::new(
+        false,
+        kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+        2,
+        false,
+        false,
+        true,
+        true,
+        false,
+        false,
+    );
     assert!(!spin.acquire && spin.follow);
     let attack = Scope::new(false, 0x27, 0, false, false, false, false, false, true);
     assert!(

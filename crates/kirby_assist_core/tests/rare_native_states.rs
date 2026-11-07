@@ -38,10 +38,10 @@ fn tape() -> InputTimeline {
 #[test]
 fn shield_break_sleep_bind_bury_freeze_and_special_captures_abort_without_resuming_old_inputs() {
     let states = [
-        0x24, 0x5c, 0x5d, 0x5e, 0x5f, 0x60, 0x61, 0x62, 0x65, 0x66, 0x86, 0xab, 0xb3, 0xb9, 0xbd,
-        0xbe, 0xc1, 0xc4, 0xc5, 0xc8, 0xc9, 0xcb, 0xcc, 0xcd, 0xd6, 0xe6, 0xed, 0xf0, 0xf3, 0xf4,
-        0xf7, 0xfe, 0x108, 0x10e, 0x117, 0x146, 0x148, 0x156, 0x171, 0x176, 0x183, 0x18a, 0x19c,
-        0x1a3, 0x1a8, 0x1be, 0x1bf, 0x1ca, 0x1d2, 0x1d6, 0x1d9, 0x1da, 0x1e0,
+        native_states::status::REBOUND_STOP, native_states::status::SHIELD_BREAK_FLY, native_states::status::SHIELD_BREAK_FALL, native_states::status::SHIELD_BREAK_DOWN, native_states::status::FURAFURA_STAND, native_states::status::FURAFURA, native_states::status::FURAFURA_END, native_states::status::DAMAGE_SONG_START, native_states::status::DAMAGE_SONG_END, native_states::status::BIND, native_states::status::SLIP, native_states::status::SWIM_DIVE, 0xb3, native_states::status::TREAD_DAMAGE, native_states::status::CLUNG_GANON,
+        native_states::status::CATCHED_GANON, native_states::status::CATCHED_AIR_END_GANON, 0xc4, 0xc5, native_states::status::BURY, 0xc9, 0xcb, native_states::status::ICE_JUMP, 0xcd, 0xd6, native_states::status::SWALLOWED, 0xed, 0xf0, 0xf3, 0xf4,
+        native_states::status::CAPTURE_DAMAGE_YOSHI, native_states::status::CATCHED_REFLET, 0x108, 0x10e, 0x117, 0x146, native_states::status::SAVING_DAMAGE, 0x156, native_states::status::CATCHED_RIDLEY, native_states::status::SWING_GAOGAEN_CATCHED, 0x183, 0x18a, 0x19c,
+        native_states::status::DAMAGE_SLEEP_START, 0x1a8, native_states::status::CATCHED_PICKEL_TROLLEY, 0x1bf, 0x1ca, native_states::status::CAPTURE_TRAIL_KEYHOLE, native_states::status::STANDBY, native_states::status::ENTRY, 0x1da, native_states::status::FINAL,
     ];
     for status in states {
         for stopped in [false, true] {
@@ -165,7 +165,7 @@ fn stunned_opponents_remain_punishable_but_capture_and_scene_actors_are_not() {
 #[test]
 fn custom_status_numbers_cannot_borrow_another_fighters_up_b_identity() {
     for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
-        assert!(automatic_up_b_status(kind, 0x1de, 0));
+        assert!(automatic_up_b_status(kind, native_states::status::SPECIAL_HI, 0));
         for status in [
             kirby_assist_core::native_states::status::FINAL,
             0x3ff,
@@ -179,16 +179,16 @@ fn custom_status_numbers_cannot_borrow_another_fighters_up_b_identity() {
         }
     }
     for (kind, status) in [
-        (15, 0x1e1),
-        (15, 0x1e2),
-        (28, 0x1e1),
-        (6, 0x1fc),
-        (75, 0x1e4),
-        (76, 0x1e4),
-        (43, 0x1e5),
-        (90, 0x1eb),
-        (91, 0x1ed),
-        (88, 0x20c),
+        (kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G),
+        (kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A),
+        (kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH, kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_HI_FALL),
+        (kirby_assist_core::fighter_kinds::KIRBY, kirby_assist_core::native_states::fighter_status::KIRBY_SPECIAL_HI2),
+        (kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO, kirby_assist_core::native_states::fighter_status::POPO_SPECIAL_HI_PARTNER),
+        (kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA, kirby_assist_core::native_states::fighter_status::POPO_SPECIAL_HI_PARTNER),
+        (kirby_assist_core::fighter_kinds::OLIMAR, kirby_assist_core::native_states::fighter_status::PIKMIN_SPECIAL_HI_WAIT),
+        (kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_HI_JUMP),
+        (kirby_assist_core::fighter_kinds::MYTHRA, kirby_assist_core::native_states::fighter_status::ELIGHT_SPECIAL_HI_ATTACK2),
+        (kirby_assist_core::fighter_kinds::STEVE, kirby_assist_core::native_states::fighter_status::PICKEL_SPECIAL_HI_GLIDING),
     ] {
         assert!(automatic_up_b_status(
             kind,
@@ -197,11 +197,11 @@ fn custom_status_numbers_cannot_borrow_another_fighters_up_b_identity() {
         ));
     }
     for (kind, status) in [
-        (90, 0x1e1),
-        (91, 0x1e1),
-        (28, 0x1e3),
-        (15, 0x1e3),
-        (43, 0x1e1),
+        (kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_STANDBY),
+        (kirby_assist_core::fighter_kinds::MYTHRA, kirby_assist_core::native_states::fighter_status::ELIGHT_SPECIAL_LW_STANDBY),
+        (kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH, kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT_START),
+        (kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_LW_G),
+        (kirby_assist_core::fighter_kinds::OLIMAR, kirby_assist_core::native_states::fighter_status::PIKMIN_FINAL_FLY),
     ] {
         assert!(!automatic_up_b_status(
             kind,
@@ -252,15 +252,15 @@ fn sixteen_actor_roster_is_deduplicated_and_policy_candidates_stay_bounded_and_n
 #[test]
 fn private_damage_and_swap_states_are_scoped_to_their_actual_native_fighter() {
     for (kind, status) in [
-        (39, 0x1f1),
-        (39, 0x1f3),
-        (53, 0x1e8),
-        (58, 0x1eb),
-        (36, 0x1e1),
-        (37, 0x1e1),
-        (38, 0x1e1),
-        (90, 0x1e1),
-        (91, 0x1e2),
+        (kirby_assist_core::fighter_kinds::DIDDY_KONG, kirby_assist_core::native_states::fighter_status::DIDDY_SPECIAL_HI_CHARGE_DAMAGE),
+        (kirby_assist_core::fighter_kinds::DIDDY_KONG, kirby_assist_core::native_states::fighter_status::DIDDY_SPECIAL_HI_UPPER_DAMAGE),
+        (kirby_assist_core::fighter_kinds::GRENINJA, kirby_assist_core::native_states::fighter_status::GEKKOUGA_SPECIAL_HI_WALL_DAMAGE),
+        (kirby_assist_core::fighter_kinds::BOWSER_JR, kirby_assist_core::native_states::fighter_status::KOOPAJR_SPECIAL_HI_DAMAGE_END),
+        (kirby_assist_core::fighter_kinds::SQUIRTLE, kirby_assist_core::native_states::fighter_status::PZENIGAME_SPECIAL_LW_STANDBY),
+        (kirby_assist_core::fighter_kinds::IVYSAUR, kirby_assist_core::native_states::fighter_status::PFUSHIGISOU_SPECIAL_LW_STANDBY),
+        (kirby_assist_core::fighter_kinds::CHARIZARD, kirby_assist_core::native_states::fighter_status::PLIZARDON_SPECIAL_LW_STANDBY),
+        (kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_STANDBY),
+        (kirby_assist_core::fighter_kinds::MYTHRA, kirby_assist_core::native_states::fighter_status::ELIGHT_SPECIAL_LW_OUT),
     ] {
         let mut t = tape();
         let settings = LedgeSettings {
@@ -277,8 +277,8 @@ fn private_damage_and_swap_states_are_scoped_to_their_actual_native_fighter() {
             kirby_assist_core::native_states::status::SPECIAL_HI
         ));
     }
-    assert!(!native_states::fighter_sequence_interrupted(15, 0x1e1));
-    assert!(automatic_up_b_status(15, 0x1e1, 0));
+    assert!(!native_states::fighter_sequence_interrupted(kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G));
+    assert!(automatic_up_b_status(kirby_assist_core::fighter_kinds::BOWSER, native_states::fighter_status::KOOPA_SPECIAL_HI_G, 0));
 }
 
 #[test]
@@ -321,28 +321,28 @@ fn shared_climber_entry_never_invents_attacker_direction_from_iteration_order() 
 fn final_phases_and_inactive_forms_cannot_masquerade_as_ordinary_grab_targets() {
     use kirby_assist_core::reaction_rules::automatic_fighter_target_available;
     for (kind, status) in [
-        (15, 0x1ea),
-        (28, 0x1e9),
-        (75, 0x1ed),
-        (76, 0x1ed),
-        (90, 0x1e3),
-        (91, 0x1ef),
-        (36, 0x1e1),
-        (90, 0x1e1),
+        (kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_FINAL_END),
+        (kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH, kirby_assist_core::native_states::fighter_status::GAMEWATCH_FINAL_WAIT),
+        (kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO, kirby_assist_core::native_states::fighter_status::POPO_FINAL_PARTNER),
+        (kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA, kirby_assist_core::native_states::fighter_status::POPO_FINAL_PARTNER),
+        (kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_FINAL_READY),
+        (kirby_assist_core::fighter_kinds::MYTHRA, kirby_assist_core::native_states::fighter_status::ELIGHT_FINAL_SCENE03),
+        (kirby_assist_core::fighter_kinds::SQUIRTLE, kirby_assist_core::native_states::fighter_status::PZENIGAME_SPECIAL_LW_STANDBY),
+        (kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_STANDBY),
     ] {
         assert!(!automatic_fighter_target_available(kind, status));
         assert!(native_states::fighter_sequence_interrupted(kind, status));
     }
     assert!(
-        automatic_fighter_target_available(90, 0x1e2),
+        automatic_fighter_target_available(kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_OUT),
         "active swap-out recovery may be punished when native hit status is vulnerable"
     );
     assert!(
-        automatic_fighter_target_available(15, 0x1e1),
+        automatic_fighter_target_available(kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G),
         "Bowser spin shares a swap form's number"
     );
     assert!(
-        automatic_fighter_target_available(90, 0x1eb),
+        automatic_fighter_target_available(kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_HI_JUMP),
         "Pyra Up-B is not another fighter's Final"
     );
 }

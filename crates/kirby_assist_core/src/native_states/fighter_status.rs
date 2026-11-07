@@ -563,6 +563,8 @@ pub const GEKKOUGA_SPECIAL_HI_WALL_DAMAGE: i32 = 0x1e8;
 pub const GAMEWATCH_SPECIAL_LW_WAIT_START: i32 = 0x1e3;
 pub const GAMEWATCH_SPECIAL_LW_WAIT: i32 = 0x1e4;
 pub const GAMEWATCH_SPECIAL_LW_CATCH: i32 = 0x1e5;
+pub const GAMEWATCH_SPECIAL_LW_REFLECT: i32 = 0x1e6;
+pub const GAMEWATCH_SPECIAL_LW_SHOOT: i32 = 0x1e7;
 pub const GAMEWATCH_SPECIAL_LW_END: i32 = 0x1e8;
 pub const GANON_SPECIAL_S_CATCH: i32 = 0x1e2;
 #[cfg(test)]
@@ -581,3 +583,4 @@ pub const ELIGHT_SPECIAL_LW_STANDBY: i32 = 0x1e1;
 // In the native table these two endpoints enclose Kirby's inhale animation states.
 pub const KIRBY_SPECIAL_N_LOOP: i32 = 0x1e1;
 pub const KIRBY_SPECIAL_N_SPIT: i32 = 0x1f2;
+pub const KOOPA_SPECIAL_LW_G: i32 = 0x1e3;

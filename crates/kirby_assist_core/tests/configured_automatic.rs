@@ -638,7 +638,7 @@ fn editing_only_backup_timeout_still_bounds_the_native_tracking_path() {
             if frame == 0 {
                 kirby_assist_core::native_states::GUARD
             } else {
-                0x1de
+                kirby_assist_core::native_states::status::SPECIAL_HI
             },
             frame as f32,
         );
@@ -660,7 +660,11 @@ fn editing_only_backup_timeout_still_bounds_the_native_tracking_path() {
             0
         );
     }
-    let c = own(15, 0x1de, 30.);
+    let c = own(
+        15,
+        kirby_assist_core::native_states::status::SPECIAL_HI,
+        30.,
+    );
     assert_eq!(
         o.sample_automatic_configured(
             true,
