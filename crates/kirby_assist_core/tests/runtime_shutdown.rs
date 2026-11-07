@@ -218,6 +218,9 @@ fn startup_and_reconnect_require_fresh_matching_ownership_without_allocating_a_m
 
 mod game {
     pub type Object = u8;
+    pub unsafe fn battle_object_id(object: *mut Object) -> u32 {
+        object.add(8).cast::<u32>().read()
+    }
     pub unsafe fn is_active(id: u32) -> bool {
         id == super::ACTIVE_ID.load(super::Ordering::Relaxed)
     }

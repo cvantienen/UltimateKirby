@@ -5,6 +5,12 @@ mod live {
         true
     }
 }
+mod manual_controls {
+    pub use kirby_assist_core::manual_controls::RIGHT_STICK_DIRECTIONS;
+}
+mod native_input {
+    pub use kirby_assist_core::native_input::*;
+}
 // Exercise the real logger/recorders on the host without opening SD files.
 #[allow(dead_code)]
 #[path = "../../../src/logging.rs"]

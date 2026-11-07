@@ -220,7 +220,6 @@ impl MenuSelection {
         labels.join(" / ")
     }
     /// Resolve only identity for the hot input path; do not copy 32 actions.
-
     pub fn choice_labels<'a>(
         &'a self,
         presets: &'a MenuPresets,

@@ -440,7 +440,11 @@ pub(super) unsafe fn assess_tech(
         horizon,
         acceleration,
         body,
-        surfaces,
+        [
+            floor_surface_enabled,
+            wall_surface_enabled,
+            ceiling_surface_enabled,
+        ],
         |probe| {
             let origin = game::Vector2 {
                 x: probe.origin[0],

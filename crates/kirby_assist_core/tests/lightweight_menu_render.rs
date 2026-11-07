@@ -401,6 +401,7 @@ mod performance {
         pub enum Event {
             MenuPublish,
             MenuBuild,
+            MenuRetry,
         }
         pub enum Lane {
             MenuBuild,

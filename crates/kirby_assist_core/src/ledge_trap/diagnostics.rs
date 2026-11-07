@@ -34,7 +34,8 @@ impl NativeRule {
                 motion,
                 custom_status,
             } => {
-                (c.status == super::ATTACK_AIR || custom_status == Some(c.status))
+                (c.status == crate::native_states::status::ATTACK_AIR
+                    || custom_status == Some(c.status))
                     && c.motion_kind == motion
             }
             Self::Statuses(statuses) => statuses.contains(&c.status),

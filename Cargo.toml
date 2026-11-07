@@ -1605,6 +1605,7 @@ Separates roster-refresh prerequisites from active observation consumers for eas
 Names tuning indexes, controller inputs, native work IDs, motion/parameter hashes, and ABI offsets to clarify Rust numeric literals.
 Splits recipe-editor adjustment and saved-input serialization into focused helpers, and repairs test fixtures without changing controller inputs.
 Moves shared assistance settings and fighter grab data out of ledge-specific naming and modules.
+Fixes native tech surface eligibility, shared aerial-status lookup, and stale host test harnesses.
 """
 
 

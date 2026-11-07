@@ -55,6 +55,9 @@ thread_local! {static WORLD:RefCell<World>=RefCell::new(World::new());}
 mod game {
     pub(super) use super::Object;
     use super::*;
+    pub unsafe fn battle_object_id(object: *mut Object) -> u32 {
+        (*object).id
+    }
     pub unsafe fn is_active(id: u32) -> bool {
         WORLD.with(|w| {
             w.borrow()

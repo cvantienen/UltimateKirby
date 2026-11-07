@@ -83,6 +83,9 @@ mod game_ffi {
                 .map_or(std::ptr::null_mut(), |o| (&**o as *const Object).cast_mut())
         })
     }
+    pub unsafe fn battle_object_id(object: *mut Object) -> u32 {
+        (*object).id
+    }
     pub unsafe fn work_float(o: *mut Object, key: i32) -> f32 {
         read();
         assert_eq!(key, 0x4c);
@@ -169,11 +172,11 @@ mod frame {
             read();
             (*o).position[1]
         }
-        pub unsafe fn speed_x(&self, o: *mut game_ffi::Object, _: i32) -> f32 {
+        pub unsafe fn speed_x(&self, o: *mut game_ffi::Object) -> f32 {
             read();
             (*o).velocity[0]
         }
-        pub unsafe fn speed_y(&self, o: *mut game_ffi::Object, _: i32) -> f32 {
+        pub unsafe fn speed_y(&self, o: *mut game_ffi::Object) -> f32 {
             read();
             (*o).velocity[1]
         }

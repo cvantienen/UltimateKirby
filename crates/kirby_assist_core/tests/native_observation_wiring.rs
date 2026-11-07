@@ -8,6 +8,11 @@ use kirby_assist_core::{
 use std::sync::{atomic::AtomicUsize, Mutex, OnceLock};
 #[path = "../../../src/game_ffi.rs"]
 mod native_abi;
+mod native_params {
+    pub const PARAM_GROUND_BRAKE: u64 = 0x0c8cc9db76;
+    pub const PARAM_AIR_ACCEL_Y: u64 = 0xba18057d9;
+    pub const PARAM_AIR_SPEED_Y_STABLE: u64 = 0x12ec5626fe;
+}
 thread_local! {
     static LINKS:std::cell::Cell<u32>=const{std::cell::Cell::new(0)};
     static LINK_READS:std::cell::Cell<usize>=const{std::cell::Cell::new(0)};

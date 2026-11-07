@@ -3,6 +3,7 @@
 use std::cell::Cell;
 mod game_ffi {
     use super::Cell;
+    pub const LATEST_PREVIOUS_STATUS_HISTORY_INDEX: u32 = 0;
     #[repr(C)]
     pub struct Object {
         pub header: u64,
@@ -76,6 +77,9 @@ mod game_ffi {
     pub unsafe fn ground_offset_y(o: *mut Object) -> f32 {
         (*o).ecb_offset[1]
     }
+    pub unsafe fn battle_object_id(o: *mut Object) -> u32 {
+        (*o).id
+    }
     pub unsafe fn scale(o: *mut Object) -> f32 {
         (*o).scale
     }
@@ -95,7 +99,7 @@ mod game_ffi {
     pub unsafe fn module_accessor(_: u32) -> *mut Object {
         std::ptr::null_mut()
     }
-    pub unsafe fn previous_status(o: *mut Object, _: i32) -> i32 {
+    pub unsafe fn previous_status(o: *mut Object, _: u32) -> i32 {
         (*o).previous
     }
     pub unsafe fn previous_situation_kind(o: *mut Object) -> i32 {
@@ -173,6 +177,12 @@ mod performance {
 }
 #[path = "."]
 mod live {
+    pub mod native_params {
+        pub const PARAM_COMMON: u64 = 0x6e5ec7051;
+        pub const PARAM_NO_RAPID_FRAME_VALUE: u64 = 0x14459066dd;
+        pub const PARAM_PASSIVE_TRIGGER_FRAME: u64 = 0x15ba3cdb02;
+        pub const PARAM_GANON_SPECIAL_S_PASSIVE_TRIGGER_FRAME: u64 = 0x2535742c20;
+    }
     pub mod frame {
         use crate::game_ffi::Object;
         #[derive(Default)]
@@ -196,10 +206,10 @@ mod live {
             pub unsafe fn motion_rate(&self, o: *mut Object) -> f32 {
                 (*o).rate
             }
-            pub unsafe fn speed_x(&self, o: *mut Object, _: i32) -> f32 {
+            pub unsafe fn speed_x(&self, o: *mut Object) -> f32 {
                 (*o).velocity[0]
             }
-            pub unsafe fn speed_y(&self, o: *mut Object, _: i32) -> f32 {
+            pub unsafe fn speed_y(&self, o: *mut Object) -> f32 {
                 (*o).velocity[1]
             }
             pub unsafe fn pos_x(&self, o: *mut Object) -> f32 {
@@ -298,6 +308,18 @@ mod live {
         assert_eq!(a.reason, "air_dodge_available");
         assert!(!a.prepare_guard);
         assert_eq!(o.rays.get(), 0);
+    }
+    #[test]
+    fn native_wall_transition_term_controls_wall_prediction_rays() {
+        let mut o = crate::game_ffi::Object {
+            velocity: [4., 0.],
+            floor_tech: false,
+            wall_plane: Some(3.),
+            ..Default::default()
+        };
+        assert!(assess(&mut o, false, true).contact_in.is_some());
+        o.wall_tech = false;
+        assert_eq!(assess(&mut o, false, true).contact_in, None);
     }
     #[test]
     fn native_reaction_timer_reaches_scheduler_even_when_damage_animation_is_frozen() {

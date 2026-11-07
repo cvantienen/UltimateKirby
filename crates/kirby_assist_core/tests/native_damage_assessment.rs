@@ -47,6 +47,12 @@ mod game_ffi {
 }
 #[path = "."]
 mod live {
+    pub mod native_params {
+        pub const PARAM_AIR_ACCEL_Y: u64 = 0xba18057d9;
+        pub const PARAM_AIR_SPEED_Y_STABLE: u64 = 0x12ec5626fe;
+        pub const PARAM_DAMAGE_FLY_TOP_GRAVITY: u64 = 0x1a58828323;
+        pub const PARAM_DAMAGE_FLY_TOP_TERMINAL_SPEED: u64 = 0x1d71e21b0b;
+    }
     pub mod frame {
         use crate::game_ffi::Object;
         pub struct FrameReads;
