@@ -63,11 +63,15 @@ fn native_grab_recipe(s: &Sequence) -> bool {
         // Native grab admission already owns the short idle dash, range and
         // readiness checks. A chase-first grab must not replace an admitted R
         // with a long run (older edited tapes contain Up-B's drift here).
-        [Action::Drift { direction: Direction::Opponent, .. }, grab] => Some(grab),
+        [Action::Drift {
+            direction: Direction::Opponent,
+            ..
+        }, grab] => Some(grab),
         _ => None,
     };
-    s.start_delay == 0 && s.timeout >= 24
-        && grab.is_some_and(|a|literal_input(a, MAPPER_R, [0.; 2], 4))
+    s.start_delay == 0
+        && s.timeout >= 24
+        && grab.is_some_and(|a| literal_input(a, MAPPER_R, [0.; 2], 4))
 }
 fn backup_timing(s: &Sequence, kind: i32) -> Option<super::shield_up_b::Timing> {
     if s.start_delay != 0 || s.timeout < 24 {
@@ -147,11 +151,13 @@ impl OutOfShield {
         config: AutomaticConfig<'_>,
     ) -> LedgeOutput {
         self.bind_actor(c);
-        if config.backup.is_none() && (self.shield_up_b.active()
-            || self.configured_response && self.configured_backup) {
-            self.shield_up_b.cancel();self.response.suspend();
-            self.configured_response=self.response.grab_delivery_pending();
-            self.configured_backup=false;
+        if config.backup.is_none()
+            && (self.shield_up_b.active() || self.configured_response && self.configured_backup)
+        {
+            self.shield_up_b.cancel();
+            self.response.suspend();
+            self.configured_response = self.response.grab_delivery_pending();
+            self.configured_backup = false;
             return LedgeOutput::default();
         }
         let limits = config.limits(close, approach);
@@ -159,14 +165,46 @@ impl OutOfShield {
         let backup_timing = config.backup.and_then(|s| backup_timing(s, c.kind));
         let native_timing =
             backup_timing.unwrap_or_else(|| super::shield_up_b::Timing::legacy(c.kind));
-        if self.configured_response && !self.configured_backup && self.configured_grab_wait
-            && !self.grab_delivery_pending() {
-            let enemy=follow.filter(|e|Some(e.id)==self.response.target()).or_else(||targets.iter().flatten()
-                .find(|t|Some(t.id)==self.response.target()).copied().map(copied));
-            let valid=allowed && self.configured_shielded==shielded && c.grounded && context.situation==0
-                && super::ground_grab_state(c.status) && enemy.is_some_and(|e|simple::target_valid(c,context,e,
-                    if shielded{limits.close}else{limits.approach},
-                    if shielded{limits.shield_height}else{limits.grab_height},startup,!shielded,shielded));
+        if self.configured_response
+            && !self.configured_backup
+            && self.configured_grab_wait
+            && !self.grab_delivery_pending()
+        {
+            let enemy = follow
+                .filter(|e| Some(e.id) == self.response.target())
+                .or_else(|| {
+                    targets
+                        .iter()
+                        .flatten()
+                        .find(|t| Some(t.id) == self.response.target())
+                        .copied()
+                        .map(copied)
+                });
+            let valid = allowed
+                && self.configured_shielded == shielded
+                && c.grounded
+                && context.situation == 0
+                && super::ground_grab_state(c.status)
+                && enemy.is_some_and(|e| {
+                    simple::target_valid(
+                        c,
+                        context,
+                        e,
+                        if shielded {
+                            limits.close
+                        } else {
+                            limits.approach
+                        },
+                        if shielded {
+                            limits.shield_height
+                        } else {
+                            limits.grab_height
+                        },
+                        startup,
+                        !shielded,
+                        shielded,
+                    )
+                });
             if !valid {
                 // No R was delivered. Re-evaluate the current shield/target now,
                 // rather than keep running the old unshielded custom response.
@@ -174,8 +212,8 @@ impl OutOfShield {
             }
         }
         if self.configured_settling {
-            let _=self.response.sample(false,settings,context,follow);
-            self.configured_response=self.response.grab_delivery_pending();
+            let _ = self.response.sample(false, settings, context, follow);
+            self.configured_response = self.response.grab_delivery_pending();
             let _ = self.simple.sample(
                 allowed,
                 c,
@@ -303,8 +341,9 @@ impl OutOfShield {
             };
             if grab.requested & MAPPER_R != 0 {
                 if let Some(s) = sequence.filter(|s| !native_grab_recipe(s)) {
-                    return self
-                        .commit_configured(*s, allowed, context, targets, follow, settings, false, shielded);
+                    return self.commit_configured(
+                        *s, allowed, context, targets, follow, settings, false, shielded,
+                    );
                 }
             }
             return grab;
@@ -314,9 +353,18 @@ impl OutOfShield {
             // Reuse only the fallback's target/range admission for a custom
             // ordinary recipe. Its placeholder B is replaced below and never
             // delivered; Up-B availability must gate only an actual Up-B start.
-            if config.backup.is_some_and(|s| !crate::reaction_rules::starts_direct_up_b(s)) {
-                Context { can_up_special: c.shield_ready && (c.can_grab || c.can_jump || c.can_up_special), ..c }
-            } else { c },
+            if config
+                .backup
+                .is_some_and(|s| !crate::reaction_rules::starts_direct_up_b(s))
+            {
+                Context {
+                    can_up_special: c.shield_ready
+                        && (c.can_grab || c.can_jump || c.can_up_special),
+                    ..c
+                }
+            } else {
+                c
+            },
             context,
             targets,
             follow,
@@ -326,8 +374,9 @@ impl OutOfShield {
         );
         if output.requested & MAPPER_B != 0 {
             if let Some(s) = config.backup.filter(|_| backup_timing.is_none()) {
-                return self
-                    .commit_configured(*s, allowed, context, targets, follow, settings, true, shielded);
+                return self.commit_configured(
+                    *s, allowed, context, targets, follow, settings, true, shielded,
+                );
             }
         }
         output
@@ -374,9 +423,12 @@ impl OutOfShield {
         self.configured_response = true;
         self.configured_backup = backup;
         self.configured_shielded = shielded;
-        self.configured_grab_wait = sequence.actions().iter().any(|a|match a {
-            Action::Input{buttons,..}|Action::OpponentInput{buttons,..}|Action::Controller{buttons,..}|Action::Tap{buttons,..} => buttons & MAPPER_R!=0,
-            _=>false,
+        self.configured_grab_wait = sequence.actions().iter().any(|a| match a {
+            Action::Input { buttons, .. }
+            | Action::OpponentInput { buttons, .. }
+            | Action::Controller { buttons, .. }
+            | Action::Tap { buttons, .. } => buttons & MAPPER_R != 0,
+            _ => false,
         });
         let output = self
             .response

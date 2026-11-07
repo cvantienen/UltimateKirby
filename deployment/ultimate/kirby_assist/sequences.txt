@@ -63,7 +63,6 @@ actions = run_to_ledge:10:1:1:2:120
 
 # BAYONETTA
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/bayonetta
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.

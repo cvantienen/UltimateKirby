@@ -4,7 +4,7 @@
 //! accessor pointers in policy state. Native calls remain outside STATE locks.
 //! Opponent get-up timings come from that opponent's native animation metadata;
 //! these are separate from our fighter's attack startup and input recipes.
-use super::{MANAGER_SLOT, PROFILES, STATE};
+use super::{MANAGER_SLOT, STATE};
 use crate::game_ffi as game;
 use kirby_assist_core::autopilot_guard::duck::DefenseThreat;
 use kirby_assist_core::combat_assist::TripTarget;
@@ -33,12 +33,16 @@ pub(super) unsafe fn incoming_fighter_attack(
     }
     let mut threats = DefenseThreat::default();
     let roster = reads.roster();
-    let roster=roster.unwrap_or([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
+    let roster = roster.unwrap_or([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
     let team = reads.team(own);
     let mut geometry_budget = 16;
     let mut own_z = None;
-    for id in roster.into_iter().chain(super::duck_hits::sources()).flatten() {
-        if id == own_id || !matches!(id >> 28,0|1|4) || !game::is_active(id) {
+    for id in roster
+        .into_iter()
+        .chain(super::duck_hits::sources())
+        .flatten()
+    {
+        if id == own_id || !matches!(id >> 28, 0 | 1 | 4) || !game::is_active(id) {
             continue;
         }
         let enemy = game::module_accessor(id);
@@ -55,9 +59,11 @@ pub(super) unsafe fn incoming_fighter_attack(
             .chain(target_velocity.iter())
             .all(|x| x.is_finite())
             || (target[0] - position[0]).abs()
-                > envelope.scan_x.max(envelope.warning_x) + (target_velocity[0] - velocity[0]).abs() * envelope.forecast
+                > envelope.scan_x.max(envelope.warning_x)
+                    + (target_velocity[0] - velocity[0]).abs() * envelope.forecast
             || (target[1] - position[1]).abs()
-                > envelope.scan_y.max(envelope.warning_y) + (target_velocity[1] - velocity[1]).abs() * envelope.forecast
+                > envelope.scan_y.max(envelope.warning_y)
+                    + (target_velocity[1] - velocity[1]).abs() * envelope.forecast
         {
             continue;
         }
@@ -65,15 +71,28 @@ pub(super) unsafe fn incoming_fighter_attack(
             position,
             velocity,
             target,
-            target_velocity, envelope,
+            target_velocity,
+            envelope,
         );
         if id >> 28 == 0 {
-            let status=reads.status_kind(enemy);
-            if status>=0x1de {
-                let previous=if status>=0x1e0 {reads.previous_status(enemy,0)}else{0};
+            let status = reads.status_kind(enemy);
+            if status >= 0x1de {
+                let previous = if status >= 0x1e0 {
+                    reads.previous_status(enemy, 0)
+                } else {
+                    0
+                };
                 if kirby_assist_core::autopilot_guard::recovery_warning(
-                    reads.fighter_kind(enemy),status,previous,position,velocity,target,target_velocity,envelope) {
-                    threats.shield=true;
+                    reads.fighter_kind(enemy),
+                    status,
+                    previous,
+                    position,
+                    velocity,
+                    target,
+                    target_velocity,
+                    envelope,
+                ) {
+                    threats.shield = true;
                     return threats;
                 }
             }
@@ -144,7 +163,8 @@ pub(super) unsafe fn incoming_fighter_attack(
                     end: [to.x, to.y, to.z],
                     radius: data.size * scale,
                     velocity: target_velocity,
-                }, envelope,
+                },
+                envelope,
             ) {
                 threats.shield = true;
                 return threats;
@@ -153,22 +173,17 @@ pub(super) unsafe fn incoming_fighter_attack(
         if !near || id >> 28 != 0 {
             continue;
         }
-        let status = reads.status_kind(enemy);
         let kind = reads.fighter_kind(enemy);
         let motion = reads.motion_kind(enemy);
         let frame = reads.motion_frame(enemy);
         let rate = reads.motion_rate(enemy);
         let imminent = kirby_assist_core::autopilot_guard::referenced_imminent_attack_with(
-            kind, motion, frame, rate, envelope.forecast,
-        ) || PROFILES
-            .get()
-            .and_then(|p| p.profile(kind))
-            .filter(|p| p.fighter_kind == kind)
-            .is_some_and(|p| {
-                kirby_assist_core::autopilot_guard::imminent_attack_with(
-                    p.ledge, status, motion, frame, rate, envelope.forecast,
-                )
-            });
+            kind,
+            motion,
+            frame,
+            rate,
+            envelope.forecast,
+        );
         if imminent {
             threats.shield = true;
             return threats;
@@ -261,7 +276,8 @@ pub(super) unsafe fn jab_lock_targets(
     own: *mut game::Object,
     own_id: u32,
     include_damage: bool,
-    chase_distance: f32, chase_height: f32,
+    chase_distance: f32,
+    chase_height: f32,
 ) -> [Option<kirby_assist_core::jab_lock::Target>; 8] {
     #[cfg(feature = "diagnostic-logging")]
     let _performance = crate::performance::Scope::new(crate::performance::Part::Jab);
@@ -292,8 +308,7 @@ pub(super) unsafe fn jab_lock_targets(
         }
         let position = [reads.pos_x(enemy), reads.pos_y(enemy)];
         if !position.iter().all(|v| v.is_finite())
-            || (position[0] - own_position[0]).abs()
-                > chase_distance
+            || (position[0] - own_position[0]).abs() > chase_distance
             || (position[1] - own_position[1]).abs() > chase_height
         {
             continue;
@@ -314,25 +329,30 @@ pub(super) unsafe fn jab_lock_targets(
             (normal.is_finite() && normal > frame && rate.is_finite() && rate > 0.0)
                 .then(|| (normal - frame) / rate)
         };
-        kirby_assist_core::battle_objects::insert_nearest(&mut targets, kirby_assist_core::jab_lock::Target {
-            id,
-            status,
-            frame,
-            position,
-            velocity_x: reads.speed_x(enemy, -1),
-            grounded: reads.situation_kind(enemy) == 0,
-            // Pinned instance work ID; status-local slots are not read in damage.
-            lock_count: game::work_int(enemy, 0x1000006a),
-            tech_available: matches!(status, 0x50..=0x54)
-                && (game::transition_enabled(enemy, 0x1e000013)
-                    || game::transition_enabled(enemy, 0x1e000014)),
-            vulnerable_in,
-            remaining,
-            hit_by_us: (0..8).contains(&entry)
-                && game::work_int(enemy, 0x100000b3) == entry
-                && matches!(status, 0x47..=0x54 | 0x5a),
-        }, |target|
-            kirby_assist_core::battle_objects::distance_squared(own_position, target.position));
+        kirby_assist_core::battle_objects::insert_nearest(
+            &mut targets,
+            kirby_assist_core::jab_lock::Target {
+                id,
+                status,
+                frame,
+                position,
+                velocity_x: reads.speed_x(enemy, -1),
+                grounded: reads.situation_kind(enemy) == 0,
+                // Pinned instance work ID; status-local slots are not read in damage.
+                lock_count: game::work_int(enemy, 0x1000006a),
+                tech_available: matches!(status, 0x50..=0x54)
+                    && (game::transition_enabled(enemy, 0x1e000013)
+                        || game::transition_enabled(enemy, 0x1e000014)),
+                vulnerable_in,
+                remaining,
+                hit_by_us: (0..8).contains(&entry)
+                    && game::work_int(enemy, 0x100000b3) == entry
+                    && matches!(status, 0x47..=0x54 | 0x5a),
+            },
+            |target| {
+                kirby_assist_core::battle_objects::distance_squared(own_position, target.position)
+            },
+        );
     }
     targets
 }
@@ -393,7 +413,8 @@ pub(super) unsafe fn combat_targets(
         if watch_trip {
             if let Some(slot) = targets.iter_mut().find(|slot| slot.is_none()) {
                 *slot = Some(TripTarget {
-                    id, status: reads.status_kind(enemy),
+                    id,
+                    status: reads.status_kind(enemy),
                     previous_status: reads.previous_status(enemy, 0),
                 });
             }
@@ -408,71 +429,187 @@ pub(super) unsafe fn combat_targets(
 /// Optional onstage reactions, front grabs and either-side shield fallbacks. Status and
 /// spatial filters precede detailed reads; sixteen copied actor IDs bound the pass.
 pub(super) unsafe fn rule_targets(
-    reads:&super::frame::FrameReads,own:*mut game::Object,own_id:u32,
-    follow:Option<u32>,grab_range:Option<[f32;2]>,shield_fallback:bool,watch_events:bool,spin_follow:bool,
-)->([Option<kirby_assist_core::roll_read::Target>;8],Option<Opponent>){
-    #[cfg(feature="diagnostic-logging")]
-    let _scope=crate::performance::Scope::new(crate::performance::Part::Roll);
-    let mut targets=[None;8];let mut following=None;
+    reads: &super::frame::FrameReads,
+    own: *mut game::Object,
+    own_id: u32,
+    follow: Option<u32>,
+    grab_range: Option<[f32; 2]>,
+    shield_fallback: bool,
+    watch_events: bool,
+    spin_follow: bool,
+) -> (
+    [Option<kirby_assist_core::roll_read::Target>; 8],
+    Option<Opponent>,
+) {
+    #[cfg(feature = "diagnostic-logging")]
+    let _scope = crate::performance::Scope::new(crate::performance::Part::Roll);
+    let mut targets = [None; 8];
+    let mut following = None;
     // A committed response follows only its locked actor during recovery.
     // It never searches other fighters for a fresh punish in that state.
     if !watch_events && grab_range.is_none() {
-        return (targets,follow.and_then(|id|rule_follow(reads,own,own_id,id,spin_follow)));
+        return (
+            targets,
+            follow.and_then(|id| rule_follow(reads, own, own_id, id, spin_follow)),
+        );
     }
 
-    let Some(roster)=reads.roster()else{return(targets,following);};
-    let team=reads.team(own);
-    let own_position=[reads.pos_x(own),reads.pos_y(own)];
-    let grab_from=grab_range.filter(|r|r[0].is_finite()&&r[0]>0.&&r[1].is_finite()&&r[1]>=0.)
-        .map(|r|(own_position,reads.facing(own),r));
-    for id in roster.into_iter(){
-        let Some(id)=id.filter(|id|*id!=own_id&&*id>>28==0&&game::is_active(*id))else{continue;};
-        let e=game::module_accessor(id);if e.is_null()||e.cast::<u8>().add(8).cast::<u32>().read()!=id||reads.team(e)==team{continue;}
-        let status=reads.status_kind(e);
-        if status>=0x1e0 && kirby_assist_core::native_states::fighter_noncombat(reads.fighter_kind(e),status) {continue;}
-        let available=kirby_assist_core::reaction_rules::automatic_target_available(status);
-        if !available && !(spin_follow && follow==Some(id)
-            && kirby_assist_core::reaction_rules::automatic_tracking_target_available(status)){continue;}
-        let event=available&&watch_events&&matches!(status,0x1f..=0x23);
-        let grab=available&&grab_from.is_some() && if shield_fallback {
-            kirby_assist_core::out_of_shield::automatic_shield_target_status(status)
-        } else {kirby_assist_core::out_of_shield::automatic_grab_target_status(status)};
-        if !grab&&!event&&follow!=Some(id){continue;}
-        if reads.capture_link(e){continue;}
-        let situation=reads.situation_kind(e);
-        let eligible_event=event&&!((0x75..=0x7d).contains(&reads.previous_status(e,0))
-            ||matches!(status,0x1f..=0x21)&&situation!=0||matches!(status,0x22|0x23)&&situation!=2);
-        let position=[reads.pos_x(e),reads.pos_y(e)];
-        let eligible_grab=grab&&grab_from.is_some_and(|(from,facing,range)|
-            facing.is_finite() && facing.abs()>=0.5
-            && (shield_fallback || (position[0]-from[0])*facing>0.)
-            && (position[0]-from[0]).abs()<=range[0]
-            &&(position[1]-from[1]).abs()<=range[1])
-            &&game::hit_status(e,0)==0
-            &&!(event&&(0x75..=0x7d).contains(&reads.previous_status(e,0)));
-        if !eligible_event&&!eligible_grab&&follow!=Some(id){continue;}
-        let motion=MotionTiming{kind:reads.motion_kind(e),frame:reads.motion_frame(e),rate:reads.motion_rate(e),remaining:None};
+    let Some(roster) = reads.roster() else {
+        return (targets, following);
+    };
+    let team = reads.team(own);
+    let own_position = [reads.pos_x(own), reads.pos_y(own)];
+    let grab_from = grab_range
+        .filter(|r| r[0].is_finite() && r[0] > 0. && r[1].is_finite() && r[1] >= 0.)
+        .map(|r| (own_position, reads.facing(own), r));
+    for id in roster.into_iter() {
+        let Some(id) = id.filter(|id| *id != own_id && *id >> 28 == 0 && game::is_active(*id))
+        else {
+            continue;
+        };
+        let e = game::module_accessor(id);
+        if e.is_null() || e.cast::<u8>().add(8).cast::<u32>().read() != id || reads.team(e) == team
+        {
+            continue;
+        }
+        let status = reads.status_kind(e);
+        if status >= 0x1e0
+            && kirby_assist_core::native_states::fighter_noncombat(reads.fighter_kind(e), status)
+        {
+            continue;
+        }
+        let available = kirby_assist_core::reaction_rules::automatic_target_available(status);
+        if !available
+            && !(spin_follow
+                && follow == Some(id)
+                && kirby_assist_core::reaction_rules::automatic_tracking_target_available(status))
+        {
+            continue;
+        }
+        let event = available && watch_events && matches!(status, 0x1f..=0x23);
+        let grab = available
+            && grab_from.is_some()
+            && if shield_fallback {
+                kirby_assist_core::out_of_shield::automatic_shield_target_status(status)
+            } else {
+                kirby_assist_core::out_of_shield::automatic_grab_target_status(status)
+            };
+        if !grab && !event && follow != Some(id) {
+            continue;
+        }
+        if reads.capture_link(e) {
+            continue;
+        }
+        let situation = reads.situation_kind(e);
+        let eligible_event = event
+            && !((0x75..=0x7d).contains(&reads.previous_status(e, 0))
+                || matches!(status, 0x1f..=0x21) && situation != 0
+                || matches!(status, 0x22 | 0x23) && situation != 2);
+        let position = [reads.pos_x(e), reads.pos_y(e)];
+        let eligible_grab =
+            grab && grab_from.is_some_and(|(from, facing, range)| {
+                facing.is_finite()
+                    && facing.abs() >= 0.5
+                    && (shield_fallback || (position[0] - from[0]) * facing > 0.)
+                    && (position[0] - from[0]).abs() <= range[0]
+                    && (position[1] - from[1]).abs() <= range[1]
+            }) && game::hit_status(e, 0) == 0
+                && !(event && (0x75..=0x7d).contains(&reads.previous_status(e, 0)));
+        if !eligible_event && !eligible_grab && follow != Some(id) {
+            continue;
+        }
+        let motion = MotionTiming {
+            kind: reads.motion_kind(e),
+            frame: reads.motion_frame(e),
+            rate: reads.motion_rate(e),
+            remaining: None,
+        };
         // Only current grab candidates need a velocity read for startup reach.
-        let velocity_x=if eligible_grab {reads.speed_x(e,-1)}else{0.};
-        if follow==Some(id){following=Some(Opponent{id,status,situation,position,velocity:[velocity_x,0.],motion:Some(motion),vulnerable:eligible_grab,..Default::default()});}
-        if !eligible_event&&!eligible_grab{continue;}
-        kirby_assist_core::battle_objects::insert_nearest(&mut targets, kirby_assist_core::roll_read::Target{id,status,motion:motion.kind,frame:motion.frame,rate:motion.rate,position,velocity_x,
-            vulnerable_in:eligible_grab.then_some(0.),actionable_in:None}, |target|
-            kirby_assist_core::battle_objects::distance_squared(own_position, target.position));
+        let velocity_x = if eligible_grab {
+            reads.speed_x(e, -1)
+        } else {
+            0.
+        };
+        if follow == Some(id) {
+            following = Some(Opponent {
+                id,
+                status,
+                situation,
+                position,
+                velocity: [velocity_x, 0.],
+                motion: Some(motion),
+                vulnerable: eligible_grab,
+                ..Default::default()
+            });
+        }
+        if !eligible_event && !eligible_grab {
+            continue;
+        }
+        kirby_assist_core::battle_objects::insert_nearest(
+            &mut targets,
+            kirby_assist_core::roll_read::Target {
+                id,
+                status,
+                motion: motion.kind,
+                frame: motion.frame,
+                rate: motion.rate,
+                position,
+                velocity_x,
+                vulnerable_in: eligible_grab.then_some(0.),
+                actionable_in: None,
+            },
+            |target| {
+                kirby_assist_core::battle_objects::distance_squared(own_position, target.position)
+            },
+        );
     }
-    (targets,following)
+    (targets, following)
 }
 
-unsafe fn rule_follow(reads:&super::frame::FrameReads,own:*mut game::Object,own_id:u32,id:u32,spin:bool)->Option<Opponent> {
-    if id==own_id || id>>28!=0 || !game::is_active(id){return None;}
-    let e=game::module_accessor(id);
-    if e.is_null() || e.cast::<u8>().add(8).cast::<u32>().read()!=id || reads.team(e)==reads.team(own){return None;}
-    let status=reads.status_kind(e);
-    if status>=0x1e0 && kirby_assist_core::native_states::fighter_noncombat(reads.fighter_kind(e),status) {return None;}
-    if !(if spin {kirby_assist_core::reaction_rules::automatic_tracking_target_available(status)}
-        else {kirby_assist_core::reaction_rules::automatic_target_available(status)}) || reads.capture_link(e){return None;}
-    Some(Opponent{id,status,situation:reads.situation_kind(e),position:[reads.pos_x(e),reads.pos_y(e)],
-        motion:Some(MotionTiming{kind:reads.motion_kind(e),frame:reads.motion_frame(e),rate:reads.motion_rate(e),remaining:None}),..Default::default()})
+unsafe fn rule_follow(
+    reads: &super::frame::FrameReads,
+    own: *mut game::Object,
+    own_id: u32,
+    id: u32,
+    spin: bool,
+) -> Option<Opponent> {
+    if id == own_id || id >> 28 != 0 || !game::is_active(id) {
+        return None;
+    }
+    let e = game::module_accessor(id);
+    if e.is_null()
+        || e.cast::<u8>().add(8).cast::<u32>().read() != id
+        || reads.team(e) == reads.team(own)
+    {
+        return None;
+    }
+    let status = reads.status_kind(e);
+    if status >= 0x1e0
+        && kirby_assist_core::native_states::fighter_noncombat(reads.fighter_kind(e), status)
+    {
+        return None;
+    }
+    if !(if spin {
+        kirby_assist_core::reaction_rules::automatic_tracking_target_available(status)
+    } else {
+        kirby_assist_core::reaction_rules::automatic_target_available(status)
+    }) || reads.capture_link(e)
+    {
+        return None;
+    }
+    Some(Opponent {
+        id,
+        status,
+        situation: reads.situation_kind(e),
+        position: [reads.pos_x(e), reads.pos_y(e)],
+        motion: Some(MotionTiming {
+            kind: reads.motion_kind(e),
+            frame: reads.motion_frame(e),
+            rate: reads.motion_rate(e),
+            remaining: None,
+        }),
+        ..Default::default()
+    })
 }
 
 // Read the roster from the manager instead of waiting for opponents to query
@@ -529,15 +666,23 @@ pub(super) unsafe fn tracked_ledge_clock(reads: &super::frame::FrameReads) -> Op
         rate: reads.motion_rate(object),
         remaining: None,
     };
-    let motion = (motion.kind != 0 && motion.frame.is_finite() && motion.frame >= 0.0
-        && motion.rate.is_finite() && motion.rate > 0.0).then_some(motion);
+    let motion = (motion.kind != 0
+        && motion.frame.is_finite()
+        && motion.frame >= 0.0
+        && motion.rate.is_finite()
+        && motion.rate > 0.0)
+        .then_some(motion);
     let status = reads.status_kind(object);
     let cliff_position = if status == kirby_assist_core::ledge_trap::CLIFF_WAIT {
         let p = game::cliff_position(object);
-        (p.x.is_finite() && p.y.is_finite()
+        (p.x.is_finite()
+            && p.y.is_finite()
             && (p.x - reads.pos_x(object)).abs() <= 12.0
-            && (p.y - reads.pos_y(object)).abs() <= 64.0).then_some([p.x, p.y])
-    } else { None };
+            && (p.y - reads.pos_y(object)).abs() <= 64.0)
+            .then_some([p.x, p.y])
+    } else {
+        None
+    };
     Some(Opponent {
         id,
         status,
@@ -545,8 +690,10 @@ pub(super) unsafe fn tracked_ledge_clock(reads: &super::frame::FrameReads) -> Op
         cliff_position,
         situation: reads.situation_kind(object),
         // One read on the already locked actor, only while actually at ledge.
-        vulnerable: (kirby_assist_core::ledge_trap::CLIFF_CATCH_MOVE..=kirby_assist_core::ledge_trap::CLIFF_WAIT)
-            .contains(&status) && game::hit_status(object, 0) == 0,
+        vulnerable: (kirby_assist_core::ledge_trap::CLIFF_CATCH_MOVE
+            ..=kirby_assist_core::ledge_trap::CLIFF_WAIT)
+            .contains(&status)
+            && game::hit_status(object, 0) == 0,
         position: [reads.pos_x(object), reads.pos_y(object)],
         motion,
         ..Opponent::default()
@@ -744,35 +891,49 @@ pub(super) unsafe fn grab_targets(
             continue;
         }
         let status = reads.status_kind(enemy);
-        if !matches!(status, 0x37 | 0x39 | 0x3b) || reads.is_stop(enemy) || reads.capture_link(enemy) {
+        if !matches!(status, 0x37 | 0x39 | 0x3b)
+            || reads.is_stop(enemy)
+            || reads.capture_link(enemy)
+        {
             continue;
         }
-        let enemy_kind=reads.fighter_kind(enemy);
-        let Some(mut grab) =
-            kirby_assist_core::opponent_data::ordinary_grab(enemy_kind, status)
+        let enemy_kind = reads.fighter_kind(enemy);
+        let Some(mut grab) = kirby_assist_core::fighter_data::ordinary_grab(enemy_kind, status)
         else {
             continue;
         };
         // Use that attacker's saved reach override, never the controlled
         // fighter's reach. Release catalog locks before any native reads.
-        if let Some(reach)=super::SEQUENCES.get().and_then(|saved|saved.lock().ok()
-            .and_then(|c|c.tuning.get(&enemy_kind).and_then(|t|t.0[1]))) {
-            grab.reach=reach;
+        if let Some(reach) = super::SEQUENCES.get().and_then(|saved| {
+            saved
+                .lock()
+                .ok()
+                .and_then(|c| c.tuning.get(&enemy_kind).and_then(|t| t.0[1]))
+        }) {
+            grab.reach = Some(reach);
         }
-        kirby_assist_core::battle_objects::insert_nearest(&mut targets, kirby_assist_core::spot_dodge::Target {
-            id,
-            status,
-            motion: reads.motion_kind(enemy),
-            frame: reads.motion_frame(enemy),
-            rate: reads.motion_rate(enemy),
-            position: [reads.pos_x(enemy), reads.pos_y(enemy)],
-            velocity: [reads.speed_x(enemy, -1), reads.speed_y(enemy, -1)],
-            facing: reads.facing(enemy),
-            first: grab.first,
-            last: grab.last,
-            reach: grab.reach,
-        }, |target|
-            kirby_assist_core::battle_objects::distance_squared(own_position, target.position));
+        let Some(reach) = grab.reach else {
+            continue;
+        };
+        kirby_assist_core::battle_objects::insert_nearest(
+            &mut targets,
+            kirby_assist_core::spot_dodge::Target {
+                id,
+                status,
+                motion: reads.motion_kind(enemy),
+                frame: reads.motion_frame(enemy),
+                rate: reads.motion_rate(enemy),
+                position: [reads.pos_x(enemy), reads.pos_y(enemy)],
+                velocity: [reads.speed_x(enemy, -1), reads.speed_y(enemy, -1)],
+                facing: reads.facing(enemy),
+                first: grab.first,
+                last: grab.last,
+                reach,
+            },
+            |target| {
+                kirby_assist_core::battle_objects::distance_squared(own_position, target.position)
+            },
+        );
     }
     targets
 }

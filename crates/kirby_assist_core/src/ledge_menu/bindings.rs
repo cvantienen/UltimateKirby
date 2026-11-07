@@ -1,8 +1,7 @@
 //! Fighter-specific sequences and explicitly assigned reaction toggle groups.
 use super::*;
 use crate::button_bindings::Mode;
-pub const BUTTON_MASK: u32 = MAPPER_X | MAPPER_Y | DPAD_UP | DPAD_DOWN | DPAD_SIDES
-    | (3<<16);
+pub const BUTTON_MASK: u32 = MAPPER_X | MAPPER_Y | DPAD_UP | DPAD_DOWN | DPAD_SIDES | (3 << 16);
 impl MenuSelection {
     pub fn effective_mode(&self, _mode: Mode, base: bool) -> bool {
         base
@@ -21,10 +20,10 @@ impl MenuSelection {
         available: bool,
         quarantined: u32,
     ) -> u32 {
-        let physical=self.binding_physical;
-        let binding_pressed=self.binding_pressed;
-        let physical_quarantine=self.binding_layout.physical_buttons(quarantined);
-        let exclusive=(MAPPER_X|MAPPER_Y|0xf)|self.binding_sources;
+        let physical = self.binding_physical;
+        let binding_pressed = self.binding_pressed;
+        let physical_quarantine = self.binding_layout.physical_buttons(quarantined);
+        let exclusive = (MAPPER_X | MAPPER_Y | 0xf) | self.binding_sources;
         if self.held_binding.is_some_and(|slot| {
             !available
                 || physical & slot.button() == 0
@@ -41,7 +40,8 @@ impl MenuSelection {
                 if self.rule_button_mask & button == 0 {
                     continue;
                 }
-                let eligible = available && !self.binding_starts_blocked
+                let eligible = available
+                    && !self.binding_starts_blocked
                     && buttons & (MAPPER_L | MAPPER_MINUS | crate::native_input::MAPPER_PLUS) == 0
                     && (buttons & BUTTON_MASK).count_ones() == 1
                     && self.trigger_ready & button != 0
@@ -64,8 +64,12 @@ impl MenuSelection {
             }
             let list = p.list(slot);
             let index = self.choices[slot as usize];
-            let Some(kind)=self.selected_builtin(p,slot) else {continue;};
-            if kind.is_some() {continue;}
+            let Some(kind) = self.selected_builtin(p, slot) else {
+                continue;
+            };
+            if kind.is_some() {
+                continue;
+            }
             if index == list.options.len() {
                 continue;
             } // Normal button.
@@ -88,7 +92,8 @@ impl MenuSelection {
                 }
             }
             bound |= self.binding_layout.binding_ownership(button);
-            let eligible = available && !self.binding_starts_blocked
+            let eligible = available
+                && !self.binding_starts_blocked
                 && physical & (MAPPER_MINUS | crate::native_input::MAPPER_PLUS) == 0
                 && physical & self.builtin_sources[1] == 0
                 && (physical & exclusive).count_ones() == 1
@@ -133,7 +138,9 @@ impl MenuSelection {
     }
     /// Ordinary jump inputs must remain bufferable during damage/tech safety.
     /// Other custom tapes remain blocked and cannot replace that safety owner.
-    pub fn preserve_safety_jump(&mut self,enabled:bool){self.binding_safety_jump=enabled;}
+    pub fn preserve_safety_jump(&mut self, enabled: bool) {
+        self.binding_safety_jump = enabled;
+    }
     /// Short hop's own one-button owner is not a competing input tape. Keep its
     /// held source routed; other sources pressed during it still require release.
     pub fn continue_short_hop_binding(&mut self, running: bool) {
@@ -145,38 +152,62 @@ impl MenuSelection {
     }
     /// Actual manual gameplay roles after custom bindings. Automatic rule
     /// buttons are explicit commands to their own rule, not manual jump intent.
-    pub fn manual_native_actions(&self,p:&MenuPresets)->u32 {
+    pub fn manual_native_actions(&self, p: &MenuPresets) -> u32 {
         use crate::native_input::*;
-        let mut actions=self.native_buttons(self.binding_layout.policy_buttons(self.binding_physical))
-            & !self.rule_button_mask & (MAPPER_A|MAPPER_B|MAPPER_R|SEQUENCE_JUMP_BUTTONS);
-        if self.binding_layout==ControlLayout::Default
-            && self.binding_physical & MAPPER_X!=0 && self.rule_button_mask & MAPPER_X==0
-            && self.selected_builtin(p,PresetSlot::X)==Some(Some(crate::button_bindings::Builtin::Normal)) {
-            actions|=MAPPER_X;
+        let mut actions = self
+            .native_buttons(self.binding_layout.policy_buttons(self.binding_physical))
+            & !self.rule_button_mask
+            & (MAPPER_A | MAPPER_B | MAPPER_R | SEQUENCE_JUMP_BUTTONS);
+        if self.binding_layout == ControlLayout::Default
+            && self.binding_physical & MAPPER_X != 0
+            && self.rule_button_mask & MAPPER_X == 0
+            && self.selected_builtin(p, PresetSlot::X)
+                == Some(Some(crate::button_bindings::Builtin::Normal))
+        {
+            actions |= MAPPER_X;
         }
-        if self.binding_layout==ControlLayout::Brother && self.binding_physical & (MAPPER_R|MAPPER_ZR)!=0 {
-            actions|=MAPPER_X;
+        if self.binding_layout == ControlLayout::Brother
+            && self.binding_physical & (MAPPER_R | MAPPER_ZR) != 0
+        {
+            actions |= MAPPER_X;
         }
         actions
     }
-    fn selected_builtin(&self, p: &MenuPresets, slot: PresetSlot) -> Option<Option<crate::button_bindings::Builtin>> {
-        let index=self.choices[slot as usize];
-        if let Some(d)=self.catalog.as_ref().and_then(|c|c.drafts.get(&(slot as usize,index))) {
+    fn selected_builtin(
+        &self,
+        p: &MenuPresets,
+        slot: PresetSlot,
+    ) -> Option<Option<crate::button_bindings::Builtin>> {
+        let index = self.choices[slot as usize];
+        if let Some(d) = self
+            .catalog
+            .as_ref()
+            .and_then(|c| c.drafts.get(&(slot as usize, index)))
+        {
             return (!d.deleted && d.sequence.mode.is_none()).then_some(d.sequence.builtin);
         }
-        let options=p.list(slot).options;
-        if let Some(c)=options.get(index) { return c.sequence.mode.is_none().then_some(c.sequence.builtin); }
-        if index==options.len()+1 {return Some(None);}
-        crate::button_bindings::Builtin::ALL.into_iter()
-            .find(|b|index==options.len()+b.template_offset()).map(Some)
+        let options = p.list(slot).options;
+        if let Some(c) = options.get(index) {
+            return c.sequence.mode.is_none().then_some(c.sequence.builtin);
+        }
+        if index == options.len() + 1 {
+            return Some(None);
+        }
+        crate::button_bindings::Builtin::ALL
+            .into_iter()
+            .find(|b| index == options.len() + b.template_offset())
+            .map(Some)
     }
-    pub(super) fn capture_binding_input(&mut self, buttons:u32, p:&MenuPresets) {
-        let (physical,layout)=self.binding_input.take().unwrap_or((buttons,crate::native_input::ControlLayout::Default));
-        self.binding_layout=layout;
-        self.binding_physical=physical;
-        self.binding_pressed=physical & !self.binding_previous.unwrap_or(physical);
-        self.binding_previous=Some(physical);
-        self.binding_ready|=!physical & BUTTON_MASK;
+    pub(super) fn capture_binding_input(&mut self, buttons: u32, p: &MenuPresets) {
+        let (physical, layout) = self
+            .binding_input
+            .take()
+            .unwrap_or((buttons, crate::native_input::ControlLayout::Default));
+        self.binding_layout = layout;
+        self.binding_physical = physical;
+        self.binding_pressed = physical & !self.binding_previous.unwrap_or(physical);
+        self.binding_previous = Some(physical);
+        self.binding_ready |= !physical & BUTTON_MASK;
         self.refresh_native_bindings(p);
         if self.binding_starts_blocked {
             self.binding_ready &= !physical;
@@ -188,43 +219,79 @@ impl MenuSelection {
                 self.builtin_sources[0] | self.single_jump_sources
             } else if self.binding_short_hop_running {
                 self.builtin_sources[0] & !self.binding_pressed
-            } else {0};
+            } else {
+                0
+            };
             self.button_latch |= layout.binding_ownership(physical & BUTTON_MASK & !continuing_hop);
         }
         if self.binding_safety_jump {
-            self.button_latch &= !layout.binding_ownership(physical & (self.builtin_sources[0]|self.single_jump_sources));
+            self.button_latch &= !layout
+                .binding_ownership(physical & (self.builtin_sources[0] | self.single_jump_sources));
         }
     }
-    pub fn refresh_native_bindings(&mut self,p:&MenuPresets) {
-        let layout=self.binding_layout;
-        let stamp=(layout,self.choices,self.recipe_revision,self.rule_button_mask,self.binding_safety_jump);
-        if self.binding_roles_stamp==Some(stamp) {return;}
-        self.binding_roles_stamp=Some(stamp);
-        #[cfg(test)] { self.binding_roles_rebuilds+=1; }
-        self.builtin_sources=[0;3];self.builtin_consumed=0;self.binding_sources=0;self.single_jump_sources=0;
+    pub fn refresh_native_bindings(&mut self, p: &MenuPresets) {
+        let layout = self.binding_layout;
+        let stamp = (
+            layout,
+            self.choices,
+            self.recipe_revision,
+            self.rule_button_mask,
+            self.binding_safety_jump,
+        );
+        if self.binding_roles_stamp == Some(stamp) {
+            return;
+        }
+        self.binding_roles_stamp = Some(stamp);
+        #[cfg(test)]
+        {
+            self.binding_roles_rebuilds += 1;
+        }
+        self.builtin_sources = [0; 3];
+        self.builtin_consumed = 0;
+        self.binding_sources = 0;
+        self.single_jump_sources = 0;
         // Fixed legacy L assistance is not a customizable binding or latch.
-        if layout==crate::native_input::ControlLayout::Default {
-            self.builtin_sources[1]=MAPPER_L;self.builtin_consumed=MAPPER_L;
+        if layout == crate::native_input::ControlLayout::Default {
+            self.builtin_sources[1] = MAPPER_L;
+            self.builtin_consumed = MAPPER_L;
         }
         for slot in PresetSlot::BUTTONS {
-            if self.rule_button_mask & slot.button()!=0 {continue;}
-            let Some(kind)=self.selected_builtin(p,slot) else {continue;};
+            if self.rule_button_mask & slot.button() != 0 {
+                continue;
+            }
+            let Some(kind) = self.selected_builtin(p, slot) else {
+                continue;
+            };
             match kind {
-                Some(crate::button_bindings::Builtin::Normal)=>{},
-                Some(builtin)=>{
-                    self.binding_sources|=slot.button();
-                    self.builtin_consumed|=layout.binding_ownership(slot.button());
-                    let index=match builtin {crate::button_bindings::Builtin::ShortHop=>0,
-                        crate::button_bindings::Builtin::LedgeAssist=>1,_=>2};
-                    self.builtin_sources[index]|=slot.button();
-                },
-                None=>{
-                    self.binding_sources|=slot.button();
+                Some(crate::button_bindings::Builtin::Normal) => {}
+                Some(builtin) => {
+                    self.binding_sources |= slot.button();
+                    self.builtin_consumed |= layout.binding_ownership(slot.button());
+                    let index = match builtin {
+                        crate::button_bindings::Builtin::ShortHop => 0,
+                        crate::button_bindings::Builtin::LedgeAssist => 1,
+                        _ => 2,
+                    };
+                    self.builtin_sources[index] |= slot.button();
+                }
+                None => {
+                    self.binding_sources |= slot.button();
                     // Only inspect literal jump tapes when recovering from damage;
                     // ordinary gameplay needs only the existing binding identity.
                     if self.binding_safety_jump {
-                        let sequence=self.catalog.as_ref().and_then(|c|c.drafts.get(&(slot as usize,self.choices[slot as usize])))
-                            .map(|d|&d.sequence).or_else(||p.list(slot).options.get(self.choices[slot as usize]).map(|c|c.sequence));
+                        let sequence = self
+                            .catalog
+                            .as_ref()
+                            .and_then(|c| {
+                                c.drafts.get(&(slot as usize, self.choices[slot as usize]))
+                            })
+                            .map(|d| &d.sequence)
+                            .or_else(|| {
+                                p.list(slot)
+                                    .options
+                                    .get(self.choices[slot as usize])
+                                    .map(|c| c.sequence)
+                            });
                         if sequence.is_some_and(|s|s.start_delay==0 && !s.ground_only && !s.while_held
                             && !s.reaction.active() && matches!(s.actions(),[crate::sequence_config::Action::Input{buttons,stick,frames:1,..}]
                                 if *buttons!=0 && *buttons & !crate::native_input::SEQUENCE_JUMP_BUTTONS==0 && *stick==[0.;2])) {
@@ -232,31 +299,53 @@ impl MenuSelection {
                             self.builtin_consumed|=layout.binding_ownership(slot.button());
                         }
                     }
-                },
+                }
             }
         }
     }
     /// Canonical inputs for existing helpers only. Physical game inputs are
     /// untouched until the final overlay consumes the chosen binding source.
-    pub fn native_buttons(&self, buttons:u32)->u32 {
+    pub fn native_buttons(&self, buttons: u32) -> u32 {
         use crate::manual_controls::TURBO_TRIGGER;
-        let mut result=buttons & !(MAPPER_X|MAPPER_L|TURBO_TRIGGER
-            |self.binding_layout.binding_ownership(self.binding_sources));
+        let mut result = buttons
+            & !(MAPPER_X
+                | MAPPER_L
+                | TURBO_TRIGGER
+                | self.binding_layout.binding_ownership(self.binding_sources));
         result |= buttons & self.rule_button_mask;
         // The source always comes from the captured PHYSICAL trace. Using an
         // already-routed logical button here can remap it a second time.
-        let held=self.binding_physical;
-        let latched=self.binding_layout.physical_buttons(self.button_latch|self.pad_quarantine);
-        let enabled=!self.recipe_editing&&!self.managing()&&!self.tuning_page;
+        let held = self.binding_physical;
+        let latched = self
+            .binding_layout
+            .physical_buttons(self.button_latch | self.pad_quarantine);
+        let enabled = !self.recipe_editing && !self.managing() && !self.tuning_page;
         if enabled {
-            let reserved=if self.menu_hidden {0}else{MENU_STICK_CLICK
-                | if self.lightweight {
-                    if self.lightweight_navigation() {0xf}else{0}
-                } else {TWO_FRAME_TRIGGER | 0xf}};
-            for (index,dest) in [MAPPER_X,MAPPER_L,TURBO_TRIGGER].into_iter().enumerate() {
-                let blocked=reserved | if index!=1 {latched}else{0};
-                let sources=self.builtin_sources[index] | if index==0&&self.binding_safety_jump {self.single_jump_sources}else{0};
-                if held & sources & !blocked != 0 {result|=dest;}
+            let reserved = if self.menu_hidden {
+                0
+            } else {
+                MENU_STICK_CLICK
+                    | if self.lightweight {
+                        if self.lightweight_navigation() {
+                            0xf
+                        } else {
+                            0
+                        }
+                    } else {
+                        TWO_FRAME_TRIGGER | 0xf
+                    }
+            };
+            for (index, dest) in [MAPPER_X, MAPPER_L, TURBO_TRIGGER].into_iter().enumerate() {
+                let blocked = reserved | if index != 1 { latched } else { 0 };
+                let sources = self.builtin_sources[index]
+                    | if index == 0 && self.binding_safety_jump {
+                        self.single_jump_sources
+                    } else {
+                        0
+                    };
+                if held & sources & !blocked != 0 {
+                    result |= dest;
+                }
             }
         }
         result

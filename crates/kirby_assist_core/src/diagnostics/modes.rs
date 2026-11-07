@@ -468,7 +468,10 @@ impl Label {
         while !text.is_char_boundary(len) {
             len -= 1;
         }
-        let mut label = Self { bytes: [0; 64], len };
+        let mut label = Self {
+            bytes: [0; 64],
+            len,
+        };
         label.bytes[..len].copy_from_slice(&text.as_bytes()[..len]);
         label
     }
@@ -492,12 +495,19 @@ pub struct Configuration {
 }
 impl Configuration {
     pub fn new(fighter: &'static str, rows: [&str; 26]) -> Self {
-        Self { fighter, rows: rows.map(Label::new),auto_reflect:false }
+        Self {
+            fighter,
+            rows: rows.map(Label::new),
+            auto_reflect: false,
+        }
     }
-    pub fn with_reflect(mut self,enabled:bool)->Self {self.auto_reflect=enabled;self}
+    pub fn with_reflect(mut self, enabled: bool) -> Self {
+        self.auto_reflect = enabled;
+        self
+    }
     pub fn format(&self) -> String {
         let mut text = format!("SAVED MODES for {} (changed configuration)\n", self.fighter);
-        if self.fighter=="mr_game_and_watch" {
+        if self.fighter == "mr_game_and_watch" {
             let _=writeln!(text,"  Auto-reflect: {}. Native-ready projectile defense only; full bucket and ledge mode suspend it.",if self.auto_reflect {"ON"}else{"OFF"});
         }
         for (label, value) in [
@@ -564,7 +574,7 @@ mod tests {
         assert_eq!(label.to_string(), label.as_str());
         assert!(Label::new("").is_empty());
         let menu_name = String::from("Saved custom option");
-        let configuration = Configuration::new("Bowser", [menu_name.as_str();26]);
+        let configuration = Configuration::new("Bowser", [menu_name.as_str(); 26]);
         drop(menu_name);
         assert_eq!(configuration.rows[0].as_str(), "Saved custom option");
     }
@@ -688,8 +698,7 @@ mod tests {
         for owner in OWNERS {
             assert!(!name(owner).is_empty());
         }
-        let text = Configuration::new("yoshi",["OFF";26])
-        .format();
+        let text = Configuration::new("yoshi", ["OFF"; 26]).format();
         assert!(text.contains("Neutral getup: OFF"));
         assert!(text.contains("Yoshi jab lock: OFF"));
     }

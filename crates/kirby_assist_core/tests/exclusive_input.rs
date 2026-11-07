@@ -166,11 +166,7 @@ fn native_safety_selects_exactly_one_phase() {
     let (packet, delivered) = safety_output(tech, None, Some([0., 1.]), Some([1., 0.]));
     assert_eq!(packet.requested, 0);
     assert_eq!(packet.stick, Some([0., 1.]));
-    assert_eq!(
-        delivered,
-        None,
-        "final DI must suppress tech guard"
-    );
+    assert_eq!(delivered, None, "final DI must suppress tech guard");
     let (packet, _) = safety_output(
         TechOutput {
             press: false,

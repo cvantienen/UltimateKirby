@@ -22,31 +22,59 @@ pub(crate) struct DeliveryBudget {
     last_tick: Option<i64>,
 }
 impl DeliveryBudget {
-    pub const fn new() -> Self {Self {attempts:0,last_tick:None}}
+    pub const fn new() -> Self {
+        Self {
+            attempts: 0,
+            last_tick: None,
+        }
+    }
     pub fn mapped(&mut self, tick: i64) {
         if self.last_tick != Some(tick) {
             self.attempts = self.attempts.saturating_add(1);
             self.last_tick = Some(tick);
         }
     }
-    pub fn exhausted(&self) -> bool { self.attempts >= 24 }
+    pub fn exhausted(&self) -> bool {
+        self.attempts >= 24
+    }
 }
 /// A delivered automatic Up-B may appear in native status after shield hitstop
 /// or input delay. Remember receipt only; never emit/retry inputs while waiting.
 #[derive(Default)]
-pub(crate) struct UpBReceipt {sent:bool,ticks:u8,last_tick:Option<i64>}
+pub(crate) struct UpBReceipt {
+    sent: bool,
+    ticks: u8,
+    last_tick: Option<i64>,
+}
 impl UpBReceipt {
-    pub const fn new()->Self {Self{sent:false,ticks:0,last_tick:None}}
-    pub fn mapped(&mut self,tick:i64) {
-        if !self.sent {self.sent=true;self.ticks=1;self.last_tick=Some(tick);} else {self.tick(tick);}
-    }
-    pub fn tick(&mut self,tick:i64) {
-        if self.sent && self.last_tick!=Some(tick) {
-            self.last_tick=Some(tick);self.ticks=self.ticks.saturating_add(1);
+    pub const fn new() -> Self {
+        Self {
+            sent: false,
+            ticks: 0,
+            last_tick: None,
         }
     }
-    pub fn sent(&self)->bool {self.sent}
-    pub fn expired(&self)->bool {self.ticks>=24}
+    pub fn mapped(&mut self, tick: i64) {
+        if !self.sent {
+            self.sent = true;
+            self.ticks = 1;
+            self.last_tick = Some(tick);
+        } else {
+            self.tick(tick);
+        }
+    }
+    pub fn tick(&mut self, tick: i64) {
+        if self.sent && self.last_tick != Some(tick) {
+            self.last_tick = Some(tick);
+            self.ticks = self.ticks.saturating_add(1);
+        }
+    }
+    pub fn sent(&self) -> bool {
+        self.sent
+    }
+    pub fn expired(&self) -> bool {
+        self.ticks >= 24
+    }
 }
 /// Three native frames pressed, one neutral frame, then a fresh edge.
 /// The owner retains its normal reach/recovery gates and acceptance budget.

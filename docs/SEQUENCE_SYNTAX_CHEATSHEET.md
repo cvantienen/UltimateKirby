@@ -399,8 +399,8 @@ out_of_shield_default = true
 | `crouch_height` | 0–100 | Kirby crouch: proximity Y — Kirby only |
 | `shield_scan_x` | 1–300 | Shield: scan X cutoff |
 | `shield_scan_y` | 1–300 | Shield: scan Y cutoff |
-| `auto_grab_close_range` | 1–150 | Automatic grab: shielded range — legacy fallback; explicit auto-grab reaction ranges take precedence |
-| `auto_grab_dash_range` | 1–150 | Automatic grab: approach range — legacy fallback; explicit auto-grab reaction ranges take precedence |
+| `auto_grab_close_range` | 0–150 | Automatic grab: shielded range — legacy fallback; 0 means unavailable/disabled |
+| `auto_grab_dash_range` | 0–150 | Automatic grab: approach range — legacy fallback; 0 means unavailable/disabled |
 | `reflect_default` | `true` / `false` | Auto-reflect at startup — explicit reflector configuration; currently Game & Watch only |
 | `reflect_startup` | 6–30 | Reflect/absorb startup in frames; Game & Watch's native minimum is 6 |
 | `reflect_margin` | 0–8 | Early activation allowance before predicted projectile contact |

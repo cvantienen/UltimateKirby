@@ -89,7 +89,8 @@ acceptance, correct position/facing, and an already released shield for ordinary
 ground attacks. Late recognition, shield-drop recovery, motion rates, differing
 opponents, platforms and hitbox geometry can shift or defeat contact. The files
 are configurations for calibration, not measured frame-perfect guarantees.
-See [opponent ledge statistics](https://ultimateframedata.com/stats).
+See the canonical [Fighter Data catalog](FIGHTER_DATA.md) for per-fighter stats
+and move-frame facts.
 
 Each fighter file links its move-data source. Documented active intervals and
 the three-frame jump squat supply the input lead. Disconnected multihit phases

@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **25** (`mewtwo`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **25** (`mewtwo`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,37 +48,39 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 7–8 |
-| Down tilt | 6–7 |
-| Forward tilt | 10–11 |
-| Down smash | 21–23 |
-| Up Tilt | 8–13 |
-| Forward Smash | 19–22 |
-| Forward Air | 7–9 |
-| Up Air | 10–14 |
-| Down Air | 15–18 |
+| Neutral Air | 7/11/15/19/23/27 start; active 7–8 / 11–12 / 15–16 / 19–20 / 23–24 / 27–28; 49 total; 10 landing |
+| Forward Air | 7 start; active 7–9; 39 total; 8 landing |
+| Back Air | 13 start; active 13–17; 39 total; 10 landing |
+| Up Air | 10 start; active 10–14; 39 total; 8 landing |
+| Down Air | 15 start; active 15–18; 47 total; 11 landing |
+| Forward Tilt | 10 start; active 10–11; 35 total; -- landing |
+| Up Tilt | 8 start; active 8 / 9–13; 29 total; -- landing |
+| Down Tilt | 6 start; active 6–7; 23 total; -- landing |
+| Dash Attack | 10 start; active 10–11 / 12–20; 38 total; -- landing |
+| Forward Smash | 19 start; active 19–22; 52 total; -- landing |
+| Up Smash | 9/14/18/22 start; active 9 / 10–11 / 14–15 / 18–19 / 22–25; 68 total; -- landing |
+| Down Smash | 21 start; active 21–23; 40 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 7 |
-| Dash startup | 10 |
-| Pivot startup | 11 |
+| Standing grab | frames 7–8 |
+| Dash grab | frames 10–11 |
+| Pivot grab | frames 11–12 |
+| Standing reach reference | 14.3 world units |
 | Shield-grab startup | 11 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 14.3 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 79 |
 | Walk speed | 1.26 |
@@ -90,8 +92,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.48 |
 | Short-hop height | 17.5 |
 | Full-hop height | 31.11 |
-
-[Move source](https://ultimateframedata.com/mewtwo) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -126,7 +126,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -134,7 +134,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/mewtwo.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/mewtwo/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

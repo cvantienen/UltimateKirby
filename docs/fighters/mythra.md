@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **91** (`mythra`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **91** (`mythra`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -42,38 +42,38 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 8–19 |
-| Down tilt | 5–7 |
-| Forward tilt | 8–9 |
-| Down smash | 8–10 |
-| Down-smash rear window | 14–16 |
-| Up Tilt | 7–12 |
-| Forward Smash | 14–17 |
-| Forward Air | 8–11 |
-| Up Air | 9–13 |
-| Grounded up-special startup | 10 |
+| Jab 1 | 2 start; active 2–4; 20 total; -- landing |
+| Forward Air | 8 start; active 8–11; 37 total; 10 landing |
+| Back Air | 10 start; active 10–11 / 12; 33 total; 10 landing |
+| Up Air | 9 start; active 9–13; 30 total; 8 landing |
+| Down Air | 13 start; active 13–15 / 16; 40 total; 11 landing |
+| Forward Tilt | 8 start; active 8–9; 25 total; -- landing |
+| Up Tilt | 7 start; active 7–12; 26 total; -- landing |
+| Down Tilt | 5 start; active 5–7; 20 total; -- landing |
+| Dash Attack | 9 start; active 9–10; 39 total; -- landing |
+| Forward Smash | 14 start; active 14–17; 49 total; -- landing |
+| Down Smash | 8/14 start; active 8–10 / 14–16; 44 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 6 |
-| Dash startup | 11 |
-| Pivot startup | 12 |
+| Standing grab | frames 6–7 |
+| Dash grab | frames 11–12 |
+| Pivot grab | frames 12–13 |
+| Standing reach reference | 12.0 world units |
 | Shield-grab startup | 10 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 12. |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 92 |
 | Walk speed | 1.42 |
@@ -85,8 +85,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.992 |
 | Short-hop height | Unknown |
 | Full-hop height | Unknown |
-
-[Move source](https://ultimateframedata.com/mythra) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -106,7 +104,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -114,7 +112,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/mythra.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/mythra/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

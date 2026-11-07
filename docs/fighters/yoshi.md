@@ -34,8 +34,8 @@ whether the requested turn precedes an attack. C-stick must use Tilt Attack.
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **5** (`yoshi`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **5** (`yoshi`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -76,40 +76,40 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 3–25 |
-| Down tilt | 8–10 |
-| Forward tilt | 5–7 |
-| Down smash | 7–8 |
-| Down-smash rear window | 22–23 |
-| Up Tilt | 8–15 |
-| Forward Smash | 14–16 |
-| Up Air | 5–6 |
-| Forward Air | 16–20 |
-| Back Air First | 11–11 |
-| Back Air Middle | 14–14 |
-| Back Air Finish | 18–19 |
+| Jab 1 | 3 start; active 3; 17 total; -- landing |
+| Neutral Air | 3 start; active 3–4 / 5–11 / 12–25; 44 total; 7 landing |
+| Forward Air | 16 start; active 16–20; 43 total; 12 landing |
+| Back Air | 11/14/18 start; active 11 / 14 / 18–19; 55 total; 11 landing |
+| Up Air | 5 start; active 5–6; 36 total; 8 landing |
+| Down Air | 16/18/20/22/24/26/28/30/32/34/36/38/41 start; active 16 / 18 / 20 / 22 / 24 / 26 / 28 / 30 / 32 / 34 / 36 / 38 / 41; 56 total; 17 landing |
+| Forward Tilt | 5 start; active 5–7; 29 total; -- landing |
+| Up Tilt | 8 start; active 8–15; 31 total; -- landing |
+| Down Tilt | 8 start; active 8–10; 23 total; -- landing |
+| Dash Attack | 10 start; active 10–12 / 13–20; 40 total; -- landing |
+| Forward Smash | 14 start; active 14–16; 52 total; -- landing |
+| Up Smash | 11 start; active 11–13 / 14–16; 46 total; -- landing |
+| Down Smash | 7/22 start; active 7–8 / 22–23; 49 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 14 |
-| Dash startup | 16 |
-| Pivot startup | 17 |
+| Standing grab | frames 14–21 |
+| Dash grab | frames 16–23 |
+| Pivot grab | frames 17–24 |
+| Standing reach reference | 26.0 ~ world units |
 | Shield-grab startup | 18 |
-| Active duration | 8 |
-| Standing reach reference (world units) | 26.0 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 104 |
 | Walk speed | 1.208 |
@@ -121,8 +121,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.064 |
 | Short-hop height | 14.43 |
 | Full-hop height | 36.09 |
-
-[Move source](https://ultimateframedata.com/yoshi) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -157,7 +155,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -165,7 +163,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/yoshi.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/yoshi/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 
@@ -191,8 +189,8 @@ still needs Switch calibration.
 Yoshi has **Bair drag > Fsmash** on Y. It turns before the short hop and only
 an early bair hit can queue the landing Fsmash. This is not a verified true
 combo. Automatic whiff punishing is removed from the live build/menu.
-See [finisher sequences](../FINISHERS.md) and the compiled
-[movement/weight/move reference](../OPPONENT_DATA.md).
+See [finisher sequences](../FINISHERS.md) and the canonical
+[Fighter Data catalog](../FIGHTER_DATA.md).
 
 Neutral nair reacts immediately to recognized Neutral get-up: face the remembered
 ledge (turn with 0.6 stick if needed), confirm native facing, then send **X+ZL**

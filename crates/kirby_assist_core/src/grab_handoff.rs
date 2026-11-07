@@ -162,7 +162,9 @@ impl GrabHandoff {
     pub fn permits(&self, owner: Option<Owner>, out: LedgeOutput, right: Option<[f32; 2]>) -> bool {
         !self.pending
             || owner == Some(Owner::Safety)
-            || owner.is_some() && owner == self.owner && out.requested == 0
+            || owner.is_some()
+                && owner == self.owner
+                && out.requested == 0
                 && out.stick.is_none_or(|s| s == [0.; 2])
                 && right.is_none_or(|s| s == [0.; 2])
             || Self::shield_packet(out, right)

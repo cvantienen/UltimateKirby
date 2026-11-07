@@ -1,8 +1,6 @@
 {
   "schema_version": 1,
   "snapshot_date": "2026-10-23",
-  "stats_source": "https://ultimateframedata.com/stats.php",
-  "stats_sha256": "2e2ad70436faee2d1613c50360357952e865225ab15b986bdcca201ebac39f5d",
   "fighters": [
     {
       "kind": 0,
@@ -253,8 +251,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/mario",
-      "sha256": "429c7be083488c2e19215bdb021f338f2883b4ae83a3029f2b8d626f81908b51",
       "moves": [
         {
           "name": "Jab 1",
@@ -1346,8 +1342,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/donkey_kong",
-      "sha256": "ca38eecf18e7c11f00a623ff6bdcedc3bcd7632ea545fb527be7076ca34f47c5",
       "moves": [
         {
           "name": "Jab 1",
@@ -2468,8 +2462,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/link",
-      "sha256": "7e56b0411dc8664911af823353505949e1d3d8bb2652a13ad0958ecde7b54acb",
       "moves": [
         {
           "name": "Jab 1",
@@ -3646,8 +3638,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/samus",
-      "sha256": "25178d64588a7d6303bc85da718ea44424db6a908239cfd34fcb1ec731fa8aab",
       "moves": [
         {
           "name": "Jab 1",
@@ -4821,8 +4811,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/dark_samus",
-      "sha256": "4c15707c7732f65abf99a8d68665949ec16833b2970a337aaa8927020a34b42e",
       "moves": [
         {
           "name": "Jab 1",
@@ -6004,8 +5992,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/yoshi",
-      "sha256": "95705751efc1989c29293d5b106a57f100565af438751d47363184c27c2b532d",
       "moves": [
         {
           "name": "Jab 1",
@@ -7069,8 +7055,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/kirby",
-      "sha256": "ec7f68d4d1586e4692bc9b780b59cd3889d1074d74485ba67760f98adff793f4",
       "moves": [
         {
           "name": "Jab 1",
@@ -8259,8 +8243,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/fox",
-      "sha256": "b58d5924cc7dc578beb19c0b2dd6200b829118d34957bfacbd402edce684539d",
       "moves": [
         {
           "name": "Jab 1",
@@ -9394,8 +9376,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/pikachu",
-      "sha256": "9179f8293cbd4babb85a2dca8e53c84b1d90a392d5cda4fd06c3dcf57a4555ef",
       "moves": [
         {
           "name": "Jab",
@@ -10462,8 +10442,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/luigi",
-      "sha256": "1c242e5e5683605317c4c2ed23f2f2514216bc1dc0639f122a92341defc0a5d1",
       "moves": [
         {
           "name": "Jab 1",
@@ -11596,8 +11574,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/ness",
-      "sha256": "0f794fa0e8fd8c80ce88b00f7d9722c7eefb38c49ed5c714d4362c06bdb6de71",
       "moves": [
         {
           "name": "Jab 1",
@@ -12675,8 +12651,6 @@
           "value": "Blue bold: Left in helpless/freefall state"
         }
       ],
-      "source": "https://ultimateframedata.com/captain_falcon",
-      "sha256": "d59eee00df050bd8096f7c252a568b473e847b24e787fee934f8c37fa645bbf8",
       "moves": [
         {
           "name": "Jab 1",
@@ -13841,8 +13815,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/jigglypuff",
-      "sha256": "14e147154830f1730c8bf3b13147ed13de061aedb0bee0e77bb23436e8174ec3",
       "moves": [
         {
           "name": "Jab 1",
@@ -14892,8 +14864,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/peach",
-      "sha256": "d1c0580e7e0f782a577e12cf9a0477e30c9e91433596c7b7a21815db2c118ba6",
       "moves": [
         {
           "name": "Jab 1",
@@ -16011,8 +15981,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/daisy",
-      "sha256": "e55e41fd431014946c5d6416a77dad2b5fc8be992c1f35eee0a0990e8321f432",
       "moves": [
         {
           "name": "Jab 1",
@@ -17138,8 +17106,6 @@
           "value": "Green bold: Hits only behind (first), relative to model"
         }
       ],
-      "source": "https://ultimateframedata.com/bowser",
-      "sha256": "bff1fb607564de39f6a484a970a3526ed31731574085ecc4bfb6f8482d81c16d",
       "moves": [
         {
           "name": "Jab 1",
@@ -18206,8 +18172,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/sheik",
-      "sha256": "9eecf7349a367ac95d3636d73f4cbd13a75bf4d79636de526edf6b27dcaf2fd7",
       "moves": [
         {
           "name": "Jab 1",
@@ -19293,8 +19257,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/zelda",
-      "sha256": "28dccbf3377697c8994008398e6e7812f2340faa0ad8b3a35636a4a54c62724e",
       "moves": [
         {
           "name": "Jab",
@@ -20373,8 +20335,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/dr_mario",
-      "sha256": "b7500acc312b96746bf2f2b99090facfcfe261719385e0a1bdac60d7f5fbefd4",
       "moves": [
         {
           "name": "Jab 1",
@@ -21453,8 +21413,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/pichu",
-      "sha256": "adfefadaebe02ee9a8f3c1d6e20968a91b9538de1a349bc03b57d7905b48e5de",
       "moves": [
         {
           "name": "Jab",
@@ -22511,8 +22469,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/falco",
-      "sha256": "402c25f7db771ed868c9090fb5e13b52210c3eef9706850028334619751b5f55",
       "moves": [
         {
           "name": "Jab 1",
@@ -23666,8 +23622,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/marth",
-      "sha256": "9b68b6aa96077d9c32143ccaeb9693dd9497ea34709108d1b9fd12c67f185c35",
       "moves": [
         {
           "name": "Jab 1",
@@ -24908,8 +24862,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/lucina",
-      "sha256": "78f55f079d51962d8636d54ee938ea52ec387ef46063e989813342d4ba08cd90",
       "moves": [
         {
           "name": "Jab 1",
@@ -26158,8 +26110,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/young_link",
-      "sha256": "4b6b55a53c4bec44954485e08111d84916f7a5f938df5a4de8714a0b8f003bfe",
       "moves": [
         {
           "name": "Jab 1",
@@ -27355,8 +27305,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/ganondorf",
-      "sha256": "9dba24f8f27b0c1cb5f3a7c418b6bd800d9598085db0ff17d018186063e931e6",
       "moves": [
         {
           "name": "Jab",
@@ -28490,8 +28438,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/mewtwo",
-      "sha256": "5dd40d80b6736ffb0527d52b650fca0489a48cb3f6eb578f2800f6d56fda993b",
       "moves": [
         {
           "name": "Jab",
@@ -29563,8 +29509,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/roy",
-      "sha256": "5b5ab7f3b5b558c0d4b0e432ce61644bb0dfe9234827fdfccce13e9a5d057221",
       "moves": [
         {
           "name": "Jab",
@@ -30784,8 +30728,6 @@
           "value": "More info in the About This tab!"
         }
       ],
-      "source": "https://ultimateframedata.com/chrom",
-      "sha256": "7bb7480fee4b405af8fc1a7b0af5855a0f19c9c499f94b30b463e37687538bb6",
       "moves": [
         {
           "name": "Jab",
@@ -32018,8 +31960,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/mr_game_and_watch",
-      "sha256": "b958b179a0a31d7dadca34ac13b6d395cb686ffd5510267d35ab9cc895cfa950",
       "moves": [
         {
           "name": "Jab",
@@ -33127,8 +33067,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/meta_knight",
-      "sha256": "64666d68f24d36af19e34aea9d501914073d2ea223cf7b9fcd59702fc54cf168",
       "moves": [
         {
           "name": "Rapid Jab",
@@ -34271,8 +34209,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/pit",
-      "sha256": "7269c0df99b54f202c33cf068352e00c762b9ca56f0b41446b1e246bf67af6fb",
       "moves": [
         {
           "name": "Jab 1",
@@ -35413,8 +35349,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/dark_pit",
-      "sha256": "2effb1ae81d653c176ae1a30f0b2d8f34ddafa99c674dfb8d6c5d213440a78fd",
       "moves": [
         {
           "name": "Jab 1",
@@ -36563,8 +36497,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/zero_suit_samus",
-      "sha256": "5bcd7ee834e9553b8efaee9931856491b07bc632e8e3e5ddc206138655408506",
       "moves": [
         {
           "name": "Jab 1",
@@ -37689,8 +37621,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/wario",
-      "sha256": "4170f35532b8266b0dea66126a4a2b6387b6e35ffb3cf2fa80d8a74c9100ae41",
       "moves": [
         {
           "name": "Jab",
@@ -38836,8 +38766,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/snake",
-      "sha256": "d6d6137017227ac6db09bb52365d572a918cec31dab9efaed9445d43bc252f2b",
       "moves": [
         {
           "name": "Jab 1",
@@ -39948,8 +39876,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/ike",
-      "sha256": "48df66fc241330d578216bb40af426cf6222af96bc6fed8732ce312a7a8ddd65",
       "moves": [
         {
           "name": "Jab 1",
@@ -40939,10 +40865,12 @@
         {
           "key": "ledgestats.jump",
           "value": "1-10 intangible / 12 total"
+        },
+        {
+          "key": "grabs.grabrange",
+          "value": "14.0"
         }
       ],
-      "source": "https://ultimateframedata.com/pt_squirtle",
-      "sha256": "a74cfe3e440450c0ecffe270dd0aec3b9f0898e95ece7a6ed1a08f960b6831c5",
       "moves": [
         {
           "name": "Jab 1",
@@ -41907,10 +41835,12 @@
         {
           "key": "ledgestats.jump",
           "value": "1-12 intangible / 14 total"
+        },
+        {
+          "key": "grabs.grabrange",
+          "value": "23.0"
         }
       ],
-      "source": "https://ultimateframedata.com/pt_ivysaur",
-      "sha256": "68aff8fdf9708b1095da26666adf85322e61a721846ca44c6fd0b72ea8b5f1ea",
       "moves": [
         {
           "name": "Jab 1",
@@ -42924,10 +42854,12 @@
         {
           "key": "ledgestats.jump",
           "value": "1-12 intangible / 14 total"
+        },
+        {
+          "key": "grabs.grabrange",
+          "value": "21.4"
         }
       ],
-      "source": "https://ultimateframedata.com/pt_charizard",
-      "sha256": "89bd613f52f83ec5a9400b3c908c77acd45f2057876e2dca85bbf9cac288b78f",
       "moves": [
         {
           "name": "Jab 1",
@@ -43984,8 +43916,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/diddy_kong",
-      "sha256": "44738d552668fc1cff315df6f386407c95a42dfcb34efd4266485dca683da92b",
       "moves": [
         {
           "name": "Jab 1",
@@ -45204,8 +45134,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/lucas",
-      "sha256": "86bcc86b29edecf54e9f42c1d7af1f7809b1b82078cffb6c3557c5c84d805eda",
       "moves": [
         {
           "name": "Jab 1",
@@ -46390,8 +46318,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/sonic",
-      "sha256": "9c2a32fc780418282dc1279a8942b941a92d7aa4143f1a0eabf8601eb6d503bd",
       "moves": [
         {
           "name": "Jab 1",
@@ -47539,8 +47465,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/king_dedede",
-      "sha256": "2c0dc6df8aec99df83819d5879e456a99ce9741cb27668bd8c3ee019aea0f42b",
       "moves": [
         {
           "name": "Jab 1",
@@ -48677,10 +48601,12 @@
         {
           "key": "outofshield.key",
           "value": ""
+        },
+        {
+          "key": "grabs.grabrange",
+          "value": "19.4"
         }
       ],
-      "source": "https://ultimateframedata.com/olimar",
-      "sha256": "9c64f05793a61d76225b2e04b26ab53f3206f60be33f6013afba82c2d03e67a2",
       "moves": [
         {
           "name": "Jab 1",
@@ -49781,8 +49707,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/lucario",
-      "sha256": "5e06df3abbbc94d799cbe953ae46e2e8b720b2e844fc99371f408c97246bd83d",
       "moves": [
         {
           "name": "Jab 1",
@@ -50896,8 +50820,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/rob",
-      "sha256": "4e2fa492662521352040555254345ae1b6bb99b56f42e8605a2cf3c702d71eaa",
       "moves": [
         {
           "name": "Jab 1",
@@ -51960,8 +51882,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/toon_link",
-      "sha256": "1ded4a29221019e025e8ec2b2b5a970708294ee7d6bb18d4d6406c54b7badf6f",
       "moves": [
         {
           "name": "Jab 1",
@@ -53093,8 +53013,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/wolf",
-      "sha256": "2333c62c5258fbccd7e2ebd39e321db0138ee1b4deb6c5a5d7707b0a56be4e77",
       "moves": [
         {
           "name": "Jab 1",
@@ -54130,8 +54048,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/villager",
-      "sha256": "df8b55d2d77a5206022ec5ed9e0a7bcffa897886f54c15cf68d21896f24f2341",
       "moves": [
         {
           "name": "Jab 1",
@@ -55291,8 +55207,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/mega_man",
-      "sha256": "fc19799676acbbc787ec1544ecdb7300d50d93a46e88ad37eddcd5e7c44463bb",
       "moves": [
         {
           "name": "Jab",
@@ -56387,8 +56301,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/wii_fit_trainer",
-      "sha256": "a18bb3ea4e5093d1f81850407da0579c3974778be597e3ff70c0a330172a237e",
       "moves": [
         {
           "name": "Jab 1",
@@ -57451,8 +57363,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/rosalina_and_luma",
-      "sha256": "7b5a25fc3f04926077a3d11a19419a8d5d18911944a7c5ce086f7b68c4756db9",
       "moves": [
         {
           "name": "Jab 1",
@@ -58984,8 +58894,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/little_mac",
-      "sha256": "2c41b5a295396323cbf9a61e82b3634b5661c658e1d3cf2967b07bf59d7363e4",
       "moves": [
         {
           "name": "Jab 1",
@@ -60150,8 +60058,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/greninja",
-      "sha256": "e0c389265c84f77bff83071f7070495e09ff969af2446d60cd8b530b33cd9bb1",
       "moves": [
         {
           "name": "Jab 1",
@@ -61310,8 +61216,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/palutena",
-      "sha256": "a42723bccfe73186709292eb0a7a183852833db00e231afb796793c5b52fd97d",
       "moves": [
         {
           "name": "Jab 1",
@@ -62376,8 +62280,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/pac_man",
-      "sha256": "a24b80504788b5ca9c6d794bfcbf8f75bb93075d438a57597d14c97d1fc6b5d2",
       "moves": [
         {
           "name": "Jab 1",
@@ -63449,8 +63351,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/robin",
-      "sha256": "341e74c893cf4c5eb7d56b1b14f3b909a1c71b303e69d7a405235e24af7654dd",
       "moves": [
         {
           "name": "Jab 1",
@@ -64653,8 +64553,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/shulk",
-      "sha256": "1777f8e1dcc7afe4c05bfcca7b7062754eb6e0ab72308060066312b0a0a69ead",
       "moves": [
         {
           "name": "Jab 1",
@@ -65737,8 +65635,6 @@
           "value": "Pink bold: Hits only above (first), relative to model"
         }
       ],
-      "source": "https://ultimateframedata.com/bowser_jr",
-      "sha256": "91007fc11ba6ec13e2d36a01826f1bc96d258d7bedc2711dcb86d594e61a121a",
       "moves": [
         {
           "name": "Jab 1",
@@ -66921,8 +66817,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/duck_hunt",
-      "sha256": "13d4f3076a3a4c7534c58de0cd71c2c5a03d8c9e5d22ce04e0a3e8bc0b3773c2",
       "moves": [
         {
           "name": "Jab 1",
@@ -68134,8 +68028,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/ryu",
-      "sha256": "75c3df05200b28260411e5d8a8bc62766f70375d723a00194ed47461d85a0164",
       "moves": [
         {
           "name": "Jab 1 (Light)",
@@ -69469,8 +69361,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/ken",
-      "sha256": "e66511889ea8ef957e2cc34a9a3cff2aedd04679f6c49f03a6f32b21e08002ab",
       "moves": [
         {
           "name": "Jab 1 (Light)",
@@ -70986,8 +70876,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/cloud",
-      "sha256": "1299d0aa787607f1b9476c4d6226894745201bc34829de0ade72eb7d8e854d49",
       "moves": [
         {
           "name": "Jab 1",
@@ -72262,8 +72150,6 @@
           "value": "If the URL has /htmlview at the end, remove it and reload for full functionality"
         }
       ],
-      "source": "https://ultimateframedata.com/corrin",
-      "sha256": "a76ff21d1b7fc4fac8f2d67a08c6bc995f4168274d5b408b8349cbd1bbfb8a21",
       "moves": [
         {
           "name": "Jab 1",
@@ -73505,8 +73391,6 @@
           "value": "Regular: Has at least a hitbox in front, relative to model"
         }
       ],
-      "source": "https://ultimateframedata.com/bayonetta",
-      "sha256": "af968378f2684537f3899f8eb9bf6f13ded3ed057c680f353591a3f4baac299d",
       "moves": [
         {
           "name": "Jab 1",
@@ -74764,8 +74648,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/inkling",
-      "sha256": "ae7b4f669888a1224b9ba955ea53de391cb7d3021cbcfbdf8d632bbeb172ecd4",
       "moves": [
         {
           "name": "Jab 1",
@@ -75877,8 +75759,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/ridley",
-      "sha256": "bf9dc8560ad054ec2c330c73d5b670b35d38e139bbc13aabf877cf1735ce7dc2",
       "moves": [
         {
           "name": "Jab 1",
@@ -77022,8 +76902,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/simon",
-      "sha256": "ba4b9ed77d9a766f20bf49183d9c7416e78406cd2c3fd79ec65ebedf68152287",
       "moves": [
         {
           "name": "Jab 1",
@@ -78199,8 +78077,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/richter",
-      "sha256": "1b4d939d0f2cdb9cfbeef0bab7991f2a6a7a007991040fdf2381882a12853c70",
       "moves": [
         {
           "name": "Jab 1",
@@ -79384,8 +79260,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/king_k_rool",
-      "sha256": "275c6cb8b58b0444e0f50891b9bb9f1c659b47dbfc05ad1144cc40fd23c9d609",
       "moves": [
         {
           "name": "Jab 1",
@@ -80523,8 +80397,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/isabelle",
-      "sha256": "b8dc7304f643a157738a6e701973c8342a09203d82adb5ff25bc73c3beb6c58c",
       "moves": [
         {
           "name": "Jab",
@@ -81670,8 +81542,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/incineroar",
-      "sha256": "1caf73e307f7bb40b69843480dbf8f14944e3901830eed844b4c9cd7af6ce9db",
       "moves": [
         {
           "name": "Jab 1",
@@ -82800,8 +82670,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/mii_brawler",
-      "sha256": "eb157696683e3ac1b086a9657a212185825a6913f592a212396aed3060ea06d7",
       "moves": [
         {
           "name": "Jab 1",
@@ -84161,8 +84029,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/mii_swordfighter",
-      "sha256": "bc164765c6418cc908356a75fe273530146ab43eabdb6b5dd456afa0f51fa398",
       "moves": [
         {
           "name": "Jab 1",
@@ -85616,8 +85482,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/mii_gunner",
-      "sha256": "e43b214848fb6465152c825f003bee4b359cc9b9759ad1a0b4a2e748764a0ca3",
       "moves": [
         {
           "name": "Jab 1",
@@ -86895,8 +86759,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/ice_climbers",
-      "sha256": "40043c16ca9abaef42dd951cb918bec7c0d415f583d75a220e4b76b48285c756",
       "moves": [
         {
           "name": "Jab 1",
@@ -88009,8 +87871,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/ice_climbers",
-      "sha256": "40043c16ca9abaef42dd951cb918bec7c0d415f583d75a220e4b76b48285c756",
       "moves": [
         {
           "name": "Jab 1",
@@ -89123,8 +88983,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/piranha_plant",
-      "sha256": "78d3f9e7c3daec3d54af354940b540b63ff377987de17defcfc97f6aa3e6482c",
       "moves": [
         {
           "name": "Jab 1",
@@ -90266,8 +90124,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/joker",
-      "sha256": "cde7e7fe4881c8a70cfc82bf67da34c0725c6ee5b02cd857a9f06e00cf05bf03",
       "moves": [
         {
           "name": "Jab 1",
@@ -91985,8 +91841,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/hero",
-      "sha256": "9b7f18833ba3361f5a1f33165f229154dd3381a66cca841a3a3965b92aa86983",
       "moves": [
         {
           "name": "Jab 1",
@@ -93539,8 +93393,6 @@
           "value": "Regular: Has at least a hitbox in front, relative to model"
         }
       ],
-      "source": "https://ultimateframedata.com/banjo_and_kazooie",
-      "sha256": "52e87793e93b5e0c8b2b49e9417c3c36bbd4774af0804b7eae5cae36dca1a0bb",
       "moves": [
         {
           "name": "Jab 1",
@@ -94677,8 +94529,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/terry",
-      "sha256": "a5f04c0690d2d9abeb511ee72fee41235a93d2cce48c91d5f273781a3cac6293",
       "moves": [
         {
           "name": "Jab 1",
@@ -95939,8 +95789,6 @@
           "value": "Blue bold: Left in helpless/freefall state"
         }
       ],
-      "source": "https://ultimateframedata.com/byleth",
-      "sha256": "2f76a841ebe8f8a207b31acf3cbd0ff30e0e11100984ebcbfac13029a7760201",
       "moves": [
         {
           "name": "Jab 1",
@@ -96999,8 +96847,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/minmin",
-      "sha256": "5aa9362b63c0f7a5442b464f04bc1f849cde0ea6858c900fa0abfbefbc96cb91",
       "moves": [
         {
           "name": "Jab 1",
@@ -98177,8 +98023,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/steve",
-      "sha256": "03aad3a962d07b54f1e37ccc42d1b6ccd15c6b81d09815838d05d99391a813d2",
       "moves": [
         {
           "name": "Jab / Forward Tilt",
@@ -99124,8 +98968,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/sephiroth",
-      "sha256": "69657a2c7ba21a08b3b2183dbdaeccdd743a4c0075bf58e9dc2b82e04f05b6a9",
       "moves": [
         {
           "name": "Jab 1",
@@ -100322,8 +100164,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/pyra",
-      "sha256": "f78b498128c0d104304cbd9a16a15159e750325a48f424957738e02ab690b872",
       "moves": [
         {
           "name": "Jab 1",
@@ -101363,8 +101203,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/mythra",
-      "sha256": "6f78abaa6b4d8d1b916bdaf68d9f4922bc3c1f5a1dbaf855e9d5fac8daa0dfe1",
       "moves": [
         {
           "name": "Jab 1",
@@ -102455,8 +102293,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/kazuya",
-      "sha256": "96057b77f9f8ee2dab6530a9b7008bfbaca024cbc51ce8302bb8176bbc4f0501",
       "moves": [
         {
           "name": "Jab 1",
@@ -104160,8 +103996,6 @@
           "value": ""
         }
       ],
-      "source": "https://ultimateframedata.com/sora",
-      "sha256": "5fc8ce3699af1d7d54b6c5bbc7572f9e66aeeb03cbe01abefca1d79147fab9b0",
       "moves": [
         {
           "name": "Jab 1",

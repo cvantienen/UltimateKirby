@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **0** (`mario`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **0** (`mario`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,34 +48,40 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 3–27 |
-| Down tilt | 5–7 |
-| Forward tilt | 5–7 |
-| Down smash | 5–6 |
-| Down-smash rear window | 14–14 |
-| Grounded up-special startup | 3 |
+| Jab 1 | 2 start; active 2–3; 19 total; -- landing |
+| Neutral Air | 3 start; active 3–5 / 6–27; 45 total; 6 landing |
+| Forward Air | 16 start; active 16 / 17–20 / 21; 59 total; 17 landing |
+| Back Air | 6 start; active 6–7 / 8–10; 33 total; 6 landing |
+| Up Air | 4 start; active 4–7; 30 total; 6 landing |
+| Down Air | 5/7/9/11/13/23 start; active 5 / 7 / 9 / 11 / 13 / 23 / 1–2; 37 total; 15 landing |
+| Forward Tilt | 5 start; active 5–7; 25 total; -- landing |
+| Up Tilt | 5 start; active 5–11; 29 total; -- landing |
+| Down Tilt | 5 start; active 5–7; 27 total; -- landing |
+| Dash Attack | 6 start; active 6–9 / 10–25; 37 total; -- landing |
+| Forward Smash | 15 start; active 15–17; 47 total; -- landing |
+| Up Smash | 9 start; active 9–12; 39 total; -- landing |
+| Down Smash | 5/14 start; active 5–6 / 14; 43 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 6 |
-| Dash startup | 9 |
-| Pivot startup | 10 |
+| Standing grab | frames 6–7 |
+| Dash grab | frames 9–10 |
+| Pivot grab | frames 10–11 |
+| Standing reach reference | 12.0 world units |
 | Shield-grab startup | 10 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 12.0 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 98 |
 | Walk speed | 1.155 |
@@ -87,8 +93,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.4 |
 | Short-hop height | 17.54 |
 | Full-hop height | 36.33 |
-
-[Move source](https://ultimateframedata.com/mario) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -113,7 +117,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -121,7 +125,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/mario.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/mario/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

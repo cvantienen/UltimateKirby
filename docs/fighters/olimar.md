@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **43** (`olimar`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **43** (`olimar`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,37 +48,38 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 7–8 |
-| Down tilt | 6–12 |
-| Forward tilt | 15–17 |
-| Down smash | 10–13 |
-| Up Tilt | 6–6 |
-| Forward Smash | 11–13 |
-| Forward Air | 7–9 |
-| Up Air | 8–15 |
-| Down Air | 9–16 |
+| Jab 1 | 4 start; active 4 / 5; 19 total; -- landing |
+| Neutral Air | 7/11/15/19/23 start; active 7–8 / 11–12 / 15–16 / 19–20 / 23–24; 53 total; 13 landing |
+| Forward Air | 7 start; active 7–9; 42 total; 9 landing |
+| Back Air | 10 start; active 10–13; 48 total; 9 landing |
+| Up Air | 8 start; active 8–15; 34 total; 18 landing |
+| Down Air | 9 start; active 9–10 / 11–16; 51 total; 18 landing |
+| Forward Tilt | 15 start; active 15–17; 35 total; -- landing |
+| Up Tilt | 6/8/10/12/14/16 start; active 6 / 8 / 10 / 12 / 14 / 16; 38 total; -- landing |
+| Down Tilt | 6 start; active 6–12; 29 total; -- landing |
+| Dash Attack | 8/11 start; active 8–10 / 11–14; 37 total; -- landing |
+| Up Smash | 12 start; active 12–13 / 14–16 / 17–22; 39 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 12 |
-| Dash startup | 12 |
-| Pivot startup | 12 |
+| Standing grab | Unknown |
+| Dash grab | frames 12–23 |
+| Pivot grab | frames 12–23 |
+| Standing reach reference | 19.4 world units |
 | Shield-grab startup | 16 |
-| Active duration | 12 |
-| Standing reach reference (world units) | 19.4 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 79 |
 | Walk speed | 0.945 |
@@ -90,8 +91,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.16 |
 | Short-hop height | 16.19 |
 | Full-hop height | 33.5 |
-
-[Move source](https://ultimateframedata.com/olimar) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -127,7 +126,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -135,7 +134,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/olimar.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/olimar/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

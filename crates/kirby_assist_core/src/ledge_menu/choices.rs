@@ -74,11 +74,17 @@ impl MenuSelection {
                 }
                 if !entry.sequence.reaction.active() {
                     first.get_or_insert(index);
-                    if entry.default { selected = Some(index); }
+                    if entry.default {
+                        selected = Some(index);
+                    }
                 }
             }
             self.choices[slot as usize] = selected.unwrap_or_else(|| {
-                if slot.is_button() { slot.default_index(options.len()) } else { first.unwrap_or(options.len()) }
+                if slot.is_button() {
+                    slot.default_index(options.len())
+                } else {
+                    first.unwrap_or(options.len())
+                }
             });
         }
         if !records.drafts.is_empty() {
@@ -98,11 +104,20 @@ impl MenuSelection {
             for index in self.all_choices(presets, slot) {
                 // An incomplete draft suspends only its own rule. Never run a
                 // stale saved action in its place or disable unrelated rules.
-                let Some(sequence) = self.recipe_snapshot(presets, slot, index) else { continue; };
+                let Some(sequence) = self.recipe_snapshot(presets, slot, index) else {
+                    continue;
+                };
                 if crate::reaction_rules::validate_response(sequence).is_err()
-                    || sequence.actions().iter().all(|a|*a==crate::sequence_config::Action::Empty) {continue;}
-                if self.simplified_reactions && sequence.reaction.trigger.simple().is_none()
-                    {continue;}
+                    || sequence
+                        .actions()
+                        .iter()
+                        .all(|a| *a == crate::sequence_config::Action::Empty)
+                {
+                    continue;
+                }
+                if self.simplified_reactions && sequence.reaction.trigger.simple().is_none() {
+                    continue;
+                }
                 result.add(crate::reaction_rules::Candidate {
                     slot: slot as usize,
                     index,
@@ -114,7 +129,8 @@ impl MenuSelection {
     }
     /// One bounded profile scan on creation/recipe revisions, never idle polls.
     pub(super) fn refresh_rule_bindings(&mut self, presets: &MenuPresets, held: u32) {
-        self.has_reactions = false;self.auto_grab_configured=0;
+        self.has_reactions = false;
+        self.auto_grab_configured = 0;
         let mut buttons = 0;
         let mut controls = 0;
         if self.catalog.is_none() && self.editor.is_none() {
@@ -123,8 +139,14 @@ impl MenuSelection {
             for list in &presets.lists {
                 for choice in list.options {
                     let rule = choice.sequence.reaction;
-                    if self.simplified_reactions && rule.trigger.simple().is_none() {continue;}
-                    self.auto_grab_configured |= match rule.trigger {crate::reaction_rules::Trigger::AutoGrab=>1,crate::reaction_rules::Trigger::AutoShieldGrab=>2,_=>0};
+                    if self.simplified_reactions && rule.trigger.simple().is_none() {
+                        continue;
+                    }
+                    self.auto_grab_configured |= match rule.trigger {
+                        crate::reaction_rules::Trigger::AutoGrab => 1,
+                        crate::reaction_rules::Trigger::AutoShieldGrab => 2,
+                        _ => 0,
+                    };
                     self.has_reactions |= rule.active();
                     if rule.active() && !rule.trigger.defensive() {
                         buttons |= rule.control.button();
@@ -135,10 +157,20 @@ impl MenuSelection {
         } else {
             for slot in PresetSlot::ALL {
                 for index in self.all_choices(presets, slot) {
-                    let Some(sequence) = self.recipe_snapshot(presets, slot, index) else { continue; };
-                    if crate::reaction_rules::validate_response(sequence).is_err() { continue; }
-                    if self.simplified_reactions && sequence.reaction.trigger.simple().is_none() {continue;}
-                    self.auto_grab_configured |= match sequence.reaction.trigger {crate::reaction_rules::Trigger::AutoGrab=>1,crate::reaction_rules::Trigger::AutoShieldGrab=>2,_=>0};
+                    let Some(sequence) = self.recipe_snapshot(presets, slot, index) else {
+                        continue;
+                    };
+                    if crate::reaction_rules::validate_response(sequence).is_err() {
+                        continue;
+                    }
+                    if self.simplified_reactions && sequence.reaction.trigger.simple().is_none() {
+                        continue;
+                    }
+                    self.auto_grab_configured |= match sequence.reaction.trigger {
+                        crate::reaction_rules::Trigger::AutoGrab => 1,
+                        crate::reaction_rules::Trigger::AutoShieldGrab => 2,
+                        _ => 0,
+                    };
                     self.has_reactions |= sequence.reaction.active();
                     if sequence.reaction.active() && !sequence.reaction.trigger.defensive() {
                         let control = sequence.reaction.control;
@@ -155,7 +187,9 @@ impl MenuSelection {
         self.rule_toggles &= controls;
     }
     pub fn reaction_enabled_controls(&self) -> u8 {
-        if self.tuning_page { return 0; }
+        if self.tuning_page {
+            return 0;
+        }
         self.rule_toggles
             | if self.roll_rules {
                 crate::reaction_rules::Control::Menu.bit()
@@ -187,14 +221,24 @@ impl MenuSelection {
     }
     /// Resolve only identity for the hot input path; do not copy 32 actions.
 
-    pub fn choice_labels<'a>(&'a self,presets:&'a MenuPresets,slot:PresetSlot,index:usize)->Option<(&'a str,&'a str)> {
-        if let Some(d)=self.catalog.as_ref().and_then(|c|c.drafts.get(&(slot as usize,index))) {
-            return (!d.deleted && d.sequence.mode.is_none()).then_some((d.id.as_str(),d.name.as_str()));
+    pub fn choice_labels<'a>(
+        &'a self,
+        presets: &'a MenuPresets,
+        slot: PresetSlot,
+        index: usize,
+    ) -> Option<(&'a str, &'a str)> {
+        if let Some(d) = self
+            .catalog
+            .as_ref()
+            .and_then(|c| c.drafts.get(&(slot as usize, index)))
+        {
+            return (!d.deleted && d.sequence.mode.is_none())
+                .then_some((d.id.as_str(), d.name.as_str()));
         }
-        if let Some(c)=presets.list(slot).options.get(index) {
-            return c.sequence.mode.is_none().then_some((c.id,c.name));
+        if let Some(c) = presets.list(slot).options.get(index) {
+            return c.sequence.mode.is_none().then_some((c.id, c.name));
         }
-        self.choice(presets,slot,index).map(|c|(c.id,c.name))
+        self.choice(presets, slot, index).map(|c| (c.id, c.name))
     }
 
     pub fn choice<'a>(
@@ -228,22 +272,58 @@ impl MenuSelection {
             });
         }
         if slot.is_button() && index == options.len() {
-            if self.choices[slot as usize]!=index && (options.iter().any(|c|c.sequence.builtin==Some(crate::button_bindings::Builtin::Normal))
-                || self.catalog.as_ref().is_some_and(|c|c.drafts.iter().any(|((s,_),d)|*s==slot as usize&&!d.deleted&&d.sequence.builtin==Some(crate::button_bindings::Builtin::Normal)))) {return None;}
+            if self.choices[slot as usize] != index
+                && (options
+                    .iter()
+                    .any(|c| c.sequence.builtin == Some(crate::button_bindings::Builtin::Normal))
+                    || self.catalog.as_ref().is_some_and(|c| {
+                        c.drafts.iter().any(|((s, _), d)| {
+                            *s == slot as usize
+                                && !d.deleted
+                                && d.sequence.builtin
+                                    == Some(crate::button_bindings::Builtin::Normal)
+                        })
+                    }))
+            {
+                return None;
+            }
             return Some(Choice {
                 id: "__normal_button",
                 name: "Normal button",
-                sequence: Sequence { builtin: Some(crate::button_bindings::Builtin::Normal), ..Sequence::default() },
+                sequence: Sequence {
+                    builtin: Some(crate::button_bindings::Builtin::Normal),
+                    ..Sequence::default()
+                },
                 allow_new: true,
             });
         }
         if slot.is_button() {
-            if let Some(builtin) = crate::button_bindings::Builtin::ALL.into_iter()
-                .skip(1).find(|b| index == options.len() + b.template_offset()) {
-                if self.choices[slot as usize]!=index && (options.iter().any(|c|c.sequence.builtin==Some(builtin))
-                    || self.catalog.as_ref().is_some_and(|c|c.drafts.iter().any(|((s,_),d)|*s==slot as usize&&!d.deleted&&d.sequence.builtin==Some(builtin)))) {return None;}
-                return Some(Choice { id: builtin.choice_id(), name: builtin.label(),
-                    sequence: Sequence { builtin: Some(builtin), ..Sequence::default() }, allow_new: true });
+            if let Some(builtin) = crate::button_bindings::Builtin::ALL
+                .into_iter()
+                .skip(1)
+                .find(|b| index == options.len() + b.template_offset())
+            {
+                if self.choices[slot as usize] != index
+                    && (options.iter().any(|c| c.sequence.builtin == Some(builtin))
+                        || self.catalog.as_ref().is_some_and(|c| {
+                            c.drafts.iter().any(|((s, _), d)| {
+                                *s == slot as usize
+                                    && !d.deleted
+                                    && d.sequence.builtin == Some(builtin)
+                            })
+                        }))
+                {
+                    return None;
+                }
+                return Some(Choice {
+                    id: builtin.choice_id(),
+                    name: builtin.label(),
+                    sequence: Sequence {
+                        builtin: Some(builtin),
+                        ..Sequence::default()
+                    },
+                    allow_new: true,
+                });
             }
         }
         (index == options.len() + usize::from(slot.is_button())).then(|| Choice {
@@ -271,7 +351,12 @@ impl MenuSelection {
             .filter(|i| self.choice(presets, slot, *i).is_some())
             .collect()
     }
-    pub fn recipe_snapshot(&self, presets: &MenuPresets, slot: PresetSlot, index: usize) -> Option<Sequence> {
+    pub fn recipe_snapshot(
+        &self,
+        presets: &MenuPresets,
+        slot: PresetSlot,
+        index: usize,
+    ) -> Option<Sequence> {
         let key = (slot as usize, index);
         if let Some(editor) = self.editor.as_ref().filter(|e| e.has(key)) {
             return editor.compiled(key); // Never replace an invalid draft with old saved data.
@@ -279,9 +364,13 @@ impl MenuSelection {
         self.choice(presets, slot, index).map(|c| c.sequence)
     }
     pub(super) fn visible_choices(&self, presets: &MenuPresets, slot: PresetSlot) -> Vec<usize> {
-        self.all_choices(presets, slot).into_iter().filter(|index| {
-            self.recipe_snapshot(presets, slot, *index).is_some_and(|s| !s.reaction.active())
-        }).collect()
+        self.all_choices(presets, slot)
+            .into_iter()
+            .filter(|index| {
+                self.recipe_snapshot(presets, slot, *index)
+                    .is_some_and(|s| !s.reaction.active())
+            })
+            .collect()
     }
     pub(super) fn template_sources(
         &self,
@@ -323,7 +412,8 @@ impl MenuSelection {
     }
     fn quick_choice(&self, presets: &MenuPresets, slot: PresetSlot, index: usize) -> bool {
         self.choice(presets, slot, index).is_some_and(|c| {
-            c.sequence.builtin.is_some() || !c.allow_new
+            c.sequence.builtin.is_some()
+                || !c.allow_new
                 || self
                     .catalog
                     .as_ref()
@@ -410,13 +500,18 @@ impl MenuSelection {
         let name_matches = if let Some(name) = name {
             self.name_override(slot, index).or_else(|| {
                 let source = self.choice(presets, slot, index)?.sequence;
-                source.mode.map(|mode| mode.label())
+                source
+                    .mode
+                    .map(|mode| mode.label())
                     .or_else(|| source.builtin.map(|builtin| builtin.label()))
             }) == Some(name)
         } else {
             // No explicit rename preserves the existing file name. A promoted
             // clean baseline may now own that label without being a newer edit.
-            !self.catalog.as_ref().and_then(|c| c.drafts.get(&(slot as usize, index)))
+            !self
+                .catalog
+                .as_ref()
+                .and_then(|c| c.drafts.get(&(slot as usize, index)))
                 .is_some_and(|draft| draft.dirty)
         };
         current == Some(sequence) && name_matches
@@ -469,9 +564,13 @@ impl MenuSelection {
                 draft.new = false;
                 draft.deleted = deleted;
                 if !deleted {
-                    if let Some(sequence) = snapshot { draft.sequence = sequence; }
+                    if let Some(sequence) = snapshot {
+                        draft.sequence = sequence;
+                    }
                     if !draft.dirty {
-                        if let Some(name) = name { draft.name = name.into(); }
+                        if let Some(name) = name {
+                            draft.name = name.into();
+                        }
                     }
                     // Binding/rule/settings caches must see the committed base
                     // even when maintenance consumes completion before input.
@@ -495,7 +594,12 @@ impl MenuSelection {
                             .iter()
                             .copied()
                             .find(|i| *i > index)
-                            .unwrap_or_else(|| visible.last().copied().unwrap_or(presets.list(slot).options.len()));
+                            .unwrap_or_else(|| {
+                                visible
+                                    .last()
+                                    .copied()
+                                    .unwrap_or(presets.list(slot).options.len())
+                            });
                     }
                     self.recipe_revision = self.recipe_revision.wrapping_add(1);
                     if editing_deleted {
@@ -511,14 +615,22 @@ impl MenuSelection {
     /// drafts (including invalid drafts) and any clean editor differing from its
     /// base; a late save acknowledgement will promote that base first.
     pub fn release_training_tools(&mut self, presets: &MenuPresets) {
-        let Some(mut editor) = self.editor.take() else { return; };
+        let Some(mut editor) = self.editor.take() else {
+            return;
+        };
         editor.release_tools();
         editor.retain_recipes(|key, sequence, modified| {
-            modified || sequence.is_none() || PresetSlot::ALL.get(key.0)
-                .and_then(|slot| self.choice(presets, *slot, key.1))
-                .map(|choice| choice.sequence) != sequence
+            modified
+                || sequence.is_none()
+                || PresetSlot::ALL
+                    .get(key.0)
+                    .and_then(|slot| self.choice(presets, *slot, key.1))
+                    .map(|choice| choice.sequence)
+                    != sequence
         });
-        if !editor.is_empty() { self.editor = Some(editor); }
+        if !editor.is_empty() {
+            self.editor = Some(editor);
+        }
     }
     pub(super) fn manage_input(&mut self, presets: &MenuPresets, buttons: u32, pressed: u32) {
         let Some(slot) = self.row.slot() else {
@@ -537,10 +649,10 @@ impl MenuSelection {
         } else {
             String::new()
         };
-        let assist=self.mode_editor_origin.is_some();
-        let c=self.catalog.get_or_insert_with(Default::default);
-        c.assist=assist;
-        let event=c.input(buttons,pressed,&name);
+        let assist = self.mode_editor_origin.is_some();
+        let c = self.catalog.get_or_insert_with(Default::default);
+        c.assist = assist;
+        let event = c.input(buttons, pressed, &name);
         if matches!(event, catalog::Event::None) {
             return;
         }
@@ -548,12 +660,10 @@ impl MenuSelection {
             return;
         };
         if (choice.sequence.builtin.is_some() || choice.id.starts_with("__mode_"))
-            && matches!(
-                event,
-                catalog::Event::Rename(_) | catalog::Event::Delete
-            )
+            && matches!(event, catalog::Event::Rename(_) | catalog::Event::Delete)
         {
-            self.save_status = Some("Built-in actions are permanent; select a recipe to rename/delete".into());
+            self.save_status =
+                Some("Built-in actions are permanent; select a recipe to rename/delete".into());
             self.catalog.as_mut().unwrap().close();
             return;
         }
@@ -568,7 +678,8 @@ impl MenuSelection {
         match event {
             catalog::Event::None => {}
             catalog::Event::MakeDefault if self.mode_editor_origin.is_some() => {
-                self.save_status = Some("Assist rules use priority; turn the mode ON in Assist modes".into());
+                self.save_status =
+                    Some("Assist rules use priority; turn the mode ON in Assist modes".into());
                 self.catalog.as_mut().unwrap().close();
             }
             catalog::Event::MakeDefault => {
@@ -587,13 +698,23 @@ impl MenuSelection {
                 self.open_editor(presets, slot);
             }
             catalog::Event::Add(copy) => {
-                if self.mode_editor_origin.as_ref().is_some_and(|(row,_)|self.auto_mode_events(*row).is_some()) {
-                    self.save_status=Some("One recipe per event. Use + Add missing event; use Copy recipe inside the editor for templates".into());return;
+                if self
+                    .mode_editor_origin
+                    .as_ref()
+                    .is_some_and(|(row, _)| self.auto_mode_events(*row).is_some())
+                {
+                    self.save_status=Some("One recipe per event. Use + Add missing event; use Copy recipe inside the editor for templates".into());
+                    return;
                 }
 
-                if let Some((row,_))=self.mode_editor_origin.as_ref() {
-                    if self.mode_entries(presets,*row).len()>=crate::reaction_rules::MAX_RULES_PER_MODE {
-                        self.save_status=Some("Eight rules in this assist; delete one before adding another".into());return;
+                if let Some((row, _)) = self.mode_editor_origin.as_ref() {
+                    if self.mode_entries(presets, *row).len()
+                        >= crate::reaction_rules::MAX_RULES_PER_MODE
+                    {
+                        self.save_status = Some(
+                            "Eight rules in this assist; delete one before adding another".into(),
+                        );
+                        return;
                     }
                 }
                 let user_choices = self
@@ -652,13 +773,17 @@ impl MenuSelection {
                 } else {
                     editor::RecipeEditor::custom()
                 };
-                if source.builtin.is_some() { source=editor::RecipeEditor::custom(); }
+                if source.builtin.is_some() {
+                    source = editor::RecipeEditor::custom();
+                }
                 if let Some((row, _)) = self.mode_editor_origin.as_ref() {
-                    if !copy { source.reaction = crate::reaction_rules::Rule {
-                        trigger: Self::mode_trigger(*row).unwrap(),
-                        state: crate::reaction_rules::SelfState::Grounded,
-                        ..Default::default()
-                    }; }
+                    if !copy {
+                        source.reaction = crate::reaction_rules::Rule {
+                            trigger: Self::mode_trigger(*row).unwrap(),
+                            state: crate::reaction_rules::SelfState::Grounded,
+                            ..Default::default()
+                        };
+                    }
                 }
                 let name = if copy {
                     format!(

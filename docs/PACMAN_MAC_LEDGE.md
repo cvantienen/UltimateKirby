@@ -29,8 +29,8 @@ Shield-to-up-B uses its frame-3 startup after block evidence. Forward-smash uses
 are labeled jokes and aren't default coverage. KO meter, charge moves and
 counters aren't guessed or automated.
 
-Move measurements: [Pac-Man](https://ultimateframedata.com/pac_man),
-[Little Mac](https://ultimateframedata.com/little_mac).
+Reference facts for both fighters are in the canonical
+[Fighter Data catalog](FIGHTER_DATA.md).
 
 The shared bounded single-move engine retains native acceptance, paired aerial
 inputs, release-on-smash-startup, cancellation and manual handoff. No background

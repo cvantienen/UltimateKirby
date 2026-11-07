@@ -11,10 +11,10 @@ use crate::live_input::{HID_A, HID_B, HID_L, HID_R, HID_X, HID_Y, HID_ZL, HID_ZR
 
 // MappedInputs::buttons is a different word from ControlModule button IDs.
 // Pinned HDR ext.rs a8f98eace1c6a7b45c88cb3f0ac1ef05426624dc, Buttons.
-pub const MAPPED_SPECIAL:u32=0x2;
-pub const MAPPED_GUARD:u32=0x8;
-pub const MAPPED_CATCH:u32=0x10;
-pub const MAPPED_GUARD_HOLD:u32=0x10000;
+pub const MAPPED_SPECIAL: u32 = 0x2;
+pub const MAPPED_GUARD: u32 = 0x8;
+pub const MAPPED_CATCH: u32 = 0x10;
+pub const MAPPED_GUARD_HOLD: u32 = 0x10000;
 
 pub const MAPPER_A: u32 = 1 << 5;
 pub const MAPPER_B: u32 = 1 << 6;
@@ -39,80 +39,140 @@ pub const MAPPER_DIGITAL_L: u32 = 1 << 28;
 pub const MAPPER_DIGITAL_R: u32 = 1 << 29;
 pub const MAPPER_EXTRA_BUTTONS: u32 = (0xf << 12) | MAPPER_DIGITAL_L | MAPPER_DIGITAL_R;
 /// Physical gameplay controls, excluding pause/menu and left-stick DI directions.
-pub const GAMEPLAY_BUTTONS: u32 = 0xf | MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_Y
-    | MAPPER_L | MAPPER_R | MAPPER_ZL | MAPPER_ZR | (3 << 16) | (0xf << 24)
+pub const GAMEPLAY_BUTTONS: u32 = 0xf
+    | MAPPER_A
+    | MAPPER_B
+    | MAPPER_X
+    | MAPPER_Y
+    | MAPPER_L
+    | MAPPER_R
+    | MAPPER_ZL
+    | MAPPER_ZR
+    | (3 << 16)
+    | (0xf << 24)
     | MAPPER_EXTRA_BUTTONS;
 
 /// Consume the alternate native click channel of an owned physical shoulder.
 /// This expands suppression only; generated buttons keep their normal meaning.
 pub fn physical_button_aliases(mask: u32) -> u32 {
-    mask | if mask & (MAPPER_L | MAPPER_ZL) != 0 { MAPPER_DIGITAL_L } else { 0 }
-        | if mask & (MAPPER_R | MAPPER_ZR) != 0 { MAPPER_DIGITAL_R } else { 0 }
+    mask | if mask & (MAPPER_L | MAPPER_ZL) != 0 {
+        MAPPER_DIGITAL_L
+    } else {
+        0
+    } | if mask & (MAPPER_R | MAPPER_ZR) != 0 {
+        MAPPER_DIGITAL_R
+    } else {
+        0
+    }
 }
 
 /// Native analog trigger axes are independent of the button-history words.
 /// Filter only an owned/consumed side, restoring both original axes after mapping.
 pub fn owned_trigger_axes(physical: [f32; 2], suppressed: u32) -> [f32; 2] {
-    [if suppressed & (MAPPER_L | MAPPER_ZL | MAPPER_DIGITAL_L) != 0 { 0. } else { physical[0] },
-     if suppressed & (MAPPER_R | MAPPER_ZR | MAPPER_DIGITAL_R) != 0 { 0. } else { physical[1] }]
+    [
+        if suppressed & (MAPPER_L | MAPPER_ZL | MAPPER_DIGITAL_L) != 0 {
+            0.
+        } else {
+            physical[0]
+        },
+        if suppressed & (MAPPER_R | MAPPER_ZR | MAPPER_DIGITAL_R) != 0 {
+            0.
+        } else {
+            physical[1]
+        },
+    ]
 }
 
 /// Every exclusive tape forwards the same analog packet, including neutral
 /// release frames. Partial helpers and native safety keep their existing path.
 pub fn exclusive_sequence_stick(owned: u32, stick: Option<[f32; 2]>) -> Option<[f32; 2]> {
     (owned & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS)
-        .then_some(stick).flatten().filter(|s|s.iter().all(|v|v.is_finite()))
+        .then_some(stick)
+        .flatten()
+        .filter(|s| s.iter().all(|v| v.is_finite()))
 }
 
 /// Walking suppresses a dash flick; explicit full-strength Drift/Run must not.
 pub fn sequence_flick_consumption(owned: u32, walking: bool) -> u32 {
-    if owned & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS && walking { (1 << 21) | (1 << 23) } else { 0 }
+    if owned & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS && walking {
+        (1 << 21) | (1 << 23)
+    } else {
+        0
+    }
 }
 
 /// Raw source buttons/axes were already masked before native mapping. Preserve
 /// its action result: e.g. Grab can contain Guard/Attack flags and ZL is Jump in
 /// the canonical recipe layout. Only suppress an unrequested physical C-stick.
 pub fn mapped_sequence_cstick(buttons: u32, right: [f32; 2]) -> u32 {
-    if right == [0.; 2] { buttons & !0x80 } else { buttons }
+    if right == [0.; 2] {
+        buttons & !0x80
+    } else {
+        buttons
+    }
 }
-
 
 /// Fixed automatic grab and direct Up-B tapes own all raw sources. Remove
 /// unrequested jump/shield output that can turn a dash/Up-B into a jump/roll. Keep
 /// native Attack/Special/Catch semantics and every explicitly requested jump.
-pub fn mapped_automatic_actions(buttons:u32, requested:u32)->u32 {
-    let mut result=buttons;
-    if requested & SEQUENCE_JUMP_BUTTONS==0 {result &= !(0x4|0x40);}
-    if requested & SEQUENCE_GUARD_INPUTS==0 {result &= !(MAPPED_GUARD|MAPPED_GUARD_HOLD);}
+pub fn mapped_automatic_actions(buttons: u32, requested: u32) -> u32 {
+    let mut result = buttons;
+    if requested & SEQUENCE_JUMP_BUTTONS == 0 {
+        result &= !(0x4 | 0x40);
+    }
+    if requested & SEQUENCE_GUARD_INPUTS == 0 {
+        result &= !(MAPPED_GUARD | MAPPED_GUARD_HOLD);
+    }
     result
 }
 
 /// A fully owned input tape supplies its own buttons exclusively. Native safety
 /// must win owner selection, rather than being mixed into another owner's tape.
 pub fn selected_requests(owned: u32, selected: u32, other: u32) -> u32 {
-    if owned & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS { selected } else { selected | other }
+    if owned & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS {
+        selected
+    } else {
+        selected | other
+    }
 }
 
 /// A native jump can pass through only when neither a sequence nor the short
 /// hop helper owns/consumes it. The consumed held tail must not become a second
 /// aerial jump after the helper releases ownership.
-pub fn jump_passthrough(buttons:u32,sequence_owned:u32,shortcut_owned:u32,shortcut_consumed:u32)->bool {
+pub fn jump_passthrough(
+    buttons: u32,
+    sequence_owned: u32,
+    shortcut_owned: u32,
+    shortcut_consumed: u32,
+) -> bool {
     buttons & MAPPER_X != 0 && (sequence_owned | shortcut_owned | shortcut_consumed) & MAPPER_X == 0
 }
 
 /// Fixed native jump triggers are never custom-binding sources. Manual escape
 /// suspends automatic modes rather than mixing human input into their tapes.
-pub fn automatic_escape(layout: ControlLayout, held:u32, pressed:u32, reacting:bool, grounded:bool, requested:u32)->bool {
-    let jumps=match layout {ControlLayout::Default=>MAPPER_ZL,ControlLayout::Brother=>MAPPER_R|MAPPER_ZR};
+pub fn automatic_escape(
+    layout: ControlLayout,
+    held: u32,
+    pressed: u32,
+    reacting: bool,
+    grounded: bool,
+    requested: u32,
+) -> bool {
+    let jumps = match layout {
+        ControlLayout::Default => MAPPER_ZL,
+        ControlLayout::Brother => MAPPER_R | MAPPER_ZR,
+    };
     let starting_grounded_special = grounded && requested & MAPPER_B != 0;
-    held & (jumps | layout.physical_buttons(MAPPER_R)) !=0 || reacting && !starting_grounded_special
-        && pressed & layout.physical_buttons(SEQUENCE_GUARD_BUTTONS)!=0
+    held & (jumps | layout.physical_buttons(MAPPER_R)) != 0
+        || reacting
+            && !starting_grounded_special
+            && pressed & layout.physical_buttons(SEQUENCE_GUARD_BUTTONS) != 0
 }
 
 /// Arm a passive Up-B receipt only after final native Special + Up delivery.
 /// Failed mapper attempts still spend their separate bounded pulse budget.
-pub fn mapped_up_special_delivered(buttons:u32,left_y:i8)->bool {
-    buttons & MAPPED_SPECIAL!=0 && left_y>63
+pub fn mapped_up_special_delivered(buttons: u32, left_y: i8) -> bool {
+    buttons & MAPPED_SPECIAL != 0 && left_y > 63
 }
 
 /// Serialize a normalized simulated stick axis into the native mapped-input packet.
@@ -120,6 +180,14 @@ pub fn mapped_up_special_delivered(buttons:u32,left_y:i8)->bool {
 pub fn mapped_stick_axis(axis: f32) -> i8 {
     if axis.is_finite() {
         (axis.clamp(-1.0, 1.0) * i8::MAX as f32) as i8
+    } else {
+        0
+    }
+}
+
+fn map_button_bit(buttons: u32, source: u32, destination: u32) -> u32 {
+    if buttons & source != 0 {
+        destination
     } else {
         0
     }
@@ -151,41 +219,54 @@ impl ControlLayout {
             | crate::manual_controls::TURBO_TRIGGER;
         (physical & !action_buttons)
             | (physical & MAPPER_A)
-            | (u32::from(physical & (MAPPER_B | MAPPER_L) != 0) * MAPPER_B)
-            | (u32::from(physical & MAPPER_X != 0) * MAPPER_R)
-            | (u32::from(physical & MAPPER_ZL != 0) * MAPPER_ZR)
-            | (u32::from(physical & crate::manual_controls::TURBO_TRIGGER != 0) * MAPPER_L)
+            | map_button_bit(physical, MAPPER_B | MAPPER_L, MAPPER_B)
+            | map_button_bit(physical, MAPPER_X, MAPPER_R)
+            | map_button_bit(physical, MAPPER_ZL, MAPPER_ZR)
+            | map_button_bit(physical, crate::manual_controls::TURBO_TRIGGER, MAPPER_L)
     }
 
     /// One-to-one ownership conversion for physical custom binding sources.
     /// Unlike policy_buttons this retains jump buttons hidden from old helpers.
     pub fn binding_ownership(self, physical: u32) -> u32 {
-        if self == Self::Default { return physical; }
-        let mask=MAPPER_X|MAPPER_R|MAPPER_L|MAPPER_ZL|MAPPER_ZR|crate::manual_controls::TURBO_TRIGGER;
+        if self == Self::Default {
+            return physical;
+        }
+        let mask = MAPPER_X
+            | MAPPER_R
+            | MAPPER_L
+            | MAPPER_ZL
+            | MAPPER_ZR
+            | crate::manual_controls::TURBO_TRIGGER;
         (physical & !mask)
-            | u32::from(physical & MAPPER_X != 0)*MAPPER_R
-            | u32::from(physical & MAPPER_R != 0)*MAPPER_X
-            | u32::from(physical & MAPPER_L != 0)*MAPPER_B
-            | u32::from(physical & MAPPER_ZL != 0)*MAPPER_ZR
-            | u32::from(physical & MAPPER_ZR != 0)*MAPPER_ZL
-            | u32::from(physical & crate::manual_controls::TURBO_TRIGGER != 0)*MAPPER_L
+            | map_button_bit(physical, MAPPER_X, MAPPER_R)
+            | map_button_bit(physical, MAPPER_R, MAPPER_X)
+            | map_button_bit(physical, MAPPER_L, MAPPER_B)
+            | map_button_bit(physical, MAPPER_ZL, MAPPER_ZR)
+            | map_button_bit(physical, MAPPER_ZR, MAPPER_ZL)
+            | map_button_bit(physical, crate::manual_controls::TURBO_TRIGGER, MAPPER_L)
     }
 
     /// Manual intent includes jump buttons hidden from shortcut policy.
-    pub fn takeover_buttons(self, physical:u32)->u32 {
-        let buttons=self.policy_buttons(physical);
-        if self==Self::Brother {
-            buttons | (u32::from(physical & MAPPER_R != 0)*MAPPER_X)
-                | (u32::from(physical & MAPPER_ZR != 0)*MAPPER_Y)
-        } else {buttons}
+    pub fn takeover_buttons(self, physical: u32) -> u32 {
+        let buttons = self.policy_buttons(physical);
+        if self == Self::Brother {
+            buttons
+                | map_button_bit(physical, MAPPER_R, MAPPER_X)
+                | map_button_bit(physical, MAPPER_ZR, MAPPER_Y)
+        } else {
+            buttons
+        }
     }
 
     /// Full takeovers suppress every raw gameplay button, including buttons
     /// unused by the simulated layout that may still map to shield/jump in-game.
-    pub fn physical_owned_buttons(self, canonical:u32)->u32 {
-        self.physical_buttons(canonical) | if canonical & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS {
-            GAMEPLAY_BUTTONS
-        } else {0}
+    pub fn physical_owned_buttons(self, canonical: u32) -> u32 {
+        self.physical_buttons(canonical)
+            | if canonical & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS {
+                GAMEPLAY_BUTTONS
+            } else {
+                0
+            }
     }
 
     /// Convert canonical assist buttons back to this layout's physical buttons.
@@ -197,24 +278,24 @@ impl ControlLayout {
             MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_Y | MAPPER_L | MAPPER_R | MAPPER_ZL | MAPPER_ZR;
         (canonical & !action_buttons)
             | (canonical & MAPPER_A)
-            | (u32::from(canonical & MAPPER_B != 0) * MAPPER_L)
-            | (u32::from(canonical & MAPPER_X != 0) * MAPPER_R)
-            | (u32::from(canonical & MAPPER_ZL != 0) * MAPPER_ZR)
+            | map_button_bit(canonical, MAPPER_B, MAPPER_L)
+            | map_button_bit(canonical, MAPPER_X, MAPPER_R)
+            | map_button_bit(canonical, MAPPER_ZL, MAPPER_ZR)
             | (canonical & MAPPER_Y)
-            | (u32::from(canonical & MAPPER_L != 0) * crate::manual_controls::TURBO_TRIGGER)
-            | (u32::from(canonical & MAPPER_R != 0) * MAPPER_X)
-            | (u32::from(canonical & MAPPER_ZR != 0) * MAPPER_ZL)
+            | map_button_bit(canonical, MAPPER_L, crate::manual_controls::TURBO_TRIGGER)
+            | map_button_bit(canonical, MAPPER_R, MAPPER_X)
+            | map_button_bit(canonical, MAPPER_ZR, MAPPER_ZL)
     }
 }
 
 /// Final mapped jump command for the BUILT-IN jump helper only. None leaves
 /// ordinary sequence/manual inputs unchanged. Supplement the native jump pulse
 /// after consuming its physical helper source; no menu binding is rerun here.
-pub fn mapped_builtin_jump(buttons:u32, owned:Option<bool>, short:bool)->u32 {
+pub fn mapped_builtin_jump(buttons: u32, owned: Option<bool>, short: bool) -> u32 {
     match owned {
-        None=>buttons,
-        Some(false)=>buttons & !(0x4|0x40),
-        Some(true)=>(buttons & !(0x4|0x40)) | 0x4 | if short {0x40}else{0},
+        None => buttons,
+        Some(false) => buttons & !(0x4 | 0x40),
+        Some(true) => (buttons & !(0x4 | 0x40)) | 0x4 | if short { 0x40 } else { 0 },
     }
 }
 
@@ -273,26 +354,48 @@ pub fn mapper_buttons(hid: u64) -> u32 {
 /// This is a held input word, not command flags or repeated trigger edges.
 /// No ownership/input request means the original mapper output is untouched.
 pub fn mapped_attack_hold(buttons: u32, requested: bool) -> u32 {
-    if requested { buttons | 0x201 } else { buttons }
+    if requested {
+        buttons | 0x201
+    } else {
+        buttons
+    }
 }
 
 /// Final literal controller actions, after raw-source/history filtering. The
 /// caller supplies only selected, owned buttons still present in its raw packet.
 /// These are held input bits; no command flags, move/state writes or new edges.
-pub fn mapped_literal_buttons(buttons:u32, requested:u32)->u32 {
+pub fn mapped_literal_buttons(buttons: u32, requested: u32) -> u32 {
     // Fully owned neutral/attack frames release the preceding shield and its
     // Catch alias too. Otherwise mapper hold history can outlive the raw ZR
     // release and prevent the next authored move from leaving shield.
-    let buttons=if requested & SEQUENCE_GUARD_INPUTS==0 {
-        buttons & !(MAPPED_GUARD|MAPPED_GUARD_HOLD|MAPPED_CATCH)
-    } else {buttons};
-    let catch=requested & MAPPER_R!=0
-        || requested & (MAPPER_A|MAPPER_ZR)==(MAPPER_A|MAPPER_ZR);
-    let buttons=if catch {buttons}else{buttons & !MAPPED_CATCH};
-    mapped_attack_hold(buttons,requested & MAPPER_A!=0)
-        | if requested & MAPPER_B!=0 {MAPPED_SPECIAL}else{0}
-        | if requested & MAPPER_R!=0 {MAPPED_CATCH}else{0}
-        | if requested & MAPPER_ZR!=0 {MAPPED_GUARD}else{0}
+    let buttons = if requested & SEQUENCE_GUARD_INPUTS == 0 {
+        buttons & !(MAPPED_GUARD | MAPPED_GUARD_HOLD | MAPPED_CATCH)
+    } else {
+        buttons
+    };
+    let catch =
+        requested & MAPPER_R != 0 || requested & (MAPPER_A | MAPPER_ZR) == (MAPPER_A | MAPPER_ZR);
+    let buttons = if catch {
+        buttons
+    } else {
+        buttons & !MAPPED_CATCH
+    };
+    mapped_attack_hold(buttons, requested & MAPPER_A != 0)
+        | if requested & MAPPER_B != 0 {
+            MAPPED_SPECIAL
+        } else {
+            0
+        }
+        | if requested & MAPPER_R != 0 {
+            MAPPED_CATCH
+        } else {
+            0
+        }
+        | if requested & MAPPER_ZR != 0 {
+            MAPPED_GUARD
+        } else {
+            0
+        }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -316,8 +419,10 @@ impl MapperButtonOverlay {
     /// A newly started reaction owns its first horizontal flick independently
     /// of the human's earlier held direction. Re-arm only those requested bits;
     /// preserve the remaining history, including guard release and safety.
-    pub fn rearm_requested(&mut self, mask:u32, previous:u32) {
-        if mask!=0 { self.last_output=Some(self.last_output.unwrap_or(previous)&!mask); }
+    pub fn rearm_requested(&mut self, mask: u32, previous: u32) {
+        if mask != 0 {
+            self.last_output = Some(self.last_output.unwrap_or(previous) & !mask);
+        }
     }
     pub fn reset(&mut self) {
         *self = Self::default();

@@ -23,14 +23,14 @@ fn both_native_aegis_identities_enable_their_own_editable_menus_without_inherite
     ] {
         let profile = profiles.profile(kind).expect("playable form must exist");
         assert_eq!(profile.name, name);
-        assert_eq!(profile.reference().unwrap().name, name);
+        assert_eq!(profile.fighter_data().unwrap().name, name);
         let base = profile.apply(LedgeSettings {
             enabled: true,
             ..Default::default()
         });
         assert!(base.enabled);
         assert_eq!(base.implementation, Some(implementation));
-        assert_eq!(profile.ledge.grab.standing, startup);
+        assert_eq!(profile.ledge.grab.standing_startup, startup);
         assert_eq!(profile.ledge.grab.standing_range, 12.);
         let selected = library.for_fighter(kind);
         assert_eq!(selected.len(), 5);

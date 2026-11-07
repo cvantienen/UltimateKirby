@@ -158,8 +158,12 @@ fn one_delivered_down_guard_packet_then_native_recovery_up_b_on_first_legal_obse
             down_edges += 1;
         }
         last_y = y;
-        assert_eq!(out.requested, if tick==0{MAPPER_ZR}else{0});
-        if tick==0{dodge.mapped_dodge(tick,2);}else{dodge.delivery_tick(tick);}
+        assert_eq!(out.requested, if tick == 0 { MAPPER_ZR } else { 0 });
+        if tick == 0 {
+            dodge.mapped_dodge(tick, 2);
+        } else {
+            dodge.delivery_tick(tick);
+        }
     }
     assert_eq!(down_edges, 1);
     assert_eq!(
@@ -268,8 +272,13 @@ fn consumed_grab_stays_consumed_after_a_missing_roster_sample() {
             .requested,
         0
     );
-    dodge.observe_statuses(&[Some((2,0)),None,None,None,None,None,None,None]);
-    assert_eq!(dodge.sample(true,dodge_context(5.,0),threat(0.)).requested,MAPPER_ZR);
+    dodge.observe_statuses(&[Some((2, 0)), None, None, None, None, None, None, None]);
+    assert_eq!(
+        dodge
+            .sample(true, dodge_context(5., 0), threat(0.))
+            .requested,
+        MAPPER_ZR
+    );
 }
 
 #[test]
@@ -281,14 +290,27 @@ fn duplicate_observations_do_not_exhaust_neutral_acceptance_wait_but_real_mapper
                 dodge
                     .sample(true, dodge_context(0., 0), threat(2.))
                     .requested,
-                if tick==0{MAPPER_ZR}else{0}
+                if tick == 0 { MAPPER_ZR } else { 0 }
             );
         }
-        if tick==0 {dodge.mapped_dodge(tick,999);dodge.mapped_dodge(tick,2);}
-        dodge.delivery_tick(tick);dodge.delivery_tick(tick);
+        if tick == 0 {
+            dodge.mapped_dodge(tick, 999);
+            dodge.mapped_dodge(tick, 2);
+        }
+        dodge.delivery_tick(tick);
+        dodge.delivery_tick(tick);
     }
     assert_eq!(
-        dodge.sample(true, Context { stopped: true, ..dodge_context(0., 0) }, threat(2.)).owned,
+        dodge
+            .sample(
+                true,
+                Context {
+                    stopped: true,
+                    ..dodge_context(0., 0)
+                },
+                threat(2.)
+            )
+            .owned,
         0
     );
     assert_eq!(
@@ -382,7 +404,8 @@ fn mapped_grab_cannot_be_replaced_by_up_b_before_native_acceptance() {
     ));
     // The target crosses behind after R is in flight: no backup B+Up.
     // Dropping enemy shield alone is now still a legal shield-grab target.
-    let mut lost=targets(0);lost[0].as_mut().unwrap().position[0]=-10.;
+    let mut lost = targets(0);
+    lost[0].as_mut().unwrap().position[0] = -10.;
     for tick in 1..24 {
         let out = grab.sample_automatic(
             true,
@@ -457,9 +480,13 @@ fn zero_input_receipt_reservation_blocks_competing_punishes_with_exclusive_neutr
         Some(12.),
     );
     assert_eq!(out, LedgeOutput::default());
-    let packet=kirby_assist_core::action_owner::exclusive_output(Some(Owner::OutOfShield),true,out);
-    assert_eq!(packet.owned,kirby_assist_core::ledge_trap::SEQUENCE_BUTTONS);
-    assert_eq!(packet.stick,Some([0.;2]));
+    let packet =
+        kirby_assist_core::action_owner::exclusive_output(Some(Owner::OutOfShield), true, out);
+    assert_eq!(
+        packet.owned,
+        kirby_assist_core::ledge_trap::SEQUENCE_BUTTONS
+    );
+    assert_eq!(packet.stick, Some([0.; 2]));
     assert!(
         grab.grab_delivery_pending(),
         "renewed shield damage cannot allow queued R to become Up+B"
@@ -605,11 +632,17 @@ fn native_grab_cancels_every_tape_and_active_up_b_and_leaves_throw_input_manual(
 #[test]
 fn manual_input_during_confirmed_dodge_recovery_cannot_cancel_its_configured_punish() {
     let mut dodge = accepted();
-    let c = LedgeContext {can_act: false, ..own(1., ESCAPE)};
-    assert_eq!(punish(&mut dodge,c).owned,0);
+    let c = LedgeContext {
+        can_act: false,
+        ..own(1., ESCAPE)
+    };
+    assert_eq!(punish(&mut dodge, c).owned, 0);
     assert!(dodge.punish_pending());
-    let c = LedgeContext {manual_input_epoch: 42, ..own(2.,0)};
-    let out = punish(&mut dodge,c);
-    assert_ne!(out.requested & MAPPER_B,0);
+    let c = LedgeContext {
+        manual_input_epoch: 42,
+        ..own(2., 0)
+    };
+    let out = punish(&mut dodge, c);
+    assert_ne!(out.requested & MAPPER_B, 0);
     assert!(dodge.punish_committed());
 }

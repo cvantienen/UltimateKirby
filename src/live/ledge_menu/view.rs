@@ -194,7 +194,11 @@ pub(super) fn build(
                 2,
             )
         } else if row == MenuRow::AutoReflect {
-            ((if selection.auto_reflect {"ON"}else{"OFF"}).to_owned(),usize::from(selection.auto_reflect),2)
+            (
+                (if selection.auto_reflect { "ON" } else { "OFF" }).to_owned(),
+                usize::from(selection.auto_reflect),
+                2,
+            )
         } else if row == MenuRow::OutOfShield {
             let enabled = selection.effective_mode(
                 kirby_assist_core::button_bindings::Mode::OutOfShield,

@@ -70,7 +70,9 @@ pub(super) fn poll_maintenance() {
         // The owner may have been removed after Training ended. Join only an
         // already-finished worker and release its result instead of retaining it.
         drop(save::poll());
-        if cleanup { CLEANUP_PENDING.store(false, Ordering::Release); }
+        if cleanup {
+            CLEANUP_PENDING.store(false, Ordering::Release);
+        }
     }
 }
 
@@ -86,7 +88,8 @@ pub(super) struct LedgeMenu {
     scope: bool,
     roll_read_blocked: bool,
     resolved: Option<LedgeSettings>,
-    resolved_choices: Option<[usize; kirby_assist_core::fighter_profiles::presets::PresetSlot::COUNT]>,
+    resolved_choices:
+        Option<[usize; kirby_assist_core::fighter_profiles::presets::PresetSlot::COUNT]>,
     resolved_recipe_revision: Option<u64>,
     resolved_preview: Option<kirby_assist_core::fighter_profiles::presets::PresetSlot>,
     view_revision: Option<u64>,
@@ -94,7 +97,7 @@ pub(super) struct LedgeMenu {
     rule_stamp: Option<(i32, u64)>,
     auto_mash: Option<bool>,
     // Retain a real release through first profile selection/session reset.
-    passthrough_buttons: Option<(u32,kirby_assist_core::native_input::ControlLayout)>,
+    passthrough_buttons: Option<(u32, kirby_assist_core::native_input::ControlLayout)>,
     open_requested: bool,
     resume_saved_state: bool,
     #[cfg(feature = "diagnostic-logging")]
@@ -107,15 +110,23 @@ pub(super) struct LedgeMenu {
 impl LedgeMenu {
     /// Native fighter changes can precede the next mapper/menu poll. Never
     /// expose a previous fighter's automatic rules or ranges in that gap.
-    pub fn for_fighter(&self,kind:i32)->Option<&Self> {
-        (self.kind==Some(kind)).then_some(self)
+    pub fn for_fighter(&self, kind: i32) -> Option<&Self> {
+        (self.kind == Some(kind)).then_some(self)
     }
-    #[cfg(feature="diagnostic-logging")]
-    pub fn selected_choice_labels(&self,kind:i32,slot:kirby_assist_core::fighter_profiles::presets::PresetSlot)->Option<(&str,&str)> {
+    #[cfg(feature = "diagnostic-logging")]
+    pub fn selected_choice_labels(
+        &self,
+        kind: i32,
+        slot: kirby_assist_core::fighter_profiles::presets::PresetSlot,
+    ) -> Option<(&str, &str)> {
         self.for_fighter(kind)?;
-        let profile=PROFILES.get()?.profile(kind)?;
-        let selection=self.selections.get(&kind)?;
-        selection.choice_labels(&profile.menu_options,slot,selection.choices[slot as usize])
+        let profile = PROFILES.get()?.profile(kind)?;
+        let selection = self.selections.get(&kind)?;
+        selection.choice_labels(
+            &profile.menu_options,
+            slot,
+            selection.choices[slot as usize],
+        )
     }
     pub fn preview_slot(&self) -> Option<kirby_assist_core::fighter_profiles::presets::PresetSlot> {
         self.kind
@@ -141,7 +152,9 @@ impl LedgeMenu {
                 if let Some(tuning) = result.tuning {
                     saved.save_status = Some(if result.success && saved.tuning != tuning {
                         "Saved earlier fighter settings; newer edits are unsaved".into()
-                    } else { result.message });
+                    } else {
+                        result.message
+                    });
                     saved.revision = saved.revision.wrapping_add(1);
                     saved.content_revision = saved.content_revision.wrapping_add(1);
                     return false;
@@ -149,9 +162,10 @@ impl LedgeMenu {
                 // A completed save can arrive after a new match/profile reload.
                 // Numeric draft indices are not identities: never mutate a new
                 // template or different recipe that now occupies the old index.
-                let same_recipe = profiles.and_then(|p|p.profile(result_kind))
-                    .and_then(|p|saved.choice(&p.menu_options,result.slot,result.index))
-                    .is_some_and(|c|result.choice.as_deref()==Some(c.id));
+                let same_recipe = profiles
+                    .and_then(|p| p.profile(result_kind))
+                    .and_then(|p| saved.choice(&p.menu_options, result.slot, result.index))
+                    .is_some_and(|c| result.choice.as_deref() == Some(c.id));
                 if result.success && !same_recipe {
                     saved.save_status = Some(result.message);
                     saved.revision = saved.revision.wrapping_add(1);
@@ -163,7 +177,8 @@ impl LedgeMenu {
                     file_list_changed = Some(result_kind) == self.kind;
                 }
                 let snapshot_matches = result.snapshot.as_ref().map_or(
-                    saved.recipe_revision == result.revision, |(sequence, name)| {
+                    saved.recipe_revision == result.revision,
+                    |(sequence, name)| {
                         profiles
                             .and_then(|p| p.profile(result_kind))
                             .is_some_and(|profile| {
@@ -175,7 +190,8 @@ impl LedgeMenu {
                                     name.as_deref(),
                                 )
                             })
-                    });
+                    },
+                );
                 if result.success && !result.deleted && snapshot_matches {
                     saved.mark_recipe_saved(result.slot, result.index);
                 }
@@ -187,9 +203,14 @@ impl LedgeMenu {
                             result.index,
                             result.deleted,
                             result.snapshot.as_ref().map(|(sequence, _)| *sequence),
-                            result.snapshot.as_ref().and_then(|(_, name)| name.as_deref()),
+                            result
+                                .snapshot
+                                .as_ref()
+                                .and_then(|(_, name)| name.as_deref()),
                         );
-                        if saved.lightweight { saved.release_training_tools(&profile.menu_options); }
+                        if saved.lightweight {
+                            saved.release_training_tools(&profile.menu_options);
+                        }
                         if self.kind == Some(result_kind) {
                             self.resolved_recipe_revision = None;
                             self.rule_stamp = None;
@@ -201,7 +222,10 @@ impl LedgeMenu {
                     && saved.choices[result.slot as usize] == result.index;
                 saved.save_status = Some(if !current {
                     format!("{:?}: {}", result.slot, result.message)
-                } else if !snapshot_matches && (result.message.starts_with("Saved") || result.message.starts_with("Already saved")) {
+                } else if !snapshot_matches
+                    && (result.message.starts_with("Saved")
+                        || result.message.starts_with("Already saved"))
+                {
                     "Saved earlier snapshot; newer edits are unsaved".into()
                 } else {
                     result.message
@@ -213,19 +237,30 @@ impl LedgeMenu {
         file_list_changed
     }
     pub fn sequence_enabled(&self, base: bool) -> bool {
-        base || self.ledge_held || self.scope
+        base || self.ledge_held
+            || self.scope
+                && self
+                    .kind
+                    .and_then(|k| self.selections.get(&k))
+                    .is_some_and(|s| s.sequence_enabled(false))
+    }
+    pub fn manual_native_actions(&self) -> u32 {
+        let Some(kind) = self.kind.filter(|_| self.scope) else {
+            return 0;
+        };
+        let Some(profile) = PROFILES.get().and_then(|p| p.profile(kind)) else {
+            return 0;
+        };
+        self.selections
+            .get(&kind)
+            .map_or(0, |s| s.manual_native_actions(&profile.menu_options))
+    }
+    pub fn reserves_automatic_modes(&self) -> bool {
+        self.scope
             && self
                 .kind
                 .and_then(|k| self.selections.get(&k))
-                .is_some_and(|s| s.sequence_enabled(false))
-    }
-    pub fn manual_native_actions(&self)->u32 {
-        let Some(kind)=self.kind.filter(|_|self.scope) else{return 0;};
-        let Some(profile)=PROFILES.get().and_then(|p|p.profile(kind)) else{return 0;};
-        self.selections.get(&kind).map_or(0,|s|s.manual_native_actions(&profile.menu_options))
-    }
-    pub fn reserves_automatic_modes(&self)->bool {
-        self.scope && self.kind.and_then(|k|self.selections.get(&k)).is_some_and(|s|s.reserves_automatic_modes())
+                .is_some_and(|s| s.reserves_automatic_modes())
     }
     pub fn finish_preview(&mut self) {
         if let Some(s) = self.kind.and_then(|k| self.selections.get_mut(&k)) {
@@ -248,8 +283,12 @@ impl LedgeMenu {
                 s.effective_mode(Mode::AutoTech, s.auto_tech)
             })
     }
-    pub fn grab_dodge_enabled(&self)->bool {
-        self.scope && self.kind.and_then(|k|self.selections.get(&k)).is_some_and(|s|s.grab_dodge)
+    pub fn grab_dodge_enabled(&self) -> bool {
+        self.scope
+            && self
+                .kind
+                .and_then(|k| self.selections.get(&k))
+                .is_some_and(|s| s.grab_dodge)
     }
     #[cfg(feature = "diagnostic-logging")]
     pub fn diagnostic_options(&self) -> (bool, bool) {
@@ -257,8 +296,12 @@ impl LedgeMenu {
             .and_then(|kind| self.selections.get(&kind))
             .map_or((false, false), |s| (s.auto_trump, s.performance))
     }
-    pub fn out_of_shield_enabled(&self)->bool{
-        self.scope && self.kind.and_then(|k|self.selections.get(&k)).is_some_and(|s|s.out_of_shield)
+    pub fn out_of_shield_enabled(&self) -> bool {
+        self.scope
+            && self
+                .kind
+                .and_then(|k| self.selections.get(&k))
+                .is_some_and(|s| s.out_of_shield)
     }
     pub fn jab_lock_enabled(&self) -> bool {
         self.scope
@@ -288,54 +331,86 @@ impl LedgeMenu {
     pub fn request_open(&mut self) {
         self.open_requested = true;
     }
-    pub fn fighter_tuning(&self, kind:i32) -> kirby_assist_core::fighter_tuning::Tuning {
-        self.selections.get(&kind).filter(|_|self.kind==Some(kind)).map_or(Default::default(),|s|s.tuning)
+    pub fn fighter_tuning(&self, kind: i32) -> kirby_assist_core::fighter_tuning::Tuning {
+        self.selections
+            .get(&kind)
+            .filter(|_| self.kind == Some(kind))
+            .map_or(Default::default(), |s| s.tuning)
     }
-    pub fn reflect_config(&self, kind:i32)->Option<kirby_assist_core::projectile_reflect::Config> {
+    pub fn reflect_config(
+        &self,
+        kind: i32,
+    ) -> Option<kirby_assist_core::projectile_reflect::Config> {
         self.for_fighter(kind)?;
-        let selection=self.selections.get(&kind)?;
-        if !self.scope || !selection.auto_reflect || selection.recipe_editing
-            || selection.tuning_page || selection.managing() {return None;}
-        kirby_assist_core::projectile_reflect::Config::for_fighter(kind,selection.tuning)
+        let selection = self.selections.get(&kind)?;
+        if !self.scope
+            || !selection.auto_reflect
+            || selection.recipe_editing
+            || selection.tuning_page
+            || selection.managing()
+        {
+            return None;
+        }
+        kirby_assist_core::projectile_reflect::Config::for_fighter(kind, selection.tuning)
     }
     pub fn dodge_lookahead(&self) -> f32 {
-        self.kind.and_then(|k| self.selections.get(&k)).map_or(kirby_assist_core::spot_dodge::LOOKAHEAD, |s| s.tuning.dodge_lookahead())
+        self.kind
+            .and_then(|k| self.selections.get(&k))
+            .map_or(kirby_assist_core::spot_dodge::LOOKAHEAD, |s| {
+                s.tuning.dodge_lookahead()
+            })
     }
     pub fn rule_config(&self) -> Option<&kirby_assist_core::reaction_rules::Resolved> {
-        self.current_rules()
-            .filter(|r| r.has_simple_events() && r.enabled_controls & kirby_assist_core::reaction_rules::Control::Menu.bit()!=0)
+        self.current_rules().filter(|r| {
+            r.has_simple_events()
+                && r.enabled_controls & kirby_assist_core::reaction_rules::Control::Menu.bit() != 0
+        })
     }
-    fn current_rules(&self)->Option<&kirby_assist_core::reaction_rules::Resolved> {
-        let kind=self.kind?;
-        let revision=self.selections.get(&kind)?.recipe_revision;
-        (self.scope && self.rule_stamp==Some((kind,revision))).then_some(())?;
+    fn current_rules(&self) -> Option<&kirby_assist_core::reaction_rules::Resolved> {
+        let kind = self.kind?;
+        let revision = self.selections.get(&kind)?.recipe_revision;
+        (self.scope && self.rule_stamp == Some((kind, revision))).then_some(())?;
         self.rule_cache.as_deref()
     }
     /// Grab avoidance owns its follow-up toggle independently of Auto react.
     /// Only its own event recipe may punish a confirmed grab dodge.
-    pub fn grab_dodge_sequence(&self)->Option<&kirby_assist_core::sequence_config::Sequence> {
-        let selection=self.kind.and_then(|kind|self.selections.get(&kind))?;
-        if !self.scope || !selection.grab_dodge || selection.recipe_editing
-            || selection.tuning_page || selection.managing() {return None;}
+    pub fn grab_dodge_sequence(&self) -> Option<&kirby_assist_core::sequence_config::Sequence> {
+        let selection = self.kind.and_then(|kind| self.selections.get(&kind))?;
+        if !self.scope
+            || !selection.grab_dodge
+            || selection.recipe_editing
+            || selection.tuning_page
+            || selection.managing()
+        {
+            return None;
+        }
         self.current_rules()?.simple_sequence(5)
     }
     /// All Auto react recipes share a revision cache, independent of the
     /// individual mode switches that continue to control their admission.
-    pub fn automatic_sequences(&self)->kirby_assist_core::out_of_shield::AutomaticConfig<'_> {
-        let rules=self.current_rules();
+    pub fn automatic_sequences(&self) -> kirby_assist_core::out_of_shield::AutomaticConfig<'_> {
+        let rules = self.current_rules();
         kirby_assist_core::out_of_shield::AutomaticConfig {
-            grab:rules.and_then(|r|r.simple_sequence(3)),shield_grab:rules.and_then(|r|r.simple_sequence(4)),
-            backup:rules.and_then(|r|r.simple_sequence(6)),
+            grab: rules.and_then(|r| r.simple_sequence(3)),
+            shield_grab: rules.and_then(|r| r.simple_sequence(4)),
+            backup: rules.and_then(|r| r.simple_sequence(6)),
         }
     }
-    pub fn automatic_limits(&self)->[Option<(f32,f32)>;3] {
-        let r=self.automatic_sequences();[r.grab,r.shield_grab,r.backup].map(|s|s.map(|s|(s.reaction.max,s.reaction.height)))
+    pub fn automatic_limits(&self) -> [Option<(f32, f32)>; 3] {
+        let r = self.automatic_sequences();
+        [r.grab, r.shield_grab, r.backup].map(|s| s.map(|s| (s.reaction.max, s.reaction.height)))
     }
-    pub fn automatic_rules(&self)->Option<&kirby_assist_core::reaction_rules::Resolved>{self.current_rules()}
-    pub fn observe_passthrough(&mut self, buttons: u32, layout:kirby_assist_core::native_input::ControlLayout) {
-        self.passthrough_buttons = Some((buttons,layout));
+    pub fn automatic_rules(&self) -> Option<&kirby_assist_core::reaction_rules::Resolved> {
+        self.current_rules()
+    }
+    pub fn observe_passthrough(
+        &mut self,
+        buttons: u32,
+        layout: kirby_assist_core::native_input::ControlLayout,
+    ) {
+        self.passthrough_buttons = Some((buttons, layout));
         for selection in self.selections.values_mut() {
-            selection.observe_physical_passthrough(buttons,layout);
+            selection.observe_physical_passthrough(buttons, layout);
         }
     }
     pub fn auto_mash(&self, startup_default: bool) -> bool {
@@ -503,16 +578,18 @@ impl LedgeMenu {
             let mut s = MenuSelection::new(&profile.menu_options);
             s.simplified_reactions = true;
             if let Some(saved) = super::SEQUENCES.get() {
-                let library=saved.lock().unwrap_or_else(|e|e.into_inner());
-                let catalog=library.for_fighter(kind);
-                s.load_saved_recipes(&profile.menu_options,&catalog,kind);
-                s.tuning=library.tuning.get(&kind).copied().unwrap_or_default();
+                let library = saved.lock().unwrap_or_else(|e| e.into_inner());
+                let catalog = library.for_fighter(kind);
+                s.load_saved_recipes(&profile.menu_options, &catalog, kind);
+                s.tuning = library.tuning.get(&kind).copied().unwrap_or_default();
             }
-            s.tuning_values = kirby_assist_core::fighter_tuning::Tuning::values(profile.apply(*base));
+            s.tuning_values =
+                kirby_assist_core::fighter_tuning::Tuning::values(profile.apply(*base));
             s.tuning_values[11] = if grab_default { 1.0 } else { 0.0 };
             s.grab_dodge = s.tuning.grab_dodge_default(grab_default);
             s.out_of_shield = s.tuning.oos_default();
-            s.auto_reflect = s.tuning.0[kirby_assist_core::fighter_tuning::REFLECT_DEFAULT]==Some(1.);
+            s.auto_reflect =
+                s.tuning.0[kirby_assist_core::fighter_tuning::REFLECT_DEFAULT] == Some(1.);
             s.auto_tech = tech_default;
             s
         });
@@ -538,8 +615,8 @@ impl LedgeMenu {
             selection.y_mode = kirby_assist_core::button_modes::YMode::options_for_kind(kind)[0];
         }
         // Apply after new-profile/reset_inputs, which deliberately disarms L.
-        if let Some((buttons,layout)) = self.passthrough_buttons.take() {
-            selection.observe_physical_passthrough(buttons,layout);
+        if let Some((buttons, layout)) = self.passthrough_buttons.take() {
+            selection.observe_physical_passthrough(buttons, layout);
         }
         if self.resume_saved_state && gameplay {
             selection.resume_training_ledge_hold();
@@ -550,9 +627,9 @@ impl LedgeMenu {
         selection.block_binding_starts(bindings_blocked);
         selection.continue_short_hop_binding(short_hop_running);
         selection.preserve_safety_jump(safety_jump);
-        selection.set_binding_input(physical,layout);
+        selection.set_binding_input(physical, layout);
         let binding_choices_before = (selection.choices, selection.recipe_revision);
-        self.consumed = if selection.waits_for_training_save(training,save::busy()) {
+        self.consumed = if selection.waits_for_training_save(training, save::busy()) {
             selection.wait_for_save(buttons)
         } else {
             selection.input_with_editing(buttons, &profile.menu_options, training)
@@ -562,11 +639,15 @@ impl LedgeMenu {
         if binding_choices_before != (selection.choices, selection.recipe_revision) {
             selection.refresh_native_bindings(&profile.menu_options);
         }
-        self.native_buttons=selection.native_buttons(buttons);
-        self.builtin_consumed=selection.builtin_consumed;
+        self.native_buttons = selection.native_buttons(buttons);
+        self.builtin_consumed = selection.builtin_consumed;
         if self.rule_stamp != Some((kind, selection.recipe_revision)) {
             self.rule_stamp = Some((kind, selection.recipe_revision));
-            self.rule_cache = match if selection.has_reactions { selection.resolve_reactions(&profile.menu_options) } else { Ok(Default::default()) } {
+            self.rule_cache = match if selection.has_reactions {
+                selection.resolve_reactions(&profile.menu_options)
+            } else {
+                Ok(Default::default())
+            } {
                 Ok(r) if r.len > 0 => Some(Box::new(r)),
                 Ok(_) => None,
                 Err(e) => {
@@ -616,49 +697,65 @@ impl LedgeMenu {
         // inject gameplay inputs. Respawn/paused observations can temporarily
         // clear the actionable fighter while the editor remains available.
         if selection.tuning_save_requested {
-            selection.save_status=Some(save::request(save::Job {
-                kind, slot: kirby_assist_core::fighter_profiles::presets::PresetSlot::Neutral,
-                index:0, revision:selection.recipe_revision, choice:String::new(), name:None,
-                delete:false, make_default:false, allow_new:false,
-                sequence:kirby_assist_core::sequence_config::Sequence::default(),
-                tuning:Some(selection.tuning),
-            },training));
-            selection.revision=selection.revision.wrapping_add(1);
+            selection.save_status = Some(save::request(
+                save::Job {
+                    kind,
+                    slot: kirby_assist_core::fighter_profiles::presets::PresetSlot::Neutral,
+                    index: 0,
+                    revision: selection.recipe_revision,
+                    choice: String::new(),
+                    name: None,
+                    delete: false,
+                    make_default: false,
+                    allow_new: false,
+                    sequence: kirby_assist_core::sequence_config::Sequence::default(),
+                    tuning: Some(selection.tuning),
+                },
+                training,
+            ));
+            selection.revision = selection.revision.wrapping_add(1);
         }
         if selection.save_requested || selection.delete_requested {
             if let Some(slot) = selection.row.slot() {
                 let index = selection.choices[slot as usize];
-                let message =
-                    if let Some(choice) = selection.choice(&profile.menu_options, slot, index) {
-                        let snapshot = if selection.delete_requested { Some(choice.sequence) }
-                            else { selection.recipe_snapshot(&profile.menu_options, slot, index) };
-                        if let Some(sequence) = snapshot {
-                            save::request(
-                                save::Job {
-                                    kind,
-                                    slot,
-                                    index,
-                                    revision: selection.recipe_revision,
-                                    choice: choice.id.to_owned(),
-                                    allow_new: choice.allow_new,
-                                    name: selection
-                                        .name_override(slot, index)
-                                        .map(str::to_owned)
-                                        .or_else(|| choice.sequence.mode.map(|m| m.label().to_owned()))
-                                        .or_else(|| choice.sequence.builtin.map(|b| b.label().to_owned())),
-                                    delete: selection.delete_requested,
-                                    make_default: selection.default_requested,
-                                    sequence,
-                                    tuning: None,
-                                },
-                                training,
-                            )
-                        } else {
-                            "Save failed: draft exceeds the action limit; remove an action or delay".into()
-                        }
+                let message = if let Some(choice) =
+                    selection.choice(&profile.menu_options, slot, index)
+                {
+                    let snapshot = if selection.delete_requested {
+                        Some(choice.sequence)
                     } else {
-                        "Save failed: no configured recipe".into()
+                        selection.recipe_snapshot(&profile.menu_options, slot, index)
                     };
+                    if let Some(sequence) = snapshot {
+                        save::request(
+                            save::Job {
+                                kind,
+                                slot,
+                                index,
+                                revision: selection.recipe_revision,
+                                choice: choice.id.to_owned(),
+                                allow_new: choice.allow_new,
+                                name: selection
+                                    .name_override(slot, index)
+                                    .map(str::to_owned)
+                                    .or_else(|| choice.sequence.mode.map(|m| m.label().to_owned()))
+                                    .or_else(|| {
+                                        choice.sequence.builtin.map(|b| b.label().to_owned())
+                                    }),
+                                delete: selection.delete_requested,
+                                make_default: selection.default_requested,
+                                sequence,
+                                tuning: None,
+                            },
+                            training,
+                        )
+                    } else {
+                        "Save failed: draft exceeds the action limit; remove an action or delay"
+                            .into()
+                    }
+                } else {
+                    "Save failed: no configured recipe".into()
+                };
                 selection.save_status = Some(message);
                 selection.revision = selection.revision.wrapping_add(1);
             }
@@ -670,9 +767,14 @@ impl LedgeMenu {
                 use kirby_assist_core::diagnostics::modes::Configuration;
                 let on_off = |on| if on { "ON" } else { "OFF" };
                 let mut rows = ["unavailable for this fighter"; 26];
-                for (i,slot) in kirby_assist_core::fighter_profiles::presets::PresetSlot::ALL.into_iter().take(5).enumerate() {
-                    rows[i]=selection.choice_labels(&profile.menu_options,slot,selection.choices[i])
-                        .map_or("unknown selection",|(_,name)|name);
+                for (i, slot) in kirby_assist_core::fighter_profiles::presets::PresetSlot::ALL
+                    .into_iter()
+                    .take(5)
+                    .enumerate()
+                {
+                    rows[i] = selection
+                        .choice_labels(&profile.menu_options, slot, selection.choices[i])
+                        .map_or("unknown selection", |(_, name)| name);
                 }
                 if kirby_assist_core::roll_read::fighter_config(kind).is_some() {
                     rows[5] = selection.roll_read.label();
@@ -695,7 +797,8 @@ impl LedgeMenu {
                 rows[14] = on_off(selection.auto_tech);
                 rows[15] = on_off(selection.auto_trump);
                 rows[16] = on_off(selection.performance);
-                rows[24] = on_off(selection.effective_mode(Mode::OutOfShield, selection.out_of_shield));
+                rows[24] =
+                    on_off(selection.effective_mode(Mode::OutOfShield, selection.out_of_shield));
                 rows[25] = on_off(selection.shield_pressure);
                 for (row, slot) in [
                     (
@@ -707,8 +810,13 @@ impl LedgeMenu {
                         kirby_assist_core::fighter_profiles::presets::PresetSlot::Y,
                     ),
                 ] {
-                    rows[row]=selection.choice_labels(&profile.menu_options,slot,selection.choices[slot as usize])
-                        .map_or("Normal button / custom draft",|(_,name)|name);
+                    rows[row] = selection
+                        .choice_labels(
+                            &profile.menu_options,
+                            slot,
+                            selection.choices[slot as usize],
+                        )
+                        .map_or("Normal button / custom draft", |(_, name)| name);
                 }
                 for (row, slot) in [
                     (
@@ -728,11 +836,17 @@ impl LedgeMenu {
                         kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadRight,
                     ),
                 ] {
-                    rows[row]=selection.choice_labels(&profile.menu_options,slot,selection.choices[slot as usize])
-                        .map_or("Normal / custom / mode",|(_,name)|name);
+                    rows[row] = selection
+                        .choice_labels(
+                            &profile.menu_options,
+                            slot,
+                            selection.choices[slot as usize],
+                        )
+                        .map_or("Normal / custom / mode", |(_, name)| name);
                 }
                 rows[23] = on_off(selection.ledge_mode());
-                let report = Configuration::new(profile.name,rows).with_reflect(selection.auto_reflect);
+                let report =
+                    Configuration::new(profile.name, rows).with_reflect(selection.auto_reflect);
                 if self.diagnostic_config != Some(report) {
                     self.diagnostic_config = Some(report);
                     crate::logging::write_configuration(report);
@@ -757,11 +871,13 @@ impl LedgeMenu {
                     drafts += d;
                     bytes += b + std::mem::size_of::<i32>();
                 }
-                bytes += self
-                    .rule_cache
-                    .as_ref()
-                    .map_or(0, |r| std::mem::size_of_val(&**r)
-                        + r.rules.capacity()*std::mem::size_of::<Option<kirby_assist_core::reaction_rules::Candidate>>());
+                bytes += self.rule_cache.as_ref().map_or(0, |r| {
+                    std::mem::size_of_val(&**r)
+                        + r.rules.capacity()
+                            * std::mem::size_of::<
+                                Option<kirby_assist_core::reaction_rules::Candidate>,
+                            >()
+                });
                 crate::performance::health::retained(self.selections.len(), recipes, drafts, bytes);
                 self.retained_stamp = Some(stamp);
             }
@@ -776,10 +892,13 @@ impl LedgeMenu {
                     ..*resolved
                 };
             }
-            let base=super::ledge_settings(kind,*startup);
-            return LedgeSettings {enabled:self.sequence_enabled(base.enabled),..base};
+            let base = super::ledge_settings(kind, *startup);
+            return LedgeSettings {
+                enabled: self.sequence_enabled(base.enabled),
+                ..base
+            };
         }
-        super::ledge_settings(kind,*startup)
+        super::ledge_settings(kind, *startup)
     }
 }
 pub(super) fn install() {

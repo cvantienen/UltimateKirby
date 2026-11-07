@@ -1,5 +1,5 @@
 //! A static saved-configuration selector. Its snapshot has only row labels and
-//! saved names: no fighter status, motion or opponent data.
+//! saved names: no fighter status, motion or fighter data.
 //! Strings are rebuilt only when a selection/row changes. ImGui still draws the
 //! cached panel each render frame, as an immediate-mode GUI normally does.
 use imgui_api::bindings::*;
@@ -11,17 +11,19 @@ use kirby_assist_core::{
 use std::{
     ffi::{CStr, CString},
     sync::{
-        atomic::{AtomicBool, AtomicPtr, AtomicI32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicPtr, AtomicU64, Ordering},
         Mutex,
     },
     time::{Duration, Instant},
 };
 
-#[path="view.rs"]mod view;
-use view::Snapshot;
-#[cfg(feature="diagnostic-logging")]
+#[path = "view.rs"]
+mod view;
+#[cfg(feature = "diagnostic-logging")]
 use view::SavedChoice;
-#[path="lightweight.rs"]mod lightweight;
+use view::Snapshot;
+#[path = "lightweight.rs"]
+mod lightweight;
 
 static VIEW: Mutex<Option<Snapshot>> = Mutex::new(None);
 static DEFERRED_CLEAR: AtomicBool = AtomicBool::new(false);
@@ -165,9 +167,9 @@ pub(super) fn set_battle_active(active: bool) {
     let _ = was_active;
 }
 pub(super) fn clear() {
-    VIEW_GENERATION.fetch_add(1,Ordering::AcqRel);
+    VIEW_GENERATION.fetch_add(1, Ordering::AcqRel);
     MENU_VISIBLE.store(false, Ordering::Release);
-    REQUESTED_FIGHTER.store(-1,Ordering::Release);
+    REQUESTED_FIGHTER.store(-1, Ordering::Release);
     set_battle_active(false);
     if let Ok(mut presence) = PRESENCE.try_lock() {
         presence.clear();
@@ -176,8 +178,12 @@ pub(super) fn clear() {
     finish_deferred_clear();
 }
 pub(super) fn finish_deferred_clear() {
-    if !DEFERRED_CLEAR.load(Ordering::Acquire) { return; }
-    let Some(_save_gate) = super::save::try_ui_edit() else { return; };
+    if !DEFERRED_CLEAR.load(Ordering::Acquire) {
+        return;
+    }
+    let Some(_save_gate) = super::save::try_ui_edit() else {
+        return;
+    };
     if let Ok(mut view) = VIEW.try_lock() {
         // Take first so the shared slot is empty before owned text is freed.
         let old = view.take();
@@ -224,9 +230,12 @@ unsafe extern "C" fn draw() {
     poll_master_switch();
     let active = super::super::feature_activity_allowed();
     #[cfg(feature = "diagnostic-logging")]
-    let _draw_time = active.then(|| crate::performance::health::Trace::new(crate::performance::health::Lane::Draw));
+    let _draw_time = active
+        .then(|| crate::performance::health::Trace::new(crate::performance::health::Lane::Draw));
     #[cfg(feature = "diagnostic-logging")]
-    if active { crate::performance::health::draw_tick(now); }
+    if active {
+        crate::performance::health::draw_tick(now);
+    }
     // Profile/editor cleanup and save completion run on the existing mapper
     // callback. Rendering never applies edits or destroys the fighter roster.
     let toast = if MASTER_TOAST_PENDING.load(Ordering::Acquire) {
@@ -251,9 +260,7 @@ unsafe extern "C" fn draw() {
     // callback. Show confirmation only after the chord instead of leaving a
     // label across unrelated menus and single-player screens.
     let status = toast.filter(|_| !super::super::MASTER_IN_MATCH.load(Ordering::Acquire) || active);
-    let menu_requested = battle_active
-        && MENU_VISIBLE.load(Ordering::Acquire)
-        && active;
+    let menu_requested = battle_active && MENU_VISIBLE.load(Ordering::Acquire) && active;
     if status.is_none() && !menu_requested {
         return;
     }
@@ -291,9 +298,15 @@ unsafe extern "C" fn draw() {
     };
     // A busy save may postpone snapshot replacement during a scene switch.
     // Never display a cached Training card in the match-only layout.
-    let lightweight=LIGHTWEIGHT_REQUESTED.load(Ordering::Acquire);
-    if !view.matches_request(lightweight,REQUESTED_FIGHTER.load(Ordering::Acquire),
-        REQUESTED_REVISION.load(Ordering::Acquire),VIEW_GENERATION.load(Ordering::Acquire)) {return;}
+    let lightweight = LIGHTWEIGHT_REQUESTED.load(Ordering::Acquire);
+    if !view.matches_request(
+        lightweight,
+        REQUESTED_FIGHTER.load(Ordering::Acquire),
+        REQUESTED_REVISION.load(Ordering::Acquire),
+        VIEW_GENERATION.load(Ordering::Acquire),
+    ) {
+        return;
+    }
     if lightweight {
         lightweight::draw(view, display, scale);
         return;
@@ -367,7 +380,9 @@ unsafe extern "C" fn draw() {
         flags as _,
     ) {
         igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.58, 0.69, 0.79, 1.0));
-        if let Some(navigation)=&view.navigation {card_text(navigation);}
+        if let Some(navigation) = &view.navigation {
+            card_text(navigation);
+        }
         igPopStyleColor(1);
         igSeparator();
         for value in view

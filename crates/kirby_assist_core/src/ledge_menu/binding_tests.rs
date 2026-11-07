@@ -23,7 +23,9 @@ fn idle_gameplay_reuses_button_roles_and_configuration_changes_refresh_them() {
     let (p, mut m) = setup("[bowser.x.hop]\nstart_delay=0\nactions=short_hop\n", 15);
     m.input_with_editing(0, &p, false);
     let first = m.binding_roles_rebuilds;
-    for _ in 0..600 { m.input_with_editing(0, &p, false); }
+    for _ in 0..600 {
+        m.input_with_editing(0, &p, false);
+    }
     assert_eq!(m.binding_roles_rebuilds, first);
     for change in 0..5 {
         match change {
@@ -85,8 +87,20 @@ fn all_legacy_mode_bindings_load_as_normal_buttons_without_changing_modes() {
                     "[{}.{name}.old]\ndefault=true\nmode={}\nactivation={activation}\n",
                     if kind == 6 { "kirby" } else { "yoshi" },
                     mode.id(),
-                    name = ["x", "y", "dpad_up", "dpad_down", "dpad_left", "dpad_right", "l", "r", "zl", "zr", "l3", "r3"]
-                        [slot as usize - PresetSlot::X as usize]
+                    name = [
+                        "x",
+                        "y",
+                        "dpad_up",
+                        "dpad_down",
+                        "dpad_left",
+                        "dpad_right",
+                        "l",
+                        "r",
+                        "zl",
+                        "zr",
+                        "l3",
+                        "r3"
+                    ][slot as usize - PresetSlot::X as usize]
                 );
                 let (p, mut m) = setup(&text, kind);
                 assert!(p.list(slot).options.is_empty());
@@ -95,8 +109,12 @@ fn all_legacy_mode_bindings_load_as_normal_buttons_without_changing_modes() {
                     crate::button_bindings::Builtin::default_for(slot).choice_id()
                 );
                 m.input(0, &p);
-                let consumed=m.input(slot.button(), &p);
-                assert_eq!(consumed & slot.button()!=0, crate::button_bindings::Builtin::default_for(slot)!=crate::button_bindings::Builtin::Normal);
+                let consumed = m.input(slot.button(), &p);
+                assert_eq!(
+                    consumed & slot.button() != 0,
+                    crate::button_bindings::Builtin::default_for(slot)
+                        != crate::button_bindings::Builtin::Normal
+                );
                 assert!(m.preview_slot.is_none());
                 assert!(!m.trump_mode());
                 assert!(m.out_of_shield);
@@ -114,7 +132,10 @@ fn legacy_default_mode_keeps_saved_sequences_and_starts_on_normal_button() {
     let (p, mut m) = setup(text, 5);
     assert_eq!(p.list(PresetSlot::X).options.len(), 1);
     assert_eq!(p.list(PresetSlot::X).options[0].id, "recipe");
-    assert_eq!(m.choices[PresetSlot::X as usize],PresetSlot::X.default_index(p.list(PresetSlot::X).options.len()));
+    assert_eq!(
+        m.choices[PresetSlot::X as usize],
+        PresetSlot::X.default_index(p.list(PresetSlot::X).options.len())
+    );
     m.show_quick();
     m.button_menu = true;
     for slot in PresetSlot::BUTTONS {
@@ -208,7 +229,15 @@ fn button_pages_expose_only_normal_and_input_sequence_editing() {
 #[test]
 fn unassigned_dpad_has_no_builtin_mode_or_shortcut_reservation() {
     let (p, mut m) = setup("", 6);
-    for slot in PresetSlot::BUTTONS.into_iter().filter(|s|matches!(s,PresetSlot::DpadUp|PresetSlot::DpadDown|PresetSlot::DpadLeft|PresetSlot::DpadRight)) {
+    for slot in PresetSlot::BUTTONS.into_iter().filter(|s| {
+        matches!(
+            s,
+            PresetSlot::DpadUp
+                | PresetSlot::DpadDown
+                | PresetSlot::DpadLeft
+                | PresetSlot::DpadRight
+        )
+    }) {
         m.input(0, &p);
         assert_eq!(m.input(slot.button(), &p) & slot.button(), 0);
         assert!(m.preview_slot.is_none());

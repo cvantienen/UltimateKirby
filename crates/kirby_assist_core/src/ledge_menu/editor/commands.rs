@@ -5,7 +5,10 @@ use crate::manual_controls::{DPAD_LEFT, DPAD_RIGHT, DPAD_UP};
 
 #[derive(Clone, Copy)]
 pub(super) enum Modal {
-    Buttons { slot:usize, item:usize },
+    Buttons {
+        slot: usize,
+        item: usize,
+    },
     Copy {
         group: usize,
         item: usize,
@@ -63,14 +66,20 @@ const COPY_GROUPS: &[&str] = &[
 const TEMPLATE_GROUP: usize = 11;
 fn group(action: Action, name: &str) -> usize {
     match action {
-        Action::Check { .. } | Action::Range(_) | Action::ShieldUntilBlock(_)
-        | Action::IfFacingLedge { .. } | Action::IfFacingOpponent {..} | Action::ElseFacing | Action::EndFacing => 6,
+        Action::Check { .. }
+        | Action::Range(_)
+        | Action::ShieldUntilBlock(_)
+        | Action::IfFacingLedge { .. }
+        | Action::IfFacingOpponent { .. }
+        | Action::ElseFacing
+        | Action::EndFacing => 6,
         Action::ShieldUntilManual => 3,
         Action::Tap { .. } => 7,
-        Action::Controller {..} => 5,
+        Action::Controller { .. } => 5,
         Action::Face(_)
         | Action::Walk { .. }
-        | Action::Run { .. } | Action::LedgePosition {..}
+        | Action::Run { .. }
+        | Action::LedgePosition { .. }
         | Action::Approach { .. }
         | Action::Drift { .. } => 4,
         Action::Input { buttons, .. } | Action::OpponentInput { buttons, .. } => {
@@ -95,12 +104,19 @@ fn group(action: Action, name: &str) -> usize {
 pub(super) fn candidates(r: &Recipe, category: usize) -> Vec<usize> {
     if category == 8 {
         return (PRESETS.len()..PRESETS.len() + r.imported.len())
-            .filter(|i|!r.sequence.reaction.active() || !r.imported[*i-PRESETS.len()].needs_ledge()).collect();
+            .filter(|i| {
+                !r.sequence.reaction.active() || !r.imported[*i - PRESETS.len()].needs_ledge()
+            })
+            .collect();
     }
     PRESETS
         .iter()
         .enumerate()
-        .filter_map(|(i, (name, action))| (group(*action, name) == category && (!r.sequence.reaction.active() || !action.needs_ledge())).then_some(i))
+        .filter_map(|(i, (name, action))| {
+            (group(*action, name) == category
+                && (!r.sequence.reaction.active() || !action.needs_ledge()))
+            .then_some(i)
+        })
         .collect()
 }
 fn changed_steps(before: &Recipe, after: &Recipe) -> u32 {
@@ -117,67 +133,138 @@ fn changed_steps(before: &Recipe, after: &Recipe) -> u32 {
 }
 impl RecipeEditor {
     pub fn close_commands(&mut self) {
-        self.modal = None;self.return_modal=None;self.manage_requested=false;
+        self.modal = None;
+        self.return_modal = None;
+        self.manage_requested = false;
         self.command_held = 0;
         self.command_ticks = 0;
         self.clear_copy();
     }
     pub fn clear_copy(&mut self) {
         self.copy_sources = Vec::new();
-        self.copy_templates=Vec::new();
-        self.template_apply=None;
+        self.copy_templates = Vec::new();
+        self.template_apply = None;
         self.copy_requested = false;
         self.copy_apply = None;
     }
-    pub fn take_manage_request(&mut self)->bool {std::mem::take(&mut self.manage_requested)}
-    fn copy_step(&mut self,key:(usize,usize),slot:usize)->bool {
-        let Some(r)=self.recipes.get(&key)else{return false;};
-        let action=r.sequence.actions[slot];let delay=r.before[slot];
-        if action==Action::Empty && delay==0 {self.last_edit=Some("No action or delay to copy".into());return false;}
-        self.step_clipboard=Some((action,delay));self.last_edit=Some("Step copied; paste before/after in any recipe".into());true
+    pub fn take_manage_request(&mut self) -> bool {
+        std::mem::take(&mut self.manage_requested)
     }
-    fn paste_step(&mut self,key:(usize,usize),slot:usize,after:bool)->bool {
-        let Some((action,delay))=self.step_clipboard else{self.last_edit=Some("Copy a step first".into());return false;};
-        let Some(mut next)=self.recipes.get(&key).cloned() else{return false;};
-        if next.sequence.reaction.active() && action.needs_ledge() {
-            self.last_edit=Some("This step needs a ledge; choose a ledge recipe".into());return false;
-        }
-        let mut len=usize::from(next.sequence.len);let at=slot+usize::from(after);
-        if len==MAX_ACTIONS && at<len && next.sequence.actions[len-1]==Action::Empty && next.before[len-1]==0 {len-=1;}
-        if len==MAX_ACTIONS {self.limited=true;self.last_edit=Some("All 32 slots occupied; remove a step first".into());return false;}
-        let mut single=Sequence::default();single.len=1;single.actions[0]=action;let single=Recipe::new(single);
-        let kind=if single.kinds[0]<PRESETS.len(){single.kinds[0]}else{
-            let index=next.imported.iter().position(|a|*a==action).unwrap_or_else(||{next.imported.push(action);next.imported.len()-1});PRESETS.len()+index
+    fn copy_step(&mut self, key: (usize, usize), slot: usize) -> bool {
+        let Some(r) = self.recipes.get(&key) else {
+            return false;
         };
-        for i in (at..len).rev() {next.sequence.actions[i+1]=next.sequence.actions[i];next.before[i+1]=next.before[i];next.kinds[i+1]=next.kinds[i];}
-        next.sequence.actions[at]=action;next.before[at]=delay;next.kinds[at]=kind;next.sequence.len=(len+1)as u8;
-        self.commit_command(key,next,at,"Pasted step and delay; Undo restores the previous recipe")
+        let action = r.sequence.actions[slot];
+        let delay = r.before[slot];
+        if action == Action::Empty && delay == 0 {
+            self.last_edit = Some("No action or delay to copy".into());
+            return false;
+        }
+        self.step_clipboard = Some((action, delay));
+        self.last_edit = Some("Step copied; paste before/after in any recipe".into());
+        true
+    }
+    fn paste_step(&mut self, key: (usize, usize), slot: usize, after: bool) -> bool {
+        let Some((action, delay)) = self.step_clipboard else {
+            self.last_edit = Some("Copy a step first".into());
+            return false;
+        };
+        let Some(mut next) = self.recipes.get(&key).cloned() else {
+            return false;
+        };
+        if next.sequence.reaction.active() && action.needs_ledge() {
+            self.last_edit = Some("This step needs a ledge; choose a ledge recipe".into());
+            return false;
+        }
+        let mut len = usize::from(next.sequence.len);
+        let at = slot + usize::from(after);
+        if len == MAX_ACTIONS
+            && at < len
+            && next.sequence.actions[len - 1] == Action::Empty
+            && next.before[len - 1] == 0
+        {
+            len -= 1;
+        }
+        if len == MAX_ACTIONS {
+            self.limited = true;
+            self.last_edit = Some("All 32 slots occupied; remove a step first".into());
+            return false;
+        }
+        let mut single = Sequence::default();
+        single.len = 1;
+        single.actions[0] = action;
+        let single = Recipe::new(single);
+        let kind = if single.kinds[0] < PRESETS.len() {
+            single.kinds[0]
+        } else {
+            let index = next
+                .imported
+                .iter()
+                .position(|a| *a == action)
+                .unwrap_or_else(|| {
+                    next.imported.push(action);
+                    next.imported.len() - 1
+                });
+            PRESETS.len() + index
+        };
+        for i in (at..len).rev() {
+            next.sequence.actions[i + 1] = next.sequence.actions[i];
+            next.before[i + 1] = next.before[i];
+            next.kinds[i + 1] = next.kinds[i];
+        }
+        next.sequence.actions[at] = action;
+        next.before[at] = delay;
+        next.kinds[at] = kind;
+        next.sequence.len = (len + 1) as u8;
+        self.commit_command(
+            key,
+            next,
+            at,
+            "Pasted step and delay; Undo restores the previous recipe",
+        )
     }
     pub fn take_copy_request(&mut self) -> bool {
         std::mem::take(&mut self.copy_requested)
     }
     pub fn set_copy_sources(&mut self, sources: Vec<CopySource>) {
         self.copy_sources = sources;
-        if let Some(Modal::Copy{group,item})=self.modal.as_mut() {
-            if *group!=TEMPLATE_GROUP && !self.copy_sources.iter().any(|s|s.slot as usize==*group) {
-                if let Some(first)=self.copy_sources.first(){*group=first.slot as usize;*item=0;}
+        if let Some(Modal::Copy { group, item }) = self.modal.as_mut() {
+            if *group != TEMPLATE_GROUP
+                && !self.copy_sources.iter().any(|s| s.slot as usize == *group)
+            {
+                if let Some(first) = self.copy_sources.first() {
+                    *group = first.slot as usize;
+                    *item = 0;
+                }
             }
         }
     }
-    pub fn set_copy_templates(&mut self, templates:&[crate::sequence_config::Template]) {
-        self.copy_templates=templates.iter().map(|t|t.name.clone()).collect();
-        if let Some(Modal::Copy{group,item})=self.modal.as_mut() {
-            if self.copy_sources.is_empty() && !self.copy_templates.is_empty() {*group=TEMPLATE_GROUP;*item=0;}
+    pub fn set_copy_templates(&mut self, templates: &[crate::sequence_config::Template]) {
+        self.copy_templates = templates.iter().map(|t| t.name.clone()).collect();
+        if let Some(Modal::Copy { group, item }) = self.modal.as_mut() {
+            if self.copy_sources.is_empty() && !self.copy_templates.is_empty() {
+                *group = TEMPLATE_GROUP;
+                *item = 0;
+            }
         }
     }
-    fn has_copy_group(&self,group:usize)->bool {
-        if group==TEMPLATE_GROUP {!self.copy_templates.is_empty()}
-        else {self.copy_sources.iter().any(|s|s.slot as usize==group)}
+    fn has_copy_group(&self, group: usize) -> bool {
+        if group == TEMPLATE_GROUP {
+            !self.copy_templates.is_empty()
+        } else {
+            self.copy_sources.iter().any(|s| s.slot as usize == group)
+        }
     }
-    pub fn take_template_apply(&mut self)->Option<usize> {self.template_apply.take()}
-    pub fn apply_generic_template(&mut self,destination:(usize,usize),sequence:Sequence)->bool {
+    pub fn take_template_apply(&mut self) -> Option<usize> {
+        self.template_apply.take()
+    }
+    pub fn apply_generic_template(
+        &mut self,
+        destination: (usize, usize),
+        sequence: Sequence,
+    ) -> bool {
         // This key cannot alias a fighter recipe or its unsaved draft.
-        self.apply_template(destination,(usize::MAX,0),sequence)
+        self.apply_template(destination, (usize::MAX, 0), sequence)
     }
     pub fn take_copy_apply(
         &mut self,
@@ -214,9 +301,10 @@ impl RecipeEditor {
             return false;
         }
         next.sequence.reaction = reaction;
-        if let Some(compiled)=next.compile() {
-            if let Err(error)=crate::reaction_rules::validate_response(compiled) {
-                self.last_edit=Some(format!("Cannot copy into this recipe: {error}"));return false;
+        if let Some(compiled) = next.compile() {
+            if let Err(error) = crate::reaction_rules::validate_response(compiled) {
+                self.last_edit = Some(format!("Cannot copy into this recipe: {error}"));
+                return false;
             }
         }
 
@@ -226,9 +314,12 @@ impl RecipeEditor {
         } else {
             false
         };
-        if next.sequence==target.sequence && next.before==target.before {
-            self.last_edit=Some("Destination already has these actions and timings".into());
-            self.modal=None;self.return_modal=None;self.clear_copy();return false;
+        if next.sequence == target.sequence && next.before == target.before {
+            self.last_edit = Some("Destination already has these actions and timings".into());
+            self.modal = None;
+            self.return_modal = None;
+            self.clear_copy();
+            return false;
         }
         let changed = self.commit_command(
             destination,
@@ -237,7 +328,8 @@ impl RecipeEditor {
             "Copied actions and timings; source and destination name unchanged",
         );
         if changed {
-            self.modal = None;self.return_modal=None;
+            self.modal = None;
+            self.return_modal = None;
             self.clear_copy();
         }
         changed
@@ -252,13 +344,27 @@ impl RecipeEditor {
         Some(field_slot(fs[self.cursor.min(fs.len() - 1)]).unwrap_or(0))
     }
     fn open_picker(&mut self, key: (usize, usize), slot: usize) {
-        let Some(r) = self.recipes.get(&key) else { return; };
+        let Some(r) = self.recipes.get(&key) else {
+            return;
+        };
         let kind = r.kinds[slot];
-        let category = if kind >= PRESETS.len() { 8 } else { group(PRESETS[kind].1, PRESETS[kind].0) };
-        let item = candidates(r, category).iter().position(|k| *k == kind).unwrap_or(0);
-        self.return_modal=self.modal.filter(|m|matches!(m,Modal::Tools{..}));
-        self.modal = Some(Modal::Picker { slot, group: category, item });
-        self.command_held = 0; self.command_ticks = 0;
+        let category = if kind >= PRESETS.len() {
+            8
+        } else {
+            group(PRESETS[kind].1, PRESETS[kind].0)
+        };
+        let item = candidates(r, category)
+            .iter()
+            .position(|k| *k == kind)
+            .unwrap_or(0);
+        self.return_modal = self.modal.filter(|m| matches!(m, Modal::Tools { .. }));
+        self.modal = Some(Modal::Picker {
+            slot,
+            group: category,
+            item,
+        });
+        self.command_held = 0;
+        self.command_ticks = 0;
     }
     fn focus_slot(&mut self, key: (usize, usize), slot: usize) {
         if let Some(r) = self.recipes.get(&key) {
@@ -413,24 +519,37 @@ impl RecipeEditor {
     ) -> Option<(bool, bool)> {
         use crate::native_input::{MAPPER_A as A, MAPPER_B as B};
         let shoulders = MAPPER_ZL | MAPPER_ZR;
-        if pressed & crate::ledge_menu::MENU_STICK_CLICK!=0 || buttons==MAPPER_Y && pressed&MAPPER_Y!=0 || buttons==MAPPER_X && pressed&MAPPER_X!=0 {self.close_commands();return None;}
+        if pressed & crate::ledge_menu::MENU_STICK_CLICK != 0
+            || buttons == MAPPER_Y && pressed & MAPPER_Y != 0
+            || buttons == MAPPER_X && pressed & MAPPER_X != 0
+        {
+            self.close_commands();
+            return None;
+        }
 
         if self.modal.is_none() {
             if buttons & shoulders == shoulders && pressed & shoulders != 0 {
-                self.modal = Some(Modal::Tools { slot: self.selected_slot(key)?, item: 0 });
+                self.modal = Some(Modal::Tools {
+                    slot: self.selected_slot(key)?,
+                    item: 0,
+                });
                 return Some((true, false));
             }
-            if buttons & (MAPPER_R | shoulders)==0 && pressed & (A | DPAD_LEFT | DPAD_RIGHT)!=0 {
-                let r=self.recipes.get(&key)?;let fs=fields(r);
-                if let Field::Buttons(slot)=fs[self.cursor.min(fs.len()-1)] {
-                    self.modal=Some(Modal::Buttons{slot,item:0});self.command_held=0;self.command_ticks=0;
-                    return Some((true,false));
+            if buttons & (MAPPER_R | shoulders) == 0 && pressed & (A | DPAD_LEFT | DPAD_RIGHT) != 0
+            {
+                let r = self.recipes.get(&key)?;
+                let fs = fields(r);
+                if let Field::Buttons(slot) = fs[self.cursor.min(fs.len() - 1)] {
+                    self.modal = Some(Modal::Buttons { slot, item: 0 });
+                    self.command_held = 0;
+                    self.command_ticks = 0;
+                    return Some((true, false));
                 }
             }
             if buttons & (MAPPER_R | shoulders) == 0 && pressed & A != 0 {
                 let r = self.recipes.get(&key)?;
                 let fs = fields(r);
-                if let Field::Kind(slot) = fs[self.cursor.min(fs.len()-1)] {
+                if let Field::Kind(slot) = fs[self.cursor.min(fs.len() - 1)] {
                     self.open_picker(key, slot);
                     return Some((true, false));
                 }
@@ -494,41 +613,84 @@ impl RecipeEditor {
         if pressed & (A | DPAD_UP | DPAD_DOWN | DPAD_LEFT | DPAD_RIGHT) == 0 && !repeat {
             return Some((false, false));
         }
-        let nav=if pressed & A == 0 && pad.count_ones()==1 && (pressed&pad!=0||repeat){pad}else{0};
-        if pressed & A == 0 && nav == 0 { return Some((false, false)); }
+        let nav = if pressed & A == 0 && pad.count_ones() == 1 && (pressed & pad != 0 || repeat) {
+            pad
+        } else {
+            0
+        };
+        if pressed & A == 0 && nav == 0 {
+            return Some((false, false));
+        }
         let modal = self.modal?;
         match modal {
-            Modal::Buttons{slot,mut item}=>{
-                if pressed & A==0 {
-                    if nav & DPAD_DOWN !=0 {item=(item+1)%INPUT_BUTTONS.len();}
-                    else if nav & DPAD_UP !=0 {item=(item+INPUT_BUTTONS.len()-1)%INPUT_BUTTONS.len();}
-                }
-                let mut changed=false;
-                if pressed & A!=0 || nav & (DPAD_LEFT|DPAD_RIGHT)!=0 {
-                    let mut next=self.recipes.get(&key)?.clone();
-                    match &mut next.sequence.actions[slot] {
-                        Action::Input{buttons,frames,..}|Action::OpponentInput{buttons,frames,..}|Action::Controller{buttons,frames,..}=>{
-                            *buttons^=INPUT_BUTTONS[item].0;if *buttons==0 && *frames==0 {*frames=4;}
-                        },_=>return Some((true,false)),
+            Modal::Buttons { slot, mut item } => {
+                if pressed & A == 0 {
+                    if nav & DPAD_DOWN != 0 {
+                        item = (item + 1) % INPUT_BUTTONS.len();
+                    } else if nav & DPAD_UP != 0 {
+                        item = (item + INPUT_BUTTONS.len() - 1) % INPUT_BUTTONS.len();
                     }
-                    changed=self.commit_command(key,next,slot,"Changed buttons; kept axes and delay");
-                    if let Some(r)=self.recipes.get(&key){self.cursor=fields(r).iter().position(|f|matches!(f,Field::Buttons(i) if *i==slot)).unwrap_or(self.cursor);}
                 }
-                self.modal=Some(Modal::Buttons{slot,item});return Some((true,changed));
+                let mut changed = false;
+                if pressed & A != 0 || nav & (DPAD_LEFT | DPAD_RIGHT) != 0 {
+                    let mut next = self.recipes.get(&key)?.clone();
+                    match &mut next.sequence.actions[slot] {
+                        Action::Input {
+                            buttons, frames, ..
+                        }
+                        | Action::OpponentInput {
+                            buttons, frames, ..
+                        }
+                        | Action::Controller {
+                            buttons, frames, ..
+                        } => {
+                            *buttons ^= INPUT_BUTTONS[item].0;
+                            if *buttons == 0 && *frames == 0 {
+                                *frames = 4;
+                            }
+                        }
+                        _ => return Some((true, false)),
+                    }
+                    changed = self.commit_command(
+                        key,
+                        next,
+                        slot,
+                        "Changed buttons; kept axes and delay",
+                    );
+                    if let Some(r) = self.recipes.get(&key) {
+                        self.cursor = fields(r)
+                            .iter()
+                            .position(|f| matches!(f,Field::Buttons(i) if *i==slot))
+                            .unwrap_or(self.cursor);
+                    }
+                }
+                self.modal = Some(Modal::Buttons { slot, item });
+                return Some((true, changed));
             }
             Modal::Copy {
                 mut group,
                 mut item,
             } => {
-                let count = if group==TEMPLATE_GROUP {self.copy_templates.len()} else {
-                    self.copy_sources.iter().filter(|s|s.slot as usize==group).count()
+                let count = if group == TEMPLATE_GROUP {
+                    self.copy_templates.len()
+                } else {
+                    self.copy_sources
+                        .iter()
+                        .filter(|s| s.slot as usize == group)
+                        .count()
                 };
                 if pressed & A != 0 && count > 0 {
-                    if group==TEMPLATE_GROUP {self.template_apply=Some(item.min(count-1));}
-                    else if let Some(source)=self.copy_sources.iter().filter(|s|s.slot as usize==group).nth(item.min(count-1)) {
-                        self.copy_apply=Some((source.slot,source.index));
+                    if group == TEMPLATE_GROUP {
+                        self.template_apply = Some(item.min(count - 1));
+                    } else if let Some(source) = self
+                        .copy_sources
+                        .iter()
+                        .filter(|s| s.slot as usize == group)
+                        .nth(item.min(count - 1))
+                    {
+                        self.copy_apply = Some((source.slot, source.index));
                     }
-                    return Some((true,false));
+                    return Some((true, false));
                 }
                 if nav & (DPAD_LEFT | DPAD_RIGHT) != 0 {
                     group = if nav & DPAD_RIGHT != 0 {
@@ -536,9 +698,15 @@ impl RecipeEditor {
                     } else {
                         (group + COPY_GROUPS.len() - 1) % COPY_GROUPS.len()
                     };
-                    for _ in 0..COPY_GROUPS.len()-1 {
-                        if self.has_copy_group(group){break;}
-                        group=if nav & DPAD_RIGHT!=0{(group+1)%COPY_GROUPS.len()}else{(group+COPY_GROUPS.len()-1)%COPY_GROUPS.len()};
+                    for _ in 0..COPY_GROUPS.len() - 1 {
+                        if self.has_copy_group(group) {
+                            break;
+                        }
+                        group = if nav & DPAD_RIGHT != 0 {
+                            (group + 1) % COPY_GROUPS.len()
+                        } else {
+                            (group + COPY_GROUPS.len() - 1) % COPY_GROUPS.len()
+                        };
                     }
                     item = 0;
                 } else if count > 0 {
@@ -556,12 +724,28 @@ impl RecipeEditor {
                         self.open_picker(key, slot);
                         return Some((true, false));
                     }
-                    if item==9 {let copied=self.copy_step(key,slot);if copied {self.close_commands();}return Some((true,false));}
-                    if item==10 || item==11 {let changed=self.paste_step(key,slot,item==11);if changed{self.close_commands();}return Some((true,changed));}
-                    if item==12 {self.close_commands();self.manage_requested=true;return Some((true,false));}
+                    if item == 9 {
+                        let copied = self.copy_step(key, slot);
+                        if copied {
+                            self.close_commands();
+                        }
+                        return Some((true, false));
+                    }
+                    if item == 10 || item == 11 {
+                        let changed = self.paste_step(key, slot, item == 11);
+                        if changed {
+                            self.close_commands();
+                        }
+                        return Some((true, changed));
+                    }
+                    if item == 12 {
+                        self.close_commands();
+                        self.manage_requested = true;
+                        return Some((true, false));
+                    }
                     if item == 8 {
                         self.clear_copy();
-                        self.return_modal=self.modal;
+                        self.return_modal = self.modal;
                         self.copy_requested = true;
                         self.modal = Some(Modal::Copy {
                             group: key.0,
@@ -571,7 +755,8 @@ impl RecipeEditor {
                     }
                     let changed = self.structural(key, slot, item);
                     if changed {
-                        self.modal = None;self.return_modal=None;
+                        self.modal = None;
+                        self.return_modal = None;
                     }
                     return Some((true, changed));
                 }
@@ -588,7 +773,8 @@ impl RecipeEditor {
                 mut item,
             } => {
                 let r = self.recipes.get(&key)?;
-                let available=candidates(r,group);let n=available.len();
+                let available = candidates(r, group);
+                let n = available.len();
                 if pressed & A != 0 && n > 0 {
                     let kind = available[item.min(n - 1)];
                     let mut action = if kind < PRESETS.len() {
@@ -597,18 +783,34 @@ impl RecipeEditor {
                         r.imported[kind - PRESETS.len()]
                     };
                     if r.kinds[slot] == kind {
-                        self.modal = None;self.return_modal=None;
+                        self.modal = None;
+                        self.return_modal = None;
                         return Some((true, false));
                     }
                     // Replacing the move should not discard its configured
                     // hold. Until-takeover transfers only to another button.
-                    let jump_pulse=kind<PRESETS.len() && matches!(PRESETS[kind].0,"Short hop"|"Full hop hold");
-                    if !jump_pulse && kind<PRESETS.len() {
-                        let old=match r.sequence.actions[slot]{Action::Input{frames,..}|Action::OpponentInput{frames,..}|Action::Controller{frames,..}=>Some(frames),Action::ShieldUntilManual=>Some(0),_=>None};
-                        if let Some(old)=old {match &mut action {
-                            Action::Input{buttons,frames,..}=>*frames=if old==0 && *buttons==0{4}else{old},
-                            Action::OpponentInput{frames,..}|Action::Controller{frames,..}=>*frames=if old==0{4}else{old},_=>{},
-                        }}
+                    let jump_pulse = kind < PRESETS.len()
+                        && matches!(PRESETS[kind].0, "Short hop" | "Full hop hold");
+                    if !jump_pulse && kind < PRESETS.len() {
+                        let old = match r.sequence.actions[slot] {
+                            Action::Input { frames, .. }
+                            | Action::OpponentInput { frames, .. }
+                            | Action::Controller { frames, .. } => Some(frames),
+                            Action::ShieldUntilManual => Some(0),
+                            _ => None,
+                        };
+                        if let Some(old) = old {
+                            match &mut action {
+                                Action::Input {
+                                    buttons, frames, ..
+                                } => *frames = if old == 0 && *buttons == 0 { 4 } else { old },
+                                Action::OpponentInput { frames, .. }
+                                | Action::Controller { frames, .. } => {
+                                    *frames = if old == 0 { 4 } else { old }
+                                }
+                                _ => {}
+                            }
+                        }
                     }
                     let mut next = r.clone();
                     next.kinds[slot] = kind;
@@ -616,7 +818,8 @@ impl RecipeEditor {
                     let changed =
                         self.commit_command(key, next, slot, "Changed action; kept its delay");
                     if changed {
-                        self.modal = None;self.return_modal=None;
+                        self.modal = None;
+                        self.return_modal = None;
                     }
                     return Some((true, changed));
                 }
@@ -629,8 +832,14 @@ impl RecipeEditor {
                     // Empty Saved inputs (or any empty group) should not cost
                     // an extra category stop. This runs only on navigation.
                     for _ in 0..GROUPS.len() {
-                        if !candidates(r, group).is_empty() { break; }
-                        group = if nav & DPAD_RIGHT != 0 { (group+1)%GROUPS.len() } else { (group+GROUPS.len()-1)%GROUPS.len() };
+                        if !candidates(r, group).is_empty() {
+                            break;
+                        }
+                        group = if nav & DPAD_RIGHT != 0 {
+                            (group + 1) % GROUPS.len()
+                        } else {
+                            (group + GROUPS.len() - 1) % GROUPS.len()
+                        };
                     }
                     item = 0;
                 } else if n > 0 {
@@ -650,25 +859,56 @@ impl RecipeEditor {
         let r = self.recipes.get(&key)?;
         let mut panel = crate::ledge_menu::RecipePanel::default();
         match modal {
-            Modal::Buttons{slot,item}=>{
-                panel.header.push(format!("STEP {:02} | BUTTON COMBINATION",slot+1));
-                let mask=input_buttons(r.sequence.actions[slot]).unwrap_or(0);
-                for (i,(bit,name)) in INPUT_BUTTONS.iter().enumerate() {
-                    panel.body.push(format!("{}[{}] {name}",if i==item{"> "}else{"  "},if mask&bit!=0{"x"}else{" "}));
+            Modal::Buttons { slot, item } => {
+                panel
+                    .header
+                    .push(format!("STEP {:02} | BUTTON COMBINATION", slot + 1));
+                let mask = input_buttons(r.sequence.actions[slot]).unwrap_or(0);
+                for (i, (bit, name)) in INPUT_BUTTONS.iter().enumerate() {
+                    panel.body.push(format!(
+                        "{}[{}] {name}",
+                        if i == item { "> " } else { "  " },
+                        if mask & bit != 0 { "x" } else { " " }
+                    ));
                 }
-                panel.focus=Some(item);panel.footer.push("Up/Down: button | A/Left/Right: toggle | B: back".into());
-                panel.footer.push("Any combination; none = sticks only. Uses normal configured mappings.".into());
+                panel.focus = Some(item);
+                panel
+                    .footer
+                    .push("Up/Down: button | A/Left/Right: toggle | B: back".into());
+                panel.footer.push(
+                    "Any combination; none = sticks only. Uses normal configured mappings.".into(),
+                );
             }
             Modal::Copy { group, item } => {
                 panel.header.push("COPY RECIPE / GENERIC TEMPLATE".into());
-                panel.header.push(format!("< {} >  {}/{}",COPY_GROUPS[group],group+1,COPY_GROUPS.len()));
-                if group==TEMPLATE_GROUP {
-                    for (i,name) in self.copy_templates.iter().enumerate() {
-                        panel.body.push(format!("{}{:02}  {}",if i==item{"> "}else{""},i+1,name));
+                panel.header.push(format!(
+                    "< {} >  {}/{}",
+                    COPY_GROUPS[group],
+                    group + 1,
+                    COPY_GROUPS.len()
+                ));
+                if group == TEMPLATE_GROUP {
+                    for (i, name) in self.copy_templates.iter().enumerate() {
+                        panel.body.push(format!(
+                            "{}{:02}  {}",
+                            if i == item { "> " } else { "" },
+                            i + 1,
+                            name
+                        ));
                     }
                 } else {
-                    for (i,source) in self.copy_sources.iter().filter(|s|s.slot as usize==group).enumerate() {
-                        panel.body.push(format!("{}{:02}  {}",if i==item{"> "}else{""},i+1,source.name));
+                    for (i, source) in self
+                        .copy_sources
+                        .iter()
+                        .filter(|s| s.slot as usize == group)
+                        .enumerate()
+                    {
+                        panel.body.push(format!(
+                            "{}{:02}  {}",
+                            if i == item { "> " } else { "" },
+                            i + 1,
+                            source.name
+                        ));
                     }
                 }
                 if panel.body.is_empty() {
@@ -717,7 +957,10 @@ impl RecipeEditor {
                     let label = if *kind < PRESETS.len() {
                         PRESETS[*kind].0.to_owned()
                     } else {
-                        format!("Saved: {}",describe_action(r.imported[*kind - PRESETS.len()]))
+                        format!(
+                            "Saved: {}",
+                            describe_action(r.imported[*kind - PRESETS.len()])
+                        )
                     };
                     panel.body.push(format!(
                         "{}{:02}  {label}",
@@ -738,8 +981,12 @@ impl RecipeEditor {
         if let Some(message) = &self.last_edit {
             panel.footer.push(message.clone());
         }
-        if let Some(message)=self.last_edit.as_ref(){panel.footer.push(message.clone());}
-        panel.footer.push("R3: Done | Y: Save current recipe".into());
+        if let Some(message) = self.last_edit.as_ref() {
+            panel.footer.push(message.clone());
+        }
+        panel
+            .footer
+            .push("R3: Done | Y: Save current recipe".into());
         Some(panel)
     }
 }
@@ -994,169 +1241,369 @@ mod tests {
 #[cfg(test)]
 mod reaction_copy_tests {
     use super::*;
-    const KEY:(usize,usize)=(5,0);
-    fn editor()->RecipeEditor {
-        let source=crate::sequence_config::Catalog::parse("[kirby.x.test]\nstart_delay=2\nactions=hold:a:7\n").unwrap().entries()[0].sequence;
-        let mut e=RecipeEditor::default();e.ensure(KEY,source);e
+    const KEY: (usize, usize) = (5, 0);
+    fn editor() -> RecipeEditor {
+        let source = crate::sequence_config::Catalog::parse(
+            "[kirby.x.test]\nstart_delay=2\nactions=hold:a:7\n",
+        )
+        .unwrap()
+        .entries()[0]
+            .sequence;
+        let mut e = RecipeEditor::default();
+        e.ensure(KEY, source);
+        e
     }
-    fn tap(e:&mut RecipeEditor,b:u32)->Option<(bool,bool)>{e.command_input(KEY,0,0);e.command_input(KEY,b,b)}
+    fn tap(e: &mut RecipeEditor, b: u32) -> Option<(bool, bool)> {
+        e.command_input(KEY, 0, 0);
+        e.command_input(KEY, b, b)
+    }
     #[test]
     fn copying_inputs_keeps_destination_reaction_conditions() {
-        let mut source=RecipeEditor::custom();source.len=1;source.actions[0]=PRESETS[3].1;
-        source.reaction=crate::reaction_rules::Rule::parse("roll:any:0:20:12:any:1").unwrap();
-        let mut target=source;target.actions[0]=PRESETS[16].1;target.reaction=crate::reaction_rules::Rule::default();
-        for (destination,from) in [(target,source),(source,target)] {
-            let mut e=RecipeEditor::default();e.ensure((0,0),destination);e.ensure((5,0),from);
-            assert!(e.apply_template((0,0),(5,0),from));
-            let result=e.compiled((0,0)).unwrap();
-            assert_eq!(result.reaction,destination.reaction);assert_eq!(result.actions(),from.actions());
+        let mut source = RecipeEditor::custom();
+        source.len = 1;
+        source.actions[0] = PRESETS[3].1;
+        source.reaction = crate::reaction_rules::Rule::parse("roll:any:0:20:12:any:1").unwrap();
+        let mut target = source;
+        target.actions[0] = PRESETS[16].1;
+        target.reaction = crate::reaction_rules::Rule::default();
+        for (destination, from) in [(target, source), (source, target)] {
+            let mut e = RecipeEditor::default();
+            e.ensure((0, 0), destination);
+            e.ensure((5, 0), from);
+            assert!(e.apply_template((0, 0), (5, 0), from));
+            let result = e.compiled((0, 0)).unwrap();
+            assert_eq!(result.reaction, destination.reaction);
+            assert_eq!(result.actions(), from.actions());
         }
     }
 
     #[test]
-    fn fixed_picker_has_unique_actions_names_and_one_category_each(){
-        let e=editor();let all:Vec<_>=(0..8).flat_map(|g|candidates(&e.recipes[&KEY],g)).collect();
-        for (i,(name,action)) in PRESETS.iter().enumerate(){
-            assert_eq!(all.iter().filter(|k|**k==i).count(),1,"{name}");
-            for (other,other_action) in &PRESETS[i+1..]{assert_ne!(name,other);assert_ne!(action,other_action,"duplicate {name} / {other}");}
+    fn fixed_picker_has_unique_actions_names_and_one_category_each() {
+        let e = editor();
+        let all: Vec<_> = (0..8)
+            .flat_map(|g| candidates(&e.recipes[&KEY], g))
+            .collect();
+        for (i, (name, action)) in PRESETS.iter().enumerate() {
+            assert_eq!(all.iter().filter(|k| **k == i).count(), 1, "{name}");
+            for (other, other_action) in &PRESETS[i + 1..] {
+                assert_ne!(name, other);
+                assert_ne!(action, other_action, "duplicate {name} / {other}");
+            }
         }
         assert!(!DIRECTIONS.contains(&D::Ledge));
-        let docs=include_str!("../../../../../docs/EDITOR_ACTION_CHEATSHEET.md");
+        let docs = include_str!("../../../../../docs/EDITOR_ACTION_CHEATSHEET.md");
         // Documentation for these new actions is explicitly deferred by the user.
-        for (name,action) in PRESETS.iter().filter(|(_,a)|!matches!(a,Action::Chase{..}|Action::IfFacingOpponent{..}|Action::ElseFacing|Action::LedgePosition{..})) {let _=action;assert!(docs.contains(&format!("| {name} |")),"missing cheat-sheet entry {name}");}
-        assert!(std::mem::size_of::<Action>()<=24,"keep controller input within existing action storage");
+        for (name, action) in PRESETS.iter().filter(|(_, a)| {
+            !matches!(
+                a,
+                Action::Chase { .. }
+                    | Action::IfFacingOpponent { .. }
+                    | Action::ElseFacing
+                    | Action::LedgePosition { .. }
+            )
+        }) {
+            let _ = action;
+            assert!(
+                docs.contains(&format!("| {name} |")),
+                "missing cheat-sheet entry {name}"
+            );
+        }
+        assert!(
+            std::mem::size_of::<Action>() <= 24,
+            "keep controller input within existing action storage"
+        );
     }
     #[test]
-    fn button_panel_composes_all_gameplay_buttons_and_preserves_sticks_hold_and_delay(){
-        let mut source=Sequence::default();source.len=1;source.start_delay=7;
-        source.actions[0]=Action::Controller{buttons:0,stick:[0.4,-0.3],cstick:[-0.8,0.6],frames:17,reference:IR::Opponent,cstick_reference:IR::Facing};
-        let mut e=RecipeEditor::default();e.ensure(KEY,source);
-        e.cursor=fields(&e.recipes[&KEY]).iter().position(|f|matches!(f,Field::Buttons(0))).unwrap();
-        assert_eq!(tap(&mut e,MAPPER_A),Some((true,false)));
-        for i in 0..INPUT_BUTTONS.len(){e.modal=Some(Modal::Buttons{slot:0,item:i});assert_eq!(tap(&mut e,MAPPER_A),Some((true,true)));}
-        let result=e.compiled(KEY).unwrap();assert_eq!(result.start_delay,7);
-        assert!(matches!(result.actions[0],Action::Controller{buttons,stick:[0.4,-0.3],cstick:[-0.8,0.6],frames:17,reference:IR::Opponent,cstick_reference:IR::Facing} if buttons==INPUT_BUTTONS.iter().fold(0,|m,(b,_)|m|b)));
-        tap(&mut e,MAPPER_B);assert!(e.modal.is_none());assert!(e.undo_edit(KEY));
+    fn button_panel_composes_all_gameplay_buttons_and_preserves_sticks_hold_and_delay() {
+        let mut source = Sequence::default();
+        source.len = 1;
+        source.start_delay = 7;
+        source.actions[0] = Action::Controller {
+            buttons: 0,
+            stick: [0.4, -0.3],
+            cstick: [-0.8, 0.6],
+            frames: 17,
+            reference: IR::Opponent,
+            cstick_reference: IR::Facing,
+        };
+        let mut e = RecipeEditor::default();
+        e.ensure(KEY, source);
+        e.cursor = fields(&e.recipes[&KEY])
+            .iter()
+            .position(|f| matches!(f, Field::Buttons(0)))
+            .unwrap();
+        assert_eq!(tap(&mut e, MAPPER_A), Some((true, false)));
+        for i in 0..INPUT_BUTTONS.len() {
+            e.modal = Some(Modal::Buttons { slot: 0, item: i });
+            assert_eq!(tap(&mut e, MAPPER_A), Some((true, true)));
+        }
+        let result = e.compiled(KEY).unwrap();
+        assert_eq!(result.start_delay, 7);
+        assert!(
+            matches!(result.actions[0],Action::Controller{buttons,stick:[0.4,-0.3],cstick:[-0.8,0.6],frames:17,reference:IR::Opponent,cstick_reference:IR::Facing} if buttons==INPUT_BUTTONS.iter().fold(0,|m,(b,_)|m|b))
+        );
+        tap(&mut e, MAPPER_B);
+        assert!(e.modal.is_none());
+        assert!(e.undo_edit(KEY));
     }
     #[test]
-    fn jump_choices_use_distinct_pulses_instead_of_inheriting_attack_hold(){
-        let mut e=editor();
-        for (label,frames) in [("Short hop",1),("Full hop hold",4)]{
-            let kind=PRESETS.iter().position(|(name,_)|*name==label).unwrap();let group=group(PRESETS[kind].1,label);
-            let item=candidates(&e.recipes[&KEY],group).iter().position(|k|*k==kind).unwrap();
-            e.modal=Some(Modal::Picker{slot:0,group,item});tap(&mut e,MAPPER_A);
-            assert!(matches!(e.compiled(KEY).unwrap().actions[0],Action::Input{buttons:MAPPER_X,frames:f,..} if f==frames));
+    fn jump_choices_use_distinct_pulses_instead_of_inheriting_attack_hold() {
+        let mut e = editor();
+        for (label, frames) in [("Short hop", 1), ("Full hop hold", 4)] {
+            let kind = PRESETS.iter().position(|(name, _)| *name == label).unwrap();
+            let group = group(PRESETS[kind].1, label);
+            let item = candidates(&e.recipes[&KEY], group)
+                .iter()
+                .position(|k| *k == kind)
+                .unwrap();
+            e.modal = Some(Modal::Picker {
+                slot: 0,
+                group,
+                item,
+            });
+            tap(&mut e, MAPPER_A);
+            assert!(
+                matches!(e.compiled(KEY).unwrap().actions[0],Action::Input{buttons:MAPPER_X,frames:f,..} if f==frames)
+            );
         }
     }
     #[test]
-    fn legacy_saved_actions_are_retained_without_reintroducing_fixed_duplicates(){
-        let source=crate::sequence_config::Catalog::parse("[kirby.x.t]\nstart_delay=0\nactions=range:ignore,shield_until_manual,range:ignore\n").unwrap().entries()[0].sequence;
-        let mut e=RecipeEditor::default();e.ensure(KEY,source);
-        assert_eq!(e.compiled(KEY).unwrap(),source);
-        assert_eq!(candidates(&e.recipes[&KEY],8).len(),2);
-        for (_,a) in PRESETS {assert!(!matches!(a,Action::Range(RangeCheck::Ignore)|Action::ShieldUntilManual));}
+    fn legacy_saved_actions_are_retained_without_reintroducing_fixed_duplicates() {
+        let source = crate::sequence_config::Catalog::parse(
+            "[kirby.x.t]\nstart_delay=0\nactions=range:ignore,shield_until_manual,range:ignore\n",
+        )
+        .unwrap()
+        .entries()[0]
+            .sequence;
+        let mut e = RecipeEditor::default();
+        e.ensure(KEY, source);
+        assert_eq!(e.compiled(KEY).unwrap(), source);
+        assert_eq!(candidates(&e.recipes[&KEY], 8).len(), 2);
+        for (_, a) in PRESETS {
+            assert!(!matches!(
+                a,
+                Action::Range(RangeCheck::Ignore) | Action::ShieldUntilManual
+            ));
+        }
     }
-
 }
 
 #[cfg(test)]
 mod menu_audit_tests {
     use super::*;
-    const SRC:(usize,usize)=(5,0);const DST:(usize,usize)=(0,0);
-    fn recipe(a:&str)->Sequence {crate::sequence_config::Catalog::parse(&format!("[bowser.attack.test]\nstart_delay=0\nactions={a}\n")).unwrap().entries()[0].sequence}
-    fn tap(e:&mut RecipeEditor,key:(usize,usize),b:u32)->Option<(bool,bool)> {e.command_input(key,0,0);e.command_input(key,b,b)}
+    const SRC: (usize, usize) = (5, 0);
+    const DST: (usize, usize) = (0, 0);
+    fn recipe(a: &str) -> Sequence {
+        crate::sequence_config::Catalog::parse(&format!(
+            "[bowser.attack.test]\nstart_delay=0\nactions={a}\n"
+        ))
+        .unwrap()
+        .entries()[0]
+            .sequence
+    }
+    fn tap(e: &mut RecipeEditor, key: (usize, usize), b: u32) -> Option<(bool, bool)> {
+        e.command_input(key, 0, 0);
+        e.command_input(key, b, b)
+    }
     #[test]
     fn confirm_on_a_held_arrow_toggles_the_selected_button_without_moving_the_cursor() {
-        let mut e=RecipeEditor::default();e.ensure(DST,recipe("input:a:0:0:4"));
-        e.cursor=fields(&e.recipes[&DST]).iter().position(|f|matches!(f,Field::Buttons(0))).unwrap();
-        tap(&mut e,DST,MAPPER_A);tap(&mut e,DST,DPAD_DOWN);
-        let Some(Modal::Buttons{item,..})=e.modal else{panic!()};
-        let expected=input_buttons(e.recipes[&DST].sequence.actions[0]).unwrap()^INPUT_BUTTONS[item].0;
-        assert_eq!(e.command_input(DST,DPAD_DOWN|MAPPER_A,MAPPER_A),Some((true,true)));
+        let mut e = RecipeEditor::default();
+        e.ensure(DST, recipe("input:a:0:0:4"));
+        e.cursor = fields(&e.recipes[&DST])
+            .iter()
+            .position(|f| matches!(f, Field::Buttons(0)))
+            .unwrap();
+        tap(&mut e, DST, MAPPER_A);
+        tap(&mut e, DST, DPAD_DOWN);
+        let Some(Modal::Buttons { item, .. }) = e.modal else {
+            panic!()
+        };
+        let expected =
+            input_buttons(e.recipes[&DST].sequence.actions[0]).unwrap() ^ INPUT_BUTTONS[item].0;
+        assert_eq!(
+            e.command_input(DST, DPAD_DOWN | MAPPER_A, MAPPER_A),
+            Some((true, true))
+        );
         assert!(matches!(e.modal,Some(Modal::Buttons{item:i,..})if i==item));
-        assert_eq!(input_buttons(e.recipes[&DST].sequence.actions[0]),Some(expected));
+        assert_eq!(
+            input_buttons(e.recipes[&DST].sequence.actions[0]),
+            Some(expected)
+        );
     }
     #[test]
     fn step_clipboard_preserves_imported_axes_references_duration_and_delay_across_recipes() {
-        let source=recipe("wait:7,controller_input:a+b:0.4:-0.2:-0.6:0.8:17:opponent:facing");
-        let dest=recipe("controller_input:r:0:0:0:0:4:screen:screen");
-        let mut e=RecipeEditor::default();e.ensure(SRC,source);assert!(e.copy_step(SRC,0));
-        e.ensure(DST,dest);assert!(e.step_clipboard.is_some());assert!(e.paste_step(DST,0,true));
-        let compiled=e.compiled(DST).unwrap();assert_eq!(&compiled.actions()[1..],source.actions());
-        assert_eq!(compiled.actions()[0],dest.actions()[0]);assert_eq!(e.compiled(SRC),Some(source));
-        assert!(e.undo_edit(DST));assert_eq!(e.compiled(DST),Some(dest));
+        let source = recipe("wait:7,controller_input:a+b:0.4:-0.2:-0.6:0.8:17:opponent:facing");
+        let dest = recipe("controller_input:r:0:0:0:0:4:screen:screen");
+        let mut e = RecipeEditor::default();
+        e.ensure(SRC, source);
+        assert!(e.copy_step(SRC, 0));
+        e.ensure(DST, dest);
+        assert!(e.step_clipboard.is_some());
+        assert!(e.paste_step(DST, 0, true));
+        let compiled = e.compiled(DST).unwrap();
+        assert_eq!(&compiled.actions()[1..], source.actions());
+        assert_eq!(compiled.actions()[0], dest.actions()[0]);
+        assert_eq!(e.compiled(SRC), Some(source));
+        assert!(e.undo_edit(DST));
+        assert_eq!(e.compiled(DST), Some(dest));
     }
     #[test]
     fn paste_limits_and_empty_clipboard_cannot_overwrite_or_lose_the_existing_recipe() {
-        let mut e=RecipeEditor::default();let mut full=recipe("input:a:0:0:1");
-        full.len=MAX_ACTIONS as u8;let action=full.actions[0];full.actions.fill(action);e.ensure(DST,full);
-        assert!(!e.paste_step(DST,0,true));assert_eq!(e.compiled(DST),Some(full));
-        assert!(e.copy_step(DST,0));assert!(!e.paste_step(DST,0,false));assert_eq!(e.compiled(DST),Some(full));
-        let mut expanded=recipe("input:a:0:0:1");expanded.len=(MAX_ACTIONS-1)as u8;let action=expanded.actions[0];expanded.actions[..MAX_ACTIONS-1].fill(action);
-        e.ensure((1,0),expanded);e.step_clipboard=Some((Action::Input{buttons:MAPPER_B,stick:[0.;2],frames:1,relative:false},1));
-        assert!(!e.paste_step((1,0),0,false),"pasted delay counts toward expanded step limit");
-        assert_eq!(e.compiled((1,0)),Some(expanded));
+        let mut e = RecipeEditor::default();
+        let mut full = recipe("input:a:0:0:1");
+        full.len = MAX_ACTIONS as u8;
+        let action = full.actions[0];
+        full.actions.fill(action);
+        e.ensure(DST, full);
+        assert!(!e.paste_step(DST, 0, true));
+        assert_eq!(e.compiled(DST), Some(full));
+        assert!(e.copy_step(DST, 0));
+        assert!(!e.paste_step(DST, 0, false));
+        assert_eq!(e.compiled(DST), Some(full));
+        let mut expanded = recipe("input:a:0:0:1");
+        expanded.len = (MAX_ACTIONS - 1) as u8;
+        let action = expanded.actions[0];
+        expanded.actions[..MAX_ACTIONS - 1].fill(action);
+        e.ensure((1, 0), expanded);
+        e.step_clipboard = Some((
+            Action::Input {
+                buttons: MAPPER_B,
+                stick: [0.; 2],
+                frames: 1,
+                relative: false,
+            },
+            1,
+        ));
+        assert!(
+            !e.paste_step((1, 0), 0, false),
+            "pasted delay counts toward expanded step limit"
+        );
+        assert_eq!(e.compiled((1, 0)), Some(expanded));
     }
     #[test]
     fn back_returns_to_parent_tools_but_done_and_save_close_all_popups() {
-        let mut e=RecipeEditor::default();e.ensure(DST,recipe("input:a:0:0:4"));
-        tap(&mut e,DST,MAPPER_ZL|MAPPER_ZR);tap(&mut e,DST,MAPPER_A);
-        assert!(matches!(e.modal,Some(Modal::Picker{..})));
-        tap(&mut e,DST,MAPPER_B);assert!(matches!(e.modal,Some(Modal::Tools{item:0,..})));
-        tap(&mut e,DST,MAPPER_A);assert_eq!(tap(&mut e,DST,crate::ledge_menu::MENU_STICK_CLICK),None);
-        assert!(e.modal.is_none());assert!(e.return_modal.is_none());
-        tap(&mut e,DST,MAPPER_ZL|MAPPER_ZR);assert_eq!(tap(&mut e,DST,MAPPER_Y),None);assert!(e.modal.is_none());
+        let mut e = RecipeEditor::default();
+        e.ensure(DST, recipe("input:a:0:0:4"));
+        tap(&mut e, DST, MAPPER_ZL | MAPPER_ZR);
+        tap(&mut e, DST, MAPPER_A);
+        assert!(matches!(e.modal, Some(Modal::Picker { .. })));
+        tap(&mut e, DST, MAPPER_B);
+        assert!(matches!(e.modal, Some(Modal::Tools { item: 0, .. })));
+        tap(&mut e, DST, MAPPER_A);
+        assert_eq!(tap(&mut e, DST, crate::ledge_menu::MENU_STICK_CLICK), None);
+        assert!(e.modal.is_none());
+        assert!(e.return_modal.is_none());
+        tap(&mut e, DST, MAPPER_ZL | MAPPER_ZR);
+        assert_eq!(tap(&mut e, DST, MAPPER_Y), None);
+        assert!(e.modal.is_none());
     }
     #[test]
     fn copy_category_navigation_skips_empty_groups_in_both_directions() {
-        let mut e=RecipeEditor::default();e.ensure(DST,recipe("input:a:0:0:4"));
-        e.modal=Some(Modal::Copy{group:0,item:0});
-        e.set_copy_sources(vec![CopySource{slot:super::super::super::PresetSlot::Roll,index:0,name:"Roll".into()},CopySource{slot:super::super::super::PresetSlot::Y,index:0,name:"Y".into()}]);
-        assert!(matches!(e.modal,Some(Modal::Copy{group:2,..})));
-        tap(&mut e,DST,DPAD_RIGHT);assert!(matches!(e.modal,Some(Modal::Copy{group:6,..})));
-        tap(&mut e,DST,DPAD_RIGHT);assert!(matches!(e.modal,Some(Modal::Copy{group:2,..})));
-        tap(&mut e,DST,DPAD_LEFT);assert!(matches!(e.modal,Some(Modal::Copy{group:6,..})));
+        let mut e = RecipeEditor::default();
+        e.ensure(DST, recipe("input:a:0:0:4"));
+        e.modal = Some(Modal::Copy { group: 0, item: 0 });
+        e.set_copy_sources(vec![
+            CopySource {
+                slot: super::super::super::PresetSlot::Roll,
+                index: 0,
+                name: "Roll".into(),
+            },
+            CopySource {
+                slot: super::super::super::PresetSlot::Y,
+                index: 0,
+                name: "Y".into(),
+            },
+        ]);
+        assert!(matches!(e.modal, Some(Modal::Copy { group: 2, .. })));
+        tap(&mut e, DST, DPAD_RIGHT);
+        assert!(matches!(e.modal, Some(Modal::Copy { group: 6, .. })));
+        tap(&mut e, DST, DPAD_RIGHT);
+        assert!(matches!(e.modal, Some(Modal::Copy { group: 2, .. })));
+        tap(&mut e, DST, DPAD_LEFT);
+        assert!(matches!(e.modal, Some(Modal::Copy { group: 6, .. })));
     }
     #[test]
     fn identical_template_is_a_clean_noop_and_incompatible_copy_keeps_the_destination() {
-        let original=recipe("input:a:0:0:4");let mut e=RecipeEditor::default();e.ensure(DST,original);e.ensure(SRC,original);
-        e.modal=Some(Modal::Copy{group:5,item:0});assert!(!e.apply_template(DST,SRC,original));
-        assert!(!e.edited(DST));assert!(e.undo.is_none());assert!(e.modal.is_none());
-        let mut response=original;response.reaction=crate::reaction_rules::Rule::parse("auto_roll:30:12").unwrap();
-        e.ensure((2,0),response);let ledge=recipe("run_to_ledge:12:1");e.ensure((3,0),ledge);
-        assert!(!e.apply_template((2,0),(3,0),ledge));assert_eq!(e.compiled((2,0)),Some(response));
-        assert!(e.copy_step((3,0),0));assert!(!e.paste_step((2,0),0,true));
+        let original = recipe("input:a:0:0:4");
+        let mut e = RecipeEditor::default();
+        e.ensure(DST, original);
+        e.ensure(SRC, original);
+        e.modal = Some(Modal::Copy { group: 5, item: 0 });
+        assert!(!e.apply_template(DST, SRC, original));
+        assert!(!e.edited(DST));
+        assert!(e.undo.is_none());
+        assert!(e.modal.is_none());
+        let mut response = original;
+        response.reaction = crate::reaction_rules::Rule::parse("auto_roll:30:12").unwrap();
+        e.ensure((2, 0), response);
+        let ledge = recipe("run_to_ledge:12:1");
+        e.ensure((3, 0), ledge);
+        assert!(!e.apply_template((2, 0), (3, 0), ledge));
+        assert_eq!(e.compiled((2, 0)), Some(response));
+        assert!(e.copy_step((3, 0), 0));
+        assert!(!e.paste_step((2, 0), 0, true));
     }
     #[test]
     fn onstage_picker_and_direction_adjustment_only_offer_actions_that_can_execute_there() {
-        let mut source=recipe("face:opponent");source.reaction=crate::reaction_rules::Rule::parse("auto_roll:30:12").unwrap();
-        let mut e=RecipeEditor::default();e.ensure(DST,source);
-        for group in 0..8 {for kind in candidates(&e.recipes[&DST],group) {assert!(!PRESETS[kind].1.needs_ledge());}}
-        e.cursor=fields(&e.recipes[&DST]).iter().position(|f|matches!(f,Field::Direction(0))).unwrap();
-        for _ in 0..16 {assert!(e.adjust(DST,true));assert!(!e.compiled(DST).unwrap().actions()[0].needs_ledge());}
+        let mut source = recipe("face:opponent");
+        source.reaction = crate::reaction_rules::Rule::parse("auto_roll:30:12").unwrap();
+        let mut e = RecipeEditor::default();
+        e.ensure(DST, source);
+        for group in 0..8 {
+            for kind in candidates(&e.recipes[&DST], group) {
+                assert!(!PRESETS[kind].1.needs_ledge());
+            }
+        }
+        e.cursor = fields(&e.recipes[&DST])
+            .iter()
+            .position(|f| matches!(f, Field::Direction(0)))
+            .unwrap();
+        for _ in 0..16 {
+            assert!(e.adjust(DST, true));
+            assert!(!e.compiled(DST).unwrap().actions()[0].needs_ledge());
+        }
     }
 }
 
 #[cfg(test)]
 mod generic_template_copy_tests {
- use super::*;
- use crate::sequence_config::Catalog;
- fn sequence(source:&str)->Sequence {Catalog::parse(source).unwrap().entries()[0].sequence}
- #[test]
- fn generic_copy_keeps_destination_reaction_and_activation_and_frees_dialog_names() {
-  let key=(5,0);let original=sequence("[kirby.x.custom]\nwhile_held=true\nstart_delay=0\nreaction=auto_shield_grab:20:5\nactions=grab:4\n");
-  let c=Catalog::parse("[template.fast_grab]\nname=Fast grab\nstart_delay=1\nactions=grab:2\n").unwrap();
-  let mut e=RecipeEditor::default();e.ensure(key,original);e.set_copy_templates(&c.templates);
-  assert!(e.apply_generic_template(key,c.templates[0].sequence));
-  let after=e.compiled(key).unwrap();assert_eq!(after.reaction,original.reaction);assert!(after.while_held);
-  assert_eq!(after.start_delay,1);assert_eq!(after.actions(),c.templates[0].sequence.actions());
-  assert_eq!(e.copy_templates.capacity(),0);assert_eq!(e.copy_sources.capacity(),0);
- }
- #[test]
- fn a_ledge_template_cannot_replace_an_automatic_punish() {
-  let key=(2,0);let original=sequence("[bowser.roll.custom]\nstart_delay=0\nreaction=auto_roll:30:12\nactions=up_b:4\n");
-  let c=Catalog::parse("[template.spacing]\nstart_delay=0\nactions=run_to_ledge:10:1:1:2:120\n").unwrap();
-  let mut e=RecipeEditor::default();e.ensure(key,original);
-  assert!(!e.apply_generic_template(key,c.templates[0].sequence));assert_eq!(e.compiled(key),Some(original));
- }
+    use super::*;
+    use crate::sequence_config::Catalog;
+    fn sequence(source: &str) -> Sequence {
+        Catalog::parse(source).unwrap().entries()[0].sequence
+    }
+    #[test]
+    fn generic_copy_keeps_destination_reaction_and_activation_and_frees_dialog_names() {
+        let key = (5, 0);
+        let original=sequence("[kirby.x.custom]\nwhile_held=true\nstart_delay=0\nreaction=auto_shield_grab:20:5\nactions=grab:4\n");
+        let c =
+            Catalog::parse("[template.fast_grab]\nname=Fast grab\nstart_delay=1\nactions=grab:2\n")
+                .unwrap();
+        let mut e = RecipeEditor::default();
+        e.ensure(key, original);
+        e.set_copy_templates(&c.templates);
+        assert!(e.apply_generic_template(key, c.templates[0].sequence));
+        let after = e.compiled(key).unwrap();
+        assert_eq!(after.reaction, original.reaction);
+        assert!(after.while_held);
+        assert_eq!(after.start_delay, 1);
+        assert_eq!(after.actions(), c.templates[0].sequence.actions());
+        assert_eq!(e.copy_templates.capacity(), 0);
+        assert_eq!(e.copy_sources.capacity(), 0);
+    }
+    #[test]
+    fn a_ledge_template_cannot_replace_an_automatic_punish() {
+        let key = (2, 0);
+        let original = sequence(
+            "[bowser.roll.custom]\nstart_delay=0\nreaction=auto_roll:30:12\nactions=up_b:4\n",
+        );
+        let c = Catalog::parse(
+            "[template.spacing]\nstart_delay=0\nactions=run_to_ledge:10:1:1:2:120\n",
+        )
+        .unwrap();
+        let mut e = RecipeEditor::default();
+        e.ensure(key, original);
+        assert!(!e.apply_generic_template(key, c.templates[0].sequence));
+        assert_eq!(e.compiled(key), Some(original));
+    }
 }

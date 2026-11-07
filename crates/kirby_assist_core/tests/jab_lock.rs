@@ -43,6 +43,11 @@ fn targets(t: Target) -> [Option<Target>; 8] {
     a[0] = Some(t);
     a
 }
+fn configured_reach() -> Config {
+    let mut config = config(5).unwrap();
+    config.grab_reach = Some(26.0);
+    config
+}
 fn idle(frame: f32) -> Context {
     Context {
         status: 0,
@@ -83,6 +88,21 @@ fn only_confirmed_attributed_down_tilts_arm_and_off_is_inert() {
     let mut j = JabLock::default();
     j.sample(true, context(8.0), targets(target(0x47, 12.0)));
     assert!(j.watching());
+}
+#[test]
+fn compound_grab_reach_is_unavailable_without_an_explicit_override() {
+    let cfg = config(5).unwrap();
+    assert_eq!(cfg.grab_reach, None);
+
+    let mut jab_lock = JabLock::default();
+    let out = jab_lock.sample_configured(
+        true,
+        idle(0.0),
+        targets(target(0x67, 0.0)),
+        Some(cfg),
+        CHASE_HEIGHT,
+    );
+    assert_eq!(out.requested, 0);
 }
 #[test]
 fn jab_eligibility_rejects_tech_invulnerability_air_and_exhausted_locks() {
@@ -197,24 +217,45 @@ fn chases_stops_at_floor_edge_turns_then_jabs_and_only_confirms_real_lock() {
 }
 #[test]
 fn tech_roll_grab_requires_reach_facing_and_a_real_recovery_window() {
+    let config = configured_reach();
     for opens in [None, Some(20.0), Some(0.0)] {
         let mut j = JabLock::default();
-        j.sample(true, context(8.0), targets(target(0x47, 12.0)));
-        let out = j.sample(
+        j.sample_configured(
+            true,
+            context(8.0),
+            targets(target(0x47, 12.0)),
+            Some(config),
+            CHASE_HEIGHT,
+        );
+        let out = j.sample_configured(
             true,
             idle(1.0),
             targets(Target {
                 vulnerable_in: opens,
                 ..target(0x68, 12.0)
             }),
+            Some(config),
+            CHASE_HEIGHT,
         );
         assert_eq!(out.requested, if opens == Some(0.0) { MAPPER_R } else { 0 });
     }
     let mut j = JabLock::default();
-    j.sample(true, context(8.0), targets(target(0x47, 12.0)));
+    j.sample_configured(
+        true,
+        context(8.0),
+        targets(target(0x47, 12.0)),
+        Some(config),
+        CHASE_HEIGHT,
+    );
     assert_eq!(
-        j.sample(true, idle(1.0), targets(target(0x67, 12.0)))
-            .requested,
+        j.sample_configured(
+            true,
+            idle(1.0),
+            targets(target(0x67, 12.0)),
+            Some(config),
+            CHASE_HEIGHT
+        )
+        .requested,
         MAPPER_R
     );
 }
@@ -285,9 +326,17 @@ fn late_aerial_tumble_arms_without_hit_attribution_but_never_steers_in_air() {
 
 #[test]
 fn independent_chase_uses_nearest_real_tech_state_and_respects_cancellation() {
+    let config = configured_reach();
     let mut j = JabLock::default();
     assert_eq!(
-        j.sample(true, idle(1.0), targets(target(0x47, 5.0))).owned,
+        j.sample_configured(
+            true,
+            idle(1.0),
+            targets(target(0x47, 5.0)),
+            Some(config),
+            CHASE_HEIGHT
+        )
+        .owned,
         0
     );
     assert!(!j.watching(), "ordinary flinch must not arm a chase");
@@ -300,17 +349,33 @@ fn independent_chase_uses_nearest_real_tech_state_and_respects_cancellation() {
         hit_by_us: false,
         ..target(0x67, 12.0)
     });
-    assert_eq!(j.sample(true, idle(2.0), ts).requested, MAPPER_R);
+    assert_eq!(
+        j.sample_configured(true, idle(2.0), ts, Some(config), CHASE_HEIGHT)
+            .requested,
+        MAPPER_R
+    );
     j.cancel_pending();
     let near = targets(ts[1].unwrap());
-    assert_eq!(j.sample(true, idle(3.0), near).owned, 0);
+    assert_eq!(
+        j.sample_configured(true, idle(3.0), near, Some(config), CHASE_HEIGHT)
+            .owned,
+        0
+    );
     assert!(
         !j.watching(),
         "same visit cannot immediately rearm after cancellation"
     );
-    j.sample(true, idle(4.0), [None; 8]);
-    assert_eq!(j.sample(true, idle(5.0), near).requested, MAPPER_R);
-    assert_eq!(j.sample(false, idle(6.0), near).owned, 0);
+    j.sample_configured(true, idle(4.0), [None; 8], Some(config), CHASE_HEIGHT);
+    assert_eq!(
+        j.sample_configured(true, idle(5.0), near, Some(config), CHASE_HEIGHT)
+            .requested,
+        MAPPER_R
+    );
+    assert_eq!(
+        j.sample_configured(false, idle(6.0), near, Some(config), CHASE_HEIGHT)
+            .owned,
+        0
+    );
     assert!(!j.watching());
 }
 #[test]

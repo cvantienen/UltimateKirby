@@ -436,61 +436,71 @@ fn latency_trial_label_is_diagnostic_only_and_does_not_change_recipe_timing() {
 
 #[test]
 fn fighter_settings_edit_reset_save_and_training_gate() {
-    let profile=crate::fighter_profiles::yoshi::profile();
-    let mut m=MenuSelection::new(&profile.menu_options);
-    m.tuning_values=crate::fighter_tuning::Tuning::values(profile.apply(LedgeSettings::default()));
-    m.input(0,&profile.menu_options);
+    let profile = crate::fighter_profiles::yoshi::profile();
+    let mut m = MenuSelection::new(&profile.menu_options);
+    m.tuning_values =
+        crate::fighter_tuning::Tuning::values(profile.apply(LedgeSettings::default()));
+    m.input(0, &profile.menu_options);
     m.open_page(MenuRow::FighterSettings);
     assert!(m.tuning_page && m.recipe_editing);
     assert!(!m.ledge_held(MAPPER_L));
-    m.input(DPAD_RIGHT,&profile.menu_options);
+    m.input(DPAD_RIGHT, &profile.menu_options);
     assert!(m.tuning.0[0].is_some());
-    assert_eq!(m.settings(&profile.menu_options,profile.apply(LedgeSettings::default())).walk_strength,m.tuning.0[0].unwrap());
-    m.input(0,&profile.menu_options);
-    m.input(MAPPER_Y,&profile.menu_options);
+    assert_eq!(
+        m.settings(
+            &profile.menu_options,
+            profile.apply(LedgeSettings::default())
+        )
+        .walk_strength,
+        m.tuning.0[0].unwrap()
+    );
+    m.input(0, &profile.menu_options);
+    m.input(MAPPER_Y, &profile.menu_options);
     assert!(m.tuning_save_requested && !m.save_requested);
-    m.input(0,&profile.menu_options);
-    m.input(MAPPER_X,&profile.menu_options);
-    assert_eq!(m.tuning.0[0],None);
-    m.input_with_editing(0,&profile.menu_options,false);
+    m.input(0, &profile.menu_options);
+    m.input(MAPPER_X, &profile.menu_options);
+    assert_eq!(m.tuning.0[0], None);
+    m.input_with_editing(0, &profile.menu_options, false);
     assert!(!m.tuning_page);
     assert!(!m.row_visible(MenuRow::FighterSettings));
-    m.input_with_editing(MAPPER_Y,&profile.menu_options,false);
+    m.input_with_editing(MAPPER_Y, &profile.menu_options, false);
     assert!(!m.tuning_save_requested);
 }
 
 #[test]
 fn fighter_settings_save_requires_y_alone_and_keeps_hints_after_status() {
-    let profile=crate::fighter_profiles::yoshi::profile();
-    let mut m=MenuSelection::new(&profile.menu_options);
-    m.input(0,&profile.menu_options);
+    let profile = crate::fighter_profiles::yoshi::profile();
+    let mut m = MenuSelection::new(&profile.menu_options);
+    m.input(0, &profile.menu_options);
     m.open_page(MenuRow::FighterSettings);
-    m.input(MAPPER_Y | MAPPER_L,&profile.menu_options);
+    m.input(MAPPER_Y | MAPPER_L, &profile.menu_options);
     assert!(!m.tuning_save_requested);
     assert!(m.save_status.as_ref().unwrap().contains("Release other"));
-    let lines=m.recipe_panel(&profile.menu_options).footer.join(" ");
+    let lines = m.recipe_panel(&profile.menu_options).footer.join(" ");
     assert!(lines.contains("Y alone: save") && lines.contains("R3: back"));
-    m.input(0,&profile.menu_options);
-    m.input(MAPPER_Y,&profile.menu_options);
+    m.input(0, &profile.menu_options);
+    m.input(MAPPER_Y, &profile.menu_options);
     assert!(m.tuning_save_requested);
 }
 
 #[test]
 fn custom_roll_toggle_never_reactivates_a_retired_fixed_roll_helper() {
-    for kind in [5,6,15] {
-        let profiles=file_profiles();
-        let presets=&profiles.profile(kind).unwrap().menu_options;
-        let mut menu=MenuSelection::new(presets);
-        menu.y_fighter_kind=kind;
-        menu.roll_read_available=true;
-        assert_eq!(menu.roll_read,crate::roll_read::Choice::Off);
+    for kind in [5, 6, 15] {
+        let profiles = file_profiles();
+        let presets = &profiles.profile(kind).unwrap().menu_options;
+        let mut menu = MenuSelection::new(presets);
+        menu.y_fighter_kind = kind;
+        menu.roll_read_available = true;
+        assert_eq!(menu.roll_read, crate::roll_read::Choice::Off);
         assert!(!menu.row_visible(MenuRow::RollRead));
-        menu.show_modes();menu.row=MenuRow::RollRules;
-        menu.input(0,presets);menu.input(DPAD_LEFT,presets);
+        menu.show_modes();
+        menu.row = MenuRow::RollRules;
+        menu.input(0, presets);
+        menu.input(DPAD_LEFT, presets);
         assert!(!menu.roll_rules);
-        assert_eq!(menu.roll_read,crate::roll_read::Choice::Off);
+        assert_eq!(menu.roll_read, crate::roll_read::Choice::Off);
         for i in crate::fighter_tuning::PUNISH_DOWN_REACH..=crate::fighter_tuning::ROLL_GRAB_WATCH {
-            assert!(!crate::fighter_tuning::Tuning::visible(kind,i));
+            assert!(!crate::fighter_tuning::Tuning::visible(kind, i));
         }
     }
 }

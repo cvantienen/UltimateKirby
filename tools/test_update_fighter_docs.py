@@ -23,6 +23,18 @@ class FighterDocsTests(unittest.TestCase):
         for module, kind in [("sonic", 0x29), ("isabelle", 0x46), ("krool", 0x45)]:
             self.assertEqual(docs.render(module)[1], kind)
 
+    def test_move_frames_and_baseline_stats_come_from_the_fighter_record(self):
+        rendered, kind = docs.render("kirby")
+        fighter = docs.fighter_data_snapshot()[kind]
+        neutral_air = next(move for move in fighter["moves"] if move["name"] == "Neutral Air")
+        active = " / ".join(
+            str(first) if first == last else f"{first}–{last}"
+            for first, last in neutral_air["active"]
+        )
+        self.assertIn(f"| Neutral Air | {neutral_air['raw']['startup']} start; active {active};", rendered)
+        weight = next(stat["value"] for stat in fighter["stats"] if stat["key"] == "weight.weight")
+        self.assertIn(f"| Weight | {weight} |", rendered)
+
     def test_all_seven_short_auto_tokens_and_legacy_priorities_are_documented(self):
         catalog = configparser.RawConfigParser()
         for event in AUTO_EVENTS:
@@ -57,11 +69,6 @@ class FighterDocsTests(unittest.TestCase):
         for path, text in pages.items():
             self.assertEqual(path.read_text(), text, str(path))
         self.assertIn("## Kirby-specific timing and inputs", pages[docs.ROOT / "docs/fighters/kirby.md"])
-
-    def test_missing_numeric_reference_is_rejected(self):
-        with self.assertRaises(ValueError):
-            docs.number("unknown_runtime_builder()", "standing_range")
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -40,8 +40,10 @@ An ongoing target visit cannot immediately rearm after cancellation. A target le
 - Native observations: `src/live/observations.rs`, `jab_lock_targets`.
 - Scheduling: `src/live.rs`; ownership: `action_owner.rs`.
 
-Startup values follow [Yoshi's Ultimate Frame Data](https://ultimateframedata.com/yoshi):
-jab **3**, front down-smash sweep **7**, standing grab **14** frames.
+Startup values come from Yoshi's exact row in the canonical
+[Fighter Data catalog](FIGHTER_DATA.md): jab **3**, down-smash **7**, standing
+grab **14** frames. These values are used only when the corresponding JSON fact
+is present.
 Root-distance estimates are jab **7**, smash **12**, grab **23** world units.
 The chase is bounded to **60** horizontal / **24** vertical units and **120**
 advancing native frames. These distances are tuning estimates, not measured

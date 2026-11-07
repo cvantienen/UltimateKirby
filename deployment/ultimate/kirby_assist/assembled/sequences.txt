@@ -63,7 +63,6 @@ actions = run_to_ledge:10:1:1:2:120
 
 # BAYONETTA
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/bayonetta
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -704,7 +703,6 @@ actions = up_b:4, drift:opponent:1:69
 
 # BOWSER JR
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/bowser_jr
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -976,7 +974,6 @@ actions = opponent_input:a:0:1:1
 
 # CAPTAIN FALCON
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/captain_falcon
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -1137,7 +1134,6 @@ actions = opponent_input:a+x:0:0:1
 
 # CHARIZARD
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/pt_charizard
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -1400,7 +1396,6 @@ actions = input:b:0:1:4
 
 # CHROM
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/chrom
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -1664,7 +1659,6 @@ actions = opponent_input:a+x:0:1:1
 
 # CLOUD
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/cloud
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -1919,7 +1913,6 @@ actions = input:b:0:1:4
 
 # CORRIN
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/corrin
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -2183,7 +2176,6 @@ actions = opponent_input:a+x:0:0:1
 
 # DAISY
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/daisy
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -2429,7 +2421,6 @@ actions = opponent_input:a+x:0:0:1
 
 # DARK PIT
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/dark_pit
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -2701,7 +2692,6 @@ actions = opponent_input:a:0:1:1
 
 # DARK SAMUS
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/dark_samus
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -3051,7 +3041,6 @@ actions = input:b:0:1:4
 
 # DIDDY KONG
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/diddy_kong
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -3323,7 +3312,6 @@ actions = opponent_input:a:0:1:1
 
 # DONKEY KONG
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/donkey_kong
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -3484,7 +3472,6 @@ actions = opponent_input:a+x:0:0:1
 
 # DR MARIO
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/dr_mario
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -3755,7 +3742,6 @@ actions = input:b:0:1:4
 
 # DUCK HUNT
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/duck_hunt
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -4019,7 +4005,6 @@ actions = opponent_input:a+x:0:0:1
 
 # FALCO
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/falco
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -4291,7 +4276,6 @@ actions = opponent_input:a+x:0:0:1
 
 # FOX
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/fox
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -4452,7 +4436,6 @@ actions = opponent_input:a+x:0:0:1
 
 # GANONDORF
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/ganondorf
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -4697,7 +4680,6 @@ actions = opponent_input:a+x:0:0:1
 
 # GRENINJA
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/greninja
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -4943,7 +4925,6 @@ actions = opponent_input:a:0:1:1
 
 # ICE CLIMBERS
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/ice_climbers
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -5189,7 +5170,6 @@ actions = opponent_input:a+x:0:0:1
 
 # ICE CLIMBERS NANA
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/ice_climbers
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -5435,7 +5415,6 @@ actions = opponent_input:a+x:0:0:1
 
 # IKE
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/ike
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -5681,7 +5660,6 @@ actions = opponent_input:a+x:0:0:1
 
 # INCINEROAR
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/incineroar
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -5945,7 +5923,6 @@ actions = opponent_input:a+x:0:0:1
 
 # INKLING
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/inkling
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -6209,7 +6186,6 @@ actions = opponent_input:a+x:0:0:1
 
 # ISABELLE
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/isabelle
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -6456,7 +6432,6 @@ actions = opponent_input:a+x:0:0:1
 
 # IVYSAUR
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/pt_ivysaur
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -6719,7 +6694,6 @@ actions = opponent_input:a+x:0:0:1
 
 # JIGGLYPUFF
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/jigglypuff
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -6982,7 +6956,6 @@ actions = opponent_input:a+x:0:0:1
 
 # KEN
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/ken
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -7193,7 +7166,6 @@ actions = input:b:0:1:4
 
 # KING DEDEDE
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/king_dedede
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -7793,7 +7765,6 @@ actions = up_b:4
 
 # KROOL
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/king_k_rool
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -8057,7 +8028,6 @@ actions = opponent_input:a+x:0:0:1
 
 # LINK
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/link
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -8226,7 +8196,6 @@ actions = input:b:0:1:4
 
 # LITTLEMAC
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/little_mac
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -8465,7 +8434,6 @@ actions = input:b:0:1:4
 
 # LUCARIO
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/lucario
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -8737,7 +8705,6 @@ actions = opponent_input:a+x:0:0:1
 
 # LUCAS
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/lucas
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -8993,7 +8960,6 @@ actions = opponent_input:a+x:0:0:1
 
 # LUCINA
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/lucina
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -9273,7 +9239,6 @@ actions = input:b:0:1:4
 
 # LUIGI
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/luigi
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -9434,7 +9399,6 @@ actions = opponent_input:a+x:0:0:1
 
 # MARIO
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/mario
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -9603,7 +9567,6 @@ actions = input:b:0:1:4
 
 # MARTH
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/marth
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -9883,7 +9846,6 @@ actions = input:b:0:1:4
 
 # MEGA MAN
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/mega_man
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -10079,7 +10041,6 @@ actions = opponent_input:a:0:1:1
 
 # META KNIGHT
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/meta_knight
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -10299,7 +10260,6 @@ actions = input:b:0:1:4
 
 # MEWTWO
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/mewtwo
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -10554,7 +10514,6 @@ actions = opponent_input:a+x:0:0:1
 
 # MII BRAWLER
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/mii_brawler
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -10826,7 +10785,6 @@ actions = opponent_input:a+x:0:0:1
 
 # MII GUNNER
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/mii_gunner
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -11072,7 +11030,6 @@ actions = opponent_input:a+x:0:0:1
 
 # MII SWORDFIGHTER
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/mii_swordfighter
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -11335,7 +11292,6 @@ actions = opponent_input:a+x:0:0:1
 
 # MR GAME AND WATCH
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/mr_game_and_watch
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -11542,7 +11498,6 @@ reflect_half_depth = 5
 
 # NESS
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/ness
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -11896,7 +11851,6 @@ actions = opponent_input:a+x:0:0:1
 
 # OLIMAR
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/olimar
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -12160,7 +12114,6 @@ actions = opponent_input:a+x:0:0:1
 
 # PACMAN
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/pac_man
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -12399,7 +12352,6 @@ actions = opponent_input:a+x:0:0:1
 
 # PALUTENA
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/palutena
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -12662,7 +12614,6 @@ actions = opponent_input:a+x:0:0:1
 
 # PEACH
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/peach
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -12908,7 +12859,6 @@ actions = opponent_input:a+x:0:0:1
 
 # PICHU
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/pichu
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -13180,7 +13130,6 @@ actions = opponent_input:a+x:0:0:1
 
 # PIKACHU
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/pikachu
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -13341,7 +13290,6 @@ actions = opponent_input:a+x:0:0:1
 
 # PIT
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/pit
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -13613,7 +13561,6 @@ actions = opponent_input:a:0:1:1
 
 # RICHTER
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/richter
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -13896,7 +13843,6 @@ actions = input:b:0:1:4
 
 # RIDLEY
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/ridley
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -14151,7 +14097,6 @@ actions = opponent_input:a+x:0:0:1
 
 # ROB
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/rob
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -14414,7 +14359,6 @@ actions = opponent_input:a:0:1:1
 
 # ROBIN
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/robin
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -14678,7 +14622,6 @@ actions = opponent_input:a+x:0:0:1
 
 # ROSALINA AND LUMA
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/rosalina_and_luma
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -14950,7 +14893,6 @@ actions = opponent_input:a:0:1:1
 
 # ROY
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/roy
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -15214,7 +15156,6 @@ actions = opponent_input:a+x:0:0:1
 
 # RYU
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/ryu
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -15425,7 +15366,6 @@ actions = input:b:0:1:4
 
 # SAMUS
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/samus
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -15775,7 +15715,6 @@ actions = input:b:0:1:4
 
 # SHEIK
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/sheik
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -16039,7 +15978,6 @@ actions = opponent_input:a+x:0:0:1
 
 # SHULK
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/shulk
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -16275,7 +16213,6 @@ actions = input:b:0:1:4
 
 # SIMON
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/simon
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -16512,7 +16449,6 @@ actions = input:b:0:1:4
 
 # SNAKE
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/snake
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -16758,7 +16694,6 @@ actions = input:x:0:0:1, wait:2, input:a:0:-1:1
 
 # SONIC
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/sonic
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -16928,7 +16863,6 @@ actions = opponent_input:a+x:0:0:1
 
 # SQUIRTLE
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/pt_squirtle
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -17200,7 +17134,6 @@ actions = opponent_input:a+x:0:0:1
 
 # TOON LINK
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/toon_link
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -17446,7 +17379,6 @@ actions = input:b:0:1:4
 
 # VILLAGER
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/villager
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -17701,7 +17633,6 @@ actions = opponent_input:a+x:0:0:1
 
 # WARIO
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/wario
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -17956,7 +17887,6 @@ actions = input:b:0:1:4
 
 # WII FIT TRAINER
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/wii_fit_trainer
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -18228,7 +18158,6 @@ actions = opponent_input:a+x:0:0:1
 
 # WOLF
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/wolf
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -18725,7 +18654,6 @@ actions = short_hop_nair:4
 
 # YOUNG LINK
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/young_link
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -18971,7 +18899,6 @@ actions = opponent_input:a+x:0:0:1
 
 # ZELDA
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/zelda
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.
@@ -19217,7 +19144,6 @@ actions = opponent_input:a+x:0:0:1
 
 # ZERO SUIT SAMUS
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/zero_suit_samus
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.

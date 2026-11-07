@@ -183,41 +183,101 @@ fn ground_only_saves_roundtrip_without_duplicate_flags() {
 }
 
 #[test]
-fn brother_jump_buttons_remain_manual_takeover_intent_without_becoming_shortcut_inputs(){
-    use kirby_assist_core::{native_input::{ControlLayout,MAPPER_R,MAPPER_ZR},manual_controls::ManualTakeover};
-    let layout=ControlLayout::Brother;let mut intent=ManualTakeover::new();
-    intent.sample(layout.takeover_buttons(0),[0.;4]);
-    assert_eq!(layout.policy_buttons(MAPPER_R),0);
-    intent.sample(layout.takeover_buttons(MAPPER_R),[0.;4]);assert_eq!(intent.epoch(),1);
-    intent.sample(layout.takeover_buttons(MAPPER_R|MAPPER_ZR),[0.;4]);assert_eq!(intent.epoch(),2);
+fn brother_jump_buttons_remain_manual_takeover_intent_without_becoming_shortcut_inputs() {
+    use kirby_assist_core::{
+        manual_controls::ManualTakeover,
+        native_input::{ControlLayout, MAPPER_R, MAPPER_ZR},
+    };
+    let layout = ControlLayout::Brother;
+    let mut intent = ManualTakeover::new();
+    intent.sample(layout.takeover_buttons(0), [0.; 4]);
+    assert_eq!(layout.policy_buttons(MAPPER_R), 0);
+    intent.sample(layout.takeover_buttons(MAPPER_R), [0.; 4]);
+    assert_eq!(intent.epoch(), 1);
+    intent.sample(layout.takeover_buttons(MAPPER_R | MAPPER_ZR), [0.; 4]);
+    assert_eq!(intent.epoch(), 2);
 }
 
 #[test]
 fn exclusive_tape_masks_all_physical_gameplay_buttons_through_wait_and_drift() {
-    use kirby_assist_core::{ledge_trap::SEQUENCE_BUTTONS,native_input::{ControlLayout,MAPPER_MENU}};
-    for layout in [ControlLayout::Default,ControlLayout::Brother] {
-        let mut tape=InputTimeline::new(config("wait:2,up_b:2,drift:opponent:1:3",false,true),enemy(0.));
-        let mut noisy=ManualOverlay::default();let mut clean=ManualOverlay::default();
-        for overlay in [&mut noisy,&mut clean] { overlay.apply_controls(ButtonTrace::default(),[0.;2],TurboOutput::default(),0,0,0); }
+    use kirby_assist_core::{
+        ledge_trap::SEQUENCE_BUTTONS,
+        native_input::{ControlLayout, MAPPER_MENU},
+    };
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        let mut tape = InputTimeline::new(
+            config("wait:2,up_b:2,drift:opponent:1:3", false, true),
+            enemy(0.),
+        );
+        let mut noisy = ManualOverlay::default();
+        let mut clean = ManualOverlay::default();
+        for overlay in [&mut noisy, &mut clean] {
+            overlay.apply_controls(
+                ButtonTrace::default(),
+                [0.; 2],
+                TurboOutput::default(),
+                0,
+                0,
+                0,
+            );
+        }
         for frame in 0..7 {
-            let c=LedgeContext{manual_input_epoch:frame as u64,..ctx(frame as f32)};
-            let out=tape.sample(LedgeSettings::default(),c,Some(enemy(frame as f32)),None,0.);
-            assert_eq!(out.owned,SEQUENCE_BUTTONS);
-            assert_eq!(tape.right_stick(),[0.;2]);
-            let buttons=layout.physical_buttons(SEQUENCE_BUTTONS);
-            let human=ButtonTrace{held:buttons,previous:buttons,pressed:buttons,released:buttons};
-            let run=|overlay:&mut ManualOverlay,human,stick|overlay.apply_controls(human,stick,
-                TurboOutput{stick:out.stick,..Default::default()},0,
-                layout.physical_buttons(out.requested),layout.physical_owned_buttons(out.owned));
-            let a=run(&mut noisy,human,[-1.,-1.]);let b=run(&mut clean,ButtonTrace::default(),[0.;2]);
-            assert_eq!(a.buttons,b.buttons,"frame {frame}");assert_eq!(a.stick,b.stick);
-            assert_eq!(a.clear_autorepeat & buttons,buttons);
-            assert_eq!(out.owned & MAPPER_MENU,0);
+            let c = LedgeContext {
+                manual_input_epoch: frame as u64,
+                ..ctx(frame as f32)
+            };
+            let out = tape.sample(
+                LedgeSettings::default(),
+                c,
+                Some(enemy(frame as f32)),
+                None,
+                0.,
+            );
+            assert_eq!(out.owned, SEQUENCE_BUTTONS);
+            assert_eq!(tape.right_stick(), [0.; 2]);
+            let buttons = layout.physical_buttons(SEQUENCE_BUTTONS);
+            let human = ButtonTrace {
+                held: buttons,
+                previous: buttons,
+                pressed: buttons,
+                released: buttons,
+            };
+            let run = |overlay: &mut ManualOverlay, human, stick| {
+                overlay.apply_controls(
+                    human,
+                    stick,
+                    TurboOutput {
+                        stick: out.stick,
+                        ..Default::default()
+                    },
+                    0,
+                    layout.physical_buttons(out.requested),
+                    layout.physical_owned_buttons(out.owned),
+                )
+            };
+            let a = run(&mut noisy, human, [-1., -1.]);
+            let b = run(&mut clean, ButtonTrace::default(), [0.; 2]);
+            assert_eq!(a.buttons, b.buttons, "frame {frame}");
+            assert_eq!(a.stick, b.stick);
+            assert_eq!(a.clear_autorepeat & buttons, buttons);
+            assert_eq!(out.owned & MAPPER_MENU, 0);
         }
         assert!(!tape.finished());
-        tape.sample(LedgeSettings::default(),ctx(7.),Some(enemy(7.)),None,0.);
+        tape.sample(LedgeSettings::default(), ctx(7.), Some(enemy(7.)), None, 0.);
         assert!(tape.finished());
-        let handback=noisy.apply_controls(ButtonTrace{held:MAPPER_B,pressed:MAPPER_B,..Default::default()},[-0.5,0.],TurboOutput::default(),0,0,0);
-        assert_eq!(handback.buttons.held & MAPPER_B,MAPPER_B);assert_eq!(handback.stick,[-0.5,0.]);
+        let handback = noisy.apply_controls(
+            ButtonTrace {
+                held: MAPPER_B,
+                pressed: MAPPER_B,
+                ..Default::default()
+            },
+            [-0.5, 0.],
+            TurboOutput::default(),
+            0,
+            0,
+            0,
+        );
+        assert_eq!(handback.buttons.held & MAPPER_B, MAPPER_B);
+        assert_eq!(handback.stick, [-0.5, 0.]);
     }
 }

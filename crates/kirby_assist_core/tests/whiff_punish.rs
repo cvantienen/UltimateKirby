@@ -186,7 +186,10 @@ fn legacy_yoshi_bair_starter_turns_and_short_hops_without_a_grounded_attack() {
     c.starter.fighter.frame = 1.0;
     c.starter.fighter.facing = -1.0;
     let hop = p.sample(true, c, targets(target(21.0, 29.0, 8.0)));
-    assert_eq!(hop.requested, 0,"one-shot jump is released while native startup is pending");
+    assert_eq!(
+        hop.requested, 0,
+        "one-shot jump is released while native startup is pending"
+    );
     assert!(YMode::YoshiBairSmash.supports(5));
     assert!(!YMode::FairSmash.supports(5));
 }

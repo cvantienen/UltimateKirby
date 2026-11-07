@@ -279,13 +279,24 @@ fn ledge_takeover_waits_for_prior_receipts_and_never_replaces_a_queued_grab_with
         }
         // Explicit cancellation precedes a requested ledge takeover. Passive
         // admission suspension alone cannot replace the existing sequence.
-        if let Some(owner) = previous { ownership.release(owner); }
+        if let Some(owner) = previous {
+            ownership.release(owner);
+        }
         ownership.set_automatic_suspended(true);
         assert!(!h.reserve_ledge_inputs());
         assert!(h.pending());
-        assert!(!h.permits(Some(Owner::Ledge), LedgeOutput {requested: MAPPER_B, ..shield()}, None));
+        assert!(!h.permits(
+            Some(Owner::Ledge),
+            LedgeOutput {
+                requested: MAPPER_B,
+                ..shield()
+            },
+            None
+        ));
         h.observe_native(true, Some(c(0, 0.)));
-        for frame in 1..=24 { h.observe_native(true, Some(c(0, frame as f32))); }
+        for frame in 1..=24 {
+            h.observe_native(true, Some(c(0, frame as f32)));
+        }
         assert!(!h.pending());
         assert!(h.reserve_ledge_inputs());
         let mut intents = [
@@ -438,7 +449,10 @@ fn a_new_ledge_grab_requires_the_prior_receipt_to_end_and_a_new_input_edge() {
     h.observe_native(true, Some(c(0x37, 0.)));
     h.observe_native(true, Some(c(0x1c, 0.)));
     h.mapped(1, Some(Owner::Ledge), true, true, true);
-    assert!(!h.pending(), "a held tail cannot create a second grab receipt");
+    assert!(
+        !h.pending(),
+        "a held tail cannot create a second grab receipt"
+    );
     h.mapped(2, None, false, false, false);
     h.mapped(3, Some(Owner::Ledge), true, true, true);
     assert!(h.pending());

@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **53** (`greninja`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **53** (`greninja`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,36 +48,40 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 12–19 |
-| Down tilt | 5–6 |
-| Forward tilt | 10–12 |
-| Down smash | 11–13 |
-| Up Tilt | 9–12 |
-| Forward Smash | 13–15 |
-| Forward Air | 16–17 |
-| Up Air | 7–8 |
+| Jab 1 | 3 start; active 3; 21 total; -- landing |
+| Neutral Air | 12 start; active 12–13 / 14–19; 52 total; 7 landing |
+| Forward Air | 16 start; active 16–17; 54 total; 11 landing |
+| Back Air | 5/7/11 start; active 5 / 7 / 11–14; 40 total; 10 landing |
+| Up Air | 7/10/13/16/19/22 start; active 7–8 / 10–11 / 13–14 / 16–17 / 19–20 / 22; 41 total; 14 landing |
+| Down Air | 17 start; active 17–19 / 20–45; 51 total; 30 landing |
+| Forward Tilt | 10 start; active 10–12; 32 total; -- landing |
+| Up Tilt | 9 start; active 9–12; 32 total; -- landing |
+| Down Tilt | 5 start; active 5–6; 22 total; -- landing |
+| Dash Attack | 7 start; active 7–11; 28 total; -- landing |
+| Forward Smash | 13 start; active 13–15; 49 total; -- landing |
+| Up Smash | 12/18 start; active 12–17 / 18 / 19–20 / 21; 51 total; -- landing |
+| Down Smash | 11 start; active 11–12 / 13; 49 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 10 |
-| Dash startup | 13 |
-| Pivot startup | 14 |
+| Standing grab | frames 10–11 |
+| Dash grab | frames 13–14 |
+| Pivot grab | frames 14–15 |
+| Standing reach reference | 18.5 world units |
 | Shield-grab startup | 14 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 18.5 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 88 |
 | Walk speed | 1.502 |
@@ -89,8 +93,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.96 |
 | Short-hop height | 22.11 |
 | Full-hop height | 46 |
-
-[Move source](https://ultimateframedata.com/greninja) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -124,7 +126,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -132,7 +134,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/greninja.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/greninja/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

@@ -1,6 +1,7 @@
 > `sequences.txt` is the master SD configuration: universal settings, fighter
-> overrides, ledge/button recipes and assist rules. Reference fighter data is
-> compiled into the plugin; no fighter JSON is read during play. Source edits
+> overrides, ledge/button recipes and assist rules. The canonical fighter JSON
+> is embedded and parsed once at startup; no SD-card or network data is read
+> during play. Source edits
 > need a separately built and installed NRO.
 > See [the fighter configuration guide](FIGHTER_CONFIGS.md).
 
@@ -46,8 +47,10 @@ The old live path also required a particular single-state SDK HID hook to run; o
 2. Choose `releases/kirby_assist-<version>-silent.zip` or `releases/kirby_assist-<version>-diagnostic.zip`. Copy its `atmosphere` and `ultimate` directories to the SD-card root, preserving the directory structure. Install only one; see [build variants](BUILD_VARIANTS.md).
 3. Confirm there is only one `libkirby_assist.nro` installed. Do not leave an older differently named copy of this mod in the plugins directory.
 4. Use local controller 1 (`player_index = 0`) with the required control mappings. Physical Npad identity selects the controller; its mapper slot is followed dynamically. Controller style is unrestricted.
-5. Start Smash and select your fighter. There is no training-only gate. Configured fighters use their own compiled
-profiles; valid unconfigured kinds fall back to Kirby’s profile.
+5. Start Smash and select your fighter. There is no training-only gate.
+   Fighter profiles and stat/frame-data lookups use exact native-kind records
+   from the canonical [Fighter Data dataset](FIGHTER_DATA.md); a missing fighter
+   record is not replaced with Kirby's stats.
 
 The ZIP contains:
 
@@ -369,7 +372,8 @@ Ledge tracking uses the existing bounded fighter observations and native option
 states. Saved sequences define all get-up responses. The separate vulnerable-hang
 /regrab assist uses the tracked opponent's actual vulnerability, not a fixed
 invulnerability timer, and takes priority over drop defense when a rule matches.
-Compiled opponent reference data is reused without match-time network/file loads.
+The embedded [Fighter Data catalog](FIGHTER_DATA.md) is shared across fighter
+roles without match-time SD-card or network reads.
 
 See [controls](CONTROLS.md), [ledge handling](LEDGE_TRAP.md),
 [reaction rules](REACTION_RULES.md) and [observation clocks](OBSERVATIONS_AND_TIMING.md).

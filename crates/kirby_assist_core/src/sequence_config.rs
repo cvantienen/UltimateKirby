@@ -4,9 +4,9 @@
 //! `LedgeSettings`; no strings, files, maps or allocations are touched in the
 //! frame path.
 use crate::fighter_profiles::{presets::PresetSlot, FighterProfiles};
-pub mod persist;
 pub mod layout;
 mod library;
+pub mod persist;
 pub use library::SequenceLibrary;
 
 pub const MAX_ACTIONS: usize = 32;
@@ -33,10 +33,15 @@ pub enum Direction {
 impl Direction {
     pub fn label(self) -> &'static str {
         match self {
-            Self::Opponent => "Opponent", Self::AwayFromOpponent => "Away from opponent",
-            Self::Ledge => "Ledge (legacy)", Self::Inward => "Inward", Self::Outward => "Outward",
-            Self::Facing => "Facing", Self::Backward => "Backward",
-            Self::SavedLedge => "Toward saved ledge", Self::AwayFromLedge => "Away from saved ledge",
+            Self::Opponent => "Opponent",
+            Self::AwayFromOpponent => "Away from opponent",
+            Self::Ledge => "Ledge (legacy)",
+            Self::Inward => "Inward",
+            Self::Outward => "Outward",
+            Self::Facing => "Facing",
+            Self::Backward => "Backward",
+            Self::SavedLedge => "Toward saved ledge",
+            Self::AwayFromLedge => "Away from saved ledge",
         }
     }
 }
@@ -104,11 +109,27 @@ impl Condition {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum InputReference { #[default] Screen, Facing, Opponent }
+pub enum InputReference {
+    #[default]
+    Screen,
+    Facing,
+    Opponent,
+}
 impl InputReference {
-    pub const ALL:[Self;3]=[Self::Screen,Self::Facing,Self::Opponent];
-    pub fn token(self)->&'static str {match self {Self::Screen=>"screen",Self::Facing=>"facing",Self::Opponent=>"opponent"}}
-    fn parse(s:&str)->Result<Self,String>{Self::ALL.into_iter().find(|r|r.token()==s).ok_or_else(||"input reference must be screen, facing or opponent".into())}
+    pub const ALL: [Self; 3] = [Self::Screen, Self::Facing, Self::Opponent];
+    pub fn token(self) -> &'static str {
+        match self {
+            Self::Screen => "screen",
+            Self::Facing => "facing",
+            Self::Opponent => "opponent",
+        }
+    }
+    fn parse(s: &str) -> Result<Self, String> {
+        Self::ALL
+            .into_iter()
+            .find(|r| r.token() == s)
+            .ok_or_else(|| "input reference must be screen, facing or opponent".into())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -124,10 +145,20 @@ pub enum Action {
     },
     /// Literal input with horizontal axis toward (+) / away from (-) the target.
     /// Direction is captured at step entry; requires a fresh observed target.
-    OpponentInput { buttons: u32, stick: [f32; 2], frames: u8 },
+    OpponentInput {
+        buttons: u32,
+        stick: [f32; 2],
+        frames: u8,
+    },
     /// Simultaneous gameplay buttons and both sticks; no readiness/move writes.
-    Controller { buttons:u32, stick:[f32;2], cstick:[f32;2], frames:u8,
-        reference:InputReference, cstick_reference:InputReference },
+    Controller {
+        buttons: u32,
+        stick: [f32; 2],
+        cstick: [f32; 2],
+        frames: u8,
+        reference: InputReference,
+        cstick_reference: InputReference,
+    },
     /// Repeated literal pulses; release stick/buttons between presses.
     Tap {
         buttons: u32,
@@ -141,16 +172,30 @@ pub enum Action {
         frames: u8,
     },
     /// Skip when already near; otherwise chase for exactly frames before continuing.
-    Chase { gap:f32, strength:f32, frames:u8 },
+    Chase {
+        gap: f32,
+        strength: f32,
+        frames: u8,
+    },
     Wait(u8),
     Face(Direction),
-    IfFacingLedge { away: bool },
+    IfFacingLedge {
+        away: bool,
+    },
     /// Instant current opponent-side branch; no turn or input is performed.
-    IfFacingOpponent { away: bool },
+    IfFacingOpponent {
+        away: bool,
+    },
     ElseFacing,
     EndFacing,
     /// Input-only positioning at a locked ledge's inward offset.
-    LedgePosition { offset:f32, strength:f32, tolerance:f32, brake:f32, frames:u16 },
+    LedgePosition {
+        offset: f32,
+        strength: f32,
+        tolerance: f32,
+        brake: f32,
+        frames: u16,
+    },
     Approach {
         airborne: bool,
         strength: f32,
@@ -187,12 +232,43 @@ pub enum Action {
 
 impl Action {
     /// Onstage reaction recipes have no saved ledge geometry.
-    pub fn needs_ledge(self)->bool {
-        matches!(self,Self::IfFacingLedge{..}|Self::LedgePosition{..}
-            |Self::Face(Direction::Ledge|Direction::Inward|Direction::Outward|Direction::SavedLedge|Direction::AwayFromLedge)
-            |Self::Walk{direction:Direction::Ledge|Direction::Inward|Direction::Outward|Direction::SavedLedge|Direction::AwayFromLedge,..}
-            |Self::Run{direction:Direction::Ledge|Direction::Inward|Direction::Outward|Direction::SavedLedge|Direction::AwayFromLedge,..}
-            |Self::Drift{direction:Direction::Ledge|Direction::Inward|Direction::Outward|Direction::SavedLedge|Direction::AwayFromLedge,..})
+    pub fn needs_ledge(self) -> bool {
+        matches!(
+            self,
+            Self::IfFacingLedge { .. }
+                | Self::LedgePosition { .. }
+                | Self::Face(
+                    Direction::Ledge
+                        | Direction::Inward
+                        | Direction::Outward
+                        | Direction::SavedLedge
+                        | Direction::AwayFromLedge
+                )
+                | Self::Walk {
+                    direction: Direction::Ledge
+                        | Direction::Inward
+                        | Direction::Outward
+                        | Direction::SavedLedge
+                        | Direction::AwayFromLedge,
+                    ..
+                }
+                | Self::Run {
+                    direction: Direction::Ledge
+                        | Direction::Inward
+                        | Direction::Outward
+                        | Direction::SavedLedge
+                        | Direction::AwayFromLedge,
+                    ..
+                }
+                | Self::Drift {
+                    direction: Direction::Ledge
+                        | Direction::Inward
+                        | Direction::Outward
+                        | Direction::SavedLedge
+                        | Direction::AwayFromLedge,
+                    ..
+                }
+        )
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -272,7 +348,10 @@ impl Catalog {
             .lines()
             .filter(|line| {
                 let line = line.split('#').next().unwrap_or("").trim();
-                line.starts_with('[') && line.ends_with(']') && !retired_button_header(line) && !settings_header(line)
+                line.starts_with('[')
+                    && line.ends_with(']')
+                    && !retired_button_header(line)
+                    && !settings_header(line)
             })
             .take(MAX_ENTRIES + 1)
             .count();
@@ -306,17 +385,39 @@ impl Catalog {
                 retired_buttons = false;
                 universal_section = line == "[universal.settings]";
                 if universal_section {
-                    if universal.is_some() { return Err(format!("line {line_number}: duplicate universal settings")); }
+                    if universal.is_some() {
+                        return Err(format!("line {line_number}: duplicate universal settings"));
+                    }
                     universal = Some(String::new());
                     continue;
                 }
-                if let Some(id)=line.strip_prefix("[template.").and_then(|v|v.strip_suffix(']')) {
-                    if !valid_id(id) || entries.iter().any(|e|e.fighter_kind==-1 && e.choice==id) {
-                        return Err(format!("line {line_number}: invalid or duplicate template id {id}"));
+                if let Some(id) = line
+                    .strip_prefix("[template.")
+                    .and_then(|v| v.strip_suffix(']'))
+                {
+                    if !valid_id(id)
+                        || entries
+                            .iter()
+                            .any(|e| e.fighter_kind == -1 && e.choice == id)
+                    {
+                        return Err(format!(
+                            "line {line_number}: invalid or duplicate template id {id}"
+                        ));
                     }
                     numeric_keys.clear();
-                    current=Some((Entry {fighter_kind:-1,fighter:"template".into(),slot:PresetSlot::X,
-                        choice:id.into(),name:None,default:false,explicit_start:false,sequence:Sequence::default()},line_number));
+                    current = Some((
+                        Entry {
+                            fighter_kind: -1,
+                            fighter: "template".into(),
+                            slot: PresetSlot::X,
+                            choice: id.into(),
+                            name: None,
+                            default: false,
+                            explicit_start: false,
+                            sequence: Sequence::default(),
+                        },
+                        line_number,
+                    ));
                     continue;
                 }
                 retired_buttons = retired_button_header(line);
@@ -337,7 +438,7 @@ impl Catalog {
                         "line {line_number}: section must be [fighter.situation.choice_id]"
                     ));
                 }
-                let fighter_kind = crate::opponent_data::all()
+                let fighter_kind = crate::fighter_data::all()
                     .iter()
                     .find(|entry| entry.name.eq_ignore_ascii_case(&fighter))
                     .map(|entry| entry.kind)
@@ -350,7 +451,10 @@ impl Catalog {
                     })
                     .ok_or_else(|| format!("line {line_number}: unknown fighter {fighter}"))?;
                 if slot == "settings" && choice.is_empty() {
-                    if tuning.insert(fighter_kind, crate::fighter_tuning::Tuning::default()).is_some() {
+                    if tuning
+                        .insert(fighter_kind, crate::fighter_tuning::Tuning::default())
+                        .is_some()
+                    {
                         return Err(format!("line {line_number}: duplicate fighter settings"));
                     }
                     tuning_kind = Some(fighter_kind);
@@ -392,14 +496,22 @@ impl Catalog {
             };
             if universal_section {
                 let key = key.trim().to_ascii_lowercase();
-                if universal_keys.contains(&key) { return Err(format!("line {line_number}: duplicate universal key {key}")); }
-                universal.as_mut().unwrap().push_str(&format!("{key} = {}\n", value.trim()));
+                if universal_keys.contains(&key) {
+                    return Err(format!("line {line_number}: duplicate universal key {key}"));
+                }
+                universal
+                    .as_mut()
+                    .unwrap()
+                    .push_str(&format!("{key} = {}\n", value.trim()));
                 universal_keys.push(key);
                 continue;
             }
             if let Some(kind) = tuning_kind {
-                tuning.get_mut(&kind).unwrap().set(key.trim(), value.trim())
-                    .map_err(|e|format!("line {line_number}: {e}"))?;
+                tuning
+                    .get_mut(&kind)
+                    .unwrap()
+                    .set(key.trim(), value.trim())
+                    .map_err(|e| format!("line {line_number}: {e}"))?;
                 continue;
             }
             let Some((entry, _)) = current.as_mut() else {
@@ -505,30 +617,59 @@ impl Catalog {
         if let Some(settings) = universal.as_deref() {
             validate_universal_settings(settings)?;
         }
-        let mut templates=Vec::new();
+        let mut templates = Vec::new();
         entries.retain(|e| {
-            if e.fighter_kind!=-1 {return true;}
-            templates.push(Template {id:e.choice.clone(),name:e.name.clone().unwrap_or_else(||e.choice.replace('_'," ")),sequence:e.sequence});
+            if e.fighter_kind != -1 {
+                return true;
+            }
+            templates.push(Template {
+                id: e.choice.clone(),
+                name: e.name.clone().unwrap_or_else(|| e.choice.replace('_', " ")),
+                sequence: e.sequence,
+            });
             false
         });
-        if templates.len()>MAX_TEMPLATES {return Err(format!("at most {MAX_TEMPLATES} generic templates are allowed"));}
-        Ok(Self { entries, tuning, universal, templates })
+        if templates.len() > MAX_TEMPLATES {
+            return Err(format!(
+                "at most {MAX_TEMPLATES} generic templates are allowed"
+            ));
+        }
+        Ok(Self {
+            entries,
+            tuning,
+            universal,
+            templates,
+        })
     }
 
     pub fn validate(&self, profiles: &FighterProfiles) -> Result<(), String> {
         // Count each row once. The old nested full-catalog scan allocated a
         // temporary row Vec for every section, repeatedly during a single save.
         let mut rows = std::collections::BTreeMap::<(i32, usize), (usize, usize)>::new();
-        let mut simple_events=std::collections::BTreeSet::new();
-        let mut rule_counts = std::collections::BTreeMap::<(i32,usize),usize>::new();
+        let mut simple_events = std::collections::BTreeSet::new();
+        let mut rule_counts = std::collections::BTreeMap::<(i32, usize), usize>::new();
         for entry in &self.entries {
             validate_facing_blocks(entry.sequence.actions())?;
             crate::reaction_rules::validate_response(entry.sequence)?;
-            if let Some(event)=entry.sequence.reaction.trigger.simple(){if !simple_events.insert((entry.fighter_kind,event)){return Err("Only one auto-react sequence per event per fighter is allowed".into());}}
+            if let Some(event) = entry.sequence.reaction.trigger.simple() {
+                if !simple_events.insert((entry.fighter_kind, event)) {
+                    return Err(
+                        "Only one auto-react sequence per event per fighter is allowed".into(),
+                    );
+                }
+            }
 
             if entry.sequence.reaction.active() {
-                let count=rule_counts.entry((entry.fighter_kind,entry.sequence.reaction.trigger.family())).or_default();*count+=1;
-                if *count>crate::reaction_rules::MAX_RULES_PER_MODE{return Err(format!("{} exceeds 8 rules in one assist mode",entry.fighter));}
+                let count = rule_counts
+                    .entry((entry.fighter_kind, entry.sequence.reaction.trigger.family()))
+                    .or_default();
+                *count += 1;
+                if *count > crate::reaction_rules::MAX_RULES_PER_MODE {
+                    return Err(format!(
+                        "{} exceeds 8 rules in one assist mode",
+                        entry.fighter
+                    ));
+                }
             }
             let row = rows
                 .entry((entry.fighter_kind, entry.slot as usize))
@@ -572,6 +713,11 @@ impl Catalog {
     pub fn len(&self) -> usize {
         self.entries.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
     pub fn entries(&self) -> &[Entry] {
         &self.entries
     }
@@ -602,9 +748,15 @@ fn validate_universal_settings(settings: &str) -> Result<(), String> {
 
 // Policy sections contain no 32-action Entry; do not reserve recipe storage for them.
 fn settings_header(line: &str) -> bool {
-    let Some(header)=line.strip_prefix('[').and_then(|s|s.strip_suffix(']')) else {return false;};
-    let mut parts=header.split('.');
-    parts.next().is_some() && parts.next().is_some_and(|s|s.trim().eq_ignore_ascii_case("settings")) && parts.next().is_none()
+    let Some(header) = line.strip_prefix('[').and_then(|s| s.strip_suffix(']')) else {
+        return false;
+    };
+    let mut parts = header.split('.');
+    parts.next().is_some()
+        && parts
+            .next()
+            .is_some_and(|s| s.trim().eq_ignore_ascii_case("settings"))
+        && parts.next().is_none()
 }
 
 /// Old universal bindings remain inert; never migrate them into fighter lists.
@@ -613,16 +765,22 @@ fn retired_button_header(line: &str) -> bool {
         return false;
     };
     let mut parts = header.split('.');
-    let fighter=parts.next().unwrap_or("").trim();
-    let slot=parts.next().unwrap_or("").trim();
+    let fighter = parts.next().unwrap_or("").trim();
+    let slot = parts.next().unwrap_or("").trim();
     // Compatibility only: retired trigger sections never enter the catalog,
     // menu, ownership masks or playback. Keep installed saved files loadable.
-    if ["l","r","zl","zr","lz","rz"].iter().any(|s|slot.eq_ignore_ascii_case(s)) {
+    if ["l", "r", "zl", "zr", "lz", "rz"]
+        .iter()
+        .any(|s| slot.eq_ignore_ascii_case(s))
+    {
         return true;
     }
-    fighter.eq_ignore_ascii_case("universal") &&
-        ["x","y","button_x","button_y","button-x","button-y","button x","button y"]
-            .iter().any(|s|slot.eq_ignore_ascii_case(s))
+    fighter.eq_ignore_ascii_case("universal")
+        && [
+            "x", "y", "button_x", "button_y", "button-x", "button-y", "button x", "button y",
+        ]
+        .iter()
+        .any(|s| slot.eq_ignore_ascii_case(s))
 }
 
 fn finish_entry(
@@ -630,8 +788,13 @@ fn finish_entry(
     entries: &mut Vec<Entry>,
 ) -> Result<(), String> {
     if let Some((entry, line)) = current.take() {
-        if entry.fighter_kind==-1 && (entry.default || entry.sequence.mode.is_some()
-            || entry.sequence.builtin.is_some() || entry.sequence.reaction.active() || entry.sequence.while_held) {
+        if entry.fighter_kind == -1
+            && (entry.default
+                || entry.sequence.mode.is_some()
+                || entry.sequence.builtin.is_some()
+                || entry.sequence.reaction.active()
+                || entry.sequence.while_held)
+        {
             return Err(format!("line {line}: templates contain actions/timings only, without defaults, modes, builtins, reactions or held activation"));
         }
         if let Some(binding) = entry.sequence.mode {
@@ -646,15 +809,29 @@ fn finish_entry(
                 ));
             }
         }
-        if entry.sequence.builtin.is_some() && (!entry.slot.is_button() || entry.sequence.mode.is_some() || entry.sequence.len != 0 || entry.sequence.start_delay != 0 || entry.sequence.reaction.active() || entry.sequence.while_held || entry.sequence.ground_only) {
+        if entry.sequence.builtin.is_some()
+            && (!entry.slot.is_button()
+                || entry.sequence.mode.is_some()
+                || entry.sequence.len != 0
+                || entry.sequence.start_delay != 0
+                || entry.sequence.reaction.active()
+                || entry.sequence.while_held
+                || entry.sequence.ground_only)
+        {
             return Err(format!("line {line}: builtin requires a button row and cannot contain actions, conditions, delays, loops or modes"));
         }
-        if !entry.explicit_start && entry.sequence.mode.is_none() && entry.sequence.builtin.is_none() {
+        if !entry.explicit_start
+            && entry.sequence.mode.is_none()
+            && entry.sequence.builtin.is_none()
+        {
             return Err(format!(
                 "line {line}: section requires start_delay = FRAMES (use 0 for immediate input)"
             ));
         }
-        if entry.sequence.len == 0 && entry.sequence.mode.is_none() && entry.sequence.builtin.is_none() {
+        if entry.sequence.len == 0
+            && entry.sequence.mode.is_none()
+            && entry.sequence.builtin.is_none()
+        {
             return Err(format!("line {line}: section is missing actions"));
         }
         if entries.len() >= MAX_ENTRIES {
@@ -702,25 +879,37 @@ fn parse_actions(value: &str, line: usize) -> Result<Sequence, String> {
 
 /// Flat facing blocks are deliberately bounded and cannot nest.
 pub fn validate_facing_blocks(actions: &[Action]) -> Result<(), String> {
-    let mut open=false;let mut otherwise=false;
+    let mut open = false;
+    let mut otherwise = false;
     for action in actions {
         match action {
-            Action::IfFacingLedge{..}|Action::IfFacingOpponent{..} => {
-                if open {return Err("Facing blocks cannot nest; add end_facing first".into());}
-                open=true;otherwise=false;
+            Action::IfFacingLedge { .. } | Action::IfFacingOpponent { .. } => {
+                if open {
+                    return Err("Facing blocks cannot nest; add end_facing first".into());
+                }
+                open = true;
+                otherwise = false;
             }
             Action::ElseFacing => {
-                if !open || otherwise {return Err("else_facing needs an open facing block and may appear only once".into());}
-                otherwise=true;
+                if !open || otherwise {
+                    return Err(
+                        "else_facing needs an open facing block and may appear only once".into(),
+                    );
+                }
+                otherwise = true;
             }
             Action::EndFacing => {
-                if !open {return Err("end_facing has no matching facing condition".into());}
-                open=false;
+                if !open {
+                    return Err("end_facing has no matching facing condition".into());
+                }
+                open = false;
             }
-            _=>{}
+            _ => {}
         }
     }
-    if open {return Err("Facing block needs end_facing".into());}
+    if open {
+        return Err("Facing block needs end_facing".into());
+    }
     Ok(())
 }
 
@@ -879,20 +1068,44 @@ fn parse_action(token: &str, sequence: &mut Sequence) -> Result<(), String> {
             )
         }
         "controller_input" => {
-            if !(7..=9).contains(&parts.len()) {return Err("use controller_input:BUTTONS:LX:LY:RX:RY:FRAMES[:LEFT_REF[:RIGHT_REF]]".into());}
-            push(sequence,Action::Controller {buttons:buttons(parts[1])?,
-                stick:[parse_float(parts[2],-1.,1.,token)?,parse_float(parts[3],-1.,1.,token)?],
-                cstick:[parse_float(parts[4],-1.,1.,token)?,parse_float(parts[5],-1.,1.,token)?],
-                frames:duration(6,4)?,reference:InputReference::parse(parts.get(7).copied().unwrap_or("screen"))?,
-                cstick_reference:InputReference::parse(parts.get(8).copied().unwrap_or("screen"))?})
+            if !(7..=9).contains(&parts.len()) {
+                return Err(
+                    "use controller_input:BUTTONS:LX:LY:RX:RY:FRAMES[:LEFT_REF[:RIGHT_REF]]".into(),
+                );
+            }
+            push(
+                sequence,
+                Action::Controller {
+                    buttons: buttons(parts[1])?,
+                    stick: [
+                        parse_float(parts[2], -1., 1., token)?,
+                        parse_float(parts[3], -1., 1., token)?,
+                    ],
+                    cstick: [
+                        parse_float(parts[4], -1., 1., token)?,
+                        parse_float(parts[5], -1., 1., token)?,
+                    ],
+                    frames: duration(6, 4)?,
+                    reference: InputReference::parse(parts.get(7).copied().unwrap_or("screen"))?,
+                    cstick_reference: InputReference::parse(
+                        parts.get(8).copied().unwrap_or("screen"),
+                    )?,
+                },
+            )
         }
         "opponent_input" => {
             exact(5)?;
-            push(sequence, Action::OpponentInput {
-                buttons: buttons(parts[1])?,
-                stick: [parse_float(parts[2], -1.0, 1.0, token)?, parse_float(parts[3], -1.0, 1.0, token)?],
-                frames: duration(4, 1)?,
-            })
+            push(
+                sequence,
+                Action::OpponentInput {
+                    buttons: buttons(parts[1])?,
+                    stick: [
+                        parse_float(parts[2], -1.0, 1.0, token)?,
+                        parse_float(parts[3], -1.0, 1.0, token)?,
+                    ],
+                    frames: duration(4, 1)?,
+                },
+            )
         }
         "input" | "facing_input" => {
             exact(5)?;
@@ -940,24 +1153,67 @@ fn parse_action(token: &str, sequence: &mut Sequence) -> Result<(), String> {
         "hold_until_manual" | "facing_hold_until_manual" => {
             exact(4)?;
             let held = buttons(parts[1])?;
-            if held == 0 { return Err("hold_until_manual requires a button".into()); }
-            push(sequence, input(held, [parse_float(parts[2], -1., 1., token)?, parse_float(parts[3], -1., 1., token)?], 0, name == "facing_hold_until_manual"))
+            if held == 0 {
+                return Err("hold_until_manual requires a button".into());
+            }
+            push(
+                sequence,
+                input(
+                    held,
+                    [
+                        parse_float(parts[2], -1., 1., token)?,
+                        parse_float(parts[3], -1., 1., token)?,
+                    ],
+                    0,
+                    name == "facing_hold_until_manual",
+                ),
+            )
         }
-        "chase_if_far" => { exact(4)?; push(sequence,Action::Chase{gap:parse_float(parts[1],0.,100.,token)?,strength:parse_float(parts[2],0.,1.,token)?,frames:duration(3,14)?}) }
-        "shield_until_manual" => { exact(1)?; push(sequence, Action::ShieldUntilManual) }
+        "chase_if_far" => {
+            exact(4)?;
+            push(
+                sequence,
+                Action::Chase {
+                    gap: parse_float(parts[1], 0., 100., token)?,
+                    strength: parse_float(parts[2], 0., 1., token)?,
+                    frames: duration(3, 14)?,
+                },
+            )
+        }
+        "shield_until_manual" => {
+            exact(1)?;
+            push(sequence, Action::ShieldUntilManual)
+        }
         "shield_until_block" => {
             exact(2)?;
             push(sequence, Action::ShieldUntilBlock(duration(1, 90)?))
         }
         "if_facing_ledge" | "if_back_to_ledge" => {
             exact(1)?;
-            push(sequence, Action::IfFacingLedge { away: name == "if_back_to_ledge" })
+            push(
+                sequence,
+                Action::IfFacingLedge {
+                    away: name == "if_back_to_ledge",
+                },
+            )
         }
         "if_facing_opponent" | "if_back_to_opponent" => {
-            exact(1)?;push(sequence,Action::IfFacingOpponent{away:name=="if_back_to_opponent"})
+            exact(1)?;
+            push(
+                sequence,
+                Action::IfFacingOpponent {
+                    away: name == "if_back_to_opponent",
+                },
+            )
         }
-        "else_facing" => {exact(1)?;push(sequence,Action::ElseFacing)}
-        "end_facing" => { exact(1)?; push(sequence, Action::EndFacing) }
+        "else_facing" => {
+            exact(1)?;
+            push(sequence, Action::ElseFacing)
+        }
+        "end_facing" => {
+            exact(1)?;
+            push(sequence, Action::EndFacing)
+        }
         "face" => {
             exact(2)?;
             push(sequence, Action::Face(parse_direction(parts[1], token)?))
@@ -986,14 +1242,31 @@ fn parse_action(token: &str, sequence: &mut Sequence) -> Result<(), String> {
             )
         }
         "run_to_ledge" => {
-            if !(3..=6).contains(&parts.len()) {return Err("use run_to_ledge:OFFSET:STRENGTH[:TOLERANCE[:BRAKE_DISTANCE[:MAX_FRAMES]]]".into());}
-            push(sequence,Action::LedgePosition {
-                offset:parse_float(parts[1],0.,200.,token)?,
-                strength:parse_float(parts[2],0.3,1.,token)?,
-                tolerance:parts.get(3).map_or(Ok(1.),|v|parse_float(v,0.,20.,token))?,
-                brake:parts.get(4).map_or(Ok(6.),|v|parse_float(v,0.,100.,token))?,
-                frames:parts.get(5).map_or(Ok(180),|v|v.parse::<u16>().ok().filter(|n|(1..=3600).contains(n)).ok_or_else(||format!("invalid movement timeout in {token}")))?,
-            })
+            if !(3..=6).contains(&parts.len()) {
+                return Err(
+                    "use run_to_ledge:OFFSET:STRENGTH[:TOLERANCE[:BRAKE_DISTANCE[:MAX_FRAMES]]]"
+                        .into(),
+                );
+            }
+            push(
+                sequence,
+                Action::LedgePosition {
+                    offset: parse_float(parts[1], 0., 200., token)?,
+                    strength: parse_float(parts[2], 0.3, 1., token)?,
+                    tolerance: parts
+                        .get(3)
+                        .map_or(Ok(1.), |v| parse_float(v, 0., 20., token))?,
+                    brake: parts
+                        .get(4)
+                        .map_or(Ok(6.), |v| parse_float(v, 0., 100., token))?,
+                    frames: parts.get(5).map_or(Ok(180), |v| {
+                        v.parse::<u16>()
+                            .ok()
+                            .filter(|n| (1..=3600).contains(n))
+                            .ok_or_else(|| format!("invalid movement timeout in {token}"))
+                    })?,
+                },
+            )
         }
         "run" => {
             exact(3)?;
@@ -1220,7 +1493,8 @@ fn parse_slot(value: &str) -> Option<PresetSlot> {
         "dpad_down" => PresetSlot::DpadDown,
         "dpad_left" => PresetSlot::DpadLeft,
         "dpad_right" => PresetSlot::DpadRight,
-        "l3" => PresetSlot::L3, "r3" => PresetSlot::R3,
+        "l3" => PresetSlot::L3,
+        "r3" => PresetSlot::R3,
         _ => return None,
     })
 }
@@ -1238,7 +1512,8 @@ fn slot_name(slot: PresetSlot) -> &'static str {
         PresetSlot::DpadDown => "dpad_down",
         PresetSlot::DpadLeft => "dpad_left",
         PresetSlot::DpadRight => "dpad_right",
-        PresetSlot::L3 => "l3", PresetSlot::R3 => "r3",
+        PresetSlot::L3 => "l3",
+        PresetSlot::R3 => "r3",
     }
 }
 
@@ -1413,37 +1688,80 @@ mod facing_block_tests {
     #[test]
     fn markers_validate_and_save_roundtrip() {
         let source="[yoshi.neutral.test]\nstart_delay=0\nactions=if_facing_ledge, drift:saved_ledge:0.25:4, end_facing, if_back_to_ledge, walk:away_from_ledge:4:0.3, end_facing";
-        let c=Catalog::parse(source).unwrap();
-        let s=c.entries()[0].sequence;
-        let saved=persist::update(source,5,PresetSlot::Neutral,"test",s,false).unwrap();
-        assert_eq!(Catalog::parse(&saved).unwrap().entries()[0].sequence,s);
-        for actions in ["end_facing","if_facing_ledge, a","if_facing_ledge, if_back_to_ledge, a, end_facing, end_facing"] {
-            assert!(Catalog::parse(&format!("[yoshi.neutral.test]\nstart_delay=0\nactions={actions}")).is_err());
+        let c = Catalog::parse(source).unwrap();
+        let s = c.entries()[0].sequence;
+        let saved = persist::update(source, 5, PresetSlot::Neutral, "test", s, false).unwrap();
+        assert_eq!(Catalog::parse(&saved).unwrap().entries()[0].sequence, s);
+        for actions in [
+            "end_facing",
+            "if_facing_ledge, a",
+            "if_facing_ledge, if_back_to_ledge, a, end_facing, end_facing",
+        ] {
+            assert!(Catalog::parse(&format!(
+                "[yoshi.neutral.test]\nstart_delay=0\nactions={actions}"
+            ))
+            .is_err());
         }
     }
 }
 
 #[cfg(test)]
 mod generic_template_tests {
- use super::*;
- #[test]
- fn named_templates_are_inert_bounded_and_survive_organizing_and_saving() {
-  let source="[universal.settings]\nenabled=true\n[template.shield]\nname=Quick shield\nstart_delay=0\nactions=input:zr:0:0:4\n[kirby.neutral.test]\nstart_delay=0\nactions=jab:2\n";
-  let c=Catalog::parse(source).unwrap();assert_eq!(c.len(),1);assert_eq!(c.templates.len(),1);
-  assert_eq!(c.templates[0].id,"shield");assert_eq!(c.templates[0].name,"Quick shield");
-  let organized=layout::organize(source).unwrap();let again=Catalog::parse(&organized).unwrap();assert_eq!(again.templates,c.templates);
-  let updated=persist::update(source,6,PresetSlot::Neutral,"test",c.entries()[0].sequence,false).unwrap();
-  assert_eq!(Catalog::parse(&updated).unwrap().templates,c.templates);
-  for diagnostic in [false,true] {let c=c.clone().for_build(diagnostic);assert_eq!(c.templates.len(),1);c.validate(&FighterProfiles::default()).unwrap();}
- }
- #[test]
- fn templates_cannot_activate_modes_reactions_or_defaults_and_reject_duplicate_ids() {
-  for value in ["default=true","while_held=true","reaction=auto_roll:30:12","mode=auto_tech","builtin=normal"] {
-   assert!(Catalog::parse(&format!("[template.bad]\nstart_delay=0\nactions=jab\n{value}\n")).is_err(),"{value}");
-  }
-  assert!(Catalog::parse("[template.a]\nstart_delay=0\nactions=jab\n[template.a]\nstart_delay=0\nactions=grab\n").is_err());
-  assert!(Catalog::parse("[template.a.b]\nstart_delay=0\nactions=jab\n").is_err());
-  let text=(0..=MAX_TEMPLATES).map(|i|format!("[template.test_{i}]\nstart_delay=0\nactions=jab\n")).collect::<String>();
-  assert!(Catalog::parse(&text).unwrap_err().contains("generic templates"));
- }
+    use super::*;
+    #[test]
+    fn named_templates_are_inert_bounded_and_survive_organizing_and_saving() {
+        let source="[universal.settings]\nenabled=true\n[template.shield]\nname=Quick shield\nstart_delay=0\nactions=input:zr:0:0:4\n[kirby.neutral.test]\nstart_delay=0\nactions=jab:2\n";
+        let c = Catalog::parse(source).unwrap();
+        assert_eq!(c.len(), 1);
+        assert_eq!(c.templates.len(), 1);
+        assert_eq!(c.templates[0].id, "shield");
+        assert_eq!(c.templates[0].name, "Quick shield");
+        let organized = layout::organize(source).unwrap();
+        let again = Catalog::parse(&organized).unwrap();
+        assert_eq!(again.templates, c.templates);
+        let updated = persist::update(
+            source,
+            6,
+            PresetSlot::Neutral,
+            "test",
+            c.entries()[0].sequence,
+            false,
+        )
+        .unwrap();
+        assert_eq!(Catalog::parse(&updated).unwrap().templates, c.templates);
+        for diagnostic in [false, true] {
+            let c = c.clone().for_build(diagnostic);
+            assert_eq!(c.templates.len(), 1);
+            c.validate(&FighterProfiles::default()).unwrap();
+        }
+    }
+    #[test]
+    fn templates_cannot_activate_modes_reactions_or_defaults_and_reject_duplicate_ids() {
+        for value in [
+            "default=true",
+            "while_held=true",
+            "reaction=auto_roll:30:12",
+            "mode=auto_tech",
+            "builtin=normal",
+        ] {
+            assert!(
+                Catalog::parse(&format!(
+                    "[template.bad]\nstart_delay=0\nactions=jab\n{value}\n"
+                ))
+                .is_err(),
+                "{value}"
+            );
+        }
+        assert!(Catalog::parse(
+            "[template.a]\nstart_delay=0\nactions=jab\n[template.a]\nstart_delay=0\nactions=grab\n"
+        )
+        .is_err());
+        assert!(Catalog::parse("[template.a.b]\nstart_delay=0\nactions=jab\n").is_err());
+        let text = (0..=MAX_TEMPLATES)
+            .map(|i| format!("[template.test_{i}]\nstart_delay=0\nactions=jab\n"))
+            .collect::<String>();
+        assert!(Catalog::parse(&text)
+            .unwrap_err()
+            .contains("generic templates"));
+    }
 }

@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **17** (`zelda`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **17** (`zelda`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,37 +48,39 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 6–7 |
-| Down tilt | 5–11 |
-| Forward tilt | 12–13 |
-| Down smash | 5–6 |
-| Down-smash rear window | 13–14 |
-| Up Tilt | 7–19 |
-| Forward Smash | 16–16 |
-| Forward Air | 6–10 |
-| Up Air | 14–19 |
+| Neutral Air | 6/10/14/18/22 start; active 6–7 / 10–11 / 14–15 / 18–19 / 22–23; 50 total; 12 landing |
+| Forward Air | 6 start; active 6 / 7–10; 49 total; 15 landing |
+| Back Air | 6 start; active 6 / 7–10; 49 total; 16 landing |
+| Up Air | 14 start; active 14–16 / 17–19; 54 total; 12 landing |
+| Down Air | 14 start; active 14 / 15–24; 44 total; 12 landing |
+| Forward Tilt | 12 start; active 12–13; 36 total; -- landing |
+| Up Tilt | 7 start; active 7–19; 29 total; -- landing |
+| Down Tilt | 5 start; active 5–11; 21 total; -- landing |
+| Dash Attack | 6 start; active 6–7 / 8–12; 35 total; -- landing |
+| Forward Smash | 16/18/20/22/24 start; active 16 / 18 / 20 / 22 / 24; 49 total; -- landing |
+| Up Smash | 9/13/17/21/25/29/34 start; active 9–23 / 25–32 / 34; 63 total; -- landing |
+| Down Smash | 5/13 start; active 5–6 / 13–14; 37 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 10 |
-| Dash startup | 13 |
-| Pivot startup | 14 |
+| Standing grab | frames 10–11 |
+| Dash grab | frames 13–14 |
+| Pivot grab | frames 14–15 |
+| Standing reach reference | 15.3 world units |
 | Shield-grab startup | 14 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 15.3 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 85 |
 | Walk speed | 0.914 |
@@ -90,8 +92,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.16 |
 | Short-hop height | 15.24 |
 | Full-hop height | 31.55 |
-
-[Move source](https://ultimateframedata.com/zelda) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -125,7 +125,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -133,7 +133,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/zelda.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/zelda/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

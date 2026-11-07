@@ -37,28 +37,43 @@ impl Timeline {
     /// Only automatic tapes reject a pending Grab/Up-B after manual takeoff.
     /// Classify once at acquisition; the per-observation test is a bit mask.
     pub fn guard_automatic_ground_actions(&mut self) {
-        self.grounded_automatic_actions=true;
-        self.automatic_ground_steps=self.sequence.actions().iter().enumerate().fold(0,|mask,(index,a)| {
-            let guarded=match a {
-                Action::Input{buttons,stick,..} | Action::OpponentInput{buttons,stick,..}
-                | Action::Controller{buttons,stick,..} | Action::Tap{buttons,stick,..} =>
-                    buttons & crate::native_input::MAPPER_R!=0
-                    || buttons & crate::native_input::MAPPER_B!=0 && stick[1]>0.5,
-                _=>false,
-            };
-            mask | if guarded {1u32<<index}else{0}
-        });
+        self.grounded_automatic_actions = true;
+        self.automatic_ground_steps =
+            self.sequence
+                .actions()
+                .iter()
+                .enumerate()
+                .fold(0, |mask, (index, a)| {
+                    let guarded = match a {
+                        Action::Input { buttons, stick, .. }
+                        | Action::OpponentInput { buttons, stick, .. }
+                        | Action::Controller { buttons, stick, .. }
+                        | Action::Tap { buttons, stick, .. } => {
+                            buttons & crate::native_input::MAPPER_R != 0
+                                || buttons & crate::native_input::MAPPER_B != 0 && stick[1] > 0.5
+                        }
+                        _ => false,
+                    };
+                    mask | if guarded { 1u32 << index } else { 0 }
+                });
     }
     /// Auto react retains delivered holds across a short observation gap. At
     /// a crossed boundary, start the next input now with its full frame budget.
     /// Never burst unseen actions to catch up; ordinary ledge tapes stay strict.
-    pub fn allow_continuous_progress(&mut self) { self.continuous_progress = true; }
+    pub fn allow_continuous_progress(&mut self) {
+        self.continuous_progress = true;
+    }
     /// A late native receipt resumes AFTER the already delivered initial B.
     /// Keep the total timeout clock and grant the next authored step its full budget.
-    pub fn confirm_initial_up_b(&mut self,ctx:LedgeContext,enemy:Opponent) {
-        self.clock.advance_pause(ctx,Some(enemy),self.sequence.timeout);
-        self.cursor=1;self.step_start=self.clock.elapsed();self.entered=false;self.done=false;
-        self.output=LedgeOutput::default();self.right_stick=[0.;2];
+    pub fn confirm_initial_up_b(&mut self, ctx: LedgeContext, enemy: Opponent) {
+        self.clock
+            .advance_pause(ctx, Some(enemy), self.sequence.timeout);
+        self.cursor = 1;
+        self.step_start = self.clock.elapsed();
+        self.entered = false;
+        self.done = false;
+        self.output = LedgeOutput::default();
+        self.right_stick = [0.; 2];
     }
     pub fn new(sequence: Sequence, enemy: Opponent) -> Self {
         Self {
@@ -135,8 +150,13 @@ impl Timeline {
     /// Optional analog-only tail, eligible for explicit manual handback by the
     /// automatic reaction owner. Literal ledge/button playback stays unchanged.
     pub fn drifting(&self) -> bool {
-        !self.done && self.entered && self.output.requested == 0
-            && matches!(self.sequence.actions().get(usize::from(self.cursor)), Some(Action::Drift {..}))
+        !self.done
+            && self.entered
+            && self.output.requested == 0
+            && matches!(
+                self.sequence.actions().get(usize::from(self.cursor)),
+                Some(Action::Drift { .. })
+            )
     }
     /// A literal neutral A hold, while this timeline still requests that input.
     pub fn attack_hold(&self) -> bool {
@@ -149,8 +169,24 @@ impl Timeline {
                     stick,
                     frames,
                     ..
-                }) | Some(Action::OpponentInput { buttons, stick, frames }) => *buttons == crate::native_input::MAPPER_A && *stick == [0.; 2] && *frames > 1,
-                Some(Action::Controller{buttons,stick,cstick,frames,..})=>*buttons==crate::native_input::MAPPER_A && *stick==[0.;2] && *cstick==[0.;2] && *frames>1,
+                })
+                | Some(Action::OpponentInput {
+                    buttons,
+                    stick,
+                    frames,
+                }) => *buttons == crate::native_input::MAPPER_A && *stick == [0.; 2] && *frames > 1,
+                Some(Action::Controller {
+                    buttons,
+                    stick,
+                    cstick,
+                    frames,
+                    ..
+                }) => {
+                    *buttons == crate::native_input::MAPPER_A
+                        && *stick == [0.; 2]
+                        && *cstick == [0.; 2]
+                        && *frames > 1
+                }
                 Some(Action::Tap {
                     buttons,
                     stick,
@@ -195,23 +231,31 @@ impl Timeline {
         anchor: Option<[f32; 2]>,
         inward: f32,
     ) -> LedgeOutput {
-        if self.grounded_automatic_actions && (ctx.situation!=0 || ctx.status==0xa)
-            && !crate::native_states::up_special_status(settings.fighter_kind,ctx.status)
-            && self.automatic_ground_steps.checked_shr(u32::from(self.cursor)).unwrap_or(0)!=0 {
+        if self.grounded_automatic_actions
+            && (ctx.situation != 0 || ctx.status == 0xa)
+            && !crate::native_states::up_special_status(settings.fighter_kind, ctx.status)
+            && self
+                .automatic_ground_steps
+                .checked_shr(u32::from(self.cursor))
+                .unwrap_or(0)
+                != 0
+        {
             // Cancel before a preceding wait/neutral step can keep masking the
             // manual jump. Authored aerial attacks without Grab/Up-B stay literal.
             self.finish("automatic_ground_action_became_airborne");
-            self.output=LedgeOutput::default();return self.output;
+            self.output = LedgeOutput::default();
+            return self.output;
         }
-        let out=self.sample_inner(settings,ctx,enemy,anchor,inward);
+        let out = self.sample_inner(settings, ctx, enemy, anchor, inward);
         if self.grounded_automatic_actions {
-            let grab=out.requested & crate::native_input::MAPPER_R!=0;
-            let special=out.requested & crate::native_input::MAPPER_B!=0
-                && out.stick.is_some_and(|s|s[1]>0.5)
-                && !crate::native_states::up_special_status(settings.fighter_kind,ctx.status);
-            if (grab || special) && (ctx.situation!=0 || ctx.status==0xa) {
+            let grab = out.requested & crate::native_input::MAPPER_R != 0;
+            let special = out.requested & crate::native_input::MAPPER_B != 0
+                && out.stick.is_some_and(|s| s[1] > 0.5)
+                && !crate::native_states::up_special_status(settings.fighter_kind, ctx.status);
+            if (grab || special) && (ctx.situation != 0 || ctx.status == 0xa) {
                 self.finish("automatic_ground_action_became_airborne");
-                self.output=LedgeOutput::default();return self.output;
+                self.output = LedgeOutput::default();
+                return self.output;
             }
         }
 
@@ -219,9 +263,11 @@ impl Timeline {
         // in the same packet. Apply this only to the returned output: cached
         // literal controls must not retain an injected guard after a status
         // change/takeoff on a duplicate clock sample. No retry or extra frame.
-        if ctx.situation==0 {
-            crate::out_of_shield::direct_shield_input(ctx.status,out,self.right_stick)
-        } else {out}
+        if ctx.situation == 0 {
+            crate::out_of_shield::direct_shield_input(ctx.status, out, self.right_stick)
+        } else {
+            out
+        }
     }
     fn sample_inner(
         &mut self,
@@ -235,7 +281,7 @@ impl Timeline {
         // jump squat, air states, shield and special phases do not gate inputs.
         if crate::action_owner::native_grab_active(ctx.status) {
             self.finish("native_grab_handoff");
-            self.output=LedgeOutput::default();
+            self.output = LedgeOutput::default();
             return self.output;
         }
         if crate::native_states::fighter_sequence_interrupted(settings.fighter_kind, ctx.status) {
@@ -251,13 +297,22 @@ impl Timeline {
         // Ordinary physical input is masked throughout the tape, not treated
         // as cancellation. Only explicit until-manual holds hand back on intent.
         if self.sequence.ground_only && ctx.situation != 0 {
-            self.finish("ground_only_airborne");self.output=LedgeOutput::default();return self.output;
+            self.finish("ground_only_airborne");
+            self.output = LedgeOutput::default();
+            return self.output;
         }
         // This explicit hold has no elapsed-frame deadline once entered. It
         // never injects an airborne dodge and fresh physical input ends the tape.
-        if self.entered && matches!(self.sequence.actions().get(self.cursor as usize), Some(Action::ShieldUntilManual | Action::Input { frames: 0, .. })) {
-            let shield = matches!(self.sequence.actions().get(self.cursor as usize), Some(Action::ShieldUntilManual))
-                || self.output.requested & crate::native_input::MAPPER_ZR != 0;
+        if self.entered
+            && matches!(
+                self.sequence.actions().get(self.cursor as usize),
+                Some(Action::ShieldUntilManual | Action::Input { frames: 0, .. })
+            )
+        {
+            let shield = matches!(
+                self.sequence.actions().get(self.cursor as usize),
+                Some(Action::ShieldUntilManual)
+            ) || self.output.requested & crate::native_input::MAPPER_ZR != 0;
             if shield && ctx.situation != 0 || ctx.manual_input_epoch != self.manual_epoch {
                 self.finish("manual_takeover_or_airborne");
                 self.output = LedgeOutput::default(); // Physical input owns this very sample.
@@ -285,17 +340,26 @@ impl Timeline {
                 Some(Action::Input { buttons, frames, .. } | Action::OpponentInput { buttons, frames, .. } | Action::Controller {buttons,frames,..})
                     if *buttons != 0 && now < self.step_start + f32::from(*frames)
             );
-        let inside_continuous = self.continuous_progress && self.entered
+        let inside_continuous = self.continuous_progress
+            && self.entered
             && matches!(self.sequence.actions().get(usize::from(self.cursor)),
                 Some(Action::Drift { frames, .. } | Action::Wait(frames))
                 if now < self.step_start + f32::from(*frames));
-        let resume_boundary = self.continuous_progress && self.entered && !self.clock.expired
+        let resume_boundary = self.continuous_progress
+            && self.entered
+            && !self.clock.expired
             && now - before > 1.25
             && match self.sequence.actions().get(usize::from(self.cursor)) {
-                Some(Action::Input {frames,..} | Action::OpponentInput {frames,..}
-                    | Action::Controller {frames,..} | Action::Drift {frames,..} | Action::Wait(frames))
-                    if *frames > 0 && before < self.step_start + f32::from(*frames)
-                        && now >= self.step_start + f32::from(*frames) => {
+                Some(
+                    Action::Input { frames, .. }
+                    | Action::OpponentInput { frames, .. }
+                    | Action::Controller { frames, .. }
+                    | Action::Drift { frames, .. }
+                    | Action::Wait(frames),
+                ) if *frames > 0
+                    && before < self.step_start + f32::from(*frames)
+                    && now >= self.step_start + f32::from(*frames) =>
+                {
                     // The previous hold was already delivered. End it on this
                     // observation, rather than spending/skipping the next tap.
                     self.step_start = now - f32::from(*frames);
@@ -306,13 +370,29 @@ impl Timeline {
         // Auto react's neutral shield-release wait has already been delivered.
         // A short observation gap cannot skip an action here: its configured
         // duration starts only after guard-off ends. Keep strict ledge timing.
-        let waiting_handoff=self.continuous_progress&&self.shield_handoff;
+        let waiting_handoff = self.continuous_progress && self.shield_handoff;
         // Waiting predicates have no scheduled input boundary to miss. Evaluate
         // current native facts after a short gap; a successful check starts the
         // next action NOW, with its entire configured duration intact.
-        let waiting_predicate=self.entered && matches!(self.sequence.actions().get(usize::from(self.cursor)),
-            Some(Action::Face(_)|Action::Range(_)|Action::Check{..}|Action::ShieldUntilBlock(_)|Action::LedgePosition{..}));
-        if self.clock.expired || now - before > 1.25 && !(inside_hold || inside_continuous || resume_boundary || waiting_handoff || waiting_predicate) {
+        let waiting_predicate = self.entered
+            && matches!(
+                self.sequence.actions().get(usize::from(self.cursor)),
+                Some(
+                    Action::Face(_)
+                        | Action::Range(_)
+                        | Action::Check { .. }
+                        | Action::ShieldUntilBlock(_)
+                        | Action::LedgePosition { .. }
+                )
+            );
+        if self.clock.expired
+            || now - before > 1.25
+                && !(inside_hold
+                    || inside_continuous
+                    || resume_boundary
+                    || waiting_handoff
+                    || waiting_predicate)
+        {
             return self.finish(if self.clock.expired {
                 "clock_invalid_or_timeout"
             } else {
@@ -343,7 +423,7 @@ impl Timeline {
                     | Action::Approach { .. }
                     | Action::Drift { .. }
                     | Action::Range(_)
-                    | Action::LedgePosition {..}
+                    | Action::LedgePosition { .. }
                     | Action::ShieldUntilBlock(_)
                     | Action::Check { .. }
             )
@@ -385,23 +465,52 @@ impl Timeline {
                 }
                 return self.finish("completed");
             };
-            if let Action::LedgePosition {offset,strength,tolerance,brake,frames}=action {
-                if ctx.situation!=0 {return self.finish("ledge_position_requires_ground");}
-                if !self.entered && (!(0. ..=200.).contains(&offset) || !(0.3..=1.).contains(&strength)
-                    || !(0. ..=20.).contains(&tolerance) || !(0. ..=100.).contains(&brake) || !(1..=3600).contains(&frames)) {
+            if let Action::LedgePosition {
+                offset,
+                strength,
+                tolerance,
+                brake,
+                frames,
+            } = action
+            {
+                if ctx.situation != 0 {
+                    return self.finish("ledge_position_requires_ground");
+                }
+                if !self.entered
+                    && (!(0. ..=200.).contains(&offset)
+                        || !(0.3..=1.).contains(&strength)
+                        || !(0. ..=20.).contains(&tolerance)
+                        || !(0. ..=100.).contains(&brake)
+                        || !(1..=3600).contains(&frames))
+                {
                     return self.finish("invalid_ledge_position");
                 }
             }
-            if matches!(action,
-                Action::LedgePosition {..} | Action::Face(Direction::SavedLedge | Direction::AwayFromLedge)
-                | Action::Walk { direction: Direction::SavedLedge | Direction::AwayFromLedge, .. }
-                | Action::Run { direction: Direction::SavedLedge | Direction::AwayFromLedge, .. }
-                | Action::Drift { direction: Direction::SavedLedge | Direction::AwayFromLedge, .. }
-            ) && anchor.filter(|p| p.iter().all(|v| v.is_finite())).is_none() {
+            if matches!(
+                action,
+                Action::LedgePosition { .. }
+                    | Action::Face(Direction::SavedLedge | Direction::AwayFromLedge)
+                    | Action::Walk {
+                        direction: Direction::SavedLedge | Direction::AwayFromLedge,
+                        ..
+                    }
+                    | Action::Run {
+                        direction: Direction::SavedLedge | Direction::AwayFromLedge,
+                        ..
+                    }
+                    | Action::Drift {
+                        direction: Direction::SavedLedge | Direction::AwayFromLedge,
+                        ..
+                    }
+            ) && anchor.filter(|p| p.iter().all(|v| v.is_finite())).is_none()
+            {
                 return self.finish("saved_ledge_unavailable");
             }
-            if !self.entered && matches!(action,Action::Chase{gap,..} if (self.enemy.position[0]-ctx.position[0]).abs()<=gap) {
-                self.next(now);continue; // Near branch must preserve direct Up-B out of shield.
+            if !self.entered
+                && matches!(action,Action::Chase{gap,..} if (self.enemy.position[0]-ctx.position[0]).abs()<=gap)
+            {
+                self.next(now);
+                continue; // Near branch must preserve direct Up-B out of shield.
             }
             // Satisfied spatial checks do not perform an input. Resolve them
             // before shield handoff so a no-op cannot pay shield-drop recovery.
@@ -411,13 +520,22 @@ impl Timeline {
                         let desired = direction(d, ctx, self.enemy, anchor, inward);
                         desired == 0. || ctx.facing * desired > 0.5
                     }
-                    Action::LedgePosition {offset,tolerance,brake,..} =>
-                        ledge_goal(ctx,anchor,inward,offset).is_some_and(|goal|ledge_arrived(ctx,goal,tolerance,brake)),
-                    Action::Approach { gap, .. } =>
-                        (self.enemy.position[0] - ctx.position[0]).abs() <= gap,
+                    Action::LedgePosition {
+                        offset,
+                        tolerance,
+                        brake,
+                        ..
+                    } => ledge_goal(ctx, anchor, inward, offset)
+                        .is_some_and(|goal| ledge_arrived(ctx, goal, tolerance, brake)),
+                    Action::Approach { gap, .. } => {
+                        (self.enemy.position[0] - ctx.position[0]).abs() <= gap
+                    }
                     _ => false,
                 };
-                if satisfied { self.next(now); continue; }
+                if satisfied {
+                    self.next(now);
+                    continue;
+                }
             }
             // Drop shield with neutral controls before ordinary attacks/movement.
             // The action's own duration starts only after native guard-off ends.
@@ -435,20 +553,41 @@ impl Timeline {
                 self.entered = true;
                 self.manual_epoch = ctx.manual_input_epoch;
                 self.origin = ctx.position[0];
-                if let Action::LedgePosition {offset,..}=action {
-                    let Some(goal)=ledge_goal(ctx,anchor,inward,offset) else{return self.finish("ledge_position_unavailable");};
-                    self.origin=goal;
+                if let Action::LedgePosition { offset, .. } = action {
+                    let Some(goal) = ledge_goal(ctx, anchor, inward, offset) else {
+                        return self.finish("ledge_position_unavailable");
+                    };
+                    self.origin = goal;
                 }
 
-                if let Action::Chase{gap,..}=action {self.origin=if (self.enemy.position[0]-ctx.position[0]).abs()>gap {1.}else{0.};}
+                if let Action::Chase { gap, .. } = action {
+                    self.origin = if (self.enemy.position[0] - ctx.position[0]).abs() > gap {
+                        1.
+                    } else {
+                        0.
+                    };
+                }
 
                 self.direction = match action {
-                    Action::Controller{reference,cstick_reference,..}=>{
-                        let axis=|r|match r {crate::sequence_config::InputReference::Screen=>1.,crate::sequence_config::InputReference::Facing=>ctx.facing.signum(),crate::sequence_config::InputReference::Opponent=>direction(Direction::Opponent,ctx,self.enemy,anchor,inward)};
-                        self.cstick_direction=axis(cstick_reference);axis(reference)
+                    Action::Controller {
+                        reference,
+                        cstick_reference,
+                        ..
+                    } => {
+                        let axis = |r| match r {
+                            crate::sequence_config::InputReference::Screen => 1.,
+                            crate::sequence_config::InputReference::Facing => ctx.facing.signum(),
+                            crate::sequence_config::InputReference::Opponent => {
+                                direction(Direction::Opponent, ctx, self.enemy, anchor, inward)
+                            }
+                        };
+                        self.cstick_direction = axis(cstick_reference);
+                        axis(reference)
                     }
 
-                    Action::OpponentInput { .. } => direction(Direction::Opponent, ctx, self.enemy, anchor, inward),
+                    Action::OpponentInput { .. } => {
+                        direction(Direction::Opponent, ctx, self.enemy, anchor, inward)
+                    }
                     Action::Input { relative: true, .. } | Action::Tap { .. } => {
                         ctx.facing.signum()
                     }
@@ -468,27 +607,53 @@ impl Timeline {
                 };
             }
             let elapsed = now - self.step_start;
-            let relative = matches!(action, Action::Input { relative: true, .. } | Action::OpponentInput { .. });
+            let relative = matches!(
+                action,
+                Action::Input { relative: true, .. } | Action::OpponentInput { .. }
+            );
             match action {
-                Action::IfFacingLedge {away} | Action::IfFacingOpponent {away} => {
-                    let jump=self.facing_jumps[usize::from(self.cursor)];
-                    if jump==u8::MAX {return self.finish("invalid_facing_block");}
-                    let toward=if matches!(action,Action::IfFacingOpponent{..}) {
-                        let Some(enemy)=fresh_enemy else{return self.finish("facing_opponent_unavailable");};
-                        let dot=(enemy.position[0]-ctx.position[0])*ctx.facing;
-                        if !dot.is_finite() || !ctx.facing.is_finite() || ctx.facing.abs()<0.5 || dot.abs()<=0.001 {
+                Action::IfFacingLedge { away } | Action::IfFacingOpponent { away } => {
+                    let jump = self.facing_jumps[usize::from(self.cursor)];
+                    if jump == u8::MAX {
+                        return self.finish("invalid_facing_block");
+                    }
+                    let toward = if matches!(action, Action::IfFacingOpponent { .. }) {
+                        let Some(enemy) = fresh_enemy else {
+                            return self.finish("facing_opponent_unavailable");
+                        };
+                        let dot = (enemy.position[0] - ctx.position[0]) * ctx.facing;
+                        if !dot.is_finite()
+                            || !ctx.facing.is_finite()
+                            || ctx.facing.abs() < 0.5
+                            || dot.abs() <= 0.001
+                        {
                             return self.finish("facing_opponent_unavailable");
                         }
-                        dot>0.
+                        dot > 0.
                     } else {
-                        let Some(toward)=self.ledge_facing else{return self.finish("saved_ledge_facing_unavailable");};toward
+                        let Some(toward) = self.ledge_facing else {
+                            return self.finish("saved_ledge_facing_unavailable");
+                        };
+                        toward
                     };
-                    if toward!=away {self.next(now);} else {self.cursor=jump;self.step_start=now;self.entered=false;self.blocked=false;}
+                    if toward != away {
+                        self.next(now);
+                    } else {
+                        self.cursor = jump;
+                        self.step_start = now;
+                        self.entered = false;
+                        self.blocked = false;
+                    }
                 }
                 Action::ElseFacing => {
-                    let jump=self.facing_jumps[usize::from(self.cursor)];
-                    if jump==u8::MAX {return self.finish("invalid_facing_block");}
-                    self.cursor=jump;self.step_start=now;self.entered=false;self.blocked=false;
+                    let jump = self.facing_jumps[usize::from(self.cursor)];
+                    if jump == u8::MAX {
+                        return self.finish("invalid_facing_block");
+                    }
+                    self.cursor = jump;
+                    self.step_start = now;
+                    self.entered = false;
+                    self.blocked = false;
                 }
                 Action::EndFacing => self.next(now),
                 Action::Empty => self.next(now),
@@ -533,16 +698,30 @@ impl Timeline {
                     mut stick,
                     frames,
                     ..
-                } | Action::OpponentInput { buttons, mut stick, frames } => {
-                    if matches!(action, Action::OpponentInput { .. }) && (fresh_enemy.is_none() || frames == 0) {
+                }
+                | Action::OpponentInput {
+                    buttons,
+                    mut stick,
+                    frames,
+                } => {
+                    if matches!(action, Action::OpponentInput { .. })
+                        && (fresh_enemy.is_none() || frames == 0)
+                    {
                         return self.finish("opponent_input_target_unavailable");
                     }
                     if frames == 0 {
-                        if buttons == 0 || buttons & crate::native_input::MAPPER_ZR != 0 && ctx.situation != 0 {
-                            self.finish("invalid_manual_hold_scope"); self.output=LedgeOutput::default(); return self.output;
+                        if buttons == 0
+                            || buttons & crate::native_input::MAPPER_ZR != 0 && ctx.situation != 0
+                        {
+                            self.finish("invalid_manual_hold_scope");
+                            self.output = LedgeOutput::default();
+                            return self.output;
                         }
-                        if relative { stick[0] *= self.direction; }
-                        self.output = shield_grab_input(ctx.status, controls(stick, buttons), [0.;2]);
+                        if relative {
+                            stick[0] *= self.direction;
+                        }
+                        self.output =
+                            shield_grab_input(ctx.status, controls(stick, buttons), [0.; 2]);
                         return self.output;
                     }
                     if elapsed >= f32::from(frames) {
@@ -552,7 +731,7 @@ impl Timeline {
                     if relative {
                         stick[0] *= self.direction;
                     }
-                    self.output = shield_grab_input(ctx.status, controls(stick, buttons), [0.;2]);
+                    self.output = shield_grab_input(ctx.status, controls(stick, buttons), [0.; 2]);
                     return self.output;
                 }
                 Action::Tap {
@@ -569,20 +748,46 @@ impl Timeline {
                     let phase = elapsed.floor() as u16 % (u16::from(hold) + u16::from(gap));
                     self.output = if phase < u16::from(hold) {
                         stick[0] *= self.direction;
-                        shield_grab_input(ctx.status, controls(stick, buttons), [0.;2])
+                        shield_grab_input(ctx.status, controls(stick, buttons), [0.; 2])
                     } else {
                         controls([0.; 2], 0)
                     };
                     return self.output;
                 }
-                Action::Controller{buttons,mut stick,mut cstick,frames,reference,cstick_reference}=>{
-                    if matches!(reference,crate::sequence_config::InputReference::Opponent) || matches!(cstick_reference,crate::sequence_config::InputReference::Opponent) {
-                        if fresh_enemy.is_none(){return self.finish("controller_target_unavailable");}
+                Action::Controller {
+                    buttons,
+                    mut stick,
+                    mut cstick,
+                    frames,
+                    reference,
+                    cstick_reference,
+                } => {
+                    if matches!(reference, crate::sequence_config::InputReference::Opponent)
+                        || matches!(
+                            cstick_reference,
+                            crate::sequence_config::InputReference::Opponent
+                        )
+                    {
+                        if fresh_enemy.is_none() {
+                            return self.finish("controller_target_unavailable");
+                        }
                     }
-                    if frames==0{return self.finish("invalid_controller_duration");}
-                    if elapsed>=f32::from(frames){self.next(self.step_start+f32::from(frames));continue;}
-                    stick[0]*=self.direction;cstick[0]*=self.cstick_direction;
-                    self.right_stick=cstick;self.output=shield_grab_input(ctx.status,controls(stick,buttons|cstick_buttons(cstick)),cstick);return self.output;
+                    if frames == 0 {
+                        return self.finish("invalid_controller_duration");
+                    }
+                    if elapsed >= f32::from(frames) {
+                        self.next(self.step_start + f32::from(frames));
+                        continue;
+                    }
+                    stick[0] *= self.direction;
+                    cstick[0] *= self.cstick_direction;
+                    self.right_stick = cstick;
+                    self.output = shield_grab_input(
+                        ctx.status,
+                        controls(stick, buttons | cstick_buttons(cstick)),
+                        cstick,
+                    );
+                    return self.output;
                 }
                 Action::CStick { stick, frames } => {
                     if elapsed >= f32::from(frames) {
@@ -590,7 +795,7 @@ impl Timeline {
                         continue;
                     }
                     self.right_stick = stick;
-                    let buttons=cstick_buttons(stick);
+                    let buttons = cstick_buttons(stick);
                     self.output = controls([0.0; 2], buttons);
                     return self.output;
                 }
@@ -628,8 +833,14 @@ impl Timeline {
                     // Opponent/ledge references remain absolute targets. A
                     // crossing while native recovery prevents turning must not
                     // leave Face waiting for the opponent's old direction.
-                    if matches!(d, Direction::Opponent | Direction::AwayFromOpponent
-                        | Direction::Ledge | Direction::SavedLedge | Direction::AwayFromLedge) {
+                    if matches!(
+                        d,
+                        Direction::Opponent
+                            | Direction::AwayFromOpponent
+                            | Direction::Ledge
+                            | Direction::SavedLedge
+                            | Direction::AwayFromLedge
+                    ) {
                         self.direction = direction(d, ctx, self.enemy, anchor, inward);
                     }
                     if self.direction == 0.0 || ctx.facing * self.direction > 0.5 {
@@ -676,21 +887,45 @@ impl Timeline {
                     self.output = controls([self.direction * strength, 0.0], 0);
                     return self.output;
                 }
-                Action::LedgePosition {strength,tolerance,brake,frames,..} => {
-                    let dx=self.origin-ctx.position[0];
-                    if !dx.is_finite() || !ctx.velocity[0].is_finite() {return self.finish("ledge_position_unavailable");}
-                    if ledge_arrived(ctx,self.origin,tolerance,brake) {self.next(now);continue;}
-                    let dir=dx.signum();
-                    if ctx.situation!=0 || !ctx.safe_ground[usize::from(dir>0.)] || elapsed>=f32::from(frames) {
+                Action::LedgePosition {
+                    strength,
+                    tolerance,
+                    brake,
+                    frames,
+                    ..
+                } => {
+                    let dx = self.origin - ctx.position[0];
+                    if !dx.is_finite() || !ctx.velocity[0].is_finite() {
+                        return self.finish("ledge_position_unavailable");
+                    }
+                    if ledge_arrived(ctx, self.origin, tolerance, brake) {
+                        self.next(now);
+                        continue;
+                    }
+                    let dir = dx.signum();
+                    if ctx.situation != 0
+                        || !ctx.safe_ground[usize::from(dir > 0.)]
+                        || elapsed >= f32::from(frames)
+                    {
                         return self.finish("ledge_position_timeout_or_unsafe_ground");
                     }
-                    let speed=(ctx.velocity[0]*dir).max(0.);
-                    let stopping=ctx.ground_brake.filter(|b|b.is_finite()&&*b>0.)
-                        .map_or(0.,|b|speed*speed/(2.*b));
-                    let input=if brake>0. && (dx.abs()<=tolerance || speed>0. && dx.abs()<=stopping+speed+tolerance) {0.}
-                        else if brake>0. && dx.abs()<brake {(strength*dx.abs()/brake).clamp(0.3,strength)}
-                        else {strength};
-                    self.output=controls([dir*input,0.],0);return self.output;
+                    let speed = (ctx.velocity[0] * dir).max(0.);
+                    let stopping = ctx
+                        .ground_brake
+                        .filter(|b| b.is_finite() && *b > 0.)
+                        .map_or(0., |b| speed * speed / (2. * b));
+                    let input = if brake > 0.
+                        && (dx.abs() <= tolerance
+                            || speed > 0. && dx.abs() <= stopping + speed + tolerance)
+                    {
+                        0.
+                    } else if brake > 0. && dx.abs() < brake {
+                        (strength * dx.abs() / brake).clamp(0.3, strength)
+                    } else {
+                        strength
+                    };
+                    self.output = controls([dir * input, 0.], 0);
+                    return self.output;
                 }
                 Action::Run { units, .. } => {
                     if self.direction == 0.0
@@ -708,12 +943,23 @@ impl Timeline {
                     self.output = controls([self.direction, 0.0], 0);
                     return self.output;
                 }
-                Action::Chase{strength,frames,..}=>{
-                    if self.origin==0. {self.next(now);continue;}
-                    if elapsed>=f32::from(frames){self.next(self.step_start+f32::from(frames));continue;}
-                    let dx=self.enemy.position[0]-ctx.position[0];
-                    if ctx.situation!=0 || !ctx.safe_ground[usize::from(dx>0.)]{return self.finish("unsafe_chase");}
-                    self.output=controls([dx.signum()*strength,0.],0);return self.output;
+                Action::Chase {
+                    strength, frames, ..
+                } => {
+                    if self.origin == 0. {
+                        self.next(now);
+                        continue;
+                    }
+                    if elapsed >= f32::from(frames) {
+                        self.next(self.step_start + f32::from(frames));
+                        continue;
+                    }
+                    let dx = self.enemy.position[0] - ctx.position[0];
+                    if ctx.situation != 0 || !ctx.safe_ground[usize::from(dx > 0.)] {
+                        return self.finish("unsafe_chase");
+                    }
+                    self.output = controls([dx.signum() * strength, 0.], 0);
+                    return self.output;
                 }
                 Action::Approach {
                     airborne,
@@ -744,7 +990,13 @@ impl Timeline {
                     let max = match range {
                         RangeCheck::Ignore => f32::MAX,
                         RangeCheck::Verify(value) => value,
-                        RangeCheck::FighterGrabRange | RangeCheck::FighterGrabRangeInstant => settings.fighter.grab.standing_range,
+                        RangeCheck::FighterGrabRange | RangeCheck::FighterGrabRangeInstant => {
+                            let reach = settings.fighter.grab.standing_range;
+                            if !reach.is_finite() || reach <= 0.0 {
+                                return self.finish("range_check_failed");
+                            }
+                            reach
+                        }
                     };
                     // Immediate checks require this observation's target. Waiting
                     // ledge checks retain their existing last-position behavior.
@@ -756,10 +1008,18 @@ impl Timeline {
                         continue;
                     }
                     if range == RangeCheck::FighterGrabRangeInstant
-                        || elapsed >= f32::from(self.sequence.spatial_timeout) {
+                        || elapsed >= f32::from(self.sequence.spatial_timeout)
+                    {
                         return self.finish("range_check_failed");
                     }
-                    self.output = controls([0.0; 2], if matches!(ctx.status,0x1b|0x1c|0x1e) {crate::native_input::MAPPER_ZR}else{0});
+                    self.output = controls(
+                        [0.0; 2],
+                        if matches!(ctx.status, 0x1b | 0x1c | 0x1e) {
+                            crate::native_input::MAPPER_ZR
+                        } else {
+                            0
+                        },
+                    );
                     return self.output;
                 }
             }
@@ -769,35 +1029,81 @@ impl Timeline {
 }
 // Compile flat branch destinations once. Executing a condition is one bounded
 // lookup; no per-frame scan, allocation or synthetic input frame is needed.
-fn facing_jumps(actions:&[Action])->[u8;crate::sequence_config::MAX_ACTIONS] {
-    let mut jumps=[u8::MAX;crate::sequence_config::MAX_ACTIONS];let mut open=None;let mut other=None;
-    for (i,a) in actions.iter().enumerate() {match a {
-        Action::IfFacingLedge{..}|Action::IfFacingOpponent{..}=>{open=Some(i);other=None;}
-        Action::ElseFacing=>{if let Some(start)=open {jumps[start]=(i+1)as u8;other=Some(i);}}
-        Action::EndFacing=>{if let Some(start)=open.take() {
-            if let Some(other)=other.take(){jumps[other]=(i+1)as u8;}else{jumps[start]=(i+1)as u8;}
-        }}
-        _=>{}
-    }}jumps
+fn facing_jumps(actions: &[Action]) -> [u8; crate::sequence_config::MAX_ACTIONS] {
+    let mut jumps = [u8::MAX; crate::sequence_config::MAX_ACTIONS];
+    let mut open = None;
+    let mut other = None;
+    for (i, a) in actions.iter().enumerate() {
+        match a {
+            Action::IfFacingLedge { .. } | Action::IfFacingOpponent { .. } => {
+                open = Some(i);
+                other = None;
+            }
+            Action::ElseFacing => {
+                if let Some(start) = open {
+                    jumps[start] = (i + 1) as u8;
+                    other = Some(i);
+                }
+            }
+            Action::EndFacing => {
+                if let Some(start) = open.take() {
+                    if let Some(other) = other.take() {
+                        jumps[other] = (i + 1) as u8;
+                    } else {
+                        jumps[start] = (i + 1) as u8;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    jumps
 }
-fn ledge_arrived(ctx:LedgeContext,goal:f32,tolerance:f32,brake:f32)->bool {
-    if (ctx.position[0]-goal).abs()>tolerance || !ctx.velocity[0].is_finite() {return false;}
-    brake==0. || ctx.velocity[0]==0. || ctx.ground_brake.filter(|b|b.is_finite()&&*b>0.)
-        .is_some_and(|b|(ctx.position[0]+ctx.velocity[0]*ctx.velocity[0].abs()/(2.*b)-goal).abs()<=tolerance)
+fn ledge_arrived(ctx: LedgeContext, goal: f32, tolerance: f32, brake: f32) -> bool {
+    if (ctx.position[0] - goal).abs() > tolerance || !ctx.velocity[0].is_finite() {
+        return false;
+    }
+    brake == 0.
+        || ctx.velocity[0] == 0.
+        || ctx
+            .ground_brake
+            .filter(|b| b.is_finite() && *b > 0.)
+            .is_some_and(|b| {
+                (ctx.position[0] + ctx.velocity[0] * ctx.velocity[0].abs() / (2. * b) - goal).abs()
+                    <= tolerance
+            })
 }
-fn ledge_goal(ctx:LedgeContext,anchor:Option<[f32;2]>,inward:f32,offset:f32)->Option<f32> {
-    let anchor=anchor.filter(|p|p.iter().all(|v|v.is_finite()))?;
-    if !ctx.position[0].is_finite() || !inward.is_finite() || !offset.is_finite() {return None;}
-    if offset==0. {return Some(anchor[0]);}
-    let side=if inward.abs()>=0.5 {inward.signum()}else{
-        let dx=ctx.position[0]-anchor[0];if dx.abs()<=0.001{return None;}dx.signum()
+fn ledge_goal(
+    ctx: LedgeContext,
+    anchor: Option<[f32; 2]>,
+    inward: f32,
+    offset: f32,
+) -> Option<f32> {
+    let anchor = anchor.filter(|p| p.iter().all(|v| v.is_finite()))?;
+    if !ctx.position[0].is_finite() || !inward.is_finite() || !offset.is_finite() {
+        return None;
+    }
+    if offset == 0. {
+        return Some(anchor[0]);
+    }
+    let side = if inward.abs() >= 0.5 {
+        inward.signum()
+    } else {
+        let dx = ctx.position[0] - anchor[0];
+        if dx.abs() <= 0.001 {
+            return None;
+        }
+        dx.signum()
     };
-    let goal=anchor[0]+side*offset;goal.is_finite().then_some(goal)
+    let goal = anchor[0] + side * offset;
+    goal.is_finite().then_some(goal)
 }
-fn shield_grab_input(status:i32,out:LedgeOutput,right:[f32;2])->LedgeOutput {
-    if out.requested & crate::native_input::MAPPER_R!=0 {
-        crate::out_of_shield::direct_shield_input(status,out,right)
-    } else {out}
+fn shield_grab_input(status: i32, out: LedgeOutput, right: [f32; 2]) -> LedgeOutput {
+    if out.requested & crate::native_input::MAPPER_R != 0 {
+        crate::out_of_shield::direct_shield_input(status, out, right)
+    } else {
+        out
+    }
 }
 fn condition_met(
     condition: Condition,
@@ -830,19 +1136,38 @@ fn condition_met(
 // Native statuses: guard-on, guard, guard-off, guard-damage. No new queries.
 fn shield_handoff_needed(action: Action, status: i32, situation: i32) -> bool {
     use crate::native_input::*;
-    if situation != 0 || !matches!(status, 0x1b..=0x1e) { return false; }
+    if situation != 0 || !matches!(status, 0x1b..=0x1e) {
+        return false;
+    }
     let (buttons, stick, cstick) = match action {
-        Action::Input {buttons,stick,..} | Action::OpponentInput {buttons,stick,..}
-            | Action::Tap {buttons,stick,..} => (buttons,stick,[0.;2]),
-        Action::Controller {buttons,stick,cstick,..} => (buttons,stick,cstick),
-        Action::CStick {stick,..} => (0,[0.;2],stick),
-        Action::Face(_) | Action::Walk {..} | Action::Run {..} | Action::LedgePosition {..}
-            | Action::Drift {..} | Action::Chase {..} | Action::Approach {..} => return true,
+        Action::Input { buttons, stick, .. }
+        | Action::OpponentInput { buttons, stick, .. }
+        | Action::Tap { buttons, stick, .. } => (buttons, stick, [0.; 2]),
+        Action::Controller {
+            buttons,
+            stick,
+            cstick,
+            ..
+        } => (buttons, stick, cstick),
+        Action::CStick { stick, .. } => (0, [0.; 2], stick),
+        Action::Face(_)
+        | Action::Walk { .. }
+        | Action::Run { .. }
+        | Action::LedgePosition { .. }
+        | Action::Drift { .. }
+        | Action::Chase { .. }
+        | Action::Approach { .. } => return true,
         _ => return false, // Checks/waits and explicit shield actions keep their semantics.
     };
-    if buttons & SEQUENCE_GUARD_BUTTONS != 0 { return false; }
-    if buttons == 0 && stick == [0.;2] && cstick == [0.;2] { return false; }
-    if matches!(status,0x1d|0x1e) { return true; }
+    if buttons & SEQUENCE_GUARD_BUTTONS != 0 {
+        return false;
+    }
+    if buttons == 0 && stick == [0.; 2] && cstick == [0.; 2] {
+        return false;
+    }
+    if matches!(status, 0x1d | 0x1e) {
+        return true;
+    }
     // Direct OOS grab, jump, Up-B and up-smash inputs do not pay shield drop.
     let direct = buttons & MAPPER_R != 0 && stick[1] >= 0.
         || buttons & SEQUENCE_JUMP_BUTTONS != 0 && stick[1] >= 0.
@@ -851,10 +1176,21 @@ fn shield_handoff_needed(action: Action, status: i32, situation: i32) -> bool {
         || cstick[1] > 0.5;
     !direct
 }
-fn cstick_buttons(stick:[f32;2])->u32 {
+fn cstick_buttons(stick: [f32; 2]) -> u32 {
     use crate::native_input::*;
-    (if stick[0]>0. {MAPPER_RIGHT_STICK_RIGHT}else if stick[0]<0. {MAPPER_RIGHT_STICK_LEFT}else{0})
-        |(if stick[1]>0. {MAPPER_RIGHT_STICK_UP}else if stick[1]<0. {MAPPER_RIGHT_STICK_DOWN}else{0})
+    (if stick[0] > 0. {
+        MAPPER_RIGHT_STICK_RIGHT
+    } else if stick[0] < 0. {
+        MAPPER_RIGHT_STICK_LEFT
+    } else {
+        0
+    }) | (if stick[1] > 0. {
+        MAPPER_RIGHT_STICK_UP
+    } else if stick[1] < 0. {
+        MAPPER_RIGHT_STICK_DOWN
+    } else {
+        0
+    })
 }
 fn controls(stick: [f32; 2], requested: u32) -> LedgeOutput {
     LedgeOutput {
@@ -868,7 +1204,11 @@ fn controls(stick: [f32; 2], requested: u32) -> LedgeOutput {
 fn facing_saved_ledge(ctx: LedgeContext, anchor: Option<[f32; 2]>) -> Option<bool> {
     let anchor = anchor.filter(|p| p.iter().all(|v| v.is_finite()))?;
     let dot = (anchor[0] - ctx.position[0]) * ctx.facing;
-    if !dot.is_finite() || dot.abs() <= 0.001 {None} else {Some(dot > 0.0)}
+    if !dot.is_finite() || dot.abs() <= 0.001 {
+        None
+    } else {
+        Some(dot > 0.0)
+    }
 }
 
 fn direction(
@@ -1150,7 +1490,7 @@ mod tests {
     #[test]
     fn fighter_range_uses_the_selected_fighter_profile() {
         let profiles = crate::fighter_profiles::FighterProfiles::default();
-        for (kind, inside, outside) in [(5, 20.0, 27.0), (6, 10.0, 13.0)] {
+        for (kind, inside, outside) in [(6, 10.0, 13.0)] {
             let mut settings = LedgeSettings::default();
             settings.fighter = profiles.profile(kind).unwrap().ledge;
             for (distance, expected) in [(inside, MAPPER_R), (outside, 0)] {
@@ -1181,38 +1521,96 @@ mod tests {
     #[test]
     fn instant_grab_range_passes_now_or_cancels_without_a_late_grab() {
         let profiles = crate::fighter_profiles::FighterProfiles::default();
-        for kind in [5, 6] {
+        for kind in [6] {
             let mut settings = LedgeSettings::default();
             settings.fighter = profiles.profile(kind).unwrap().ledge;
             let reach = settings.fighter.grab.standing_range;
-            for actions in ["range:fighter_range_instant,grab", "grab:fighter_range_instant"] {
+            for actions in [
+                "range:fighter_range_instant,grab",
+                "grab:fighter_range_instant",
+            ] {
                 for distance in [reach, reach + 1.] {
-                    let opponent = Opponent {position: [distance, 0.], ..enemy(CLIFF_CLIMB, true)};
+                    let opponent = Opponent {
+                        position: [distance, 0.],
+                        ..enemy(CLIFF_CLIMB, true)
+                    };
                     let mut t = Timeline::new(sequence(actions), opponent);
                     let out = t.sample(settings, ctx(0.), Some(opponent), None, 0.);
                     if distance <= reach {
-                        assert_eq!(out.requested, MAPPER_R, "in-range grab on first observation");
+                        assert_eq!(
+                            out.requested, MAPPER_R,
+                            "in-range grab on first observation"
+                        );
                         assert!(!t.finished());
                     } else {
                         assert_eq!(out.requested, 0);
                         assert!(t.finished(), "out of range cancels on first observation");
-                        let near = Opponent {position: [1., 0.], ..opponent};
-                        assert_eq!(t.sample(settings, ctx(1.), Some(near), None, 0.).requested, 0);
+                        let near = Opponent {
+                            position: [1., 0.],
+                            ..opponent
+                        };
+                        assert_eq!(
+                            t.sample(settings, ctx(1.), Some(near), None, 0.).requested,
+                            0
+                        );
                     }
                 }
                 let opponent = enemy(CLIFF_CLIMB, true);
-                for observed in [None, Some(Opponent {id: opponent.id + 1, ..opponent})] {
+                for observed in [
+                    None,
+                    Some(Opponent {
+                        id: opponent.id + 1,
+                        ..opponent
+                    }),
+                ] {
                     let mut t = Timeline::new(sequence(actions), opponent);
                     assert_eq!(t.sample(settings, ctx(0.), observed, None, 0.).requested, 0);
                     assert!(t.finished(), "missing current target cancels");
                 }
             }
-            let far = Opponent {position: [reach + 1., 0.], ..enemy(CLIFF_CLIMB, true)};
+            let far = Opponent {
+                position: [reach + 1., 0.],
+                ..enemy(CLIFF_CLIMB, true)
+            };
             let mut waiting = Timeline::new(sequence("range:fighter_range,grab"), far);
-            assert_eq!(waiting.sample(settings, ctx(0.), Some(far), None, 0.).requested, 0);
+            assert_eq!(
+                waiting
+                    .sample(settings, ctx(0.), Some(far), None, 0.)
+                    .requested,
+                0
+            );
             assert!(!waiting.finished(), "ledge range wait is preserved");
-            let near = Opponent {position: [reach, 0.], ..far};
-            assert_eq!(waiting.sample(settings, ctx(1.), Some(near), None, 0.).requested, MAPPER_R);
+            let near = Opponent {
+                position: [reach, 0.],
+                ..far
+            };
+            assert_eq!(
+                waiting
+                    .sample(settings, ctx(1.), Some(near), None, 0.)
+                    .requested,
+                MAPPER_R
+            );
+        }
+    }
+    #[test]
+    fn instant_grab_range_fails_when_fighter_reference_is_unavailable() {
+        let profiles = crate::fighter_profiles::FighterProfiles::default();
+        let mut settings = LedgeSettings::default();
+        settings.fighter = profiles.profile(5).unwrap().ledge;
+        assert_eq!(settings.fighter.grab.standing_range, 0.0);
+        for actions in [
+            "range:fighter_range,grab",
+            "range:fighter_range_instant,grab",
+            "grab:fighter_range_instant",
+        ] {
+            let opponent = Opponent {
+                position: [0.0, 0.0],
+                ..enemy(CLIFF_CLIMB, true)
+            };
+            let mut timeline = Timeline::new(sequence(actions), opponent);
+            let output = timeline.sample(settings, ctx(0.0), Some(opponent), None, 0.0);
+            assert_eq!(output.requested, 0);
+            assert!(timeline.finished());
         }
     }
     #[test]
@@ -1538,43 +1936,123 @@ mod tests {
 
     #[test]
     fn blocked_getup_attack_cancels_shield_into_up_b_on_the_first_guard_frame() {
-        for action in ["up_b:1","up_special:4","input:b:0:1:4","facing_input:b:0:1:4","opponent_input:b:0:1:4","controller_input:b:0:1:0:0:4","tap:b:0:1:1:1:4"] {
-            let opponent=enemy(CLIFF_CLIMB,false);
-            let mut t=Timeline::new(sequence(&format!("shield_until_block:30,{action}")),opponent);
-            let call=|t:&mut Timeline,c|t.sample(LedgeSettings::default(),c,Some(opponent),None,1.);
-            assert_eq!(call(&mut t,ctx(0.)).requested,MAPPER_ZR);
-            let hit=LedgeContext{status:0x1e,stopped:true,..ctx(1.)};
-            for _ in 0..8 {assert_eq!(call(&mut t,hit).requested,MAPPER_ZR);}
-            assert_eq!(call(&mut t,LedgeContext{stopped:false,..hit}).requested,MAPPER_ZR);
-            let ready=LedgeContext{status:0x1c,..ctx(0.)};
-            let out=call(&mut t,ready);
-            assert_eq!(out.requested,MAPPER_B|MAPPER_ZR,"{action}: keep guard through direct OOS Up-B");
-            assert_eq!(out.stick,Some([0.,1.]));
-            assert_eq!(call(&mut t,ready),out,"duplicate polls must not restart the input");
+        for action in [
+            "up_b:1",
+            "up_special:4",
+            "input:b:0:1:4",
+            "facing_input:b:0:1:4",
+            "opponent_input:b:0:1:4",
+            "controller_input:b:0:1:0:0:4",
+            "tap:b:0:1:1:1:4",
+        ] {
+            let opponent = enemy(CLIFF_CLIMB, false);
+            let mut t = Timeline::new(
+                sequence(&format!("shield_until_block:30,{action}")),
+                opponent,
+            );
+            let call = |t: &mut Timeline, c| {
+                t.sample(LedgeSettings::default(), c, Some(opponent), None, 1.)
+            };
+            assert_eq!(call(&mut t, ctx(0.)).requested, MAPPER_ZR);
+            let hit = LedgeContext {
+                status: 0x1e,
+                stopped: true,
+                ..ctx(1.)
+            };
+            for _ in 0..8 {
+                assert_eq!(call(&mut t, hit).requested, MAPPER_ZR);
+            }
+            assert_eq!(
+                call(
+                    &mut t,
+                    LedgeContext {
+                        stopped: false,
+                        ..hit
+                    }
+                )
+                .requested,
+                MAPPER_ZR
+            );
+            let ready = LedgeContext {
+                status: 0x1c,
+                ..ctx(0.)
+            };
+            let out = call(&mut t, ready);
+            assert_eq!(
+                out.requested,
+                MAPPER_B | MAPPER_ZR,
+                "{action}: keep guard through direct OOS Up-B"
+            );
+            assert_eq!(out.stick, Some([0., 1.]));
+            assert_eq!(
+                call(&mut t, ready),
+                out,
+                "duplicate polls must not restart the input"
+            );
             // A native status change with no clock advance must not retain a
             // synthetic shield bit once the special has started or is airborne.
-            let started=LedgeContext{status:0x1de,situation:2,motion_kind:crate::timing::motion_hash("special_hi"),..ctx(0.)};
-            let after=call(&mut t,started);
-            assert_eq!(after.requested & MAPPER_ZR,0,"{action}: no guard leak after acceptance");
-            assert!(matches!(after.requested,0|MAPPER_B),"{action}: retain only the configured pulse/gap");
+            let started = LedgeContext {
+                status: 0x1de,
+                situation: 2,
+                motion_kind: crate::timing::motion_hash("special_hi"),
+                ..ctx(0.)
+            };
+            let after = call(&mut t, started);
+            assert_eq!(
+                after.requested & MAPPER_ZR,
+                0,
+                "{action}: no guard leak after acceptance"
+            );
+            assert!(
+                matches!(after.requested, 0 | MAPPER_B),
+                "{action}: retain only the configured pulse/gap"
+            );
         }
     }
 
     #[test]
     fn direct_up_b_guard_retention_is_grounded_status_scoped_and_keeps_literal_shields() {
-        for status in [0x1b,0x1c,0,0x1de] {
-            let mut t=timeline("up_b:4");
-            assert_eq!(sample(&mut t,LedgeContext{status,..ctx(0.)}).requested,
-                MAPPER_B | if matches!(status,0x1b|0x1c){MAPPER_ZR}else{0});
+        for status in [0x1b, 0x1c, 0, 0x1de] {
+            let mut t = timeline("up_b:4");
+            assert_eq!(
+                sample(&mut t, LedgeContext { status, ..ctx(0.) }).requested,
+                MAPPER_B
+                    | if matches!(status, 0x1b | 0x1c) {
+                        MAPPER_ZR
+                    } else {
+                        0
+                    }
+            );
         }
         // Other specials still use their existing shield-drop path.
-        for actions in ["side_special:1","down_special:1","neutral_special:1"] {
-            let mut t=timeline(actions);
-            assert_eq!(sample(&mut t,LedgeContext{status:0x1c,..ctx(0.)}).requested,0);
+        for actions in ["side_special:1", "down_special:1", "neutral_special:1"] {
+            let mut t = timeline(actions);
+            assert_eq!(
+                sample(
+                    &mut t,
+                    LedgeContext {
+                        status: 0x1c,
+                        ..ctx(0.)
+                    }
+                )
+                .requested,
+                0
+            );
         }
         // Explicitly authored guard is not the adapter's temporary guard bit.
-        let mut t=timeline("input:b+zr:0:1:4");
-        assert_eq!(sample(&mut t,LedgeContext{status:0x1de,situation:2,..ctx(0.)}).requested,MAPPER_B|MAPPER_ZR);
+        let mut t = timeline("input:b+zr:0:1:4");
+        assert_eq!(
+            sample(
+                &mut t,
+                LedgeContext {
+                    status: 0x1de,
+                    situation: 2,
+                    ..ctx(0.)
+                }
+            )
+            .requested,
+            MAPPER_B | MAPPER_ZR
+        );
     }
 
     #[test]
@@ -2067,40 +2545,69 @@ mod tests {
     #[test]
     fn facing_blocks_pick_only_starting_direction_and_add_no_delay() {
         let recipe="if_facing_ledge, input:a:0:0:1, end_facing, if_back_to_ledge, input:b:0:0:1, end_facing";
-        for side in [-1.0,1.0] {
-            for toward in [false,true] {
-                let mut t=timeline(recipe);
-                let mut own=ctx(0.0);own.position=[side*10.0,0.0];own.facing=if toward {-side}else{side};
-                let first=t.sample(LedgeSettings::default(),own,None,Some([0.0;2]),side);
-                assert_eq!(first.requested,if toward {MAPPER_A}else{MAPPER_B});
-                own.motion_frame=1.0;own.facing=-own.facing;
-                let second=t.sample(LedgeSettings::default(),own,None,Some([0.0;2]),side);
-                assert_eq!(second.requested,0,"Turning must not enable the other block");
+        for side in [-1.0, 1.0] {
+            for toward in [false, true] {
+                let mut t = timeline(recipe);
+                let mut own = ctx(0.0);
+                own.position = [side * 10.0, 0.0];
+                own.facing = if toward { -side } else { side };
+                let first = t.sample(LedgeSettings::default(), own, None, Some([0.0; 2]), side);
+                assert_eq!(first.requested, if toward { MAPPER_A } else { MAPPER_B });
+                own.motion_frame = 1.0;
+                own.facing = -own.facing;
+                let second = t.sample(LedgeSettings::default(), own, None, Some([0.0; 2]), side);
+                assert_eq!(
+                    second.requested, 0,
+                    "Turning must not enable the other block"
+                );
                 assert!(t.finished());
             }
         }
     }
     #[test]
     fn skipped_block_waits_do_not_consume_time_and_missing_anchor_stops() {
-        let mut t=timeline("if_facing_ledge, wait:100, a:4, end_facing, if_back_to_ledge, b:4, end_facing");
-        let mut own=ctx(0.0);own.position=[10.0,0.0];own.facing=1.0;
-        assert_eq!(t.sample(LedgeSettings::default(),own,None,Some([0.0;2]),1.0).requested,MAPPER_B);
-        let mut missing=timeline("if_back_to_ledge, a:4, end_facing");
-        assert_eq!(sample(&mut missing,own).requested,0);
+        let mut t = timeline(
+            "if_facing_ledge, wait:100, a:4, end_facing, if_back_to_ledge, b:4, end_facing",
+        );
+        let mut own = ctx(0.0);
+        own.position = [10.0, 0.0];
+        own.facing = 1.0;
+        assert_eq!(
+            t.sample(LedgeSettings::default(), own, None, Some([0.0; 2]), 1.0)
+                .requested,
+            MAPPER_B
+        );
+        let mut missing = timeline("if_back_to_ledge, a:4, end_facing");
+        assert_eq!(sample(&mut missing, own).requested, 0);
         assert!(missing.finished());
     }
     #[test]
     fn explicit_saved_ledge_directions_do_not_fall_back_to_opponent() {
-        for token in ["drift:saved_ledge:0.25:4","walk:away_from_ledge:4:0.3","run:saved_ledge:4","face:saved_ledge"] {
-            let mut t=timeline(token);
-            assert_eq!(sample(&mut t,ctx(0.0)).requested,0);
-            assert!(t.finished(),"{token}");
+        for token in [
+            "drift:saved_ledge:0.25:4",
+            "walk:away_from_ledge:4:0.3",
+            "run:saved_ledge:4",
+            "face:saved_ledge",
+        ] {
+            let mut t = timeline(token);
+            assert_eq!(sample(&mut t, ctx(0.0)).requested, 0);
+            assert!(t.finished(), "{token}");
         }
-        let mut own=ctx(0.0);own.position=[10.0,0.0];own.facing=1.0;
-        let mut toward=timeline("drift:saved_ledge:0.25:4");
-        assert_eq!(toward.sample(LedgeSettings::default(),own,None,Some([0.0;2]),1.0).stick,Some([-0.25,0.0]));
-        let mut away=timeline("drift:away_from_ledge:0.25:4");
-        assert_eq!(away.sample(LedgeSettings::default(),own,None,Some([0.0;2]),1.0).stick,Some([0.25,0.0]));
+        let mut own = ctx(0.0);
+        own.position = [10.0, 0.0];
+        own.facing = 1.0;
+        let mut toward = timeline("drift:saved_ledge:0.25:4");
+        assert_eq!(
+            toward
+                .sample(LedgeSettings::default(), own, None, Some([0.0; 2]), 1.0)
+                .stick,
+            Some([-0.25, 0.0])
+        );
+        let mut away = timeline("drift:away_from_ledge:0.25:4");
+        assert_eq!(
+            away.sample(LedgeSettings::default(), own, None, Some([0.0; 2]), 1.0)
+                .stick,
+            Some([0.25, 0.0])
+        );
     }
-
 }

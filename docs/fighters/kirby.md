@@ -11,8 +11,8 @@ whether the requested turn precedes an attack. C-stick must use Tilt Attack.
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **6** (`kirby`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **6** (`kirby`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -51,34 +51,40 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 8–32 |
-| Down tilt | 4–6 |
-| Forward tilt | 5–8 |
-| Down smash | 7–19 |
-| Jump Bair | 6–12 |
-| Grounded down-special startup | 11 |
+| Jab 1 | 2 start; active 2; 14 total; -- landing |
+| Neutral Air | 8 start; active 8–9 / 10–13 / 14–18 / 19–32; 52 total; 6 landing |
+| Forward Air | 10/17/25 start; active 10–11 / 17–18 / 25–27; 47 total; 8 landing |
+| Back Air | 6 start; active 6–8 / 9–12; 40 total; 10 landing |
+| Up Air | 8 start; active 8–13; 35 total; 7 landing |
+| Down Air | 18/21/24/27/30/34 start; active 18–19 / 21–22 / 24–25 / 27–28 / 30–31 / 34; 54 total; 16 landing |
+| Forward Tilt | 5 start; active 5–8; 23 total; -- landing |
+| Up Tilt | 4 start; active 4–5 / 6–10; 20 total; -- landing |
+| Down Tilt | 4 start; active 4–6; 20 total; -- landing |
+| Dash Attack | 9 start; active 9–17 / 18–26 / 27–34; 51 total; -- landing |
+| Forward Smash | 13 start; active 13–15 / 16–19; 47 total; -- landing |
+| Up Smash | 12 start; active 12–14 / 15–16 / 17; 45 total; -- landing |
+| Down Smash | 7 start; active 7–11 / 12–19; 50 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 6 |
-| Dash startup | 9 |
-| Pivot startup | 10 |
+| Standing grab | frames 6–7 |
+| Dash grab | frames 9–10 |
+| Pivot grab | frames 10–11 |
+| Standing reach reference | 12.5 world units |
 | Shield-grab startup | 10 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 12.5 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 79 |
 | Walk speed | 0.977 |
@@ -90,8 +96,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 1.968 |
 | Short-hop height | 12.24 |
 | Full-hop height | 25.37 |
-
-[Move source](https://ultimateframedata.com/kirby) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -144,7 +148,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -152,7 +156,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/kirby.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/kirby/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 
@@ -178,7 +182,7 @@ fine correction near arrival. Native grab readiness and predicted contact still
 gate delivery; reaching the spot alone cannot force a catch. Yoshi instead uses
 the shared tracked walking approach again. Host
 regressions pass; spacing and actual grab success still need Switch testing.
-The inset is `ROLL_GRAB_LEDGE_INSET` in Kirby's `timing.rs`.
+The fixed-inset implementation and its timing profile have been retired.
 
 **Neutral → Down smash** replaces the former Forward tilt menu choice. On
 recognition it walks toward the remembered ledge at 0.65 stick during the
@@ -186,15 +190,15 @@ existing wait, aiming six units inside with native braking/floor checks. It
 stops walking at the attack boundary even if still far away. The timing target
 now starts two frames earlier than the old midpoint alignment: protection expiry
 at animation frame **15**, within
-of Kirby's active frames **7–19** (clean 7–11, late 12–19;
-[Ultimate Frame Data](https://ultimateframedata.com/kirby)). Preparation begins
+of Kirby's active frames **7–19** (clean 7–11, late 12–19; see the canonical
+[Fighter Data catalog](../FIGHTER_DATA.md)). Preparation begins
 16 frames before predicted vulnerability, including one neutral smash-primer
 update; down+A follows with 15 frames remaining. Nominally the hitbox begins
 eight frames before protection ends and remains active four frames after it.
 Native startup releases A to
 avoid charging. Arrival/range is never required before the attack; native action
-readiness still applies. `NEUTRAL_DOWN_SMASH_EARLY_FRAMES = 2` in Kirby's
-`timing.rs` advances the selected move's midpoint alignment;
+readiness still applies. The former compiled midpoint-alignment constant has
+been retired with the fighter timing profiles;
 positioning and actual online delivery still require calibration on Switch.
 
 **Neutral → Nair** now has Kirby-only grounded preparation: once neutral get-up
@@ -207,11 +211,10 @@ ledge anchors/timing retain the old stationary behavior. It never chases past
 the destination, runs off the edge deliberately, or waits for arrival before
 launching nair. Starting too far away can still leave Kirby short of the target.
 
-These constants live in
-`crates/kirby_assist_core/src/fighter_profiles/kirby/timing.rs`.
-The sequence is in `respond_to_neutral_getup_nair` and
-`walk_before_neutral_nair` in
-`crates/kirby_assist_core/src/ledge_trap/fighters/kirby.rs`.
+The former fighter timing constants and compiled sequence handlers have been
+retired. Current responses and input timing are authored in the fighter's
+sequence file; reference facts remain in the canonical
+[Fighter Data catalog](../FIGHTER_DATA.md).
 Jump nair also opts into the shared movement helper while its existing timing
 checks are waiting. Immediate jump cues still launch immediately, leaving no
 grounded walking time. Horizontal digital flick aliases are suppressed during
@@ -277,9 +280,10 @@ are available only on the ON/OFF page; no button can Hold/Toggle a mode.
 
 ## Reference facts
 
-Automatic whiff punish is removed from the live build/menu. The compiled
-[opponent reference](../OPPONENT_DATA.md) remains available for future policies;
-no files load during battle.
+Automatic whiff punish is removed from the live build/menu. The canonical
+[Fighter Data catalog](../FIGHTER_DATA.md) remains available to current and
+future policies; it is embedded and parsed at startup, with no battle-time
+network or SD-card reads.
 
 ## Optional posture
 

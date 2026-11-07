@@ -157,16 +157,23 @@ impl SdiState {
     /// Re-arm a real controller flick when the previous game-visible stick was
     /// already held. Repeated mapper polls retain that neutral release until
     /// native hitstop advances; a same-side held sample is never a fresh SDI.
-    pub fn sample_exclusive_with_previous(&mut self, enabled:bool, ctx:SdiContext,
-        geometry:Option<([f32;2],crate::auto_di::BlastZone)>, previous:[f32;2]) -> Option<[f32;2]> {
-        let new_hit=self.last.is_none_or(|(id,left)|id!=ctx.object || ctx.remaining>left);
-        if new_hit && previous[0].hypot(previous[1])>=0.2 {
-            self.sample_exclusive(enabled,ctx)?;
-            self.last_flick=None;
-            self.output=Some([0.;2]);
+    pub fn sample_exclusive_with_previous(
+        &mut self,
+        enabled: bool,
+        ctx: SdiContext,
+        geometry: Option<([f32; 2], crate::auto_di::BlastZone)>,
+        previous: [f32; 2],
+    ) -> Option<[f32; 2]> {
+        let new_hit = self
+            .last
+            .is_none_or(|(id, left)| id != ctx.object || ctx.remaining > left);
+        if new_hit && previous[0].hypot(previous[1]) >= 0.2 {
+            self.sample_exclusive(enabled, ctx)?;
+            self.last_flick = None;
+            self.output = Some([0.; 2]);
             return self.output;
         }
-        self.sample_exclusive_with_geometry(enabled,ctx,geometry)
+        self.sample_exclusive_with_geometry(enabled, ctx, geometry)
     }
     /// Neutral flick gaps are owned too; physical movement cannot cancel an
     /// already selected damage response or leak into its later DI phase.
@@ -174,11 +181,17 @@ impl SdiState {
         self.manual_control = false;
         self.sample(enabled, ctx, [0.; 2])
     }
-    pub fn sample_exclusive_with_geometry(&mut self, enabled: bool, ctx: SdiContext,
-        geometry: Option<([f32; 2], crate::auto_di::BlastZone)>) -> Option<[f32; 2]> {
+    pub fn sample_exclusive_with_geometry(
+        &mut self,
+        enabled: bool,
+        ctx: SdiContext,
+        geometry: Option<([f32; 2], crate::auto_di::BlastZone)>,
+    ) -> Option<[f32; 2]> {
         let output = self.sample_exclusive(enabled, ctx)?;
-        if output == [0.; 2] {return Some(output);}
-        let Some((position, blast)) = geometry.filter(|(p,b)| b.contains(*p)) else {
+        if output == [0.; 2] {
+            return Some(output);
+        }
+        let Some((position, blast)) = geometry.filter(|(p, b)| b.contains(*p)) else {
             return Some(output);
         };
         // Maximize separation while preserving room for an SDI step. Near an
@@ -187,10 +200,13 @@ impl SdiState {
         let mut score = f32::NEG_INFINITY;
         for i in 0..8 {
             let angle = i as f32 * std::f32::consts::FRAC_PI_4;
-            let (y,x) = angle.sin_cos();
-            let clearance = blast.margin([position[0]+x*8., position[1]+y*8.]);
+            let (y, x) = angle.sin_cos();
+            let clearance = blast.margin([position[0] + x * 8., position[1] + y * 8.]);
             let candidate = x * ctx.outward.signum() + clearance.min(8.) * 0.25;
-            if candidate > score {score=candidate;best=[x,y];}
+            if candidate > score {
+                score = candidate;
+                best = [x, y];
+            }
         }
         Some(best)
     }
@@ -228,25 +244,28 @@ impl SdiState {
         }
         self.manual_control |= physical[0].hypot(physical[1]) >= 0.2;
         let key = (ctx.object, ctx.remaining);
-        if !ctx.outward.is_finite() || ctx.outward.abs()<=0.5 {
-            self.last=Some(key);
-            self.last_flick=None;
-            self.output=None;
+        if !ctx.outward.is_finite() || ctx.outward.abs() <= 0.5 {
+            self.last = Some(key);
+            self.last_flick = None;
+            self.output = None;
             return None;
         }
         if self.last != Some(key) {
             // Ultimate's hit_stop_delay_flick_frame is four frames. Count the
             // native countdown, never mapper polls; missed observations cannot
             // compress the interval or manufacture additional flicks.
-            let due = self.last_flick.is_none_or(|remaining|
-                remaining.saturating_sub(ctx.remaining) >= 4);
+            let due = self
+                .last_flick
+                .is_none_or(|remaining| remaining.saturating_sub(ctx.remaining) >= 4);
             // A neutral observation must actually precede another same-side
             // flick, even if several native frames were skipped.
             let rearmed = self.output != Some([ctx.outward.signum(), 0.]);
             self.output = Some(if due && rearmed {
                 self.last_flick = Some(ctx.remaining);
                 [ctx.outward.signum(), 0.]
-            } else { [0.;2] });
+            } else {
+                [0.; 2]
+            });
             self.last = Some(key);
         }
         if self.manual_control {

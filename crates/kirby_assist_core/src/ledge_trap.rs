@@ -14,7 +14,6 @@ pub use file_timeline::Timeline as InputTimeline;
 mod identity;
 mod types;
 mod visits;
-pub use visits::LedgeVisits;
 #[cfg(feature = "diagnostic-logging")]
 pub use diagnostics::{
     CalibrationFrame, CalibrationKind, CalibrationMove, NativeRule, RollGrabSnapshot,
@@ -24,6 +23,7 @@ pub use types::{
     frames_until, in_tracking_range, recovery_frames, AirPhysics, LedgeContext, LedgeOutput,
     LedgeSettings, MotionTiming, Opponent,
 };
+pub use visits::LedgeVisits;
 
 pub const DPAD_DOWN: u32 = 1 << 2;
 pub const LEDGE_TRIGGER: u32 = MAPPER_L;
@@ -53,8 +53,8 @@ pub const LEDGE_BUTTONS: u32 = MAPPER_A
     | (0xf << 24)
     | crate::native_input::MAPPER_EXTRA_BUTTONS;
 /// Exclusive literal-sequence ownership; pause/menu remain available.
-pub const SEQUENCE_BUTTONS: u32 = LEDGE_BUTTONS | 0xf
-    | crate::manual_controls::LEFT_STICK_DIRECTIONS;
+pub const SEQUENCE_BUTTONS: u32 =
+    LEDGE_BUTTONS | 0xf | crate::manual_controls::LEFT_STICK_DIRECTIONS;
 /// Native incapacitation ends an input tape. Keep ordinary get-up, attack,
 /// shield, dodge and special recovery distinct from knockdown/damage.
 /// Verified against pinned skyline-smash d2ca90d9, src/lua_const.rs:
@@ -124,7 +124,9 @@ impl LedgeTrap {
         self.file_timeline.is_some()
     }
     pub fn file_needs_ground(&self) -> bool {
-        self.file_timeline.as_ref().is_some_and(|t| t.needs_ground())
+        self.file_timeline
+            .as_ref()
+            .is_some_and(|t| t.needs_ground())
     }
     pub fn file_inputs_only(&self) -> bool {
         self.file_timeline.as_ref().is_some_and(|t| t.inputs_only())
@@ -140,7 +142,8 @@ impl LedgeTrap {
         self.target.filter(|_| self.needs_response_observation())
     }
     pub fn reserves_response(&self, enemy: Option<Opponent>) -> bool {
-        !self.visit_consumed && !self.complete
+        !self.visit_consumed
+            && !self.complete
             && (self.needs_response_observation()
                 || enemy.is_some_and(|e| {
                     (CLIFF_CATCH_MOVE..=CLIFF_JUMP3).contains(&e.status)

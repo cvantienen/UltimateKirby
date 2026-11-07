@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **20** (`falco`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **20** (`falco`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,37 +48,39 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 3–13 |
-| Down tilt | 8–10 |
-| Forward tilt | 6–8 |
-| Down smash | 8–10 |
-| Up Tilt | 5–9 |
-| Forward Smash | 17–20 |
-| Forward Air | 7–7 |
-| Up Air | 7–11 |
-| Down Air | 10–24 |
+| Jab 1 | 2 start; active 2; 22 total; -- landing |
+| Neutral Air | 3/6/10/17 start; active 3–5 / 6–9 / 10–13 / 17–18; 46 total; 9 landing |
+| Back Air | 9 start; active 9–10 / 11–16; 37 total; 13 landing |
+| Up Air | 7 start; active 7–11; 33 total; 9 landing |
+| Down Air | 10 start; active 10–14 / 15–24; 43 total; 11 landing |
+| Forward Tilt | 6 start; active 6–8; 24 total; -- landing |
+| Up Tilt | 5/12 start; active 5 / 6–9 / 12 / 13–16; 29 total; -- landing |
+| Down Tilt | 8 start; active 8–10; 29 total; -- landing |
+| Dash Attack | 8 start; active 8–11 / 12–18; 39 total; -- landing |
+| Forward Smash | 17 start; active 17–19 / 20; 48 total; -- landing |
+| Up Smash | 7/13 start; active 7 / 8–12 / 13–20; 49 total; -- landing |
+| Down Smash | 8 start; active 8–10; 46 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 6 |
-| Dash startup | 9 |
-| Pivot startup | 10 |
+| Standing grab | frames 6–7 |
+| Dash grab | frames 9–10 |
+| Pivot grab | frames 10–11 |
+| Standing reach reference | 12.0 world units |
 | Shield-grab startup | 10 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 12.0 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 82 |
 | Walk speed | 1.344 |
@@ -90,8 +92,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.88 |
 | Short-hop height | 17.34 |
 | Full-hop height | 50.51 |
-
-[Move source](https://ultimateframedata.com/falco) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -128,7 +128,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -136,7 +136,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/falco.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/falco/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

@@ -109,8 +109,13 @@ pub(super) unsafe fn observe(
         }
         if id >> 28 == 1 {
             let source_kind = reads.fighter_kind(object);
-            let source_status = if source_kind == 0x9d { reads.status_kind(object) } else { 0 };
-            if !kirby_assist_core::battle_objects::projectile_actor(id, source_kind, source_status) {
+            let source_status = if source_kind == 0x9d {
+                reads.status_kind(object)
+            } else {
+                0
+            };
+            if !kirby_assist_core::battle_objects::projectile_actor(id, source_kind, source_status)
+            {
                 continue;
             }
         }

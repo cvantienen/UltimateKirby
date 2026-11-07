@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **31** (`dark_pit`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **31** (`dark_pit`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,38 +48,40 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 4–5 |
-| Down tilt | 6–7 |
-| Forward tilt | 10–14 |
-| Down smash | 5–6 |
-| Down-smash rear window | 18–20 |
-| Up Tilt | 6–8 |
-| Forward Smash | 10–10 |
-| Forward Air | 11–12 |
-| Up Air | 10–12 |
-| Down Air | 10–12 |
+| Jab 1 | 4 start; active 4–5; 25 total; -- landing |
+| Neutral Air | 4/7/10/13/16/19/22/25 start; active 4–5 / 7–8 / 10–11 / 13–14 / 16–17 / 19–20 / 22–23 / 25; 54 total; 14 landing |
+| Forward Air | 11/14/18 start; active 11–12 / 14–15 / 18–19; 46 total; 12 landing |
+| Back Air | 10 start; active 10–12; 40 total; 8 landing |
+| Up Air | 10/13/16/19/22 start; active 10–12 / 13–15 / 16–18 / 19–21 / 22–23; 40 total; 14 landing |
+| Down Air | 10 start; active 10 / 11–12; 36 total; 12 landing |
+| Forward Tilt | 10 start; active 10–14; 39 total; -- landing |
+| Up Tilt | 6/15 start; active 6–8 / 15–16; 32 total; -- landing |
+| Down Tilt | 6 start; active 6–7; 25 total; -- landing |
+| Dash Attack | 7 start; active 7–9; 38 total; -- landing |
+| Forward Smash | 10/21 start; active 10 / 21–22; 54 total; -- landing |
+| Up Smash | 6/7/10/18 start; active 6 / 7 / 10 / 18; 51 total; -- landing |
+| Down Smash | 5/18 start; active 5–6 / 18–20; 40 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 6 |
-| Dash startup | 9 |
-| Pivot startup | 10 |
+| Standing grab | frames 6–7 |
+| Dash grab | frames 9–10 |
+| Pivot grab | frames 10–11 |
+| Standing reach reference | 13.0 world units |
 | Shield-grab startup | 10 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 13.0 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 96 |
 | Walk speed | 1.259 |
@@ -91,8 +93,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.368 |
 | Short-hop height | 14.96 |
 | Full-hop height | 31 |
-
-[Move source](https://ultimateframedata.com/dark_pit) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -129,7 +129,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -137,7 +137,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/dark_pit.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/dark_pit/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

@@ -54,13 +54,29 @@ struct Track {
     used: bool,
 }
 
-pub fn contact(c: Context, t: Target) -> Option<f32> { contact_with_lookahead(c, t, LOOKAHEAD) }
-pub fn contact_with_lookahead(c: Context, t: Target, lookahead: f32) -> Option<f32> {
-    contact_with_shape(c,t,lookahead,2.,8.)
+pub fn contact(c: Context, t: Target) -> Option<f32> {
+    contact_with_lookahead(c, t, LOOKAHEAD)
 }
-pub fn contact_with_shape(c:Context,t:Target,lookahead:f32,padding:f32,height:f32)->Option<f32> {
-    if !padding.is_finite() || !(0.0..=30.0).contains(&padding) || !height.is_finite() || !(0.0..=60.0).contains(&height) { return None; }
-    if !lookahead.is_finite() || !(1.0..=8.0).contains(&lookahead) { return None; }
+pub fn contact_with_lookahead(c: Context, t: Target, lookahead: f32) -> Option<f32> {
+    contact_with_shape(c, t, lookahead, 2., 8.)
+}
+pub fn contact_with_shape(
+    c: Context,
+    t: Target,
+    lookahead: f32,
+    padding: f32,
+    height: f32,
+) -> Option<f32> {
+    if !padding.is_finite()
+        || !(0.0..=30.0).contains(&padding)
+        || !height.is_finite()
+        || !(0.0..=60.0).contains(&height)
+    {
+        return None;
+    }
+    if !lookahead.is_finite() || !(1.0..=8.0).contains(&lookahead) {
+        return None;
+    }
     if !matches!(t.status, 0x37 | 0x39 | 0x3b)
         || t.motion == 0
         || !t.frame.is_finite()
@@ -107,15 +123,21 @@ pub fn contact_with_shape(c:Context,t:Target,lookahead:f32,padding:f32,height:f3
         (relative[0], velocity[0], -padding, t.reach + padding),
         (relative[1], velocity[1], -height, height),
     ] {
-        if !position.is_finite() || !speed.is_finite() { return None; }
+        if !position.is_finite() || !speed.is_finite() {
+            return None;
+        }
         if speed == 0.0 {
-            if !(low..=high).contains(&position) { return None; }
+            if !(low..=high).contains(&position) {
+                return None;
+            }
         } else {
             let a = (low - position) / speed;
             let b = (high - position) / speed;
             interval[0] = interval[0].max(a.min(b));
             interval[1] = interval[1].min(a.max(b));
-            if interval[0] > interval[1] { return None; }
+            if interval[0] > interval[1] {
+                return None;
+            }
         }
     }
     (interval[0] < last).then_some(interval[0])
@@ -138,42 +160,99 @@ pub struct SpotDodge {
 }
 impl SpotDodge {
     pub fn suspend_response(&mut self) {
-        self.punish_target=None;self.punish_clock=Default::default();self.response.suspend();
+        self.punish_target = None;
+        self.punish_clock = Default::default();
+        self.response.suspend();
     }
     /// Missing samples retain consumption; a positively observed end rearms the
     /// next native grab even when its first observed animation frame is later.
-    pub fn observe_statuses<const N:usize>(&mut self,known:&[Option<(u32,i32)>;N]) {
+    pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         for track in &mut self.tracks {
-            if track.is_some_and(|t|known.iter().flatten().any(|(id,status)|*id==t.id && *status!=t.status)) {
-                *track=None;
+            if track.is_some_and(|t| {
+                known
+                    .iter()
+                    .flatten()
+                    .any(|(id, status)| *id == t.id && *status != t.status)
+            }) {
+                *track = None;
             }
         }
     }
-    pub fn cancel_response(&mut self) { self.response.cancel(); self.punish_target = None;  self.punish_clock=Default::default(); }
-    pub fn follow_target(&self) -> Option<u32> { self.response.target().or(self.punish_target).or(self.target) }
-    pub fn direct_up_b(&self)->bool {self.response.automatic_up_b()}
-    pub fn up_b_delivery_started(&self)->bool {self.response.up_b_delivery_started()}
-    pub fn up_b_receipt_pending(&self)->bool {self.response.up_b_receipt_pending()}
-    pub fn awaiting_up_b(&self)->bool {self.response.awaiting_up_b()}
-    pub fn attempted_up_special(&mut self,tick:i64,target:u32) {self.response.attempted_up_special(tick,target);}
-    pub fn mapped_up_special(&mut self,tick:i64,target:u32) {self.response.mapped_up_special(tick,target);}
-    pub fn punish_committed(&self)->bool {self.response.target().is_some()}
+    pub fn cancel_response(&mut self) {
+        self.response.cancel();
+        self.punish_target = None;
+        self.punish_clock = Default::default();
+    }
+    pub fn follow_target(&self) -> Option<u32> {
+        self.response
+            .target()
+            .or(self.punish_target)
+            .or(self.target)
+    }
+    pub fn direct_up_b(&self) -> bool {
+        self.response.automatic_up_b()
+    }
+    pub fn up_b_delivery_started(&self) -> bool {
+        self.response.up_b_delivery_started()
+    }
+    pub fn up_b_receipt_pending(&self) -> bool {
+        self.response.up_b_receipt_pending()
+    }
+    pub fn awaiting_up_b(&self) -> bool {
+        self.response.awaiting_up_b()
+    }
+    pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
+        self.response.attempted_up_special(tick, target);
+    }
+    pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
+        self.response.mapped_up_special(tick, target);
+    }
+    pub fn punish_committed(&self) -> bool {
+        self.response.target().is_some()
+    }
     /// A confirmed dodge and its configured follow-up are one response, even
     /// while native recovery requires an exclusive neutral packet.
-    pub fn punish_pending(&self)->bool {self.punish_target.is_some() || self.punish_committed()}
-    pub fn grab_delivery_pending(&self)->bool {self.response.grab_delivery_pending()}
-    pub fn mapped_grab(&mut self,tick:i64,target:u32){self.response.mapped_grab(tick,target);}
-    pub fn delivery_tick(&mut self,tick:i64){
-        self.response.delivery_tick(tick);
-        if self.dodge_delivered {self.dodge_wait_tick(tick);}
+    pub fn punish_pending(&self) -> bool {
+        self.punish_target.is_some() || self.punish_committed()
     }
-    pub fn needs_ground(&self)->bool {self.response.needs_ground()}
-    pub fn attack_hold(&self) -> bool { self.response.attack_hold() }
-    pub fn right_stick(&self) -> Option<[f32; 2]> { self.response.right_stick() }
-    pub fn walking(&self) -> bool { self.response.walking() }
-    pub fn punish_configured(&mut self, enabled: bool, can_act: bool, rules: Option<&crate::reaction_rules::Resolved>, settings: crate::ledge_trap::LedgeSettings,
-        context: crate::ledge_trap::LedgeContext, follow: Option<crate::ledge_trap::Opponent>) -> LedgeOutput {
-        if !enabled || rules.is_none() { self.response.cancel(); self.punish_target = None; return LedgeOutput::default(); }
+    pub fn grab_delivery_pending(&self) -> bool {
+        self.response.grab_delivery_pending()
+    }
+    pub fn mapped_grab(&mut self, tick: i64, target: u32) {
+        self.response.mapped_grab(tick, target);
+    }
+    pub fn delivery_tick(&mut self, tick: i64) {
+        self.response.delivery_tick(tick);
+        if self.dodge_delivered {
+            self.dodge_wait_tick(tick);
+        }
+    }
+    pub fn needs_ground(&self) -> bool {
+        self.response.needs_ground()
+    }
+    pub fn attack_hold(&self) -> bool {
+        self.response.attack_hold()
+    }
+    pub fn right_stick(&self) -> Option<[f32; 2]> {
+        self.response.right_stick()
+    }
+    pub fn walking(&self) -> bool {
+        self.response.walking()
+    }
+    pub fn punish_configured(
+        &mut self,
+        enabled: bool,
+        can_act: bool,
+        rules: Option<&crate::reaction_rules::Resolved>,
+        settings: crate::ledge_trap::LedgeSettings,
+        context: crate::ledge_trap::LedgeContext,
+        follow: Option<crate::ledge_trap::Opponent>,
+    ) -> LedgeOutput {
+        if !enabled || rules.is_none() {
+            self.response.cancel();
+            self.punish_target = None;
+            return LedgeOutput::default();
+        }
         // The dodge and its configured punish share one native action owner.
         // A new dodge preempts an older punish; do not advance a hidden plan
         // that could later resume with stale attack/hold/C-stick output.
@@ -186,7 +265,12 @@ impl SpotDodge {
                 self.punish_target = None;
             } else if can_act && !context.stopped {
                 if let Some(enemy) = follow.filter(|e| Some(e.id) == self.punish_target) {
-                    self.response.start(rules.unwrap(), crate::reaction_rules::Trigger::GrabDodged, context, enemy);
+                    self.response.start(
+                        rules.unwrap(),
+                        crate::reaction_rules::Trigger::GrabDodged,
+                        context,
+                        enemy,
+                    );
                 }
                 self.punish_target = None;
             }
@@ -195,61 +279,98 @@ impl SpotDodge {
     }
     /// One delivered Down+Guard packet, then neutral while awaiting native
     /// ESCAPE. Delivery is not a successful dodge or authorization to punish.
-    pub fn mapped_dodge(&mut self,tick:i64,target:u32) {
-        if self.target==Some(target) {
-            self.dodge_delivered=true;self.mark_used(target);self.dodge_wait_tick(tick);
-            self.output=crate::move_input::output([0.;2],0);
-            self.output.owned=crate::ledge_trap::SEQUENCE_BUTTONS;
+    pub fn mapped_dodge(&mut self, tick: i64, target: u32) {
+        if self.target == Some(target) {
+            self.dodge_delivered = true;
+            self.mark_used(target);
+            self.dodge_wait_tick(tick);
+            self.output = crate::move_input::output([0.; 2], 0);
+            self.output.owned = crate::ledge_trap::SEQUENCE_BUTTONS;
         }
     }
     /// Rejected mapped packets still spend the bounded attempt budget; they
     /// never count as delivery, native dodge success or a punish confirmation.
-    pub fn attempted_dodge(&mut self,tick:i64,target:u32) {
-        if self.target==Some(target) {self.dodge_wait_tick(tick);}
+    pub fn attempted_dodge(&mut self, tick: i64, target: u32) {
+        if self.target == Some(target) {
+            self.dodge_wait_tick(tick);
+        }
     }
-    fn dodge_wait_tick(&mut self,tick:i64) {
-        if self.target.is_some() && self.last_mapped!=Some(tick) {
-            self.mapped=self.mapped.saturating_add(1);self.last_mapped=Some(tick);
+    fn dodge_wait_tick(&mut self, tick: i64) {
+        if self.target.is_some() && self.last_mapped != Some(tick) {
+            self.mapped = self.mapped.saturating_add(1);
+            self.last_mapped = Some(tick);
         }
     }
     /// A follow-up requires our own observed ESCAPE from a pending warning.
     /// It reuses the saved spot-dodge Up-B recipe; no synthetic dodge success,
     /// forced cancel, extra roster pass or per-frame sequence copy is needed.
-    pub fn punish_automatic(&mut self,allowed:bool,sequence:Option<&crate::sequence_config::Sequence>,
-        settings:crate::ledge_trap::LedgeSettings,context:crate::ledge_trap::LedgeContext,
-        follow:Option<crate::ledge_trap::Opponent>) -> LedgeOutput {
-        if !allowed || sequence.is_none() || !context.gameplay
-            || crate::ledge_trap::sequence_interrupted(context.status) {
-            self.suspend_response();return self.response.sample(false,settings,context,follow);
+    pub fn punish_automatic(
+        &mut self,
+        allowed: bool,
+        sequence: Option<&crate::sequence_config::Sequence>,
+        settings: crate::ledge_trap::LedgeSettings,
+        context: crate::ledge_trap::LedgeContext,
+        follow: Option<crate::ledge_trap::Opponent>,
+    ) -> LedgeOutput {
+        if !allowed
+            || sequence.is_none()
+            || !context.gameplay
+            || crate::ledge_trap::sequence_interrupted(context.status)
+        {
+            self.suspend_response();
+            return self.response.sample(false, settings, context, follow);
         }
-        if self.target.is_some() {return LedgeOutput::default();}
-        if self.response.target().is_some() {return self.response.sample(true,settings,context,follow);}
-        let Some(id)=self.punish_target else{return LedgeOutput::default();};
-        let Some(enemy)=follow.filter(|e|e.id==id && e.position.iter().chain(context.position.iter()).all(|v|v.is_finite())
-            && crate::reaction_rules::automatic_target_available(e.status)) else {
-            self.cancel_response();return LedgeOutput::default();
-        };
-        self.punish_clock.advance_pause(context,Some(enemy),60);
-        if context.situation!=0 || self.punish_clock.expired {
-            self.cancel_response();return LedgeOutput::default();
-        }
-        if context.status==ESCAPE && !context.can_act || context.stopped {return LedgeOutput::default();}
-        // This is the first recovery opportunity, not a queued future attack.
-        let sequence=sequence.unwrap();let r=sequence.reaction;
-        self.punish_target=None;
-        if !context.can_act || (enemy.position[0]-context.position[0]).abs()>r.max
-            || (enemy.position[1]-context.position[1]).abs()>r.height {
+        if self.target.is_some() {
             return LedgeOutput::default();
         }
-        if !self.response.start_sequence(*sequence,context,enemy) {return LedgeOutput::default();}
-        self.response.sample(true,settings,context,Some(enemy))
+        if self.response.target().is_some() {
+            return self.response.sample(true, settings, context, follow);
+        }
+        let Some(id) = self.punish_target else {
+            return LedgeOutput::default();
+        };
+        let Some(enemy) = follow.filter(|e| {
+            e.id == id
+                && e.position
+                    .iter()
+                    .chain(context.position.iter())
+                    .all(|v| v.is_finite())
+                && crate::reaction_rules::automatic_target_available(e.status)
+        }) else {
+            self.cancel_response();
+            return LedgeOutput::default();
+        };
+        self.punish_clock.advance_pause(context, Some(enemy), 60);
+        if context.situation != 0 || self.punish_clock.expired {
+            self.cancel_response();
+            return LedgeOutput::default();
+        }
+        if context.status == ESCAPE && !context.can_act || context.stopped {
+            return LedgeOutput::default();
+        }
+        // This is the first recovery opportunity, not a queued future attack.
+        let sequence = sequence.unwrap();
+        let r = sequence.reaction;
+        self.punish_target = None;
+        if !context.can_act
+            || (enemy.position[0] - context.position[0]).abs() > r.max
+            || (enemy.position[1] - context.position[1]).abs() > r.height
+        {
+            return LedgeOutput::default();
+        }
+        if !self.response.start_sequence(*sequence, context, enemy) {
+            return LedgeOutput::default();
+        }
+        self.response.sample(true, settings, context, Some(enemy))
     }
     pub fn target(&self) -> Option<u32> {
         self.target
     }
     pub fn cancel_pending(&mut self) {
         self.target = None;
-        self.mapped=0;self.last_mapped=None;self.dodge_delivered=false;
+        self.mapped = 0;
+        self.last_mapped = None;
+        self.dodge_delivered = false;
         self.output = LedgeOutput::default();
     }
     fn mark_used(&mut self, id: u32) {
@@ -267,18 +388,34 @@ impl SpotDodge {
     ) -> LedgeOutput {
         self.sample_with_lookahead(enabled, c, targets, LOOKAHEAD)
     }
-    pub fn sample_with_lookahead(&mut self, enabled: bool, c: Context, targets: [Option<Target>; 8], lookahead: f32) -> LedgeOutput {
-        self.sample_with_shape(enabled,c,targets,lookahead,2.,8.)
+    pub fn sample_with_lookahead(
+        &mut self,
+        enabled: bool,
+        c: Context,
+        targets: [Option<Target>; 8],
+        lookahead: f32,
+    ) -> LedgeOutput {
+        self.sample_with_shape(enabled, c, targets, lookahead, 2., 8.)
     }
-    pub fn sample_with_shape(&mut self,enabled:bool,c:Context,targets:[Option<Target>;8],lookahead:f32,padding:f32,height:f32)->LedgeOutput {
+    pub fn sample_with_shape(
+        &mut self,
+        enabled: bool,
+        c: Context,
+        targets: [Option<Target>; 8],
+        lookahead: f32,
+        padding: f32,
+        height: f32,
+    ) -> LedgeOutput {
         if self.object != Some(c.object) {
             *self = Self::default();
             self.object = Some(c.object);
         }
         // Frozen native progress must not bypass the real delivery budget.
         // An observed ESCAPE still takes the acceptance path below.
-        if c.status!=ESCAPE && self.mapped>=24 {
-            if let Some(id)=self.target {self.mark_used(id);}
+        if c.status != ESCAPE && self.mapped >= 24 {
+            if let Some(id) = self.target {
+                self.mark_used(id);
+            }
             self.cancel_pending();
             return self.output;
         }
@@ -296,11 +433,15 @@ impl SpotDodge {
         let old = self.tracks;
         // Still observe identity/progress for existing releases, but avoid
         // collision forecasts when this sample cannot request a dodge.
-        let request_ready = enabled && !c.stopped && c.situation==0
-            && ground_status(c.status) && c.can_spot_dodge
-            && self.punish_target.is_none() && !self.response.configured_committed();
+        let request_ready = enabled
+            && !c.stopped
+            && c.situation == 0
+            && ground_status(c.status)
+            && c.can_spot_dodge
+            && self.punish_target.is_none()
+            && !self.response.configured_committed();
         let mut threat: Option<(u32, f32)> = None;
-        self.tracks=[None;crate::battle_objects::FIGHTER_CAPACITY];
+        self.tracks = [None; crate::battle_objects::FIGHTER_CAPACITY];
         for (slot, entry) in targets.iter().enumerate() {
             let Some(t) = entry else {
                 continue;
@@ -312,12 +453,10 @@ impl SpotDodge {
             {
                 continue;
             }
-            let used = old.iter().flatten().any(|p| {
-                p.id == t.id
-                    && p.status == t.status
-                    && p.motion == t.motion
-                    && p.used
-            });
+            let used = old
+                .iter()
+                .flatten()
+                .any(|p| p.id == t.id && p.status == t.status && p.motion == t.motion && p.used);
             self.tracks[slot] = Some(Track {
                 id: t.id,
                 status: t.status,
@@ -327,21 +466,36 @@ impl SpotDodge {
                 used,
             });
             if !used && request_ready {
-                if let Some(at) = contact_with_shape(c, *t, lookahead,padding,height) {
+                if let Some(at) = contact_with_shape(c, *t, lookahead, padding, height) {
                     if threat.is_none_or(|(_, best)| at < best) {
                         threat = Some((t.id, at));
                     }
                 }
             }
         }
-        for previous in old.into_iter().flatten().filter(|p|p.used || Some(p.id)==self.target) {
-            if self.tracks.iter().flatten().any(|t|t.id==previous.id)
-                || targets.iter().flatten().any(|t|t.id==previous.id && t.status!=previous.status) {continue;}
-            if let Some(empty)=self.tracks.iter_mut().find(|t|t.is_none()) {*empty=Some(previous);}
+        for previous in old
+            .into_iter()
+            .flatten()
+            .filter(|p| p.used || Some(p.id) == self.target)
+        {
+            if self.tracks.iter().flatten().any(|t| t.id == previous.id)
+                || targets
+                    .iter()
+                    .flatten()
+                    .any(|t| t.id == previous.id && t.status != previous.status)
+            {
+                continue;
+            }
+            if let Some(empty) = self.tracks.iter_mut().find(|t| t.is_none()) {
+                *empty = Some(previous);
+            }
         }
         if c.status == ESCAPE {
             if let Some(id) = self.target {
-                if enabled {self.punish_target = Some(id);self.punish_clock=Default::default();}
+                if enabled {
+                    self.punish_target = Some(id);
+                    self.punish_clock = Default::default();
+                }
                 self.mark_used(id);
             }
             self.cancel_pending();
@@ -398,22 +552,22 @@ impl SpotDodge {
         }
         if let Some(id) = self.target {
             self.age += elapsed;
-            if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT || self.mapped>=24
-                || !targets
-                    .iter()
-                    .flatten()
-                    .any(|t| t.id == id && contact_with_shape(c, *t, lookahead,padding,height).is_some())
+            if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT
+                || self.mapped >= 24
+                || !targets.iter().flatten().any(|t| {
+                    t.id == id && contact_with_shape(c, *t, lookahead, padding, height).is_some()
+                })
             {
                 // Only exhaust an attempt after its bounded delivery budget.
                 // A changed forecast may become threatening again before the
                 // grab ends; native ESCAPE is the actual acceptance signal.
-                if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT || self.mapped>=24 {
+                if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT || self.mapped >= 24 {
                     self.mark_used(id);
                 }
                 self.cancel_pending();
             } else if self.dodge_delivered {
-                self.output=crate::move_input::output([0.;2],0);
-                self.output.owned=crate::ledge_trap::SEQUENCE_BUTTONS;
+                self.output = crate::move_input::output([0.; 2], 0);
+                self.output.owned = crate::ledge_trap::SEQUENCE_BUTTONS;
             } else {
                 // One continuous Down+Guard request. Re-flicking Down every
                 // two frames can queue a second dodge behind the first online.
@@ -427,7 +581,8 @@ impl SpotDodge {
         if let Some((id, _)) = threat {
             self.target = Some(id);
             self.age = 0.0;
-            self.mapped=0;self.last_mapped=None;
+            self.mapped = 0;
+            self.last_mapped = None;
             // Down+Guard requests spot dodge, with no horizontal roll input.
             self.output = crate::move_input::output([0.0, -1.0], MAPPER_ZR);
             self.output.owned = crate::ledge_trap::SEQUENCE_BUTTONS;

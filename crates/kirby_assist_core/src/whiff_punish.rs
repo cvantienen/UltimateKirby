@@ -7,6 +7,10 @@ use crate::{
     ledge_trap::{LedgeOutput, LEDGE_BUTTONS},
     native_input::MAPPER_A,
 };
+const KIRBY_TILT_REACH: f32 = 8.0;
+const KIRBY_SMASH_REACH: f32 = 12.0;
+const YOSHI_BAIR_REACH: f32 = 12.0;
+
 pub fn supported(kind: i32) -> bool {
     matches!(kind, 5 | 6)
 }
@@ -44,18 +48,24 @@ enum Action {
     YoshiBair,
 }
 impl Action {
-    fn startup(self) -> f32 {
-        match self {
-            Self::Tilt => f32::from(crate::fighter_profiles::kirby::LEDGE_DATA.down_tilt.first),
-            Self::Smash => f32::from(crate::fighter_profiles::kirby::WHIFF_SMASH_STARTUP),
-            Self::YoshiBair => f32::from(crate::fighter_profiles::yoshi::WHIFF_BAIR_STARTUP_BUDGET),
-        }
+    fn startup(self, kind: i32) -> Option<f32> {
+        let move_name = match self {
+            Self::Tilt => "Down Tilt",
+            Self::Smash => "Forward Smash",
+            Self::YoshiBair => "Back Air",
+        };
+        crate::fighter_data::named_move(kind, move_name)?
+            .active
+            .iter()
+            .map(|span| span.first)
+            .min()
+            .map(f32::from)
     }
     fn reach(self) -> f32 {
         match self {
-            Self::Tilt => crate::fighter_profiles::kirby::WHIFF_TILT_REACH,
-            Self::Smash => crate::fighter_profiles::kirby::WHIFF_SMASH_REACH,
-            Self::YoshiBair => crate::fighter_profiles::yoshi::WHIFF_BAIR_REACH,
+            Self::Tilt => KIRBY_TILT_REACH,
+            Self::Smash => KIRBY_SMASH_REACH,
+            Self::YoshiBair => YOSHI_BAIR_REACH,
         }
     }
 }
@@ -185,6 +195,9 @@ impl WhiffPunisher {
                     &[Action::YoshiBair]
                 };
                 for &action in actions {
+                    let Some(startup) = action.startup(c.starter.fighter_kind) else {
+                        continue;
+                    };
                     let walk = if dx.abs() <= action.reach() {
                         0.0
                     } else {
@@ -199,7 +212,7 @@ impl WhiffPunisher {
                     // Includes a movement-release/primer, turn allowance and two
                     // frames of reserve. Unknown transport delay is not invented.
                     let turn = if dx * own.facing < 0.0 { 2.0 } else { 0.0 };
-                    if walk + turn + action.startup() + 3.0 < t.remaining {
+                    if walk + turn + startup + 3.0 < t.remaining {
                         return Some((slot, t, dx, action));
                     }
                 }
@@ -290,7 +303,7 @@ fn valid(t: Target, c: Context) -> bool {
         && t.velocity_x.is_finite()
         && (t.position[0] - c.position[0]).abs() <= 40.0
         && (t.position[1] - c.position[1]).abs() <= 5.0
-        && crate::opponent_data::profile(t.kind)
+        && crate::fighter_data::fighter(t.kind)
             .and_then(|p| p.move_for_motion(t.motion))
             .is_some_and(|m| {
                 m.whiff_eligible

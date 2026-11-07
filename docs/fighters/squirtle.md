@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **36** (`squirtle`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **36** (`squirtle`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,38 +48,38 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 4–26 |
-| Down tilt | 8–13 |
-| Forward tilt | 5–6 |
-| Down smash | 18–19 |
-| Down-smash rear window | 24–25 |
-| Up Tilt | 5–6 |
-| Forward Smash | 20–21 |
-| Forward Air | 5–14 |
-| Up Air | 5–9 |
-| Down Air | 6–6 |
+| Jab 1 | 2 start; active 2–3; 16 total; -- landing |
+| Neutral Air | 4 start; active 4–6 / 7–26; 41 total; 8 landing |
+| Forward Air | 5 start; active 5–6 / 7–14; 35 total; 6 landing |
+| Up Air | 5 start; active 5–9; 29 total; 6 landing |
+| Forward Tilt | 5 start; active 5–6; 17 total; -- landing |
+| Up Tilt | 5 start; active 5–6; 19 total; -- landing |
+| Down Tilt | 8 start; active 8–13; 29 total; -- landing |
+| Dash Attack | 8 start; active 8–11 / 12–17; 35 total; -- landing |
+| Forward Smash | 20 start; active 20–21; 49 total; -- landing |
+| Up Smash | 19/21 start; active 19 / 21–22 / 22–23 / 24–25; 65 total; -- landing |
+| Down Smash | 18 start; active 18–19 / 24–25; 41 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 6 |
-| Dash startup | 8 |
-| Pivot startup | 9 |
-| Shield-grab startup | 10 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 14.0 |
+| Standing grab | frames 6–7 |
+| Dash grab | frames 8–9 |
+| Pivot grab | frames 9–10 |
+| Standing reach reference | 14.0 world units |
+| Shield-grab startup | Unknown |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 75 |
 | Walk speed | 1.281 |
@@ -91,8 +91,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.16 |
 | Short-hop height | 17.03 |
 | Full-hop height | 35.35 |
-
-[Move source](https://ultimateframedata.com/pt_squirtle) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -129,7 +127,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -137,7 +135,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/squirtle.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/squirtle/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

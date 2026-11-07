@@ -4,12 +4,21 @@
 use kirby_assist_core::{fighter_profiles::FighterProfiles, ledge_trap::LedgeSettings};
 use std::sync::{Mutex, OnceLock};
 static PROFILES: OnceLock<FighterProfiles> = OnceLock::new();
-static SEQUENCES: OnceLock<Mutex<kirby_assist_core::sequence_config::SequenceLibrary>> = OnceLock::new();
+static SEQUENCES: OnceLock<Mutex<kirby_assist_core::sequence_config::SequenceLibrary>> =
+    OnceLock::new();
 static SEQUENCES_UPDATED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static MASTER_IN_MATCH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-struct HostState { menu_battle_active: bool, ledge_menu: Option<live_menu::LedgeMenu> }
-static STATE: Mutex<HostState> = Mutex::new(HostState{menu_battle_active:false,ledge_menu:None});
-fn ledge_settings(_:Option<i32>,base:LedgeSettings)->LedgeSettings{base}
+struct HostState {
+    menu_battle_active: bool,
+    ledge_menu: Option<live_menu::LedgeMenu>,
+}
+static STATE: Mutex<HostState> = Mutex::new(HostState {
+    menu_battle_active: false,
+    ledge_menu: None,
+});
+fn ledge_settings(_: Option<i32>, base: LedgeSettings) -> LedgeSettings {
+    base
+}
 #[path = "../../../src/performance.rs"]
 mod performance;
 static CONFIGS: Mutex<Vec<kirby_assist_core::diagnostics::modes::Configuration>> =
@@ -41,7 +50,9 @@ fn configuration_logs_once_on_entry_and_on_choice_edits_but_not_navigation_or_po
             false,
             false,
             false,
-            Some(kind), buttons, buttons,
+            Some(kind),
+            buttons,
+            buttons,
             kirby_assist_core::native_input::ControlLayout::Default,
             &LedgeSettings::default(),
             true,

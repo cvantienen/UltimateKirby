@@ -35,11 +35,11 @@
 // Shared values and observations passed between policies.
 pub mod action_owner;
 pub mod battle_objects;
+pub mod fighter_data;
 pub mod input;
 pub mod native_input;
 pub mod native_states;
 pub mod observation;
-pub mod opponent_data;
 pub mod state;
 pub mod timing;
 

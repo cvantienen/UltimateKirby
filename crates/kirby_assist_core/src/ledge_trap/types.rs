@@ -100,7 +100,8 @@ pub struct LedgeSettings {
     pub response_choices: [Option<usize>; crate::fighter_profiles::presets::PresetSlot::COUNT],
     /// Startup-parsed recipes for the five selected compiled or file-added IDs.
     /// Fixed-size copies keep text/file work out of live callbacks.
-    pub sequence_overrides: [Option<crate::sequence_config::Sequence>; crate::fighter_profiles::presets::PresetSlot::COUNT],
+    pub sequence_overrides: [Option<crate::sequence_config::Sequence>;
+        crate::fighter_profiles::presets::PresetSlot::COUNT],
     /// Numeric-only startup adjustments; these cannot register new actions.
     /// Resolved move timings and response switches for our selected fighter.
     pub fighter: LedgeFighterData,
@@ -143,7 +144,7 @@ impl Default for LedgeSettings {
             fighter_kind: 6,
             response_choices: [None; crate::fighter_profiles::presets::PresetSlot::COUNT],
             sequence_overrides: [None; crate::fighter_profiles::presets::PresetSlot::COUNT],
-            fighter: crate::fighter_profiles::kirby::LEDGE_DATA,
+            fighter: crate::fighter_profiles::LedgeFighterData::from_kind(6),
             responses: LedgeResponses::default(),
             enabled: false,
             drop_defense: true,

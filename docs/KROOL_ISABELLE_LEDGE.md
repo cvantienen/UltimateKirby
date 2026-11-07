@@ -33,8 +33,8 @@ shockwave is excluded) and Isabelle's forward-smash party popper (14–19).
 Extra jump choices use K. Rool up-air 7–19/fair 11–17, or Isabelle up-air 6–31.
 Her slingshot selects fair (first projectile phase 10–12) when the target is
 in front, or bair (13–15) when behind. Travel time remains spacing dependent. Spike choices use down-air: K. Rool 14–21, Isabelle 11–28.
-Sources: [K. Rool measurements](https://ultimateframedata.com/king_k_rool),
-[Isabelle measurements](https://ultimateframedata.com/isabelle).
+Reference facts for both fighters are in the canonical
+[Fighter Data catalog](FIGHTER_DATA.md).
 
 Nair is the forgiving general preset; up-air aims above the fighter and fair
 needs facing/spacing. These are coverage candidates, not proven optimal against

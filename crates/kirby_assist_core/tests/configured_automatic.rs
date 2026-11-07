@@ -147,7 +147,11 @@ fn canonical_grab_recipes_preserve_generic_grab_outputs_for_every_fighter() {
                                 far,
                                 Some(12.),
                                 settings(kind),
-                                AutomaticConfig {grab:Some(&g),shield_grab:Some(&s),backup:None},
+                                AutomaticConfig {
+                                    grab: Some(&g),
+                                    shield_grab: Some(&s),
+                                    backup: None,
+                                },
                             );
                             assert_eq!(a,b,"kind {kind} own {status:#x} enemy {enemy:#x} x {x} y {y} tick {tick}");
                             assert_eq!(old.target(), new.target());
@@ -479,15 +483,28 @@ fn supplied_catalog_exposes_native_grab_defaults_for_all_fighters_without_enabli
         // New editable-only Aegis profiles intentionally have no auto recipes.
         // Their generic native grab admission does not require a text recipe.
         if matches!(kind, 90 | 91) {
-            assert!(c.entries().iter().filter(|e| e.fighter_kind == kind)
-                .all(|e| !matches!(e.sequence.reaction.trigger,
-                    Trigger::AutoGrab | Trigger::AutoShieldGrab | Trigger::AutoShieldBackup)));
+            assert!(c
+                .entries()
+                .iter()
+                .filter(|e| e.fighter_kind == kind)
+                .all(|e| !matches!(
+                    e.sequence.reaction.trigger,
+                    Trigger::AutoGrab | Trigger::AutoShieldGrab | Trigger::AutoShieldBackup
+                )));
             continue;
         }
         if p.profile(kind).is_some() {
-            for trigger in [Trigger::AutoGrab,Trigger::AutoShieldGrab] {
+            for trigger in [Trigger::AutoGrab, Trigger::AutoShieldGrab] {
                 assert_eq!(c.entries().iter().filter(|e|e.fighter_kind==kind && e.sequence.reaction.trigger==trigger).count(),1,"kind {kind} {trigger:?}");
-                assert!(c.entries().iter().filter(|e|e.fighter_kind==kind && e.sequence.reaction.trigger==Trigger::AutoShieldBackup).count()<=1,"at most one explicitly authored backup; generic templates are inert");
+                assert!(
+                    c.entries()
+                        .iter()
+                        .filter(|e| e.fighter_kind == kind
+                            && e.sequence.reaction.trigger == Trigger::AutoShieldBackup)
+                        .count()
+                        <= 1,
+                    "at most one explicitly authored backup; generic templates are inert"
+                );
             }
         }
     }
@@ -633,27 +650,54 @@ fn confirmed_dodge_followup_keeps_ownership_through_recovery_and_ignores_manual_
     owners.set_ledge_priority(true);
     owners.set_automatic_suspended(true);
     for frame in 0..8 {
-        owners.observe_manual(if frame % 2 == 0 { MAPPER_A } else { MAPPER_R }, [1., -1., 1., -1.]);
+        owners.observe_manual(
+            if frame % 2 == 0 { MAPPER_A } else { MAPPER_R },
+            [1., -1., 1., -1.],
+        );
         let mut c = lc(own(15, 0x1f, frame as f32));
         c.can_act = false;
         c.manual_input_epoch = owners.physical_inputs().epoch();
-        let out = d.punish_automatic(true, Some(&s), settings(15), c, Some(follow(frame as f32, 5.)));
+        let out = d.punish_automatic(
+            true,
+            Some(&s),
+            settings(15),
+            c,
+            Some(follow(frame as f32, 5.)),
+        );
         assert_eq!(out.owned, 0);
         assert!(d.punish_pending());
-        let winner = owners.select(true, &[
-            Intent::sequence_receipt(Owner::OptionRead, out.owned, d.punish_pending()),
-            Intent::input_sequence(Owner::Ledge, 1),
-        ]);
+        let winner = owners.select(
+            true,
+            &[
+                Intent::sequence_receipt(Owner::OptionRead, out.owned, d.punish_pending()),
+                Intent::input_sequence(Owner::Ledge, 1),
+            ],
+        );
         assert_eq!(winner, Some(Owner::OptionRead));
         let packet = exclusive_output(winner, true, out);
         assert_eq!(packet.stick, Some([0.; 2]));
         assert_eq!(packet.requested, 0);
         assert_eq!(owners.policy_inputs().epoch(), 0);
     }
-    let out = d.punish_automatic(true, Some(&s), settings(15), lc(own(15, 0, 8.)), Some(follow(8., 5.)));
-    assert_eq!(out.requested, MAPPER_A, "the configured punish starts on native readiness");
+    let out = d.punish_automatic(
+        true,
+        Some(&s),
+        settings(15),
+        lc(own(15, 0, 8.)),
+        Some(follow(8., 5.)),
+    );
+    assert_eq!(
+        out.requested, MAPPER_A,
+        "the configured punish starts on native readiness"
+    );
     assert!(d.punish_committed());
-    d.punish_automatic(false, Some(&s), settings(15), lc(own(15, 0, 9.)), Some(follow(9., 5.)));
+    d.punish_automatic(
+        false,
+        Some(&s),
+        settings(15),
+        lc(own(15, 0, 9.)),
+        Some(follow(9., 5.)),
+    );
     assert!(!d.punish_pending());
     owners.release(Owner::OptionRead);
     assert!(owners.allows(Owner::Ledge));

@@ -363,35 +363,82 @@ fn ordinary_shield_backup_does_not_emit_up_b_or_require_its_native_transition() 
 fn configured_boxed_engine_is_reused_between_polls() {
     let configured = rules(&[("auto_roll", "down_smash:1")]);
     let mut engine: Option<Box<Engine>> = None;
-    sample_optional_simple(&mut engine, false, Some(&configured), Default::default(),
-        context(), [None; 8], None, [false; 3]);
-    assert!(engine.is_none(), "disabled polling must not allocate an engine");
+    sample_optional_simple(
+        &mut engine,
+        false,
+        Some(&configured),
+        Default::default(),
+        context(),
+        [None; 8],
+        None,
+        [false; 3],
+    );
+    assert!(
+        engine.is_none(),
+        "disabled polling must not allocate an engine"
+    );
     for _ in 0..1000 {
-        sample_optional_simple(&mut engine, true, Some(&configured), Default::default(),
-            context(), [None; 8], None, [false; 3]);
-        assert!(engine.is_none(), "idle configured polling must not allocate an engine");
+        sample_optional_simple(
+            &mut engine,
+            true,
+            Some(&configured),
+            Default::default(),
+            context(),
+            [None; 8],
+            None,
+            [false; 3],
+        );
+        assert!(
+            engine.is_none(),
+            "idle configured polling must not allocate an engine"
+        );
     }
     engine = Some(Box::<Engine>::default());
     let original = engine.as_deref().unwrap() as *const Engine;
     for _ in 0..10 {
-        sample_optional_simple(&mut engine, false, Some(&configured), Default::default(),
-            context(), [None; 8], None, [false; 3]);
+        sample_optional_simple(
+            &mut engine,
+            false,
+            Some(&configured),
+            Default::default(),
+            context(),
+            [None; 8],
+            None,
+            [false; 3],
+        );
         assert_eq!(engine.as_deref().unwrap() as *const Engine, original);
     }
 }
 
 #[test]
 fn profile_fallback_cannot_relabel_another_fighters_selected_tapes() {
-    use kirby_assist_core::{fighter_profiles::FighterProfiles, ledge_trap::LedgeSettings,
-        sequence_config::Catalog};
+    use kirby_assist_core::{
+        fighter_profiles::FighterProfiles, ledge_trap::LedgeSettings, sequence_config::Catalog,
+    };
     let profiles = FighterProfiles::default();
-    let recipe = Catalog::parse("[bowser.roll.private]\nstart_delay=0\nactions=up_b:4,drift:opponent:1:69\n").unwrap().entries()[0].sequence;
+    let recipe = Catalog::parse(
+        "[bowser.roll.private]\nstart_delay=0\nactions=up_b:4,drift:opponent:1:69\n",
+    )
+    .unwrap()
+    .entries()[0]
+        .sequence;
     let mut bowser = profiles.ledge_settings(Some(15), LedgeSettings::default());
     bowser.enabled = true;
     bowser.response_choices[2] = Some(1);
     bowser.sequence_overrides[2] = Some(recipe);
-    assert_eq!(profiles.ledge_settings(Some(15), bowser).sequence_overrides[2], Some(recipe));
-    for kind in [None, Some(-1), Some(22), Some(5), Some(28), Some(90), Some(91)] {
+    assert_eq!(
+        profiles.ledge_settings(Some(15), bowser).sequence_overrides[2],
+        Some(recipe)
+    );
+    for kind in [
+        None,
+        Some(-1),
+        Some(22),
+        Some(5),
+        Some(28),
+        Some(90),
+        Some(91),
+    ] {
         let incoming = profiles.ledge_settings(kind, bowser);
         assert!(incoming.response_choices.iter().all(Option::is_none));
         assert!(incoming.sequence_overrides.iter().all(Option::is_none));

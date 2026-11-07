@@ -14,17 +14,17 @@ and neither form inherits Game & Watch's reflector or Bowser's specials.
 Missing identities/sections have no fallback option. The file
 controls controller inputs only; it never changes native moves or physics.
 
-The [compiled reference dataset](OPPONENT_DATA.md) retains baseline weight,
-movement and move facts for 90 native kinds, including DLC opponents. These facts
-do not add ledge recipes. Automatic whiff punishing is currently disconnected
-from the live build/menu; each fighter page retains its reference stats.
+The [Fighter Data dataset](FIGHTER_DATA.md) contains exact-kind stats and move
+facts for 90 native kinds, including DLC fighters. Each fighter page links to
+that canonical source; unknown or unavailable values are not filled from another
+fighter. These facts do not add ledge recipes.
 
 <!-- BEGIN INDIVIDUAL FIGHTER LINKS -->
 
 ## Individual fighter pages
 
 Each registered fighter form has its own source-based reference, including
-all five file-authored lists, selected defaults, input schedules and reference facts.
+all five file-authored lists, selected defaults, input schedules and canonical fighter facts.
 
 | Fighter | Fighter | Fighter |
 | --- | --- | --- |
@@ -82,7 +82,8 @@ Only shared recognition, observation, input routing and spatial predicates stay
 in code. New input primitives need Rust changes; new scripts need only a file edit
 and restart after installing the updated executor.
 
-Frame intervals document compiled data, not universal collision or optimality.
+Frame intervals reference the canonical fighter data, not universal collision
+or optimality.
 Reach and root-motion forecasts are approximate. Projectile travel, opponent
 steering, native readiness, stage geometry and online delay can defeat a punish.
 Check [diagnostic grab traces](BUILD_VARIANTS.md#diagnostic-performance) when

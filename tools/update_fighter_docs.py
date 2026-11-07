@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Refresh fighter pages from file menus and independent reference facts, without building.
+"""Refresh fighter pages from file menus and canonical fighter facts, without building.
 
 This deliberately supports only the static catalog syntax used in this repo.
 Unknown expressions fail before any pages are written; it never executes Rust.
@@ -27,8 +27,8 @@ NAMES = {
 }
 
 @lru_cache(maxsize=1)
-def opponent_reference():
-    snapshot = json.loads((ROOT / "data/opponent_reference.json").read_text())
+def fighter_data_snapshot():
+    snapshot = json.loads((ROOT / "data/Ultimate_stats.json").read_text())
     return {f["kind"]: f for f in snapshot["fighters"]}
 ROWS = ["Neutral", "Jump", "Roll", "Attack", "Drop"]
 
@@ -84,12 +84,6 @@ def file_assists(module):
     return sorted(rules, key=lambda r: (r[0], r[1]))
 
 
-def number(text, key):
-    match = re.search(r"\b" + key + r"\s*:\s*([\d.]+)", text)
-    if not match: raise ValueError("Missing numeric field " + key)
-    return match[1]
-
-
 def title(module):
     return NAMES.get(module, module.replace("_", " ").title())
 
@@ -115,12 +109,10 @@ def render(module):
     for row in menu:
         assert row["options"] and 0 <= row["selected"] < len(row["options"]), module
         assert len({c['id'] for c in row['options']}) == len(row['options']), module
-    timing = source(PROFILES / module / "timing.rs")
-    data = timing[timing.index("LEDGE_DATA:"):]
     lines = ["# " + title(module), "", BEGIN, "",
              "[All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)", "",
-             "Native fighter kind **%s** (`%s`). This reference follows the compiled source;" % (kind, module),
-             "it is not a device-calibration result. No fighter file loads during a match.", "",
+             "Native fighter kind **%s** (`%s`). This reference follows the canonical fighter data;" % (kind, module),
+             "it is not a device-calibration result. No fighter-specific file loads during a match.", "",
              "## Saved ledge responses", "",
              "The lightweight selector starts visible; **Minus** hides/shows it. Training opens with **Minus**.",
              "Up/Down selects a row; Left/Right cycles its",
@@ -152,44 +144,59 @@ def render(module):
     if not rules:
         assists.append("| — | — | No saved assist rules in the supplied master | — |")
     lines[marker:marker] = assists + [""]
-    for key, label in [("neutral_air", "Neutral air"), ("down_tilt", "Down tilt"),
-                       ("forward_tilt", "Forward tilt"), ("down_smash", "Down smash")]:
-        match = re.search(key + r"\s*:\s*MoveFrames\s*\{([^}]+)\}", data, re.S)
-        if not match: raise ValueError(module + " missing " + key)
-        lines.append("| %s | %s–%s |" % (label, number(match[1], "first"), number(match[1], "last")))
-    rear = re.search(r"down_smash_back:\s*Some\(MoveFrames\s*\{([^}]+)\}", data, re.S)
-    if rear: lines.append("| Down-smash rear window | %s–%s |" % (number(rear[1], "first"), number(rear[1], "last")))
-    for move in re.finditer(r"pub const (\w+): MoveFrames = MoveFrames\s*\{([^}]+)\}", timing, re.S):
-        lines.append("| %s | %s–%s |" % (move[1].replace('_', ' ').title(), number(move[2], "first"), number(move[2], "last")))
-    for key, label in [("down_special_startup", "Grounded down-special startup"),
-                       ("up_special_startup", "Grounded up-special startup")]:
-        special = re.search(key + r":\s*Some\((\d+)\)", data)
-        if special: lines.append("| %s | %s |" % (label, special[1]))
-    grab = re.search(r"grab:\s*GrabTiming\s*\{([^}]+)\}", data, re.S)[1]
-    lines += ["", "### Grab data", "", "| Setting | Compiled value |", "| --- | --- |"]
-    for key, label in [("standing", "Standing startup"), ("dash", "Dash startup"),
-                       ("turn_or_shield", "Pivot startup"), ("shield", "Shield-grab startup"),
-                       ("active_frames", "Active duration"), ("standing_range", "Standing reach reference (world units)")]:
-        lines.append("| %s | %s |" % (label, number(grab, key)))
+    facts = fighter_data_snapshot().get(int(kind))
+    if facts is None:
+        raise ValueError(module + " has no matching Ultimate_stats.json record")
+    moves_by_name = {}
+    for move in facts["moves"]:
+        moves_by_name.setdefault(move["name"], []).append(move)
+    for move_name in ["Jab 1", "Neutral Air", "Forward Air", "Back Air", "Up Air", "Down Air",
+                      "Forward Tilt", "Up Tilt", "Down Tilt", "Dash Attack", "Forward Smash",
+                      "Up Smash", "Down Smash"]:
+        matches = moves_by_name.get(move_name, [])
+        if len(matches) != 1 or not matches[0]["active"]:
+            continue
+        move = matches[0]
+        active = " / ".join(
+            str(first) if first == last else f"{first}–{last}"
+            for first, last in move["active"]
+        )
+        raw = move.get("raw", {})
+        startup = raw.get("startup", "?")
+        total = raw.get("totalframes", move.get("total") or "?")
+        landing = raw.get("landinglag", move.get("landing_lag"))
+        detail = f"{startup} start; active {active}; {total} total"
+        if landing is not None:
+            detail += f"; {landing} landing"
+        lines.append(f"| {move_name} | {detail} |")
+    lines += ["", "### Grab data", "", "| Setting | Fighter data |", "| --- | --- |"]
+    for move_name, label in [("Grab", "Standing grab"), ("Dash Grab", "Dash grab"),
+                             ("Pivot Grab", "Pivot grab")]:
+        matches = moves_by_name.get(move_name, [])
+        active = matches[0].get("active", []) if len(matches) == 1 else []
+        startup = (f"frames {active[0][0]}–{active[-1][1]}"
+                   if active else "Unknown")
+        lines.append(f"| {label} | {startup} |")
+    stats = {stat["key"]: stat["value"] for stat in facts["stats"]}
+    lines.append(f"| Standing reach reference | {stats.get('grabs.grabrange', 'Unknown')} world units |")
+    shield_grab = stats.get("outofshield.grabpostshieldstun", "Unknown")
+    lines.append(f"| Shield-grab startup | {shield_grab} |")
     lines += ["", "Reach is an approximate root-based reference, not an animated grab/hurtbox model.",
               "The file decides whether to request an explicit range check. No native timing gate",
               "is inferred from this table; input delivery and the game's buffering rules still matter.", "",
               "## Execution and calibration", ""]
-    facts = opponent_reference().get(int(kind))
-    if facts:
-        table = {s["key"]: s["value"] for s in facts["stats"]}
-        section = ["## Baseline reference stats", "",
-                   "Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not",
-                   "instance modifiers or a replacement for existing ledge tuning.", "",
-                   "| Stat | Reference |", "| --- | --- |"]
-        for key, label in [("weight.weight", "Weight"), ("walkspeed.walkspeed", "Walk speed"),
-                           ("dashandrun.initialdash", "Initial dash"), ("dashandrun.runspeed", "Run speed"),
-                           ("airspeed.airspeed", "Air speed"), ("gravityt.gravity", "Gravity"),
-                           ("fallspeed.regularfall", "Fall speed"), ("fallspeed.fastfall", "Fast fall"),
-                           ("jumpheight.shorthop", "Short-hop height"), ("jumpheight.fullhop", "Full-hop height")]:
-            section.append("| %s | %s |" % (label, table.get(key, "Unknown")))
-        section += ["", "[Move source](%s) · [Stats source](https://ultimateframedata.com/stats.php)" % facts["source"], ""]
-        lines[-2:-2] = section
+    table = {stat["key"]: stat["value"] for stat in facts["stats"]}
+    section = ["## Baseline fighter stats", "",
+               "From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,",
+               "not instance modifiers or a replacement for live observations.", "",
+               "| Stat | Fighter data |", "| --- | --- |"]
+    for key, label in [("weight.weight", "Weight"), ("walkspeed.walkspeed", "Walk speed"),
+                       ("dashandrun.initialdash", "Initial dash"), ("dashandrun.runspeed", "Run speed"),
+                       ("airspeed.airspeed", "Air speed"), ("gravityt.gravity", "Gravity"),
+                       ("fallspeed.regularfall", "Fall speed"), ("fallspeed.fastfall", "Fast fall"),
+                       ("jumpheight.shorthop", "Short-hop height"), ("jumpheight.fullhop", "Full-hop height")]:
+        section.append("| %s | %s |" % (label, table.get(key, "Unknown")))
+    lines[-2:-2] = section + [""]
     lines += [f"Option definitions and input delays come from `fighters/{source_name}.txt`, assembled into the Switch’s `sequences.txt`. Each option",
               "has an explicit `start_delay`; waits between actions are literal native frames.",
               "No compiled fighter recipe, adaptive-hop policy or native move window schedules them.", "",
@@ -212,12 +219,12 @@ def render(module):
               "input arrival still affect contact. There is no learned-delay compensation.",
               "Use the [diagnostic result card](../CALIBRATION_CARD.md),",
               "[execution/calibration](../FIGHTER_EXECUTION.md) and the",
-              "[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)",
+              "[roster/data catalog notes](../NON_DLC_ROSTER.md)",
               "before treating an option as reliable in a particular setup.", "",
               "## Source and edits", "",
               "Paths are relative to the repository root:", "",
               "- Registration: `crates/kirby_assist_core/src/fighter_profiles/%s.rs`." % module,
-              "- Move data: `crates/kirby_assist_core/src/fighter_profiles/%s/timing.rs`." % module,
+              "- Stats and move frames: `data/Ultimate_stats.json`.",
               "- Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.",
               "- Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.",
               "", "[Adding a response](../FIGHTER_CONFIGS.md) explains registration and shared helpers.",
@@ -247,7 +254,7 @@ def outputs():
         result[path] = content
     index = ["<!-- BEGIN INDIVIDUAL FIGHTER LINKS -->", "", "## Individual fighter pages", "",
              "Each registered fighter form has its own source-based reference, including",
-             "all five file-authored lists, selected defaults, input schedules and reference facts.", "",
+             "all five file-authored lists, selected defaults, input schedules and canonical fighter facts.", "",
              "| Fighter | Fighter | Fighter |", "| --- | --- | --- |"]
     links = ["[%s](fighters/%s.md)" % (title(m), m) for m in sorted(modules, key=title)]
     for i in range(0, len(links), 3): index.append("| " + " | ".join((links[i:i+3] + [""] * 3)[:3]) + " |")

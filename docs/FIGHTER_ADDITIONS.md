@@ -9,8 +9,9 @@ fighter combos. See [the ledge menu](LEDGE_MENU.md) for held-L autopilot and the
 
 ## Ledge timing choices
 
-Move data was checked against original [Luigi frame measurements](https://ultimateframedata.com/luigi)
-and [Captain Falcon frame measurements](https://ultimateframedata.com/captain_falcon).
+Move-frame facts are read from the canonical
+[Fighter Data catalog](FIGHTER_DATA.md), not copied into per-fighter timing
+profiles.
 Native kind/status/transition IDs were checked against the pinned skyline-smash
 lua_const.rs bindings. Recipe delays are starting values, not experimentally
 verified universal optimal timings.

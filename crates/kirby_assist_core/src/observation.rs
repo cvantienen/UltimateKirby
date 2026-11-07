@@ -113,25 +113,38 @@ impl<const N: usize> ObservationSnapshotSized<N> {
     /// calls or additional roster scan; passive frozen poses cannot time a tail.
     pub fn known_progress_clock(&self, own: u32) -> Option<(u32, i32, u64, f32, f32)> {
         self.fighters.iter().find_map(|f| {
-            let id=f.id.get().filter(|id|*id!=own)?;
-            let Fact::Int(status)=f.facts[Field::Status as usize].get()? else{return None;};
-            if matches!(status,0x1b|0x1c|0x77|0x7e|0x7f) {return None;}
-            if f.facts[Field::Stop as usize].get()==Some(Fact::Bool(true)) {return None;}
-            let Fact::Motion(motion)=f.facts[Field::Motion as usize].get()? else{return None;};
-            let Fact::Float(frame)=f.facts[Field::Frame as usize].get()? else{return None;};
-            let Fact::Float(rate)=f.facts[Field::Rate as usize].get()? else{return None;};
-            (motion!=0 && frame.is_finite() && frame>=0. && rate.is_finite() && rate>0.)
-                .then_some((id,status,motion,frame,rate))
+            let id = f.id.get().filter(|id| *id != own)?;
+            let Fact::Int(status) = f.facts[Field::Status as usize].get()? else {
+                return None;
+            };
+            if matches!(status, 0x1b | 0x1c | 0x77 | 0x7e | 0x7f) {
+                return None;
+            }
+            if f.facts[Field::Stop as usize].get() == Some(Fact::Bool(true)) {
+                return None;
+            }
+            let Fact::Motion(motion) = f.facts[Field::Motion as usize].get()? else {
+                return None;
+            };
+            let Fact::Float(frame) = f.facts[Field::Frame as usize].get()? else {
+                return None;
+            };
+            let Fact::Float(rate) = f.facts[Field::Rate as usize].get()? else {
+                return None;
+            };
+            (motion != 0 && frame.is_finite() && frame >= 0. && rate.is_finite() && rate > 0.)
+                .then_some((id, status, motion, frame, rate))
         })
     }
     /// Already-read statuses only: no native calls, eager reads or allocation.
     /// Event consumers can distinguish a known end from a missing observation.
-    pub fn known_statuses(&self) -> [Option<(u32,i32)>;N] {
+    pub fn known_statuses(&self) -> [Option<(u32, i32)>; N] {
         std::array::from_fn(|i| {
-            let entry=&self.fighters[i];let id=entry.id.get()?;
+            let entry = &self.fighters[i];
+            let id = entry.id.get()?;
             match entry.facts[Field::Status as usize].get()? {
-                Fact::Int(status)=>Some((id,status)),
-                _=>None,
+                Fact::Int(status) => Some((id, status)),
+                _ => None,
             }
         })
     }
@@ -166,11 +179,20 @@ pub struct RosterSnapshot<const N: usize = 8> {
     value: Cell<Option<Option<[Option<u32>; N]>>>,
 }
 impl<const N: usize> Default for RosterSnapshot<N> {
-    fn default() -> Self { Self { value: Cell::new(None) } }
+    fn default() -> Self {
+        Self {
+            value: Cell::new(None),
+        }
+    }
 }
 impl<const N: usize> RosterSnapshot<N> {
-    pub fn read(&self, query: impl FnOnce() -> Option<[Option<u32>; N]>) -> Option<[Option<u32>; N]> {
-        if let Some(value) = self.value.get() { return value; }
+    pub fn read(
+        &self,
+        query: impl FnOnce() -> Option<[Option<u32>; N]>,
+    ) -> Option<[Option<u32>; N]> {
+        if let Some(value) = self.value.get() {
+            return value;
+        }
         let value = query();
         self.value.set(Some(value));
         value

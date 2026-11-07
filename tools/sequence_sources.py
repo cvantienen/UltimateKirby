@@ -71,7 +71,7 @@ def assemble(path: Path = SOURCE) -> bytes:
         total+=len(pieces[-1])
         if total > MAX_BYTES:
             raise RuntimeError('Assembled sequence file exceeds 512 KiB')
-    output = b''.join(pieces)
+    output = b''.join(pieces).rstrip() + b'\n'
     if len(output)>MAX_BYTES:
         raise RuntimeError('Assembled sequence file exceeds 512 KiB')
     for line in output.decode().splitlines():
@@ -100,7 +100,10 @@ def canonical_bundle(data: bytes) -> bytes:
     blocks=split_bundle(data)
     if 'universal' not in blocks:
         raise RuntimeError('Split-source import requires universal settings/templates')
-    return b''.join(blocks[name].rstrip()+b'\n\n' for name in ['universal']+sorted(n for n in blocks if n!='universal'))
+    return b''.join(
+        blocks[name].rstrip() + b'\n\n'
+        for name in ['universal'] + sorted(name for name in blocks if name != 'universal')
+    ).rstrip() + b'\n'
 
 
 def replace_sources(source: Path, data: bytes, backup: Path, expected: bytes | None = None) -> None:

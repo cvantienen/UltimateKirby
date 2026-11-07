@@ -306,8 +306,8 @@ impl Report {
             kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadDown => "D-PAD DOWN",
             kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadLeft => "D-PAD LEFT",
             kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadRight => "D-PAD RIGHT",
-            kirby_assist_core::fighter_profiles::presets::PresetSlot::L3=>"L3",
-            kirby_assist_core::fighter_profiles::presets::PresetSlot::R3=>"R3",
+            kirby_assist_core::fighter_profiles::presets::PresetSlot::L3 => "L3",
+            kirby_assist_core::fighter_profiles::presets::PresetSlot::R3 => "R3",
         };
         let result = self.result();
         let _ = writeln!(text, "What happened: {result}\nWhy: {}", self.explanation());
@@ -635,7 +635,7 @@ impl Recorder {
                 epoch: EPOCH.load(Ordering::Acquire),
                 fighter: fighter.0,
                 fighter_kind: fighter.1,
-                choice:ChoiceName::new(choice),
+                choice: ChoiceName::new(choice),
                 origin: now,
                 first: frame,
                 last: frame,
@@ -884,7 +884,7 @@ mod tests {
             held: true,
             gameplay: true,
             manual_input_epoch: 0,
-            automatic_up_b_epoch:None,
+            automatic_up_b_epoch: None,
             can_act: true,
             can_control: true,
             stopped: false,

@@ -27,6 +27,8 @@ class SequenceSourceTests(unittest.TestCase):
     def test_current_bundle_matches_all_79_owned_sources_and_keeps_templates_universal(self):
         data=sources.assemble()
         self.assertEqual(data,sources.GENERATED.read_bytes())
+        self.assertTrue(data.endswith(b'\n'))
+        self.assertFalse(data.endswith(b'\n\n'))
         self.assertEqual(len(list((sources.SOURCE.parent/'fighters').glob('*.txt'))),79)
         self.assertEqual(set(sources.split_bundle(sources.SOURCE.read_bytes())),{'universal'})
         for file in (sources.SOURCE.parent/'fighters').glob('*.txt'):

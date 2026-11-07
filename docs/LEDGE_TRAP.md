@@ -18,9 +18,9 @@ The opponent need not have grabbed the ledge. Releasing L releases this assist.
 
 The check uses the existing bounded fighter roster and validated live accessors.
 A five-frame swept root envelope (24 horizontal / 28 vertical world units)
-provides the cheap active-attack warning. Unambiguous compiled active windows
-also warn for mapped jabs, tilts, smashes and aerials, with the existing profile
-fallback for supported move families. Unknown timings do not borrow Kirby data.
+provides the cheap active-attack warning. Unambiguous fighter-specific active windows from the canonical JSON also warn
+for mapped jabs, tilts, smashes and aerials. Unknown timings do not borrow
+another fighter's data.
 
 For active hitboxes beyond the root envelope, a bounded read of native attack
 geometry tests a swept conservative standing envelope. This covers extended
@@ -139,7 +139,7 @@ allows, without a spacing, facing-turn, reach or vulnerability timing gate.
 Down+A stays queued through takeoff, even
 if the opponent disappears from tracking. Once the actual dair starts, A/down
 release and full horizontal drift continues through startup. At dair animation
-frame 18 ([first active frame](https://ultimateframedata.com/kirby)), control
+frame 18 (from Kirby's canonical [Fighter Data row](FIGHTER_DATA.md)), control
 hands back so you choose recovery. A different aerial, landing, interruption or
 request timeout also ends this one-shot attempt. Release/rehold L to rearm.
 Spacing is yours; it can drift offstage and does not guarantee a spike.
@@ -275,5 +275,5 @@ Only explicit spatial/check/wait-for-block actions add their documented waits.
 Missing targets, unsafe movement or invalid scope can end a sequence. Inputs
 cannot bypass shieldstun, landing lag, recovery or native action restrictions.
 Timing perfected in Training is not proof of identical online input acceptance.
-Use [input timing](SEQUENCE_FILES.md), [fighter references](OPPONENT_DATA.md) and
+Use [input timing](SEQUENCE_FILES.md), [Fighter Data](FIGHTER_DATA.md) and
 [diagnostic observations](OBSERVATIONS_AND_TIMING.md).

@@ -28,11 +28,17 @@ impl AssistGuardHandoff {
         let pressed = self.previous.map_or(0, |old| human.held & !old);
         self.previous = Some(human.held);
         self.blocked &= human.held & guards & !pressed;
-        if !active { self.blocked |= self.protected & human.held & guards & !pressed; }
+        if !active {
+            self.blocked |= self.protected & human.held & guards & !pressed;
+        }
         // Only an actually SUPPRESSED human guard needs release-to-rearm.
         // Direct shield grab/Up-B explicitly keeps guard; quarantining that
         // unchanged hold after a failed request drops a perfectly valid shield.
-        self.protected = if active { human.held & guards & owned & !requested & !pressed } else {0};
+        self.protected = if active {
+            human.held & guards & owned & !requested & !pressed
+        } else {
+            0
+        };
         self.blocked &= !(requested & guards);
         if active {
             self.blocked |= human.held & guards & owned & !requested & !pressed;

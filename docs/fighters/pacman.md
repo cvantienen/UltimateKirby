@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **55** (`pacman`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **55** (`pacman`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,36 +48,40 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 3–19 |
-| Down tilt | 7–9 |
-| Forward tilt | 5–7 |
-| Down smash | 15–28 |
-| Forward Smash | 16–29 |
-| Up Air | 9–16 |
-| Forward Air | 5–8 |
-| Grounded up-special startup | 4 |
+| Jab 1 | 4 start; active 4; 19 total; -- landing |
+| Neutral Air | 3 start; active 3–5 / 6–9 / 10–19; 51 total; 7 landing |
+| Forward Air | 5 start; active 5–8; 25 total; 10 landing |
+| Back Air | 9 start; active 9–11 / 12–16; 40 total; 13 landing |
+| Up Air | 9 start; active 9–16; 36 total; 10 landing |
+| Down Air | 6/13/20/27 start; active 6–7 / 13–14 / 20–21 / 27–28; 49 total; 12 landing |
+| Forward Tilt | 5 start; active 5–7; 30 total; -- landing |
+| Up Tilt | 7 start; active 7–10; 24 total; -- landing |
+| Down Tilt | 7 start; active 7–9; 26 total; -- landing |
+| Dash Attack | 10/19/28/37 start; active 10–11 / 19–20 / 28–29 / 37; 45 total; -- landing |
+| Forward Smash | 16 start; active 16–18 / 19–29; 52 total; -- landing |
+| Up Smash | 11/15 start; active 11 / 15–17 / 18–28; 49 total; -- landing |
+| Down Smash | 15 start; active 15–17 / 18–28; 54 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 12 |
-| Dash startup | 14 |
-| Pivot startup | 15 |
+| Standing grab | frames 12–33 |
+| Dash grab | frames 14–35 |
+| Pivot grab | frames 15–36 |
+| Standing reach reference | 28.2 ~ world units |
 | Shield-grab startup | 16 |
-| Active duration | 22 |
-| Standing reach reference (world units) | 28.2 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 95 |
 | Walk speed | 1.097 |
@@ -89,8 +93,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.16 |
 | Short-hop height | 16.48 |
 | Full-hop height | 34.1 |
-
-[Move source](https://ultimateframedata.com/pac_man) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -126,7 +128,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -134,7 +136,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/pacman.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/pacman/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 
@@ -165,9 +167,9 @@ fruit selection or recovery from a missing-fruit setup.
 
 Tapping Special releases a stored fruit; holding it resumes cycling, according
 to the [Prima Ultimate guide](https://primagames.com/eguides/prima-games-8-eguide/pac-man/brawler-arsenal).
-The stored startup reference is 12+7=19 frames from
-[Ultimate Frame Data](https://ultimateframedata.com/pac_man), not projectile
-arrival time. This is an immediate throw input, not an immediate hitbox.
+The stored startup reference is 12+7=19 frames from Pac-Man's canonical
+[Fighter Data](../FIGHTER_DATA.md), not projectile arrival time. This is an
+immediate throw input, not an immediate hitbox.
 
 The proposed fruit-double-hit-to-red trampoline interaction has not been
 verified. These responses neither guarantee that conversion nor an automatic KO;

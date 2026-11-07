@@ -36,31 +36,55 @@ impl Choice {
 pub struct FighterConfig {
     pub first: u8,
     pub last: u8,
-    /// Separate rear sweep for sequential smashes; None means the main window
-    /// covers both sides (Kirby) or this config is a grab.
-    pub back: Option<(u8, u8)>,
+    pub active_windows: &'static [crate::fighter_data::Span],
     /// Approximate horizontal root reach, not a live grab/hurtbox measurement.
     pub reach: f32,
     pub height: f32,
     pub watch_distance: f32,
 }
 pub fn fighter_config(kind: i32) -> Option<FighterConfig> {
-    match kind {
-        6 => Some(crate::fighter_profiles::kirby::ROLL_READ_DOWN_SMASH),
-        5 => Some(crate::fighter_profiles::yoshi::ROLL_READ_DOWN_SMASH),
-        _ => None,
-    }
+    let (reach, height, watch_distance) = match kind {
+        6 => (14.0, 6.0, 64.0),
+        5 => (13.0, 6.0, 64.0),
+        _ => return None,
+    };
+    config_for_move(kind, "Down Smash", reach, height, watch_distance)
 }
 pub fn config_for(kind: i32, choice: Choice) -> Option<FighterConfig> {
     match choice {
         Choice::Off => None,
         Choice::DownSmash => fighter_config(kind),
-        Choice::Grab => match kind {
-            6 => Some(crate::fighter_profiles::kirby::ROLL_READ_GRAB),
-            5 => Some(crate::fighter_profiles::yoshi::ROLL_READ_GRAB),
-            _ => None,
-        },
+        Choice::Grab => {
+            let (height, watch_distance) = match kind {
+                6 => (4.0, 32.0),
+                5 => (4.0, 36.0),
+                _ => return None,
+            };
+            let reach = crate::fighter_data::fighter(kind)?.numeric_stat("grabs.grabrange")?;
+            config_for_move(kind, "Grab", reach, height, watch_distance)
+        }
     }
+}
+fn config_for_move(
+    kind: i32,
+    name: &str,
+    reach: f32,
+    height: f32,
+    watch_distance: f32,
+) -> Option<FighterConfig> {
+    let movement = crate::fighter_data::named_move(kind, name)?;
+    let first = movement.active.iter().map(|span| span.first).min()?;
+    let last = movement.active.iter().map(|span| span.last).max()?;
+    let first = u8::try_from(first).ok()?;
+    let last = u8::try_from(last).ok()?;
+    (first > 0 && last <= 120 && last >= first).then_some(FighterConfig {
+        first,
+        last,
+        active_windows: &movement.active,
+        reach,
+        height,
+        watch_distance,
+    })
 }
 #[derive(Clone, Copy)]
 pub struct Context {
@@ -183,9 +207,11 @@ impl RollRead {
             || config.first == 0
             || config.last < config.first
             || config.last > 120
+            || config.active_windows.is_empty()
             || config
-                .back
-                .is_some_and(|(first, last)| first == 0 || last < first || last > 120)
+                .active_windows
+                .iter()
+                .any(|span| span.first == 0 || span.first > span.last || span.last > 120)
             || !config.reach.is_finite()
             || config.reach <= 0.0
             || !config.height.is_finite()

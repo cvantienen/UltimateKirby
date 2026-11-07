@@ -346,7 +346,6 @@ actions = up_b:4
 
 # KROOL
 # Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Move data: https://ultimateframedata.com/king_k_rool
 # Assumes recognition at option F1, grounded/ready, correct facing and spacing.
 # Ground attacks assume shield is already released; OOS uses the block helper.
 # Charged smash release and hitbox contact require in-game calibration.

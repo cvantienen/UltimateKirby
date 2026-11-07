@@ -3,7 +3,7 @@ use kirby_assist_core::{
     ledge_trap::{LedgeContext, LedgeSettings, SEQUENCE_BUTTONS},
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::*,
-    out_of_shield::{Context, OutOfShield,AutomaticConfig},
+    out_of_shield::{AutomaticConfig, Context, OutOfShield},
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
@@ -69,14 +69,32 @@ fn sample(
     lc: LedgeContext,
     t: [Option<Target>; 8],
 ) -> kirby_assist_core::ledge_trap::LedgeOutput {
-    o.sample_automatic_configured(allowed,c,lc,t,None,true,22.,35.,Some(12.),
-        LedgeSettings{fighter_kind:c.kind,..Default::default()},explicit_backup_for(c.kind))
+    o.sample_automatic_configured(
+        allowed,
+        c,
+        lc,
+        t,
+        None,
+        true,
+        22.,
+        35.,
+        Some(12.),
+        LedgeSettings {
+            fighter_kind: c.kind,
+            ..Default::default()
+        },
+        explicit_backup_for(c.kind),
+    )
 }
-fn explicit_backup()->AutomaticConfig<'static>{explicit_backup_for(15)}
-fn explicit_backup_for(kind:i32)->AutomaticConfig<'static>{
-    static BOWSER:std::sync::OnceLock<kirby_assist_core::sequence_config::Sequence>=std::sync::OnceLock::new();
-    static OTHER:std::sync::OnceLock<kirby_assist_core::sequence_config::Sequence>=std::sync::OnceLock::new();
-    let cell=if kind==15{&BOWSER}else{&OTHER};
+fn explicit_backup() -> AutomaticConfig<'static> {
+    explicit_backup_for(15)
+}
+fn explicit_backup_for(kind: i32) -> AutomaticConfig<'static> {
+    static BOWSER: std::sync::OnceLock<kirby_assist_core::sequence_config::Sequence> =
+        std::sync::OnceLock::new();
+    static OTHER: std::sync::OnceLock<kirby_assist_core::sequence_config::Sequence> =
+        std::sync::OnceLock::new();
+    let cell = if kind == 15 { &BOWSER } else { &OTHER };
     AutomaticConfig{backup:Some(cell.get_or_init(||{
         let actions=if kind==15{"up_b:4,drift:opponent:1:69"}else{"up_b:4"};
         Catalog::parse(&format!("[bowser.roll.backup]\nstart_delay=0\nreaction=auto_shield_backup:22:24\nactions={actions}\n")).unwrap().entries()[0].sequence
@@ -231,9 +249,18 @@ fn fallback_is_bounded_by_delivered_packets_and_releases_on_native_start_or_manu
         o.mapped_up_special(tick, 2);
     }
     assert_eq!(sample(&mut o, true, ctx, own, targets(-10.)).owned, 0);
-    assert!(o.up_b_receipt_pending(),"a delivered packet may still receive native confirmation; no more B is sent");
-    for tick in 4..24 {o.delivery_tick(tick);assert_eq!(sample(&mut o,true,ctx,own,targets(-10.)).owned,0);}
-    assert!(o.target().is_none(),"passive confirmation is bounded even with frozen motion clocks");
+    assert!(
+        o.up_b_receipt_pending(),
+        "a delivered packet may still receive native confirmation; no more B is sent"
+    );
+    for tick in 4..24 {
+        o.delivery_tick(tick);
+        assert_eq!(sample(&mut o, true, ctx, own, targets(-10.)).owned, 0);
+    }
+    assert!(
+        o.target().is_none(),
+        "passive confirmation is bounded even with frozen motion clocks"
+    );
     for status in [0, 3, 0x1d, 0x1e, 0x37, 0x47] {
         let mut o = OutOfShield::new();
         sample(&mut o, true, c(0.), lc(0.), targets(-10.));
@@ -460,7 +487,10 @@ fn roll_priority_is_rechecked_when_a_cancelled_fallback_proposes_a_fresh_grab() 
     );
     let proposed = sample(&mut o, true, c(1.), lc(1.), next);
     assert_ne!(proposed.requested & MAPPER_R, 0);
-    assert!(!o.shield_up_b_pending(), "the old fallback was canceled before new admission");
+    assert!(
+        !o.shield_up_b_pending(),
+        "the old fallback was canceled before new admission"
+    );
     owner.release(Owner::OutOfShield);
     assert!(
         engine.preempt_automatic_grab(true, &rules, lc(1.), &next, None, &mut o, &mut owner),
@@ -480,58 +510,308 @@ fn roll_priority_is_rechecked_when_a_cancelled_fallback_proposes_a_fresh_grab() 
 
 #[test]
 fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames() {
-    let mut o=OutOfShield::new();sample(&mut o,true,c(0.),lc(0.),targets(-10.));
+    let mut o = OutOfShield::new();
+    sample(&mut o, true, c(0.), lc(0.), targets(-10.));
     for frame in 0..69 {
-        let side=if frame<35 {-1.}else{1.};
-        let own=Context{status:0x1e2,grounded:false,can_up_special:false,shield_ready:false,..c(frame as f32)};
-        let context=LedgeContext{status:0x1e2,situation:2,..lc(frame as f32)};
-        let out=o.sample_automatic_configured(true,own,context,targets(side*50.),None,false,22.,35.,Some(8.),LedgeSettings{fighter_kind:15,..Default::default()},explicit_backup());
-        assert_eq!(out.requested,0);assert_eq!(out.stick,Some([side,0.]));
-        assert_eq!(out.owned,SEQUENCE_BUTTONS,"tracking stays active at frame {frame}");
+        let side = if frame < 35 { -1. } else { 1. };
+        let own = Context {
+            status: 0x1e2,
+            grounded: false,
+            can_up_special: false,
+            shield_ready: false,
+            ..c(frame as f32)
+        };
+        let context = LedgeContext {
+            status: 0x1e2,
+            situation: 2,
+            ..lc(frame as f32)
+        };
+        let out = o.sample_automatic_configured(
+            true,
+            own,
+            context,
+            targets(side * 50.),
+            None,
+            false,
+            22.,
+            35.,
+            Some(8.),
+            LedgeSettings {
+                fighter_kind: 15,
+                ..Default::default()
+            },
+            explicit_backup(),
+        );
+        assert_eq!(out.requested, 0);
+        assert_eq!(out.stick, Some([side, 0.]));
+        assert_eq!(
+            out.owned, SEQUENCE_BUTTONS,
+            "tracking stays active at frame {frame}"
+        );
     }
-    let ended=o.sample_automatic_configured(true,Context{status:0x1e2,grounded:false,..c(69.)},
-        LedgeContext{status:0x1e2,situation:2,..lc(69.)},targets(50.),None,false,22.,35.,Some(8.),LedgeSettings{fighter_kind:15,..Default::default()},explicit_backup());
-    assert_eq!(ended.owned,0);assert!(o.target().is_none());
+    let ended = o.sample_automatic_configured(
+        true,
+        Context {
+            status: 0x1e2,
+            grounded: false,
+            ..c(69.)
+        },
+        LedgeContext {
+            status: 0x1e2,
+            situation: 2,
+            ..lc(69.)
+        },
+        targets(50.),
+        None,
+        false,
+        22.,
+        35.,
+        Some(8.),
+        LedgeSettings {
+            fighter_kind: 15,
+            ..Default::default()
+        },
+        explicit_backup(),
+    );
+    assert_eq!(ended.owned, 0);
+    assert!(o.target().is_none());
 }
 
 #[test]
-fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellation_and_never_starts_in_air() {
+fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellation_and_never_starts_in_air(
+) {
     for case in 0..3 {
-        let mut o=OutOfShield::new();sample(&mut o,true,c(0.),lc(0.),targets(-10.));
-        let own=Context{status:0x1e1,..c(0.)};let context=LedgeContext{status:0x1e1,..lc(0.)};
-        assert_eq!(o.sample_automatic_configured(true,own,context,targets(-10.),None,false,22.,35.,Some(8.),LedgeSettings{fighter_kind:15,..Default::default()},explicit_backup()).stick,Some([-1.,0.]));
-        let mut next=Context{frame:1.,..own};let ctx=LedgeContext{motion_frame:1.,manual_input_epoch:1,automatic_up_b_epoch:Some(1),..context};let mut ts=targets(-10.);
-        match case {0=>next.status=0x10,1=>ts=[None;8],_=>{}}
-        assert_eq!(o.sample_automatic_configured(case!=2,next,ctx,ts,None,false,22.,35.,Some(8.),LedgeSettings{fighter_kind:15,..Default::default()},explicit_backup()).owned,0);
+        let mut o = OutOfShield::new();
+        sample(&mut o, true, c(0.), lc(0.), targets(-10.));
+        let own = Context {
+            status: 0x1e1,
+            ..c(0.)
+        };
+        let context = LedgeContext {
+            status: 0x1e1,
+            ..lc(0.)
+        };
+        assert_eq!(
+            o.sample_automatic_configured(
+                true,
+                own,
+                context,
+                targets(-10.),
+                None,
+                false,
+                22.,
+                35.,
+                Some(8.),
+                LedgeSettings {
+                    fighter_kind: 15,
+                    ..Default::default()
+                },
+                explicit_backup()
+            )
+            .stick,
+            Some([-1., 0.])
+        );
+        let mut next = Context { frame: 1., ..own };
+        let ctx = LedgeContext {
+            motion_frame: 1.,
+            manual_input_epoch: 1,
+            automatic_up_b_epoch: Some(1),
+            ..context
+        };
+        let mut ts = targets(-10.);
+        match case {
+            0 => next.status = 0x10,
+            1 => ts = [None; 8],
+            _ => {}
+        }
+        assert_eq!(
+            o.sample_automatic_configured(
+                case != 2,
+                next,
+                ctx,
+                ts,
+                None,
+                false,
+                22.,
+                35.,
+                Some(8.),
+                LedgeSettings {
+                    fighter_kind: 15,
+                    ..Default::default()
+                },
+                explicit_backup()
+            )
+            .owned,
+            0
+        );
     }
-    let mut fresh=OutOfShield::new();
-    assert_eq!(fresh.sample_automatic_configured(true,Context{status:0x1e2,grounded:false,..c(0.)},
-        LedgeContext{status:0x1e2,situation:2,..lc(0.)},targets(-10.),None,false,22.,35.,Some(8.),LedgeSettings{fighter_kind:15,..Default::default()},explicit_backup()).owned,0);
-    let mut other=OutOfShield::new();let other_ctx=Context{kind:6,..c(0.)};
-    sample(&mut other,true,other_ctx,lc(0.),targets(-10.));
-    assert_eq!(other.sample_automatic_configured(true,Context{status:0x1de,..other_ctx},lc(1.),targets(-10.),None,false,22.,35.,Some(8.),LedgeSettings{fighter_kind:6,..Default::default()},explicit_backup_for(6)).owned,0,
-        "other fighters retain their previous release-on-startup behavior");
+    let mut fresh = OutOfShield::new();
+    assert_eq!(
+        fresh
+            .sample_automatic_configured(
+                true,
+                Context {
+                    status: 0x1e2,
+                    grounded: false,
+                    ..c(0.)
+                },
+                LedgeContext {
+                    status: 0x1e2,
+                    situation: 2,
+                    ..lc(0.)
+                },
+                targets(-10.),
+                None,
+                false,
+                22.,
+                35.,
+                Some(8.),
+                LedgeSettings {
+                    fighter_kind: 15,
+                    ..Default::default()
+                },
+                explicit_backup()
+            )
+            .owned,
+        0
+    );
+    let mut other = OutOfShield::new();
+    let other_ctx = Context { kind: 6, ..c(0.) };
+    sample(&mut other, true, other_ctx, lc(0.), targets(-10.));
+    assert_eq!(
+        other
+            .sample_automatic_configured(
+                true,
+                Context {
+                    status: 0x1de,
+                    ..other_ctx
+                },
+                lc(1.),
+                targets(-10.),
+                None,
+                false,
+                22.,
+                35.,
+                Some(8.),
+                LedgeSettings {
+                    fighter_kind: 6,
+                    ..Default::default()
+                },
+                explicit_backup_for(6)
+            )
+            .owned,
+        0,
+        "other fighters retain their previous release-on-startup behavior"
+    );
 }
 
 #[test]
 fn supplied_bowser_dodge_sequences_have_only_the_requested_69_frame_drift_change() {
-    use kirby_assist_core::sequence_config::{Action,Direction};
-    let catalog=Catalog::parse(include_str!("../../../deployment/ultimate/kirby_assist/assembled/sequences.txt")).unwrap();
-    for id in ["auto_roll","auto_spot_dodge","auto_air_dodge"] {
-        let e=catalog.entries().iter().find(|e|e.fighter_kind==15&&e.choice==id).unwrap();
-        assert_eq!(e.sequence.start_delay,0);
-        assert_eq!(e.sequence.actions().len(),2);
-        assert_eq!(e.sequence.actions()[1],Action::Drift{direction:Direction::Opponent,strength:1.,frames:69});
+    use kirby_assist_core::sequence_config::{Action, Direction};
+    let catalog = Catalog::parse(include_str!(
+        "../../../deployment/ultimate/kirby_assist/assembled/sequences.txt"
+    ))
+    .unwrap();
+    for id in ["auto_roll", "auto_spot_dodge", "auto_air_dodge"] {
+        let e = catalog
+            .entries()
+            .iter()
+            .find(|e| e.fighter_kind == 15 && e.choice == id)
+            .unwrap();
+        assert_eq!(e.sequence.start_delay, 0);
+        assert_eq!(e.sequence.actions().len(), 2);
+        assert_eq!(
+            e.sequence.actions()[1],
+            Action::Drift {
+                direction: Direction::Opponent,
+                strength: 1.,
+                frames: 69
+            }
+        );
     }
 }
 
 #[test]
 fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clock() {
-    let mut o=OutOfShield::new();sample(&mut o,true,c(0.),lc(0.),targets(-10.));
-    let own=Context{status:0x1e1,..c(0.)};let context=LedgeContext{status:0x1e1,..lc(0.)};
-    assert_eq!(o.sample_automatic_configured(true,own,context,targets(-10.),None,false,22.,35.,Some(8.),LedgeSettings{fighter_kind:15,..Default::default()},explicit_backup()).stick,Some([-1.,0.]));
+    let mut o = OutOfShield::new();
+    sample(&mut o, true, c(0.), lc(0.), targets(-10.));
+    let own = Context {
+        status: 0x1e1,
+        ..c(0.)
+    };
+    let context = LedgeContext {
+        status: 0x1e1,
+        ..lc(0.)
+    };
+    assert_eq!(
+        o.sample_automatic_configured(
+            true,
+            own,
+            context,
+            targets(-10.),
+            None,
+            false,
+            22.,
+            35.,
+            Some(8.),
+            LedgeSettings {
+                fighter_kind: 15,
+                ..Default::default()
+            },
+            explicit_backup()
+        )
+        .stick,
+        Some([-1., 0.])
+    );
     for _ in 0..100 {
-        assert_eq!(o.sample_automatic_configured(true,Context{stopped:true,..own},LedgeContext{stopped:true,..context},targets(50.),None,false,22.,35.,Some(8.),LedgeSettings{fighter_kind:15,..Default::default()},explicit_backup()).stick,Some([-1.,0.]));
+        assert_eq!(
+            o.sample_automatic_configured(
+                true,
+                Context {
+                    stopped: true,
+                    ..own
+                },
+                LedgeContext {
+                    stopped: true,
+                    ..context
+                },
+                targets(50.),
+                None,
+                false,
+                22.,
+                35.,
+                Some(8.),
+                LedgeSettings {
+                    fighter_kind: 15,
+                    ..Default::default()
+                },
+                explicit_backup()
+            )
+            .stick,
+            Some([-1., 0.])
+        );
     }
-    assert_eq!(o.sample_automatic_configured(true,Context{frame:1.,..own},LedgeContext{motion_frame:1.,..context},targets(50.),None,false,22.,35.,Some(8.),LedgeSettings{fighter_kind:15,..Default::default()},explicit_backup()).stick,Some([1.,0.]));
+    assert_eq!(
+        o.sample_automatic_configured(
+            true,
+            Context { frame: 1., ..own },
+            LedgeContext {
+                motion_frame: 1.,
+                ..context
+            },
+            targets(50.),
+            None,
+            false,
+            22.,
+            35.,
+            Some(8.),
+            LedgeSettings {
+                fighter_kind: 15,
+                ..Default::default()
+            },
+            explicit_backup()
+        )
+        .stick,
+        Some([1., 0.])
+    );
 }

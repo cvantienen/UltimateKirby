@@ -55,18 +55,31 @@ static WORKER: Mutex<Option<Worker>> = Mutex::new(None);
 // detection or drawing. Check BUSY under the gate to close the start/rebuild race.
 static UI_SAVE_GATE: Mutex<()> = Mutex::new(());
 pub(super) fn try_ui_edit() -> Option<std::sync::MutexGuard<'static, ()>> {
-    if busy() { return None; }
+    if busy() {
+        return None;
+    }
     let guard = UI_SAVE_GATE.try_lock().ok()?;
-    if busy() { None } else { Some(guard) }
+    if busy() {
+        None
+    } else {
+        Some(guard)
+    }
 }
-pub(super) fn busy() -> bool { BUSY.load(Ordering::Acquire) }
+pub(super) fn busy() -> bool {
+    BUSY.load(Ordering::Acquire)
+}
 static RESULT_READY: AtomicBool = AtomicBool::new(false);
 static RESULT: Mutex<Option<ResultMessage>> = Mutex::new(None);
 #[cfg(test)]
 pub(super) static WORKER_TEST: Mutex<()> = Mutex::new(());
 pub(super) fn has_result() -> bool {
-    RESULT_READY.load(Ordering::Acquire) || busy() && WORKER.try_lock().is_ok_and(|worker|
-        worker.as_ref().is_some_and(|worker| worker.handle.is_finished()))
+    RESULT_READY.load(Ordering::Acquire)
+        || busy()
+            && WORKER.try_lock().is_ok_and(|worker| {
+                worker
+                    .as_ref()
+                    .is_some_and(|worker| worker.handle.is_finished())
+            })
 }
 pub(super) fn poll() -> Option<ResultMessage> {
     if !has_result() {
@@ -76,7 +89,10 @@ pub(super) fn poll() -> Option<ResultMessage> {
     // and cached UI alive until the thread has actually exited.
     let handle = {
         let mut worker = WORKER.try_lock().ok()?;
-        if worker.as_ref().is_some_and(|worker| !worker.handle.is_finished()) {
+        if worker
+            .as_ref()
+            .is_some_and(|worker| !worker.handle.is_finished())
+        {
             return None;
         }
         worker.take()
@@ -85,14 +101,23 @@ pub(super) fn poll() -> Option<ResultMessage> {
         let failed = worker.handle.join().is_err(); // Already finished: no I/O wait.
         (worker.identity, failed)
     });
-    let mut result = RESULT.lock().unwrap_or_else(|error| error.into_inner()).take();
+    let mut result = RESULT
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .take();
     if let Some((identity, failed)) = exited {
         if failed || result.is_none() {
             result = Some(ResultMessage {
                 choice: None,
-                kind: identity.0, slot: identity.1, index: identity.2, revision: identity.3,
+                kind: identity.0,
+                slot: identity.1,
+                index: identity.2,
+                revision: identity.3,
                 message: "Save worker stopped unexpectedly; save not confirmed. Retry Save".into(),
-                success: false, deleted: false, snapshot: None, tuning: None,
+                success: false,
+                deleted: false,
+                snapshot: None,
+                tuning: None,
             });
         }
     }
@@ -112,7 +137,7 @@ fn claim_worker(training: bool) -> Result<(), &'static str> {
 }
 pub(super) fn request(job: Job, training: bool) -> String {
     #[cfg(test)]
-    if let Some(operation) = *TEST_OPERATION.lock().unwrap_or_else(|e|e.into_inner()) {
+    if let Some(operation) = *TEST_OPERATION.lock().unwrap_or_else(|e| e.into_inner()) {
         return request_with(job, training, operation);
     }
     request_with(job, training, write)
@@ -120,7 +145,8 @@ pub(super) fn request(job: Job, training: bool) -> String {
 // Host adapter regressions exercise real Y input/worker/completion routing
 // without accessing an SD path. Absent from production builds.
 #[cfg(test)]
-pub(super) static TEST_OPERATION: Mutex<Option<fn(&Job)->Result<bool,String>>> = Mutex::new(None);
+pub(super) static TEST_OPERATION: Mutex<Option<fn(&Job) -> Result<bool, String>>> =
+    Mutex::new(None);
 fn request_with(job: Job, training: bool, operation: fn(&Job) -> Result<bool, String>) -> String {
     if job.tuning.is_none() && !job.delete {
         if usize::from(job.sequence.len) > kirby_assist_core::sequence_config::MAX_ACTIONS {
@@ -149,7 +175,14 @@ fn spawn_worker(
     job: Job,
     operation: fn(&Job) -> Result<bool, String>,
 ) -> Option<std::thread::JoinHandle<()>> {
-    let identity = (job.kind, job.slot, job.index, job.revision, job.delete, job.tuning);
+    let identity = (
+        job.kind,
+        job.slot,
+        job.index,
+        job.revision,
+        job.delete,
+        job.tuning,
+    );
     match std::thread::Builder::new()
         .name("recipe-save".into())
         .stack_size(WORKER_STACK_BYTES)
@@ -223,23 +256,34 @@ fn publish_tuning(
     kind: i32,
     tuning: kirby_assist_core::fighter_tuning::Tuning,
 ) {
-    saved.lock().unwrap_or_else(|e| e.into_inner()).tuning.insert(kind, tuning);
+    saved
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .tuning
+        .insert(kind, tuning);
 }
 fn write(job: &Job) -> Result<bool, String> {
     if let Some(tuning) = job.tuning {
-        write_tuning_paths(job.kind, tuning, Path::new(PATH), Path::new(TEMP), Path::new(BACKUP))?;
+        write_tuning_paths(
+            job.kind,
+            tuning,
+            Path::new(PATH),
+            Path::new(TEMP),
+            Path::new(BACKUP),
+        )?;
         if let Some(saved) = super::super::SEQUENCES.get() {
             publish_tuning(saved, job.kind, tuning);
         }
         return Ok(true);
     }
-    let (catalog, changed) = write_recipe_paths(job, Path::new(PATH), Path::new(TEMP), Path::new(BACKUP))?;
+    let (catalog, changed) =
+        write_recipe_paths(job, Path::new(PATH), Path::new(TEMP), Path::new(BACKUP))?;
     if !changed {
         return Ok(false); // No file replacement or live recipe publication for an unchanged save.
     }
     // Recipe saves replace the owned snapshot on the temporary worker.
     if let Some(saved) = super::super::SEQUENCES.get() {
-        let library=kirby_assist_core::sequence_config::SequenceLibrary::from_catalog(catalog);
+        let library = kirby_assist_core::sequence_config::SequenceLibrary::from_catalog(catalog);
         let old = {
             let mut saved = saved.lock().unwrap_or_else(|e| e.into_inner());
             std::mem::replace(&mut *saved, library)
@@ -278,7 +322,10 @@ fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
 }
 #[cfg(test)]
 fn write_paths(
-    job: &Job, path: &Path, temp: &Path, backup_path: &Path,
+    job: &Job,
+    path: &Path,
+    temp: &Path,
+    backup_path: &Path,
 ) -> Result<kirby_assist_core::sequence_config::Catalog, String> {
     write_recipe_paths(job, path, temp, backup_path).map(|(catalog, _)| catalog)
 }
@@ -511,21 +558,44 @@ mod tests {
 
     #[test]
     fn pyra_and_mythra_edits_save_once_without_overwriting_the_other_form() {
-        let source=format!("{}\n{}",include_str!("../../../deployment/ultimate/kirby_assist/fighters/pyra.txt"),
-            include_str!("../../../deployment/ultimate/kirby_assist/fighters/mythra.txt"));
-        let directory=Directory::new();let path=directory.0.join("sequences.txt");
-        let temp=directory.0.join("temp");let backup=directory.0.join("backup");
-        fs::write(&path,&source).unwrap();
-        for (kind,name,delay) in [(90,"pyra",3),(91,"mythra",7)] {
-            let mut j=job();j.kind=kind;j.slot=PresetSlot::Neutral;j.choice="custom".into();
-            let recipe=Catalog::parse(&format!("[{name}.neutral.custom]\nstart_delay={delay}\nactions=input:a:0:-0.6:1\n")).unwrap();
-            j.sequence=recipe.entries()[0].sequence;j.name=Some(format!("{name} saved once"));j.make_default=true;
-            let before=Catalog::parse(&fs::read_to_string(&path).unwrap()).unwrap();
-            let other=if kind==90{91}else{90};let unchanged=before.find(other,PresetSlot::Neutral,"custom");drop(before);
-            let (saved,changed)=write_recipe_paths(&j,&path,&temp,&backup).unwrap();assert!(changed);
-            assert_eq!(saved.find(kind,PresetSlot::Neutral,"custom"),Some(j.sequence));
-            assert_eq!(saved.find(other,PresetSlot::Neutral,"custom"),unchanged);drop(saved);
-            assert!(!write_recipe_paths(&j,&path,&temp,&backup).unwrap().1,"first save must persist without repeating the edit");
+        let source = format!(
+            "{}\n{}",
+            include_str!("../../../deployment/ultimate/kirby_assist/fighters/pyra.txt"),
+            include_str!("../../../deployment/ultimate/kirby_assist/fighters/mythra.txt")
+        );
+        let directory = Directory::new();
+        let path = directory.0.join("sequences.txt");
+        let temp = directory.0.join("temp");
+        let backup = directory.0.join("backup");
+        fs::write(&path, &source).unwrap();
+        for (kind, name, delay) in [(90, "pyra", 3), (91, "mythra", 7)] {
+            let mut j = job();
+            j.kind = kind;
+            j.slot = PresetSlot::Neutral;
+            j.choice = "custom".into();
+            let recipe = Catalog::parse(&format!(
+                "[{name}.neutral.custom]\nstart_delay={delay}\nactions=input:a:0:-0.6:1\n"
+            ))
+            .unwrap();
+            j.sequence = recipe.entries()[0].sequence;
+            j.name = Some(format!("{name} saved once"));
+            j.make_default = true;
+            let before = Catalog::parse(&fs::read_to_string(&path).unwrap()).unwrap();
+            let other = if kind == 90 { 91 } else { 90 };
+            let unchanged = before.find(other, PresetSlot::Neutral, "custom");
+            drop(before);
+            let (saved, changed) = write_recipe_paths(&j, &path, &temp, &backup).unwrap();
+            assert!(changed);
+            assert_eq!(
+                saved.find(kind, PresetSlot::Neutral, "custom"),
+                Some(j.sequence)
+            );
+            assert_eq!(saved.find(other, PresetSlot::Neutral, "custom"), unchanged);
+            drop(saved);
+            assert!(
+                !write_recipe_paths(&j, &path, &temp, &backup).unwrap().1,
+                "first save must persist without repeating the edit"
+            );
         }
     }
 
@@ -571,13 +641,25 @@ mod tests {
         let release = std::sync::Arc::new(std::sync::Barrier::new(2));
         let (a, b) = (posted.clone(), release.clone());
         let handle = std::thread::spawn(move || {
-            publish(ResultMessage { choice: Some("grab".into()), kind: 5, slot: PresetSlot::Roll, index: 0,
-                revision: 0, message: "Saved".into(), success: true, deleted: false,
-                snapshot: None, tuning: None });
+            publish(ResultMessage {
+                choice: Some("grab".into()),
+                kind: 5,
+                slot: PresetSlot::Roll,
+                index: 0,
+                revision: 0,
+                message: "Saved".into(),
+                success: true,
+                deleted: false,
+                snapshot: None,
+                tuning: None,
+            });
             a.wait();
             b.wait(); // Simulate post-publication closure/thread-local teardown.
         });
-        *WORKER.lock().unwrap() = Some(Worker { handle, identity: (5, PresetSlot::Roll, 0, 0) });
+        *WORKER.lock().unwrap() = Some(Worker {
+            handle,
+            identity: (5, PresetSlot::Roll, 0, 0),
+        });
         posted.wait();
         assert!(has_result());
         assert!(poll().is_none());
@@ -587,7 +669,10 @@ mod tests {
         release.wait();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
         loop {
-            if let Some(result) = poll() { assert!(result.success); break; }
+            if let Some(result) = poll() {
+                assert!(result.success);
+                break;
+            }
             assert!(std::time::Instant::now() < deadline);
             std::thread::yield_now();
         }
@@ -921,69 +1006,73 @@ mod tests {
     }
     #[test]
     fn fighter_settings_share_verified_save_and_preserve_all_recipes() {
-        let directory=Directory::new();
-        let path=directory.0.join("sequences.txt");
-        let temp=directory.0.join("temp");
-        let backup=directory.0.join("backup");
-        fs::write(&path,SOURCE).unwrap();
-        let job=job();
-        let mut tuning=kirby_assist_core::fighter_tuning::Tuning::default();
-        tuning.set("walk_strength","0.28").unwrap();
-        tuning.set("grab_range","14").unwrap();
-        write_tuning_paths(job.kind,tuning,&path,&temp,&backup).unwrap();
-        let saved=Catalog::parse(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(saved.tuning[&5],tuning);
-        assert_eq!(fs::read_to_string(&backup).unwrap(),SOURCE);
+        let directory = Directory::new();
+        let path = directory.0.join("sequences.txt");
+        let temp = directory.0.join("temp");
+        let backup = directory.0.join("backup");
+        fs::write(&path, SOURCE).unwrap();
+        let job = job();
+        let mut tuning = kirby_assist_core::fighter_tuning::Tuning::default();
+        tuning.set("walk_strength", "0.28").unwrap();
+        tuning.set("grab_range", "14").unwrap();
+        write_tuning_paths(job.kind, tuning, &path, &temp, &backup).unwrap();
+        let saved = Catalog::parse(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(saved.tuning[&5], tuning);
+        assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
         assert!(fs::read_to_string(&path).unwrap().starts_with(SOURCE));
         assert!(!temp.exists());
     }
 
     #[test]
     fn publishing_settings_preserves_compact_recipes_and_other_fighters() {
-        let mut original=Catalog::parse(SOURCE).unwrap();
-        let mut other=kirby_assist_core::fighter_tuning::Tuning::default();
-        other.set("grab_range","8").unwrap();
-        original.tuning.insert(6,other);
-        let original_entries=original.entries().to_vec();
-        let saved=Mutex::new(kirby_assist_core::sequence_config::SequenceLibrary::from_catalog(original));
-        let mut tuning=kirby_assist_core::fighter_tuning::Tuning::default();
-        tuning.set("stand_distance","20").unwrap();
-        publish_tuning(&saved,5,tuning);
-        let after=saved.lock().unwrap();
-        let mut entries=after.for_fighter(5).entries().to_vec();
+        let mut original = Catalog::parse(SOURCE).unwrap();
+        let mut other = kirby_assist_core::fighter_tuning::Tuning::default();
+        other.set("grab_range", "8").unwrap();
+        original.tuning.insert(6, other);
+        let original_entries = original.entries().to_vec();
+        let saved =
+            Mutex::new(kirby_assist_core::sequence_config::SequenceLibrary::from_catalog(original));
+        let mut tuning = kirby_assist_core::fighter_tuning::Tuning::default();
+        tuning.set("stand_distance", "20").unwrap();
+        publish_tuning(&saved, 5, tuning);
+        let after = saved.lock().unwrap();
+        let mut entries = after.for_fighter(5).entries().to_vec();
         entries.extend_from_slice(after.for_fighter(6).entries());
-        assert_eq!(entries,original_entries);
-        assert_eq!(after.tuning[&5],tuning);
-        assert_eq!(after.tuning[&6],other);
+        assert_eq!(entries, original_entries);
+        assert_eq!(after.tuning[&5], tuning);
+        assert_eq!(after.tuning[&6], other);
     }
     #[test]
     fn settings_backup_failure_preserves_active_file() {
-        let directory=Directory::new();
-        let path=directory.0.join("sequences.txt");
-        let temp=directory.0.join("temp");
-        let backup=directory.0.join("missing/backup");
-        fs::write(&path,SOURCE).unwrap();
-        assert!(write_tuning_paths(5,Default::default(),&path,&temp,&backup).is_err());
-        assert_eq!(fs::read_to_string(&path).unwrap(),SOURCE);
+        let directory = Directory::new();
+        let path = directory.0.join("sequences.txt");
+        let temp = directory.0.join("temp");
+        let backup = directory.0.join("missing/backup");
+        fs::write(&path, SOURCE).unwrap();
+        assert!(write_tuning_paths(5, Default::default(), &path, &temp, &backup).is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), SOURCE);
         assert!(!temp.exists());
     }
 
     #[test]
     fn unchanged_recipe_save_does_not_replace_file_or_backup() {
-        let directory=Directory::new();
-        let path=directory.0.join("sequences.txt");
-        let temp=directory.0.join("temp");
-        let backup=directory.0.join("backup");
-        let mut j=job();
+        let directory = Directory::new();
+        let path = directory.0.join("sequences.txt");
+        let temp = directory.0.join("temp");
+        let backup = directory.0.join("backup");
+        let mut j = job();
         let source="[yoshi.roll.grab]\nname=Grab\nstart_delay=4\nactions=walk:inward:4:0.5,wait:2,face:opponent,grab:fighter_range\n";
-        j.name=Some("Grab".into());
-        fs::write(&path,source).unwrap();
-        fs::write(&backup,"previous backup must stay").unwrap();
+        j.name = Some("Grab".into());
+        fs::write(&path, source).unwrap();
+        fs::write(&backup, "previous backup must stay").unwrap();
         for _ in 0..4 {
-            let (_,changed)=write_recipe_paths(&j,&path,&temp,&backup).unwrap();
+            let (_, changed) = write_recipe_paths(&j, &path, &temp, &backup).unwrap();
             assert!(!changed);
-            assert_eq!(fs::read_to_string(&path).unwrap(),source);
-            assert_eq!(fs::read_to_string(&backup).unwrap(),"previous backup must stay");
+            assert_eq!(fs::read_to_string(&path).unwrap(), source);
+            assert_eq!(
+                fs::read_to_string(&backup).unwrap(),
+                "previous backup must stay"
+            );
             assert!(!temp.exists());
         }
     }
@@ -991,49 +1080,100 @@ mod tests {
     #[test]
     fn long_button_holds_and_until_takeover_save_without_expanding_actions() {
         for input in ["hold:b:160", "hold:b:255", "hold_until_manual:b:0:0"] {
-            let directory=Directory::new();let path=directory.0.join("sequences.txt");
-            let temp=directory.0.join("temp");let backup=directory.0.join("backup");
-            fs::write(&path,SOURCE).unwrap();let mut j=job();
-            j.sequence=Catalog::parse(&format!("[yoshi.roll.grab]\nstart_delay=0\nactions={input}\n")).unwrap().entries()[0].sequence;
-            write_paths(&j,&path,&temp,&backup).unwrap();
-            let saved=Catalog::parse(&fs::read_to_string(&path).unwrap()).unwrap();
-            assert_eq!(saved.find(5,PresetSlot::Roll,"grab").unwrap().actions(),j.sequence.actions());
-            assert_eq!(j.sequence.len,1);assert_eq!(fs::read_to_string(&backup).unwrap(),SOURCE);
+            let directory = Directory::new();
+            let path = directory.0.join("sequences.txt");
+            let temp = directory.0.join("temp");
+            let backup = directory.0.join("backup");
+            fs::write(&path, SOURCE).unwrap();
+            let mut j = job();
+            j.sequence = Catalog::parse(&format!(
+                "[yoshi.roll.grab]\nstart_delay=0\nactions={input}\n"
+            ))
+            .unwrap()
+            .entries()[0]
+                .sequence;
+            write_paths(&j, &path, &temp, &backup).unwrap();
+            let saved = Catalog::parse(&fs::read_to_string(&path).unwrap()).unwrap();
+            assert_eq!(
+                saved.find(5, PresetSlot::Roll, "grab").unwrap().actions(),
+                j.sequence.actions()
+            );
+            assert_eq!(j.sequence.len, 1);
+            assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
         }
     }
 
     #[test]
     fn exited_worker_without_a_result_releases_save_gate_and_reports_failure() {
-        let _guard=WORKER_TEST.lock().unwrap();claim_worker(true).unwrap();
-        let handle=std::thread::spawn(||{});
-        while !handle.is_finished(){std::thread::yield_now();}
-        *WORKER.lock().unwrap()=Some(Worker{handle,identity:(5,PresetSlot::Roll,9,123)});
-        assert!(has_result());let result=poll().unwrap();
-        assert!(!result.success);assert_eq!((result.kind,result.index,result.revision),(5,9,123));
-        assert!(result.message.contains("not confirmed"));assert!(!busy());assert!(try_ui_edit().is_some());
+        let _guard = WORKER_TEST.lock().unwrap();
+        claim_worker(true).unwrap();
+        let handle = std::thread::spawn(|| {});
+        while !handle.is_finished() {
+            std::thread::yield_now();
+        }
+        *WORKER.lock().unwrap() = Some(Worker {
+            handle,
+            identity: (5, PresetSlot::Roll, 9, 123),
+        });
+        assert!(has_result());
+        let result = poll().unwrap();
+        assert!(!result.success);
+        assert_eq!((result.kind, result.index, result.revision), (5, 9, 123));
+        assert!(result.message.contains("not confirmed"));
+        assert!(!busy());
+        assert!(try_ui_edit().is_some());
     }
     #[test]
     fn malformed_save_snapshot_is_rejected_before_starting_a_worker() {
-        let _guard=WORKER_TEST.lock().unwrap();let mut j=job();j.sequence.len=255;
-        assert!(request(j,true).contains("action limit"));assert!(!busy());assert!(WORKER.lock().unwrap().is_none());
-        let mut j=job();j.sequence.len=0;
-        assert!(request(j,true).contains("add an action"));assert!(!busy());
+        let _guard = WORKER_TEST.lock().unwrap();
+        let mut j = job();
+        j.sequence.len = 255;
+        assert!(request(j, true).contains("action limit"));
+        assert!(!busy());
+        assert!(WORKER.lock().unwrap().is_none());
+        let mut j = job();
+        j.sequence.len = 0;
+        assert!(request(j, true).contains("add an action"));
+        assert!(!busy());
     }
     #[test]
     fn repeated_boundary_value_saves_and_invalid_axes_preserve_the_file() {
-        let directory=Directory::new();let path=directory.0.join("sequences.txt");
-        let temp=directory.0.join("temp");let backup=directory.0.join("backup");fs::write(&path,SOURCE).unwrap();
+        let directory = Directory::new();
+        let path = directory.0.join("sequences.txt");
+        let temp = directory.0.join("temp");
+        let backup = directory.0.join("backup");
+        fs::write(&path, SOURCE).unwrap();
         for i in 0..24 {
-            let mut j=job();let x=if i%2==0{-1.}else{1.};
+            let mut j = job();
+            let x = if i % 2 == 0 { -1. } else { 1. };
             j.sequence=Catalog::parse(&format!("[yoshi.roll.grab]\nstart_delay=0\nactions=facing_input:b:{x}:1:255,wait:255,down_smash:160\n")).unwrap().entries()[0].sequence;
-            let before=fs::read(&path).unwrap();write_paths(&j,&path,&temp,&backup).unwrap();
-            assert_eq!(Catalog::parse(&fs::read_to_string(&path).unwrap()).unwrap().find(5,PresetSlot::Roll,"grab").unwrap(),j.sequence);
-            assert_eq!(fs::read(&backup).unwrap(),before);assert!(!temp.exists());
+            let before = fs::read(&path).unwrap();
+            write_paths(&j, &path, &temp, &backup).unwrap();
+            assert_eq!(
+                Catalog::parse(&fs::read_to_string(&path).unwrap())
+                    .unwrap()
+                    .find(5, PresetSlot::Roll, "grab")
+                    .unwrap(),
+                j.sequence
+            );
+            assert_eq!(fs::read(&backup).unwrap(), before);
+            assert!(!temp.exists());
         }
-        let before=fs::read(&path).unwrap();let mut j=job();j.sequence.len=255;
-        assert!(write_paths(&j,&path,&temp,&backup).is_err());assert_eq!(fs::read(&path).unwrap(),before);
-        let mut j=job();j.sequence.actions[0]=kirby_assist_core::sequence_config::Action::Input{buttons:64,stick:[f32::NAN,1.],frames:255,relative:false};
-        assert!(write_paths(&j,&path,&temp,&backup).is_err());assert_eq!(fs::read(&path).unwrap(),before);assert!(!temp.exists());
+        let before = fs::read(&path).unwrap();
+        let mut j = job();
+        j.sequence.len = 255;
+        assert!(write_paths(&j, &path, &temp, &backup).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        let mut j = job();
+        j.sequence.actions[0] = kirby_assist_core::sequence_config::Action::Input {
+            buttons: 64,
+            stick: [f32::NAN, 1.],
+            frames: 255,
+            relative: false,
+        };
+        assert!(write_paths(&j, &path, &temp, &backup).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert!(!temp.exists());
     }
 
     #[test]
@@ -1054,55 +1194,152 @@ mod tests {
 
     #[test]
     fn current_full_roster_edits_defaults_copies_deletes_and_settings_round_trip() {
-        std::thread::Builder::new().stack_size(WORKER_STACK_BYTES).spawn(|| {
-            // Read maintained split sources, not a potentially stale generated
-            // bundle. All writes/backup/recovery checks use a temporary folder.
-            let root=Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deployment/ultimate/kirby_assist");
-            let mut source=fs::read_to_string(root.join("sequences.txt")).unwrap();source.push_str("\n\n");
-            let mut files:Vec<_>=fs::read_dir(root.join("fighters")).unwrap().map(|e|e.unwrap().path()).filter(|p|p.extension().is_some_and(|e|e=="txt")).collect();files.sort();
-            for file in files {source.push_str(&fs::read_to_string(file).unwrap());source.push_str("\n\n");}
-            let original=Catalog::parse(&source).unwrap();
-            let entry=original.entries().iter().find(|e|e.fighter=="lucina"&&e.slot==PresetSlot::Neutral&&!e.sequence.reaction.active()).unwrap();
-            let untouched=original.find(15,PresetSlot::Roll,"auto_roll").unwrap();
-            let mut j=job();j.kind=entry.fighter_kind;j.slot=entry.slot;j.choice=entry.choice.clone();j.sequence=entry.sequence;
-            j.sequence.start_delay=31;j.name=Some("Training saved once".into());j.make_default=true;drop(original);
-            let directory=Directory::new();let path=directory.0.join("sequences.txt");let temp=directory.0.join("temp");let backup=directory.0.join("backup");fs::write(&path,&source).unwrap();
-            let saved=write_paths(&j,&path,&temp,&backup).unwrap();
-            assert_eq!(saved.find(j.kind,j.slot,&j.choice),Some(j.sequence));
-            assert_eq!(saved.find(15,PresetSlot::Roll,"auto_roll"),Some(untouched));
-            assert_eq!(saved.entries().iter().find(|e|e.fighter_kind==j.kind&&e.slot==j.slot&&e.choice==j.choice).unwrap().name.as_deref(),Some("Training saved once"));
-            assert_eq!(fs::read_to_string(&backup).unwrap(),source);drop(saved);
-            let once=fs::read_to_string(&path).unwrap();
-            assert!(!write_recipe_paths(&j,&path,&temp,&backup).unwrap().1,"unchanged retry should not require another write");
-            assert_eq!(fs::read_to_string(&path).unwrap(),once);
-            // A copied draft uses the one free catalog section, then deletion
-            // restores that capacity. This exercises the actual near-limit file.
-            let mut copied=job();copied.kind=j.kind;copied.slot=PresetSlot::X;copied.choice="training_copy".into();copied.sequence=j.sequence;copied.allow_new=true;copied.name=Some("Copied training recipe".into());copied.make_default=true;
-            let saved=write_paths(&copied,&path,&temp,&backup).unwrap();assert_eq!(saved.find(copied.kind,copied.slot,&copied.choice),Some(copied.sequence));drop(saved);
-            let before_delete=fs::read_to_string(&path).unwrap();copied.delete=true;
-            let saved=write_paths(&copied,&path,&temp,&backup).unwrap();assert!(saved.find(copied.kind,copied.slot,&copied.choice).is_none());drop(saved);
-            assert_eq!(fs::read_to_string(&backup).unwrap(),before_delete);
-            let mut tuning=kirby_assist_core::fighter_tuning::Tuning::default();tuning.set("walk_strength","0.4").unwrap();
-            let before_settings=fs::read_to_string(&path).unwrap();write_tuning_paths(j.kind,tuning,&path,&temp,&backup).unwrap();
-            let final_source=fs::read_to_string(&path).unwrap();persist::validate_output(&final_source).unwrap();
-            let saved=Catalog::parse(&final_source).unwrap();assert_eq!(saved.tuning.get(&j.kind),Some(&tuning));assert_eq!(saved.find(j.kind,j.slot,&j.choice),Some(j.sequence));
-            assert_eq!(fs::read_to_string(&backup).unwrap(),before_settings);assert!(!temp.exists());assert!(final_source.len() as u64<=MAX_FILE_BYTES);
-        }).unwrap().join().unwrap();
+        std::thread::Builder::new()
+            .stack_size(WORKER_STACK_BYTES)
+            .spawn(|| {
+                // Read maintained split sources, not a potentially stale generated
+                // bundle. All writes/backup/recovery checks use a temporary folder.
+                let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../deployment/ultimate/kirby_assist");
+                let mut source = fs::read_to_string(root.join("sequences.txt")).unwrap();
+                source.push_str("\n\n");
+                let mut files: Vec<_> = fs::read_dir(root.join("fighters"))
+                    .unwrap()
+                    .map(|e| e.unwrap().path())
+                    .filter(|p| p.extension().is_some_and(|e| e == "txt"))
+                    .collect();
+                files.sort();
+                for file in files {
+                    source.push_str(&fs::read_to_string(file).unwrap());
+                    source.push_str("\n\n");
+                }
+                let original = Catalog::parse(&source).unwrap();
+                let entry = original
+                    .entries()
+                    .iter()
+                    .find(|e| {
+                        e.fighter == "lucina"
+                            && e.slot == PresetSlot::Neutral
+                            && !e.sequence.reaction.active()
+                    })
+                    .unwrap();
+                let untouched = original.find(15, PresetSlot::Roll, "auto_roll").unwrap();
+                let mut j = job();
+                j.kind = entry.fighter_kind;
+                j.slot = entry.slot;
+                j.choice = entry.choice.clone();
+                j.sequence = entry.sequence;
+                j.sequence.start_delay = 31;
+                j.name = Some("Training saved once".into());
+                j.make_default = true;
+                drop(original);
+                let directory = Directory::new();
+                let path = directory.0.join("sequences.txt");
+                let temp = directory.0.join("temp");
+                let backup = directory.0.join("backup");
+                fs::write(&path, &source).unwrap();
+                let saved = write_paths(&j, &path, &temp, &backup).unwrap();
+                assert_eq!(saved.find(j.kind, j.slot, &j.choice), Some(j.sequence));
+                assert_eq!(
+                    saved.find(15, PresetSlot::Roll, "auto_roll"),
+                    Some(untouched)
+                );
+                assert_eq!(
+                    saved
+                        .entries()
+                        .iter()
+                        .find(|e| e.fighter_kind == j.kind
+                            && e.slot == j.slot
+                            && e.choice == j.choice)
+                        .unwrap()
+                        .name
+                        .as_deref(),
+                    Some("Training saved once")
+                );
+                assert_eq!(fs::read_to_string(&backup).unwrap(), source);
+                drop(saved);
+                let once = fs::read_to_string(&path).unwrap();
+                assert!(
+                    !write_recipe_paths(&j, &path, &temp, &backup).unwrap().1,
+                    "unchanged retry should not require another write"
+                );
+                assert_eq!(fs::read_to_string(&path).unwrap(), once);
+                // A copied draft uses the one free catalog section, then deletion
+                // restores that capacity. This exercises the actual near-limit file.
+                let mut copied = job();
+                copied.kind = j.kind;
+                copied.slot = PresetSlot::X;
+                copied.choice = "training_copy".into();
+                copied.sequence = j.sequence;
+                copied.allow_new = true;
+                copied.name = Some("Copied training recipe".into());
+                copied.make_default = true;
+                let saved = write_paths(&copied, &path, &temp, &backup).unwrap();
+                assert_eq!(
+                    saved.find(copied.kind, copied.slot, &copied.choice),
+                    Some(copied.sequence)
+                );
+                drop(saved);
+                let before_delete = fs::read_to_string(&path).unwrap();
+                copied.delete = true;
+                let saved = write_paths(&copied, &path, &temp, &backup).unwrap();
+                assert!(saved
+                    .find(copied.kind, copied.slot, &copied.choice)
+                    .is_none());
+                drop(saved);
+                assert_eq!(fs::read_to_string(&backup).unwrap(), before_delete);
+                let mut tuning = kirby_assist_core::fighter_tuning::Tuning::default();
+                tuning.set("walk_strength", "0.4").unwrap();
+                let before_settings = fs::read_to_string(&path).unwrap();
+                write_tuning_paths(j.kind, tuning, &path, &temp, &backup).unwrap();
+                let final_source = fs::read_to_string(&path).unwrap();
+                persist::validate_output(&final_source).unwrap();
+                let saved = Catalog::parse(&final_source).unwrap();
+                assert_eq!(saved.tuning.get(&j.kind), Some(&tuning));
+                assert_eq!(saved.find(j.kind, j.slot, &j.choice), Some(j.sequence));
+                assert_eq!(fs::read_to_string(&backup).unwrap(), before_settings);
+                assert!(!temp.exists());
+                assert!(final_source.len() as u64 <= MAX_FILE_BYTES);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
     }
 
     #[test]
     fn button_default_save_keeps_latest_edited_actions_timing_name_and_loop() {
-        let directory=Directory::new();let path=directory.0.join("sequences.txt");
-        let temp=directory.0.join("temp");let backup=directory.0.join("backup");
-        let source=format!("{SOURCE}\n[yoshi.y.old]\nstart_delay=0\ndefault=true\nactions=jab:4\n");
-        fs::write(&path,&source).unwrap();let mut j=job();j.slot=PresetSlot::Y;
-        j.choice="new".into();j.name=Some("Edited button default".into());j.allow_new=true;j.make_default=true;
+        let directory = Directory::new();
+        let path = directory.0.join("sequences.txt");
+        let temp = directory.0.join("temp");
+        let backup = directory.0.join("backup");
+        let source =
+            format!("{SOURCE}\n[yoshi.y.old]\nstart_delay=0\ndefault=true\nactions=jab:4\n");
+        fs::write(&path, &source).unwrap();
+        let mut j = job();
+        j.slot = PresetSlot::Y;
+        j.choice = "new".into();
+        j.name = Some("Edited button default".into());
+        j.allow_new = true;
+        j.make_default = true;
         j.sequence=Catalog::parse("[yoshi.y.new]\nstart_delay=5\nwhile_held=true\nground_only=true\nactions=facing_input:b:1:1:160,wait:7,drift:opponent:1:40\n").unwrap().entries()[0].sequence;
-        let saved=write_paths(&j,&path,&temp,&backup).unwrap();
-        let selected=saved.entries().iter().find(|e|e.fighter_kind==5&&e.slot==PresetSlot::Y&&e.default).unwrap();
-        assert_eq!(selected.choice,"new");assert_eq!(selected.sequence,j.sequence);assert_eq!(selected.name.as_deref(),j.name.as_deref());
-        assert_eq!(saved.entries().iter().filter(|e|e.fighter_kind==5&&e.slot==PresetSlot::Y&&e.default).count(),1);
-        assert_eq!(fs::read_to_string(backup).unwrap(),source);assert!(!temp.exists());
+        let saved = write_paths(&j, &path, &temp, &backup).unwrap();
+        let selected = saved
+            .entries()
+            .iter()
+            .find(|e| e.fighter_kind == 5 && e.slot == PresetSlot::Y && e.default)
+            .unwrap();
+        assert_eq!(selected.choice, "new");
+        assert_eq!(selected.sequence, j.sequence);
+        assert_eq!(selected.name.as_deref(), j.name.as_deref());
+        assert_eq!(
+            saved
+                .entries()
+                .iter()
+                .filter(|e| e.fighter_kind == 5 && e.slot == PresetSlot::Y && e.default)
+                .count(),
+            1
+        );
+        assert_eq!(fs::read_to_string(backup).unwrap(), source);
+        assert!(!temp.exists());
     }
-
 }

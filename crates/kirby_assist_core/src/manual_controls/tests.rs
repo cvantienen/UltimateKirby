@@ -555,14 +555,32 @@ fn menu_owned_buttons_block_human_presses_without_erasing_explicit_recipe_inputs
 #[test]
 fn held_walk_stop_preserves_retreat_and_only_applies_at_known_ledge_height() {
     use crate::ledge_position::LedgeSpot;
-    for inward in [-1.0,1.0] {
-        let spot=LedgeSpot {edge:[0.0;2],inward};
-        let toward=[-inward*0.3,-0.4];
-        assert_eq!(stop_walk_at_ledge(toward,[inward*8.0,0.0],[0.0;2],spot,8.0),[0.0,-0.4]);
-        let retreat=[inward*0.3,-0.4];
-        assert_eq!(stop_walk_at_ledge(retreat,[inward*4.0,0.0],[0.0;2],spot,8.0),retreat);
-        assert_eq!(stop_walk_at_ledge(toward,[inward*12.0,0.0],[0.0;2],spot,8.0),toward);
-        assert_eq!(stop_walk_at_ledge(toward,[inward*10.0,0.0],[-inward,0.0],spot,8.0),[0.0,-0.4]);
-        assert_eq!(stop_walk_at_ledge(toward,[inward*8.0,20.0],[0.0;2],spot,8.0),toward);
+    for inward in [-1.0, 1.0] {
+        let spot = LedgeSpot {
+            edge: [0.0; 2],
+            inward,
+        };
+        let toward = [-inward * 0.3, -0.4];
+        assert_eq!(
+            stop_walk_at_ledge(toward, [inward * 8.0, 0.0], [0.0; 2], spot, 8.0),
+            [0.0, -0.4]
+        );
+        let retreat = [inward * 0.3, -0.4];
+        assert_eq!(
+            stop_walk_at_ledge(retreat, [inward * 4.0, 0.0], [0.0; 2], spot, 8.0),
+            retreat
+        );
+        assert_eq!(
+            stop_walk_at_ledge(toward, [inward * 12.0, 0.0], [0.0; 2], spot, 8.0),
+            toward
+        );
+        assert_eq!(
+            stop_walk_at_ledge(toward, [inward * 10.0, 0.0], [-inward, 0.0], spot, 8.0),
+            [0.0, -0.4]
+        );
+        assert_eq!(
+            stop_walk_at_ledge(toward, [inward * 8.0, 20.0], [0.0; 2], spot, 8.0),
+            toward
+        );
     }
 }

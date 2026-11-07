@@ -1,28 +1,46 @@
+import json
 import unittest
-from tools import update_opponent_data as data
+from pathlib import Path
 
-class ImportTests(unittest.TestCase):
-    def test_captain_and_purin_native_identities_cannot_be_swapped(self):
-        self.assertEqual(data.KINDS[0x0b],"captain_falcon")
-        self.assertEqual(data.KINDS[0x0c],"jigglypuff")
-        with self.assertRaisesRegex(ValueError,"Native fighter kind"):
-            data.render({"fighters":[{"kind":11,"name":"jigglypuff"}]})
-    def test_multihit_gaps_and_unknown_expressions_are_not_filled_in(self):
-        self.assertEqual(data.spans('11/14/18—19'),[[11,11],[14,14],[18,19]])
-        self.assertEqual(data.spans('3—4(5—11/12—25)'),[[3,4],[5,11],[12,25]])
-        self.assertEqual(data.spans('5/7/9/11...'),[])
-        self.assertEqual(data.spans('5—**'),[])
-        self.assertIsNone(data.integer('40/52'))
-    def test_conditional_cancel_notes_never_become_normal_whiff_rules(self):
-        def move(note):
-            return '<div class="movecontainer"><div class="movename">Down Tilt</div><div class="totalframes">20</div><div class="activeframes">4—6</div><div class="notes">'+note+'</div></div>'
-        parsed=data.moves(move('Can cancel on hit')+move('--')*9)
-        self.assertFalse(parsed[0]['whiff_eligible']); self.assertTrue(parsed[1]['whiff_eligible'])
-        self.assertEqual(parsed[1]['total'],20)
-    def test_optional_autocancel_and_landing_hit_facts_survive_import(self):
-        source='<div class="movecontainer"><div class="movename">Down Air</div><div class="notes">Landing hit on frame 1. Autocancels on frame 1-17 and 48 onward</div></div>'
-        parsed=data.moves(source*10)[0]
-        self.assertEqual(parsed['raw']['landing_hit_frame'],'1')
-        self.assertEqual(parsed['raw']['autocancel'],'1-17 and 48 onward')
-        self.assertFalse(parsed['whiff_eligible'])
-if __name__ == '__main__': unittest.main()
+from tools import validate_fighter_data
+
+
+class FighterDataValidationTests(unittest.TestCase):
+    def setUp(self):
+        self.data = json.loads(validate_fighter_data.DATA_FILE.read_text(encoding="utf-8"))
+
+    def test_canonical_file_contains_full_roster_and_move_tables(self):
+        fighter_count, move_count = validate_fighter_data.validate(self.data)
+        self.assertEqual(fighter_count, 90)
+        self.assertGreater(move_count, 4_000)
+        self.assertEqual(self.data["fighters"][6]["name"], "kirby")
+
+    def test_every_roster_kind_is_present_once_and_sorted(self):
+        self.data["fighters"].pop(0)
+        with self.assertRaisesRegex(ValueError, "exactly 90"):
+            validate_fighter_data.validate(self.data)
+
+        self.data = json.loads(validate_fighter_data.DATA_FILE.read_text(encoding="utf-8"))
+        self.data["fighters"][0]["kind"] = self.data["fighters"][1]["kind"]
+        with self.assertRaisesRegex(ValueError, "every supported kind"):
+            validate_fighter_data.validate(self.data)
+
+    def test_active_frame_gaps_are_preserved_and_invalid_ranges_rejected(self):
+        mario = self.data["fighters"][0]
+        down_smash = next(move for move in mario["moves"] if move["name"] == "Down Smash")
+        self.assertEqual(down_smash["active"], [[5, 6], [14, 14]])
+        down_smash["active"] = [[14, 5]]
+        with self.assertRaisesRegex(ValueError, "invalid active span"):
+            validate_fighter_data.validate(self.data)
+
+    def test_unknown_and_compound_values_remain_text_not_invented_numbers(self):
+        mario = self.data["fighters"][0]
+        self.assertIsInstance(next(stat for stat in mario["stats"]
+                                   if stat["key"] == "fallspeed.increase")["value"], str)
+        self.assertFalse(any("source" in fighter or "sha256" in fighter
+                             for fighter in self.data["fighters"]))
+        self.assertNotIn("stats_source", self.data)
+
+
+if __name__ == "__main__":
+    unittest.main()

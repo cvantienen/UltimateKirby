@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **63** (`corrin`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **63** (`corrin`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,36 +48,38 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 6–19 |
-| Down tilt | 5–7 |
-| Forward tilt | 8–9 |
-| Down smash | 13–15 |
-| Up Tilt | 7–16 |
-| Forward Smash | 17–18 |
-| Forward Air | 9–12 |
-| Up Air | 7–12 |
+| Jab 1 | 5 start; active 5–6; 27 total; -- landing |
+| Neutral Air | 6 start; active 6–7 / 8–19; 46 total; 10 landing |
+| Forward Air | 9 start; active 9–12; 35 total; 8 landing |
+| Back Air | 13 start; active 13 / 14–16; 41 total; 13 landing |
+| Up Air | 7 start; active 7–12; 37 total; 9 landing |
+| Forward Tilt | 8 start; active 8–9; 34 total; -- landing |
+| Up Tilt | 7 start; active 7–8 / 9–16; 35 total; -- landing |
+| Down Tilt | 5 start; active 5–7; 30 total; -- landing |
+| Dash Attack | 12/14/16/18/20/23 start; active 12 / 14 / 16 / 18 / 20 / 23; 49 total; -- landing |
+| Up Smash | 13 start; active 13–17; 51 total; -- landing |
+| Down Smash | 13 start; active 13–15; 48 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 7 |
-| Dash startup | 10 |
-| Pivot startup | 11 |
+| Standing grab | frames 7–8 |
+| Dash grab | frames 10–11 |
+| Pivot grab | frames 11–12 |
+| Standing reach reference | 11.8 world units |
 | Shield-grab startup | 11 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 11.8 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 98 |
 | Walk speed | 1.208 |
@@ -89,8 +91,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.64 |
 | Short-hop height | 16 |
 | Full-hop height | 33 |
-
-[Move source](https://ultimateframedata.com/corrin) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -126,7 +126,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -134,7 +134,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/corrin.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/corrin/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

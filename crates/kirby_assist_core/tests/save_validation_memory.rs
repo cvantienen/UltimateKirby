@@ -94,8 +94,10 @@ fn repeated_save_validation_and_renames_do_not_retain_menu_allocations() {
     PEAK_BYTES.store(baseline, Ordering::SeqCst);
     let defaulted = persist::set_default(&large, 6, PresetSlot::Neutral, "p0").unwrap();
     let default_peak = PEAK_BYTES.load(Ordering::SeqCst) - baseline;
-    assert!(default_peak < (entry_bytes * 3 / 2) as isize,
-        "Save-as-default peaked at {default_peak} bytes for {entry_bytes} catalog bytes");
+    assert!(
+        default_peak < (entry_bytes * 3 / 2) as isize,
+        "Save-as-default peaked at {default_peak} bytes for {entry_bytes} catalog bytes"
+    );
     persist::validate_output(&defaulted).unwrap();
     let profiles = kirby_assist_core::fighter_profiles::FighterProfiles::default();
     let allocations = ALLOCATIONS.load(Ordering::SeqCst);

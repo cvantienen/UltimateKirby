@@ -53,6 +53,8 @@ fn removed_finisher_cannot_steal_the_custom_y_button() {
 
 #[test]
 fn whiff_punish_is_not_a_live_menu_row() {
-    assert!(MenuRow::ALL.iter().any(|r|r.slot()==Some(kirby_assist_core::fighter_profiles::presets::PresetSlot::Y)));
+    assert!(MenuRow::ALL
+        .iter()
+        .any(|r| r.slot() == Some(kirby_assist_core::fighter_profiles::presets::PresetSlot::Y)));
     assert!(MenuRow::ALL.iter().all(|row| row.label() != "Whiff punish"));
 }

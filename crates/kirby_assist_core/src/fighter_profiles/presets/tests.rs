@@ -65,7 +65,8 @@ fn startup_still_rejects_button_selection_beyond_normal_and_invalid_ledge_select
     let catalog = crate::sequence_config::Catalog::parse("[kirby.x.saved]\nstart_delay=0\nactions=jab\n[kirby.neutral.n]\nstart_delay=0\nactions=grab\n").unwrap();
     let mut profiles = FighterProfiles::default();
     profiles.add_sequence_choices(&catalog).unwrap();
-    profiles.profiles.get_mut(&6).unwrap().menu_options.lists[PresetSlot::X as usize].selected = 1 + PresetSlot::X.templates();
+    profiles.profiles.get_mut(&6).unwrap().menu_options.lists[PresetSlot::X as usize].selected =
+        1 + PresetSlot::X.templates();
     assert!(profiles.validate().is_err());
     profiles.profiles.get_mut(&6).unwrap().menu_options.lists[PresetSlot::X as usize].selected = 1;
     profiles.profiles.get_mut(&6).unwrap().menu_options.lists[PresetSlot::Neutral as usize]

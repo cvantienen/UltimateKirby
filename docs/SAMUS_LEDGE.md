@@ -63,7 +63,7 @@ choice indices remain unchanged.
 
 ## Zair delivery and timing
 
-[Samus frame data](https://ultimateframedata.com/samus) lists zair active on
+The canonical [Fighter Data catalog](FIGHTER_DATA.md) lists Samus's zair active on
 animation frames **8–15**, then **16–19**. Those are twelve consecutive animation
 frames across two phases with different hitbox geometry; a single point is not
 necessarily covered for all twelve.

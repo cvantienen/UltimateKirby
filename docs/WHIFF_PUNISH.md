@@ -5,9 +5,9 @@ There is no Whiff punish row, opponent-observation pass, queued whiff starter or
 runtime whiff state in live.rs. It cannot issue live inputs.
 
 The portable prototype and its host fixtures remain in whiff_punish.rs, with
-its native adapter source retained but not registered as a live module. The
-[compiled reference facts](OPPONENT_DATA.md) and explicit developer data importer
-are preserved for future work. Their presence does not enable automation.
+its native adapter source retained but not registered as a live module. It can
+read fighter-specific facts from the canonical
+[Fighter Data dataset](FIGHTER_DATA.md); their presence does not enable automation.
 
 The manually triggered Y [finisher binding](FINISHERS.md) is also retired;
 current button recipes and the separate Kirby automatic fair follow-up remain.

@@ -1,13 +1,11 @@
 //! Fighter identity and independent reference facts. Ledge options and input
 //! scheduling are loaded exclusively from sequences.txt at startup.
-mod timing;
 use super::FighterProfile;
-pub use timing::*;
 pub fn profile() -> FighterProfile {
     FighterProfile {
         name: "wario",
         fighter_kind: 33,
-        ledge: LEDGE_DATA,
+        ledge: super::LedgeFighterData::from_kind(33),
         menu_options: crate::fighter_profiles::presets::MenuPresets::EMPTY,
     }
 }

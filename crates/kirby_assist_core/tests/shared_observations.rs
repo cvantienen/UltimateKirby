@@ -10,20 +10,37 @@ use std::cell::Cell;
 #[test]
 fn repeated_command_callbacks_without_a_roster_upgrade_setup_only_once() {
     use kirby_assist_core::observation::ObservationSetup;
-    let mut setup=ObservationSetup::new();let mut evaluations=0;let mut upgrades=0;
+    let mut setup = ObservationSetup::new();
+    let mut evaluations = 0;
+    let mut upgrades = 0;
     for tick in 0..100 {
-        let mut evaluated=false;
+        let mut evaluated = false;
         // Mapper followed by repeated command-category queries. There is no
         // roster at all while all candidate policies are idle/unactionable.
         for discover in std::iter::once(false).chain(std::iter::repeat(true).take(100)) {
-            if !setup.needed(tick,evaluated,discover){continue;}
-            setup.complete(tick,discover);
-            if evaluated {upgrades+=1;}else{evaluations+=1;evaluated=true;}
+            if !setup.needed(tick, evaluated, discover) {
+                continue;
+            }
+            setup.complete(tick, discover);
+            if evaluated {
+                upgrades += 1;
+            } else {
+                evaluations += 1;
+                evaluated = true;
+            }
         }
     }
-    assert_eq!(evaluations,100);assert_eq!(upgrades,100);
-    setup.clear();assert!(setup.needed(99,true,true),"new actor/session must not reuse old discovery");
-    assert!(setup.needed(100,false,false),"new input updates always refresh native facts");
+    assert_eq!(evaluations, 100);
+    assert_eq!(upgrades, 100);
+    setup.clear();
+    assert!(
+        setup.needed(99, true, true),
+        "new actor/session must not reuse old discovery"
+    );
+    assert!(
+        setup.needed(100, false, false),
+        "new input updates always refresh native facts"
+    );
 }
 
 #[test]
@@ -242,14 +259,23 @@ fn identity_cursor_and_kind_cache_remain_correct_when_interleaved_reentrant_and_
 #[test]
 fn roster_reads_once_per_observation_including_unavailable_and_refreshes_next_time() {
     use kirby_assist_core::observation::RosterSnapshot;
-    let calls=Cell::new(0);
-    for roster in [None,Some([Some(1),Some(9),None,None,None,None,None,None])] {
-        let snapshot=RosterSnapshot::default();
+    let calls = Cell::new(0);
+    for roster in [
+        None,
+        Some([Some(1), Some(9), None, None, None, None, None, None]),
+    ] {
+        let snapshot = RosterSnapshot::default();
         for _ in 0..12 {
-            assert_eq!(snapshot.read(||{calls.set(calls.get()+1);roster}),roster);
+            assert_eq!(
+                snapshot.read(|| {
+                    calls.set(calls.get() + 1);
+                    roster
+                }),
+                roster
+            );
         }
     }
-    assert_eq!(calls.get(),2);
-    let changed=Some([Some(3);8]);
-    assert_eq!(RosterSnapshot::default().read(||changed),changed);
+    assert_eq!(calls.get(), 2);
+    let changed = Some([Some(3); 8]);
+    assert_eq!(RosterSnapshot::default().read(|| changed), changed);
 }

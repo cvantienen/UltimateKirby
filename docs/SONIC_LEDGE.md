@@ -14,7 +14,7 @@ Controls and the five-row menu are unchanged; see [menu controls](LEDGE_MENU.md)
 | Attack | Shield → nair, grab / rear nair | Shield → nair |
 | Drop | Shield, down tilt → shield | Shield |
 
-[Frame data](https://ultimateframedata.com/sonic) supplies nair 6–38, down tilt
+The canonical [Fighter Data catalog](FIGHTER_DATA.md) supplies Sonic's nair 6–38, down tilt
 6–7, down-smash 12–13 and grab startup 7/10/11 (standing/dash/pivot), with
 11-frame shield grab. Forward tilt schedules its continuous second hit at 8–11,
 not the inactive gap after its frame-6 first hit. Grounded Spring Jump has no

@@ -23,10 +23,29 @@ pub fn grounded_start_allowed(status: i32, situation: i32) -> bool {
     situation == 0 && matches!(status, 0..=9 | 0x11..=0x15)
 }
 pub fn yoshi_early_bair_hit(frame: f32) -> bool {
-    use crate::fighter_profiles::yoshi::{BACK_AIR_FIRST, BACK_AIR_MIDDLE};
-    [BACK_AIR_FIRST, BACK_AIR_MIDDLE]
-        .iter()
-        .any(|s| (f32::from(s.first)..f32::from(s.last) + 1.0).contains(&frame))
+    let Some(move_data) = crate::fighter_data::named_move(5, "Back Air") else {
+        return false;
+    };
+    let Some(final_hit) = move_data.active.iter().map(|span| span.last).max() else {
+        return false;
+    };
+    move_data.active.iter().any(|span| {
+        span.last < final_hit
+            && (f32::from(span.first)..f32::from(span.last) + 1.0).contains(&frame)
+    })
+}
+fn yoshi_bair_final_hit_start() -> Option<f32> {
+    let move_data = crate::fighter_data::named_move(5, "Back Air")?;
+    let final_hit = move_data.active.iter().max_by_key(|span| span.last)?;
+    Some(f32::from(final_hit.first))
+}
+fn kirby_dair_hit(frame: f32) -> bool {
+    crate::fighter_data::named_move(6, "Down Air").is_some_and(|move_data| {
+        move_data
+            .active
+            .iter()
+            .any(|span| (f32::from(span.first)..f32::from(span.last) + 1.0).contains(&frame))
+    })
 }
 #[derive(Default)]
 pub struct Finisher {
@@ -77,6 +96,16 @@ impl Finisher {
             || self.active
                 && (mode != self.mode || self.previous.is_some_and(|p| p.object != f.object))
         {
+            return self.end();
+        }
+        let frame_data_available = match mode {
+            YMode::DairSmash => crate::fighter_data::named_move(6, "Down Air")
+                .is_some_and(|move_data| !move_data.active.is_empty()),
+            YMode::YoshiBairSmash => crate::fighter_data::named_move(5, "Back Air")
+                .is_some_and(|move_data| !move_data.active.is_empty()),
+            YMode::FairSmash => true,
+        };
+        if !frame_data_available {
             return self.end();
         }
         if !self.active {
@@ -138,16 +167,7 @@ impl Finisher {
         self.aerial_seen |= aerial;
         let hit_window = match self.mode {
             YMode::FairSmash => true, // Any real hit from this exact fair arms Fsmash.
-            YMode::DairSmash => [
-                (18.0, 20.0),
-                (21.0, 23.0),
-                (24.0, 26.0),
-                (27.0, 29.0),
-                (30.0, 32.0),
-                (34.0, 35.0),
-            ]
-            .iter()
-            .any(|(first, end)| (*first..*end).contains(&f.frame)),
+            YMode::DairSmash => kirby_dair_hit(f.frame),
             YMode::YoshiBairSmash => yoshi_early_bair_hit(f.frame),
         };
         self.confirmed |= aerial && hit_window && f.hit_now;
@@ -309,7 +329,7 @@ impl Finisher {
         if f.status == 0x36 {
             if !aerial
                 || self.mode == YMode::YoshiBairSmash
-                    && f.frame >= f32::from(crate::fighter_profiles::yoshi::BACK_AIR_FINISH.first)
+                    && yoshi_bair_final_hit_start().is_none_or(|first| f.frame >= first)
             {
                 return self.end();
             }

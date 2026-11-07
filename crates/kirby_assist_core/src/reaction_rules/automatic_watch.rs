@@ -119,7 +119,7 @@ pub fn sample_optional_simple(
         *engine = None;
         return LedgeOutput::default();
     };
-    if engine.is_none() && (!allowed || !readiness.into_iter().any(|ready|ready)) {
+    if engine.is_none() && (!allowed || !readiness.into_iter().any(|ready| ready)) {
         return LedgeOutput::default();
     }
     engine

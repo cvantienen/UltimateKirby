@@ -438,44 +438,133 @@ fn fresh_physical_shield_cannot_borrow_dash_readiness_before_native_guard_starts
 
 #[test]
 fn bowser_far_idle_grab_never_presses_r_before_native_dash_and_keeps_forward_during_grab() {
-    for side in [-1.,1.] {for speed in [0.,0.15] {
-        let mut o=OutOfShield::new();let ctx=Context{facing:side,..c(0)};
-        let own=LedgeContext{facing:side,velocity:[side*speed,0.],previous_status:0x1d,safe_ground:[true;2],..lc(0)};
-        let ts=targets(side*30.);
-        for tick in 0..3 {
-            let out=o.sample_automatic(true,ctx,own,ts,None,false,22.,35.,Some(8.));
-            assert_eq!(out.requested,0,"a mapped forward packet must not turn into a standing grab");
-            assert_eq!(out.stick,Some([side,0.]));assert!(o.approach_pending());
-            o.mapped_approach(tick,2);o.mapped_approach(tick,2);
+    for side in [-1., 1.] {
+        for speed in [0., 0.15] {
+            let mut o = OutOfShield::new();
+            let ctx = Context {
+                facing: side,
+                ..c(0)
+            };
+            let own = LedgeContext {
+                facing: side,
+                velocity: [side * speed, 0.],
+                previous_status: 0x1d,
+                safe_ground: [true; 2],
+                ..lc(0)
+            };
+            let ts = targets(side * 30.);
+            for tick in 0..3 {
+                let out = o.sample_automatic(true, ctx, own, ts, None, false, 22., 35., Some(8.));
+                assert_eq!(
+                    out.requested, 0,
+                    "a mapped forward packet must not turn into a standing grab"
+                );
+                assert_eq!(out.stick, Some([side, 0.]));
+                assert!(o.approach_pending());
+                o.mapped_approach(tick, 2);
+                o.mapped_approach(tick, 2);
+            }
+            let dash = o.sample_automatic(
+                true,
+                Context { status: 3, ..ctx },
+                LedgeContext { status: 3, ..own },
+                ts,
+                None,
+                false,
+                22.,
+                35.,
+                Some(8.),
+            );
+            assert_eq!(
+                dash.requested, MAPPER_R,
+                "grab on first observed dash, no extra timing delay"
+            );
+            assert!(!o.approach_pending());
+            assert_eq!(
+                o.with_grab_movement(dash, [0.; 2]).stick,
+                Some([side, 0.]),
+                "idle-assisted dash must not neutralize the grab packet"
+            );
         }
-        let dash=o.sample_automatic(true,Context{status:3,..ctx},LedgeContext{status:3,..own},ts,None,false,22.,35.,Some(8.));
-        assert_eq!(dash.requested,MAPPER_R,"grab on first observed dash, no extra timing delay");
-        assert!(!o.approach_pending());
-        assert_eq!(o.with_grab_movement(dash,[0.;2]).stick,Some([side,0.]),"idle-assisted dash must not neutralize the grab packet");
-    }}
+    }
 }
 
 #[test]
 fn failed_bowser_dash_start_is_bounded_and_never_falls_through_to_a_standing_grab() {
-    let mut o=OutOfShield::new();let own=LedgeContext{safe_ground:[true;2],..lc(0)};
+    let mut o = OutOfShield::new();
+    let own = LedgeContext {
+        safe_ground: [true; 2],
+        ..lc(0)
+    };
     for tick in 0..4 {
-        for _ in 0..10 {assert_eq!(o.sample_automatic(true,c(0),own,targets(30.),None,false,22.,35.,Some(8.)).requested,0);}
-        o.mapped_approach(tick,2);
+        for _ in 0..10 {
+            assert_eq!(
+                o.sample_automatic(
+                    true,
+                    c(0),
+                    own,
+                    targets(30.),
+                    None,
+                    false,
+                    22.,
+                    35.,
+                    Some(8.)
+                )
+                .requested,
+                0
+            );
+        }
+        o.mapped_approach(tick, 2);
     }
-    let ended=o.sample_automatic(true,c(0),own,targets(30.),None,false,22.,35.,Some(8.));
-    assert_eq!(ended.owned,0);assert!(o.target().is_none());
+    let ended = o.sample_automatic(
+        true,
+        c(0),
+        own,
+        targets(30.),
+        None,
+        false,
+        22.,
+        35.,
+        Some(8.),
+    );
+    assert_eq!(ended.owned, 0);
+    assert!(o.target().is_none());
 }
 
 #[test]
 fn tech_in_place_is_not_a_dodge_event_and_far_targets_do_not_own_grab_input() {
-    let cat=Catalog::parse("[bowser.roll.auto]\nstart_delay=0\nreaction=auto_roll:40:12\nactions=up_b:4\n").unwrap();
-    let mut rules=Resolved::default();rules.add(Candidate{slot:2,index:0,sequence:cat.entries()[0].sequence}).unwrap();
-    let mut tech=targets(80.);tech[0].as_mut().unwrap().status=0x67;
-    let mut engine=Engine::default();
-    assert_eq!(engine.sample_simple(true,&rules,LedgeSettings::default(),lc(4),tech,None).owned,0);
-    let mut o=OutOfShield::new();
-    assert_eq!(o.sample_automatic(true,c(4),lc(4),tech,None,false,22.,35.,Some(8.)).owned,0);
-    tech[0].as_mut().unwrap().position[0]=30.;
-    assert_eq!(o.sample_automatic(true,c(4),lc(4),tech,None,false,22.,35.,Some(8.)).requested,0,
-        "automatic grabs now require a visibly shielding opponent");
+    let cat = Catalog::parse(
+        "[bowser.roll.auto]\nstart_delay=0\nreaction=auto_roll:40:12\nactions=up_b:4\n",
+    )
+    .unwrap();
+    let mut rules = Resolved::default();
+    rules
+        .add(Candidate {
+            slot: 2,
+            index: 0,
+            sequence: cat.entries()[0].sequence,
+        })
+        .unwrap();
+    let mut tech = targets(80.);
+    tech[0].as_mut().unwrap().status = 0x67;
+    let mut engine = Engine::default();
+    assert_eq!(
+        engine
+            .sample_simple(true, &rules, LedgeSettings::default(), lc(4), tech, None)
+            .owned,
+        0
+    );
+    let mut o = OutOfShield::new();
+    assert_eq!(
+        o.sample_automatic(true, c(4), lc(4), tech, None, false, 22., 35., Some(8.))
+            .owned,
+        0
+    );
+    tech[0].as_mut().unwrap().position[0] = 30.;
+    assert_eq!(
+        o.sample_automatic(true, c(4), lc(4), tech, None, false, 22., 35., Some(8.))
+            .requested,
+        0,
+        "automatic grabs now require a visibly shielding opponent"
+    );
 }

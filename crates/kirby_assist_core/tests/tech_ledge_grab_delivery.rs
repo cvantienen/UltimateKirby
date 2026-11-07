@@ -354,19 +354,31 @@ fn delayed_native_grab_cannot_reach_a_ledge_side_b_or_up_b_after_the_r_pulse() {
         let mut tape = Some(InputTimeline::new(cat.entries()[0].sequence, enemy(5., 0.)));
         let mut receipt = GrabHandoff::default();
         for tick in 0..9 {
-            let status=if tick>=6 {0} else if tick>=5 {0x1d} else {0x1c};
+            let status = if tick >= 6 {
+                0
+            } else if tick >= 5 {
+                0x1d
+            } else {
+                0x1c
+            };
             let out = tape.as_mut().unwrap().sample(
-                LedgeSettings::default(), c(status, tick as f32),
-                Some(enemy(5., tick as f32)), None, 0.,
+                LedgeSettings::default(),
+                c(status, tick as f32),
+                Some(enemy(5., tick as f32)),
+                None,
+                0.,
             );
             let out = GrabHandoff::grab_packet(out);
             if tick < 4 {
                 assert!(receipt.permits(Some(Owner::Ledge), out, Some([0.; 2])));
                 assert_eq!(out.requested, MAPPER_R | MAPPER_ZR);
             } else if out.requested == 0 {
-                assert!(receipt.permits(Some(Owner::Ledge), out, Some([0.; 2])), "neutral receipt waits remain exclusively owned");
+                assert!(
+                    receipt.permits(Some(Owner::Ledge), out, Some([0.; 2])),
+                    "neutral receipt waits remain exclusively owned"
+                );
             } else {
-                assert_ne!(out.requested & MAPPER_B,0);
+                assert_ne!(out.requested & MAPPER_B, 0);
                 assert!(!receipt.permits(Some(Owner::Ledge), out, Some([0.; 2])));
                 tape = None;
                 break;

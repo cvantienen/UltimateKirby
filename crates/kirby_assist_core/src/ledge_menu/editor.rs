@@ -196,16 +196,47 @@ const PRESETS: &[(&str, Action)] = &[
             frames: 120,
         },
     ),
-    ("Controller input", Action::Controller { buttons:0, stick:[0.;2], cstick:[0.;2], frames:4,
-        reference:IR::Screen, cstick_reference:IR::Screen }),
+    (
+        "Controller input",
+        Action::Controller {
+            buttons: 0,
+            stick: [0.; 2],
+            cstick: [0.; 2],
+            frames: 4,
+            reference: IR::Screen,
+            cstick_reference: IR::Screen,
+        },
+    ),
     ("If facing ledge", Action::IfFacingLedge { away: false }),
     ("If back to ledge", Action::IfFacingLedge { away: true }),
-    ("If facing opponent",Action::IfFacingOpponent{away:false}),
-    ("If back to opponent",Action::IfFacingOpponent{away:true}),
-    ("Otherwise (facing block)",Action::ElseFacing),
-    ("Run to ledge offset",Action::LedgePosition{offset:12.,strength:1.,tolerance:1.,brake:6.,frames:180}),
+    (
+        "If facing opponent",
+        Action::IfFacingOpponent { away: false },
+    ),
+    (
+        "If back to opponent",
+        Action::IfFacingOpponent { away: true },
+    ),
+    ("Otherwise (facing block)", Action::ElseFacing),
+    (
+        "Run to ledge offset",
+        Action::LedgePosition {
+            offset: 12.,
+            strength: 1.,
+            tolerance: 1.,
+            brake: 6.,
+            frames: 180,
+        },
+    ),
     ("End facing block", Action::EndFacing),
-    ("Chase only if outside range",Action::Chase{gap:30.,strength:1.,frames:14}),
+    (
+        "Chase only if outside range",
+        Action::Chase {
+            gap: 30.,
+            strength: 1.,
+            frames: 14,
+        },
+    ),
 ];
 const TAP_BUTTONS: &[(u32, [f32; 2], &str)] = &[
     (MAPPER_A, [0., 0.], "A"),
@@ -294,13 +325,21 @@ impl Recipe {
                             Action::Check { condition: b, .. },
                         ) => a == b,
                         (Action::IfFacingLedge { away: a }, Action::IfFacingLedge { away: b })
-                        | (Action::IfFacingOpponent{away:a},Action::IfFacingOpponent{away:b}) => a == b,
-                        (Action::LedgePosition{..},Action::LedgePosition{..})=>true,
+                        | (
+                            Action::IfFacingOpponent { away: a },
+                            Action::IfFacingOpponent { away: b },
+                        ) => a == b,
+                        (Action::LedgePosition { .. }, Action::LedgePosition { .. }) => true,
                         (Action::Range(a), Action::Range(b)) => {
                             std::mem::discriminant(a) == std::mem::discriminant(b)
                         }
-                        (Action::CStick{stick,..},Action::CStick{stick:other,..})=>stick==other,
-                        (Action::Input { .. }, _) | (Action::Controller { .. }, _) | (Action::CStick { .. }, _) | (Action::Approach { .. }, _) => false,
+                        (Action::CStick { stick, .. }, Action::CStick { stick: other, .. }) => {
+                            stick == other
+                        }
+                        (Action::Input { .. }, _)
+                        | (Action::Controller { .. }, _)
+                        | (Action::CStick { .. }, _)
+                        | (Action::Approach { .. }, _) => false,
                         _ => std::mem::discriminant(a) == std::mem::discriminant(p),
                     })
                 })
@@ -357,34 +396,120 @@ impl Recipe {
     }
 }
 fn action_name(r: &Recipe, i: usize) -> String {
-    let action=r.sequence.actions[i];
-    if let Some((name,preset))=PRESETS.get(r.kinds[i]) {
-        let same=match (action,*preset) {
-            (Action::Input{buttons,stick,relative,..},Action::Input{buttons:b,stick:s,relative:rel,..})=>buttons==b&&stick==s&&relative==rel,
-            (Action::Controller{..},_)=>false,
-            _=>true,
+    let action = r.sequence.actions[i];
+    if let Some((name, preset)) = PRESETS.get(r.kinds[i]) {
+        let same = match (action, *preset) {
+            (
+                Action::Input {
+                    buttons,
+                    stick,
+                    relative,
+                    ..
+                },
+                Action::Input {
+                    buttons: b,
+                    stick: s,
+                    relative: rel,
+                    ..
+                },
+            ) => buttons == b && stick == s && relative == rel,
+            (Action::Controller { .. }, _) => false,
+            _ => true,
         };
-        if same {return (*name).into();}
+        if same {
+            return (*name).into();
+        }
     }
     describe_action(action)
 }
-const INPUT_BUTTONS:&[(u32,&str)]=&[(MAPPER_A,"A"),(MAPPER_B,"B"),(MAPPER_X,"X"),(MAPPER_Y,"Y"),(MAPPER_L,"L"),(MAPPER_R,"R"),(MAPPER_ZL,"ZL"),(MAPPER_ZR,"ZR")];
-fn input_buttons(a:Action)->Option<u32>{match a {Action::Input{buttons,..}|Action::OpponentInput{buttons,..}|Action::Controller{buttons,..}=>Some(buttons),_=>None}}
-fn buttons_label(mask:u32)->String {
-    let names=INPUT_BUTTONS.iter().filter(|(b,_)|mask&b!=0).map(|(_,n)|*n).collect::<Vec<_>>();
-    if names.is_empty(){"None (stick only)".into()}else{names.join("+")}
-}
-fn input_reference(a:Action,right:bool)->IR {match a {
-    Action::Controller{reference,cstick_reference,..}=>if right{cstick_reference}else{reference},
-    Action::OpponentInput{..}=>IR::Opponent,Action::Input{relative:true,..}=>IR::Facing,_=>IR::Screen,
-}}
-fn set_input_reference(a:&mut Action,r:IR,right:bool){
+const INPUT_BUTTONS: &[(u32, &str)] = &[
+    (MAPPER_A, "A"),
+    (MAPPER_B, "B"),
+    (MAPPER_X, "X"),
+    (MAPPER_Y, "Y"),
+    (MAPPER_L, "L"),
+    (MAPPER_R, "R"),
+    (MAPPER_ZL, "ZL"),
+    (MAPPER_ZR, "ZR"),
+];
+fn input_buttons(a: Action) -> Option<u32> {
     match a {
-        Action::Controller{reference,cstick_reference,..}=>{if right{*cstick_reference=r}else{*reference=r}},
-        Action::Input{buttons,stick,frames,..}|Action::OpponentInput{buttons,stick,frames}=>{
-            *a=if r==IR::Opponent{Action::OpponentInput{buttons:*buttons,stick:*stick,frames:if *frames==0{4}else{*frames}}}
-                else{Action::Input{buttons:*buttons,stick:*stick,frames:*frames,relative:r==IR::Facing}};
-        },_=>{},
+        Action::Input { buttons, .. }
+        | Action::OpponentInput { buttons, .. }
+        | Action::Controller { buttons, .. } => Some(buttons),
+        _ => None,
+    }
+}
+fn buttons_label(mask: u32) -> String {
+    let names = INPUT_BUTTONS
+        .iter()
+        .filter(|(b, _)| mask & b != 0)
+        .map(|(_, n)| *n)
+        .collect::<Vec<_>>();
+    if names.is_empty() {
+        "None (stick only)".into()
+    } else {
+        names.join("+")
+    }
+}
+fn input_reference(a: Action, right: bool) -> IR {
+    match a {
+        Action::Controller {
+            reference,
+            cstick_reference,
+            ..
+        } => {
+            if right {
+                cstick_reference
+            } else {
+                reference
+            }
+        }
+        Action::OpponentInput { .. } => IR::Opponent,
+        Action::Input { relative: true, .. } => IR::Facing,
+        _ => IR::Screen,
+    }
+}
+fn set_input_reference(a: &mut Action, r: IR, right: bool) {
+    match a {
+        Action::Controller {
+            reference,
+            cstick_reference,
+            ..
+        } => {
+            if right {
+                *cstick_reference = r
+            } else {
+                *reference = r
+            }
+        }
+        Action::Input {
+            buttons,
+            stick,
+            frames,
+            ..
+        }
+        | Action::OpponentInput {
+            buttons,
+            stick,
+            frames,
+        } => {
+            *a = if r == IR::Opponent {
+                Action::OpponentInput {
+                    buttons: *buttons,
+                    stick: *stick,
+                    frames: if *frames == 0 { 4 } else { *frames },
+                }
+            } else {
+                Action::Input {
+                    buttons: *buttons,
+                    stick: *stick,
+                    frames: *frames,
+                    relative: r == IR::Facing,
+                }
+            };
+        }
+        _ => {}
     }
 }
 fn describe_action(action: Action) -> String {
@@ -475,11 +600,26 @@ fn fields(r: &Recipe) -> Vec<Field> {
             out.push(Field::Before(i));
         }
         match a {
-            Action::Controller{..}=>out.extend([Field::Buttons(i),Field::Reference(i),Field::CReference(i),Field::Duration(i),Field::X(i),Field::Y(i),Field::CX(i),Field::CY(i)]),
+            Action::Controller { .. } => out.extend([
+                Field::Buttons(i),
+                Field::Reference(i),
+                Field::CReference(i),
+                Field::Duration(i),
+                Field::X(i),
+                Field::Y(i),
+                Field::CX(i),
+                Field::CY(i),
+            ]),
             Action::Input { .. } | Action::OpponentInput { .. } | Action::CStick { .. } => {
-                if !matches!(a,Action::CStick{..}){out.extend([Field::Buttons(i),Field::Reference(i)]);}
-                if matches!(*a, Action::Input { buttons, .. } if buttons != 0) { out.push(Field::ShieldHold(i)); }
-                if !matches!(*a, Action::Input { frames: 0, .. }) { out.push(Field::Duration(i)); }
+                if !matches!(a, Action::CStick { .. }) {
+                    out.extend([Field::Buttons(i), Field::Reference(i)]);
+                }
+                if matches!(*a, Action::Input { buttons, .. } if buttons != 0) {
+                    out.push(Field::ShieldHold(i));
+                }
+                if !matches!(*a, Action::Input { frames: 0, .. }) {
+                    out.push(Field::Duration(i));
+                }
                 out.extend([Field::X(i), Field::Y(i)])
             }
             Action::Tap { .. } => {
@@ -488,7 +628,7 @@ fn fields(r: &Recipe) -> Vec<Field> {
             Action::ShieldUntilManual => out.push(Field::ShieldHold(i)),
             Action::Wait(_) | Action::ShieldUntilBlock(_) => out.push(Field::Duration(i)),
             Action::Face(_) => out.push(Field::Direction(i)),
-            Action::Chase {..} | Action::Approach { .. } => {
+            Action::Chase { .. } | Action::Approach { .. } => {
                 out.extend([Field::Strength(i), Field::Duration(i), Field::Gap(i)])
             }
             Action::Walk { direction, .. } => {
@@ -498,7 +638,13 @@ fn fields(r: &Recipe) -> Vec<Field> {
                 }
             }
             Action::Run { .. } => out.extend([Field::Direction(i), Field::Distance(i)]),
-            Action::LedgePosition {..}=>out.extend([Field::Distance(i),Field::Strength(i),Field::Tolerance(i),Field::Brake(i),Field::PositionTimeout(i)]),
+            Action::LedgePosition { .. } => out.extend([
+                Field::Distance(i),
+                Field::Strength(i),
+                Field::Tolerance(i),
+                Field::Brake(i),
+                Field::PositionTimeout(i),
+            ]),
             Action::Drift { .. } => {
                 out.extend([Field::Direction(i), Field::Strength(i), Field::Duration(i)])
             }
@@ -516,17 +662,31 @@ fn fields(r: &Recipe) -> Vec<Field> {
         out.push(Field::WhileHeld);
     }
     if r.sequence.reaction.active() {
-        if r.sequence.reaction.trigger.simple().is_some(){out.extend([3,4].map(Field::Reaction));}
-        else {out.extend((0..8).map(Field::Reaction));}
+        if r.sequence.reaction.trigger.simple().is_some() {
+            out.extend([3, 4].map(Field::Reaction));
+        } else {
+            out.extend((0..8).map(Field::Reaction));
+        }
     }
-    if r.sequence.reaction.trigger.simple().is_none() && (r.sequence.reaction.active() || r.sequence.ground_only) { out.push(Field::GroundOnly); }
+    if r.sequence.reaction.trigger.simple().is_none()
+        && (r.sequence.reaction.active() || r.sequence.ground_only)
+    {
+        out.push(Field::GroundOnly);
+    }
     out.push(Field::Slots);
     out
 }
 fn field_slot(f: Field) -> Option<usize> {
     match f {
-        Field::Start | Field::Slots | Field::WhileHeld | Field::GroundOnly | Field::Reaction(_) => None,
-        Field::Buttons(i) | Field::Reference(i) | Field::CReference(i) | Field::CX(i) | Field::CY(i) | Field::ShieldHold(i)
+        Field::Start | Field::Slots | Field::WhileHeld | Field::GroundOnly | Field::Reaction(_) => {
+            None
+        }
+        Field::Buttons(i)
+        | Field::Reference(i)
+        | Field::CReference(i)
+        | Field::CX(i)
+        | Field::CY(i)
+        | Field::ShieldHold(i)
         | Field::TapButtons(i)
         | Field::TapGap(i)
         | Field::Kind(i)
@@ -535,7 +695,9 @@ fn field_slot(f: Field) -> Option<usize> {
         | Field::X(i)
         | Field::Y(i)
         | Field::Strength(i)
-        | Field::Tolerance(i) | Field::Brake(i) | Field::PositionTimeout(i)
+        | Field::Tolerance(i)
+        | Field::Brake(i)
+        | Field::PositionTimeout(i)
         | Field::Distance(i)
         | Field::Gap(i)
         | Field::Direction(i) => Some(i),
@@ -543,11 +705,36 @@ fn field_slot(f: Field) -> Option<usize> {
 }
 fn field_value(r: &Recipe, f: Field) -> String {
     match f {
-        Field::Buttons(i)=>format!("    Buttons: {} (A: edit)",buttons_label(input_buttons(r.sequence.actions[i]).unwrap_or(0))),
-        Field::Reference(i)|Field::CReference(i)=>format!("    {} X reference: {}",if matches!(f,Field::CReference(_)){"Right stick"}else{"Left stick"},input_reference(r.sequence.actions[i],matches!(f,Field::CReference(_))).token()),
-        Field::CX(i)|Field::CY(i)=>{let axis=usize::from(matches!(f,Field::CY(_)));let stick=match r.sequence.actions[i]{Action::Controller{cstick,..}=>cstick,_=>[0.;2]};format!("    Right stick {}: {:.0}%",if axis==0{"X"}else{"Y"},stick[axis]*100.)},
+        Field::Buttons(i) => format!(
+            "    Buttons: {} (A: edit)",
+            buttons_label(input_buttons(r.sequence.actions[i]).unwrap_or(0))
+        ),
+        Field::Reference(i) | Field::CReference(i) => format!(
+            "    {} X reference: {}",
+            if matches!(f, Field::CReference(_)) {
+                "Right stick"
+            } else {
+                "Left stick"
+            },
+            input_reference(r.sequence.actions[i], matches!(f, Field::CReference(_))).token()
+        ),
+        Field::CX(i) | Field::CY(i) => {
+            let axis = usize::from(matches!(f, Field::CY(_)));
+            let stick = match r.sequence.actions[i] {
+                Action::Controller { cstick, .. } => cstick,
+                _ => [0.; 2],
+            };
+            format!(
+                "    Right stick {}: {:.0}%",
+                if axis == 0 { "X" } else { "Y" },
+                stick[axis] * 100.
+            )
+        }
         Field::Reaction(n) => r.sequence.reaction.field(n),
-        Field::GroundOnly => format!("Stop if airborne: {}",if r.sequence.ground_only {"ON"}else{"OFF"}),
+        Field::GroundOnly => format!(
+            "Stop if airborne: {}",
+            if r.sequence.ground_only { "ON" } else { "OFF" }
+        ),
         Field::WhileHeld => format!(
             "Button activation: {}",
             if r.sequence.while_held {
@@ -556,7 +743,17 @@ fn field_value(r: &Recipe, f: Field) -> String {
                 "Run once"
             }
         ),
-        Field::ShieldHold(i) => format!("    Hold input: {}", if matches!(r.sequence.actions[i], Action::ShieldUntilManual | Action::Input { frames: 0, .. }) { "Until manual takeover" } else { "For frames" }),
+        Field::ShieldHold(i) => format!(
+            "    Hold input: {}",
+            if matches!(
+                r.sequence.actions[i],
+                Action::ShieldUntilManual | Action::Input { frames: 0, .. }
+            ) {
+                "Until manual takeover"
+            } else {
+                "For frames"
+            }
+        ),
         Field::TapButtons(i) => match r.sequence.actions[i] {
             Action::Tap { buttons, stick, .. } => format!(
                 "    Tap input: {}",
@@ -590,15 +787,21 @@ fn field_value(r: &Recipe, f: Field) -> String {
             "    {}: {} frames",
             match r.sequence.actions[i] {
                 Action::Wait(_) => "pause length",
-                Action::Input { .. } | Action::OpponentInput { .. } | Action::Controller { .. } | Action::CStick { .. } => "Hold input for",
+                Action::Input { .. }
+                | Action::OpponentInput { .. }
+                | Action::Controller { .. }
+                | Action::CStick { .. } => "Hold input for",
                 Action::ShieldUntilBlock(_) => "maximum wait",
                 Action::Check { .. } => "Check wait limit (0 = require now)",
                 _ => "movement duration",
             },
             match r.sequence.actions[i] {
-                Action::Input { frames, .. } | Action::OpponentInput { frames, .. } | Action::Controller {frames,..}
+                Action::Input { frames, .. }
+                | Action::OpponentInput { frames, .. }
+                | Action::Controller { frames, .. }
                 | Action::CStick { frames, .. }
-                | Action::Chase {frames,..} | Action::Approach { frames, .. }
+                | Action::Chase { frames, .. }
+                | Action::Approach { frames, .. }
                 | Action::Drift { frames, .. }
                 | Action::Wait(frames)
                 | Action::ShieldUntilBlock(frames) => frames,
@@ -609,7 +812,9 @@ fn field_value(r: &Recipe, f: Field) -> String {
         Field::X(i) | Field::Y(i) => {
             let axis = usize::from(matches!(f, Field::Y(_)));
             let a = match r.sequence.actions[i] {
-                Action::Input { stick, .. } | Action::OpponentInput { stick, .. } | Action::Controller {stick,..}
+                Action::Input { stick, .. }
+                | Action::OpponentInput { stick, .. }
+                | Action::Controller { stick, .. }
                 | Action::Tap { stick, .. }
                 | Action::CStick { stick, .. } => stick,
                 _ => [0.; 2],
@@ -620,23 +825,48 @@ fn field_value(r: &Recipe, f: Field) -> String {
                 a[axis] * 100.
             )
         }
-        Field::Tolerance(i)=>format!("    Arrival tolerance: {:.1} units",match r.sequence.actions[i]{Action::LedgePosition{tolerance,..}=>tolerance,_=>0.}),
-        Field::Brake(i)=>format!("    Braking distance: {:.1} units (0 = off)",match r.sequence.actions[i]{Action::LedgePosition{brake,..}=>brake,_=>0.}),
-        Field::PositionTimeout(i)=>format!("    Movement timeout: {} frames",match r.sequence.actions[i]{Action::LedgePosition{frames,..}=>frames,_=>0}),
+        Field::Tolerance(i) => format!(
+            "    Arrival tolerance: {:.1} units",
+            match r.sequence.actions[i] {
+                Action::LedgePosition { tolerance, .. } => tolerance,
+                _ => 0.,
+            }
+        ),
+        Field::Brake(i) => format!(
+            "    Braking distance: {:.1} units (0 = off)",
+            match r.sequence.actions[i] {
+                Action::LedgePosition { brake, .. } => brake,
+                _ => 0.,
+            }
+        ),
+        Field::PositionTimeout(i) => format!(
+            "    Movement timeout: {} frames",
+            match r.sequence.actions[i] {
+                Action::LedgePosition { frames, .. } => frames,
+                _ => 0,
+            }
+        ),
         Field::Strength(i) => format!(
             "    Stick strength: {:.0}%",
             match r.sequence.actions[i] {
-                Action::Chase {strength,..} | Action::Approach { strength, .. }
-                | Action::Walk { strength, .. } | Action::LedgePosition {strength,..}
+                Action::Chase { strength, .. }
+                | Action::Approach { strength, .. }
+                | Action::Walk { strength, .. }
+                | Action::LedgePosition { strength, .. }
                 | Action::Drift { strength, .. } => strength * 100.,
                 _ => 0.,
             }
         ),
         Field::Distance(i) => format!(
-            "    {}: {:.1}",if matches!(r.sequence.actions[i],Action::LedgePosition{..}){"Inward distance from ledge"}else{"Distance / range"},
+            "    {}: {:.1}",
+            if matches!(r.sequence.actions[i], Action::LedgePosition { .. }) {
+                "Inward distance from ledge"
+            } else {
+                "Distance / range"
+            },
             match r.sequence.actions[i] {
                 Action::Walk { units, .. } | Action::Run { units, .. } => units,
-                Action::LedgePosition{offset,..}=>offset,
+                Action::LedgePosition { offset, .. } => offset,
                 Action::Range(RangeCheck::Verify(v)) => v,
                 Action::Check { value, .. } => value,
                 _ => 0.,
@@ -644,9 +874,13 @@ fn field_value(r: &Recipe, f: Field) -> String {
         ),
         Field::Gap(i) => format!(
             "    {}: {}",
-            if matches!(r.sequence.actions[i],Action::Chase{..}){"Skip chase within"}else{"Stop gap"},
+            if matches!(r.sequence.actions[i], Action::Chase { .. }) {
+                "Skip chase within"
+            } else {
+                "Stop gap"
+            },
             match r.sequence.actions[i] {
-                Action::Chase {gap,..} | Action::Approach { gap, .. } => Some(gap),
+                Action::Chase { gap, .. } | Action::Approach { gap, .. } => Some(gap),
                 Action::Walk { min_gap, .. } => min_gap,
                 _ => None,
             }
@@ -660,7 +894,8 @@ fn field_value(r: &Recipe, f: Field) -> String {
                 | Action::Run { direction: d, .. }
                 | Action::Drift { direction: d, .. } => d,
                 _ => D::Opponent,
-            }.label()
+            }
+            .label()
         ),
     }
 }
@@ -674,11 +909,18 @@ fn byte(v: &mut u8, up: bool, min: u8) {
         v.saturating_sub(1).max(min)
     };
 }
-fn direction(v: &mut D, up: bool, onstage:bool) {
-    let mut i=DIRECTIONS.iter().position(|d|d==v).unwrap_or(0);
+fn direction(v: &mut D, up: bool, onstage: bool) {
+    let mut i = DIRECTIONS.iter().position(|d| d == v).unwrap_or(0);
     for _ in 0..DIRECTIONS.len() {
-        i=if up{(i+1)%DIRECTIONS.len()}else{(i+DIRECTIONS.len()-1)%DIRECTIONS.len()};
-        if !onstage || !Action::Face(DIRECTIONS[i]).needs_ledge() {*v=DIRECTIONS[i];break;}
+        i = if up {
+            (i + 1) % DIRECTIONS.len()
+        } else {
+            (i + DIRECTIONS.len() - 1) % DIRECTIONS.len()
+        };
+        if !onstage || !Action::Face(DIRECTIONS[i]).needs_ledge() {
+            *v = DIRECTIONS[i];
+            break;
+        }
     }
 }
 pub(super) struct CopySource {
@@ -690,7 +932,7 @@ pub(super) struct CopySource {
 pub(super) struct RecipeEditor {
     modal: Option<commands::Modal>,
     return_modal: Option<commands::Modal>,
-    step_clipboard: Option<(Action,u8)>,
+    step_clipboard: Option<(Action, u8)>,
     manage_requested: bool,
     copy_sources: Vec<CopySource>,
     copy_templates: Vec<String>,
@@ -713,8 +955,12 @@ impl RecipeEditor {
                 std::mem::size_of_val(&**undo)
                     + undo.1.imported.capacity() * std::mem::size_of::<Action>()
             })
-            + self.copy_templates.capacity()*std::mem::size_of::<String>()
-            + self.copy_templates.iter().map(String::capacity).sum::<usize>()
+            + self.copy_templates.capacity() * std::mem::size_of::<String>()
+            + self
+                .copy_templates
+                .iter()
+                .map(String::capacity)
+                .sum::<usize>()
             + self.copy_sources.capacity() * std::mem::size_of::<CopySource>()
             + self
                 .copy_sources
@@ -770,17 +1016,23 @@ impl RecipeEditor {
         self.step_clipboard = None;
         self.last_edit = None;
     }
-    pub fn retain_recipes(&mut self, mut retain: impl FnMut((usize, usize), Option<Sequence>, bool) -> bool) {
-        self.recipes.retain(|key, recipe| retain(*key, recipe.compile(), recipe.modified));
+    pub fn retain_recipes(
+        &mut self,
+        mut retain: impl FnMut((usize, usize), Option<Sequence>, bool) -> bool,
+    ) {
+        self.recipes
+            .retain(|key, recipe| retain(*key, recipe.compile(), recipe.modified));
     }
-    pub fn is_empty(&self) -> bool { self.recipes.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.recipes.is_empty()
+    }
     pub fn discard(&mut self, key: (usize, usize)) {
         self.clear_copy();
         if self.undo.as_ref().is_some_and(|u| u.0 == key) {
             self.undo = None;
         }
         self.modal = None;
-        self.return_modal=None;
+        self.return_modal = None;
         self.recipes.remove(&key);
     }
     pub fn while_held(&self, key: (usize, usize)) -> Option<bool> {
@@ -810,7 +1062,9 @@ impl RecipeEditor {
                     | Field::TapButtons(_)
                     | Field::WhileHeld
                     | Field::GroundOnly
-                    | Field::Buttons(_) | Field::Reference(_) | Field::CReference(_)
+                    | Field::Buttons(_)
+                    | Field::Reference(_)
+                    | Field::CReference(_)
                     | Field::Reaction(0 | 1 | 5 | 7)
             )
         })
@@ -820,29 +1074,40 @@ impl RecipeEditor {
             return false;
         };
         let mut next = r.clone();
-        let fs=fields(&next);
+        let fs = fields(&next);
         let f = fs[self.cursor.min(fs.len() - 1)];
-        let onstage=next.sequence.reaction.active();
+        let onstage = next.sequence.reaction.active();
         let delta = if up { 1. } else { -1. };
         match f {
             Field::Reaction(0) => {
-                let trigger=next.sequence.reaction.trigger;
-                let options=trigger.events();
-                let i=options.iter().position(|v|*v==trigger).unwrap_or(0);
-                next.sequence.reaction.trigger=options[if up{(i+1)%options.len()}else{(i+options.len()-1)%options.len()}];
+                let trigger = next.sequence.reaction.trigger;
+                let options = trigger.events();
+                let i = options.iter().position(|v| *v == trigger).unwrap_or(0);
+                next.sequence.reaction.trigger = options[if up {
+                    (i + 1) % options.len()
+                } else {
+                    (i + options.len() - 1) % options.len()
+                }];
             }
             Field::Reaction(n) => next.sequence.reaction.adjust(n, up),
             Field::WhileHeld => next.sequence.while_held = !next.sequence.while_held,
             Field::GroundOnly => next.sequence.ground_only = !next.sequence.ground_only,
-            Field::Buttons(_)=>return false,
-            Field::Reference(i)|Field::CReference(i)=>{
-                let right=matches!(f,Field::CReference(_));
-                let old=input_reference(next.sequence.actions[i],right);
-                let k=IR::ALL.iter().position(|x|*x==old).unwrap_or(0);
-                set_input_reference(&mut next.sequence.actions[i],IR::ALL[(k+if up{1}else{2})%3],right);
+            Field::Buttons(_) => return false,
+            Field::Reference(i) | Field::CReference(i) => {
+                let right = matches!(f, Field::CReference(_));
+                let old = input_reference(next.sequence.actions[i], right);
+                let k = IR::ALL.iter().position(|x| *x == old).unwrap_or(0);
+                set_input_reference(
+                    &mut next.sequence.actions[i],
+                    IR::ALL[(k + if up { 1 } else { 2 }) % 3],
+                    right,
+                );
             }
-            Field::CX(i)|Field::CY(i)=>{
-                if let Action::Controller{cstick,..}=&mut next.sequence.actions[i] {let axis=usize::from(matches!(f,Field::CY(_)));cstick[axis]=step(cstick[axis],delta*0.01,-1.,1.);}
+            Field::CX(i) | Field::CY(i) => {
+                if let Action::Controller { cstick, .. } = &mut next.sequence.actions[i] {
+                    let axis = usize::from(matches!(f, Field::CY(_)));
+                    cstick[axis] = step(cstick[axis], delta * 0.01, -1., 1.);
+                }
             }
             Field::Start => {
                 next.sequence.start_delay = if up {
@@ -884,16 +1149,22 @@ impl RecipeEditor {
                     next.imported[next.kinds[i] - PRESETS.len()]
                 };
             }
-            Field::ShieldHold(i) => {
-                match &mut next.sequence.actions[i] {
-                    Action::Input { frames, .. } => *frames = if *frames == 0 { 4 } else { 0 },
-                    Action::ShieldUntilManual => {
-                        next.sequence.actions[i] = Action::Input { buttons: MAPPER_ZR, stick: [0.;2], frames: 4, relative: true };
-                        next.kinds[i] = PRESETS.iter().position(|(_, a)| *a == next.sequence.actions[i]).unwrap_or(0);
-                    }
-                    _ => {}
+            Field::ShieldHold(i) => match &mut next.sequence.actions[i] {
+                Action::Input { frames, .. } => *frames = if *frames == 0 { 4 } else { 0 },
+                Action::ShieldUntilManual => {
+                    next.sequence.actions[i] = Action::Input {
+                        buttons: MAPPER_ZR,
+                        stick: [0.; 2],
+                        frames: 4,
+                        relative: true,
+                    };
+                    next.kinds[i] = PRESETS
+                        .iter()
+                        .position(|(_, a)| *a == next.sequence.actions[i])
+                        .unwrap_or(0);
                 }
-            }
+                _ => {}
+            },
             other => {
                 let i = match other {
                     Field::TapButtons(i)
@@ -902,19 +1173,37 @@ impl RecipeEditor {
                     | Field::X(i)
                     | Field::Y(i)
                     | Field::Strength(i)
-                    | Field::Tolerance(i) | Field::Brake(i) | Field::PositionTimeout(i)
+                    | Field::Tolerance(i)
+                    | Field::Brake(i)
+                    | Field::PositionTimeout(i)
                     | Field::Distance(i)
                     | Field::Gap(i)
                     | Field::Direction(i) => i,
                     _ => unreachable!(),
                 };
                 match (&mut next.sequence.actions[i], other) {
-                    (Action::LedgePosition{offset,..},Field::Distance(_))=>*offset=step(*offset,delta,0.,200.),
-                    (Action::LedgePosition{strength,..},Field::Strength(_))=>*strength=step(*strength,delta*0.01,0.3,1.),
-                    (Action::LedgePosition{tolerance,..},Field::Tolerance(_))=>*tolerance=step(*tolerance,delta*0.1,0.,20.),
-                    (Action::LedgePosition{brake,..},Field::Brake(_))=>*brake=step(*brake,delta*0.5,0.,100.),
-                    (Action::LedgePosition{frames,..},Field::PositionTimeout(_))=>*frames=if up{frames.saturating_add(1).min(3600)}else{frames.saturating_sub(1).max(1)},
-                    (Action::Chase{strength,..},Field::Strength(_))=>*strength=step(*strength,delta*0.01,0.,1.),
+                    (Action::LedgePosition { offset, .. }, Field::Distance(_)) => {
+                        *offset = step(*offset, delta, 0., 200.)
+                    }
+                    (Action::LedgePosition { strength, .. }, Field::Strength(_)) => {
+                        *strength = step(*strength, delta * 0.01, 0.3, 1.)
+                    }
+                    (Action::LedgePosition { tolerance, .. }, Field::Tolerance(_)) => {
+                        *tolerance = step(*tolerance, delta * 0.1, 0., 20.)
+                    }
+                    (Action::LedgePosition { brake, .. }, Field::Brake(_)) => {
+                        *brake = step(*brake, delta * 0.5, 0., 100.)
+                    }
+                    (Action::LedgePosition { frames, .. }, Field::PositionTimeout(_)) => {
+                        *frames = if up {
+                            frames.saturating_add(1).min(3600)
+                        } else {
+                            frames.saturating_sub(1).max(1)
+                        }
+                    }
+                    (Action::Chase { strength, .. }, Field::Strength(_)) => {
+                        *strength = step(*strength, delta * 0.01, 0., 1.)
+                    }
                     (
                         Action::Tap {
                             buttons,
@@ -958,9 +1247,12 @@ impl RecipeEditor {
                     }
 
                     (
-                        Action::Input { frames, .. } | Action::OpponentInput { frames, .. } | Action::Controller {frames,..}
+                        Action::Input { frames, .. }
+                        | Action::OpponentInput { frames, .. }
+                        | Action::Controller { frames, .. }
                         | Action::CStick { frames, .. }
-                        | Action::Chase {frames,..} | Action::Approach { frames, .. }
+                        | Action::Chase { frames, .. }
+                        | Action::Approach { frames, .. }
                         | Action::Drift { frames, .. },
                         Field::Duration(_),
                     ) => byte(frames, up, 1),
@@ -971,13 +1263,17 @@ impl RecipeEditor {
                         *value = step(*value, delta, 0., 100.)
                     }
                     (
-                        Action::Input { stick, .. } | Action::OpponentInput { stick, .. } | Action::Controller {stick,..}
+                        Action::Input { stick, .. }
+                        | Action::OpponentInput { stick, .. }
+                        | Action::Controller { stick, .. }
                         | Action::Tap { stick, .. }
                         | Action::CStick { stick, .. },
                         Field::X(_),
                     ) => stick[0] = step(stick[0], delta * 0.01, -1., 1.),
                     (
-                        Action::Input { stick, .. } | Action::OpponentInput { stick, .. } | Action::Controller {stick,..}
+                        Action::Input { stick, .. }
+                        | Action::OpponentInput { stick, .. }
+                        | Action::Controller { stick, .. }
                         | Action::Tap { stick, .. }
                         | Action::CStick { stick, .. },
                         Field::Y(_),
@@ -1008,7 +1304,7 @@ impl RecipeEditor {
                     (Action::Range(RangeCheck::Verify(v)), Field::Distance(_)) => {
                         *v = step(*v, delta, 0., 60.)
                     }
-                    (Action::Chase {gap,..} | Action::Approach { gap, .. }, Field::Gap(_)) => {
+                    (Action::Chase { gap, .. } | Action::Approach { gap, .. }, Field::Gap(_)) => {
                         *gap = step(*gap, delta, 0., 60.)
                     }
                     (Action::Walk { min_gap, .. }, Field::Gap(_)) => {
@@ -1074,13 +1370,21 @@ impl RecipeEditor {
             let kind = *commands::candidates(r, group).get(item)?;
             return PRESETS.get(kind).map(|(label, _)| *label);
         }
-        if self.modal.is_some() { return None; }
+        if self.modal.is_some() {
+            return None;
+        }
         let fs = fields(r);
-        let slot = field_slot(*fs.get(self.cursor.min(fs.len()-1))?)?;
+        let slot = field_slot(*fs.get(self.cursor.min(fs.len() - 1))?)?;
         let (label, preset) = PRESETS.get(r.kinds[slot])?;
         match (r.sequence.actions[slot], *preset) {
-            (Action::Input { buttons, stick, .. }, Action::Input { buttons: b, stick: s, .. })
-                if buttons == b && stick == s => Some(*label),
+            (
+                Action::Input { buttons, stick, .. },
+                Action::Input {
+                    buttons: b,
+                    stick: s,
+                    ..
+                },
+            ) if buttons == b && stick == s => Some(*label),
             (Action::Tap { .. }, Action::Tap { .. }) => Some("Repeated taps"),
             _ => None,
         }
@@ -1126,14 +1430,25 @@ fn same_field(a: Field, b: Field) -> bool {
     std::mem::discriminant(&a) == std::mem::discriminant(&b) && field_slot(a) == field_slot(b)
 }
 fn short_setting(r: &Recipe, f: Field) -> String {
-    if let Field::CX(i)|Field::CY(i)=f {
-        let axis=usize::from(matches!(f,Field::CY(_)));let stick=match r.sequence.actions[i]{Action::Controller{cstick,..}=>cstick,_=>[0.;2]};
-        return format!("Right {}: {:.0}%",if axis==0{"X"}else{"Y"},stick[axis]*100.);
+    if let Field::CX(i) | Field::CY(i) = f {
+        let axis = usize::from(matches!(f, Field::CY(_)));
+        let stick = match r.sequence.actions[i] {
+            Action::Controller { cstick, .. } => cstick,
+            _ => [0.; 2],
+        };
+        return format!(
+            "Right {}: {:.0}%",
+            if axis == 0 { "X" } else { "Y" },
+            stick[axis] * 100.
+        );
     }
     if let Field::X(i) | Field::Y(i) = f {
         let axis = usize::from(matches!(f, Field::Y(_)));
         let (stick, side) = match r.sequence.actions[i] {
-            Action::Input { stick, .. } | Action::OpponentInput { stick, .. } | Action::Controller {stick,..} | Action::Tap { stick, .. } => (stick, "Left"),
+            Action::Input { stick, .. }
+            | Action::OpponentInput { stick, .. }
+            | Action::Controller { stick, .. }
+            | Action::Tap { stick, .. } => (stick, "Left"),
             Action::CStick { stick, .. } => (stick, "Right"),
             _ => ([0.0; 2], "Left"),
         };
@@ -1169,9 +1484,14 @@ fn scheduled_frames(action: Action) -> Option<u32> {
         Action::Tap { frames, .. } => Some(u32::from(frames)),
         Action::Empty
         | Action::Range(crate::sequence_config::RangeCheck::Ignore)
-        | Action::Check { wait: 0, .. } | Action::IfFacingLedge{..} | Action::IfFacingOpponent{..}
-        | Action::ElseFacing | Action::EndFacing => Some(0),
-        Action::Input { frames, .. } | Action::OpponentInput { frames, .. } | Action::Controller {frames,..}
+        | Action::Check { wait: 0, .. }
+        | Action::IfFacingLedge { .. }
+        | Action::IfFacingOpponent { .. }
+        | Action::ElseFacing
+        | Action::EndFacing => Some(0),
+        Action::Input { frames, .. }
+        | Action::OpponentInput { frames, .. }
+        | Action::Controller { frames, .. }
         | Action::CStick { frames, .. }
         | Action::Wait(frames)
         | Action::Drift { frames, .. } => Some(u32::from(frames)),
@@ -1227,7 +1547,12 @@ fn recipe_panel(
             .header
             .push(format!("{} action slots | Full sequence", r.sequence.len));
     }
-    let branched = r.sequence.actions().iter().any(|a| matches!(a, Action::IfFacingLedge { .. }|Action::IfFacingOpponent{..}));
+    let branched = r.sequence.actions().iter().any(|a| {
+        matches!(
+            a,
+            Action::IfFacingLedge { .. } | Action::IfFacingOpponent { .. }
+        )
+    });
     let (scheduled, variable) = schedule_summary(r);
     panel.header.push(if branched {
         "Conditional timing: only the matching facing block runs".into()
@@ -1271,7 +1596,10 @@ fn recipe_panel(
         let action = r.sequence.actions[i];
         let duration = scheduled_frames(action);
         let timing = if branched {
-            duration.map_or_else(|| " | Conditional/spatial".into(), |frames| format!(" | {frames}f when reached"))
+            duration.map_or_else(
+                || " | Conditional/spatial".into(),
+                |frames| format!(" | {frames}f when reached"),
+            )
         } else if action == Action::Empty {
             if r.before[i] == 0 {
                 String::new()
@@ -1338,7 +1666,9 @@ fn recipe_panel(
         }
     }
     for n in 0..if r.sequence.reaction.active() { 8 } else { 0 } {
-        if r.sequence.reaction.trigger.simple().is_some() && ![0,3,4].contains(&n){continue;}
+        if r.sequence.reaction.trigger.simple().is_some() && ![0, 3, 4].contains(&n) {
+            continue;
+        }
         let text = field_value(r, Field::Reaction(n));
         if selected.is_some_and(|f| matches!(f,Field::Reaction(i) if i==n)) {
             panel.focus = Some(panel.body.len());
@@ -1347,11 +1677,17 @@ fn recipe_panel(
             panel.body.push(text);
         }
     }
-    if r.sequence.reaction.trigger.simple().is_none() && (r.sequence.reaction.active() || r.sequence.ground_only) {
-        let focus=selected.is_some_and(|f|matches!(f,Field::GroundOnly));
-        if focus {panel.focus=Some(panel.body.len());}
-        let text=field_value(r,Field::GroundOnly);
-        panel.body.push(if focus {format!("> [{text}]")}else{text});
+    if r.sequence.reaction.trigger.simple().is_none()
+        && (r.sequence.reaction.active() || r.sequence.ground_only)
+    {
+        let focus = selected.is_some_and(|f| matches!(f, Field::GroundOnly));
+        if focus {
+            panel.focus = Some(panel.body.len());
+        }
+        let text = field_value(r, Field::GroundOnly);
+        panel
+            .body
+            .push(if focus { format!("> [{text}]") } else { text });
     }
     let slots = field_value(r, Field::Slots);
     if selected.is_some_and(|f| matches!(f, Field::Slots)) {
@@ -1418,7 +1754,9 @@ mod tests {
         tap(&mut m, &p, MENU_STICK_CLICK);
         let before = m.editor.as_ref().unwrap().compiled((0, 0)).unwrap();
         tap(&mut m, &p, MAPPER_A);
-        for _ in 0..8 {tap(&mut m,&p,crate::ledge_trap::DPAD_DOWN);}
+        for _ in 0..8 {
+            tap(&mut m, &p, crate::ledge_trap::DPAD_DOWN);
+        }
         tap(&mut m, &p, MAPPER_A);
         assert!(m.recipe_panel(&p).header.join(" ").contains("COPY RECIPE"));
         let e = m.editor.as_ref().unwrap();
@@ -1468,10 +1806,14 @@ mod tests {
         }
         assert_eq!(menu.revision, revision);
         tap(&mut menu, &p, MAPPER_Y);
-        assert!(menu.save_requested,"Y saves the current recipe from tools too");
+        assert!(
+            menu.save_requested,
+            "Y saves the current recipe from tools too"
+        );
         tap(&mut menu, &p, MAPPER_B);
-        assert!(!menu.managing());assert!(!menu.recipe_editing);
-        tap(&mut menu,&p,MENU_STICK_CLICK);
+        assert!(!menu.managing());
+        assert!(!menu.recipe_editing);
+        tap(&mut menu, &p, MENU_STICK_CLICK);
         let mask = menu.input(MAPPER_ZR, &p);
         assert_ne!(mask & MAPPER_ZR, 0);
         assert!(menu.recipe_panel(&p).header.join(" ").contains("STEP 1 /"));
@@ -1484,17 +1826,31 @@ mod tests {
 
     #[test]
     fn modified_save_explains_rejection_in_editor_and_tools_without_losing_edits() {
-        let p=presets();
-        for tools in [false,true] {
-            let mut menu=MenuSelection::new(&p);menu.show();menu.input(0,&p);
-            tap(&mut menu,&p,MENU_STICK_CLICK);
-            let before=menu.recipe_snapshot(&p,crate::fighter_profiles::presets::PresetSlot::Neutral,0).unwrap();
-            if tools {tap(&mut menu,&p,MAPPER_A);}
-            tap(&mut menu,&p,crate::native_input::MAPPER_L|MAPPER_Y);
+        let p = presets();
+        for tools in [false, true] {
+            let mut menu = MenuSelection::new(&p);
+            menu.show();
+            menu.input(0, &p);
+            tap(&mut menu, &p, MENU_STICK_CLICK);
+            let before = menu
+                .recipe_snapshot(&p, crate::fighter_profiles::presets::PresetSlot::Neutral, 0)
+                .unwrap();
+            if tools {
+                tap(&mut menu, &p, MAPPER_A);
+            }
+            tap(&mut menu, &p, crate::native_input::MAPPER_L | MAPPER_Y);
             assert!(!menu.save_requested);
-            assert!(menu.save_status.as_deref().unwrap().contains("Release other buttons"));
-            assert_eq!(menu.recipe_snapshot(&p,crate::fighter_profiles::presets::PresetSlot::Neutral,0),Some(before));
-            tap(&mut menu,&p,MAPPER_Y);assert!(menu.save_requested);
+            assert!(menu
+                .save_status
+                .as_deref()
+                .unwrap()
+                .contains("Release other buttons"));
+            assert_eq!(
+                menu.recipe_snapshot(&p, crate::fighter_profiles::presets::PresetSlot::Neutral, 0),
+                Some(before)
+            );
+            tap(&mut menu, &p, MAPPER_Y);
+            assert!(menu.save_requested);
         }
     }
     #[test]
@@ -1731,7 +2087,10 @@ mod tests {
         let mut editor = RecipeEditor::default();
         let key = (0, 0);
         editor.ensure(key, sequence);
-        editor.cursor = fields(&editor.recipes[&key]).iter().position(|f| matches!(f,Field::Before(31))).unwrap(); // Exact field, independent of added settings.
+        editor.cursor = fields(&editor.recipes[&key])
+            .iter()
+            .position(|f| matches!(f, Field::Before(31)))
+            .unwrap(); // Exact field, independent of added settings.
         let panel = editor.panel(key, true);
         let body = panel.body.join("\n");
         assert!(body.contains("01  "));
@@ -1759,7 +2118,10 @@ mod tests {
         let first = e.lines(key).join("\n");
         assert!(first.contains("STEP 1 / 6"));
         assert!(first.contains("01  Short hop *"));
-        e.cursor = fields(&e.recipes[&key]).iter().position(|f|matches!(f,Field::Kind(1))).unwrap();
+        e.cursor = fields(&e.recipes[&key])
+            .iter()
+            .position(|f| matches!(f, Field::Kind(1)))
+            .unwrap();
         let next = e.lines(key).join("\n");
         assert!(next.contains("STEP 2 / 6"));
         assert!(next.contains("01  Short hop *"));
@@ -1776,30 +2138,64 @@ mod tests {
         menu.show();
         menu.input(0, &p);
         tap(&mut menu, &p, MENU_STICK_CLICK);
-        let recipe_key = (PresetSlot::Neutral as usize, menu.choices[PresetSlot::Neutral as usize]);
+        let recipe_key = (
+            PresetSlot::Neutral as usize,
+            menu.choices[PresetSlot::Neutral as usize],
+        );
         let editor = menu.editor.as_mut().unwrap();
-        let kind = PRESETS.iter().position(|(label, _)| *label == "Dtilt").unwrap();
+        let kind = PRESETS
+            .iter()
+            .position(|(label, _)| *label == "Dtilt")
+            .unwrap();
         let r = editor.recipes.get_mut(&recipe_key).unwrap();
         r.kinds[0] = kind;
         r.sequence.actions[0] = PRESETS[kind].1;
-        editor.cursor = fields(r).iter().position(|f| matches!(f, Field::Kind(0))).unwrap();
+        editor.cursor = fields(r)
+            .iter()
+            .position(|f| matches!(f, Field::Kind(0)))
+            .unwrap();
         let original = editor.compiled(recipe_key).unwrap();
         let hint = menu.recipe_panel(&p).header.join(" ");
         assert!(hint.contains("kirby / Down Tilt"));
         assert!(hint.contains("roster avg"));
-        assert_eq!(menu.editor.as_ref().unwrap().compiled(recipe_key).unwrap(), original);
+        assert_eq!(
+            menu.editor.as_ref().unwrap().compiled(recipe_key).unwrap(),
+            original
+        );
         menu.y_fighter_kind = 5;
-        assert!(menu.recipe_panel(&p).header.join(" ").contains("yoshi / Down Tilt"));
+        assert!(menu
+            .recipe_panel(&p)
+            .header
+            .join(" ")
+            .contains("yoshi / Down Tilt"));
         let editor = menu.editor.as_mut().unwrap();
         let r = editor.recipes.get(&recipe_key).unwrap();
-        let fair = PRESETS.iter().position(|(label, _)| *label == "Short hop Fair").unwrap();
-        let item = commands::candidates(r, 1).iter().position(|i| *i == fair).unwrap();
-        editor.modal = Some(commands::Modal::Picker { slot: 0, group: 1, item });
-        assert!(menu.recipe_panel(&p).header.join(" ").contains("yoshi / Forward Air"));
-        assert_eq!(menu.editor.as_ref().unwrap().compiled(recipe_key).unwrap(), original);
+        let fair = PRESETS
+            .iter()
+            .position(|(label, _)| *label == "Short hop Fair")
+            .unwrap();
+        let item = commands::candidates(r, 1)
+            .iter()
+            .position(|i| *i == fair)
+            .unwrap();
+        editor.modal = Some(commands::Modal::Picker {
+            slot: 0,
+            group: 1,
+            item,
+        });
+        assert!(menu
+            .recipe_panel(&p)
+            .header
+            .join(" ")
+            .contains("yoshi / Forward Air"));
+        assert_eq!(
+            menu.editor.as_ref().unwrap().compiled(recipe_key).unwrap(),
+            original
+        );
         menu.lightweight = true;
         let hint = menu.recipe_panel(&p).header.join(" ");
-        assert!(!hint.contains("REF ")); assert!(!hint.contains("roster avg"));
+        assert!(!hint.contains("REF "));
+        assert!(!hint.contains("roster avg"));
         menu.lightweight = false;
         menu.recipe_editing = false;
         assert!(!menu.recipe_panel(&p).header.join(" ").contains("REF "));
@@ -1823,7 +2219,10 @@ mod tests {
             assert_eq!(menu.recipe_revision, revision);
         }
         menu.input(MAPPER_Y, &p);
-        assert!(!menu.save_requested, "held Save must not restart when worker exits");
+        assert!(
+            !menu.save_requested,
+            "held Save must not restart when worker exits"
+        );
         menu.input(0, &p);
         menu.input(MAPPER_Y, &p);
         assert!(menu.save_requested);
@@ -1999,13 +2398,27 @@ mod tests {
         for _ in 0..1 {
             tap(&mut menu, &p, DPAD_RIGHT);
         } // short hop
-        let k=(0,menu.choices[0]);
-        {let e=menu.editor.as_mut().unwrap();e.cursor=fields(&e.recipes[&k]).iter().position(|f|matches!(f,Field::Kind(1))).unwrap();}
+        let k = (0, menu.choices[0]);
+        {
+            let e = menu.editor.as_mut().unwrap();
+            e.cursor = fields(&e.recipes[&k])
+                .iter()
+                .position(|f| matches!(f, Field::Kind(1)))
+                .unwrap();
+        }
         for _ in 0..3 {
             tap(&mut menu, &p, DPAD_RIGHT);
         } // neutral A
-        {let e=menu.editor.as_mut().unwrap();e.cursor=fields(&e.recipes[&k]).iter().position(|f|matches!(f,Field::Before(1))).unwrap();}
-        for _ in 0..2 {tap(&mut menu,&p,DPAD_RIGHT);} // 2 frames before A
+        {
+            let e = menu.editor.as_mut().unwrap();
+            e.cursor = fields(&e.recipes[&k])
+                .iter()
+                .position(|f| matches!(f, Field::Before(1)))
+                .unwrap();
+        }
+        for _ in 0..2 {
+            tap(&mut menu, &p, DPAD_RIGHT);
+        } // 2 frames before A
         let s = menu
             .settings(&p, LedgeSettings::default())
             .sequence_overrides[0]
@@ -2189,101 +2602,235 @@ mod reaction_editor_tests {
             .position(|f| matches!(f, Field::Reaction(0)))
             .unwrap();
         e.adjust(key, false);
-        assert_eq!(e.compiled(key).unwrap().reaction.trigger,crate::reaction_rules::Trigger::Roll);
+        assert_eq!(
+            e.compiled(key).unwrap().reaction.trigger,
+            crate::reaction_rules::Trigger::Roll
+        );
     }
     #[test]
     fn facing_block_editor_preserves_marker_names_and_roundtrip() {
         let c=crate::sequence_config::Catalog::parse("[yoshi.neutral.test]\nstart_delay=0\nactions=if_facing_ledge, a:4, end_facing, if_back_to_ledge, b:4, end_facing").unwrap();
-        let sequence=c.entries()[0].sequence;
-        let r=Recipe::new(sequence);
-        assert_eq!(action_name(&r,0),"If facing ledge");
-        assert_eq!(action_name(&r,3),"If back to ledge");
-        assert_eq!(action_name(&r,5),"End facing block");
-        assert_eq!(r.compile().unwrap(),sequence);
-        assert!(recipe_panel(&r,None,false,None).header.join(" ").contains("Conditional timing"));
-        let mut d=D::Backward;
-        direction(&mut d,true,false);assert_eq!(d,D::SavedLedge);
-        direction(&mut d,true,false);assert_eq!(d,D::AwayFromLedge);
-        direction(&mut d,true,false);assert_eq!(d,D::Opponent);
+        let sequence = c.entries()[0].sequence;
+        let r = Recipe::new(sequence);
+        assert_eq!(action_name(&r, 0), "If facing ledge");
+        assert_eq!(action_name(&r, 3), "If back to ledge");
+        assert_eq!(action_name(&r, 5), "End facing block");
+        assert_eq!(r.compile().unwrap(), sequence);
+        assert!(recipe_panel(&r, None, false, None)
+            .header
+            .join(" ")
+            .contains("Conditional timing"));
+        let mut d = D::Backward;
+        direction(&mut d, true, false);
+        assert_eq!(d, D::SavedLedge);
+        direction(&mut d, true, false);
+        assert_eq!(d, D::AwayFromLedge);
+        direction(&mut d, true, false);
+        assert_eq!(d, D::Opponent);
     }
 
     #[test]
     fn shield_hold_selector_round_trips_without_losing_neighbor_actions() {
-        let source=crate::sequence_config::Catalog::parse("[bowser.drop.test]\nstart_delay=0\nactions=shield:20,jab:4").unwrap().entries()[0].sequence;
-        let key=(4,0);let mut e=RecipeEditor::default();e.ensure(key,source);
-        e.cursor=fields(&e.recipes[&key]).iter().position(|f| matches!(f,Field::ShieldHold(0))).unwrap();
-        assert!(e.adjust(key,true));
-        let compiled=e.compiled(key).unwrap();assert!(matches!(compiled.actions[0],Action::Input{buttons:MAPPER_ZR,frames:0,..}));
-        assert_eq!(compiled.actions[1],source.actions[1]);
-        assert!(e.adjust(key,false));assert!(matches!(e.compiled(key).unwrap().actions[0],Action::Input{buttons:MAPPER_ZR,frames:4,..}));
+        let source = crate::sequence_config::Catalog::parse(
+            "[bowser.drop.test]\nstart_delay=0\nactions=shield:20,jab:4",
+        )
+        .unwrap()
+        .entries()[0]
+            .sequence;
+        let key = (4, 0);
+        let mut e = RecipeEditor::default();
+        e.ensure(key, source);
+        e.cursor = fields(&e.recipes[&key])
+            .iter()
+            .position(|f| matches!(f, Field::ShieldHold(0)))
+            .unwrap();
+        assert!(e.adjust(key, true));
+        let compiled = e.compiled(key).unwrap();
+        assert!(matches!(
+            compiled.actions[0],
+            Action::Input {
+                buttons: MAPPER_ZR,
+                frames: 0,
+                ..
+            }
+        ));
+        assert_eq!(compiled.actions[1], source.actions[1]);
+        assert!(e.adjust(key, false));
+        assert!(matches!(
+            e.compiled(key).unwrap().actions[0],
+            Action::Input {
+                buttons: MAPPER_ZR,
+                frames: 4,
+                ..
+            }
+        ));
     }
 
     #[test]
     fn imported_opponent_input_keeps_target_axes_and_duration_editable() {
-        let source=crate::sequence_config::Catalog::parse("[bowser.dpad_right.test]\nstart_delay=0\nactions=opponent_input:b:-1:0:1\n").unwrap().entries()[0].sequence;
-        let key=(0,0);let mut editor=RecipeEditor::default();editor.ensure(key,source);
+        let source = crate::sequence_config::Catalog::parse(
+            "[bowser.dpad_right.test]\nstart_delay=0\nactions=opponent_input:b:-1:0:1\n",
+        )
+        .unwrap()
+        .entries()[0]
+            .sequence;
+        let key = (0, 0);
+        let mut editor = RecipeEditor::default();
+        editor.ensure(key, source);
         assert!(editor.lines(key).join(" ").contains("(opponent)"));
-        editor.cursor=fields(&editor.recipes[&key]).iter().position(|f|matches!(f,Field::Duration(0))).unwrap();
-        assert!(editor.adjust(key,true));
-        assert!(matches!(editor.compiled(key).unwrap().actions[0],Action::OpponentInput{frames:2,..}));
-        editor.cursor=fields(&editor.recipes[&key]).iter().position(|f|matches!(f,Field::X(0))).unwrap();
-        assert!(editor.adjust(key,true));
-        assert!(matches!(editor.compiled(key).unwrap().actions[0],Action::OpponentInput{stick:[x,0.],..} if x > -1.));
+        editor.cursor = fields(&editor.recipes[&key])
+            .iter()
+            .position(|f| matches!(f, Field::Duration(0)))
+            .unwrap();
+        assert!(editor.adjust(key, true));
+        assert!(matches!(
+            editor.compiled(key).unwrap().actions[0],
+            Action::OpponentInput { frames: 2, .. }
+        ));
+        editor.cursor = fields(&editor.recipes[&key])
+            .iter()
+            .position(|f| matches!(f, Field::X(0)))
+            .unwrap();
+        assert!(editor.adjust(key, true));
+        assert!(
+            matches!(editor.compiled(key).unwrap().actions[0],Action::OpponentInput{stick:[x,0.],..} if x > -1.)
+        );
     }
 
     #[test]
-    fn assist_ground_only_switch_preserves_other_recipe_fields(){
+    fn assist_ground_only_switch_preserves_other_recipe_fields() {
         let source=crate::sequence_config::Catalog::parse("[bowser.roll.test]\nstart_delay=0\nreaction=roll_vulnerable:grounded:0:24:10:any:1\nactions=up_b:3\n").unwrap().entries()[0].sequence;
-        let key=(0,0);let mut editor=RecipeEditor::default();editor.ensure(key,source);
-        editor.cursor=fields(&editor.recipes[&key]).iter().position(|f|matches!(f,Field::GroundOnly)).unwrap();
-        
-        assert!(editor.adjust(key,true));
-        let compiled=editor.compiled(key).unwrap();assert!(compiled.ground_only);
-        assert_eq!(compiled.actions(),source.actions());assert_eq!(compiled.reaction,source.reaction);
+        let key = (0, 0);
+        let mut editor = RecipeEditor::default();
+        editor.ensure(key, source);
+        editor.cursor = fields(&editor.recipes[&key])
+            .iter()
+            .position(|f| matches!(f, Field::GroundOnly))
+            .unwrap();
+
+        assert!(editor.adjust(key, true));
+        let compiled = editor.compiled(key).unwrap();
+        assert!(compiled.ground_only);
+        assert_eq!(compiled.actions(), source.actions());
+        assert_eq!(compiled.reaction, source.reaction);
         assert!(editor.lines(key).join(" ").contains("Stop if airborne: ON"));
-        assert!(editor.adjust(key,false));assert!(!editor.compiled(key).unwrap().ground_only);
+        assert!(editor.adjust(key, false));
+        assert!(!editor.compiled(key).unwrap().ground_only);
     }
 
     #[test]
-    fn both_controller_sticks_and_references_are_editable_and_keep_saved_payload(){
-        let source=crate::sequence_config::Catalog::parse("[kirby.x.t]\nstart_delay=0\nactions=controller_input:a:0:0:0:0:19\n").unwrap().entries()[0].sequence;
-        let key=(5,0);let mut e=RecipeEditor::default();e.ensure(key,source);
-        for target in [Field::Reference(0),Field::CReference(0),Field::X(0),Field::Y(0),Field::CX(0),Field::CY(0)]{
-            e.cursor=fields(&e.recipes[&key]).iter().position(|f|same_field(*f,target)).unwrap();assert!(e.adjust(key,true));
+    fn both_controller_sticks_and_references_are_editable_and_keep_saved_payload() {
+        let source = crate::sequence_config::Catalog::parse(
+            "[kirby.x.t]\nstart_delay=0\nactions=controller_input:a:0:0:0:0:19\n",
+        )
+        .unwrap()
+        .entries()[0]
+            .sequence;
+        let key = (5, 0);
+        let mut e = RecipeEditor::default();
+        e.ensure(key, source);
+        for target in [
+            Field::Reference(0),
+            Field::CReference(0),
+            Field::X(0),
+            Field::Y(0),
+            Field::CX(0),
+            Field::CY(0),
+        ] {
+            e.cursor = fields(&e.recipes[&key])
+                .iter()
+                .position(|f| same_field(*f, target))
+                .unwrap();
+            assert!(e.adjust(key, true));
         }
-        assert!(matches!(e.compiled(key).unwrap().actions[0],Action::Controller{stick:[0.01,0.01],cstick:[0.01,0.01],frames:19,reference:IR::Facing,cstick_reference:IR::Facing,..}));
+        assert!(matches!(
+            e.compiled(key).unwrap().actions[0],
+            Action::Controller {
+                stick: [0.01, 0.01],
+                cstick: [0.01, 0.01],
+                frames: 19,
+                reference: IR::Facing,
+                cstick_reference: IR::Facing,
+                ..
+            }
+        ));
     }
 
     #[test]
     fn invalid_draft_never_falls_back_to_the_old_recipe_snapshot() {
-        let catalog=crate::sequence_config::Catalog::parse("[kirby.neutral.first]\nstart_delay=0\nactions=b:4\n").unwrap();
-        let mut profiles=crate::fighter_profiles::FighterProfiles::default();profiles.add_sequence_choices(&catalog).unwrap();
-        let p=profiles.profile(6).unwrap().menu_options;let mut m=MenuSelection::new(&p);let key=(0,0);
-        let mut editor=RecipeEditor::default();
-        let mut sequence=RecipeEditor::custom();sequence.len=32;sequence.actions.fill(Action::Input{buttons:MAPPER_B,stick:[0.,1.],frames:4,relative:false});
-        editor.ensure(key,sequence);editor.recipes.get_mut(&key).unwrap().before[0]=1;
-        assert!(editor.compiled(key).is_none());m.editor=Some(Box::new(editor));
-        assert!(m.recipe_snapshot(&p,PresetSlot::Neutral,0).is_none());
-        assert!(m.choice(&p,PresetSlot::Neutral,0).is_some(),"an older saved recipe exists but must not be saved instead");
+        let catalog = crate::sequence_config::Catalog::parse(
+            "[kirby.neutral.first]\nstart_delay=0\nactions=b:4\n",
+        )
+        .unwrap();
+        let mut profiles = crate::fighter_profiles::FighterProfiles::default();
+        profiles.add_sequence_choices(&catalog).unwrap();
+        let p = profiles.profile(6).unwrap().menu_options;
+        let mut m = MenuSelection::new(&p);
+        let key = (0, 0);
+        let mut editor = RecipeEditor::default();
+        let mut sequence = RecipeEditor::custom();
+        sequence.len = 32;
+        sequence.actions.fill(Action::Input {
+            buttons: MAPPER_B,
+            stick: [0., 1.],
+            frames: 4,
+            relative: false,
+        });
+        editor.ensure(key, sequence);
+        editor.recipes.get_mut(&key).unwrap().before[0] = 1;
+        assert!(editor.compiled(key).is_none());
+        m.editor = Some(Box::new(editor));
+        assert!(m.recipe_snapshot(&p, PresetSlot::Neutral, 0).is_none());
+        assert!(
+            m.choice(&p, PresetSlot::Neutral, 0).is_some(),
+            "an older saved recipe exists but must not be saved instead"
+        );
     }
     #[test]
     fn rapid_axis_edits_across_drafts_compile_and_serialize_the_exact_snapshot() {
-        let mut e=RecipeEditor::default();
-        let mut source=RecipeEditor::custom();source.len=1;source.actions[0]=Action::Controller{
-            buttons:MAPPER_B,stick:[0.;2],cstick:[0.;2],frames:255,reference:IR::Screen,cstick_reference:IR::Screen};
+        let mut e = RecipeEditor::default();
+        let mut source = RecipeEditor::custom();
+        source.len = 1;
+        source.actions[0] = Action::Controller {
+            buttons: MAPPER_B,
+            stick: [0.; 2],
+            cstick: [0.; 2],
+            frames: 255,
+            reference: IR::Screen,
+            cstick_reference: IR::Screen,
+        };
         for round in 0..12 {
-            let key=(5,round%3);e.ensure(key,source);
-            for target in [Field::X(0),Field::Y(0),Field::CX(0),Field::CY(0)] {
-                e.cursor=fields(&e.recipes[&key]).iter().position(|f|same_field(*f,target)).unwrap();
-                for _ in 0..120 { e.adjust(key,round%2==0); }
+            let key = (5, round % 3);
+            e.ensure(key, source);
+            for target in [Field::X(0), Field::Y(0), Field::CX(0), Field::CY(0)] {
+                e.cursor = fields(&e.recipes[&key])
+                    .iter()
+                    .position(|f| same_field(*f, target))
+                    .unwrap();
+                for _ in 0..120 {
+                    e.adjust(key, round % 2 == 0);
+                }
             }
-            let snapshot=e.compiled(key).unwrap();
-            let text=crate::sequence_config::persist::update("[kirby.x.test]\nstart_delay=0\nactions=b:4\n",6,PresetSlot::X,"test",snapshot,false).unwrap();
-            assert_eq!(crate::sequence_config::Catalog::parse(&text).unwrap().entries()[0].sequence,snapshot);
-            assert!(e.recipes.len()<=3);
+            let snapshot = e.compiled(key).unwrap();
+            let text = crate::sequence_config::persist::update(
+                "[kirby.x.test]\nstart_delay=0\nactions=b:4\n",
+                6,
+                PresetSlot::X,
+                "test",
+                snapshot,
+                false,
+            )
+            .unwrap();
+            assert_eq!(
+                crate::sequence_config::Catalog::parse(&text)
+                    .unwrap()
+                    .entries()[0]
+                    .sequence,
+                snapshot
+            );
+            assert!(e.recipes.len() <= 3);
         }
     }
-
 }
 
 #[cfg(test)]
@@ -2291,26 +2838,89 @@ mod ledge_position_branch_editor_tests {
     use super::*;
     #[test]
     fn positioning_fields_edit_and_save_without_converting_to_an_imported_action() {
-        let c=crate::sequence_config::Catalog::parse("[bowser.attack.test]\nstart_delay=0\nactions=run_to_ledge:12:1:1:6:180\n").unwrap();
-        let source=c.entries()[0].sequence;let key=(0,0);let mut e=RecipeEditor::default();e.ensure(key,source);
-        assert!(e.recipes[&key].kinds[0]<PRESETS.len());
-        for (field,up) in [(Field::Distance(0),true),(Field::Strength(0),false),(Field::Tolerance(0),true),(Field::Brake(0),true),(Field::PositionTimeout(0),true)] {
-            e.cursor=fields(&e.recipes[&key]).iter().position(|f|same_field(*f,field)).unwrap();assert!(e.adjust(key,up));
+        let c = crate::sequence_config::Catalog::parse(
+            "[bowser.attack.test]\nstart_delay=0\nactions=run_to_ledge:12:1:1:6:180\n",
+        )
+        .unwrap();
+        let source = c.entries()[0].sequence;
+        let key = (0, 0);
+        let mut e = RecipeEditor::default();
+        e.ensure(key, source);
+        assert!(e.recipes[&key].kinds[0] < PRESETS.len());
+        for (field, up) in [
+            (Field::Distance(0), true),
+            (Field::Strength(0), false),
+            (Field::Tolerance(0), true),
+            (Field::Brake(0), true),
+            (Field::PositionTimeout(0), true),
+        ] {
+            e.cursor = fields(&e.recipes[&key])
+                .iter()
+                .position(|f| same_field(*f, field))
+                .unwrap();
+            assert!(e.adjust(key, up));
         }
-        let edited=e.compiled(key).unwrap();
-        assert_eq!(edited.actions()[0],Action::LedgePosition{offset:13.,strength:0.99,tolerance:1.1,brake:6.5,frames:181});
-        let saved=crate::sequence_config::persist::update("",15,crate::fighter_profiles::presets::PresetSlot::Attack,"test",edited,true).unwrap();
-        assert_eq!(crate::sequence_config::Catalog::parse(&saved).unwrap().entries()[0].sequence,edited);
-        let panel=e.panel(key,true).body.join(" ");
-        for label in ["Inward distance from ledge","Arrival tolerance","Braking distance","Movement timeout"] {assert!(panel.contains(label),"{label}");}
+        let edited = e.compiled(key).unwrap();
+        assert_eq!(
+            edited.actions()[0],
+            Action::LedgePosition {
+                offset: 13.,
+                strength: 0.99,
+                tolerance: 1.1,
+                brake: 6.5,
+                frames: 181
+            }
+        );
+        let saved = crate::sequence_config::persist::update(
+            "",
+            15,
+            crate::fighter_profiles::presets::PresetSlot::Attack,
+            "test",
+            edited,
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            crate::sequence_config::Catalog::parse(&saved)
+                .unwrap()
+                .entries()[0]
+                .sequence,
+            edited
+        );
+        let panel = e.panel(key, true).body.join(" ");
+        for label in [
+            "Inward distance from ledge",
+            "Arrival tolerance",
+            "Braking distance",
+            "Movement timeout",
+        ] {
+            assert!(panel.contains(label), "{label}");
+        }
     }
     #[test]
     fn opponent_branch_controls_are_zero_time_and_keep_single_branch_timing_label() {
         let cat=crate::sequence_config::Catalog::parse("[bowser.attack.test]\nstart_delay=0\nactions=if_facing_opponent,input:a:0:0:1,else_facing,input:b:0:0:1,end_facing\n").unwrap();
-        let key=(0,0);let mut e=RecipeEditor::default();e.ensure(key,cat.entries()[0].sequence);
-        assert!([0,2,4].into_iter().all(|i|e.recipes[&key].kinds[i]<PRESETS.len()));
-        for a in [Action::IfFacingOpponent{away:false},Action::ElseFacing,Action::EndFacing] {assert_eq!(scheduled_frames(a),Some(0));}
-        assert!(e.panel(key,true).header.join(" ").contains("only the matching facing block runs"));
-        assert_eq!(e.compiled(key).unwrap().actions(),cat.entries()[0].sequence.actions());
+        let key = (0, 0);
+        let mut e = RecipeEditor::default();
+        e.ensure(key, cat.entries()[0].sequence);
+        assert!([0, 2, 4]
+            .into_iter()
+            .all(|i| e.recipes[&key].kinds[i] < PRESETS.len()));
+        for a in [
+            Action::IfFacingOpponent { away: false },
+            Action::ElseFacing,
+            Action::EndFacing,
+        ] {
+            assert_eq!(scheduled_frames(a), Some(0));
+        }
+        assert!(e
+            .panel(key, true)
+            .header
+            .join(" ")
+            .contains("only the matching facing block runs"));
+        assert_eq!(
+            e.compiled(key).unwrap().actions(),
+            cat.entries()[0].sequence.actions()
+        );
     }
 }

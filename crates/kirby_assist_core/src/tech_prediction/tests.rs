@@ -264,65 +264,93 @@ fn floor_acceleration_requires_recent_matching_native_progress() {
 
 #[test]
 fn slow_eligible_approaches_still_probe_floor_wall_and_ceiling() {
-    for (x,y,vx,vy,axis,plane) in [
-        (0.,0.4,0.,-0.02,1,0.),
-        (-2.55,0.,0.02,0.,0,0.),
-        (0.,-6.95,0.,0.02,1,0.),
+    for (x, y, vx, vy, axis, plane) in [
+        (0., 0.4, 0., -0.02, 1, 0.),
+        (-2.55, 0., 0.02, 0., 0, 0.),
+        (0., -6.95, 0., 0.02, 1, 0.),
     ] {
-        let mut calls=0;
-        let contact=first_contact_in(x,y,vx,vy,5.,|ray|{calls+=1;crosses_plane(&ray,axis,plane)});
-        assert!(contact.is_some(),"missed slow velocity ({vx},{vy})");
-        assert!(calls<=54,"existing nine-ray/refinement ceiling must hold");
+        let mut calls = 0;
+        let contact = first_contact_in(x, y, vx, vy, 5., |ray| {
+            calls += 1;
+            crosses_plane(&ray, axis, plane)
+        });
+        assert!(contact.is_some(), "missed slow velocity ({vx},{vy})");
+        assert!(
+            calls <= 54,
+            "existing nine-ray/refinement ceiling must hold"
+        );
     }
-    assert!(tech_probes(0.,0.,0.,0.,5.).iter().all(Option::is_none));
-    assert!(tech_probes(0.,0.,0.,0.02,5.).iter().flatten().all(|p|!p.passable));
+    assert!(tech_probes(0., 0., 0., 0., 5.).iter().all(Option::is_none));
+    assert!(tech_probes(0., 0., 0., 0.02, 5.)
+        .iter()
+        .flatten()
+        .all(|p| !p.passable));
 }
 #[test]
 fn accelerating_from_zero_vertical_speed_can_reach_floor_without_extra_probe_slots() {
-    let mut calls=0;
-    let contact=first_contact_with_floor_acceleration(0.,0.8,0.,0.,5.,-0.1,|ray|{
-        calls+=1;assert!(ray.passable);assert!(ray.delta[1]<0.);crosses_plane(&ray,1,0.)
+    let mut calls = 0;
+    let contact = first_contact_with_floor_acceleration(0., 0.8, 0., 0., 5., -0.1, |ray| {
+        calls += 1;
+        assert!(ray.passable);
+        assert!(ray.delta[1] < 0.);
+        crosses_plane(&ray, 1, 0.)
     });
-    assert!(contact.is_some());assert!(calls<=15);
+    assert!(contact.is_some());
+    assert!(calls <= 15);
 }
 
 #[test]
 fn imminent_narrow_platform_contact_is_not_vetoed_by_a_long_diagonal_ray() {
-    let mut calls=0;
-    let contact=first_contact_in(0.,2.,4.,-0.5,5.,|ray|{
-        calls+=1;
-        if !ray.passable{return false;}
-        let t=(1.5-ray.origin[1])/ray.delta[1];
-        let x=ray.origin[0]+t*ray.delta[0];
-        (0. ..=1.).contains(&t)&&(x-3.).abs()<0.01
+    let mut calls = 0;
+    let contact = first_contact_in(0., 2., 4., -0.5, 5., |ray| {
+        calls += 1;
+        if !ray.passable {
+            return false;
+        }
+        let t = (1.5 - ray.origin[1]) / ray.delta[1];
+        let x = ray.origin[0] + t * ray.delta[0];
+        (0. ..=1.).contains(&t) && (x - 3.).abs() < 0.01
     });
-    assert_eq!(contact,Some(1.));assert!(calls<=54);
+    assert_eq!(contact, Some(1.));
+    assert!(calls <= 54);
 }
 
 #[test]
 fn late_hitstop_uses_finite_reserved_launch_instead_of_frozen_motion() {
-    assert_eq!(prediction_velocity([0.;2],Some([0.,-12.])),[0.,-12.]);
-    assert_eq!(prediction_velocity([2.,1.],Some([-4.,-3.])),[-4.,-3.]);
-    assert_eq!(prediction_velocity([2.,1.],Some([f32::NAN,-3.])),[2.,1.]);
-    assert_eq!(prediction_velocity([2.,1.],Some([0.;2])),[2.,1.]);
-    let v=prediction_velocity([0.;2],Some([0.,-12.]));
-    assert!(first_contact_in(0.,10.,v[0],v[1],5.,|r|crosses_plane(&r,1,0.)).is_some());
+    assert_eq!(prediction_velocity([0.; 2], Some([0., -12.])), [0., -12.]);
+    assert_eq!(prediction_velocity([2., 1.], Some([-4., -3.])), [-4., -3.]);
+    assert_eq!(
+        prediction_velocity([2., 1.], Some([f32::NAN, -3.])),
+        [2., 1.]
+    );
+    assert_eq!(prediction_velocity([2., 1.], Some([0.; 2])), [2., 1.]);
+    let v = prediction_velocity([0.; 2], Some([0., -12.]));
+    assert!(first_contact_in(0., 10., v[0], v[1], 5., |r| crosses_plane(&r, 1, 0.)).is_some());
 }
 #[test]
 fn slow_upward_tumble_predicts_floor_only_after_turning_downward() {
-    let mut floor_calls=0;
-    let contact=first_contact_with_floor_acceleration(0.,2.,1.,0.2,5.,-0.2,|ray| {
-        if !ray.passable {return false;}
-        floor_calls+=1;
+    let mut floor_calls = 0;
+    let contact = first_contact_with_floor_acceleration(0., 2., 1., 0.2, 5., -0.2, |ray| {
+        if !ray.passable {
+            return false;
+        }
+        floor_calls += 1;
         // Apex at t=1: each floor segment begins at/after it, never while rising.
-        assert!(ray.origin[0]>=1.-Body::default().half_width);
-        assert!(ray.delta[1]<0.);
-        crosses_plane(&ray,1,0.)
+        assert!(ray.origin[0] >= 1. - Body::default().half_width);
+        assert!(ray.delta[1] < 0.);
+        crosses_plane(&ray, 1, 0.)
     });
-    assert!(contact.is_some());assert!(floor_calls<=15);
-    let mut ascending_floor_queries=0;
-    assert!(first_contact_with_floor_acceleration(0.,2.,0.,2.,5.,-0.2,|r| {
-        if r.passable {ascending_floor_queries+=1;}false
-    }).is_none());
-    assert_eq!(ascending_floor_queries,0);
+    assert!(contact.is_some());
+    assert!(floor_calls <= 15);
+    let mut ascending_floor_queries = 0;
+    assert!(
+        first_contact_with_floor_acceleration(0., 2., 0., 2., 5., -0.2, |r| {
+            if r.passable {
+                ascending_floor_queries += 1;
+            }
+            false
+        })
+        .is_none()
+    );
+    assert_eq!(ascending_floor_queries, 0);
 }

@@ -85,69 +85,40 @@ pub mod zero_suit_samus;
 use crate::ledge_trap::LedgeSettings;
 use std::collections::BTreeMap;
 
-/// Inclusive active animation frames, before jump squat or input delay is added.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct MoveFrames {
-    pub first: u8,
-    pub last: u8,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GrabTiming {
-    /// Maximum standing-grab reach in stage units; not a guaranteed hit radius.
+    /// Zero means the canonical source has no simple numeric reach.
     pub standing_range: f32,
-    pub standing: u8,
-    pub dash: u8,
-    /// Legacy field name: pivot-grab startup; shield startup is separate below.
-    pub turn_or_shield: u8,
-    pub shield: u8,
-    pub active_frames: u8,
-}
-impl GrabTiming {
-    /// Aim inside reach, rather than running onto the opponent's root. Only a
-    /// fraction of maximum extension is used: tether/tongue reach changes during
-    /// the animation, and the reference maximum is not an early-frame hitbox.
-    pub fn roll_standoff(self) -> f32 {
-        (self.standing_range * 0.35).clamp(3.0, 9.0)
-    }
-    /// Conservative usable area for roll-grab approaches. This is
-    /// a tunable fraction of maximum extension, not an animated hitbox model.
-    pub fn roll_usable_reach(self) -> f32 {
-        (self.standing_range * 0.6).clamp(3.0, 18.0)
-    }
-
-    /// These status IDs describe shared game states, not fighter-specific data.
-    pub fn startup(self, status: i32) -> u8 {
-        match status {
-            0x3 | 0x4 => self.dash,
-            0x7 | 0x8 => self.turn_or_shield,
-            0x1b | 0x1c | 0x1e => self.shield,
-            _ => self.standing,
-        }
-    }
+    pub standing_startup: u8,
+    pub dash_startup: u8,
+    pub pivot_startup: u8,
+    pub shield_startup: u8,
+    pub standing_active_frames: u8,
 }
 
-/// Fighter-dependent numbers used by the existing ledge input recipes.
+/// The fighter's exact grab references used by ledge range checks and tuning.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeFighterData {
-    pub neutral_air: MoveFrames,
-    pub down_tilt: MoveFrames,
-    pub forward_tilt: MoveFrames,
-    pub down_smash: MoveFrames,
-    /// Separate rear sweep: never count the gap between two hits as active.
-    pub down_smash_back: Option<MoveFrames>,
-    /// Grounded down-special startup; absent until a profile supplies it.
-    pub down_special_startup: Option<u8>,
-    /// Grounded up-special startup for registered shield-punish recipes.
-    pub up_special_startup: Option<u8>,
     pub grab: GrabTiming,
 }
 impl LedgeFighterData {
-    pub fn down_smash_toward(self, dx: f32, facing: f32) -> MoveFrames {
-        if dx.is_finite() && facing.is_finite() && dx * facing < -0.5 {
-            self.down_smash_back.unwrap_or(self.down_smash)
-        } else {
-            self.down_smash
+    /// Resolve simple grab facts from this fighter's canonical data row.
+    pub fn from_kind(kind: i32) -> Self {
+        let grab = |status| crate::fighter_data::ordinary_grab(kind, status);
+        let standing = grab(0x37);
+        let shield = crate::fighter_data::fighter(kind)
+            .and_then(|fighter| fighter.stat("outofshield.grabpostshieldstun"))
+            .and_then(|value| value.parse::<u8>().ok())
+            .filter(|frame| (1..=120).contains(frame));
+        Self {
+            grab: GrabTiming {
+                standing_range: standing.and_then(|facts| facts.reach).unwrap_or(0.0),
+                standing_startup: standing.map_or(0, |facts| facts.first),
+                dash_startup: grab(0x39).map_or(0, |facts| facts.first),
+                pivot_startup: grab(0x3b).map_or(0, |facts| facts.first),
+                shield_startup: shield.unwrap_or(0),
+                standing_active_frames: standing.map_or(0, |facts| facts.last - facts.first + 1),
+            },
         }
     }
 }
@@ -182,34 +153,9 @@ pub struct FighterProfile {
     pub menu_options: presets::MenuPresets,
 }
 impl FighterProfile {
-    /// Same compiled facts used for opponent recognition, without file loading.
-    pub fn reference(&self) -> Option<&'static crate::opponent_data::Reference> {
-        crate::opponent_data::profile(self.fighter_kind)
-    }
-    /// Startup/parser only: authoritative simple grab facts come from this
-    /// fighter's reference row before saved overrides are applied. Missing or
-    /// compound data keeps its authored same-fighter fact, never Kirby's.
-    fn with_reference_grab_facts(mut self) -> Self {
-        if let Some(g) = crate::opponent_data::ordinary_grab(self.fighter_kind, 0x37) {
-            self.ledge.grab.standing_range = g.reach;
-            self.ledge.grab.standing = g.first;
-            self.ledge.grab.active_frames = g.last - g.first + 1;
-        }
-        if let Some(g) = crate::opponent_data::ordinary_grab(self.fighter_kind, 0x39) {
-            self.ledge.grab.dash = g.first;
-        }
-        if let Some(g) = crate::opponent_data::ordinary_grab(self.fighter_kind, 0x3b) {
-            self.ledge.grab.turn_or_shield = g.first;
-        }
-        if let Some(frame) = self
-            .reference()
-            .and_then(|r| r.stat("outofshield.grabpostshieldstun"))
-            .and_then(|s| s.parse::<u8>().ok())
-            .filter(|f| (1..=120).contains(f))
-        {
-            self.ledge.grab.shield = frame;
-        }
-        self
+    /// Full-roster facts are available regardless of this fighter's match role.
+    pub fn fighter_data(&self) -> Option<&'static crate::fighter_data::FighterData> {
+        crate::fighter_data::fighter(self.fighter_kind)
     }
     pub fn apply(&self, mut settings: LedgeSettings) -> LedgeSettings {
         settings.implementation =
@@ -318,7 +264,7 @@ impl Default for FighterProfiles {
         ];
         let mut profiles = BTreeMap::new();
         for build in BUILDERS {
-            let profile = build().with_reference_grab_facts();
+            let profile = build();
             profiles.insert(profile.fighter_kind, profile);
         }
         Self { profiles }
@@ -406,10 +352,12 @@ impl FighterProfiles {
     /// Check programmer-supplied catalog edits once before installing hooks.
     pub fn validate(&self) -> Result<(), String> {
         if !self.profiles.contains_key(&6) {
-            return Err("Kirby identity/reference profile is missing".into());
+            return Err("Kirby identity/fighter-data profile is missing".into());
         }
         for (&kind, profile) in &self.profiles {
-            if profile.fighter_kind != kind || profile.reference().is_none_or(|r| r.kind != kind) {
+            if profile.fighter_kind != kind
+                || profile.fighter_data().is_none_or(|data| data.kind != kind)
+            {
                 return Err(format!(
                     "missing/mismatched fighter reference {}",
                     profile.name
@@ -419,43 +367,20 @@ impl FighterProfiles {
                 return Err(format!("unregistered compiled fighter {}", profile.name));
             }
             let data = profile.ledge;
-            if data
-                .up_special_startup
-                .is_some_and(|n| !(1..=120).contains(&n))
-            {
-                return Err(format!("invalid up-special timing {}", profile.name));
-            }
-            if !data.grab.standing_range.is_finite()
-                || !(1.0..=60.0).contains(&data.grab.standing_range)
-                || data
-                    .down_smash_back
-                    .is_some_and(|f| f.first == 0 || f.first > f.last || f.last > 120)
+            if data.grab.standing_range != 0.0
+                && (!data.grab.standing_range.is_finite()
+                    || !(1.0..=60.0).contains(&data.grab.standing_range))
                 || [
-                    data.grab.standing,
-                    data.grab.dash,
-                    data.grab.turn_or_shield,
-                    data.grab.shield,
-                    data.grab.active_frames,
+                    data.grab.standing_startup,
+                    data.grab.dash_startup,
+                    data.grab.pivot_startup,
+                    data.grab.shield_startup,
+                    data.grab.standing_active_frames,
                 ]
                 .iter()
-                .any(|f| !(1..=120).contains(f))
+                .any(|frame| *frame != 0 && !(1..=120).contains(frame))
             {
-                return Err(format!("invalid rear-smash/grab timing {}", profile.name));
-            }
-            if [
-                data.neutral_air,
-                data.down_tilt,
-                data.forward_tilt,
-                data.down_smash,
-            ]
-            .iter()
-            .any(|frames| frames.first == 0 || frames.first > frames.last || frames.last > 120)
-                || data.neutral_air.last > 117
-                || data
-                    .down_special_startup
-                    .is_some_and(|startup| !(1..=120).contains(&startup))
-            {
-                return Err(format!("invalid compiled move timing {}", profile.name));
+                return Err(format!("invalid fighter grab data {}", profile.name));
             }
             for slot in presets::PresetSlot::ALL {
                 let list = profile.menu_options.list(slot);

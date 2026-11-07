@@ -463,36 +463,94 @@ fn leaving_ground_before_native_confirmation_cannot_turn_the_request_into_an_air
 
 #[test]
 fn another_fighter_reusing_a_roster_slot_cannot_erase_a_consumed_event() {
-    let mut engine=Engine::default();let mut sequence=recipe(1);sequence.len=1;
-    let mut rules=Resolved::default();rules.add(Candidate {slot:2,index:0,sequence}).unwrap();
-    engine.sample_simple(true,&rules,settings(),own(0.,0),targets(2.),Some(enemy(2.)));
-    engine.sample_simple(true,&rules,settings(),own(1.,0x1de),targets(3.),Some(enemy(3.)));
-    let mut other=targets(4.);other[0].as_mut().unwrap().id=3;
-    engine.sample_simple(true,&rules,settings(),LedgeContext {can_act:false,..own(2.,0)},other,None);
-    let mut moved=[None;8];moved[6]=targets(5.)[0];
-    assert_eq!(engine.sample_simple(true,&rules,settings(),own(3.,0),moved,Some(enemy(5.))).owned,0);
+    let mut engine = Engine::default();
+    let mut sequence = recipe(1);
+    sequence.len = 1;
+    let mut rules = Resolved::default();
+    rules
+        .add(Candidate {
+            slot: 2,
+            index: 0,
+            sequence,
+        })
+        .unwrap();
+    engine.sample_simple(
+        true,
+        &rules,
+        settings(),
+        own(0., 0),
+        targets(2.),
+        Some(enemy(2.)),
+    );
+    engine.sample_simple(
+        true,
+        &rules,
+        settings(),
+        own(1., 0x1de),
+        targets(3.),
+        Some(enemy(3.)),
+    );
+    let mut other = targets(4.);
+    other[0].as_mut().unwrap().id = 3;
+    engine.sample_simple(
+        true,
+        &rules,
+        settings(),
+        LedgeContext {
+            can_act: false,
+            ..own(2., 0)
+        },
+        other,
+        None,
+    );
+    let mut moved = [None; 8];
+    moved[6] = targets(5.)[0];
+    assert_eq!(
+        engine
+            .sample_simple(true, &rules, settings(), own(3., 0), moved, Some(enemy(5.)))
+            .owned,
+        0
+    );
 
-    let mut dodge=SpotDodge::default();
-    dodge.sample(true,dodge_context(0),grab(2.));
-    dodge.sample(true,dodge_context(0x1f),grab(3.));dodge.cancel_response();
-    let mut other=grab(4.);other[0].as_mut().unwrap().id=3;
-    dodge.sample(true,DodgeContext {can_spot_dodge:false,..dodge_context(0)},other);
-    let mut moved=[None;8];moved[6]=grab(5.)[0];
-    assert_eq!(dodge.sample(true,dodge_context(0),moved).owned,0);
+    let mut dodge = SpotDodge::default();
+    dodge.sample(true, dodge_context(0), grab(2.));
+    dodge.sample(true, dodge_context(0x1f), grab(3.));
+    dodge.cancel_response();
+    let mut other = grab(4.);
+    other[0].as_mut().unwrap().id = 3;
+    dodge.sample(
+        true,
+        DodgeContext {
+            can_spot_dodge: false,
+            ..dodge_context(0)
+        },
+        other,
+    );
+    let mut moved = [None; 8];
+    moved[6] = grab(5.)[0];
+    assert_eq!(dodge.sample(true, dodge_context(0), moved).owned, 0);
 }
 
 #[test]
 fn sixteen_climber_grabs_remain_consumed_when_warning_candidates_change() {
-    let mut dodge=SpotDodge::default();
+    let mut dodge = SpotDodge::default();
     for id in 1..=16 {
-        let mut targets=grab(2.);targets[0].as_mut().unwrap().id=id;
-        assert_eq!(dodge.sample(true,dodge_context(0),targets).requested,MAPPER_ZR);
-        dodge.sample(true,dodge_context(0x1f),targets);
+        let mut targets = grab(2.);
+        targets[0].as_mut().unwrap().id = id;
+        assert_eq!(
+            dodge.sample(true, dodge_context(0), targets).requested,
+            MAPPER_ZR
+        );
+        dodge.sample(true, dodge_context(0x1f), targets);
         dodge.cancel_response();
     }
     for id in 1..=16 {
-        let mut targets=grab(4.);targets[0].as_mut().unwrap().id=id;
-        assert_eq!(dodge.sample(true,dodge_context(0),targets).requested,0,
-            "the same ongoing grab from actor {id} cannot cause another spot dodge");
+        let mut targets = grab(4.);
+        targets[0].as_mut().unwrap().id = id;
+        assert_eq!(
+            dodge.sample(true, dodge_context(0), targets).requested,
+            0,
+            "the same ongoing grab from actor {id} cannot cause another spot dodge"
+        );
     }
 }

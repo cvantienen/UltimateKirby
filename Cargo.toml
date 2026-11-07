@@ -1579,6 +1579,12 @@ Adds stage-aware survival DI with native blast-zone queries and stable launch-re
 Improves roster-wide Auto Tech with read-only native floor/wall/ceiling contacts, animated ECB base offsets and current-scale forecasts, including frozen poses and the final victim-hitlag frame. Synchronizes shield releases and bounded delivery receipts with native Guard consumption, prioritizes imminent/committed tech edges ahead of DI without mixing modes, and cancels stale receipts while preserving lockout. Adds roster/contact/delivery/ownership host regressions; no documentation changes, native physics/status writes, mod build or upload.
 
 Clarifies the native FFI ray safety contract, names ABI parameters descriptively, and verifies native data layouts at compile time. Adds regression coverage that fighter grab timings and reach come from the matching shared fighter reference, never a universal fallback. Removes the unused universal roll-distance field repeated across 79 fighter timing profiles.
+
+Normalizes formatting across maintained Rust modules while keeping generated opponent reference data excluded from manual formatting.
+
+Canonicalizes generated split-sequence bundles to one final newline while retaining section separation.
+
+Centralizes roster-wide fighter stats and move-frame facts in data/Ultimate_stats.json, keyed by native kind and shared across player/opponent roles; removes duplicate per-fighter timing mirrors and external fallback paths, and refreshes fighter-reference documentation.
 """
 
 

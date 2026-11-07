@@ -234,35 +234,24 @@ fn projected(t: Target, c: Context) -> f32 {
     relative_at(t, c, t.vulnerable_in.unwrap())
 }
 fn contact(t: Target, cfg: FighterConfig, c: Context, primer: f32) -> bool {
-    [(Some((cfg.first, cfg.last)), false), (cfg.back, true)]
-        .into_iter()
-        .any(|(window, rear)| {
-            let Some((first, last)) = window else {
-                return false;
-            };
-            (ActiveWindow {
-                first: u16::from(first),
-                last: u16::from(last),
-            })
-            .first_contact(
-                primer,
-                RecoveryWindow {
-                    vulnerable_in: t.vulnerable_in,
-                    actionable_in: t.actionable_in,
-                },
-                |frames| {
-                    let dx = relative_at(t, c, frames);
-                    dx.abs() <= cfg.reach
-                        && (cfg.back.is_none()
-                            || if rear {
-                                dx * c.facing <= 1.0
-                            } else {
-                                dx * c.facing >= -1.0
-                            })
-                },
-            )
-            .is_some()
+    cfg.active_windows.iter().any(|window| {
+        (ActiveWindow {
+            first: window.first,
+            last: window.last,
         })
+        .first_contact(
+            primer,
+            RecoveryWindow {
+                vulnerable_in: t.vulnerable_in,
+                actionable_in: t.actionable_in,
+            },
+            |frames| {
+                let dx = relative_at(t, c, frames);
+                dx.abs() <= cfg.reach
+            },
+        )
+        .is_some()
+    })
 }
 fn can_approach(t: Target, cfg: FighterConfig, c: Context, dx: f32) -> bool {
     let release = shield_release_frames(c);

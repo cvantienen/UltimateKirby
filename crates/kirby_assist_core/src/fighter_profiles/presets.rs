@@ -14,7 +14,8 @@ pub enum PresetSlot {
     DpadDown,
     DpadLeft,
     DpadRight,
-    L3, R3,
+    L3,
+    R3,
 }
 impl PresetSlot {
     pub const COUNT: usize = 13;
@@ -30,7 +31,8 @@ impl PresetSlot {
         Self::DpadDown,
         Self::DpadLeft,
         Self::DpadRight,
-        Self::L3, Self::R3,
+        Self::L3,
+        Self::R3,
     ];
     pub const BUTTONS: [Self; 8] = [
         Self::X,
@@ -39,7 +41,8 @@ impl PresetSlot {
         Self::DpadDown,
         Self::DpadLeft,
         Self::DpadRight,
-        Self::L3, Self::R3,
+        Self::L3,
+        Self::R3,
     ];
     pub fn button(self) -> u32 {
         use crate::{manual_controls::*, native_input::*};
@@ -50,7 +53,8 @@ impl PresetSlot {
             Self::DpadDown => crate::ledge_trap::DPAD_DOWN,
             Self::DpadLeft => DPAD_LEFT,
             Self::DpadRight => DPAD_RIGHT,
-            Self::L3 => 1 << 16, Self::R3 => 1 << 17,
+            Self::L3 => 1 << 16,
+            Self::R3 => 1 << 17,
             _ => 0,
         }
     }
@@ -58,7 +62,12 @@ impl PresetSlot {
         self as usize >= Self::X as usize
     }
     pub fn default_index(self, saved: usize) -> usize {
-        saved + if self.is_button() { crate::button_bindings::Builtin::default_for(self).template_offset() } else { 0 }
+        saved
+            + if self.is_button() {
+                crate::button_bindings::Builtin::default_for(self).template_offset()
+            } else {
+                0
+            }
     }
     pub fn max_choices(self) -> usize {
         32

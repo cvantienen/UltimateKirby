@@ -173,7 +173,9 @@ fn mapped_a_hold_survives_filtered_frames_without_touching_other_buttons() {
         let mapped = mapped_attack_hold(native, requested);
         assert_eq!(mapped & 0x201, if requested { 0x201 } else { 0 });
         assert_eq!(mapped & !0x201, unrelated);
-        if mapped & 1 != 0 && previous & 1 == 0 { press_edges += 1; }
+        if mapped & 1 != 0 && previous & 1 == 0 {
+            press_edges += 1;
+        }
         previous = mapped;
     }
     assert_eq!(press_edges, 1);
@@ -182,10 +184,16 @@ fn mapped_a_hold_survives_filtered_frames_without_touching_other_buttons() {
 
 #[test]
 fn full_gameplay_ownership_covers_unused_raw_buttons_in_both_layouts() {
-    for layout in [ControlLayout::Default,ControlLayout::Brother] {
-        let owned=layout.physical_owned_buttons(GAMEPLAY_BUTTONS);
-        assert_eq!(owned & GAMEPLAY_BUTTONS,GAMEPLAY_BUTTONS);
-        assert_eq!(owned & (MAPPER_MENU | crate::manual_controls::LEFT_STICK_DIRECTIONS),0);
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        let owned = layout.physical_owned_buttons(GAMEPLAY_BUTTONS);
+        assert_eq!(owned & GAMEPLAY_BUTTONS, GAMEPLAY_BUTTONS);
+        assert_eq!(
+            owned & (MAPPER_MENU | crate::manual_controls::LEFT_STICK_DIRECTIONS),
+            0
+        );
     }
-    assert_eq!(ControlLayout::Brother.physical_owned_buttons(MAPPER_ZR),MAPPER_ZL);
+    assert_eq!(
+        ControlLayout::Brother.physical_owned_buttons(MAPPER_ZR),
+        MAPPER_ZL
+    );
 }

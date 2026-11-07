@@ -13,14 +13,32 @@ pub struct Config {
     pub smash_start: f32,
     pub smash_reach: f32,
     pub grab_start: f32,
-    pub grab_reach: f32,
+    pub grab_reach: Option<f32>,
     pub chase_distance: f32,
 }
 pub fn config(kind: i32) -> Option<Config> {
-    match kind {
-        5 => Some(crate::fighter_profiles::yoshi::JAB_LOCK),
-        _ => None,
+    if kind != 5 {
+        return None;
     }
+    let active_start = |name| {
+        crate::fighter_data::named_move(kind, name)?
+            .active
+            .iter()
+            .map(|span| span.first)
+            .min()
+            .map(f32::from)
+    };
+    let fighter = crate::fighter_data::fighter(kind)?;
+    let grab = crate::fighter_data::ordinary_grab(kind, 0x37)?;
+    Some(Config {
+        jab_start: active_start("Jab 1")?,
+        jab_reach: 7.0,
+        smash_start: active_start("Down Smash")?,
+        smash_reach: 12.0,
+        grab_start: f32::from(grab.first),
+        grab_reach: fighter.numeric_stat("grabs.grabrange"),
+        chase_distance: 60.0,
+    })
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Target {
@@ -99,9 +117,16 @@ impl JabLock {
         c: Context,
         targets: [Option<Target>; 8],
     ) -> LedgeOutput {
-        self.sample_configured(enabled,c,targets,config(c.kind),CHASE_HEIGHT)
+        self.sample_configured(enabled, c, targets, config(c.kind), CHASE_HEIGHT)
     }
-    pub fn sample_configured(&mut self,enabled:bool,c:Context,targets:[Option<Target>;8],cfg:Option<Config>,height:f32)->LedgeOutput {
+    pub fn sample_configured(
+        &mut self,
+        enabled: bool,
+        c: Context,
+        targets: [Option<Target>; 8],
+        cfg: Option<Config>,
+        height: f32,
+    ) -> LedgeOutput {
         let Some(cfg) = cfg.filter(|_| enabled) else {
             *self = Self::default();
             return LedgeOutput::default();
@@ -156,7 +181,7 @@ impl JabLock {
             let mut hit_victims = targets
                 .iter()
                 .flatten()
-                .filter(|t| t.hit_by_us && valid(**t, c, cfg,height));
+                .filter(|t| t.hit_by_us && valid(**t, c, cfg, height));
             let direct = if tilt_hit {
                 hit_victims.next().filter(|_| hit_victims.next().is_none())
             } else {
@@ -173,7 +198,7 @@ impl JabLock {
                         .filter(|t| {
                             tech_chase_status(t.status)
                                 && self.spent_target != Some(t.id)
-                                && valid(**t, c, cfg,height)
+                                && valid(**t, c, cfg, height)
                         })
                         .min_by(|a, b| {
                             let score = |t: &Target| (t.position[0] - c.position[0]).abs();
@@ -201,7 +226,7 @@ impl JabLock {
         let Some(t) = targets
             .into_iter()
             .flatten()
-            .find(|t| t.id == id && valid(*t, c, cfg,height))
+            .find(|t| t.id == id && valid(*t, c, cfg, height))
         else {
             self.cancel_pending();
             return self.output;
@@ -281,12 +306,12 @@ impl JabLock {
                     requested_grab == grab
                         && window
                         && contact_dx * direction >= 0.0
-                        && contact_dx.abs()
-                            <= if grab {
-                                cfg.grab_reach
-                            } else {
-                                cfg.smash_reach
-                            }
+                        && if grab {
+                            cfg.grab_reach
+                                .is_some_and(|reach| contact_dx.abs() <= reach)
+                        } else {
+                            contact_dx.abs() <= cfg.smash_reach
+                        }
                         && if grab { c.can_grab } else { c.can_smash }
                 };
             if !still_legal {
@@ -309,12 +334,12 @@ impl JabLock {
         } else if facing
             && contact_dx * direction >= 0.0
             && attempt_finish
-            && contact_dx.abs()
-                <= if grab {
-                    cfg.grab_reach
-                } else {
-                    cfg.smash_reach
-                }
+            && if grab {
+                cfg.grab_reach
+                    .is_some_and(|reach| contact_dx.abs() <= reach)
+            } else {
+                contact_dx.abs() <= cfg.smash_reach
+            }
             && if grab { c.can_grab } else { c.can_smash }
         {
             self.phase = 3;
@@ -333,7 +358,13 @@ impl JabLock {
                 dx
             };
             let approach = if projected.abs() > cfg.jab_reach * 0.65 || !facing {
-                let strength = if projected.abs() > cfg.grab_reach.max(cfg.smash_reach) + 12.0 {
+                let strength = if projected.abs()
+                    > cfg
+                        .grab_reach
+                        .unwrap_or(cfg.smash_reach)
+                        .max(cfg.smash_reach)
+                        + 12.0
+                {
                     1.0
                 } else {
                     0.65
@@ -354,7 +385,7 @@ impl JabLock {
         self.output
     }
 }
-fn valid(t: Target, c: Context, cfg: Config,height:f32) -> bool {
+fn valid(t: Target, c: Context, cfg: Config, height: f32) -> bool {
     t.position.iter().all(|v| v.is_finite())
         && t.velocity_x.is_finite()
         && t.frame.is_finite()

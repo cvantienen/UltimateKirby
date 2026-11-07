@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **68** (`richter`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **68** (`richter`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,37 +48,39 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 8–9 |
-| Down tilt | 7–23 |
-| Forward tilt | 12–13 |
-| Down smash | 14–15 |
-| Down-smash rear window | 20–21 |
-| Up Tilt | 10–22 |
-| Forward Smash | 24–25 |
-| Forward Air | 14–14 |
-| Up Air | 14–16 |
+| Jab 1 | 5 start; active 5; 29 total; -- landing |
+| Neutral Air | 8... start; active 8–9 / 11–12 / 14–15 / 17–18 / 20–21 / 23–24 / 26–27; 42 total; 14 landing |
+| Forward Air | 14 start; active 14; 39 total; 10 landing |
+| Back Air | 14 start; active 14–15; 39 total; 10 landing |
+| Up Air | 14 start; active 14–16; 39 total; 10 landing |
+| Down Air | 13 start; active 13–14 / 15–36; 48 total; 26 landing |
+| Forward Tilt | 12 start; active 12–13; 30 total; -- landing |
+| Up Tilt | 10 start; active 10–22; 37 total; -- landing |
+| Dash Attack | 10/13/16/19/22/24 start; active 10 / 13 / 16 / 19 / 22 / 24; 54 total; -- landing |
+| Forward Smash | 24 start; active 24–25; 62 total; -- landing |
+| Up Smash | 16 start; active 16–18; 53 total; -- landing |
+| Down Smash | 14/20 start; active 14–15 / 20–21; 55 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 10 |
-| Dash startup | 13 |
-| Pivot startup | 14 |
+| Standing grab | frames 10–11 |
+| Dash grab | frames 13–14 |
+| Pivot grab | frames 14–15 |
+| Standing reach reference | 12.0 world units |
 | Shield-grab startup | 14 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 12.0 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 107 |
 | Walk speed | 0.76 |
@@ -90,8 +92,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 2.96 |
 | Short-hop height | 18 |
 | Full-hop height | 30 |
-
-[Move source](https://ultimateframedata.com/richter) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -124,7 +124,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -132,7 +132,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/richter.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/richter/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

@@ -31,10 +31,10 @@ Paths below are relative to the project root. Core paths begin with
 | Core `ledge_menu.rs` | Five saved ledge choices, Kirby Roll read/Y mode rows, Minus menu binding, Auto-mash row and trigger reservation. |
 | Core `button_modes.rs` | Retained legacy mode definitions; the old Y Finisher selector/binding is removed. |
 | Core `finisher.rs` | Parked portable starter/follow-up implementation; no live binding or per-frame state. See [retired finisher binding](FINISHERS.md). |
-| Core `opponent_data.rs` and `opponent_data/generated.rs` | Exact-kind reference stats/move facts, eight roster bindings and pure native recovery validation. |
+| Core `fighter_data.rs` | Exact-kind stats and move-frame facts from the canonical roster JSON, plus native recovery validation. |
 | Core `whiff_punish.rs` and `src/live/whiff.rs` | Parked prototype, not wired into the live build/menu. |
 | Core `action_owner.rs` | One committed input owner, explicit interruption rules and losing-plan cancellation. |
-| `data/opponent_reference.json` / `tools/update_opponent_data.py` | Source-only numerical snapshot/importer; never loaded during matches. |
+| `data/Ultimate_stats.json` | Sole source for roster-wide fighter stats and move-frame data; embedded and parsed once at startup. |
 | Core `autopilot_guard/duck.rs` | Held-Y crouch/shield ownership; legacy move fixtures remain separate from live geometry. |
 | Core `autopilot_guard/duck_geometry.rs` | Allocation-free swept hitbox/body-envelope tests and calibration bounds. |
 | `src/live/duck_hits.rs` | Disabled reference implementation; its native hitbox scans, source tracking and ATTACK hook are not enabled. |

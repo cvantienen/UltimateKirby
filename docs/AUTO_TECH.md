@@ -108,8 +108,7 @@ repeated. An unknown stopped clock withholds input. This uses no stage rays or
 roster scan. See the [Training Modpack's grounded-origin check](https://github.com/jugeeya/UltimateTrainingModpack/blob/main/src/training/tech.rs).
 
 Aerial capture/fall (`0xbf`, `0xc0`) and release with an aerial/unknown predecessor
-remain excluded. Aerial Flame Choke has an
-[untechable knockdown](https://ultimateframedata.com/ganondorf).
+remain excluded. Aerial Flame Choke produces an untechable knockdown.
 Shield inputs cannot convert it into a legal tech.
 
 ## Input ownership and confirmation

@@ -53,23 +53,49 @@ fn relative_motion_predicts_approach_from_either_side_but_not_distant_attacks() 
 #[test]
 fn imminent_moves_use_real_startup_and_rate_without_predicting_unknown_aerials() {
     use kirby_assist_core::{
-        autopilot_guard::imminent_attack,
-        fighter_profiles::{samus, FighterProfiles},
+        autopilot_guard::referenced_imminent_attack_with, fighter_data::named_move,
+        timing::motion_hash,
     };
-    let data = FighterProfiles::default().profile(6).unwrap().ledge;
-    assert!(imminent_attack(data, 0x2c, 1, 1., 1.)); // Dtilt 4, three frames away.
-    assert!(imminent_attack(data, 0x2c, 1, 0., 1.)); // Four-frame startup is inside the current five-frame forecast.
-    assert!(imminent_attack(data, 0x36, 0xc3a4e2597, 5., 1.)); // Kirby nair 8.
-    assert!(!imminent_attack(data, 0x36, 0xc3495ada5, 5., 1.)); // Fair is not nair.
-    assert!(imminent_attack(data, 0x32, 1, 5., 1.));
-    let first=f32::from(data.down_smash.first);
-    assert!(imminent_attack(data,0x32,1,first-2.,0.5));
-    assert!(!imminent_attack(data,0x32,1,(first-3.).max(0.),0.5));
-    assert!(!imminent_attack(data, 0x37, 1, 5., 1.)); // Grabs excluded.
-    assert!(!imminent_attack(data, 0x2c, 1, f32::NAN, 1.));
-    // Samus's rear sweep is a separate window, not an invented continuous hit.
-    assert!(imminent_attack(samus::LEDGE_DATA, 0x32, 1, 14., 1.));
-    assert!(!imminent_attack(samus::LEDGE_DATA, 0x32, 1, 11., 1.));
+    let down_tilt = named_move(6, "Down Tilt").unwrap();
+    let motion = motion_hash("attack_lw3");
+    assert!(down_tilt.motions.contains(&motion));
+    assert!(referenced_imminent_attack_with(6, motion, 1., 1., 5.));
+    assert!(!referenced_imminent_attack_with(6, motion, 0., 1., 2.));
+
+    let neutral_air = named_move(6, "Neutral Air").unwrap();
+    let motion = motion_hash("attack_air_n");
+    assert!(neutral_air.motions.contains(&motion));
+    assert!(referenced_imminent_attack_with(6, motion, 5., 1., 5.));
+    let forward_air = named_move(6, "Forward Air").unwrap();
+    assert!(referenced_imminent_attack_with(
+        6,
+        forward_air.motions[0],
+        5.,
+        1.,
+        5.
+    ));
+
+    let grab = named_move(6, "Grab").unwrap();
+    assert!(!grab.has_damage_data());
+    assert!(!referenced_imminent_attack_with(6, u64::MAX, 5., 1., 5.));
+    assert!(!referenced_imminent_attack_with(
+        6,
+        motion,
+        f32::NAN,
+        1.,
+        5.
+    ));
+
+    let samus_smash = named_move(3, "Down Smash").unwrap();
+    assert!(samus_smash.active.len() > 1);
+    let gap = samus_smash.active[0].last + 1;
+    assert!(!referenced_imminent_attack_with(
+        3,
+        motion_hash("attack_lw4"),
+        f32::from(gap),
+        1.,
+        0.
+    ));
 }
 
 #[test]

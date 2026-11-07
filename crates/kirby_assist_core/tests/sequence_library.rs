@@ -91,7 +91,7 @@ fn every_registered_fighter_reference_belongs_to_the_same_native_identity() {
             name => name,
         };
         assert_eq!(
-            profile.reference().unwrap().name,
+            profile.fighter_data().unwrap().name,
             expected,
             "native kind {kind} must not borrow another fighter's facts"
         );

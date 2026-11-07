@@ -31,12 +31,10 @@ mod tech;
 
 use config::load_config;
 use controller::{trace, write_trace, Controller, MappedInputs};
-use runtime::set_runtime_enabled;
 use kirby_assist_core::action_owner::{ActionOwnership, Intent, Owner};
 use kirby_assist_core::training_test;
-use observations::{
-    combat_targets, fighter_ids, human_fighter, nearest_ledge_opponent,
-};
+use observations::{combat_targets, fighter_ids, human_fighter, nearest_ledge_opponent};
+use runtime::set_runtime_enabled;
 use tech::assess_tech;
 
 use crate::game_ffi as game;
@@ -60,8 +58,8 @@ use kirby_assist_core::manual_controls::{
     TURBO_TRIGGER,
 };
 use kirby_assist_core::native_input::{
-    controller_index, selected_controller_mapper, MAPPER_L, MAPPER_MINUS,
-    MAPPER_PLUS, MAPPER_Y, MAPPER_ZR,
+    controller_index, selected_controller_mapper, MAPPER_L, MAPPER_MINUS, MAPPER_PLUS, MAPPER_Y,
+    MAPPER_ZR,
 };
 #[cfg(feature = "diagnostic-logging")]
 use kirby_assist_core::native_input::{MAPPER_A, MAPPER_X};
@@ -120,7 +118,8 @@ static ROUTE_UNAVAILABLE_LOGGED: AtomicBool = AtomicBool::new(false);
 static MANAGER_SLOT: AtomicUsize = AtomicUsize::new(0);
 static CONFIG: OnceLock<Box<Config>> = OnceLock::new();
 static PROFILES: OnceLock<FighterProfiles> = OnceLock::new();
-static SEQUENCES: OnceLock<Mutex<kirby_assist_core::sequence_config::SequenceLibrary>> = OnceLock::new();
+static SEQUENCES: OnceLock<Mutex<kirby_assist_core::sequence_config::SequenceLibrary>> =
+    OnceLock::new();
 // Explicit saves replace compact definitions without publishing static menus.
 static SEQUENCES_UPDATED: AtomicBool = AtomicBool::new(false);
 // STATE.lock() yields a guard. Rust releases the lock when the guard leaves
@@ -162,7 +161,6 @@ static OBSERVING_FIGHTER: AtomicBool = AtomicBool::new(false);
 // UI telemetry or projectile tracking. Native ownership discovery stays read-only.
 static LOCAL_PARTICIPANT: AtomicBool = AtomicBool::new(false);
 pub(crate) use runtime::feature_activity_allowed;
-
 
 // Native queries can re-enter command hooks. Never recursively sample another
 // full observation while the mapper's synchronous refresh is in progress.
@@ -255,7 +253,7 @@ struct State {
     tech_output: TechOutput,
     tech_urgent: bool,
     last_mapped_guard: bool,
-    last_mapped_stick: Option<[f32;2]>,
+    last_mapped_stick: Option<[f32; 2]>,
     policy_tick: Option<i64>,
     // Separate state for side-D-pad consumption and temporary left-stick control.
     turbo: Option<TurboState>,
@@ -368,33 +366,60 @@ struct State {
 impl State {
     /// Protect only a committed, correctly routed Bowser automatic Up-B.
     fn bowser_up_b_owner(&self) -> Option<Owner> {
-        if self.fighter_kind != self.menu_fighter_kind { return None; }
+        if self.fighter_kind != self.menu_fighter_kind {
+            return None;
+        }
         kirby_assist_core::action_owner::bowser_up_b_owner(
-            self.fighter_kind, self.action_owner.current_owner(),
-            self.rule_engine.as_ref().is_some_and(|r|r.up_b_delivery_started()),
-            self.spot_dodge.as_ref().is_some_and(|s|s.up_b_delivery_started()),
-            self.oos.up_b_delivery_started())
+            self.fighter_kind,
+            self.action_owner.current_owner(),
+            self.rule_engine
+                .as_ref()
+                .is_some_and(|r| r.up_b_delivery_started()),
+            self.spot_dodge
+                .as_ref()
+                .is_some_and(|s| s.up_b_delivery_started()),
+            self.oos.up_b_delivery_started(),
+        )
     }
     /// Keep edge histories while discarding automatic plans under ledge priority.
     fn suspend_automatic_punishes(&mut self) {
-        self.reflector.cancel();self.reflect_output=LedgeOutput::default();
-        if let Some(engine)=self.rule_engine.as_mut(){engine.cancel();}
-        self.roll_read_output=LedgeOutput::default();
-        self.oos.suspend_automatic();self.oos_output=LedgeOutput::default();
-        if let Some(spot)=self.spot_dodge.as_mut(){spot.cancel_pending();spot.suspend_response();}
-        self.spot_output=LedgeOutput::default();
-        if let Some(tool)=self.trip_followup.as_mut(){tool.cancel_pending();}
-        if let Some(tool)=self.fair_followup.as_mut(){tool.cancel_pending();}
-        if let Some(tool)=self.jab_lock.as_mut(){tool.cancel_pending();}
-        self.trip_output=LedgeOutput::default();self.fair_output=LedgeOutput::default();self.jab_lock_output=LedgeOutput::default();
+        self.reflector.cancel();
+        self.reflect_output = LedgeOutput::default();
+        if let Some(engine) = self.rule_engine.as_mut() {
+            engine.cancel();
+        }
+        self.roll_read_output = LedgeOutput::default();
+        self.oos.suspend_automatic();
+        self.oos_output = LedgeOutput::default();
+        if let Some(spot) = self.spot_dodge.as_mut() {
+            spot.cancel_pending();
+            spot.suspend_response();
+        }
+        self.spot_output = LedgeOutput::default();
+        if let Some(tool) = self.trip_followup.as_mut() {
+            tool.cancel_pending();
+        }
+        if let Some(tool) = self.fair_followup.as_mut() {
+            tool.cancel_pending();
+        }
+        if let Some(tool) = self.jab_lock.as_mut() {
+            tool.cancel_pending();
+        }
+        self.trip_output = LedgeOutput::default();
+        self.fair_output = LedgeOutput::default();
+        self.jab_lock_output = LedgeOutput::default();
     }
     fn cancel_non_owner(&mut self, keep: Option<Owner>) {
-        if keep!=Some(Owner::Safety) {
-            if let Some(tech)=self.tech_input.as_mut() {tech.cancel_request();}
-            self.tech_output=TechOutput::default();self.tech_urgent=false;
+        if keep != Some(Owner::Safety) {
+            if let Some(tech) = self.tech_input.as_mut() {
+                tech.cancel_request();
+            }
+            self.tech_output = TechOutput::default();
+            self.tech_urgent = false;
         }
-        if keep!=Some(Owner::Reflect) {
-            self.reflector.cancel();self.reflect_output=LedgeOutput::default();
+        if keep != Some(Owner::Reflect) {
+            self.reflector.cancel();
+            self.reflect_output = LedgeOutput::default();
         }
         if keep.is_some_and(|owner| owner != Owner::Turbo) {
             self.turbo = None;
@@ -425,7 +450,9 @@ impl State {
             self.fair_output = LedgeOutput::default();
         }
         if keep != Some(Owner::RollRead) {
-            if let Some(rules)=self.rule_engine.as_mut(){rules.cancel();}
+            if let Some(rules) = self.rule_engine.as_mut() {
+                rules.cancel();
+            }
             self.roll_read_output = LedgeOutput::default();
         }
         if !matches!(keep, Some(Owner::Ledge | Owner::Defense)) {
@@ -440,7 +467,12 @@ impl State {
                 }
                 self.ledge = None;
             }
-            if self.ledge_output.owned != 0 || self.ledge.as_ref().is_some_and(LedgeTrap::needs_response_observation) {
+            if self.ledge_output.owned != 0
+                || self
+                    .ledge
+                    .as_ref()
+                    .is_some_and(LedgeTrap::needs_response_observation)
+            {
                 #[cfg(feature = "diagnostic-logging")]
                 {
                     self.grab_trace.reset("action_owner_preempted");
@@ -451,7 +483,9 @@ impl State {
             }
             self.ledge_output = LedgeOutput::default();
         }
-        if keep != Some(Owner::OutOfShield) && (self.oos_output.owned != 0 || self.oos.target().is_some()) {
+        if keep != Some(Owner::OutOfShield)
+            && (self.oos_output.owned != 0 || self.oos.target().is_some())
+        {
             self.oos.cancel_pending();
             self.oos_output = LedgeOutput::default();
         }
@@ -463,10 +497,16 @@ impl State {
         }
         if keep != Some(Owner::OptionRead) {
             if let Some(spot) = self.spot_dodge.as_mut() {
-                if keep != Some(Owner::GrabDodge) { spot.cancel_pending(); }
-                if self.spot_output.owned != 0 || spot.punish_pending() { spot.cancel_response(); }
+                if keep != Some(Owner::GrabDodge) {
+                    spot.cancel_pending();
+                }
+                if self.spot_output.owned != 0 || spot.punish_pending() {
+                    spot.cancel_response();
+                }
             }
-            if keep != Some(Owner::GrabDodge) { self.spot_output = LedgeOutput::default(); }
+            if keep != Some(Owner::GrabDodge) {
+                self.spot_output = LedgeOutput::default();
+            }
         }
         if keep != Some(Owner::Trump) {
             if let Some(tool) = self.trump.as_mut() {
@@ -489,7 +529,13 @@ impl State {
     const fn new() -> Self {
         Self {
             reflector: kirby_assist_core::projectile_reflect::Reflector::new(),
-            reflect_output: LedgeOutput {consume_trigger:false,requested:0,owned:0,stick:None,native_short_hop:false},
+            reflect_output: LedgeOutput {
+                consume_trigger: false,
+                requested: 0,
+                owned: 0,
+                stick: None,
+                native_short_hop: false,
+            },
             ledge_menu: None,
             menu_fighter_kind: None,
             menu_battle_active: false,
@@ -674,7 +720,8 @@ impl State {
     // Menu choices replace settings; do not let a previous configuration keep
     // an old punish/movement proposal queued. Navigation alone never calls this.
     fn cancel_manual_tools(&mut self) {
-        self.reflector.cancel();self.reflect_output=LedgeOutput::default();
+        self.reflector.cancel();
+        self.reflect_output = LedgeOutput::default();
         // A menu change invalidates native facts/settings already being read.
         // Do not let the old observation publish after the new choice is active.
         self.observation_sequence = self.observation_sequence.wrapping_add(1);
@@ -684,7 +731,9 @@ impl State {
         self.oos_output = LedgeOutput::default();
         // Clear the proposal, not tech's acknowledged-edge/cooldown history.
         // The next observation applies the current enabled/tuning settings.
-        if let Some(tech)=self.tech_input.as_mut() {tech.cancel_request();}
+        if let Some(tech) = self.tech_input.as_mut() {
+            tech.cancel_request();
+        }
         self.tech_output = TechOutput::default();
         self.tech_urgent = false;
         self.jab_grab = None;
@@ -762,8 +811,8 @@ impl State {
     // Use for actual cancellation/reassignment. Hitstop deliberately does NOT
     // call this: resetting there would forget cooldown and input history.
     fn cancel(&mut self) {
-        self.reflector=kirby_assist_core::projectile_reflect::Reflector::new();
-        self.reflect_output=LedgeOutput::default();
+        self.reflector = kirby_assist_core::projectile_reflect::Reflector::new();
+        self.reflect_output = LedgeOutput::default();
         self.action_owner = ActionOwnership::new();
         #[cfg(feature = "silent-probe")]
         {
@@ -820,8 +869,8 @@ impl State {
         self.posture_down = false;
         self.posture_floor_safe = false;
         self.manual_overlay = None;
-        self.manual_jump_fence=kirby_assist_core::manual_controls::ManualJumpFence::new();
-        self.grab_handoff=Default::default();
+        self.manual_jump_fence = kirby_assist_core::manual_controls::ManualJumpFence::new();
+        self.grab_handoff = Default::default();
         self.turbo_ready = false;
         self.fair_followup = None;
         self.fair_output = LedgeOutput::default();
@@ -922,7 +971,9 @@ unsafe fn map_controls(
         {
             let ready = observations::battle_menu_ready_go();
             #[cfg(feature = "silent-probe")]
-            if feature_activity_allowed() { crate::one_match_probe::battle(ready); }
+            if feature_activity_allowed() {
+                crate::one_match_probe::battle(ready);
+            }
             refresh_master_match_lock(ready);
             Some(ready)
         } else {
@@ -944,7 +995,11 @@ unsafe fn map_controls(
     let controller = if wrapper.is_null() || !(0..8).contains(&index) {
         std::ptr::null_mut()
     } else {
-        wrapper.cast::<u8>().add(0x10).cast::<*mut Controller>().read()
+        wrapper
+            .cast::<u8>()
+            .add(0x10)
+            .cast::<*mut Controller>()
+            .read()
     };
     if controller.is_null()
         || selected_controller_mapper(config.player_index, (*controller).npad, index) != Some(index)
@@ -980,10 +1035,8 @@ unsafe fn map_controls(
     let training_mode = TRAINING_MODPACK_PRESENT
         .load(Ordering::Relaxed)
         .then(|| game::is_training_mode());
-    let training_test_mode = training_test::active(
-        training_mode.is_some(),
-        training_mode.unwrap_or(false),
-    );
+    let training_test_mode =
+        training_test::active(training_mode.is_some(), training_mode.unwrap_or(false));
     if training_test_mode {
         let selected_physical = if wrapper.is_null() {
             None
@@ -1024,7 +1077,10 @@ unsafe fn map_controls(
                 state
                     .ledge_menu
                     .get_or_insert_with(ledge_menu::LedgeMenu::default)
-                    .observe_passthrough(training_test::policy_buttons(physical.held), config.control_layout);
+                    .observe_passthrough(
+                        training_test::policy_buttons(physical.held),
+                        config.control_layout,
+                    );
                 if let Some(menu) = state.ledge_menu.as_ref() {
                     // Save/load must not hide the saved-options panel or demand
                     // a Minus tap before the CPU's next ledge get-up.
@@ -1083,15 +1139,15 @@ unsafe fn map_controls(
     let mut mapped_reflector = None;
     let mut mapped_auto_up_special = None;
     let mut mapped_auto_dodge = None;
-    let mut mapped_dodge_punish_grab=None;
+    let mut mapped_dodge_punish_grab = None;
     let mut mapped_attack_hold = false;
     let mut mapped_literal_request = None;
     let mut builtin_jump = None;
     let mut mapped_sequence_right = None;
     let mut reserved_dpad = 0;
     let mut tech_applied = false;
-    let mut mapped_tech_output=None;
-    let mut mapped_grab_handoff=None;
+    let mut mapped_tech_output = None;
+    let mut mapped_grab_handoff = None;
     let mut short_hop_requested = false;
     let mut mapped_manual_jump = false;
     #[cfg(feature = "diagnostic-logging")]
@@ -1225,10 +1281,19 @@ unsafe fn map_controls(
                         } else {
                             physical.held
                         };
-                        let takeover_buttons = config.control_layout.takeover_buttons(policy_buttons);
+                        let takeover_buttons =
+                            config.control_layout.takeover_buttons(policy_buttons);
                         let policy_buttons = config.control_layout.policy_buttons(policy_buttons);
                         state.raw_buttons = policy_buttons;
-                        state.action_owner.observe_manual(takeover_buttons, [physical_stick[0], physical_stick[1], physical_right_stick[0], physical_right_stick[1]]);
+                        state.action_owner.observe_manual(
+                            takeover_buttons,
+                            [
+                                physical_stick[0],
+                                physical_stick[1],
+                                physical_right_stick[0],
+                                physical_right_stick[1],
+                            ],
+                        );
                         state.posture_down =
                             kirby_assist_core::kirby_posture::Posture::down_tilt_intent(
                                 policy_buttons,
@@ -1245,17 +1310,21 @@ unsafe fn map_controls(
                             let gameplay = menu_available && state.fighter_kind.is_some();
                             // Raw button/menu observations still run, but a committed
                             // input owner cannot be replaced by a queued button tape.
-                            let damage_recovery = state.shortcut_context.is_some_and(|c|
-                                kirby_assist_core::ledge_trap::sequence_interrupted(c.status));
+                            let damage_recovery = state.shortcut_context.is_some_and(|c| {
+                                kirby_assist_core::ledge_trap::sequence_interrupted(c.status)
+                            });
                             let committed_inputs = state.action_owner.current_owner().is_some()
                                 || state.bowser_up_b_owner().is_some()
-                                || state.tech_output.press || state.tech_output.owns_guard
+                                || state.tech_output.press
+                                || state.tech_output.owns_guard
                                 || state.mash_stick.is_some();
                             let bindings_blocked = committed_inputs || damage_recovery;
                             let safety_jump = !committed_inputs && damage_recovery;
-                            let short_hop_running = state.action_owner.current_owner()==Some(Owner::Shortcut)
-                                && state.shortcuts.as_ref().is_some_and(|s|s.active()
-                                    && s.consumed_buttons() & SHORT_HOP_TRIGGER != 0);
+                            let short_hop_running = state.action_owner.current_owner()
+                                == Some(Owner::Shortcut)
+                                && state.shortcuts.as_ref().is_some_and(|s| {
+                                    s.active() && s.consumed_buttons() & SHORT_HOP_TRIGGER != 0
+                                });
                             let changed = state
                                 .ledge_menu
                                 .get_or_insert_with(ledge_menu::LedgeMenu::default)
@@ -1267,7 +1336,11 @@ unsafe fn map_controls(
                                     safety_jump,
                                     kind,
                                     policy_buttons,
-                                    if training_test_mode {training_test::policy_buttons(physical.held)} else {physical.held},
+                                    if training_test_mode {
+                                        training_test::policy_buttons(physical.held)
+                                    } else {
+                                        physical.held
+                                    },
                                     config.control_layout,
                                     &config.ledge,
                                     config.controls.auto_mash,
@@ -1276,10 +1349,12 @@ unsafe fn map_controls(
                                     menu_training_mode,
                                 );
                             if changed {
-                                if let Some(owner)=state.bowser_up_b_owner().filter(|_|gameplay) {
+                                if let Some(owner) = state.bowser_up_b_owner().filter(|_| gameplay)
+                                {
                                     // Reject in-flight old settings while retaining this
                                     // already delivered special and its tracking clock.
-                                    state.observation_sequence=state.observation_sequence.wrapping_add(1);
+                                    state.observation_sequence =
+                                        state.observation_sequence.wrapping_add(1);
                                     state.cancel_non_owner(Some(owner));
                                 } else {
                                     state.cancel_manual_tools();
@@ -1294,31 +1369,63 @@ unsafe fn map_controls(
                             // diagonals. Menu-consumed sides/Down never reach tools.
                             // Preserve Y for the first native-readiness check;
                             // the later overlay still consumes its mapped action.
-                            let helper_consumed=consumed & !state.ledge_menu.as_ref().map_or(0,|m|m.builtin_consumed);
-                            let policy_buttons=state.ledge_menu.as_ref().map_or(policy_buttons,|m|m.native_buttons);
+                            let helper_consumed = consumed
+                                & !state.ledge_menu.as_ref().map_or(0, |m| m.builtin_consumed);
+                            let policy_buttons = state
+                                .ledge_menu
+                                .as_ref()
+                                .map_or(policy_buttons, |m| m.native_buttons);
                             state.raw_buttons = kirby_assist_core::ledge_menu::observation_buttons(
-                                policy_buttons, helper_consumed,
+                                policy_buttons,
+                                helper_consumed,
                             );
                             let ledge_held = config.controls.enabled
-                                && state.ledge_menu.as_ref().is_some_and(|p|p.sequence_enabled(config.ledge.enabled))
-                                && state.ledge_menu.as_ref().is_some_and(|p|p.ledge_held);
-                            duck_hits::tracking(config.autopilot_shield && ledge_held
-                                || !ledge_held && state.ledge_menu.as_ref().is_some_and(|m|m.reflect_config(kind.unwrap_or(-1)).is_some()));
-                            let manual_actions=state.ledge_menu.as_ref().map_or(0,|m|m.manual_native_actions());
-                            let ledge_inputs_reserved=ledge_held || state.ledge_menu.as_ref().is_some_and(|m|m.reserves_automatic_modes());
-                            let suspend_auto=state.action_owner.current_owner().is_none()
-                                && (ledge_inputs_reserved || manual_actions!=0
-                                    || kirby_assist_core::native_input::automatic_escape(config.control_layout,
-                                        physical.held,physical.pressed,false,
-                                        state.shortcut_context.is_some_and(|c|c.situation==0),0));
+                                && state
+                                    .ledge_menu
+                                    .as_ref()
+                                    .is_some_and(|p| p.sequence_enabled(config.ledge.enabled))
+                                && state.ledge_menu.as_ref().is_some_and(|p| p.ledge_held);
+                            duck_hits::tracking(
+                                config.autopilot_shield && ledge_held
+                                    || !ledge_held
+                                        && state.ledge_menu.as_ref().is_some_and(|m| {
+                                            m.reflect_config(kind.unwrap_or(-1)).is_some()
+                                        }),
+                            );
+                            let manual_actions = state
+                                .ledge_menu
+                                .as_ref()
+                                .map_or(0, |m| m.manual_native_actions());
+                            let ledge_inputs_reserved = ledge_held
+                                || state
+                                    .ledge_menu
+                                    .as_ref()
+                                    .is_some_and(|m| m.reserves_automatic_modes());
+                            let suspend_auto = state.action_owner.current_owner().is_none()
+                                && (ledge_inputs_reserved
+                                    || manual_actions != 0
+                                    || kirby_assist_core::native_input::automatic_escape(
+                                        config.control_layout,
+                                        physical.held,
+                                        physical.pressed,
+                                        false,
+                                        state.shortcut_context.is_some_and(|c| c.situation == 0),
+                                        0,
+                                    ));
                             state.action_owner.set_automatic_suspended(suspend_auto);
-                            if suspend_auto {state.suspend_automatic_punishes();}
-                            if ledge_inputs_reserved && state.action_owner.current_owner().is_none()
-                                && state.grab_handoff.reserve_ledge_inputs() {
+                            if suspend_auto {
+                                state.suspend_automatic_punishes();
+                            }
+                            if ledge_inputs_reserved
+                                && state.action_owner.current_owner().is_none()
+                                && state.grab_handoff.reserve_ledge_inputs()
+                            {
                                 // A queued Grab must settle before unrelated playback;
                                 // only native confirmation/expiry can release its receipt.
                                 state.oos.cancel_pending();
-                                if let Some(spot)=state.spot_dodge.as_mut(){spot.cancel_response();}
+                                if let Some(spot) = state.spot_dodge.as_mut() {
+                                    spot.cancel_response();
+                                }
                             }
                             #[cfg(feature = "diagnostic-logging")]
                             {
@@ -1340,7 +1447,9 @@ unsafe fn map_controls(
                                 state.duck_active = duck_held;
                             }
                             if state.ledge_active != ledge_held {
-                                if !ledge_held {state.action_owner.release(Owner::Ledge);}
+                                if !ledge_held {
+                                    state.action_owner.release(Owner::Ledge);
+                                }
                                 #[cfg(feature = "diagnostic-logging")]
                                 state.grab_trace.reset("autopilot_released_or_mode_changed");
                                 #[cfg(feature = "diagnostic-logging")]
@@ -1412,11 +1521,15 @@ unsafe fn map_controls(
                             physical.held
                         };
                         let policy_buttons = config.control_layout.policy_buttons(policy_buttons);
-                        let policy_buttons=state.ledge_menu.as_ref().map_or(policy_buttons,|m|m.native_buttons);
+                        let policy_buttons = state
+                            .ledge_menu
+                            .as_ref()
+                            .map_or(policy_buttons, |m| m.native_buttons);
                         let now = Instant::now();
                         let fresh = kirby_assist_core::observation::input_update_current(
-                            state.evaluated_tick, state.raw_tick)
-                            && state
+                            state.evaluated_tick,
+                            state.raw_tick,
+                        ) && state
                             .request_seen
                             .is_some_and(|seen| now.duration_since(seen) < REQUEST_LIFETIME);
                         let ledge_fresh = fresh;
@@ -1427,7 +1540,8 @@ unsafe fn map_controls(
                             });
                         let ledge_config = state.ledge_menu.as_ref().map_or_else(
                             || ledge_settings(state.fighter_kind, config.ledge),
-                            |p| p.settings(state.fighter_kind, &config.ledge));
+                            |p| p.settings(state.fighter_kind, &config.ledge),
+                        );
                         let manual_scope = config.controls.enabled
                             && route_current
                             && state.associated_object.is_some()
@@ -1453,8 +1567,9 @@ unsafe fn map_controls(
                         }
                         // Expired requests become neutral. The overlay still
                         // knows the previous assisted output, allowing a release.
-                        let native_grab=state.shortcut_context.is_some_and(|c|
-                            kirby_assist_core::action_owner::native_grab_active(c.status));
+                        let native_grab = state.shortcut_context.is_some_and(|c| {
+                            kirby_assist_core::action_owner::native_grab_active(c.status)
+                        });
                         let auto_mash = state
                             .ledge_menu
                             .as_ref()
@@ -1553,17 +1668,23 @@ unsafe fn map_controls(
                                 && ledge_config.manual_spacing
                                 && state.ledge_walk_ready
                             {
-                                let stick = ledge_walk_stick(physical_stick, ledge_config.walk_strength);
+                                let stick =
+                                    ledge_walk_stick(physical_stick, ledge_config.walk_strength);
                                 let spot = state.ledge_visits.walking_ledge();
                                 let manual_attack = policy_buttons
                                     & (kirby_assist_core::native_input::MAPPER_A
                                         | kirby_assist_core::native_input::MAPPER_B
-                                        | ledge_config.grab_button) != 0
+                                        | ledge_config.grab_button)
+                                    != 0
                                     || physical_right_stick.iter().any(|v| v.abs() > 0.2);
                                 Some(match (state.ledge_walk_motion, spot) {
                                     (Some((position, velocity)), Some(spot)) if !manual_attack => {
                                         kirby_assist_core::manual_controls::stop_walk_at_ledge(
-                                            stick, position, velocity, spot, ledge_config.stand_distance,
+                                            stick,
+                                            position,
+                                            velocity,
+                                            spot,
+                                            ledge_config.stand_distance,
                                         )
                                     }
                                     _ => stick,
@@ -1585,21 +1706,20 @@ unsafe fn map_controls(
                             ));
                         }
                         let shortcut_context = state.shortcut_context;
-                        let shortcuts_allowed = manual_scope && fresh
+                        let shortcuts_allowed = manual_scope
+                            && fresh
                             && state.action_owner.allows(Owner::Shortcut)
-                            && (state.action_owner.current_owner()==Some(Owner::Shortcut) || (state
-                                .ledge_menu
-                                .as_ref()
-                                .is_none_or(|menu| (menu.consumed & !menu.builtin_consumed) & 0xf == 0)
-                            && mash_stick.is_none()
-                            && !state.tech_output.owns_guard
-                            && policy_buttons & ((0xf & !DPAD_SIDES) | MAPPER_MINUS) == 0));
+                            && (state.action_owner.current_owner() == Some(Owner::Shortcut)
+                                || (state.ledge_menu.as_ref().is_none_or(|menu| {
+                                    (menu.consumed & !menu.builtin_consumed) & 0xf == 0
+                                }) && mash_stick.is_none()
+                                    && !state.tech_output.owns_guard
+                                    && policy_buttons & ((0xf & !DPAD_SIDES) | MAPPER_MINUS) == 0));
                         let shortcut_buttons = policy_buttons
                             & !MAPPER_Y
-                            & !state
-                                .ledge_menu
-                                .as_ref()
-                                .map_or(0, |menu| (menu.consumed & !menu.builtin_consumed) & (0xf | SHORT_HOP_TRIGGER))
+                            & !state.ledge_menu.as_ref().map_or(0, |menu| {
+                                (menu.consumed & !menu.builtin_consumed) & (0xf | SHORT_HOP_TRIGGER)
+                            })
                             & !DPAD_SIDES;
                         let shortcut = state
                             .shortcuts
@@ -1655,14 +1775,17 @@ unsafe fn map_controls(
                         let di_context = state.di_context;
                         let damage_trajectory = state.damage_trajectory;
                         let di_stick = di_context.and_then(|context| {
-                            state.di.get_or_insert_with(Default::default).sample_exclusive_with_trajectory(
-                                kirby_assist_core::auto_di::Settings {
-                                    enabled: config.auto_di.enabled && manual_scope && fresh,
-                                    ..config.auto_di
-                                },
-                                context,
-                                damage_trajectory,
-                            )
+                            state
+                                .di
+                                .get_or_insert_with(Default::default)
+                                .sample_exclusive_with_trajectory(
+                                    kirby_assist_core::auto_di::Settings {
+                                        enabled: config.auto_di.enabled && manual_scope && fresh,
+                                        ..config.auto_di
+                                    },
+                                    context,
+                                    damage_trajectory,
+                                )
                         });
                         if !config.auto_di.enabled
                             || di_context.is_none()
@@ -1679,7 +1802,10 @@ unsafe fn map_controls(
                                 if let Some(d) = decision {
                                     messages.push(format!("AUTO DI: {}; stick=({:.2},{:.2}); reserved launch={:?}. Final victim-hitstop input only; a heuristic, not guaranteed survival or combo escape.", d.reason.label(), d.stick[0], d.stick[1], di_context.map(|c| c.launch)));
                                 } else if state.last_di_diagnostic.is_some() {
-                                    messages.push("AUTO DI released: hitstop ended or DI became unavailable.".into());
+                                    messages.push(
+                                        "AUTO DI released: hitstop ended or DI became unavailable."
+                                            .into(),
+                                    );
                                 }
                                 state.last_di_diagnostic = decision;
                             }
@@ -1688,14 +1814,24 @@ unsafe fn map_controls(
                         // yields to launch DI. Losing modes cannot emit inputs
                         // or consume a flick as though it had been delivered.
                         let tech_owns = state.tech_output.press || state.tech_output.owns_guard;
-                        let sdi_stick = if di_stick.is_none() && !tech_owns && mash_stick.is_none() {
-                            let previous=state.last_mapped_stick.unwrap_or(physical_stick);
+                        let sdi_stick = if di_stick.is_none() && !tech_owns && mash_stick.is_none()
+                        {
+                            let previous = state.last_mapped_stick.unwrap_or(physical_stick);
                             sdi_context.and_then(|context| {
-                                state.sdi.get_or_insert_with(SdiState::default).sample_exclusive_with_previous(
-                                    sdi_enabled, context, damage_trajectory.map(|t| (t.position,t.blast)),previous,
-                                )
+                                state
+                                    .sdi
+                                    .get_or_insert_with(SdiState::default)
+                                    .sample_exclusive_with_previous(
+                                        sdi_enabled,
+                                        context,
+                                        damage_trajectory.map(|t| (t.position, t.blast)),
+                                        previous,
+                                    )
                             })
-                        } else {state.sdi=None;None};
+                        } else {
+                            state.sdi = None;
+                            None
+                        };
                         let damage_stick = di_stick.or(sdi_stick);
                         if !sdi_enabled || sdi_context.is_none() {
                             state.sdi = None;
@@ -1708,11 +1844,9 @@ unsafe fn map_controls(
                             && state.ledge_active
                             && fresh
                             && manual_scope
-                            && state
-                                .ledge
-                                .as_ref()
-                                .is_some_and(|trap| trap.needs_response_observation()
-                                    || state.ledge_output.owned != 0);
+                            && state.ledge.as_ref().is_some_and(|trap| {
+                                trap.needs_response_observation() || state.ledge_output.owned != 0
+                            });
                         state.action_owner.set_ledge_priority(ledge_priority);
                         let ledge_committed = state
                             .ledge
@@ -1720,13 +1854,19 @@ unsafe fn map_controls(
                             .is_some_and(LedgeTrap::committed_input_pending)
                             || state.ledge_output.owned != 0 && !state.autopilot_guarding;
                         let mut intents = [
-                            Intent{owner:Owner::Reflect,present:state.reflect_output.owned!=0 || state.reflector.active(),committed:true},
+                            Intent {
+                                owner: Owner::Reflect,
+                                present: state.reflect_output.owned != 0
+                                    || state.reflector.active(),
+                                committed: true,
+                            },
                             Intent {
                                 owner: Owner::OutOfShield,
                                 // Preserve the automation reservation while R may be
                                 // queued; a neutral output still leaves movement manual.
-                                present: state.oos_output.owned != 0 || state.oos.grab_delivery_pending()
-                                    || state.fighter_kind==Some(15) && state.oos.awaiting_up_b(),
+                                present: state.oos_output.owned != 0
+                                    || state.oos.grab_delivery_pending()
+                                    || state.fighter_kind == Some(15) && state.oos.awaiting_up_b(),
                                 committed: true,
                             },
                             Intent {
@@ -1765,7 +1905,8 @@ unsafe fn map_controls(
                             Intent {
                                 owner: Owner::Ledge,
                                 present: state.ledge_active
-                                    && (state.action_owner.current_owner()==Some(Owner::Ledge) || !state.autopilot_guarding
+                                    && (state.action_owner.current_owner() == Some(Owner::Ledge)
+                                        || !state.autopilot_guarding
                                     // An idle always-on watch must not swallow
                                     // the selected hop/turbo helper. Actual
                                     // acquired ledge visits/tapes keep priority.
@@ -1780,18 +1921,35 @@ unsafe fn map_controls(
                                             .is_none_or(|trap| !trap.manual_after_response())),
                                 committed: ledge_committed,
                             },
-                            Intent::sequence_receipt(Owner::RollRead, state.roll_read_output.owned,
-                                state.fighter_kind==Some(15) && state.rule_engine.as_ref().is_some_and(|e|e.awaiting_up_b())),
+                            Intent::sequence_receipt(
+                                Owner::RollRead,
+                                state.roll_read_output.owned,
+                                state.fighter_kind == Some(15)
+                                    && state
+                                        .rule_engine
+                                        .as_ref()
+                                        .is_some_and(|e| e.awaiting_up_b()),
+                            ),
                             Intent {
                                 owner: Owner::GrabDodge,
                                 present: state.spot_output.owned != 0
-                                    && state.spot_dodge.as_ref().is_some_and(|s| s.target().is_some()),
+                                    && state
+                                        .spot_dodge
+                                        .as_ref()
+                                        .is_some_and(|s| s.target().is_some()),
                                 committed: true,
                             },
                             Intent {
                                 owner: Owner::OptionRead,
-                                present: (state.spot_output.owned != 0 || state.spot_dodge.as_ref().is_some_and(|s|s.punish_pending()))
-                                    && state.spot_dodge.as_ref().is_none_or(|s| s.target().is_none()),
+                                present: (state.spot_output.owned != 0
+                                    || state
+                                        .spot_dodge
+                                        .as_ref()
+                                        .is_some_and(|s| s.punish_pending()))
+                                    && state
+                                        .spot_dodge
+                                        .as_ref()
+                                        .is_none_or(|s| s.target().is_none()),
                                 committed: true,
                             },
                             Intent {
@@ -1811,24 +1969,43 @@ unsafe fn map_controls(
                                 committed: false,
                             },
                         ];
-                        let safe_manual_jump=kirby_assist_core::grab_handoff::GrabHandoff::manual_jump_packet(shortcut,None);
-                        let handoff_status=state.shortcut_context.map_or(-1,|c|c.status);
-                        let handoff_situation=state.shortcut_context.map_or(-1,|c|c.situation);
-                        let handoff_context=state.shortcut_context.filter(|_|fresh).map(|c|LedgeContext {
-                            gameplay:manual_scope,status:c.status,situation:c.situation,
-                            motion_kind:c.motion,motion_frame:c.frame,motion_rate:c.rate,
-                            stopped:c.stopped,..LedgeContext::default()
-                        });
-                        state.grab_handoff.observe_native(manual_scope,handoff_context);
-                        state.grab_handoff.restrict_with_manual_jump(&mut intents,safe_manual_jump);
-                        let mut winner = state.action_owner.select(fresh && manual_scope && !native_grab, &intents);
+                        let safe_manual_jump =
+                            kirby_assist_core::grab_handoff::GrabHandoff::manual_jump_packet(
+                                shortcut, None,
+                            );
+                        let handoff_status = state.shortcut_context.map_or(-1, |c| c.status);
+                        let handoff_situation = state.shortcut_context.map_or(-1, |c| c.situation);
+                        let handoff_context =
+                            state
+                                .shortcut_context
+                                .filter(|_| fresh)
+                                .map(|c| LedgeContext {
+                                    gameplay: manual_scope,
+                                    status: c.status,
+                                    situation: c.situation,
+                                    motion_kind: c.motion,
+                                    motion_frame: c.frame,
+                                    motion_rate: c.rate,
+                                    stopped: c.stopped,
+                                    ..LedgeContext::default()
+                                });
+                        state
+                            .grab_handoff
+                            .observe_native(manual_scope, handoff_context);
+                        state
+                            .grab_handoff
+                            .restrict_with_manual_jump(&mut intents, safe_manual_jump);
+                        let mut winner = state
+                            .action_owner
+                            .select(fresh && manual_scope && !native_grab, &intents);
                         short_hop_requested = (winner == Some(Owner::Shortcut)
                             && shortcut_consumed & SHORT_HOP_TRIGGER != 0
                             && shortcut.requested & SHORT_HOP_TRIGGER != 0)
                             || winner == Some(Owner::Ledge) && state.ledge_output.native_short_hop
                             || winner == Some(Owner::OutOfShield)
                                 && state.oos_output.native_short_hop
-                            || winner == Some(Owner::OptionRead) && state.spot_output.native_short_hop;
+                            || winner == Some(Owner::OptionRead)
+                                && state.spot_output.native_short_hop;
                         let mut selected = match winner {
                             Some(Owner::Reflect) => state.reflect_output,
                             Some(Owner::JabLock) => state.jab_lock_output,
@@ -1851,43 +2028,89 @@ unsafe fn map_controls(
                             }
                             _ => LedgeOutput::default(),
                         };
-                        if winner==Some(Owner::OutOfShield) {
+                        if winner == Some(Owner::OutOfShield) {
                             let movement = state.action_owner.policy_inputs().stick();
-                            selected=state.oos.with_grab_movement(selected,movement);
+                            selected = state.oos.with_grab_movement(selected, movement);
                         }
-                        if handoff_situation==0 {selected=kirby_assist_core::grab_handoff::GrabHandoff::grab_packet(selected);}
-                        if handoff_situation==0 && selected.requested & kirby_assist_core::native_input::MAPPER_R!=0 {short_hop_requested=false;}
-                        let selected_right=if handoff_situation==0 && selected.requested & kirby_assist_core::native_input::MAPPER_R!=0 {Some([0.;2])}else{match winner {
-                            Some(Owner::Ledge)=>state.ledge.as_ref().and_then(LedgeTrap::requested_right_stick),
-                            Some(Owner::RollRead)=>state.rule_engine.as_ref().and_then(|r|r.right_stick()),
-                            Some(Owner::OutOfShield)=>state.oos.right_stick(),
-                            Some(Owner::OptionRead)=>state.spot_dodge.as_ref().and_then(|s|s.right_stick()),
-                            _=>None,
-                        }};
-                        if !state.grab_handoff.permits(winner,selected,selected_right) {
+                        if handoff_situation == 0 {
+                            selected =
+                                kirby_assist_core::grab_handoff::GrabHandoff::grab_packet(selected);
+                        }
+                        if handoff_situation == 0
+                            && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
+                        {
+                            short_hop_requested = false;
+                        }
+                        let selected_right = if handoff_situation == 0
+                            && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
+                        {
+                            Some([0.; 2])
+                        } else {
+                            match winner {
+                                Some(Owner::Ledge) => state
+                                    .ledge
+                                    .as_ref()
+                                    .and_then(LedgeTrap::requested_right_stick),
+                                Some(Owner::RollRead) => {
+                                    state.rule_engine.as_ref().and_then(|r| r.right_stick())
+                                }
+                                Some(Owner::OutOfShield) => state.oos.right_stick(),
+                                Some(Owner::OptionRead) => {
+                                    state.spot_dodge.as_ref().and_then(|s| s.right_stick())
+                                }
+                                _ => None,
+                            }
+                        };
+                        if !state.grab_handoff.permits(winner, selected, selected_right) {
                             // Stop the old script, not just this packet; otherwise its
                             // delayed B/Up step could resume after receipt expiry.
-                            if let Some(owner)=winner {state.action_owner.release(owner);}
-                            winner=None;selected=LedgeOutput::default();short_hop_requested=false;
+                            if let Some(owner) = winner {
+                                state.action_owner.release(owner);
+                            }
+                            winner = None;
+                            selected = LedgeOutput::default();
+                            short_hop_requested = false;
                         }
-                        if winner==Some(Owner::Safety) {
-                            (selected, mapped_tech_output) = kirby_assist_core::action_owner::safety_output_with_deadline(
-                                state.tech_output, mash_stick, di_stick, sdi_stick,state.tech_urgent);
+                        if winner == Some(Owner::Safety) {
+                            (selected, mapped_tech_output) =
+                                kirby_assist_core::action_owner::safety_output_with_deadline(
+                                    state.tech_output,
+                                    mash_stick,
+                                    di_stick,
+                                    sdi_stick,
+                                    state.tech_urgent,
+                                );
                         }
                         selected = kirby_assist_core::action_owner::exclusive_output(
-                            winner, state.action_owner.current_owner()==winner && winner.is_some(), selected);
-                        let tech_takeover = winner==Some(Owner::Safety) && mapped_tech_output.is_some();
-                        let mash_takeover = winner==Some(Owner::Safety) && mash_stick.is_some();
-                        mapped_grab_handoff=Some((state.raw_tick,winner,
-                            selected.requested & kirby_assist_core::native_input::MAPPER_R!=0,
-                            fresh&&manual_scope&&!native_grab&&handoff_situation==0
-                                && !kirby_assist_core::ledge_trap::sequence_interrupted(handoff_status)));
+                            winner,
+                            state.action_owner.current_owner() == winner && winner.is_some(),
+                            selected,
+                        );
+                        let tech_takeover =
+                            winner == Some(Owner::Safety) && mapped_tech_output.is_some();
+                        let mash_takeover = winner == Some(Owner::Safety) && mash_stick.is_some();
+                        mapped_grab_handoff = Some((
+                            state.raw_tick,
+                            winner,
+                            selected.requested & kirby_assist_core::native_input::MAPPER_R != 0,
+                            fresh
+                                && manual_scope
+                                && !native_grab
+                                && handoff_situation == 0
+                                && !kirby_assist_core::ledge_trap::sequence_interrupted(
+                                    handoff_status,
+                                ),
+                        ));
                         // Physical X may annotate a manual jump, never a sequence/tech takeover.
-                        short_hop_requested |= manual_scope && !tech_takeover
+                        short_hop_requested |= manual_scope
+                            && !tech_takeover
                             && shortcut_consumed & SHORT_HOP_TRIGGER == 0
                             && selected.owned & kirby_assist_core::native_input::GAMEPLAY_BUTTONS
                                 != kirby_assist_core::native_input::GAMEPLAY_BUTTONS
-                            && (menu_consumed & !state.ledge_menu.as_ref().map_or(0,|m|m.builtin_consumed)) & SHORT_HOP_TRIGGER == 0
+                            && (menu_consumed
+                                & !state.ledge_menu.as_ref().map_or(0, |m| m.builtin_consumed))
+                                & SHORT_HOP_TRIGGER
+                                == 0
                             && shortcut_context.is_some_and(|ctx| ctx.situation == 0)
                             && policy_buttons & SHORT_HOP_TRIGGER != 0;
                         ledge = selected;
@@ -1905,7 +2128,7 @@ unsafe fn map_controls(
                             None => manual_walk_stick,
                             _ => selected.stick,
                         };
-                        turbo_output.consume_dpad &= winner==Some(Owner::Turbo);
+                        turbo_output.consume_dpad &= winner == Some(Owner::Turbo);
                         state.cancel_non_owner(winner);
                         #[cfg(feature = "diagnostic-logging")]
                         {
@@ -1989,11 +2212,19 @@ unsafe fn map_controls(
                         } else {
                             0
                         };
-                        let cancel_stick = if handoff_situation==0 && selected.requested & kirby_assist_core::native_input::MAPPER_R!=0 {Some([0.;2])} else if winner==Some(Owner::RollRead)&&fresh && selected.owned!=0 {
-                            state.rule_engine.as_ref().and_then(|r|r.right_stick())
-                        } else if winner == Some(Owner::OutOfShield) && fresh && state.oos_output.owned!=0 {
+                        let cancel_stick = if handoff_situation == 0
+                            && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
+                        {
+                            Some([0.; 2])
+                        } else if winner == Some(Owner::RollRead) && fresh && selected.owned != 0 {
+                            state.rule_engine.as_ref().and_then(|r| r.right_stick())
+                        } else if winner == Some(Owner::OutOfShield)
+                            && fresh
+                            && state.oos_output.owned != 0
+                        {
                             state.oos.right_stick()
-                        } else if winner == Some(Owner::OptionRead) && fresh && selected.owned!=0 {
+                        } else if winner == Some(Owner::OptionRead) && fresh && selected.owned != 0
+                        {
                             state.spot_dodge.as_ref().and_then(|s| s.right_stick())
                         } else if winner == Some(Owner::Ledge) && fresh {
                             state
@@ -2008,82 +2239,132 @@ unsafe fn map_controls(
                         // and decide its stick priority explicitly; do not write
                         // another independent A/R/ZR history after this point.
                         let sequence_walking = match winner {
-                            Some(Owner::Ledge) => state.ledge.as_ref().and_then(LedgeTrap::requested_walk_stick).is_some(),
-                            Some(Owner::RollRead) => state.rule_engine.as_ref().is_some_and(|r|r.walking()),
+                            Some(Owner::Ledge) => state
+                                .ledge
+                                .as_ref()
+                                .and_then(LedgeTrap::requested_walk_stick)
+                                .is_some(),
+                            Some(Owner::RollRead) => {
+                                state.rule_engine.as_ref().is_some_and(|r| r.walking())
+                            }
                             // A moving grab retains raw horizontal input; it is not a file Walk.
                             Some(Owner::OutOfShield) => false,
-                            Some(Owner::OptionRead) => state.spot_dodge.as_ref().is_some_and(|s|s.walking()),
+                            Some(Owner::OptionRead) => {
+                                state.spot_dodge.as_ref().is_some_and(|s| s.walking())
+                            }
                             _ => false,
                         };
-                        let exclusive_sequence = ledge.owned & kirby_assist_core::native_input::GAMEPLAY_BUTTONS
+                        let exclusive_sequence = ledge.owned
+                            & kirby_assist_core::native_input::GAMEPLAY_BUTTONS
                             == kirby_assist_core::native_input::GAMEPLAY_BUTTONS;
-                        if exclusive_sequence { reserved_dpad |= 0xf; }
-                        let canonical_consumed = kirby_assist_core::native_input::sequence_flick_consumption(ledge.owned, sequence_walking)
-                            | reserved_dpad
-                            | menu_consumed
-                            | if !exclusive_sequence && ledge.owned
-                                & kirby_assist_core::manual_controls::LEFT_STICK_DIRECTIONS
-                                != 0
-                                && !mash_takeover
-                                && !matches!(
-                                    winner,
-                                    Some(Owner::Trip | Owner::Fair | Owner::Finisher)
-                                )
-                                && !(matches!(winner, Some(Owner::Shortcut | Owner::Posture))
-                                    && tilt_aiming)
-                            {
-                                (1 << 21) | (1 << 23)
-                            } else {
-                                0
-                            }
-                            | if winner == Some(Owner::JabLock)
-                                && ledge.requested == 0
-                                && ledge.stick.is_some_and(|s| s[0] != 0.0)
-                            {
-                                (1 << 21) | (1 << 23)
-                            } else {
-                                0
-                            }
-                            | if manual_walk_stick.is_some()
-                                && turbo_output.stick == manual_walk_stick
-                                && ledge.owned == 0
-                                && !mash_takeover
-                            {
-                                (1 << 21) | (1 << 23)
-                            } else {
-                                0
-                            }
-                            | if manual_scope && !exclusive_sequence { shortcut_consumed } else { 0 }
-                            ;
+                        if exclusive_sequence {
+                            reserved_dpad |= 0xf;
+                        }
+                        let canonical_consumed =
+                            kirby_assist_core::native_input::sequence_flick_consumption(
+                                ledge.owned,
+                                sequence_walking,
+                            ) | reserved_dpad
+                                | menu_consumed
+                                | if !exclusive_sequence
+                                    && ledge.owned
+                                        & kirby_assist_core::manual_controls::LEFT_STICK_DIRECTIONS
+                                        != 0
+                                    && !mash_takeover
+                                    && !matches!(
+                                        winner,
+                                        Some(Owner::Trip | Owner::Fair | Owner::Finisher)
+                                    )
+                                    && !(matches!(winner, Some(Owner::Shortcut | Owner::Posture))
+                                        && tilt_aiming)
+                                {
+                                    (1 << 21) | (1 << 23)
+                                } else {
+                                    0
+                                }
+                                | if winner == Some(Owner::JabLock)
+                                    && ledge.requested == 0
+                                    && ledge.stick.is_some_and(|s| s[0] != 0.0)
+                                {
+                                    (1 << 21) | (1 << 23)
+                                } else {
+                                    0
+                                }
+                                | if manual_walk_stick.is_some()
+                                    && turbo_output.stick == manual_walk_stick
+                                    && ledge.owned == 0
+                                    && !mash_takeover
+                                {
+                                    (1 << 21) | (1 << 23)
+                                } else {
+                                    0
+                                }
+                                | if manual_scope && !exclusive_sequence {
+                                    shortcut_consumed
+                                } else {
+                                    0
+                                };
                         // Preserve the old X behavior outside the grounded short-hop
                         // helper (air jumps/native jump buffering), for any source.
-                        let jump_passthrough=manual_scope
-                            && !tech_takeover && kirby_assist_core::action_owner::permits_builtin_jump(
-                                winner,ledge_priority||ledge_committed)
+                        let jump_passthrough = manual_scope
+                            && !tech_takeover
+                            && kirby_assist_core::action_owner::permits_builtin_jump(
+                                winner,
+                                ledge_priority || ledge_committed,
+                            )
                             && kirby_assist_core::native_input::jump_passthrough(
-                                policy_buttons,ledge.owned,
-                                shortcut.owned,shortcut_consumed);
+                                policy_buttons,
+                                ledge.owned,
+                                shortcut.owned,
+                                shortcut_consumed,
+                            );
                         // Built-in jump has its own mapped-input command. Never
                         // run it back through a physical button's custom role.
-                        builtin_jump = if manual_scope && winner==Some(Owner::Shortcut)
-                            && shortcut_consumed & SHORT_HOP_TRIGGER != 0 {
+                        builtin_jump = if manual_scope
+                            && winner == Some(Owner::Shortcut)
+                            && shortcut_consumed & SHORT_HOP_TRIGGER != 0
+                        {
                             Some(shortcut.requested & SHORT_HOP_TRIGGER != 0)
-                        } else if jump_passthrough {Some(true)} else {None};
+                        } else if jump_passthrough {
+                            Some(true)
+                        } else {
+                            None
+                        };
                         let canonical_requested = kirby_assist_core::native_input::selected_requests(
-                            ledge.owned, ledge.requested, 0)
-                            | if jump_passthrough {SHORT_HOP_TRIGGER} else {0};
+                            ledge.owned,
+                            ledge.requested,
+                            0,
+                        ) | if jump_passthrough {
+                            SHORT_HOP_TRIGGER
+                        } else {
+                            0
+                        };
                         // Deliver the native jump pulse through the same raw
                         // history as every other simulated input. The final
                         // mapped flag supplements this path; it does not replace it.
                         if exclusive_sequence {
-                            mapped_automatic_request=Some(canonical_requested);
+                            mapped_automatic_request = Some(canonical_requested);
                         }
-                        mapped_manual_jump=matches!(winner,Some(Owner::Shortcut|Owner::Ledge))
-                            && canonical_requested & kirby_assist_core::native_input::SEQUENCE_JUMP_BUTTONS!=0;
+                        mapped_manual_jump = matches!(winner, Some(Owner::Shortcut | Owner::Ledge))
+                            && canonical_requested
+                                & kirby_assist_core::native_input::SEQUENCE_JUMP_BUTTONS
+                                != 0;
                         let canonical_owned = ledge.owned
-                            | if builtin_jump.is_some() {SHORT_HOP_TRIGGER} else {0}
-                            | if tech_takeover { state.tech_output.owned_buttons() } else {0}
-                            | if mapped_tech_output.is_some_and(|t|t.press) {MAPPER_ZR}else{0}
+                            | if builtin_jump.is_some() {
+                                SHORT_HOP_TRIGGER
+                            } else {
+                                0
+                            }
+                            | if tech_takeover {
+                                state.tech_output.owned_buttons()
+                            } else {
+                                0
+                            }
+                            | if mapped_tech_output.is_some_and(|t| t.press) {
+                                MAPPER_ZR
+                            } else {
+                                0
+                            }
                             | if cancel_stick.is_some() {
                                 kirby_assist_core::manual_controls::RIGHT_STICK_DIRECTIONS
                             } else {
@@ -2092,12 +2373,22 @@ unsafe fn map_controls(
                             | blocked_stick_buttons;
                         // Keep source consumption above; only the final taunt
                         // filter yields to an explicitly owned sequence D-pad.
-                        reserved_dpad=kirby_assist_core::manual_controls::sequence_taunt_reservation(
-                            reserved_dpad,ledge.requested,ledge.owned);
-                        let approach_pulse=winner==Some(Owner::OutOfShield)&&state.oos.approach_pending();
-                        if mapped_tech_output.is_some_and(|t|t.press) && !state.last_mapped_guard {
-                            state.manual_overlay.get_or_insert_with(ManualOverlay::default).rearm_tech_guard(
-                                config.control_layout.physical_buttons(MAPPER_ZR),physical);
+                        reserved_dpad =
+                            kirby_assist_core::manual_controls::sequence_taunt_reservation(
+                                reserved_dpad,
+                                ledge.requested,
+                                ledge.owned,
+                            );
+                        let approach_pulse =
+                            winner == Some(Owner::OutOfShield) && state.oos.approach_pending();
+                        if mapped_tech_output.is_some_and(|t| t.press) && !state.last_mapped_guard {
+                            state
+                                .manual_overlay
+                                .get_or_insert_with(ManualOverlay::default)
+                                .rearm_tech_guard(
+                                    config.control_layout.physical_buttons(MAPPER_ZR),
+                                    physical,
+                                );
                         }
                         let manual = state
                             .manual_overlay
@@ -2108,78 +2399,175 @@ unsafe fn map_controls(
                                 turbo_output,
                                 config.control_layout.physical_buttons(canonical_consumed),
                                 config.control_layout.physical_buttons(canonical_requested),
-                                config.control_layout.physical_owned_buttons(canonical_owned),
-                                winner==Some(Owner::RollRead)||approach_pulse,
+                                config
+                                    .control_layout
+                                    .physical_owned_buttons(canonical_owned),
+                                winner == Some(Owner::RollRead) || approach_pulse,
                             );
                         if fresh && manual_scope && sequence_walking {
                             mapped_left_stick = ledge.stick;
                         }
                         // Built-in analog outputs must survive the native
                         // mapper's flick/history filtering just like file Walk.
-                        if fresh && manual_scope && (
-                            winner==Some(Owner::Turbo) && turbo_stick.is_some()
-                            || (winner==Some(Owner::Ledge) || winner.is_none())
-                                && selected.owned==0 && manual_walk_stick.is_some()
-                                && turbo_output.stick==manual_walk_stick
-                        ) { mapped_left_stick=turbo_output.stick; }
+                        if fresh
+                            && manual_scope
+                            && (winner == Some(Owner::Turbo) && turbo_stick.is_some()
+                                || (winner == Some(Owner::Ledge) || winner.is_none())
+                                    && selected.owned == 0
+                                    && manual_walk_stick.is_some()
+                                    && turbo_output.stick == manual_walk_stick)
+                        {
+                            mapped_left_stick = turbo_output.stick;
+                        }
                         // Preserve the selected literal A packet, including directional
                         // smashes and one-frame presses. Plan metadata used to retain
                         // only neutral multi-frame holds, losing A while the stick survived.
-                        mapped_attack_hold = fresh && manual_scope
-                            && matches!(winner,Some(Owner::Ledge|Owner::RollRead|Owner::OutOfShield|Owner::OptionRead))
-                            && selected.owned & kirby_assist_core::native_input::MAPPER_A!=0
-                            && selected.requested & kirby_assist_core::native_input::MAPPER_A!=0
-                            && manual.buttons.held & config.control_layout.physical_buttons(
-                                kirby_assist_core::native_input::MAPPER_A) != 0;
+                        mapped_attack_hold = fresh
+                            && manual_scope
+                            && matches!(
+                                winner,
+                                Some(
+                                    Owner::Ledge
+                                        | Owner::RollRead
+                                        | Owner::OutOfShield
+                                        | Owner::OptionRead
+                                )
+                            )
+                            && selected.owned & kirby_assist_core::native_input::MAPPER_A != 0
+                            && selected.requested & kirby_assist_core::native_input::MAPPER_A != 0
+                            && manual.buttons.held
+                                & config
+                                    .control_layout
+                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_A)
+                                != 0;
                         // Forward all exclusive sequence axes identically. Drift
                         // and Run must not depend on the native mapper retaining
                         // an analog value after physical flick history was masked.
-                        if let Some(stick) = kirby_assist_core::native_input::exclusive_sequence_stick(
-                            ledge.owned, ledge.stick,
-                        ) { mapped_left_stick = Some(stick); }
+                        if let Some(stick) =
+                            kirby_assist_core::native_input::exclusive_sequence_stick(
+                                ledge.owned,
+                                ledge.stick,
+                            )
+                        {
+                            mapped_left_stick = Some(stick);
+                        }
                         if exclusive_sequence {
                             mapped_sequence_right = Some(cancel_stick.unwrap_or([0.; 2]));
                         }
                         if fresh && manual_scope && exclusive_sequence && winner.is_some() {
-                            mapped_literal_request=Some([
-                                kirby_assist_core::native_input::MAPPER_A,kirby_assist_core::native_input::MAPPER_B,
-                                kirby_assist_core::native_input::MAPPER_R,kirby_assist_core::native_input::MAPPER_ZR,
-                            ].into_iter().fold(0,|mask,button|mask | if canonical_requested & selected.owned & button!=0
-                                && manual.buttons.held & config.control_layout.physical_buttons(button)!=0 {button}else{0}));
+                            mapped_literal_request = Some(
+                                [
+                                    kirby_assist_core::native_input::MAPPER_A,
+                                    kirby_assist_core::native_input::MAPPER_B,
+                                    kirby_assist_core::native_input::MAPPER_R,
+                                    kirby_assist_core::native_input::MAPPER_ZR,
+                                ]
+                                .into_iter()
+                                .fold(0, |mask, button| {
+                                    mask | if canonical_requested & selected.owned & button != 0
+                                        && manual.buttons.held
+                                            & config.control_layout.physical_buttons(button)
+                                            != 0
+                                    {
+                                        button
+                                    } else {
+                                        0
+                                    }
+                                }),
+                            );
                         }
                         let modified = manual.buttons;
-                        if winner==Some(Owner::Reflect) {mapped_reflector=Some(state.raw_tick);}
-                        mapped_reflect=winner==Some(Owner::Reflect) && selected.requested
-                            & kirby_assist_core::native_input::MAPPER_B!=0
-                            && modified.held & config.control_layout.physical_buttons(kirby_assist_core::native_input::MAPPER_B)!=0;
-                        if winner==Some(Owner::OutOfShield) && selected.requested
-                            & kirby_assist_core::native_input::MAPPER_R!=0
-                            && modified.held & config.control_layout.physical_buttons(kirby_assist_core::native_input::MAPPER_R)!=0 {
-                            mapped_auto_grab=state.oos.target().map(|target|(state.raw_tick,target,true));
-                        } else if approach_pulse && selected.stick.is_some_and(|s|s[0].abs()>=0.95) {
-                            mapped_auto_grab=state.oos.target().map(|target|(state.raw_tick,target,false));
+                        if winner == Some(Owner::Reflect) {
+                            mapped_reflector = Some(state.raw_tick);
                         }
-                        if winner==Some(Owner::OptionRead) && selected.requested & kirby_assist_core::native_input::MAPPER_R!=0
-                            && modified.held & config.control_layout.physical_buttons(kirby_assist_core::native_input::MAPPER_R)!=0 {
-                            mapped_dodge_punish_grab=state.spot_dodge.as_ref().and_then(|s|s.follow_target()).map(|id|(state.raw_tick,id));
-                        }
-                        if winner==Some(Owner::GrabDodge) && selected.requested & MAPPER_ZR != 0
-                            && selected.stick.is_some_and(|s|s[1] < -0.5) {
-                            mapped_auto_dodge=state.spot_dodge.as_ref().and_then(|s|s.target())
-                                .map(|target|(state.raw_tick,target));
-                        }
-                        if winner==Some(Owner::OutOfShield) && state.oos.shield_up_b_pending()
+                        mapped_reflect = winner == Some(Owner::Reflect)
                             && selected.requested & kirby_assist_core::native_input::MAPPER_B != 0
-                            && modified.held & config.control_layout.physical_buttons(kirby_assist_core::native_input::MAPPER_B) != 0 {
-                            mapped_auto_up_special=state.oos.target().map(|target|(state.raw_tick,target,Owner::OutOfShield));
-                        } else if selected.requested & kirby_assist_core::native_input::MAPPER_B != 0
-                            && modified.held & config.control_layout.physical_buttons(kirby_assist_core::native_input::MAPPER_B) != 0 {
-                            let target=match winner {
-                                Some(Owner::RollRead)=>state.rule_engine.as_ref().filter(|e|e.direct_up_b()).and_then(|e|e.target()),
-                                Some(Owner::OptionRead)=>state.spot_dodge.as_ref().filter(|s|s.direct_up_b()).and_then(|s|s.follow_target()),
-                                _=>None,
+                            && modified.held
+                                & config
+                                    .control_layout
+                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_B)
+                                != 0;
+                        if winner == Some(Owner::OutOfShield)
+                            && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
+                            && modified.held
+                                & config
+                                    .control_layout
+                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_R)
+                                != 0
+                        {
+                            mapped_auto_grab = state
+                                .oos
+                                .target()
+                                .map(|target| (state.raw_tick, target, true));
+                        } else if approach_pulse
+                            && selected.stick.is_some_and(|s| s[0].abs() >= 0.95)
+                        {
+                            mapped_auto_grab = state
+                                .oos
+                                .target()
+                                .map(|target| (state.raw_tick, target, false));
+                        }
+                        if winner == Some(Owner::OptionRead)
+                            && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
+                            && modified.held
+                                & config
+                                    .control_layout
+                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_R)
+                                != 0
+                        {
+                            mapped_dodge_punish_grab = state
+                                .spot_dodge
+                                .as_ref()
+                                .and_then(|s| s.follow_target())
+                                .map(|id| (state.raw_tick, id));
+                        }
+                        if winner == Some(Owner::GrabDodge)
+                            && selected.requested & MAPPER_ZR != 0
+                            && selected.stick.is_some_and(|s| s[1] < -0.5)
+                        {
+                            mapped_auto_dodge = state
+                                .spot_dodge
+                                .as_ref()
+                                .and_then(|s| s.target())
+                                .map(|target| (state.raw_tick, target));
+                        }
+                        if winner == Some(Owner::OutOfShield)
+                            && state.oos.shield_up_b_pending()
+                            && selected.requested & kirby_assist_core::native_input::MAPPER_B != 0
+                            && modified.held
+                                & config
+                                    .control_layout
+                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_B)
+                                != 0
+                        {
+                            mapped_auto_up_special = state
+                                .oos
+                                .target()
+                                .map(|target| (state.raw_tick, target, Owner::OutOfShield));
+                        } else if selected.requested & kirby_assist_core::native_input::MAPPER_B
+                            != 0
+                            && modified.held
+                                & config
+                                    .control_layout
+                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_B)
+                                != 0
+                        {
+                            let target = match winner {
+                                Some(Owner::RollRead) => state
+                                    .rule_engine
+                                    .as_ref()
+                                    .filter(|e| e.direct_up_b())
+                                    .and_then(|e| e.target()),
+                                Some(Owner::OptionRead) => state
+                                    .spot_dodge
+                                    .as_ref()
+                                    .filter(|s| s.direct_up_b())
+                                    .and_then(|s| s.follow_target()),
+                                _ => None,
                             };
-                            mapped_auto_up_special=target.zip(winner).map(|(target,owner)|(state.raw_tick,target,owner));
+                            mapped_auto_up_special = target
+                                .zip(winner)
+                                .map(|(target, owner)| (state.raw_tick, target, owner));
                         }
                         #[cfg(feature = "diagnostic-logging")]
                         if state.grab_trace.active() || state.calibration.active() {
@@ -2195,13 +2583,12 @@ unsafe fn map_controls(
                                     "mash_priority"
                                 } else if state.tech_output.owns_guard {
                                     "tech_priority"
-                                } else if winner==Some(Owner::Trip) {
+                                } else if winner == Some(Owner::Trip) {
                                     "trip_priority"
-                                } else if winner==Some(Owner::Fair) {
+                                } else if winner == Some(Owner::Fair) {
                                     "fair_priority"
                                 } else if state.trump_output.owned != 0 {
                                     "trump_priority"
-
                                 } else if shortcut.owned != 0 {
                                     "shortcut_priority"
                                 } else {
@@ -2209,7 +2596,7 @@ unsafe fn map_controls(
                                 },
                             ));
                         }
-                        tech_applied = mapped_tech_output.is_some_and(|t|t.press);
+                        tech_applied = mapped_tech_output.is_some_and(|t| t.press);
                         #[cfg(feature = "diagnostic-logging")]
                         if ledge.requested & modified.pressed != 0 {
                             ledge_edge = Some(ledge.requested);
@@ -2254,7 +2641,8 @@ unsafe fn map_controls(
                         (*controller).left_stick_x = manual.stick[0];
                         (*controller).left_stick_y = manual.stick[1];
                         let triggers = kirby_assist_core::native_input::owned_trigger_axes(
-                            physical_triggers, manual.clear_autorepeat,
+                            physical_triggers,
+                            manual.clear_autorepeat,
                         );
                         (*controller).left_trigger = triggers[0];
                         (*controller).right_trigger = triggers[1];
@@ -2302,7 +2690,9 @@ unsafe fn map_controls(
     // original!() is Skyline's trampoline to the function we replaced. Calling
     // map_controls itself here would recurse into our hook instead.
     if !feature_activity_allowed() {
-        if let Some((controller, physical, stick, right_stick, autorepeat, triggers)) = restore.take() {
+        if let Some((controller, physical, stick, right_stick, autorepeat, triggers)) =
+            restore.take()
+        {
             write_trace(controller, physical);
             (*controller).left_stick_x = stick[0];
             (*controller).left_stick_y = stick[1];
@@ -2325,91 +2715,154 @@ unsafe fn map_controls(
             (*mapped).left_y = kirby_assist_core::native_input::mapped_stick_axis(stick[1]);
         }
         if let Some(right) = mapped_sequence_right {
-            (*mapped).buttons = kirby_assist_core::native_input::mapped_sequence_cstick(
-                (*mapped).buttons, right,
-            );
+            (*mapped).buttons =
+                kirby_assist_core::native_input::mapped_sequence_cstick((*mapped).buttons, right);
             (*mapped).right_x = kirby_assist_core::native_input::mapped_stick_axis(right[0]);
             (*mapped).right_y = kirby_assist_core::native_input::mapped_stick_axis(right[1]);
         }
-        if let Some(requested)=mapped_automatic_request {
-            (*mapped).buttons=kirby_assist_core::native_input::mapped_automatic_actions((*mapped).buttons,requested);
+        if let Some(requested) = mapped_automatic_request {
+            (*mapped).buttons = kirby_assist_core::native_input::mapped_automatic_actions(
+                (*mapped).buttons,
+                requested,
+            );
         }
         (*mapped).buttons = kirby_assist_core::native_input::mapped_short_hop(
             (*mapped).buttons,
             short_hop_requested,
         );
         (*mapped).buttons = kirby_assist_core::native_input::mapped_builtin_jump(
-            (*mapped).buttons, builtin_jump, short_hop_requested,
+            (*mapped).buttons,
+            builtin_jump,
+            short_hop_requested,
         );
         // Raw trigger history can lose A even while retaining the stick.
         // Retain only the selected explicit Attack input; the
         // timeline, safety ownership and native game rules still decide scope.
         (*mapped).buttons = kirby_assist_core::native_input::mapped_attack_hold(
-            (*mapped).buttons, mapped_attack_hold,
+            (*mapped).buttons,
+            mapped_attack_hold,
         );
-        if let Some(requested)=mapped_literal_request {
-            (*mapped).buttons=kirby_assist_core::native_input::mapped_literal_buttons((*mapped).buttons,requested);
+        if let Some(requested) = mapped_literal_request {
+            (*mapped).buttons = kirby_assist_core::native_input::mapped_literal_buttons(
+                (*mapped).buttons,
+                requested,
+            );
         }
-        if let Some(tech)=mapped_tech_output {
-            (*mapped).buttons=kirby_assist_core::tech_input::mapped_guard((*mapped).buttons,tech);
+        if let Some(tech) = mapped_tech_output {
+            (*mapped).buttons =
+                kirby_assist_core::tech_input::mapped_guard((*mapped).buttons, tech);
         }
-        let guard = (*output.cast::<MappedInputs>()).buttons & (kirby_assist_core::native_input::MAPPED_GUARD|kirby_assist_core::native_input::MAPPED_GUARD_HOLD) != 0;
+        let guard = (*output.cast::<MappedInputs>()).buttons
+            & (kirby_assist_core::native_input::MAPPED_GUARD
+                | kirby_assist_core::native_input::MAPPED_GUARD_HOLD)
+            != 0;
         if let Ok(mut state) = STATE.lock() {
             if state.mapping_index == Some(index) && state.session.accepts(session_ticket) {
-                if mapped_manual_jump && (*mapped).buttons & (0x4|0x40)!=0 {
-                    if let (Some(object),Some(kind),Some(context))=(state.associated_object,state.fighter_kind,state.shortcut_context) {
-                        state.manual_jump_fence.sample(object,kind,true,LedgeContext {
-                            gameplay:true,status:context.status,situation:context.situation,
-                            motion_kind:context.motion,motion_frame:context.frame,motion_rate:context.rate,
-                            stopped:context.stopped,..LedgeContext::default()
-                        });
+                if mapped_manual_jump && (*mapped).buttons & (0x4 | 0x40) != 0 {
+                    if let (Some(object), Some(kind), Some(context)) = (
+                        state.associated_object,
+                        state.fighter_kind,
+                        state.shortcut_context,
+                    ) {
+                        state.manual_jump_fence.sample(
+                            object,
+                            kind,
+                            true,
+                            LedgeContext {
+                                gameplay: true,
+                                status: context.status,
+                                situation: context.situation,
+                                motion_kind: context.motion,
+                                motion_frame: context.frame,
+                                motion_rate: context.rate,
+                                stopped: context.stopped,
+                                ..LedgeContext::default()
+                            },
+                        );
                     }
                 }
-                if mapped_reflect && (*mapped).buttons & kirby_assist_core::native_input::MAPPED_SPECIAL!=0
-                    && (*mapped).left_y < -63 {let tick=state.raw_tick;state.reflector.mapped(tick);}
-                if let Some(tick)=mapped_reflector {
+                if mapped_reflect
+                    && (*mapped).buttons & kirby_assist_core::native_input::MAPPED_SPECIAL != 0
+                    && (*mapped).left_y < -63
+                {
+                    let tick = state.raw_tick;
+                    state.reflector.mapped(tick);
+                }
+                if let Some(tick) = mapped_reflector {
                     state.reflector.poll_receipt(tick);
                     if !state.reflector.active() {
-                        state.reflect_output=LedgeOutput::default();state.action_owner.release(Owner::Reflect);
+                        state.reflect_output = LedgeOutput::default();
+                        state.action_owner.release(Owner::Reflect);
                     }
                 }
-                if let Some((tick,target,grab))=mapped_auto_grab {
-                    if grab {state.oos.mapped_grab(tick,target);}else{state.oos.mapped_approach(tick,target);}
+                if let Some((tick, target, grab)) = mapped_auto_grab {
+                    if grab {
+                        state.oos.mapped_grab(tick, target);
+                    } else {
+                        state.oos.mapped_approach(tick, target);
+                    }
                 }
-                if let Some((tick,owner,grab,eligible))=mapped_grab_handoff {
-                    state.grab_handoff.mapped(tick,owner,grab,(*mapped).buttons & kirby_assist_core::native_input::MAPPED_CATCH!=0,eligible);
+                if let Some((tick, owner, grab, eligible)) = mapped_grab_handoff {
+                    state.grab_handoff.mapped(
+                        tick,
+                        owner,
+                        grab,
+                        (*mapped).buttons & kirby_assist_core::native_input::MAPPED_CATCH != 0,
+                        eligible,
+                    );
                 }
-                let delivery_tick=state.raw_tick;
+                let delivery_tick = state.raw_tick;
                 state.oos.delivery_tick(delivery_tick);
-                if let Some(engine)=state.rule_engine.as_mut(){engine.delivery_tick(delivery_tick);}
-                if let Some(spot)=state.spot_dodge.as_mut(){
-                    if let Some((tick,target))=mapped_dodge_punish_grab {spot.mapped_grab(tick,target);}
+                if let Some(engine) = state.rule_engine.as_mut() {
+                    engine.delivery_tick(delivery_tick);
+                }
+                if let Some(spot) = state.spot_dodge.as_mut() {
+                    if let Some((tick, target)) = mapped_dodge_punish_grab {
+                        spot.mapped_grab(tick, target);
+                    }
                     spot.delivery_tick(delivery_tick);
                 }
-                if let Some((tick,target))=mapped_auto_dodge {
-                    if let Some(spot)=state.spot_dodge.as_mut(){
-                        spot.attempted_dodge(tick,target);
+                if let Some((tick, target)) = mapped_auto_dodge {
+                    if let Some(spot) = state.spot_dodge.as_mut() {
+                        spot.attempted_dodge(tick, target);
                         // Stop pressing only after actual Guard + Down delivery;
                         // failed packets retain their bounded retry budget.
-                        if guard && (*mapped).left_y<0 {spot.mapped_dodge(tick,target);}
+                        if guard && (*mapped).left_y < 0 {
+                            spot.mapped_dodge(tick, target);
+                        }
                     }
                 }
-                if let Some((tick,target,owner))=mapped_auto_up_special {
+                if let Some((tick, target, owner)) = mapped_auto_up_special {
                     // Rejected packets spend delivery attempts but cannot arm a
                     // delayed receipt. Confirmation requires final Special + Up.
-                    let delivered=kirby_assist_core::native_input::mapped_up_special_delivered((*mapped).buttons,(*mapped).left_y);
+                    let delivered = kirby_assist_core::native_input::mapped_up_special_delivered(
+                        (*mapped).buttons,
+                        (*mapped).left_y,
+                    );
                     match owner {
-                        Owner::OutOfShield=>{
-                            state.oos.attempted_up_special(tick,target);
-                            if delivered {state.oos.mapped_up_special(tick,target);}
-                        },
-                        Owner::RollRead=>{if let Some(engine)=state.rule_engine.as_mut(){
-                            engine.attempted_up_special(tick,target);if delivered {engine.mapped_up_special(tick,target);}
-                        }},
-                        Owner::OptionRead=>{if let Some(spot)=state.spot_dodge.as_mut(){
-                            spot.attempted_up_special(tick,target);if delivered {spot.mapped_up_special(tick,target);}
-                        }},
-                        _=>{},
+                        Owner::OutOfShield => {
+                            state.oos.attempted_up_special(tick, target);
+                            if delivered {
+                                state.oos.mapped_up_special(tick, target);
+                            }
+                        }
+                        Owner::RollRead => {
+                            if let Some(engine) = state.rule_engine.as_mut() {
+                                engine.attempted_up_special(tick, target);
+                                if delivered {
+                                    engine.mapped_up_special(tick, target);
+                                }
+                            }
+                        }
+                        Owner::OptionRead => {
+                            if let Some(spot) = state.spot_dodge.as_mut() {
+                                spot.attempted_up_special(tick, target);
+                                if delivered {
+                                    spot.mapped_up_special(tick, target);
+                                }
+                            }
+                        }
+                        _ => {}
                     }
                 }
                 if tech_applied && guard && !state.last_mapped_guard {
@@ -2434,7 +2887,8 @@ unsafe fn map_controls(
                 }
                 state.last_mapped_guard = guard;
                 let mapped = &*output.cast::<MappedInputs>();
-                state.last_mapped_stick=Some([mapped.left_x as f32 /127.,mapped.left_y as f32 /127.]);
+                state.last_mapped_stick =
+                    Some([mapped.left_x as f32 / 127., mapped.left_y as f32 / 127.]);
                 #[cfg(feature = "diagnostic-logging")]
                 if let Some((proposed, applied, pressed, gate)) = grab_delivery {
                     state.grab_trace.mapped(
@@ -2590,13 +3044,21 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     };
     // Nonselected/remote callbacks may share human metadata. They cannot
     // initialize policies, cache opponents or renew the local menu presence.
-    if !STATE.lock().ok().is_some_and(|state| state.mapping_index == Some(index)) {
+    if !STATE
+        .lock()
+        .ok()
+        .is_some_and(|state| state.mapping_index == Some(index))
+    {
         return;
     }
     // CPU actors cannot establish participation even if they share a default
     // input index. Arena roster slots are not physical controller identities.
-    if !human_fighter(object) { return; }
-    let Some(session_ticket) = live_match_ticket() else { return; };
+    if !human_fighter(object) {
+        return;
+    }
+    let Some(session_ticket) = live_match_ticket() else {
+        return;
+    };
     let fighter_kind = game::fighter_kind(object_id);
     let (tick, target) = {
         let Ok(mut state) = STATE.lock() else {
@@ -2619,7 +3081,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             && state.observed_object == Some(object_id)
             && state.associated_object == Some(object_id)
             && state.fighter_kind == Some(fighter_kind)
-            && !state.observation_setup.needed(tick,true,discover_roster)
+            && !state.observation_setup.needed(tick, true, discover_roster)
         {
             #[cfg(feature = "diagnostic-logging")]
             crate::performance::health::event(crate::performance::health::Event::ObservationReuse);
@@ -2728,7 +3190,10 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 .ledge
                 .as_ref()
                 .is_some_and(LedgeTrap::file_timeline_active),
-            state.ledge.as_ref().is_some_and(LedgeTrap::file_needs_ground),
+            state
+                .ledge
+                .as_ref()
+                .is_some_and(LedgeTrap::file_needs_ground),
             config.auto_ledge_trump
                 && (trump_held || state.trump.as_ref().is_some_and(LedgeTrump::active)),
             state.raw_buttons & SHORT_HOP_TRIGGER != 0
@@ -2743,26 +3208,38 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::Observation);
     let native_status = reads.status_kind(object);
-    let native_auto_ground=reads.situation_kind(object);
-    let native_auto_stopped=reads.is_stop(object);
+    let native_auto_ground = reads.situation_kind(object);
+    let native_auto_stopped = reads.is_stop(object);
     let ledge_motion_frame = reads.motion_frame(object);
     let own_motion_kind = reads.motion_kind(object);
     let timing_rate = reads.motion_rate(object);
-    let manual_automatic_blocked=STATE.lock().ok().map_or(true,|mut state| {
-        let actions=state.ledge_menu.as_ref().and_then(|m|m.for_fighter(fighter_kind))
-            .map_or(0,|m|m.manual_native_actions());
-        let context=LedgeContext {
-            gameplay:true,status:native_status,situation:native_auto_ground,
-            stopped:native_auto_stopped,motion_kind:own_motion_kind,
-            motion_frame:ledge_motion_frame,motion_rate:timing_rate,..LedgeContext::default()
+    let manual_automatic_blocked = STATE.lock().ok().map_or(true, |mut state| {
+        let actions = state
+            .ledge_menu
+            .as_ref()
+            .and_then(|m| m.for_fighter(fighter_kind))
+            .map_or(0, |m| m.manual_native_actions());
+        let context = LedgeContext {
+            gameplay: true,
+            status: native_status,
+            situation: native_auto_ground,
+            stopped: native_auto_stopped,
+            motion_kind: own_motion_kind,
+            motion_frame: ledge_motion_frame,
+            motion_rate: timing_rate,
+            ..LedgeContext::default()
         };
-        state.grab_handoff.observe_native(true,Some(context));
-        let manual_allowed=state.action_owner.current_owner().is_none();
-        let pending=state.manual_jump_fence.sample(object_id,fighter_kind,
-            manual_allowed && actions & kirby_assist_core::native_input::SEQUENCE_JUMP_BUTTONS!=0,context);
-        let confirmed_spin=state.bowser_up_b_owner().is_some()
-            && kirby_assist_core::native_states::up_special_status(fighter_kind,native_status);
-        manual_allowed && !confirmed_spin && (pending || actions!=0)
+        state.grab_handoff.observe_native(true, Some(context));
+        let manual_allowed = state.action_owner.current_owner().is_none();
+        let pending = state.manual_jump_fence.sample(
+            object_id,
+            fighter_kind,
+            manual_allowed && actions & kirby_assist_core::native_input::SEQUENCE_JUMP_BUTTONS != 0,
+            context,
+        );
+        let confirmed_spin = state.bowser_up_b_owner().is_some()
+            && kirby_assist_core::native_states::up_special_status(fighter_kind, native_status);
+        manual_allowed && !confirmed_spin && (pending || actions != 0)
     });
     let damage_stop = (config.auto_sdi || config.auto_di.enabled)
         && (0x47..=0x5b).contains(&native_status)
@@ -2782,92 +3259,245 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         oos_enabled,
         oos_target,
         rules_on,
-        (rule_target, dodge_follow, automatic_up_b_committed, automatic_sequence_committed, up_b_receipt),
-        ((rules_ground, simple_starts), dodge_lookahead, (manual_input_epoch, up_b_input_epoch), (analysis_settings, automatic_limits, dodge_direct_up_b, want_up_special, ordinary_backup), stationary_intent, grab_intent, self_shielded, grab_dash_pending),
+        (
+            rule_target,
+            dodge_follow,
+            automatic_up_b_committed,
+            automatic_sequence_committed,
+            up_b_receipt,
+        ),
+        (
+            (rules_ground, simple_starts),
+            dodge_lookahead,
+            (manual_input_epoch, up_b_input_epoch),
+            (
+                analysis_settings,
+                automatic_limits,
+                dodge_direct_up_b,
+                want_up_special,
+                ordinary_backup,
+            ),
+            stationary_intent,
+            grab_intent,
+            self_shielded,
+            grab_dash_pending,
+        ),
     ) = STATE.lock().ok().map_or(Default::default(), |s| {
-        let menu = s.ledge_menu.as_ref().and_then(|m|m.for_fighter(fighter_kind));
+        let menu = s
+            .ledge_menu
+            .as_ref()
+            .and_then(|m| m.for_fighter(fighter_kind));
         let committed_automatic = s.action_owner.automatic_active();
-        let automatic_suspended=s.fighter_kind!=Some(fighter_kind) || !committed_automatic && (manual_automatic_blocked || s.ledge_active
-            || menu.is_some_and(|m|m.reserves_automatic_modes()));
-        let tracking_owner=s.bowser_up_b_owner().filter(|_|!automatic_suspended);
-        let rules = (!automatic_suspended).then(||menu.and_then(|m|m.rule_config()
-            .or_else(||(tracking_owner==Some(Owner::RollRead)).then(||m.automatic_rules()).flatten()))).flatten();
-        let dodge_enabled = !automatic_suspended && (tracking_owner == Some(Owner::OptionRead)
-            || menu.is_some_and(|m| m.grab_dodge_enabled()));
-        let grabs_enabled = !automatic_suspended && (tracking_owner == Some(Owner::OutOfShield)
-            || menu.is_some_and(|m| m.out_of_shield_enabled()));
+        let automatic_suspended = s.fighter_kind != Some(fighter_kind)
+            || !committed_automatic
+                && (manual_automatic_blocked
+                    || s.ledge_active
+                    || menu.is_some_and(|m| m.reserves_automatic_modes()));
+        let tracking_owner = s.bowser_up_b_owner().filter(|_| !automatic_suspended);
+        let rules = (!automatic_suspended)
+            .then(|| {
+                menu.and_then(|m| {
+                    m.rule_config().or_else(|| {
+                        (tracking_owner == Some(Owner::RollRead))
+                            .then(|| m.automatic_rules())
+                            .flatten()
+                    })
+                })
+            })
+            .flatten();
+        let dodge_enabled = !automatic_suspended
+            && (tracking_owner == Some(Owner::OptionRead)
+                || menu.is_some_and(|m| m.grab_dodge_enabled()));
+        let grabs_enabled = !automatic_suspended
+            && (tracking_owner == Some(Owner::OutOfShield)
+                || menu.is_some_and(|m| m.out_of_shield_enabled()));
         let event_mask = if rules.is_some() { 0b111 } else { 0 }
-            | if grabs_enabled { (1 << 3) | (1 << 4) | (1 << 6) } else { 0 }
+            | if grabs_enabled {
+                (1 << 3) | (1 << 4) | (1 << 6)
+            } else {
+                0
+            }
             | if dodge_enabled { 1 << 5 } else { 0 };
-        let cached_rules = (!automatic_suspended).then(|| menu.and_then(|m| m.automatic_rules())).flatten();
+        let cached_rules = (!automatic_suspended)
+            .then(|| menu.and_then(|m| m.automatic_rules()))
+            .flatten();
         let ground_watch = cached_rules.and_then(|r| r.automatic_ground_watch(event_mask));
-        let want_up_special = cached_rules.is_some_and(|r| r.automatic_needs_up_special(event_mask));
-        let ordinary_backup = grabs_enabled && cached_rules.is_some_and(|r|
-            r.simple_sequence(6).is_some() && !r.automatic_needs_up_special(1 << 6));
+        let want_up_special =
+            cached_rules.is_some_and(|r| r.automatic_needs_up_special(event_mask));
+        let ordinary_backup = grabs_enabled
+            && cached_rules.is_some_and(|r| {
+                r.simple_sequence(6).is_some() && !r.automatic_needs_up_special(1 << 6)
+            });
         (
             automatic_suspended,
-            !automatic_suspended&&s.trip_followup.as_ref().is_some_and(TripFollowup::watching),
+            !automatic_suspended && s.trip_followup.as_ref().is_some_and(TripFollowup::watching),
             dodge_enabled,
             if !automatic_suspended && matches!(fighter_kind, 5 | 6) {
                 menu.map_or((false, false), |m| m.posture_modes())
             } else {
                 (false, false)
             },
-            !automatic_suspended && fighter_kind == 5
+            !automatic_suspended
+                && fighter_kind == 5
                 && config.controls.enabled
                 && menu.is_some_and(|m| m.jab_lock_enabled()),
             s.posture_down,
             s.ledge_roster.is_none(),
             grabs_enabled,
-            if automatic_suspended {None}else{s.oos.target()},
+            if automatic_suspended {
+                None
+            } else {
+                s.oos.target()
+            },
             rules.is_some(),
-            if automatic_suspended {(None,None,false,false,false)}else{(s.rule_engine.as_ref().and_then(|r|r.target()),
-             s.spot_dodge.as_ref().and_then(|s|s.follow_target()),
-             s.rule_engine.as_ref().is_some_and(|r|r.direct_up_b()) || s.oos.shield_up_b_pending() || s.spot_dodge.as_ref().is_some_and(|s|s.direct_up_b()),
-             s.rule_engine.as_ref().is_some_and(|r|r.committed()&&!r.direct_up_b())
-                || s.oos.configured_committed()&&!s.oos.shield_up_b_pending()&&!s.oos.grab_delivery_pending()
-                || s.spot_dodge.as_ref().is_some_and(|s|s.punish_pending()&&!s.direct_up_b()&&!s.grab_delivery_pending()),
-             fighter_kind==15 && (s.oos.up_b_receipt_pending() || s.rule_engine.as_ref().is_some_and(|e|e.up_b_receipt_pending())
-                 || s.spot_dodge.as_ref().is_some_and(|s|s.up_b_receipt_pending())))},
-            ((ground_watch.map(|(distance, height)| (distance, height,
-                s.rule_engine.as_ref().is_some_and(|e| e.needs_ground()) || s.oos.needs_ground()
-                    || s.spot_dodge.as_ref().is_some_and(|s| s.needs_ground()))),
-                rules.map_or([None; 3], |r| r.simple_starts())),
-            menu.map_or(kirby_assist_core::spot_dodge::LOOKAHEAD, |m| m.dodge_lookahead()), (s.action_owner.physical_inputs().epoch(),s.action_owner.policy_inputs().action_epoch()), (menu.map_or(Default::default(),|m|m.fighter_tuning(fighter_kind)),menu.map_or([None;3],|m|m.automatic_limits()),
-                menu.and_then(|m|m.grab_dodge_sequence()).is_none_or(kirby_assist_core::reaction_rules::starts_direct_up_b), want_up_special, ordinary_backup), s.action_owner.policy_inputs().stationary_assist(native_status), s.action_owner.policy_inputs().grounded_grab_assist(native_status), s.action_owner.policy_inputs().shield_held()||matches!(native_status,0x1b..=0x1e),s.oos.approach_pending()),
+            if automatic_suspended {
+                (None, None, false, false, false)
+            } else {
+                (
+                    s.rule_engine.as_ref().and_then(|r| r.target()),
+                    s.spot_dodge.as_ref().and_then(|s| s.follow_target()),
+                    s.rule_engine.as_ref().is_some_and(|r| r.direct_up_b())
+                        || s.oos.shield_up_b_pending()
+                        || s.spot_dodge.as_ref().is_some_and(|s| s.direct_up_b()),
+                    s.rule_engine
+                        .as_ref()
+                        .is_some_and(|r| r.committed() && !r.direct_up_b())
+                        || s.oos.configured_committed()
+                            && !s.oos.shield_up_b_pending()
+                            && !s.oos.grab_delivery_pending()
+                        || s.spot_dodge.as_ref().is_some_and(|s| {
+                            s.punish_pending() && !s.direct_up_b() && !s.grab_delivery_pending()
+                        }),
+                    fighter_kind == 15
+                        && (s.oos.up_b_receipt_pending()
+                            || s.rule_engine
+                                .as_ref()
+                                .is_some_and(|e| e.up_b_receipt_pending())
+                            || s.spot_dodge
+                                .as_ref()
+                                .is_some_and(|s| s.up_b_receipt_pending())),
+                )
+            },
+            (
+                (
+                    ground_watch.map(|(distance, height)| {
+                        (
+                            distance,
+                            height,
+                            s.rule_engine.as_ref().is_some_and(|e| e.needs_ground())
+                                || s.oos.needs_ground()
+                                || s.spot_dodge.as_ref().is_some_and(|s| s.needs_ground()),
+                        )
+                    }),
+                    rules.map_or([None; 3], |r| r.simple_starts()),
+                ),
+                menu.map_or(kirby_assist_core::spot_dodge::LOOKAHEAD, |m| {
+                    m.dodge_lookahead()
+                }),
+                (
+                    s.action_owner.physical_inputs().epoch(),
+                    s.action_owner.policy_inputs().action_epoch(),
+                ),
+                (
+                    menu.map_or(Default::default(), |m| m.fighter_tuning(fighter_kind)),
+                    menu.map_or([None; 3], |m| m.automatic_limits()),
+                    menu.and_then(|m| m.grab_dodge_sequence())
+                        .is_none_or(kirby_assist_core::reaction_rules::starts_direct_up_b),
+                    want_up_special,
+                    ordinary_backup,
+                ),
+                s.action_owner
+                    .policy_inputs()
+                    .stationary_assist(native_status),
+                s.action_owner
+                    .policy_inputs()
+                    .grounded_grab_assist(native_status),
+                s.action_owner.policy_inputs().shield_held()
+                    || matches!(native_status, 0x1b..=0x1e),
+                s.oos.approach_pending(),
+            ),
         )
     });
-    let own_capture_link=if !automatic_suspended && (rules_on || oos_enabled || grab_dodge_enabled || rule_target.is_some() || oos_target.is_some() || dodge_follow.is_some())
-        && (kirby_assist_core::reaction_rules::automatic_start_status(native_status) || automatic_up_b_committed || automatic_sequence_committed || native_status==0x1f && dodge_follow.is_some()) {
+    let own_capture_link = if !automatic_suspended
+        && (rules_on
+            || oos_enabled
+            || grab_dodge_enabled
+            || rule_target.is_some()
+            || oos_target.is_some()
+            || dodge_follow.is_some())
+        && (kirby_assist_core::reaction_rules::automatic_start_status(native_status)
+            || automatic_up_b_committed
+            || automatic_sequence_committed
+            || native_status == 0x1f && dodge_follow.is_some())
+    {
         reads.capture_link(object)
-    }else{false};
-    let auto_previous=if automatic_up_b_committed && native_status>=0x1e0 {reads.previous_status(object,0)}else{0};
-    let automatic_scope=kirby_assist_core::reaction_rules::AutomaticObservationScope::new(
-        automatic_suspended,native_status,native_auto_ground,native_auto_stopped,own_capture_link,
-        automatic_up_b_committed,kirby_assist_core::reaction_rules::automatic_up_b_status(fighter_kind,native_status,auto_previous),dodge_follow.is_some(),automatic_sequence_committed)
-        .with_up_b_receipt(automatic_suspended,own_capture_link,up_b_receipt,native_status,native_auto_ground,dodge_follow.is_some());
-    let spin_follow=fighter_kind==15 && automatic_up_b_committed
-        && (up_b_receipt || kirby_assist_core::reaction_rules::automatic_up_b_status(fighter_kind,native_status,auto_previous));
-    let trip_kirby = !automatic_suspended&&config.down_tilt_trip_smash&&fighter_kind==kirby::FIGHTER_KIND;
+    } else {
+        false
+    };
+    let auto_previous = if automatic_up_b_committed && native_status >= 0x1e0 {
+        reads.previous_status(object, 0)
+    } else {
+        0
+    };
+    let automatic_scope = kirby_assist_core::reaction_rules::AutomaticObservationScope::new(
+        automatic_suspended,
+        native_status,
+        native_auto_ground,
+        native_auto_stopped,
+        own_capture_link,
+        automatic_up_b_committed,
+        kirby_assist_core::reaction_rules::automatic_up_b_status(
+            fighter_kind,
+            native_status,
+            auto_previous,
+        ),
+        dodge_follow.is_some(),
+        automatic_sequence_committed,
+    )
+    .with_up_b_receipt(
+        automatic_suspended,
+        own_capture_link,
+        up_b_receipt,
+        native_status,
+        native_auto_ground,
+        dodge_follow.is_some(),
+    );
+    let spin_follow = fighter_kind == 15
+        && automatic_up_b_committed
+        && (up_b_receipt
+            || kirby_assist_core::reaction_rules::automatic_up_b_status(
+                fighter_kind,
+                native_status,
+                auto_previous,
+            ));
+    let trip_kirby =
+        !automatic_suspended && config.down_tilt_trip_smash && fighter_kind == kirby::FIGHTER_KIND;
     let pressure_on = oos_enabled;
-    let (legacy_grab_close,legacy_grab_approach) = if oos_enabled
-        && (automatic_limits[0].is_none() || automatic_limits[1].is_none()) {
-        let standing=if config.ledge.fighter_kind==fighter_kind {
-            config.ledge.fighter.grab.standing_range
-        } else {0.};
-        analysis_settings.auto_grab_ranges(fighter_kind,standing)
-    } else {(0.,0.)};
-    let auto_grab_range=automatic_limits[1].map_or(legacy_grab_close,|v|v.0);
-    let auto_grab_approach_range=automatic_limits[0].map_or(legacy_grab_approach,|v|v.0);
-    let auto_grab_height=automatic_limits[0].map_or(24.,|v|v.1);
-    let auto_shield_height=automatic_limits[1].map_or(24.,|v|v.1);
-    let auto_backup_range=automatic_limits[2].map_or(auto_grab_range,|v|v.0);
-    let auto_backup_height=automatic_limits[2].map_or(24.,|v|v.1);
+    let (legacy_grab_close, legacy_grab_approach) =
+        if oos_enabled && (automatic_limits[0].is_none() || automatic_limits[1].is_none()) {
+            let standing = if config.ledge.fighter_kind == fighter_kind {
+                config.ledge.fighter.grab.standing_range
+            } else {
+                0.
+            };
+            analysis_settings.auto_grab_ranges(fighter_kind, standing)
+        } else {
+            (0., 0.)
+        };
+    let auto_grab_range = automatic_limits[1].map_or(legacy_grab_close, |v| v.0);
+    let auto_grab_approach_range = automatic_limits[0].map_or(legacy_grab_approach, |v| v.0);
+    let auto_grab_height = automatic_limits[0].map_or(24., |v| v.1);
+    let auto_shield_height = automatic_limits[1].map_or(24., |v| v.1);
+    let auto_backup_range = automatic_limits[2].map_or(auto_grab_range, |v| v.0);
+    let auto_backup_height = automatic_limits[2].map_or(24., |v| v.1);
     let trip_watch = trip_kirby && (matches!(native_status, 0x2a | 0x2c) || trip_queued);
-    let observe_roll_read = automatic_scope.acquire && (rules_on || pressure_on) || automatic_scope.follow;
+    let observe_roll_read =
+        automatic_scope.acquire && (rules_on || pressure_on) || automatic_scope.follow;
     // A first Down input can need facing before any other assist discovered
     // opponents. Seed once here; ordinary refreshes stay on the existing path.
-    if (discover_roster || preview_start || (rules_on || pressure_on) && roster_missing
+    if (discover_roster
+        || preview_start
+        || (rules_on || pressure_on) && roster_missing
         || (grab_dodge_enabled || oos_enabled) && roster_missing
         || posture_modes.1 && posture_down && roster_missing)
         && (observe_ledge
@@ -2922,7 +3552,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         // A discovery-capable callback was handled even if no policy needed
         // a roster. Otherwise every command query in an idle/airborne update
         // repeats setup until a roster scan happens for unrelated reasons.
-        state.observation_setup.complete(tick,discover_roster);
+        state.observation_setup.complete(tick, discover_roster);
         if state.evaluated_tick == Some(tick) && state.observed_object == Some(object_id) {
             return;
         }
@@ -2974,13 +3604,16 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let tech = !clatter && assessment.prepare_guard && assessment.contact_in.is_some();
     // Read the fighter's consumed button state outside STATE. GuardHold is a
     // second shield alias; a mapped neutral/press can still be in transit.
-    let native_tech_guard=auto_tech_enabled && (game::button_on(object,3) || game::button_on(object,0x10));
+    let native_tech_guard =
+        auto_tech_enabled && (game::button_on(object, 3) || game::button_on(object, 0x10));
     // Current native common.prc values, rather than the legacy configured
     // synthetic forty-frame lockout. Invalid/missing keys retain compatibility.
     // Parameter names and integer types are pinned in skyline-smash params/common.rs.
     let tech_timing = if auto_tech_enabled && (tech || assessment.prepare_guard) {
-        self::tech::native_timing(object,config.controls.tech_cooldown)
-    } else {(config.controls.tech_cooldown,12,7)};
+        self::tech::native_timing(object, config.controls.tech_cooldown)
+    } else {
+        (config.controls.tech_cooldown, 12, 7)
+    };
     if matches!(assessment.status, 0xb5 | 0xb6 | 0x1d6 | 0x1d9..=0x1db) {
         if let Ok(mut state) = STATE.lock() {
             state.cancel();
@@ -2989,7 +3622,11 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     }
 
     // Read native data outside STATE's mutex to avoid re-entrant deadlocks.
-    let jab_config=if observe_jab_lock {analysis_settings.jab_lock(fighter_kind)} else {None};
+    let jab_config = if observe_jab_lock {
+        analysis_settings.jab_lock(fighter_kind)
+    } else {
+        None
+    };
     let jab_lock_observation = if observe_jab_lock {
         let position = [reads.pos_x(object), reads.pos_y(object)];
         let watching = STATE
@@ -3000,9 +3637,14 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             && game::attack_infliction_now(object, game::COLLISION_KIND_MASK_HIT);
         // Status/team/range checks are cheap; detailed recovery facts are read
         // only for nearby tumble/down/tech targets or an ongoing attributed hit.
-        let targets =
-            observations::jab_lock_targets(&reads, object, object_id, watching || tilt_hit,
-                jab_config.map_or(60.,|c|c.chase_distance), analysis_settings.value(kirby_assist_core::fighter_tuning::JAB_LOCK_HEIGHT,24.));
+        let targets = observations::jab_lock_targets(
+            &reads,
+            object,
+            object_id,
+            watching || tilt_hit,
+            jab_config.map_or(60., |c| c.chase_distance),
+            analysis_settings.value(kirby_assist_core::fighter_tuning::JAB_LOCK_HEIGHT, 24.),
+        );
         let relevant = watching || tilt_hit || targets.iter().any(Option::is_some);
         let grounded = assessment.situation == 0;
         Some((
@@ -3035,35 +3677,68 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     };
     // One bounded roster pass, only while custom rules are enabled. Follow the
     // locked target through recovery without a second scan or stale position.
-    let rule_observation = if automatic_scope.acquire && (rules_on || pressure_on) || rule_target.is_some() || oos_target.is_some() || dodge_follow.is_some() {
-        let (targets,follow)=if !clatter && !tech && automatic_scope.observe_targets() {
-            observations::rule_targets(&reads,object,object_id,
+    let rule_observation = if automatic_scope.acquire && (rules_on || pressure_on)
+        || rule_target.is_some()
+        || oos_target.is_some()
+        || dodge_follow.is_some()
+    {
+        let (targets, follow) = if !clatter && !tech && automatic_scope.observe_targets() {
+            observations::rule_targets(
+                &reads,
+                object,
+                object_id,
                 rule_target.or(oos_target).or(dodge_follow),
-                (oos_enabled && automatic_scope.acquire).then_some(if self_shielded{[auto_grab_range.max(auto_backup_range),auto_shield_height.max(auto_backup_height)]}else{[auto_grab_approach_range,auto_grab_height]}),
-                self_shielded,rules_on && automatic_scope.acquire,spin_follow)
-        }else{([None;8],None)};
+                (oos_enabled && automatic_scope.acquire).then_some(if self_shielded {
+                    [
+                        auto_grab_range.max(auto_backup_range),
+                        auto_shield_height.max(auto_backup_height),
+                    ]
+                } else {
+                    [auto_grab_approach_range, auto_grab_height]
+                }),
+                self_shielded,
+                rules_on && automatic_scope.acquire,
+                spin_follow,
+            )
+        } else {
+            ([None; 8], None)
+        };
         let position = [reads.pos_x(object), reads.pos_y(object)];
         let velocity = [reads.speed_x(object, -1), reads.speed_y(object, -1)];
         let rule_needs_ground = rules_ground.is_some_and(|(distance, height, active)| {
-            if rule_target.is_some() || oos_target.is_some() { active } else {
-                targets.iter().flatten().any(|t|
-                    (matches!(t.status,0x1f..=0x23) || t.vulnerable_in==Some(0.)) && (t.position[0]-position[0]).abs()<=distance
-                        && (t.position[1]-position[1]).abs()<=height)
-                    || dodge_follow.is_some() && follow.is_some_and(|e|(e.position[0]-position[0]).abs()<=distance && (e.position[1]-position[1]).abs()<=height)
+            if rule_target.is_some() || oos_target.is_some() {
+                active
+            } else {
+                targets.iter().flatten().any(|t| {
+                    (matches!(t.status, 0x1f..=0x23) || t.vulnerable_in == Some(0.))
+                        && (t.position[0] - position[0]).abs() <= distance
+                        && (t.position[1] - position[1]).abs() <= height
+                }) || dodge_follow.is_some()
+                    && follow.is_some_and(|e| {
+                        (e.position[0] - position[0]).abs() <= distance
+                            && (e.position[1] - position[1]).abs() <= height
+                    })
             }
         });
-        let grab_ground=oos_enabled && !self_shielded && grab_intent && !stopped
-            && (grab_dash_pending || kirby_assist_core::out_of_shield::ground_grab_state(assessment.status)
-                && targets.iter().flatten().any(|t|kirby_assist_core::out_of_shield::automatic_grab_target_status(t.status)
-                    && t.vulnerable_in==Some(0.)
-                    && assessment.status==0 && (t.position[0]-position[0]).abs()>auto_grab_range));
-        let needs_ground = assessment.situation==0&&(rule_needs_ground||grab_ground);
+        let grab_ground = oos_enabled
+            && !self_shielded
+            && grab_intent
+            && !stopped
+            && (grab_dash_pending
+                || kirby_assist_core::out_of_shield::ground_grab_state(assessment.status)
+                    && targets.iter().flatten().any(|t| {
+                        kirby_assist_core::out_of_shield::automatic_grab_target_status(t.status)
+                            && t.vulnerable_in == Some(0.)
+                            && assessment.status == 0
+                            && (t.position[0] - position[0]).abs() > auto_grab_range
+                    }));
+        let needs_ground = assessment.situation == 0 && (rule_needs_ground || grab_ground);
         Some((
             LedgeContext {
                 held: true,
                 gameplay: true,
                 manual_input_epoch,
-                automatic_up_b_epoch:(fighter_kind==15).then_some(up_b_input_epoch),
+                automatic_up_b_epoch: (fighter_kind == 15).then_some(up_b_input_epoch),
                 stopped,
                 status: assessment.status,
                 situation: assessment.situation,
@@ -3073,15 +3748,25 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 position,
                 velocity,
                 facing: reads.facing(object),
-                previous_status: reads.previous_status(object,0),
+                previous_status: reads.previous_status(object, 0),
                 // Only admit a new grounded Up-B reaction when the native game
                 // can accept it now. Locomotion keeps its momentum until then.
-                can_act: want_up_special && !own_capture_link && !clatter && !tech && !stopped && assessment.situation==0
-                    && (automatic_scope.acquire || automatic_scope.follow && assessment.status==0x1f && game::cancel_enabled(object))
-                    && game::transition_enabled(object,0x1e000065), // CONT_SPECIAL_HI
-                ground_brake: if assessment.situation==0 && rule_needs_ground {
+                can_act: want_up_special
+                    && !own_capture_link
+                    && !clatter
+                    && !tech
+                    && !stopped
+                    && assessment.situation == 0
+                    && (automatic_scope.acquire
+                        || automatic_scope.follow
+                            && assessment.status == 0x1f
+                            && game::cancel_enabled(object))
+                    && game::transition_enabled(object, 0x1e000065), // CONT_SPECIAL_HI
+                ground_brake: if assessment.situation == 0 && rule_needs_ground {
                     reads.ground_brake(object)
-                } else { None },
+                } else {
+                    None
+                },
                 safe_ground: if needs_ground {
                     reads.ground_support(object, position, velocity[0])
                 } else {
@@ -3097,25 +3782,48 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     };
     // Per-event readiness is computed outside STATE, only for an actual nearby
     // candidate. Ordinary fighter recipes never depend on Up-B availability.
-    let simple_readiness = rule_observation.as_ref().map_or([false; 3], |(context, targets, _)| {
-        kirby_assist_core::reaction_rules::simple_readiness(simple_starts, *context, targets, || {
-            game::transition_enabled(object, 0x1e00006f) // CONT_CATCH
+    let simple_readiness = rule_observation
+        .as_ref()
+        .map_or([false; 3], |(context, targets, _)| {
+            kirby_assist_core::reaction_rules::simple_readiness(
+                simple_starts,
+                *context,
+                targets,
+                || {
+                    game::transition_enabled(object, 0x1e00006f) // CONT_CATCH
                 || game::transition_enabled(object, 0x1e00002c) // CONT_JUMP_SQUAT_BUTTON
-        })
-    });
+                },
+            )
+        });
     // Query grab/OOS readiness only with a current vulnerable target or active attempt.
-    let oos_readiness = if oos_enabled && automatic_scope.acquire && (grab_intent || fighter_kind==15 && oos_target.is_some() && automatic_up_b_committed) && assessment.situation==0
+    let oos_readiness = if oos_enabled
+        && automatic_scope.acquire
+        && (grab_intent || fighter_kind == 15 && oos_target.is_some() && automatic_up_b_committed)
+        && assessment.situation == 0
         && kirby_assist_core::out_of_shield::ground_grab_state(assessment.status)
         && (oos_target.is_some()
-            || rule_observation.as_ref().is_some_and(|(_,targets,_)|targets.iter().flatten().any(|t|t.vulnerable_in==Some(0.)))) {
+            || rule_observation.as_ref().is_some_and(|(_, targets, _)| {
+                targets
+                    .iter()
+                    .flatten()
+                    .any(|t| t.vulnerable_in == Some(0.))
+            })) {
         let ready =
             !stopped && (assessment.status != 0x1e || game::work_int(object, 0x1100000e) <= 0);
         (
             ready,
-            ready && kirby_assist_core::out_of_shield::automatic_grab_ready_with_shield(assessment.status,self_shielded,|term|game::transition_enabled(object,term)),
-            ready && ordinary_backup && self_shielded
-                && (game::transition_enabled(object, 0x1e00002c) || game::transition_enabled(object, 0x1e00002b)),
-            ready && self_shielded && rule_observation.as_ref().is_some_and(|(c,_,_)|c.can_act),
+            ready
+                && kirby_assist_core::out_of_shield::automatic_grab_ready_with_shield(
+                    assessment.status,
+                    self_shielded,
+                    |term| game::transition_enabled(object, term),
+                ),
+            ready
+                && ordinary_backup
+                && self_shielded
+                && (game::transition_enabled(object, 0x1e00002c)
+                    || game::transition_enabled(object, 0x1e00002b)),
+            ready && self_shielded && rule_observation.as_ref().is_some_and(|(c, _, _)| c.can_act),
         )
     } else {
         (false, false, false, false)
@@ -3141,7 +3849,8 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 object_id,
                 [reads.pos_x(object), reads.pos_y(object)],
                 [reads.speed_x(object, -1), reads.speed_y(object, -1)],
-                true, analysis_settings.shield(),
+                true,
+                analysis_settings.shield(),
             )
         } else {
             kirby_assist_core::autopilot_guard::duck::DefenseThreat::default()
@@ -3201,13 +3910,13 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             && !file_ledge_timeline
             && config.autopilot_shield
             && assessment.situation == 0
-            && !kirby_assist_core::native_states::fighter_sequence_interrupted(fighter_kind,assessment.status)
+            && !kirby_assist_core::native_states::fighter_sequence_interrupted(
+                fighter_kind,
+                assessment.status,
+            )
             && !clatter
             && !tech
-            && STATE
-                .lock()
-                .ok()
-                .is_some_and(|s| s.ledge_active);
+            && STATE.lock().ok().is_some_and(|s| s.ledge_active);
         if guard_armed {
             // CONT_GUARD_ON, verified in pinned skyline-smash lua_const.rs.
             // Existing guard/shieldstun can retain ZR even during hitstop.
@@ -3217,7 +3926,13 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 && !reads.capture_link(object);
             if guard_ready {
                 guard_threat = observations::incoming_fighter_attack(
-                    &reads, object, object_id, position, velocity, false, analysis_settings.shield(),
+                    &reads,
+                    object,
+                    object_id,
+                    position,
+                    velocity,
+                    false,
+                    analysis_settings.shield(),
                 );
             }
         }
@@ -3228,7 +3943,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             held: false,
             gameplay: true,
             manual_input_epoch,
-            automatic_up_b_epoch:None,
+            automatic_up_b_epoch: None,
             can_act: false,
             can_control: false,
             stopped,
@@ -3331,11 +4046,15 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         facing: reads.facing(object),
         targets: trip_targets,
     };
-    let fair_pending = !automatic_suspended&&STATE.lock().ok().is_some_and(|s|
-        s.fair_followup.as_ref().is_some_and(FairFollowup::active));
+    let fair_pending = !automatic_suspended
+        && STATE
+            .lock()
+            .ok()
+            .is_some_and(|s| s.fair_followup.as_ref().is_some_and(FairFollowup::active));
     // Only the still-supported Kirby automatic fair-one follow-up needs hit
     // evidence. Retired manually bound finishers do not widen this window.
-    let fair_hit_window = !automatic_suspended&&fighter_kind == kirby::FIGHTER_KIND
+    let fair_hit_window = !automatic_suspended
+        && fighter_kind == kirby::FIGHTER_KIND
         && config.kirby_fair1_smash
         && (assessment.status == 0x36 && own_motion_kind == 0xc3495ada5
             || assessment.status == 0x18
@@ -3373,9 +4092,11 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     // free of automatic Down; walking remains capped on these floors.
     let posture_floor_safe = posture_modes.0
         && assessment.situation == 0
-        && kirby_assist_core::kirby_posture::Posture::opponent_near_with(posture_opponent,
-            analysis_settings.value(kirby_assist_core::fighter_tuning::CROUCH_RANGE,45.),
-            analysis_settings.value(kirby_assist_core::fighter_tuning::CROUCH_HEIGHT,20.))
+        && kirby_assist_core::kirby_posture::Posture::opponent_near_with(
+            posture_opponent,
+            analysis_settings.value(kirby_assist_core::fighter_tuning::CROUCH_RANGE, 45.),
+            analysis_settings.value(kirby_assist_core::fighter_tuning::CROUCH_HEIGHT, 20.),
+        )
         && !game::passable_ground(object);
     let shortcut_context = ShortcutContext {
         status: assessment.status,
@@ -3398,14 +4119,28 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
 
     let combo_velocity_y = if fair_hit_window || fair_pending {
         reads.speed_y(object, -1)
-    } else { 0.0 };
-    let dodge_response_ready=if grab_dodge_enabled && !dodge_direct_up_b {
-        !own_capture_link && !stopped && assessment.situation==0 && (automatic_scope.acquire || automatic_scope.follow && assessment.status==0x1f && game::cancel_enabled(object))
-    }else{false};
-    let spot_observation = if grab_dodge_enabled && !own_capture_link && assessment.situation == 0
-        && (automatic_scope.acquire || automatic_scope.follow && assessment.status==kirby_assist_core::spot_dodge::ESCAPE)
+    } else {
+        0.0
+    };
+    let dodge_response_ready = if grab_dodge_enabled && !dodge_direct_up_b {
+        !own_capture_link
+            && !stopped
+            && assessment.situation == 0
+            && (automatic_scope.acquire
+                || automatic_scope.follow
+                    && assessment.status == 0x1f
+                    && game::cancel_enabled(object))
+    } else {
+        false
+    };
+    let spot_observation = if grab_dodge_enabled
+        && !own_capture_link
+        && assessment.situation == 0
+        && (automatic_scope.acquire
+            || automatic_scope.follow && assessment.status == kirby_assist_core::spot_dodge::ESCAPE)
         && (stationary_intent && kirby_assist_core::spot_dodge::ground_status(assessment.status)
-            || assessment.status==kirby_assist_core::spot_dodge::ESCAPE && dodge_follow.is_some()) {
+            || assessment.status == kirby_assist_core::spot_dodge::ESCAPE && dodge_follow.is_some())
+    {
         // Detect a real grab before querying our dodge transition. Keep the
         // ordinary sample even with no target so pending requests can release.
         let targets = observations::grab_targets(&reads, object, object_id);
@@ -3446,41 +4181,52 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     };
     // Read reserved launch velocity only for the damage victim during hitstop.
     // Pinned FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_SPEED_RESERVED_X/Y.
-    let di_context =
-        (config.auto_di.enabled && damage_stop && (0x49..=0x4f).contains(&native_status)).then(|| kirby_assist_core::auto_di::Context {
-            object: object_id,
-            damage_stop,
-            remaining: sdi_context.remaining,
-            launch: reads.damage_launch(object),
-            outward,
-        });
-    let cached_geometry = STATE.lock().ok().and_then(|s|s.damage_geometry);
-    let (damage_geometry,damage_trajectory)=damage::observe(
-        &reads,object,object_id,damage_stop,sdi_context.remaining,cached_geometry);
+    let di_context = (config.auto_di.enabled
+        && damage_stop
+        && (0x49..=0x4f).contains(&native_status))
+    .then(|| kirby_assist_core::auto_di::Context {
+        object: object_id,
+        damage_stop,
+        remaining: sdi_context.remaining,
+        launch: reads.damage_launch(object),
+        outward,
+    });
+    let cached_geometry = STATE.lock().ok().and_then(|s| s.damage_geometry);
+    let (damage_geometry, damage_trajectory) = damage::observe(
+        &reads,
+        object,
+        object_id,
+        damage_stop,
+        sdi_context.remaining,
+        cached_geometry,
+    );
     #[cfg(feature = "diagnostic-logging")]
     let mut scenario_changed = false;
     #[cfg(feature = "diagnostic-logging")]
     let mut acquired = false;
     #[cfg(feature = "diagnostic-logging")]
     let mut first_button_write = false;
-    let oos_follow=rule_observation.and_then(|(_,_,follow)|follow);
-    let oos_context = ((oos_enabled && automatic_scope.acquire) || oos_target.is_some()).then(|| kirby_assist_core::out_of_shield::Context {
-        object: object_id,
-        kind: fighter_kind,
-        status: assessment.status,
-        motion: own_motion_kind,
-        frame: ledge_motion_frame,
-        rate: timing_rate,
-        stopped,
-        grounded: assessment.situation == 0,
-        position: [reads.pos_x(object), reads.pos_y(object)],
-        facing: reads.facing(object),
-        shield_ready: oos_readiness.0,
-        can_grab: oos_readiness.1,
-        can_jump: oos_readiness.2,
-        can_up_special: oos_readiness.3,
-        threatened: guard_threat.needs_defense(),
-    });
+    let oos_follow = rule_observation.and_then(|(_, _, follow)| follow);
+    let oos_context =
+        ((oos_enabled && automatic_scope.acquire) || oos_target.is_some()).then(|| {
+            kirby_assist_core::out_of_shield::Context {
+                object: object_id,
+                kind: fighter_kind,
+                status: assessment.status,
+                motion: own_motion_kind,
+                frame: ledge_motion_frame,
+                rate: timing_rate,
+                stopped,
+                grounded: assessment.situation == 0,
+                position: [reads.pos_x(object), reads.pos_y(object)],
+                facing: reads.facing(object),
+                shield_ready: oos_readiness.0,
+                can_grab: oos_readiness.1,
+                can_jump: oos_readiness.2,
+                can_up_special: oos_readiness.3,
+                threatened: guard_threat.needs_defense(),
+            }
+        });
     #[cfg(feature = "diagnostic-logging")]
     let neutral_native_activity = if observe_ledge
         && (ledge_opponent.is_some_and(|e| e.status == kirby_assist_core::ledge_trap::CLIFF_CLIMB)
@@ -3497,17 +4243,35 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         None
     };
     let reflect_observation = {
-        let (configured,target,allowed)=STATE.lock().ok().map_or((None,None,false),|s| {
-            let manual=s.raw_buttons & (kirby_assist_core::native_input::MAPPER_A
-                |kirby_assist_core::native_input::MAPPER_B|kirby_assist_core::native_input::MAPPER_R
-                |kirby_assist_core::native_input::SEQUENCE_JUMP_BUTTONS
-                |kirby_assist_core::native_input::SEQUENCE_GUARD_INPUTS)!=0;
-            (s.ledge_menu.as_ref().and_then(|m|m.reflect_config(fighter_kind)),s.reflector.target(),
-                !automatic_suspended && !clatter && !tech
-                    && (!manual || s.action_owner.current_owner()==Some(Owner::Reflect))
-                    && s.action_owner.allows(Owner::Reflect))
+        let (configured, target, allowed) = STATE.lock().ok().map_or((None, None, false), |s| {
+            let manual = s.raw_buttons
+                & (kirby_assist_core::native_input::MAPPER_A
+                    | kirby_assist_core::native_input::MAPPER_B
+                    | kirby_assist_core::native_input::MAPPER_R
+                    | kirby_assist_core::native_input::SEQUENCE_JUMP_BUTTONS
+                    | kirby_assist_core::native_input::SEQUENCE_GUARD_INPUTS)
+                != 0;
+            (
+                s.ledge_menu
+                    .as_ref()
+                    .and_then(|m| m.reflect_config(fighter_kind)),
+                s.reflector.target(),
+                !automatic_suspended
+                    && !clatter
+                    && !tech
+                    && (!manual || s.action_owner.current_owner() == Some(Owner::Reflect))
+                    && s.action_owner.allows(Owner::Reflect),
+            )
         });
-        reflect::observe(&reads,object,object_id,fighter_kind,configured,target,allowed)
+        reflect::observe(
+            &reads,
+            object,
+            object_id,
+            fighter_kind,
+            configured,
+            target,
+            allowed,
+        )
     };
     // Policy/publication stage: the native reads above are finished. Check the
     // session again before updating history, because those reads can re-enter
@@ -3535,26 +4299,52 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         }
         state.tech_floor_motion = tech_floor_motion;
         if state.grab_handoff.pending() {
-            let clock_context=rule_observation.map_or(LedgeContext {
-                gameplay:true,status:native_status,situation:native_auto_ground,
-                stopped:native_auto_stopped,motion_kind:own_motion_kind,
-                motion_frame:ledge_motion_frame,motion_rate:timing_rate,..Default::default()
-            },|(c,_,_)|c);
-            let clock_enemy=rule_observation.and_then(|(_,targets,follow)|follow.or_else(||targets.iter().flatten().next().map(|t|kirby_assist_core::ledge_trap::Opponent {
-                id:t.id,status:t.status,motion:Some(kirby_assist_core::ledge_trap::MotionTiming {
-                    kind:t.motion,frame:t.frame,rate:t.rate,remaining:None
-                }),..Default::default()
-            })));
-            state.grab_handoff.observe_enemy_progress(clock_context,clock_enemy);
+            let clock_context = rule_observation.map_or(
+                LedgeContext {
+                    gameplay: true,
+                    status: native_status,
+                    situation: native_auto_ground,
+                    stopped: native_auto_stopped,
+                    motion_kind: own_motion_kind,
+                    motion_frame: ledge_motion_frame,
+                    motion_rate: timing_rate,
+                    ..Default::default()
+                },
+                |(c, _, _)| c,
+            );
+            let clock_enemy = rule_observation.and_then(|(_, targets, follow)| {
+                follow.or_else(|| {
+                    targets.iter().flatten().next().map(|t| {
+                        kirby_assist_core::ledge_trap::Opponent {
+                            id: t.id,
+                            status: t.status,
+                            motion: Some(kirby_assist_core::ledge_trap::MotionTiming {
+                                kind: t.motion,
+                                frame: t.frame,
+                                rate: t.rate,
+                                remaining: None,
+                            }),
+                            ..Default::default()
+                        }
+                    })
+                })
+            });
+            state
+                .grab_handoff
+                .observe_enemy_progress(clock_context, clock_enemy);
         }
         // Reuse facts already read by active analyses. Missing targets are not
         // evidence of a new event; a known native status change is. This adds
         // no roster pass or native queries and prevents duplicate/stale reads.
         if state.spot_dodge.is_some() || state.rule_engine.is_some() || oos_enabled {
-            let known_statuses=reads.known_statuses();
+            let known_statuses = reads.known_statuses();
             state.oos.observe_statuses(&known_statuses);
-            if let Some(spot)=state.spot_dodge.as_mut(){spot.observe_statuses(&known_statuses);}
-            if let Some(engine)=state.rule_engine.as_mut(){engine.observe_statuses(&known_statuses);}
+            if let Some(spot) = state.spot_dodge.as_mut() {
+                spot.observe_statuses(&known_statuses);
+            }
+            if let Some(engine) = state.rule_engine.as_mut() {
+                engine.observe_statuses(&known_statuses);
+            }
         }
         let now = Instant::now();
         if !state.raw_connected
@@ -3569,7 +4359,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         // The preceding mapper delivered the final release. Drop completed
         // locks before proposal generation, not after this frame's candidates
         // have already been rejected by allows(). This adds no release frame.
-        if !state.rule_engine.as_ref().is_some_and(|e|e.committed()) {
+        if !state.rule_engine.as_ref().is_some_and(|e| e.committed()) {
             state.action_owner.release(Owner::RollRead);
         }
         if state.oos.target().is_none() {
@@ -3583,14 +4373,28 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         // A cancelled unshielded response must not add a frame to a legal OOS grab.
         // Continuation uses the committed snapshot. Once a completed owner is
         // released above, new admission must see the current physical intent.
-        let stationary_intent=state.action_owner.policy_inputs().stationary_assist(assessment.status);
-        let grab_intent=state.action_owner.policy_inputs().grounded_grab_assist(assessment.status);
-        let self_shielded=state.action_owner.policy_inputs().shield_held() || matches!(assessment.status,0x1b..=0x1e);
-        let admission_suspended=automatic_suspended || state.ledge_active
-            || state.ledge_menu.as_ref().is_some_and(|m|m.reserves_automatic_modes());
-        state.action_owner.set_automatic_suspended(admission_suspended);
-        let receipt_blocked=state.grab_handoff.pending() && state.action_owner.current_owner().is_none();
-        let automatic_suspended=automatic_suspended || receipt_blocked;
+        let stationary_intent = state
+            .action_owner
+            .policy_inputs()
+            .stationary_assist(assessment.status);
+        let grab_intent = state
+            .action_owner
+            .policy_inputs()
+            .grounded_grab_assist(assessment.status);
+        let self_shielded = state.action_owner.policy_inputs().shield_held()
+            || matches!(assessment.status, 0x1b..=0x1e);
+        let admission_suspended = automatic_suspended
+            || state.ledge_active
+            || state
+                .ledge_menu
+                .as_ref()
+                .is_some_and(|m| m.reserves_automatic_modes());
+        state
+            .action_owner
+            .set_automatic_suspended(admission_suspended);
+        let receipt_blocked =
+            state.grab_handoff.pending() && state.action_owner.current_owner().is_none();
+        let automatic_suspended = automatic_suspended || receipt_blocked;
         let ledge_priority = state.ledge_active
             && observe_ledge
             && state
@@ -3610,8 +4414,14 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         let combo_performance = crate::performance::Scope::new(crate::performance::Part::Combo);
         let fair_allowed = state.action_owner.allows(Owner::Fair);
         state.fair_output = if fighter_kind == kirby::FIGHTER_KIND && config.kirby_fair1_smash {
-            state.fair_followup.get_or_insert_with(FairFollowup::default)
-                .sample_with_velocity(!automatic_suspended&&!clatter&&!tech&&fair_allowed, fair_context, combo_velocity_y)
+            state
+                .fair_followup
+                .get_or_insert_with(FairFollowup::default)
+                .sample_with_velocity(
+                    !automatic_suspended && !clatter && !tech && fair_allowed,
+                    fair_context,
+                    combo_velocity_y,
+                )
         } else {
             state.fair_followup = None;
             LedgeOutput::default()
@@ -3619,21 +4429,39 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         // An incoming-grab defense is sampled once before new offensive
         // choices. Existing committed owners remain protected by allows().
         state.spot_output = if let Some((context, targets)) = spot_observation {
-            let allowed = !automatic_suspended && !clatter && !tech && !own_capture_link && stationary_intent
+            let allowed = !automatic_suspended
+                && !clatter
+                && !tech
+                && !own_capture_link
+                && stationary_intent
                 && state.action_owner.allows(Owner::GrabDodge);
             let (_previous_target, output, _current_target) = {
-                let State { spot_dodge, action_owner, .. } = &mut *state;
+                let State {
+                    spot_dodge,
+                    action_owner,
+                    ..
+                } = &mut *state;
                 let spot = spot_dodge.get_or_insert_with(Default::default);
                 let _previous_target = spot.target();
-                let dodge = spot.sample_with_shape(allowed, context, targets, dodge_lookahead,
-                    analysis_settings.value(kirby_assist_core::fighter_tuning::GRAB_DODGE_PADDING,2.),
-                    analysis_settings.value(kirby_assist_core::fighter_tuning::GRAB_DODGE_HEIGHT,8.));
+                let dodge = spot.sample_with_shape(
+                    allowed,
+                    context,
+                    targets,
+                    dodge_lookahead,
+                    analysis_settings
+                        .value(kirby_assist_core::fighter_tuning::GRAB_DODGE_PADDING, 2.),
+                    analysis_settings
+                        .value(kirby_assist_core::fighter_tuning::GRAB_DODGE_HEIGHT, 8.),
+                );
 
                 // Native dodge startup or a cancelled warning releases its
                 // defense-only lock before the ordinary follow-up is sampled.
                 if spot.target().is_none() {
-                    if spot.punish_pending() { action_owner.handoff(Owner::GrabDodge,Owner::OptionRead); }
-                    else { action_owner.release(Owner::GrabDodge); }
+                    if spot.punish_pending() {
+                        action_owner.handoff(Owner::GrabDodge, Owner::OptionRead);
+                    } else {
+                        action_owner.release(Owner::GrabDodge);
+                    }
                 }
                 let output = dodge;
                 let target = spot.target();
@@ -3653,101 +4481,231 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         } else {
             if let Some(spot) = state.spot_dodge.as_mut() {
                 spot.cancel_pending();
-                if !grab_dodge_enabled || automatic_suspended || clatter || tech {spot.suspend_response();}
+                if !grab_dodge_enabled || automatic_suspended || clatter || tech {
+                    spot.suspend_response();
+                }
             }
             LedgeOutput::default()
         };
         // A confirmed own dodge releases Down/Guard before a single Up-B plan.
         // Native-confirmed dodge recovery retains the chained response owner;
         // its neutral wait cannot expose manual inputs or a competing punish.
-        let punish_allowed=grab_dodge_enabled && !automatic_suspended && !own_capture_link && !clatter && !tech
-            && !state.oos.grab_delivery_pending() && state.action_owner.allows(Owner::OptionRead);
-        if let Some((context,_,follow))=rule_observation {
-            let State {spot_dodge,ledge_menu,action_owner,spot_output,..}=&mut *state;
-            if let Some(spot)=spot_dodge.as_mut() {
-                let sequence=ledge_menu.as_ref().and_then(|m|m.grab_dodge_sequence().or_else(||
-                    (fighter_kind==15 && spot.direct_up_b()).then(||m.automatic_rules().and_then(|r|r.simple_sequence(5))).flatten()));
-                let context=if dodge_direct_up_b {context}else{LedgeContext{can_act:dodge_response_ready,..context}};
-                let punish=spot.punish_automatic(punish_allowed,sequence,config.ledge,context,follow);
-                if punish.owned!=0 {*spot_output=punish;}
-                if !spot.punish_pending() && punish.owned==0 {action_owner.release(Owner::OptionRead);}
+        let punish_allowed = grab_dodge_enabled
+            && !automatic_suspended
+            && !own_capture_link
+            && !clatter
+            && !tech
+            && !state.oos.grab_delivery_pending()
+            && state.action_owner.allows(Owner::OptionRead);
+        if let Some((context, _, follow)) = rule_observation {
+            let State {
+                spot_dodge,
+                ledge_menu,
+                action_owner,
+                spot_output,
+                ..
+            } = &mut *state;
+            if let Some(spot) = spot_dodge.as_mut() {
+                let sequence = ledge_menu.as_ref().and_then(|m| {
+                    m.grab_dodge_sequence().or_else(|| {
+                        (fighter_kind == 15 && spot.direct_up_b())
+                            .then(|| m.automatic_rules().and_then(|r| r.simple_sequence(5)))
+                            .flatten()
+                    })
+                });
+                let context = if dodge_direct_up_b {
+                    context
+                } else {
+                    LedgeContext {
+                        can_act: dodge_response_ready,
+                        ..context
+                    }
+                };
+                let punish =
+                    spot.punish_automatic(punish_allowed, sequence, config.ledge, context, follow);
+                if punish.owned != 0 {
+                    *spot_output = punish;
+                }
+                if !spot.punish_pending() && punish.owned == 0 {
+                    action_owner.release(Owner::OptionRead);
+                }
             }
-        } else if let Some(spot)=state.spot_dodge.as_mut() {spot.suspend_response();}
+        } else if let Some(spot) = state.spot_dodge.as_mut() {
+            spot.suspend_response();
+        }
         // An immediately usable Up-B may replace an unaccepted automatic grab.
         // Admission and this handoff share the core selector; cached Grab input
         // is cleared before the winning reaction can reach the mapper.
         let preempt_grab = |state: &mut State| {
-            let prioritize_up_b = state.action_owner.allows(Owner::RollRead) && rules_on && !automatic_suspended && !clatter && !tech
-            && !file_ledge_timeline && !ledge_priority && state.spot_output.owned == 0;
-            if prioritize_up_b && state.oos.automatic_grab_pending() && !state.oos.grab_delivery_pending() {
+            let prioritize_up_b = state.action_owner.allows(Owner::RollRead)
+                && rules_on
+                && !automatic_suspended
+                && !clatter
+                && !tech
+                && !file_ledge_timeline
+                && !ledge_priority
+                && state.spot_output.owned == 0;
+            if prioritize_up_b
+                && state.oos.automatic_grab_pending()
+                && !state.oos.grab_delivery_pending()
+            {
                 if let Some((context, targets, follow)) = rule_observation {
                     let yielded = {
-                        let State { rule_engine, ledge_menu, oos, action_owner, .. } = state;
+                        let State {
+                            rule_engine,
+                            ledge_menu,
+                            oos,
+                            action_owner,
+                            ..
+                        } = state;
                         if let Some(rules) = ledge_menu.as_ref().and_then(|m| m.rule_config()) {
-                            let engine=rule_engine.get_or_insert_with(Box::default);
-                            engine.preempt_automatic_grab(true, rules, context, &targets, follow,
-                                oos, action_owner)
-                        } else { false }
+                            let engine = rule_engine.get_or_insert_with(Box::default);
+                            engine.preempt_automatic_grab(
+                                true,
+                                rules,
+                                context,
+                                &targets,
+                                follow,
+                                oos,
+                                action_owner,
+                            )
+                        } else {
+                            false
+                        }
                     };
-                    if yielded { state.oos_output = LedgeOutput::default(); }
+                    if yielded {
+                        state.oos_output = LedgeOutput::default();
+                    }
                 }
             }
         };
         preempt_grab(&mut state);
         // Sample remaining pending grabs once so accepted/failed attempts
         // release before fallback. New reactions precede NEW grabs.
-        let shield_fallback_pending=state.oos.shield_up_b_pending();
-        let grab_pending=state.oos.target().is_some();
-        let sample_grab=|state:&mut State| {
-            let oos_reserved = automatic_suspended || state.action_owner.current_owner()!=Some(Owner::OutOfShield) && (ledge_priority||file_ledge_timeline);
-            let protected_up_b=state.action_owner.current_owner()==Some(Owner::OutOfShield);
-            let oos_allowed = oos_enabled && !own_capture_link && (automatic_scope.acquire || automatic_scope.follow || state.oos.configured_committed()) && (grab_intent || state.oos.configured_committed() || protected_up_b)
-                && !oos_reserved && state.spot_output.owned==0 && state.roll_read_output.owned==0
+        let shield_fallback_pending = state.oos.shield_up_b_pending();
+        let grab_pending = state.oos.target().is_some();
+        let sample_grab = |state: &mut State| {
+            let oos_reserved = automatic_suspended
+                || state.action_owner.current_owner() != Some(Owner::OutOfShield)
+                    && (ledge_priority || file_ledge_timeline);
+            let protected_up_b = state.action_owner.current_owner() == Some(Owner::OutOfShield);
+            let oos_allowed = oos_enabled
+                && !own_capture_link
+                && (automatic_scope.acquire
+                    || automatic_scope.follow
+                    || state.oos.configured_committed())
+                && (grab_intent || state.oos.configured_committed() || protected_up_b)
+                && !oos_reserved
+                && state.spot_output.owned == 0
+                && state.roll_read_output.owned == 0
                 && !clatter
                 && !tech
                 && state.action_owner.allows(Owner::OutOfShield)
-                &&!state.rule_engine.as_ref().is_some_and(|r|r.committed());
+                && !state.rule_engine.as_ref().is_some_and(|r| r.committed());
             state.oos_output = if let Some(context) = oos_context {
-                let (lc,targets)=rule_observation.map(|(c,t,_)|(c,t)).unwrap_or((LedgeContext::default(),[None;8]));
-                let State {oos,ledge_menu,..}=state;
-                let sequences=ledge_menu.as_ref().map_or(Default::default(),|m|m.automatic_sequences());
-                oos.sample_automatic_configured(oos_allowed,context,lc,targets,oos_follow,self_shielded,legacy_grab_close,legacy_grab_approach,
-                    Some(f32::from(if self_shielded{config.ledge.fighter.grab.shield}else{config.ledge.fighter.grab.dash})),config.ledge,sequences)
+                let (lc, targets) = rule_observation
+                    .map(|(c, t, _)| (c, t))
+                    .unwrap_or((LedgeContext::default(), [None; 8]));
+                let State {
+                    oos, ledge_menu, ..
+                } = state;
+                let sequences = ledge_menu
+                    .as_ref()
+                    .map_or(Default::default(), |m| m.automatic_sequences());
+                oos.sample_automatic_configured(
+                    oos_allowed,
+                    context,
+                    lc,
+                    targets,
+                    oos_follow,
+                    self_shielded,
+                    legacy_grab_close,
+                    legacy_grab_approach,
+                    Some(f32::from(if self_shielded {
+                        config.ledge.fighter.grab.shield
+                    } else {
+                        config.ledge.fighter.grab.dash
+                    })),
+                    config.ledge,
+                    sequences,
+                )
             } else {
                 state.oos = Default::default();
                 LedgeOutput::default()
             };
-            if state.oos.target().is_none() && state.oos_output.owned==0 { state.action_owner.release(Owner::OutOfShield); }
+            if state.oos.target().is_none() && state.oos_output.owned == 0 {
+                state.action_owner.release(Owner::OutOfShield);
+            }
         };
-        if grab_pending {sample_grab(&mut state);}
+        if grab_pending {
+            sample_grab(&mut state);
+        }
         // A cancelled shield fallback may have selected a fresh front grab.
         // Apply the same roll priority before either new packet is emitted.
-        if shield_fallback_pending && !state.oos.shield_up_b_pending()
-            && state.oos.automatic_grab_pending() {
+        if shield_fallback_pending
+            && !state.oos.shield_up_b_pending()
+            && state.oos.automatic_grab_pending()
+        {
             // The old fallback ended; the replacement is a new proposal and
             // must compete under current admission priority, not inherit a lock.
             state.action_owner.release(Owner::OutOfShield);
             preempt_grab(&mut state);
         }
         if !rules_on {
-            if automatic_suspended {if let Some(e)=state.rule_engine.as_mut(){e.cancel();}}
-            else {state.rule_engine=None;}
+            if automatic_suspended {
+                if let Some(e) = state.rule_engine.as_mut() {
+                    e.cancel();
+                }
+            } else {
+                state.rule_engine = None;
+            }
         }
-        state.roll_read_output = if let Some((context,targets,follow))=rule_observation {
-            let allowed=rules_on&&!automatic_suspended&&!own_capture_link&&!clatter&&!tech&&(state.action_owner.current_owner()==Some(Owner::RollRead) || !file_ledge_timeline&&!ledge_priority)&&state.spot_output.owned==0
-                && !state.oos.grab_delivery_pending() && state.action_owner.allows(Owner::RollRead);
-            let keep_spin = fighter_kind == 15 && state.rule_engine.as_ref().is_some_and(|e| e.direct_up_b());
+        state.roll_read_output = if let Some((context, targets, follow)) = rule_observation {
+            let allowed = rules_on
+                && !automatic_suspended
+                && !own_capture_link
+                && !clatter
+                && !tech
+                && (state.action_owner.current_owner() == Some(Owner::RollRead)
+                    || !file_ledge_timeline && !ledge_priority)
+                && state.spot_output.owned == 0
+                && !state.oos.grab_delivery_pending()
+                && state.action_owner.allows(Owner::RollRead);
+            let keep_spin =
+                fighter_kind == 15 && state.rule_engine.as_ref().is_some_and(|e| e.direct_up_b());
             let state = &mut *state;
-            let rules = rules_on.then(|| state.ledge_menu.as_ref().and_then(|m| m.rule_config()
-                .or_else(|| keep_spin.then(|| m.automatic_rules()).flatten()))).flatten();
-            kirby_assist_core::reaction_rules::sample_optional_simple(&mut state.rule_engine,
-                allowed, rules, config.ledge, context, targets, follow, simple_readiness)
-        }else{if let Some(e)=state.rule_engine.as_mut(){e.cancel();}LedgeOutput::default()};
-        if !grab_pending {sample_grab(&mut state);}
+            let rules = rules_on
+                .then(|| {
+                    state.ledge_menu.as_ref().and_then(|m| {
+                        m.rule_config()
+                            .or_else(|| keep_spin.then(|| m.automatic_rules()).flatten())
+                    })
+                })
+                .flatten();
+            kirby_assist_core::reaction_rules::sample_optional_simple(
+                &mut state.rule_engine,
+                allowed,
+                rules,
+                config.ledge,
+                context,
+                targets,
+                follow,
+                simple_readiness,
+            )
+        } else {
+            if let Some(e) = state.rule_engine.as_mut() {
+                e.cancel();
+            }
+            LedgeOutput::default()
+        };
+        if !grab_pending {
+            sample_grab(&mut state);
+        }
         #[cfg(feature = "diagnostic-logging")]
         drop(combo_performance);
         state.jab_lock_output = if let Some((context, targets)) = jab_lock_observation {
-            let allowed = !automatic_suspended&&state.action_owner.allows(Owner::JabLock)
+            let allowed = !automatic_suspended
+                && state.action_owner.allows(Owner::JabLock)
                 && !clatter
                 && !tech
                 && state.trump_output.owned == 0
@@ -3755,14 +4713,23 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             state
                 .jab_lock
                 .get_or_insert_with(Default::default)
-                .sample_configured(allowed, context, targets,jab_config,analysis_settings.value(kirby_assist_core::fighter_tuning::JAB_LOCK_HEIGHT,24.))
+                .sample_configured(
+                    allowed,
+                    context,
+                    targets,
+                    jab_config,
+                    analysis_settings
+                        .value(kirby_assist_core::fighter_tuning::JAB_LOCK_HEIGHT, 24.),
+                )
         } else {
             state.jab_lock = None;
             LedgeOutput::default()
         };
         let trip_allowed = state.action_owner.allows(Owner::Trip);
         state.trip_output = if trip_kirby {
-            state.trip_followup.get_or_insert_with(TripFollowup::default)
+            state
+                .trip_followup
+                .get_or_insert_with(TripFollowup::default)
                 .sample(!clatter && !tech && trip_allowed, trip_context)
         } else {
             state.trip_followup = None;
@@ -3775,7 +4742,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                     .trip_followup
                     .as_ref()
                     .is_some_and(TripFollowup::watching),
-                sdi_context.damage_stop && sdi_context.remaining<=120,
+                sdi_context.damage_stop && sdi_context.remaining <= 120,
                 state.trip_output.requested,
             );
             if key != state.last_combat_diagnostic {
@@ -3901,7 +4868,10 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 tech_timing.2,
                 native_tech_guard,
             );
-        state.tech_urgent=state.tech_input.as_ref().is_some_and(TechInput::urgent_press);
+        state.tech_urgent = state
+            .tech_input
+            .as_ref()
+            .is_some_and(TechInput::urgent_press);
         let requested = mash_requested | if state.tech_output.press { HID_ZR } else { 0 };
         #[cfg(feature = "diagnostic-logging")]
         if config.controls.tech_debug {
@@ -3935,7 +4905,8 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             && turbo_movement_allowed(assessment.status, assessment.situation, stopped);
 
         if let Some((mut context, opponent, edge, spot)) = ledge_observation {
-            state.ledge_walk_motion = state.ledge_walk_ready
+            state.ledge_walk_motion = state
+                .ledge_walk_ready
                 .then_some((context.position, context.velocity));
             let previewing = state
                 .ledge_menu
@@ -4017,9 +4988,16 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             state.ledge_output = {
                 let state = &mut *state;
                 let before = state.ledge_visits.visit_epoch();
-                let output = state.ledge.get_or_insert_with(LedgeTrap::default).sample_with_visits(
-                    &mut state.ledge_visits, config.ledge, tick, context, opponent,
-                );
+                let output = state
+                    .ledge
+                    .get_or_insert_with(LedgeTrap::default)
+                    .sample_with_visits(
+                        &mut state.ledge_visits,
+                        config.ledge,
+                        tick,
+                        context,
+                        opponent,
+                    );
                 if state.ledge_visits.visit_epoch() != before {
                     // A new ledge visit invalidates the previous approach shield
                     // tail, even when our stationary guard clock cannot advance.
@@ -4030,10 +5008,14 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             };
             // Completion hands ownership back before the general reaction pass.
             // Keep the final emitted input protected until its frame is delivered.
-            let reserve = state.ledge_active && state.ledge.as_ref().is_some_and(|trap|
-                trap.needs_response_observation() || state.ledge_output.owned != 0);
+            let reserve = state.ledge_active
+                && state.ledge.as_ref().is_some_and(|trap| {
+                    trap.needs_response_observation() || state.ledge_output.owned != 0
+                });
             state.action_owner.set_ledge_priority(reserve);
-            if !reserve { state.action_owner.release(Owner::Ledge); }
+            if !reserve {
+                state.action_owner.release(Owner::Ledge);
+            }
             if previewing
                 && state
                     .ledge
@@ -4095,9 +5077,10 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             // Committed authored timelines keep their literal controls.
             // Never replace a requested punish input, committed move, capture
             // handback, trump, or a higher-priority mash/tech response.
-            let passive_plan = state.ledge.as_ref().is_none_or(|trap| {
-                !trap.committed_input_pending()
-            });
+            let passive_plan = state
+                .ledge
+                .as_ref()
+                .is_none_or(|trap| !trap.committed_input_pending());
             let defense_eligible = state.action_owner.allows(Owner::Defense)
                 && held
                 && config.autopilot_shield
@@ -4107,7 +5090,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 && !tech
                 && state.ledge_output.requested == 0
                 && state.roll_read_output.owned == 0
-
                 && state.trump_output.owned == 0;
             let guard_eligible = defense_eligible && guard_ready;
             let defensive_guard = state
@@ -4123,10 +5105,12 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                         rate: context.motion_rate,
                         stopped,
                     },
-                    analysis_settings.value(kirby_assist_core::fighter_tuning::SHIELD_HOLD,4.),
-                    if guard_eligible && matches!(context.status,0x1b|0x1c) {
+                    analysis_settings.value(kirby_assist_core::fighter_tuning::SHIELD_HOLD, 4.),
+                    if guard_eligible && matches!(context.status, 0x1b | 0x1c) {
                         reads.known_guard_clock(object_id)
-                    } else {None},
+                    } else {
+                        None
+                    },
                 );
             state.autopilot_guarding = defensive_guard;
             if defensive_guard {
@@ -4140,20 +5124,23 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             }
             #[cfg(feature = "diagnostic-logging")]
             {
-                let state=&mut *state;
+                let state = &mut *state;
                 let metadata = state.ledge.as_ref().and_then(|trap| {
                     let slot = trap.calibration_slot()?;
                     let profile = PROFILES.get()?.profile(state.fighter_kind?)?;
-                    let (id,name)=state.ledge_menu.as_ref()?.selected_choice_labels(fighter_kind,slot)?;
-                    let mut frame =
-                        trap.calibration_frame(config.ledge, context, opponent, id)?;
+                    let (id, name) = state
+                        .ledge_menu
+                        .as_ref()?
+                        .selected_choice_labels(fighter_kind, slot)?;
+                    let mut frame = trap.calibration_frame(config.ledge, context, opponent, id)?;
                     frame.output = state.ledge_output;
                     frame.native_attack_active = neutral_native_activity;
                     Some((
                         frame,
                         profile.name,
                         kirby_assist_core::diagnostics::modes::Label::new(
-                            kirby_assist_core::fighter_profiles::spacing::menu_name(name)),
+                            kirby_assist_core::fighter_profiles::spacing::menu_name(name),
+                        ),
                     ))
                 });
                 if held {
@@ -4302,7 +5289,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 && state.roll_read_output.owned == 0
                 && state.trip_output.owned == 0
                 && state.fair_output.owned == 0
-
                 && !state
                     .ledge
                     .as_ref()
@@ -4315,17 +5301,29 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             state.duck_defense = None;
             LedgeOutput::default()
         };
-        state.reflect_output = if let Some((configured,context,threat))=reflect_observation {
+        state.reflect_output = if let Some((configured, context, threat)) = reflect_observation {
             // Preparation happens after existing modes. Never admit two new
             // punish inputs on the same observation, nor steal their receipt.
-            let allowed=(!state.ledge_active || state.action_owner.current_owner()==Some(Owner::Reflect))
-                && state.action_owner.allows(Owner::Reflect) && !clatter && !tech
-                && state.oos_output.owned==0 && !state.oos.grab_delivery_pending()
-                && state.roll_read_output.owned==0 && state.spot_output.owned==0
-                && state.trip_output.owned==0 && state.fair_output.owned==0
-                && state.jab_lock_output.owned==0 && state.trump_output.owned==0;
-            state.reflector.sample(allowed,Some(configured),context,threat)
-        } else {state.reflector.cancel();LedgeOutput::default()};
+            let allowed = (!state.ledge_active
+                || state.action_owner.current_owner() == Some(Owner::Reflect))
+                && state.action_owner.allows(Owner::Reflect)
+                && !clatter
+                && !tech
+                && state.oos_output.owned == 0
+                && !state.oos.grab_delivery_pending()
+                && state.roll_read_output.owned == 0
+                && state.spot_output.owned == 0
+                && state.trip_output.owned == 0
+                && state.fair_output.owned == 0
+                && state.jab_lock_output.owned == 0
+                && state.trump_output.owned == 0;
+            state
+                .reflector
+                .sample(allowed, Some(configured), context, threat)
+        } else {
+            state.reflector.cancel();
+            LedgeOutput::default()
+        };
         state.mash_stick = if policy_tick.is_none() {
             None
         } else {
@@ -4371,6 +5369,10 @@ pub fn install() {
     // console output is compiled into this plugin's normal startup path.
     #[cfg(feature = "diagnostic-logging")]
     crate::logging::start();
+    if let Err(error) = kirby_assist_core::fighter_data::initialize() {
+        log!(&format!("NOT INSTALLED: {error}"));
+        return;
+    }
     let (config, profiles, sequences) = match load_config() {
         Ok(settings) => settings,
         Err(_error) => {
@@ -4384,7 +5386,9 @@ pub fn install() {
     log!(&format!("AUTO DI CONFIG: enabled={}, mode={:?}, legacy threshold={:.2}. Adaptive uses survival; Escape requires explicit selection. DI owns the final 3 victim-hitstop frames; SDI never falls back there. DI and SDI share exclusive stick ownership through hitstop.", config.auto_di.enabled, config.auto_di.mode, config.auto_di.survival_speed));
     log!(&format!("AUTO SPOT DODGE: enabled={}; ordinary standing/dash/pivot grabs only, bounded per-fighter proximity forecast, one accepted request per grab with optional configured follow-up; incoming-grab defense waits for committed sequences and yields to native safety.", config.auto_spot_dodge));
     publish_startup_config(config);
-    let Some(config) = CONFIG.get() else { return; };
+    let Some(config) = CONFIG.get() else {
+        return;
+    };
     let _ = PROFILES.set(profiles);
     log!(&format!(
         "SEQUENCE FILE: {} validated override(s) loaded once at startup.",
@@ -4396,7 +5400,10 @@ pub fn install() {
         return;
     }
     // Parse static grab reference facts before any gameplay hooks can run.
-    kirby_assist_core::opponent_data::prepare_grab_references();
+    if let Err(error) = kirby_assist_core::fighter_data::prepare_grab_references() {
+        log!(&format!("NOT INSTALLED: {error}"));
+        return;
+    }
     unsafe {
         let start = getRegionAddress(Region::Text) as usize;
         let end = getRegionAddress(Region::Rodata) as usize;

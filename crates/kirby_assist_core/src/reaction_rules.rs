@@ -4,12 +4,20 @@ use crate::{
     roll_read::{Target, ESCAPE_B, ESCAPE_F},
     sequence_config::{Action, Sequence},
 };
-pub fn starts_direct_up_b(sequence:&Sequence)->bool { simple::starts_up_b(sequence) }
-mod scope;
+pub fn starts_direct_up_b(sequence: &Sequence) -> bool {
+    simple::starts_up_b(sequence)
+}
 mod automatic_watch;
-pub use automatic_watch::{SimpleStart, simple_readiness, sample_optional_simple};
-pub use scope::{automatic_fighter_target_available,automatic_start_status,automatic_start_allowed,automatic_target_available,automatic_tracking_target_available,automatic_up_b_status,automatic_up_b_receipt_status,AutomaticObservationScope};
-pub(crate) fn native_up_b_started(kind:i32,c:LedgeContext)->bool { simple::up_b_status(kind,c) }
+mod scope;
+pub use automatic_watch::{sample_optional_simple, simple_readiness, SimpleStart};
+pub use scope::{
+    automatic_fighter_target_available, automatic_start_allowed, automatic_start_status,
+    automatic_target_available, automatic_tracking_target_available, automatic_up_b_receipt_status,
+    automatic_up_b_status, AutomaticObservationScope,
+};
+pub(crate) fn native_up_b_started(kind: i32, c: LedgeContext) -> bool {
+    simple::up_b_status(kind, c)
+}
 pub const MAX_RULES_PER_MODE: usize = 8;
 pub const MAX_RULES: usize = MAX_RULES_PER_MODE * 7;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -35,14 +43,36 @@ pub enum Trigger {
     ShieldHitVulnerable,
     GrabDodgedVulnerable,
     SpotDodgeAny,
-    AutoRoll, AutoSpot, AutoAir, AutoGrab, AutoShieldGrab, AutoGrabDodged, AutoShieldBackup,
+    AutoRoll,
+    AutoSpot,
+    AutoAir,
+    AutoGrab,
+    AutoShieldGrab,
+    AutoGrabDodged,
+    AutoShieldBackup,
 }
 impl Trigger {
-    pub const AUTO_EVENTS:[Self;7]=[Self::AutoRoll,Self::AutoSpot,Self::AutoAir,Self::AutoGrab,Self::AutoShieldGrab,Self::AutoGrabDodged,Self::AutoShieldBackup];
-    pub fn auto_name(self)->&'static str {match self {
-        Self::AutoRoll=>"Roll",Self::AutoSpot=>"Enemy spot dodge",Self::AutoAir=>"Enemy air dodge",
-        Self::AutoGrab=>"Automatic grab (unshielded)",Self::AutoShieldGrab=>"Automatic grab (shielded)",
-        Self::AutoGrabDodged=>"After dodging enemy grab",Self::AutoShieldBackup=>"Shield grab backup",_=>"Reaction"}}
+    pub const AUTO_EVENTS: [Self; 7] = [
+        Self::AutoRoll,
+        Self::AutoSpot,
+        Self::AutoAir,
+        Self::AutoGrab,
+        Self::AutoShieldGrab,
+        Self::AutoGrabDodged,
+        Self::AutoShieldBackup,
+    ];
+    pub fn auto_name(self) -> &'static str {
+        match self {
+            Self::AutoRoll => "Roll",
+            Self::AutoSpot => "Enemy spot dodge",
+            Self::AutoAir => "Enemy air dodge",
+            Self::AutoGrab => "Automatic grab (unshielded)",
+            Self::AutoShieldGrab => "Automatic grab (shielded)",
+            Self::AutoGrabDodged => "After dodging enemy grab",
+            Self::AutoShieldBackup => "Shield grab backup",
+            _ => "Reaction",
+        }
+    }
 
     pub const ALL: [Self; 27] = [
         Self::Off,
@@ -54,35 +84,127 @@ impl Trigger {
         Self::GrabDodged,
         Self::LedgeRegrab,
         Self::SpotDodge,
-        Self::EnemyShield, Self::ShieldRoll, Self::ShieldCross,
-        Self::ShieldVulnerable, Self::ShieldCrossVulnerable, Self::ShieldAway, Self::ShieldAwayVulnerable,
-        Self::ShieldPressureVulnerable,Self::ShieldHitVulnerable,Self::GrabDodgedVulnerable,Self::SpotDodgeAny,Self::AutoRoll,Self::AutoSpot,Self::AutoAir,Self::AutoGrab,Self::AutoShieldGrab,Self::AutoGrabDodged,Self::AutoShieldBackup,
+        Self::EnemyShield,
+        Self::ShieldRoll,
+        Self::ShieldCross,
+        Self::ShieldVulnerable,
+        Self::ShieldCrossVulnerable,
+        Self::ShieldAway,
+        Self::ShieldAwayVulnerable,
+        Self::ShieldPressureVulnerable,
+        Self::ShieldHitVulnerable,
+        Self::GrabDodgedVulnerable,
+        Self::SpotDodgeAny,
+        Self::AutoRoll,
+        Self::AutoSpot,
+        Self::AutoAir,
+        Self::AutoGrab,
+        Self::AutoShieldGrab,
+        Self::AutoGrabDodged,
+        Self::AutoShieldBackup,
     ];
     pub fn family(self) -> usize {
-        match self { t if t.simple().is_some()=>6, Self::ShieldHit|Self::ShieldHitVulnerable=>1, Self::GrabDodged|Self::GrabDodgedVulnerable=>2, Self::LedgeRegrab=>3, Self::SpotDodge|Self::SpotDodgeAny=>4, t if t.shield_pressure()=>5, _=>0 }
+        match self {
+            t if t.simple().is_some() => 6,
+            Self::ShieldHit | Self::ShieldHitVulnerable => 1,
+            Self::GrabDodged | Self::GrabDodgedVulnerable => 2,
+            Self::LedgeRegrab => 3,
+            Self::SpotDodge | Self::SpotDodgeAny => 4,
+            t if t.shield_pressure() => 5,
+            _ => 0,
+        }
     }
-    pub fn simple(self)->Option<usize>{match self{Self::AutoRoll=>Some(0),Self::AutoSpot=>Some(1),Self::AutoAir=>Some(2),Self::AutoGrab=>Some(3),Self::AutoShieldGrab=>Some(4),Self::AutoGrabDodged=>Some(5),Self::AutoShieldBackup=>Some(6),_=>None}}
+    pub fn simple(self) -> Option<usize> {
+        match self {
+            Self::AutoRoll => Some(0),
+            Self::AutoSpot => Some(1),
+            Self::AutoAir => Some(2),
+            Self::AutoGrab => Some(3),
+            Self::AutoShieldGrab => Some(4),
+            Self::AutoGrabDodged => Some(5),
+            Self::AutoShieldBackup => Some(6),
+            _ => None,
+        }
+    }
     pub fn shield_pressure(self) -> bool {
-        matches!(self,Self::EnemyShield|Self::ShieldRoll|Self::ShieldCross|Self::ShieldVulnerable|Self::ShieldCrossVulnerable|Self::ShieldAway|Self::ShieldAwayVulnerable|Self::ShieldPressureVulnerable)
+        matches!(
+            self,
+            Self::EnemyShield
+                | Self::ShieldRoll
+                | Self::ShieldCross
+                | Self::ShieldVulnerable
+                | Self::ShieldCrossVulnerable
+                | Self::ShieldAway
+                | Self::ShieldAwayVulnerable
+                | Self::ShieldPressureVulnerable
+        )
     }
-    pub const SHIELD_EVENTS: [Self;8] = [Self::EnemyShield,Self::ShieldRoll,Self::ShieldCross,Self::ShieldVulnerable,Self::ShieldCrossVulnerable,Self::ShieldAway,Self::ShieldAwayVulnerable,Self::ShieldPressureVulnerable];
+    pub const SHIELD_EVENTS: [Self; 8] = [
+        Self::EnemyShield,
+        Self::ShieldRoll,
+        Self::ShieldCross,
+        Self::ShieldVulnerable,
+        Self::ShieldCrossVulnerable,
+        Self::ShieldAway,
+        Self::ShieldAwayVulnerable,
+        Self::ShieldPressureVulnerable,
+    ];
     pub fn defensive(self) -> bool {
-        self.shield_pressure() || matches!(self, Self::ShieldHit | Self::ShieldHitVulnerable | Self::GrabDodged | Self::GrabDodgedVulnerable | Self::LedgeRegrab | Self::SpotDodge | Self::SpotDodgeAny)
+        self.shield_pressure()
+            || matches!(
+                self,
+                Self::ShieldHit
+                    | Self::ShieldHitVulnerable
+                    | Self::GrabDodged
+                    | Self::GrabDodgedVulnerable
+                    | Self::LedgeRegrab
+                    | Self::SpotDodge
+                    | Self::SpotDodgeAny
+            )
     }
-    pub fn event_matches(self,event:Self)->bool {
-        self==event || matches!((self,event),(Self::ShieldHitVulnerable,Self::ShieldHit)|(Self::GrabDodgedVulnerable,Self::GrabDodged)|(Self::SpotDodgeAny,Self::SpotDodge))
+    pub fn event_matches(self, event: Self) -> bool {
+        self == event
+            || matches!(
+                (self, event),
+                (Self::ShieldHitVulnerable, Self::ShieldHit)
+                    | (Self::GrabDodgedVulnerable, Self::GrabDodged)
+                    | (Self::SpotDodgeAny, Self::SpotDodge)
+            )
     }
-    pub fn needs_vulnerable(self)->bool {matches!(self,Self::ShieldHitVulnerable|Self::GrabDodgedVulnerable|Self::SpotDodge|Self::ShieldPressureVulnerable)}
-    pub fn events(self)->&'static [Self] {match self.family(){
-        6=>&Self::AUTO_EVENTS,
-        0=>&[Self::Roll,Self::Crossed,Self::Vulnerable,Self::CrossVulnerable],
-        1=>&[Self::ShieldHit,Self::ShieldHitVulnerable],2=>&[Self::GrabDodged,Self::GrabDodgedVulnerable],
-        3=>&[Self::LedgeRegrab],4=>&[Self::SpotDodge,Self::SpotDodgeAny],_=>&Self::SHIELD_EVENTS,
-    }}
+    pub fn needs_vulnerable(self) -> bool {
+        matches!(
+            self,
+            Self::ShieldHitVulnerable
+                | Self::GrabDodgedVulnerable
+                | Self::SpotDodge
+                | Self::ShieldPressureVulnerable
+        )
+    }
+    pub fn events(self) -> &'static [Self] {
+        match self.family() {
+            6 => &Self::AUTO_EVENTS,
+            0 => &[
+                Self::Roll,
+                Self::Crossed,
+                Self::Vulnerable,
+                Self::CrossVulnerable,
+            ],
+            1 => &[Self::ShieldHit, Self::ShieldHitVulnerable],
+            2 => &[Self::GrabDodged, Self::GrabDodgedVulnerable],
+            3 => &[Self::LedgeRegrab],
+            4 => &[Self::SpotDodge, Self::SpotDodgeAny],
+            _ => &Self::SHIELD_EVENTS,
+        }
+    }
     pub fn token(self) -> &'static str {
         match self {
-            Self::AutoGrab=>"auto_grab",Self::AutoShieldGrab=>"auto_shield_grab",Self::AutoGrabDodged=>"auto_grab_dodged",Self::AutoShieldBackup=>"auto_shield_backup",
-            Self::AutoRoll=>"auto_roll",Self::AutoSpot=>"auto_spot_dodge",Self::AutoAir=>"auto_air_dodge",
+            Self::AutoGrab => "auto_grab",
+            Self::AutoShieldGrab => "auto_shield_grab",
+            Self::AutoGrabDodged => "auto_grab_dodged",
+            Self::AutoShieldBackup => "auto_shield_backup",
+            Self::AutoRoll => "auto_roll",
+            Self::AutoSpot => "auto_spot_dodge",
+            Self::AutoAir => "auto_air_dodge",
             Self::Off => "off",
             Self::Roll => "roll",
             Self::Crossed => "roll_cross",
@@ -99,10 +221,10 @@ impl Trigger {
             Self::ShieldCrossVulnerable => "shield_roll_cross_vulnerable",
             Self::ShieldAway => "shield_roll_away",
             Self::ShieldAwayVulnerable => "shield_roll_away_vulnerable",
-            Self::ShieldPressureVulnerable=>"shield_pressure_vulnerable",
-            Self::ShieldHitVulnerable=>"shield_hit_vulnerable",
-            Self::GrabDodgedVulnerable=>"grab_dodged_vulnerable",
-            Self::SpotDodgeAny=>"spot_dodge_any",
+            Self::ShieldPressureVulnerable => "shield_pressure_vulnerable",
+            Self::ShieldHitVulnerable => "shield_hit_vulnerable",
+            Self::GrabDodgedVulnerable => "grab_dodged_vulnerable",
+            Self::SpotDodgeAny => "spot_dodge_any",
         }
     }
 }
@@ -258,32 +380,51 @@ impl Rule {
     }
     pub fn field(self, n: u8) -> String {
         match n {
-            0 => format!("Auto reaction: {}", match self.trigger {
-                Trigger::AutoRoll=>"Opponent roll (any)",Trigger::AutoSpot=>"Opponent spot dodge (any)",Trigger::AutoAir=>"Opponent air dodge (any)",
-                Trigger::ShieldPressureVulnerable=>"Shield / shield roll vulnerable",
-                Trigger::ShieldHitVulnerable=>"After shield hit: enemy vulnerable",
-                Trigger::GrabDodgedVulnerable=>"After dodging grab: enemy vulnerable",
-                Trigger::SpotDodgeAny=>"Any enemy spot dodge",
-                Trigger::EnemyShield => "Opponent holding shield",
-                Trigger::ShieldRoll => "Roll out of shield",
-                Trigger::ShieldCross => "Shield roll crossed me",
-                Trigger::ShieldVulnerable => "Shield roll vulnerable",
-                Trigger::ShieldCrossVulnerable => "Shield roll crossed + vulnerable",
-                Trigger::ShieldAway => "Roll away out of shield",
-                Trigger::ShieldAwayVulnerable => "Shield roll away + vulnerable",
-                Trigger::SpotDodge => "Opponent spot dodge vulnerable", Trigger::ShieldHit => "After shield hit", Trigger::GrabDodged => "After dodging grab", Trigger::LedgeRegrab => "Vulnerable ledge hang / regrab", _ => self.trigger.token()
-            }),
+            0 => format!(
+                "Auto reaction: {}",
+                match self.trigger {
+                    Trigger::AutoRoll => "Opponent roll (any)",
+                    Trigger::AutoSpot => "Opponent spot dodge (any)",
+                    Trigger::AutoAir => "Opponent air dodge (any)",
+                    Trigger::ShieldPressureVulnerable => "Shield / shield roll vulnerable",
+                    Trigger::ShieldHitVulnerable => "After shield hit: enemy vulnerable",
+                    Trigger::GrabDodgedVulnerable => "After dodging grab: enemy vulnerable",
+                    Trigger::SpotDodgeAny => "Any enemy spot dodge",
+                    Trigger::EnemyShield => "Opponent holding shield",
+                    Trigger::ShieldRoll => "Roll out of shield",
+                    Trigger::ShieldCross => "Shield roll crossed me",
+                    Trigger::ShieldVulnerable => "Shield roll vulnerable",
+                    Trigger::ShieldCrossVulnerable => "Shield roll crossed + vulnerable",
+                    Trigger::ShieldAway => "Roll away out of shield",
+                    Trigger::ShieldAwayVulnerable => "Shield roll away + vulnerable",
+                    Trigger::SpotDodge => "Opponent spot dodge vulnerable",
+                    Trigger::ShieldHit => "After shield hit",
+                    Trigger::GrabDodged => "After dodging grab",
+                    Trigger::LedgeRegrab => "Vulnerable ledge hang / regrab",
+                    _ => self.trigger.token(),
+                }
+            ),
             1 => format!("    My state: {}", self.state.token()),
             2 => format!("    Min X distance: {:.0}", self.min),
             3 => format!("    Max X distance: {:.0}", self.max),
             4 => format!("    Max height difference: {:.0}", self.height),
             5 => format!("    Enemy side: {}", self.side.token()),
             6 => format!("    Priority: {} (1 first)", self.priority),
-            _ if self.trigger.shield_pressure() => "    Mode control: Shield pressure ON/OFF".into(),
-            _ if self.trigger.family() == Trigger::SpotDodge.family() => "    Mode control: Spot punish ON/OFF".into(),
-            _ if self.trigger.family() == Trigger::ShieldHit.family() => "    Mode control: Out of shield ON/OFF".into(),
-            _ if self.trigger == Trigger::LedgeRegrab => "    Mode control: Ledge regrab punish (while ledge assist active)".into(),
-            _ if self.trigger.family() == Trigger::GrabDodged.family() => "    Mode control: Grab dodge + punish ON/OFF".into(),
+            _ if self.trigger.shield_pressure() => {
+                "    Mode control: Shield pressure ON/OFF".into()
+            }
+            _ if self.trigger.family() == Trigger::SpotDodge.family() => {
+                "    Mode control: Spot punish ON/OFF".into()
+            }
+            _ if self.trigger.family() == Trigger::ShieldHit.family() => {
+                "    Mode control: Out of shield ON/OFF".into()
+            }
+            _ if self.trigger == Trigger::LedgeRegrab => {
+                "    Mode control: Ledge regrab punish (while ledge assist active)".into()
+            }
+            _ if self.trigger.family() == Trigger::GrabDodged.family() => {
+                "    Mode control: Grab dodge + punish ON/OFF".into()
+            }
             _ => format!(
                 "    Mode control: {}{}",
                 self.control.label(),
@@ -304,9 +445,13 @@ impl Rule {
         match n {
             0 => {
                 cycle(&mut self.trigger, &Trigger::ALL, up);
-                if self.trigger == Trigger::LedgeRegrab { cycle(&mut self.trigger, &Trigger::ALL, up); }
-                if self.trigger.defensive() { self.control = Control::Menu; }
-            },
+                if self.trigger == Trigger::LedgeRegrab {
+                    cycle(&mut self.trigger, &Trigger::ALL, up);
+                }
+                if self.trigger.defensive() {
+                    self.control = Control::Menu;
+                }
+            }
             1 => cycle(&mut self.state, &SelfState::ALL, up),
             2 => self.min = (self.min + d).clamp(0., self.max),
             3 => self.max = (self.max + d).clamp(self.min, 100.),
@@ -324,7 +469,9 @@ impl Rule {
         }
     }
     pub fn validate(self) -> Result<(), String> {
-        if (self.trigger.defensive() || self.trigger.simple().is_some()) && self.control != Control::Menu {
+        if (self.trigger.defensive() || self.trigger.simple().is_some())
+            && self.control != Control::Menu
+        {
             return Err("defensive reactions use their ON/OFF mode, not a button control".into());
         }
         if ![self.min, self.max, self.height]
@@ -343,10 +490,23 @@ impl Rule {
     }
     pub fn parse(s: &str) -> Result<Self, String> {
         let p: Vec<_> = s.trim().split(':').collect();
-        if p.len()==3 {
-            let trigger=Trigger::ALL.into_iter().find(|t|t.token()==p[0]&&t.simple().is_some()).ok_or("short reaction syntax requires an auto-react event")?;
-            let rule=Self{trigger,state:SelfState::Grounded,min:0.,max:p[1].parse().map_err(|_|"invalid max distance")?,height:p[2].parse().map_err(|_|"invalid max height")?,side:Side::Any,priority:1,control:Control::Menu};
-            rule.validate()?;return Ok(rule);
+        if p.len() == 3 {
+            let trigger = Trigger::ALL
+                .into_iter()
+                .find(|t| t.token() == p[0] && t.simple().is_some())
+                .ok_or("short reaction syntax requires an auto-react event")?;
+            let rule = Self {
+                trigger,
+                state: SelfState::Grounded,
+                min: 0.,
+                max: p[1].parse().map_err(|_| "invalid max distance")?,
+                height: p[2].parse().map_err(|_| "invalid max height")?,
+                side: Side::Any,
+                priority: 1,
+                control: Control::Menu,
+            };
+            rule.validate()?;
+            return Ok(rule);
         }
         if p.len() != 7 && p.len() != 8 {
             return Err("reaction = TRIGGER:STATE:MIN:MAX:HEIGHT:SIDE:PRIORITY[:CONTROL]".into());
@@ -377,10 +537,23 @@ impl Rule {
             },
         };
         r.validate()?;
-        Ok(if r.trigger.simple().is_some(){Self{state:SelfState::Grounded,min:0.,side:Side::Any,priority:1,control:Control::Menu,..r}}else{r})
+        Ok(if r.trigger.simple().is_some() {
+            Self {
+                state: SelfState::Grounded,
+                min: 0.,
+                side: Side::Any,
+                priority: 1,
+                control: Control::Menu,
+                ..r
+            }
+        } else {
+            r
+        })
     }
     pub fn token(self) -> String {
-        if self.trigger.simple().is_some(){return format!("{}:{}:{}",self.trigger.token(),self.max,self.height);}
+        if self.trigger.simple().is_some() {
+            return format!("{}:{}:{}", self.trigger.token(), self.max, self.height);
+        }
         let token = format!(
             "{}:{}:{}:{}:{}:{}:{}",
             self.trigger.token(),
@@ -407,7 +580,7 @@ pub fn validate_response(s: Sequence) -> Result<(), String> {
     if s.len == 0 || s.mode.is_some() {
         return Err("reaction requires an input recipe".into());
     }
-    if s.actions().iter().any(|a|a.needs_ledge()) {
+    if s.actions().iter().any(|a| a.needs_ledge()) {
         return Err("onstage reaction has no ledge anchor; use opponent/away_from_opponent/facing/backward directions".into());
     }
     Ok(())
@@ -428,8 +601,8 @@ pub struct Resolved {
     pub enabled_controls: u8,
     defense_mask: u32,
     defense_needs_ground: bool,
-    defense_watch: [Option<(f32,f32)>;7],
-    simple: Option<Box<[Option<Sequence>;7]>>,
+    defense_watch: [Option<(f32, f32)>; 7],
+    simple: Option<Box<[Option<Sequence>; 7]>>,
     simple_starts: [Option<SimpleStart>; 3],
     automatic_ground: [Option<(f32, f32)>; 7],
     automatic_up_special: u8,
@@ -446,7 +619,7 @@ impl Default for Resolved {
             enabled_controls: Control::Menu.bit(),
             defense_mask: 0,
             defense_needs_ground: false,
-            defense_watch: [None;7],
+            defense_watch: [None; 7],
             simple: None,
             simple_starts: [None; 3],
             automatic_ground: [None; 7],
@@ -455,15 +628,33 @@ impl Default for Resolved {
     }
 }
 impl Resolved {
-    pub fn simple_sequence(&self,index:usize)->Option<&Sequence>{self.simple.as_ref().and_then(|s|s.get(index)).and_then(Option::as_ref)}
-    pub fn has_simple(&self)->bool{self.simple.is_some()}
-    pub fn has_simple_events(&self)->bool{(0..3).any(|i|self.simple_sequence(i).is_some())}
-    pub fn has_defense(&self, trigger: Trigger) -> bool {
-        let alias=match trigger {Trigger::ShieldHit=>1 << Trigger::ShieldHitVulnerable as u8,Trigger::GrabDodged=>1 << Trigger::GrabDodgedVulnerable as u8,Trigger::SpotDodge=>1 << Trigger::SpotDodgeAny as u8,_=>0};
-        self.defense_mask & ((1 << trigger as u8)|alias) != 0
+    pub fn simple_sequence(&self, index: usize) -> Option<&Sequence> {
+        self.simple
+            .as_ref()
+            .and_then(|s| s.get(index))
+            .and_then(Option::as_ref)
     }
-    pub fn defense_ground(&self) -> bool { self.defense_needs_ground }
-    pub fn defense_watch(&self, trigger:Trigger)->Option<(f32,f32)>{self.defense_watch[trigger.family()]}
+    pub fn has_simple(&self) -> bool {
+        self.simple.is_some()
+    }
+    pub fn has_simple_events(&self) -> bool {
+        (0..3).any(|i| self.simple_sequence(i).is_some())
+    }
+    pub fn has_defense(&self, trigger: Trigger) -> bool {
+        let alias = match trigger {
+            Trigger::ShieldHit => 1 << Trigger::ShieldHitVulnerable as u8,
+            Trigger::GrabDodged => 1 << Trigger::GrabDodgedVulnerable as u8,
+            Trigger::SpotDodge => 1 << Trigger::SpotDodgeAny as u8,
+            _ => 0,
+        };
+        self.defense_mask & ((1 << trigger as u8) | alias) != 0
+    }
+    pub fn defense_ground(&self) -> bool {
+        self.defense_needs_ground
+    }
+    pub fn defense_watch(&self, trigger: Trigger) -> Option<(f32, f32)> {
+        self.defense_watch[trigger.family()]
+    }
     pub fn set_enabled_controls(&mut self, controls: u8) {
         if self.enabled_controls != controls {
             self.enabled_controls = controls;
@@ -475,13 +666,16 @@ impl Resolved {
         self.ground_distance = 0.;
         self.ground_height = 0.;
         for c in self.rules.iter().flatten() {
-            if c.sequence.reaction.trigger.defensive() || self.enabled_controls & c.sequence.reaction.control.bit() == 0 {
+            if c.sequence.reaction.trigger.defensive()
+                || self.enabled_controls & c.sequence.reaction.control.bit() == 0
+            {
                 continue;
             }
             if c.sequence.actions().iter().any(|a| {
                 matches!(
                     a,
-                    Action::Chase {..} | Action::Walk { .. }
+                    Action::Chase { .. }
+                        | Action::Walk { .. }
                         | Action::Run { .. }
                         | Action::Approach {
                             airborne: false,
@@ -500,37 +694,69 @@ impl Resolved {
             return Ok(());
         }
         validate_response(c.sequence)?;
-        if self.len == MAX_RULES || self.rules.iter().flatten().filter(|r|
-            r.sequence.reaction.trigger.family()==c.sequence.reaction.trigger.family()).count() >= MAX_RULES_PER_MODE {
+        if self.len == MAX_RULES
+            || self
+                .rules
+                .iter()
+                .flatten()
+                .filter(|r| {
+                    r.sequence.reaction.trigger.family() == c.sequence.reaction.trigger.family()
+                })
+                .count()
+                >= MAX_RULES_PER_MODE
+        {
             return Err("At most 8 rules per assist mode per fighter".into());
         }
-        if let Some(index)=c.sequence.reaction.trigger.simple() {
-            let simple=self.simple.get_or_insert_with(||Box::new([None;7]));
-            if simple[index].is_some(){return Err("Auto-react supports one sequence per event; edit the existing event sequence".into());}
-            simple[index]=Some(c.sequence);
-            if starts_direct_up_b(&c.sequence) { self.automatic_up_special |= 1 << index; }
+        if let Some(index) = c.sequence.reaction.trigger.simple() {
+            let simple = self.simple.get_or_insert_with(|| Box::new([None; 7]));
+            if simple[index].is_some() {
+                return Err(
+                    "Auto-react supports one sequence per event; edit the existing event sequence"
+                        .into(),
+                );
+            }
+            simple[index] = Some(c.sequence);
+            if starts_direct_up_b(&c.sequence) {
+                self.automatic_up_special |= 1 << index;
+            }
             if index < 3 {
                 self.simple_starts[index] = Some(SimpleStart {
-                    distance: c.sequence.reaction.max, height: c.sequence.reaction.height,
+                    distance: c.sequence.reaction.max,
+                    height: c.sequence.reaction.height,
                     up_special: starts_direct_up_b(&c.sequence),
                 });
             }
             if automatic_watch::needs_ground(&c.sequence) {
-                self.automatic_ground[index] = Some((c.sequence.reaction.max, c.sequence.reaction.height));
+                self.automatic_ground[index] =
+                    Some((c.sequence.reaction.max, c.sequence.reaction.height));
             }
         }
-        self.rules.try_reserve(1).map_err(|_| "Not enough memory for assist rules")?;
+        self.rules
+            .try_reserve(1)
+            .map_err(|_| "Not enough memory for assist rules")?;
         if c.sequence.reaction.trigger.defensive() {
             self.defense_mask |= 1 << c.sequence.reaction.trigger as u8;
-            let walking=c.sequence.actions().iter().any(|a| matches!(a,
-                Action::Walk { .. } | Action::Run { .. } | Action::Approach { airborne: false, .. }));
+            let walking = c.sequence.actions().iter().any(|a| {
+                matches!(
+                    a,
+                    Action::Walk { .. }
+                        | Action::Run { .. }
+                        | Action::Approach {
+                            airborne: false,
+                            ..
+                        }
+                )
+            });
             self.defense_needs_ground |= walking;
             if walking {
-                let r=c.sequence.reaction;
-                let old=self.defense_watch[r.trigger.family()].unwrap_or((0.,0.));
-                self.defense_watch[r.trigger.family()]=Some((old.0.max(r.max),old.1.max(r.height)));
+                let r = c.sequence.reaction;
+                let old = self.defense_watch[r.trigger.family()].unwrap_or((0., 0.));
+                self.defense_watch[r.trigger.family()] =
+                    Some((old.0.max(r.max), old.1.max(r.height)));
             }
-        } else { self.controls |= c.sequence.reaction.control.bit(); }
+        } else {
+            self.controls |= c.sequence.reaction.control.bit();
+        }
         self.rules.push(Some(c));
         self.len += 1;
         self.rebuild_ground_watch();
@@ -596,10 +822,15 @@ pub struct Engine {
     simple_waiting: bool,
 }
 impl Engine {
-    pub fn observe_statuses<const N:usize>(&mut self,known:&[Option<(u32,i32)>;N]) {
+    pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         for track in &mut self.tracks {
-            if track.is_some_and(|t|known.iter().flatten().any(|(id,status)|*id==t.id && *status!=t.status)) {
-                *track=None;
+            if track.is_some_and(|t| {
+                known
+                    .iter()
+                    .flatten()
+                    .any(|(id, status)| *id == t.id && *status != t.status)
+            }) {
+                *track = None;
             }
         }
     }
@@ -609,22 +840,35 @@ impl Engine {
     pub fn committed(&self) -> bool {
         self.plan.is_some()
     }
-    pub fn direct_up_b(&self)->bool {self.simple_up_b && self.plan.is_some()}
-    pub fn up_b_delivery_started(&self)->bool {
+    pub fn direct_up_b(&self) -> bool {
+        self.simple_up_b && self.plan.is_some()
+    }
+    pub fn up_b_delivery_started(&self) -> bool {
         self.direct_up_b() && (self.simple_up_b_seen || self.simple_receipt.sent())
     }
-    pub fn attempted_up_special(&mut self,tick:i64,target:u32) {
-        if self.direct_up_b() && !self.simple_up_b_seen && self.target==Some(target) {self.simple_delivery.mapped(tick);}
+    pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
+        if self.direct_up_b() && !self.simple_up_b_seen && self.target == Some(target) {
+            self.simple_delivery.mapped(tick);
+        }
     }
-    pub fn mapped_up_special(&mut self,tick:i64,target:u32) {
-        if self.direct_up_b() && !self.simple_up_b_seen && self.target==Some(target) {
-            self.simple_delivery.mapped(tick);self.simple_receipt.mapped(tick);
+    pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
+        if self.direct_up_b() && !self.simple_up_b_seen && self.target == Some(target) {
+            self.simple_delivery.mapped(tick);
+            self.simple_receipt.mapped(tick);
         }
     }
 
-    pub fn up_b_receipt_pending(&self)->bool {self.direct_up_b() && !self.simple_up_b_seen && self.simple_receipt.sent()}
-    pub fn awaiting_up_b(&self)->bool {self.up_b_receipt_pending() && self.simple_waiting}
-    pub fn delivery_tick(&mut self,tick:i64) {if self.up_b_receipt_pending(){self.simple_receipt.tick(tick);}}
+    pub fn up_b_receipt_pending(&self) -> bool {
+        self.direct_up_b() && !self.simple_up_b_seen && self.simple_receipt.sent()
+    }
+    pub fn awaiting_up_b(&self) -> bool {
+        self.up_b_receipt_pending() && self.simple_waiting
+    }
+    pub fn delivery_tick(&mut self, tick: i64) {
+        if self.up_b_receipt_pending() {
+            self.simple_receipt.tick(tick);
+        }
+    }
     pub fn needs_ground(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::needs_ground)
     }
@@ -641,11 +885,12 @@ impl Engine {
         self.plan = None;
         self.target = None;
         self.active_control = None;
-        self.simple_up_b=false;
-        self.simple_up_b_seen=false;
-        self.simple_manual_epoch=0;
-        self.simple_delivery=Default::default();
-        self.simple_receipt=Default::default();self.simple_waiting=false;
+        self.simple_up_b = false;
+        self.simple_up_b_seen = false;
+        self.simple_manual_epoch = 0;
+        self.simple_delivery = Default::default();
+        self.simple_receipt = Default::default();
+        self.simple_waiting = false;
         self.feedback = Feedback::Cancelled;
     }
     pub fn sample(
@@ -670,10 +915,12 @@ impl Engine {
                 })
                 .map(|t| {
                     let dx = t.position[0] - c.position[0];
-                    let prev = old
-                        .iter()
-                        .flatten()
-                        .find(|p| p.id == t.id && p.status == t.status && p.motion == t.motion && t.frame >= p.frame);
+                    let prev = old.iter().flatten().find(|p| {
+                        p.id == t.id
+                            && p.status == t.status
+                            && p.motion == t.motion
+                            && t.frame >= p.frame
+                    });
                     Track {
                         id: t.id,
                         status: t.status,
@@ -754,7 +1001,9 @@ impl Engine {
                         position: t.position,
                         velocity: [t.velocity_x, 0.],
                         motion: Some(crate::ledge_trap::MotionTiming {
-                            kind: t.motion, frame: t.frame, rate: t.rate,
+                            kind: t.motion,
+                            frame: t.frame,
+                            rate: t.rate,
                             remaining: t.actionable_in,
                         }),
                         vulnerable_in: t.vulnerable_in,
@@ -863,41 +1112,67 @@ mod tests {
     }
     #[test]
     fn roll_sequence_in_static_shield_uses_the_real_opponent_clock_from_its_first_sample() {
-        for repeats in [0,20] {
-            let rules=resolved(sequence("roll:shielding:0:20:12:any:1","wait:2,up_b:1"));
-            let mut engine=Engine::default();
-            let c=LedgeContext {status:0x1c,motion_frame:0.0,motion_rate:1.0,..context(0.0)};
+        for repeats in [0, 20] {
+            let rules = resolved(sequence("roll:shielding:0:20:12:any:1", "wait:2,up_b:1"));
+            let mut engine = Engine::default();
+            let c = LedgeContext {
+                status: 0x1c,
+                motion_frame: 0.0,
+                motion_rate: 1.0,
+                ..context(0.0)
+            };
             // Direct Up-B retains guard through its native shield cancel.
-            for (frame,expected) in [0,0,MAPPER_B|MAPPER_ZR,0].into_iter().enumerate() {
-                let t=target(frame as f32,5.0);
-                let following=Opponent {
-                    id:t.id,status:t.status,position:t.position,
-                    motion:Some(crate::ledge_trap::MotionTiming {
-                        kind:t.motion,frame:t.frame,rate:t.rate,remaining:t.actionable_in,
-                    }),..Opponent::default()
+            for (frame, expected) in [0, 0, MAPPER_B | MAPPER_ZR, 0].into_iter().enumerate() {
+                let t = target(frame as f32, 5.0);
+                let following = Opponent {
+                    id: t.id,
+                    status: t.status,
+                    position: t.position,
+                    motion: Some(crate::ledge_trap::MotionTiming {
+                        kind: t.motion,
+                        frame: t.frame,
+                        rate: t.rate,
+                        remaining: t.actionable_in,
+                    }),
+                    ..Opponent::default()
                 };
-                let targets=[Some(t),None,None,None,None,None,None,None];
+                let targets = [Some(t), None, None, None, None, None, None, None];
                 // Discovery does not yet have a locked follow ID. The target
                 // snapshot itself must seed this first frame's native clock.
-                let follow=(frame>0).then_some(following);
-                let out=engine.sample(true,&rules,LedgeSettings::default(),c,targets,follow);
-                assert_eq!(out.requested,expected,"native frame {frame}");
+                let follow = (frame > 0).then_some(following);
+                let out = engine.sample(true, &rules, LedgeSettings::default(), c, targets, follow);
+                assert_eq!(out.requested, expected, "native frame {frame}");
                 for _ in 0..repeats {
-                    let duplicate=engine.sample(true,&rules,LedgeSettings::default(),c,
-                        targets,Some(following));
-                    assert_eq!(duplicate.requested,out.requested);
+                    let duplicate = engine.sample(
+                        true,
+                        &rules,
+                        LedgeSettings::default(),
+                        c,
+                        targets,
+                        Some(following),
+                    );
+                    assert_eq!(duplicate.requested, out.requested);
                 }
             }
         }
     }
     #[test]
     fn different_native_roll_motion_does_not_inherit_the_previous_rolls_used_flag() {
-        let rules=resolved(sequence("roll:any:0:20:12:any:1","up_b:1"));
-        let mut engine=Engine::default();
-        assert_eq!(sample(&mut engine,&rules,context(0.0),target(0.0,5.0)).requested,MAPPER_B);
-        sample(&mut engine,&rules,context(1.0),target(1.0,5.0));
-        let t=Target {motion:789,..target(2.0,5.0)};
-        assert_eq!(sample(&mut engine,&rules,context(2.0),t).requested,MAPPER_B);
+        let rules = resolved(sequence("roll:any:0:20:12:any:1", "up_b:1"));
+        let mut engine = Engine::default();
+        assert_eq!(
+            sample(&mut engine, &rules, context(0.0), target(0.0, 5.0)).requested,
+            MAPPER_B
+        );
+        sample(&mut engine, &rules, context(1.0), target(1.0, 5.0));
+        let t = Target {
+            motion: 789,
+            ..target(2.0, 5.0)
+        };
+        assert_eq!(
+            sample(&mut engine, &rules, context(2.0), t).requested,
+            MAPPER_B
+        );
     }
     #[test]
     fn reaction_persists_roundtrip_and_disabling_replaces_old_metadata() {

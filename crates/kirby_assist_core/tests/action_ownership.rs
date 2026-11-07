@@ -20,10 +20,19 @@ fn acquired_ledge_visit_reserves_new_work_without_replacing_committed_reads() {
         control.set_ledge_priority(true);
         assert!(control.allows(read));
         assert!(!control.allows(Owner::Ledge));
-        assert_eq!(control.select(true, &[intent(read, true), intent(Owner::Ledge, true)]), Some(read));
-        assert_eq!(control.select(true, &[intent(Owner::Ledge, true)]), Some(Owner::Ledge));
+        assert_eq!(
+            control.select(true, &[intent(read, true), intent(Owner::Ledge, true)]),
+            Some(read)
+        );
+        assert_eq!(
+            control.select(true, &[intent(Owner::Ledge, true)]),
+            Some(Owner::Ledge)
+        );
         for _ in 0..8 {
-            assert_eq!(control.select(true, &[intent(read, true), intent(Owner::Ledge, true)]), Some(Owner::Ledge));
+            assert_eq!(
+                control.select(true, &[intent(read, true), intent(Owner::Ledge, true)]),
+                Some(Owner::Ledge)
+            );
         }
         assert_eq!(control.select(false, &[intent(Owner::Ledge, true)]), None);
         assert!(!control.ledge_priority());
@@ -173,13 +182,26 @@ fn trip_fsmash_stick_and_a_remain_paired_when_no_timed_punish_is_present() {
 #[test]
 fn priority_chooses_new_work_but_never_interrupts_a_committed_sequence() {
     for punish in [Owner::Ledge, Owner::RollRead] {
-        for other in [Owner::Trip, Owner::JabLock, Owner::Finisher, Owner::Fair,
-            Owner::Trump, Owner::Slide, Owner::Shortcut, Owner::Defense, Owner::Turbo, Owner::Posture] {
+        for other in [
+            Owner::Trip,
+            Owner::JabLock,
+            Owner::Finisher,
+            Owner::Fair,
+            Owner::Trump,
+            Owner::Slide,
+            Owner::Shortcut,
+            Owner::Defense,
+            Owner::Turbo,
+            Owner::Posture,
+        ] {
             for committed in [false, true] {
                 let mut control = ActionOwnership::new();
                 control.select(true, &[intent(other, committed)]);
                 let expected = if committed { other } else { punish };
-                assert_eq!(control.select(true, &[intent(other, committed), intent(punish, true)]), Some(expected));
+                assert_eq!(
+                    control.select(true, &[intent(other, committed), intent(punish, true)]),
+                    Some(expected)
+                );
             }
         }
     }
@@ -241,19 +263,33 @@ fn posture_is_last_even_while_other_modes_are_only_preparing() {
     }
 }
 
-
 #[test]
 fn ledge_reservation_blocks_new_configured_actions_until_released() {
-    for owner in [Owner::OptionRead, Owner::RollRead, Owner::OutOfShield,
-        Owner::Trip, Owner::JabLock, Owner::Finisher, Owner::Fair,
-        Owner::Trump, Owner::Slide, Owner::Shortcut] {
+    for owner in [
+        Owner::OptionRead,
+        Owner::RollRead,
+        Owner::OutOfShield,
+        Owner::Trip,
+        Owner::JabLock,
+        Owner::Finisher,
+        Owner::Fair,
+        Owner::Trump,
+        Owner::Slide,
+        Owner::Shortcut,
+    ] {
         let mut control = ActionOwnership::new();
         control.set_ledge_priority(true);
         assert!(!control.allows(owner));
         assert!(control.allows(Owner::Ledge));
-        assert_eq!(control.select(true, &[intent(owner, true), intent(Owner::Ledge, true)]), Some(Owner::Ledge));
+        assert_eq!(
+            control.select(true, &[intent(owner, true), intent(Owner::Ledge, true)]),
+            Some(Owner::Ledge)
+        );
         control.set_ledge_priority(false);
-        assert!(!control.allows(owner), "reservation loss cannot end a still-running tape");
+        assert!(
+            !control.allows(owner),
+            "reservation loss cannot end a still-running tape"
+        );
         control.release(Owner::Ledge);
         assert!(control.allows(owner));
         assert_eq!(control.select(true, &[intent(owner, true)]), Some(owner));
@@ -262,31 +298,67 @@ fn ledge_reservation_blocks_new_configured_actions_until_released() {
 
 #[test]
 fn incoming_grab_defense_waits_for_committed_work_and_yields_to_native_safety() {
-    for current in [Owner::Trip,Owner::Shortcut] {
-        let mut control=ActionOwnership::new();
-        control.select(true,&[intent(current,true)]);
+    for current in [Owner::Trip, Owner::Shortcut] {
+        let mut control = ActionOwnership::new();
+        control.select(true, &[intent(current, true)]);
         assert!(!control.allows(Owner::GrabDodge));
         control.release(Owner::RollRead);
-        assert_eq!(control.current_owner(),Some(current));
+        assert_eq!(control.current_owner(), Some(current));
         control.release(current);
-        assert_eq!(control.select(true,&[intent(Owner::GrabDodge,true)]),Some(Owner::GrabDodge));
+        assert_eq!(
+            control.select(true, &[intent(Owner::GrabDodge, true)]),
+            Some(Owner::GrabDodge)
+        );
         assert!(!control.allows(Owner::OptionRead));
-        assert_eq!(control.select(true,&[intent(Owner::GrabDodge,true),intent(Owner::Safety,true)]),Some(Owner::Safety));
+        assert_eq!(
+            control.select(
+                true,
+                &[intent(Owner::GrabDodge, true), intent(Owner::Safety, true)]
+            ),
+            Some(Owner::Safety)
+        );
     }
 }
 
 #[test]
 fn committed_automatic_tapes_reject_competing_grab_and_punish_requests() {
-    for current in [Owner::RollRead, Owner::OptionRead, Owner::OutOfShield, Owner::Ledge] {
-        let mut control=ActionOwnership::new();control.select(true,&[intent(current,true)]);
-        for other in [Owner::GrabDodge,Owner::RollRead,Owner::OptionRead,Owner::OutOfShield,Owner::Shortcut] {
-            if other==current {continue;}
-            assert!(!control.allows(other),"{other:?} interrupted {current:?}");
-            assert_eq!(control.select(true,&[intent(current,true),intent(other,true)]),Some(current));
+    for current in [
+        Owner::RollRead,
+        Owner::OptionRead,
+        Owner::OutOfShield,
+        Owner::Ledge,
+    ] {
+        let mut control = ActionOwnership::new();
+        control.select(true, &[intent(current, true)]);
+        for other in [
+            Owner::GrabDodge,
+            Owner::RollRead,
+            Owner::OptionRead,
+            Owner::OutOfShield,
+            Owner::Shortcut,
+        ] {
+            if other == current {
+                continue;
+            }
+            assert!(!control.allows(other), "{other:?} interrupted {current:?}");
+            assert_eq!(
+                control.select(true, &[intent(current, true), intent(other, true)]),
+                Some(current)
+            );
         }
-        assert_eq!(control.select(true,&[intent(current,true),intent(Owner::Safety,false)]),Some(Owner::Safety));
+        assert_eq!(
+            control.select(true, &[intent(current, true), intent(Owner::Safety, false)]),
+            Some(Owner::Safety)
+        );
     }
-    let mut control=ActionOwnership::new();control.select(true,&[intent(Owner::OutOfShield,true)]);
+    let mut control = ActionOwnership::new();
+    control.select(true, &[intent(Owner::OutOfShield, true)]);
     control.set_ledge_priority(true);
-    assert_eq!(control.select(true,&[intent(Owner::OutOfShield,true),intent(Owner::Ledge,true)]),Some(Owner::OutOfShield));
+    assert_eq!(
+        control.select(
+            true,
+            &[intent(Owner::OutOfShield, true), intent(Owner::Ledge, true)]
+        ),
+        Some(Owner::OutOfShield)
+    );
 }

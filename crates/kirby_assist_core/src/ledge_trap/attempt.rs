@@ -10,7 +10,15 @@ pub(crate) struct NativeAttempt {
     pub expired: bool,
 }
 impl NativeAttempt {
-    pub const fn new()->Self{Self{previous:None,previous_enemy:None,enemy_was_fresh:false,age:0.,expired:false}}
+    pub const fn new() -> Self {
+        Self {
+            previous: None,
+            previous_enemy: None,
+            enemy_was_fresh: false,
+            age: 0.,
+            expired: false,
+        }
+    }
 
     /// Rebase a completed loop without discarding native actor stamps.
     pub fn consume(&mut self, frames: f32) {

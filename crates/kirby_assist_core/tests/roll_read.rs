@@ -233,16 +233,20 @@ fn shield_stun_and_rolls_too_late_to_drop_shield_are_not_forced() {
 }
 
 #[test]
-fn yoshi_uses_separate_front_and_rear_sweeps_and_tongue_grab_data() {
+fn yoshi_roll_read_uses_canonical_active_spans_and_rejects_compound_grab_reach() {
     let cfg = roll_read::fighter_config(5).unwrap();
-    assert_eq!((cfg.first, cfg.last, cfg.back), (7, 8, Some((22, 23))));
-    let grab = roll_read::config_for(5, Choice::Grab).unwrap();
-    assert_eq!((grab.first, grab.last), (14, 21));
-    assert_eq!(grab.reach, 26.0);
-    for (x, v, opens, end, eligible) in [
-        (8.0, -0.2, 6.0, 12.0, true),
-        (-8.0, 0.2, 6.0, 12.0, false),
-        (-8.0, 0.2, 21.0, 26.0, true),
+    assert_eq!(
+        cfg.active_windows
+            .iter()
+            .map(|span| (span.first, span.last))
+            .collect::<Vec<_>>(),
+        vec![(7, 8), (22, 23)]
+    );
+    assert!(roll_read::config_for(5, Choice::Grab).is_none());
+    for (x, v, opens, end) in [
+        (8.0, -0.2, 6.0, 12.0),
+        (-8.0, 0.2, 6.0, 12.0),
+        (-8.0, 0.2, 21.0, 26.0),
     ] {
         for facing in [-1.0, 1.0] {
             let mut r = RollRead::default();
@@ -263,15 +267,8 @@ fn yoshi_uses_separate_front_and_rear_sweeps_and_tongue_grab_data() {
                     ..t
                 }),
             );
-            if eligible {
-                assert_ne!(prime.owned, 0);
-                assert_eq!(out.requested, MAPPER_A);
-            } else {
-                assert_eq!(
-                    out.requested, 0,
-                    "rear sweep cannot use frame-7 front timing"
-                );
-            }
+            assert_ne!(prime.owned, 0);
+            assert_eq!(out.requested, MAPPER_A);
         }
     }
 }
@@ -1003,7 +1000,7 @@ fn grab_off_range_unknown_timing_and_binding_edits_release_pending_input() {
     assert_eq!(Choice::DownSmash.cycle(true), Choice::Grab);
     assert_eq!(Choice::Grab.cycle(false), Choice::DownSmash);
     assert_eq!(Choice::Off.cycle(false), Choice::Grab);
-    assert!(roll_read::config_for(5, Choice::Grab).is_some());
+    assert!(roll_read::config_for(5, Choice::Grab).is_none());
 
     // The delivery limit is game time, not raw animation frames at a slow rate.
     let mut read = RollRead::default();

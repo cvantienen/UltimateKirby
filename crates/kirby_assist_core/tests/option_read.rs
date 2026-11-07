@@ -367,11 +367,34 @@ fn delayed_smash_acceptance_retries_but_native_startup_and_expiry_stop_it() {
 
 #[test]
 fn sequential_rear_smash_uses_its_own_window_instead_of_the_front_startup() {
-    let mut config=cfg();config.down=[7,8];config.down_back=Some([22,23]);
-    let mut short=t(Kind::Spot,-5.);short.opens=0.;short.closes=12.;
-    assert_eq!(Punisher::default().sample(true,c(0.),config,targets(short)).owned,0);
-    let mut long=short;long.closes=50.;
-    assert_ne!(Punisher::default().sample(true,c(0.),config,targets(long)).owned,0);
-    let front=Target{position:[5.,0.],..short};
-    assert_ne!(Punisher::default().sample(true,c(0.),config,targets(front)).owned,0);
+    let mut config = cfg();
+    config.down = [7, 8];
+    config.down_back = Some([22, 23]);
+    let mut short = t(Kind::Spot, -5.);
+    short.opens = 0.;
+    short.closes = 12.;
+    assert_eq!(
+        Punisher::default()
+            .sample(true, c(0.), config, targets(short))
+            .owned,
+        0
+    );
+    let mut long = short;
+    long.closes = 50.;
+    assert_ne!(
+        Punisher::default()
+            .sample(true, c(0.), config, targets(long))
+            .owned,
+        0
+    );
+    let front = Target {
+        position: [5., 0.],
+        ..short
+    };
+    assert_ne!(
+        Punisher::default()
+            .sample(true, c(0.), config, targets(front))
+            .owned,
+        0
+    );
 }

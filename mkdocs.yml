@@ -43,7 +43,7 @@ nav:
       - Shared observations and timing: OBSERVATIONS_AND_TIMING.md
       - Action ownership: ACTION_OWNERSHIP.md
       - Parked whiff prototype: WHIFF_PUNISH.md
-      - Opponent reference data: OPPONENT_DATA.md
+      - Fighter data: FIGHTER_DATA.md
       - Diagnostic result card: CALIBRATION_CARD.md
       - Ledge menu source review: COMBO_REVIEW.md
       - Removed combo system: CUSTOM_COMBOS.md

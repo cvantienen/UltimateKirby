@@ -4,8 +4,8 @@
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
 
-Native fighter kind **12** (`jigglypuff`). This reference follows the compiled source;
-it is not a device-calibration result. No fighter file loads during a match.
+Native fighter kind **12** (`jigglypuff`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
 
 ## Saved ledge responses
 
@@ -48,37 +48,40 @@ delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
 | --- | --- |
-| Neutral air | 6–30 |
-| Down tilt | 10–12 |
-| Forward tilt | 7–10 |
-| Down smash | 14–16 |
-| Up Tilt | 9–13 |
-| Forward Smash | 16–24 |
-| Forward Air | 8–20 |
-| Up Air | 9–21 |
-| Down Air | 7–8 |
+| Jab 1 | 5 start; active 5–6; 16 total; -- landing |
+| Neutral Air | 6 start; active 6–7 / 8–30; 43 total; 9 landing |
+| Forward Air | 8 start; active 8–9 / 10–20; 36 total; 9 landing |
+| Back Air | 10 start; active 10–11; 35 total; 8 landing |
+| Up Air | 9 start; active 9–21; 39 total; 9 landing |
+| Down Air | 7/10/13/16/19/22/25/28/31 start; active 7–8 / 10–11 / 13–14 / 16–17 / 19–20 / 22–23 / 25–26 / 28–29 / 31–32; 52 total; 12 landing |
+| Forward Tilt | 7 start; active 7–10; 24 total; -- landing |
+| Up Tilt | 9 start; active 9–10 / 11–13; 24 total; -- landing |
+| Down Tilt | 10 start; active 10–12; 30 total; -- landing |
+| Dash Attack | 5 start; active 5–7 / 8–20; 39 total; -- landing |
+| Forward Smash | 16 start; active 16–19 / 20–24; 49 total; -- landing |
+| Up Smash | 16 start; active 16–19; 45 total; -- landing |
+| Down Smash | 14 start; active 14–16; 48 total; -- landing |
 
 ### Grab data
 
-| Setting | Compiled value |
+| Setting | Fighter data |
 | --- | --- |
-| Standing startup | 6 |
-| Dash startup | 9 |
-| Pivot startup | 10 |
+| Standing grab | frames 6–7 |
+| Dash grab | frames 9–10 |
+| Pivot grab | frames 10–11 |
+| Standing reach reference | 12.0 world units |
 | Shield-grab startup | 10 |
-| Active duration | 2 |
-| Standing reach reference (world units) | 12.0 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
 The file decides whether to request an explicit range check. No native timing gate
 is inferred from this table; input delivery and the game's buffering rules still matter.
 
-## Baseline reference stats
+## Baseline fighter stats
 
-Compiled [opponent/move reference](../OPPONENT_DATA.md); baseline facts, not
-instance modifiers or a replacement for existing ledge tuning.
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
 
-| Stat | Reference |
+| Stat | Fighter data |
 | --- | --- |
 | Weight | 68 |
 | Walk speed | 0.735 |
@@ -90,8 +93,6 @@ instance modifiers or a replacement for existing ledge tuning.
 | Fast fall | 1.568 |
 | Short-hop height | 11.26 |
 | Full-hop height | 19.79 |
-
-[Move source](https://ultimateframedata.com/jigglypuff) · [Stats source](https://ultimateframedata.com/stats.php)
 
 ## Execution and calibration
 
@@ -127,7 +128,7 @@ Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.
 Use the [diagnostic result card](../CALIBRATION_CARD.md),
 [execution/calibration](../FIGHTER_EXECUTION.md) and the
-[roster exceptions](../NON_DLC_ROSTER.md#native-state-and-resource-exceptions)
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
 before treating an option as reliable in a particular setup.
 
 ## Source and edits
@@ -135,7 +136,7 @@ before treating an option as reliable in a particular setup.
 Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/jigglypuff.rs`.
-- Move data: `crates/kirby_assist_core/src/fighter_profiles/jigglypuff/timing.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 

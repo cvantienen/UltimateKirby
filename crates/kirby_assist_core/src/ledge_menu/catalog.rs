@@ -42,12 +42,16 @@ pub(super) enum Event {
 // Cursors are UTF-8 byte boundaries; saved recipe names allow 64 bytes.
 fn next_character(text: &[u8], cursor: usize) -> usize {
     let mut end = cursor + 1;
-    while end < text.len() && text[end] & 0xc0 == 0x80 { end += 1; }
+    while end < text.len() && text[end] & 0xc0 == 0x80 {
+        end += 1;
+    }
     end
 }
 fn previous_character(text: &[u8], cursor: usize) -> usize {
     let mut start = if cursor == 0 { text.len() } else { cursor } - 1;
-    while start > 0 && text[start] & 0xc0 == 0x80 { start -= 1; }
+    while start > 0 && text[start] & 0xc0 == 0x80 {
+        start -= 1;
+    }
     start
 }
 impl Catalog {
@@ -90,17 +94,24 @@ impl Catalog {
         match &mut self.mode {
             Mode::Closed => {}
             Mode::Actions(selected) => {
-                let count=if self.assist {4}else{5};
-                *selected=(*selected).min(count-1);
-                if pressed & DPAD_DOWN != 0 { *selected = (*selected + 1) % count; }
-                if pressed & DPAD_UP != 0 { *selected = (*selected + count-1) % count; }
+                let count = if self.assist { 4 } else { 5 };
+                *selected = (*selected).min(count - 1);
+                if pressed & DPAD_DOWN != 0 {
+                    *selected = (*selected + 1) % count;
+                }
+                if pressed & DPAD_UP != 0 {
+                    *selected = (*selected + count - 1) % count;
+                }
                 if pressed & A != 0 {
                     match *selected {
                         0 => {
-                            let mut value = name.chars().filter(|c| !c.is_control()).collect::<String>();
+                            let mut value =
+                                name.chars().filter(|c| !c.is_control()).collect::<String>();
                             if value.len() > 64 {
                                 let mut end = 64;
-                                while !value.is_char_boundary(end) { end -= 1; }
+                                while !value.is_char_boundary(end) {
+                                    end -= 1;
+                                }
                                 value.truncate(end);
                             }
                             let text = value.into_bytes();
@@ -142,9 +153,14 @@ impl Catalog {
                     let end = next_character(text, *cursor);
                     if *cursor != 0 || end != text.len() {
                         text.drain(*cursor..end);
-                        if *cursor == text.len() { *cursor = previous_character(text, *cursor); }
+                        if *cursor == text.len() {
+                            *cursor = previous_character(text, *cursor);
+                        }
                     }
-                } else if pressed & X == 0 && pad.count_ones() == 1 && (pressed & pad != 0 || repeat) {
+                } else if pressed & X == 0
+                    && pad.count_ones() == 1
+                    && (pressed & pad != 0 || repeat)
+                {
                     if pad == DPAD_RIGHT {
                         *cursor = next_character(text, *cursor) % text.len();
                     } else if pad & DPAD_SIDES != 0 {
@@ -186,7 +202,7 @@ impl Catalog {
                     "Save as startup default",
                 ]
                 .iter()
-                .take(if self.assist {4}else{5})
+                .take(if self.assist { 4 } else { 5 })
                 .enumerate()
                 {
                     lines.push(format!(
@@ -295,7 +311,7 @@ mod tests {
                 ..
             }]
         ));
-        m.manage_input(&p,B,B);
+        m.manage_input(&p, B, B);
         tap(&mut m, &p, DPAD_DOWN);
         tap(&mut m, &p, DPAD_DOWN);
         tap(&mut m, &p, A);
@@ -464,7 +480,7 @@ mod tests {
         assert_eq!(entry.sequence.actions(), sequence.actions());
         assert_eq!(entry.name.as_deref(), m.name_override(slot, index));
         m.complete_file_save(&p, slot, index, false);
-        m.manage_input(&p,B,B);
+        m.manage_input(&p, B, B);
         for _ in 0..3 {
             tap(&mut m, &p, DPAD_DOWN);
         }
@@ -547,7 +563,7 @@ mod startup_default_tests {
         m.input(0, &p);
         m.input(MENU_STICK_CLICK, &p);
         m.input(0, &p);
-        m.manage_input(&p,MAPPER_B,MAPPER_B);
+        m.manage_input(&p, MAPPER_B, MAPPER_B);
         // Up wraps Rename to Save as startup default.
         m.input(0, &p);
         m.input(DPAD_UP, &p);
@@ -566,27 +582,53 @@ mod startup_default_tests {
 #[cfg(test)]
 mod rename_regressions {
     use super::*;
-    use crate::native_input::{MAPPER_A as A,MAPPER_X as X,MAPPER_Y as Y};
-    fn rename(name:&str)->Catalog {
-        let mut c=Catalog{mode:Mode::Actions(0),..Default::default()};c.input(A,A,name);c
+    use crate::native_input::{MAPPER_A as A, MAPPER_X as X, MAPPER_Y as Y};
+    fn rename(name: &str) -> Catalog {
+        let mut c = Catalog {
+            mode: Mode::Actions(0),
+            ..Default::default()
+        };
+        c.input(A, A, name);
+        c
     }
-    fn accepted(c:&mut Catalog)->String {
-        match c.input(Y,Y,""){Event::Rename(n)=>n,_=>panic!("expected a valid name")}
+    fn accepted(c: &mut Catalog) -> String {
+        match c.input(Y, Y, "") {
+            Event::Rename(n) => n,
+            _ => panic!("expected a valid name"),
+        }
     }
     #[test]
     fn accepting_a_unicode_name_preserves_it_and_cursor_edits_whole_characters() {
-        let name="Shield → Up-B / café";assert_eq!(accepted(&mut rename(name)),name);
-        let mut c=rename("A→é");c.input(DPAD_RIGHT,DPAD_RIGHT,"");
-        assert!(c.lines()[1].contains("[→]"));c.input(A,A,"");
-        assert_eq!(accepted(&mut c),"Aé");
-        let mut c=rename("é");c.input(A,A,"");assert_eq!(accepted(&mut c),"é");
+        let name = "Shield → Up-B / café";
+        assert_eq!(accepted(&mut rename(name)), name);
+        let mut c = rename("A→é");
+        c.input(DPAD_RIGHT, DPAD_RIGHT, "");
+        assert!(c.lines()[1].contains("[→]"));
+        c.input(A, A, "");
+        assert_eq!(accepted(&mut c), "Aé");
+        let mut c = rename("é");
+        c.input(A, A, "");
+        assert_eq!(accepted(&mut c), "é");
     }
     #[test]
     fn rename_inserts_at_cursor_obeys_byte_limit_and_ignores_held_direction_on_confirm() {
-        let mut c=rename("AB");c.input(X,X,"");assert!(c.lines()[1].contains("A[ ]B"));
-        c.input(DPAD_DOWN,DPAD_DOWN,"");let expected=match &c.mode{Mode::Name{text,..}=>String::from_utf8(text.clone()).unwrap(),_=>panic!()};
-        let Event::Rename(actual)=c.input(Y|DPAD_DOWN,Y,"")else{panic!()};assert_eq!(actual,expected);
-        let name="é".repeat(32);let mut c=rename(&name);c.input(X,X,"");assert_eq!(accepted(&mut c),name);
-        let mut c=rename(&"é".repeat(33));assert_eq!(accepted(&mut c),name);
+        let mut c = rename("AB");
+        c.input(X, X, "");
+        assert!(c.lines()[1].contains("A[ ]B"));
+        c.input(DPAD_DOWN, DPAD_DOWN, "");
+        let expected = match &c.mode {
+            Mode::Name { text, .. } => String::from_utf8(text.clone()).unwrap(),
+            _ => panic!(),
+        };
+        let Event::Rename(actual) = c.input(Y | DPAD_DOWN, Y, "") else {
+            panic!()
+        };
+        assert_eq!(actual, expected);
+        let name = "é".repeat(32);
+        let mut c = rename(&name);
+        c.input(X, X, "");
+        assert_eq!(accepted(&mut c), name);
+        let mut c = rename(&"é".repeat(33));
+        assert_eq!(accepted(&mut c), name);
     }
 }

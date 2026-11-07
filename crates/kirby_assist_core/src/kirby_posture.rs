@@ -13,14 +13,11 @@ pub const AUTO_CROUCH_HEIGHT: f32 = 20.0;
 pub struct Posture;
 impl Posture {
     pub fn opponent_near(offset: Option<[f32; 2]>) -> bool {
-        Self::opponent_near_with(offset,AUTO_CROUCH_RANGE,AUTO_CROUCH_HEIGHT)
+        Self::opponent_near_with(offset, AUTO_CROUCH_RANGE, AUTO_CROUCH_HEIGHT)
     }
-    pub fn opponent_near_with(offset:Option<[f32;2]>,range:f32,height:f32)->bool {
+    pub fn opponent_near_with(offset: Option<[f32; 2]>, range: f32, height: f32) -> bool {
         offset.is_some_and(|[x, y]| {
-            x.is_finite()
-                && y.is_finite()
-                && x.abs() <= range
-                && y.abs() <= height
+            x.is_finite() && y.is_finite() && x.abs() <= range && y.abs() <= height
         })
     }
     /// Require clean physical neutral, including button release/history.

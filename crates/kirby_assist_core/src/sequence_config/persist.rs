@@ -18,10 +18,28 @@ fn direction(d: Direction) -> &'static str {
 fn action(a: Action) -> Result<String, String> {
     use crate::native_input::*;
     Ok(match a {
-        Action::IfFacingLedge { away } => if away { "if_back_to_ledge".into() } else { "if_facing_ledge".into() },
-        Action::IfFacingOpponent {away}=>if away {"if_back_to_opponent".into()}else{"if_facing_opponent".into()},
-        Action::ElseFacing=>"else_facing".into(),
-        Action::LedgePosition {offset,strength,tolerance,brake,frames}=>format!("run_to_ledge:{offset}:{strength}:{tolerance}:{brake}:{frames}"),
+        Action::IfFacingLedge { away } => {
+            if away {
+                "if_back_to_ledge".into()
+            } else {
+                "if_facing_ledge".into()
+            }
+        }
+        Action::IfFacingOpponent { away } => {
+            if away {
+                "if_back_to_opponent".into()
+            } else {
+                "if_facing_opponent".into()
+            }
+        }
+        Action::ElseFacing => "else_facing".into(),
+        Action::LedgePosition {
+            offset,
+            strength,
+            tolerance,
+            brake,
+            frames,
+        } => format!("run_to_ledge:{offset}:{strength}:{tolerance}:{brake}:{frames}"),
         Action::EndFacing => "end_facing".into(),
         Action::Empty => return Err("Remove empty execution steps before saving".into()),
         Action::Check {
@@ -35,16 +53,52 @@ fn action(a: Action) -> Result<String, String> {
                 format!("check:{}:{wait}", condition.token())
             }
         }
-        Action::Controller {buttons,stick,cstick,frames,reference,cstick_reference} => {
-            if frames==0{return Err("Controller input requires a positive hold duration".into());}
-            let input=action(Action::Input{buttons,stick,frames,relative:false})?;
-            let names=input.split(':').nth(1).ok_or("Invalid controller buttons")?;
-            format!("controller_input:{names}:{}:{}:{}:{}:{frames}:{}:{}",stick[0],stick[1],cstick[0],cstick[1],reference.token(),cstick_reference.token())
+        Action::Controller {
+            buttons,
+            stick,
+            cstick,
+            frames,
+            reference,
+            cstick_reference,
+        } => {
+            if frames == 0 {
+                return Err("Controller input requires a positive hold duration".into());
+            }
+            let input = action(Action::Input {
+                buttons,
+                stick,
+                frames,
+                relative: false,
+            })?;
+            let names = input
+                .split(':')
+                .nth(1)
+                .ok_or("Invalid controller buttons")?;
+            format!(
+                "controller_input:{names}:{}:{}:{}:{}:{frames}:{}:{}",
+                stick[0],
+                stick[1],
+                cstick[0],
+                cstick[1],
+                reference.token(),
+                cstick_reference.token()
+            )
         }
-        Action::OpponentInput { buttons, stick, frames } => {
-            if frames == 0 { return Err("Opponent-relative input requires a positive duration".into()); }
-            action(Action::Input { buttons, stick, frames, relative: false })?
-                .replacen("input:", "opponent_input:", 1)
+        Action::OpponentInput {
+            buttons,
+            stick,
+            frames,
+        } => {
+            if frames == 0 {
+                return Err("Opponent-relative input requires a positive duration".into());
+            }
+            action(Action::Input {
+                buttons,
+                stick,
+                frames,
+                relative: false,
+            })?
+            .replacen("input:", "opponent_input:", 1)
         }
         Action::Input {
             buttons,
@@ -72,8 +126,20 @@ fn action(a: Action) -> Result<String, String> {
                 .collect::<Vec<_>>()
                 .join("+");
             if frames == 0 {
-                if buttons == 0 { return Err("Until-manual hold requires a button".into()); }
-                return Ok(format!("{}:{}:{}:{}", if relative { "facing_hold_until_manual" } else { "hold_until_manual" }, names, stick[0], stick[1]));
+                if buttons == 0 {
+                    return Err("Until-manual hold requires a button".into());
+                }
+                return Ok(format!(
+                    "{}:{}:{}:{}",
+                    if relative {
+                        "facing_hold_until_manual"
+                    } else {
+                        "hold_until_manual"
+                    },
+                    names,
+                    stick[0],
+                    stick[1]
+                ));
             }
             format!(
                 "{}:{}:{}:{}:{}",
@@ -109,7 +175,11 @@ fn action(a: Action) -> Result<String, String> {
         Action::CStick { stick, frames } => format!("cstick:{}:{}:{frames}", stick[0], stick[1]),
         Action::Wait(n) => format!("wait:{n}"),
         Action::Face(d) => format!("face:{}", direction(d)),
-        Action::Chase{gap,strength,frames}=>format!("chase_if_far:{gap}:{strength}:{frames}"),
+        Action::Chase {
+            gap,
+            strength,
+            frames,
+        } => format!("chase_if_far:{gap}:{strength}:{frames}"),
         Action::Approach {
             airborne,
             strength,
@@ -202,7 +272,14 @@ pub fn update(
     // the full input catalog before parsing/validating the output catalog.
     drop(catalog);
     let mut properties = if let Some(builtin) = sequence.builtin {
-        if !slot.is_button() || sequence.len != 0 || sequence.mode.is_some() || sequence.start_delay != 0 || sequence.reaction.active() || sequence.while_held || sequence.ground_only {
+        if !slot.is_button()
+            || sequence.len != 0
+            || sequence.mode.is_some()
+            || sequence.start_delay != 0
+            || sequence.reaction.active()
+            || sequence.while_held
+            || sequence.ground_only
+        {
             return Err("Built-in helpers cannot include recipe actions or conditions".into());
         }
         format!("builtin = {}\n", builtin.token())
@@ -232,7 +309,9 @@ pub fn update(
             properties
         }
     };
-    if sequence.ground_only { properties.push_str("ground_only = true\n"); }
+    if sequence.ground_only {
+        properties.push_str("ground_only = true\n");
+    }
     if sequence.reaction != crate::reaction_rules::Rule::default() {
         properties.push_str(&format!("reaction = {}\n", sequence.reaction.token()));
     }
@@ -434,7 +513,10 @@ pub fn update_named(
         .iter()
         .find(|e| e.fighter_kind == kind && e.slot == slot && e.choice == choice)
         .ok_or("Cannot find renamed recipe")?;
-    let current_name = entry.name.clone().unwrap_or_else(|| entry.choice.replace('_', " "));
+    let current_name = entry
+        .name
+        .clone()
+        .unwrap_or_else(|| entry.choice.replace('_', " "));
     if current_name == name {
         return Ok(updated);
     }
@@ -655,7 +737,15 @@ mod tests {
         assert_eq!(first, second);
         let catalog = Catalog::parse(&second).unwrap();
         assert_eq!(catalog.entries().len(), 3);
-        assert_eq!(catalog.entries().iter().find(|e| e.choice == "menu_custom").unwrap().sequence, s);
+        assert_eq!(
+            catalog
+                .entries()
+                .iter()
+                .find(|e| e.choice == "menu_custom")
+                .unwrap()
+                .sequence,
+            s
+        );
     }
     #[test]
     fn saved_recipe_rejects_invalid_source_removed_sections_and_invalid_edits() {
@@ -709,11 +799,37 @@ mod unchanged_save_tests {
     #[test]
     fn same_sequence_and_name_preserve_original_bytes() {
         let original="[yoshi.neutral.test]\n# preserve formatting\nname=Grab\nstart_delay=0\nactions=grab:4\n";
-        let c=Catalog::parse(original).unwrap();
-        let seq=c.entries()[0].sequence;
-        assert_eq!(update_named(original,5,PresetSlot::Neutral,"test",seq,false,Some("Grab")).unwrap(),original);
-        let renamed=update_named(original,5,PresetSlot::Neutral,"test",seq,false,Some("Other grab")).unwrap();
-        assert_eq!(Catalog::parse(&renamed).unwrap().entries()[0].name.as_deref(),Some("Other grab"));
+        let c = Catalog::parse(original).unwrap();
+        let seq = c.entries()[0].sequence;
+        assert_eq!(
+            update_named(
+                original,
+                5,
+                PresetSlot::Neutral,
+                "test",
+                seq,
+                false,
+                Some("Grab")
+            )
+            .unwrap(),
+            original
+        );
+        let renamed = update_named(
+            original,
+            5,
+            PresetSlot::Neutral,
+            "test",
+            seq,
+            false,
+            Some("Other grab"),
+        )
+        .unwrap();
+        assert_eq!(
+            Catalog::parse(&renamed).unwrap().entries()[0]
+                .name
+                .as_deref(),
+            Some("Other grab")
+        );
     }
 }
 
@@ -749,7 +865,11 @@ pub fn update_tuning(
             if crate::fighter_tuning::Tuning::is_bool(i) && value != 0.0 && value != 1.0 {
                 return Err(format!("{key}: expected a boolean setting"));
             }
-            let text = if crate::fighter_tuning::Tuning::is_bool(i) { (value == 1.0).to_string() } else { value.to_string() };
+            let text = if crate::fighter_tuning::Tuning::is_bool(i) {
+                (value == 1.0).to_string()
+            } else {
+                value.to_string()
+            };
             result.push_str(&format!("{key} = {text}\n"));
         }
     }

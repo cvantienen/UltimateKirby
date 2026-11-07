@@ -78,7 +78,8 @@ reflect_half_depth = 5
 ```
 
 Bucket starts absorbing/reflecting on native frame 6; the configuration cannot
-make that earlier. [Move timing source](https://ultimateframedata.com/mr_game_and_watch).
+make that earlier. See [Fighter Data](FIGHTER_DATA.md) for the canonical
+fighter-specific move facts.
 `reflect_margin` adds an early activation allowance to the current straight-line
 contact prediction. It inserts no wait. `reflect_max_hold` bounds a confirmed
 response using observed native/projectile progress. The three body values are

@@ -211,7 +211,7 @@ fn aborting_an_assisted_dash_for_manual_movement_cannot_admit_a_competing_throw_
 #[test]
 fn default_grab_calculations_use_each_fighters_references_and_saved_reach() {
     use kirby_assist_core::{
-        fighter_profiles::FighterProfiles, fighter_tuning::Tuning, opponent_data,
+        fighter_data, fighter_profiles::FighterProfiles, fighter_tuning::Tuning,
     };
     let profiles = FighterProfiles::default();
     let t = Tuning::default();
@@ -220,14 +220,24 @@ fn default_grab_calculations_use_each_fighters_references_and_saved_reach() {
             continue;
         };
         let range = p.ledge.grab.standing_range;
+        let known_reaches = fighter_data::ordinary_grab(kind, 0x37)
+            .zip(fighter_data::ordinary_grab(kind, 0x39))
+            .and_then(|(stand, dash)| Some((stand.reach?, dash.reach?)))
+            .filter(|(stand, dash)| *stand > 0.0 && *dash > 0.0);
         for scale in [0.5, 1., 1.5] {
-            let (close, far) = t.auto_grab_ranges(kind, range * scale);
-            assert_eq!(close, range * scale, "own standing reference {kind}");
-            let expected = opponent_data::ordinary_grab(kind, 0x37)
-                .zip(opponent_data::ordinary_grab(kind, 0x39))
-                .map_or(close, |(stand, dash)| close * dash.reach / stand.reach)
-                .max(close);
-            assert!((far - expected).abs() < 0.001, "own dash reference {kind}");
+            let requested = range * scale;
+            let (close, far) = t.auto_grab_ranges(kind, requested);
+            if let Some((stand, dash)) = known_reaches {
+                assert_eq!(close, requested, "own standing reference {kind}");
+                let expected = (close * dash / stand).max(close);
+                assert!((far - expected).abs() < 0.001, "own dash reference {kind}");
+            } else {
+                assert_eq!(
+                    (close, far),
+                    (0.0, 0.0),
+                    "missing fighter reach must not create an automatic range for {kind}"
+                );
+            }
         }
     }
     assert_eq!(
@@ -237,8 +247,8 @@ fn default_grab_calculations_use_each_fighters_references_and_saved_reach() {
     );
     assert_eq!(
         t.auto_grab_ranges(999, 9.),
-        (9., 9.),
-        "unknown dash data does not invent a run-in distance"
+        (0., 0.),
+        "unknown fighter data does not authorize an automatic grab range"
     );
 }
 

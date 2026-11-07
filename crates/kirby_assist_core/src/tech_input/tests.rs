@@ -355,129 +355,313 @@ fn prediction_gap_releases_ownership_without_rearming_lockout_and_recovery_hands
 
 #[test]
 fn first_unknown_clock_still_records_the_configured_human_guard_cooldown() {
-    let mut input=TechInput::default();
-    let unknown=TechContext{motion:0,frame:f32::NAN,contact_in:None,..ctx(0.)};
-    assert_eq!(input.sample(true,true,40,unknown),TechOutput::default());
+    let mut input = TechInput::default();
+    let unknown = TechContext {
+        motion: 0,
+        frame: f32::NAN,
+        contact_in: None,
+        ..ctx(0.)
+    };
+    assert_eq!(input.sample(true, true, 40, unknown), TechOutput::default());
     input.mapped_human_guard();
-    assert_eq!(input.cooldown_remaining(),40.);
-    assert!(!input.sample(true,true,40,ctx(1.)).press);
+    assert_eq!(input.cooldown_remaining(), 40.);
+    assert!(!input.sample(true, true, 40, ctx(1.)).press);
 }
 
 #[test]
 fn observed_tech_clears_lockout_even_before_its_animation_clock_is_available() {
     for status in 0x67..=0x6b {
-        let mut input=TechInput::default();
-        input.sample(true,true,40,ctx(1.0));
+        let mut input = TechInput::default();
+        input.sample(true, true, 40, ctx(1.0));
         input.mapped_press();
-        assert_eq!(input.cooldown_remaining(),40.0);
-        let accepted=TechContext {status,motion:0,frame:f32::NAN,rate:0.0,
-            contact_in:None,..ctx(2.0)};
-        assert_eq!(input.sample(true,true,40,accepted),TechOutput::default());
-        assert_eq!(input.cooldown_remaining(),0.0);
+        assert_eq!(input.cooldown_remaining(), 40.0);
+        let accepted = TechContext {
+            status,
+            motion: 0,
+            frame: f32::NAN,
+            rate: 0.0,
+            contact_in: None,
+            ..ctx(2.0)
+        };
+        assert_eq!(
+            input.sample(true, true, 40, accepted),
+            TechOutput::default()
+        );
+        assert_eq!(input.cooldown_remaining(), 0.0);
         // A later eligible hit must not inherit the completed attempt's lockout.
-        assert!(input.sample(true,true,40,ctx(3.0)).press);
+        assert!(input.sample(true, true, 40, ctx(3.0)).press);
     }
 }
 
 #[test]
 fn unacknowledged_press_rearms_if_guard_became_held_before_delivery() {
-    let mut input=TechInput::default();
-    assert!(input.sample(true,true,40,ctx(1.0)).press);
-    let held=TechContext {previous_guard:true,..ctx(2.0)};
-    let release=input.sample(true,true,40,held);
+    let mut input = TechInput::default();
+    assert!(input.sample(true, true, 40, ctx(1.0)).press);
+    let held = TechContext {
+        previous_guard: true,
+        ..ctx(2.0)
+    };
+    let release = input.sample(true, true, 40, held);
     assert!(!release.press && release.owns_guard);
-    assert_eq!(input.cooldown_remaining(),0.0);
-    assert!(input.sample(true,true,40,ctx(3.0)).press);
+    assert_eq!(input.cooldown_remaining(), 0.0);
+    assert!(input.sample(true, true, 40, ctx(3.0)).press);
     input.mapped_press();
-    assert_eq!(input.cooldown_remaining(),40.0);
+    assert_eq!(input.cooldown_remaining(), 40.0);
 }
 
 #[test]
 fn native_safe_contact_can_deliver_during_a_frozen_or_unavailable_animation_clock() {
-    for (motion,frame,rate) in [(1,3.0,0.0),(0,f32::NAN,0.0)] {
-        let mut input=TechInput::default();
-        let c=TechContext {motion,frame,rate,prepare_guard:true,contact_in:Some(1.0),..ctx(3.0)};
-        let out=input.sample(true,true,40,c);
+    for (motion, frame, rate) in [(1, 3.0, 0.0), (0, f32::NAN, 0.0)] {
+        let mut input = TechInput::default();
+        let c = TechContext {
+            motion,
+            frame,
+            rate,
+            prepare_guard: true,
+            contact_in: Some(1.0),
+            ..ctx(3.0)
+        };
+        let out = input.sample(true, true, 40, c);
         assert!(out.press && out.owns_guard);
         input.mapped_press();
         for _ in 0..100 {
-            let out=input.sample(true,true,40,c);
+            let out = input.sample(true, true, 40, c);
             assert!(!out.press);
-            assert_eq!(input.cooldown_remaining(),40.0,"unknown clock must not spend lockout by poll count");
+            assert_eq!(
+                input.cooldown_remaining(),
+                40.0,
+                "unknown clock must not spend lockout by poll count"
+            );
         }
-        let unsafe_c=TechContext {status:0xe,..c};
-        assert_eq!(input.sample(true,true,40,unsafe_c),TechOutput::default());
+        let unsafe_c = TechContext { status: 0xe, ..c };
+        assert_eq!(
+            input.sample(true, true, 40, unsafe_c),
+            TechOutput::default()
+        );
     }
 }
 
 #[test]
 fn tech_preparation_and_delivery_mask_guard_aliases_without_erasing_jump_attack_or_di() {
-    use crate::{action_owner::{ActionOwnership,Owner,Intent},manual_controls::{ManualOverlay,TurboOutput},native_input::*};
-    for layout in [ControlLayout::Default,ControlLayout::Brother] {
-        let mut t=TechInput::default();let mut overlay=ManualOverlay::default();let mut owner=ActionOwnership::default();
-        let physical=ButtonTrace{held:GAMEPLAY_BUTTONS,previous:GAMEPLAY_BUTTONS,..Default::default()};
+    use crate::{
+        action_owner::{ActionOwnership, Intent, Owner},
+        manual_controls::{ManualOverlay, TurboOutput},
+        native_input::*,
+    };
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        let mut t = TechInput::default();
+        let mut overlay = ManualOverlay::default();
+        let mut owner = ActionOwnership::default();
+        let physical = ButtonTrace {
+            held: GAMEPLAY_BUTTONS,
+            previous: GAMEPLAY_BUTTONS,
+            ..Default::default()
+        };
         // Even a pre-existing committed sequence cannot block tech preparation.
-        owner.select(true,&[Intent{owner:Owner::Ledge,present:true,committed:true}]);
+        owner.select(
+            true,
+            &[Intent {
+                owner: Owner::Ledge,
+                present: true,
+                committed: true,
+            }],
+        );
         owner.set_ledge_priority(true);
-        let released=t.sample(true,true,40,TechContext{prepare_guard:true,previous_guard:true,..ctx(0.)});
-        assert_eq!(owner.select(true,&[Intent{owner:Owner::Safety,present:released.owns_guard,committed:false}]),Some(Owner::Safety));
-        let out=overlay.apply_controls(physical,[-0.7,0.2],TurboOutput::default(),0,0,layout.physical_owned_buttons(released.owned_buttons()));
-        let suppressed=physical_button_aliases(layout.physical_owned_buttons(released.owned_buttons()));
-        assert_eq!(out.buttons.held & GAMEPLAY_BUTTONS,physical.held & !suppressed);
-        assert_eq!(out.buttons.held & (MAPPER_A|MAPPER_B|MAPPER_Y),MAPPER_A|MAPPER_B|MAPPER_Y);
-        assert_eq!(out.stick,[-0.7,0.2]);
-        let pressed=t.sample(true,true,40,TechContext{prepare_guard:true,previous_guard:false,..ctx(0.)});
+        let released = t.sample(
+            true,
+            true,
+            40,
+            TechContext {
+                prepare_guard: true,
+                previous_guard: true,
+                ..ctx(0.)
+            },
+        );
+        assert_eq!(
+            owner.select(
+                true,
+                &[Intent {
+                    owner: Owner::Safety,
+                    present: released.owns_guard,
+                    committed: false
+                }]
+            ),
+            Some(Owner::Safety)
+        );
+        let out = overlay.apply_controls(
+            physical,
+            [-0.7, 0.2],
+            TurboOutput::default(),
+            0,
+            0,
+            layout.physical_owned_buttons(released.owned_buttons()),
+        );
+        let suppressed =
+            physical_button_aliases(layout.physical_owned_buttons(released.owned_buttons()));
+        assert_eq!(
+            out.buttons.held & GAMEPLAY_BUTTONS,
+            physical.held & !suppressed
+        );
+        assert_eq!(
+            out.buttons.held & (MAPPER_A | MAPPER_B | MAPPER_Y),
+            MAPPER_A | MAPPER_B | MAPPER_Y
+        );
+        assert_eq!(out.stick, [-0.7, 0.2]);
+        let pressed = t.sample(
+            true,
+            true,
+            40,
+            TechContext {
+                prepare_guard: true,
+                previous_guard: false,
+                ..ctx(0.)
+            },
+        );
         assert!(pressed.press);
-        let guard=layout.physical_buttons(MAPPER_ZR);
-        let out=overlay.apply_controls(physical,[-0.7,0.2],TurboOutput::default(),0,guard,layout.physical_owned_buttons(pressed.owned_buttons()));
-        assert_eq!(out.buttons.held & GAMEPLAY_BUTTONS,(physical.held & !suppressed)|guard);assert_eq!(out.buttons.pressed & guard,guard);
-        t.mapped_press();assert_eq!(t.cooldown_remaining(),40.);
+        let guard = layout.physical_buttons(MAPPER_ZR);
+        let out = overlay.apply_controls(
+            physical,
+            [-0.7, 0.2],
+            TurboOutput::default(),
+            0,
+            guard,
+            layout.physical_owned_buttons(pressed.owned_buttons()),
+        );
+        assert_eq!(
+            out.buttons.held & GAMEPLAY_BUTTONS,
+            (physical.held & !suppressed) | guard
+        );
+        assert_eq!(out.buttons.pressed & guard, guard);
+        t.mapped_press();
+        assert_eq!(t.cooldown_remaining(), 40.);
     }
 }
 
 #[test]
 fn early_hitstop_without_a_collision_keeps_inputs_available_for_sdi() {
-    let mut t=TechInput::default();
+    let mut t = TechInput::default();
     for remaining in (6..=15).rev() {
-        let out=t.sample(true,true,40,TechContext{stopped:true,remaining_stop:remaining,
-            prepare_guard:true,previous_guard:true,contact_in:None,..ctx(0.)});
-        assert_eq!(out,TechOutput::default());assert_eq!(t.cooldown_remaining(),0.);
+        let out = t.sample(
+            true,
+            true,
+            40,
+            TechContext {
+                stopped: true,
+                remaining_stop: remaining,
+                prepare_guard: true,
+                previous_guard: true,
+                contact_in: None,
+                ..ctx(0.)
+            },
+        );
+        assert_eq!(out, TechOutput::default());
+        assert_eq!(t.cooldown_remaining(), 0.);
     }
-    let out=t.sample(true,true,40,TechContext{stopped:true,remaining_stop:5,
-        prepare_guard:true,previous_guard:false,contact_in:Some(6.),..ctx(0.)});
+    let out = t.sample(
+        true,
+        true,
+        40,
+        TechContext {
+            stopped: true,
+            remaining_stop: 5,
+            prepare_guard: true,
+            previous_guard: false,
+            contact_in: Some(6.),
+            ..ctx(0.)
+        },
+    );
     assert!(out.press && out.owns_guard); // Already released before imminent contact.
 }
 
 #[test]
 fn no_or_distant_collision_forecast_does_not_reserve_controls() {
- for contact in [None,Some(12.),Some(60.),Some(f32::NAN),Some(-1.)] {
-  let mut input=TechInput::default();
-  assert_eq!(input.sample(true,true,40,TechContext{prepare_guard:true,previous_guard:true,contact_in:contact,..ctx(0.)}),TechOutput::default());
- }
- let mut input=TechInput::default();
- let preparation=input.sample(true,true,40,TechContext{prepare_guard:true,previous_guard:true,contact_in:Some(10.),..ctx(0.)});
- assert!(preparation.owns_guard&&!preparation.press);
- assert_eq!(preparation.owned_buttons(),crate::native_input::SEQUENCE_GUARD_INPUTS);
+    for contact in [None, Some(12.), Some(60.), Some(f32::NAN), Some(-1.)] {
+        let mut input = TechInput::default();
+        assert_eq!(
+            input.sample(
+                true,
+                true,
+                40,
+                TechContext {
+                    prepare_guard: true,
+                    previous_guard: true,
+                    contact_in: contact,
+                    ..ctx(0.)
+                }
+            ),
+            TechOutput::default()
+        );
+    }
+    let mut input = TechInput::default();
+    let preparation = input.sample(
+        true,
+        true,
+        40,
+        TechContext {
+            prepare_guard: true,
+            previous_guard: true,
+            contact_in: Some(10.),
+            ..ctx(0.)
+        },
+    );
+    assert!(preparation.owns_guard && !preparation.press);
+    assert_eq!(
+        preparation.owned_buttons(),
+        crate::native_input::SEQUENCE_GUARD_INPUTS
+    );
 }
 
 #[test]
 fn guard_handback_after_tech_never_manufactures_a_held_shield_or_grab_edge() {
- use crate::{manual_controls::{AssistGuardHandoff,ManualOverlay,TurboOutput},native_input::*};
- for layout in [ControlLayout::Default,ControlLayout::Brother] {
-  let mut handback=AssistGuardHandoff::new();let mut overlay=ManualOverlay::default();
-  let guards=layout.physical_buttons(SEQUENCE_GUARD_INPUTS);
-  let jumps=layout.physical_buttons(SEQUENCE_JUMP_BUTTONS);
-  let held=guards|jumps|MAPPER_A|MAPPER_B;
-  let trace=ButtonTrace{held,previous:held,..Default::default()};
-  handback.sample(false,trace,guards,0,0);
-  let blocked=handback.sample(true,trace,guards,guards,0);
-  let out=overlay.apply_controls(trace,[0.;2],TurboOutput::default(),0,0,guards|blocked);
-  assert_eq!(out.buttons.held&jumps,jumps);assert_eq!(out.buttons.held&guards,0);
-  let blocked=handback.sample(false,trace,guards,0,0);
-  let out=overlay.apply_controls(trace,[0.;2],TurboOutput::default(),0,0,blocked);
-  assert_eq!(out.buttons.held&guards,0,"no old shield resurrected on handback");
-  handback.sample(false,ButtonTrace{held:0,..Default::default()},guards,0,0);
-  let blocked=handback.sample(false,trace,guards,0,0);
-  assert_eq!(blocked&guards,0,"a fresh manual press rearms immediately");
- }
+    use crate::{
+        manual_controls::{AssistGuardHandoff, ManualOverlay, TurboOutput},
+        native_input::*,
+    };
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        let mut handback = AssistGuardHandoff::new();
+        let mut overlay = ManualOverlay::default();
+        let guards = layout.physical_buttons(SEQUENCE_GUARD_INPUTS);
+        let jumps = layout.physical_buttons(SEQUENCE_JUMP_BUTTONS);
+        let held = guards | jumps | MAPPER_A | MAPPER_B;
+        let trace = ButtonTrace {
+            held,
+            previous: held,
+            ..Default::default()
+        };
+        handback.sample(false, trace, guards, 0, 0);
+        let blocked = handback.sample(true, trace, guards, guards, 0);
+        let out = overlay.apply_controls(
+            trace,
+            [0.; 2],
+            TurboOutput::default(),
+            0,
+            0,
+            guards | blocked,
+        );
+        assert_eq!(out.buttons.held & jumps, jumps);
+        assert_eq!(out.buttons.held & guards, 0);
+        let blocked = handback.sample(false, trace, guards, 0, 0);
+        let out = overlay.apply_controls(trace, [0.; 2], TurboOutput::default(), 0, 0, blocked);
+        assert_eq!(
+            out.buttons.held & guards,
+            0,
+            "no old shield resurrected on handback"
+        );
+        handback.sample(
+            false,
+            ButtonTrace {
+                held: 0,
+                ..Default::default()
+            },
+            guards,
+            0,
+            0,
+        );
+        let blocked = handback.sample(false, trace, guards, 0, 0);
+        assert_eq!(
+            blocked & guards,
+            0,
+            "a fresh manual press rearms immediately"
+        );
+    }
 }

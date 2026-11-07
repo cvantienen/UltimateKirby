@@ -85,34 +85,16 @@ fn retired_ledge_timing_keys_are_ignored_in_older_config_files() {
 }
 
 #[test]
-fn invalid_compiled_move_data_fails_before_hooks_install() {
+fn invalid_fighter_grab_data_fails_before_hooks_install() {
     let mut catalog = FighterProfiles::default();
-    catalog.profiles.get_mut(&6).unwrap().ledge.neutral_air.last = 255;
+    catalog
+        .profiles
+        .get_mut(&6)
+        .unwrap()
+        .ledge
+        .grab
+        .standing_range = f32::NAN;
     assert!(catalog.validate().is_err());
-}
-
-#[test]
-fn rear_down_smash_and_shield_grab_use_distinct_verified_timings() {
-    let profiles = FighterProfiles::default();
-    let mario = profiles.profile(0).unwrap().ledge;
-    assert_eq!(
-        mario.down_smash_toward(8.0, 1.0),
-        MoveFrames { first: 5, last: 6 }
-    );
-    assert_eq!(
-        mario.down_smash_toward(-8.0, 1.0),
-        MoveFrames {
-            first: 14,
-            last: 14
-        }
-    );
-    let samus = profiles.profile(3).unwrap().ledge;
-    assert_eq!(samus.grab.startup(0x7), 18);
-    assert_eq!(samus.grab.startup(0x1b), 19);
-    assert_eq!(
-        profiles.profile(8).unwrap().ledge.neutral_air,
-        MoveFrames { first: 3, last: 6 }
-    );
 }
 
 #[test]
@@ -122,16 +104,21 @@ fn profile_grab_facts_follow_the_matching_reference_row() {
     for profile in profiles.profiles.values() {
         let grab_data = profile.ledge.grab;
 
-        if let Some(reference) = crate::opponent_data::ordinary_grab(profile.fighter_kind, 0x37) {
-            assert_eq!(grab_data.standing, reference.first, "{}", profile.name);
+        if let Some(reference) = crate::fighter_data::ordinary_grab(profile.fighter_kind, 0x37) {
             assert_eq!(
-                grab_data.active_frames,
+                grab_data.standing_startup, reference.first,
+                "{}",
+                profile.name
+            );
+            assert_eq!(
+                grab_data.standing_active_frames,
                 reference.last - reference.first + 1,
                 "{}",
                 profile.name
             );
             assert_eq!(
-                grab_data.standing_range, reference.reach,
+                grab_data.standing_range,
+                reference.reach.unwrap_or(0.0),
                 "{}",
                 profile.name
             );
@@ -140,13 +127,13 @@ fn profile_grab_facts_follow_the_matching_reference_row() {
         for (status, reference_frame, profile_frame) in [
             (
                 0x39,
-                crate::opponent_data::ordinary_grab(profile.fighter_kind, 0x39),
-                grab_data.dash,
+                crate::fighter_data::ordinary_grab(profile.fighter_kind, 0x39),
+                grab_data.dash_startup,
             ),
             (
                 0x3b,
-                crate::opponent_data::ordinary_grab(profile.fighter_kind, 0x3b),
-                grab_data.turn_or_shield,
+                crate::fighter_data::ordinary_grab(profile.fighter_kind, 0x3b),
+                grab_data.pivot_startup,
             ),
         ] {
             if let Some(reference) = reference_frame {
@@ -159,12 +146,16 @@ fn profile_grab_facts_follow_the_matching_reference_row() {
         }
 
         let reference_shield_grab = profile
-            .reference()
+            .fighter_data()
             .and_then(|reference| reference.stat("outofshield.grabpostshieldstun"))
             .and_then(|frame| frame.parse::<u8>().ok())
             .filter(|frame| (1..=120).contains(frame));
         if let Some(reference_frame) = reference_shield_grab {
-            assert_eq!(grab_data.shield, reference_frame, "{}", profile.name);
+            assert_eq!(
+                grab_data.shield_startup, reference_frame,
+                "{}",
+                profile.name
+            );
         }
     }
 

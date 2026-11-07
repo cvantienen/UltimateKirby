@@ -45,7 +45,9 @@ impl LedgeVisits {
             self.owner = Some((id, kind));
         }
     }
-    pub fn visit_epoch(&self) -> u64 { self.visit_epoch }
+    pub fn visit_epoch(&self) -> u64 {
+        self.visit_epoch
+    }
     pub fn walking_ledge(&self) -> Option<LedgeSpot> {
         self.ledge.map(|(_, spot)| spot)
     }
@@ -85,7 +87,9 @@ impl LedgeVisits {
             if let Some(edge) = e.cliff_position.filter(|p| p.iter().all(|v| v.is_finite())) {
                 let previous = self
                     .ledge
-                    .filter(|(_, s)| (s.edge[0]-edge[0]).abs()<=2.0 && (s.edge[1]-edge[1]).abs()<=2.0)
+                    .filter(|(_, s)| {
+                        (s.edge[0] - edge[0]).abs() <= 2.0 && (s.edge[1] - edge[1]).abs() <= 2.0
+                    })
                     .map(|(_, s)| s.inward);
                 let dx = own[0] - edge[0];
                 let inward = previous
@@ -121,7 +125,12 @@ impl LedgeTrap {
             return self.sample(settings, tick, ctx, enemy);
         }
         let observed = enemy
-            .filter(|e| e.position.iter().chain(e.velocity.iter()).all(|v| v.is_finite()))
+            .filter(|e| {
+                e.position
+                    .iter()
+                    .chain(e.velocity.iter())
+                    .all(|v| v.is_finite())
+            })
             .map(|e| (e, visits.observe(e, ctx.position)));
         if settings.enabled && ctx.held && ctx.gameplay {
             if let Some((e, visit)) = observed {
@@ -402,20 +411,47 @@ mod preview_tests {
     }
     #[test]
     fn opposite_ledge_replaces_inward_side_but_same_edge_motion_and_own_crossing_do_not() {
-        let mut v=LedgeVisits::new();v.set_owner(1,15);
-        for (edge,inward) in [(80.,-1.),(-80.,1.)] {
-            let e=Opponent{cliff_position:Some([edge,0.]),..enemy(CLIFF_WAIT,false)};
-            v.observe(e,[0.,0.]);let spot=v.walking_ledge().unwrap();
-            assert_eq!(spot.inward,inward);
-            for clearance in [-2.,0.,4.,8.,20.] {
-                let position=[edge+inward*clearance,0.];let away=[inward*0.5,0.];
-                assert_eq!(crate::manual_controls::stop_walk_at_ledge(away,position,[0.;2],spot,8.),away);
-                if clearance<=8. {assert_eq!(crate::manual_controls::stop_walk_at_ledge([-away[0],0.],position,[0.;2],spot,8.),[0.;2]);}
+        let mut v = LedgeVisits::new();
+        v.set_owner(1, 15);
+        for (edge, inward) in [(80., -1.), (-80., 1.)] {
+            let e = Opponent {
+                cliff_position: Some([edge, 0.]),
+                ..enemy(CLIFF_WAIT, false)
+            };
+            v.observe(e, [0., 0.]);
+            let spot = v.walking_ledge().unwrap();
+            assert_eq!(spot.inward, inward);
+            for clearance in [-2., 0., 4., 8., 20.] {
+                let position = [edge + inward * clearance, 0.];
+                let away = [inward * 0.5, 0.];
+                assert_eq!(
+                    crate::manual_controls::stop_walk_at_ledge(away, position, [0.; 2], spot, 8.),
+                    away
+                );
+                if clearance <= 8. {
+                    assert_eq!(
+                        crate::manual_controls::stop_walk_at_ledge(
+                            [-away[0], 0.],
+                            position,
+                            [0.; 2],
+                            spot,
+                            8.
+                        ),
+                        [0.; 2]
+                    );
+                }
             }
-            let moved=Opponent{id:3,cliff_position:Some([edge+0.5,0.]),..e};
-            v.observe(moved,[edge-inward*2.,0.]);
-            assert_eq!(v.walking_ledge().unwrap().inward,inward,"same physical edge keeps direction even across opponents");
+            let moved = Opponent {
+                id: 3,
+                cliff_position: Some([edge + 0.5, 0.]),
+                ..e
+            };
+            v.observe(moved, [edge - inward * 2., 0.]);
+            assert_eq!(
+                v.walking_ledge().unwrap().inward,
+                inward,
+                "same physical edge keeps direction even across opponents"
+            );
         }
     }
-
 }

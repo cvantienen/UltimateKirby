@@ -182,8 +182,11 @@ impl Pressure {
                         continue;
                     }
                     let matched = match r.trigger {
-                        Trigger::ShieldPressureVulnerable=>(matches!(t.status,0x1b|0x1c|0x1e)||roll(t.status)&&seen.from_shield)
-                            &&t.vulnerable_in.is_some_and(|v|v.is_finite()&&v<=0.),
+                        Trigger::ShieldPressureVulnerable => {
+                            (matches!(t.status, 0x1b | 0x1c | 0x1e)
+                                || roll(t.status) && seen.from_shield)
+                                && t.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.)
+                        }
                         Trigger::EnemyShield => matches!(t.status, 0x1b | 0x1c | 0x1e),
                         Trigger::ShieldRoll => roll(t.status) && seen.from_shield,
                         Trigger::ShieldCross => roll(t.status) && seen.from_shield && seen.crossed,
@@ -224,7 +227,7 @@ impl Pressure {
                             rate: t.rate,
                             remaining: t.actionable_in,
                         }),
-                        vulnerable: t.vulnerable_in.is_some_and(|v|v.is_finite()&&v<=0.),
+                        vulnerable: t.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.),
                         vulnerable_in: t.vulnerable_in,
                         ..Default::default()
                     };

@@ -7,20 +7,24 @@ use kirby_assist_core::autopilot_guard::{
     duck_geometry::{self, Contact, Hitbox},
 };
 use std::sync::atomic::{AtomicBool, Ordering};
-#[path="projectile_sources.rs"]mod projectile_sources;
+#[path = "projectile_sources.rs"]
+mod projectile_sources;
 
 const CAPACITY: usize = 32;
-static SOURCES:projectile_sources::Sources=projectile_sources::Sources::new();
+static SOURCES: projectile_sources::Sources = projectile_sources::Sources::new();
 static TRACKING: AtomicBool = AtomicBool::new(false);
 pub(super) fn tracking(enabled: bool) {
     TRACKING.store(enabled, Ordering::Relaxed);
 }
 /// Copied IDs only. Callers revalidate native identity/team before geometry.
 pub(super) fn sources() -> [Option<u32>; CAPACITY] {
-    SOURCES.snapshot().map(|key|key.map(|key|key.id))
+    SOURCES.snapshot().map(|key| key.map(|key| key.id))
 }
-pub(super) fn projectiles()->[Option<kirby_assist_core::projectile_reflect::ProjectileKey>;CAPACITY] {SOURCES.snapshot()}
-pub(super) fn forget(id:u32) {
+pub(super) fn projectiles(
+) -> [Option<kirby_assist_core::projectile_reflect::ProjectileKey>; CAPACITY] {
+    SOURCES.snapshot()
+}
+pub(super) fn forget(id: u32) {
     SOURCES.forget(id);
 }
 
