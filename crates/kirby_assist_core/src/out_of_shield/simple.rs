@@ -129,6 +129,9 @@ impl Grab {
     pub fn approach_pending(&self) -> bool {
         self.active() && self.approach && (!self.dash_sent || self.await_dash)
     }
+    pub fn approach_active(&self) -> bool {
+        self.active() && self.approach
+    }
     pub fn turning_away(&self, physical: f32) -> bool {
         self.active()
             && self.approach

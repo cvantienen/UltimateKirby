@@ -8,6 +8,17 @@ use kirby_assist_core::{
 use std::cell::Cell;
 
 #[test]
+fn observation_setup_rejects_settings_or_controller_changes_before_publication() {
+    use kirby_assist_core::observation::observation_inputs_current;
+
+    let (sequence, tick) = (7, 42);
+    assert!(observation_inputs_current(sequence, 7, tick, 42));
+    assert!(!observation_inputs_current(sequence, 8, tick, 42));
+    assert!(!observation_inputs_current(sequence, 7, tick, 43));
+    assert!(!observation_inputs_current(sequence, 8, tick, 43));
+}
+
+#[test]
 fn repeated_command_callbacks_without_a_roster_upgrade_setup_only_once() {
     use kirby_assist_core::observation::ObservationSetup;
     let mut setup = ObservationSetup::new();

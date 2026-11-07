@@ -375,6 +375,9 @@ impl OutOfShield {
     pub fn approach_pending(&self) -> bool {
         self.simple.approach_pending()
     }
+    pub fn approach_active(&self) -> bool {
+        self.simple.approach_active()
+    }
     pub fn mapped_approach(&mut self, tick: i64, target: u32) {
         self.simple.mapped_approach(tick, target);
     }

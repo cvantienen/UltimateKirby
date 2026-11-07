@@ -279,6 +279,15 @@ impl ActionOwnership {
                 && self.locked.is_none_or(|current| owner.interrupts(current)))
     }
 
+    /// Check admission after releasing a particular owner without changing state.
+    pub fn allows_after_release(&self, owner: Owner, releasing: Owner) -> bool {
+        if self.locked != Some(releasing) {
+            return self.allows(owner);
+        }
+        (!self.automatic_suspended || !Self::automatic(owner))
+            && (!self.ledge_priority || Self::ledge_compatible(owner))
+    }
+
     pub fn select(&mut self, valid_scope: bool, intents: &[Intent]) -> Option<Owner> {
         if !valid_scope {
             self.locked = None;

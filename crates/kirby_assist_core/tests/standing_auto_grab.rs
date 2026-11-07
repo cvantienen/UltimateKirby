@@ -1156,6 +1156,97 @@ fn usable_up_b_wins_over_an_uncommitted_grab_proposal_without_mixed_input() {
 }
 
 #[test]
+fn ready_up_b_replaces_only_an_undelivered_committed_grab_approach() {
+    use kirby_assist_core::{reaction_rules::Engine, settings::AssistSettings};
+
+    let rules = automatic_roll_rules("up_b:4");
+    for phase in 0..4 {
+        for gate in 0..3 {
+            let context = GameplayContext {
+                can_act: true,
+                safe_ground: [true; 2],
+                ..lc(0., 0)
+            };
+            let mut grab = OutOfShield::new();
+            let started = grab.sample_automatic(
+                true,
+                c(0., 0),
+                context,
+                targets(kirby_assist_core::native_states::GUARD, 30.),
+                None,
+                false,
+                22.,
+                35.,
+                Some(8.),
+            );
+            assert_eq!(started.requested, 0);
+            assert_eq!(started.stick, Some([1., 0.]));
+            let mut owner = ActionOwnership::new();
+            owner.select(
+                true,
+                &[Intent::input_sequence(Owner::OutOfShield, started.owned)],
+            );
+            if phase >= 1 {
+                grab.mapped_approach(0, 2);
+            }
+            if phase >= 2 {
+                let dash = GameplayContext {
+                    status: kirby_assist_core::native_states::status::DASH,
+                    ..context
+                };
+                let proposed = grab.sample_automatic(
+                    true,
+                    c(1., dash.status),
+                    dash,
+                    targets(kirby_assist_core::native_states::GUARD, 30.),
+                    None,
+                    false,
+                    22.,
+                    35.,
+                    Some(8.),
+                );
+                assert_eq!(proposed.requested, MAPPER_R);
+                if phase == 3 {
+                    grab.mapped_grab(1, 2);
+                }
+            }
+            if gate == 1 {
+                owner.set_ledge_priority(true);
+            } else if gate == 2 {
+                owner.set_automatic_suspended(true);
+            }
+            let mut engine = Engine::default();
+            let reactions = targets(kirby_assist_core::native_states::ESCAPE_F, 10.);
+            let yielded = engine.preempt_automatic_grab(
+                true, &rules, context, &reactions, None, &mut grab, &mut owner,
+            );
+            assert_eq!(
+                yielded,
+                phase < 3 && gate == 0,
+                "phase {phase}, gate {gate}"
+            );
+            if yielded {
+                assert!(grab.target().is_none());
+                assert_eq!(owner.current_owner(), None);
+                let out = engine.sample_simple(
+                    owner.allows(Owner::RollRead),
+                    &rules,
+                    AssistSettings::default(),
+                    context,
+                    reactions,
+                    None,
+                );
+                assert_ne!(out.requested & MAPPER_B, 0);
+                assert_eq!(out.requested & MAPPER_R, 0);
+            } else {
+                assert_eq!(grab.target(), Some(2));
+                assert_eq!(owner.current_owner(), Some(Owner::OutOfShield));
+            }
+        }
+    }
+}
+
+#[test]
 fn priority_handoff_never_cancels_native_grabs_or_bypasses_other_modes_and_readiness() {
     use kirby_assist_core::{reaction_rules::Engine, settings::AssistSettings};
     for case in 0..14 {

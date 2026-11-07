@@ -9,6 +9,16 @@ pub fn input_update_current(evaluated: Option<i64>, current: i64) -> bool {
     evaluated == Some(current)
 }
 
+/// Reject setup that began before a settings/cancellation fence or mapper update.
+pub fn observation_inputs_current(
+    captured_sequence: u64,
+    current_sequence: u64,
+    captured_tick: i64,
+    current_tick: i64,
+) -> bool {
+    captured_sequence == current_sequence && input_update_current(Some(captured_tick), current_tick)
+}
+
 /// A command callback may upgrade a mapper-only sample once, including when
 /// no policy needs a roster. Discovery capability is distinct from roster data.
 #[derive(Clone, Copy, Default)]

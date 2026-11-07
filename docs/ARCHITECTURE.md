@@ -117,6 +117,11 @@ The synchronization mechanisms have separate purposes:
 * Session tickets, settings epochs, observation sequence numbers, and request
   timestamps fence stale work when ownership or settings change.
 
+Observation setup captures its settings fence together with fighter settings.
+If settings or the mapper update change while native facts or the roster are
+being read, the callback discards that setup rather than publishing its results.
+Controller cancellation also clears pending dash-pivot history.
+
 The current declarations and state fields are in `src/live.rs` and
 `src/live/state.rs`; reset and enable/disable behavior are in
 `src/live/runtime.rs`.

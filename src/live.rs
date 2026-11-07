@@ -2491,18 +2491,21 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     // Training settings are identical to gameplay settings; recording/menu
     // passthrough was handled above. No extra scene query or config identity pass.
     let config = diagnostic_config(*config);
-    let config = Config {
-        assist: STATE
-            .lock()
-            .ok()
-            .and_then(|s| {
-                s.settings_menu
-                    .as_ref()
-                    .map(|p| p.settings(Some(fighter_kind), &config.assist))
-            })
-            .unwrap_or_else(|| settings_for_fighter(Some(fighter_kind), config.assist)),
-        ..config
+    let (assist, setup_sequence) = {
+        let Ok(state) = STATE.lock() else {
+            return;
+        };
+        if !state.session.accepts(session_ticket) || state.mapping_index != Some(index) {
+            return;
+        }
+        let assist = state
+            .settings_menu
+            .as_ref()
+            .map(|p| p.settings(Some(fighter_kind), &config.assist))
+            .unwrap_or_else(|| settings_for_fighter(Some(fighter_kind), config.assist));
+        (assist, state.observation_sequence)
     };
+    let config = Config { assist, ..config };
     let (
         find_trump_edge,
         find_trap_edge,
@@ -2913,7 +2916,16 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             crate::performance::health::event(crate::performance::health::Event::RosterScan);
             let roster = fighter_ids();
             if let Ok(mut state) = STATE.lock() {
-                if state.session.accepts(session_ticket) && state.mapping_index == Some(index) {
+                if state.session.accepts(session_ticket)
+                    && state.mapping_index == Some(index)
+                    && kirby_assist_core::observation::observation_inputs_current(
+                        setup_sequence,
+                        state.observation_sequence,
+                        tick,
+                        state.raw_tick,
+                    )
+                    && RUNTIME_ENABLED.load(Ordering::Acquire)
+                {
                     state.ledge_roster = roster.map(|ids| (ids, tick));
                 }
             }
@@ -2923,7 +2935,16 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         let Ok(mut state) = STATE.lock() else {
             return;
         };
-        if !state.session.accepts(session_ticket) || state.mapping_index != Some(index) {
+        if !state.session.accepts(session_ticket)
+            || state.mapping_index != Some(index)
+            || !kirby_assist_core::observation::observation_inputs_current(
+                setup_sequence,
+                state.observation_sequence,
+                tick,
+                state.raw_tick,
+            )
+            || !RUNTIME_ENABLED.load(Ordering::Acquire)
+        {
             return;
         }
         if state
@@ -4042,7 +4063,11 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         // Admission and this handoff share the core selector; cached Grab input
         // is cleared before the winning reaction can reach the mapper.
         let preempt_grab = |state: &mut State| {
-            let prioritize_up_b = state.action_owner.allows(Owner::RollRead)
+            let prioritize_up_b = (state.action_owner.allows(Owner::RollRead)
+                || state.oos.approach_active()
+                    && state
+                        .action_owner
+                        .allows_after_release(Owner::RollRead, Owner::OutOfShield))
                 && rules_on
                 && !automatic_suspended
                 && !clatter

@@ -93,9 +93,8 @@ impl Engine {
                 .simple_candidate(rules, c, targets, [c.can_act; 3])
                 .is_some_and(|(_, sequence)| sequence.start_delay == 0 && starts_up_b(sequence))
     }
-    /// Yield only a pending automatic grab, never another committed mode or a
-    /// grab already accepted by the native game. The caller clears its cached
-    /// grab output when true, then samples the winning reaction once.
+    /// Yield an uncommitted grab or a committed approach before R is delivered.
+    /// The caller clears cached grab output before sampling the reaction.
     pub fn preempt_automatic_grab(
         &self,
         allowed: bool,
@@ -107,15 +106,25 @@ impl Engine {
         ownership: &mut crate::action_owner::ActionOwnership,
     ) -> bool {
         use crate::action_owner::Owner;
+        let approach_owner =
+            grab.approach_active() && ownership.current_owner() == Some(Owner::OutOfShield);
+        let admitted = if approach_owner {
+            ownership.allows_after_release(Owner::RollRead, Owner::OutOfShield)
+        } else {
+            ownership.allows(Owner::RollRead)
+        };
         if !allowed
             || !grab.automatic_grab_pending()
             || grab.grab_delivery_pending()
-            || !ownership.allows(Owner::RollRead)
+            || !admitted
             || !self.prefers_simple_up_b(rules, c, targets, follow)
         {
             return false;
         }
         grab.cancel_pending();
+        if approach_owner {
+            ownership.release(Owner::OutOfShield);
+        }
         true
     }
     pub fn sample_simple(

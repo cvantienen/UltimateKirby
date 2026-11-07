@@ -644,6 +644,7 @@ impl State {
         self.last_mapped_stick = None;
         self.policy_tick = None;
         self.turbo = None;
+        self.dash_pivot = None;
         self.shortcuts = None;
         self.shortcut_context = None;
         self.jab_grab = None;
