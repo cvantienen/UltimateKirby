@@ -268,6 +268,39 @@ fn an_edited_grab_recipe_replaces_the_final_input_without_an_extra_grab_or_up_b(
 }
 
 #[test]
+fn configured_unshielded_grab_neutralizes_direction_without_changing_other_buttons() {
+    for (actions, button, expected_stick) in [
+        ("input:r:0.75:0.5:2", MAPPER_R, [0., 0.]),
+        ("input:a:0.75:0.5:2", MAPPER_A, [0.75, 0.5]),
+    ] {
+        let sequence = recipe("auto_grab", 35., 24., actions);
+        let mut o = OutOfShield::new();
+        let c = own(15, kirby_assist_core::native_states::status::DASH, 0.);
+        let raw = o.sample_automatic_configured(
+            true,
+            c,
+            lc(c),
+            targets(kirby_assist_core::native_states::GUARD, 10., 0.),
+            None,
+            false,
+            20.,
+            35.,
+            Some(8.),
+            settings(15),
+            AutomaticConfig {
+                grab: Some(&sequence),
+                ..Default::default()
+            },
+        );
+        assert_eq!(raw.requested, button);
+        assert_eq!(raw.stick, Some([0.75, 0.5]));
+        let delivered = o.with_grab_movement(raw, [0.7, 0.]);
+        assert_eq!(delivered.requested, button);
+        assert_eq!(delivered.stick, Some(expected_stick));
+    }
+}
+
+#[test]
 fn edited_grab_inputs_cannot_fall_through_to_a_throw_producing_follow_up() {
     let s = recipe("auto_shield_grab", 20., 24., "input:r:0:0:1,up_b:4");
     let mut o = OutOfShield::new();

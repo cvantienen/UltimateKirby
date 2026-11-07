@@ -81,18 +81,24 @@ recovery when the requested action cannot start directly from shield.
 Walking, running, turning, crouching and ordinary landing may start a grab as
 soon as native standing/dash-catch readiness permits. These moving/landing
 attempts send R in the first observation, without a preliminary neutral or
-approach packet. The final mapper retains your physical horizontal stick at its
-current strength and neutralizes vertical input. There is no wait to slow down.
+approach packet. During an unshielded automatic Grab request, the assist sends
+neutral horizontal and vertical stick instead of retaining physical movement.
+This also applies to R packets in edited unshielded grab recipes; other
+configured actions retain their authored stick. There is no wait to slow down
+or change native movement, so the resulting in-game grab must be verified in
+game. The raw request remains R alone; the final mapped unshielded Grab
+includes Catch and Guard, matching the combination observed during a successful
+manual Grab. This does not press the physical Shield button.
 No target/readiness means no input ownership, so movement stays manual.
 
 Existing stationary attempts retain their one delivered approach pulse, with
 floor support checked before that additional movement. Bowser's idle far-range
 attempt (beyond the shielded/close range) continues full forward input until
-native dash/run is actually observed, then sends Grab with full forward input.
+native dash/run is actually observed, then sends Grab with neutral stick.
 A mapper acknowledgment or residual shield-drop velocity is not dash evidence.
 No standing Grab is sent while waiting for that native transition. Four delivered
 approach attempts bound failure; already-moving, close-range and shield grabs
-retain their existing paths. Already-moving grabs add
+retain their admission paths. Already-moving grabs add
 no approach movement and need no extra floor ray. A/B/manual grab, C-stick or
 strong vertical jump/drop input keeps manual priority. Held/native shield uses
 the stricter tilt gate and always emits neutral-axis grabs; full roll input is

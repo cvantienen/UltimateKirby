@@ -443,6 +443,15 @@ pub fn mapped_literal_buttons(buttons: u32, requested: u32) -> u32 {
         }
 }
 
+/// Match the native Catch+Guard result observed for an unshielded manual Grab.
+pub fn mapped_unshielded_auto_grab(buttons: u32, requested: u32, active: bool) -> u32 {
+    if active && requested & MAPPER_R != 0 && requested & MAPPER_ZR == 0 {
+        buttons | MAPPED_CATCH | MAPPED_GUARD
+    } else {
+        buttons
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 // All four words describe one view of the same input. `pressed` is an edge
 // (off -> on), whereas `held` stays on for as long as a button remains pressed.

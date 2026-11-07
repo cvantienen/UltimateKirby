@@ -123,22 +123,11 @@ impl Grab {
             self.last_delivery_poll = Some(tick);
         }
     }
-    pub fn preserve_movement(&self) -> bool {
+    pub fn unshielded_grab_started(&self) -> bool {
         self.active() && self.approach && self.dash_sent
     }
     pub fn approach_pending(&self) -> bool {
         self.active() && self.approach && (!self.dash_sent || self.await_dash)
-    }
-    pub fn delivery_x(&self, physical: f32) -> f32 {
-        if self.assisted_dash
-            && self.mapped == 0
-            && self.delivery_polls == 0
-            && physical.abs() < 0.1
-        {
-            self.direction
-        } else {
-            physical
-        }
     }
     pub fn turning_away(&self, physical: f32) -> bool {
         self.active()

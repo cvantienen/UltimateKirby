@@ -306,6 +306,13 @@ diagnostic watchdog also finishes a report without changing gameplay. Look for:
 - `native_grab_started_no_capture_observed`: the animation started; inspect spacing, facing and protection timing.
 - `capture_confirmed`: native capture was observed and control handed back.
 
+For automatic Grab troubleshooting, `grab mapping comparison` lines record up
+to eight mapper polls per manual R or Out of shield Grab press, including the winning owner, raw
+button histories, sticks, triggers, and mapped buttons before and after the
+mod's adjustments. Compare a manual R press with Out of shield disabled against
+an automatic attempt with physical controls released. These lines show mapper
+inputs and outputs, not proof that the game started a grab.
+
 Reports include own/enemy positions and motion frames, speed/facing, endpoint and
 signed gaps, configured usable reach, active frames, raw/adjusted vulnerability
 opening, recovery deadline, request/animation counts, raw/mapped button evidence

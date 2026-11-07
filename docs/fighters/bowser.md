@@ -20,9 +20,9 @@ even before an opponent reaches the ledge. Hanging/captured opponents are
 excluded from ordinary punish targets.
 
 Bowser's idle far-range automatic grab must observe native dash/run before
-pressing Grab. It keeps full forward input through the dash-grab packet, avoiding
-a standing whiff after shield release. Already-moving, close and shield grabs
-keep their existing behavior. Failed dash startup is bounded by four delivered
+pressing Grab. It sends neutral stick with the Grab request, rather than holding
+forward during delivery. Already-moving unshielded Grab requests also use neutral
+stick; close and shield-grab admission remains unchanged. Failed dash startup is bounded by four delivered
 approach attempts. Manual ledge recipes are unchanged.
 
 Unshielded automatic grabs require an enemy shielding in front and vulnerable.

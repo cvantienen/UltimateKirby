@@ -878,6 +878,7 @@ fn approach_is_one_delivered_pulse_then_four_grab_packets_and_never_dashes_from_
             );
             assert_eq!(o.requested, MAPPER_R);
             assert_eq!(o.stick, Some([0.; 2]));
+            assert_eq!(grab.with_grab_movement(o, [side, 0.8]).stick, Some([0.; 2]));
             grab.mapped_grab(tick, 2);
             grab.mapped_grab(tick, 2);
         }

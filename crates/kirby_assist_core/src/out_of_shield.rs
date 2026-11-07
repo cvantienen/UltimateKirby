@@ -312,8 +312,8 @@ impl OutOfShield {
             AutomaticConfig::default(),
         )
     }
-    /// Retain the player's horizontal input during unshielded Grab delivery.
-    /// Shield grabs always retain neutral axes to avoid an accidental roll.
+    /// Neutralize the stick during unshielded Grab delivery while preserving
+    /// manual turning-away cancellation. Shield grabs already use neutral axes.
     pub fn with_grab_movement(
         &mut self,
         mut output: ControllerOutput,
@@ -323,18 +323,15 @@ impl OutOfShield {
             self.suspend_automatic();
             return ControllerOutput::default();
         }
-        if self.simple.preserve_movement() && output.requested & crate::native_input::MAPPER_R != 0
+        if self.simple.unshielded_grab_started()
+            && output.requested & crate::native_input::MAPPER_R != 0
         {
-            output.stick = Some([
-                if physical[0].is_finite() {
-                    self.simple.delivery_x(physical[0]).clamp(-1., 1.)
-                } else {
-                    0.
-                },
-                0.,
-            ]);
+            output.stick = Some([0.0, 0.0]);
         }
         output
+    }
+    pub fn unshielded_grab_started(&self) -> bool {
+        self.simple.unshielded_grab_started()
     }
     pub fn shield_up_b_pending(&self) -> bool {
         self.shield_up_b.active() || self.configured_response && self.response.automatic_up_b()

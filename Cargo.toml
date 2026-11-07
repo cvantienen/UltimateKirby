@@ -6,7 +6,7 @@ name = "kirby_assist"
 # Required by the source syntax, dependency imports, and array iteration rules.
 edition = "2021"
 # Single release-version source: logger and release builder read this value.
-version = "2.7.7"
+version = "2.7.8"
 description = """ menu update for preformance; simplified
 chatgpt fixes
 Allows leading Wait actions to hold a true neutral standstill before any supported recipe, including short_hop_nair, instead of rejecting Wait plus paired Nair. Adds paired short_hop_fair/bair/uair/dair actions that send Jump+Attack+direction together, with one jump pulse and native acceptance/retries. Preserves the explicit after-hop Nair Attack delay and separate C-stick aerial path. Uses bounded native-progress pause clocks with hitstop/duplicate protection and idle-loop handling, cleared on plan reset; no new rays, scans or file reads in play.
@@ -1614,6 +1614,16 @@ Fixes live fighter settings resolution to populate the renamed assist configurat
 Fixes diagnostic calibration imports to resolve controller constants from the core crate in both plugin and host tests.
 
 Extracts Training passthrough and resume handling and centralizes native controller-pointer reads without changing input or timing behavior.
+
+Neutralizes the stick during unshielded automatic Grab delivery while retaining approach, manual turn-away cancellation and existing Grab timing.
+
+Removes reported silent and diagnostic build warnings by gating diagnostic-only and test-only constants and removing an unused import.
+
+Adds diagnostic-only Grab edge comparisons before and after the mapper to investigate automatic Grab versus manual controller input.
+
+Extends diagnostic Grab comparisons to bounded held-input samples following each press.
+
+Aligns mapped unshielded automatic Grab with the Catch and Guard combination observed during manual Grab, without adding a raw Shield press.
 """
 
 

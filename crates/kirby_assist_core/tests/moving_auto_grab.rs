@@ -106,11 +106,15 @@ fn ground_locomotion_and_normal_landing_grab_on_the_first_observation_without_an
             );
             assert!(!o.approach_pending());
             assert_eq!(out.owned, SEQUENCE_BUTTONS);
-            for strength in [0.3, 0.6, 1.] {
-                assert_eq!(
-                    o.with_grab_movement(out, [side * strength, 0.]).stick,
-                    Some([side * strength, 0.])
-                );
+            for physical in [
+                [0., 0.],
+                [side * 0.3, 0.],
+                [side * 0.6, 0.7],
+                [side, -1.],
+                [f32::NAN, 1.],
+                [f32::INFINITY, -1.],
+            ] {
+                assert_eq!(o.with_grab_movement(out, physical).stick, Some([0., 0.]));
             }
         }
     }
@@ -257,7 +261,7 @@ fn airborne_snapshots_and_unready_movement_never_start_a_grab_and_landing_does_n
     }
 }
 #[test]
-fn both_layouts_preserve_horizontal_grab_delivery_and_neutralize_only_shield_grabs() {
+fn both_layouts_neutralize_stick_during_unshielded_and_shielded_grabs() {
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
         for shielded in [false, true] {
             let status = if shielded {
@@ -278,11 +282,12 @@ fn both_layouts_preserve_horizontal_grab_delivery_and_neutralize_only_shield_gra
                 Some(8.),
             );
             let out = o.with_grab_movement(raw, [0.65, 0.]);
-            let expected = if shielded { [0.; 2] } else { [0.65, 0.] };
+            let expected = [0.; 2];
             assert_eq!(out.stick, Some(expected));
+            let physical_directions = (1 << 21) | (1 << 20);
             let mapped = ManualOverlay::default().apply_controls(
                 ButtonTrace {
-                    held: layout.physical_buttons(MAPPER_ZR),
+                    held: layout.physical_buttons(MAPPER_ZR) | physical_directions,
                     ..Default::default()
                 },
                 [0.65, 0.],
@@ -295,6 +300,7 @@ fn both_layouts_preserve_horizontal_grab_delivery_and_neutralize_only_shield_gra
                 layout.physical_owned_buttons(out.owned),
             );
             assert_eq!(mapped.stick, expected);
+            assert_eq!(mapped.buttons.held & MAPPER_LEFT_STICK_DIRECTIONS, 0);
             assert_eq!(
                 exclusive_sequence_stick(out.owned, out.stick),
                 Some(expected)
@@ -307,8 +313,29 @@ fn both_layouts_preserve_horizontal_grab_delivery_and_neutralize_only_shield_gra
                 out.requested,
                 MAPPER_R | if shielded { MAPPER_ZR } else { 0 }
             );
+            let native = mapped_literal_buttons(0, out.requested);
+            assert_eq!(
+                mapped_unshielded_auto_grab(native, out.requested, o.unshielded_grab_started()),
+                MAPPED_CATCH | MAPPED_GUARD
+            );
         }
     }
+}
+
+#[test]
+fn mapped_unshielded_grab_fix_is_limited_to_active_grab_packets() {
+    let native = 0x800;
+    assert_eq!(mapped_unshielded_auto_grab(native, MAPPER_R, false), native);
+    assert_eq!(mapped_unshielded_auto_grab(native, 0, true), native);
+    assert_eq!(mapped_unshielded_auto_grab(native, MAPPER_A, true), native);
+    assert_eq!(
+        mapped_unshielded_auto_grab(native, MAPPER_R | MAPPER_ZR, true),
+        native
+    );
+    assert_eq!(
+        mapped_unshielded_auto_grab(native, MAPPER_R, true),
+        native | MAPPED_CATCH | MAPPED_GUARD
+    );
 }
 #[test]
 fn ground_up_b_admission_keeps_tracking_after_native_takeoff_without_starting_new_air_reactions() {
@@ -476,7 +503,7 @@ fn native_movement_replaces_an_unmapped_idle_approach_without_waiting_for_an_ack
     assert!(!o.approach_pending());
     assert_eq!(
         o.with_grab_movement(moving, [0.4, 0.]).stick,
-        Some([0.4, 0.])
+        Some([0., 0.])
     );
 }
 
@@ -500,7 +527,7 @@ fn fresh_physical_shield_cannot_borrow_dash_readiness_before_native_guard_starts
 }
 
 #[test]
-fn bowser_far_idle_grab_never_presses_r_before_native_dash_and_keeps_forward_during_grab() {
+fn bowser_far_idle_grab_waits_for_native_dash_then_sends_neutral_grab() {
     for side in [-1., 1.] {
         for speed in [0., 0.15] {
             let mut o = OutOfShield::new();
@@ -551,8 +578,8 @@ fn bowser_far_idle_grab_never_presses_r_before_native_dash_and_keeps_forward_dur
             assert!(!o.approach_pending());
             assert_eq!(
                 o.with_grab_movement(dash, [0.; 2]).stick,
-                Some([side, 0.]),
-                "idle-assisted dash must not neutralize the grab packet"
+                Some([0., 0.]),
+                "grab packet must not retain the assisted dash direction"
             );
         }
     }

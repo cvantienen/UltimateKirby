@@ -82,8 +82,6 @@ use kirby_assist_core::native_input::{MAPPER_A, MAPPER_X};
 use kirby_assist_core::session::{MatchSession, SessionTicket};
 use kirby_assist_core::settings::AssistSettings;
 use kirby_assist_core::tech_input::{TechContext, TechInput, TechOutput};
-#[cfg(feature = "diagnostic-logging")]
-use kirby_assist_core::tech_prediction::CATCHED_GANON;
 use kirby_assist_core::timing::{AnimationClock, AnimationSample};
 use skyline::hooks::{getRegionAddress, Region};
 use std::{
@@ -127,6 +125,7 @@ fn refresh_master_match_lock(ready_go: Option<bool>) {
 // controller/policy history shared by callbacks; never call game APIs while
 // holding it, since a native call can re-enter another hooked function.
 static MAPPING_OFFSET: AtomicUsize = AtomicUsize::new(0);
+#[cfg(feature = "diagnostic-logging")]
 const ATTACK_SLOT_COUNT: i32 = 8;
 #[cfg(feature = "diagnostic-logging")]
 static SEEN_MAPPERS: AtomicUsize = AtomicUsize::new(0);
@@ -134,6 +133,10 @@ static SEEN_MAPPERS: AtomicUsize = AtomicUsize::new(0);
 static ROUTE_MISMATCHES: AtomicUsize = AtomicUsize::new(0);
 #[cfg(feature = "diagnostic-logging")]
 static ROUTE_UNAVAILABLE_LOGGED: AtomicBool = AtomicBool::new(false);
+#[cfg(feature = "diagnostic-logging")]
+static MANUAL_GRAB_COMPARISON_POLLS: AtomicUsize = AtomicUsize::new(8);
+#[cfg(feature = "diagnostic-logging")]
+static AUTOMATIC_GRAB_COMPARISON_POLLS: AtomicUsize = AtomicUsize::new(8);
 static MANAGER_SLOT: AtomicUsize = AtomicUsize::new(0);
 static CONFIG: OnceLock<Box<Config>> = OnceLock::new();
 static PROFILES: OnceLock<FighterProfiles> = OnceLock::new();
@@ -383,6 +386,7 @@ unsafe fn map_controls(
     let mut mapped_dodge_punish_grab = None;
     let mut mapped_attack_hold = false;
     let mut mapped_literal_request = None;
+    let mut mapped_unshielded_auto_grab = false;
     let mut builtin_jump = None;
     let mut mapped_sequence_right = None;
     let mut reserved_dpad = 0;
@@ -397,6 +401,8 @@ unsafe fn map_controls(
     let mut ledge_edge = None;
     #[cfg(feature = "diagnostic-logging")]
     let mut grab_delivery = None;
+    #[cfg(feature = "diagnostic-logging")]
+    let mut grab_mapping_comparison = None;
     #[cfg(feature = "diagnostic-logging")]
     let mut messages = Vec::new();
     #[cfg(feature = "diagnostic-logging")]
@@ -1757,6 +1763,8 @@ unsafe fn map_controls(
                                     }
                                 }),
                             );
+                            mapped_unshielded_auto_grab = winner == Some(Owner::OutOfShield)
+                                && state.oos.unshielded_grab_started();
                         }
                         let modified = manual.buttons;
                         if winner == Some(Owner::Reflect) {
@@ -1884,6 +1892,50 @@ unsafe fn map_controls(
                             ledge_edge = Some(ledge.requested);
                         }
                         #[cfg(feature = "diagnostic-logging")]
+                        {
+                            let grab_button = config
+                                .control_layout
+                                .physical_buttons(kirby_assist_core::native_input::MAPPER_R);
+                            let automatic = winner == Some(Owner::OutOfShield)
+                                && selected.requested & kirby_assist_core::native_input::MAPPER_R
+                                    != 0
+                                && modified.held & grab_button != 0;
+                            let manual_grab = physical.held & grab_button != 0
+                                && selected.requested & kirby_assist_core::native_input::MAPPER_R
+                                    == 0;
+                            if automatic || manual_grab {
+                                let (counter, pressed) = if automatic {
+                                    (&AUTOMATIC_GRAB_COMPARISON_POLLS, modified.pressed)
+                                } else {
+                                    (&MANUAL_GRAB_COMPARISON_POLLS, physical.pressed)
+                                };
+                                if pressed & grab_button != 0 {
+                                    counter.store(0, Ordering::Relaxed);
+                                }
+                                if counter
+                                    .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+                                        (count < 8).then_some(count + 1)
+                                    })
+                                    .is_ok()
+                                {
+                                    grab_mapping_comparison = Some((
+                                        automatic,
+                                        winner,
+                                        selected.requested,
+                                        physical,
+                                        modified,
+                                        physical_stick,
+                                        manual.stick,
+                                        physical_triggers,
+                                        kirby_assist_core::native_input::owned_trigger_axes(
+                                            physical_triggers,
+                                            manual.clear_autorepeat,
+                                        ),
+                                    ));
+                                }
+                            }
+                        }
+                        #[cfg(feature = "diagnostic-logging")]
                         if let Some(message) = state.pending_combat_log.take() {
                             messages.push(message);
                         }
@@ -1986,6 +2038,13 @@ unsafe fn map_controls(
         return;
     }
     original!()(mappings, index, output, wrapper, arg);
+    #[cfg(feature = "diagnostic-logging")]
+    let native_grab_mapping =
+        if grab_mapping_comparison.is_some() && restore.is_some() && !output.is_null() {
+            Some((*output.cast::<MappedInputs>()).buttons)
+        } else {
+            None
+        };
     if restore.is_some() && !output.is_null() {
         let mapped = output.cast::<MappedInputs>();
         // Preserve the selected tape/helper's exact simulated analog input.
@@ -2026,6 +2085,11 @@ unsafe fn map_controls(
             (*mapped).buttons = kirby_assist_core::native_input::mapped_literal_buttons(
                 (*mapped).buttons,
                 requested,
+            );
+            (*mapped).buttons = kirby_assist_core::native_input::mapped_unshielded_auto_grab(
+                (*mapped).buttons,
+                requested,
+                mapped_unshielded_auto_grab,
             );
         }
         if let Some(tech) = mapped_tech_output {
@@ -2195,6 +2259,31 @@ unsafe fn map_controls(
     if reserved_dpad != 0 {
         let mapped = output.cast::<MappedInputs>();
         (*mapped).buttons = suppress_reserved_taunts((*mapped).buttons, reserved_dpad);
+    }
+    #[cfg(feature = "diagnostic-logging")]
+    if let (
+        Some((
+            automatic,
+            owner,
+            requested,
+            physical,
+            applied,
+            physical_stick,
+            applied_stick,
+            physical_triggers,
+            applied_triggers,
+        )),
+        Some(native),
+    ) = (grab_mapping_comparison, native_grab_mapping)
+    {
+        let mapped = &*output.cast::<MappedInputs>();
+        messages.push(format!(
+            "grab mapping comparison: source={}, owner={owner:?}, requested={requested:#x}, physical={physical:?}, applied={applied:?}, physical_stick={physical_stick:?}, applied_stick={applied_stick:?}, physical_triggers={physical_triggers:?}, applied_triggers={applied_triggers:?}, native_buttons={native:#x}, final_buttons={:#x}, final_left=({},{})",
+            if automatic { "automatic" } else { "manual" },
+            mapped.buttons,
+            mapped.left_x,
+            mapped.left_y,
+        ));
     }
     #[cfg(feature = "diagnostic-logging")]
     if trump_pressed {

@@ -7,8 +7,6 @@ const REPORT_TEXT_CAPACITY_BYTES: usize = 1200;
 const MIN_REPORT_INTERVAL_MS: u64 = 250;
 const LABEL_CAPACITY_BYTES: usize = 64;
 const CONFIGURATION_ROW_COUNT: usize = 26;
-const MAX_RECORDER_SIZE_BYTES: usize = 1024;
-const MAX_REPORT_SIZE_BYTES: usize = 768;
 const RESULT_TOP_MARGIN: f32 = 14.0;
 const RESULT_BOTTOM_MARGIN: f32 = 8.0;
 const MIN_RESULT_HEIGHT: f32 = 40.0;
@@ -622,6 +620,10 @@ impl Configuration {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const MAX_RECORDER_SIZE_BYTES: usize = 1024;
+    const MAX_REPORT_SIZE_BYTES: usize = 768;
+
     #[test]
     fn copied_labels_survive_menu_teardown_and_truncate_on_utf8_boundaries() {
         let name = "é".repeat(40);

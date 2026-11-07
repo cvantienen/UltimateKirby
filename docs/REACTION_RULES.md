@@ -20,8 +20,8 @@ remain in code. Current Bowser entries are:
 
 The first three and grab-dodge follow-up currently send Up-B for four frames,
 then up to 69 drift frames toward the opponent. The two grab recipes send
-`input:r:0:0:4`; unshielded grabs retain their existing movement preparation and
-moving-input preservation. Shield backup retains immediate native-startup
+`input:r:0:0:4`; unshielded grabs retain their existing movement preparation but
+send neutral stick during the Grab request. Shield backup retains immediate native-startup
 handoff to Bowser's 69-frame tracking. These are the exact current file values;
 the configuration migration did not retune them.
 

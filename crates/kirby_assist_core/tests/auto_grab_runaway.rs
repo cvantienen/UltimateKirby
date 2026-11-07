@@ -111,7 +111,7 @@ fn delivered_grab_cannot_keep_forcing_run_or_override_opposite_manual_input() {
     o.mapped_approach(0, 2);
     let grab = sample(&mut o, 15, 3, 30.);
     assert_eq!(grab.requested, MAPPER_R);
-    assert_eq!(o.with_grab_movement(grab, [0.; 2]).stick, Some([1., 0.]));
+    assert_eq!(o.with_grab_movement(grab, [0.; 2]).stick, Some([0., 0.]));
     o.mapped_grab(1, 2);
     let tail = sample(&mut o, 15, 3, 30.);
     assert_eq!(o.with_grab_movement(tail, [0.; 2]).stick, Some([0.; 2]));
