@@ -45,6 +45,7 @@ Paths below are relative to the project root. Core paths begin with
 | `src/live.rs` | Hook orchestration, profile selection, shared session state and tool priority. |
 | `src/live/config.rs` | Startup-only master `sequences.txt` loading/validation; `config.txt` fallback for older files. |
 | `src/live/controller.rs` | Native controller layout, offset checks and button-history reads/writes. |
+| `src/live/training.rs` | Mapper Training passthrough, handoff state and menu resume. |
 | Core `training_test.rs` | Diagnostic/Training Minus-menu handoff and isolated test settings. |
 | `src/live/observations.rs` | Read-only fighter, opponent, physics, roster and floor queries. |
 | `src/live/tech.rs` | Native tech eligibility and predicted contact/capture timing. |

@@ -32,7 +32,7 @@ mod state;
 mod tech;
 
 use config::load_config;
-use controller::{trace, write_trace, Controller, MappedInputs};
+use controller::{controller_from_wrapper, trace, write_trace, MappedInputs};
 use kirby_assist_core::action_owner::{ActionOwnership, Intent, Owner};
 use kirby_assist_core::training_test;
 use observations::{combat_targets, fighter_ids, human_fighter, nearest_ledge_opponent};
@@ -51,6 +51,8 @@ macro_rules! log {
 macro_rules! log {
     ($message:expr $(,)?) => {{}};
 }
+
+mod training;
 
 use crate::game_ffi as game;
 use kirby_assist_core::combat_assist::{
@@ -125,7 +127,6 @@ fn refresh_master_match_lock(ready_go: Option<bool>) {
 // controller/policy history shared by callbacks; never call game APIs while
 // holding it, since a native call can re-enter another hooked function.
 static MAPPING_OFFSET: AtomicUsize = AtomicUsize::new(0);
-const CONTROLLER_POINTER_OFFSET_BYTES: usize = 0x10;
 const ATTACK_SLOT_COUNT: i32 = 8;
 #[cfg(feature = "diagnostic-logging")]
 static SEEN_MAPPERS: AtomicUsize = AtomicUsize::new(0);
@@ -267,11 +268,7 @@ unsafe fn map_controls(
     let master_ready_go = if !wrapper.is_null()
         && (0..kirby_assist_core::native_input::MAPPER_SLOT_COUNT).contains(&index)
     {
-        let controller = wrapper
-            .cast::<u8>()
-            .add(CONTROLLER_POINTER_OFFSET_BYTES)
-            .cast::<*mut Controller>()
-            .read();
+        let controller = controller_from_wrapper(wrapper);
         if !controller.is_null()
             && selected_controller_mapper(config.player_index, (*controller).npad, index)
                 == Some(index)
@@ -304,11 +301,7 @@ unsafe fn map_controls(
     {
         std::ptr::null_mut()
     } else {
-        wrapper
-            .cast::<u8>()
-            .add(CONTROLLER_POINTER_OFFSET_BYTES)
-            .cast::<*mut Controller>()
-            .read()
+        controller_from_wrapper(wrapper)
     };
     if controller.is_null()
         || selected_controller_mapper(config.player_index, (*controller).npad, index) != Some(index)
@@ -350,11 +343,7 @@ unsafe fn map_controls(
         let selected_physical = if wrapper.is_null() {
             None
         } else {
-            let controller = wrapper
-                .cast::<u8>()
-                .add(CONTROLLER_POINTER_OFFSET_BYTES)
-                .cast::<*mut Controller>()
-                .read();
+            let controller = controller_from_wrapper(wrapper);
             if !controller.is_null()
                 && CONFIG.get().is_some_and(|config| {
                     selected_controller_mapper(config.player_index, (*controller).npad, index)
@@ -370,69 +359,12 @@ unsafe fn map_controls(
             original!()(mappings, index, output, wrapper, arg);
             return;
         };
-        if training_test::passthrough(
-            physical.held,
-            physical.pressed,
-            TRAINING_MODAL_HANDOFF.load(Ordering::Relaxed),
-        ) {
-            if training_test::sticky_shortcut(physical.held) {
-                TRAINING_MODAL_HANDOFF.store(true, Ordering::Relaxed);
-            }
-            let entering_passthrough = !TRAINING_PASSTHROUGH.swap(true, Ordering::Relaxed);
-            if let Ok(mut state) = STATE.lock() {
-                if entering_passthrough {
-                    state.cancel();
-                }
-                state
-                    .settings_menu
-                    .get_or_insert_with(settings_menu::SettingsMenu::default)
-                    .observe_passthrough(
-                        training_test::policy_buttons(physical.held),
-                        config.control_layout,
-                    );
-                if let Some(menu) = state.settings_menu.as_ref() {
-                    // Save/load must not hide the saved-options panel or demand
-                    // a Minus tap before the CPU's next ledge get-up.
-                    menu.display_battle(
-                        state.menu_battle_active && !TRAINING_MODAL_HANDOFF.load(Ordering::Relaxed),
-                    );
-                }
-                // Keep the selected-controller session alive while Training
-                // owns it. Otherwise a long menu/recording creates route resets.
-                state.mapping_index = Some(index);
-                state.raw_tick = state.raw_tick.wrapping_add(1);
-                state.raw_buttons = training_test::policy_buttons(physical.held);
-                state.raw_seen = Some(Instant::now());
-                state.request_seen = state.raw_seen;
-                state.raw_connected = true;
-            }
-            if entering_passthrough {
-                log!("Training shortcut handoff: save/load resumes on release; menus/recording require Minus after closing");
-            }
+        if training::enter_passthrough(physical, index, config.control_layout) {
             original!()(mappings, index, output, wrapper, arg);
             return;
         }
     }
-    if TRAINING_PASSTHROUGH.swap(false, Ordering::Relaxed) {
-        let was_modal = TRAINING_MODAL_HANDOFF.swap(false, Ordering::Relaxed);
-        if training_test_mode && !was_modal {
-            if let Ok(mut state) = STATE.lock() {
-                state
-                    .settings_menu
-                    .get_or_insert_with(Default::default)
-                    .resume_saved_state();
-            }
-        }
-        if training_test_mode && was_modal {
-            if let Ok(mut state) = STATE.lock() {
-                state
-                    .settings_menu
-                    .get_or_insert_with(settings_menu::SettingsMenu::default)
-                    .request_open();
-            }
-        }
-        log!("Training passthrough ended; selected input policy resumed");
-    }
+    training::finish_passthrough(training_test_mode);
     // Keep the untouched trace for restoration after original!(). The original
     // mapper receives the overlay only during this call; output keeps the mapped
     // result while the physical Controller memory is restored afterwards.
@@ -484,11 +416,7 @@ unsafe fn map_controls(
             // The wrapper stores a Controller pointer at this byte offset. read() loads
             // that pointer; cast() alone only changes its type. These native
             // offsets belong to the verified layout, not user-tunable settings.
-            let controller = wrapper
-                .cast::<u8>()
-                .add(CONTROLLER_POINTER_OFFSET_BYTES)
-                .cast::<*mut Controller>()
-                .read();
+            let controller = controller_from_wrapper(wrapper);
             #[cfg(feature = "diagnostic-logging")]
             if !controller.is_null()
                 && SEEN_MAPPERS.fetch_or(1 << index, Ordering::Relaxed) & (1 << index) == 0
@@ -2475,7 +2403,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     // passthrough was handled above. No extra scene query or config identity pass.
     let config = diagnostic_config(*config);
     let config = Config {
-        ledge: STATE
+        assist: STATE
             .lock()
             .ok()
             .and_then(|s| {

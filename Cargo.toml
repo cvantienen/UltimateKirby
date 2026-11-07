@@ -1608,6 +1608,12 @@ Moves shared assistance settings and fighter grab data out of ledge-specific nam
 Fixes native tech surface eligibility, shared aerial-status lookup, and stale host test harnesses.
 
 Restructures project documentation around current user workflows and the Rust runtime architecture, with developer extension and validation guidance.
+
+Fixes live fighter settings resolution to populate the renamed assist configuration field.
+
+Fixes diagnostic calibration imports to resolve controller constants from the core crate in both plugin and host tests.
+
+Extracts Training passthrough and resume handling and centralizes native controller-pointer reads without changing input or timing behavior.
 """
 
 

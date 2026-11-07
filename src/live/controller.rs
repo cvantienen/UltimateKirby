@@ -6,7 +6,9 @@
 //! The mapper hook saves these fields, temporarily overlays them, and restores
 //! them after native mapping. This file does not decide which tool wins.
 use kirby_assist_core::native_input::ButtonTrace;
+use std::ffi::c_void;
 
+const CONTROLLER_POINTER_OFFSET_BYTES: usize = 0x10;
 const CONTROLLER_GYRO_REPEAT_BYTES: usize = 0x58;
 const CONTROLLER_COLOR_FLAGS_BYTES: usize = 0x17;
 const CONTROLLER_TRAILING_FLAGS_BYTES: usize = 8;
@@ -87,6 +89,16 @@ const _: () = {
     assert!(std::mem::offset_of!(Controller, connected) == CONTROLLER_CONNECTED_OFFSET_BYTES);
     assert!(std::mem::offset_of!(Controller, npad) == CONTROLLER_NPAD_OFFSET_BYTES);
 };
+
+/// Read the native wrapper's controller pointer. The caller checks that the
+/// wrapper is non-null and valid for this pinned layout before calling.
+pub(super) unsafe fn controller_from_wrapper(wrapper: *mut c_void) -> *mut Controller {
+    wrapper
+        .cast::<u8>()
+        .add(CONTROLLER_POINTER_OFFSET_BYTES)
+        .cast::<*mut Controller>()
+        .read()
+}
 
 // Pinned MappedInputs result (common/input.rs). The post-map filter clears
 // reserved taunts which may otherwise survive native repeat/history handling.

@@ -2,7 +2,8 @@
 //! storage; the logger worker formats/publishes once when an attempt ends.
 use kirby_assist_core::{
     ledge_trap::{CalibrationFrame, CalibrationKind, CalibrationMove},
-    native_input::{MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_X, MAPPER_ZL, MAPPER_ZR},
+    manual_controls::RIGHT_STICK_DIRECTIONS,
+    native_input::{self, MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_X, MAPPER_ZL, MAPPER_ZR},
 };
 #[cfg(feature = "imgui-menu")]
 use std::{
@@ -19,7 +20,7 @@ static EPOCH: AtomicUsize = AtomicUsize::new(0);
 #[cfg(feature = "imgui-menu")]
 static CARD: Mutex<Option<(usize, CString)>> = Mutex::new(None);
 const WATCHDOG_MS: u64 = 4_000;
-const RAW_CSTICK: u32 = crate::manual_controls::RIGHT_STICK_DIRECTIONS;
+const RAW_CSTICK: u32 = RIGHT_STICK_DIRECTIONS;
 const CHANNELS: [&str; 5] = ["Jump", "Attack", "Grab", "Special", "Shield"];
 
 #[derive(Clone, Copy, Debug)]
@@ -805,11 +806,11 @@ impl Recorder {
         };
         let masks = channel_masks(report.last, report.model.kind);
         let logical = [
-            crate::native_input::MAPPED_JUMP | crate::native_input::MAPPED_JUMP_MINI,
-            crate::native_input::MAPPED_ATTACK,
-            crate::native_input::MAPPED_CATCH,
-            crate::native_input::MAPPED_SPECIAL,
-            crate::native_input::MAPPED_GUARD,
+            native_input::MAPPED_JUMP | native_input::MAPPED_JUMP_MINI,
+            native_input::MAPPED_ATTACK,
+            native_input::MAPPED_CATCH,
+            native_input::MAPPED_SPECIAL,
+            native_input::MAPPED_GUARD,
         ];
         for i in 0..5 {
             if proposed & applied & masks[i] != 0 && mapped & logical[i] != 0 {
@@ -995,7 +996,7 @@ mod tests {
         recorder.mapped(
             MAPPER_ZR,
             MAPPER_ZR,
-            crate::native_input::MAPPED_GUARD,
+            native_input::MAPPED_GUARD,
             "ledge",
         );
         let report = recorder.active.as_ref().unwrap();
@@ -1030,7 +1031,7 @@ mod tests {
         recorder.mapped(
             MAPPER_X | MAPPER_A,
             MAPPER_X,
-            crate::native_input::MAPPED_JUMP,
+            native_input::MAPPED_JUMP,
             "ledge",
         );
         assert!(recorder.active.as_ref().unwrap().mapped[0]);
@@ -1129,7 +1130,7 @@ mod tests {
         recorder.mapped(
             f.output.requested,
             f.output.requested,
-            crate::native_input::MAPPED_GUARD | crate::native_input::MAPPED_CATCH,
+            native_input::MAPPED_GUARD | native_input::MAPPED_CATCH,
             "ledge",
         );
         assert!(recorder.active.as_ref().unwrap().mapped[2]);
@@ -1249,7 +1250,7 @@ mod tests {
         r.mapped(
             f.output.requested,
             f.output.requested,
-            crate::native_input::MAPPED_ATTACK | crate::native_input::MAPPED_JUMP,
+            native_input::MAPPED_ATTACK | native_input::MAPPED_JUMP,
             "test",
         );
         r.active.as_mut().unwrap().test_latency = Some(4);
