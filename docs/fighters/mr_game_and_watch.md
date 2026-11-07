@@ -125,7 +125,7 @@ before treating an option as reliable in a particular setup.
 
 Paths are relative to the repository root:
 
-- Registration: `crates/kirby_assist_core/src/fighter_profiles/mr_game_and_watch.rs`.
+- Registration: `crates/kirby_assist_core/src/fighter_profiles.rs`.
 - Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
 - Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.

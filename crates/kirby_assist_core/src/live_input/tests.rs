@@ -508,3 +508,20 @@ fn fair_first_hit_followup_has_a_startup_disable_option() {
             .kirby_fair1_smash
     );
 }
+
+#[test]
+fn trip_and_sdi_defaults_disable_independently_and_reject_bad_values() {
+    let defaults = LiveConfig::parse("").unwrap();
+    assert!(defaults.down_tilt_trip_smash && defaults.auto_sdi);
+    let disabled = LiveConfig::parse("down_tilt_trip_smash = false\nauto_sdi = false").unwrap();
+    assert!(!disabled.down_tilt_trip_smash && !disabled.auto_sdi);
+    assert!(LiveConfig::parse("auto_sdi = fastest").is_err());
+    assert!(LiveConfig::parse("down_tilt_trip_smash = maybe").is_err());
+}
+
+#[test]
+fn legacy_roll_window_is_not_a_move_scheduler_anymore() {
+    for value in ["0", "1", "13", "99", "retired"] {
+        assert!(LiveConfig::parse(&format!("ledge_roll_hit_window_frames={value}")).is_ok());
+    }
+}

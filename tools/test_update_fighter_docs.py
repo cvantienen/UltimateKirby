@@ -23,6 +23,19 @@ class FighterDocsTests(unittest.TestCase):
         for module, kind in [("sonic", 0x29), ("isabelle", 0x46), ("krool", 0x45)]:
             self.assertEqual(docs.render(module)[1], kind)
 
+    def test_profile_catalog_rejects_unknown_or_duplicate_declarations(self):
+        kinds = "pub const KIRBY: i32 = 0x06;"
+        valid = 'fighter_profiles! {\n kirby: KIRBY, "kirby", FIGHTER_KIND;\n}'
+        self.assertEqual(docs.parse_profile_catalog(valid, kinds), {"kirby": ("kirby", 6)})
+        for invalid in [
+            'fighter_profiles! { kirby: UNKNOWN, "kirby"; }',
+            'fighter_profiles! { kirby: KIRBY, "kirby";\n kirby: KIRBY, "kirby"; }',
+            'fighter_profiles! { kirby: KIRBY, compute_name(); }',
+            'fighter_profiles! {}',
+        ]:
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                docs.parse_profile_catalog(invalid, kinds)
+
     def test_move_frames_and_baseline_stats_come_from_the_fighter_record(self):
         rendered, kind = docs.render("kirby")
         fighter = docs.fighter_data_snapshot()[kind]

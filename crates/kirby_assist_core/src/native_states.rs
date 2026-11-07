@@ -2,13 +2,68 @@
 //! Own incapacitation and opponent punishability are deliberately distinct.
 pub mod fighter_status;
 mod final_states;
-pub mod ground_touch;
-pub mod situation;
 pub mod status;
-pub mod transition_terms;
 mod up_special;
-pub mod work_ids;
 pub use up_special::up_special_status;
+
+/// Ground-touch masks from the pinned `skyline-smash` lua_const table.
+pub mod ground_touch {
+    pub const DOWN_SIDE: u32 = 0xc8;
+    pub const LEFT_SIDE: u32 = 0x52;
+    pub const RIGHT_SIDE: u32 = 0xa4;
+    pub const UP_SIDE: u32 = 0x31;
+}
+
+/// `SITUATION_KIND_*` values from the pinned `skyline-smash` lua_const table.
+pub mod situation {
+    pub const GROUND: i32 = 0;
+    pub const CLIFF: i32 = 1;
+    pub const AIR: i32 = 2;
+    /// Adapter sentinel when no native situation observation is available.
+    pub const UNAVAILABLE: i32 = -1;
+
+    // AttackData.situation is a bitmask, not a SITUATION_KIND value.
+    pub const ATTACK_GROUND_MASK: u16 = 1;
+    pub const ATTACK_AIR_MASK: u16 = 2;
+}
+
+/// Native transition-term IDs from the pinned `skyline-smash` constant table.
+pub mod transition_terms {
+    pub const PASSIVE: i32 = 0x1e000013;
+    pub const PASSIVE_FB: i32 = 0x1e000014;
+    pub const PASSIVE_WALL: i32 = 0x1e000015;
+    pub const PASSIVE_CEIL: i32 = 0x1e000018;
+    pub const CONT_ESCAPE: i32 = 0x1e000026;
+    pub const CONT_GUARD_ON: i32 = 0x1e000029;
+    pub const CONT_JUMP_SQUAT: i32 = 0x1e00002b;
+    pub const CONT_JUMP_SQUAT_BUTTON: i32 = 0x1e00002c;
+    pub const CONT_SQUAT: i32 = 0x1e000034;
+    pub const CONT_ESCAPE_AIR: i32 = 0x1e00003d;
+    pub const CONT_ATTACK: i32 = 0x1e000052;
+    pub const CONT_ATTACK_LW4_START: i32 = 0x1e00005f;
+    pub const CONT_SPECIAL_N: i32 = 0x1e000063;
+    pub const CONT_SPECIAL_HI: i32 = 0x1e000065;
+    pub const CONT_SPECIAL_LW: i32 = 0x1e000066;
+    pub const CONT_CATCH: i32 = 0x1e00006f;
+    pub const CONT_CATCH_DASH: i32 = 0x1e000070;
+    pub const CONT_CATCH_TURN: i32 = 0x1e000071;
+}
+
+/// Native work IDs used by the read-only Switch adapter.
+pub mod work_ids {
+    pub const FIGHTER_INSTANCE_WORK_ID_INT_DOWN_DAMAGE_COUNT: i32 = 0x1000006a;
+    pub const FIGHTER_INSTANCE_WORK_ID_INT_SUCCEED_ATTACKER_ENTRY_ID: i32 = 0x100000b3;
+    pub const FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_REACTION_FRAME: i32 = 0x13;
+    pub const FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_SPEED_RESERVED_X: i32 = 0x15;
+    pub const FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_SPEED_RESERVED_Y: i32 = 0x16;
+    pub const FIGHTER_GAMEWATCH_INSTANCE_WORK_ID_FLOAT_SPECIAL_LW_GAUGE: i32 = 0x4c;
+    pub const FIGHTER_STATUS_CLIFF_WORK_FLOAT_HIT_NORMAL_FRAME: i32 = 0x1000007;
+    pub const FIGHTER_STATUS_GUARD_DAMAGE_WORK_INT_STIFF_FRAME: i32 = 0x1100000e;
+    pub const FIGHTER_POPO_INSTANCE_WORK_ID_INT_PARTNER_OBJECT_ID: i32 = 0x100000be;
+    pub const FIGHTER_STATUS_DAMAGE_FLAG_FLY_DISABLE_PASSIVE: i32 = 0x21000016;
+    pub const FIGHTER_STATUS_DAMAGE_FLAG_END_REACTION: i32 = 0x2100000d;
+    pub const FIGHTER_STATUS_DAMAGE_FLAG_REACTION_CANCEL: i32 = 0x2100000c;
+}
 
 // Common FIGHTER_STATUS_KIND values from the pinned native status table.
 pub const GUARD_ON: i32 = status::GUARD_ON;

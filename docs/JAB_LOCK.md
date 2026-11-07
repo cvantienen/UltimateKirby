@@ -36,7 +36,7 @@ An ongoing target visit cannot immediately rearm after cancellation. A target le
 ## Calibration and implementation
 
 - Shared detector and policy runner: `crates/kirby_assist_core/src/jab_lock.rs`.
-- Yoshi constants: `crates/kirby_assist_core/src/fighter_profiles/yoshi.rs`, `JAB_LOCK`.
+- Fighter reference facts: `crates/kirby_assist_core/src/fighter_data.rs`.
 - Native observations: `src/live/observations.rs`, `jab_lock_targets`.
 - Scheduling: `src/live.rs`; ownership: `action_owner.rs`.
 

@@ -58,8 +58,7 @@ Paths below are relative to the project root. Core paths begin with
 | Core `roll_read.rs` / `roll_read/smash.rs` | Shared roll target facts/constants; fixed punish prototype is parked. Live roll responses use reaction_rules.rs. |
 | Core `ledge_trap.rs` | Held-trigger visit history, response selection and native action confirmation. |
 | Core `ledge_trap/types.rs` | Ledge-specific settings and opponent range checks. Shared gameplay values live in `gameplay.rs`. |
-| Core `fighter_profiles.rs` | Fighter identities, generic grab references, and startup-only file menu construction. |
-| Core `fighter_profiles/kirby.rs` | Built-in Kirby compatibility data. |
+| Core `fighter_profiles.rs` | Shared per-fighter profile declarations, generic grab references, and startup-only file menu construction; individual public module paths remain available. |
 | Core `fighter_tuning.rs`, `fighter_tuning/schema.rs`, and `fighter_tuning/analysis.rs` | Public tuning facade, stable saved-setting/menu schema, and fighter-derived policy defaults. |
 | Core `ledge_trap/attempt.rs` | Native-progress clock for ordered input timelines. |
 | Core `sequence_config.rs`, `sequence_config/parser.rs`, and `sequence_config/parser/actions.rs` | Keep fixed-size recipe data and the public catalog API in the parent module; parse catalog sections and action tokens in focused startup-only modules. |

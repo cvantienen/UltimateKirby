@@ -315,9 +315,3 @@ pub mod mapper_hook;
 // Switch logging or gameplay callbacks. Add regressions here for new behavior.
 #[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-mod combat_config_tests;
-
-#[cfg(test)]
-mod roll_hit_window_tests;

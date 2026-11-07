@@ -39,6 +39,39 @@ def source(path):
                   lambda m: "" if m[0].startswith("//") else m[0], path.read_text())
 
 
+def parse_profile_catalog(profile_source, kind_source):
+    match = re.search(r"\bfighter_profiles!\s*\{([^}]*)\}", profile_source, re.S)
+    if not match:
+        raise ValueError("Missing fighter profile declarations")
+    kinds = dict(re.findall(
+        r"pub const (\w+): i32 = (0x[\da-fA-F]+|\d+);", kind_source
+    ))
+    profiles = {}
+    for line in match[1].splitlines():
+        if not line.strip():
+            continue
+        entry = re.fullmatch(
+            r'\s*(\w+):\s*(\w+),\s*"(\w+)"(?:,\s*FIGHTER_KIND)?;\s*', line
+        )
+        if not entry:
+            raise ValueError("Unsupported fighter profile declaration: " + line.strip())
+        module, kind, name = entry.groups()
+        if module in profiles:
+            raise ValueError("Duplicate fighter profile: " + module)
+        if kind not in kinds:
+            raise ValueError("Unknown fighter kind: " + kind)
+        profiles[module] = (name, int(kinds[kind], 0))
+    if not profiles:
+        raise ValueError("No registered fighter constructors found; refusing to erase fighter links")
+    return profiles
+
+
+@lru_cache(maxsize=1)
+def profile_catalog():
+    return parse_profile_catalog(source(CORE / "fighter_profiles.rs"),
+                                 source(CORE / "fighter_kinds.rs"))
+
+
 @lru_cache(maxsize=1)
 def sequence_catalog():
     parser = configparser.RawConfigParser(strict=True)
@@ -47,8 +80,7 @@ def sequence_catalog():
 
 
 def file_menu(module):
-    profile = source(PROFILES / (module + ".rs"))
-    name = re.search(r'name:\s*"([^"]+)"', profile)[1]
+    name, _ = profile_catalog()[module]
     result = [{"selected": 0, "options": []} for _ in ROWS]
     for section in sequence_catalog().sections():
         parts = section.split(".")
@@ -68,8 +100,7 @@ def file_menu(module):
 
 
 def file_assists(module):
-    profile = source(PROFILES / (module + ".rs"))
-    name = re.search(r'name:\s*"([^"]+)"', profile)[1]
+    name, _ = profile_catalog()[module]
     rules = []
     for section in sequence_catalog().sections():
         if section.split(".")[0] != name:
@@ -98,12 +129,8 @@ def menu_names():
 
 
 def render(module):
-    profile = source(PROFILES / (module + ".rs"))
-    source_name = re.search(r'name:\s*"([^"]+)"', profile)[1]
-    kind = re.search(r"fighter_kind:\s*(\w+)", profile)[1]
-    if not re.fullmatch(r"0x[\da-fA-F]+|\d+", kind):
-        kind = re.search(r"const\s+" + kind + r"\s*:\s*i32\s*=\s*(0x[\da-fA-F]+|\d+)", profile)[1]
-    kind = str(int(kind, 0))
+    source_name, kind = profile_catalog()[module]
+    kind = str(kind)
     menu = file_menu(module)
     assert len(menu) == 5, module
     for row in menu:
@@ -223,7 +250,7 @@ def render(module):
               "before treating an option as reliable in a particular setup.", "",
               "## Source and edits", "",
               "Paths are relative to the repository root:", "",
-              "- Registration: `crates/kirby_assist_core/src/fighter_profiles/%s.rs`." % module,
+              "- Registration: `crates/kirby_assist_core/src/fighter_profiles.rs`.",
               "- Stats and move frames: `data/Ultimate_stats.json`.",
               "- Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.",
               "- Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.",
@@ -235,11 +262,7 @@ def render(module):
 
 
 def outputs():
-    catalog = (CORE / "fighter_profiles.rs").read_text()
-    modules = re.findall(r"\b(\w+)::profile(?:\(\))?\s*,", catalog)
-    if not modules:
-        raise ValueError("No registered fighter constructors found; refusing to erase fighter links")
-    assert len(modules) == len(set(modules)), "Duplicate registration"
+    modules = list(profile_catalog())
     result, identities = {}, set()
     for module in modules:
         content, kind = render(module)

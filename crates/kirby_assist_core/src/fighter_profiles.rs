@@ -1,86 +1,111 @@
 //! Fighter identities and read-only reference facts. Ledge options and input
 //! schedules exist only in the startup-loaded sequences.txt catalog.
-pub mod bayonetta;
-pub mod bowser;
-pub mod bowser_jr;
-pub mod captain;
-pub mod charizard;
-pub mod chrom;
-pub mod cloud;
-pub mod corrin;
-pub mod daisy;
-pub mod dark_pit;
-pub mod dark_samus;
-pub mod diddy_kong;
-pub mod donkey;
-pub mod dr_mario;
-pub mod duck_hunt;
-pub mod falco;
-pub mod fox;
-pub mod ganondorf;
-pub mod greninja;
-pub mod ice_climbers;
-pub mod ice_climbers_nana;
-pub mod ike;
-pub mod incineroar;
-pub mod inkling;
-pub mod isabelle;
-pub mod ivysaur;
-pub mod jigglypuff;
-pub mod ken;
-pub mod king_dedede;
-pub mod kirby;
-pub mod krool;
-pub mod link;
-pub mod littlemac;
-pub mod lucario;
-pub mod lucas;
-pub mod lucina;
-pub mod luigi;
-pub mod mario;
-pub mod marth;
-pub mod mega_man;
-pub mod meta_knight;
-pub mod mewtwo;
-pub mod mii_brawler;
-pub mod mii_gunner;
-pub mod mii_swordfighter;
-pub mod mr_game_and_watch;
-pub mod mythra;
-pub mod ness;
-pub mod olimar;
-pub mod pacman;
-pub mod palutena;
-pub mod peach;
-pub mod pichu;
-pub mod pikachu;
-pub mod pit;
 pub mod presets;
-pub mod pyra;
-pub mod richter;
-pub mod ridley;
-pub mod rob;
-pub mod robin;
-pub mod rosalina_and_luma;
-pub mod roy;
-pub mod ryu;
-pub mod samus;
-pub mod sheik;
-pub mod shulk;
-pub mod simon;
-pub mod snake;
-pub mod sonic;
 pub mod spacing;
-pub mod squirtle;
-pub mod toon_link;
-pub mod villager;
-pub mod wario;
-pub mod wii_fit_trainer;
-pub mod wolf;
-pub mod yoshi;
-pub mod young_link;
-pub mod zelda;
-pub mod zero_suit_samus;
+
+// Keep the historical per-fighter module paths while sharing their construction.
+macro_rules! fighter_profiles {
+    ($( $module:ident: $kind:ident, $name:literal $(, $constant:ident)?; )*) => {
+        $(
+            pub mod $module {
+                $(pub const $constant: i32 = crate::fighter_kinds::$kind;)?
+
+                pub fn profile() -> super::FighterProfile {
+                    let kind = crate::fighter_kinds::$kind;
+                    super::FighterProfile {
+                        name: $name,
+                        fighter_kind: kind,
+                        grab: super::FighterGrabData::from_kind(kind),
+                        menu_options: super::presets::MenuPresets::EMPTY,
+                    }
+                }
+            }
+        )*
+        const BUILDERS: &[fn() -> FighterProfile] = &[$($module::profile),*];
+    };
+}
+
+fighter_profiles! {
+    kirby: KIRBY, "kirby", FIGHTER_KIND;
+    luigi: LUIGI, "luigi";
+    captain: CAPTAIN_FALCON, "captain_falcon";
+    mario: MARIO, "mario";
+    donkey: DONKEY_KONG, "donkey_kong";
+    link: LINK, "link";
+    samus: SAMUS, "samus";
+    yoshi: YOSHI, "yoshi";
+    fox: FOX, "fox";
+    pikachu: PIKACHU, "pikachu";
+    sonic: SONIC, "sonic", FIGHTER_KIND;
+    krool: KING_K_ROOL, "krool", FIGHTER_KIND;
+    isabelle: ISABELLE, "isabelle", FIGHTER_KIND;
+    pacman: PAC_MAN, "pacman", FIGHTER_KIND;
+    littlemac: LITTLE_MAC, "littlemac", FIGHTER_KIND;
+    dark_samus: DARK_SAMUS, "dark_samus";
+    ness: NESS, "ness";
+    jigglypuff: JIGGLYPUFF, "jigglypuff";
+    peach: PEACH, "peach";
+    daisy: DAISY, "daisy";
+    bowser: BOWSER, "bowser";
+    sheik: SHEIK, "sheik";
+    zelda: ZELDA, "zelda";
+    dr_mario: DR_MARIO, "dr_mario";
+    pichu: PICHU, "pichu";
+    falco: FALCO, "falco";
+    marth: MARTH, "marth";
+    lucina: LUCINA, "lucina";
+    young_link: YOUNG_LINK, "young_link";
+    ganondorf: GANONDORF, "ganondorf";
+    mewtwo: MEWTWO, "mewtwo";
+    roy: ROY, "roy";
+    chrom: CHROM, "chrom";
+    mr_game_and_watch: MR_GAME_AND_WATCH, "mr_game_and_watch";
+    meta_knight: META_KNIGHT, "meta_knight";
+    pit: PIT, "pit";
+    dark_pit: DARK_PIT, "dark_pit";
+    zero_suit_samus: ZERO_SUIT_SAMUS, "zero_suit_samus";
+    wario: WARIO, "wario";
+    snake: SNAKE, "snake";
+    ike: IKE, "ike";
+    squirtle: SQUIRTLE, "squirtle";
+    ivysaur: IVYSAUR, "ivysaur";
+    charizard: CHARIZARD, "charizard";
+    diddy_kong: DIDDY_KONG, "diddy_kong";
+    lucas: LUCAS, "lucas";
+    king_dedede: KING_DEDEDE, "king_dedede";
+    olimar: OLIMAR, "olimar";
+    lucario: LUCARIO, "lucario";
+    rob: ROB, "rob";
+    toon_link: TOON_LINK, "toon_link";
+    wolf: WOLF, "wolf";
+    villager: VILLAGER, "villager";
+    mega_man: MEGA_MAN, "mega_man";
+    wii_fit_trainer: WII_FIT_TRAINER, "wii_fit_trainer";
+    rosalina_and_luma: ROSALINA_AND_LUMA, "rosalina_and_luma";
+    greninja: GRENINJA, "greninja";
+    palutena: PALUTENA, "palutena";
+    robin: ROBIN, "robin";
+    shulk: SHULK, "shulk";
+    bowser_jr: BOWSER_JR, "bowser_jr";
+    duck_hunt: DUCK_HUNT, "duck_hunt";
+    ryu: RYU, "ryu";
+    ken: KEN, "ken";
+    cloud: CLOUD, "cloud";
+    corrin: CORRIN, "corrin";
+    bayonetta: BAYONETTA, "bayonetta";
+    inkling: INKLING, "inkling";
+    ridley: RIDLEY, "ridley";
+    simon: SIMON, "simon";
+    richter: RICHTER, "richter";
+    incineroar: INCINEROAR, "incineroar";
+    mii_brawler: MII_BRAWLER, "mii_brawler";
+    mii_swordfighter: MII_SWORDFIGHTER, "mii_swordfighter";
+    mii_gunner: MII_GUNNER, "mii_gunner";
+    ice_climbers: ICE_CLIMBERS_POPO, "ice_climbers";
+    ice_climbers_nana: ICE_CLIMBERS_NANA, "ice_climbers_nana";
+    pyra: PYRA, "pyra", FIGHTER_KIND;
+    mythra: MYTHRA, "mythra", FIGHTER_KIND;
+}
 
 use crate::settings::AssistSettings;
 use std::collections::BTreeMap;
@@ -181,87 +206,6 @@ impl Default for FighterProfiles {
         // Keep the constructor table in read-only storage and build one profile
         // at a time. A [FighterProfile; 77] temporary exceeded the native 64 KiB
         // loader stack once per-fighter menu lists grew to include D-pad slots.
-        const BUILDERS: &[fn() -> FighterProfile] = &[
-            kirby::profile,
-            luigi::profile,
-            captain::profile,
-            mario::profile,
-            donkey::profile,
-            link::profile,
-            samus::profile,
-            yoshi::profile,
-            fox::profile,
-            pikachu::profile,
-            sonic::profile,
-            krool::profile,
-            isabelle::profile,
-            pacman::profile,
-            littlemac::profile,
-            dark_samus::profile,
-            ness::profile,
-            jigglypuff::profile,
-            peach::profile,
-            daisy::profile,
-            bowser::profile,
-            sheik::profile,
-            zelda::profile,
-            dr_mario::profile,
-            pichu::profile,
-            falco::profile,
-            marth::profile,
-            lucina::profile,
-            young_link::profile,
-            ganondorf::profile,
-            mewtwo::profile,
-            roy::profile,
-            chrom::profile,
-            mr_game_and_watch::profile,
-            meta_knight::profile,
-            pit::profile,
-            dark_pit::profile,
-            zero_suit_samus::profile,
-            wario::profile,
-            snake::profile,
-            ike::profile,
-            squirtle::profile,
-            ivysaur::profile,
-            charizard::profile,
-            diddy_kong::profile,
-            lucas::profile,
-            king_dedede::profile,
-            olimar::profile,
-            lucario::profile,
-            rob::profile,
-            toon_link::profile,
-            wolf::profile,
-            villager::profile,
-            mega_man::profile,
-            wii_fit_trainer::profile,
-            rosalina_and_luma::profile,
-            greninja::profile,
-            palutena::profile,
-            robin::profile,
-            shulk::profile,
-            bowser_jr::profile,
-            duck_hunt::profile,
-            ryu::profile,
-            ken::profile,
-            cloud::profile,
-            corrin::profile,
-            bayonetta::profile,
-            inkling::profile,
-            ridley::profile,
-            simon::profile,
-            richter::profile,
-            incineroar::profile,
-            mii_brawler::profile,
-            mii_swordfighter::profile,
-            mii_gunner::profile,
-            ice_climbers::profile,
-            ice_climbers_nana::profile,
-            pyra::profile,
-            mythra::profile,
-        ];
         let mut profiles = BTreeMap::new();
         for build in BUILDERS {
             let profile = build();

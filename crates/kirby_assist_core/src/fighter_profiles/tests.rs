@@ -1,6 +1,31 @@
 //! File-only menu and reference-data invariants.
 use super::*;
 use crate::{live_input::LiveConfig, settings_menu::MenuSelection};
+
+#[test]
+fn individual_profile_modules_preserve_public_identities() {
+    for (profile, name, kind) in [
+        (kirby::profile(), "kirby", kirby::FIGHTER_KIND),
+        (sonic::profile(), "sonic", sonic::FIGHTER_KIND),
+        (
+            captain::profile(),
+            "captain_falcon",
+            crate::fighter_kinds::CAPTAIN_FALCON,
+        ),
+        (
+            ice_climbers_nana::profile(),
+            "ice_climbers_nana",
+            crate::fighter_kinds::ICE_CLIMBERS_NANA,
+        ),
+        (pyra::profile(), "pyra", pyra::FIGHTER_KIND),
+        (mythra::profile(), "mythra", mythra::FIGHTER_KIND),
+    ] {
+        assert_eq!(profile.name, name);
+        assert_eq!(profile.fighter_kind, kind);
+        assert_eq!(profile.grab, FighterGrabData::from_kind(kind));
+    }
+}
+
 #[test]
 fn registered_fighters_have_no_embedded_options_or_scheduling_fallback() {
     let profiles = FighterProfiles::default();

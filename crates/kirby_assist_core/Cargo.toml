@@ -7,7 +7,7 @@
 name = "kirby_assist_core"
 version = "0.1.0"
 edition = "2021"
-description = "Platform-independent assist decision and input arbitration logic"
+description = "Platform-independent assist decision and input arbitration logic; consolidated fighter profiles and related native constants and tests"
 license = "MIT"
 
 # A crate is a Rust compilation unit. This library is imported by the plugin
