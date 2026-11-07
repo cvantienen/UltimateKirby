@@ -1,5 +1,12 @@
 # Kirby
 
+Standing C-stick correction: Dtilt face reads the physical right-stick axes in
+the same mapper update, including the first Down flick before digital aliases
+appear. With a neutral left stick it prepares the down-turn angle on both sticks;
+no crouch prerequisite or waiting frame is added. Side/up C-stick inputs, aerials
+and attack button edges remain unaffected. Native input acceptance still decides
+whether the requested turn precedes an attack. C-stick must use Tilt Attack.
+
 <!-- BEGIN GENERATED FIGHTER REFERENCE -->
 
 [All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
@@ -9,25 +16,37 @@ it is not a device-calibration result. No fighter file loads during a match.
 
 ## Saved ledge responses
 
-Open the menu with **R3**.
+The lightweight selector starts visible; **Minus** hides/shows it. Training opens with **Minus**.
 Up/Down selects a row; Left/Right cycles its
 choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | **Nair**; Dtilt; Dsmash; Stone; Inhale; Bair |
-| Jump | **Nair**; Bair |
-| Roll | **Dsmash**; Grab |
+| Neutral | **Nair**; Rapid Jab; Dsmash; Stone; Inhale; Bair; Cross-up grab; NAIR LATE; Immediate Nair; Immediate Nair Max Drift; Dash Attack; [TEST] Face ledge > walk 5 > grab; [TEST] Face foe > run 10 > grab; [TEST] Full-hop Bair + drift; [TEST] Short-hop Nair + delay/drift; [TEST] Turnaround short-hop Bair; [TEST] Grab (verify profile range); [TEST] Grab (ignore range); [TEST] Grab (verify 20 units); [TEST] Grounded down smash; [TEST] Grounded down special |
+| Jump | **Nair**; Inhale; MAX NAIR; HALF NAIR |
+| Roll | **Dsmash**; Grab; Dash Attack |
 | Attack | **Grab/rear Nair**; Grab/rear Guard |
-| Drop | **Shield**; Dtilt > Shield; SH Dair |
+| Drop | **Shield**; Dtilt > Shield; SH Dair; jump UP B; UP B |
 
 These are the compact UI names; SH means short hop and Msl means missile.
-Compact move labels match the menu without spacing hints. Capture returns control for manual
-pummels/throws. Selecting a choice does not add a combo or change native hitboxes.
+Input timelines hand back control after their last step; the game decides acceptance.
+Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 
-## Compiled move windows
+## Saved assist rules
 
-These are stored inclusive animation-frame spans. They are not total input-to-hit
+These rules have separate ON/OFF assists and Training L3/R3 rule lists;
+they are not selected ledge/button recipes. Auto react has one sequence per event;
+priority numbers apply only to legacy rule lists. Vulnerable-ledge punishment is retired.
+
+| Assist trigger | Priority | Saved rule | Section |
+| --- | --- | --- | --- |
+| `auto_grab` | — | Automatic grab (unshielded) | `kirby.roll.auto_grab` |
+| `auto_shield_backup` | — | Shield grab backup | `kirby.roll.auto_shield_backup` |
+| `auto_shield_grab` | — | Automatic grab (shielded) | `kirby.roll.auto_shield_grab` |
+
+## Native move reference (not scheduling)
+
+These independent game facts do not schedule file inputs. They are inclusive animation-frame spans, not input-to-hit
 delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
@@ -51,8 +70,8 @@ delays or proof that every phase of a multihit move stays active.
 | Standing reach reference (world units) | 12.5 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
-Shared roll grabs test predicted range/facing, height and vulnerability on the
-same active frame. Native catch readiness and input delivery still matter.
+The file decides whether to request an explicit range check. No native timing gate
+is inferred from this table; input delivery and the game's buffering rules still matter.
 
 ## Baseline reference stats
 
@@ -76,7 +95,47 @@ instance modifiers or a replacement for existing ledge tuning.
 
 ## Execution and calibration
 
-The profile declares short hops for common nair responses.
+Option definitions and input delays come from `fighters/kirby.txt`, assembled into the Switch’s `sequences.txt`. Each option
+has an explicit `start_delay`; waits between actions are literal native frames.
+No compiled fighter recipe, adaptive-hop policy or native move window schedules them.
+
+| Situation / ID | Start delay | Ordered inputs |
+| --- | --- | --- |
+| Neutral / `nair` | 0 | `facing_input:x:0:0:1, wait:10, drift:opponent:0.99:5, wait:4, facing_input:a:0:0:4` |
+| Neutral / `down_tilt` | 1 | `walk_to_opponent:0.8:1:10, facing_input:a:0:0:50` |
+| Neutral / `down_smash` | 15 | `wait:1, face:opponent, facing_input:a:-0.02:-1:1` |
+| Neutral / `stone` | 15 | `face:opponent, facing_input:b:0:-1:1` |
+| Neutral / `inhale` | 8 | `face:opponent, facing_input:b:0:0:1` |
+| Neutral / `bair` | 0 | `wait:1, face:away_from_opponent, wait:2, facing_input:a+x:-1:0:4` |
+| Neutral / `crossup_grab` | 0 | `face:opponent, wait:1, facing_input:zr:1:0:4, wait:20, check:enemy_in_front:0, wait:1, facing_input:r:0:0:4` |
+| Neutral / `nair_wait` | 0 | `Short Hop, wait:5, Neutral Air, Drift:Opponent:25%:20` |
+| Neutral / `nair_now` | 0 | `Short Hop, Nair, Drift:Opponent:25%:20` |
+| Neutral / `nair_now_max_drift` | 0 | `Short Hop, Nair, Drift:Opponent:100%:20` |
+| Neutral / `dash_attack` | 0 | `face:opponent, dash_attack` |
+| Neutral / `test_walk_ledge_grab` | 0 | `Face Ledge, Walk:Ledge:5 units:45%, Grab No Range Check` |
+| Neutral / `test_run_foe_grab` | 0 | `Face Opponent, Run:Opponent:10 units, Grab Range Verified` |
+| Neutral / `test_full_hop_bair` | 0 | `full_hop:4, Bair, Drift:Opponent:50%:12` |
+| Neutral / `test_short_hop_nair` | 0 | `Short Hop, Wait 3 frames, Nair, Drift:Opponent:25%:8` |
+| Neutral / `test_turnaround_bair` | 0 | `Short Hop, Turn Around Bair` |
+| Neutral / `test_grab_range` | 0 | `Grab Range Verified` |
+| Neutral / `test_grab_ignore_range` | 0 | `Grab No Range Check` |
+| Neutral / `test_grab_20_range` | 0 | `Grab:20 units` |
+| Neutral / `test_down_smash` | 0 | `Down Smash` |
+| Neutral / `test_down_special` | 0 | `Down Special` |
+| Jump / `nair` | 0 | `facing_input:x+zl:0:0:1, facing_input:a:0:0:1, drift:opponent:1:4` |
+| Jump / `bair` | 0 | `face:opponent, facing_input:b:0:0:4` |
+| Jump / `nair_max_drift` | 0 | `Short Hop, Nair, Drift:Opponent:100%:10` |
+| Jump / `nair_half_drift` | 0 | `Short Hop, Nair, Drift:Opponent:50%:10` |
+| Roll / `down_smash` | 0 | `walk:away_from_opponent:14:0.9, wait:5, facing_input:a:0:-1:1` |
+| Roll / `grab` | 10 | `walk:away_from_opponent:12:0.8, range:fighter_range, wait:1, input:r:0:0:4` |
+| Roll / `dash_attack` | 20 | `face:opponent, wait:1, facing_input:none:1:0:4, facing_input:a:0.79:0:1` |
+| Attack / `shield_grab` | 0 | `shield_until_block:90, grab` |
+| Attack / `shield_rear` | 0 | `shield_until_block:90, shield:255` |
+| Drop / `shield` | 0 | `shield:255` |
+| Drop / `down_tilt_shield` | 0 | `down_tilt:1, wait:30, shield:255` |
+| Drop / `short_hop_dair` | 0 | `short_hop_dair:1` |
+| Drop / `jump_up_b` | 0 | `Short Hop, wait:2, up_special` |
+| Drop / `up_b` | 0 | `up_special` |
 
 See [this fighter's detailed execution notes](../KIRBY_YOSHI_LEDGE.md) for its specific sequences,
 timing overrides, drift and exceptions.
@@ -94,13 +153,18 @@ Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/kirby.rs`.
 - Move data: `crates/kirby_assist_core/src/fighter_profiles/kirby/timing.rs`.
-- Menu and handlers: `crates/kirby_assist_core/src/ledge_trap/fighters/kirby.rs`.
+- Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
+- Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 
 [Adding a response](../FIGHTER_CONFIGS.md) explains registration and shared helpers.
-These are compiled choices; source changes need a separately authorized build/install.
+Recipes are saved file configuration. External file edits need a Smash restart;
+Rust/reference-data changes need a separately authorized build/install.
 Refresh this reference with `python3 tools/update_fighter_docs.py` after catalog edits.
 
 <!-- END GENERATED FIGHTER REFERENCE -->
+
+> Historical implementation notes: the old conditional fighter engines described below have been retired. Current options and exact input delays are the file-authored schedules above and in `sequences.txt`; native reference facts do not add scheduling.
+
 
 ## Kirby-specific timing and inputs
 
@@ -153,13 +217,14 @@ checks are waiting. Immediate jump cues still launch immediately, leaving no
 grounded walking time. Horizontal digital flick aliases are suppressed during
 these walk preparations; other response movement remains independently configured. Shared movement lives in `fighters/common.rs`.
 See the
-[fighter-specific sequence example](../FIGHTER_EXECUTION.md#kirby-neutral-nair-walk-example).
+[fighter-specific sequence example](../FIGHTER_EXECUTION.md#initial-and-per-action-delays).
 
 Neutral nair keeps its quarter-stick nudge below animation frame 4. Jump nair
 now uses **full 1.0 forward stick** after exact native nair acceptance through
 its configured active window (8–32), returning horizontal stick to neutral at
-frame 33 or earlier on landing/interruption. Launch stays neutral Jump+A, so
-forward drift cannot select fair. Neutral nair adds two frames to its configured
+frame 33 or earlier on landing/interruption. Launch and every delayed/retried
+Attack request keep the stick neutral; drift starts only after native
+`attack_air_n` acceptance, so forward drift cannot select Fair. Neutral nair adds two frames to its configured
 lead (8 becomes 10); Jump nair keeps its existing launch timing and immediate cues.
 
 Jump bair uses 0.35 drift. When facing the opponent, it sends a 0.6-stick
@@ -202,13 +267,13 @@ reach. It can turn in place toward the projected contact side, but never chases;
 native grab acceptance returns control without a pummel or throw. Ledge Roll
 grab is a separate implementation using the fixed-inset experiment above.
 
-## Y finisher attempts
+## Manual X/Y controls
 
-Select **Fair 1 > Fsmash** or **Dair > Dsmash** in the **Finisher** row and press Y.
-Both use two-button short hops and native hit confirmation before a landing
-smash. Holding Y does not repeat. See [sequences and limits](../FINISHERS.md).
-These are not guaranteed true combos or kills. Auto-duck and its hook/scans
-are disabled; its former Y binding is removed.
+X/Y/D-pad input sequences belong only to this fighter and are edited through the in-game
+[sequence editor](../SEQUENCE_FILES.md#fighter-specific-xy-recipes). Normal button
+keeps X short hop or ordinary Y input. The old native Y Finisher remains removed.
+Ledge recipes and other fighter policies retain their separate controls. Modes
+are available only on the ON/OFF page; no button can Hold/Toggle a mode.
 
 ## Reference facts
 
@@ -216,27 +281,22 @@ Automatic whiff punish is removed from the live build/menu. The compiled
 [opponent reference](../OPPONENT_DATA.md) remains available for future policies;
 no files load during battle.
 
-## Optional posture and Fair starter
+## Optional posture
 
-Idle crouch, Dtilt face and A+B grab menu toggles start ON. Holding L
-suspends idle crouch until release. Tap neutral A+B for one jab 1 into a grab
-when native recovery allows it; A alone stays normal. They are described in
-[shared inputs and posture](../INPUT_RECIPES.md); they do not reactivate the
-disabled incoming-hitbox auto-duck. The Fair finisher now waits for the short-hop
-apex, selects fair in air and fast-falls from accepted fair frame 4 while descending.
-Any confirmed hit from this Y-started fair now permits landing up-angled Fsmash
-toward the opponent; later fair frames do not cancel it. Dair is unchanged.
-See [finishers](../FINISHERS.md).
+Idle crouch and Dtilt face menu toggles start ON. Holding L suspends idle crouch
+until release. See [shared inputs and posture](../INPUT_RECIPES.md). These do not
+reactivate the disabled incoming-hitbox auto-duck.
 
 Dtilt face now prepares its directional Down angle before A, while Down is held,
 and retains manual-tool priority through native down-tilt recovery between taps.
 Attack presses remain physical; pre-attack aiming yields to automatic punishes.
+Down Tilt-stick also qualifies with a neutral left stick (Tilt Attack mapping).
+The helper adds no wait; native acceptance can still use the old facing if turn
+and attack arrive together. Holding Down before A prepares the angle sooner.
 
 Input-delivery corrections: Dtilt face retains its angle during native down-tilt
-hitstop and preserves physical tilt-stick Down. Finisher attempts keep queued
-Jump alive for up to 24 advancing frames without holding/repeating it. Native
-takeoff status/situation overlap no longer cancels the aerial. Configured ledge
-timings and fair-apex selection are unchanged; arena testing is still required.
+hitstop and preserves physical tilt-stick Down. Configured ledge timings are
+unchanged; arena testing is still required.
 
 Ordinary Roll read → Down smash can now release physical or automatic shield
 for a reachable roll, budgeting shield-drop recovery before attacking. It waits

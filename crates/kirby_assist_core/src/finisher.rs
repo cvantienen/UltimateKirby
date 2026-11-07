@@ -5,6 +5,9 @@ use crate::{
     native_input::MAPPER_A,
 };
 
+/// Short-hop descent budget; native progress excludes hitstop and repeated polls.
+pub const FAST_FALL_FRAMES: f32 = 16.0;
+
 #[derive(Clone, Copy)]
 pub struct Context {
     pub fighter_kind: i32,
@@ -13,35 +16,6 @@ pub struct Context {
     pub velocity_y: f32,
     pub can_jump: bool,
     pub can_start: bool,
-}
-/// Native floor/physics forecast, acquired only for Kirby's airborne starter.
-#[derive(Clone, Copy)]
-pub struct AirTiming {
-    pub landing_frames: f32,
-}
-pub fn landing_frames(height: f32, mut velocity: f32, gravity: f32, dive: f32) -> Option<f32> {
-    if ![height, velocity, gravity, dive]
-        .iter()
-        .all(|v| v.is_finite())
-        || height <= 0.0
-        || !(0.001..=2.0).contains(&gravity)
-        || !(0.1..=10.0).contains(&dive)
-    {
-        return None;
-    }
-    let mut remaining = height;
-    for frame in 1..=180 {
-        velocity = if velocity < 0.0 {
-            -dive.max(-velocity)
-        } else {
-            velocity - gravity
-        };
-        remaining += velocity;
-        if remaining <= 0.0001 {
-            return Some(frame as f32);
-        }
-    }
-    None
 }
 /// Locomotion/crouch, including run/turn braking. Attacks, shield stun and
 /// damage remain ineligible even when the situation flag still says grounded.
@@ -67,8 +41,8 @@ pub struct Finisher {
     jump_requested: bool,
     aerial_request_age: f32,
     fair_apex_ready: bool,
-    air_entry: bool,
     down_held: bool,
+    down_age: f32,
     facing: f32,
     output: LedgeOutput,
 }
@@ -82,20 +56,12 @@ impl Finisher {
     pub fn confirmed(&self) -> bool {
         self.confirmed
     }
+    /// The mapper must mark every delivered takeoff request as JumpMini, even
+    /// while online startup feedback is delayed.
+    pub fn requests_short_hop(&self) -> bool {
+        self.active && !self.jump_seen && self.output.requested & crate::native_input::MAPPER_X != 0
+    }
     pub fn sample(&mut self, enabled: bool, held: bool, mode: YMode, c: Context) -> LedgeOutput {
-        self.sample_with_air(enabled, held, mode, c, None)
-    }
-    pub fn needs_air_timing(&self) -> bool {
-        !self.aerial_seen
-    }
-    pub fn sample_with_air(
-        &mut self,
-        enabled: bool,
-        held: bool,
-        mode: YMode,
-        c: Context,
-        air: Option<AirTiming>,
-    ) -> LedgeOutput {
         let f = c.fighter;
         let pressed = held && !self.held;
         self.held = held;
@@ -114,25 +80,20 @@ impl Finisher {
             return self.end();
         }
         if !self.active {
-            let first = if mode == YMode::FairSmash { 10.0 } else { 18.0 };
-            let air_start = c.fighter_kind == 6
-                && !f.grounded
-                && matches!(f.status, 0xb | 0xc | 0xe | 0xf)
-                && air.is_some_and(|a| {
-                    a.landing_frames.is_finite() && a.landing_frames >= first + 2.0
-                });
             if !pressed
-                || !(air_start || f.grounded && c.can_start && grounded_start_allowed(f.status, 0))
-                || f.stopped && (air_start || c.fighter_kind != 6)
+                || !f.grounded
+                || !c.can_start
+                || !grounded_start_allowed(f.status, 0)
+                || f.stopped && c.fighter_kind != 6
             {
                 return LedgeOutput::default();
             }
             self.active = true;
             self.mode = mode;
             self.age = 0.0;
-            self.jump_seen = air_start;
-            self.air_entry = air_start;
+            self.jump_seen = false;
             self.down_held = false;
+            self.down_age = 0.0;
             self.confirmed = false;
             self.aerial_seen = false;
             self.jump_requested = false;
@@ -144,12 +105,7 @@ impl Finisher {
                 .unwrap_or(f.facing)
                 .signum();
             self.previous = Some(f);
-            self.output = if air_start {
-                self.down_held = c.velocity_y < -0.05;
-                controls([0.0, if self.down_held { -1.0 } else { 0.0 }], 0)
-            } else if mode == YMode::YoshiBairSmash && f.facing * self.facing > -0.5 {
-                controls([-self.facing * 0.3, 0.0], 0)
-            } else if c.can_jump || c.fighter_kind == 6 && c.can_start {
+            self.output = if c.can_jump || matches!(c.fighter_kind, 5 | 6) && c.can_start {
                 self.jump_requested = true;
                 self.jump_input()
             } else {
@@ -212,7 +168,11 @@ impl Finisher {
         // Squat is native jump acceptance: release even if stop begins there.
         if f.status == 0xa {
             self.jump_seen = true;
-            self.output = controls([0.0; 2], 0);
+            self.output = if self.mode == YMode::YoshiBairSmash {
+                controls([-self.facing, 0.0], 0)
+            } else {
+                controls([0.0; 2], 0)
+            };
         }
         if f.stopped {
             return self.output;
@@ -220,9 +180,15 @@ impl Finisher {
         if delta == 0.0 {
             return self.output;
         }
+        if self.down_held && !f.grounded {
+            self.down_age += delta;
+            if self.down_age >= FAST_FALL_FRAMES {
+                return self.end();
+            }
+        }
         self.previous = Some(f);
         self.age += delta;
-        if self.age > if self.air_entry { 240.0 } else { 90.0 } {
+        if self.age > 90.0 {
             return self.end();
         }
         let was_attack = self.output.requested & MAPPER_A != 0;
@@ -235,6 +201,9 @@ impl Finisher {
             // legal yet. Situation can change before status at takeoff.
             // All directional starters release Jump and A during squat.
             // Selection begins in native air; Fair additionally waits for apex.
+            if self.mode == YMode::YoshiBairSmash {
+                self.output.stick = Some([-self.facing, 0.0]);
+            }
             return self.output;
         }
         // Native jump/fall status can appear before the copied situation flag
@@ -316,12 +285,14 @@ impl Finisher {
                 if self.age > crate::move_input::ACCEPTANCE_TIMEOUT {
                     return self.end();
                 }
-                if f.facing * self.facing > -0.5 {
-                    self.output = controls([-self.facing * 0.3, 0.0], 0);
-                } else if c.can_jump {
+                if c.can_jump || c.can_start {
                     self.jump_requested = true;
-                    self.output = controls([0.0, 0.0], crate::move_input::SHORT_HOP);
+                    self.output = self.jump_input();
                 }
+            } else if self.mode == YMode::YoshiBairSmash && !self.jump_seen && self.jump_requested {
+                // Preserve the full turnaround direction from a sprint until
+                // native jump squat accepts the one-shot short-hop request.
+                self.output = controls([-self.facing, 0.0], 0);
             } else if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT {
                 return self.end();
             } else if c.fighter_kind == 6 && !self.jump_seen && self.jump_requested {
@@ -351,8 +322,14 @@ impl Finisher {
                 if self.down_held {
                     self.output.stick = Some([0.0, -1.0]);
                 }
-            } else if f.frame >= f32::from(crate::fighter_profiles::yoshi::BACK_AIR_FIRST.first) {
-                self.output.stick = crate::move_input::fast_fall(c.velocity_y);
+            } else {
+                // Queue Down at the apex and retain it for the rest of bair.
+                // This fast-falls at the first legal native frame instead of
+                // waiting until bair's first hitbox at frame 11.
+                self.down_held |= c.velocity_y <= 0.15;
+                if self.down_held {
+                    self.output.stick = Some([0.0, -1.0]);
+                }
             }
         } else {
             if self.mode != YMode::YoshiBairSmash && self.aerial_seen {
@@ -376,30 +353,16 @@ impl Finisher {
                     return self.output;
                 }
             }
-            if self.air_entry && !self.aerial_seen {
-                self.down_held |= c.velocity_y < -0.05;
-                let first = if self.mode == YMode::FairSmash {
-                    10.0
-                } else {
-                    18.0
-                };
-                let Some(air) = air.filter(|a| a.landing_frames.is_finite()) else {
-                    return self.end();
-                };
-                if air.landing_frames > first + 4.0 {
-                    if self.down_held {
-                        self.output.stick = Some([0.0, -1.0]);
-                    }
-                    return self.output;
-                }
-            }
             self.request_aerial(was_attack, delta);
         }
         self.output
     }
     fn jump_input(&self) -> LedgeOutput {
         if self.mode == YMode::YoshiBairSmash {
-            controls([0.0; 2], crate::move_input::SHORT_HOP)
+            // Reverse-aerial-rush launch: jump and full reverse together. Hold
+            // the direction through squat, then attack/drift back toward the
+            // target to produce an instant turnaround bair even from full run.
+            controls([-self.facing, 0.0], crate::move_input::SHORT_HOP)
         } else {
             let mut output = controls([0.0; 2], crate::native_input::MAPPER_X);
             output.stick = None; // Keep physical walking/running direction on takeoff.

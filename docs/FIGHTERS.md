@@ -1,15 +1,18 @@
 # Fighters
 
-Every configured fighter has its own page, linked below. Individual pages stay
-off the sidebar; shared guides provide additional execution notes.
-Every configured fighter has compiled response functions for **Neutral, Jump,
-Roll, Attack and Drop**. Open the menu with **R3** and use the D-pad to select
-and cycle its saved choices. See [current controls](CONTROLS.md).
+Every configured fighter has file-authored **Neutral, Jump, Roll, Attack and
+Drop** options. Open the menu with **Minus** and use the D-pad to select them.
+All labels, defaults, initial delays and ordered input timing come from
+`sequences.txt`; there are no compiled fighter option tables or fallback recipes.
 
-All non-DLC playable fighter forms have profiles, including echoes, Pokémon
-forms and Miis. Valid unconfigured fighter kinds use the Kirby fallback; that
-does not make Kirby's move timings appropriate for those fighters. There is no
-runtime fighter JSON, combo library or action interpreter.
+All non-DLC playable fighter forms have identities, including echoes, Pokémon
+forms and Miis. Pyra and Mythra are also registered as separate native forms,
+bringing the configured registry to 79 identities. Their separate `pyra.txt` and
+`mythra.txt` files begin with five editable, nonattacking ledge slots; configure
+their actions in Training. Automatic punish recipes stay inactive until authored,
+and neither form inherits Game & Watch's reflector or Bowser's specials.
+Missing identities/sections have no fallback option. The file
+controls controller inputs only; it never changes native moves or physics.
 
 The [compiled reference dataset](OPPONENT_DATA.md) retains baseline weight,
 movement and move facts for 90 native kinds, including DLC opponents. These facts
@@ -21,7 +24,7 @@ from the live build/menu; each fighter page retains its reference stats.
 ## Individual fighter pages
 
 Each registered fighter form has its own source-based reference, including
-all five saved lists, default choices, move windows and grab data.
+all five file-authored lists, selected defaults, input schedules and reference facts.
 
 | Fighter | Fighter | Fighter |
 | --- | --- | --- |
@@ -40,17 +43,18 @@ all five saved lists, default choices, move windows and grab data.
 | [Luigi](fighters/luigi.md) | [Mario](fighters/mario.md) | [Marth](fighters/marth.md) |
 | [Mega Man](fighters/mega_man.md) | [Meta Knight](fighters/meta_knight.md) | [Mewtwo](fighters/mewtwo.md) |
 | [Mii Brawler](fighters/mii_brawler.md) | [Mii Gunner](fighters/mii_gunner.md) | [Mii Swordfighter](fighters/mii_swordfighter.md) |
-| [Mr. Game & Watch](fighters/mr_game_and_watch.md) | [Ness](fighters/ness.md) | [Olimar](fighters/olimar.md) |
-| [Pac-Man](fighters/pacman.md) | [Palutena](fighters/palutena.md) | [Peach](fighters/peach.md) |
-| [Pichu](fighters/pichu.md) | [Pikachu](fighters/pikachu.md) | [Pit](fighters/pit.md) |
-| [R.O.B.](fighters/rob.md) | [Richter](fighters/richter.md) | [Ridley](fighters/ridley.md) |
-| [Robin](fighters/robin.md) | [Rosalina & Luma](fighters/rosalina_and_luma.md) | [Roy](fighters/roy.md) |
-| [Ryu](fighters/ryu.md) | [Samus](fighters/samus.md) | [Sheik](fighters/sheik.md) |
-| [Shulk](fighters/shulk.md) | [Simon](fighters/simon.md) | [Snake](fighters/snake.md) |
-| [Sonic](fighters/sonic.md) | [Squirtle](fighters/squirtle.md) | [Toon Link](fighters/toon_link.md) |
-| [Villager](fighters/villager.md) | [Wario](fighters/wario.md) | [Wii Fit Trainer](fighters/wii_fit_trainer.md) |
-| [Wolf](fighters/wolf.md) | [Yoshi](fighters/yoshi.md) | [Young Link](fighters/young_link.md) |
-| [Zelda](fighters/zelda.md) | [Zero Suit Samus](fighters/zero_suit_samus.md) |  |
+| [Mr. Game & Watch](fighters/mr_game_and_watch.md) | [Mythra](fighters/mythra.md) | [Ness](fighters/ness.md) |
+| [Olimar](fighters/olimar.md) | [Pac-Man](fighters/pacman.md) | [Palutena](fighters/palutena.md) |
+| [Peach](fighters/peach.md) | [Pichu](fighters/pichu.md) | [Pikachu](fighters/pikachu.md) |
+| [Pit](fighters/pit.md) | [Pyra](fighters/pyra.md) | [R.O.B.](fighters/rob.md) |
+| [Richter](fighters/richter.md) | [Ridley](fighters/ridley.md) | [Robin](fighters/robin.md) |
+| [Rosalina & Luma](fighters/rosalina_and_luma.md) | [Roy](fighters/roy.md) | [Ryu](fighters/ryu.md) |
+| [Samus](fighters/samus.md) | [Sheik](fighters/sheik.md) | [Shulk](fighters/shulk.md) |
+| [Simon](fighters/simon.md) | [Snake](fighters/snake.md) | [Sonic](fighters/sonic.md) |
+| [Squirtle](fighters/squirtle.md) | [Toon Link](fighters/toon_link.md) | [Villager](fighters/villager.md) |
+| [Wario](fighters/wario.md) | [Wii Fit Trainer](fighters/wii_fit_trainer.md) | [Wolf](fighters/wolf.md) |
+| [Yoshi](fighters/yoshi.md) | [Young Link](fighters/young_link.md) | [Zelda](fighters/zelda.md) |
+| [Zero Suit Samus](fighters/zero_suit_samus.md) |  |  |
 
 <!-- END INDIVIDUAL FIGHTER LINKS -->
 
@@ -71,14 +75,12 @@ Kirby also has a [forward-air first-hit landing follow-up](KIRBY_FAIR_CONFIRM.md
 
 ## Configure or add responses
 
-Use [compiled fighter profiles](FIGHTER_CONFIGS.md) for the file layout and
-`SavedChoice` registration, and [execution and calibration](FIGHTER_EXECUTION.md)
-for hop choice, drift, movement and timing. The [source map](CODE_MAP.md) follows
-one response from observation through the controller mapper.
-
-New fighters and action sequences require Rust changes and a rebuild. Shared
-`config.txt` settings load once at startup; in-match choices only select existing
-functions and cached numeric settings. Only the selected response runs.
+Use [file-authored fighter options](FIGHTER_CONFIGS.md) and the
+[complete action/timing syntax](SEQUENCE_FILES.md) to add or edit responses.
+`start_delay` is required for every option; waits schedule each following input.
+Only shared recognition, observation, input routing and spatial predicates stay
+in code. New input primitives need Rust changes; new scripts need only a file edit
+and restart after installing the updated executor.
 
 Frame intervals document compiled data, not universal collision or optimality.
 Reach and root-motion forecasts are approximate. Projectile travel, opponent

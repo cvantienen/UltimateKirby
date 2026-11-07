@@ -18,10 +18,12 @@ class FakeFTP:
             prefix + "/" + builder.CONFIG.as_posix(),
             prefix + "/" + str(builder.SUMMARY),
             prefix + "/" + builder.PLUGIN.as_posix(),
+            prefix + "/" + str(builder.SEQUENCES),
         }
         if include_source:
             self.allowed.add(prefix + "/" + str(builder.SOURCE_ZIP))
         self.files = {path: b"old content" for path in self.allowed}
+        self.files[prefix + "/ultimate/kirby_assist/sequences.txt"] = b"custom active recipes"
         self.files.update({"/unrelated.txt": b"keep", "/ultimate/kirby_assist/status.log": b"keep log"})
         self.original = self.files.copy()
         self.stores = []
@@ -99,6 +101,11 @@ class UploadTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.source = Path(self.temp.name)
+        self.deployment_sequences = self.source / "deployment-sequences.txt"
+        self.deployment_sequences.write_bytes(b"# current deployment\n")
+        deployment = patch.object(builder, "DEPLOYMENT_SEQUENCES", self.deployment_sequences)
+        deployment.start()
+        self.addCleanup(deployment.stop)
         self.binary = b"\0" * 16 + b"NRO0" + b"prepared binary"
         (self.source / "libkirby_assist.nro").write_bytes(self.binary)
         (self.source / "config.txt").write_bytes(b"enabled = true\n")
@@ -108,17 +115,83 @@ class UploadTests(unittest.TestCase):
         redirect.__enter__()
         self.addCleanup(redirect.__exit__, None, None, None)
 
-    def test_only_prepared_three_files_are_uploaded_and_other_files_remain_untouched(self):
+    def test_invalid_current_sequences_block_full_upload_before_ftp(self):
+        self.deployment_sequences.write_bytes(
+            b"[yoshi.roll.grab]\nactions = short_hop_nair:4,\n")
+        with patch.object(builder.ftplib, "FTP") as ftp:
+            with self.assertRaisesRegex(RuntimeError, "empty action"):
+                builder.upload_files(self.source, "192.0.2.10")
+        ftp.assert_not_called()
+
+    def test_active_sequence_replacement_backs_up_original_and_verifies_before_plugin(self):
+        fake = FakeFTP()
+        active = "/" + str(builder.ACTIVE_SEQUENCES)
+        fake.allowed.add(active)
+        with patch.object(builder.ftplib, "FTP", return_value=fake):
+            builder.upload_files(self.source, "192.0.2.10", replace_sequences=True)
+        self.assertEqual(fake.files[active], self.deployment_sequences.read_bytes())
+        self.assertEqual(fake.files[fake.backup_base + "/sequences.txt"], b"custom active recipes")
+        self.assertNotIn("/" + str(builder.SEQUENCES), fake.stores)
+        self.assertLess(fake.events.index(("read", active), fake.events.index(("store", active))),
+                        fake.events.index(("store", "/" + str(builder.PLUGIN))))
+
+    def test_active_replacement_backup_failure_never_overwrites_installed_files(self):
+        fake = FakeFTP(fail_backup=True)
+        fake.allowed.add("/" + str(builder.ACTIVE_SEQUENCES))
+        with patch.object(builder.ftplib, "FTP", return_value=fake):
+            with self.assertRaises(RuntimeError):
+                builder.upload_files(self.source, "192.0.2.10", replace_sequences=True)
+        self.assertEqual(fake.stores, [])
+        self.assertEqual(fake.files["/" + str(builder.ACTIVE_SEQUENCES)], b"custom active recipes")
+
+    def test_active_verification_reads_selected_file_without_backups_or_writes(self):
+        fake = FakeFTP()
+        payloads = builder.upload_payloads(self.source, replace_sequences=True)
+        for remote, data in payloads:
+            path = "/" + str(remote)
+            fake.allowed.add(path)
+            fake.files[path] = data
+        with patch.object(builder.ftplib, "FTP", return_value=fake):
+            builder.upload_files(self.source, "192.0.2.10", replace_sequences=True, verify_only=True)
+        self.assertEqual(fake.stores, [])
+        self.assertEqual(fake.backup_stores, [])
+        self.assertIn(("read", "/" + str(builder.ACTIVE_SEQUENCES)), fake.events)
+
+    def test_split_fighter_files_are_assembled_into_the_uploaded_snapshot(self):
+        source = self.source / "split" / "sequences.txt"
+        source.parent.mkdir()
+        source.write_text("[template.basic]\nstart_delay=0\nactions=grab\n")
+        fighters = source.parent / "fighters"
+        fighters.mkdir()
+        bowser = b"[bowser.roll.custom]\nstart_delay=0\nactions=grab\n"
+        (fighters / "bowser.txt").write_bytes(bowser)
+        with patch.object(builder, "DEPLOYMENT_SEQUENCES", source):
+            payloads = dict(builder.upload_payloads(self.source, replace_sequences=True))
+        self.assertIn(bowser, payloads[builder.ACTIVE_SEQUENCES])
+        self.assertIn(b"[template.basic]", payloads[builder.ACTIVE_SEQUENCES])
+        self.assertNotIn(builder.SEQUENCES, payloads)
+
+    def test_active_replacement_cli_requires_closed_game_except_read_only_modes(self):
+        args = ["192.0.2.10", "-v", "2.3.1", "--replace-sequences"]
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            builder.parse_options(args)
+        for extra in ["--smash-closed", "--dry-run", "--verify-only"]:
+            self.assertTrue(builder.parse_options(args + [extra]).replace_sequences)
+
+    def test_prepared_files_and_current_sequences_leave_other_files_untouched(self):
         (self.source / "unrelated.nro").write_bytes(b"never upload")
         fake = FakeFTP()
         with patch.object(builder.ftplib, "FTP", return_value=fake):
             builder.upload_files(self.source, "192.0.2.10")
-        self.assertEqual(len(fake.stores), 3)
+        self.assertEqual(len(fake.stores), 4)
         self.assertEqual(set(fake.stores), fake.allowed)
+        self.assertNotIn("/ultimate/kirby_assist/sequences.txt", fake.stores)
+        self.assertEqual(fake.files["/ultimate/kirby_assist/sequences.txt"], b"custom active recipes")
+        self.assertEqual(str(builder.SEQUENCES), "ultimate/kirby_assist/sequences.upload.txt")
         self.assertEqual(fake.files["/" + str(builder.PLUGIN)], self.binary)
         self.assertEqual(fake.files["/" + str(builder.SUMMARY)], b"Prepared update")
         self.assertEqual(set(fake.files) - set(fake.backup_stores), set(fake.original))
-        self.assertEqual(len(fake.backup_stores), 3)
+        self.assertEqual(len(fake.backup_stores), 4)
         for path in fake.backup_stores:
             self.assertEqual(fake.files[path], b"old content")
         for path in fake.original.keys() - fake.allowed:
@@ -130,23 +203,38 @@ class UploadTests(unittest.TestCase):
         fake = FakeFTP()
         with patch.object(builder.ftplib, "FTP", return_value=fake):
             builder.upload_files(self.source, "192.0.2.10")
-        self.assertEqual(len(fake.stores), 3)
+        self.assertEqual(len(fake.stores), 4)
         self.assertFalse(any("fighter_configs" in path for path in fake.stores))
 
-    def test_optional_source_zip_is_fourth_allowlisted_file_and_plugin_stays_last(self):
+    def test_current_deployment_sequences_replace_stale_release_copy_before_plugin(self):
+        (self.source / "sequences.txt").write_bytes(b"# stale release\n")
+        payloads = builder.upload_payloads(self.source)
+        self.assertIn((builder.SEQUENCES, b"# current deployment\n"), payloads)
+        self.assertEqual(payloads[-1][0], builder.PLUGIN)
+
+    def test_missing_deployment_sequences_stop_before_ftp_without_stale_fallback(self):
+        (self.source / "sequences.txt").write_bytes(b"# stale release\n")
+        self.deployment_sequences.unlink()
+        with patch.object(builder.ftplib, "FTP") as ftp:
+            with self.assertRaisesRegex(RuntimeError, "Required deployment sequence file"):
+                builder.upload_files(self.source, "192.0.2.10")
+        ftp.assert_not_called()
+
+    def test_optional_source_zip_is_fifth_allowlisted_file_and_plugin_stays_last(self):
         source_zip = self.source / "kirby_assist-1.1.0-source.zip"
         with zipfile.ZipFile(source_zip, "w") as archive:
             archive.writestr("kirby_assist_v2/src/lib.rs", "// prepared source")
         fake = FakeFTP(include_source=True)
         with patch.object(builder.ftplib, "FTP", return_value=fake):
             builder.upload_files(self.source, "192.0.2.10")
-        self.assertEqual(len(fake.stores), 4)
+        self.assertEqual(len(fake.stores), 5)
         self.assertEqual(set(fake.stores), fake.allowed)
         self.assertEqual(set(fake.backup_stores), {
             "/ultimate/kirby_assist/bak/config.txt",
             "/ultimate/kirby_assist/bak/RELEASE_SUMMARY.txt",
             "/ultimate/kirby_assist/bak/libkirby_assist.nro",
             "/ultimate/kirby_assist/bak/kirby_assist-source.zip",
+            "/ultimate/kirby_assist/bak/sequences.upload.txt",
         })
         self.assertEqual(fake.stores[-1], "/" + str(builder.PLUGIN))
         self.assertEqual(fake.files["/" + str(builder.SOURCE_ZIP)], source_zip.read_bytes())
@@ -154,7 +242,7 @@ class UploadTests(unittest.TestCase):
         with patch.object(builder.ftplib, "FTP", return_value=fake):
             builder.upload_files(self.source, "192.0.2.10", verify_only=True)
         self.assertEqual(fake.stores, [])
-        self.assertIn("all 4 files verified", self.output.getvalue())
+        self.assertIn("all 5 files verified", self.output.getvalue())
 
     def test_invalid_or_ambiguous_source_archive_stops_before_connecting(self):
         path = self.source / "kirby_assist-source.zip"
@@ -176,10 +264,10 @@ class UploadTests(unittest.TestCase):
         def connect_after_check():
             self.assertIn("Local build check passed: DIAGNOSTIC", self.output.getvalue())
             return FakeFTP()
-        with patch("builtins.input", return_value="yes") as confirmation, \
+        with patch("builtins.input") as confirmation, \
                 patch.object(builder.ftplib, "FTP", side_effect=connect_after_check):
-            builder.upload_files(self.source, "192.0.2.10")
-        self.assertIn("Are you sure you want to upload diagnostic?", confirmation.call_args.args[0])
+            builder.upload_files(self.source, "192.168.1.142")
+        confirmation.assert_not_called()
 
     def test_diagnostic_confirmation_decline_or_missing_input_never_connects(self):
         (self.source / "libkirby_assist.nro").write_bytes(self.binary + b"|".join(builder.LOG_MARKERS))
@@ -187,7 +275,7 @@ class UploadTests(unittest.TestCase):
         for answer in ["no", "", "y", EOFError(), KeyboardInterrupt()]:
             kwargs = {"side_effect": answer} if isinstance(answer, BaseException) else {"return_value": answer}
             with patch("builtins.input", **kwargs), patch.object(builder.ftplib, "FTP") as ftp:
-                builder.upload_files(self.source, "192.0.2.10")
+                builder.upload_files(self.source, "192.168.1.105")
                 ftp.assert_not_called()
 
     def test_diagnostic_dry_run_and_verify_only_do_not_prompt(self):
@@ -198,8 +286,8 @@ class UploadTests(unittest.TestCase):
         for remote, data in builder.upload_payloads(self.source):
             fake.files["/" + str(remote)] = data
         with patch("builtins.input") as confirmation, patch.object(builder.ftplib, "FTP", return_value=fake):
-            builder.upload_files(self.source, "192.0.2.10", dry_run=True)
-            builder.upload_files(self.source, "192.0.2.10", verify_only=True)
+            builder.upload_files(self.source, "192.168.1.105", dry_run=True)
+            builder.upload_files(self.source, "192.168.1.105", verify_only=True)
             confirmation.assert_not_called()
         self.assertEqual(fake.stores, [])
 
@@ -218,6 +306,14 @@ class UploadTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     builder.upload_files(self.source, "192.0.2.10")
                 ftp.assert_not_called()
+
+    def test_one_match_probe_requires_its_temporary_summary(self):
+        binary = self.binary + b"ONE_MATCH_PROBE_V1"
+        with self.assertRaisesRegex(RuntimeError, "matching temporary"):
+            builder.verify_build_variant(binary, b"Build: SILENT")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(builder.verify_build_variant(
+                binary, b"Build: SILENT\nTEMPORARY: one-match SD aggregate probe enabled (silent-probe).\n"), "silent")
 
     def test_versioned_summary_is_accepted_but_multiple_summaries_are_rejected(self):
         (self.source / "RELEASE_SUMMARY.txt").rename(self.source / "RELEASE_SUMMARY-9.0.0.txt")
@@ -278,7 +374,7 @@ class UploadTests(unittest.TestCase):
             self.assertEqual(fake.files[plugin], fake.original[plugin])
             self.assertEqual(fake.files["/unrelated.txt"], b"keep")
 
-    def test_verify_only_reads_all_three_and_never_writes(self):
+    def test_verify_only_reads_all_four_and_never_writes(self):
         fake = FakeFTP()
         for remote, data in builder.upload_payloads(self.source):
             fake.files["/" + str(remote)] = data
@@ -297,7 +393,7 @@ class UploadTests(unittest.TestCase):
         self.assertEqual(fake.stores, [])
         self.assertEqual(fake.files, fake.original)
 
-    def test_custom_sd_root_and_credentials_keep_three_fixed_destinations(self):
+    def test_custom_sd_root_and_credentials_keep_four_fixed_destinations(self):
         fake = FakeFTP(root="/sdcard")
         with patch.object(builder.ftplib, "FTP", return_value=fake):
             builder.upload_files(self.source, "192.0.2.10", port=21,
@@ -354,7 +450,7 @@ class UploadTests(unittest.TestCase):
         with patch.object(builder.ftplib, "FTP", return_value=fake):
             builder.upload_files(self.source, "192.0.2.10")
         self.assertEqual(set(fake.backup_stores), first_backups)
-        self.assertEqual(len(first_backups), 3)
+        self.assertEqual(len(first_backups), 4)
         for path in first_backups:
             self.assertEqual(str(builder.PurePosixPath(path).parent), "/ultimate/kirby_assist/bak")
             self.assertEqual(fake.files[path], previous[builder.PurePosixPath(path).name])
@@ -375,8 +471,8 @@ class UploadTests(unittest.TestCase):
         del fake.files["/" + str(builder.SOURCE_ZIP)]
         with patch.object(builder.ftplib, "FTP", return_value=fake):
             builder.upload_files(self.source, "192.0.2.10")
-        self.assertEqual(len(fake.backup_stores), 3)
-        self.assertEqual(len(fake.stores), 4)
+        self.assertEqual(len(fake.backup_stores), 4)
+        self.assertEqual(len(fake.stores), 5)
 
     def test_unreadable_existing_file_is_not_mistaken_for_missing(self):
         fake = FakeFTP()
@@ -413,8 +509,8 @@ class UploadTests(unittest.TestCase):
                 patch.object(fake, "cwd", side_effect=switch_cwd), \
                 patch.object(builder.ftplib, "FTP", return_value=fake):
             builder.upload_files(self.source, "192.0.2.10")
-        self.assertEqual(len(fake.backup_stores), 3)
-        self.assertEqual(len(fake.stores), 4)
+        self.assertEqual(len(fake.backup_stores), 4)
+        self.assertEqual(len(fake.stores), 5)
 
     def test_switch_450_does_not_skip_unreadable_existing_file(self):
         fake = FakeFTP()

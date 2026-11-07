@@ -281,6 +281,45 @@ fn dash_pivot_does_not_rewrite_walk_air_or_hitstop_input() {
 }
 
 #[test]
+fn pending_movement_cancels_before_same_tick_cache_on_interruption() {
+    for (status, situation, stopped, stick) in [
+        (3, 2, false, [-1.0, 0.0]),
+        (0x27, 0, false, [-1.0, 0.0]),
+        (3, 0, true, [-1.0, 0.0]),
+        (3, 0, false, [-1.0, -1.0]),
+        (3, 0, false, [0.0, 0.0]),
+        (3, 0, false, [-1.0, f32::NAN]),
+    ] {
+        let mut tool = DashPivotAssist::default();
+        tool.sample(1, 3, 0, false, [1.0, 0.0]);
+        assert!(tool.sample(2, 3, 0, false, [-1.0, 0.0]).stick.is_some());
+        assert_eq!(
+            tool.sample(2, status, situation, stopped, stick).stick,
+            None
+        );
+        assert_eq!(tool.sample(3, 0, 0, false, [-0.3, 0.0]).stick, None);
+    }
+}
+
+#[test]
+fn movement_handoff_and_missing_ticks_cannot_replay_a_previous_pivot_or_walk() {
+    for next_tick in [0, 5] {
+        let mut tool = DashPivotAssist::default();
+        tool.sample(1, 3, 0, false, [1.0, 0.0]);
+        tool.sample(2, 3, 0, false, [-1.0, 0.0]);
+        assert_eq!(tool.sample(next_tick, 3, 0, false, [-0.3, 0.0]).stick, None);
+    }
+    let mut tool = DashPivotAssist::default();
+    tool.sample(1, 3, 0, false, [1.0, 0.0]);
+    assert_eq!(
+        tool.sample(2, 3, 0, false, [0.3, 0.0]).stick,
+        Some([0.49, 0.0])
+    );
+    tool.cancel_pending();
+    assert_eq!(tool.sample(3, 1, 0, false, [0.3, 0.0]).stick, None);
+}
+
+#[test]
 fn full_dash_then_same_direction_ease_becomes_max_walk_without_blocking_run() {
     let mut movement = DashPivotAssist::default();
     assert_eq!(movement.sample(1, 3, 0, false, [1.0, 0.0]).stick, None);
@@ -473,5 +512,57 @@ fn l3_turbo_restores_facing_walk_cancel_at_one_update_per_phase() {
                 .stick,
             None
         );
+    }
+}
+
+#[test]
+fn menu_owned_buttons_block_human_presses_without_erasing_explicit_recipe_inputs() {
+    use crate::native_input::{
+        MAPPER_A, MAPPER_B, MAPPER_L, MAPPER_R, MAPPER_X, MAPPER_Y, MAPPER_ZL, MAPPER_ZR,
+    };
+    for button in [
+        MAPPER_A, MAPPER_B, MAPPER_X, MAPPER_Y, MAPPER_L, MAPPER_R, MAPPER_ZL, MAPPER_ZR,
+    ] {
+        let human = ButtonTrace {
+            held: button,
+            pressed: button,
+            ..ButtonTrace::default()
+        };
+        let mut overlay = ManualOverlay::default();
+        assert_eq!(
+            overlay
+                .apply_controls(human, [0.0; 2], TurboOutput::default(), button, 0, 0)
+                .buttons
+                .held
+                & button,
+            0
+        );
+        let frame = overlay.apply_controls(
+            human,
+            [0.0; 2],
+            TurboOutput::default(),
+            button,
+            button,
+            button,
+        );
+        assert_eq!(frame.buttons.held & button, button);
+        let released =
+            overlay.apply_controls(human, [0.0; 2], TurboOutput::default(), button, 0, button);
+        assert_eq!(released.buttons.held & button, 0);
+    }
+}
+
+#[test]
+fn held_walk_stop_preserves_retreat_and_only_applies_at_known_ledge_height() {
+    use crate::ledge_position::LedgeSpot;
+    for inward in [-1.0,1.0] {
+        let spot=LedgeSpot {edge:[0.0;2],inward};
+        let toward=[-inward*0.3,-0.4];
+        assert_eq!(stop_walk_at_ledge(toward,[inward*8.0,0.0],[0.0;2],spot,8.0),[0.0,-0.4]);
+        let retreat=[inward*0.3,-0.4];
+        assert_eq!(stop_walk_at_ledge(retreat,[inward*4.0,0.0],[0.0;2],spot,8.0),retreat);
+        assert_eq!(stop_walk_at_ledge(toward,[inward*12.0,0.0],[0.0;2],spot,8.0),toward);
+        assert_eq!(stop_walk_at_ledge(toward,[inward*10.0,0.0],[-inward,0.0],spot,8.0),[0.0,-0.4]);
+        assert_eq!(stop_walk_at_ledge(toward,[inward*8.0,20.0],[0.0;2],spot,8.0),toward);
     }
 }

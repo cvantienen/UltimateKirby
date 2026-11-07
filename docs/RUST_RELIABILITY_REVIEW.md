@@ -1,9 +1,95 @@
 # Runtime reliability and validation
 
-These notes describe the current source under package version 1.5.3, including
-edits after the supplied diagnostic test. They replace an older review's
-bindings and test counts; those counts did not validate subsequent changes.
-See [current controls](CONTROLS.md) and [the source map](CODE_MAP.md).
+The normal-match audit below describes source changes under package version
+2.5.4 on 2026-11-04. Earlier device findings remain historical evidence, not
+validation of this source. See [current controls](CONTROLS.md) and
+[the source map](CODE_MAP.md).
+
+## Normal-match runtime audit
+
+The reviewed live route is local-controller selection → synchronous native
+observation → per-observation copied facts → enabled core policies → one action
+owner → shared raw-input overlay → original native mapper → physical-memory
+restoration and delivery receipts. Match/session tickets, active object/accessor
+identity, configuration/observation revisions and observation freshness fence
+publication. Menu changes cancel the old observations before they can publish.
+Training passthrough and editing retain their separate gates; ordinary matches
+use the same cached recipes without live file parsing or save I/O.
+
+The audit followed automatic grabs, incoming-grab defense and its follow-up,
+roll/spot/air-dodge Auto react, shield Up-B backup, ledge reservation/preparation,
+tech, mash, DI/SDI, Kirby follow-ups, and their final arbitration with manual
+helpers. Geometry/roster work has fixed budgets and native reads occur before
+policy publication. A pending state is revisited on later observations; no
+reaction function spins waiting for a future animation, range or confirmation.
+Authored waits, until-manual holds and native recovery remain intentional.
+Mutex contention and native-call cost still require device profiling.
+
+Four gaps were corrected:
+
+- Unconfirmed roll/grab-dodge Up-B now has a fallback limit of **24 distinct
+  delivered mapper attempts** if native animation clocks cannot advance.
+  Duplicate observations, repeated receipts for the same tick and receipts for
+  another target do not consume it. Native Up-B confirmation wins at the limit
+  and disables this watchdog, preserving the normal four-frame input and full
+  configured tracking duration. Expiry releases control rather than starting a
+  blind chase. This is a failure bound, not a delay before acting.
+- If you leave the ground before native Up-B startup is confirmed, the
+  automatic B/Up request cancels. A grounded proposal alone cannot authorize an
+  airborne special. Confirmed startup still retains Bowser's air-spin tracking.
+- All automatic Up-B owners share physical shield/jump escape handling,
+  including the grab-dodge follow-up and shield-backup tracking. The initial
+  grounded B pulse stays protected; a fresh airborne shield input may hand back
+  for a manual air dodge. Shield grabs and authored tapes retain their controls.
+- Consumed roll events survive missing/reordered observations, avoiding a
+  duplicate punish. Missing identities use spare history slots after current
+  actors are recorded, so a different fighter reusing a roster slot cannot erase
+  an old consumed event. Already-read native status changes clear old roll/grab
+  markers so a subsequent event can rearm even if first observed later in its
+  animation. Missing data alone never proves an event ended. This reuses the
+  existing fact cache and adds no native queries, roster pass or allocation.
+
+Regression coverage includes frozen clocks/hitstop, duplicate mapper calls,
+wrong-target receipts, confirmation at the delivery limit, 69 drift frames,
+roster gaps/reordering, known versus unknown event endings, both control layouts,
+native grab/throw handoff, ledge/safety ownership and scope changes. Portable
+checks do not prove native input acceptance, zero false positives/negatives or
+Switch frame-time performance. Unobserved transitions, root-distance forecasts
+and online input queues remain practical limits. No mod build or upload was
+performed for this audit.
+
+## Snapshot compilation fix
+
+The live snapshot groups roll and grab-dodge target IDs into one nested pair,
+keeping its outer tuple within Rust's 12-element `Default` implementation limit.
+This fixes E0277 without changing any field values, decisions or input timing.
+The exact source destructuring pattern was host-compiled against the real core
+`Tuning` type and checked with both missing and populated snapshots. This check
+is separate from a Switch mod build; the mod was not built or uploaded here.
+
+## Auto react configuration refactor
+
+Package 2.5.5 groups seven editable Auto react sequence types. Unshielded/shielded
+grab and shield backup defaults were made explicit for all 77 fighters using
+their pre-refactor effective ranges; Bowser's grab-dodge follow-up was copied
+exactly into a separate sequence. Every pre-existing recipe and remaining
+setting was compared against the original master. The two legacy grab-range
+keys moved into the corresponding recipes; old external files retain fallbacks.
+
+Native default execution, movement, shield safety, four-packet grab delivery,
+receipt settling, priority and native grab/throw handoff remain in place.
+Other edited actions use the same bounded input timeline. Configured receipt
+tracking also prevents an R step in a grab-dodge punish from falling through
+into B/Up before native acceptance. Recipe references/range metadata come from
+the existing revision cache; there are no extra roster passes, native observation
+hooks, live file reads or decision-wait frames. The normal native recovery and
+explicit waits authored by the user still apply.
+
+Host checks compile and execute the exact changed live snapshot pattern, menu
+configuration getters and grab-publication closure against real core types.
+This supplements portable parity/menu/safety tests, and specifically guards the
+previous tuple-size failure. It is not a complete Switch build or device test.
+No mod build or upload was performed for this refactor.
 
 ## Input requests and native acceptance
 
@@ -91,10 +177,11 @@ or future input-execution API.
 
 ## Validation
 
-The latest source changes have Rust formatting/static checks and added
-regression fixtures. They have not been compiled or run as Rust tests here;
-older successful builds and counts do not validate the current tree. The
-current docs are checked separately with strict MkDocs.
+The normal-match audit runs the portable core suite plus focused tests with
+`diagnostic-logging`; native adapter files receive Rust syntax/format parsing.
+Fighter documentation is checked separately. The Switch mod is not built or
+uploaded unless explicitly requested. Portable checks validate copied-state
+logic; they cannot execute Smash or establish native hook timing.
 
 Before treating a gameplay change as verified, build the intended variant,
 confirm the installed artifact, and test both ledges, initial spacing, facing,
@@ -102,3 +189,45 @@ stock/match transitions and interrupted inputs. Compare request, mapped input,
 native move and actual contact. Root forecasts do not model every animated
 hitbox/hurtbox, acceleration, platform or opponent decision. Repeat online
 measurements under the connection conditions that exposed the problem.
+
+## Automatic admission and shield handoff follow-up
+
+Ledge activation now suppresses all automatic-punish acquisition immediately.
+A shared cheap native-state gate excludes fresh reactions in attack recovery,
+dodge/roll, shieldstun, tumble and capture. Existing confirmed Up-B and configured
+follow-through track only their locked actor when new acquisition is unavailable.
+Capture-link observations are cached once per actor per observation and exclude
+captured actors before detailed punish data is read.
+
+Manual Grab suspends automatic requests in both layouts before native catch
+confirmation, addressing a path that could mix Up/B into a manual grab packet.
+Native catch/hold/throw still releases punish and ledge input tapes. Suspended
+delivered Grab retains only its bounded zero-input receipt, preventing a newly
+activated script from appending Up/B while that Grab is still in flight.
+
+The guard handoff now quarantines only physical guard that the assist actually
+suppressed. A failed direct shield Grab/Up-B which kept Guard cannot quarantine
+that same continuous hold. Unconfirmed Up-B cancels at its first non-B output,
+including overlapping zero-drift and final-neutral samples, and cancels on lost
+readiness or shield damage. Confirmed spin tracking and suppressed-guard air-dodge
+protection remain intact. These are identified failure paths, not proof of the
+exact cause of an unrecorded console up-throw. No gameplay or frame-time hardware
+measurements were performed for this follow-up.
+
+## Shielded versus unshielded grab policy
+
+The shared grab selector now receives the actual shielded-policy flag, separately
+from its movement/approach flag. Only unshielded acquisition requires enemy
+shield. Shielded acquisition accepts ordinary vulnerable front targets within
+its own X/Y and projected-startup limits; downed/tripped bodies remain backup
+candidates instead of whiffed grabs. The existing observation pass already
+supplies shield-backup candidates on both sides, so this change adds no scans,
+waits, input timers or native mutations. It does not alter sequence files.
+
+Selection still runs grab before shield backup, with usable roll/dodge reactions
+retaining their existing priority before new grabs. Delivered R keeps its bounded
+receipt protection, committed B cannot switch to R, and native own-state gates
+remain shared. Regressions cover front nonshield targets, both shield-entry and
+held-shield policy, unshielded moving recognition on the first enemy-shield
+observation, independent ranges, captured/invulnerable/busy states and exclusive
+Grab/Special delivery. Hardware timing remains unmeasured.

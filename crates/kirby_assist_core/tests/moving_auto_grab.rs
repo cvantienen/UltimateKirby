@@ -1,0 +1,481 @@
+use kirby_assist_core::{
+    ledge_trap::{LedgeContext, LedgeSettings, MotionTiming, Opponent, SEQUENCE_BUTTONS},
+    manual_controls::{ManualOverlay, ManualTakeover, TurboOutput},
+    native_input::*,
+    out_of_shield::{automatic_grab_ready, Context, OutOfShield},
+    reaction_rules::{Candidate, Engine, Resolved},
+    roll_read::Target,
+    sequence_config::Catalog,
+};
+fn c(status: i32) -> Context {
+    Context {
+        object: 1,
+        kind: 15,
+        status,
+        motion: 1,
+        frame: 0.,
+        rate: 1.,
+        stopped: false,
+        grounded: true,
+        position: [0.; 2],
+        facing: 1.,
+        shield_ready: true,
+        can_grab: true,
+        can_jump: false,
+        can_up_special: true,
+        threatened: false,
+    }
+}
+fn lc(status: i32) -> LedgeContext {
+    LedgeContext {
+        held: true,
+        gameplay: true,
+        status,
+        motion_kind: 1,
+        motion_frame: 0.,
+        motion_rate: 1.,
+        can_act: true,
+        facing: 1.,
+        ..Default::default()
+    }
+}
+fn targets(x: f32) -> [Option<Target>; 8] {
+    [
+        Some(Target {
+            id: 2,
+            status: 0x1c,
+            motion: 2,
+            frame: 0.,
+            rate: 1.,
+            position: [x, 0.],
+            velocity_x: 0.,
+            vulnerable_in: Some(0.),
+            actionable_in: None,
+        }),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    ]
+}
+#[test]
+fn ground_locomotion_and_normal_landing_grab_on_the_first_observation_without_an_approach_pulse() {
+    for status in [1, 2, 3, 4, 5, 6, 7, 8, 9, 0x11, 0x12, 0x16, 0x17] {
+        for side in [-1., 1.] {
+            let mut o = OutOfShield::new();
+            let ctx = Context {
+                facing: side,
+                ..c(status)
+            };
+            let out = o.sample_automatic(
+                true,
+                ctx,
+                LedgeContext {
+                    facing: side,
+                    ..lc(status)
+                },
+                targets(side * 15.),
+                None,
+                false,
+                22.,
+                35.,
+                Some(8.),
+            );
+            assert_eq!(
+                out.requested, MAPPER_R,
+                "status {status:#x}: no neutral or approach-only packet"
+            );
+            assert!(!o.approach_pending());
+            assert_eq!(out.owned, SEQUENCE_BUTTONS);
+            for strength in [0.3, 0.6, 1.] {
+                assert_eq!(
+                    o.with_grab_movement(out, [side * strength, 0.]).stick,
+                    Some([side * strength, 0.])
+                );
+            }
+        }
+    }
+    let mut o = OutOfShield::new();
+    assert_eq!(
+        o.sample_automatic(
+            true,
+            c(0),
+            LedgeContext {
+                velocity: [1., 0.],
+                ..lc(0)
+            },
+            targets(15.),
+            None,
+            false,
+            22.,
+            35.,
+            Some(8.)
+        )
+        .requested,
+        MAPPER_R,
+        "native WAIT with existing momentum must not introduce a new approach pulse"
+    );
+}
+#[test]
+fn native_dash_catch_readiness_is_used_without_waiting_for_standing_catch() {
+    for status in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0x16, 0x17] {
+        let mut seen = Vec::new();
+        assert!(automatic_grab_ready(status, |term| {
+            seen.push(term);
+            term == 0x1e000070
+        }));
+        assert_eq!(seen, vec![0x1e00006f, 0x1e000070]);
+        assert!(!automatic_grab_ready(status, |_| false));
+    }
+    assert!(automatic_grab_ready(0x1c, |_| panic!(
+        "native held shield remains a direct grab"
+    )));
+    assert!(
+        !automatic_grab_ready(0x1b, |term| term == 0x1e000070),
+        "guard startup cannot become a dash grab"
+    );
+}
+#[test]
+fn horizontal_intent_allows_ground_offense_but_shield_rolls_and_manual_attacks_are_preserved() {
+    let mut input = ManualTakeover::new();
+    assert!(!input.grounded_grab_assist(0));
+    for status in [0, 1, 3, 4, 0x16] {
+        for x in [-1., -0.5, 0.5, 1.] {
+            input.sample(0, [x, 0., 0., 0.]);
+            assert!(input.grounded_grab_assist(status));
+        }
+    }
+    for status in [0, 0x1b, 0x1c] {
+        for x in [-1., 1.] {
+            input.sample(MAPPER_ZR, [x, 0., 0., 0.]);
+            assert!(
+                !input.grounded_grab_assist(status),
+                "manual shield roll is not an automatic grab"
+            );
+        }
+    }
+    for button in [MAPPER_A, MAPPER_B, MAPPER_R] {
+        input.sample(button, [1., 0., 0., 0.]);
+        assert!(!input.grounded_grab_assist(3));
+    }
+    for axes in [[1., 1., 0., 0.], [1., 0., 1., 0.], [f32::NAN, 0., 0., 0.]] {
+        input.sample(0, axes);
+        assert!(!input.grounded_grab_assist(3));
+    }
+}
+#[test]
+fn airborne_snapshots_and_unready_movement_never_start_a_grab_and_landing_does_not_queue() {
+    for mismatch in 0..3 {
+        let mut o = OutOfShield::new();
+        let mut ctx = c(3);
+        let mut own = lc(3);
+        match mismatch {
+            0 => ctx.grounded = false,
+            1 => own.situation = 2,
+            _ => ctx.can_grab = false,
+        }
+        assert_eq!(
+            o.sample_automatic(
+                true,
+                ctx,
+                own,
+                targets(15.),
+                None,
+                false,
+                22.,
+                35.,
+                Some(8.)
+            )
+            .owned,
+            0
+        );
+        assert!(o.target().is_none());
+        assert_eq!(
+            o.sample_automatic(
+                true,
+                c(0x16),
+                lc(0x16),
+                targets(15.),
+                None,
+                false,
+                22.,
+                35.,
+                Some(8.)
+            )
+            .requested,
+            MAPPER_R
+        );
+    }
+}
+#[test]
+fn both_layouts_preserve_horizontal_grab_delivery_and_neutralize_only_shield_grabs() {
+    for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        for shielded in [false, true] {
+            let status = if shielded { 0x1c } else { 4 };
+            let mut o = OutOfShield::new();
+            let raw = o.sample_automatic(
+                true,
+                c(status),
+                lc(status),
+                targets(15.),
+                None,
+                shielded,
+                22.,
+                35.,
+                Some(8.),
+            );
+            let out = o.with_grab_movement(raw, [0.65, 0.]);
+            let expected = if shielded { [0.; 2] } else { [0.65, 0.] };
+            assert_eq!(out.stick, Some(expected));
+            let mapped = ManualOverlay::default().apply_controls(
+                ButtonTrace {
+                    held: layout.physical_buttons(MAPPER_ZR),
+                    ..Default::default()
+                },
+                [0.65, 0.],
+                TurboOutput {
+                    stick: out.stick,
+                    ..Default::default()
+                },
+                0,
+                layout.physical_buttons(out.requested),
+                layout.physical_owned_buttons(out.owned),
+            );
+            assert_eq!(mapped.stick, expected);
+            assert_eq!(
+                exclusive_sequence_stick(out.owned, out.stick),
+                Some(expected)
+            );
+            assert_eq!(
+                mapped.buttons.held & GAMEPLAY_BUTTONS,
+                layout.physical_buttons(out.requested)
+            );
+            assert_eq!(
+                out.requested,
+                MAPPER_R | if shielded { MAPPER_ZR } else { 0 }
+            );
+        }
+    }
+}
+#[test]
+fn ground_up_b_admission_keeps_tracking_after_native_takeoff_without_starting_new_air_reactions() {
+    let cat=Catalog::parse("[bowser.roll.up_b]\nstart_delay=0\nreaction=auto_roll:40:12\nactions=up_b:4,drift:opponent:1:30\n").unwrap();
+    let mut rules = Resolved::default();
+    rules
+        .add(Candidate {
+            slot: 2,
+            index: 0,
+            sequence: cat.entries()[0].sequence,
+        })
+        .unwrap();
+    for start in [0, 1, 3, 4, 0x16, 0x1c] {
+        let mut e = Engine::default();
+        let mut ts = targets(20.);
+        ts[0].as_mut().unwrap().status = 0x20;
+        let out = e.sample_simple(true, &rules, LedgeSettings::default(), lc(start), ts, None);
+        assert_ne!(out.requested & MAPPER_B, 0, "grounded status {start:#x}");
+        for frame in 1..=5 {
+            let own = LedgeContext {
+                status: 0x1de,
+                situation: 2,
+                motion_frame: frame as f32,
+                ..lc(start)
+            };
+            let follow = Opponent {
+                id: 2,
+                status: 0x20,
+                position: [if frame == 5 { -20. } else { 20. }, 0.],
+                motion: Some(MotionTiming {
+                    kind: 2,
+                    frame: frame as f32,
+                    rate: 1.,
+                    remaining: None,
+                }),
+                ..Default::default()
+            };
+            let out = e.sample_simple(
+                true,
+                &rules,
+                LedgeSettings::default(),
+                own,
+                ts,
+                Some(follow),
+            );
+            if frame >= 4 {
+                assert_eq!(
+                    out.stick,
+                    Some([if frame == 5 { -1. } else { 1. }, 0.]),
+                    "tracking follows a crossing target after native takeoff"
+                );
+            }
+        }
+        let mut fresh = Engine::default();
+        assert_eq!(
+            fresh
+                .sample_simple(
+                    true,
+                    &rules,
+                    LedgeSettings::default(),
+                    LedgeContext {
+                        situation: 2,
+                        ..lc(start)
+                    },
+                    ts,
+                    None
+                )
+                .owned,
+            0
+        );
+    }
+}
+
+#[test]
+fn absent_targets_native_catch_start_and_air_takeover_release_horizontal_control_immediately() {
+    let mut o = OutOfShield::new();
+    let absent = o.sample_automatic(
+        true,
+        c(4),
+        lc(4),
+        targets(36.),
+        None,
+        false,
+        22.,
+        35.,
+        Some(8.),
+    );
+    assert_eq!(absent.owned, 0);
+    assert_eq!(o.with_grab_movement(absent, [1., 0.]).stick, None);
+    for (status, grounded, situation) in [(0x39, true, 0), (0xe, false, 2)] {
+        let mut o = OutOfShield::new();
+        assert_eq!(
+            o.sample_automatic(
+                true,
+                c(4),
+                lc(4),
+                targets(15.),
+                None,
+                false,
+                22.,
+                35.,
+                Some(8.)
+            )
+            .requested,
+            MAPPER_R
+        );
+        let ended = o.sample_automatic(
+            true,
+            Context {
+                status,
+                grounded,
+                ..c(4)
+            },
+            LedgeContext {
+                situation,
+                ..lc(status)
+            },
+            targets(15.),
+            None,
+            false,
+            22.,
+            35.,
+            Some(8.),
+        );
+        assert_eq!(ended.owned, 0);
+        assert!(o.target().is_none());
+        assert_eq!(o.with_grab_movement(ended, [1., 0.]).stick, None);
+    }
+}
+
+#[test]
+fn native_movement_replaces_an_unmapped_idle_approach_without_waiting_for_an_ack() {
+    let mut o = OutOfShield::new();
+    let idle = o.sample_automatic(
+        true,
+        c(0),
+        LedgeContext {
+            safe_ground: [true; 2],
+            ..lc(0)
+        },
+        targets(30.),
+        None,
+        false,
+        22.,
+        35.,
+        Some(8.),
+    );
+    assert_eq!(idle.requested, 0);
+    assert!(o.approach_pending());
+    let moving = o.sample_automatic(
+        true,
+        c(1),
+        lc(1),
+        targets(30.),
+        None,
+        false,
+        22.,
+        35.,
+        Some(8.),
+    );
+    assert_eq!(moving.requested, MAPPER_R);
+    assert!(!o.approach_pending());
+    assert_eq!(
+        o.with_grab_movement(moving, [0.4, 0.]).stick,
+        Some([0.4, 0.])
+    );
+}
+
+#[test]
+fn fresh_physical_shield_cannot_borrow_dash_readiness_before_native_guard_starts() {
+    use kirby_assist_core::out_of_shield::automatic_grab_ready_with_shield;
+    for status in [0, 1, 3, 4, 0x16] {
+        assert!(!automatic_grab_ready_with_shield(status, true, |term| term == 0x1e000070));
+        assert!(automatic_grab_ready_with_shield(status, false, |term| term == 0x1e000070));
+    }
+}
+
+#[test]
+fn bowser_far_idle_grab_never_presses_r_before_native_dash_and_keeps_forward_during_grab() {
+    for side in [-1.,1.] {for speed in [0.,0.15] {
+        let mut o=OutOfShield::new();let ctx=Context{facing:side,..c(0)};
+        let own=LedgeContext{facing:side,velocity:[side*speed,0.],previous_status:0x1d,safe_ground:[true;2],..lc(0)};
+        let ts=targets(side*30.);
+        for tick in 0..3 {
+            let out=o.sample_automatic(true,ctx,own,ts,None,false,22.,35.,Some(8.));
+            assert_eq!(out.requested,0,"a mapped forward packet must not turn into a standing grab");
+            assert_eq!(out.stick,Some([side,0.]));assert!(o.approach_pending());
+            o.mapped_approach(tick,2);o.mapped_approach(tick,2);
+        }
+        let dash=o.sample_automatic(true,Context{status:3,..ctx},LedgeContext{status:3,..own},ts,None,false,22.,35.,Some(8.));
+        assert_eq!(dash.requested,MAPPER_R,"grab on first observed dash, no extra timing delay");
+        assert!(!o.approach_pending());
+        assert_eq!(o.with_grab_movement(dash,[0.;2]).stick,Some([side,0.]),"idle-assisted dash must not neutralize the grab packet");
+    }}
+}
+
+#[test]
+fn failed_bowser_dash_start_is_bounded_and_never_falls_through_to_a_standing_grab() {
+    let mut o=OutOfShield::new();let own=LedgeContext{safe_ground:[true;2],..lc(0)};
+    for tick in 0..4 {
+        for _ in 0..10 {assert_eq!(o.sample_automatic(true,c(0),own,targets(30.),None,false,22.,35.,Some(8.)).requested,0);}
+        o.mapped_approach(tick,2);
+    }
+    let ended=o.sample_automatic(true,c(0),own,targets(30.),None,false,22.,35.,Some(8.));
+    assert_eq!(ended.owned,0);assert!(o.target().is_none());
+}
+
+#[test]
+fn tech_in_place_is_not_a_dodge_event_and_far_targets_do_not_own_grab_input() {
+    let cat=Catalog::parse("[bowser.roll.auto]\nstart_delay=0\nreaction=auto_roll:40:12\nactions=up_b:4\n").unwrap();
+    let mut rules=Resolved::default();rules.add(Candidate{slot:2,index:0,sequence:cat.entries()[0].sequence}).unwrap();
+    let mut tech=targets(80.);tech[0].as_mut().unwrap().status=0x67;
+    let mut engine=Engine::default();
+    assert_eq!(engine.sample_simple(true,&rules,LedgeSettings::default(),lc(4),tech,None).owned,0);
+    let mut o=OutOfShield::new();
+    assert_eq!(o.sample_automatic(true,c(4),lc(4),tech,None,false,22.,35.,Some(8.)).owned,0);
+    tech[0].as_mut().unwrap().position[0]=30.;
+    assert_eq!(o.sample_automatic(true,c(4),lc(4),tech,None,false,22.,35.,Some(8.)).requested,0,
+        "automatic grabs now require a visibly shielding opponent");
+}

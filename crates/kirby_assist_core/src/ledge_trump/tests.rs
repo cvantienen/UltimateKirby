@@ -27,6 +27,8 @@ fn context() -> LedgeContext {
     LedgeContext {
         held: false,
         gameplay: true,
+        manual_input_epoch: 0,
+        automatic_up_b_epoch: None,
         can_act: true,
         can_control: true,
         stopped: false,
@@ -61,6 +63,39 @@ fn context() -> LedgeContext {
 
 fn edge() -> [f32; 2] {
     [0.0, 0.0]
+}
+
+#[test]
+fn changed_geometry_on_duplicate_native_frames_cannot_spend_trump_timeout() {
+    let mut tool = LedgeTrump::default();
+    tool.sample(true, 0, true, context(), Some(edge()));
+    for tick in 1..150 {
+        let out = tool.sample(
+            true,
+            tick,
+            false,
+            LedgeContext {
+                velocity: [tick as f32 * 0.001, 0.0],
+                ..context()
+            },
+            None,
+        );
+        assert_ne!(out.owned, 0);
+    }
+    let down = tool.sample(
+        true,
+        150,
+        false,
+        LedgeContext {
+            situation: 2,
+            status: FALL,
+            can_act: false,
+            position: [-1.0, -0.1],
+            ..context()
+        },
+        None,
+    );
+    assert_eq!(down.stick, Some([1.0, -1.0]));
 }
 
 #[test]
@@ -228,6 +263,30 @@ fn detects_nearest_empty_edge_and_uses_facing_only_for_equal_distances() {
     assert_eq!(nearest_floor_edge([0.0, 0.0], 1.0, |_| true), None);
     assert_eq!(nearest_floor_edge([0.0, 0.0], 1.0, |_| false), None);
     assert_eq!(nearest_floor_edge([f32::NAN, 0.0], 1.0, floor), None);
+}
+
+#[test]
+fn near_edge_search_does_not_probe_farther_than_a_better_edge_can_exist() {
+    let mut probes = 0;
+    let edge = floor_edge_with_limit([0.0; 2], -1.0, 400, |p| {
+        probes += 1;
+        (-4.75..=300.0).contains(&p[0])
+    })
+    .unwrap();
+    assert!((edge[0] + 4.75).abs() < 0.02);
+    assert!(probes <= 20, "near-edge scan used {probes} probes");
+    // A closer edge in the final fractional unit must still beat the first
+    // candidate; merely rounding the candidate distance would miss this.
+    let edge =
+        floor_edge_with_limit([0.0; 2], -1.0, 400, |p| (-4.75..=4.25).contains(&p[0])).unwrap();
+    assert!((edge[0] - 4.25).abs() < 0.02);
+    // Unit-width gaps remain detectable; the optimization does not increase
+    // sample spacing or assume the whole stage floor is contiguous.
+    let edge = floor_edge_with_limit([0.0; 2], -1.0, 400, |p| {
+        (-30.0..=30.0).contains(&p[0]) && !(3.0..=4.0).contains(&p[0])
+    })
+    .unwrap();
+    assert!((edge[0] - 3.0).abs() < 0.02);
 }
 
 #[test]

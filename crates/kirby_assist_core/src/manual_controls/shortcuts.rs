@@ -1,8 +1,8 @@
 //! Small physical-button shortcuts. They only propose ordinary controller input.
 //! Native animation progress, not mapper poll count, advances each sequence.
-use super::SHORT_HOP_TRIGGER;
+use super::{DPAD_LEFT, DPAD_RIGHT, DPAD_SIDES, SHORT_HOP_TRIGGER};
 use crate::ledge_trap::LedgeOutput;
-use crate::native_input::{MAPPER_B, MAPPER_X, MAPPER_Y};
+use crate::native_input::{MAPPER_B, MAPPER_X};
 
 #[derive(Clone, Copy, Debug)]
 pub struct ShortcutContext {
@@ -48,11 +48,21 @@ impl Shortcuts {
     /// Hide only the grounded X shortcut and its held tail. New airborne X
     /// presses remain physical jumps; L3 is never reserved by this tool.
     pub fn consumed_buttons(&self) -> u32 {
-        if self.hop_quarantined || matches!(self.phase, Some(Phase::Hop | Phase::HopRelease)) {
-            MAPPER_X
+        let hop =
+            if self.hop_quarantined || matches!(self.phase, Some(Phase::Hop | Phase::HopRelease)) {
+                MAPPER_X
+            } else {
+                0
+            };
+        let reverse = if matches!(
+            self.phase,
+            Some(Phase::Neutral | Phase::Special | Phase::Reverse)
+        ) {
+            DPAD_SIDES
         } else {
             0
-        }
+        };
+        hop | reverse
     }
     pub fn sample(
         &mut self,
@@ -114,7 +124,8 @@ impl Shortcuts {
         // Ground movement/landing/shield may briefly disable the jump term.
         // Give those inputs a bounded delivery window, not an unbounded queue.
         if self.phase.is_none() {
-            self.phase = if pressed & MAPPER_Y != 0 && ctx.can_neutral_special {
+            let reverse = pressed & DPAD_SIDES;
+            self.phase = if matches!(reverse, DPAD_LEFT | DPAD_RIGHT) {
                 Some(Phase::Neutral)
             } else if pressed & SHORT_HOP_TRIGGER != 0
                 && ctx.situation == 0
@@ -126,9 +137,15 @@ impl Shortcuts {
             } else {
                 None
             };
-            // Capture opposite facing once. Physical stick input never chooses
-            // or retargets the automatic B-reverse direction.
-            self.direction = -ctx.facing.signum();
+            // D-pad left/right selects the one-frame reverse flick direction.
+            // Holding or changing it later cannot retarget an active sequence.
+            self.direction = if reverse == DPAD_LEFT {
+                -1.0
+            } else if reverse == DPAD_RIGHT {
+                1.0
+            } else {
+                -ctx.facing.signum()
+            };
             self.clock = Some(ctx);
             self.age = 0.0;
         } else {
@@ -191,7 +208,17 @@ impl Shortcuts {
             }
             Some(Phase::Neutral) => {
                 if self.age >= 1.0 {
-                    if self.age > 2.0 || !ctx.can_neutral_special {
+                    // The mapper can observe the fresh D-pad edge one fighter
+                    // observation before native transition readiness refreshes.
+                    // Retain the captured direction briefly instead of losing
+                    // the only edge and requiring manual analog movement.
+                    if !ctx.can_neutral_special {
+                        if self.age > 2.0 {
+                            self.cancel();
+                        }
+                        return self.output;
+                    }
+                    if self.age > 2.0 {
                         self.cancel();
                         return self.output;
                     }
@@ -199,7 +226,11 @@ impl Shortcuts {
                     self.age = 0.0;
                     Self::special_input(MAPPER_B, [0.0, 0.0])
                 } else {
-                    Self::special_input(0, [0.0, 0.0])
+                    // Prime turnaround opposite the chosen final direction;
+                    // neutral B next update, then flick to the selected side.
+                    // This supplies the pre-special stick input as well as
+                    // the post-special reversal, regardless of physical stick.
+                    Self::special_input(0, [-self.direction, 0.0])
                 }
             }
             Some(Phase::Special) => {
@@ -242,6 +273,7 @@ impl Shortcuts {
         // Common movement/attack states or fighter-specific special states.
         // Damage, captures, dodges and scene transitions cannot continue a flick.
         matches!(status, 0..=0x1d | 0x1dc..=0x3ff)
+            && !crate::native_states::sequence_interrupted(status)
     }
     fn special_input(buttons: u32, stick: [f32; 2]) -> LedgeOutput {
         LedgeOutput {
@@ -435,13 +467,14 @@ mod tests {
         assert_eq!(release.owned, MAPPER_X);
         for frame in 2..8 {
             assert_eq!(
-                tool.sample(MAPPER_X, true, Some(ctx(frame as f32))).requested,
+                tool.sample(MAPPER_X, true, Some(ctx(frame as f32)))
+                    .requested,
                 0
             );
         }
     }
     #[test]
-    fn reverse_primes_neutral_then_b_then_opposite_facing_and_releases() {
+    fn dpad_reverse_primes_neutral_then_b_then_direction_and_releases() {
         for facing in [-1.0, 1.0] {
             let mut tool = Shortcuts::default();
             let c = ShortcutContext {
@@ -450,11 +483,12 @@ mod tests {
                 ..ctx(0.0)
             };
             tool.sample(0, true, Some(c));
-            let prime = tool.sample(MAPPER_Y, true, Some(c));
-            assert_eq!(prime.stick, Some([0.0, 0.0]));
+            let trigger = if facing > 0.0 { DPAD_LEFT } else { DPAD_RIGHT };
+            let prime = tool.sample(trigger, true, Some(c));
+            assert_eq!(prime.stick, Some([facing, 0.0]));
             assert_eq!(prime.requested, 0);
             // Repeated polls cannot advance B onto the priming input.
-            assert_eq!(tool.sample(MAPPER_Y, true, Some(c)), prime);
+            assert_eq!(tool.sample(trigger, true, Some(c)), prime);
             let special = tool.sample(0, true, Some(ShortcutContext { frame: 1.0, ..c }));
             assert_eq!(special.requested, MAPPER_B);
             assert_eq!(special.stick, Some([0.0, 0.0]));
@@ -487,54 +521,88 @@ mod tests {
         }
     }
     #[test]
-    fn reverse_direction_stays_opposite_facing_captured_on_y_press() {
-        for facing in [-1.0, 1.0] {
+    fn reverse_direction_is_captured_from_the_pressed_dpad_side() {
+        for (trigger, direction) in [(DPAD_LEFT, -1.0), (DPAD_RIGHT, 1.0)] {
             let mut tool = Shortcuts::default();
-            let c = ShortcutContext { facing, ..ctx(0.0) };
+            let c = ctx(0.0);
             tool.sample(0, true, Some(c));
-            tool.sample(MAPPER_Y, true, Some(c));
+            tool.sample(trigger, true, Some(c));
             let b = tool.sample(
-                MAPPER_Y,
+                DPAD_SIDES,
                 true,
                 Some(ShortcutContext {
-                    facing: -facing,
+                    facing: -c.facing,
                     frame: 1.0,
                     ..c
                 }),
             );
             assert_eq!(b.requested, MAPPER_B);
             let reverse = tool.sample(
-                MAPPER_Y,
+                DPAD_SIDES,
                 true,
                 Some(ShortcutContext {
-                    facing: -facing,
+                    facing: -c.facing,
                     status: 0x1dc,
                     motion: 3,
                     frame: 0.0,
                     ..c
                 }),
             );
-            assert_eq!(reverse.stick, Some([-facing, 0.0]));
+            assert_eq!(reverse.stick, Some([direction, 0.0]));
+            assert_eq!(tool.consumed_buttons(), DPAD_SIDES);
         }
+    }
+    #[test]
+    fn dpad_edge_survives_one_observation_of_delayed_special_readiness() {
+        let mut tool = Shortcuts::default();
+        let waiting = ShortcutContext {
+            can_neutral_special: false,
+            ..ctx(0.0)
+        };
+        tool.sample(0, true, Some(waiting));
+        let prime = tool.sample(DPAD_LEFT, true, Some(waiting));
+        assert_eq!(prime.stick, Some([1.0, 0.0]));
+        assert!(tool.active());
+        let special = tool.sample(
+            DPAD_LEFT,
+            true,
+            Some(ShortcutContext {
+                frame: 1.0,
+                can_neutral_special: true,
+                ..waiting
+            }),
+        );
+        assert_eq!(special.requested, MAPPER_B);
+        let reverse = tool.sample(
+            DPAD_LEFT,
+            true,
+            Some(ShortcutContext {
+                status: 0x1dc,
+                motion: 3,
+                frame: 0.0,
+                ..waiting
+            }),
+        );
+        assert_eq!(reverse.stick, Some([-1.0, 0.0]));
     }
     #[test]
     fn busy_presses_do_not_queue_and_interruption_cancels_pending_b() {
         let mut tool = Shortcuts::default();
         tool.sample(0, true, Some(ctx(0.0)));
         assert_eq!(
-            tool.sample(MAPPER_Y, false, Some(ctx(1.0))),
+            tool.sample(DPAD_LEFT, false, Some(ctx(1.0))),
             LedgeOutput::default()
         );
         assert_eq!(
-            tool.sample(MAPPER_Y, true, Some(ctx(2.0))),
+            tool.sample(DPAD_LEFT, true, Some(ctx(2.0))),
             LedgeOutput::default()
         );
         tool.sample(0, true, Some(ctx(3.0)));
-        tool.sample(MAPPER_Y, true, Some(ctx(4.0)));
+        tool.sample(DPAD_LEFT, true, Some(ctx(4.0)));
         assert!(tool.active());
         assert_eq!(
             tool.sample(
-                MAPPER_Y,
+                DPAD_LEFT,
                 true,
                 Some(ShortcutContext {
                     stopped: true,
@@ -545,7 +613,7 @@ mod tests {
         );
         assert!(!tool.active());
         assert_eq!(
-            tool.sample(MAPPER_Y, true, Some(ctx(5.0))),
+            tool.sample(DPAD_LEFT, true, Some(ctx(5.0))),
             LedgeOutput::default()
         );
     }
@@ -553,9 +621,9 @@ mod tests {
     fn missing_or_skipped_native_frames_never_emit_a_late_reverse() {
         let mut tool = Shortcuts::default();
         tool.sample(0, true, Some(ctx(0.0)));
-        tool.sample(MAPPER_Y, true, Some(ctx(0.0)));
+        tool.sample(DPAD_RIGHT, true, Some(ctx(0.0)));
         assert_eq!(tool.sample(0, true, Some(ctx(4.0))), LedgeOutput::default());
         assert!(!tool.active());
-        assert_eq!(tool.sample(MAPPER_Y, true, None), LedgeOutput::default());
+        assert_eq!(tool.sample(DPAD_RIGHT, true, None), LedgeOutput::default());
     }
 }

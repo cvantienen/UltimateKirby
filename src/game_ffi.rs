@@ -11,6 +11,19 @@
 //! compatible upstream bindings first. A declaration that compiles can still
 //! describe the wrong native ABI. Keep new declarations narrow and read-only.
 use std::ffi::c_void;
+#[inline]
+pub unsafe fn ray_check(
+    object: *mut Object,
+    origin: *const Vector2,
+    delta: *const Vector2,
+    passable: bool,
+) -> u64 {
+    #[cfg(feature = "diagnostic-logging")]
+    crate::performance::ray();
+    #[cfg(feature = "silent-probe")]
+    crate::one_match_probe::event(crate::one_match_probe::Event::Ray);
+    native_ray_check(object, origin, delta, passable)
+}
 // We treat game-owned objects as opaque pointers. Rust must not allocate/free
 // them or assume they remain valid across loading, respawn, or match changes.
 pub type Object = c_void;
@@ -30,6 +43,23 @@ pub struct Vector3 {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+}
+extern "C" {
+    #[link_name = "\u{1}_ZN3app8lua_bind35ControlModule__check_button_on_implEPNS_26BattleObjectModuleAccessorEi"]
+    pub fn button_on(object: *mut Object, button: i32) -> bool;
+    // Read-only terrain contact / animated ECB base accessors; pinned cpp.rs.
+    #[link_name = "\u{1}_ZN3app8lua_bind27GroundModule__is_touch_implEPNS_26BattleObjectModuleAccessorEj"]
+    pub fn ground_touch(object: *mut Object, mask: u32) -> bool;
+    #[link_name = "\u{1}_ZN3app11FighterUtil23is_touch_passive_groundERNS_26BattleObjectModuleAccessorEj"]
+    pub fn passive_ground_touch(object: *mut Object, mask: u32) -> bool;
+    #[link_name = "\u{1}_ZN3app8lua_bind31GroundModule__get_offset_x_implEPNS_26BattleObjectModuleAccessorE"]
+    pub fn ground_offset_x(object: *mut Object) -> f32;
+    #[link_name = "\u{1}_ZN3app8lua_bind31GroundModule__get_offset_y_implEPNS_26BattleObjectModuleAccessorE"]
+    pub fn ground_offset_y(object: *mut Object) -> f32;
+    // Pinned GroundUtility binding and GROUND_DEAD_AREA_CHECK_RESULT enum.
+    // Read-only point classification; no Lua state or module offsets required.
+    #[link_name = "\u{1}_ZN3app13GroundUtility15check_dead_areaERKN3phx8Vector3fE"]
+    pub fn check_dead_area(point: *const Vector3) -> i32;
 }
 // Read-only AttackData prefix from the pinned skyline-smash cpp.rs. Never
 // retain this pointer across native calls; copy only currently active slots.
@@ -56,11 +86,22 @@ pub struct AttackGeometry {
     pub node: u64,
     pub check_type: u16,
     pub situation: u16,
+    // Full AttackData field offsets verified against
+    // https://github.com/WuBoytH/smash-rs/blob/master/src/app/modules/attack.rs
+    // the pinned SDK describes only the geometry prefix above. Read bytes,
+    // not Rust bools, so an unexpected native value cannot cause bool UB.
+    pub capability_padding: [u8; 17],
+    pub reflectable: u8,
+    pub absorbable: u8,
+    pub direct: u8,
 }
 const _: () = {
     assert!(std::mem::offset_of!(AttackGeometry, size) == 0x24);
     assert!(std::mem::offset_of!(AttackGeometry, node) == 0x48);
     assert!(std::mem::offset_of!(AttackGeometry, situation) == 0x52);
+    assert!(std::mem::offset_of!(AttackGeometry, reflectable) == 0x65);
+    assert!(std::mem::offset_of!(AttackGeometry, absorbable) == 0x66);
+    assert!(std::mem::offset_of!(AttackGeometry, direct) == 0x67);
 };
 extern "C" {
     #[link_name = "\u{1}_ZN3app10sv_animcmd6ATTACKEP9lua_State"]
@@ -112,6 +153,8 @@ extern "C" {
     pub fn status_kind(module_accessor: *mut Object) -> i32;
     #[link_name = "\u{1}_ZN3app8lua_bind33StatusModule__situation_kind_implEPNS_26BattleObjectModuleAccessorE"]
     pub fn situation_kind(module_accessor: *mut Object) -> i32;
+    #[link_name = "\u{1}_ZN3app8lua_bind38StatusModule__prev_situation_kind_implEPNS_26BattleObjectModuleAccessorE"]
+    pub fn previous_situation_kind(module_accessor: *mut Object) -> i32;
     #[link_name = "\u{1}_ZN3app8lua_bind24StopModule__is_stop_implEPNS_26BattleObjectModuleAccessorE"]
     pub fn is_stop(module_accessor: *mut Object) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind24WorkModule__is_flag_implEPNS_26BattleObjectModuleAccessorEi"]
@@ -153,6 +196,8 @@ extern "C" {
     // an opponent currently has an active attack slot. Starting an animation
     // alone proves neither a successful hit nor a safely ended get-up attack.
     #[link_name = "\u{1}_ZN3app8lua_bind39AttackModule__is_infliction_status_implEPNS_26BattleObjectModuleAccessorEj"]
+    // Reserved for the unregistered whiff-punish prototype.
+    #[allow(dead_code)]
     pub fn attack_infliction(module_accessor: *mut Object, mask: i32) -> bool;
     // Fresh collision on this update; unlike is_infliction_status, this cannot
     // carry an earlier fair hit forward into a later hitbox interval.
@@ -169,6 +214,7 @@ extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind42WorkModule__is_enable_transition_term_implEPNS_26BattleObjectModuleAccessorEi"]
     pub fn transition_enabled(module_accessor: *mut Object, key: i32) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind35CancelModule__is_enable_cancel_implEPNS_26BattleObjectModuleAccessorE"]
+    #[allow(dead_code)] // Used by the parked offline whiff-observation prototype.
     pub fn cancel_enabled(module_accessor: *mut Object) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind36GroundModule__hang_cliff_pos_3f_implEPNS_26BattleObjectModuleAccessorE"]
     pub fn cliff_position(module_accessor: *mut Object) -> Vector3;
@@ -178,6 +224,8 @@ extern "C" {
     pub fn cancel_frame(module_accessor: *mut Object, motion: u64, alternate: bool) -> f32;
     #[link_name = "\u{1}_ZN3app8lua_bind32WorkModule__get_param_float_implEPNS_26BattleObjectModuleAccessorEmm"]
     pub fn param_float(module_accessor: *mut Object, parent: u64, child: u64) -> f32;
+    #[link_name = "\u{1}_ZN3app8lua_bind30WorkModule__get_param_int_implEPNS_26BattleObjectModuleAccessorEmm"]
+    pub fn param_int(module_accessor: *mut Object, parent: u64, child: u64) -> i32;
     // WorkModule keys and transition-term IDs are version-specific constants
     // supplied by callers. They are not config values or offsets to invent.
     // Motion/position queries feed prediction; the mod never writes velocity.
@@ -192,7 +240,7 @@ extern "C" {
     // ray_check receives an origin and a displacement (the ray's travel),
     // rather than two endpoints. Both Vector2 values must stay alive for the call.
     #[link_name = "\u{1}_ZN3app8lua_bind28GroundModule__ray_check_implEPNS_26BattleObjectModuleAccessorERKN3phx8Vector2fES6_b"]
-    pub fn ray_check(
+    fn native_ray_check(
         module_accessor: *mut Object,
         arg2: *const Vector2,
         arg3: *const Vector2,

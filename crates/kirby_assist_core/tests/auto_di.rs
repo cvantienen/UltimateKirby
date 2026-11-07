@@ -11,14 +11,22 @@ fn context(remaining: u64) -> Context {
     }
 }
 #[test]
-fn adaptive_separates_escape_from_survival_and_respects_forced_modes() {
+fn adaptive_is_survival_focused_and_escape_requires_explicit_selection() {
     let weak = Context {
         launch: [1.0, 1.0],
         ..context(3)
     };
     assert_eq!(
-        choose(Settings::default(), weak).unwrap().reason,
-        Reason::ComboEscape
+        choose(
+            Settings {
+                mode: Mode::Adaptive,
+                ..Settings::default()
+            },
+            weak
+        )
+        .unwrap()
+        .reason,
+        Reason::SideSurvival
     );
     assert_eq!(
         choose(Settings::default(), context(3)).unwrap().reason,
@@ -123,24 +131,22 @@ fn sdi_keeps_early_frames_di_is_stable_at_release_and_normal_control_returns_aft
     assert!(di.decision().is_none());
 }
 #[test]
-fn deliberate_manual_change_yields_for_the_hit_but_pre_hit_stick_is_not_an_override() {
+fn manual_stick_held_before_or_during_hit_wins_until_that_hit_ends() {
     let mut di = AutoDi::default();
-    di.sample(Settings::default(), context(8), [1.0, 0.0]);
+    assert_eq!(di.sample(Settings::default(), context(8), [1.0, 0.0]), None);
+    assert!(di.manual_override());
+    assert_eq!(di.sample(Settings::default(), context(3), [1.0, 0.0]), None);
+    assert_eq!(di.sample(Settings::default(), context(2), [0.0; 2]), None);
+    di.sample(Settings::default(), context(8), [0.0; 2]);
+    assert!(!di.manual_override());
     assert!(di
-        .sample(Settings::default(), context(3), [1.0, 0.0])
+        .sample(Settings::default(), context(3), [0.0; 2])
         .is_some());
     assert_eq!(
         di.sample(Settings::default(), context(2), [-1.0, 0.0]),
         None
     );
     assert!(di.manual_override());
-    assert_eq!(di.sample(Settings::default(), context(1), [0.0; 2]), None);
-    // A fresh hit (increased hitstop) starts a separate decision.
-    di.sample(Settings::default(), context(8), [0.0; 2]);
-    assert!(!di.manual_override());
-    assert!(di
-        .sample(Settings::default(), context(3), [0.0; 2])
-        .is_some());
 }
 #[test]
 fn unknown_malformed_disabled_or_non_victim_inputs_do_not_take_over() {
@@ -189,7 +195,6 @@ fn unknown_malformed_disabled_or_non_victim_inputs_do_not_take_over() {
             damage_stop: false,
             ..context(3)
         },
-        context(0),
         context(121),
     ] {
         assert!(di.sample(Settings::default(), c, [0.0; 2]).is_none());
@@ -231,12 +236,126 @@ fn late_attacker_attribution_can_rearm_the_same_launch_without_extra_game_frames
         outward: 0.0,
         ..context(3)
     };
-    assert!(di.sample(Settings::default(), c, [0.0; 2]).is_none());
     assert!(di
         .sample(
-            Settings::default(),
+            Settings {
+                mode: Mode::Escape,
+                ..Settings::default()
+            },
+            c,
+            [0.0; 2]
+        )
+        .is_none());
+    assert!(di
+        .sample(
+            Settings {
+                mode: Mode::Escape,
+                ..Settings::default()
+            },
             Context { outward: -1.0, ..c },
             [0.0; 2]
         )
         .is_some());
+}
+
+#[test]
+fn survival_and_legacy_adaptive_never_choose_a_modeled_lsi_speed_boost() {
+    for launch in [
+        [1., 0.2],
+        [-1., 0.2],
+        [1., 1.],
+        [-1., 1.],
+        [0.2, 1.],
+        [-0.2, 1.],
+        [1., -1.],
+        [-1., -1.],
+    ] {
+        for scale in [0.5, 1., 2., 4.] {
+            let c = Context {
+                launch: [launch[0] * scale, launch[1] * scale],
+                ..context(3)
+            };
+            let survival = choose(
+                Settings {
+                    mode: Mode::Survival,
+                    ..Default::default()
+                },
+                c,
+            )
+            .unwrap();
+            let adaptive = choose(
+                Settings {
+                    mode: Mode::Adaptive,
+                    ..Default::default()
+                },
+                c,
+            )
+            .unwrap();
+            assert_eq!(
+                adaptive, survival,
+                "legacy adaptive config must not choose aggressive weak-hit DI"
+            );
+            assert_ne!(survival.reason, Reason::ComboEscape);
+            let result = predicted_launch(c.launch, survival.stick);
+            assert!(result[0].hypot(result[1]) <= c.launch[0].hypot(c.launch[1]) + 0.00002);
+            let axis = usize::from(c.launch[1].abs() > c.launch[0].abs());
+            assert!(result[axis].abs() <= c.launch[axis].abs() + 0.00002);
+        }
+    }
+}
+
+#[test]
+fn sdi_never_falls_back_to_outward_input_in_final_di_frames() {
+    use kirby_assist_core::combat_assist::{SdiContext, SdiState};
+    let mut sdi = SdiState::default();
+    let mut di = AutoDi::default();
+    for remaining in [3, 2, 1] {
+        let c = Context {
+            launch: [0.0; 2],
+            ..context(remaining)
+        }; // No usable automatic DI.
+        let sd = sdi.sample(
+            true,
+            SdiContext {
+                object: 1,
+                damage_stop: true,
+                remaining,
+                input_delay: 0.,
+                outward: 1.,
+            },
+            [0.; 2],
+        );
+        let dd = di.sample(Settings::default(), c, [0.; 2]);
+        assert_eq!(
+            dd.or(sd),
+            None,
+            "leave final launch input to the player when DI is unavailable"
+        );
+    }
+}
+
+#[test]
+fn a_partially_held_manual_stick_also_overrides_di_and_sdi() {
+    use kirby_assist_core::combat_assist::{SdiContext, SdiState};
+    let mut di = AutoDi::default();
+    assert_eq!(di.sample(Settings::default(), context(3), [-0.3, 0.]), None);
+    assert!(di.manual_override());
+    let mut sdi = SdiState::default();
+    let c = SdiContext {
+        object: 1,
+        damage_stop: true,
+        remaining: 8,
+        input_delay: 0.,
+        outward: 1.,
+    };
+    assert_eq!(sdi.sample(true, c, [-0.3, 0.]), None);
+    assert_eq!(
+        sdi.sample(true, SdiContext { remaining: 7, ..c }, [0.; 2]),
+        None
+    );
+    assert_eq!(
+        sdi.sample(true, SdiContext { remaining: 10, ..c }, [0.; 2]),
+        Some([1., 0.])
+    );
+    assert_eq!(sdi.sample(true, c, [f32::NAN, 0.]), None);
 }

@@ -7,6 +7,12 @@ The two variants share the same gameplay code. Logging is selected at compile ti
 | Silent (default feature set) | Compiled out | Compiled out, even with `tech_debug = true` | Enabled |
 | Diagnostic | Enabled | Enabled when `tech_debug = true` | Enabled |
 
+Both variants support the same Training-only add/duplicate/rename/delete tools
+and separate ledge, button and assist-rule lists. An explicit Save starts one
+temporary worker immediately in Training. There is no pending-save queue or
+outside-battle wait; another save waits until completion is consumed. Silent
+does not include the diagnostic logger or performance instrumentation.
+
 Silent means this plugin's explicit logger and diagnostic collection are absent. It does **not** hide the loaded NRO or hooks, erase old logs, suppress crashes, or control Skyline/OS/game reporting. It is not a ban-prevention or hardware-indistinguishability guarantee.
 
 Keep the maintained docs aligned with changes. Append a short change summary to
@@ -14,7 +20,51 @@ Keep the maintained docs aligned with changes. Append a short change summary to
 packager reads the accumulated description verbatim; it does not replace it
 with a newly written summary.
 
+## Temporary one-match silent probe
+
+Explicit exception to normal silent logging: build with
+`python3 tools/build_variants.py -v silent --silent-probe`. This only builds and
+packages; upload separately using the usual silent route. The release summary,
+config header and validation manifest identify this temporary build. The uploader
+requires the matching temporary summary when the probe marker is present.
+
+On successful plugin setup, a separate 64KiB-stack worker exclusively creates
+`sd:/ultimate/kirby_assist/silent_probe_once.log`. An existing file prevents
+recording, including after restarting. It never truncates the file. Both creation
+flags are required by the Switch runtime: `create(true)` permits creation and
+`create_new(true)` rejects existing files. Start the
+next match promptly: collection ends at its first observed ready-go-to-ended
+transition, or ten minutes from probe startup. Leave the game open ten seconds
+after the match for the final flush. Retrieve this file over FTP afterward.
+
+Every ten seconds it writes aggregate mapper calls, full evaluations, duplicate
+observation skips, floor rays, menu rebuilds, fighter changes, freshness-expiry
+episodes and sequence clock cancellations, plus pending-save/active-worker
+gauges. One in 64 local observation passes measures average/peak elapsed time;
+these samples include scheduling/preemption and are not system CPU usage, FPS,
+temperature or measured network delay. They cannot prove a memory leak. Counts
+are approximate concurrent interval snapshots; first/final intervals may be
+shorter. The total file is capped at 32KiB. There is no per-frame text formatting,
+console/network output, button history, coordinates or opponent detail.
+
+All instrumentation reuses existing execution points and the existing battle
+flag. It adds no game hooks or native queries and changes no input decisions,
+move timings, physics or hitboxes. The worker and counters add some overhead;
+this is not an undetectability guarantee. SD/thread errors silently stop probing
+without retrying. Normal silent and diagnostic builds exclude this probe.
+
+After collecting the one match, rebuild normally with
+`python3 tools/build_variants.py -v silent` and upload that normal build to remove
+the instrumentation. Keep the log for review. Another explicitly requested test
+would require manually removing the old log first; a normal restart never rearms
+it. No configuration or sequence file is modified by the recorder.
+
 ## Build commands
+
+Before compilation, the builder combines universal `deployment/ultimate/kirby_assist/sequences.txt`
+with every `fighters/<fighter>.txt`, validates it and packages the result as the
+Switch's single `sequences.txt`. It also refreshes `assembled/sequences.txt` for
+host checks. This adds no game-time file processing. See [source layout](SEQUENCE_FILES.md).
 
 If compilation reports E0015 for `LedgeOutput::default()` inside `State::new`,
 the source needs the const-compatible empty struct initializer. The shared
@@ -206,17 +256,25 @@ python3 -m unittest discover -s tools -p 'test_*.py' -v
 3. Replace the existing plugin and config. Both variants install as `libkirby_assist.nro` at the same path. Do not rename them and load both.
 4. Restart Smash. Use Player 1 (`player_index = 0`), select your fighter, and use the [required controller mapping](CONTROLS.md#controller-mapping).
 
-The supplied gameplay settings are identical: held-L ledge autopilot with Kirby-only in-range recovery cover, pressed-Y [Finisher attempts](FINISHERS.md) for Kirby, X short hop, R3 menu toggling, and automatic mash initially enabled and toggled from its Auto-mash row. Auto-duck and its hitbox-reader hook are disabled. R3 toggles the saved-options menu (five ledge rows, Kirby/Yoshi Roll read/Finisher, shared Auto-mash and Kirby posture rows), which also displays mash ON/OFF; hidden D-pad sides slide, Down trumps, Up is normal. Silent uses `tech_debug = false`; diagnostic uses `true`. Logging can affect callback timing/IO overhead even though gameplay policy is shared.
+Both variants support held-L ledge autopilot, fighter-specific X/Y/D-pad sequences
+or Normal button, and battle-only menu pages for ledge traps,
+button configs and mode settings. Normal button keeps X short hop or ordinary
+Y/D-pad input. Hard-coded D-pad B-reverse/Down-trump bindings are removed; Ledge
+trump has an ON/OFF menu row in both builds. Grab dodge is also available in
+both builds and starts ON with the supplied defaults. Both universal defensive
+modes run file-authored responses and have per-fighter saved startup switches. Diagnostic-only tools/logging
+remain excluded from silent. See [current controls](CONTROLS.md). Logging and
+instrumentation can add diagnostic overhead without changing authored input timing.
 
 ## What silent actually excludes
 
 The logger module, background writer thread/queue, explicit console printing, SD log path, startup directory/file creation, queued tech messages, and logging-only counters are guarded by compile-time `cfg` attributes. A disabled log macro also removes its message expression, so diagnostic formatting is not evaluated in the silent build.
 
-The plugin still reads `SD:/ultimate/kirby_assist/config.txt`, loads through Skyline, scans the executable, installs its hooks, and changes raw button states plus the left stick during the held turbo control. Normal native calls and runtime failure paths still exist. Do not interpret an absent diagnostic string as proof that a module or gameplay change cannot be observed.
+The plugin still reads the master `SD:/ultimate/kirby_assist/sequences.txt` (or legacy `config.txt` fallback), loads through Skyline, scans the executable, installs its hooks, and changes raw button states plus the left stick during the held turbo control. Normal native calls and runtime failure paths still exist. Do not interpret an absent diagnostic string as proof that a module or gameplay change cannot be observed.
 
-Silent does not delete/truncate a previous `status.log`; an old file may therefore remain unchanged after switching variants. If config is invalid, the mod is disabled, or the executable signature is unsupported, the silent build returns without giving a diagnostic. Switch to the diagnostic build to investigate.
+Silent does not delete/truncate previous `status.log` or `performance.log` files; an old file may therefore remain unchanged after switching variants. If config is invalid, the mod is disabled, or the executable signature is unsupported, the silent build returns without giving a diagnostic. Switch to the diagnostic build to investigate.
 
-Diagnostic writes to console and `SD:/ultimate/kirby_assist/status.log`. Its first line identifies `Kirby Assist diagnostic build <version>`. `tech_debug = false` disables detailed tech messages but leaves basic/startup logging enabled.
+Diagnostic writes to console, with ordinary evidence in `SD:/ultimate/kirby_assist/status.log` and enabled Perf timing/health reports in `SD:/ultimate/kirby_assist/performance.log`. Both files reset at plugin startup. Its first line identifies `Kirby Assist diagnostic build <version>`. `tech_debug = false` disables detailed tech messages but leaves basic/startup logging enabled.
 
 ## Diagnostic performance
 
@@ -298,7 +356,7 @@ Both release variants include `imgui-menu`, sharing a matching imgui-smash host 
 
 Diagnostic builds provide a [frozen result card](CALIBRATION_CARD.md) for all
 five ledge response lists. The compact card appears beside the menu after an
-attempt ends; R3 hides/shows both. It records available configured timing,
+attempt ends; Minus hides/shows both. It records available configured timing,
 request/mapping/startup evidence, root spacing and waiting gates. Full detail
 is written to `status.log`. Missing metadata stays unknown; configured frames
 are not measured hitboxes. Silent builds exclude this feature.

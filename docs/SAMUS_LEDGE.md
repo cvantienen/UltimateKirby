@@ -1,5 +1,16 @@
 # Samus ledge responses
 
+Current Samus and Dark Samus [chart-based files](FIGHTER_EXECUTION.md#chart-based-roster-configurations)
+select down tilt for normal getup, Nair for jump, a prepositioned range-checked
+grab for roll, shield into Up-B for getup attack, and shield for drop. Missiles
+and Zairs remain spacing alternatives requiring calibration. Shield Zair uses
+a neutral hop and an instant airborne check before R; it does not become a
+ground grab if takeoff fails. The historical forecasts below are not active
+text-file scheduling.
+
+> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+
+
 These are compiled Samus functions, selected through the existing battle menu.
 Hold L to use the saved responses. No fighter files load during the match.
 

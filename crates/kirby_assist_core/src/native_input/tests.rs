@@ -2,6 +2,42 @@
 use super::*;
 
 #[test]
+fn brother_layout_translates_actions_without_turning_grab_or_special_into_triggers() {
+    use crate::manual_controls::TURBO_TRIGGER;
+    let layout = ControlLayout::Brother;
+    assert_eq!(layout.policy_buttons(MAPPER_A), MAPPER_A); // physical A = Attack
+    assert_eq!(layout.policy_buttons(MAPPER_X), MAPPER_R); // physical X = Grab
+    assert_eq!(layout.policy_buttons(MAPPER_L), MAPPER_B); // physical L = Special
+    assert_eq!(layout.policy_buttons(MAPPER_ZL), MAPPER_ZR); // physical ZL = Shield
+    assert_eq!(layout.policy_buttons(MAPPER_R), 0); // native Jump, not X shortcut
+    assert_eq!(layout.policy_buttons(MAPPER_ZR), 0); // native Jump, not X shortcut
+    assert_eq!(layout.policy_buttons(TURBO_TRIGGER), MAPPER_L); // L3 = ledge assist
+    assert_eq!(layout.physical_buttons(MAPPER_R), MAPPER_X);
+    assert_eq!(layout.physical_buttons(MAPPER_B), MAPPER_L);
+    assert_eq!(layout.physical_buttons(MAPPER_ZR), MAPPER_ZL);
+    assert_eq!(
+        layout.physical_buttons(MAPPER_X | MAPPER_ZL),
+        MAPPER_R | MAPPER_ZR
+    );
+    assert_eq!(layout.physical_buttons(MAPPER_L), TURBO_TRIGGER);
+    assert_eq!(layout.physical_buttons(MAPPER_A), MAPPER_A);
+    assert_eq!(
+        layout.physical_buttons(crate::move_input::SHORT_HOP_ATTACK),
+        MAPPER_R | MAPPER_A,
+        "Brother short-hop Nair must remain Jump+neutral Attack"
+    );
+    let directions_and_menu = 0xf | MAPPER_PLUS | MAPPER_MINUS | MAPPER_Y;
+    assert_eq!(
+        layout.policy_buttons(directions_and_menu),
+        directions_and_menu
+    );
+    assert_eq!(
+        layout.physical_buttons(directions_and_menu),
+        directions_and_menu
+    );
+}
+
+#[test]
 fn player_one_follows_its_physical_controller_across_mapper_slots() {
     for mapper in 0..8 {
         assert_eq!(selected_controller_mapper(0, 0, mapper), Some(mapper));
@@ -123,4 +159,33 @@ fn cstick_flick_has_a_fresh_direction_edge_and_clean_release() {
         assert_eq!(jump.released & RIGHT_STICK_DIRECTIONS, direction);
         assert_eq!(jump.pressed & (MAPPER_X | MAPPER_ZL), MAPPER_X | MAPPER_ZL);
     }
+}
+
+#[test]
+fn mapped_a_hold_survives_filtered_frames_without_touching_other_buttons() {
+    let unrelated = 0x2 | 0x4 | 0x8 | 0x1000;
+    let mut previous = 0;
+    let mut press_edges = 0;
+    for frame in 0..=60 {
+        let requested = frame < 60;
+        // Model a mapper that reports the trigger only on the first poll.
+        let native = unrelated | if frame == 0 { 0x201 } else { 0 };
+        let mapped = mapped_attack_hold(native, requested);
+        assert_eq!(mapped & 0x201, if requested { 0x201 } else { 0 });
+        assert_eq!(mapped & !0x201, unrelated);
+        if mapped & 1 != 0 && previous & 1 == 0 { press_edges += 1; }
+        previous = mapped;
+    }
+    assert_eq!(press_edges, 1);
+    assert_eq!(mapped_attack_hold(0xffff, false), 0xffff);
+}
+
+#[test]
+fn full_gameplay_ownership_covers_unused_raw_buttons_in_both_layouts() {
+    for layout in [ControlLayout::Default,ControlLayout::Brother] {
+        let owned=layout.physical_owned_buttons(GAMEPLAY_BUTTONS);
+        assert_eq!(owned & GAMEPLAY_BUTTONS,GAMEPLAY_BUTTONS);
+        assert_eq!(owned & (MAPPER_MENU | crate::manual_controls::LEFT_STICK_DIRECTIONS),0);
+    }
+    assert_eq!(ControlLayout::Brother.physical_owned_buttons(MAPPER_ZR),MAPPER_ZL);
 }

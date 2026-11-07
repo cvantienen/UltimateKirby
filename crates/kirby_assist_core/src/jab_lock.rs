@@ -37,6 +37,12 @@ pub struct Target {
     /// Native last-attacker entry plus current damage state matches this owner.
     pub hit_by_us: bool,
 }
+pub const CHASE_HEIGHT: f32 = 24.0;
+/// Observed states that can lead to, or already describe, a tech/get-up visit.
+/// Ordinary damage flinches do not independently authorize an automatic chase.
+pub fn tech_chase_status(status: i32) -> bool {
+    matches!(status,0x49..=0x54 | 0x57..=0x5a | 0x67..=0x68)
+}
 pub fn jab_lockable(t: Target) -> bool {
     matches!(t.status, 0x50..=0x54)
         && t.grounded
@@ -66,6 +72,7 @@ pub struct Context {
 #[derive(Default)]
 pub struct JabLock {
     target: Option<u32>,
+    spent_target: Option<u32>,
     last: Option<Context>,
     output: LedgeOutput,
     request: LedgeOutput,
@@ -92,7 +99,10 @@ impl JabLock {
         c: Context,
         targets: [Option<Target>; 8],
     ) -> LedgeOutput {
-        let Some(cfg) = config(c.kind).filter(|_| enabled) else {
+        self.sample_configured(enabled,c,targets,config(c.kind),CHASE_HEIGHT)
+    }
+    pub fn sample_configured(&mut self,enabled:bool,c:Context,targets:[Option<Target>;8],cfg:Option<Config>,height:f32)->LedgeOutput {
+        let Some(cfg) = cfg.filter(|_| enabled) else {
             *self = Self::default();
             return LedgeOutput::default();
         };
@@ -128,26 +138,57 @@ impl JabLock {
         }
         self.previous_tilt_frame = c.frame;
         self.last = Some(c);
+        if self
+            .spent_target
+            .is_some_and(|id| !targets.iter().flatten().any(|t| t.id == id))
+        {
+            self.spent_target = None;
+        }
+        if matches!(c.status,0x47..=0x6b | 0x37..=0x3f) {
+            self.cancel_pending();
+            return self.output;
+        }
         if self.target.is_none() {
-            if c.status == 0x2c
+            let tilt_hit = c.status == 0x2c
                 && c.motion == motion_hash("attack_lw3")
                 && c.hit
-                && self.spent_tilt != Some((c.object, c.motion))
-            {
-                // Only arm on a real damaging down tilt with an attributed victim.
-                let mut victims = targets
-                    .iter()
-                    .flatten()
-                    .filter(|t| t.hit_by_us && valid(**t, c, cfg));
-                // A global HIT flag cannot identify a victim when several
-                // enemies are already in attributed damage. Skip ambiguity.
-                let victim = victims.next().filter(|_| victims.next().is_none());
-                if let Some(t) = victim {
-                    self.target = Some(t.id);
-                    self.age = 0.0;
-                    self.phase = 0;
-                    self.confirmed_lock = false;
-                    self.lock_count = t.lock_count;
+                && self.spent_tilt != Some((c.object, c.motion));
+            let mut hit_victims = targets
+                .iter()
+                .flatten()
+                .filter(|t| t.hit_by_us && valid(**t, c, cfg,height));
+            let direct = if tilt_hit {
+                hit_victims.next().filter(|_| hit_victims.next().is_none())
+            } else {
+                None
+            };
+            // Direct hit attribution retains priority. Otherwise acquire the
+            // nearest real tech/knockdown state, independent of our last move.
+            let victim = direct
+                .filter(|t| self.spent_target != Some(t.id))
+                .or_else(|| {
+                    targets
+                        .iter()
+                        .flatten()
+                        .filter(|t| {
+                            tech_chase_status(t.status)
+                                && self.spent_target != Some(t.id)
+                                && valid(**t, c, cfg,height)
+                        })
+                        .min_by(|a, b| {
+                            let score = |t: &Target| (t.position[0] - c.position[0]).abs();
+                            score(a).total_cmp(&score(b))
+                        })
+                });
+            if let Some(t) = victim {
+                self.target = Some(t.id);
+                self.spent_target = Some(t.id);
+                self.age = 0.0;
+                self.phase = 0;
+                self.request_age = 0.0;
+                self.confirmed_lock = t.status == 0x5a && t.hit_by_us && t.lock_count > 0;
+                self.lock_count = t.lock_count;
+                if tilt_hit {
                     self.spent_tilt = Some((c.object, c.motion));
                 }
             }
@@ -160,13 +201,19 @@ impl JabLock {
         let Some(t) = targets
             .into_iter()
             .flatten()
-            .find(|t| t.id == id && valid(*t, c, cfg))
+            .find(|t| t.id == id && valid(*t, c, cfg,height))
         else {
             self.cancel_pending();
             return self.output;
         };
-        if self.age > 120.0 || !c.grounded || matches!(c.status,0x47..=0x6b | 0x37..=0x3f) {
+        if self.age > 120.0 {
             self.cancel_pending();
+            return self.output;
+        }
+        // A late aerial can create the visit before Yoshi lands. Keep the ID,
+        // but never steer, jab or grab from the air on this ground-chase policy.
+        if !c.grounded {
+            self.output = LedgeOutput::default();
             return self.output;
         }
         if self.phase == 3 && matches!(c.status,0x30..=0x32 | 0x37..=0x3f) {
@@ -286,7 +333,12 @@ impl JabLock {
                 dx
             };
             let approach = if projected.abs() > cfg.jab_reach * 0.65 || !facing {
-                projected.signum() * 0.65
+                let strength = if projected.abs() > cfg.grab_reach.max(cfg.smash_reach) + 12.0 {
+                    1.0
+                } else {
+                    0.65
+                };
+                projected.signum() * strength
             } else {
                 0.0
             };
@@ -302,11 +354,11 @@ impl JabLock {
         self.output
     }
 }
-fn valid(t: Target, c: Context, cfg: Config) -> bool {
+fn valid(t: Target, c: Context, cfg: Config,height:f32) -> bool {
     t.position.iter().all(|v| v.is_finite())
         && t.velocity_x.is_finite()
         && t.frame.is_finite()
         && (t.position[0] - c.position[0]).abs() <= cfg.chase_distance
-        && (t.position[1] - c.position[1]).abs() <= 24.0
+        && (t.position[1] - c.position[1]).abs() <= height
         && matches!(t.status,0x47..=0x4f | 0x50..=0x54 | 0x57..=0x5b | 0x67..=0x68)
 }

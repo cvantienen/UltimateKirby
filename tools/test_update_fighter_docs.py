@@ -1,41 +1,66 @@
-"""Documentation-source extraction checks; no Rust compilation or networking."""
+"""File-catalog documentation checks; no mod builds or networking."""
+import configparser
+from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 import update_fighter_docs as docs
+
+AUTO_EVENTS = (
+    "auto_roll", "auto_spot_dodge", "auto_air_dodge", "auto_grab",
+    "auto_shield_grab", "auto_grab_dodged", "auto_shield_backup",
+)
 
 
 class FighterDocsTests(unittest.TestCase):
-    def test_split_preserves_nested_choices_and_commas_inside_labels(self):
-        self.assertEqual(
-            docs.split_top('SavedChoice::new("a", "A, B", f, g), BASE.lists[0]'),
-            ['SavedChoice::new("a", "A, B", f, g)', 'BASE.lists[0]'],
-        )
+    def test_source_strips_comments_without_changing_strings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "profile.rs"
+            path.write_text('name: "A, B", url: "https://example.test", // removed\n')
+            self.assertEqual(docs.source(path), 'name: "A, B", url: "https://example.test", \n')
 
     def test_hex_identity_is_not_truncated_to_mario(self):
         for module, kind in [("sonic", 0x29), ("isabelle", 0x46), ("krool", 0x45)]:
             self.assertEqual(docs.render(module)[1], kind)
 
-    def test_shared_menu_alias_and_overridden_default(self):
-        self.assertEqual(docs.evaluate("samus", "MENU"), docs.evaluate("dark_samus", "MENU"))
-        roll = docs.evaluate("samus", "MENU")[2]
-        self.assertEqual(roll["options"][roll["selected"]]["id"], "grab")
+    def test_all_seven_short_auto_tokens_and_legacy_priorities_are_documented(self):
+        catalog = configparser.RawConfigParser()
+        for event in AUTO_EVENTS:
+            catalog[f"bowser.roll.{event}"] = {"reaction": f"{event}:35:24", "name": event}
+        catalog["bowser.attack.legacy"] = {"reaction": "shield_hit:grounded:0:22:12:front:3"}
+        with patch.object(docs, "sequence_catalog", return_value=catalog):
+            rules = docs.file_assists("bowser")
+        self.assertEqual({r[0] for r in rules}, set(AUTO_EVENTS) | {"shield_hit"})
+        self.assertTrue(all(priority == 1 for event, priority, *_ in rules if event in AUTO_EVENTS))
+        self.assertEqual(next(r[1] for r in rules if r[0] == "shield_hit"), 3)
 
-    def test_choice_struct_update_retains_id_and_handler(self):
-        choice = docs.evaluate("littlemac", 'SavedChoice { name: "Tiny", ..BASE.lists[0].options[0] }')
-        base = docs.evaluate("littlemac", "BASE.lists[0].options[0]")
-        self.assertEqual(choice["name"], "Tiny")
-        self.assertEqual(choice["id"], base["id"])
-        self.assertEqual(choice["handler"], base["handler"])
+    def test_auto_sequences_never_become_manual_choices_or_ledge_defaults(self):
+        catalog = configparser.RawConfigParser()
+        for row in docs.ROWS:
+            catalog[f"bowser.{row.lower()}.manual"] = {
+                "start_delay": "0", "actions": "input:a:0:0:1", "default": "true",
+            }
+        for event in AUTO_EVENTS:
+            catalog[f"bowser.roll.{event}"] = {
+                "reaction": f"{event}:35:24", "start_delay": "0",
+                "actions": "input:r:0:0:4", "default": "true",
+            }
+        with patch.object(docs, "sequence_catalog", return_value=catalog):
+            menu = docs.file_menu("bowser")
+        for row in menu:
+            self.assertEqual([choice["id"] for choice in row["options"]], ["manual"])
+            self.assertEqual(row["selected"], 0)
 
     def test_all_registered_profiles_have_five_valid_lists_and_current_pages(self):
         pages = docs.outputs()
-        self.assertEqual(len(pages) - 1, 77)
+        self.assertEqual(len(pages) - 1, 79)
         for path, text in pages.items():
             self.assertEqual(path.read_text(), text, str(path))
         self.assertIn("## Kirby-specific timing and inputs", pages[docs.ROOT / "docs/fighters/kirby.md"])
 
-    def test_unknown_static_expression_is_rejected(self):
+    def test_missing_numeric_reference_is_rejected(self):
         with self.assertRaises(ValueError):
-            docs.evaluate("kirby", "unknown_runtime_builder()")
+            docs.number("unknown_runtime_builder()", "standing_range")
 
 
 if __name__ == "__main__":

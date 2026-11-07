@@ -22,6 +22,29 @@ fn context(tilt: i32, target: i32, previous: i32) -> TripContext {
     }
 }
 #[test]
+fn target_changes_on_the_same_native_frame_cannot_spend_trip_release_or_press() {
+    let c = context(0x2c, 0x88, 0x86);
+    let mut tool = TripFollowup::default();
+    let prime = tool.sample(true, c);
+    let changed_target = TripContext {
+        targets: [None; 8],
+        ..c
+    };
+    assert_eq!(tool.sample(true, changed_target), prime);
+    let press = tool.sample(true, TripContext { frame: 11.0, ..c });
+    assert_eq!(press.requested, MAPPER_A);
+    assert_eq!(
+        tool.sample(
+            true,
+            TripContext {
+                frame: 11.0,
+                ..changed_target
+            }
+        ),
+        press
+    );
+}
+#[test]
 fn down_tilt_recognizes_trip_rehit_damage_and_buffers_forward_smash() {
     for (status, previous) in [
         (0x86, 0),

@@ -9,10 +9,14 @@
 //! names several buttons at once; `owned` includes intentional releases.
 use crate::native_input::{ButtonTrace, MapperButtonOverlay};
 
+mod jump_fence;
+pub use jump_fence::ManualJumpFence;
+mod assist_handoff;
+pub use assist_handoff::AssistGuardHandoff;
 mod shortcuts;
 pub use shortcuts::{ShortcutContext, Shortcuts};
-pub const TURBO_TRIGGER: u32 = 1 << 16; // Left-stick click (L3), without L.
-pub const SHORT_HOP_TRIGGER: u32 = crate::native_input::MAPPER_X; // Physical X.
+pub const TURBO_TRIGGER: u32 = 1 << 16; // Canonical turbo role; physical source comes from button bindings.
+pub const SHORT_HOP_TRIGGER: u32 = crate::native_input::MAPPER_X; // Canonical short-hop role; physical source is remappable.
 pub const DPAD_UP: u32 = 1;
 pub const DPAD_RIGHT: u32 = 1 << 1;
 pub const DPAD_LEFT: u32 = 1 << 3;
@@ -52,6 +56,25 @@ pub fn ledge_walk_stick(physical: [f32; 2], maximum: f32) -> [f32; 2] {
         0.0
     };
     [x, y]
+}
+
+/// Release only outward manual walking input at a known ledge gap.
+/// This uses copied motion, not geometry searches or native position writes.
+pub fn stop_walk_at_ledge(
+    mut stick: [f32; 2], position: [f32; 2], velocity: [f32; 2],
+    spot: crate::ledge_position::LedgeSpot, stand_distance: f32,
+) -> [f32; 2] {
+    if !position.iter().chain(velocity.iter()).chain(spot.edge.iter()).all(|v| v.is_finite())
+        || !spot.inward.is_finite() || spot.inward.abs() != 1.0
+        || !stand_distance.is_finite() || stand_distance < 1.0
+        || (position[1] - spot.edge[1]).abs() > 6.0
+        || !stick[0].is_finite() || stick[0] * spot.inward >= 0.0 {
+        return stick;
+    }
+    let clearance = (position[0] - spot.edge[0]) * spot.inward;
+    let closing_speed = (-velocity[0] * spot.inward).max(0.0);
+    if clearance - closing_speed * 3.0 <= stand_distance + 0.1 { stick[0] = 0.0; }
+    stick
 }
 
 /// A diagonal press can include Up even when the intended trigger is Left/Right.
@@ -122,6 +145,10 @@ pub struct DashPivotAssist {
     last_output: TurboOutput,
 }
 impl DashPivotAssist {
+    /// A higher-priority tool must not leave movement queued for handback.
+    pub fn cancel_pending(&mut self) {
+        *self = Self::default();
+    }
     pub fn sample(
         &mut self,
         tick: i64,
@@ -130,12 +157,35 @@ impl DashPivotAssist {
         stopped: bool,
         physical_stick: [f32; 2],
     ) -> TurboOutput {
-        if self.last_tick == Some(tick) {
-            return self.last_output;
-        }
-        if situation != 0 || stopped || !physical_stick[0].is_finite() {
+        // Revalidate before the duplicate cache: landing/stop/damage and fresh
+        // physical vertical input can change between mapper polls online.
+        if situation != 0
+            || stopped
+            || !(0..=8).contains(&status)
+            || !physical_stick.iter().all(|v| v.is_finite())
+            || physical_stick[1].abs() > 0.3
+            || physical_stick[0].abs() < 0.1
+        {
             *self = Self::default();
             return TurboOutput::default();
+        }
+        if self
+            .last_tick
+            .is_some_and(|last| tick < last || tick.saturating_sub(last) > 1)
+        {
+            *self = Self::default();
+        }
+        if self.last_tick == Some(tick) {
+            // A duplicate native tick can still contain newer physical input
+            // online. Never replay an old reversal or walk cap against it.
+            if self.last_output.stick.is_some_and(|stick|
+                stick[0]*physical_stick[0]<0.
+                || (stick[0].abs()>=0.8)!=(physical_stick[0].abs()>=0.8)
+                || stick[0].abs()>=0.8 && !(3..=8).contains(&status)) {
+                self.cancel_pending();
+                return TurboOutput::default();
+            }
+            return self.last_output;
         }
         let x = physical_stick[0];
         let direction = if x >= 0.8 {
@@ -148,6 +198,10 @@ impl DashPivotAssist {
         // Native common statuses 3..=8 cover dash/turn-dash/run/brake/turn-run.
         // Do not reshape ordinary walking, crouching, attacks, or aerial input.
         let movement_status = (3..=8).contains(&status);
+        if !movement_status || direction==0 {
+            self.updates_left=0;
+            self.active_direction=0;
+        }
         if movement_status
             && direction != 0
             && self.last_direction != 0
@@ -213,6 +267,9 @@ impl TurboState {
     /// per phase. The gentle facing-direction walk is intentional: neutral-only
     /// release lets the ordinary crouch recovery play instead of this turbo.
     /// The legacy phase setting does not slow this dedicated turbo binding.
+    /// `tick` identifies a selected local INPUT UPDATE, not a fighter animation
+    /// or a crouch acknowledgment. Online delay postpones observed poses; using
+    /// them here stretches every phase by that delay. Repeated IDs reuse output.
     pub fn sample_teabag(
         &mut self,
         settings: TurboSettings,
@@ -347,8 +404,13 @@ pub struct ManualFrame {
 pub struct ManualOverlay {
     buttons: MapperButtonOverlay,
     had_stick_override: bool,
+    reaction_owned: bool,
 }
 impl ManualOverlay {
+    /// Native Guard can have been removed after raw mapping by an earlier mode.
+    /// A scheduler-confirmed new tech edge must not inherit that raw held bit.
+    pub fn rearm_tech_guard(&mut self,mask:u32,human:ButtonTrace) {self.buttons.rearm_requested(mask,human.previous);}
+
     pub fn apply(
         &mut self,
         human: ButtonTrace,
@@ -369,6 +431,17 @@ impl ManualOverlay {
         requested_buttons: u32,
         owned_buttons: u32,
     ) -> ManualFrame {
+        self.apply_reaction_controls(human,physical_stick,output,extra_consumed,
+            requested_buttons,owned_buttons,false)
+    }
+    /// Only Auto react opts into a fresh first horizontal flick. Automatic
+    /// grabs, ledge tapes, native safety and other helpers keep their history.
+    pub fn apply_reaction_controls(
+        &mut self,human:ButtonTrace,physical_stick:[f32;2],output:TurboOutput,
+        extra_consumed:u32,requested_buttons:u32,owned_buttons:u32,reaction_owned:bool,
+    )->ManualFrame {
+        let entering_reaction=reaction_owned&&!self.reaction_owned;
+        self.reaction_owned=reaction_owned;
         if !output.consume_dpad
             && output.stick.is_none()
             && extra_consumed == 0
@@ -392,7 +465,9 @@ impl ManualOverlay {
         }
         // The physical trigger was read before this call. Remove the D-pad
         // from all four words, including its history, so no taunt edge leaks.
-        let consumed = extra_consumed | if output.consume_dpad { DPAD_SIDES } else { 0 };
+        let consumed = crate::native_input::physical_button_aliases(
+            extra_consumed | if output.consume_dpad { DPAD_SIDES } else { 0 });
+        let owned_buttons = crate::native_input::physical_button_aliases(owned_buttons);
         let human = ButtonTrace {
             held: human.held & !consumed,
             previous: human.previous & !consumed,
@@ -429,13 +504,16 @@ impl ManualOverlay {
                 0
             };
         self.had_stick_override = output.stick.is_some();
+        if entering_reaction && output.stick.is_some_and(|s|s[0].abs()>=0.95&&s[1].abs()<=0.3) {
+            self.buttons.rearm_requested(requested & ((1<<21)|(1<<23)),human.previous);
+        }
         ManualFrame {
-            // X can be both a physical shortcut trigger and a synthetic jump.
-            // The human trace was filtered above; preserve the explicit macro's
-            // X press/release history rather than deleting its generated input.
+            // Menu controls can share buttons with a configured recipe. Physical
+            // menu presses were filtered above; retain explicitly owned macro
+            // press/release history rather than erasing the generated input.
             buttons: remove_consumed(
                 self.buttons.apply_raw(human, requested, owned),
-                consumed & !(owned_buttons & crate::native_input::MAPPER_X),
+                consumed & !owned_buttons,
             ),
             stick: output.stick.unwrap_or(physical_stick),
             clear_autorepeat,
@@ -460,6 +538,13 @@ fn remove_consumed(trace: ButtonTrace, mask: u32) -> ButtonTrace {
 // These masks belong to the mapped ACTION format, not raw D-pad bit positions.
 // A new trigger must handle both raw consumption and this final mapped filter
 // if native taunt repeat/history can survive the raw overlay.
+/// Physical bindings reserve taunts, but an explicit owned sequence request
+/// must retain its ordinary D-pad meaning. Side-taunt filtering is a pair.
+pub fn sequence_taunt_reservation(consumed:u32,requested:u32,owned:u32)->u32 {
+    let intentional=requested & owned & 0xf;
+    let sides=if intentional & DPAD_SIDES != 0 {DPAD_SIDES}else{0};
+    consumed & !(intentional | sides)
+}
 pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
     let sides = if consumed & DPAD_SIDES != 0 {
         0x6000
@@ -477,3 +562,56 @@ pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
 
 #[cfg(test)]
 mod tests;
+
+/// Constant-size physical-input history for explicit sequence handback.
+#[derive(Clone, Copy, Default)]
+pub struct ManualTakeover { previous: Option<(u32, [f32; 4])>, epoch: u64, action_epoch:u64 }
+impl ManualTakeover {
+    pub const fn new() -> Self { Self { previous: None, epoch: 0, action_epoch:0 } }
+    pub fn epoch(&self) -> u64 { self.epoch }
+    pub fn stick(&self) -> [f32; 2] { self.previous.map_or([0.; 2], |(_, axes)| [axes[0], axes[1]]) }
+    /// Physical gameplay-button/C-stick edges, separate from movement intent.
+    /// Committed automation reads the owner's frozen policy snapshot.
+    pub fn action_epoch(&self)->u64 {self.action_epoch}
+    pub fn shield_held(&self)->bool{self.previous.is_some_and(|(buttons,_)|buttons&crate::native_input::MAPPER_ZR!=0)}
+    /// Native WAIT can lag a fresh run input. Stationary assists must inspect
+    /// the physical stick too; an existing shield still permits OOS actions.
+    pub fn stationary_assist(&self,status:i32)->bool {
+        use crate::native_input::*;
+        self.previous.is_some_and(|(buttons,axes)| {
+            if !axes.iter().all(|v|v.is_finite())
+                || buttons & (MAPPER_A|MAPPER_B|MAPPER_R)!=0
+                || axes[2].abs()>0.2 || axes[3].abs()>0.2 {return false;}
+            let cap=if matches!(status,0x1b|0x1c) && buttons&MAPPER_ZR!=0 {0.7}else{0.2};
+            axes[0].abs()<=cap && axes[1].abs()<=cap
+        })
+    }
+    /// Grounded offense may use a held horizontal walk/run input. Native or
+    /// freshly pressed shield keeps the stricter tilt/roll gate; manual attacks,
+    /// C-stick, and strong vertical jump/drop intent keep player priority.
+    pub fn grounded_grab_assist(&self,status:i32)->bool {
+        use crate::native_input::*;
+        self.previous.is_some_and(|(buttons,axes)| {
+            if buttons&MAPPER_ZR!=0 || matches!(status,0x1b..=0x1e) {
+                return self.stationary_assist(status);
+            }
+            axes.iter().all(|v|v.is_finite()) && axes[1].abs()<=0.7
+                && axes[2].abs()<=0.2 && axes[3].abs()<=0.2
+                && buttons&(MAPPER_A|MAPPER_B|MAPPER_R)==0
+        })
+    }
+    pub fn sample(&mut self, buttons: u32, sticks: [f32; 4]) {
+        use crate::native_input::*;
+        let mask = MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_Y | MAPPER_R | MAPPER_ZR | MAPPER_ZL;
+        if let Some((old_buttons, old)) = self.previous {
+            let pressed = buttons & !old_buttons & mask != 0;
+            let moved = sticks.iter().zip(old).any(|(new, old)| new.is_finite() && old.is_finite()
+                && ((new.abs() > 0.25) != (old.abs() > 0.25) || (*new - old).abs() > 0.2));
+            if pressed || moved { self.epoch = self.epoch.wrapping_add(1); }
+            let cstick_moved=sticks[2..].iter().zip(&old[2..]).any(|(new,old)|new.is_finite() && old.is_finite()
+                && ((new.abs()>0.25)!=(old.abs()>0.25) || (*new-*old).abs()>0.2));
+            if pressed || cstick_moved {self.action_epoch=self.action_epoch.wrapping_add(1);}
+        }
+        self.previous = Some((buttons, sticks));
+    }
+}

@@ -21,7 +21,6 @@ pub const LEDGE_DATA: LedgeFighterData = LedgeFighterData {
         shield: 19,
         active_frames: 8,
     },
-    normal_hit_lead_frames: 3,
     common_roll_distance: 25.0,
 };
 
@@ -35,12 +34,10 @@ pub const FORWARD_SMASH: MoveFrames = MoveFrames {
 // Projectile generation/collision startup is not its arrival time at the ledge.
 pub const HOMING_MISSILE_STARTUP: u8 = 18;
 // Clear side-special selection after mapping without a full smash-stick flick.
-pub const HOMING_MISSILE_STICK: f32 = 0.70;
 pub const SUPER_MISSILE_STARTUP: u8 = 21;
 
 // Zair's two consecutive phases have no inactive gap: 8-15, then 16-19.
 pub const ZAIR_ACTIVE: MoveFrames = MoveFrames { first: 8, last: 19 };
-pub const ZAIR_HIT_LEAD: u8 = 5;
 // Jump squat plus a separate airborne Grab sample (never grounded X+Grab).
 pub const ZAIR_TAKEOFF_FRAMES: u8 = 4;
 // Coverage preset in world units, not an asserted universal hitbox distance.

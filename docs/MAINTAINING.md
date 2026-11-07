@@ -54,7 +54,7 @@ behavior applies to, and distinguish host checks from Switch measurements.
 
 Each registered fighter has a page under `docs/fighters/`, linked from the
 [Fighters overview](FIGHTERS.md). Refresh its generated choices/defaults and
-frame data after changing compiled fighter declarations:
+file menus/schedules and reference data after changing `sequences.txt` or fighter reference declarations:
 
 ```sh
 python3 tools/update_fighter_docs.py
@@ -81,3 +81,16 @@ Source backups include the Markdown, MkDocs config and dependency file, while
 excluding generated HTML and the Python environment. Historical release folders
 and source archives remain snapshots; edit the maintained `docs/` tree for the
 next release.
+
+## Standalone cheat sheets
+
+The Markdown sequence-syntax, editor/action and reaction-rule references are the
+source for their styled searchable HTML copies. After changing a reference, run:
+
+```sh
+.venv-docs/bin/python tools/update_cheatsheets.py
+.venv-docs/bin/python tools/update_cheatsheets.py --check
+```
+
+Then validate navigation and links with `.venv-docs/bin/python -m mkdocs build --strict`.
+Start the local site with `.venv-docs/bin/python -m mkdocs serve`.

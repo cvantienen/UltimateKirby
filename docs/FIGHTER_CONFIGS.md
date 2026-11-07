@@ -1,88 +1,69 @@
-# Compiled fighter ledge responses
+# File-authored fighter ledge options
 
-All fighter moves, response functions and menu lists are compiled Rust code.
-Only shared settings and supported numeric adjustments load from config.txt at
-startup. There is no fighter JSON, combo library, or runtime action interpreter.
+`deployment/ultimate/kirby_assist/sequences.txt` is the sole ledge option catalog.
+It contains all five menus for each configured fighter, their labels/defaults,
+initial input delays, ordered actions and waits. Rust contains no fighter option
+tables or fallback response routines. Removing a section removes that option;
+a missing file leaves the ledge menus empty and ledge assist inactive.
 
-All non-DLC fighter forms now have their own profiles, including echoes,
-Pokémon forms and the three Miis. See [the roster/data audit](NON_DLC_ROSTER.md)
-for defaults, frame windows, movement references and resource exceptions. Other
-valid unconfigured kinds retain the prior Kirby fallback; invalid identities stay inert and globally
-disabled tools stay disabled.
+<a id="recipes-and-variants"></a>
 
-| Source | Role |
-| --- | --- |
-| `fighter_profiles.rs` | Register/validate fighter move data and response lists once |
-| `fighter_profiles/<fighter>.rs` | Register one fighter |
-| `fighter_profiles/<fighter>/timing.rs` | Native startup/active windows |
-| `ledge_trap/fighters/<fighter>.rs` | Named response handlers and static choices |
-| `fighter_profiles/presets.rs` | Saved list/function/preparation types |
-| `fighter_profiles/spacing.rs` | Display-only compact names and qualitative spacing hints |
-| `ledge_menu.rs` | Five independent saved indices and physical navigation |
-| `src/live/ledge_menu.rs` | Cache resolved settings and battle UI revisions |
-| `src/live/ledge_menu/menu.rs` | Draw cached labels only |
-
-## Recipes and variants
-
-The flow is:
-
-```text
-our fighter kind -> compiled fighter catalog
-opponent ledge option -> that fighter’s response list
-selected index -> registered Rust response function
-compiled timings + numeric adjustments + native observations -> ordinary inputs
+```ini
+[kirby.neutral.nair_wait]
+name = NAIR LATE
+start_delay = 0
+default = false
+timeout = 3600
+spatial_timeout = 60
+actions = Short Hop, wait:5, Neutral Air, Drift:Opponent:25%:20
 ```
 
-Kirby’s catalog contains separate functions such as:
+Every section requires `start_delay` (0–3600 native frames): zero means the first
+input starts immediately after recognition. Each bare input lasts one frame;
+`wait:N` inserts N released-input frames exactly where it appears. Durations can
+be authored as `move:N`, `hold:BUTTON:N` or a combined raw `input`. No fighter
+startup/active-window metadata or config.txt timing overrides schedule the inputs.
+The game still decides whether the requested physical input buffers or executes.
+Nothing here edits native move startup, animation speed, physics or hitboxes.
 
-```rust
-respond_to_neutral_getup_nair(...)
-respond_to_neutral_getup_down_tilt(...)
-respond_to_neutral_getup_forward_tilt(...)
-respond_to_neutral_getup_stone(...)
-respond_to_jump_getup_nair(...)
-respond_to_roll_down_smash(...)
-respond_to_getup_attack_grab_rear_nair(...)
-respond_to_getup_attack_grab_rear_shield(...)
-respond_to_ledge_drop_shield(...)
-respond_to_ledge_drop_down_tilt_then_shield(...)
-```
+`default = true` selects the initial choice for that fighter/situation. Use at
+most one default in each row; without it, the first file entry is selected.
+File order is menu order. Existing custom recipes are kept after the migrated
+roster recipes. IDs and defaults are validated before hooks install.
 
-A `SavedChoice` binds an ID/label, response function, and preparation function.
-Preparation resolves the selected action’s native-readiness metadata and timing
-adjustments when the choice changes. The response function owns the action
-sequence. Functions may reuse the same geometry, input, shielding or timing
-helpers without duplicating the whole state machine.
+The supplied roster entries are explicit input templates, not promises of
+identical behavior to the retired conditional engine. In particular, the file
+states the 30-frame down-tilt-to-shield template wait, the 22-unit cross-up walk,
+and every shield/block timeout. Tune these for your intended timing/spacing.
+Native block waiting is explicit as `shield_until_block:FRAMES`; no hidden
+fighter routine runs. `code:ID` entries have been removed.
 
-For example, a future roll dash attack belongs beside Kirby’s roll down-smash
-function, with its own preparation and registration:
+Rust retains shared opponent/ledge recognition, raw controller routing, native
+progress timing, optional spatial/block predicates, interruption handling and
+session reset. `fighter_profiles` contains fighter identities and independent
+reference facts needed by other tools; its move windows do not schedule ledge
+inputs. The old config.txt move choice/timing keys are ignored for compatibility.
 
-```rust
-SavedChoice::new(
-    "dash_attack",
-    "Dash attack",
-    respond_to_roll_dash_attack,
-    prepare_roll_dash_attack,
-)
-```
+Run `python3 tools/upload_sequences.py --dry-run` after edits. The SD path is
+`sd:/ultimate/kirby_assist/sequences.txt`; restart Smash after changing it. This
+migration needs an updated mod build installed before the new file is used.
+See [the complete action vocabulary and timing rules](SEQUENCE_FILES.md).
 
-That is an extension example, **not an implemented choice**. Implement and test
-the native readiness, input, action confirmation and timing first. No string
-in a settings file can point to a new function or bypass that work.
+## Defensive startup settings
 
-## Tuning and extending
+Training **Fighter settings** includes three additional saved input-policy values:
 
-Supported keys in config.txt adjust numeric timing settings on the next game
-start; they cannot add functions or fighters. A new response needs a named Rust
-handler, its readiness/timing preparation, and a SavedChoice registration in the
-appropriate fighter list. A new fighter needs move data, response lists and a
-catalog registration. These source changes require an authorized rebuild.
+| Menu setting | Text key | Meaning |
+| --- | --- | --- |
+| Grab dodge + punish at startup | `grab_dodge_default = true` | Start the mode ON/OFF for this fighter in a fresh match. Falls back to global `auto_spot_dodge`. |
+| Out of shield at startup | `out_of_shield_default = true` | Start OOS ON/OFF for this fighter; default ON. No configured response means no OOS observation work. |
+| Grab dodge forecast frames | `grab_dodge_lookahead = 6` | Contact forecast window, 1–8 frames; default 6. Larger can dodge earlier. |
 
-Old combo_* keys are ignored for compatibility with existing SD config files.
-They cannot start any action. See [controls](LEDGE_MENU.md),
-[the starting cast](STARTING_CAST.md), [Samus variants](SAMUS_LEDGE.md), and
-[Sonic variants](SONIC_LEDGE.md), and [K. Rool/Isabelle variants](KROOL_ISABELLE_LEDGE.md), and
-[Pac-Man/Little Mac variants](PACMAN_MAC_LEDGE.md).
+Store these under `[bowser.settings]`, `[yoshi.settings]`, etc. Save in Training
+with Y and wait for completion. They affect controller policy only. Response
+range/height/side, priority, actions and delays belong to the recipe's Auto reaction
+settings, so different responses can use different ranges. These settings do not
+change native shieldstun, dodge intangibility, movement physics or grab hitboxes.
 
-See [fighter execution and calibration](FIGHTER_EXECUTION.md) for hop policies,
-movement ownership, and what remains unmeasured.
+See [every Fighter Settings option explained in simple terms](FIGHTER_SETTINGS.md),
+including what increasing each value does and how acquire/follow differ.

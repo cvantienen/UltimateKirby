@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Host-test the actual live ownership/cancellation blocks, without Skyline.
-
-Run core integration tests first to produce a host rlib. No Switch build or
-network access is performed. The temporary fixture copies production statements,
-not a second implementation of selection/cancellation.
-"""
+"""Host-compile the production owner selection and cancellation; no Switch build."""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -14,318 +9,225 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def block(source, marker):
     start = source.index(marker)
-    brace = source.index("{", start)
+    brace = source.index('{', start)
     depth, end = 1, brace + 1
     while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
+        depth += (source[end] == '{') - (source[end] == '}')
         end += 1
     return source[start:end]
 
 
 def main():
-    source = (ROOT / "src/live.rs").read_text()
-    cancel = block(source, "fn cancel_non_owner(")
-    jab_lock_initial = block(source, "jab_lock_output: LedgeOutput {").split(": ", 1)[1]
-    jab_grab_initial = block(source, "jab_grab_ready: kirby_assist_core::jab_grab::Readiness {").split(": ", 1)[1]
-    start = source.index("let ledge_committed =")
-    end = source.index("state.cancel_non_owner(winner);", start) + len("state.cancel_non_owner(winner);")
+    source = (ROOT / 'src/live.rs').read_text()
+    cancel = block(source, 'fn cancel_non_owner(')
+    handoff = block(source, 'if spot.target().is_none() {')
+    preempt = block(source, 'let preempt_grab = |state: &mut State| {')
+    phase_change = block(source, 'if shield_fallback_pending && !state.oos.shield_up_b_pending()')
+    start = source.index('let ledge_committed =')
+    end = source.index('state.cancel_non_owner(winner);', start) + len('state.cancel_non_owner(winner);')
     selection = source[start:end]
-    walk_start = source.index("                        let mut manual_walk_stick = None;")
-    walk_end = source.index("                        // A tapped side", walk_start)
-    walk_preparation = source[walk_start:walk_end]
-    roll_start = source.index("        state.roll_read_output = if let Some((tuning, context, targets))")
-    gate_start = source.index("            let allowed =", roll_start)
-    gate_end = source.index("            let reader =", gate_start)
-    roll_gate = source[gate_start:gate_end]
-    slide_start = source.index("            let slide_context = SlideContext {")
-    slide_end = source.index("            let trump_held", slide_start)
-    slide_delivery = source[slide_start:slide_end]
-    spot_start = source.index("        state.spot_output = if let Some((context, targets))")
-    spot_end = source.index('        #[cfg(feature = "diagnostic-logging")]\n        let previous_option_output', spot_start)
-    spot_delivery = source[spot_start:spot_end]
     fixture = r'''
 #![allow(dead_code, unused_variables, unused_assignments)]
 use kirby_assist_core::{
- action_owner::{ActionOwnership, Intent, Owner},
- combat_assist::{TripFollowup, TripContext, TripTarget, FairFollowup, FairContext},
- finisher::{Finisher, Context as FinisherContext}, button_modes::YMode,
- ledge_trap::{LedgeTrap, LedgeOutput}, two_frame::TwoFrame,
- roll_read::{RollRead, Context as RollContext, Target, ESCAPE_F},
- ledge_trump::LedgeTrump, slide::{SlideState, SlideContext},
- manual_controls::{Shortcuts, TurboOutput}, tech_input::TechOutput,
- native_input::{MAPPER_A, MAPPER_ZR},
+ action_owner::{ActionOwnership,Intent,Owner},
+ combat_assist::{TripFollowup,FairFollowup},
+ ledge_trap::{LedgeTrap,LedgeOutput,LedgeContext,SEQUENCE_BUTTONS},
+ fighter_profiles::presets::PresetSlot,
+ manual_controls::{Shortcuts,TurboState,DashPivotAssist,TurboOutput,ShortcutContext,SHORT_HOP_TRIGGER},
+ native_input::{MAPPER_A,MAPPER_B,MAPPER_R,MAPPER_ZR},
+ out_of_shield::OutOfShield,projectile_reflect::Reflector,
+ grab_handoff::GrabHandoff,tech_input::TechOutput,
 };
-#[derive(Default)]
-struct State {
+#[derive(Default)]struct Menu {builtin_consumed:u32,preview:Option<PresetSlot>,rules:Option<Box<kirby_assist_core::reaction_rules::Resolved>>}
+impl Menu {fn rule_config(&self)->Option<&kirby_assist_core::reaction_rules::Resolved>{self.rules.as_deref()}fn preview_slot(&self)->Option<PresetSlot>{self.preview}fn finish_preview(&mut self){self.preview=None;}}
+#[derive(Default)]struct State {
+ action_owner:ActionOwnership,reflector:Reflector,reflect_output:LedgeOutput,
+ turbo:Option<TurboState>,dash_pivot:Option<DashPivotAssist>,
  jab_lock:Option<kirby_assist_core::jab_lock::JabLock>,jab_lock_output:LedgeOutput,
- action_owner:ActionOwnership, trip_followup:Option<TripFollowup>,trip_output:LedgeOutput,
+ trip_followup:Option<TripFollowup>,trip_output:LedgeOutput,
  fair_followup:Option<FairFollowup>,fair_output:LedgeOutput,
- finisher:Option<Finisher>,finisher_output:LedgeOutput,
- roll_read:Option<RollRead>,roll_read_output:LedgeOutput,
- ledge:Option<LedgeTrap>,two_frame:Option<TwoFrame>,ledge_output:LedgeOutput,ledge_active:bool,ledge_walk_ready:bool,
+ rule_engine:Option<Box<kirby_assist_core::reaction_rules::Engine>>,roll_read_output:LedgeOutput,
+ ledge:Option<LedgeTrap>,ledge_output:LedgeOutput,ledge_active:bool,ledge_menu:Option<Menu>,
+ oos:OutOfShield,oos_output:LedgeOutput,
  autopilot_guarding:bool,guard_hold:Option<kirby_assist_core::autopilot_guard::GuardHold>,
  duck_defense:Option<kirby_assist_core::autopilot_guard::duck::DuckDefense>,duck_output:LedgeOutput,
  spot_dodge:Option<kirby_assist_core::spot_dodge::SpotDodge>,spot_output:LedgeOutput,
- option_read:Option<kirby_assist_core::option_read::Punisher>,option_output:LedgeOutput,grab_punish_target:Option<u32>,
- trump:Option<LedgeTrump>,trump_output:LedgeOutput,slide:Option<SlideState>,slide_output:LedgeOutput,
- shortcuts:Option<Shortcuts>,tech_output:TechOutput,jab_grab:Option<kirby_assist_core::jab_grab::JabGrab>,
+ trump:Option<kirby_assist_core::ledge_trump::LedgeTrump>,trump_output:LedgeOutput,
+ shortcuts:Option<Shortcuts>,jab_grab:Option<kirby_assist_core::jab_grab::JabGrab>,
+ tech_output:TechOutput,tech_urgent:bool,tech_input:Option<kirby_assist_core::tech_input::TechInput>,fighter_kind:Option<i32>,grab_handoff:GrabHandoff,
+ shortcut_context:Option<ShortcutContext>,raw_tick:i64,
 }
-const JAB_LOCK_INITIAL: LedgeOutput = __LIVE_JAB_INIT__;
-// This production field lives inside State::new, which must remain const.
-const JAB_GRAB_INITIAL: kirby_assist_core::jab_grab::Readiness = __LIVE_JAB_GRAB_INIT__;
-#[test] fn live_jab_grab_initializer_is_const_and_starts_without_native_permissions() {
- assert!(!JAB_GRAB_INITIAL.can_grab);
- assert!(!JAB_GRAB_INITIAL.can_walk);
- assert!(!JAB_GRAB_INITIAL.cancel_jab);
+impl State {__CANCEL__}
+fn select(state:&mut State,fresh:bool,manual_scope:bool,shortcut:LedgeOutput,mash_stick:Option<[f32;2]>,damage_stick:Option<[f32;2]>)->(Option<Owner>,LedgeOutput,Option<[f32;2]>) {
+ select_phases(state,fresh,manual_scope,shortcut,mash_stick,damage_stick,None)
 }
-
-impl State { CANCEL }
-fn select(state:&mut State)->(Option<Owner>,LedgeOutput,Option<[f32;2]>) {
- select_with_posture(state,LedgeOutput::default())
-}
-fn select_with_posture(state:&mut State,posture:LedgeOutput)->(Option<Owner>,LedgeOutput,Option<[f32;2]>) {
- select_with_walk(state,posture,None)
-}
-fn select_with_walk(state:&mut State,posture:LedgeOutput,manual_walk_stick:Option<[f32;2]>)->(Option<Owner>,LedgeOutput,Option<[f32;2]>) {
- select_with_damage(state,posture,manual_walk_stick,None)
-}
-fn select_with_damage(state:&mut State,posture:LedgeOutput,manual_walk_stick:Option<[f32;2]>,damage_stick:Option<[f32;2]>)->(Option<Owner>,LedgeOutput,Option<[f32;2]>) {
- let fresh=true; let manual_scope=true; let mash_stick=None;
- let shortcut=LedgeOutput::default(); let turbo_stick=None;
- let mut ledge=LedgeOutput::default(); let mut turbo_output=TurboOutput::default();
- SELECT
+fn select_phases(state:&mut State,fresh:bool,manual_scope:bool,shortcut:LedgeOutput,mash_stick:Option<[f32;2]>,di_stick:Option<[f32;2]>,sdi_stick:Option<[f32;2]>)->(Option<Owner>,LedgeOutput,Option<[f32;2]>) {
+ let damage_stick=di_stick.or(sdi_stick);
+ let ledge_priority=state.action_owner.ledge_priority();let native_grab=false;
+ let posture=LedgeOutput::default();let turbo_stick=None;let pivot_stick=None;
+ let manual_walk_stick=None;let physical_stick=[-1.,1.];let policy_buttons=MAPPER_A|SHORT_HOP_TRIGGER;
+ let shortcut_consumed=0;let menu_consumed=0;let shortcut_context=state.shortcut_context;
+ let mut ledge=LedgeOutput::default();let mut turbo_output=TurboOutput::default();
+ let mut short_hop_requested=false;let mut mapped_tech_output=None;let mut mapped_grab_handoff=None;
+ __SELECT__
  (winner,ledge,turbo_output.stick)
 }
-#[test]
-fn roll_read_rejects_down_tilt_chase_and_safety_cancels_it() {
- let mut state=State::default();
- state.action_owner.select(true,&[Intent{owner:Owner::RollRead,present:true,committed:true}]);
- state.roll_read_output=kirby_assist_core::move_input::output([0.0,-1.0],MAPPER_A);
- state.jab_lock_output=kirby_assist_core::move_input::output([0.65,0.0],0);
- assert_eq!(select(&mut state).0,Some(Owner::RollRead));
- assert_eq!(state.jab_lock_output.owned,0);
- state.roll_read_output=kirby_assist_core::move_input::output([0.0,-1.0],MAPPER_A);
- assert_eq!(select(&mut state).0,Some(Owner::RollRead));
- state.tech_output.press=true;assert_eq!(select(&mut state).0,Some(Owner::Safety));
- assert_eq!(state.jab_lock_output.owned,0);
-}
-fn fair(frame:f32,hit:bool)->FairContext {
- FairContext{object:1,kirby:true,status:0x36,motion:0xc3495ada5,frame,rate:1.0,
- grounded:false,stopped:false,facing:1.0,hit_now:hit}
-}
-#[test] fn uncommitted_hit_watchers_are_not_spent_by_empty_selection() {
- let mut state=State::default(); let mut trip=TripFollowup::default();
- let mut c=TripContext{object:1,kirby:true,status:0x2c,motion:1,frame:5.0,grounded:true,facing:1.0,stopped:false,targets:[None;8]};
- state.trip_output=trip.sample(true,c); state.trip_followup=Some(trip);
- let mut follow=FairFollowup::default();state.fair_output=follow.sample(true,fair(9.0,false));state.fair_followup=Some(follow);
- assert_eq!(select(&mut state).0,None);
- c.frame=6.0;c.targets[0]=Some(TripTarget{id:2,status:0x88,previous_status:0x86});
- assert_ne!(state.trip_followup.as_mut().unwrap().sample(true,c).owned,0);
- assert_ne!(state.fair_followup.as_mut().unwrap().sample(true,fair(10.0,true)).owned,0);
-}
-#[test] fn live_roll_commit_rejects_passive_shield_and_safety_cancels_queued_attack() {
- let mut state=State::default();let mut read=RollRead::default();
- let c=RollContext{status:0,situation:0,motion:1,frame:0.0,rate:1.0,stopped:false,
- can_act:true,can_smash:true,can_grab:true,facing:1.0,position:[0.0;2],movement:None};
- let mut targets=[None;8];targets[0]=Some(Target{id:2,status:ESCAPE_F,frame:2.0,rate:1.0,
- position:[-8.0,0.0],velocity_x:1.0,vulnerable_in:Some(14.0),actionable_in:Some(25.0)});
- state.roll_read_output=read.sample(true,kirby_assist_core::roll_read::fighter_config(6).unwrap(),c,targets);
- state.roll_read=Some(read);assert_eq!(select(&mut state).0,Some(Owner::RollRead));
- state.autopilot_guarding=true;state.ledge_active=true;
- state.ledge_output=LedgeOutput{owned:MAPPER_ZR,requested:MAPPER_ZR,stick:Some([0.0;2]),consume_trigger:false};
- let (owner,out,_)=select(&mut state);assert_eq!(owner,Some(Owner::RollRead));assert_eq!(out.requested,0);
- assert!(!state.autopilot_guarding);
- state.tech_output.press=true;assert_eq!(select(&mut state).0,Some(Owner::Safety));
- assert_eq!(state.roll_read_output.owned,0);assert!(!state.roll_read.as_ref().unwrap().committed());
-}
-#[test] fn roll_wins_over_trip_and_cancelled_y_does_not_restart_while_held() {
- let mut state=State::default();let mut tool=Finisher::default();
- let mut fighter=fair(0.0,false);fighter.status=0;fighter.motion=1;fighter.grounded=true;
- let c=FinisherContext{fighter_kind:6,target_direction:None,fighter,velocity_y:0.0,can_jump:true,can_start:true};
- state.finisher_output=tool.sample(true,true,YMode::FairSmash,c);state.finisher=Some(tool);
- state.trip_output=LedgeOutput{owned:MAPPER_A,requested:MAPPER_A,stick:Some([1.0,0.0]),consume_trigger:false};
- state.roll_read_output=LedgeOutput{owned:MAPPER_A,requested:MAPPER_A,stick:Some([0.0,-1.0]),consume_trigger:false};
- let (owner,out,_)=select(&mut state);assert_eq!(owner,Some(Owner::RollRead));assert_eq!(out.stick,Some([0.0,-1.0]));
- assert_eq!(state.finisher_output.owned,0);assert_eq!(state.trip_output.owned,0);
- assert_eq!(state.finisher.as_mut().unwrap().sample(true,true,YMode::FairSmash,c).owned,0);
-}
-#[test] fn stick_only_ledge_preparation_is_not_discarded() {
- let mut state=State::default();state.ledge_active=true;state.ledge_output.stick=Some([0.3,0.0]);
- assert_eq!(select(&mut state),(Some(Owner::Ledge),state.ledge_output,Some([0.3,0.0])));
-}
-
-#[test] fn armed_ledge_wait_blocks_crouch_and_lower_punishes_without_injecting_inputs() {
- let mut state=State::default();state.ledge_active=true;
- state.trip_output=kirby_assist_core::move_input::output([1.0,0.0],MAPPER_A);
- let posture=LedgeOutput{stick:Some([0.0,-1.0]),..LedgeOutput::default()};
- let (owner,out,stick)=select_with_posture(&mut state,posture);
- assert_eq!(owner,Some(Owner::Ledge));assert_eq!(out.requested,0);assert_eq!(stick,None);
- assert_eq!(state.trip_output.owned,0);
- state.tech_output.press=true;assert_eq!(select_with_posture(&mut state,posture).0,Some(Owner::Safety));
-}
-#[test] fn roll_read_neutral_primer_overrides_crouch_and_turnaround_tilt() {
- for stick in [[0.0,-1.0],[-0.8,-1.0],[0.8,-1.0]] {
-  let mut state=State::default();
-  state.roll_read_output=kirby_assist_core::move_input::output([0.0,0.0],0);
-  let posture=LedgeOutput{stick:Some(stick),..LedgeOutput::default()};
-  let (owner,out,applied)=select_with_posture(&mut state,posture);
-  assert_eq!(owner,Some(Owner::RollRead));assert_eq!(out.requested,0);assert_eq!(applied,Some([0.0,0.0]));
- }
-}
-
-fn roll_allowed(state:&State,clatter:bool,tech:bool)->bool {
- ROLL_GATE
- allowed
-}
-#[test] fn live_roll_observation_is_never_vetoed_by_lower_mode_proposals() {
- for lower in [Owner::Trip,Owner::JabLock,Owner::Finisher,Owner::Fair,Owner::Trump,
-               Owner::Slide,Owner::Shortcut,Owner::Defense,Owner::Turbo,Owner::Posture] {
-  let mut state=State::default();
-  state.action_owner.select(true,&[Intent{owner:lower,present:true,committed:true}]);
-  let proposal=kirby_assist_core::move_input::output([0.8,-1.0],MAPPER_A);
-  state.trip_output=proposal;state.finisher_output=proposal;state.fair_output=proposal;
-  state.slide_output=proposal;state.trump_output=proposal;state.duck_output=proposal;
-  state.autopilot_guarding=true;
-  assert!(roll_allowed(&state,false,false),"{lower:?} blocked roll timing");
-  assert!(!roll_allowed(&state,true,false));assert!(!roll_allowed(&state,false,true));
- }
- let mut state=State::default();
- state.action_owner.select(true,&[Intent{owner:Owner::Ledge,present:true,committed:true}]);
- assert!(roll_allowed(&state,false,false));
-}
-
-fn prepare_walk(state:&State,ledge_config:kirby_assist_core::ledge_trap::LedgeSettings,physical_stick:[f32;2])->Option<[f32;2]> {
- use kirby_assist_core::manual_controls::ledge_walk_stick;
- let manual_scope=true;let fresh=true;
- let ledge=state.ledge_output;let mut turbo_output=TurboOutput::default();
- WALK_PREPARATION
- manual_walk_stick
-}
-#[test] fn armed_autopilot_preserves_manual_walk_for_every_compiled_fighter_and_both_sides() {
- let profiles=kirby_assist_core::fighter_profiles::FighterProfiles::default();
- let mut count=0;
- for kind in 0..100 {
-  let Some(profile)=profiles.profile(kind) else {continue};count+=1;
-  for direction in [-1.0,1.0] {
-   let settings=profile.apply(kirby_assist_core::ledge_trap::LedgeSettings{enabled:true,manual_spacing:true,..Default::default()});
-   let mut state=State::default();state.ledge_active=true;state.ledge_walk_ready=true;
-   let walking=prepare_walk(&state,settings,[direction,0.0]);
-   assert!(walking.is_some(),"{} did not propose walking",profile.name);
-   let (owner,out,stick)=select_with_walk(&mut state,LedgeOutput::default(),walking);
-   assert_eq!(owner,Some(Owner::Ledge));assert_eq!(out.requested,0);
-   assert_eq!(stick,walking,"{} lost walking during ledge reservation",profile.name);
-   assert!(stick.unwrap()[0].abs()<=0.5);
+fn packet(requested:u32)->LedgeOutput{LedgeOutput{requested,owned:MAPPER_A,..Default::default()}}
+fn choose(s:&mut State)->(Option<Owner>,LedgeOutput,Option<[f32;2]>){select(s,true,true,LedgeOutput::default(),None,None)}
+#[test]fn committed_sequences_reject_every_competing_live_proposal_and_cancel_losers() {
+ for current in [Owner::RollRead,Owner::OutOfShield,Owner::Ledge,Owner::Trip,Owner::Fair,Owner::JabLock,Owner::Trump,Owner::Shortcut,Owner::Reflect] {
+  let mut s=State::default();
+  s.action_owner.select(true,&[Intent::input_sequence(current,1)]);
+  s.roll_read_output=packet(MAPPER_A);s.oos_output=packet(MAPPER_A);
+  s.ledge_active=true;s.ledge_output=packet(MAPPER_A);s.trip_output=packet(MAPPER_A);
+  s.fair_output=packet(MAPPER_A);s.jab_lock_output=packet(MAPPER_A);
+  s.trump_output=packet(MAPPER_A);s.reflect_output=packet(MAPPER_A);
+  let (owner,out,stick)=select(&mut s,true,true,packet(MAPPER_A),None,None);
+  assert_eq!(owner,Some(current));assert_eq!(out.requested,MAPPER_A);
+  assert_eq!(out.owned,SEQUENCE_BUTTONS);assert_eq!(stick,Some([0.;2]));
+  for (o,p) in [(Owner::RollRead,s.roll_read_output),(Owner::OutOfShield,s.oos_output),
+   (Owner::Ledge,s.ledge_output),(Owner::Trip,s.trip_output),(Owner::Fair,s.fair_output),
+   (Owner::JabLock,s.jab_lock_output),(Owner::Trump,s.trump_output),(Owner::Reflect,s.reflect_output)] {
+   if o!=current {assert_eq!(p.owned,0,"losing {o:?} must not resume behind {current:?}");}
   }
  }
- assert!(count>=70,"all compiled fighters must be checked");
 }
-#[test] fn walking_never_leaks_into_action_release_drift_or_a_roll_read() {
- for (owner,output,expected) in [
-  (Owner::Ledge,kirby_assist_core::move_input::output([0.0,0.0],MAPPER_A),Some([0.0,0.0])),
-  (Owner::Ledge,LedgeOutput{owned:MAPPER_A,..LedgeOutput::default()},None),
-  (Owner::Ledge,kirby_assist_core::move_input::output([0.25,0.0],0),Some([0.25,0.0])),
-  (Owner::RollRead,LedgeOutput{owned:MAPPER_A,..LedgeOutput::default()},None),
- ] {
-  let mut state=State::default();state.ledge_active=true;
-  if owner==Owner::Ledge {state.ledge_output=output;} else {state.roll_read_output=output;}
-  let (winner,_,stick)=select_with_walk(&mut state,LedgeOutput::default(),Some([0.5,0.0]));
-  assert_eq!(winner,Some(owner));assert_eq!(stick,expected);
+#[test]fn native_safety_cancels_attack_packets_and_owns_both_output_axes() {
+ let mut s=State::default();s.ledge_active=true;s.ledge_output=packet(MAPPER_A);
+ s.action_owner.select(true,&[Intent::input_sequence(Owner::Ledge,1)]);
+ s.tech_output=TechOutput{press:true,owns_guard:true};
+ let (owner,out,stick)=select(&mut s,true,true,LedgeOutput::default(),None,Some([-1.,0.]));
+ assert_eq!(owner,Some(Owner::Safety));assert_eq!(out.requested,0);
+ assert_eq!(stick,Some([-1.,0.]));assert_eq!(s.ledge_output.owned,0);
+ s.tech_output=TechOutput::default();let (_,out,_)=choose(&mut s);
+ assert_eq!(out.owned,0);assert_eq!(s.action_owner.current_owner(),None);
+}
+#[test]fn receipt_and_final_release_keep_neutral_input_exclusive_then_release() {
+ let mut s=State::default();s.roll_read_output=packet(0);
+ for _ in 0..8 {let (o,p,stick)=choose(&mut s);assert_eq!(o,Some(Owner::RollRead));assert_eq!(p.owned,SEQUENCE_BUTTONS);assert_eq!(stick,Some([0.;2]));}
+ s.roll_read_output=LedgeOutput::default();assert_eq!(choose(&mut s).0,None);
+ assert_eq!(s.action_owner.current_owner(),None);
+}
+#[test]fn stale_or_invalid_scope_releases_all_cached_output_and_owners() {
+ for (fresh,scope) in [(false,true),(true,false),(false,false)] {
+  let mut s=State::default();s.roll_read_output=packet(MAPPER_B);s.oos_output=packet(MAPPER_R);
+  s.action_owner.select(true,&[Intent::input_sequence(Owner::RollRead,1)]);
+  let (o,p,stick)=select(&mut s,fresh,scope,LedgeOutput::default(),None,None);
+  assert_eq!(o,None);assert_eq!(p,LedgeOutput::default());assert_eq!(stick,None);
+  assert_eq!(s.action_owner.current_owner(),None);assert_eq!(s.roll_read_output.owned,0);assert_eq!(s.oos_output.owned,0);
  }
 }
-
-#[test] fn launch_di_is_safety_only_and_cannot_mix_with_a_ledge_attack() {
- let mut state=State::default();state.ledge_active=true;
- state.ledge_output=kirby_assist_core::move_input::output([0.0,0.0],MAPPER_A);
- let (owner,out,stick)=select_with_damage(&mut state,LedgeOutput::default(),None,Some([-1.0,0.0]));
- assert_eq!(owner,Some(Owner::Safety));assert_eq!(out.requested,0);assert_eq!(stick,Some([-1.0,0.0]));
- assert_eq!(state.ledge_output.owned,0);
- let (owner,_,stick)=select_with_damage(&mut state,LedgeOutput::default(),None,None);
- assert_eq!(owner,Some(Owner::Ledge));assert_eq!(stick,None);
+#[test]fn stale_observations_cancel_hidden_up_b_receipts_instead_of_resuming_the_old_tape() {
+ use kirby_assist_core::{reaction_rules::{Candidate,Engine,Resolved},roll_read::Target,
+  ledge_trap::{LedgeSettings,Opponent,MotionTiming},sequence_config::Catalog};
+ let cat=Catalog::parse("[bowser.roll.receipt]\nstart_delay=0\nreaction=auto_roll:40:12\nactions=up_b:4,drift:opponent:1:69\n").unwrap();
+ let mut rules=Resolved::default();rules.add(Candidate{slot:2,index:0,sequence:cat.entries()[0].sequence}).unwrap();
+ let c=LedgeContext{held:true,gameplay:true,can_act:true,status:0x1c,motion_kind:1,motion_rate:1.,facing:1.,..Default::default()};
+ let enemy=Opponent{id:2,status:0x20,position:[10.,0.],motion:Some(MotionTiming{kind:2,frame:0.,rate:0.,remaining:None}),..Default::default()};
+ let mut targets=[None;8];targets[0]=Some(Target{id:2,status:0x20,motion:2,frame:0.,rate:0.,position:enemy.position,velocity_x:0.,vulnerable_in:None,actionable_in:None});
+ let settings=LedgeSettings{fighter_kind:15,..Default::default()};let mut engine=Engine::default();
+ assert_ne!(engine.sample_simple(true,&rules,settings,c,targets,Some(enemy)).requested & MAPPER_B,0);
+ engine.mapped_up_special(0,2);
+ assert_eq!(engine.sample_simple(true,&rules,settings,LedgeContext{status:0x1e,stopped:true,can_act:false,..c},targets,Some(enemy)).owned,0);
+ assert!(engine.awaiting_up_b());
+ let mut s=State::default();s.fighter_kind=Some(15);s.rule_engine=Some(Box::new(engine));
+ s.action_owner.select(true,&[Intent::sequence_receipt(Owner::RollRead,0,true)]);
+ assert_eq!(select(&mut s,false,true,LedgeOutput::default(),None,None).0,None);
+ assert!(!s.rule_engine.as_ref().unwrap().awaiting_up_b());assert!(!s.rule_engine.as_ref().unwrap().committed());
 }
-
-fn live_slide(state:&mut State,context:SlideContext,policy_tick:Option<i64>,slide_buttons:u32) {
- struct Config {dpad_slide:bool}
- let config=Config{dpad_slide:true};let slide_scope=context.gameplay;let stopped=context.stopped;
- let can_slide_jump=context.can_jump;let can_slide_air_dodge=context.can_air_dodge;
- SLIDE_DELIVERY
-}
-#[test] fn live_slide_keeps_pending_guard_through_missing_clock_and_cancels_on_damage() {
- let mut state=State::default();
- let ground=SlideContext{gameplay:true,stopped:false,status:0,situation:0,motion_frame:0.0,
-  can_jump:true,can_air_dodge:false,safe_ground:[true;2],input_delay:0.0};
- live_slide(&mut state,ground,Some(0),kirby_assist_core::manual_controls::DPAD_RIGHT);
- assert_eq!(select(&mut state).0,Some(Owner::Slide));
- live_slide(&mut state,SlideContext{stopped:true,..ground},None,0);
- assert_eq!(select(&mut state).0,Some(Owner::Slide));
- assert_eq!(state.slide_output.requested,0);
- let late=SlideContext{status:0xa,motion_frame:2.0,can_jump:false,..ground};
- live_slide(&mut state,late,Some(1),0);
- assert_eq!(state.slide_output.requested,MAPPER_ZR);
- let requested=state.slide_output;
- live_slide(&mut state,SlideContext{stopped:true,..late},None,0);
- let (owner,out,stick)=select(&mut state);
- assert_eq!(owner,Some(Owner::Slide));assert_eq!(out,requested);assert_eq!(stick,requested.stick);
- live_slide(&mut state,SlideContext{status:0x47,stopped:true,..late},None,0);
- assert_eq!(state.slide_output,LedgeOutput::default());
- assert_eq!(select(&mut state).0,None);assert!(state.slide.is_none());
-}
-
-#[test] fn constant_spot_dodge_beats_crouch_but_never_ledge_or_roll_and_never_mixes_sticks() {
- for priority in [None,Some(Owner::Ledge),Some(Owner::RollRead)] {
-  let mut state=State::default();
-  state.spot_output=kirby_assist_core::move_input::output([0.0,-1.0],MAPPER_ZR);
-  if priority==Some(Owner::Ledge) {state.ledge_active=true;}
-  if priority==Some(Owner::RollRead) {state.roll_read_output=kirby_assist_core::move_input::output([0.0,0.0],0);}
-  let posture=LedgeOutput{stick:Some([0.8,-1.0]),..LedgeOutput::default()};
-  let (owner,out,stick)=select_with_posture(&mut state,posture);
-  assert_eq!(owner,Some(Owner::OptionRead));
-  assert_eq!(out.requested,MAPPER_ZR);assert_eq!(stick,Some([0.0,-1.0]));
-  assert_eq!(state.ledge_output.owned,0);assert_eq!(state.roll_read_output.owned,0);
+#[test]fn native_dodge_confirmation_transfers_the_same_response_owner_before_competing_ledge_admission() {
+ use kirby_assist_core::{spot_dodge::{SpotDodge,Context,Target},sequence_config::Catalog};
+ let mut s=State::default();s.action_owner.observe_manual(0,[0.;4]);
+ let c=Context{object:1,status:0,situation:0,motion:1,frame:0.,rate:1.,stopped:false,can_spot_dodge:true,position:[0.;2],velocity:[0.;2]};
+ let mut targets=[None;8];targets[0]=Some(Target{id:2,status:0x37,motion:2,frame:2.,rate:1.,position:[10.,0.],velocity:[0.;2],facing:-1.,first:6,last:7,reach:12.});
+ let mut spot=SpotDodge::default();let out=spot.sample(true,c,targets);assert_eq!(out.requested,MAPPER_ZR);
+ s.action_owner.select(true,&[Intent::input_sequence(Owner::GrabDodge,out.owned)]);
+ s.action_owner.set_ledge_priority(true);s.spot_dodge=Some(spot);
+ {
+  let State{spot_dodge,action_owner,..}=&mut s;let spot=spot_dodge.as_mut().unwrap();
+  spot.sample(true,Context{status:0x1f,..c},targets);
+  __HANDOFF__
  }
+ assert_eq!(s.action_owner.current_owner(),Some(Owner::OptionRead));
+ let recipe=Catalog::parse("[bowser.roll.follow]\nstart_delay=0\nreaction=auto_grab_dodged:20:12\nactions=input:a:0:0:2\n").unwrap().entries()[0].sequence;
+ s.spot_dodge.as_mut().unwrap().punish_automatic(true,Some(&recipe),Default::default(),LedgeContext{gameplay:true,status:0x1f,motion_kind:1,motion_rate:1.,..Default::default()},Some(kirby_assist_core::ledge_trap::Opponent{id:2,position:[10.,0.],..Default::default()}));
+ let (owner,out,stick)=choose(&mut s);
+ assert_eq!(owner,Some(Owner::OptionRead));assert_eq!(out.owned,SEQUENCE_BUTTONS);assert_eq!(stick,Some([0.;2]));
+ assert!(s.spot_dodge.as_ref().unwrap().punish_pending());
 }
-
-#[test] fn spot_punish_preempts_held_committed_ledge_without_mixing_inputs() {
- use kirby_assist_core::option_read::{Punisher,Context,Config,Target,Kind};
- let mut state=State::default();state.ledge_active=true;
- state.ledge_output=kirby_assist_core::move_input::output([0.0,0.0],MAPPER_A);
- state.action_owner.select(true,&[Intent{owner:Owner::Ledge,present:true,committed:true}]);
- let c=Context{object:1,status:0,motion:1,frame:0.0,rate:1.0,stopped:false,grounded:true,can_act:true,down_ready:true,forward_ready:true,facing:1.0,position:[0.0;2],velocity:[0.0;2]};
- let cfg=Config{down:[7,19],forward:[13,15],down_reach:14.0,forward_reach:22.0};
- let t=Target{id:2,kind:Kind::Spot,status:0x1f,motion:2,frame:10.0,rate:1.0,position:[10.0,0.0],velocity:[0.0;2],opens:10.0,closes:30.0};
- let mut targets=[None;8];targets[0]=Some(t);let mut read=Punisher::default();
- read.sample(true,c,cfg,targets);state.option_output=read.sample(true,Context{frame:1.0,..c},cfg,targets);state.option_read=Some(read);
- let (owner,out,stick)=select(&mut state);assert_eq!(owner,Some(Owner::OptionRead));assert_eq!(out.requested,MAPPER_A);assert_eq!(stick,Some([0.0,-1.0]));assert_eq!(state.ledge_output.owned,0);
+fn reconsider_canceled_fallback(mut state:&mut State,c:LedgeContext,targets:[Option<kirby_assist_core::roll_read::Target>;8]) {
+ let rules_on=true;let automatic_suspended=false;let clatter=false;let tech=false;
+ let file_ledge_timeline=false;let ledge_priority=false;let shield_fallback_pending=true;
+ let rule_observation=Some((c,targets,None));
+ __PREEMPT__;
+ preempt_grab(state);
+ __PHASE_CHANGE__
 }
-
-fn live_spot_delivery(state:&mut std::sync::MutexGuard<'_,State>,context:kirby_assist_core::spot_dodge::Context,targets:[Option<kirby_assist_core::spot_dodge::Target>;8]) {
- let spot_observation=Some((context,targets));let clatter=false;let tech=false;
- SPOT_DELIVERY
+#[test]fn completed_fallback_releases_its_lock_before_rechecking_priority_for_a_new_grab_proposal() {
+ use kirby_assist_core::{sequence_config::Catalog,reaction_rules::{Resolved,Candidate},roll_read::Target,
+  ledge_trap::LedgeSettings,out_of_shield::{Context,AutomaticConfig}};
+ let cat=Catalog::parse("[bowser.roll.priority]\nstart_delay=0\nreaction=auto_roll:40:12\nactions=up_b:4\n[bowser.roll.backup]\nstart_delay=0\nreaction=auto_shield_backup:25:24\nactions=up_b:4\n").unwrap();
+ let mut rules=Resolved::default();rules.add(Candidate{slot:2,index:0,sequence:cat.entries()[0].sequence}).unwrap();
+ let backup=cat.entries()[1].sequence;
+ let c=LedgeContext{held:true,gameplay:true,can_act:true,status:0x1c,motion_kind:1,motion_rate:1.,facing:1.,..Default::default()};
+ let native=Context{object:1,kind:15,status:0x1c,motion:1,frame:0.,rate:1.,stopped:false,grounded:true,position:[0.;2],facing:1.,shield_ready:true,can_grab:true,can_jump:true,can_up_special:true,threatened:false};
+ let mut targets=[None;8];targets[0]=Some(Target{id:2,status:0,motion:2,frame:0.,rate:1.,position:[-10.,0.],velocity_x:0.,vulnerable_in:Some(0.),actionable_in:None});
+ let mut s=State::default();let settings=LedgeSettings{fighter_kind:15,..Default::default()};let config=AutomaticConfig{backup:Some(&backup),..Default::default()};
+ let first=s.oos.sample_automatic_configured(true,native,c,targets,None,true,22.,35.,Some(8.),settings,config);
+ assert_ne!(first.requested & MAPPER_B,0);s.action_owner.select(true,&[Intent::input_sequence(Owner::OutOfShield,first.owned)]);
+ targets[0]=targets[0].map(|t|Target{id:3,status:0x1c,position:[10.,0.],..t});
+ targets[1]=targets[0].map(|t|Target{id:4,status:0x20,position:[-15.,0.],..t});
+ s.oos_output=s.oos.sample_automatic_configured(true,native,c,targets,None,true,22.,35.,Some(8.),settings,config);
+ assert_ne!(s.oos_output.requested & MAPPER_R,0);assert!(!s.oos.shield_up_b_pending());
+ s.ledge_menu=Some(Menu{rules:Some(Box::new(rules)),..Default::default()});
+ reconsider_canceled_fallback(&mut s,c,targets);
+ assert!(s.oos.target().is_none());assert_eq!(s.oos_output.owned,0);assert!(s.action_owner.allows(Owner::RollRead));
 }
-#[test] fn production_grab_handoff_compiles_through_mutex_guard_and_preserves_target() {
- use kirby_assist_core::spot_dodge::{Context,Target,ESCAPE};
- let state=std::sync::Mutex::new(State::default());let mut state=state.lock().unwrap();
- let c=Context{object:1,status:0,situation:0,motion:1,frame:0.0,rate:1.0,stopped:false,can_spot_dodge:true,position:[0.0;2],velocity:[0.0;2]};
- let t=Target{id:2,status:0x37,motion:2,frame:2.0,rate:1.0,position:[10.0,0.0],velocity:[0.0;2],facing:-1.0,first:6,last:7,reach:12.0};
- let mut targets=[None;8];targets[0]=Some(t);
- live_spot_delivery(&mut state,c,targets);assert_eq!(state.spot_output.requested,MAPPER_ZR);
- live_spot_delivery(&mut state,Context{status:ESCAPE,motion:3,can_spot_dodge:false,..c},targets);
- assert_eq!(state.grab_punish_target,Some(2));assert_eq!(state.spot_output.requested,0);
+#[test]fn actual_selector_never_mixes_tech_with_di_or_sdi() {
+ let mut s=State::default();s.tech_output=TechOutput{press:true,owns_guard:true};
+ let (o,p,stick)=select_phases(&mut s,true,true,LedgeOutput::default(),None,Some([0.,1.]),Some([1.,0.]));
+ assert_eq!(o,Some(Owner::Safety));assert_eq!(p.requested,0);assert_eq!(stick,Some([0.,1.]));
+ let (_,p,stick)=select_phases(&mut s,true,true,LedgeOutput::default(),None,None,Some([1.,0.]));
+ assert_eq!(p.requested,MAPPER_ZR);assert_eq!(stick,Some([0.;2]));
 }
-'''.replace("CANCEL", cancel).replace("SELECT", selection).replace("ROLL_GATE", roll_gate).replace("SLIDE_DELIVERY", slide_delivery).replace("SPOT_DELIVERY", spot_delivery).replace("WALK_PREPARATION", walk_preparation).replace("__LIVE_JAB_INIT__", jab_lock_initial).replace("__LIVE_JAB_GRAB_INIT__", jab_grab_initial)
-    deps = ROOT / "crates/kirby_assist_core/target/debug/deps"
-    libs = list(deps.glob("libkirby_assist_core-*.rlib"))
+#[test]fn actual_selector_preserves_a_tech_deadline_and_hands_its_release_to_di() {
+ let mut s=State::default();s.tech_output=TechOutput{press:true,owns_guard:true};s.tech_urgent=true;
+ let (o,p,stick)=select_phases(&mut s,true,true,LedgeOutput::default(),None,Some([-1.,0.]),Some([1.,0.]));
+ assert_eq!(o,Some(Owner::Safety));assert_eq!(p.requested,MAPPER_ZR);assert_eq!(stick,Some([0.;2]));
+ s.tech_output=TechOutput{press:false,owns_guard:true};s.tech_urgent=false;
+ let (o,p,stick)=select_phases(&mut s,true,true,LedgeOutput::default(),None,Some([-1.,0.]),Some([1.,0.]));
+ assert_eq!(o,Some(Owner::Safety));assert_eq!(p.requested,0);assert_eq!(stick,Some([-1.,0.]));
+}
+#[test]fn stale_scope_cancels_an_unconsumed_tech_delivery_without_erasing_lockout() {
+ use kirby_assist_core::tech_input::{TechInput,TechContext};
+ let mut s=State::default();let mut t=TechInput::default();
+ let c=TechContext{object:1,status:0x49,motion:1,frame:0.,rate:1.,stopped:false,remaining_stop:0,
+  contact_in:Some(1.),input_delay:0.,previous_guard:false,prepare_guard:true};
+ s.tech_output=t.sample_with_native_delivery(true,true,28,c,None,12,7,false);t.mapped_press();
+ s.tech_input=Some(t);s.tech_urgent=true;
+ assert_eq!(select(&mut s,false,true,LedgeOutput::default(),None,None).0,None);
+ assert_eq!(s.tech_output,TechOutput::default());assert!(!s.tech_urgent);
+ let t=s.tech_input.as_mut().unwrap();assert_eq!(t.cooldown_remaining(),28.);
+ assert!(!t.sample_with_native_delivery(true,true,28,c,None,12,7,false).press);
+}
+#[test]fn no_active_automation_leaves_gameplay_unowned() {
+ let mut s=State::default();assert_eq!(choose(&mut s),(None,LedgeOutput::default(),None));
+ assert!(s.action_owner.allows(Owner::RollRead));
+}
+'''.replace('__CANCEL__', cancel).replace('__SELECT__', selection).replace('__HANDOFF__', handoff).replace('__PREEMPT__', preempt).replace('__PHASE_CHANGE__', phase_change)
+    deps = ROOT / 'crates/kirby_assist_core/target/debug/deps'
+    libs = list(deps.glob('libkirby_assist_core-*.rlib'))
     if not libs:
-        raise SystemExit("Run the core action_ownership integration test first.")
+        raise SystemExit('Run a core integration test first.')
     lib = max(libs, key=lambda p: p.stat().st_mtime)
-    with tempfile.TemporaryDirectory(prefix="kirby-owner-") as temporary:
-        directory = Path(temporary)
-        rust = directory / "live_owner.rs"
-        executable = directory / "live_owner_tests"
+    with tempfile.TemporaryDirectory(prefix='kirby-owner-') as temporary:
+        rust = Path(temporary) / 'live_owner.rs'
+        executable = Path(temporary) / 'live_owner_tests'
         rust.write_text(fixture)
-        subprocess.run(["rustc", "--edition=2021", "--test", str(rust), "--extern",
-                        f"kirby_assist_core={lib}", "-L", f"dependency={deps}", "-o", str(executable)], check=True)
+        subprocess.run(['rustc', '--edition=2021', '--test', str(rust), '--extern',
+                        f'kirby_assist_core={lib}', '-L', f'dependency={deps}', '-o', str(executable)], check=True)
         subprocess.run([str(executable)], check=True)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

@@ -1,5 +1,10 @@
 # Shared move inputs and Kirby posture
 
+This page describes compiled helpers used by existing assists. Saved text actions
+are literal input timelines and do not inherit these helper acceptance checks or
+hidden waits. Use the [editor action reference](EDITOR_ACTION_CHEATSHEET.md) for
+current sequence behavior and [controls](CONTROLS.md) for active bindings.
+
 `crates/kirby_assist_core/src/move_input.rs` names physical input recipes.
 They pass through the existing single mapper overlay and action owner. They
 do not force moves, change animation speed or add an input-delay estimate.
@@ -14,13 +19,10 @@ do not force moves, change animation speed or add an input-delay estimate.
 | Fast fall | Down after exact move acceptance and negative native vertical speed; recipes choose the earliest permitted move frame |
 | Smash | Neutral/release primer, direction+A, release A on native startup; rejection retries stay bounded |
 
-`OneShot` variants, manual finishers and onstage roll reads share these helpers.
-The existing timed-nair and fighter-specific sequences retain their own state
-machines and schedules. Adding a helper does not replace native acceptance
-checks. Known working nair pairing remains neutral X+A. C-stick attack-cancel is
-not used for Kirby bair: it previously produced grounded tilts. His Jump and
-Neutral bair now share the stick-only confirmed turnaround and airborne selection.
-Already back-facing Kirby skips the turn. Existing per-option drift is retained.
+The table describes independent native-confirmed helpers such as manual finishers
+and onstage roll reads. Ledge trapping uses [literal file timelines](SEQUENCE_FILES.md)
+instead: no acceptance retry, native JumpMini marker, fighter-specific drift window
+or inferred startup delay is added to its inputs.
 
 This assumes **A = Attack, X and ZL = Jump, R = Grab, ZR = Shield** in the selected
 Smash controller profile. Manual X short hop deliberately uses X alone and releases
@@ -29,23 +31,31 @@ transition term, an OS overlay consuming the controller, or an airborne wrong mo
 Physical C-stick inputs are suppressed while an assisted sequence owns them.
 Nothing promises frame-perfect arena execution despite stalls or packet delay.
 
-## Kirby-only menu rows
+## Grounded posture menu rows
 
-These Kirby rows start **ON**, save per fighter in memory, and can be changed with the
+Idle crouch (Kirby) and Dtilt face (Kirby/Yoshi) start **ON**, save per fighter in memory, and can be changed with the
 normal menu controls. No new config-file keys or startup loads are needed.
 
 - **Idle crouch:** When grounded in ordinary movement and physical buttons/stick
-  are neutral, propose Down. Holding L suspends crouching; releasing L resumes it
+  are neutral and an enemy is within **45 horizontal units and 20 vertical units**,
+  propose Down immediately. No enemy or leaving that range removes the proposal.
+  This deliberately generous approach distance starts crouching early. Holding L
+  suspends crouching; releasing L resumes it
   without changing the saved toggle. Any physical movement, attack,
   jump, shield or other button immediately removes that proposal. No action
   buttons are owned. Passable platforms are excluded to prevent platform drops.
   Roll read, ledge responses, safety and every committed action have priority.
   Down stays held through native crouch entry/wait/turn/rise states (0x11–0x15)
   and crouch-animation loop resets; entering crouch must never release it.
-- **Dtilt face:** While holding Down, prepare the angle before pressing A. Keep Down fully held and
+- **Dtilt face (Kirby/Yoshi):** While holding Down, prepare the angle before pressing A. A physical down C-stick also qualifies while standing with a neutral left stick; configure that stick as Tilt Attack in the game. The live helper reads the pre-map right-stick axes immediately instead of waiting for a digital Down alias. Keep Down fully held and
   angle the stick 0.80 toward the nearest enemy if facing away. Already facing
   the enemy uses straight Down. Attack presses/releases remain physical, so
-  mashed down tilts keep their original edges. Horizontal native direction bits
+  mashed down tilts keep their original edges. For an actual down C-stick flick,
+  the winning helper also angles that stick toward the enemy, keeping Down the
+  dominant axis; this avoids leaving a contradictory straight-down C-stick
+  direction for the mapper. Side/up flicks and released C-stick axes are not
+  converted into down tilts. Both stick values are restored after mapping.
+  Horizontal native direction bits
   pass through instead of being suppressed by the walking filter. A physical
   down-tilt press and native down-tilt recovery use manual-tool priority over ledge preparation, while safety
   and confirmed finishers retain priority. This also runs during native
@@ -55,33 +65,24 @@ normal menu controls. No new config-file keys or startup loads are needed.
   recovery the angle remains through A-release gaps to prepare the next tilt.
   Pre-attack aiming stays passive so committed automatic punishes still win.
   It uses a bounded pass over at most eight already-known fighter IDs only while
-  enabled, including when other opponent-reading assists are off. No item/hitbox
+  enabled and Down intent or native down-tilt recovery is present, including when other opponent-reading assists are off. No item/hitbox
   scan is added. In a free-for-all, nearest means nearest
   root position, not the opponent you intend to target.
+  Direction is proposed in the same poll with no added delay. Native input
+  acceptance can still choose the old facing when turn and attack arrive
+  together; input-only behavior cannot guarantee a reversal before every tilt.
 
-- **A+B grab:** Tap A+B together with a neutral stick to commit one jab 1 into
-  an ordinary standing grab. A alone (tapped, held or mashed) stays normal.
-  B is consumed immediately so the game's A+B Smash setting does not receive
-  the chord. Starting crouched/dashing first releases the stick and waits for
-  an ordinary standing/walking state, avoiding down tilt/dash attack. Native
-  jab 1 acceptance releases A even in hitstop; R is not sent into an ongoing
-  jab, even if its catch transition term is enabled. Grab waits for ordinary
-  recovery and native catch readiness. Releasing A+B does not cancel the attempt;
-  movement or other buttons do. One attempt per chord; release both before
-  retrying. Grab startup returns movement/control while suppressing any still-held
-  original A/B until release, preventing automatic pummels/specials. Jab/grab
-  acceptance budgets are 24 advancing frames, with a 90-frame total bound.
-  This does not bypass recovery or guarantee a true combo; spacing remains yours.
-  The existing menu toggle stays ON by default. No new hook or hitbox scan.
-
-These are posture helpers, separate from the disabled incoming-hitbox auto-duck.
-To check them, enable each row separately and test movement/attack handback first.
-Then test both facing directions and roll-read priority. Host regressions cover
-these rules; Switch calibration is still necessary.
+The A+B jab-to-grab shortcut and its menu row are removed. A/B now follow
+normal game behavior. Use universal X/Y input recipes for your own named button
+sequences; these do not inherit native jab-confirmation or recovery checks.
 
 Dtilt facing retains its angle during native down-tilt hitstop, allowing the next
 physical tilt to buffer with its direction intact. Down on a C-stick mapped to
 Tilt Attack is permitted alongside held left-stick Down. Left-stick-only aiming
-preserves the physical C-stick rather than erasing its attack; full assisted
+preserves the physical C-stick attack edge while aiming its down angle; full assisted
 sequences still suppress competing physical C-stick input. Neither A nor a
 C-stick attack is generated by this helper.
+
+Startup-loaded file choices now use [literal input timelines](SEQUENCE_FILES.md).
+Their general move names compile to controller inputs and do not use these
+native-confirmed compiled helpers; there is no `code:ID` fallback.

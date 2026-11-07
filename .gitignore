@@ -13,3 +13,6 @@ __pycache__/
 .venv/
 venv/
 .DS_Store
+/.sequence-sync-backups/
+
+/.mod-workbench/

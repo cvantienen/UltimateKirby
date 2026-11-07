@@ -27,6 +27,112 @@ fn ctx(status: i32, motion: u64, frame: f32, grounded: bool) -> Context {
 }
 
 #[test]
+fn short_hop_descent_timeout_releases_controls_and_does_not_restart_while_held() {
+    for mode in [YMode::FairSmash, YMode::DairSmash] {
+        let mut tool = Finisher::default();
+        start(&mut tool, mode);
+        let motion = if mode == YMode::FairSmash {
+            0xc3495ada5
+        } else {
+            0xd40042152
+        };
+        for frame in 0..16 {
+            let c = ctx(0x36, motion, frame as f32, false);
+            assert_ne!(tool.sample(true, true, mode, c).owned, 0);
+            for _ in 0..4 {
+                tool.sample(true, true, mode, c);
+            }
+        }
+        tool.sample(true, true, mode, ctx(0x36, motion, 16.0, false));
+        let released = tool.sample(true, true, mode, ctx(0x36, motion, 17.0, false));
+        assert_eq!(released.owned, 0);
+        assert_eq!(released.stick, None);
+        assert!(!tool.active());
+        assert_eq!(tool.sample(true, true, mode, ctx(0, 1, 0.0, true)).owned, 0);
+    }
+}
+
+#[test]
+fn airborne_combo_presses_do_nothing_and_cannot_queue_a_takeoff_after_landing() {
+    for mode in [YMode::FairSmash, YMode::DairSmash, YMode::YoshiBairSmash] {
+        for status in [0xb, 0xc, 0xe, 0xf] {
+            let mut tool = Finisher::default();
+            let mut c = ctx(status, 3, 0.0, false);
+            c.fighter_kind = if mode == YMode::YoshiBairSmash { 5 } else { 6 };
+            assert_eq!(tool.sample(true, true, mode, c).owned, 0);
+            assert!(!tool.active());
+            let mut landed = ctx(0, 1, 0.0, true);
+            landed.fighter_kind = c.fighter_kind;
+            assert_eq!(
+                tool.sample(true, true, mode, landed).owned,
+                0,
+                "an airborne press must not be queued until landing"
+            );
+            tool.sample(true, false, mode, landed);
+            assert_ne!(
+                tool.sample(true, true, mode, landed).owned,
+                0,
+                "a fresh grounded press still starts normally"
+            );
+        }
+    }
+}
+
+#[test]
+fn fair_combo_marks_delayed_takeoff_short_then_fast_falls_and_holds_down_until_landing() {
+    use kirby_assist_core::native_input::mapped_short_hop;
+    let mut tool = Finisher::default();
+    let mode = YMode::FairSmash;
+    for frame in 0..12 {
+        let jump = tool.sample(true, true, mode, ctx(0, 1, frame as f32, true));
+        assert_eq!(jump.requested, MAPPER_X);
+        assert!(tool.requests_short_hop());
+        assert_eq!(mapped_short_hop(0x4, tool.requests_short_hop()), 0x44);
+        for _ in 0..8 {
+            assert_eq!(
+                tool.sample(true, true, mode, ctx(0, 1, frame as f32, true)),
+                jump
+            );
+        }
+    }
+    tool.sample(true, true, mode, ctx(0xa, 2, 0.0, true));
+    assert!(!tool.requests_short_hop());
+    let mut apex = ctx(0xb, 3, 0.0, false);
+    apex.velocity_y = 0.1;
+    let fair = tool.sample(true, true, mode, apex);
+    assert_eq!(fair.requested, MAPPER_A);
+    assert_eq!(
+        fair.stick,
+        Some([1.0, 0.0]),
+        "select fair before pressing Down"
+    );
+    assert!(!tool.requests_short_hop());
+    for frame in 0..12 {
+        let mut airborne = ctx(0x36, 0xc3495ada5, frame as f32, false);
+        airborne.fighter.hit_now = frame == 10;
+        let down = tool.sample(true, true, mode, airborne);
+        assert_eq!(down.stick, Some([0.0, -1.0]));
+        assert_eq!(down.requested & MAPPER_X, 0, "no extra jump from held Y");
+        for _ in 0..8 {
+            assert_eq!(tool.sample(true, true, mode, airborne), down);
+        }
+        airborne.fighter.stopped = true;
+        airborne.velocity_y = 0.0;
+        assert_eq!(tool.sample(true, true, mode, airborne), down);
+    }
+    assert!(tool.confirmed());
+    let landing = tool.sample(true, true, mode, ctx(0x18, 4, 0.0, true));
+    assert_eq!(landing.requested, MAPPER_A);
+    assert_eq!(landing.stick, Some([1.0, 0.5]));
+    assert!(!tool.requests_short_hop());
+    assert_eq!(
+        mapped_short_hop(0x4, false),
+        0x4,
+        "manual full hops unchanged"
+    );
+}
+
+#[test]
 fn delayed_jump_acceptance_preserves_every_finisher_and_never_repeats_jump() {
     for mode in [YMode::FairSmash, YMode::DairSmash, YMode::YoshiBairSmash] {
         let make = |status, motion, frame, grounded| {
@@ -214,7 +320,14 @@ fn aerial_delivery_buffers_in_squat_retries_missed_inputs_and_stops_on_native_ac
             );
             assert_eq!(raw.buttons.pressed & MAPPER_A, 0);
             assert_eq!(raw.buttons.held & (MAPPER_X | MAPPER_ZL), 0);
-            assert_eq!(raw.stick, [0.0, 0.0]);
+            assert_eq!(
+                raw.stick,
+                if mode == YMode::YoshiBairSmash {
+                    [-facing, 0.0]
+                } else {
+                    [0.0, 0.0]
+                }
+            );
             // Duplicate polls and hitstop cannot consume the hold/retry budget.
             let mut stopped = make(0xa, 2, 0.0, false);
             stopped.fighter.stopped = true;
@@ -266,6 +379,7 @@ fn both_routes_confirm_real_hits_then_buffer_landing_smashes_without_charging_or
         let first = if mode == YMode::FairSmash { 10 } else { 18 };
         for frame in 0..=first {
             let mut c = ctx(0x36, motion, frame as f32, false);
+            c.velocity_y = if frame < first { 0.5 } else { -0.5 };
             c.fighter.hit_now = frame == first;
             c.fighter.stopped = frame == first;
             let out = tool.sample(true, true, mode, c);
@@ -369,6 +483,7 @@ fn dair_landing_hit_and_later_fair_hits_confirm_their_finishers() {
     start(&mut tool, YMode::FairSmash);
     for frame in 0..=17 {
         let mut c = ctx(0x36, 0xc3495ada5, frame as f32, false);
+        c.velocity_y = if frame < 10 { 0.5 } else { -0.5 };
         c.fighter.hit_now = frame == 10 || frame == 17;
         tool.sample(true, false, YMode::FairSmash, c);
     }
@@ -391,6 +506,7 @@ fn fair_confirm_persists_through_later_hits_and_aims_up_fsmash_at_current_enemy(
         start(&mut tool, mode);
         for frame in 0..=26 {
             let mut c = ctx(0x36, 0xc3495ada5, frame as f32, false);
+            c.velocity_y = if frame < 17 { 0.5 } else { -0.5 };
             c.fighter.hit_now = frame == hit_frame;
             tool.sample(true, false, mode, c);
         }
@@ -480,7 +596,7 @@ fn disabled_and_identity_changes_cancel_even_a_confirmed_route() {
 }
 
 #[test]
-fn yoshi_drag_bair_confirms_turn_short_hop_early_hit_then_faces_target_for_fsmash() {
+fn yoshi_sprint_instant_turnaround_bair_confirms_then_faces_target_for_fsmash() {
     let mode = YMode::YoshiBairSmash;
     let make = |status, motion, frame, grounded, facing| {
         let mut c = ctx(status, motion, frame, grounded);
@@ -491,19 +607,13 @@ fn yoshi_drag_bair_confirms_turn_short_hop_early_hit_then_faces_target_for_fsmas
         c
     };
     let mut tool = Finisher::default();
-    let turn = tool.sample(true, true, mode, make(0, 1, 0.0, true, 1.0));
-    assert_eq!(turn.requested, 0);
-    assert_eq!(turn.stick, Some([-0.3, 0.0]));
-    assert_eq!(
-        tool.sample(true, false, mode, make(7, 2, 0.0, true, -1.0))
-            .requested,
-        MAPPER_X | MAPPER_ZL
-    );
-    assert_eq!(
-        tool.sample(true, false, mode, make(0xa, 3, 0.0, true, -1.0))
-            .requested,
-        0
-    );
+    let turn = tool.sample(true, true, mode, make(6, 1, 0.0, true, 1.0));
+    assert_eq!(turn.requested, MAPPER_X | MAPPER_ZL);
+    assert_eq!(turn.stick, Some([-1.0, 0.0]));
+    assert!(tool.requests_short_hop());
+    let squat = tool.sample(true, false, mode, make(0xa, 3, 0.0, true, -1.0));
+    assert_eq!(squat.requested, 0);
+    assert_eq!(squat.stick, Some([-1.0, 0.0]));
     assert_eq!(
         tool.sample(true, false, mode, make(0xb, 4, 0.0, false, -1.0))
             .stick,
@@ -518,7 +628,12 @@ fn yoshi_drag_bair_confirms_turn_short_hop_early_hit_then_faces_target_for_fsmas
             -1.0,
         );
         c.fighter.hit_now = frame == 11;
-        tool.sample(true, false, mode, c);
+        let output = tool.sample(true, false, mode, c);
+        assert_eq!(
+            output.stick,
+            Some([0.0, -1.0]),
+            "Yoshi should hold Down from bair's apex through frame {frame}"
+        );
     }
     assert!(tool.confirmed());
     let face = tool.sample(true, false, mode, make(0x18, 5, 0.0, true, -1.0));
@@ -575,101 +690,6 @@ fn kirby_starters_accept_all_grounded_movement_states_and_queue_transient_jump_r
         );
     }
     assert!(!grounded_start_allowed(4, 2));
-}
-
-#[test]
-fn airborne_routes_wait_for_landing_window_then_hold_down_through_hitstop_and_land() {
-    use kirby_assist_core::finisher::AirTiming;
-    for (mode, motion, first) in [
-        (YMode::FairSmash, 0xc3495ada5, 10.0),
-        (YMode::DairSmash, 0xd40042152, 18.0),
-    ] {
-        let mut tool = Finisher::default();
-        let entry = tool.sample_with_air(
-            true,
-            true,
-            mode,
-            ctx(0xc, 3, 0.0, false),
-            Some(AirTiming {
-                landing_frames: 50.0,
-            }),
-        );
-        assert_eq!(entry.requested, 0);
-        assert_eq!(entry.stick, Some([0.0, -1.0]));
-        assert!(tool.active());
-        let wait = tool.sample_with_air(
-            true,
-            false,
-            mode,
-            ctx(0xe, 4, 0.0, false),
-            Some(AirTiming {
-                landing_frames: 40.0,
-            }),
-        );
-        assert_eq!(wait.stick, Some([0.0, -1.0]));
-        let attack = tool.sample_with_air(
-            true,
-            false,
-            mode,
-            ctx(0xe, 4, 1.0, false),
-            Some(AirTiming {
-                landing_frames: first + 4.0,
-            }),
-        );
-        assert_eq!(attack.requested, MAPPER_A);
-        assert_eq!(
-            attack.stick,
-            Some(if mode == YMode::FairSmash {
-                [1.0, 0.0]
-            } else {
-                [0.0, -1.0]
-            })
-        );
-        for frame in 0..=first as u32 {
-            let mut c = ctx(0x36, motion, frame as f32, false);
-            c.fighter.hit_now = frame == first as u32;
-            let out = tool.sample_with_air(true, false, mode, c, None);
-            assert_eq!(out.requested, 0);
-            assert_eq!(out.stick, Some([0.0, -1.0]));
-            c.fighter.stopped = true;
-            c.velocity_y = 0.0;
-            assert_eq!(tool.sample_with_air(true, false, mode, c, None), out);
-        }
-        let landing = tool.sample_with_air(true, false, mode, ctx(0x18, 5, 0.0, true), None);
-        assert_eq!(landing.requested, MAPPER_A);
-        assert_eq!(
-            landing.stick,
-            Some(if mode == YMode::FairSmash {
-                [1.0, 0.5]
-            } else {
-                [0.0, -1.0]
-            })
-        );
-    }
-}
-
-#[test]
-fn airborne_starters_reject_unknown_or_insufficient_height_and_forecast_native_fall() {
-    use kirby_assist_core::finisher::{landing_frames, AirTiming};
-    assert_eq!(landing_frames(24.0, -1.0, 0.08, 2.4), Some(10.0));
-    assert!(landing_frames(f32::NAN, -1.0, 0.08, 2.4).is_none());
-    assert!(landing_frames(24.0, -1.0, 0.0, 2.4).is_none());
-    for mode in [YMode::FairSmash, YMode::DairSmash] {
-        for air in [
-            None,
-            Some(AirTiming {
-                landing_frames: 5.0,
-            }),
-        ] {
-            let mut tool = Finisher::default();
-            assert_eq!(
-                tool.sample_with_air(true, true, mode, ctx(0xc, 3, 0.0, false), air)
-                    .owned,
-                0
-            );
-            assert!(!tool.active());
-        }
-    }
 }
 
 #[test]

@@ -1,0 +1,264 @@
+# ---- NEUTRAL ----
+[krool.neutral.nair]
+# F34 target; Neutral Air active 7-30; includes 3f jump squat
+name = Nair
+start_delay = 12
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[krool.neutral.down_tilt]
+# F34 target; Down Tilt active 13-15
+name = CAN
+start_delay = 20
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[krool.neutral.forward_tilt]
+# F34 target; Forward Tilt active 12-13
+name = Forward tilt
+start_delay = 21
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[krool.neutral.belly_flop]
+# F34 target; Down Smash active 22-25; charge point 1, hold 11
+name = Belly flop
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-1:11, release:1
+
+# ---- JUMP ----
+[krool.jump.nair]
+# F14 target; Neutral Air active 7-30; includes 3f jump squat
+name = Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:0:1
+
+[krool.jump.up_air]
+# F14 target; Up Air active 7-19; includes 3f jump squat
+name = DASH
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:1:1
+
+[krool.jump.forward_air]
+# F14 target; Forward Air active 11-17; includes 3f jump squat
+name = Forward air
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+# ---- ROLL ----
+[krool.roll.down_smash]
+# F31 target; Down Smash active 22-25; charge point 1, hold 9
+name = Down smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0:-1:9, release:1
+
+[krool.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 23
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[krool.roll.menu_added_3]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = CANON
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:away_from_opponent, facing_input:b:0:0:60
+
+[krool.roll.menu_added_4]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = GRAB2
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = walk:away_from_opponent:12:0.8, wait:1, range:fighter_range, facing_input:r:0:0:4
+
+# ---- ATTACK ----
+[krool.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[krool.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[krool.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+# ---- DROP ----
+[krool.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[krool.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[krool.drop.short_hop_dair]
+name = Spike (risky)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_dair:1
+
+[krool.drop.belly_flop]
+name = Belly flop (risky)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+[krool.drop.menu_added_6]
+name = BAIR
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:away_from_opponent, wait:1, facing_input:x:0:0:1, facing_input:a:-1:0:2, wait:6, drift:away_from_opponent:1:8, wait:4, facing_input:none:0:-1:4
+
+# ---- Y ----
+[krool.y.menu_custom]
+name = DAIR
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = facing_input:x:0:0:1, facing_input:a:0:-0.6:4, wait:13, facing_input:none:0:-1:4
+
+[krool.y.menu_added_2]
+name = BAIR
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:away_from_opponent, wait:1, facing_input:x:0:0:1, facing_input:a:-1:0:2, wait:6, drift:away_from_opponent:1:8, wait:4, facing_input:none:0:-1:4
+
+# ---- AUTO REACT ----
+[krool.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:28:24
+actions = input:r:0:0:4
+
+[krool.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:20:24
+actions = input:r:0:0:4
+
+[krool.roll.auto_shield_backup]
+name = Shield backup > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:14:12
+actions = opponent_input:a+x:0:0:1
+
+[krool.roll.auto_roll]
+name = Roll > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:14:12
+actions = opponent_input:a+x:0:0:1
+
+[krool.roll.auto_spot_dodge]
+name = Spot dodge > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:14:12
+actions = opponent_input:a+x:0:0:1
+
+[krool.roll.auto_air_dodge]
+name = Air dodge > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:14:24
+actions = opponent_input:a+x:0:0:1
+
+[krool.roll.auto_grab_dodged]
+name = Dodged grab > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:14:12
+actions = opponent_input:a+x:0:0:1
+
+# LINK
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/link
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+

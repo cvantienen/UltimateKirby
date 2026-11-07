@@ -1,26 +1,33 @@
-//! Active hitbox observations for optional grounded Kirby defense. One normal ATTACK
-//! command hook remembers object IDs only; it never edits Lua arguments,
+//! Bounded hitbox sources for ledge shield and optional grounded duck defense.
+//! One ATTACK-command observer remembers IDs only; it never edits Lua arguments,
 //! attacks or statuses. Native geometry is read only while defense is enabled.
 use crate::game_ffi as game;
 use kirby_assist_core::autopilot_guard::{
     duck::{self, DefenseThreat},
     duck_geometry::{self, Contact, Hitbox},
 };
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
+#[path="projectile_sources.rs"]mod projectile_sources;
 
-const EMPTY: u32 = u32::MAX;
 const CAPACITY: usize = 32;
-static SOURCES: [AtomicU32; CAPACITY] = [const { AtomicU32::new(EMPTY) }; CAPACITY];
-static NEXT: AtomicUsize = AtomicUsize::new(0);
+static SOURCES:projectile_sources::Sources=projectile_sources::Sources::new();
 static TRACKING: AtomicBool = AtomicBool::new(false);
 pub(super) fn tracking(enabled: bool) {
     TRACKING.store(enabled, Ordering::Relaxed);
+}
+/// Copied IDs only. Callers revalidate native identity/team before geometry.
+pub(super) fn sources() -> [Option<u32>; CAPACITY] {
+    SOURCES.snapshot().map(|key|key.map(|key|key.id))
+}
+pub(super) fn projectiles()->[Option<kirby_assist_core::projectile_reflect::ProjectileKey>;CAPACITY] {SOURCES.snapshot()}
+pub(super) fn forget(id:u32) {
+    SOURCES.forget(id);
 }
 
 #[skyline::hook(replace = game::attack_command)]
 unsafe fn remember_attack(lua_state: u64) {
     original!()(lua_state);
-    if !TRACKING.load(Ordering::Relaxed) {
+    if !TRACKING.load(Ordering::Relaxed) || !super::feature_activity_allowed() {
         return;
     }
     let object = game::lua_object(lua_state);
@@ -33,13 +40,7 @@ unsafe fn remember_attack(lua_state: u64) {
     if !matches!(id >> 28, 1 | 4) {
         return;
     }
-    if SOURCES
-        .iter()
-        .any(|slot| slot.load(Ordering::Relaxed) == id)
-    {
-        return;
-    }
-    SOURCES[NEXT.fetch_add(1, Ordering::Relaxed) % CAPACITY].store(id, Ordering::Relaxed);
+    SOURCES.remember(id);
 }
 
 pub(super) unsafe fn install() {
@@ -47,9 +48,7 @@ pub(super) unsafe fn install() {
 }
 pub(super) fn clear() {
     tracking(false);
-    for slot in &SOURCES {
-        slot.store(EMPTY, Ordering::Relaxed);
-    }
+    SOURCES.clear();
 }
 
 pub(super) unsafe fn observe(
@@ -71,15 +70,12 @@ pub(super) unsafe fn observe(
         .lock()
         .ok()
         .and_then(|s| s.ledge_roster.map(|r| r.0));
-    let fighters = roster.unwrap_or([None; 8]);
+    let fighters = roster.unwrap_or([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
     let mut active_slots = 0;
     for id in fighters
         .into_iter()
         .flatten()
-        .chain(SOURCES.iter().filter_map(|slot| {
-            let id = slot.load(Ordering::Relaxed);
-            (id != EMPTY).then_some(id)
-        }))
+        .chain(sources().into_iter().flatten())
     {
         if id == own_id || !game::is_active(id) {
             continue;

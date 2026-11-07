@@ -43,6 +43,7 @@ pub struct Context {
 #[derive(Clone, Copy)]
 pub struct Config {
     pub down: [u8; 2],
+    pub down_back: Option<[u8; 2]>,
     pub forward: [u8; 2],
     pub down_reach: f32,
     pub forward_reach: f32,
@@ -83,6 +84,9 @@ impl Punisher {
         cfg: Config,
         targets: [Option<Target>; 8],
     ) -> LedgeOutput {
+        self.sample_with_height(enabled,c,cfg,targets,8.)
+    }
+    pub fn sample_with_height(&mut self,enabled:bool,c:Context,cfg:Config,targets:[Option<Target>;8],height:f32)->LedgeOutput {
         if self.object != Some(c.object) {
             *self = Self::default();
             self.object = Some(c.object);
@@ -151,7 +155,7 @@ impl Punisher {
             !targets
                 .iter()
                 .flatten()
-                .any(|t| t.id == id && contact(c, cfg, *t, self.forward, 0.0))
+                .any(|t| t.id == id && contact(c, cfg, *t, self.forward, 0.0,height))
         }) {
             self.cancel_pending();
             return self.output;
@@ -165,11 +169,14 @@ impl Punisher {
                 || !targets
                     .iter()
                     .flatten()
-                    .any(|t| Some(t.id) == self.target && contact(c, cfg, *t, self.forward, 0.0))
+                    .any(|t| Some(t.id) == self.target && contact(c, cfg, *t, self.forward, 0.0,height))
             {
                 self.cancel_pending();
             } else {
-                self.output = if crate::move_input::delivery_pressed(self.age) {
+                self.output = if crate::move_input::smash_retry_pressed(
+                    self.age,
+                    self.target.unwrap_or_default(),
+                ) {
                     crate::move_input::output(
                         if self.forward {
                             [c.facing.signum(), 0.0]
@@ -209,7 +216,7 @@ impl Punisher {
             if t.kind == Kind::Roll && !forward {
                 continue;
             } // close rolls retain the existing down-smash reader
-            if contact(c, cfg, *t, forward, setup) {
+            if contact(c, cfg, *t, forward, setup,height) {
                 selected = Some((i, *t, forward, x));
                 break;
             }
@@ -257,7 +264,7 @@ impl Punisher {
         self.output
     }
 }
-fn contact(c: Context, cfg: Config, t: Target, forward: bool, setup: f32) -> bool {
+fn contact(c: Context, cfg: Config, t: Target, forward: bool, setup: f32,height:f32) -> bool {
     if !t.frame.is_finite()
         || !t.rate.is_finite()
         || t.rate <= 0.0
@@ -276,27 +283,16 @@ fn contact(c: Context, cfg: Config, t: Target, forward: bool, setup: f32) -> boo
     {
         return false;
     }
-    let frames = if forward { cfg.forward } else { cfg.down };
-    let reach = if forward {
-        cfg.forward_reach
-    } else {
-        cfg.down_reach
-    };
-    ActiveWindow {
-        first: frames[0] as u16,
-        last: frames[1] as u16,
-    }
-    .first_contact(
-        setup,
-        RecoveryWindow {
-            vulnerable_in: Some(t.opens),
-            actionable_in: Some(t.closes),
-        },
-        |at| {
-            let x = t.position[0] - c.position[0] + (t.velocity[0] - c.velocity[0]) * at;
-            let y = t.position[1] - c.position[1] + (t.velocity[1] - c.velocity[1]) * at;
-            x.abs() <= reach && y.abs() <= 8.0
-        },
-    )
-    .is_some()
+    let reach=if forward {cfg.forward_reach}else{cfg.down_reach};
+    let windows = if forward { [Some((cfg.forward,false)),None] }
+        else { [Some((cfg.down,false)),cfg.down_back.map(|w|(w,true))] };
+    windows.into_iter().flatten().any(|(frames,back)| {
+        ActiveWindow {first:frames[0] as u16,last:frames[1] as u16}.first_contact(
+            setup, RecoveryWindow {vulnerable_in:Some(t.opens),actionable_in:Some(t.closes)}, |at| {
+                let x=t.position[0]-c.position[0]+(t.velocity[0]-c.velocity[0])*at;
+                let y=t.position[1]-c.position[1]+(t.velocity[1]-c.velocity[1])*at;
+                let side_ok=forward || cfg.down_back.is_none() || x.abs()<=0.001 || (x*c.facing<0.)==back;
+                side_ok && x.abs()<=reach && y.abs()<=height
+            }).is_some()
+    })
 }

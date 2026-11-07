@@ -1,0 +1,161 @@
+# ---- NEUTRAL ----
+[pikachu.neutral.nair]
+# F34 target; Neutral Air active 3-6; includes 3f jump squat
+name = Nair
+start_delay = 26
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[pikachu.neutral.down_tilt]
+# F34 target; Down Tilt active 7-8
+name = Down tilt
+start_delay = 26
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[pikachu.neutral.forward_smash]
+# F34 target; Forward Smash active 15-29; charge point 9, hold 21
+name = Forward Smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:1:0:21, release:1
+
+# ---- JUMP ----
+[pikachu.jump.up_air]
+# F14 target; Up Air active 4-8; includes 3f jump squat
+name = Up Air
+start_delay = 5
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+# ---- ROLL ----
+[pikachu.roll.down_smash]
+# F31 target; Down Smash active 8-9; charge point 2, hold 25
+name = Down smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0:-1:25, release:1
+
+# ---- ATTACK ----
+[pikachu.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[pikachu.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+# ---- DROP ----
+[pikachu.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[pikachu.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+# ---- AUTO REACT ----
+[pikachu.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:19.9:24
+actions = input:r:0:0:4
+
+[pikachu.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:11.9:24
+actions = input:r:0:0:4
+
+[pikachu.roll.auto_shield_backup]
+name = Shield backup > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:10:12
+actions = opponent_input:a+x:0:0:1
+
+[pikachu.roll.auto_roll]
+name = Roll > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:10:12
+actions = opponent_input:a+x:0:0:1
+
+[pikachu.roll.auto_spot_dodge]
+name = Spot dodge > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:10:12
+actions = opponent_input:a+x:0:0:1
+
+[pikachu.roll.auto_air_dodge]
+name = Air dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:10:24
+actions = opponent_input:a+x:0:1:1
+
+[pikachu.roll.auto_grab_dodged]
+name = Dodged grab > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:10:12
+actions = opponent_input:a+x:0:0:1
+
+# PIT
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/pit
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+

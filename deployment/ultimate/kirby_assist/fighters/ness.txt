@@ -1,0 +1,308 @@
+# ---- NEUTRAL ----
+[ness.neutral.menu_custom]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = SIDE B
+start_delay = 5
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, wait:2, facing_input:x:0:0:1, facing_input:b:1:0:1
+
+[ness.neutral.nair]
+# F34 target; Neutral Air active 5-15; includes 3f jump squat
+name = Fair
+start_delay = 21
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[ness.neutral.down_tilt]
+# F34 target; Down Tilt active 3-4
+name = NAIR
+start_delay = 30
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[ness.neutral.forward_tilt]
+# F34 target; Forward Tilt active 7-10
+name = Forward tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[ness.neutral.up_tilt]
+# F34 target; Up Tilt active 5-8
+name = Up tilt
+start_delay = 27
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+[ness.neutral.forward_smash]
+# F34 target; Forward Smash active 21-22; charge point 10, hold 22
+name = Bat reflector
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:1:0:22, release:1
+
+# ---- JUMP ----
+[ness.jump.nair]
+# F14 target; Neutral Air active 5-15; includes 3f jump squat
+name = Nair
+start_delay = 1
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:0:1
+
+[ness.jump.forward_air]
+# F14 target; Forward Air active 8-8; includes 3f jump squat
+name = Forward air
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[ness.jump.up_air]
+# F14 target; Up Air active 8-8; includes 3f jump squat
+name = SPIKE
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:1:1
+
+[ness.jump.up_tilt]
+# F14 target; Up Tilt active 5-8
+name = Ftilt
+start_delay = 8
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+[ness.jump.menu_added_5]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = DWN B
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = facing_input:x:0:0:1, drift:opponent:0.7:5, facing_input:b:0:-1:4
+
+# ---- ROLL ----
+[ness.roll.down_smash]
+# Yo-yo charge-hitbox alternative; release/contact timing requires in-game calibration
+name = Yo-yo sweep
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = walk:away_from_opponent:15:0.95, wait:2, facing_input:a:0:-1:20
+
+[ness.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[ness.roll.down_tilt]
+# F31 target; Down Tilt active 3-4
+name = PK
+start_delay = 28
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+[ness.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[ness.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[ness.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[ness.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+[ness.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[ness.drop.down_tilt_shield]
+name = Down tilt
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, wait:1, facing_input:a:0:-0.6:1, wait:1, facing_input:a:0:-0.6:4, wait:1, facing_input:a:0:-0.6:4, wait:1, facing_input:a:0:-0.6:4, wait:1, facing_input:a:0:-0.6:4, wait:1, facing_input:a:0:-0.6:4, wait:1, facing_input:a:0:-0.6:4, wait:1, facing_input:a:0:-0.6:4, wait:1, facing_input:a:0:-0.6:4, wait:1, facing_input:a:0:-0.6:4
+
+[ness.drop.drop_nair]
+name = Dair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = facing_input:x:0:0:1, wait:1, facing_input:a:0:-0.6:1, wait:25, facing_input:none:0:-1:1
+
+[ness.drop.forward_air]
+name = Afair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, facing_input:x:0:0:1, facing_input:a:0.6:0:1, drift:away_from_opponent:1:15
+
+[ness.drop.short_hop_dair]
+name = PK
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = facing_input:x:0:0:1, facing_input:b:1:0:4
+
+[ness.drop.down_smash]
+name = Yo-yo sweep
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, facing_input:a:0:1:50
+
+# ---- Y ----
+[ness.y.menu_custom]
+name = Custom (saved)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = facing_input:x:0:0:1, wait:10, facing_input:a:0:-1:4, wait:9, facing_input:none:0:-1:4
+
+# ---- DPAD_DOWN ----
+[ness.dpad_down.menu_custom]
+name = Custom (saved)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, wait:1, tap:a:0:-0.6:1:1:50
+
+# ---- AUTO REACT ----
+[ness.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:20:24
+actions = input:r:0:0:4
+
+[ness.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:12:24
+actions = input:r:0:0:4
+
+[ness.roll.auto_shield_backup]
+name = Shield backup > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:12:12
+actions = opponent_input:a+x:0:0:1
+
+[ness.roll.auto_roll]
+name = Roll > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:12:12
+actions = opponent_input:a+x:0:0:1
+
+[ness.roll.auto_spot_dodge]
+name = Spot dodge > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:12:12
+actions = opponent_input:a+x:0:0:1
+
+[ness.roll.auto_air_dodge]
+name = Air dodge > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:12:24
+actions = opponent_input:a+x:0:0:1
+
+[ness.roll.auto_grab_dodged]
+name = Dodged grab > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:12:12
+actions = opponent_input:a+x:0:0:1
+
+# OLIMAR
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/olimar
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+

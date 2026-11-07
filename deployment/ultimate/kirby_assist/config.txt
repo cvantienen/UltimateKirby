@@ -1,3 +1,4 @@
+# Legacy fallback only: [universal.settings] in sequences.txt takes priority.
 # Fighter responses, menu choices are compiled Rust functions/data.
 # This file supplies shared settings and supported numeric timing adjustments only.
 # Global enable flags, controls and shared settings still come from this file.
@@ -13,8 +14,18 @@
 # Values below override Rust defaults. Deleting a key restores its Rust default,
 # which may differ from this supplied file (especially turbo/ledge/takeover).
 enabled = true
+# With enabled=true, hold Plus+Minus for 0.35 seconds outside battle (Arena
+# character select/results) to toggle the master switch. Release both for 0.15s
+# before toggling again. ON restores configured features; OFF bypasses all assists.
+# In-match toggling is blocked even while OFF. A small ON/OFF confirmation shows
+# for 1.8 seconds rather than remaining on unrelated screens. enabled=false stays
+# off until restart/config edit.
+# Physical control preset. Use brother for: R/ZR Jump, ZL Shield, L Special,
+# X Grab, A Attack. In that preset L3 holds ledge assist; Y and Minus stay unchanged.
+control_layout = default
 # Initial mash state; change ON/OFF from the Auto-mash menu row mid-match.
-auto_mash = true
+auto_mash = false
+# Initial Auto-tech menu setting; toggle in game. OFF skips prediction rays.
 auto_tech = true
 # Hold L: approximate grounded defense against nearby active fighter attacks.
 # Uses a short root-position/velocity envelope, not exact hitbox collision.
@@ -52,17 +63,24 @@ tech_lookahead_frames = 5
 # Grounded Ganon Side B uses its linked capture clock; the aerial slam is untechable.
 tech_cooldown_frames = 40
 
-# Menu starts visible each match; R3 toggles it (R3 in diagnostic Training).
-# Training ZL save/load keeps menu visibility and resumes on release; menus/recording resume with R3.
-# Minus opens/closes it; entry/countdown editing is available once the local fighter is known.
-# While open, D-pad Up/Down selects a row and
-# Left/Right cycles options, even with L held. Menu input never starts tools.
-# While closed, Left/Right slides and Down starts ledge trump (no L needed).
-# Hidden Up is normal. Y holds its selected mode (Kirby Auto-duck); L runs autopilot.
+# Menu starts hidden each match; Minus cycles compact selector, modes, closed.
+# Training ZL save/load keeps menu visibility and resumes on release; menus/recording resume with Minus.
+# Entry/countdown editing is available once the local fighter is known.
+# R3 on compact opens the highlighted recipe editor; R3 or Minus returns to compact.
+# Quick selector shows five ledge responses plus X/Y bindings; X tests/stops the selected recipe.
+# Held L still runs ledge trapping in compact view; D-pad release resumes held-L assistance.
+# Ordinary A/B gameplay buttons pass through; manual actions cancel a running compact test.
+# Sequence editor contains only ledge/X/Y recipes; Modes shows all available mode states.
+# Compact/Modes: Up/Down selects a row; Left/Right changes its value.
+# Choose recipes in compact; R3 edits the highlighted recipe.
+# Action editing: Up/Down selects a field; Left/Right adjusts it.
+# Hidden X/Y/D-pad use fighter-specific sequences or Hold/Toggle modes.
+# Minus pages: ledge traps, button configs, modes, closed. L runs autopilot.
+# Legacy hard-coded D-pad B-reverse is removed; this old key is ignored.
 # Directions held while closing must be released before starting a tool.
-dpad_slide = true
-# Hold L3 without L: turbo teabag with slight forward creep. R3 toggles the menu.
-# R3 toggles the menu; Auto-mash has an ON/OFF menu row.
+dpad_b_reverse = false
+# Hold L3 without L: turbo teabag with slight forward creep. Minus toggles the menu.
+# Auto-mash has an ON/OFF menu row.
 # Press X: X short-hop tap on the ground (both mapped to Jump).
 # Hold L as Kirby: includes in-range down-tilt recovery cover, with no R3 binding.
 r3_turbo = true
@@ -88,17 +106,18 @@ ledge_walk_strength = 0.35
 ledge_roll_dash_range = 10.0
 # Plan hits during this many opening down-smash active frames (1..13).
 # Default 5 targets frames 7..11, overlapping vulnerability before roll recovery.
-ledge_roll_hit_window_frames = 5
+# Retired (configure sequences.txt): ledge_roll_hit_window_frames = 5
 # Unrecognized ledge drops hold shield; recognized get-up attacks retain a grab after a confirmed block, regardless of distance.
 ledge_drop_defense = true
 # Tap D-pad Down: find the nearest floor edge, run off, Down, then inward to catch.
-# Only while the menu is closed. No opponent is required. Enabled by default.
+# Only while the menu is closed. No opponent is required.
 # The sequence ends at ledge catch; choose your own follow-up. Held-L assist is separate.
-auto_ledge_trump = true
+# Silent: disabled. Diagnostic: enable the OFF-by-default Trump menu toggle.
+auto_ledge_trump = false
 # Normal get-up: neutral_air starts its hitbox about 8 frames before protection ends.
 # Legacy parser key below is retained; the compiled menu selects actual response functions.
 # Jump uses nair; roll uses down smash.
-ledge_getup_attack = neutral_air
+# Retired (configure sequences.txt): ledge_getup_attack = neutral_air
 
 # Normal/jump get-up nair: neutral jump+A together; keep A buffered through squat.
 # Distance-agnostic mode uses vulnerability/recovery timing without reach prediction.
@@ -128,7 +147,7 @@ ledge_roll_distance = 25.0
 ledge_move_strength = 0.65
 
 # One early Grab pulse near shieldstun end when close (0..6).
-ledge_grab_buffer_frames = 3
+# Retired (configure sequences.txt): ledge_grab_buffer_frames = 3
 # Button actually mapped to Grab: R/L/ZL. ZR remains Shield.
 # Retries require a release; native startup pauses them and capture ends them.
 # Shield stays held through block hitstop. Manual mode never pursues pushback.
@@ -144,29 +163,34 @@ down_tilt_trip_smash = true
 kirby_fair1_smash = true
 
 # During damage hitstop, alternate neutral/full stick at native hitstop cadence.
-# Auto-SDI goes away from the attacker; move the stick after a hit to take control.
-# If attacker identity is unavailable, default toward stage center (world X=0).
-# Only the stick is overridden; normal input/DI resumes when damage hitstop ends.
+# Auto-SDI goes away from a known attacker only while the stick is neutral.
+# A held/moved stick outside 20% immediately keeps manual DI/SDI for that hit.
+# SDI stops for the final 3 hitstop frames, including when launch DI is unavailable.
+# Unknown attacker direction: no automatic SDI. No stage-center guess.
 auto_sdi = true
 
 # Hold launch DI during the final 3 observed victim-hitstop frames; SDI owns earlier frames.
-# Adaptive: weaker launches favor attacker separation; stronger launches favor survival.
+# Survival is the default. Legacy adaptive also uses survival behavior now.
+# Escape remains an explicit aggressive option; it can worsen survival.
 # This is a launch-axis heuristic, not a blast-zone or guaranteed combo-escape solver.
-# Move the physical stick after the hit to take control. No buttons or recovery inputs.
+# A physical direction held before or during the hit takes control immediately.
+# No buttons, native status, recovery, physics or hitbox changes.
 auto_di = true
-auto_di_mode = adaptive
-# Native launch-speed magnitude, not damage percent or a universal KO threshold.
+auto_di_mode = survival
+# Legacy threshold retained for config compatibility; Adaptive no longer selects escape.
 auto_di_survival_speed = 3.0
 
 # Constant grab defense, no held trigger: ordinary standing/dash/pivot grabs.
-# Four-frame timing/root-reach forecast; special command grabs are not modeled.
+# Six-frame timing/root-reach forecast; special command grabs are not modeled.
 # Requires native grounded dodge readiness; ledge/roll and punish modes win priority.
+# Both builds: Modes > Grab dodge + punish; this key is the startup fallback.
+# [fighter.settings] grab_dodge_default overrides it; grab_dodged recipes configure follow-ups.
 auto_spot_dodge = true
 
 # Numeric-only adjustments to compiled response functions (read once at startup).
 # These keys cannot define functions, sequences, menu entries or new fighters.
-ledge_nair_hit_lead_frames = 8
-ledge_stone_hit_lead_frames = 0
+# Retired (configure sequences.txt): ledge_nair_hit_lead_frames = 8
+# Retired (configure sequences.txt): ledge_stone_hit_lead_frames = 0
 # Actual grounded Stone startup used by the timing model, not an animation edit.
-ledge_stone_startup_frames = 11
-ledge_drop_request_timeout_frames = 30
+# Retired (configure sequences.txt): ledge_stone_startup_frames = 11
+# Retired (configure sequences.txt): ledge_drop_request_timeout_frames = 30

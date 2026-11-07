@@ -1,0 +1,79 @@
+# ---- UNIVERSAL SETTINGS ----
+[universal.settings]
+enabled = true
+control_layout = default
+auto_mash = false
+auto_tech = true
+autopilot_shield = true
+kirby_auto_duck = false
+tech_debug = true
+player_index = 0
+takeover = true
+tech_lookahead_frames = 5
+tech_cooldown_frames = 40
+dpad_b_reverse = false
+r3_turbo = true
+turbo_phase_frames = 1
+turbo_walk_strength = 0.35
+ledge_trap = true
+ledge_manual_spacing = true
+ledge_distance_agnostic = true
+ledge_walk_strength = 0.35
+ledge_roll_dash_range = 10.0
+ledge_drop_defense = true
+auto_ledge_trump = false
+ledge_anti_air_range = 12.0
+ledge_anti_air_height = 18.0
+ledge_trap_range = 20.0
+ledge_trap_vertical_range = 10.0
+ledge_tilt_range = 15.0
+ledge_grab_range = 9.0
+ledge_follow_range = 40.0
+ledge_follow_vertical_range = 48.0
+ledge_auto_position = false
+ledge_stand_distance = 10.0
+ledge_roll_distance = 25.0
+ledge_move_strength = 0.65
+ledge_grab_button = R
+ledge_throw_outward = false
+down_tilt_trip_smash = true
+kirby_fair1_smash = true
+auto_sdi = true
+auto_di = true
+auto_di_mode = survival
+auto_di_survival_speed = 3.0
+auto_spot_dodge = true
+
+# ---- GENERIC TRAINING TEMPLATES (inert until copied into a recipe) ----
+[template.shield_four_frames]
+name = Shield for 4 frames
+start_delay = 0
+actions = input:zr:0:0:4
+
+[template.grab]
+name = Grab
+start_delay = 0
+actions = input:r:0:0:4
+
+[template.up_b_chase]
+name = Up-B then opponent drift
+start_delay = 0
+timeout = 240
+actions = up_b:4, drift:opponent:1:69
+
+[template.ledge_position]
+name = Run to ledge spacing
+start_delay = 0
+timeout = 240
+actions = run_to_ledge:10:1:1:2:120
+
+# BAYONETTA
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/bayonetta
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+

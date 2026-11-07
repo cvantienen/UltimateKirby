@@ -1,0 +1,78 @@
+//! Cheap admission/observation gates. No scans, native writes or recovery waits.
+
+/// Controllable grounded movement, ordinary landing, or native ready shield.
+/// A cancel flag alone never admits a new punish during an attack or dodge.
+pub fn automatic_start_status(status: i32) -> bool {
+    matches!(status,0..=9|0x11..=0x17|0x1b|0x1c|0x7e|0x7f)
+}
+pub fn automatic_start_allowed(status: i32, situation: i32, stopped: bool, linked: bool) -> bool {
+    situation == 0 && !stopped && !linked && automatic_start_status(status)
+}
+/// Grab attempts may be defended/punished. Pull/hold/pummel/throw and victims
+/// already in capture are not ordinary automatic-punish targets.
+pub fn automatic_target_available(status: i32) -> bool {
+    status >= 0 && !crate::native_states::captured_or_scripted(status)
+        && !matches!(status,0x38|0x3a|0x3c..=0x40|0x75..=0x7d|0xb5|0xb6)
+}
+/// Position-only following of an already confirmed spin may continue through
+/// a target's ledge grab/invulnerability. This never admits a new attack/grab.
+pub fn automatic_tracking_target_available(status:i32)->bool {
+    automatic_target_available(status) || (0x75..=0x7d).contains(&status)
+}
+pub fn automatic_up_b_status(kind: i32, status: i32, _previous: i32) -> bool {
+    crate::native_states::up_special_status(kind, status)
+}
+
+/// Passive receipt observation is grounded and cannot admit an attack. A dodge
+/// cancel receipt belongs only to the already assisted own spot dodge.
+pub fn automatic_up_b_receipt_status(status:i32,situation:i32,assisted_dodge:bool)->bool {
+    situation==0 && (automatic_start_status(status) || matches!(status,0x1d|0x1e)
+        || assisted_dodge && status==0x1f)
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AutomaticObservationScope {
+    pub acquire: bool,
+    pub follow: bool,
+}
+impl AutomaticObservationScope {
+    pub fn new(
+        suspended: bool,
+        status: i32,
+        situation: i32,
+        stopped: bool,
+        linked: bool,
+        committed_up_b: bool,
+        native_up_b: bool,
+        assisted_dodge: bool,
+        committed_sequence: bool,
+    ) -> Self {
+        if suspended || linked {
+            return Self::default();
+        }
+        Self {
+            acquire: automatic_start_allowed(status, situation, stopped, false),
+            follow: committed_up_b && native_up_b
+                || assisted_dodge && situation == 0 && status == 0x1f
+                || committed_sequence
+                    && automatic_target_available(status)
+                    && !crate::action_owner::native_grab_active(status)
+                    && !crate::ledge_trap::sequence_interrupted(status)
+                    && !matches!(status, 0x1f..=0x23),
+        }
+    }
+    pub fn with_up_b_receipt(mut self, suspended:bool, linked:bool, receipt:bool,
+        status:i32,situation:i32,assisted_dodge:bool)->Self {
+        if suspended || linked {return Self::default();}
+        self.follow |= receipt
+            && automatic_up_b_receipt_status(status,situation,assisted_dodge);
+        self
+    }
+    pub fn observe_targets(self) -> bool {
+        self.acquire || self.follow
+    }
+}
+
+pub fn automatic_fighter_target_available(kind:i32,status:i32)->bool {
+    automatic_target_available(status) && !crate::native_states::fighter_noncombat(kind,status)
+}

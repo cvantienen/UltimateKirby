@@ -15,10 +15,11 @@ counts; it is not a verified global simulation-frame clock.
 
 ## Settings and control
 
-Use the bundled settings:
+Auto-mash starts OFF. Enable it from the Auto-mash menu row, or change the
+startup setting to true. The bundled settings are:
 
 ```text
-auto_mash = true
+auto_mash = false
 takeover = true
 ```
 

@@ -20,19 +20,14 @@ pub const LEDGE_DATA: LedgeFighterData = LedgeFighterData {
         shield: 10,
         active_frames: 2,
     },
-    normal_hit_lead_frames: 8,
     common_roll_distance: 25.0,
 };
 
-pub const NAIR_HIT_LEAD: u8 = 8;
 // Start Neutral get-up down smash this many frames earlier than midpoint alignment.
-pub const NEUTRAL_DOWN_SMASH_EARLY_FRAMES: u8 = 2;
 // Whiff-punish root-distance estimates, not native hitbox radii.
 pub const WHIFF_TILT_REACH: f32 = 8.0;
 pub const WHIFF_SMASH_REACH: f32 = 12.0;
 pub const WHIFF_SMASH_STARTUP: u8 = 13;
-// Experimental fixed ledge-roll grab stance, measured inward from the ledge.
-pub const ROLL_GRAB_LEDGE_INSET: f32 = 20.0;
 // Separate onstage roll-through mode. Reach/height are conservative root-space
 // estimates for calibration, not measured hurtbox intersection guarantees.
 pub const ROLL_READ_DOWN_SMASH: crate::roll_read::FighterConfig = crate::roll_read::FighterConfig {
@@ -55,21 +50,12 @@ pub const ROLL_READ_GRAB: crate::roll_read::FighterConfig = crate::roll_read::Fi
 };
 // Optional grounded preparation while Neutral/Jump nair are already waiting.
 // Reuses the fast-walk strength from Kirby's roll grab, below the dash flick.
-pub const NEUTRAL_NAIR_WALK_STICK: f32 = 0.65;
-pub const NEUTRAL_NAIR_EDGE_INSET: f32 = 6.0;
-pub const STONE_HIT_LEAD: u8 = 0;
 // https://ultimateframedata.com/kirby.php : clean 6–8, late 9–12.
 pub const JUMP_BAIR: MoveFrames = MoveFrames { first: 6, last: 12 };
-pub const JUMP_BAIR_DRIFT: f32 = 0.35;
 // Stage the seven-frame bair window three frames before protection expires.
-pub const NEUTRAL_BAIR_LEAD: u8 = 3;
-pub const NEUTRAL_BAIR_DRIFT: f32 = 0.0;
 // Normal Inhale (without a copied ability): active from frame 10 and lingering.
 pub const INHALE_STARTUP: u8 = 10;
-pub const INHALE_HIT_LEAD: u8 = 8;
 
 // Down-air starts on frame 18: https://ultimateframedata.com/kirby
-pub const DROP_DAIR_FIRST_ACTIVE: f32 = 18.0;
 // Keep down stronger than horizontal while selecting the aerial. Once dair is
 // observed, release down/A and use full horizontal drift through startup.
-pub const DROP_DAIR_SELECT_DRIFT: f32 = 0.6;

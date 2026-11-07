@@ -12,6 +12,7 @@ use std::{
 };
 
 const LOG_PATH: &str = "sd:/ultimate/kirby_assist/status.log";
+const PERFORMANCE_PATH: &str = "sd:/ultimate/kirby_assist/performance.log";
 const QUEUE_CAPACITY: usize = 128;
 const FLUSH_INTERVAL: Duration = Duration::from_millis(250);
 enum Message {
@@ -70,15 +71,17 @@ pub fn start() {
     if let Err(error) = std::fs::create_dir_all("sd:/ultimate/kirby_assist") {
         eprintln!("[kirby_assist] diagnostic log directory failed: {error}; expected {LOG_PATH}");
     }
-    if let Err(error) = std::fs::write(
-        LOG_PATH,
-        concat!(
-            "Kirby Assist diagnostic build ",
-            env!("CARGO_PKG_VERSION"),
-            "; on-device validation required; queued logging, 250ms flush\n"
-        ),
-    ) {
-        eprintln!("[kirby_assist] diagnostic startup log failed: {error}; expected {LOG_PATH}");
+    for path in [LOG_PATH, PERFORMANCE_PATH] {
+        if let Err(error) = std::fs::write(
+            path,
+            concat!(
+                "Kirby Assist diagnostic build ",
+                env!("CARGO_PKG_VERSION"),
+                "; queued logging; files reset at plugin start\n"
+            ),
+        ) {
+            eprintln!("[kirby_assist] diagnostic startup log failed: {error}; expected {path}");
+        }
     }
     let (sender, receiver) = mpsc::sync_channel(QUEUE_CAPACITY);
     // Spawn failure disables logging instead of panicking or falling back to
@@ -98,24 +101,24 @@ pub fn write(message: &str) {
 
 pub fn write_owned(message: String) {
     if let Some(sender) = SENDER.get() {
-        enqueue(sender, &DROPPED, Message::Text(message));
+        enqueue_message(sender, &DROPPED, Message::Text(message));
     }
 }
 
 pub fn write_grab(report: crate::grab_diagnostics::Report) {
     if let Some(sender) = SENDER.get() {
-        enqueue(sender, &DROPPED, Message::Grab(Box::new(report)));
+        enqueue_message(sender, &DROPPED, Message::Grab(Box::new(report)));
     }
 }
 pub fn write_calibration(report: crate::calibration::Report) {
     if let Some(sender) = SENDER.get() {
-        enqueue(sender, &DROPPED, Message::Calibration(Box::new(report)));
+        enqueue_message(sender, &DROPPED, Message::Calibration(Box::new(report)));
     }
 }
 
 pub fn write_modes(report: kirby_assist_core::diagnostics::modes::Report) {
     if let Some(sender) = SENDER.get() {
-        enqueue(
+        enqueue_message(
             sender,
             &DROPPED,
             Message::Modes(SNAPSHOT_EPOCH.load(Ordering::Acquire), Box::new(report)),
@@ -124,51 +127,93 @@ pub fn write_modes(report: kirby_assist_core::diagnostics::modes::Report) {
 }
 pub fn write_configuration(config: kirby_assist_core::diagnostics::modes::Configuration) {
     if let Some(sender) = SENDER.get() {
-        enqueue(sender, &DROPPED, Message::Configuration(Box::new(config)));
+        enqueue_message(sender, &DROPPED, Message::Configuration(Box::new(config)));
     }
 }
 
+fn enqueue_message(sender: &SyncSender<Message>, dropped: &AtomicUsize, message: Message) {
+    crate::performance::health::queue_enter();
+    match sender.try_send(message) {
+        Ok(()) => {}
+        Err(error) => {
+            crate::performance::health::queue_leave();
+            if matches!(error, TrySendError::Full(_)) {
+                dropped.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+    }
+}
+#[cfg(test)]
 fn enqueue<T>(sender: &SyncSender<T>, dropped: &AtomicUsize, message: T) {
-    // No waiting for a slow/full logger. Memory is bounded by queue capacity;
-    // the worker reports dropped messages when it can make progress again.
     if let Err(TrySendError::Full(_)) = sender.try_send(message) {
         dropped.fetch_add(1, Ordering::Relaxed);
     }
 }
-
-fn writer_loop(receiver: Receiver<Message>) {
-    // Keep one file open and buffer batches instead of opening/writing/closing
-    // the SD file for every frame. All output failures remain nonfatal.
-    let mut file = match OpenOptions::new().create(true).append(true).open(LOG_PATH) {
+fn open_log(path: &str) -> Option<BufWriter<std::fs::File>> {
+    match OpenOptions::new().create(true).append(true).open(path) {
         Ok(file) => Some(BufWriter::with_capacity(16 * 1024, file)),
         Err(error) => {
-            eprintln!("[kirby_assist] diagnostic log open failed: {error}; console only; expected {LOG_PATH}");
+            eprintln!(
+                "[kirby_assist] diagnostic log open failed: {error}; console only; expected {path}"
+            );
             None
         }
-    };
+    }
+}
+fn flush_log(
+    file: &mut Option<BufWriter<std::fs::File>>,
+    console: &mut BufWriter<std::io::Stdout>,
+    path: &str,
+) {
+    if let Some(error) = file.as_mut().and_then(|f| f.flush().err()) {
+        let _ = writeln!(
+            console,
+            "[kirby_assist] LOG FLUSH ERROR: {error}; continuing console logging; expected {path}"
+        );
+        *file = None;
+    }
+}
+
+fn writer_loop(receiver: Receiver<Message>) {
+    // Both files share the existing worker; no extra logging thread/queue.
+    let mut file = open_log(LOG_PATH);
+    let mut performance_file = open_log(PERFORMANCE_PATH);
     let mut console = BufWriter::with_capacity(16 * 1024, std::io::stdout());
     let mut flushed = Instant::now();
     loop {
         match receiver.recv_timeout(FLUSH_INTERVAL) {
             Ok(message) => {
+                let _batch_time = crate::performance::health::Trace::new(
+                    crate::performance::health::Lane::LogWork,
+                );
+                crate::performance::health::queue_leave();
                 output_message(&mut file, &mut console, message);
                 for message in receiver.try_iter().take(63) {
+                    crate::performance::health::queue_leave();
                     output_message(&mut file, &mut console, message);
                 }
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => {
-                if let Some(file) = file.as_mut() {
-                    if let Err(error) = file.flush() {
-                        eprintln!("[kirby_assist] LOG FLUSH ERROR: {error}; latest SD snapshots may be missing: {LOG_PATH}");
-                    }
-                }
+                flush_log(&mut file, &mut console, LOG_PATH);
+                flush_log(&mut performance_file, &mut console, PERFORMANCE_PATH);
                 let _ = console.flush();
                 break;
             }
         }
         let dropped = DROPPED.swap(0, Ordering::Relaxed);
+        if crate::live::feature_activity_allowed() {
+            let _report_time =
+                crate::performance::health::Trace::new(crate::performance::health::Lane::LogWork);
+            if let Some(report) = crate::performance::report() {
+                output_performance(&mut performance_file, &mut console, &report);
+            }
+        }
         if dropped != 0 {
+            crate::performance::health::add_event(
+                crate::performance::health::Event::LogDropped,
+                dropped,
+            );
             output(
                 &mut file,
                 &mut console,
@@ -176,10 +221,10 @@ fn writer_loop(receiver: Receiver<Message>) {
             );
         }
         if flushed.elapsed() >= FLUSH_INTERVAL {
-            if let Some(error) = file.as_mut().and_then(|file| file.flush().err()) {
-                let _ = writeln!(console, "[kirby_assist] LOG FLUSH ERROR: {error}. Continuing console logging; SD log may be incomplete: {LOG_PATH}");
-                file = None;
-            }
+            let _flush_time =
+                crate::performance::health::Trace::new(crate::performance::health::Lane::LogFlush);
+            flush_log(&mut file, &mut console, LOG_PATH);
+            flush_log(&mut performance_file, &mut console, PERFORMANCE_PATH);
             let _ = console.flush();
             flushed = Instant::now();
         }
@@ -210,10 +255,26 @@ fn output_message(
     }
 }
 
+fn output_performance(
+    file: &mut Option<BufWriter<std::fs::File>>,
+    console: &mut BufWriter<std::io::Stdout>,
+    report: &str,
+) {
+    output_to(file, console, report, PERFORMANCE_PATH);
+}
+
 fn output(
     file: &mut Option<BufWriter<std::fs::File>>,
     console: &mut BufWriter<std::io::Stdout>,
     message: &str,
+) {
+    output_to(file, console, message, LOG_PATH);
+}
+fn output_to(
+    file: &mut Option<BufWriter<std::fs::File>>,
+    console: &mut BufWriter<std::io::Stdout>,
+    message: &str,
+    path: &str,
 ) {
     // BufWriter owns a stdout handle, not its lock. No global console lock is
     // held while waiting for another queue message. Batch flushes run here only.
@@ -222,7 +283,7 @@ fn output(
         .as_mut()
         .and_then(|file| writeln!(file, "{message}").err())
     {
-        let _ = writeln!(console, "[kirby_assist] LOG FILE ERROR: {error}. Continuing console logging; SD log may be incomplete: {LOG_PATH}");
+        let _ = writeln!(console, "[kirby_assist] LOG FILE ERROR: {error}. Continuing console logging; SD log may be incomplete: {path}");
         *file = None;
     }
 }
@@ -230,6 +291,35 @@ fn output(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn performance_and_ordinary_reports_write_to_separate_files() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let base =
+            std::env::temp_dir().join(format!("kirby-log-test-{}-{unique}", std::process::id()));
+        std::fs::create_dir(&base).unwrap();
+        let status_path = base.join("status.log");
+        let perf_path = base.join("performance.log");
+        let mut status = open_log(status_path.to_str().unwrap());
+        let mut perf = open_log(perf_path.to_str().unwrap());
+        let mut console = BufWriter::new(std::io::stdout());
+        output(&mut status, &mut console, "ordinary action evidence");
+        output_performance(&mut perf, &mut console, "RUNTIME HEALTH: timing evidence");
+        status.as_mut().unwrap().flush().unwrap();
+        perf.as_mut().unwrap().flush().unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&status_path).unwrap(),
+            "ordinary action evidence\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(&perf_path).unwrap(),
+            "RUNTIME HEALTH: timing evidence\n"
+        );
+        drop((status, perf));
+        std::fs::remove_dir_all(base).unwrap();
+    }
     #[test]
     fn snapshot_cache_rejects_previous_matches_and_never_blocks_rendering() {
         clear_snapshot();

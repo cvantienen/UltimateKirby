@@ -8,36 +8,6 @@ use super::is_hanging;
 use crate::fighter_profiles::{LedgeFighterData, LedgeResponses};
 use crate::native_input::MAPPER_R;
 
-/// Normal-getup punish; short-hop neutral air is the default. Legacy forward tilt
-/// is angled down for low targets;
-/// choosing it does not change the neutral-air jump response, roll down smash, or shield grabs.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum GetupAttack {
-    DownTilt,
-    ForwardTilt,
-    #[default]
-    NeutralAir,
-    DownSpecial,
-    NeutralSpecial,
-}
-
-/// Executable ledge-drop recipes; each can have its own saved tuning.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum LedgeDropAction {
-    #[default]
-    Shield,
-    DownTiltShield,
-    ShortHopDair,
-    Bomb,
-}
-/// Optional numeric overrides. The selected hardcoded function supplies defaults.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ResponseAdjustments {
-    pub nair_hit_lead: Option<u8>,
-    pub stone_hit_lead: Option<u8>,
-    pub stone_startup: Option<u8>,
-}
-
 /// Read-only animation timing; remaining values are converted to game frames.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionTiming {
@@ -85,6 +55,7 @@ impl AirPhysics {
         })
     }
 
+    #[allow(dead_code)] // Read-only reference forecast retained for independent tools.
     pub(super) fn displacement(self, speed: f32, frames: f32) -> f32 {
         // Integrate native gravity with terminal fall speed, including fractional
         // frames. No acceleration is fabricated when native parameters are absent.
@@ -120,29 +91,28 @@ pub fn recovery_frames(frame: f32, end: f32, cancel: f32, rate: f32) -> Option<f
 /// Validated config values. Defaults and response timing are shared by both builds.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeSettings {
-    /// Select the separate recovery-intercept policy instead of get-up recipes.
+    /// Retired recovery-policy compatibility field; live menus keep this false.
     pub two_frame: bool,
-    /// Kirby's held-L3 recovery cover uses down tilt; legacy core callers may
-    /// retain the down-smash recipe when this is false.
+    /// Retired alongside recovery interception; no live dispatcher reads it.
     pub two_frame_down_tilt: bool,
-    /// Resolved executable handler; a profile without one cannot run ledge recipes.
+    /// Legacy identity tag; no executable fighter handler is dispatched.
     pub implementation: Option<super::ResponseImplementation>,
-    /// Indices into the fighter's compiled function lists. None preserves direct
+    /// Native fighter identity for startup-loaded file menus.
+    pub fighter_kind: i32,
+    /// Indices into the fighter's startup-resolved menu lists. None preserves direct
     /// core/legacy callers that supply settings without using the battle menu.
-    pub response_choices: [Option<usize>; 5],
+    pub response_choices: [Option<usize>; crate::fighter_profiles::presets::PresetSlot::COUNT],
+    /// Startup-parsed recipes for the five selected compiled or file-added IDs.
+    /// Fixed-size copies keep text/file work out of live callbacks.
+    pub sequence_overrides: [Option<crate::sequence_config::Sequence>; crate::fighter_profiles::presets::PresetSlot::COUNT],
     /// Numeric-only startup adjustments; these cannot register new actions.
-    pub response_adjustments: ResponseAdjustments,
     /// Resolved move timings and response switches for our selected fighter.
     pub fighter: LedgeFighterData,
-    pub aerial_execution: crate::fighter_profiles::execution::AerialExecution,
     pub responses: LedgeResponses,
     pub enabled: bool,
     /// Enable the selected response to a witnessed generic ledge release.
     pub drop_defense: bool,
-    pub drop_action: LedgeDropAction,
     /// Native-time budget to request/confirm the drop punish before shielding.
-    pub drop_request_timeout_frames: u16,
-    pub getup_attack: GetupAttack,
     // Ranges/heights/stance distances are WORLD units, not stick percentages.
     // Increasing reach only makes the policy willing to attack from farther
     // away; it does not enlarge Kirby's real hitbox and can create more whiffs.
@@ -169,18 +139,13 @@ pub struct LedgeSettings {
     /// Legacy reach setting retained for config compatibility; roll navigation
     /// now uses the common roll_distance point instead of a reach forecast.
     pub roll_dash_range: f32,
-    /// Plan contact within this many opening active frames of down smash (1..13).
-    pub roll_hit_window_frames: u8,
     pub auto_position: bool,
     /// Heuristic stage-side stance offset, not a universal optimal location.
     pub stand_distance: f32,
     /// Common roll coverage distance inward from the ledge; auto uses 25 units.
     pub roll_distance: Option<f32>,
     // Unlike distances, move_strength is normalized stick magnitude (0..1).
-    // grab_buffer_frames permits one early input near native shieldstun end;
-    // it does not shorten shieldstun or the native grab animation.
     pub move_strength: f32,
-    pub grab_buffer_frames: u16,
     /// Legacy parsed setting. Captures always return control to the player.
     pub throw_outward: bool,
     /// Native mask of the button mapped to Grab; R for this user's controls.
@@ -192,16 +157,13 @@ impl Default for LedgeSettings {
             two_frame: false,
             two_frame_down_tilt: false,
             implementation: Some(super::ResponseImplementation::Kirby),
-            response_choices: [None; 5],
-            response_adjustments: ResponseAdjustments::default(),
+            fighter_kind: 6,
+            response_choices: [None; crate::fighter_profiles::presets::PresetSlot::COUNT],
+            sequence_overrides: [None; crate::fighter_profiles::presets::PresetSlot::COUNT],
             fighter: crate::fighter_profiles::kirby::LEDGE_DATA,
-            aerial_execution: crate::fighter_profiles::execution::AerialExecution::SHORT,
             responses: LedgeResponses::default(),
             enabled: false,
             drop_defense: true,
-            drop_action: LedgeDropAction::Shield,
-            drop_request_timeout_frames: 30,
-            getup_attack: GetupAttack::NeutralAir,
             anti_air_range: 12.0,
             anti_air_height: 18.0,
             horizontal_range: 12.0,
@@ -214,18 +176,17 @@ impl Default for LedgeSettings {
             distance_agnostic: true,
             walk_strength: 0.35,
             roll_dash_range: 10.0,
-            roll_hit_window_frames: 5,
             auto_position: true,
             stand_distance: 8.0,
             roll_distance: None,
             move_strength: 1.0,
-            grab_buffer_frames: 3,
             throw_outward: false,
             grab_button: MAPPER_R,
         }
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+// Defaults are inert snapshots (no gameplay/held input, no inferred deadline).
 // All fields are copied observations. Missing optional metadata is represented
 // explicitly so tests and native callers cannot silently invent a deadline.
 pub struct Opponent {
@@ -277,11 +238,17 @@ pub fn in_tracking_range(
 }
 
 /// Controlled fighter's native state, copied by the Switch adapter before evaluation.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct LedgeContext {
     pub held: bool,
     pub gameplay: bool,
-    /// Kirby can act from normal grounded movement right now.
+    /// Changes only on fresh physical gameplay input, never simulated output.
+    pub manual_input_epoch: u64,
+    /// Optional handback clock for direct automatic Up-B consumers. Bowser's
+    /// committed automatic Up-B ignores manual clocks through its drift tail;
+    /// literal ledge/button tapes still use manual_input_epoch for movement.
+    pub automatic_up_b_epoch: Option<u64>,
+    /// Native readiness for this consumer's intended grounded action.
     pub can_act: bool,
     /// The assist may own inputs, including during its guard/grab/tilt animation.
     pub can_control: bool,
@@ -289,7 +256,7 @@ pub struct LedgeContext {
     pub stopped: bool,
     pub status: i32,
     pub situation: i32,
-    /// Kirby's native motion clock distinguishes real progress when a target
+    /// The controlled fighter's native motion clock distinguishes progress when a target
     /// holds one animation pose; it is also part of duplicate-observation reuse.
     pub motion_frame: f32,
     pub motion_kind: u64,
@@ -331,4 +298,6 @@ pub struct LedgeOutput {
     pub requested: u32,
     /// Buttons to replace, including buttons that should currently be released.
     pub owned: u32,
+    /// Preserve a committed short-hop decision with this cached output until mapped.
+    pub native_short_hop: bool,
 }

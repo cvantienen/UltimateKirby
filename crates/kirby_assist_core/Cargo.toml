@@ -18,3 +18,4 @@ path = "src/lib.rs"
 # No external runtime or test parser dependencies: fighter responses are Rust.
 [features]
 diagnostic-logging = []
+probe-counters = []

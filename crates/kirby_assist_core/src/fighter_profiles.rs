@@ -1,5 +1,5 @@
-//! Compiled fighter catalog. Rust modules define available moves, response
-//! functions and menu entries. Config files cannot add action sequences.
+//! Fighter identities and read-only reference facts. Ledge options and input
+//! schedules exist only in the startup-loaded sequences.txt catalog.
 pub mod bayonetta;
 pub mod bowser;
 pub mod bowser_jr;
@@ -15,7 +15,6 @@ pub mod diddy_kong;
 pub mod donkey;
 pub mod dr_mario;
 pub mod duck_hunt;
-pub mod execution;
 pub mod falco;
 pub mod fox;
 pub mod ganondorf;
@@ -55,6 +54,8 @@ pub mod peach;
 pub mod pichu;
 pub mod pikachu;
 pub mod pit;
+pub mod pyra;
+pub mod mythra;
 pub mod presets;
 pub mod richter;
 pub mod ridley;
@@ -140,8 +141,6 @@ pub struct LedgeFighterData {
     /// Grounded up-special startup for registered shield-punish recipes.
     pub up_special_startup: Option<u8>,
     pub grab: GrabTiming,
-    /// Selected normal-getup recipe’s early hitbox lead before protection ends.
-    pub normal_hit_lead_frames: u8,
     pub common_roll_distance: f32,
 }
 impl LedgeFighterData {
@@ -180,7 +179,6 @@ impl Default for LedgeResponses {
 pub struct FighterProfile {
     pub name: &'static str,
     pub fighter_kind: i32,
-    pub aerial_execution: execution::AerialExecution,
     pub ledge: LedgeFighterData,
     pub menu_options: presets::MenuPresets,
 }
@@ -189,13 +187,40 @@ impl FighterProfile {
     pub fn reference(&self) -> Option<&'static crate::opponent_data::Reference> {
         crate::opponent_data::profile(self.fighter_kind)
     }
+    /// Startup/parser only: authoritative simple grab facts come from this
+    /// fighter's reference row before saved overrides are applied. Missing or
+    /// compound data keeps its authored same-fighter fact, never Kirby's.
+    fn with_reference_grab_facts(mut self) -> Self {
+        if let Some(g) = crate::opponent_data::ordinary_grab(self.fighter_kind, 0x37) {
+            self.ledge.grab.standing_range = g.reach;
+            self.ledge.grab.standing = g.first;
+            self.ledge.grab.active_frames = g.last - g.first + 1;
+        }
+        if let Some(g) = crate::opponent_data::ordinary_grab(self.fighter_kind, 0x39) {
+            self.ledge.grab.dash = g.first;
+        }
+        if let Some(g) = crate::opponent_data::ordinary_grab(self.fighter_kind, 0x3b) {
+            self.ledge.grab.turn_or_shield = g.first;
+        }
+        if let Some(frame) = self.reference()
+            .and_then(|r| r.stat("outofshield.grabpostshieldstun"))
+            .and_then(|s| s.parse::<u8>().ok())
+            .filter(|f| (1..=120).contains(f))
+        {
+            self.ledge.grab.shield = frame;
+        }
+        self
+    }
     pub fn apply(&self, mut settings: LedgeSettings) -> LedgeSettings {
         settings.implementation =
             crate::ledge_trap::ResponseImplementation::for_kind(self.fighter_kind);
-        // Fallback lookup returns Kirby's profile and its compiled handlers.
+        settings.fighter_kind = self.fighter_kind;
+        // Identity/reference facts do not supply a ledge option fallback.
+        // A startup-empty list may acquire a live menu recipe later. Keep the
+        // tool available for known fighters; missing selected timelines still
+        // produce no response and never fall back to compiled moves.
         settings.enabled &= settings.implementation.is_some();
         settings.fighter = self.ledge;
-        settings.aerial_execution = self.aerial_execution;
         // A fighter profile never enables a globally disabled ledge tool.
         settings
     }
@@ -207,99 +232,173 @@ pub struct FighterProfiles {
 }
 impl Default for FighterProfiles {
     fn default() -> Self {
-        Self {
-            profiles: [
-                kirby::profile(),
-                luigi::profile(),
-                captain::profile(),
-                mario::profile(),
-                donkey::profile(),
-                link::profile(),
-                samus::profile(),
-                yoshi::profile(),
-                fox::profile(),
-                pikachu::profile(),
-                sonic::profile(),
-                krool::profile(),
-                isabelle::profile(),
-                pacman::profile(),
-                littlemac::profile(),
-                dark_samus::profile(),
-                ness::profile(),
-                jigglypuff::profile(),
-                peach::profile(),
-                daisy::profile(),
-                bowser::profile(),
-                sheik::profile(),
-                zelda::profile(),
-                dr_mario::profile(),
-                pichu::profile(),
-                falco::profile(),
-                marth::profile(),
-                lucina::profile(),
-                young_link::profile(),
-                ganondorf::profile(),
-                mewtwo::profile(),
-                roy::profile(),
-                chrom::profile(),
-                mr_game_and_watch::profile(),
-                meta_knight::profile(),
-                pit::profile(),
-                dark_pit::profile(),
-                zero_suit_samus::profile(),
-                wario::profile(),
-                snake::profile(),
-                ike::profile(),
-                squirtle::profile(),
-                ivysaur::profile(),
-                charizard::profile(),
-                diddy_kong::profile(),
-                lucas::profile(),
-                king_dedede::profile(),
-                olimar::profile(),
-                lucario::profile(),
-                rob::profile(),
-                toon_link::profile(),
-                wolf::profile(),
-                villager::profile(),
-                mega_man::profile(),
-                wii_fit_trainer::profile(),
-                rosalina_and_luma::profile(),
-                greninja::profile(),
-                palutena::profile(),
-                robin::profile(),
-                shulk::profile(),
-                bowser_jr::profile(),
-                duck_hunt::profile(),
-                ryu::profile(),
-                ken::profile(),
-                cloud::profile(),
-                corrin::profile(),
-                bayonetta::profile(),
-                inkling::profile(),
-                ridley::profile(),
-                simon::profile(),
-                richter::profile(),
-                incineroar::profile(),
-                mii_brawler::profile(),
-                mii_swordfighter::profile(),
-                mii_gunner::profile(),
-                ice_climbers::profile(),
-                ice_climbers_nana::profile(),
-            ]
-            .into_iter()
-            .map(|profile| (profile.fighter_kind, profile))
-            .collect(),
+        // Keep the constructor table in read-only storage and build one profile
+        // at a time. A [FighterProfile; 77] temporary exceeded the native 64 KiB
+        // loader stack once per-fighter menu lists grew to include D-pad slots.
+        const BUILDERS: &[fn() -> FighterProfile] = &[
+            kirby::profile,
+            luigi::profile,
+            captain::profile,
+            mario::profile,
+            donkey::profile,
+            link::profile,
+            samus::profile,
+            yoshi::profile,
+            fox::profile,
+            pikachu::profile,
+            sonic::profile,
+            krool::profile,
+            isabelle::profile,
+            pacman::profile,
+            littlemac::profile,
+            dark_samus::profile,
+            ness::profile,
+            jigglypuff::profile,
+            peach::profile,
+            daisy::profile,
+            bowser::profile,
+            sheik::profile,
+            zelda::profile,
+            dr_mario::profile,
+            pichu::profile,
+            falco::profile,
+            marth::profile,
+            lucina::profile,
+            young_link::profile,
+            ganondorf::profile,
+            mewtwo::profile,
+            roy::profile,
+            chrom::profile,
+            mr_game_and_watch::profile,
+            meta_knight::profile,
+            pit::profile,
+            dark_pit::profile,
+            zero_suit_samus::profile,
+            wario::profile,
+            snake::profile,
+            ike::profile,
+            squirtle::profile,
+            ivysaur::profile,
+            charizard::profile,
+            diddy_kong::profile,
+            lucas::profile,
+            king_dedede::profile,
+            olimar::profile,
+            lucario::profile,
+            rob::profile,
+            toon_link::profile,
+            wolf::profile,
+            villager::profile,
+            mega_man::profile,
+            wii_fit_trainer::profile,
+            rosalina_and_luma::profile,
+            greninja::profile,
+            palutena::profile,
+            robin::profile,
+            shulk::profile,
+            bowser_jr::profile,
+            duck_hunt::profile,
+            ryu::profile,
+            ken::profile,
+            cloud::profile,
+            corrin::profile,
+            bayonetta::profile,
+            inkling::profile,
+            ridley::profile,
+            simon::profile,
+            richter::profile,
+            incineroar::profile,
+            mii_brawler::profile,
+            mii_swordfighter::profile,
+            mii_gunner::profile,
+            ice_climbers::profile,
+            ice_climbers_nana::profile,
+            pyra::profile,
+            mythra::profile,
+        ];
+        let mut profiles = BTreeMap::new();
+        for build in BUILDERS {
+            let profile = build().with_reference_grab_facts();
+            profiles.insert(profile.fighter_kind, profile);
         }
+        Self { profiles }
     }
 }
+
 impl FighterProfiles {
+    #[cfg(test)]
+    pub(crate) fn from_test_file() -> Self {
+        let catalog = crate::sequence_config::Catalog::parse(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../deployment/ultimate/kirby_assist/assembled/sequences.txt"
+        )))
+        .unwrap()
+        .for_build(cfg!(feature = "diagnostic-logging"));
+        let mut profiles = Self::default();
+        profiles.add_sequence_choices(&catalog).unwrap();
+        profiles
+    }
+    /// Startup only. Freeze the file-authored menus into process-lifetime
+    /// storage so all existing borrowed catalog consumers stay allocation-free.
+    /// The file/section/list caps bound this retained memory. Never call per frame.
+    /// Share inert Training templates without expanding fighter-specific menus.
+    /// Runtime uses owned selected-fighter records instead of leaking all tapes.
+    pub fn add_sequence_templates(&mut self, templates: &[crate::sequence_config::Template]) {
+        if templates.is_empty() {return;}
+        let templates: &'static [crate::sequence_config::Template]=Box::leak(templates.to_vec().into_boxed_slice());
+        for profile in self.profiles.values_mut() {profile.menu_options.templates=templates;}
+    }
+    pub fn add_sequence_choices(
+        &mut self,
+        catalog: &crate::sequence_config::Catalog,
+    ) -> Result<(), String> {
+        catalog.validate(self)?;
+        // One shared startup allocation, never duplicated per fighter or frame.
+        let templates: &'static [crate::sequence_config::Template]=Box::leak(catalog.templates.clone().into_boxed_slice());
+        for profile in self.profiles.values_mut() {
+            profile.menu_options.templates=templates;
+            for slot in presets::PresetSlot::ALL {
+                let entries = catalog.entries().iter().filter(|e| {
+                    e.fighter_kind == profile.fighter_kind
+                        && e.slot == slot
+                        && e.sequence.mode.is_none()
+                });
+                let list = &mut profile.menu_options.lists[slot as usize];
+                let mut options = Vec::new();
+                let mut selected = None;
+                let mut first_regular = None;
+                for entry in entries {
+                    let id = Box::leak(entry.choice.clone().into_boxed_str());
+                    let name = Box::leak(
+                        entry
+                            .name
+                            .clone()
+                            .unwrap_or_else(|| entry.choice.replace('_', " "))
+                            .into_boxed_str(),
+                    );
+                    if !entry.sequence.reaction.active() {
+                        first_regular.get_or_insert(options.len());
+                        if entry.default { selected = Some(options.len()); }
+                    }
+                    let sequence = Box::leak(Box::new(entry.sequence));
+                    options.push(presets::SavedChoice::file(id, name, sequence));
+                }
+                list.selected =
+                    selected.unwrap_or_else(|| if slot.is_button() { slot.default_index(options.len()) } else { first_regular.unwrap_or(options.len()) });
+                list.options = Box::leak(options.into_boxed_slice());
+            }
+        }
+        self.validate()
+    }
     /// Check programmer-supplied catalog edits once before installing hooks.
     pub fn validate(&self) -> Result<(), String> {
         if !self.profiles.contains_key(&6) {
-            return Err("compiled Kirby fallback profile is missing".into());
+            return Err("Kirby identity/reference profile is missing".into());
         }
-        for profile in self.profiles.values() {
+        for (&kind, profile) in &self.profiles {
+            if profile.fighter_kind != kind || profile.reference().is_none_or(|r| r.kind != kind) {
+                return Err(format!("missing/mismatched fighter reference {}", profile.name));
+            }
             if crate::ledge_trap::ResponseImplementation::for_kind(profile.fighter_kind).is_none() {
                 return Err(format!("unregistered compiled fighter {}", profile.name));
             }
@@ -339,7 +438,6 @@ impl FighterProfiles {
                 || data
                     .down_special_startup
                     .is_some_and(|startup| !(1..=120).contains(&startup))
-                || data.normal_hit_lead_frames > 20
                 || !data.common_roll_distance.is_finite()
                 || !(2.0..=100.0).contains(&data.common_roll_distance)
             {
@@ -347,12 +445,15 @@ impl FighterProfiles {
             }
             for slot in presets::PresetSlot::ALL {
                 let list = profile.menu_options.list(slot);
-                if list.options.is_empty()
-                    || list.options.len() > 32
-                    || list.selected >= list.options.len()
-                {
+                // Button lists append a permanent Normal button choice after
+                // their file entries. No explicit default selects that choice.
+                let selected_is_valid = list.selected < list.options.len()
+                    || slot.is_button() && list.selected < list.options.len() + slot.templates()
+                    || list.selected == list.options.len()
+                        && (slot.is_button() || list.options.iter().all(|c| c.sequence.reaction.active()));
+                if list.options.iter().filter(|c| !c.sequence.reaction.active()).count() > slot.max_choices() || !selected_is_valid {
                     return Err(format!(
-                        "invalid compiled response list {} / {slot:?}",
+                        "invalid file response list {} / {slot:?}",
                         profile.name
                     ));
                 }
@@ -364,7 +465,7 @@ impl FighterProfiles {
                         || !ids.insert(choice.id)
                     {
                         return Err(format!(
-                            "invalid compiled response entry {} / {}",
+                            "invalid file response entry {} / {}",
                             profile.name, choice.id
                         ));
                     }
@@ -376,23 +477,30 @@ impl FighterProfiles {
 
     pub fn profile(&self, fighter_kind: i32) -> Option<&FighterProfile> {
         // Native playable kinds are 0..FIGHTER_KIND_TERM (0x5e), exclusive.
-        // Keep missing/invalid identities inert; valid unconfigured fighters
-        // reuse the existing Kirby catalog without cloning or loading files.
+        // Missing/invalid identities are inert; never substitute another fighter's
+        // option catalog.
         if !(0..0x5e).contains(&fighter_kind) {
             return None;
         }
-        self.profiles
-            .get(&fighter_kind)
-            .or_else(|| self.profiles.get(&6))
+        self.profiles.get(&fighter_kind)
     }
 
-    /// Use a fighter's own catalog, otherwise Kirby's compiled defaults.
+    /// Use only the requested fighter identity and its loaded file catalog.
     /// None still covers startup before a valid fighter is observed.
-    pub fn ledge_settings(&self, fighter_kind: Option<i32>, base: LedgeSettings) -> LedgeSettings {
+    pub fn ledge_settings(&self, fighter_kind: Option<i32>, mut base: LedgeSettings) -> LedgeSettings {
+        // A fallback may receive a previously resolved live snapshot. Selected
+        // indices and tapes belong to that identity, never the incoming one.
+        if fighter_kind != Some(base.fighter_kind) {
+            base.response_choices.fill(None);
+            base.sequence_overrides.fill(None);
+        }
         match fighter_kind.and_then(|kind| self.profile(kind)) {
             Some(profile) => profile.apply(base),
             None => LedgeSettings {
                 enabled: false,
+                implementation: None,
+                response_choices: [None; crate::fighter_profiles::presets::PresetSlot::COUNT],
+                sequence_overrides: [None; crate::fighter_profiles::presets::PresetSlot::COUNT],
                 ..base
             },
         }

@@ -1,0 +1,237 @@
+# ---- NEUTRAL ----
+[richter.neutral.nair]
+# F34 target; Neutral Air active 8-9; includes 3f jump squat
+name = Nair
+start_delay = 22
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[richter.neutral.down_tilt]
+# F34 target; Down Tilt active 7-23
+name = Down tilt
+start_delay = 19
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[richter.neutral.forward_tilt]
+# F34 target; Forward Tilt active 12-13
+name = Forward tilt
+start_delay = 21
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[richter.neutral.forward_smash]
+# F34 target; Forward Smash active 24-25; charge point 5, hold 14
+name = Forward smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:1:0:14, release:1
+
+# ---- JUMP ----
+[richter.jump.nair]
+# F14 target; Neutral Air active 8-9; includes 3f jump squat
+name = Nair
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[richter.jump.up_tilt]
+# F14 target; Up Tilt active 10-22
+name = Grounded up tilt
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+[richter.roll.down_smash]
+# F31 target; Down Smash active 14-15; charge point 2, hold 19; rear phase 20-21 aligned separately
+name = Down smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = if_facing_opponent, opponent_input:a:0:-1:19, release:1, else_facing, opponent_input:a:0:-1:13, release:1, end_facing
+
+[richter.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 21
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[richter.roll.down_tilt]
+# F31 target; Down Tilt active 7-23
+name = Down tilt
+start_delay = 16
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+[richter.attack.shield_nair]
+name = Shield > Up-B
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, input:b:0:1:1
+
+[richter.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[richter.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[richter.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+[richter.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[richter.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[richter.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[richter.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[richter.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+[richter.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:20:24
+actions = input:r:0:0:4
+
+[richter.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:12:24
+actions = input:r:0:0:4
+
+[richter.roll.auto_shield_backup]
+name = Shield backup > Up B
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_shield_backup:12:12
+actions = input:b:0:1:4
+
+[richter.roll.auto_roll]
+name = Roll > Up B
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_roll:12:12
+actions = input:b:0:1:4
+
+[richter.roll.auto_spot_dodge]
+name = Spot dodge > Up B
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_spot_dodge:12:12
+actions = input:b:0:1:4
+
+[richter.roll.auto_air_dodge]
+name = Air dodge > Up B
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_air_dodge:12:24
+actions = input:b:0:1:4
+
+[richter.roll.auto_grab_dodged]
+name = Dodged grab > Up B
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_grab_dodged:12:12
+actions = input:b:0:1:4
+
+# RIDLEY
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/ridley
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+

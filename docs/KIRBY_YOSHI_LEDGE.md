@@ -1,5 +1,8 @@
 # Kirby and Yoshi
 
+> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+
+
 These notes describe the current source changes under package version **1.5.3**.
 They include edits made after the supplied diagnostic log; an older 1.5.3 NRO
 does not necessarily include them. Rebuild/install separately before testing.
@@ -70,6 +73,20 @@ special startup; captured opponents are not automatically pummeled or thrown.
 
 ## Roll grabs
 
+The startup-file Yoshi `grab_shuffle` option adds an optional dance before its
+grab: wait 5 native frames, face away, wait 5, face opponent, walk 10 units at
+40% stick, then grab only within profile range. Both turns require observed
+facing confirmation. This file override uses the new ordered Face/Wait prefix;
+it requires a rebuilt NRO, intentionally delays the punish and leaves compiled
+roll-grab choices unchanged. See [sequence files](SEQUENCE_FILES.md).
+
+The deployment Yoshi walking Nair `nair_v3` now uses
+`walk:opponent:4:0.8:3`: at most four units of walking at 80% stick with a
+three-unit opponent gap, followed by the existing paired short-hop Nair and
+drift. Its opt-in gap guard accounts for observed momentum/input delay and
+stops on unsafe ground or a passed opponent. Existing four-field Walk recipes
+and compiled movement remain unchanged; install the rebuilt NRO for this syntax.
+
 The supplied log showed both delivered Grab inputs and native grab startup on
 misses. One Kirby miss requested around enemy roll frame **31.9**, versus
 **23.1** on a nearby successful trial. Repeated braking outside the navigation
@@ -118,3 +135,10 @@ at 15 frames before vulnerability take priority over arrival or range. This is
 two frames earlier than the former midpoint target, aiming for protection expiry
 at move frame 15 inside activity 7–19. Jump
 nair uses the same grounded fast-walk helper only while its existing gate waits.
+
+File recipes use literal ordered input timelines: `up_special` / `Up B` /
+`Final Cutter` work on the ground or in the air, including after a Jump and an
+explicit wait. They release after their configured hold duration, not native
+acceptance. `dash_attack` similarly uses explicit dash/attack hold durations.
+These file choices do not inherit the compiled timings described above. See
+[syntax, frame timing and online limits](SEQUENCE_FILES.md).

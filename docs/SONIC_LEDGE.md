@@ -1,5 +1,8 @@
 # Sonic ledge options
 
+> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+
+
 Sonic has a compiled profile (native kind `0x29`) instead of Kirby fallback.
 Controls and the five-row menu are unchanged; see [menu controls](LEDGE_MENU.md).
 

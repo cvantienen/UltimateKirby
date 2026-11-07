@@ -31,6 +31,9 @@ pub struct FairFollowup {
     down_held: bool,
 }
 impl FairFollowup {
+    pub fn active(&self) -> bool {
+        self.queued
+    }
     pub fn cancel_pending(&mut self) {
         self.finish();
         self.output = LedgeOutput::default();
@@ -62,8 +65,15 @@ impl FairFollowup {
         if self.last == Some(ctx) {
             return self.output;
         }
+        let native_progress = !ctx.stopped
+            && self.last.is_none_or(|last| {
+                ctx.status != last.status || ctx.motion != last.motion || ctx.frame != last.frame
+            });
         let was_queued = self.queued;
         let fair = ctx.status == 0x36 && ctx.motion == FAIR;
+        // Native aerial status can overlap a grounded situation flag on the
+        // landing update. Do not discard its hit or issue another aerial A.
+        let landed = ctx.grounded && !fair && !matches!(ctx.status, 0xb | 0xc | 0xe | 0xf);
         let new_fair = fair
             && self.last.is_none_or(|last| {
                 last.status != 0x36 || last.motion != FAIR || ctx.frame < last.frame
@@ -72,24 +82,42 @@ impl FairFollowup {
             self.spent = false;
             self.down_held = false;
         }
-        let recognized = !self.queued
-            && !self.spent
-            && fair
-            && !ctx.grounded
-            && (10.0..12.0).contains(&ctx.frame)
-            && ctx.hit_now;
+        let first_hit = fair && (10.0..12.0).contains(&ctx.frame);
+        // A later connecting hit invalidates the first-hit-only landing route.
+        // Check before duplicate/stop handling: contact can arrive in hitstop.
+        if self.queued && fair && ctx.frame >= 12.0 && ctx.hit_now {
+            self.finish();
+        }
+        let landing_hit = landed
+            && ctx.status == 0x18
+            && ctx.motion == crate::timing::motion_hash("landing_air_f")
+            && self.last.is_some_and(|last| {
+                last.status == 0x36 && last.motion == FAIR && (10.0..12.0).contains(&last.frame)
+            });
+        let recognized = !self.queued && !self.spent && (first_hit || landing_hit) && ctx.hit_now;
         if recognized {
             self.queued = true;
             self.age = 0.0;
             self.facing = ctx.facing.signum();
         } else if self.queued && !ctx.stopped {
-            let delta = crate::timing::motion_elapsed(
+            let mut delta = crate::timing::motion_elapsed(
                 self.last
                     .map(|last| (last.status, last.motion, last.frame, last.rate)),
                 (ctx.status, ctx.motion, ctx.frame, ctx.rate),
                 0.0,
             );
-            if !delta.is_finite() || !(0.0..=8.0).contains(&delta) {
+            // A falling animation may loop before landing. This is a confirmed
+            // hit latch, not an exact-frame aerial sequence; skipped advancing
+            // snapshots must not erase the pending grounded smash either.
+            if delta.is_nan()
+                && matches!(ctx.status, 0xe | 0xf)
+                && self.last.is_some_and(|last| {
+                    ctx.status == last.status && ctx.motion == last.motion && ctx.frame < last.frame
+                })
+            {
+                delta = 1.0;
+            }
+            if !delta.is_finite() || delta < 0.0 {
                 self.finish();
             } else {
                 self.age += delta;
@@ -97,19 +125,23 @@ impl FairFollowup {
         }
         let mut out = LedgeOutput::default();
         if self.queued {
-            // If fair reaches hit 2 before landing, this is no longer the first-
-            // hit landing route. Damage, grab, dodge and special cancel it too.
-            let supported = if ctx.grounded {
+            // Later animation frames without contact retain hit 1. A later
+            // connecting hit, damage, grab, dodge or special cancels the latch.
+            let supported = if landed {
                 matches!(ctx.status, 0..=9 | 0x11..=0x18 | 0x2d..=0x2f)
             } else {
-                fair && ctx.frame < 17.0
+                fair || matches!(ctx.status, 0xb | 0xc | 0xe | 0xf)
             };
-            if !supported || self.age > 30.0 || matches!(ctx.status, 0x2e | 0x2f) {
+            if !supported
+                || self.age > 180.0
+                || !landed && self.age >= crate::finisher::FAST_FALL_FRAMES
+                || matches!(ctx.status, 0x2e | 0x2f)
+            {
                 self.finish();
             } else {
                 out.owned = TRIP_BUTTONS;
                 out.stick = Some([0.0, 0.0]);
-                if !ctx.grounded {
+                if !landed {
                     self.down_held |= !ctx.stopped && velocity_y.is_finite() && velocity_y < -0.05;
                     if self.down_held {
                         out.stick = Some([0.0, -1.0]);
@@ -119,11 +151,9 @@ impl FairFollowup {
                     // Release A to avoid charge, but preserve the angle through
                     // startup until native forward-smash attack selection.
                     out.stick = Some([self.facing, UP_ANGLE]);
-                } else if ctx.grounded
-                    && !recognized
-                    && !ctx.stopped
-                    && self.output.requested & MAPPER_A == 0
-                {
+                } else if landed && !recognized && !native_progress {
+                    out = self.output;
+                } else if landed && !recognized && self.output.requested & MAPPER_A == 0 {
                     // Ordinary smash-buffer input during landing lag; no range,
                     // DI, percent or opponent-state gates after confirmation.
                     out.requested = MAPPER_A;
@@ -133,8 +163,11 @@ impl FairFollowup {
         }
         // One explicit release when acceptance/interruption ends ownership.
         if out.owned == 0 && was_queued {
-            out.owned = TRIP_BUTTONS;
-            out.stick = Some([0.0, 0.0]);
+            // Hand back physical movement immediately when an aerial times out.
+            if landed {
+                out.owned = TRIP_BUTTONS;
+                out.stick = Some([0.0, 0.0]);
+            }
         }
         self.last = Some(ctx);
         self.output = out;
@@ -150,6 +183,26 @@ impl FairFollowup {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn later_contact_cancels_first_hit_followup_even_during_hitstop() {
+        let mut tool = FairFollowup::default();
+        tool.sample(true, fair(10.0));
+        let later = FairContext {
+            stopped: true,
+            ..fair(17.0)
+        };
+        assert_eq!(tool.sample(true, later).requested, 0);
+        assert!(!tool.queued);
+        let landing = FairContext {
+            grounded: true,
+            status: 0x18,
+            motion: 4,
+            frame: 0.0,
+            hit_now: false,
+            ..fair(10.0)
+        };
+        assert_eq!(tool.sample(true, landing).requested, 0);
+    }
     fn fair(frame: f32) -> FairContext {
         FairContext {
             object: 1,
@@ -163,6 +216,158 @@ mod tests {
             facing: 1.0,
             hit_now: true,
         }
+    }
+    #[test]
+    fn manual_first_hit_survives_late_fair_skipped_frames_and_falling_until_grounded_smash() {
+        for facing in [-1.0, 1.0] {
+            let mut tool = FairFollowup::default();
+            tool.sample(
+                true,
+                FairContext {
+                    facing,
+                    ..fair(10.0)
+                },
+            );
+            for frame in [11.0, 13.0, 15.0, 17.0] {
+                let c = FairContext {
+                    facing,
+                    frame,
+                    hit_now: false,
+                    ..fair(10.0)
+                };
+                assert_eq!(
+                    tool.sample_with_velocity(true, c, -1.0).stick,
+                    Some([0.0, -1.0])
+                );
+                assert!(tool.queued);
+            }
+            for frame in [0.0, 2.0, 0.0] {
+                let c = FairContext {
+                    status: 0xe,
+                    motion: 3,
+                    frame,
+                    facing,
+                    hit_now: false,
+                    ..fair(10.0)
+                };
+                assert_eq!(tool.sample_with_velocity(true, c, -1.0).requested, 0);
+                assert!(tool.queued);
+            }
+            let landing = FairContext {
+                grounded: true,
+                status: 0x18,
+                motion: 4,
+                frame: 0.0,
+                facing,
+                hit_now: false,
+                ..fair(10.0)
+            };
+            assert_eq!(tool.sample(true, landing).requested, MAPPER_A);
+            assert_eq!(tool.output.stick, Some([facing, UP_ANGLE]));
+            for _ in 0..50 {
+                assert_eq!(tool.sample(true, landing).requested, MAPPER_A);
+            }
+            for frame in 1..12 {
+                let out = tool.sample(
+                    true,
+                    FairContext {
+                        frame: frame as f32,
+                        ..landing
+                    },
+                );
+                assert_eq!(out.requested, if frame % 2 == 0 { MAPPER_A } else { 0 });
+            }
+            let accepted = tool.sample(
+                true,
+                FairContext {
+                    status: 0x2d,
+                    motion: 5,
+                    ..landing
+                },
+            );
+            assert_eq!(accepted.requested, 0);
+            assert_eq!(accepted.stick, Some([facing, UP_ANGLE]));
+        }
+    }
+    #[test]
+    fn first_hit_with_mixed_landing_flag_is_latched_without_sending_a_second_aerial() {
+        let mut tool = FairFollowup::default();
+        let contact = FairContext {
+            grounded: true,
+            ..fair(11.0)
+        };
+        assert_eq!(tool.sample(true, contact).requested, 0);
+        assert!(tool.queued);
+        let landing = FairContext {
+            status: 0x18,
+            motion: 2,
+            frame: 0.0,
+            hit_now: false,
+            ..contact
+        };
+        assert_eq!(tool.sample(true, landing).requested, MAPPER_A);
+    }
+    #[test]
+    fn fresh_first_hit_reported_on_immediate_landing_arms_but_later_hit_does_not() {
+        for previous_frame in [11.0, 17.0] {
+            let mut tool = FairFollowup::default();
+            tool.sample(
+                true,
+                FairContext {
+                    hit_now: false,
+                    ..fair(previous_frame)
+                },
+            );
+            let landing = FairContext {
+                status: 0x18,
+                motion: crate::timing::motion_hash("landing_air_f"),
+                frame: 0.0,
+                grounded: true,
+                ..fair(10.0)
+            };
+            tool.sample(true, landing);
+            let out = tool.sample(
+                true,
+                FairContext {
+                    frame: 1.0,
+                    hit_now: false,
+                    ..landing
+                },
+            );
+            assert_eq!(
+                out.requested,
+                if previous_frame == 11.0 { MAPPER_A } else { 0 }
+            );
+        }
+    }
+    #[test]
+    fn landing_hit_flag_changes_cannot_create_another_smash_input_frame() {
+        let mut tool = FairFollowup::default();
+        tool.sample(true, fair(10.0));
+        let landing = FairContext {
+            grounded: true,
+            status: 0x18,
+            motion: 2,
+            frame: 0.0,
+            hit_now: false,
+            ..fair(10.0)
+        };
+        let press = tool.sample(true, landing);
+        assert_eq!(press.requested, MAPPER_A);
+        for hit_now in [true, false, true] {
+            assert_eq!(tool.sample(true, FairContext { hit_now, ..landing }), press);
+        }
+        assert_eq!(
+            tool.sample(
+                true,
+                FairContext {
+                    frame: 1.0,
+                    ..landing
+                }
+            )
+            .requested,
+            0
+        );
     }
     #[test]
     fn first_hit_waits_for_landing_then_buffers_upward_smash_without_charging() {
@@ -278,16 +483,13 @@ mod tests {
         }
     }
     #[test]
-    fn reaching_second_fair_hit_or_damage_cancels_the_confirm() {
-        for changed in [
-            fair(17.0),
-            FairContext {
-                status: 0x49,
-                motion: 5,
-                frame: 0.0,
-                ..fair(10.0)
-            },
-        ] {
+    fn damage_still_cancels_the_confirm() {
+        for changed in [FairContext {
+            status: 0x49,
+            motion: 5,
+            frame: 0.0,
+            ..fair(10.0)
+        }] {
             let mut tool = FairFollowup::default();
             tool.sample(true, fair(10.0));
             assert_eq!(tool.sample(true, changed).requested, 0);

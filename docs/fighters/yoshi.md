@@ -1,11 +1,34 @@
 # Yoshi
 
-## Down-tilt chase / jab lock
+## Tech chase / jab lock and down-tilt facing
 
-The separate **Jab lock** ON/OFF row starts OFF. It chases only Yoshi's own
-confirmed down-tilt hits: missed techs get a jab-lock attempt into down smash;
-techs get grab attempts. It takes priority over background Roll read while active.
-See [setup, limits and calibration](../JAB_LOCK.md).
+The separate **Jab lock** ON/OFF row starts OFF. It recognizes nearby native
+tumble/knockdown/tech states after late Nair or other setups, as well as confirmed
+down-tilt hits. Missed techs get a jab-lock attempt into down smash; techs get grab
+attempts. It chases only while grounded and takes priority over background Roll
+read while active. See [setup, limits and calibration](../JAB_LOCK.md).
+
+**Dtilt face** starts ON, as on Kirby. It angles physical Down or down Tilt-stick
+toward the nearest enemy in the same input poll. It adds no attack delay and
+never creates A presses or forces native facing. Native acceptance can still
+use the old facing when turn and attack arrive together. Holding Down before A
+provides the turn preparation sooner. Yoshi does not gain Idle crouch.
+See [input details](../INPUT_RECIPES.md).
+
+## Optional out-of-shield response
+
+**Out of shield** starts ON with the supplied defaults. File-authored
+`shield_hit` recipes prefer a front grab, then close short-hop Nair. Configure
+their distance/facing/delay in the Training reaction editor; the old compiled
+startup/recovery selection is removed. Ledge responses keep priority. See
+[Out of shield](../OUT_OF_SHIELD.md) and [Grab dodge](../GRAB_DODGE.md).
+
+Standing C-stick correction: Dtilt face reads the physical right-stick axes in
+the same mapper update, including the first Down flick before digital aliases
+appear. With a neutral left stick it prepares the down-turn angle on both sticks;
+no crouch prerequisite or waiting frame is added. Side/up C-stick inputs, aerials
+and attack button edges remain unaffected. Native input acceptance still decides
+whether the requested turn precedes an attack. C-stick must use Tilt Attack.
 
 <!-- BEGIN GENERATED FIGHTER REFERENCE -->
 
@@ -16,25 +39,39 @@ it is not a device-calibration result. No fighter file loads during a match.
 
 ## Saved ledge responses
 
-Open the menu with **R3**.
+The lightweight selector starts visible; **Minus** hides/shows it. Training opens with **Minus**.
 Up/Down selects a row; Left/Right cycles its
 choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | **Nair**; Dtilt; Head Fsmash; Dsmash; Dair |
-| Jump | **Nair**; Uair; Meteor fair (spacing) |
-| Roll | Dsmash; **Tongue grab** |
-| Attack | Shield Nair; **Grab/rear Nair**; Shield Uair |
-| Drop | **Shield**; Dtilt > Shield; Meteor (risky); Dair (risky) |
+| Neutral | **Nair**; Nair2; Fsmash |
+| Jump | **Nair (instant nair, max drift)**; Fw air; Meteor fair (spacing); SHNAIR 1/2 DRIFT; SHNAIR MAX DRIFT; runs SHNAIR |
+| Roll | **Tongue grab**; grab shuffle |
+| Attack | Shield Nair; **Grab/rear Nair** |
+| Drop | **Shield**; Dtilt > Shield; D AIR; Fw AIR |
 
 These are the compact UI names; SH means short hop and Msl means missile.
-Compact move labels match the menu without spacing hints. Capture returns control for manual
-pummels/throws. Selecting a choice does not add a combo or change native hitboxes.
+Input timelines hand back control after their last step; the game decides acceptance.
+Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 
-## Compiled move windows
+## Saved assist rules
 
-These are stored inclusive animation-frame spans. They are not total input-to-hit
+These rules have separate ON/OFF assists and Training L3/R3 rule lists;
+they are not selected ledge/button recipes. Auto react has one sequence per event;
+priority numbers apply only to legacy rule lists. Vulnerable-ledge punishment is retired.
+
+| Assist trigger | Priority | Saved rule | Section |
+| --- | --- | --- | --- |
+| `auto_grab` | — | Automatic grab (unshielded) | `yoshi.roll.auto_grab` |
+| `auto_shield_backup` | — | Shield grab backup | `yoshi.roll.auto_shield_backup` |
+| `auto_shield_grab` | — | Automatic grab (shielded) | `yoshi.roll.auto_shield_grab` |
+| `shield_hit` | 1 | AUTO OOS Front grab | `yoshi.attack.auto_oos_grab` |
+| `shield_hit` | 2 | AUTO OOS Nair | `yoshi.attack.auto_oos_nair` |
+
+## Native move reference (not scheduling)
+
+These independent game facts do not schedule file inputs. They are inclusive animation-frame spans, not input-to-hit
 delays or proof that every phase of a multihit move stays active.
 
 | Move | Stored frames |
@@ -64,8 +101,8 @@ delays or proof that every phase of a multihit move stays active.
 | Standing reach reference (world units) | 26.0 |
 
 Reach is an approximate root-based reference, not an animated grab/hurtbox model.
-Shared roll grabs test predicted range/facing, height and vulnerability on the
-same active frame. Native catch readiness and input delivery still matter.
+The file decides whether to request an explicit range check. No native timing gate
+is inferred from this table; input delivery and the game's buffering rules still matter.
 
 ## Baseline reference stats
 
@@ -89,9 +126,29 @@ instance modifiers or a replacement for existing ledge tuning.
 
 ## Execution and calibration
 
-The profile declares adaptive short/full-hop selection for generic Jump coverage;
-common Neutral and shield nairs remain short hops. A named handler can override
-that policy, including grounded attacks and immediate short-hop recipes.
+Option definitions and input delays come from `fighters/yoshi.txt`, assembled into the Switch’s `sequences.txt`. Each option
+has an explicit `start_delay`; waits between actions are literal native frames.
+No compiled fighter recipe, adaptive-hop policy or native move window schedules them.
+
+| Situation / ID | Start delay | Ordered inputs |
+| --- | --- | --- |
+| Neutral / `nair_ledge` | 0 | `drift:opponent:0.1:25, facing_input:a+x:0:0:4, drift:opponent:0.5:1` |
+| Neutral / `nair_oppenent` | 0 | `facing_input:x:0:0:1, drift:away_from_opponent:0.61:4, facing_input:a:0:0:2, wait:1, drift:opponent:1:10, wait:3, facing_input:none:0:-1:4` |
+| Neutral / `nair_v2` | 0 | `facing_input:a:0:0:19` |
+| Jump / `nair` | 0 | `facing_input:a+x:0.35:0:4, drift:opponent:1:20` |
+| Jump / `up_air` | 0 | `facing_input:x:0:0:1, wait:5, facing_input:a:1:0:4, drift:away_from_opponent:1:6, wait:5, facing_input:none:0:-1:4` |
+| Jump / `forward_air` | 0 | `face:opponent, short_hop_fair:1` |
+| Jump / `nair_fast` | 0 | `short_hop_nair, drift:opponent:0.50:10` |
+| Jump / `nair_fas-2` | 0 | `short_hop, nair, drift:opponent:1:10` |
+| Jump / `nair_fas-3` | 0 | `drift:ledge:100%:4, short_hop_nair, drift:opponent:1:5` |
+| Roll / `grab` | 0 | `drift:away_from_opponent:0.4:20, wait:10, range:30, facing_input:r:0:0:4` |
+| Roll / `grab_shuffle` | 0 | `wait:1, face:away, wait:1, face:opponent, walk:opponent:10:0.4, grab:fighter_range` |
+| Attack / `shield_nair` | 0 | `shield_until_block:90, short_hop_nair:4` |
+| Attack / `shield_grab` | 0 | `shield_until_block:90, facing_input:r:0:0:4` |
+| Drop / `shield` | 0 | `shield:255` |
+| Drop / `down_tilt_shield` | 0 | `down_tilt:1, wait:30, shield:255` |
+| Drop / `menu_added_4` | 0 | `facing_input:x:0:0:1, facing_input:a:0:-1:4, drift:opponent:1:15` |
+| Drop / `menu_added_5` | 0 | `facing_input:x:0:0:1, wait:9, facing_input:a:1:0:1, drift:away_from_opponent:1:4, wait:11, facing_input:none:0:-1:4` |
 
 See [this fighter's detailed execution notes](../KIRBY_YOSHI_LEDGE.md) for its specific sequences,
 timing overrides, drift and exceptions.
@@ -109,13 +166,18 @@ Paths are relative to the repository root:
 
 - Registration: `crates/kirby_assist_core/src/fighter_profiles/yoshi.rs`.
 - Move data: `crates/kirby_assist_core/src/fighter_profiles/yoshi/timing.rs`.
-- Menu and handlers: `crates/kirby_assist_core/src/ledge_trap/fighters/yoshi.rs`.
+- Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
+- Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
 
 [Adding a response](../FIGHTER_CONFIGS.md) explains registration and shared helpers.
-These are compiled choices; source changes need a separately authorized build/install.
+Recipes are saved file configuration. External file edits need a Smash restart;
+Rust/reference-data changes need a separately authorized build/install.
 Refresh this reference with `python3 tools/update_fighter_docs.py` after catalog edits.
 
 <!-- END GENERATED FIGHTER REFERENCE -->
+
+> Historical implementation notes: the old conditional fighter engines described below have been retired. Current options and exact input delays are the file-authored schedules above and in `sequences.txt`; native reference facts do not add scheduling.
+
 
 ## Tracked ledge-roll grab
 
@@ -182,7 +244,16 @@ tongue grab uses 14–21 with the 26-unit reach reference. Both share the bounde
 [onstage recognition policy](../ROLL_READ.md), separate from ledge Roll get-up.
 Reach estimates still need Switch calibration.
 
-Finisher and jab-lock requests now allow up to 24 advancing frames for native
+Jab-lock requests allow up to 24 advancing frames for native
 acceptance without delaying accepted actions. Shared ledge aerials also tolerate
 native takeoff status preceding the situation-flag update. Configured attack
 startup and ledge timings are unchanged; arena testing remains necessary.
+
+
+## Manual X/Y controls
+
+X/Y/D-pad input sequences belong only to this fighter and are edited through the in-game
+[sequence editor](../SEQUENCE_FILES.md#fighter-specific-xy-recipes). Normal button
+keeps X short hop or ordinary Y input. The old native Y Finisher remains removed.
+Ledge recipes and other fighter policies retain their separate controls. Modes
+are available only on the ON/OFF page; no button can Hold/Toggle a mode.

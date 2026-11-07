@@ -2,6 +2,11 @@ import unittest
 from tools import update_opponent_data as data
 
 class ImportTests(unittest.TestCase):
+    def test_captain_and_purin_native_identities_cannot_be_swapped(self):
+        self.assertEqual(data.KINDS[0x0b],"captain_falcon")
+        self.assertEqual(data.KINDS[0x0c],"jigglypuff")
+        with self.assertRaisesRegex(ValueError,"Native fighter kind"):
+            data.render({"fighters":[{"kind":11,"name":"jigglypuff"}]})
     def test_multihit_gaps_and_unknown_expressions_are_not_filled_in(self):
         self.assertEqual(data.spans('11/14/18—19'),[[11,11],[14,14],[18,19]])
         self.assertEqual(data.spans('3—4(5—11/12—25)'),[[3,4],[5,11],[12,25]])

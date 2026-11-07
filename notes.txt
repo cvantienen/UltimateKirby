@@ -26,3 +26,10 @@ Why Online Delay Doesn't Ruin This
 Smash online uses a delay-based netcode (unless using a platform like Slippi for Melee which uses Rollback). When you press a button or start your macro, the game pauses that input for a fixed number of frames (e.g., 5–11 frames) before it happens on screen.
 Because your macro handles the subsequent timings inside its own script internally, the connection delay only affects the start of the move, not the execution of the technique itself. Once the sequence initiates, it will play out flawlessly.
 If you want to optimize your macro setups, would you like to focus on character-specific combos (like Steve or Kazuya), or do you want the exact input frame sequences for universal movement options?
+
+
+BOWSER NOTES
+
+nutreuel getup options add side b. 
+
+dash, up not coming out for rection i think rolls 

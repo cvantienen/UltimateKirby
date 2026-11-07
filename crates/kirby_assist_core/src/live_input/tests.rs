@@ -1,6 +1,15 @@
 //! Existing regression cases for `live_input`. Kept outside the runtime code.
 use super::*;
 
+// Behavior tests explicitly enable both tools; auto-mash still starts OFF.
+fn active_settings() -> LiveSettings {
+    LiveSettings {
+        auto_mash: true,
+        auto_tech: true,
+        ..Default::default()
+    }
+}
+
 #[test]
 fn direct_config_selects_one_controller_and_takeover_tools() {
     let config = LiveConfig::parse(include_str!(
@@ -9,7 +18,7 @@ fn direct_config_selects_one_controller_and_takeover_tools() {
     .unwrap();
     assert_eq!(config.player_index, 0);
     assert!(config.controls.takeover);
-    assert!(config.controls.auto_mash && config.controls.auto_tech);
+    assert!(!config.controls.auto_mash && config.controls.auto_tech);
 }
 
 #[test]
@@ -20,7 +29,7 @@ fn analog_mash_composes_with_button_takeover_and_restores_fresh_physical_input()
     use crate::native_input::{mapper_buttons, ButtonTrace, MapperButtonOverlay};
     let settings = LiveSettings {
         takeover: true,
-        ..LiveSettings::default()
+        ..active_settings()
     };
     let mut controls = RawAutoControls::default();
     let mut buttons = MapperButtonOverlay::default();
@@ -94,13 +103,12 @@ fn bundled_config_keeps_analog_mash_and_extended_prediction() {
     assert_eq!(config.ledge.roll_dash_range, 10.0);
     assert_eq!(config.ledge.stand_distance, 10.0);
     assert_eq!(config.ledge.move_strength, 0.65);
-    assert_eq!(config.ledge.grab_buffer_frames, 3);
     assert_eq!(config.ledge.grab_button, crate::native_input::MAPPER_R);
     assert_eq!(config.ledge.anti_air_range, 12.0);
     assert_eq!(config.ledge.anti_air_height, 18.0);
     assert!(config.turbo.enabled);
-    assert!(config.dpad_slide);
-    assert_eq!(config.turbo.phase_frames, 2);
+    assert!(!config.dpad_b_reverse); // D-pad now uses fighter-specific bindings.
+    assert_eq!(config.turbo.phase_frames, 1);
     assert_eq!(config.turbo.walk_strength, 0.35);
     assert_eq!(config.lookahead, 5.0);
 }
@@ -109,7 +117,7 @@ fn bundled_config_keeps_analog_mash_and_extended_prediction() {
 fn analog_mash_to_tech_keeps_the_existing_zr_release_and_cooldown() {
     let settings = LiveSettings {
         takeover: true,
-        ..LiveSettings::default()
+        ..active_settings()
     };
     let mut controls = RawAutoControls::default();
     let mut overlay = HidButtonOverlay::default();
@@ -136,7 +144,7 @@ fn analog_mash_to_tech_keeps_the_existing_zr_release_and_cooldown() {
 fn one_update_tech_opportunity_is_not_delayed_when_zr_is_released() {
     let settings = LiveSettings {
         takeover: true,
-        ..LiveSettings::default()
+        ..active_settings()
     };
     let mut controls = RawAutoControls::default();
     assert_eq!(
@@ -154,20 +162,13 @@ fn one_update_tech_opportunity_is_not_delayed_when_zr_is_released() {
 }
 
 #[test]
-fn grounded_getup_move_is_selectable_without_changing_other_responses() {
-    let default = LiveConfig::parse("ledge_trap = true").unwrap();
-    assert_eq!(
-        default.ledge.getup_attack,
-        crate::ledge_trap::GetupAttack::NeutralAir
-    );
-    let forward =
-        LiveConfig::parse("ledge_trap = true\nledge_getup_attack = FORWARD_TILT").unwrap();
-    assert_eq!(
-        forward.ledge.getup_attack,
-        crate::ledge_trap::GetupAttack::ForwardTilt
-    );
-    assert_eq!(forward.ledge.anti_air_range, default.ledge.anti_air_range);
-    assert_eq!(forward.ledge.grab_button, default.ledge.grab_button);
+fn config_cannot_select_a_ledge_move_or_override_file_timing() {
+    let base = LiveConfig::parse("ledge_trap = true").unwrap();
+    let old = LiveConfig::parse(
+        "ledge_trap=true\nledge_getup_attack=FORWARD_TILT\nledge_grab_buffer_frames=99",
+    )
+    .unwrap();
+    assert_eq!(base.ledge, old.ledge);
 }
 
 #[test]
@@ -185,10 +186,6 @@ fn legacy_throw_setting_stays_parseable_and_bundled_capture_is_manual() {
     ))
     .unwrap();
     assert!(!supplied.ledge.throw_outward);
-    assert_eq!(
-        supplied.ledge.getup_attack,
-        crate::ledge_trap::GetupAttack::NeutralAir
-    );
 }
 
 #[test]
@@ -197,7 +194,7 @@ fn removed_aerial_settings_do_not_disable_existing_sd_configs() {
     assert!(config.ledge.enabled);
     assert_eq!(config.ledge.grab_button, crate::native_input::MAPPER_L);
     assert_eq!(config.ledge.anti_air_range, 12.0);
-    assert!(config.controls.auto_mash);
+    assert!(!config.controls.auto_mash);
     assert!(config.controls.auto_tech);
 }
 #[test]
@@ -218,19 +215,17 @@ fn startup_config_handles_comments_toggles_and_rejects_mistakes() {
     ).unwrap();
     assert!(!config.controls.enabled);
     assert!(!config.controls.auto_tech);
-    assert!(config.controls.auto_mash);
+    assert!(!config.controls.auto_mash);
     assert_eq!(config.player_index, 2);
     assert_eq!(config.lookahead, 4.0);
     for invalid in [
         "enabled = yes",
         "ledge_trap = yes",
-        "ledge_getup_attack = smash",
         "ledge_follow_range = NaN",
         "ledge_follow_vertical_range = 101",
         "ledge_auto_position = yes",
         "ledge_stand_distance = 1",
         "ledge_move_strength = 1.1",
-        "ledge_grab_buffer_frames = 7",
         "ledge_grab_button = ZR",
         "ledge_anti_air_range = NaN",
         "ledge_anti_air_height = 41",
@@ -256,9 +251,28 @@ fn startup_config_handles_comments_toggles_and_rejects_mistakes() {
 }
 
 #[test]
+fn control_layout_parses_explicit_presets_and_rejects_unknown_names() {
+    use crate::native_input::ControlLayout;
+    assert_eq!(LiveConfig::default().control_layout, ControlLayout::Default);
+    assert_eq!(
+        LiveConfig::parse("control_layout = brother")
+            .unwrap()
+            .control_layout,
+        ControlLayout::Brother
+    );
+    assert_eq!(
+        LiveConfig::parse("control_layout = DEFAULT")
+            .unwrap()
+            .control_layout,
+        ControlLayout::Default
+    );
+    assert!(LiveConfig::parse("control_layout = custom").is_err());
+}
+
+#[test]
 fn analog_cycle_advances_once_per_update_and_restarts_on_exit_or_reassignment() {
     let mut controls = RawAutoControls::default();
-    let settings = LiveSettings::default();
+    let settings = active_settings();
     let expected = [[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0], [0.0, -1.0]];
     for tick in 0..12 {
         assert_eq!(controls.update(settings, tick, 10, true, false), 0);
@@ -281,7 +295,7 @@ fn tech_is_one_press_with_cooldown_and_no_timer_bypass() {
     let mut controls = RawAutoControls::default();
     let settings = LiveSettings {
         tech_cooldown: 4,
-        ..LiveSettings::default()
+        ..active_settings()
     };
     assert_eq!(controls.update(settings, 0, 1, false, true), HID_ZR);
     assert_eq!(controls.update(settings, 1, 1, false, false), 0);
@@ -295,7 +309,7 @@ fn tech_is_one_press_with_cooldown_and_no_timer_bypass() {
 fn tech_opportunity_that_starts_during_cooldown_fires_when_ready() {
     let settings = LiveSettings {
         tech_cooldown: 4,
-        ..LiveSettings::default()
+        ..active_settings()
     };
     let mut controls = RawAutoControls::default();
     assert_eq!(controls.update(settings, 0, 1, false, true), HID_ZR);
@@ -313,7 +327,7 @@ fn tech_opportunity_that_starts_during_cooldown_fires_when_ready() {
 #[test]
 fn disabling_and_input_clock_reset_cancel_old_stick_output() {
     let mut controls = RawAutoControls::default();
-    let settings = LiveSettings::default();
+    let settings = active_settings();
     controls.update(settings, 20, 1, true, false);
     assert_eq!(controls.mash_stick(), Some([1.0, 0.0]));
     controls.update(
@@ -339,7 +353,7 @@ fn per_tool_settings_and_tech_priority_cancel_mash_stick() {
     let mut controls = RawAutoControls::default();
     let settings = LiveSettings {
         auto_tech: false,
-        ..LiveSettings::default()
+        ..active_settings()
     };
     assert_eq!(controls.update(settings, 0, 1, false, true), 0);
     assert_eq!(controls.mash_stick(), None);
@@ -357,10 +371,7 @@ fn per_tool_settings_and_tech_priority_cancel_mash_stick() {
     );
     assert_eq!(controls.mash_stick(), None);
     let mut controls = RawAutoControls::default();
-    assert_eq!(
-        controls.update(LiveSettings::default(), 0, 1, true, true),
-        HID_ZR
-    );
+    assert_eq!(controls.update(active_settings(), 0, 1, true, true), HID_ZR);
     assert_eq!(controls.mash_stick(), None);
 }
 

@@ -48,3 +48,23 @@ fn aerial_slams_other_captors_and_invalid_or_passed_clocks_do_not_predict() {
         );
     }
 }
+
+#[test]
+fn shared_ganon_release_requires_grounded_capture_predecessor() {
+    assert!(grounded_ganon_release(CATCHED_AIR_END_GANON, CATCHED_GANON));
+    for previous in [0xbf, 0xc0, 0xc1, 0x49, 0] {
+        assert!(!grounded_ganon_release(CATCHED_AIR_END_GANON, previous));
+    }
+    assert!(!grounded_ganon_release(0xbf, CATCHED_GANON));
+}
+
+#[test]
+fn late_damage_stop_has_bounded_lead_and_rejects_unknown_timers() {
+    for remaining in 1..=5 {
+        assert!(late_damage_stop_prediction(remaining, 0.0));
+    }
+    for remaining in [0, 6, 120, u64::MAX] {
+        assert!(!late_damage_stop_prediction(remaining, 0.0));
+    }
+    assert!(!late_damage_stop_prediction(2, f32::NAN));
+}

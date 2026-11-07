@@ -59,6 +59,7 @@ impl DuckDefense {
                 0
             },
             stick: Some([0.0, if ducking { -1.0 } else { 0.0 }]),
+            native_short_hop: false,
         }
     }
 }

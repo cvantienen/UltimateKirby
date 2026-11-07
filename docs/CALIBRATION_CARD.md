@@ -1,5 +1,10 @@
 # Frozen diagnostic ledge result
 
+Raw file timelines report input requests and copied native observations. The old
+compiled expected move-window/lead fields are unknown; they do not add timing or
+force acceptance. Compare requested press/release frames and visible game results
+when calibrating [file delays](SEQUENCE_FILES.md).
+
 The diagnostic build records a **completed result card** for each recognized
 ledge response attempt: **Neutral, Jump, Roll, Attack and Drop**, using the
 selected fighter's saved response. Silent builds exclude the recorder, core
@@ -14,7 +19,7 @@ input priority, spacing decision or response timing.
    opponent perform that ledge option. Training is useful for repeatable tests.
 3. Once the attempt ends, a compact card appears **to the right of the menu**.
    It freezes there while you try again; the next completed result replaces it.
-4. **R3** hides/shows both panels. Results still record while hidden. Cards
+4. **Minus** hides/shows both panels. Results still record while hidden. Cards
    clear when the battle ends or the controlled fighter changes; stock loss
    alone does not clear the last completed card.
 5. Read the full report in `SD:/ultimate/kirby_assist/status.log`. Search for
@@ -31,7 +36,7 @@ setup. Queued results from a previous battle/fighter cannot reappear later.
 
 | Field | What it tells you |
 | --- | --- |
-| Fighter / row / choice | Which compiled response was selected. The full log also records the actual native fighter kind, so a fallback profile can be identified. |
+| Fighter / row / choice | Which file-authored response was selected. The full log also records the native fighter kind; no compiled fighter fallback is dispatched. |
 | Config window | Configured first/last move frames, not a measurement of collision boxes. Missing bounds show unknown. For some specials only startup is known. |
 | Hop / lead / drift / fast fall | Committed short/full hop, configured early lead where exposed, signed horizontal stick drift and its end frame when available. Positive drift is world-right, not always toward the opponent. Opted-in fast fall shows its minimum nair animation frame and descent requirement. Unknown or not applicable stays unknown. |
 | Read | First observation of the recognized response, with opponent status, native motion frame and motion rate. |
@@ -107,3 +112,47 @@ These changes have source/format and documentation checks only. No new mod build
 Rust test execution, Switch performance profiling or on-device visual validation
 was performed for this change. Check panel fit and callback observations on the
 Switch before relying on the readings for calibration.
+
+## Neutral get-up attacks that execute but miss
+
+Raw Neutral attack recipes now retain two additional fixed-size evidence points:
+**Neutral first native active** and **Neutral active while target vulnerable**.
+Each records own attack animation/frame, opponent status/motion frame, current
+protection, remaining neutral-getup recovery, and relative horizontal gap/height.
+Activity comes from native attack-active flags (up to eight slots, early exit),
+not an inferred move startup. These reads run only in diagnostics during an
+observed/recorded neutral attempt; no extra fighter or stage scan is added.
+They do not measure actual hitbox/hurtbox overlap or verify the hit victim.
+
+A raw neutral attack report no longer closes merely because its short input
+sequence ended before the attack became active. It keeps observing until hit
+evidence, attack exit, the opponent option ending, cancellation or the existing
+four-second diagnostic watchdog. Pure jump recipes and other ledge categories
+retain their existing completion behavior. No request, frame clock, move timing,
+physics or recipe is changed; the report still formats once on the logger worker.
+
+Search `LEDGE RESULT` in `status.log`, then compare the two new rows with the
+recognition and protection-off stamps. Activity observed only while protected
+suggests checking early timing; first activity after the get-up window suggests
+checking lateness. Activity during vulnerability with a miss calls for checking
+spacing/height/facing as well. Missing observations remain unknown, and none of
+these snapshots alone proves why a hit failed. A failed online attempt and a
+successful training attempt with the same selected recipe provide the comparison
+needed before changing a configured delay or adding an optional timing anchor.
+
+## Input path and termination evidence
+
+Full reports now include a frozen manual test-delay label/Perf epoch and
+`INPUT PATH` rows for request → first mapped acknowledgment → observed attack.
+Wall time and rate-normalized target-animation deltas are separate; the latter
+are withheld across unknown, changed, rewound or invalid clocks. Mapping native
+fields come from the last copied observation, and an external hook/Training delay
+queue may execute after our acknowledgment. These are not measured network delay.
+
+`SEQUENCE END` distinguishes ordinary completion, native-clock gaps, invalid
+clock/timeout, shield/face/walk timeout, unsafe ground/approach, failed range,
+scope/damage cancellation and interpreter transition limit. Termination remains
+exactly the existing behavior: the reason is copied for diagnostics, never used
+to add retries, backfill taps or weaken the 1.25-frame missed-update protection.
+Corresponding clock-gap/clock-abort counts appear in the performance triage.
+See [labelled latency trials](TRAINING_MONITOR.md#labelled-latency-and-workload-trials).

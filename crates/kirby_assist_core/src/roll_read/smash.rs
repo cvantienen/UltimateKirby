@@ -24,6 +24,18 @@ impl RollRead {
                 .iter()
                 .flatten()
                 .find(|p| p.id == t.id && p.status == t.status && t.frame >= p.frame);
+            // Online observations can skip the approaching half of a roll.
+            // Preserve same-roll identity and accept a bounded root-side swap,
+            // or a newly observed overlap that is already departing. A fresh
+            // away roll at ordinary spacing remains ineligible.
+            let crossed_between_observations = old.is_some_and(|p| {
+                let elapsed = (t.frame - p.frame) / t.rate.max(0.01);
+                elapsed <= 8.0
+                    && (p.dx * dx < 0.0
+                        || p.dx.abs() <= 1.0 && dx * t.velocity_x > 0.05 && dx.abs() <= 3.0)
+            });
+            let overlapping_departure =
+                old.is_none() && dx.abs() <= 3.0 && dx * t.velocity_x > 0.05 && t.frame <= 12.0;
             self.tracks[slot] = Some(Track {
                 id: t.id,
                 status: t.status,
@@ -31,7 +43,10 @@ impl RollRead {
                 rate: t.rate,
                 dx,
                 used: old.is_some_and(|p| p.used),
-                crossing: dx * t.velocity_x < -0.05 || old.is_some_and(|p| p.crossing),
+                crossing: dx * t.velocity_x < -0.05
+                    || crossed_between_observations
+                    || overlapping_departure
+                    || old.is_some_and(|p| p.crossing),
             });
         }
         // Live target changes win over duplicate-own-clock caching.
@@ -86,7 +101,7 @@ impl RollRead {
                 return self.output;
             }
         }
-        if !elapsed.is_finite() {
+        if !elapsed.is_finite() || !(0.0..=8.0).contains(&elapsed) {
             return self.end_smash();
         }
         self.previous = Some(clock);
@@ -102,7 +117,10 @@ impl RollRead {
             {
                 return self.end_smash();
             }
-            self.output = if crate::move_input::delivery_pressed(self.request_age) {
+            self.output = if crate::move_input::smash_retry_pressed(
+                self.request_age,
+                self.target.unwrap_or_default(),
+            ) {
                 controls([0.0, -1.0], MAPPER_A)
             } else {
                 controls([0.0; 2], 0)

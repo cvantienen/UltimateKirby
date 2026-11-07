@@ -1,0 +1,16 @@
+# Temporary GPU-crash isolation only. Not used by normal Kirby upload tools.
+# Copy to /ultimate/ssbu_online_deluxe/config.toml only with Smash fully closed.
+# Restore your previous file afterward; if no file existed, remove the test file.
+# This does not disable other plugins/sysmodules that may change clocks.
+overclocker = false
+
+[render_profile_config]
+menu = "Vanilla"
+
+[render_profile_config.offline_match]
+singles = "Vanilla"
+doubles = "Vanilla"
+
+[render_profile_config.online_match]
+singles = "Vanilla"
+doubles = "Vanilla"

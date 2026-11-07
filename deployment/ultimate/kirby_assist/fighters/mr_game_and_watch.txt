@@ -1,0 +1,208 @@
+# ---- NEUTRAL ----
+[mr_game_and_watch.neutral.nair]
+default = true
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:x:0:0:2, wait:8, opponent_input:a:0.3:0:4, wait:13, facing_input:none:0.15:-1:1
+# F34 target; Neutral Air active 7-10; includes 3f jump squat
+name = Nair
+
+# F34 target; Down Tilt active 6-8
+
+[mr_game_and_watch.neutral.forward_tilt]
+default = false
+start_delay = 18
+timeout = 3600
+spatial_timeout = 60
+actions = opponent_input:a:0.6:0:1
+# F34 target; Forward Tilt active 8-20
+name = Forward tilt
+
+[mr_game_and_watch.neutral.up_tilt]
+default = false
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = face:away_from_opponent, opponent_input:a:0:1:24, wait:1
+# F34 target; Up Smash active 21-25; charge point 15, hold 26
+name = Up Smash
+
+[mr_game_and_watch.neutral.forward_smash]
+default = false
+# F34 target; Forward Smash active 17-18; charge point 7, hold 23
+name = Torch f-smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = opponent_input:a:1:0:23, release:1
+
+# ---- JUMP ----
+[mr_game_and_watch.jump.nair]
+# F14 target; Neutral Air active 7-10; includes 3f jump squat
+name = Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:0:1, drift:opponent:0.8:10
+
+[mr_game_and_watch.jump.up_tilt]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = drift:opponent:1:2, opponent_input:a:1:0:4
+name = Dash attacke
+default = false
+
+# ---- ROLL ----
+[mr_game_and_watch.roll.down_smash]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = opponent_input:a:0:-1:28, wait:1
+# F31 target; Down Smash active 12-16; charge point 6, hold 23
+name = Bury hammers
+default = true
+
+[mr_game_and_watch.roll.grab]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = drift:away_from_opponent:0.8:10, wait:15, range:fighter_range_instant, facing_input:r:0:0:1
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+default = false
+
+# ---- ATTACK ----
+[mr_game_and_watch.attack.shield_nair]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = shield_until_block:90, facing_input:a:0:-1:4
+name = Shield > Nair
+default = false
+
+[mr_game_and_watch.attack.shield_up_b]
+name = Shield > Up-B
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, input:b:0:1:1
+
+# ---- DROP ----
+[mr_game_and_watch.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, up_special:1
+
+[mr_game_and_watch.drop.down_tilt_shield]
+name = beans
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, hold_until_manual:b:0:0
+
+[mr_game_and_watch.drop.down_smash]
+name = Bury hammers
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+[mr_game_and_watch.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:20.5:24
+actions = input:r:0:0:4
+
+[mr_game_and_watch.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:12.5:24
+actions = input:r:0:0:4
+
+[mr_game_and_watch.roll.auto_shield_backup]
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+actions = input:b:0:1:4
+ground_only = true
+reaction = auto_shield_backup:30:20
+name = Shield backup > Up B
+default = false
+
+[mr_game_and_watch.roll.auto_roll]
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+actions = facing_input:a:0:-1:4
+ground_only = true
+reaction = auto_roll:30:20
+name = Roll > Up B
+default = false
+
+[mr_game_and_watch.roll.auto_spot_dodge]
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+actions = facing_input:a:0:-1:4
+ground_only = true
+reaction = auto_spot_dodge:30:20
+name = Spot dodge > Up B
+default = false
+
+[mr_game_and_watch.roll.auto_air_dodge]
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+actions = input:b:0:1:4
+ground_only = true
+reaction = auto_air_dodge:30:30
+name = Air dodge > Up B
+default = false
+
+[mr_game_and_watch.roll.auto_grab_dodged]
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+actions = facing_input:a:0:-1:4
+ground_only = true
+reaction = auto_grab_dodged:30:10
+name = Dodged grab > Up B
+default = false
+
+# Input-only projectile defense; Bucket cannot defend while full.
+[mr_game_and_watch.settings]
+reflect_default = true
+reflect_startup = 6
+reflect_margin = 2
+reflect_max_hold = 45
+reflect_half_width = 5
+reflect_height = 16
+reflect_half_depth = 5
+
+# NESS
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/ness
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+
+

@@ -1,7 +1,8 @@
-> Fighter responses, menu choices are compiled Rust code/data.
-> Only shared config.txt settings load from SD. No fighter JSON file is loaded
-> or deployed. Latest source edits need a separately built and installed NRO.
-> See [the compiled fighter guide](FIGHTER_CONFIGS.md).
+> `sequences.txt` is the master SD configuration: universal settings, fighter
+> overrides, ledge/button recipes and assist rules. Reference fighter data is
+> compiled into the plugin; no fighter JSON is read during play. Source edits
+> need a separately built and installed NRO.
+> See [the fighter configuration guide](FIGHTER_CONFIGS.md).
 
 # Raw controller build: install, behavior, and verification
 
@@ -83,35 +84,35 @@ The workaround is gated by **all three** conditions: diagnostic build, the
 standard `libtraining_modpack.nro` detected at startup, and actual Training Mode.
 The filename is checked once, not every frame.
 
-In diagnostic Training compatibility, **R3 toggles Kirby Assist's menu**.
-D-pad Up/Down selects a row and Left/Right changes it while visible. R3 creates
+In diagnostic Training compatibility, **Minus toggles Kirby Assist’s menu**.
+D-pad Up/Down selects a row and Left/Right changes it while visible. Minus creates
 only an internal menu event: it never fabricates a real Minus or L button for
 Training. **L** remains ledge autopilot; **Y** remains its selected held mode;
 **X** remains the paired short hop. Mash, tech, SDI, teabag, slides, follow-ups,
 Roll read and Kirby recovery cover retain their normal startup/menu settings.
 The former held-R3 requirement and reduced ledge-only settings are removed.
 
-Real **Minus/Plus** and the known **B/ZL/ZR + D-pad Up/Down** Training chords
+Real **Plus** and the known **B/ZL/ZR + D-pad Up/Down** Training chords
 cancel pending assist inputs and hand the untouched controller to Training.
 Default **ZL+Up load / ZL+Down save** is momentary: our panel stays visible,
 saved selections remain intact and held-L practice resumes on release without
-an R3 press. For the other chords, handoff persists after release because a Training menu
+a Minus press. For the other chords, handoff persists after release because a Training menu
 or recording can remain active. Finish/close Training's menu or recording, then
-**tap R3** to resume Kirby Assist with its menu visible. Tap R3 again to hide it
+**tap Minus** to resume Kirby Assist with its menu visible. Tap Minus again to hide it
 before using hidden-pad slides/trump. Normal L/Y/X actions need no R3 hold.
 
 Physical releases and controller freshness are still observed during handoff;
 this preserves release-to-arm protection after resets. The observer does not
 regenerate recipes while Training owns input. No Training-private menu state
-or custom shortcut assignments are inspected. Leave R3 unassigned in Training;
+or custom shortcut assignments are inspected. Leave Minus unassigned in Training;
 custom chords beyond the defaults are not automatically detected.
 
 Silent builds, Switches without Training Modpack and non-Training battles use
-**R3** for Kirby Assist's menu. This compatibility path changes only the
+**Minus** for Kirby Assist’s menu. This compatibility path changes only the
 diagnostic Training input routing, using the existing hook chain and stock
 Training NRO. It does not patch Training or add another hook.
 
-Test R3/menu navigation, L autopilot, Y, X, mash/tech/SDI and Minus/save/record
+Test Minus/menu navigation, L autopilot, Y, X, mash/tech/SDI and Minus/save/record
 handoff separately. Disable any overlapping Training player-assist settings
 when testing the same Kirby action. Host tests cannot establish zero conflicts
 or actual in-game input acceptance; Switch testing is required. Only Kirby
@@ -119,24 +120,31 @@ Assist needs a future rebuild/install for these source changes.
 
 ## Shared settings
 
-Edit `SD:/ultimate/kirby_assist/config.txt`, then restart Smash. No Rust editing is needed.
+Edit `[universal.settings]` at the top of
+`SD:/ultimate/kirby_assist/sequences.txt`, then restart Smash. This section takes
+precedence over `config.txt`; the latter is read only for legacy files without
+universal settings. The supplied master is
+`deployment/ultimate/kirby_assist/sequences.txt`.
 
-| Setting | Default | Meaning |
+| Setting | Supplied value | Meaning |
 | --- | --- | --- |
-| `enabled` | `true` | Install/enable the live hooks. `false` skips hook installation at startup. |
-| `auto_mash` | `true` | Request mash inputs while the game reports a positive clatter timer. |
-| `takeover` | `false` | During analog mash, suppress physical action buttons and C-stick; during tech, own only ZR. The supplied config enables it. |
-| `auto_tech` | `true` | Request raw ZR on predicted contact, then throttle retries with the configured cooldown. |
-| `autopilot_shield` | `true` | Held-L grounded defense using native shield readiness, active/known imminent attacks, a three-frame swept root envelope and up to four native frames of tail hold; no projectile/grab or exact hitbox detection. |
-| `kirby_auto_duck` | `false` | Retained legacy setting. Auto-duck, its hitbox scanning and ATTACK observer-hook installation are disabled even if an older config sets true. Y now attempts the selected [Finisher](FINISHERS.md). |
-| `tech_debug` | `false` | Diagnostic build only: log native gate reasons and ZR edges. Its supplied config enables this; silent compiles the logger out. |
-| `player_index` | `0` | Local physical controller number, 0 through 7. Its mapper slot is discovered dynamically; this is not the Arena battle position. |
-| `tech_lookahead_frames` | `3` | Collision-ray prediction horizon, 1 through 5; the included config uses 5. |
-| `tech_cooldown_frames` | `40` | Minimum observed input updates between automated ZR presses. |
+| `enabled` | `true` | Install/enable the mod at startup. |
+| `player_index` | `0` | Local physical controller (0–7), not Arena battle position. |
+| `auto_mash` | `false` | Analog mash while a native clatter timer is active. |
+| `takeover` | `true` | Permit the active assist's input takeover; does not alter game rules. |
+| `auto_tech` | `true` | Predict tech contacts and request Shield when eligible. |
+| `tech_lookahead_frames` | `5` | Shared prediction horizon; see the tech guide for native gates. |
+| `tech_cooldown_frames` | `40` | Shared retry limit; never changes native tech lockout. |
+| `autopilot_shield` | `true` | Ledge approach defense; distinct from the OOS follow-up mode. |
+| `auto_spot_dodge` | `true` | Startup grab-dodge setting; fighter settings can override it. |
+| `tech_debug` | `true` | Extra messages in diagnostic builds; silent still compiles logging out. |
 
-The sample config is `deployment/ultimate/kirby_assist/config.txt` in the project root. Missing config uses the table defaults. The supplied config enables `takeover` for stick-only mashing and sets lookahead to five. The removed `alternate_mash`, `mash_buttons_per_frame`, and `mash_interval_frames` keys are ignored if present in an older config. Diagnostic packages enable `tech_debug`; silent packages disable it and cannot log even if it is changed to true. Invalid or unknown keys stop installation and write a diagnostic, rather than silently using mistaken settings. Keys are read once at startup.
-
-Auto mash supplies the left stick, not an Attack-button binding. Auto tech always requests raw ZR, so ZR must be assigned to Shield. Ledge responses retain their A=Attack/R=Grab requirements.
+Unknown keys or invalid values reject configuration. See
+[master-file syntax](SEQUENCE_FILES.md), [fighter settings](LEDGE_MENU.md#fighter-settings-in-training)
+and [controls](CONTROLS.md). Normal sequence moves request inputs; they do not
+wait for a move to become legal unless an explicit conditional action does so.
+Auto-tech uses ZR, which must be assigned to Shield. Controller mapping is
+separate from move data and input timings.
 
 ## Directional turbo control
 
@@ -355,53 +363,17 @@ It builds both optimized variants and produces `releases/kirby_assist-silent.zip
 
 See [build variants](BUILD_VARIANTS.md) for individual Cargo commands, the optional isolated Cargo cache, exact logging scope, and hardware checks. The old numbered candidate ZIPs are previous builds, not the new dual-variant outputs.
 
-## Opponent ledge observations (source addition)
+## Opponent ledge observations
 
-Hold **L** for ledge autopilot, including Kirby's in-range recovery cover.
-Press **Y** for its selected [Finisher attempt](FINISHERS.md); B-reverse is unbound;
-Kirby retains Fair/Dair choices and Yoshi now has Bair drag > Fsmash. Their
-automatic whiff punish is currently removed from the live build/menu. Opponent facts
-are [compiled reference tables](OPPONENT_DATA.md), never match-time file/network loads.
-Press **X** for an X short-hop tap (X mapped to Jump). **R3** shows/hides the menu; the **Auto-mash** menu row toggles auto-mash. While visible, **Up/Down**
-selects a row (Neutral, Jump, Roll, Attack, Drop; Kirby/Yoshi also have Roll read/Y mode; Auto-mash is shared), and **Left/Right**
-cycles its saved responses. While hidden, Left/Right slides, Down starts ledge
-trump, and Up is normal. Directions held when closing must be released before
-starting gameplay tools. R3 is reserved for menu toggling and does not teabag.
-Auto-mash stays enabled in the supplied startup configuration.
+Ledge tracking uses the existing bounded fighter observations and native option
+states. Saved sequences define all get-up responses. The separate vulnerable-hang
+/regrab assist uses the tracked opponent's actual vulnerability, not a fixed
+invulnerability timer, and takes priority over drop defense when a rule matches.
+Compiled opponent reference data is reused without match-time network/file loads.
 
-Fighter-manager enumeration remains callback-only; the mapper uses cached routes. See [the current ledge menu](LEDGE_MENU.md).
-
-Observations now include target motion kind/frame/rate/end, native previous status, invincibility expiry, attack presence, root positions/velocity, Kirby's velocity and hit flag, shield history, catch readiness, and floor support. All game queries remain outside STATE's mutex. Four added read-only declarations match the pinned primary bindings: MotionModule rate/end_frame and AttackModule is_infliction_status/is_attack. The HIT mask is 0x2. No status/timer/velocity writes were added.
-
-The supplied configuration uses manual spacing and `ledge_stand_distance=10`;
-legacy automatic positioning is disabled. Normal and Jump responses use the
-selected fighter's compiled handler, not a universal tilt/nair recipe. See
-[fighters](FIGHTERS.md) and [current Kirby/Yoshi timing](KIRBY_YOSHI_LEDGE.md).
-Native previous-status evidence can recover an option missed between samples.
-
-Roll smashes use the common configured point. Kirby/Yoshi walking grabs can
-extend inward from observed travel and avoid braking outside the navigation
-area. All shared roll-grab requests require forecast reach/facing, height and
-vulnerability on the same active frame. These are approximate root forecasts.
-Confirmed capture ends autopilot immediately: pummels and throws are manual,
-including when the legacy `ledge_throw_outward` key is present.
-
-Shield responses preserve guard through shieldstun. Rear-side nair uses paired
-neutral jump+A. Selected alternative aerial/special responses have their own
-native acceptance gates. Hitbox gaps, multi-opponent attribution and actual
-collision remain limitations. Input requests do not prove contact.
-
-Diagnostic builds rate-limit general ledge snapshots and use a fixed-size grab
-recorder, formatted by the background logger. Silent excludes this telemetry.
-Neither build learns input delay. New source edits require a separately built
-and installed artifact; old settings continue to override supported defaults.
-
-Controller routing now follows the working 1.0.4 physical-controller selection:
-`player_index=0` selects the Player 1 Npad and follows its actual mapper slot.
-The legacy `npad_id` key remains an alias. Controller style and character are
-unrestricted. Unlike 1.0.4, bootstrap discovery does not enumerate fighters in
-the mapper: native callbacks cache human routes and roster IDs, and synchronous
-refresh revalidates those IDs. Install the rebuilt plugin before testing.
+See [controls](CONTROLS.md), [ledge handling](LEDGE_TRAP.md),
+[reaction rules](REACTION_RULES.md) and [observation clocks](OBSERVATIONS_AND_TIMING.md).
+Fighter-manager enumeration remains callback-only; the mapper reuses cached routes.
 
 ## Online warm-up transition hardening (source update)
 
@@ -434,3 +406,19 @@ so these are fixes for identified hazards, not proof of the exact crash cause or
 a guarantee of online stability. The patch does not bypass network validation,
 change simulation states, or establish network compatibility on every game/mod
 combination. Rebuild and install the patch before retesting the transition.
+
+## Shared renderer and delayed transition crashes
+
+Saving successfully, then crashing on a later scene transition, does not by
+itself prove a malformed recipe or save-worker failure. Compare the actual
+crash thread, active file validation and installed binary identities first.
+A silent match-end investigation found a game MainThread null access and a
+separate SDK-thread assertion; neither directly identified Kirby's save code.
+The active file validated and the installed shared ImGui host still matched
+the version with the known backing-allocation-first release-order hazard.
+
+The renderer source correction and its limitations are recorded in
+`patches/README.md` in the project root. Kirby Assist builds do not rebuild
+`libimgui_smash.nro`; the shared host needs its own reviewed build/deployment.
+Correcting resource release order alone does not verify GPU completion or prove
+the reported crash resolved. Do not overwrite saved recipes as a speculative fix.

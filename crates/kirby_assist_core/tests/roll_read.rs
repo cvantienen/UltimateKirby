@@ -1,8 +1,6 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
     ledge_menu::{MenuRow, MenuSelection},
-    ledge_trap::DPAD_DOWN,
-    manual_controls::{DPAD_LEFT, DPAD_RIGHT},
     native_input::MAPPER_A,
     roll_read::{self, Choice, Context, RollRead, Target, ESCAPE_F},
 };
@@ -21,6 +19,69 @@ fn own(frame: f32) -> Context {
         position: [0., 0.],
         movement: None,
     }
+}
+
+#[test]
+fn target_first_readiness_preserves_both_roll_modes_and_target_loss() {
+    for choice in [Choice::Grab, Choice::DownSmash] {
+        let cfg = roll_read::config_for(6, choice).unwrap();
+        let mut reference = RollRead::default();
+        let mut gated = RollRead::default();
+        for tick in 0..8 {
+            let targets = if matches!(tick, 1 | 2 | 5 | 6) {
+                targets(enemy())
+            } else {
+                [None; 8]
+            };
+            let c = Context {
+                stopped: tick == 2 || tick == 3,
+                ..own(tick as f32)
+            };
+            let relevant = targets.iter().any(Option::is_some);
+            let observed = Context {
+                can_smash: relevant && choice == Choice::DownSmash && c.can_smash,
+                can_grab: relevant && choice == Choice::Grab && c.can_grab,
+                ..c
+            };
+            assert_eq!(
+                gated.sample_choice(choice, cfg, observed, targets),
+                reference.sample_choice(choice, cfg, c, targets)
+            );
+        }
+    }
+}
+
+#[test]
+fn cancelled_grab_does_not_rearm_when_the_same_enemy_changes_roster_slot() {
+    let cfg = roll_read::config_for(6, Choice::Grab).unwrap();
+    let t = Target {
+        position: [8.0, 0.0],
+        velocity_x: -1.0,
+        vulnerable_in: Some(7.0),
+        ..enemy()
+    };
+    let mut read = RollRead::default();
+    let prime = read.sample_choice(Choice::Grab, cfg, own(0.0), targets(t));
+    assert_ne!(prime.owned, 0);
+    read.cancel_pending();
+    let mut reordered = [None; 8];
+    reordered[4] = Some(Target {
+        frame: t.frame + 1.0,
+        ..t
+    });
+    assert_eq!(
+        read.sample_choice(Choice::Grab, cfg, own(1.0), reordered)
+            .owned,
+        0
+    );
+}
+
+#[test]
+fn skipped_native_clock_gap_abandons_prepared_smash_instead_of_issuing_late() {
+    let cfg = roll_read::fighter_config(6).unwrap();
+    let mut read = RollRead::default();
+    assert_ne!(read.sample(true, cfg, own(0.0), targets(enemy())).owned, 0);
+    assert_eq!(read.sample(true, cfg, own(20.0), targets(enemy())).owned, 0);
 }
 
 #[test]
@@ -336,6 +397,7 @@ fn enemy() -> Target {
     Target {
         id: 2,
         status: ESCAPE_F,
+        motion: 456,
         frame: 2.,
         rate: 1.0,
         position: [-8., 0.],
@@ -571,47 +633,21 @@ fn approach_refuses_unreachable_floorless_targets_and_cancels_when_target_leaves
     assert_eq!(read.sample(true, cfg, walking(1., 0.), [None; 8]).owned, 0);
 }
 #[test]
-fn menu_defaults_to_smash_and_only_runs_for_configured_fighters() {
+fn retired_fixed_roll_menu_stays_off_and_hidden_after_match_reset() {
     let profiles = FighterProfiles::default();
     let presets = &profiles.profile(6).unwrap().menu_options;
-    let mut m = MenuSelection::new(presets);
-    m.roll_read_available = true;
-    assert_eq!(m.roll_read, Choice::DownSmash);
-    let choices = m.choices;
-    m.input(0, presets);
-    for _ in 0..5 {
-        m.input(DPAD_DOWN, presets);
-        m.input(0, presets);
-    }
-    assert_eq!(m.row, MenuRow::RollRead);
-    m.input(DPAD_RIGHT, presets);
-    assert_eq!(m.roll_read, Choice::Grab);
-    assert_eq!(m.choices, choices, "ledge choices are independent");
-    m.input(0, presets);
-    m.input(DPAD_LEFT, presets);
-    assert_eq!(m.roll_read, Choice::DownSmash);
-    m.input(0, presets);
-    m.input(DPAD_RIGHT, presets);
-    m.begin_match();
-    assert_eq!(
-        m.roll_read,
-        Choice::Grab,
-        "saved choice survives stock/match reset"
-    );
-    let mut unsupported = MenuSelection::new(presets);
-    unsupported.input(0, presets);
-    for _ in 0..5 {
-        unsupported.input(DPAD_DOWN, presets);
-        unsupported.input(0, presets);
-    }
-    assert_eq!(
-        unsupported.row,
-        MenuRow::AutoMash,
-        "unsupported Kirby rows are skipped; shared mash remains available"
-    );
+    let mut menu = MenuSelection::new(presets);
+    menu.roll_read_available = true;
+    assert_eq!(menu.roll_read, Choice::Off);
+    assert!(!menu.row_visible(MenuRow::RollRead));
+    menu.begin_match();
+    assert_eq!(menu.roll_read, Choice::Off);
+    assert!(!menu.row_visible(MenuRow::RollRead));
+    // Portable prototype facts remain testable, without live registration.
     assert!(roll_read::fighter_config(6).is_some());
     assert!(roll_read::fighter_config(5).is_some());
 }
+
 #[test]
 fn approach_primes_then_smashes_once_and_releases_on_native_startup() {
     let cfg = roll_read::fighter_config(6).unwrap();
@@ -725,6 +761,65 @@ fn recognizes_body_crossing_but_off_and_target_loss_cancel_before_press() {
     let mut read = RollRead::default();
     read.sample(true, cfg, own(0.), targets(enemy()));
     assert_eq!(read.sample(false, cfg, own(1.), targets(enemy())).owned, 0);
+}
+
+#[test]
+fn skipped_approach_sample_still_recognizes_same_roll_crossing_kirbys_body() {
+    let cfg = roll_read::fighter_config(6).unwrap();
+    let mut read = RollRead::default();
+    let before = Target {
+        position: [-3.0, 0.0],
+        velocity_x: 0.0,
+        vulnerable_in: Some(15.0),
+        actionable_in: Some(28.0),
+        ..enemy()
+    };
+    assert_eq!(read.sample(true, cfg, own(0.0), targets(before)).owned, 0);
+    let crossed = Target {
+        frame: before.frame + 4.0,
+        position: [3.0, 0.0],
+        velocity_x: 1.0,
+        vulnerable_in: Some(11.0),
+        actionable_in: Some(24.0),
+        ..before
+    };
+    let prime = read.sample(true, cfg, own(1.0), targets(crossed));
+    assert_ne!(prime.owned, 0);
+    assert_eq!(prime.requested, 0);
+    let press = read.sample(
+        true,
+        cfg,
+        own(2.0),
+        targets(Target {
+            frame: crossed.frame + 1.0,
+            vulnerable_in: Some(10.0),
+            ..crossed
+        }),
+    );
+    assert_eq!(press.requested, MAPPER_A);
+}
+
+#[test]
+fn shield_faceoff_detects_an_overlapping_roll_already_moving_past_kirby() {
+    let cfg = roll_read::fighter_config(6).unwrap();
+    let shield = Context {
+        status: 0x1c,
+        can_act: false,
+        can_smash: false,
+        ..own(0.0)
+    };
+    let passing = Target {
+        frame: 6.0,
+        position: [2.0, 0.0],
+        velocity_x: 0.8,
+        vulnerable_in: Some(20.0),
+        actionable_in: Some(40.0),
+        ..enemy()
+    };
+    let release = RollRead::default().sample(true, cfg, shield, targets(passing));
+    assert_ne!(release.owned, 0);
+    assert_eq!(release.requested, 0);
+    assert_eq!(release.stick, Some([0.0, 0.0]));
 }
 
 #[test]

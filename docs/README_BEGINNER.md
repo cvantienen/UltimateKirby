@@ -1,5 +1,10 @@
 # Kirby Assist: a beginner's guide to the code and real input integration
 
+Current ledge choices and exact input scheduling are authored only in
+[sequences.txt](SEQUENCE_FILES.md). The retired native fighter engines discussed
+in older examples below are not the live ledge dispatcher.
+
+
 For the current file layout, a ledge-response walkthrough, and how loaded
 fighter profiles fit, start with [the source map](CODE_MAP.md).
 
@@ -388,7 +393,7 @@ Using a reproducible local test while developing does not add a training-mode re
 
 ### Step 8: Add convenient settings
 
-The live integration now reads `SD:/ultimate/kirby_assist/config.txt` at startup. It includes a global enable switch, individual tool toggles, controller selection, and timing. An in-game settings menu would be a future extension; restart Smash after editing the existing file.
+The live integration reads the master `SD:/ultimate/kirby_assist/sequences.txt` at startup. Its `[universal.settings]` section contains shared switches and controller settings; `[fighter.settings]` contains fighter overrides. The Training editor can create and save input recipes and assist rules. Restart Smash after external file edits; legacy `config.txt` is used only when universal settings are absent.
 
 The first useful live milestone is **one correct player's Clatter detection plus one verified Attack pulse and release**. After that, auto mash is a small extension. Reliable auto tech additionally needs its more demanding observer and timing validation.
 
@@ -460,7 +465,7 @@ cargo skyline build --release --features diagnostic-logging
 
 After changing Rust code, build again and copy the newly generated `target/aarch64-skyline-switch/release/libkirby_assist.nro` into your SD card's `atmosphere/contents/01006A800016E000/romfs/skyline/plugins/` directory while Smash is closed. Replace the existing file and restart Smash. Building alone does not update the Switch or the downloadable ZIP. For a fresh copyable folder and ZIP, follow [the packaging commands](INTEGRATION.md#rebuild-the-sd-card-packages).
 
-Changing supported numbers in `SD:/ultimate/kirby_assist/config.txt` needs a game restart. Fighter functions, menu registrations and compiled timing defaults are Rust source changes and require an authorized rebuild/redeploy. There is no fighter JSON file. Editing a README needs neither a rebuild nor a game restart.
+External changes to `SD:/ultimate/kirby_assist/sequences.txt` need a game restart. Training saves update the running session and master file through the save worker. Gameplay logic or compiled reference-data changes require an authorized rebuild/redeploy; recipe actions/timings do not require Rust edits. No fighter JSON is loaded from SD during play. Editing a README requires neither rebuilding nor restarting Smash.
 
 Passing the tests proves the tested logical behavior. Building the `.nro` proves compilation for the target. Only testing a concrete live adapter in the target game can demonstrate that the game receives and responds to the intended input.
 

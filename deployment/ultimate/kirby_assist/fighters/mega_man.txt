@@ -1,0 +1,196 @@
+# ---- NEUTRAL ----
+[mega_man.neutral.down_tilt]
+# F34 target; Down Tilt active 5-21
+name = Down tilt
+start_delay = 21
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0:-0.6:1
+
+[mega_man.neutral.up_tilt]
+# F34 target; Up Tilt active 6-16
+name = Up tilt
+start_delay = 23
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+[mega_man.neutral.area_smash]
+# F34 target; Down Smash active 17-33; charge point 4, hold 13
+name = Arm cannon (travel)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-1:13, release:1
+
+# ---- JUMP ----
+[mega_man.jump.forward_air]
+# F14 target; Forward Air active 9-17; includes 3f jump squat
+name = Forward air
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:1:0:1
+
+[mega_man.jump.up_tilt]
+# F14 target; Up Tilt active 6-16
+name = Grounded up tilt
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+[mega_man.roll.down_smash]
+# F31 target; Down Smash active 17-33; charge point 4, hold 10
+name = Down smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0:-1:10, release:1
+
+[mega_man.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[mega_man.roll.down_tilt]
+# F31 target; Down Tilt active 5-21
+name = Down tilt
+start_delay = 18
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+[mega_man.attack.shield_grab]
+name = Shield > Up-smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a:0:1:1
+
+[mega_man.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+[mega_man.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[mega_man.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[mega_man.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+# ---- AUTO REACT ----
+[mega_man.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:20.5:24
+actions = input:r:0:0:4
+
+[mega_man.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:12.5:24
+actions = input:r:0:0:4
+
+[mega_man.roll.auto_shield_backup]
+name = Shield backup > Up Smash
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_shield_backup:12:12
+actions = opponent_input:a:0:1:1
+
+[mega_man.roll.auto_roll]
+name = Roll > Up Smash
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_roll:12:12
+actions = opponent_input:a:0:1:1
+
+[mega_man.roll.auto_spot_dodge]
+name = Spot dodge > Up Smash
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_spot_dodge:12:12
+actions = opponent_input:a:0:1:1
+
+[mega_man.roll.auto_air_dodge]
+name = Air dodge > Forward Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:12:24
+actions = opponent_input:a+x:1:0:1
+
+[mega_man.roll.auto_grab_dodged]
+name = Dodged grab > Up Smash
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_grab_dodged:12:12
+actions = opponent_input:a:0:1:1
+
+# META KNIGHT
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/meta_knight
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+

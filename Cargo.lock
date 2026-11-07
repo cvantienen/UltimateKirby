@@ -18,10 +18,11 @@ dependencies = [
 
 [[package]]
 name = "kirby_assist"
-version = "1.7.2"
+version = "2.7.5"
 dependencies = [
  "imgui-api",
  "kirby_assist_core",
+ "nnsdk",
  "skyline",
 ]
 

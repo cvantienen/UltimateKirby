@@ -1,0 +1,395 @@
+# ========================================================================
+#                                 BOWSER
+# ========================================================================
+
+# ---- FIGHTER SETTINGS ----
+[bowser.settings]
+walk_strength = 0.49999985
+grab_range = 22
+vertical_range = 20
+follow_vertical_range = 45
+stand_distance = 15
+manual_spacing = true
+auto_position = true
+grab_dodge_default = true
+out_of_shield_default = true
+grab_dodge_lookahead = 8
+shield_body_half_width = 7
+shield_body_height = 18
+shield_hold = 2
+grab_dodge_padding = 15
+grab_dodge_height = 10
+tech_ceiling_origin = 5
+
+# ---- LEDGE TRAPS: NEUTRAL ----
+# ---- FIRE BREATH | bowser.neutral.down_tilt ----
+[bowser.neutral.down_tilt]
+default = false
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = face:opponent, facing_hold_until_manual:b:0:0
+name = FIRE BREATH
+
+# ---- F TILT | bowser.neutral.forward_tilt ----
+[bowser.neutral.forward_tilt]
+default = false
+start_delay = 18
+timeout = 3600
+spatial_timeout = 60
+actions = opponent_input:a:0.6:0:4
+name = F TILT
+
+# ---- UP B | bowser.neutral.up_tilt ----
+[bowser.neutral.up_tilt]
+default = false
+start_delay = 10
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:b:0:1:4, drift:opponent:1:70
+name = UP B
+
+# ---- F SMASH | bowser.neutral.forward_smash ----
+[bowser.neutral.forward_smash]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = opponent_input:a:1:0:5
+default = true
+name = F SMASH
+
+# ---- LEDGE TRAPS: JUMP ----
+# ---- BAIR | bowser.jump.nair2 ----
+[bowser.jump.nair2]
+default = false
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = face:away_from_opponent, wait:1, facing_input:x:0:0:1, facing_input:a:-1:0:4
+name = BAIR
+
+# ---- F TILT | bowser.jump.up_air ----
+[bowser.jump.up_air]
+default = false
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = opponent_input:a:0.6:0:1
+name = F TILT
+
+# ---- UP-TILT | bowser.jump.up_tilt ----
+[bowser.jump.up_tilt]
+default = true
+name = UP-TILT
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = opponent_input:a:0:0.6:1
+
+# ---- LEDGE TRAPS: ROLL ----
+# ---- UP SMASH | bowser.roll.down_smash ----
+[bowser.roll.down_smash]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:a:0:1:25
+default = false
+name = UP SMASH
+
+# ---- GRAB | bowser.roll.grab ----
+[bowser.roll.grab]
+default = false
+start_delay = 5
+timeout = 3600
+spatial_timeout = 60
+actions = walk:away_from_opponent:5:0.8, range:fighter_range, input:r:0:0:1
+name = GRAB
+
+# ---- UP B | bowser.roll.down_tilt ----
+[bowser.roll.down_tilt]
+default = false
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = walk:away_from_opponent:5:0.8, facing_input:b:0:1:4, drift:opponent:1:70
+name = UP B
+
+# ---- F SMASH | bowser.roll.menu_added_4 ----
+[bowser.roll.menu_added_4]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = opponent_input:a:-1:0:10
+default = true
+name = F SMASH
+
+# ---- LEDGE TRAPS: ATTACK ----
+# ---- Shield DSMASH | bowser.attack.shield_nair ----
+[bowser.attack.shield_nair]
+default = false
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = shield_until_block:90, opponent_input:a:0.6:-1:1
+name = Shield DSMASH
+
+# ---- Grab | bowser.attack.shield_grab ----
+[bowser.attack.shield_grab]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = shield_until_block:90, if_facing_opponent, range:25, facing_input:r:0:0:4, else_facing, opponent_input:b:1:0:4, end_facing
+default = true
+name = Grab
+
+# ---- Shield > Up-B | bowser.attack.shield_up_b ----
+[bowser.attack.shield_up_b]
+default = false
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = shield_until_block:90, facing_input:b:0:1:1, drift:opponent:1:70
+name = Shield > Up-B
+
+# ---- SIDE B | bowser.attack.shield_fair ----
+[bowser.attack.shield_fair]
+default = false
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = shield_until_block:90, opponent_input:b:1:0:4
+name = SIDE B
+
+# ---- LEDGE TRAPS: DROP ----
+# ---- Shield | bowser.drop.shield ----
+[bowser.drop.shield]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_hold_until_manual:zr:0:0
+name = Shield
+default = false
+
+# ---- FADE AWAY NAIR | bowser.drop.drop_nair ----
+[bowser.drop.drop_nair]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:a+x:0:0:4, drift:away_from_opponent:0.4:20
+name =FADE AWAY NAIR
+default = false
+
+# ---- FADE AWAY FAIR | bowser.drop.forward_air ----
+[bowser.drop.forward_air]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = face:opponent, wait:1, facing_input:x:0:0:1, facing_input:a:1:0:1, drift:away_from_opponent:0.3:10
+name = FADE AWAY FAIR 
+default = false
+
+# ---- DOWN SMASH | bowser.drop.down_smash ----
+[bowser.drop.down_smash]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = wait:2, opponent_input:a:0:-1:1
+name = DOWN SMASH
+default = false
+
+# ---- Dair | bowser.drop.menu_added_6 ----
+[bowser.drop.menu_added_6]
+name = Dair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:x:0:0:1, facing_input:a:0:-1:4
+default = true
+
+# ---- UP B | bowser.drop.menu_added_7 ----
+[bowser.drop.menu_added_7]
+name = UP B
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:b:0:1:4, drift:opponent:1:70
+default = false
+
+# ---- BUTTON SEQUENCES: X ----
+# ---- Built-in: Ledge assist / walk | bowser.x.__builtin_ledge_assist ----
+[bowser.x.__builtin_ledge_assist]
+default = false
+name = Built-in: Ledge assist / walk
+builtin = ledge_assist
+
+# ---- Built-in: Short hop | bowser.x.__builtin_short_hop ----
+[bowser.x.__builtin_short_hop]
+default = true
+name = Built-in: Short hop
+builtin = short_hop
+
+# ---- BUTTON SEQUENCES: Y ----
+# ---- Grab | bowser.y.airdodge ----
+[bowser.y.airdodge]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = check:enemy_within:45:0, drift:opponent:1:1, facing_input:r:0:0:4
+default = true
+name = Grab
+
+# ---- BUTTON SEQUENCES: DPAD_UP ----
+# ---- Airdodge | bowser.dpad_up.grab ----
+[bowser.dpad_up.grab]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = drift:facing:0:1, shield:4
+default = true
+name = Airdodge
+
+# ---- BUTTON SEQUENCES: DPAD_DOWN ----
+# ---- Built-in: Turbo t-bag | bowser.dpad_down.__builtin_turbo_teabag ----
+[bowser.dpad_down.__builtin_turbo_teabag]
+default = false
+name = Built-in: Turbo t-bag
+builtin = turbo_teabag
+
+# ---- Normal button | bowser.dpad_down.__normal_button ----
+[bowser.dpad_down.__normal_button]
+default = true
+name = Normal button
+builtin = normal
+
+# ---- BUTTON SEQUENCES: DPAD_LEFT ----
+# ---- Fire Breath reverse toward enemy | bowser.dpad_left.reverse_fire_breath ----
+[bowser.dpad_left.reverse_fire_breath]
+start_delay = 0
+timeout = 120
+spatial_timeout = 60
+actions = drift:away_from_opponent:0.5:3, opponent_input:b:-0.3:0:2, opponent_input:none:1:0:2
+name = Fire Breath reverse toward enemy
+default = true
+
+# ---- BUTTON SEQUENCES: DPAD_RIGHT ----
+# ---- Flying Slam reverse toward enemy | bowser.dpad_right.reverse_flying_slam ----
+[bowser.dpad_right.reverse_flying_slam]
+start_delay = 0
+timeout = 120
+spatial_timeout = 60
+actions = drift:away_from_opponent:1:3, opponent_input:b:1:0:1, opponent_input:none:1:0:2
+name = Flying Slam reverse toward enemy
+default = true
+
+# ---- BUTTON SEQUENCES: L ----
+# ---- Built-in: Short hop | bowser.l.__builtin_short_hop ----
+[bowser.l.__builtin_short_hop]
+default = false
+name = Built-in: Short hop
+builtin = short_hop
+
+# ---- BUTTON SEQUENCES: L3 ----
+# ---- Built-in: Turbo t-bag | bowser.l3.__builtin_turbo_teabag ----
+[bowser.l3.__builtin_turbo_teabag]
+default = false
+name = Built-in: Turbo t-bag
+builtin = turbo_teabag
+
+# ---- Normal button | bowser.l3.__normal_button ----
+[bowser.l3.__normal_button]
+default = true
+name = Normal button
+builtin = normal
+
+# ---- BUTTON SEQUENCES: R3 ----
+# ---- Built-in: Turbo t-bag | bowser.r3.__builtin_turbo_teabag ----
+[bowser.r3.__builtin_turbo_teabag]
+default = true
+name = Built-in: Turbo t-bag
+builtin = turbo_teabag
+
+# ---- ASSIST RULES: AUTO REACT ----
+# ---- Roll - Up-B chase | bowser.roll.auto_roll ----
+[bowser.roll.auto_roll]
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+actions =  facing_input:b:0:1:4, drift:opponent:1:69
+ground_only = true
+reaction = auto_roll:30:12
+name = Roll - Up-B chase
+default = false
+
+# ---- Spot dodge - Up-B chase | bowser.roll.auto_spot_dodge ----
+[bowser.roll.auto_spot_dodge]
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+actions = facing_input:b:0:1:4, drift:opponent:1:69
+ground_only = true
+reaction = auto_spot_dodge:10:10
+name = Spot dodge - Up-B chase
+default = false
+
+# ---- Air dodge - Up-B chase | bowser.roll.auto_air_dodge ----
+[bowser.roll.auto_air_dodge]
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+actions = facing_input:b:0:1:4, drift:opponent:1:69
+ground_only = true
+reaction = auto_air_dodge:25:19
+name = Air dodge - Up-B chase
+default = false
+
+# ---- Automatic grab (unshielded) | bowser.roll.auto_grab ----
+[bowser.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:35:20
+actions = drift:opponent:1:69, input:r:0:0:4
+
+# ---- Automatic grab (shielded) | bowser.roll.auto_shield_grab ----
+[bowser.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:22:15
+actions = input:r:0:0:4
+
+# ---- Shield grab backup | bowser.roll.auto_shield_backup ----
+[bowser.roll.auto_shield_backup]
+name = Shield grab backup
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_backup:22:15
+actions = up_b:4, drift:opponent:1:69
+
+# ---- After dodging enemy grab | bowser.roll.auto_grab_dodged ----
+[bowser.roll.auto_grab_dodged]
+name = After dodging enemy grab
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab_dodged:30:10
+ground_only = true
+actions = up_b:4, drift:opponent:1:69
+
+# BOWSER JR
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/bowser_jr
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+

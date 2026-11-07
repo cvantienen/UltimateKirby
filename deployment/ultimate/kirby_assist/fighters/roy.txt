@@ -1,0 +1,264 @@
+# ---- NEUTRAL ----
+[roy.neutral.nair]
+# F34 target; Neutral Air active 15-21; includes 3f jump squat
+name = Nair
+start_delay = 13
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[roy.neutral.down_tilt]
+# F34 target; Down Tilt active 7-8
+name = Down tilt
+start_delay = 26
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[roy.neutral.forward_tilt]
+# F34 target; Forward Tilt active 8-10
+name = Forward tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[roy.neutral.up_tilt]
+# F34 target; Up Tilt active 6-11
+name = Up tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+[roy.neutral.forward_smash]
+# F34 target; Forward Smash active 13-14; charge point 6, hold 26
+name = Forward smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:1:0:26, release:1
+
+# ---- JUMP ----
+[roy.jump.nair]
+# F14 target; Neutral Air active 6-7; includes 3f jump squat
+name = Nair
+start_delay = 5
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[roy.jump.forward_air]
+# F14 target; Forward Air active 10-12; includes 3f jump squat
+name = Forward air
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[roy.jump.up_air]
+# F14 target; Up Air active 5-12; includes 3f jump squat
+name = Up air
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[roy.jump.up_tilt]
+# F14 target; Up Tilt active 6-11
+name = Grounded up tilt
+start_delay = 6
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+[roy.roll.down_smash]
+# F31 target; Down Smash active 6-7; charge point 3, hold 28; rear phase 21-22 aligned separately
+name = Down smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = if_facing_opponent, opponent_input:a:0:-1:28, release:1, else_facing, opponent_input:a:0:-1:13, release:1, end_facing
+
+[roy.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[roy.roll.down_tilt]
+# F31 target; Down Tilt active 7-8
+name = Down tilt
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+[roy.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[roy.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[roy.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[roy.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+[roy.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[roy.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[roy.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[roy.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[roy.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+[roy.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:22.2:24
+actions = input:r:0:0:4
+
+[roy.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:14.2:24
+actions = input:r:0:0:4
+
+[roy.roll.auto_shield_backup]
+name = Shield backup > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:16:12
+actions = opponent_input:a+x:0:0:1
+
+[roy.roll.auto_roll]
+name = Roll > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:16:12
+actions = opponent_input:a+x:0:0:1
+
+[roy.roll.auto_spot_dodge]
+name = Spot dodge > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:16:12
+actions = opponent_input:a+x:0:0:1
+
+[roy.roll.auto_air_dodge]
+name = Air dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:16:24
+actions = opponent_input:a+x:0:1:1
+
+[roy.roll.auto_grab_dodged]
+name = Dodged grab > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:16:12
+actions = opponent_input:a+x:0:0:1
+
+# RYU
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/ryu
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+

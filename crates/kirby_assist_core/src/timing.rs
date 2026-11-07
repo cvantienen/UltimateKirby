@@ -81,6 +81,7 @@ pub struct AnimationClock {
 }
 
 impl AnimationClock {
+    pub const fn new() -> Self {Self{previous:None,tick:0}}
     pub fn observe(&mut self, sample: AnimationSample, stopped: bool) -> Option<i64> {
         if stopped
             || sample.kind == 0

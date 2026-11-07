@@ -1,5 +1,8 @@
 # Luigi and Captain Falcon ledge profiles
 
+> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+
+
 Luigi (native kind 9) and Captain Falcon (11) retain their compiled ledge options
 and timings. Their combo builders have been removed, along with the other
 fighter combos. See [the ledge menu](LEDGE_MENU.md) for held-L autopilot and the other current bindings.

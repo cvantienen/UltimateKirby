@@ -22,7 +22,6 @@ pub const LEDGE_DATA: LedgeFighterData = LedgeFighterData {
         shield: 18,
         active_frames: 2,
     },
-    normal_hit_lead_frames: 8,
     common_roll_distance: 25.0,
 };
 pub const UP_AIR: MoveFrames = MoveFrames { first: 6, last: 31 };
@@ -36,7 +35,6 @@ pub const BACK_AIR: MoveFrames = MoveFrames {
     first: 13,
     last: 15,
 };
-pub const SLINGSHOT_EARLY_FRAMES: u8 = 2;
 pub const DOWN_AIR: MoveFrames = MoveFrames {
     first: 11,
     last: 28,

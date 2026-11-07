@@ -4,60 +4,21 @@ The Switch package connects to Smash. The smaller `kirby_assist_core` crate
 contains ordinary Rust values and decisions. Start with the core if raw game
 pointers and hooks are new to you.
 
-The source is split into observation, configuration, prediction and response
-layers. The existing input recipes now receive fighter-specific timings and
-response choices from compiled fighter modules. Static menu entries bind labels
-to named Rust functions; numeric settings are separate. See [fighter profiles](FIGHTER_CONFIGS.md) for editing it.
+Ledge recognition and controller routing are shared Rust code. Every fighter
+option, initial delay and ordered input schedule is authored only in
+`sequences.txt`; there are no fighter option tables or executable menu handlers.
+See [fighter configuration](FIGHTER_CONFIGS.md) and [sequence syntax](SEQUENCE_FILES.md).
 
 ## Start with one ledge response
 
 Read these files in order. Paths are relative to the repository root; open them
 in your editor (the documentation site does not publish Rust source files).
 
-1. **Ledge data types** — `crates/kirby_assist_core/src/ledge_trap/types.rs`:
-   `LedgeSettings` is tuning; `LedgeContext` describes us; `Opponent` describes
-   the target; `LedgeOutput` is the requested stick/buttons.
-2. **Ledge state machine** — `crates/kirby_assist_core/src/ledge_trap.rs`:
-   `sample` handles activation and duplicate observations. `evaluate` checks
-   confirmations, follows one opponent and dispatches a response.
-3. **Aerial responses** — `crates/kirby_assist_core/src/ledge_trap/aerial.rs`:
-   `respond_to_normal_nair` schedules neutral get-up coverage;
-   `respond_to_jump` starts ledge-jump coverage; `continue_committed_nair`
-   completes a requested hop using our own native action state.
-4. **Input overlay** — `crates/kirby_assist_core/src/manual_controls.rs`:
-   `ManualOverlay::apply_controls` combines the selected proposal with fresh
-   physical input and consistent button history.
-5. **Live integration** — `src/live.rs`: `observe_fighter` collects observations
-   and publishes requests; `map_controls` temporarily applies them around the
-   game's original controller mapper, then restores physical controller memory.
-
-```text
-startup: config.txt + compiled Rust catalogs -> validated settings/functions
-                                               |
-                                 controlled fighter kind -> profile
-
-game observations -> LedgeContext + Opponent
-                               |
-                               v
-                       LedgeTrap::sample
-                               |
-                 confirm / select / respond
-                               |
-                               v
-                         LedgeOutput
-                               |
-          physical input -> shared overlay -> native mapper
-                                                 |
-                            mapped-input acknowledgment
-                                                 |
-                                  later native action observation
-```
-
-An input request, a mapped input, an accepted animation and a confirmed hit are
-four different events. Sending A does not prove an attack started. Seeing an
-attack animation does not prove it connected. Keeping those events separate
-is especially important when controller mapping and fighter observations occur
-at different times online.
+1. `sequence_config.rs` validates sections and expands controller terms once at startup.
+2. `fighter_profiles.rs` freezes file entries into menu lists; `ledge_menu.rs` caches selected timelines.
+3. `ledge_trap.rs` recognizes the opponent's option and starts only that row's file timeline.
+4. `ledge_trap/file_timeline.rs` executes ordered inputs/waits and explicit spatial/block gates.
+5. `src/live.rs` publishes requests through the existing input owner/overlay; it does not force moves.
 
 ## Where each part lives
 
@@ -67,10 +28,10 @@ Paths below are relative to the project root. Core paths begin with
 | File | Responsibility |
 | --- | --- |
 | `docs/FIGHTER_ADDITIONS.md` | Luigi/Falcon source, timing, performance and validation notes. |
-| Core `ledge_menu.rs` | Five saved ledge choices, Kirby Roll read/Y mode rows, R3 menu binding, Auto-mash row and trigger reservation. |
-| Core `button_modes.rs` | Kirby Y Finisher choices: Fair 1 > Fsmash and Dair > Dsmash. |
-| Core `finisher.rs` | One short-hop starter per Y press, fast fall and hit-confirmed landing smash. See [Finisher sequences](FINISHERS.md). |
-| Core `opponent_data.rs` and `opponent_data/generated.rs` | Exact-kind compiled stats/move facts, eight roster bindings and pure native recovery validation. |
+| Core `ledge_menu.rs` | Five saved ledge choices, Kirby Roll read/Y mode rows, Minus menu binding, Auto-mash row and trigger reservation. |
+| Core `button_modes.rs` | Retained legacy mode definitions; the old Y Finisher selector/binding is removed. |
+| Core `finisher.rs` | Parked portable starter/follow-up implementation; no live binding or per-frame state. See [retired finisher binding](FINISHERS.md). |
+| Core `opponent_data.rs` and `opponent_data/generated.rs` | Exact-kind reference stats/move facts, eight roster bindings and pure native recovery validation. |
 | Core `whiff_punish.rs` and `src/live/whiff.rs` | Parked prototype, not wired into the live build/menu. |
 | Core `action_owner.rs` | One committed input owner, explicit interruption rules and losing-plan cancellation. |
 | `data/opponent_reference.json` / `tools/update_opponent_data.py` | Source-only numerical snapshot/importer; never loaded during matches. |
@@ -80,9 +41,9 @@ Paths below are relative to the project root. Core paths begin with
 | Core `two_frame.rs` | Kirby-only recovery-cover registration and native-clock timing inside L autopilot. |
 | `src/lib.rs` | Skyline entry point; calls installation once. |
 | `src/live.rs` | Hook orchestration, profile selection, shared session state and tool priority. |
-| `src/live/config.rs` | Startup-only I/O for config.txt; initialize/validate compiled fighter catalog. |
+| `src/live/config.rs` | Startup-only master `sequences.txt` loading/validation; `config.txt` fallback for older files. |
 | `src/live/controller.rs` | Native controller layout, offset checks and button-history reads/writes. |
-| Core `training_test.rs` | Diagnostic/Training-only R3-to-ledge-policy mapping and isolated test settings. |
+| Core `training_test.rs` | Diagnostic/Training Minus-menu handoff and isolated test settings. |
 | `src/live/observations.rs` | Read-only fighter, opponent, physics, roster and floor queries. |
 | `src/live/tech.rs` | Native tech eligibility and predicted contact/capture timing. |
 | `src/game_ffi.rs` | Declarations of functions supplied by Smash; their memory/calling contract. |
@@ -91,26 +52,21 @@ Paths below are relative to the project root. Core paths begin with
 | `src/calibration.rs` | Diagnostic-only fixed observation recorder, completed result formatting and cached card publication. |
 | Core `ledge_trap/diagnostics.rs` | Read-only response metadata for all five rows and detailed roll-grab snapshots. |
 | Core `live_input.rs` | Mash/tech request policy and compatibility helpers. |
-| Core `roll_read.rs` / `roll_read/smash.rs` | Optional ordinary onstage roll-through punish, separate from ledge Roll responses. |
+| Core `roll_read.rs` / `roll_read/smash.rs` | Shared roll target facts/constants; fixed punish prototype is parked. Live roll responses use reaction_rules.rs. |
 | Core `ledge_trap.rs` | Held-trigger visit history, response selection and native action confirmation. |
 | Core `ledge_trap/types.rs` | Settings, copied observations, output values and animation/physics helpers. |
-| Core `fighter_profiles.rs` | Typed compiled fighter data, profile selection and catalog validation. |
+| Core `fighter_profiles.rs` | Fighter identities/reference facts and startup-only file menu construction. |
 | Core `fighter_profiles/kirby.rs` | Built-in Kirby compatibility data. |
-| Core `ledge_trap/attempt.rs` | Native-progress timing, bounded retries and action acceptance for new response variants. |
-| Core `ledge_trap/fighters/kirby/variants.rs` | Grounded Stone and one down tilt followed by shield. |
-| Core `ledge_trap/fighters/` | Resolve our fighter’s handler and dispatch its configured get-up/drop responses. |
-| Core `ledge_trap/aerial.rs` | Ledge-jump and neutral-get-up nair requests and hop completion. |
-| Core `ledge_trap/roll.rs` | Fixed-point smash navigation, inward walking-grab tracking, reach/timing checks and input requests. |
-| Core `ledge_trap/shield.rs` | Get-up-attack block, grab response and rear-side hop. |
-| Core `ledge_trap/grounded.rs` | Hanging stance, legacy get-up tilts and shared ground movement. |
-| Core `ledge_trap/prediction.rs` | Approximate reach, braking and attack-window overlap calculations. |
+| Core `ledge_trap/attempt.rs` | Native-progress clock for ordered input timelines. |
+| Core `sequence_config.rs` | Compile/validate bounded startup-only input timelines and build the sole file menu catalog. |
+| Core `ledge_trap/file_timeline.rs` | File-ordered input holds/waits, native-progress clock, explicit spatial/block predicates. |
 | Core `ledge_position.rs` / `ledge_trump.rs` | Grounded stance preparation / run-off ledge trump. |
 | Core `manual_controls.rs` / `native_input.rs` | Trigger reservation and shared input overlay / raw button conversion. |
 | Core `combat_assist.rs` | Either tilt trip to forward smash, and damage-hitstop SDI. |
 | Core `tech_prediction.rs` / `tech_input.rs` | Pure collision timing / shield request and acknowledgment scheduling. |
 | Core `timing.rs` / `timing/progress.rs` | Share motion-progress classification, event deduplication, simulation-frame arithmetic and forecast overlap. No learned compensation. |
 | Core `observation.rs` / adapter `live/frame.rs` | Lazy fixed-size facts shared across policies for one observation; see [shared observations and timing](OBSERVATIONS_AND_TIMING.md). |
-| Core `slide.rs` | D-pad slide sequence. |
+| Core `slide.rs` | Parked portable slide prototype; no live state, observations or input binding. |
 | Core `session.rs` / `diagnostics.rs` | Invalidate stale requests between matches / limit diagnostic snapshots. |
 | Core `state.rs` / `input.rs` | Generic observation contracts / logical buttons, sticks and merging. |
 | Core `config.rs` / `assist.rs` / `tools.rs` | Generic scenario rules / stateless engine / mash and tech presets. |
@@ -149,21 +105,20 @@ run every tool through that example's synchronous loop.
 
 ## Fighter-specific code and numeric tuning
 
-The controlled fighter’s native kind selects a compiled profile and its own
-response function lists. Opponent get-up timing remains a native observation.
-`ledge_trap/fighters/kirby.rs` registers functions such as
-`respond_to_roll_down_smash()` directly in the static menu catalog.
-`fighter_profiles/kirby/timing.rs` contains numeric move defaults. Five saved
-indices in `ledge_menu.rs` choose compiled responses. See [the fighter source
-guide](FIGHTER_CONFIGS.md) to add a response or fighter. Only shared settings and
-supported numeric adjustments come from config.txt.
+The controlled fighter's kind selects its identity and compiled reference data.
+`sequences.txt` supplies the actual ledge/button input recipes and assist rules;
+there is no compiled fighter response-list fallback. Universal startup settings
+are in `[universal.settings]`, with optional `[fighter.settings]` overrides.
+Menu selection and cached resolved rules refer to stable saved recipe IDs.
+See [fighter configuration](FIGHTER_CONFIGS.md), [master-file syntax](SEQUENCE_FILES.md)
+and [assist rules](REACTION_RULES.md).
 
 ## Validation for the profile change
 
 Formatting parses both Rust module trees. Catalog, selection and policy
 regressions cover shipped baseline values, invalid profiles, disabled options
-and changed move scheduling. They have been added but not compiled/run under
-the standing no-build instruction. Dependency lockfiles were resolved offline.
+and changed move scheduling. Use the relevant portable core tests and host checks. A host check is distinct
+from building/installing a Switch NRO. Dependency lockfiles can be resolved offline.
 The packaging/upload preparation tests use temporary fixtures, mocked builds
 and fake FTP; no actual project package or Switch connection is created.
 
@@ -174,10 +129,34 @@ do not establish runtime or Switch compatibility.
 
 1. `ledge_menu.rs` maps fresh menu D-pad presses to row/choice indices.
 2. `src/live/ledge_menu.rs` resolves cached response settings only on changes.
-3. `ledge_trap/fighters/<fighter>.rs` dispatches the selected compiled function.
 4. `src/live.rs` reads native context only when a tool needs it, then composes
    requests with the existing higher-priority mash/tech/SDI inputs.
 5. `src/live/ledge_menu/menu.rs` draws cached labels without game queries.
 
 Live combo playback and fighter combo libraries have been removed. See
 [the current controls](LEDGE_MENU.md).
+
+## File-authored defensive responses
+
+`defense_response.rs` in the core crate reuses `InputTimeline` for `shield_hit`
+and `grab_dodged` recipes. `out_of_shield.rs` gates a confirmed shield-contact
+response; `spot_dodge.rs` records native dodge acceptance before an optional
+follow-up. `reaction_rules.rs` caches trigger/range metadata on recipe edits.
+These events use their own mode rows, not the roll engine's Menu/button groups.
+`fighter_tuning.rs` stores startup switches and the bounded grab forecast.
+The live adapter follows one confirmed identity without adding a global object
+scan, hook or live file read. See [OOS](OUT_OF_SHIELD.md) and
+[Grab dodge](GRAB_DODGE.md).
+
+`crates/kirby_assist_core/src/spot_punish.rs` owns configured spot-dodge responses; it reuses the recovery targets and shared input timeline. [Spot punish](SPOT_PUNISH.md) documents its separate list.
+
+### Loader stack headroom
+
+The native plugin loader has a 64 KiB stack. Full configuration loading runs on
+one temporary 2 MiB-stack worker, joined before any hooks are installed. It exits
+after parsing; thread creation/join errors leave the mod uninstalled. Startup
+returns the large shared configuration in a temporary box and publishes it through
+a non-inlined helper so the loader does not retain config-sized copies. The box
+and worker stack are released at startup. There is no ongoing worker, scan or
+per-frame allocation added by this change. Host tests cover the full deployment
+catalog on that worker stack; console validation still requires a rebuilt plugin.

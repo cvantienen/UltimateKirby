@@ -58,11 +58,13 @@ fn imminent_moves_use_real_startup_and_rate_without_predicting_unknown_aerials()
     };
     let data = FighterProfiles::default().profile(6).unwrap().ledge;
     assert!(imminent_attack(data, 0x2c, 1, 1., 1.)); // Dtilt 4, three frames away.
-    assert!(!imminent_attack(data, 0x2c, 1, 0., 1.));
+    assert!(imminent_attack(data, 0x2c, 1, 0., 1.)); // Four-frame startup is inside the current five-frame forecast.
     assert!(imminent_attack(data, 0x36, 0xc3a4e2597, 5., 1.)); // Kirby nair 8.
     assert!(!imminent_attack(data, 0x36, 0xc3495ada5, 5., 1.)); // Fair is not nair.
     assert!(imminent_attack(data, 0x32, 1, 5., 1.));
-    assert!(!imminent_attack(data, 0x32, 1, 5., 0.5));
+    let first=f32::from(data.down_smash.first);
+    assert!(imminent_attack(data,0x32,1,first-2.,0.5));
+    assert!(!imminent_attack(data,0x32,1,(first-3.).max(0.),0.5));
     assert!(!imminent_attack(data, 0x37, 1, 5., 1.)); // Grabs excluded.
     assert!(!imminent_attack(data, 0x2c, 1, f32::NAN, 1.));
     // Samus's rear sweep is a separate window, not an invented continuous hit.

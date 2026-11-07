@@ -40,6 +40,9 @@ fn passthrough_observation_does_not_edit_menu_or_replay_held_directions() {
     let presets = &catalog.profile(6).unwrap().menu_options;
     let mut selection = MenuSelection::new(presets);
     selection.input(0, presets);
+    selection.input(MAPPER_MINUS, presets);
+    selection.input(0, presets);
+    assert!(!selection.menu_hidden, "navigation requires an explicitly opened menu");
     let choices = selection.choices;
     selection.observe_passthrough(MAPPER_MINUS | DPAD_DOWN);
     assert!(!selection.toggle_mash);

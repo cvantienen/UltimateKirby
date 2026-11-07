@@ -1,5 +1,8 @@
 # Non-DLC roster: compiled options and frame-data audit
 
+> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+
+
 All base-game playable fighter forms now have their own compiled profile,
 including echoes, the three Pokémon, the Miis and alternate-costume shared kinds.
 The original 15 profiles are retained. The expansion adds 61 fighter forms plus
@@ -320,7 +323,7 @@ Only the selected fighter/response runs. No per-frame all-fighter simulation,
 weapon scan, background file loading, network traffic or new UI telemetry is
 introduced. Code/data size grows; actual performance and heat require profiling.
 Current bindings are L autopilot (including Kirby in-range recovery cover),
-R3 menu, Auto-mash menu row and held Y for configured modes (Kirby Auto-duck).
+Minus menu, Auto-mash menu row and held Y for configured modes (Kirby Auto-duck).
 B-reverse and the separate R3 recovery binding are removed. See [controls](CONTROLS.md).
 
 ## Roll-grab placement

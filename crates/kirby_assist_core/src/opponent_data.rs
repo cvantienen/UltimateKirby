@@ -1,6 +1,7 @@
 //! Compiled reference facts. Never fall back to Kirby for an unknown opponent.
 //! Raw compound fields remain descriptive; only validated numbers drive policy.
 mod generated;
+use std::sync::OnceLock;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Span {
     pub first: u16,
@@ -100,6 +101,118 @@ pub struct Reference {
     pub stats: &'static [Stat],
     pub moves: &'static [MoveData],
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GrabReference {
+    pub first: u8,
+    pub last: u8,
+    pub reach: f32,
+}
+
+type GrabFacts = (i32, [Option<GrabReference>; 3]);
+const GRAB_KINDS: usize = generated::REFERENCES.len();
+static GRAB_FACTS: OnceLock<[GrabFacts; GRAB_KINDS]> = OnceLock::new();
+
+/// Startup-only preparation of immutable reference values. Live observations
+/// still supply current status, motion, facing, positions and readiness.
+pub fn prepare_grab_references() {
+    GRAB_FACTS.get_or_init(|| {
+        std::array::from_fn(|index| {
+            let reference = &all()[index];
+            (
+                reference.kind,
+                [0x37, 0x39, 0x3b].map(|status| ordinary_grab_uncached(reference.kind, status)),
+            )
+        })
+    });
+}
+
+/// Validated ordinary standing/dash/pivot grab facts for every compiled
+/// opponent, including fighters without a ledge-response profile.
+pub fn ordinary_grab(kind: i32, status: i32) -> Option<GrabReference> {
+    let slot = match status {
+        0x37 => 0,
+        0x39 => 1,
+        0x3b => 2,
+        _ => return None,
+    };
+    if let Some(facts) = GRAB_FACTS.get() {
+        return facts
+            .binary_search_by_key(&kind, |(kind, _)| *kind)
+            .ok()
+            .and_then(|index| facts[index].1[slot]);
+    }
+    // Standalone core callers retain the original behavior without initialization.
+    ordinary_grab_uncached(kind, status)
+}
+fn ordinary_grab_uncached(kind: i32, status: i32) -> Option<GrabReference> {
+    let name = match status {
+        0x37 => "Grab",
+        0x39 => "Dash Grab",
+        0x3b => "Pivot Grab",
+        _ => return None,
+    };
+    let reference = profile(kind)?;
+    let mut window = None;
+    for move_ in reference
+        .moves
+        .iter()
+        .filter(|move_| move_.name == name || status == 0x37 && move_.name.ends_with(" Grabs"))
+    {
+        let candidate = (
+            move_.active.iter().map(|span| span.first).min()?,
+            move_.active.iter().map(|span| span.last).max()?,
+        );
+        if window.is_some_and(|known| known != candidate) {
+            return None;
+        }
+        window = Some(candidate);
+    }
+    let (first, last) = window?;
+    if first == 0 || last < first || last > 120 {
+        return None;
+    }
+    // The shared source omits this stat on the three Pokemon Trainer forms and
+    // Olimar; use their independently compiled, exact profile values only.
+    let reach = if let Some(raw) = reference.stat("grabs.grabrange") {
+        let number = raw
+            .split(|c: char| !(c.is_ascii_digit() || matches!(c, '.' | '-')))
+            .find(|part| !part.is_empty())?;
+        number.parse().ok()?
+    } else {
+        match kind {
+            36 => {
+                crate::fighter_profiles::squirtle::LEDGE_DATA
+                    .grab
+                    .standing_range
+            }
+            37 => {
+                crate::fighter_profiles::ivysaur::LEDGE_DATA
+                    .grab
+                    .standing_range
+            }
+            38 => {
+                crate::fighter_profiles::charizard::LEDGE_DATA
+                    .grab
+                    .standing_range
+            }
+            43 => {
+                crate::fighter_profiles::olimar::LEDGE_DATA
+                    .grab
+                    .standing_range
+            }
+            _ => return None,
+        }
+    };
+    if !reach.is_finite() || !(1.0..=60.0).contains(&reach) {
+        return None;
+    }
+    Some(GrabReference {
+        first: first as u8,
+        last: last as u8,
+        reach,
+    })
+}
 impl Reference {
     pub fn move_for_motion(&self, motion: u64) -> Option<&'static MoveData> {
         let mut found = self.moves.iter().filter(|m| m.motions.contains(&motion));
@@ -120,6 +233,17 @@ pub fn profile(kind: i32) -> Option<&'static Reference> {
     data.binary_search_by_key(&kind, |r| r.kind)
         .ok()
         .map(|i| &data[i])
+}
+
+/// Return one unambiguous named move; duplicate source rows require a compiled
+/// custom recipe rather than silently selecting the first variant.
+pub fn named_move(kind: i32, name: &str) -> Option<&'static MoveData> {
+    let mut matches = profile(kind)?
+        .moves
+        .iter()
+        .filter(|move_| move_.name == name);
+    let first = matches.next()?;
+    matches.next().is_none().then_some(first)
 }
 /// Eight roster bindings, copied IDs/static references only; no native pointers.
 #[derive(Clone, Copy, Default)]
@@ -143,6 +267,34 @@ impl OpponentProfiles {
     pub fn clear(&mut self, slot: usize) {
         if let Some(s) = self.slots.get_mut(slot) {
             *s = None;
+        }
+    }
+}
+
+#[cfg(test)]
+mod grab_reference_cache_tests {
+    use super::*;
+    #[test]
+    fn prepared_references_match_uncached_data_for_every_kind_and_status() {
+        let mut expected = Vec::new();
+        for reference in all() {
+            for status in [0x37, 0x39, 0x3b, 0x1f] {
+                expected.push((
+                    reference.kind,
+                    status,
+                    ordinary_grab_uncached(reference.kind, status),
+                ));
+            }
+        }
+        prepare_grab_references();
+        for (kind, status, expected) in expected {
+            assert_eq!(ordinary_grab(kind, status), expected);
+        }
+        for kind in [-1, 0x77, i32::MAX] {
+            assert_eq!(
+                ordinary_grab(kind, 0x37),
+                ordinary_grab_uncached(kind, 0x37)
+            );
         }
     }
 }

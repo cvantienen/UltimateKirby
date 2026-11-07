@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reaction-rule cheat sheet</title><style>*{box-sizing:border-box}body{margin:0;background:#edf2f7;color:#182c42;font:15px/1.6 system-ui,sans-serif}main{max-width:1500px;margin:28px auto;padding:28px;background:white;border:1px solid #d9e3ef;border-radius:16px}h1{font-size:30px;margin-top:0}h2{margin-top:32px;color:#174c68}h3{color:#235369}a{color:#006f87}code{background:#eaf2f6;border-radius:4px;padding:2px 5px;font:13px/1.6 ui-monospace,monospace}pre{background:#102a3c;color:#e7f5ff;padding:18px;overflow:auto;border-radius:10px}pre code{background:transparent;color:inherit;padding:0}table{width:100%;border-collapse:collapse;font-size:14px;margin:14px 0 26px}th{text-align:left;background:#123c52;color:white;padding:12px;vertical-align:top}td{border-bottom:1px solid #dbe6ed;padding:11px;vertical-align:top}tbody tr:nth-child(even){background:#f3f7fa}td:first-child{font-weight:600;min-width:165px}td code{overflow-wrap:anywhere}blockquote{border-left:4px solid #3b9aa4;margin-left:0;padding-left:16px;color:#43576b}.search{position:sticky;top:0;z-index:1;background:#edf2f7ed;backdrop-filter:blur(6px);padding:14px max(20px,calc((100vw - 1444px)/2));border-bottom:1px solid #c9d8e6;display:flex;align-items:center;gap:14px}input{width:min(700px,80vw);font:inherit;padding:10px 14px;border:1px solid #a6bece;border-radius:9px}.search span{font-size:13px;color:#38556c}tr[hidden]{display:none}@media(max-width:850px){main{padding:16px;margin:12px}table{display:block;overflow-x:auto}h1{font-size:24px}.search{padding:10px}td{min-width:180px}}@media print{body,main{background:white}main{border:0;padding:0;margin:0}.search{display:none}table{font-size:10px}td,th{padding:6px}pre{white-space:pre-wrap}h2{break-after:avoid}tr{break-inside:avoid}tr[hidden]{display:table-row}}</style></head><body><div class="search"><input id="query" type="search" aria-label="Filter reference rows" placeholder="Find a move, setting, syntax or example…"><span id="count"></span></div><main><h1>Reaction-rule cheat sheet</h1>
+<p><strong>Legacy priority-builder reference.</strong> The current unified Auto-react controller
+uses seven <code>auto_*:MAX_X:MAX_Y</code> events. Start with the
+<a href="SEQUENCE_SYNTAX_CHEATSHEET.md">current sequence syntax cheat sheet</a>; accepted
+legacy triggers below are not active in that unified controller.</p>
+<p>Settings, choices and feedback entries for the reaction builder. <a href="REACTION_RULE_CHEATSHEET.html">Open the styled, searchable table</a>.</p>
+<p><a href="REACTION_RULES.md">Setup guide</a> · <a href="EDITOR_ACTION_CHEATSHEET.md">Editor actions</a></p>
+<pre><code class="language-ini">reaction = TRIGGER:STATE:MIN_X:MAX_X:MAX_HEIGHT:SIDE:PRIORITY[:CONTROL]
+</code></pre>
+<ul>
+<li>Menu and button groups are independent. Recipes sharing a button toggle together. That button is reserved even while its group is OFF; normal button sequences are preserved and return after the assignment is removed and the button released.</li>
+<li>Events cover opponent shields/shield-origin rolls, ordinary rolls, confirmed shield hits, assisted grab-dodge recovery. Auto-tech and missed-tech branches remain separate. Defensive events use their own ON/OFF mode, not Roll rules or button groups.</li>
+<li>Priority compares conditions matching now. A plain roll rule can fire before a higher-priority rule becomes true later. Use roll_vulnerable and roll_cross_vulnerable together when comparing those outcomes at vulnerability.</li>
+<li>One response at a time; one attempt per enemy roll. Once playback starts, it does not switch to a different rule mid-response. A cancellation does not rearm that same roll.</li>
+<li>Eight rules per assist family, up to 48 per fighter. Ranges are world units, not hitbox reach. Every action remains simulated input governed by native game rules.</li>
+<li>Requires the updated mod on every Switch loading reaction metadata. Older builds cannot parse the new property. This reference changes no Switch files and adds no runtime load.</li>
+</ul>
+<p>Defensive startup switches and the 1–8 frame grab forecast are saved in <strong>Fighter settings</strong>. Defensive recipes must use Menu control; that field names their specific ON/OFF mode.</p>
+<p>In Training: Assist modes → highlight the assist → L3/R3 opens its separate priority list. A/R3 edits, X adds, Y manages, B/L3 returns. In the editor, Y saves and R3/L3 returns to the list. Activate the assist with its ON/OFF row. Outside Training the switch is on Buttons / Assists, reached with R3 from the ledge selector.</p>
+<h2>Editor settings</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name / choice</th>
+<th>Description</th>
+<th>Corresponding file syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Auto reaction</td>
+<td>In a separate Assist rule editor, choose a roll variant or one of seven Shield pressure events; other defensive assists keep their own event. Ordinary ledge/button editors do not expose this setting.</td>
+<td><code>Field 1 · TRIGGER</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Stop if airborne</td>
+<td>Opt-in throughout-playback safety; cancels if your situation becomes airborne. Different from My state, which filters startup. Existing recipes default OFF.</td>
+<td><code>ground_only = true</code></td>
+<td><code>ground_only = true</code></td>
+</tr>
+<tr>
+<td>My state</td>
+<td>Your state must match when the response starts. This does not force your fighter into that state.</td>
+<td><code>Field 2 · STATE</code></td>
+<td><code>reaction = roll_vulnerable:walking:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Min X distance</td>
+<td>Inclusive minimum absolute horizontal separation. World units, not frames or a percentage of the opponent’s hitbox.</td>
+<td><code>Field 3 · MIN_X · 0–100</code></td>
+<td><code>reaction = roll_vulnerable:grounded:8:24:12:any:1</code></td>
+</tr>
+<tr>
+<td>Max X distance</td>
+<td>Inclusive maximum horizontal separation. Must be at least Min X distance.</td>
+<td><code>Field 4 · MAX_X · MIN_X–100</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:14:12:any:1</code></td>
+</tr>
+<tr>
+<td>Max height difference</td>
+<td>Maximum absolute vertical separation. Horizontal and vertical limits are separate checks.</td>
+<td><code>Field 5 · MAX_HEIGHT · 0–100</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:10:any:1</code></td>
+</tr>
+<tr>
+<td>Enemy side</td>
+<td>Restrict the enemy’s current side relative to your facing. any includes either side and overlapping X positions.</td>
+<td><code>Field 6 · SIDE</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:behind:1</code></td>
+</tr>
+<tr>
+<td>Priority</td>
+<td>Lower numbers win among rules matching NOW. Equal values use category/file order; priority does not reserve a future response.</td>
+<td><code>Field 7 · PRIORITY · 1–8</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:2</code></td>
+</tr>
+<tr>
+<td>Mode control</td>
+<td>Choose Menu or one toggle button. Rules sharing a button toggle together; a reserved button replaces its ordinary jump/sequence input.</td>
+<td><code>Optional field 8 · CONTROL</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_x</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Trigger choices</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name / choice</th>
+<th>Description</th>
+<th>Corresponding file syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Auto reaction → off</td>
+<td>File-only legacy setting: no automatic trigger. New assist rules keep their event family; delete a rule or switch its assist OFF to disable it.</td>
+<td><code>off</code></td>
+<td><code>reaction = off:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → roll</td>
+<td>Match during an observed ordinary forward/back roll when all other conditions hold. It can match after the first roll frame; it is not a ledge getup-roll trigger.</td>
+<td><code>roll</code></td>
+<td><code>reaction = roll:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → roll_cross</td>
+<td>Match after relative horizontal positions cross during this roll. Your movement can also create this crossing; it does not predict a future cross.</td>
+<td><code>roll_cross</code></td>
+<td><code>reaction = roll_cross:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → roll_vulnerable</td>
+<td>Wait until the native roll forecast indicates intangibility has ended, then check the remaining conditions. It does not time your move’s active hitbox automatically.</td>
+<td><code>roll_vulnerable</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → roll_cross_vulnerable</td>
+<td>Require BOTH a crossing during this roll and native roll vulnerability. Useful for comparing a crossed-roll response with other vulnerability-based rules.</td>
+<td><code>roll_cross_vulnerable</code></td>
+<td><code>reaction = roll_cross_vulnerable:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → Spot dodge vulnerable</td>
+<td>React once the opponent’s ordinary spot dodge is vulnerable and still recovering. Uses Spot punish ON/OFF and its own rule list.</td>
+<td><code>spot_dodge</code></td>
+<td><code>reaction = spot_dodge:grounded:0:12:18:front:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → After shield hit</td>
+<td>Run once after confirmed shield contact and native shieldstun, using Out of shield ON/OFF.</td>
+<td><code>shield_hit</code></td>
+<td><code>reaction = shield_hit:grounded:0:12:18:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → After dodging grab</td>
+<td>Follow the tracked grabber after native spot-dodge acceptance; run when recovery permits acting. Uses Grab dodge + punish ON/OFF.</td>
+<td><code>grab_dodged</code></td>
+<td><code>reaction = grab_dodged:grounded:0:12:18:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → Enemy shielding</td>
+<td>Enemy is raising/holding shield or taking shield damage; one response per shield visit. Uses the separate Shield pressure switch/list.</td>
+<td><code>enemy_shield</code></td>
+<td><code>reaction = enemy_shield:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → Shield roll</td>
+<td>Roll after an observed shield state. Uses the separate Shield pressure switch/list.</td>
+<td><code>shield_roll</code></td>
+<td><code>reaction = shield_roll:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → Shield roll crosses</td>
+<td>Shield-origin roll has crossed relative horizontal positions. Uses the separate Shield pressure switch/list.</td>
+<td><code>shield_roll_cross</code></td>
+<td><code>reaction = shield_roll_cross:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → Shield roll vulnerable</td>
+<td>Shield-origin roll with native vulnerability forecast at zero. Uses the separate Shield pressure switch/list.</td>
+<td><code>shield_roll_vulnerable</code></td>
+<td><code>reaction = shield_roll_vulnerable:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → Shield cross vulnerable</td>
+<td>Both crossing and vulnerability. Uses the separate Shield pressure switch/list.</td>
+<td><code>shield_roll_cross_vulnerable</code></td>
+<td><code>reaction = shield_roll_cross_vulnerable:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → Shield roll away</td>
+<td>Observed roll velocity moves away from your position at roll start. Uses the separate Shield pressure switch/list.</td>
+<td><code>shield_roll_away</code></td>
+<td><code>reaction = shield_roll_away:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Auto reaction → Shield away vulnerable</td>
+<td>Both rolling away and vulnerability. Uses the separate Shield pressure switch/list.</td>
+<td><code>shield_roll_away_vulnerable</code></td>
+<td><code>reaction = shield_roll_away_vulnerable:grounded:0:20:12:any:1</code></td>
+</tr>
+</tbody>
+</table>
+<p><a href="SHIELD_PRESSURE.md">Shield pressure setup, cooperation and example recipes</a>.</p>
+<h2>Additional event variants</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name / choice</th>
+<th>Description</th>
+<th>Corresponding file syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shield / shield roll vulnerable</td>
+<td>Combined pressure grab event: held shield or shield-origin roll, with native vulnerability.</td>
+<td><code>shield_pressure_vulnerable</code></td>
+<td><code>reaction = shield_pressure_vulnerable:grounded:0:22:12:front:1</code></td>
+</tr>
+<tr>
+<td>After shield hit: enemy vulnerable</td>
+<td>OOS event additionally requires the confirmed attacker’s native hittability.</td>
+<td><code>shield_hit_vulnerable</code></td>
+<td><code>reaction = shield_hit_vulnerable:grounded:0:22:12:front:1</code></td>
+</tr>
+<tr>
+<td>After dodging grab: enemy vulnerable</td>
+<td>After your assisted dodge recovery, requires the grabber’s native hittability.</td>
+<td><code>grab_dodged_vulnerable</code></td>
+<td><code>reaction = grab_dodged_vulnerable:grounded:0:22:12:front:1</code></td>
+</tr>
+<tr>
+<td>Any enemy spot dodge</td>
+<td>Can react before intangibility ends; does not change old <code>spot_dodge</code> rules.</td>
+<td><code>spot_dodge_any</code></td>
+<td><code>reaction = spot_dodge_any:grounded:0:30:12:any:2</code></td>
+</tr>
+</tbody>
+</table>
+<p>An immediate fallback can start before a future vulnerable-grab rule qualifies.</p>
+<h2>Your state choices</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name / choice</th>
+<th>Description</th>
+<th>Corresponding file syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>My state → any</td>
+<td>No additional own-state condition. Native input rules still determine whether the response can happen.</td>
+<td><code>any</code></td>
+<td><code>reaction = roll_vulnerable:any:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>My state → grounded</td>
+<td>Your situation must be grounded; this includes more than idle standing.</td>
+<td><code>grounded</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>My state → airborne</td>
+<td>Your situation must be airborne. The enemy can still be rolling on the ground below you.</td>
+<td><code>airborne</code></td>
+<td><code>reaction = roll_vulnerable:airborne:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>My state → standing</td>
+<td>Grounded idle/WAIT specifically. Walking, crouching and attacking are not standing for this filter.</td>
+<td><code>standing</code></td>
+<td><code>reaction = roll_vulnerable:standing:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>My state → walking</td>
+<td>Grounded WALK specifically. Walk braking is not included.</td>
+<td><code>walking</code></td>
+<td><code>reaction = roll_vulnerable:walking:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>My state → running</td>
+<td>Grounded dash, run, turn-dash or turn-run. Ordinary turning and run braking are not included.</td>
+<td><code>running</code></td>
+<td><code>reaction = roll_vulnerable:running:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>My state → shielding</td>
+<td>Grounded guard-on, guard, guard-off or shield-damage states. This is a state filter, not a shield-hit event trigger.</td>
+<td><code>shielding</code></td>
+<td><code>reaction = roll_vulnerable:shielding:0:20:12:any:1</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Enemy side choices</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name / choice</th>
+<th>Description</th>
+<th>Corresponding file syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Enemy side → any</td>
+<td>Accept either side, including almost overlapping X positions.</td>
+<td><code>any</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1</code></td>
+</tr>
+<tr>
+<td>Enemy side → front</td>
+<td>Enemy must be in front relative to your current facing; near-zero horizontal separation does not count as front.</td>
+<td><code>front</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:front:1</code></td>
+</tr>
+<tr>
+<td>Enemy side → behind</td>
+<td>Enemy must be behind relative to your current facing; near-zero separation does not count as behind.</td>
+<td><code>behind</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:behind:1</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Mode control choices</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name / choice</th>
+<th>Description</th>
+<th>Corresponding file syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mode control → Menu</td>
+<td>Follow the Roll rules Menu ON/OFF switch. This is the default for older seven-field rules. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td><code>menu</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:menu</code></td>
+</tr>
+<tr>
+<td>Mode control → Toggle X</td>
+<td>Fresh X presses toggle this group. X is reserved instead of jumping or playing its selected sequence. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td><code>toggle_x</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_x</code></td>
+</tr>
+<tr>
+<td>Mode control → Toggle Y</td>
+<td>Fresh Y presses toggle this group. Y is reserved instead of its ordinary action/sequence. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td><code>toggle_y</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_y</code></td>
+</tr>
+<tr>
+<td>Mode control → Toggle D-pad Up</td>
+<td>Fresh D-pad Up presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td><code>toggle_up</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_up</code></td>
+</tr>
+<tr>
+<td>Mode control → Toggle D-pad Down</td>
+<td>Fresh D-pad Down presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td><code>toggle_down</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_down</code></td>
+</tr>
+<tr>
+<td>Mode control → Toggle D-pad Left</td>
+<td>Fresh D-pad Left presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td><code>toggle_left</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_left</code></td>
+</tr>
+<tr>
+<td>Mode control → Toggle D-pad Right</td>
+<td>Fresh D-pad Right presses toggle this group with the menu closed. All groups start OFF each match; holding does not repeat. Navigation/chords do not toggle.</td>
+<td><code>toggle_right</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1:toggle_right</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Response and timing</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name / choice</th>
+<th>Description</th>
+<th>Corresponding file syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Response actions</td>
+<td>The recipe containing reaction metadata IS the response. It can be stored under any ledge/X/Y/D-pad category; it need not be the selected manual recipe.</td>
+<td><code>actions = ACTION, ACTION, ...</code></td>
+<td><code>actions = face:opponent, grab</code></td>
+</tr>
+<tr>
+<td>Start delay</td>
+<td>Delay the response after a rule matches. This is not a delay from the enemy roll’s first frame unless the rule actually matched there.</td>
+<td><code>start_delay = FRAMES</code></td>
+<td><code>start_delay = 2</code></td>
+</tr>
+<tr>
+<td>Delay before an action</td>
+<td>Pause before the following action by inserting wait. It is an editor setting, not another trigger condition.</td>
+<td><code>wait:FRAMES</code></td>
+<td><code>actions = face:opponent, wait:3, forward_smash:4</code></td>
+</tr>
+<tr>
+<td>Hold buttons for</td>
+<td>How long input is held. It does not define attack startup, active frames or guaranteed combo timing.</td>
+<td><code>ACTION:FRAMES or hold:BUTTONS:FRAMES</code></td>
+<td><code>actions = down_smash:4</code></td>
+</tr>
+<tr>
+<td>Timeout</td>
+<td>Overall response limit. Use a finite bound appropriate for the sequence.</td>
+<td><code>timeout = FRAMES</code></td>
+<td><code>timeout = 180</code></td>
+</tr>
+<tr>
+<td>Spatial timeout</td>
+<td>Bound for movement/range waits; missing target or movement safety can cancel sooner.</td>
+<td><code>spatial_timeout = FRAMES</code></td>
+<td><code>spatial_timeout = 30</code></td>
+</tr>
+<tr>
+<td>Movement and facing</td>
+<td>Use the existing actions. Onstage rules have no verified ledge anchor: use opponent, away_from_opponent, facing or backward.</td>
+<td><code>face:DIR · walk:DIR:UNITS:STRENGTH[:GAP]</code></td>
+<td><code>actions = walk:opponent:4:50%:1, face:opponent, grab</code></td>
+</tr>
+<tr>
+<td>Range / checks inside response</td>
+<td>Conditions inside actions still work. They are evaluated during playback, separately from the reaction conditions checked before starting.</td>
+<td><code>range:VALUE · check:CONDITION:WAIT</code></td>
+<td><code>actions = range:fighter_range, face:opponent, grab</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Mode, save and lifetime</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name / choice</th>
+<th>Description</th>
+<th>Corresponding file syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Roll rules → ON / OFF</td>
+<td>Controls Menu-tagged recipes only. Button groups have independent states shown on this row. All groups start OFF; acquired ledge setups and native safety retain priority.</td>
+<td><code>Menu group: Assist modes. Button group: assigned button.</code></td>
+<td><code>Training: Minus → Assist modes → Roll rules → ON</code></td>
+</tr>
+<tr>
+<td>Y Save</td>
+<td>Save this recipe and its conditions immediately in Training using the existing single worker. Wait for the result before another save. No pending-save queue.</td>
+<td><code>Stored together in sequences.txt</code></td>
+<td><code>reaction = roll_vulnerable:grounded:0:20:12:any:1</code><br><code>actions = face:opponent, grab</code></td>
+</tr>
+<tr>
+<td>Recipe name</td>
+<td>Use the existing list manager to name each response. The label identifies the saved recipe, not a new event type.</td>
+<td><code>name = LABEL</code></td>
+<td><code>name = Cross roll down smash</code></td>
+</tr>
+<tr>
+<td>Recipe category / identity</td>
+<td>Choose a unique recipe ID within a fighter/category. Categories do not constrain which reaction condition can be attached.</td>
+<td><code>[FIGHTER.CATEGORY.ID]</code></td>
+<td><code>[yoshi.roll.cross_smash_rule]</code></td>
+</tr>
+<tr>
+<td>Copy recipe as template</td>
+<td>Copies actions/timings and preserves destination reaction conditions. It does not silently clone the source’s automatic rule.</td>
+<td><code>Destination reaction line remains unchanged</code></td>
+<td><code>Copy source inputs → keep destination reaction conditions</code></td>
+</tr>
+<tr>
+<td>Duplicate recipe</td>
+<td>The existing Duplicate command copies the recipe. Review its reaction conditions/priority and save deliberately; eight rules per assist family maximum.</td>
+<td><code>Unique new section with its own reaction line</code></td>
+<td><code>[yoshi.roll.cross_smash_variant]</code></td>
+</tr>
+<tr>
+<td>Save as startup default</td>
+<td>Selects the recipe for ordinary manual button/ledge startup selection. It does NOT turn Roll rules ON.</td>
+<td><code>default = true</code></td>
+<td><code>default = true</code></td>
+</tr>
+<tr>
+<td>Loop while held</td>
+<td>Controls manual button activation only. Automatic reactions run a single pass regardless of this setting.</td>
+<td><code>while_held = true / false</code></td>
+<td><code>while_held = false</code></td>
+</tr>
+<tr>
+<td>Match end / unsaved edits</td>
+<td>Transient menu/rule state is discarded at confirmed match end. Saved recipe conditions survive. Save before leaving Training.</td>
+<td><code>Saved recipe persists; mode switch resets OFF</code></td>
+<td><code>Save → wait for success → leave Training</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Feedback on Roll rules row</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name / choice</th>
+<th>Description</th>
+<th>Corresponding file syntax</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>watching rolls</td>
+<td>No response is currently playing; the enabled mode is monitoring the known fighter roster.</td>
+<td><code>Display only — not a file setting</code></td>
+<td><code>No reaction property is written for feedback</code></td>
+</tr>
+<tr>
+<td>self state</td>
+<td>A candidate did not match My state.</td>
+<td><code>Display only — not a file setting</code></td>
+<td><code>No reaction property is written for feedback</code></td>
+</tr>
+<tr>
+<td>outside range</td>
+<td>A candidate was outside its inclusive Min/Max X distance.</td>
+<td><code>Display only — not a file setting</code></td>
+<td><code>No reaction property is written for feedback</code></td>
+</tr>
+<tr>
+<td>height</td>
+<td>Vertical separation exceeded the configured height limit.</td>
+<td><code>Display only — not a file setting</code></td>
+<td><code>No reaction property is written for feedback</code></td>
+</tr>
+<tr>
+<td>enemy side</td>
+<td>Front/behind did not match the configured side.</td>
+<td><code>Display only — not a file setting</code></td>
+<td><code>No reaction property is written for feedback</code></td>
+</tr>
+<tr>
+<td>waiting for crossing</td>
+<td>The required relative X crossing has not been seen for this roll.</td>
+<td><code>Display only — not a file setting</code></td>
+<td><code>No reaction property is written for feedback</code></td>
+</tr>
+<tr>
+<td>waiting for vulnerability</td>
+<td>The required native roll-vulnerability condition has not been reached.</td>
+<td><code>Display only — not a file setting</code></td>
+<td><code>No reaction property is written for feedback</code></td>
+</tr>
+<tr>
+<td>matched / last priority N</td>
+<td>A rule with that priority started. Last matched priority remains visible after playback; it does not prove a hit.</td>
+<td><code>Display only — not a file setting</code></td>
+<td><code>No reaction property is written for feedback</code></td>
+</tr>
+<tr>
+<td>preempted</td>
+<td>Input ownership/safety or another eligibility guard cancelled or withheld the response.</td>
+<td><code>Display only — not a file setting</code></td>
+<td><code>No reaction property is written for feedback</code></td>
+</tr>
+<tr>
+<td>target lost</td>
+<td>A spatial part of the response no longer had a fresh locked target; playback was cancelled.</td>
+<td><code>Display only — not a file setting</code></td>
+<td><code>No reaction property is written for feedback</code></td>
+</tr>
+<tr>
+<td>finished</td>
+<td>The response ended. There is no second attempt for the same roll. This is not hit confirmation.</td>
+<td><code>Display only — not a file setting</code></td>
+<td><code>No reaction property is written for feedback</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Complete Yoshi examples</h2>
+<p>These ranges and delays are starting examples to tune, not calibrated guarantees. If more than one rule matches now, the lower priority number wins.</p>
+<pre><code class="language-ini"># reaction = TRIGGER:MY_STATE:MIN_X:MAX_X:MAX_HEIGHT:ENEMY_SIDE:PRIORITY[:CONTROL]
+[yoshi.roll.near_grab_rule]
+name = Near roll grab
+start_delay = 0
+timeout = 180
+spatial_timeout = 30
+default = false
+reaction = roll_vulnerable:grounded:0:12:10:front:2
+actions = face:opponent, grab
+
+[yoshi.roll.cross_smash_rule]
+name = Cross roll down smash
+start_delay = 0
+timeout = 180
+spatial_timeout = 30
+default = false
+reaction = roll_cross_vulnerable:grounded:0:14:10:any:1
+actions = down_smash:4
+
+[yoshi.roll.far_smash_rule]
+name = Far roll forward smash
+start_delay = 0
+timeout = 180
+spatial_timeout = 30
+default = false
+reaction = roll_vulnerable:grounded:14:28:10:front:3
+actions = face:opponent, forward_smash:4
+</code></pre>
+<p>For ledge-relative movement direction settings and facing-dependent blocks, see the <a href="EDITOR_ACTION_CHEATSHEET.md#movement-direction-choices">editor movement direction table</a>. These require a ledge anchor and are not available to on-stage roll reaction rules.</p>
+<p>Vulnerable-ledge/regrab punishment is retired. The current Auto react mode uses one maximum X/Y range and one committed sequence for each of roll, spot dodge and air dodge; legacy priority vocabulary above does not order these three responses. See <a href="REACTION_RULES.md#current-simple-auto-react-mode">current behavior</a>.</p></main><script>const input=document.getElementById('query'),rows=[...document.querySelectorAll('tbody tr')],count=document.getElementById('count');function filter(){const terms=input.value.toLowerCase().trim().split(/\s+/).filter(Boolean);let visible=0;for(const row of rows){const text=row.textContent.toLowerCase();row.hidden=!terms.every(term=>text.includes(term));if(!row.hidden)visible++;}count.textContent=visible+' / '+rows.length+' rows';}input.addEventListener('input',filter);filter();</script></body></html>

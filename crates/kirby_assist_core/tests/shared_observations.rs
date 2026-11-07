@@ -1,11 +1,55 @@
 use kirby_assist_core::{
-    observation::{Fact, Field, ObservationSnapshot},
+    observation::{Fact, Field, GroundSupportSnapshot, ObservationSnapshot},
     timing::{
         motion_elapsed, motion_progress, AnimationClock, AnimationSample, MotionProgress,
         MotionStamp,
     },
 };
 use std::cell::Cell;
+
+#[test]
+fn repeated_command_callbacks_without_a_roster_upgrade_setup_only_once() {
+    use kirby_assist_core::observation::ObservationSetup;
+    let mut setup=ObservationSetup::new();let mut evaluations=0;let mut upgrades=0;
+    for tick in 0..100 {
+        let mut evaluated=false;
+        // Mapper followed by repeated command-category queries. There is no
+        // roster at all while all candidate policies are idle/unactionable.
+        for discover in std::iter::once(false).chain(std::iter::repeat(true).take(100)) {
+            if !setup.needed(tick,evaluated,discover){continue;}
+            setup.complete(tick,discover);
+            if evaluated {upgrades+=1;}else{evaluations+=1;evaluated=true;}
+        }
+    }
+    assert_eq!(evaluations,100);assert_eq!(upgrades,100);
+    setup.clear();assert!(setup.needed(99,true,true),"new actor/session must not reuse old discovery");
+    assert!(setup.needed(100,false,false),"new input updates always refresh native facts");
+}
+
+#[test]
+fn floor_queries_are_shared_only_for_identical_inputs_within_one_observation() {
+    let calls = Cell::new(0);
+    let cache = GroundSupportSnapshot::default();
+    let query = || {
+        calls.set(calls.get() + 1);
+        [true, false]
+    };
+    assert_eq!(cache.read(1, [4.0, 0.0], 0.5, query), [true, false]);
+    for _ in 0..12 {
+        assert_eq!(cache.read(1, [4.0, 0.0], 0.5, query), [true, false]);
+    }
+    assert_eq!(calls.get(), 1);
+    cache.read(1, [4.0, 1.0], 0.5, query);
+    cache.read(1, [4.0, 1.0], 0.8, query);
+    cache.read(2, [4.0, 1.0], 0.8, query);
+    assert_eq!(calls.get(), 4);
+    // Moving platforms/geometry are queried again on the next callback, even
+    // when the fighter's pose is identical to the preceding observation.
+    assert_eq!(
+        GroundSupportSnapshot::default().read(2, [4.0, 1.0], 0.8, || [false; 2]),
+        [false; 2]
+    );
+}
 
 #[test]
 fn observations_read_once_per_field_and_identity_then_refresh_next_callback() {
@@ -156,4 +200,56 @@ fn simulation_frames_are_separate_from_animation_and_mapper_polls() {
     assert_eq!(simulation_elapsed(Some(100), 100), Some(0));
     assert_eq!(simulation_elapsed(Some(100), 103), Some(3));
     assert_eq!(simulation_elapsed(Some(100), 99), None);
+}
+
+#[test]
+fn identity_cursor_and_kind_cache_remain_correct_when_interleaved_reentrant_and_recreated() {
+    let s = ObservationSnapshot::default();
+    for id in 0..8 {
+        assert_eq!(
+            s.read(id, Field::Kind, || Fact::Int(id as i32)),
+            Fact::Int(id as i32)
+        );
+    }
+    for id in [7, 0, 6, 1, 5, 2, 4, 3, 0, 7] {
+        assert_eq!(
+            s.read(id, Field::Kind, || panic!("kind read repeated")),
+            Fact::Int(id as i32)
+        );
+    }
+    assert_eq!(
+        s.read(1, Field::X, || {
+            assert_eq!(
+                s.read(7, Field::Kind, || panic!("reentrant cache miss")),
+                Fact::Int(7)
+            );
+            Fact::Float(12.5)
+        }),
+        Fact::Float(12.5)
+    );
+    assert_eq!(
+        s.read(1, Field::X, || panic!("outer slot overwritten")),
+        Fact::Float(12.5)
+    );
+    assert_eq!(s.read(99, Field::Kind, || Fact::Int(10)), Fact::Int(10));
+    assert_eq!(s.read(99, Field::Kind, || Fact::Int(11)), Fact::Int(11));
+    assert_eq!(
+        ObservationSnapshot::default().read(1, Field::Kind, || Fact::Int(55)),
+        Fact::Int(55)
+    );
+}
+
+#[test]
+fn roster_reads_once_per_observation_including_unavailable_and_refreshes_next_time() {
+    use kirby_assist_core::observation::RosterSnapshot;
+    let calls=Cell::new(0);
+    for roster in [None,Some([Some(1),Some(9),None,None,None,None,None,None])] {
+        let snapshot=RosterSnapshot::default();
+        for _ in 0..12 {
+            assert_eq!(snapshot.read(||{calls.set(calls.get()+1);roster}),roster);
+        }
+    }
+    assert_eq!(calls.get(),2);
+    let changed=Some([Some(3);8]);
+    assert_eq!(RosterSnapshot::default().read(||changed),changed);
 }

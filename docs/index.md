@@ -26,27 +26,27 @@ successful documentation build do not establish gameplay or online accuracy.
 | Input | Action |
 | --- | --- |
 | Hold L | Ledge autopilot |
-| R3 | Show/hide the saved-options menu |
+| Minus | Cycle compact selector → modes → closed |
 | Hold L3 without L | Turbo teabag; release to stop |
-| D-pad, menu visible | Up/Down selects a row; Left/Right cycles its response |
-| D-pad, menu hidden | Left/Right slides; Down ledge trump; Up normal |
+| R3, compact selector | Edit the highlighted recipe; R3 or Minus returns to compact |
+| D-pad, compact/modes | Up/Down selects a row; Left/Right changes its value |
+| D-pad, recipe editor | Up/Down selects a field; Left/Right changes its value |
+| D-pad, menu hidden | Fighter-specific input sequence; Normal button passes through |
 | Auto-mash row, Left/Right | Toggle mash ON/OFF |
-| X | X short-hop tap |
-| Press Y as Kirby | Selected [Finisher attempt](FINISHERS.md) |
-| Press Y as Yoshi | Bair drag-down > Fsmash attempt |
-| Hold L as Kirby | Ledge responses plus in-range recovery cover |
+| X | Existing short-hop shortcut |
+| Press Y | Normal mapped game input |
+| Hold L | Saved ledge responses and configured walking/ledge-distance limits |
 
 Required mapping, menu behavior and automatic tools are documented in
 [the full control reference](CONTROLS.md). The older combo engine and B-reverse
-binding remain removed; Kirby now has two explicit [Finisher attempts](FINISHERS.md)
-on Y. Moves and menu choices come from compiled fighter profiles;
-only shared settings and supported numeric adjustments load from `config.txt`.
+binding remain removed. The old Y Finisher binding remains removed. X/Y/D-pad input sequences are fighter-specific; modes are ON/OFF menu settings only; Normal button restores X short hop or ordinary Y. Recipe menus are battle-only. The A+B jab-to-grab shortcut is removed. Ledge moves, menu choices, defaults and input delays come only from `sequences.txt`. Existing
+ledge-choice recipes may be overridden through startup-only
+[`sequences.txt`](SEQUENCE_FILES.md); shared startup settings live at the top of that master file in `[universal.settings]`. `config.txt` is only a fallback for older files without that section.
 
 ## Fighters and ledge responses
 
 [Fighters](FIGHTERS.md) collects the individual guides and full non-DLC roster.
-Each fighter has saved choices for Neutral, Jump, Roll, Attack and Drop. Active
-recipes use fighter-specific frame data and native action acceptance. Reach,
+Each fighter has saved choices for Neutral, Jump, Roll, Attack and Drop. Recipes deliver the configured controller inputs; the game determines native action acceptance. Reach,
 root travel and online input arrival remain estimates; a correctly requested
 move does not guarantee a hit.
 
@@ -67,7 +67,8 @@ after replacing the NRO. Missing files and stale artifacts are covered in
 
 ## Understand or extend the code
 
-Read [the source map](CODE_MAP.md), [compiled fighter profiles](FIGHTER_CONFIGS.md),
+Read [the source map](CODE_MAP.md), [file-authored fighter options](FIGHTER_CONFIGS.md),
+[startup sequence files](SEQUENCE_FILES.md),
 [execution and calibration](FIGHTER_EXECUTION.md), and the
 [Rust beginner guide](README_BEGINNER.md). The [reliability notes](RUST_RELIABILITY_REVIEW.md)
 distinguish mapped requests, native acceptance and measured outcomes.

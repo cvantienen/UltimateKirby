@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Build/package logging variants. Upload separately with tools/upload_switch.py.
+"""Build/package logging variants, optionally uploading both after packaging.
 
 This uses only Python 3.11+'s standard library. Run it from any working directory;
 ROOT comes from this script's own location, not the shell's current directory.
 Cargo/Skyline must already be installed. An optional --cargo-home can select
 an isolated cache if the normal cache has permission problems.
+Pass -upload to run the fixed multi-Switch uploader after both builds succeed.
 """
 from __future__ import annotations
 
@@ -14,10 +15,12 @@ import json
 import os
 import re
 import shutil
+import sys
 from pathlib import Path
 import subprocess
 import tomllib
 import zipfile
+from sequence_sources import assemble, write_generated
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -36,7 +39,10 @@ RELEASE_VERSION = read_release_version()
 RELEASE_SUMMARY_NAME = f"RELEASE_SUMMARY-{RELEASE_VERSION}.txt"
 PLUGIN = Path("atmosphere/contents/01006A800016E000/romfs/skyline/plugins/libkirby_assist.nro")
 CONFIG = Path("ultimate/kirby_assist/config.txt")
+SEQUENCES = Path("ultimate/kirby_assist/sequences.txt")
 SOURCE_ARCHIVE_EXCLUDES = {
+    ".mod-workbench",
+    ".sequence-sync-backups",
     ".git",
     ".mypy_cache",
     "releases",
@@ -50,6 +56,7 @@ SOURCE_ARCHIVE_EXCLUDED_FILES = {".DS_Store"}
 # metadata, crash reporting, or telemetry in the console/runtime.
 LOG_MARKERS = (
     b"sd:/ultimate/kirby_assist/status.log",
+    b"sd:/ultimate/kirby_assist/performance.log",
     b"[kirby_assist]",
     b"tech observation:",
     b"ledge observation:",
@@ -92,17 +99,26 @@ def documentation_files() -> dict[str, bytes]:
     return files
 
 
-def variant_features(diagnostic: bool) -> list[str]:
-    """Both releases include the GUI; only the diagnostic release has logging."""
-    return ["imgui-menu"] + (["diagnostic-logging"] if diagnostic else [])
+def variant_features(diagnostic: bool, silent_probe: bool = False) -> list[str]:
+    """Normal releases stay unchanged; the one-match probe is explicitly opt-in."""
+    if diagnostic and silent_probe:
+        raise ValueError("silent-probe cannot be combined with diagnostic logging")
+    return ["imgui-menu"] + (["diagnostic-logging"] if diagnostic else []) + (["silent-probe"] if silent_probe else [])
 
 
-def build_variant(name: str, env: dict[str, str]) -> Path:
+def build_variant(name: str, env: dict[str, str], *, silent_probe: bool = False) -> Path:
     """Compile once, then snapshot the result before the next build overwrites it."""
+    # Assemble current editable sources before compiling or packaging either variant.
+    sequences = assemble(ROOT / "deployment" / SEQUENCES)
+    from sequence_validation import validate_sequences
+    validate_sequences(sequences)
+    write_generated(sequences, ROOT / "deployment" / SEQUENCES.parent / "assembled/sequences.txt")
     diagnostic = name == "diagnostic"
     summary = variant_release_summary(name)
+    if silent_probe:
+        summary += b"\nTEMPORARY: one-match SD aggregate probe enabled (silent-probe).\n"
     command = ["cargo", "skyline", "build", "--release", "--no-default-features"]
-    command += ["--features", ",".join(variant_features(diagnostic))]
+    command += ["--features", ",".join(variant_features(diagnostic, silent_probe))]
     # Stage 1: Cargo/Skyline compiles Rust and produces the NRO. check=True
     # stops this script on any build failure; it does not package an older NRO
     # as if the current build succeeded. Cargo itself does not create our ZIP.
@@ -116,6 +132,9 @@ def build_variant(name: str, env: dict[str, str]) -> Path:
     if any(present != diagnostic for present in markers.values()):
         raise RuntimeError(f"Unexpected {name} logging marker results: {markers}")
 
+    if (b"ONE_MATCH_PROBE_V1" in binary) != silent_probe:
+        raise RuntimeError("Unexpected one-match probe marker; refusing to package")
+
     # Both variants share all gameplay settings. Only tech_debug differs, and a
     # silent binary ignores it regardless because its logging code is absent.
     config = (ROOT / "deployment" / CONFIG).read_text()
@@ -125,22 +144,25 @@ def build_variant(name: str, env: dict[str, str]) -> Path:
         if not diagnostic else
         "# DIAGNOSTIC: file/console logging is compiled in; tech_debug enables tech details.\n"
     )
+    if silent_probe:
+        heading = "# TEMPORARY SILENT PROBE: one-match aggregate SD log; no console/network output.\n"
     config = (heading + config).encode()
     install = f"""Kirby Assist {RELEASE_VERSION} - {name.upper()} BUILD
 
 Close Smash fully. Copy atmosphere/ and ultimate/ to the SD-card root, replacing
-this mod's plugin/config. Install ONE variant at a time: both use the same .nro
+this mod's plugin/config/sequence file. Install ONE variant at a time: both use the same .nro
 name and destination. Do not rename them and install both together.
 
 Use the Player 1 controller (player_index = 0), a registered human fighter, and ZR mapped to Shield.
-Compiled fighter catalogs cover the non-DLC roster, including echoes, Pokemon forms and Miis.
+Compiled fighter catalogs cover the non-DLC roster, including echoes, Pokemon forms and Miis, plus separate Pyra/Mythra identities with editable starter menus.
 Existing profiles are retained; new choices use fighter-specific windows and native movement forecasts.
 See docs/NON_DLC_ROSTER.md for defaults, projectile/resource exceptions and validation limits.
 Gameplay policy is shared between the silent and diagnostic variants.
-Fighter response functions and saved menu choices are compiled into the plugin.
-Only config.txt supplies startup numeric adjustments and global settings.
+Fighter menu choices retain compiled fallbacks. sequences.txt may override an
+existing choice's actions at startup; config.txt supplies shared settings.
 Hold L for ledge autopilot; tap Y for neutral-B reverse. No combo or mode selection.
-Automatic mash starts enabled in the supplied config; Minus toggles it on/off.
+Automatic mash starts OFF in the supplied config; enable it from the Auto-mash menu row.
+Auto-tech and Spot punish are available and start ON in both variants; each has an ON/OFF menu row.
 Hold R3 alone for fast crouch/walk-cancel turbo teabag; press X for paired X+ZL short hop (both mapped to Jump).
 Hold L and click R3 to show/hide the bottom-left menu, which shows mash ON/OFF.
 While open, D-pad Up/Down
@@ -155,8 +177,8 @@ Native readiness and vulnerability gate automatic responses. You space normal
 and jump get-up responses; roll approaches automatically. See the controls docs.
 Collision coverage and frame-perfect timing require device testing.
 Upload separately with tools/upload_switch.py IP -v {RELEASE_VERSION} -s (silent)
-or -d (diagnostic). Before replacing the installed config, release summary,
-optional source ZIP and plugin NRO, the uploader saves their previous installed
+or -d (diagnostic). Before replacing the installed config, sequences, release
+summary, optional source ZIP and plugin NRO, the uploader saves previous installed
 bytes to ultimate/kirby_assist/bak/ and verifies every backup.
 It then overwrites and verifies the new files at their original destinations.
 The flat bak directory keeps one previous installed set, overwritten each upload.
@@ -170,31 +192,41 @@ A missing/invalid config or unsupported signature produces no silent diagnostic;
 use the diagnostic variant to troubleshoot instead.
 
 Diagnostic: startup/basic logs plus detailed tech logs with tech_debug = true.
-Output goes to console and SD:/ultimate/kirby_assist/status.log. The first line
+Output goes to console; ordinary evidence goes to SD:/ultimate/kirby_assist/status.log,
+while enabled Perf timing/health reports go to SD:/ultimate/kirby_assist/performance.log. The first line
 identifies 'Kirby Assist diagnostic build {RELEASE_VERSION}'. tech_debug = false reduces details,
 but does not disable startup/basic logging in this variant.
 
 Neither variant hides the plugin or guarantees indistinguishability/ban protection.
 Read docs/BUILD_VARIANTS.md for scope, build commands, and hardware verification steps.
 """
+    if silent_probe:
+        install = install.replace(
+            "Silent: no explicit plugin file/console logger, startup log creation, or detailed\nmessage collection.",
+            "TEMPORARY SILENT PROBE: creates silent_probe_once.log for one match only;\n10-second summaries, 32KiB/10-minute cap. No console/network output. Existing file\nprevents another run. Rebuild without --silent-probe after the test."
+        )
     # Stage 2: describe what this script actually checked. SHA-256 identifies
     # bytes for later comparison; it says nothing about in-game input timing.
     validation = {
         "build_id": RELEASE_VERSION,
         "variant": name,
         "release_optimized": True,
-        "cargo_features": variant_features(diagnostic),
+        "cargo_features": variant_features(diagnostic, silent_probe),
         "requires_imgui_smash_host": True,
-        "explicit_plugin_logging": diagnostic,
+        "explicit_plugin_logging": diagnostic or silent_probe,
+        "temporary_silent_probe": silent_probe,
+        "probe_marker_present": b"ONE_MATCH_PROBE_V1" in binary,
         "logging_marker_checks": markers,
         "plugin_sha256": hashlib.sha256(binary).hexdigest(),
         "config_sha256": hashlib.sha256(config).hexdigest(),
+        "sequences_sha256": hashlib.sha256(sequences).hexdigest(),
         "hardware_logging_check_performed": False,
         "system_runtime_telemetry_audited": False,
     }
     files = {
         str(PLUGIN): binary,
         str(CONFIG): config,
+        str(SEQUENCES): sequences,
         "INSTALL.txt": install.encode(),
         RELEASE_SUMMARY_NAME: summary,
         "VALIDATION.json": (json.dumps(validation, indent=2) + "\n").encode(),
@@ -228,7 +260,7 @@ Read docs/BUILD_VARIANTS.md for scope, build commands, and hardware verification
         for relative, data in files.items():
             if archive.read(relative) != data:
                 raise RuntimeError(f"Packaged bytes differ: {relative}")
-    print(f"Verified {output.name}: {len(binary):,}-byte NRO; explicit logging={diagnostic}", flush=True)
+    print(f"Verified {output.name}: {len(binary):,}-byte NRO; explicit logging={diagnostic or silent_probe}; temporary probe={silent_probe}", flush=True)
     return output
 
 def copy_release_output(source: Path, destination: Path) -> None:
@@ -238,7 +270,7 @@ def copy_release_output(source: Path, destination: Path) -> None:
     obsolete = destination / "fighter_configs.json"
     if obsolete.is_file() or obsolete.is_symlink():
         obsolete.unlink()
-    for file in (PLUGIN, CONFIG, Path(RELEASE_SUMMARY_NAME)):
+    for file in (PLUGIN, CONFIG, SEQUENCES, Path(RELEASE_SUMMARY_NAME)):
         target = destination / file.name
         target.write_bytes((source / file).read_bytes())
     print(f"Copied {source} to {destination}", flush=True)
@@ -287,7 +319,30 @@ def parse_options(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("-v", "--variant", choices=("all", "silent", "diagnostic"), default="all",
                         help="Build variant (default: all — silent and diagnostic)")
     parser.add_argument("--cargo-home", type=Path, help="Optional isolated Cargo cache")
-    return parser.parse_args(argv)
+    parser.add_argument("-upload", "--upload", action="store_true",
+                        help="After a successful all-variant build, upload using the saved Switch routes")
+    parser.add_argument("--silent-probe", action="store_true",
+                        help="Temporary one-match aggregate SD logging in silent only (no upload by default)")
+    options = parser.parse_args(argv)
+    if options.silent_probe and options.variant == "diagnostic":
+        parser.error("--silent-probe requires -v silent or -v all")
+    if options.upload and options.variant != "all":
+        parser.error("-upload requires -v all so neither Switch receives a stale variant")
+    return options
+
+
+def upload_built_release() -> None:
+    """Run the fixed uploader only after main has packaged both variants."""
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "tools" / "upload_all_switches.py"),
+            "-v",
+            RELEASE_VERSION,
+        ],
+        cwd=ROOT,
+        check=True,
+    )
 
 
 def main() -> None:
@@ -302,7 +357,10 @@ def main() -> None:
     variants = ("silent", "diagnostic") if options.variant == "all" else (options.variant,)
     latest_build = ROOT.parent / f"Latestbuild-{RELEASE_VERSION}"
     for variant in variants:  # Sequential: Cargo output path is shared.
-        build_variant(variant, env)
+        if options.silent_probe and variant == "silent":
+            build_variant(variant, env, silent_probe=True)
+        else:
+            build_variant(variant, env)
     # Publish each selected variant separately. A single-variant build never
     # refreshes the other variant or copies its NRO from a shared target path.
     for variant in variants:
@@ -319,6 +377,13 @@ def main() -> None:
             if hashlib.file_digest(archive_file, "sha256").digest() != source_hash:
                 raise RuntimeError(f"Source backup copy differs: {target}")
         print(f"Copied verified source backup to {target}", flush=True)
+    if options.upload:
+        upload_built_release()
+    print(
+        "REMINDER: revisit the deferred Training-to-online GPU crash. "
+        "Compare fresh boot -> Elite with Training -> online.",
+        flush=True,
+    )
 
 
 

@@ -1,0 +1,170 @@
+# ---- NEUTRAL ----
+[sonic.neutral.nair]
+# F34 target; Neutral Air active 6-38; includes 3f jump squat
+name = Nair
+start_delay = 9
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[sonic.neutral.down_tilt]
+# F34 target; Down Tilt active 6-7
+name = Down tilt
+start_delay = 27
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[sonic.neutral.forward_tilt]
+# F34 target; Forward Tilt active 8-11
+name = Forward tilt
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+# ---- JUMP ----
+[sonic.jump.nair]
+# F14 target; Neutral Air active 6-38; includes 3f jump squat
+name = Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:0:1
+
+# ---- ROLL ----
+[sonic.roll.down_smash]
+# F31 target; Down Smash active 12-13; charge point 5, hold 24
+name = Down smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0:-1:24, release:1
+
+[sonic.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+# ---- ATTACK ----
+[sonic.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[sonic.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+# ---- DROP ----
+[sonic.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[sonic.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+# ---- AUTO REACT ----
+[sonic.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:20:24
+actions = input:r:0:0:4
+
+[sonic.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:12:24
+actions = input:r:0:0:4
+
+[sonic.roll.auto_shield_backup]
+name = Shield backup > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:12:12
+actions = opponent_input:a+x:0:0:1
+
+[sonic.roll.auto_roll]
+name = Roll > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:12:12
+actions = opponent_input:a+x:0:0:1
+
+[sonic.roll.auto_spot_dodge]
+name = Spot dodge > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:12:12
+actions = opponent_input:a+x:0:0:1
+
+[sonic.roll.auto_air_dodge]
+name = Air dodge > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:12:24
+actions = opponent_input:a+x:0:0:1
+
+[sonic.roll.auto_grab_dodged]
+name = Dodged grab > Neutral Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:12:12
+actions = opponent_input:a+x:0:0:1
+
+# SQUIRTLE
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/pt_squirtle
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+

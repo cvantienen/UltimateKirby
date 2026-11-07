@@ -26,6 +26,8 @@
 // implement traits. Copy permits copying a small value, Debug supports {:?}
 // formatting, Default supplies initial values, and PartialEq supports == checks.
 pub mod action_owner;
+pub mod projectile_reflect;
+pub mod grab_handoff;
 pub mod assist;
 pub mod auto_di;
 pub mod autopilot_guard;
@@ -36,8 +38,9 @@ pub mod diagnostics;
 pub mod finisher;
 pub mod ledge_menu;
 pub mod opponent_data;
-pub mod spot_dodge;
 pub mod option_read;
+pub mod spot_punish;
+pub mod spot_dodge;
 pub mod whiff_punish;
 // Compiled fighter registrations, named responses, move data.
 pub mod fighter_profiles;
@@ -45,9 +48,12 @@ pub mod input;
 
 pub mod live_input;
 pub mod observation;
+pub mod native_states;
+pub mod battle_objects;
 pub mod roll_read;
 pub mod runtime;
 pub mod sequence;
+pub mod sequence_config;
 pub mod session;
 pub mod slide;
 pub mod state;
@@ -75,6 +81,7 @@ pub use state::{
 };
 
 pub mod native_input;
+pub mod runtime_toggle;
 pub mod tech_input;
 pub mod tech_prediction;
 
@@ -83,9 +90,21 @@ pub mod jab_lock;
 pub mod kirby_posture;
 pub mod manual_controls;
 pub mod move_input;
+pub mod out_of_shield;
+pub mod defense_response;
 
 // Held-L ledge autopilot; the recovery 2-frame policy remains available to core callers.
 pub mod ledge_position;
 pub mod ledge_trap;
 pub mod ledge_trump;
-pub mod two_frame;
+
+pub mod button_bindings;
+
+#[cfg(feature = "probe-counters")]
+pub mod probe_counters;
+
+pub mod reaction_rules;
+
+pub mod fighter_tuning;
+
+pub mod shield_pressure;

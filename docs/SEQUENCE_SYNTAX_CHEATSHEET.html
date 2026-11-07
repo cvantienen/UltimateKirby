@@ -1,0 +1,1256 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sequence text-file syntax cheat sheet</title><style>*{box-sizing:border-box}body{margin:0;background:#edf2f7;color:#182c42;font:15px/1.6 system-ui,sans-serif}main{max-width:1500px;margin:28px auto;padding:28px;background:white;border:1px solid #d9e3ef;border-radius:16px}h1{font-size:30px;margin-top:0}h2{margin-top:32px;color:#174c68}h3{color:#235369}a{color:#006f87}code{background:#eaf2f6;border-radius:4px;padding:2px 5px;font:13px/1.6 ui-monospace,monospace}pre{background:#102a3c;color:#e7f5ff;padding:18px;overflow:auto;border-radius:10px}pre code{background:transparent;color:inherit;padding:0}table{width:100%;border-collapse:collapse;font-size:14px;margin:14px 0 26px}th{text-align:left;background:#123c52;color:white;padding:12px;vertical-align:top}td{border-bottom:1px solid #dbe6ed;padding:11px;vertical-align:top}tbody tr:nth-child(even){background:#f3f7fa}td:first-child{font-weight:600;min-width:165px}td code{overflow-wrap:anywhere}blockquote{border-left:4px solid #3b9aa4;margin-left:0;padding-left:16px;color:#43576b}.search{position:sticky;top:0;z-index:1;background:#edf2f7ed;backdrop-filter:blur(6px);padding:14px max(20px,calc((100vw - 1444px)/2));border-bottom:1px solid #c9d8e6;display:flex;align-items:center;gap:14px}input{width:min(700px,80vw);font:inherit;padding:10px 14px;border:1px solid #a6bece;border-radius:9px}.search span{font-size:13px;color:#38556c}tr[hidden]{display:none}@media(max-width:850px){main{padding:16px;margin:12px}table{display:block;overflow-x:auto}h1{font-size:24px}.search{padding:10px}td{min-width:180px}}@media print{body,main{background:white}main{border:0;padding:0;margin:0}.search{display:none}table{font-size:10px}td,th{padding:6px}pre{white-space:pre-wrap}h2{break-after:avoid}tr{break-inside:avoid}tr[hidden]{display:table-row}}</style></head><body><div class="search"><input id="query" type="search" aria-label="Filter reference rows" placeholder="Find a move, setting, syntax or example…"><span id="count"></span></div><main><h1>Sequence text-file syntax cheat sheet</h1>
+<p><a href="SEQUENCE_SYNTAX_CHEATSHEET.html">Open the searchable / printable HTML version</a>.
+Checked against the current source parser. These are controller inputs and
+observation checks; they do not change native physics, hitboxes or move data.</p>
+<h2>Most-used copy/paste examples</h2>
+<table>
+<thead>
+<tr>
+<th>Want to…</th>
+<th>Paste into the sequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hold shield for exactly four input frames</td>
+<td><code>actions = shield:4</code></td>
+</tr>
+<tr>
+<td>Hold Grab for four input frames</td>
+<td><code>actions = press:r:4</code></td>
+</tr>
+<tr>
+<td>Wait four frames</td>
+<td><code>actions = wait:4</code></td>
+</tr>
+<tr>
+<td>Immediately cancel unless within this fighter's grab reach, then Grab</td>
+<td><code>actions = grab:fighter_range_instant</code></td>
+</tr>
+<tr>
+<td>Immediately require enemy within 20 horizontal units</td>
+<td><code>actions = check:enemy_within:20:0, press:r:4</code></td>
+</tr>
+<tr>
+<td>Turn away from opponent</td>
+<td><code>actions = face:away_from_opponent</code></td>
+</tr>
+<tr>
+<td>Up-B followed by 69 input frames of full opponent-directed drift</td>
+<td><code>actions = up_b:4, drift:opponent:1:69</code></td>
+</tr>
+<tr>
+<td>Run to 15 units inward from the opponent's ledge</td>
+<td><code>actions = run_to_ledge:15:1:1:6:180</code></td>
+</tr>
+<tr>
+<td>React to an enemy roll within 40 X / 12 Y</td>
+<td><code>reaction = auto_roll:40:12</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Important:</strong> <code>grab:4</code> means <strong>range-check 4 horizontal units, then send one
+frame of Grab</strong>. It does not hold Grab for four frames. Use <code>press:r:4</code>,
+<code>hold:r:4</code> or <code>input:r:0:0:4</code> for a four-frame input hold.</p>
+<h2>File layout and basic rules</h2>
+<table>
+<thead>
+<tr>
+<th>Location / syntax</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>deployment/ultimate/kirby_assist/fighters/bowser.txt</code></td>
+<td>Bowser-only sections; use the corresponding fighter file for each character</td>
+</tr>
+<tr>
+<td><code>deployment/ultimate/kirby_assist/sequences.txt</code></td>
+<td>Universal settings and generic editor templates</td>
+</tr>
+<tr>
+<td><code>assembled/sequences.txt</code></td>
+<td>Combined generated bundle; edit the source files above</td>
+</tr>
+<tr>
+<td><code>[bowser.neutral.my_option]</code></td>
+<td><code>[FIGHTER.SLOT.UNIQUE_ID]</code>; use the fighter's file ID, such as <code>bowser</code>, <code>yoshi</code>, <code>lucina</code></td>
+</tr>
+<tr>
+<td><code>[bowser.settings]</code></td>
+<td>Fighter-specific policy values; exactly one settings section per fighter</td>
+</tr>
+<tr>
+<td><code>[universal.settings]</code></td>
+<td>Shared startup settings; at most one</td>
+</tr>
+<tr>
+<td><code>[template.my_starter]</code></td>
+<td>Named inert Training-editor starter; not automatically executed</td>
+</tr>
+<tr>
+<td><code># comment</code></td>
+<td>Whole-line or trailing comment; <code>#</code> starts a comment even inside a quoted name</td>
+</tr>
+<tr>
+<td><code>actions = ACTION, ACTION, ACTION</code></td>
+<td>One line, in execution order; no empty items or trailing comma</td>
+</tr>
+</tbody>
+</table>
+<p>Use lowercase canonical spelling and <code>true</code> / <code>false</code>. IDs use letters, digits
+and underscores, up to 48 characters. Keep each fighter file owned by its named fighter. No runtime
+include/import syntax exists; tooling assembles the files before upload.</p>
+<p><strong>SLOT values:</strong> <code>neutral</code>, <code>jump</code>, <code>roll</code>, <code>attack</code>, <code>drop</code>, <code>x</code>, <code>y</code>,
+<code>dpad_up</code>, <code>dpad_down</code>, <code>dpad_left</code>, <code>dpad_right</code>, <code>l3</code>, <code>r3</code>.
+Aliases: <code>neutral_getup</code>, <code>jump_getup</code>, <code>roll_getup</code>, <code>getup_attack</code>, <code>ledge_drop</code>,
+<code>button_x</code>, <code>button-x</code>, <code>button_y</code>, <code>button-y</code>.
+L/R/ZL/ZR (including LZ/RZ aliases) section bindings and old universal X/Y binding sections are retired
+and ignored; they are not additional active button slots.</p>
+<pre><code class="language-ini">[bowser.neutral.example]
+name = Example ledge response
+default = false
+start_delay = 0
+timeout = 120
+spatial_timeout = 60
+ground_only = false
+while_held = false
+actions = shield:4, grab:fighter_range_instant
+</code></pre>
+<h2>Sequence properties</h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Accepted values / default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code> / <code>label</code></td>
+<td>Optional text, 1–64 UTF-8 bytes; matching outer double quotes allowed</td>
+<td>Menu label; avoid control characters and <code>#</code></td>
+</tr>
+<tr>
+<td><code>start_delay</code></td>
+<td><strong>Required</strong> for action recipes/templates; integer 0–3600</td>
+<td>Explicit initial delay; 0 begins immediately</td>
+</tr>
+<tr>
+<td><code>actions</code></td>
+<td>Required nonempty comma-separated action line</td>
+<td>At most <strong>32 expanded actions</strong>; some aliases expand into several steps</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td><code>true</code> / <code>false</code>; false</td>
+<td>Startup choice; at most one true per fighter/slot</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>Integer 1–3600; 3600</td>
+<td>Total native-progress sequence timeout</td>
+</tr>
+<tr>
+<td><code>spatial_timeout</code></td>
+<td>Integer 1–3600; 60</td>
+<td>Timeout for supported spatial/range steps</td>
+</tr>
+<tr>
+<td><code>ground_only</code></td>
+<td><code>true</code> / <code>false</code>; false</td>
+<td>Stop when airborne; automatic direct Up-B has its existing tracking exception</td>
+</tr>
+<tr>
+<td><code>while_held</code></td>
+<td><code>true</code> / <code>false</code>; false</td>
+<td>Supported held-button playback; Auto-react responses are one committed execution</td>
+</tr>
+<tr>
+<td><code>reaction</code></td>
+<td>Short or long form below; omit for no automatic trigger</td>
+<td>Observation trigger and distance limits</td>
+</tr>
+<tr>
+<td><code>builtin</code></td>
+<td><code>normal</code>, <code>short_hop</code>, <code>ledge_assist</code>, <code>turbo_teabag</code></td>
+<td>Built-in button role; no actions, reaction, loop, ground-only flag or nonzero delay</td>
+</tr>
+<tr>
+<td><code>mode</code>, <code>activation</code></td>
+<td>Compatibility-only; see final section</td>
+<td>Not a current way to bind automatic helpers to gameplay buttons</td>
+</tr>
+</tbody>
+</table>
+<p>Do not repeat properties in one section. Builtins do not require <code>start_delay</code>;
+if supplied it must be 0. The file limit is 512 KiB; the catalog limit is 2112
+parsed sequence/template entries, including at most 64 generic templates. Menu capacity is bounded per fighter/slot;
+validate the assembled file before uploading.
+An editor Empty step has no text execution token; remove unused steps.</p>
+<h2>Parameters, directions and button names</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Meaning / valid values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>F</code></td>
+<td>Input-hold duration, normally integer 1–255. It is not move startup, recovery or guaranteed animation duration</td>
+</tr>
+<tr>
+<td><code>WAIT</code></td>
+<td>Integer 0–255; 0 checks immediately, positive values explicitly wait for a condition</td>
+</tr>
+<tr>
+<td><code>X</code>, <code>Y</code> / <code>LX</code>, <code>LY</code></td>
+<td>Left-stick axes −1 through 1; Y positive = up</td>
+</tr>
+<tr>
+<td><code>RX</code>, <code>RY</code></td>
+<td>Right-stick axes −1 through 1</td>
+</tr>
+<tr>
+<td><code>S</code></td>
+<td>Stick strength, not a native speed change. Decimal <code>0.5</code> or percentage <code>50%</code>; each action's bounds are listed below</td>
+</tr>
+<tr>
+<td><code>UNITS</code>, <code>GAP</code>, <code>OFFSET</code></td>
+<td>Game-world distances, not frames or pixels</td>
+</tr>
+<tr>
+<td><code>DIR</code></td>
+<td><code>opponent</code>, <code>away_from_opponent</code>, <code>facing</code>, <code>backward</code>, <code>ledge</code>, <code>inward</code>, <code>outward</code>, <code>saved_ledge</code>, <code>away_from_ledge</code></td>
+</tr>
+<tr>
+<td><code>REF</code></td>
+<td><code>screen</code>, <code>facing</code>, <code>opponent</code>; changes horizontal reference only</td>
+</tr>
+<tr>
+<td><code>BUTTONS</code></td>
+<td><code>a</code>, <code>b</code>, <code>x</code>, <code>y</code>, <code>l</code>, <code>r</code>, <code>zl</code>, <code>zr</code>; combine with <code>+</code>, e.g. <code>a+x</code></td>
+</tr>
+</tbody>
+</table>
+<p>Button aliases: <code>attack</code> = A; <code>special</code> = B; <code>jump</code> = X; <code>grab</code> = R;
+<code>shield</code> = ZR; <code>none</code> / <code>0</code> = no buttons. These are the mod's canonical
+controller inputs; your native controller mapping still matters.</p>
+<p>Direction aliases: <code>enemy</code>, <code>toward</code>, <code>towards</code>, <code>toward_opponent</code>, <code>towards_opponent</code>, <code>toward_enemy</code>,
+<code>towards_enemy</code> = <code>opponent</code>; <code>away</code>, <code>away_from_enemy</code> =
+<code>away_from_opponent</code>; <code>forward</code> = <code>facing</code>; <code>back</code> = <code>backward</code>;
+<code>toward_saved_ledge</code> = <code>saved_ledge</code>; <code>away_from_saved_ledge</code> = <code>away_from_ledge</code>.
+Ledge-relative directions require an acquired ledge anchor and are rejected
+inside onstage reaction recipes. Opponent/facing directions are suitable there.</p>
+<h2>Literal inputs, holds, release and repeated presses</h2>
+<table>
+<thead>
+<tr>
+<th>Syntax</th>
+<th>Example</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>press:BUTTONS[:F]</code></td>
+<td><code>actions = press:a+x:4</code></td>
+<td>Buttons with neutral stick; default F=1</td>
+</tr>
+<tr>
+<td><code>hold:BUTTONS[:F]</code></td>
+<td><code>actions = hold:zr:4</code></td>
+<td>Same timed input semantics as press; use explicit duration</td>
+</tr>
+<tr>
+<td><code>a[:F]</code>, <code>b[:F]</code>, <code>x[:F]</code>, <code>y[:F]</code>, <code>l[:F]</code>, <code>r[:F]</code>, <code>zl[:F]</code>, <code>zr[:F]</code></td>
+<td><code>actions = zr:4</code></td>
+<td>Individual canonical button; default F=1</td>
+</tr>
+<tr>
+<td><code>input:BUTTONS:X:Y:F</code></td>
+<td><code>actions = input:r:0:0:4</code></td>
+<td>Absolute screen-relative left stick</td>
+</tr>
+<tr>
+<td><code>facing_input:BUTTONS:X:Y:F</code></td>
+<td><code>actions = facing_input:a:1:0:4</code></td>
+<td>X relative to facing at step entry</td>
+</tr>
+<tr>
+<td><code>opponent_input:BUTTONS:X:Y:F</code></td>
+<td><code>actions = opponent_input:a:1:0:4</code></td>
+<td>X relative to current target side at entry; needs a fresh target</td>
+</tr>
+<tr>
+<td><code>controller_input:BUTTONS:LX:LY:RX:RY:F[:LEFT_REF[:RIGHT_REF]]</code></td>
+<td><code>actions = controller_input:a+b:0.5:0:-1:0:4:opponent:facing</code></td>
+<td>Both sticks plus buttons; omitted references are <code>screen</code></td>
+</tr>
+<tr>
+<td><code>stick:X:Y:F</code></td>
+<td><code>actions = stick:-0.5:0:4</code></td>
+<td>Left stick only, absolute screen direction</td>
+</tr>
+<tr>
+<td><code>cstick:X:Y:F</code></td>
+<td><code>actions = cstick:0:1:4</code></td>
+<td>Right-stick input</td>
+</tr>
+<tr>
+<td><code>tap:BUTTONS:X:Y:HOLD:GAP:TOTAL</code></td>
+<td><code>actions = tap:a:0:0:1:2:12</code></td>
+<td>Repeated pulses; HOLD/GAP 1–255, TOTAL 1–3600</td>
+</tr>
+<tr>
+<td><code>wait[:F]</code> / <code>release[:F]</code></td>
+<td><code>actions = wait:4</code></td>
+<td>Neutral/released sequence input; default 1; 0 is accepted as an immediate step</td>
+</tr>
+<tr>
+<td><code>hold_until_manual:BUTTONS:X:Y</code></td>
+<td><code>actions = hold_until_manual:a:0:0</code></td>
+<td>Nonempty held buttons until manual takeover; no F parameter</td>
+</tr>
+<tr>
+<td><code>facing_hold_until_manual:BUTTONS:X:Y</code></td>
+<td><code>actions = facing_hold_until_manual:a:1:0</code></td>
+<td>Same, with facing-relative X</td>
+</tr>
+<tr>
+<td><code>shield_until_manual</code></td>
+<td><code>actions = shield_until_manual</code></td>
+<td>Grounded shield until manual takeover</td>
+</tr>
+<tr>
+<td><code>shield_until_block:F</code></td>
+<td><code>actions = shield_until_block:90</code></td>
+<td>Hold shield for the hit/block handoff, bounded by F</td>
+</tr>
+</tbody>
+</table>
+<p><code>wait_4</code>, <code>wait_4_frame</code>, <code>wait_4_frames</code> are aliases for <code>wait:4</code>.
+Unlimited hold syntax is separate: <code>input:...:0</code> and <code>shield:0</code> are invalid.</p>
+<h2>Attack, special, jump and dodge shortcuts</h2>
+<p>Unless stated otherwise, append <code>[:F[:S]]</code>; default F=1 and S=1, S range 0–1.
+Directional shortcuts use facing-relative X. Native game state and input mapping
+determine the actual move; these are not forced move commands.</p>
+<table>
+<thead>
+<tr>
+<th>Canonical action and aliases</th>
+<th>Example</th>
+<th>Input / restriction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>jab</code>, <code>attack</code></td>
+<td><code>actions = jab:4</code></td>
+<td>Neutral A</td>
+</tr>
+<tr>
+<td><code>forward_tilt</code>, <code>f_tilt</code>, <code>ftilt</code></td>
+<td><code>actions = forward_tilt:4</code></td>
+<td>A with 0.6 forward stick before S scaling</td>
+</tr>
+<tr>
+<td><code>up_tilt</code>, <code>u_tilt</code>, <code>utilt</code></td>
+<td><code>actions = up_tilt:4</code></td>
+<td>A with 0.6 up stick</td>
+</tr>
+<tr>
+<td><code>down_tilt</code>, <code>d_tilt</code>, <code>dtilt</code></td>
+<td><code>actions = down_tilt:4</code></td>
+<td>A with 0.6 down stick</td>
+</tr>
+<tr>
+<td><code>forward_smash</code>, <code>f_smash</code>, <code>fsmash</code></td>
+<td><code>actions = forward_smash:4</code></td>
+<td>A with full forward stick</td>
+</tr>
+<tr>
+<td><code>up_smash</code>, <code>u_smash</code>, <code>usmash</code></td>
+<td><code>actions = up_smash:4</code></td>
+<td>A with full up stick</td>
+</tr>
+<tr>
+<td><code>down_smash</code>, <code>d_smash</code>, <code>dsmash</code></td>
+<td><code>actions = down_smash:4</code></td>
+<td>A with full down stick</td>
+</tr>
+<tr>
+<td><code>nair</code>, <code>neutral_air</code>, <code>neutral_aerial</code></td>
+<td><code>actions = nair:4</code></td>
+<td>Neutral A; requires appropriate airborne state for Nair</td>
+</tr>
+<tr>
+<td><code>fair</code>, <code>forward_air</code>, <code>forward_aerial</code></td>
+<td><code>actions = fair:4</code></td>
+<td>Forward A</td>
+</tr>
+<tr>
+<td><code>bair</code>, <code>back_air</code>, <code>back_aerial</code></td>
+<td><code>actions = bair:4</code></td>
+<td>Backward A</td>
+</tr>
+<tr>
+<td><code>uair</code>, <code>up_air</code>, <code>up_aerial</code></td>
+<td><code>actions = uair:4</code></td>
+<td>Up A</td>
+</tr>
+<tr>
+<td><code>dair</code>, <code>down_air</code>, <code>down_aerial</code></td>
+<td><code>actions = dair:4</code></td>
+<td>Down A</td>
+</tr>
+<tr>
+<td><code>neutral_special</code>, <code>neutral_b</code>, <code>special</code></td>
+<td><code>actions = neutral_special:4</code></td>
+<td>Neutral B</td>
+</tr>
+<tr>
+<td><code>side_special</code>, <code>side_b</code></td>
+<td><code>actions = side_b:4</code></td>
+<td>Forward B</td>
+</tr>
+<tr>
+<td><code>up_special</code>, <code>up_b</code>, <code>final_cutter</code></td>
+<td><code>actions = up_b:4</code></td>
+<td>Up B; native character/state determines the special</td>
+</tr>
+<tr>
+<td><code>down_special</code>, <code>down_b</code>, <code>stone</code></td>
+<td><code>actions = down_b:4</code></td>
+<td>Down B</td>
+</tr>
+<tr>
+<td><code>short_hop</code>, <code>shorthop</code>, <code>jump</code></td>
+<td><code>actions = short_hop:1</code></td>
+<td>X pulse; actual jump height depends on native input duration/state</td>
+</tr>
+<tr>
+<td><code>full_hop</code>, <code>fullhop</code></td>
+<td><code>actions = full_hop:4</code></td>
+<td>Explicit F is required; the name alone is invalid</td>
+</tr>
+<tr>
+<td><code>shield</code></td>
+<td><code>actions = shield:4</code></td>
+<td>ZR</td>
+</tr>
+<tr>
+<td><code>dash</code></td>
+<td><code>actions = dash:1</code></td>
+<td>Full forward stick, no attack</td>
+</tr>
+<tr>
+<td><code>crouch</code>, <code>fast_fall</code></td>
+<td><code>actions = fast_fall:4</code></td>
+<td>Down stick; fast-fall requires native aerial eligibility</td>
+</tr>
+<tr>
+<td><code>roll_forward</code></td>
+<td><code>actions = roll_forward:4</code></td>
+<td>Shield + forward stick</td>
+</tr>
+<tr>
+<td><code>roll_backward</code></td>
+<td><code>actions = roll_backward:4</code></td>
+<td>Shield + backward stick</td>
+</tr>
+<tr>
+<td><code>spot_dodge</code></td>
+<td><code>actions = spot_dodge:4</code></td>
+<td>Shield + down stick</td>
+</tr>
+<tr>
+<td><code>air_dodge</code></td>
+<td><code>actions = air_dodge:4</code></td>
+<td>Neutral shield input; requires appropriate airborne state</td>
+</tr>
+<tr>
+<td><code>dash_attack:DASH_F[:ATTACK_F]</code>, <code>dashattack</code></td>
+<td><code>actions = dash_attack:1:4</code></td>
+<td>Two expanded steps: dash then forward A; default durations 1 / 1</td>
+</tr>
+<tr>
+<td><code>short_hop_nair</code>, <code>short_hop_fair</code>, <code>short_hop_bair</code>, <code>short_hop_uair</code>, <code>short_hop_dair</code></td>
+<td><code>actions = short_hop_bair:4</code></td>
+<td>Simultaneous X + directional A, not a separate delayed aerial</td>
+</tr>
+<tr>
+<td><code>short_hop_neutral_air</code>, <code>short_hop_forward_air</code>, <code>short_hop_back_air</code>, <code>short_hop_up_air</code>, <code>short_hop_down_air</code></td>
+<td><code>actions = short_hop_neutral_air:4</code></td>
+<td>Long-name paired aliases; <code>shorthop_</code> prefix is also accepted</td>
+</tr>
+<tr>
+<td><code>turnaround_ACTION</code> / <code>turn_around_ACTION</code></td>
+<td><code>actions = turnaround_short_hop_nair:4</code></td>
+<td>Prepends <code>face:backward</code> to a supported shortcut; consumes another expanded step</td>
+</tr>
+</tbody>
+</table>
+<p>Examples of strength scaling: <code>actions = side_special:4:50%</code>.
+Use <code>press:a+x:F</code> or <code>controller_input</code> for explicit simultaneous combinations.
+Turnaround prefixes belong to the shortcut family, not arbitrary tokens such as
+<code>turnaround_walk</code>. Plain <code>grab</code> is the separate range syntax below.</p>
+<h2>Facing, movement and range</h2>
+<table>
+<thead>
+<tr>
+<th>Syntax</th>
+<th>Example</th>
+<th>Limits / behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>face:DIR</code></td>
+<td><code>actions = face:away_from_opponent</code></td>
+<td>Instant if already facing correctly; otherwise inputs a turn until facing matches or spatial timeout</td>
+</tr>
+<tr>
+<td><code>face_DIR</code></td>
+<td><code>actions = face_opponent</code></td>
+<td>Underscore alias for <code>face:DIR</code></td>
+</tr>
+<tr>
+<td><code>walk:DIR:UNITS:S[:GAP]</code></td>
+<td><code>actions = walk:opponent:8:50%:1</code></td>
+<td>UNITS 0–100; S 0.1–0.95; optional GAP 0–60 only with <code>opponent</code></td>
+</tr>
+<tr>
+<td><code>run:DIR:UNITS</code></td>
+<td><code>actions = run:opponent:8</code></td>
+<td>UNITS 0–100; distance completion, not a frame count</td>
+</tr>
+<tr>
+<td><code>drift:DIR:S:F</code>, <code>drift_for</code></td>
+<td><code>actions = drift:opponent:1:69</code></td>
+<td>S 0–1; timed horizontal stick, not a distance target</td>
+</tr>
+<tr>
+<td><code>walk_to_opponent:S:F:GAP</code></td>
+<td><code>actions = walk_to_opponent:50%:30:10</code></td>
+<td>S 0.1–0.95; GAP 0–60; stops on reaching the gap or duration</td>
+</tr>
+<tr>
+<td><code>drift_to_opponent:S:F:GAP</code></td>
+<td><code>actions = drift_to_opponent:0.5:12:3</code></td>
+<td>Air approach; S 0.1–1; GAP 0–60</td>
+</tr>
+<tr>
+<td><code>chase_if_far:GAP:S:F</code></td>
+<td><code>actions = chase_if_far:10:1:14</code></td>
+<td>GAP 0–100, S 0–1; skip if already near, otherwise timed chase</td>
+</tr>
+<tr>
+<td><code>run_to_ledge:OFFSET:S[:TOLERANCE[:BRAKE[:MAX_F]]]</code></td>
+<td><code>actions = run_to_ledge:15:1:1:6:180</code></td>
+<td>OFFSET 0–200 inward; S 0.3–1; tolerance 0–20 (default 1); brake 0–100 (default 6); MAX_F 1–3600 (default 180)</td>
+</tr>
+<tr>
+<td><code>range:ignore</code></td>
+<td><code>actions = range:ignore, press:r:4</code></td>
+<td>No distance restriction</td>
+</tr>
+<tr>
+<td><code>range:N</code></td>
+<td><code>actions = range:12, press:r:4</code></td>
+<td>N 0–60 horizontal units; can wait up to spatial timeout</td>
+</tr>
+<tr>
+<td><code>range:fighter_range</code></td>
+<td><code>actions = range:fighter_range, press:r:4</code></td>
+<td>Can wait for this fighter's configured standing grab reach</td>
+</tr>
+<tr>
+<td><code>range:fighter_range_instant</code></td>
+<td><code>actions = range:fighter_range_instant, press:r:4</code></td>
+<td>Fresh target required; cancel immediately if outside standing reach</td>
+</tr>
+<tr>
+<td><code>grab</code> / <code>grab:ignore</code></td>
+<td><code>actions = grab</code></td>
+<td>One-frame R input, no range check</td>
+</tr>
+<tr>
+<td><code>grab:N</code></td>
+<td><code>actions = grab:12</code></td>
+<td>Waiting horizontal range check (0–60), then one-frame R</td>
+</tr>
+<tr>
+<td><code>grab:fighter_range</code></td>
+<td><code>actions = grab:fighter_range</code></td>
+<td>Waiting fighter-range check, then one-frame R</td>
+</tr>
+<tr>
+<td><code>grab:fighter_range_instant</code></td>
+<td><code>actions = grab:fighter_range_instant</code></td>
+<td>Immediate fighter-range check, then one-frame R</td>
+</tr>
+</tbody>
+</table>
+<p>Grab aliases: <code>grab:no_range_check</code>, <code>grab:unverified</code>, <code>grab_no_range_check</code>
+= unchecked; <code>grab:range_verified</code>, <code>grab:verified</code>, <code>grab_range_verified</code>
+= waiting fighter-range check. Numeric/fighter-range checks do not themselves
+prove vulnerability, front-facing geometry or native grab availability.</p>
+<h2>Instant conditions and explicit condition waits</h2>
+<table>
+<thead>
+<tr>
+<th>Syntax</th>
+<th>Example</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>check:CONDITION[:WAIT]</code></td>
+<td><code>actions = check:enemy_in_front:0, press:r:4</code></td>
+<td>Boolean condition; WAIT omitted = 0</td>
+</tr>
+<tr>
+<td><code>check:enemy_within:DISTANCE[:WAIT]</code></td>
+<td><code>actions = check:enemy_within:20:0, press:r:4</code></td>
+<td>Horizontal separation at most DISTANCE, 0–100</td>
+</tr>
+<tr>
+<td><code>check:enemy_outside:DISTANCE[:WAIT]</code></td>
+<td><code>actions = check:enemy_outside:20:0, shield:4</code></td>
+<td>Horizontal separation at least DISTANCE; 0–100 (inclusive)</td>
+</tr>
+<tr>
+<td><code>require:CONDITION[:WAIT]</code></td>
+<td><code>actions = require:self_grounded:0, shield:4</code></td>
+<td>Alias for check; distance conditions keep the distance argument</td>
+</tr>
+</tbody>
+</table>
+<p>Boolean CONDITION values: <code>self_grounded</code>, <code>self_airborne</code>, <code>enemy_grounded</code>,
+<code>enemy_airborne</code>, <code>enemy_shielding</code>, <code>enemy_not_shielding</code>, <code>enemy_in_front</code>,
+<code>enemy_behind</code>. Distance conditions: <code>enemy_within</code>, <code>enemy_outside</code>.
+With WAIT=0, failure cancels the remaining sequence immediately; success continues
+in that observation. A positive WAIT deliberately waits up to that many native
+frames. Example: <code>actions = check:enemy_shielding:8, press:r:4</code>.</p>
+<h2>Facing conditionals: no turning or decision-wait frames</h2>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>if_facing_opponent</code></td>
+<td>Execute the block when facing the observed opponent</td>
+</tr>
+<tr>
+<td><code>if_back_to_opponent</code></td>
+<td>Execute the block when facing away from the opponent</td>
+</tr>
+<tr>
+<td><code>if_facing_ledge</code></td>
+<td>Execute when facing the saved ledge at sequence start; needs a ledge anchor</td>
+</tr>
+<tr>
+<td><code>if_back_to_ledge</code></td>
+<td>Execute when facing away from the saved ledge at sequence start</td>
+</tr>
+<tr>
+<td><code>else_facing</code></td>
+<td>Optional opposite branch; at most one per block</td>
+</tr>
+<tr>
+<td><code>end_facing</code></td>
+<td>Required closing token</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-ini">[bowser.neutral.facing_example]
+start_delay = 0
+actions = if_facing_opponent, press:r:4, else_facing, up_b:4, end_facing
+</code></pre>
+<p>Blocks cannot nest. Opponent-facing conditions use the current opponent when
+evaluated; ledge-facing conditions retain their sequence-start reference.
+These choose a branch; <code>face:DIR</code> is the separate action that actually turns.</p>
+<h2>Current automatic reactions</h2>
+<p>Use <code>reaction = EVENT:MAX_X:MAX_Y</code>. Distances are 0–100 world units.
+MAX_Y is the absolute vertical difference <strong>between the fighters</strong>, not height
+above stage. Equal-height platforms can therefore have a difference of 0;
+MAX_Y=0 does not prove that either fighter is grounded.</p>
+<table>
+<thead>
+<tr>
+<th>EVENT</th>
+<th>Example</th>
+<th>Controlled by / meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>auto_roll</code></td>
+<td><code>reaction = auto_roll:40:12</code></td>
+<td>Auto react; enemy forward/back roll</td>
+</tr>
+<tr>
+<td><code>auto_spot_dodge</code></td>
+<td><code>reaction = auto_spot_dodge:35:12</code></td>
+<td>Auto react; enemy spot dodge</td>
+</tr>
+<tr>
+<td><code>auto_air_dodge</code></td>
+<td><code>reaction = auto_air_dodge:40:24</code></td>
+<td>Auto react; enemy air dodge</td>
+</tr>
+<tr>
+<td><code>auto_grab</code></td>
+<td><code>reaction = auto_grab:35:24</code></td>
+<td>Automatic grabs; unshielded approach requires shielding opponent</td>
+</tr>
+<tr>
+<td><code>auto_shield_grab</code></td>
+<td><code>reaction = auto_shield_grab:25:10</code></td>
+<td>Automatic grabs; shielded front grab against vulnerable/grabbable target</td>
+</tr>
+<tr>
+<td><code>auto_grab_dodged</code></td>
+<td><code>reaction = auto_grab_dodged:35:12</code></td>
+<td>Grab avoidance; follow-up after the assisted grab dodge</td>
+</tr>
+<tr>
+<td><code>auto_shield_backup</code></td>
+<td><code>reaction = auto_shield_backup:25:15</code></td>
+<td>Automatic grabs; configured shield backup when the grab does not qualify</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-ini">[bowser.roll.auto_roll_example]
+name = Roll punish example
+start_delay = 0
+timeout = 240
+reaction = auto_roll:40:12
+actions = up_b:4, drift:opponent:1:69
+</code></pre>
+<p>Only one recipe per automatic event per fighter. The slot stores the recipe;
+the reaction field establishes its trigger. Other fighters need their own
+roll/spot/air-dodge and grab-dodge follow-up recipes; no Bowser template is
+implicitly inherited. A missing shield backup means no backup attack.
+Ledge-trap activation disables ordinary automatic punishes. Safety, native
+readiness, target validity and the single committed-input owner still apply.
+Raw recipe inputs retain their native character/move restrictions.</p>
+<h2>Legacy reaction grammar: accepted does not mean active</h2>
+<p>The current unified in-game controller uses the seven <code>auto_*</code> events above.
+Older priority-rule tokens below remain parseable for compatibility and older
+core consumers; they are <strong>not executed by the unified Auto-react list</strong>.
+Do not use them to add a new current automatic punish.</p>
+<pre><code class="language-ini">[yoshi.attack.legacy_example]
+start_delay = 0
+reaction = shield_hit:grounded:0:23:10:front:1
+actions = press:r:4
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Format / field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TRIGGER:STATE:MIN_X:MAX_X:MAX_Y:SIDE:PRIORITY[:CONTROL]</code></td>
+<td>Seven or eight colon-separated fields</td>
+</tr>
+<tr>
+<td><code>STATE</code></td>
+<td><code>any</code>, <code>grounded</code>, <code>airborne</code>, <code>standing</code>, <code>walking</code>, <code>running</code>, <code>shielding</code></td>
+</tr>
+<tr>
+<td><code>MIN_X</code>, <code>MAX_X</code>, <code>MAX_Y</code></td>
+<td>0 ≤ MIN_X ≤ MAX_X ≤ 100; MAX_Y 0–100</td>
+</tr>
+<tr>
+<td><code>SIDE</code></td>
+<td><code>any</code>, <code>front</code>, <code>behind</code></td>
+</tr>
+<tr>
+<td><code>PRIORITY</code></td>
+<td>Integer 1–8; lower first in legacy consumers</td>
+</tr>
+<tr>
+<td><code>CONTROL</code></td>
+<td><code>menu</code>, <code>toggle_x</code>, <code>toggle_y</code>, <code>toggle_up</code>, <code>toggle_down</code>, <code>toggle_left</code>, <code>toggle_right</code></td>
+</tr>
+</tbody>
+</table>
+<p>All retained TRIGGER tokens: <code>off</code>, <code>roll</code>, <code>roll_cross</code>, <code>roll_vulnerable</code>,
+<code>roll_cross_vulnerable</code>, <code>shield_hit</code>, <code>shield_hit_vulnerable</code>, <code>grab_dodged</code>,
+<code>grab_dodged_vulnerable</code>, <code>ledge_regrab</code>, <code>spot_dodge</code>, <code>spot_dodge_any</code>,
+<code>enemy_shield</code>, <code>shield_roll</code>, <code>shield_roll_cross</code>, <code>shield_roll_vulnerable</code>,
+<code>shield_roll_cross_vulnerable</code>, <code>shield_roll_away</code>, <code>shield_roll_away_vulnerable</code>,
+<code>shield_pressure_vulnerable</code>.
+<code>ledge_regrab</code> is inert compatibility syntax. To omit a trigger, omit <code>reaction</code>;
+bare <code>reaction = off</code> is <strong>not valid</strong>. Its full compatibility form is
+<code>reaction = off:grounded:0:0:0:any:1</code>.
+The seven automatic events also parse in the long format, but normalize to their
+short semantics: grounded admission, zero minimum, either side, Menu control and
+priority 1. Extra legacy fields do not customize those automatic events.</p>
+<h2>Generic Training templates and built-in button roles</h2>
+<pre><code class="language-ini">[template.quick_shield]
+name = Four-frame shield
+start_delay = 0
+actions = shield:4
+</code></pre>
+<p>Templates may contain actions, timings and <code>ground_only</code>. No active reaction, <code>default=true</code>,
+mode, builtin or <code>while_held=true</code>. They appear in the Training editor's generic
+template picker; choosing one copies its recipe into your fighter's sequence.</p>
+<pre><code class="language-ini">[yoshi.x.short_hop_button]
+name = Short hop button
+builtin = short_hop
+default = true
+</code></pre>
+<p>Builtins: <code>normal</code>, <code>short_hop</code>, <code>ledge_assist</code>, <code>turbo_teabag</code>.
+Use only button slots X/Y/D-pad/L3/R3. Do not combine builtin with actions.</p>
+<p>Compatibility-only mode values: <code>ledge_trap</code>, <code>ledge_trump</code>, <code>auto_tech</code>,
+<code>auto_mash</code>, <code>idle_crouch</code>, <code>tilt_turn</code>, <code>spot_punish</code>, <code>jab_lock</code>, <code>out_of_shield</code>.
+The parser accepts <code>mode = VALUE</code> followed by <code>activation = hold</code> or
+<code>activation = toggle</code>, with no actions/nonzero delay, only on supported fighter
+button rows. Idle crouch is Kirby-only; tilt turn Kirby/Yoshi; jab lock Yoshi.
+These legacy bindings are not the current assist ON/OFF controls or a supported
+way to add automatic gameplay button shortcuts.</p>
+<h2>Fighter-setting keys</h2>
+<p>Place under <code>[FIGHTER.settings]</code>; omit a key to retain its default. Numbers here
+are ordinary decimal numbers, <strong>not percentage strings</strong>. Booleans use true/false.
+Detailed meanings and fighter restrictions: <a href="FIGHTER_SETTINGS.md">fighter settings</a>.
+Seven retired punish/roll keys still parse but do not tune current Auto-react
+recipes; edit the corresponding <code>reaction = auto_*:X:Y</code> entry instead.</p>
+<pre><code class="language-ini">[yoshi.settings]
+grab_dodge_default = true
+out_of_shield_default = true
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Values</th>
+<th>Menu meaning / scope</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>walk_strength</code></td>
+<td>0.1–0.5</td>
+<td>Walking stick %</td>
+</tr>
+<tr>
+<td><code>grab_range</code></td>
+<td>1–60</td>
+<td>Grab reach estimate</td>
+</tr>
+<tr>
+<td><code>horizontal_range</code></td>
+<td>1–150</td>
+<td>Ledge acquire X</td>
+</tr>
+<tr>
+<td><code>vertical_range</code></td>
+<td>1–150</td>
+<td>Ledge acquire Y</td>
+</tr>
+<tr>
+<td><code>follow_range</code></td>
+<td>1–150</td>
+<td>Ledge follow X</td>
+</tr>
+<tr>
+<td><code>follow_vertical_range</code></td>
+<td>1–150</td>
+<td>Ledge follow Y</td>
+</tr>
+<tr>
+<td><code>stand_distance</code></td>
+<td>1–150</td>
+<td>Ledge stand distance</td>
+</tr>
+<tr>
+<td><code>move_strength</code></td>
+<td>0.1–1</td>
+<td>Auto-position stick %</td>
+</tr>
+<tr>
+<td><code>manual_spacing</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td>Manual walking cap</td>
+</tr>
+<tr>
+<td><code>auto_position</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td>Auto ledge stance</td>
+</tr>
+<tr>
+<td><code>use_range_limits</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td>Use acquire/follow limits</td>
+</tr>
+<tr>
+<td><code>grab_dodge_default</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td>Grab avoidance at startup</td>
+</tr>
+<tr>
+<td><code>out_of_shield_default</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td>Automatic grabs at startup</td>
+</tr>
+<tr>
+<td><code>grab_dodge_lookahead</code></td>
+<td>1–8</td>
+<td>Grab dodge forecast frames</td>
+</tr>
+<tr>
+<td><code>shield_warning_x</code></td>
+<td>0–100</td>
+<td>Shield: warning X</td>
+</tr>
+<tr>
+<td><code>shield_warning_y</code></td>
+<td>0–100</td>
+<td>Shield: warning Y</td>
+</tr>
+<tr>
+<td><code>shield_body_half_width</code></td>
+<td>0–40</td>
+<td>Shield: body half-width</td>
+</tr>
+<tr>
+<td><code>shield_body_height</code></td>
+<td>0–60</td>
+<td>Shield: body height</td>
+</tr>
+<tr>
+<td><code>shield_body_half_depth</code></td>
+<td>0–40</td>
+<td>Shield: body half-depth</td>
+</tr>
+<tr>
+<td><code>shield_forecast</code></td>
+<td>0–10</td>
+<td>Shield: forecast frames</td>
+</tr>
+<tr>
+<td><code>shield_hold</code></td>
+<td>0–20</td>
+<td>Shield: release-tail frames</td>
+</tr>
+<tr>
+<td><code>grab_dodge_padding</code></td>
+<td>0–30</td>
+<td>Grab dodge: body padding</td>
+</tr>
+<tr>
+<td><code>grab_dodge_height</code></td>
+<td>0–60</td>
+<td>Grab dodge: height tolerance</td>
+</tr>
+<tr>
+<td><code>tech_half_width</code></td>
+<td>0–30</td>
+<td>Tech probes: half-width</td>
+</tr>
+<tr>
+<td><code>tech_floor_origin</code></td>
+<td>0–40</td>
+<td>Tech probes: floor origin Y</td>
+</tr>
+<tr>
+<td><code>tech_wall_low</code></td>
+<td>0–40</td>
+<td>Tech probes: low wall Y</td>
+</tr>
+<tr>
+<td><code>tech_wall_mid</code></td>
+<td>0–40</td>
+<td>Tech probes: middle wall Y</td>
+</tr>
+<tr>
+<td><code>tech_wall_high</code></td>
+<td>0–60</td>
+<td>Tech probes: high wall Y</td>
+</tr>
+<tr>
+<td><code>tech_ceiling_origin</code></td>
+<td>0–60</td>
+<td>Tech probes: ceiling origin Y</td>
+</tr>
+<tr>
+<td><code>tech_floor_padding</code></td>
+<td>0–15</td>
+<td>Tech probes: floor extra reach</td>
+</tr>
+<tr>
+<td><code>tech_ceiling_padding</code></td>
+<td>0–15</td>
+<td>Tech probes: ceiling extra reach</td>
+</tr>
+<tr>
+<td><code>punish_down_reach</code></td>
+<td>0–100</td>
+<td>Legacy punish: down-smash reach — retired; compatibility only</td>
+</tr>
+<tr>
+<td><code>punish_forward_reach</code></td>
+<td>0–100</td>
+<td>Legacy punish: forward-smash reach — retired; compatibility only</td>
+</tr>
+<tr>
+<td><code>punish_height</code></td>
+<td>0–60</td>
+<td>Legacy punish: height tolerance — retired; compatibility only</td>
+</tr>
+<tr>
+<td><code>roll_smash_height</code></td>
+<td>0–60</td>
+<td>Legacy roll: smash height — retired; compatibility only</td>
+</tr>
+<tr>
+<td><code>roll_smash_watch</code></td>
+<td>0–150</td>
+<td>Legacy roll: smash watch distance — retired; compatibility only</td>
+</tr>
+<tr>
+<td><code>roll_grab_height</code></td>
+<td>0–60</td>
+<td>Legacy roll: grab height — retired; compatibility only</td>
+</tr>
+<tr>
+<td><code>roll_grab_watch</code></td>
+<td>0–150</td>
+<td>Legacy roll: grab watch distance — retired; compatibility only</td>
+</tr>
+<tr>
+<td><code>jab_lock_reach</code></td>
+<td>0–60</td>
+<td>Yoshi jab lock: jab reach — Yoshi only</td>
+</tr>
+<tr>
+<td><code>jab_lock_smash_reach</code></td>
+<td>0–100</td>
+<td>Yoshi jab lock: smash reach — Yoshi only</td>
+</tr>
+<tr>
+<td><code>jab_lock_chase_distance</code></td>
+<td>0–150</td>
+<td>Yoshi jab lock: chase distance — Yoshi only</td>
+</tr>
+<tr>
+<td><code>jab_lock_height</code></td>
+<td>0–100</td>
+<td>Yoshi jab lock: chase height — Yoshi only</td>
+</tr>
+<tr>
+<td><code>crouch_range</code></td>
+<td>0–150</td>
+<td>Kirby crouch: proximity X — Kirby only</td>
+</tr>
+<tr>
+<td><code>crouch_height</code></td>
+<td>0–100</td>
+<td>Kirby crouch: proximity Y — Kirby only</td>
+</tr>
+<tr>
+<td><code>shield_scan_x</code></td>
+<td>1–300</td>
+<td>Shield: scan X cutoff</td>
+</tr>
+<tr>
+<td><code>shield_scan_y</code></td>
+<td>1–300</td>
+<td>Shield: scan Y cutoff</td>
+</tr>
+<tr>
+<td><code>auto_grab_close_range</code></td>
+<td>1–150</td>
+<td>Automatic grab: shielded range — legacy fallback; explicit auto-grab reaction ranges take precedence</td>
+</tr>
+<tr>
+<td><code>auto_grab_dash_range</code></td>
+<td>1–150</td>
+<td>Automatic grab: approach range — legacy fallback; explicit auto-grab reaction ranges take precedence</td>
+</tr>
+<tr>
+<td><code>reflect_default</code></td>
+<td><code>true</code> / <code>false</code></td>
+<td>Auto-reflect at startup — explicit reflector configuration; currently Game &amp; Watch only</td>
+</tr>
+<tr>
+<td><code>reflect_startup</code></td>
+<td>6–30</td>
+<td>Reflect/absorb startup in frames; Game &amp; Watch's native minimum is 6</td>
+</tr>
+<tr>
+<td><code>reflect_margin</code></td>
+<td>0–8</td>
+<td>Early activation allowance before predicted projectile contact</td>
+</tr>
+<tr>
+<td><code>reflect_max_hold</code></td>
+<td>6–120</td>
+<td>Maximum native-progress frames holding one bucket response</td>
+</tr>
+<tr>
+<td><code>reflect_half_width</code></td>
+<td>1–30</td>
+<td>Estimated body half-width used by projectile contact prediction</td>
+</tr>
+<tr>
+<td><code>reflect_height</code></td>
+<td>1–60</td>
+<td>Estimated body height above the root used by prediction</td>
+</tr>
+<tr>
+<td><code>reflect_half_depth</code></td>
+<td>1–30</td>
+<td>Estimated depth allowance used by prediction</td>
+</tr>
+</tbody>
+</table>
+<h2>Universal startup keys</h2>
+<p>Place these under <code>[universal.settings]</code> in the main source file. These are
+startup policy settings; they do not define fighter sequences or replace the
+per-fighter Auto-react ranges. A parsed compatibility flag does not create an
+active binding in the current menu.</p>
+<pre><code class="language-ini">[universal.settings]
+enabled = true
+control_layout = default
+auto_tech = true
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Key(s)</th>
+<th>Value syntax / accepted bounds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enabled</code>, <code>auto_mash</code>, <code>auto_tech</code>, <code>takeover</code>, <code>tech_debug</code></td>
+<td><code>true</code> / <code>false</code></td>
+</tr>
+<tr>
+<td><code>autopilot_shield</code>, <code>kirby_auto_duck</code>, <code>down_tilt_trip_smash</code>, <code>kirby_fair1_smash</code></td>
+<td><code>true</code> / <code>false</code>; helpers retain their fighter/scope restrictions</td>
+</tr>
+<tr>
+<td><code>auto_sdi</code>, <code>auto_spot_dodge</code>, <code>auto_di</code>, <code>auto_ledge_trump</code></td>
+<td><code>true</code> / <code>false</code></td>
+</tr>
+<tr>
+<td><code>control_layout</code></td>
+<td><code>default</code> / <code>brother</code></td>
+</tr>
+<tr>
+<td><code>auto_di_mode</code></td>
+<td><code>survival</code>, <code>adaptive</code>, <code>escape</code>; current adaptive shares survival behavior</td>
+</tr>
+<tr>
+<td><code>auto_di_survival_speed</code></td>
+<td>Finite 0.1–30; retained legacy threshold, no longer switches adaptive modes</td>
+</tr>
+<tr>
+<td><code>player_index</code>, <code>npad_id</code></td>
+<td>Integer 0–7; aliases for selected physical controller</td>
+</tr>
+<tr>
+<td><code>tech_lookahead_frames</code></td>
+<td>Finite 1–5</td>
+</tr>
+<tr>
+<td><code>tech_cooldown_frames</code></td>
+<td>Integer 0–65535</td>
+</tr>
+<tr>
+<td><code>ledge_trap</code>, <code>ledge_drop_defense</code>, <code>ledge_distance_agnostic</code>, <code>ledge_manual_spacing</code>, <code>ledge_auto_position</code>, <code>ledge_throw_outward</code></td>
+<td><code>true</code> / <code>false</code></td>
+</tr>
+<tr>
+<td><code>ledge_trap_range</code>, <code>ledge_trap_vertical_range</code>, <code>ledge_tilt_range</code>, <code>ledge_grab_range</code></td>
+<td>Finite 1–20</td>
+</tr>
+<tr>
+<td><code>ledge_follow_range</code>, <code>ledge_follow_vertical_range</code></td>
+<td>Finite 1–100</td>
+</tr>
+<tr>
+<td><code>ledge_walk_strength</code></td>
+<td>Finite 0.1–0.45</td>
+</tr>
+<tr>
+<td><code>ledge_roll_dash_range</code>, <code>ledge_roll_smash_range</code></td>
+<td>Finite 1–20; aliases</td>
+</tr>
+<tr>
+<td><code>ledge_stand_distance</code></td>
+<td>Finite 2–15</td>
+</tr>
+<tr>
+<td><code>ledge_roll_distance</code></td>
+<td><code>auto</code> or finite 2–100</td>
+</tr>
+<tr>
+<td><code>ledge_move_strength</code></td>
+<td>Finite 0.1–1</td>
+</tr>
+<tr>
+<td><code>ledge_anti_air_range</code></td>
+<td>Finite 1–20</td>
+</tr>
+<tr>
+<td><code>ledge_anti_air_height</code></td>
+<td>Finite 1–40</td>
+</tr>
+<tr>
+<td><code>ledge_grab_button</code></td>
+<td><code>R</code>, <code>L</code>, <code>ZL</code></td>
+</tr>
+<tr>
+<td><code>r3_turbo</code>, <code>l3_turbo</code>, <code>dpad_turbo</code></td>
+<td><code>true</code> / <code>false</code>; shared turbo enable value, not new button bindings</td>
+</tr>
+<tr>
+<td><code>turbo_phase_frames</code></td>
+<td>Integer 1–10</td>
+</tr>
+<tr>
+<td><code>turbo_walk_strength</code></td>
+<td>Finite 0.05–0.6</td>
+</tr>
+<tr>
+<td><code>dpad_b_reverse</code>, <code>dpad_slide</code></td>
+<td><code>true</code> / <code>false</code>; retained setting, removed fixed D-pad bindings are not restored</td>
+</tr>
+</tbody>
+</table>
+<p>Accepted <strong>ignored</strong> compatibility keys: <code>combo_enabled</code>, <code>combo_starter</code>,
+<code>combo_max_start_percent</code>, <code>combo_grab_range</code>, <code>combo_fair_range</code>, <code>mash_interval_frames</code>, <code>alternate_mash</code>,
+<code>mash_buttons_per_frame</code>, <code>ledge_nair_hit_lead_frames</code>,
+<code>ledge_stone_hit_lead_frames</code>, <code>ledge_stone_startup_frames</code>,
+<code>ledge_drop_request_timeout_frames</code>, <code>ledge_roll_hit_window_frames</code>,
+<code>ledge_grab_buffer_frames</code>, <code>ledge_getup_attack</code>, <code>ledge_jump_response</code>,
+<code>ledge_fair_range</code>, <code>ledge_fair_vertical_range</code>, <code>ledge_fair_delay_frames</code>,
+<code>ledge_fair_lead_frames</code>, <code>ledge_fair_jump_squat_buffer</code>, <code>ledge_fair_buffer_frame</code>.
+They do not configure a current automatic response. Unknown keys are rejected.</p>
+<h2>Validate before uploading</h2>
+<pre><code class="language-sh">python3 tools/sequence_validation.py deployment/ultimate/kirby_assist/fighters/bowser.txt
+python3 tools/sequence_validation.py deployment/ultimate/kirby_assist/sequences.txt
+</code></pre>
+<p>The second command assembles and validates all fighter files for both builds.
+These commands do not build the Switch mod or connect/upload to a Switch.
+Parser validation cannot prove that a move will hit or that authored timing is
+appropriate in a match.</p></main><script>const input=document.getElementById('query'),rows=[...document.querySelectorAll('tbody tr')],count=document.getElementById('count');function filter(){const terms=input.value.toLowerCase().trim().split(/\s+/).filter(Boolean);let visible=0;for(const row of rows){const text=row.textContent.toLowerCase();row.hidden=!terms.every(term=>text.includes(term));if(!row.hidden)visible++;}count.textContent=visible+' / '+rows.length+' rows';}input.addEventListener('input',filter);filter();</script></body></html>

@@ -368,7 +368,7 @@ fn sdi_stops_early_enough_for_known_delayed_inputs_to_clear_hitstop() {
 }
 
 #[test]
-fn sdi_ignores_stick_carried_into_hit_and_allows_release_then_reengage() {
+fn sdi_respects_preheld_stick_and_keeps_manual_control_for_the_hit() {
     let mut sdi = SdiState::default();
     let ctx = SdiContext {
         object: 1,
@@ -377,9 +377,9 @@ fn sdi_ignores_stick_carried_into_hit_and_allows_release_then_reengage() {
         input_delay: 0.0,
         outward: -1.0,
     };
-    // Still holding toward the enemy from before damage: auto goes away.
-    assert_eq!(sdi.sample(true, ctx, [1.0, 0.0]), Some([-1.0, 0.0]));
-    assert_eq!(sdi.sample(true, ctx, [1.0, 0.0]), Some([-1.0, 0.0]));
+    // Even a pre-held direction is manual control, including inward SDI.
+    assert_eq!(sdi.sample(true, ctx, [1.0, 0.0]), None);
+    assert_eq!(sdi.sample(true, ctx, [1.0, 0.0]), None);
     assert_eq!(
         sdi.sample(
             true,
@@ -389,7 +389,7 @@ fn sdi_ignores_stick_carried_into_hit_and_allows_release_then_reengage() {
             },
             [0.0; 2]
         ),
-        Some([0.0; 2])
+        None
     );
     // A fresh movement takes full control, including the choice to go inward.
     assert_eq!(

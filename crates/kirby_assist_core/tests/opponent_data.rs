@@ -21,8 +21,10 @@ fn roster_has_exact_kinds_physics_and_gap_preserving_move_facts() {
         }
     }
     let kirby = opponent_data::profile(6).unwrap();
-    assert!(kirby.move_for_motion(motion_hash("attack_s3_hi")).is_none(),
-        "an angled variant must not inherit neutral-angle timing by guesswork");
+    assert!(
+        kirby.move_for_motion(motion_hash("attack_s3_hi")).is_none(),
+        "an angled variant must not inherit neutral-angle timing by guesswork"
+    );
     let yoshi = opponent_data::profile(5).unwrap();
     assert_eq!(kirby.physics.weight, Some(79.0));
     assert_eq!(yoshi.physics.air_speed, Some(1.344));
@@ -43,6 +45,39 @@ fn roster_has_exact_kinds_physics_and_gap_preserving_move_facts() {
     assert_eq!(cache.bind(0, 1, 5).unwrap().kind, 5); // Transformation/identity change.
     assert!(cache.bind(0, 2, 0x77).is_none());
     assert!(cache.bind(8, 1, 6).is_none());
+}
+
+#[test]
+fn ordinary_grab_lookup_uses_each_opponents_data_including_dlc() {
+    for fighter in opponent_data::all() {
+        for status in [0x37, 0x39, 0x3b] {
+            assert!(
+                opponent_data::ordinary_grab(fighter.kind, status).is_some(),
+                "missing ordinary grab status {status:#x} for {}",
+                fighter.name
+            );
+        }
+    }
+    assert_eq!(
+        opponent_data::ordinary_grab(6, 0x37),
+        Some(opponent_data::GrabReference {
+            first: 6,
+            last: 7,
+            reach: 12.5,
+        })
+    );
+    assert_eq!(opponent_data::ordinary_grab(43, 0x37).unwrap().first, 12);
+    assert_eq!(
+        opponent_data::ordinary_grab(82, 0x39),
+        Some(opponent_data::GrabReference {
+            first: 8,
+            last: 9,
+            reach: 12.3,
+        }),
+        "Joker must not inherit Kirby's dash-grab timing"
+    );
+    assert!(opponent_data::ordinary_grab(82, 0x1f).is_none());
+    assert!(opponent_data::ordinary_grab(0x77, 0x37).is_none());
 }
 #[test]
 fn recovery_rejects_contact_active_hits_cancel_and_changed_animations() {

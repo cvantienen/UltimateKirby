@@ -1,5 +1,8 @@
 # Pac-Man and Little Mac
 
+> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+
+
 Both have their own compiled ledge profile, using the existing five-row menu
 and [unchanged controls](LEDGE_MENU.md). Bold choices below are defaults.
 

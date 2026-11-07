@@ -1,17 +1,20 @@
-# Yoshi down-tilt chase
+# Yoshi tech chase / jab lock
 
-Yoshi's **Jab lock** menu row is **OFF by default**. R3 opens the menu;
+Yoshi's **Jab lock** menu row is **OFF by default**. Minus opens the menu;
 Up/Down selects the row and Left/Right toggles it. This is independent of L's
 ledge responses and ordinary onstage **Roll read**.
 
-Only a damaging Yoshi down tilt (`attack_lw3`) arms the chase. Shield contact
-does not qualify. The victim must be in damage/knockdown and its native
-last-attacker entry must identify Yoshi. Ambiguous multiple victims are skipped.
-The chase keeps that opponent's ID.
+When enabled, nearby observed tumble, knockdown and tech/get-up states arm a
+chase, including situations created by late Nair. Ordinary damage flinches alone
+do not qualify. The original confirmed, uniquely attributed down-tilt hit also
+arms early. The nearest eligible opponent is chosen and its ID stays fixed for
+that chase. This reacts to actual native states; it does not predict that every
+aerial hit will lead to a missed tech. An airborne Yoshi can remember the target,
+but sends no chase inputs until grounded.
 
 | Observed result | Attempt |
 | --- | --- |
-| Damage/tumble | Ground-checked walking toward the observed opponent |
+| Damage/tumble | Ground-checked running at long distance, walking near the observed opponent |
 | Missed tech, grounded knockdown | Face the opponent and attempt one jab 1 in estimated reach |
 | Confirmed jab lock | Release A to avoid jab 2, then down smash when native recovery permits |
 | Tech in place or tech roll | Face/chase the opponent and attempt a standing grab in its observed recovery window |
@@ -28,7 +31,7 @@ This sequence takes priority over background Roll read and ledge preparation.
 Their selected configurations remain saved, but they cannot insert a smash
 into this chase. Safety, confirmed follow-ups and explicit manual tools retain
 their interruption rules. Menu/stock/session changes clear pending inputs.
-One down-tilt hit cannot rearm the chase through repeated hitstop observations.
+An ongoing target visit cannot immediately rearm after cancellation. A target leaving the observed states/range permits a later visit; repeated hitstop samples do not advance the chase clock.
 
 ## Calibration and implementation
 
@@ -52,8 +55,11 @@ Accepted jab 1 releases A even in hitstop. Unknown vulnerability/recovery never
 authorizes an attack. Timing uses native motion progress, not controller polls.
 
 No new hook, status/physics writes, runtime file loads or per-frame logs are
-added. Detailed target reads use the existing bounded fighter roster only on a
-relevant hit or during the chase. Other fighters have no policy yet.
+added. While enabled, the existing bounded roster gets cheap status/team checks.
+Detailed target reads occur only inside the chase distance/height for eligible
+states or an ongoing attributed hit. Ground-support rays require a relevant
+target and grounded Yoshi. No roster scan is added while the mode is off.
+Other fighters have no policy yet.
 
 Host tests cover detection, inputs and ownership. Switch testing is still needed
 for spacing, move acceptance, tech animations and arenas; this cannot guarantee

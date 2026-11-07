@@ -58,11 +58,67 @@ impl Stamp {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+struct NeutralActivity {
+    stamp: Stamp,
+    own_motion: u64,
+    gap: Option<[f32; 2]>,
+    vulnerable: Option<bool>,
+    protection: Option<f32>,
+    recovery: Option<f32>,
+}
+impl NeutralActivity {
+    fn new(frame: CalibrationFrame, stamp: Stamp) -> Self {
+        Self {
+            stamp,
+            own_motion: frame.context.motion_kind,
+            gap: frame.enemy.map(|e| {
+                [
+                    e.position[0] - frame.context.position[0],
+                    e.position[1] - frame.context.position[1],
+                ]
+            }),
+            vulnerable: frame.enemy.map(|e| e.vulnerable),
+            recovery: frame.enemy.and_then(|e| {
+                if e.status == kirby_assist_core::ledge_trap::CLIFF_CLIMB {
+                    e.actionable_in
+                } else {
+                    None
+                }
+            }),
+            protection: frame.enemy.and_then(|e| {
+                if e.vulnerable {
+                    Some(0.0)
+                } else {
+                    e.vulnerable_in
+                }
+            }),
+        }
+    }
+    fn describe(self) -> String {
+        format!(
+            "own {} f{:.1}; {}; vulnerable={:?}; protection_left={}; recovery_left={}; gap_x/height={:?}",
+            kirby_assist_core::diagnostics::modes::motion_name(
+                self.stamp.own_status,
+                self.own_motion
+            ),
+            self.stamp.own_frame,
+            self.stamp.describe(),
+            self.vulnerable,
+            number(self.protection),
+            number(self.recovery),
+            self.gap
+        )
+    }
+}
+
+use kirby_assist_core::diagnostics::modes::Label as ChoiceName;
+
 pub struct Report {
     epoch: usize,
     fighter: &'static str,
     fighter_kind: i32,
-    choice: &'static str,
+    choice: ChoiceName,
     origin: Instant,
     first: CalibrationFrame,
     last: CalibrationFrame,
@@ -71,10 +127,15 @@ pub struct Report {
     model: CalibrationMove,
     requests: [Option<Stamp>; 5],
     mapped: [bool; 5],
+    mapped_first: [Option<Stamp>; 5],
+    test_latency: Option<u8>,
+    test_epoch: usize,
     first_request: Option<CalibrationFrame>,
     jump_start: Option<Stamp>,
     move_start: Option<Stamp>,
     activity_frame: Option<f32>,
+    neutral_first_active: Option<NeutralActivity>,
+    neutral_vulnerable_active: Option<NeutralActivity>,
     vulnerable: Option<Stamp>,
     hit: Option<Stamp>,
     captured: bool,
@@ -109,10 +170,7 @@ fn readable_gate(gate: &str) -> std::borrow::Cow<'_, str> {
         "roll_wait_attack_release" => "Releasing attack so the next press has a fresh edge",
         "shield_wait_for_block" => "Holding shield while waiting for a block",
         "shield_grab_after_stun" => "Waiting for shield stun/recovery before grab",
-        "two_frame_watch_recovery" => "Watching the opponent's recovery toward the ledge",
-        "two_frame_prepare_input" => "Releasing input before the two-frame punish window",
-        "two_frame_attack_request" => "Requesting the precisely timed two-frame attack",
-        "finished" | "two_frame_handoff" => "Attempt finished; returning control",
+        "finished" => "Attempt finished; returning control",
         "not observed" => "No mapper delivery sample was recorded",
         _ => return gate.replace('_', " ").into(),
     };
@@ -128,6 +186,8 @@ impl Report {
             "BLOCK observed"
         } else if self.move_start.is_some() && self.model.kind == CalibrationKind::Shield {
             "SHIELD observed; no block confirmed"
+        } else if self.neutral_first_active.is_some() {
+            "ACTIVE attack observed; hit not confirmed"
         } else if self.move_start.is_some() {
             "START observed; hit not confirmed"
         } else if self.action_requested() {
@@ -146,8 +206,12 @@ impl Report {
             "A hit flag was observed; the victim is not verified."
         } else if self.blocked {
             "A block was observed; this is not an attack hit."
+        } else if self.neutral_first_active.is_some() {
+            "A native active attack was observed after the neutral recipe input. Compare protection and spacing below; hitbox/hurtbox overlap is not measured."
         } else if self.move_start.is_some() {
             "The selected move started, but no hit was confirmed. Timing or spacing may explain the miss; the log cannot prove which."
+        } else if self.model.kind == CalibrationKind::Unknown && self.raw_requested != 0 {
+            "This raw-input recipe has no selected-move model. Check raw/applied/mapped evidence below; missing readiness or optional opponent samples do not prove an input was skipped."
         } else if self.action_requested() && self.action_mapped() {
             "Input reached mapping, but the selected move was not observed before this attempt ended. Check the last native state and interruption reason."
         } else if self.action_requested() {
@@ -236,6 +300,14 @@ impl Report {
             kirby_assist_core::fighter_profiles::presets::PresetSlot::Roll => "ROLL",
             kirby_assist_core::fighter_profiles::presets::PresetSlot::Attack => "ATTACK",
             kirby_assist_core::fighter_profiles::presets::PresetSlot::Drop => "DROP",
+            kirby_assist_core::fighter_profiles::presets::PresetSlot::X => "X BUTTON",
+            kirby_assist_core::fighter_profiles::presets::PresetSlot::Y => "Y BUTTON",
+            kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadUp => "D-PAD UP",
+            kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadDown => "D-PAD DOWN",
+            kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadLeft => "D-PAD LEFT",
+            kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadRight => "D-PAD RIGHT",
+            kirby_assist_core::fighter_profiles::presets::PresetSlot::L3=>"L3",
+            kirby_assist_core::fighter_profiles::presets::PresetSlot::R3=>"R3",
         };
         let result = self.result();
         let _ = writeln!(text, "What happened: {result}\nWhy: {}", self.explanation());
@@ -251,6 +323,14 @@ impl Report {
             "{result}\nEnd: {}; +{}ms",
             self.end, self.last_stamp.ms
         );
+        let _ = writeln!(
+            text,
+            "TEST CONTEXT: perf_epoch={}; {}",
+            self.test_epoch,
+            crate::performance::latency_text(self.test_latency)
+        );
+        let _ = writeln!(text,"TIMING LIMIT: native deltas use one unchanged target motion/rate; wall ms include stalls. Neither is network latency.");
+        text.push_str("MAPPED ACK LIMIT: our hook boundary only; another hook/external delay queue may run afterward. Ack native fields use the last copied observation.\n");
         let _ = writeln!(text, "Recognized: {}", self.first_stamp.describe());
         let _ = writeln!(
             text,
@@ -301,9 +381,46 @@ impl Report {
                 );
             }
         }
+        for (i, name) in CHANNELS.iter().enumerate() {
+            if let Some(request) = self.requests[i] {
+                let ack = self.mapped_first[i];
+                let _=writeln!(text,"INPUT PATH [{name}]: request {}; mapped ack {}; request_to_ack_wall_ms={:?}; request_to_ack_target_frames={:?}",
+                    request.describe(),point(ack),ack.map(|s|s.ms.saturating_sub(request.ms)),ack.and_then(|s| target_delta(request,s)));
+            }
+        }
+        if let Some(request) = self.requests[1] {
+            let observed = self
+                .neutral_first_active
+                .map(|p| p.stamp)
+                .or(self.move_start);
+            let _=writeln!(text,"INPUT PATH [Attack observation]: request_to_observed_wall_ms={:?}; request_to_observed_target_frames={:?}; observed={}",
+                observed.map(|s|s.ms.saturating_sub(request.ms)),observed.and_then(|s|target_delta(request,s)),point(observed));
+        }
+        let _ = writeln!(
+            text,
+            "SEQUENCE END: {}",
+            self.last
+                .timeline_end
+                .unwrap_or("not observed / still running")
+        );
         let _ = writeln!(text, "Native jump/squat: {}", point(self.jump_start));
         let _ = writeln!(text, "Native selected move: {}", point(self.move_start));
         let _ = writeln!(text, "Hit evidence: {}", point(self.hit));
+        if self.first.slot == kirby_assist_core::fighter_profiles::presets::PresetSlot::Neutral {
+            let _ = writeln!(
+                text,
+                "Neutral first native active: {}",
+                self.neutral_first_active
+                    .map_or_else(|| "not observed".into(), NeutralActivity::describe)
+            );
+            let _ = writeln!(
+                text,
+                "Neutral active while target vulnerable: {}",
+                self.neutral_vulnerable_active
+                    .map_or_else(|| "not observed".into(), NeutralActivity::describe)
+            );
+            text.push_str("Active flags confirm attack activity, not contact/reach or which victim was hit.\n");
+        }
         if let Some(start) = self.move_start {
             let _ = writeln!(
                 text,
@@ -405,6 +522,36 @@ impl Report {
         text
     }
 }
+fn note_timeline_end(reason: Option<&'static str>) {
+    match reason {
+        Some("native_clock_gap") => {
+            crate::performance::health::event(crate::performance::health::Event::TimelineGap)
+        }
+        Some("clock_invalid_or_timeout") => {
+            crate::performance::health::event(crate::performance::health::Event::TimelineClockAbort)
+        }
+        _ => {}
+    }
+}
+
+fn target_delta(a: Stamp, b: Stamp) -> Option<f32> {
+    let rate = a.target_rate?;
+    let other_rate = b.target_rate?;
+    if a.target_status != b.target_status
+        || a.target_motion.is_none()
+        || a.target_motion != b.target_motion
+        || !rate.is_finite()
+        || rate <= 0.0
+        || !other_rate.is_finite()
+        || other_rate <= 0.0
+        || (rate - other_rate).abs() > 0.001
+    {
+        return None;
+    }
+    let delta = (b.target_frame? - a.target_frame?) / rate;
+    (delta.is_finite() && (0.0..=600.0).contains(&delta)).then_some(delta)
+}
+
 fn point(stamp: Option<Stamp>) -> String {
     stamp.map_or_else(|| "not observed".into(), Stamp::describe)
 }
@@ -451,7 +598,7 @@ impl Recorder {
         &mut self,
         frame: Option<CalibrationFrame>,
         fighter: (&'static str, i32),
-        choice: &'static str,
+        choice: &str,
         now: Instant,
     ) {
         let Some(frame) = frame else {
@@ -471,7 +618,7 @@ impl Recorder {
             };
             if report.first.target != frame.target
                 || report.first.slot != frame.slot
-                || report.choice != choice
+                || report.choice.as_str() != choice
                 || rewound
             {
                 self.stop("next option/visit");
@@ -482,12 +629,13 @@ impl Recorder {
             return;
         }
         if self.active.is_none() {
+            note_timeline_end(frame.timeline_end);
             let stamp = Stamp::new(frame, 0);
             self.active = Some(Report {
                 epoch: EPOCH.load(Ordering::Acquire),
                 fighter: fighter.0,
                 fighter_kind: fighter.1,
-                choice,
+                choice:ChoiceName::new(choice),
                 origin: now,
                 first: frame,
                 last: frame,
@@ -496,10 +644,15 @@ impl Recorder {
                 model: frame.expected,
                 requests: [None; 5],
                 mapped: [false; 5],
+                mapped_first: [None; 5],
+                test_latency: crate::performance::test_latency(),
+                test_epoch: crate::performance::context_epoch(),
                 first_request: None,
                 jump_start: None,
                 move_start: None,
                 activity_frame: None,
+                neutral_first_active: None,
+                neutral_vulnerable_active: None,
                 vulnerable: None,
                 hit: None,
                 captured: false,
@@ -529,7 +682,24 @@ impl Recorder {
         if report.action_requested() {
             report.first_request.get_or_insert(frame);
         }
+        if frame.timeline_end != report.last.timeline_end {
+            note_timeline_end(frame.timeline_end);
+        }
         report.raw_requested |= frame.output.requested;
+        let neutral_raw_attack = report.first.slot
+            == kirby_assist_core::fighter_profiles::presets::PresetSlot::Neutral
+            && report.model.kind == CalibrationKind::Unknown
+            && report.raw_requested & (MAPPER_A | RAW_CSTICK) != 0;
+        if neutral_raw_attack && frame.native_attack_active == Some(true) {
+            let activity = NeutralActivity::new(frame, stamp);
+            report.neutral_first_active.get_or_insert(activity);
+            if frame.enemy.is_some_and(|e| e.vulnerable) {
+                report.neutral_vulnerable_active.get_or_insert(activity);
+            }
+            if frame.context.hit_confirmed {
+                report.hit.get_or_insert(stamp);
+            }
+        }
         if report.requests[0].is_some()
             && matches!(frame.context.status, 0xa | 0xb)
             && report.jump_start.is_none()
@@ -592,8 +762,14 @@ impl Recorder {
             Some("capture")
         } else if report.hit.is_some() {
             Some("hit evidence")
-        } else if frame.complete {
+        } else if frame.complete && !neutral_raw_attack {
             Some("response handed back control")
+        } else if neutral_raw_attack
+            && report.neutral_first_active.is_some()
+            && !matches!(frame.context.status, 0x27..=0x36)
+            && !frame.context.stopped
+        {
+            Some("observed neutral attack ended/interrupted")
         } else if ended_native {
             report.ending = Some("selected move ended/interrupted");
             None
@@ -624,6 +800,13 @@ impl Recorder {
         for i in 0..5 {
             if proposed & applied & masks[i] != 0 && mapped & logical[i] != 0 {
                 report.mapped[i] = true;
+                if report.mapped_first[i].is_none() {
+                    // Native fields are from the most recent copied observation;
+                    // only wall time is refreshed at mapper acknowledgment.
+                    let mut stamp = report.last_stamp;
+                    stamp.ms = report.elapsed(Instant::now());
+                    report.mapped_first[i] = Some(stamp);
+                }
             }
         }
         report.raw_applied |= proposed & applied;
@@ -700,6 +883,8 @@ mod tests {
         let context = LedgeContext {
             held: true,
             gameplay: true,
+            manual_input_epoch: 0,
+            automatic_up_b_epoch:None,
             can_act: true,
             can_control: true,
             stopped: false,
@@ -753,6 +938,8 @@ mod tests {
         CalibrationFrame {
             target: 42,
             slot,
+            native_attack_active: None,
+            timeline_end: None,
             expected: CalibrationMove {
                 kind: CalibrationKind::Attack,
                 native: NativeRule::Aerial {
@@ -781,6 +968,24 @@ mod tests {
         }
     }
 
+    #[test]
+    fn raw_recipe_diagnostics_do_not_invent_readiness_or_opponent_failures() {
+        let mut f = frame(PresetSlot::Drop);
+        f.expected = CalibrationMove::unknown();
+        f.enemy = None;
+        f.context.can_act = false;
+        f.context.can_control = false;
+        f.output.requested = MAPPER_ZR;
+        let mut recorder = Recorder::new();
+        recorder.observe(Some(f), ("yoshi", 5), "Shield", Instant::now());
+        recorder.mapped(MAPPER_ZR, MAPPER_ZR, 0x8, "ledge");
+        let report = recorder.active.as_ref().unwrap();
+        assert_eq!(report.result(), "INPUT requested; move model unavailable");
+        assert!(report.explanation().contains("raw-input recipe"));
+        assert!(!report.explanation().contains("No opponent was available"));
+        assert!(!report.explanation().contains("controller did not start"));
+        assert_ne!(report.raw_applied, 0);
+    }
     #[test]
     fn all_five_options_record_once_without_live_report_updates() {
         let now = Instant::now();
@@ -913,5 +1118,112 @@ mod tests {
         recorder.observe(None, ("yoshi", 5), "Nair", now);
         recorder.observe(Some(f), ("yoshi", 5), "Nair", now);
         assert!(recorder.active());
+    }
+    #[test]
+    fn raw_neutral_report_survives_recipe_end_and_captures_real_active_protection_and_spacing() {
+        let now = Instant::now();
+        let mut recorder = Recorder::new();
+        let mut f = frame(PresetSlot::Neutral);
+        f.expected = CalibrationMove::unknown();
+        f.complete = true;
+        f.context.status = 0xa;
+        f.native_attack_active = Some(false);
+        let mut enemy = f.enemy.unwrap();
+        enemy.status = kirby_assist_core::ledge_trap::CLIFF_CLIMB;
+        f.enemy = Some(enemy);
+        recorder.observe(Some(f), ("yoshi", 5), "Raw Nair", now);
+        assert!(
+            recorder.active(),
+            "recipe completion is not attack completion"
+        );
+        f.context.status = 0x36;
+        f.context.motion_kind = motion_hash("attack_air_n");
+        f.context.motion_frame = 3.0;
+        f.context.position = [0.0, 8.0];
+        f.output = LedgeOutput::default();
+        f.native_attack_active = Some(true);
+        recorder.observe(
+            Some(f),
+            ("yoshi", 5),
+            "Raw Nair",
+            now + Duration::from_millis(16),
+        );
+        let report = recorder.active.as_ref().unwrap();
+        assert_eq!(report.neutral_first_active.unwrap().vulnerable, Some(false));
+        assert_eq!(report.neutral_first_active.unwrap().gap, Some([5.0, -8.0]));
+        assert!(report.neutral_vulnerable_active.is_none());
+        enemy.vulnerable = true;
+        enemy.actionable_in = Some(1.0);
+        f.enemy = Some(enemy);
+        f.context.motion_frame = 4.0;
+        recorder.observe(
+            Some(f),
+            ("yoshi", 5),
+            "Raw Nair",
+            now + Duration::from_millis(32),
+        );
+        let report = recorder.active.as_ref().unwrap();
+        assert_eq!(
+            report.neutral_vulnerable_active.unwrap().recovery,
+            Some(1.0)
+        );
+        let text = report.format();
+        assert!(text.contains("Neutral first native active:"));
+        assert!(text.contains("recovery_left=1.0"));
+        assert!(text.contains("ACTIVE attack observed"));
+        assert!(report.hit.is_none());
+        f.context.status = 0x18;
+        f.native_attack_active = Some(false);
+        recorder.observe(
+            Some(f),
+            ("yoshi", 5),
+            "Raw Nair",
+            now + Duration::from_millis(48),
+        );
+        assert!(!recorder.active());
+    }
+    #[test]
+    fn only_raw_neutral_attack_reports_extend_past_recipe_completion() {
+        for slot in [PresetSlot::Neutral, PresetSlot::Jump] {
+            let mut recorder = Recorder::new();
+            let mut f = frame(slot);
+            f.complete = true;
+            if slot == PresetSlot::Neutral {
+                f.expected = CalibrationMove::unknown();
+                f.output.requested = MAPPER_X; // No attack to watch.
+            }
+            recorder.observe(Some(f), ("kirby", 6), "Input", Instant::now());
+            assert!(!recorder.active());
+        }
+    }
+    #[test]
+    fn input_path_only_computes_native_delta_with_matching_clock_evidence() {
+        let a = Stamp::new(frame(PresetSlot::Neutral), 0);
+        let mut b = a;
+        b.target_frame = Some(a.target_frame.unwrap() + 4.0);
+        b.ms = 90;
+        assert_eq!(target_delta(a, b), Some(4.0));
+        b.target_motion = Some(99);
+        assert_eq!(target_delta(a, b), None);
+        b = a;
+        b.target_rate = Some(f32::NAN);
+        assert_eq!(target_delta(a, b), None);
+        b = a;
+        b.target_frame = Some(0.0);
+        assert_eq!(target_delta(a, b), None);
+    }
+    #[test]
+    fn mapper_ack_has_its_own_point_and_report_uses_stored_trial_label() {
+        let mut r = Recorder::new();
+        let f = frame(PresetSlot::Jump);
+        r.observe(Some(f), ("kirby", 6), "Nair", Instant::now());
+        r.mapped(f.output.requested, f.output.requested, 0x5, "test");
+        r.active.as_mut().unwrap().test_latency = Some(4);
+        let report = r.active.as_ref().unwrap();
+        assert_eq!(report.test_latency, Some(4));
+        assert!(report.mapped_first[1].is_some());
+        assert!(report.format().contains("INPUT PATH [Attack]"));
+        assert!(report.format().contains("external +4f"));
+        assert!(report.format().contains("MAPPED ACK LIMIT"));
     }
 }

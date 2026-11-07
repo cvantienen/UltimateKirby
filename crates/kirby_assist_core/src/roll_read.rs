@@ -1,5 +1,6 @@
-//! Optional onstage roll-through punish, separate from ledge get-up responses.
-//! Fixed-size tracking; down smash may make a bounded, ground-checked approach.
+//! Shared copied roll-target facts plus the parked fixed punish prototype.
+//! Live onstage responses use reaction_rules; this fixed helper has no native
+//! registration. Its fixtures remain available for development/reference.
 mod smash;
 use crate::{
     ledge_trap::LedgeOutput,
@@ -89,6 +90,8 @@ pub const SMASH_WALK_STICK: f32 = 0.65;
 pub struct Target {
     pub id: u32,
     pub status: i32,
+    /// Copied native motion identity for the configurable rule clock.
+    pub motion: u64,
     pub frame: f32,
     pub rate: f32,
     pub position: [f32; 2],
@@ -200,8 +203,8 @@ impl RollRead {
             return self.deliver_grab(config, c, targets);
         }
         self.output = LedgeOutput::default();
-        // Track each roster slot separately; a different roll/animation rewind
-        // rearms that enemy, never another press during the same roll.
+        // Preserve identity if the observed roster slots reorder online.
+        let old_tracks = self.tracks;
         for (slot, target) in targets.into_iter().enumerate() {
             let Some(t) = target else {
                 self.tracks[slot] = None;
@@ -217,8 +220,10 @@ impl RollRead {
                 continue;
             }
             let dx = t.position[0] - c.position[0];
-            let old = self.tracks[slot]
-                .filter(|p| p.id == t.id && p.status == t.status && t.frame >= p.frame);
+            let old = old_tracks
+                .iter()
+                .flatten()
+                .find(|p| p.id == t.id && p.status == t.status && t.frame >= p.frame);
             let approaching = dx * t.velocity_x < -0.05;
             let crossed = old.is_some_and(|p| p.crossing && p.dx * dx <= 0.0);
             let crossing = approaching || crossed || old.is_some_and(|p| p.crossing);

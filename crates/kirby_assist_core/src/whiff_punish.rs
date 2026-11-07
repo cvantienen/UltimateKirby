@@ -304,5 +304,6 @@ fn controls(stick: [f32; 2], requested: u32) -> LedgeOutput {
         requested,
         owned: LEDGE_BUTTONS | 0xf,
         consume_trigger: false,
+        native_short_hop: false,
     }
 }

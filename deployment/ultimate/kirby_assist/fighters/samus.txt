@@ -1,0 +1,350 @@
+# ---- NEUTRAL ----
+[samus.neutral.nair]
+# F34 target; Neutral Air active 14-22; includes 3f jump squat
+name = Nair
+start_delay = 13
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[samus.neutral.down_tilt]
+# F34 target; Down Tilt active 6-8
+name = Down tilt
+start_delay = 27
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0:-0.6:1
+
+[samus.neutral.forward_tilt]
+# F34 target; Forward Tilt active 8-10
+name = Forward tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0.6:0:1
+
+[samus.neutral.zair]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = Short-hop zair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop:1, wait:2, grab
+
+[samus.neutral.homing_missile]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = Homing missile
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, side_special:1:0.5
+
+[samus.neutral.super_missile]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = Super missile
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, side_special:1
+
+[samus.neutral.forward_smash]
+# F34 target; Forward Smash active 10-11; charge point 3, hold 26
+name = Cannon f-smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:1:0:26, release:1
+
+# ---- JUMP ----
+[samus.jump.nair]
+# F14 target; Neutral Air active 8-11; includes 3f jump squat
+name = Nair
+start_delay = 2
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:0:1
+
+[samus.jump.zair]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = Short-hop zair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop:1, wait:2, grab
+
+[samus.jump.forward_air]
+# F14 target; Forward Air active 6-7; includes 3f jump squat
+name = Flame fair
+start_delay = 5
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[samus.jump.up_air]
+# F14 target; Up Air active 5-5; includes 3f jump squat
+name = Up air
+start_delay = 6
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:1:1
+
+[samus.jump.homing_missile]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = Homing missile
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, side_special:1:0.5
+
+[samus.jump.super_missile]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = Super missile
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, side_special:1
+
+# ---- ROLL ----
+[samus.roll.down_smash]
+# F31 target; Down Smash active 9-10; charge point 3, hold 25; rear phase 17-18 aligned separately
+name = Down smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = if_facing_opponent, opponent_input:a:0:-1:25, release:1, else_facing, opponent_input:a:0:-1:17, release:1, end_facing
+
+[samus.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 16
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[samus.roll.zair]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = Move > zair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop:1, wait:2, grab
+
+[samus.roll.homing_missile]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = Homing (stay back)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, side_special:1:0.5
+
+[samus.roll.super_missile]
+# Spacing/resource alternative; travel, stock and native acceptance need calibration
+name = Super (stay back)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, side_special:1
+
+# ---- ATTACK ----
+[samus.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[samus.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[samus.attack.shield_up_b]
+name = Shield > Up-B
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, input:b:0:1:1
+
+[samus.attack.shield_zair]
+name = Shield > Zair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, input:x:0:0:1, wait:2, check:self_airborne:0, input:r:0:0:1
+
+[samus.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+[samus.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+# ---- DROP ----
+[samus.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[samus.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[samus.drop.bomb]
+name = Immediate down-B
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_special:1
+
+[samus.drop.zair]
+name = Short-hop zair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop:1, wait:2, grab
+
+[samus.drop.homing_missile]
+name = Homing missile
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, side_special:1:0.5
+
+[samus.drop.super_missile]
+name = Super missile
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, side_special:1
+
+[samus.drop.forward_air]
+name = Flame fair (stay back)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+# ---- AUTO REACT ----
+[samus.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:50.2:24
+actions = input:r:0:0:4
+
+[samus.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:42.2:24
+actions = input:r:0:0:4
+
+[samus.roll.auto_shield_backup]
+name = Shield backup > Up B
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_shield_backup:14:12
+actions = input:b:0:1:4
+
+[samus.roll.auto_roll]
+name = Roll > Up B
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_roll:14:12
+actions = input:b:0:1:4
+
+[samus.roll.auto_spot_dodge]
+name = Spot dodge > Up B
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_spot_dodge:14:12
+actions = input:b:0:1:4
+
+[samus.roll.auto_air_dodge]
+name = Air dodge > Up B
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_air_dodge:14:24
+actions = input:b:0:1:4
+
+[samus.roll.auto_grab_dodged]
+name = Dodged grab > Up B
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = true
+reaction = auto_grab_dodged:14:12
+actions = input:b:0:1:4
+
+# SHEIK
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/sheik
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+

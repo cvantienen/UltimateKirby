@@ -1,5 +1,8 @@
 # Ledge autopilot
 
+> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+
+
 ## Input freshness
 
 The original wall-clock watchdogs apply to every ledge input: requests expire
@@ -9,23 +12,25 @@ delay learning or compensation is enabled; configured fighter timings remain.
 
 ## Held-L defensive shield
 
-With `autopilot_shield = true` (the default), held-L autopilot can request normal
+With `autopilot_shield = true` (the default), held ledge assist (X by default) can request normal
 ZR shielding on the ground against a nearby fighter's active or known imminent attack.
 The opponent need not have grabbed the ledge. Releasing L releases this assist.
 
-The check uses the existing bounded fighter roster, validated live accessors,
-attack-active flags and both fighters' root positions/velocities. It tests a
-three-frame swept relative path against an approximate envelope of 24 horizontal
-and 28 vertical world units. For explicitly configured opponents, forward/down
-tilt, down smash (including a separate rear sweep) and exact neutral-air motion
-can warn up to three game frames before first activity, using native motion rate
-and that fighter's compiled data. Unconfigured opponents never use Kirby's data
-for this prediction; active fighter attacks still use the geometric fallback.
-It does **not** read individual hitbox shapes or hurtboxes, or track projectile/
-item objects. The wider envelope is deliberately forgiving and can shield early.
-It can
-shield against attacks facing away or miss attacks whose reach extends beyond
-that envelope. This is a warning heuristic, not guaranteed collision prediction.
+The check uses the existing bounded fighter roster and validated live accessors.
+A five-frame swept root envelope (24 horizontal / 28 vertical world units)
+provides the cheap active-attack warning. Unambiguous compiled active windows
+also warn for mapped jabs, tilts, smashes and aerials, with the existing profile
+fallback for supported move families. Unknown timings do not borrow Kirby data.
+
+For active hitboxes beyond the root envelope, a bounded read of native attack
+geometry tests a swept conservative standing envelope. This covers extended
+attacks and approaching/descending aerials that a root-only distance test misses.
+A broad spatial filter precedes these reads; at most 16 active slots receive
+geometry work across the roster (at most two joint transforms per slot). Reaching
+that cap requests shield conservatively. These are read-only hitbox observations,
+not changes to attacks, and use the existing ABI without a new observer hook.
+Projectile/item objects are not scanned. Estimated body bounds and linear motion
+remain approximations; coverage is not guaranteed.
 
 Shield input requires native guard availability or an existing guard/shieldstun
 state. Native guard availability is checked without an idle/walk-only status
@@ -38,7 +43,14 @@ shield is held through native shield hitstop. A fixed-size hold bridges small
 gaps for up to four advancing native frames after the last warning; repeated
 polls and hitstop do not spend that interval. Release, menu/tool cancellation,
 or lost native shield readiness still stop it immediately. Once that tail ends it hands
-control back; it does not automatically grab, attack or parry afterward.
+control back. The separate optional [Out of shield](OUT_OF_SHIELD.md) mode can
+respond after an actual approach block; this shield safeguard alone does not
+automatically attack or parry.
+
+Passive ledge tracking, including jump approaches, no longer disables this
+safeguard merely because an opponent is being tracked. Actual get-up-attack
+responses and committed text timelines remain in control: this feature cannot
+replace their shield, action or configured wait steps.
 
 This cannot shield through hitstun, shield break or uncancellable move recovery.
 It does not parry, detect grabs, or guarantee collision coverage.
@@ -47,7 +59,7 @@ The added native reads run only for grounded, guard-eligible, L-held ledge
 autopilot observations. There are no new hooks, threads, weapon scans or live
 file reads. Runtime cost and online effectiveness still require Switch testing.
 Diagnostic ledge snapshots label the action `autopilot_defensive_shield`.
-Disable with `autopilot_shield = false` in startup `config.txt`, then restart.
+Disable with `autopilot_shield = false` in `[universal.settings]` of startup `sequences.txt`, then restart.
 
 ## Kirby auto-duck
 
@@ -97,18 +109,21 @@ relying on it. L's separate fighter-only shield policy is unchanged.
 
 ## Controls
 
-Hold **L** for ledge autopilot. Kirby also watches in-range low recoveries with
-[down-tilt recovery cover](TWO_FRAME.md), without a separate toggle or R3 binding.
-Press **Y** for its selected [Finisher attempt](FINISHERS.md); B-reverse is unbound;
-Press **X** for an X short-hop tap (X mapped to Jump). **R3** shows/hides the menu; the **Auto-mash** menu row toggles auto-mash. While visible, **Up/Down**
-selects Neutral, Jump, Roll, Attack, Drop (plus Kirby's Roll read/Y mode and shared Auto-mash), and **Left/Right**
-cycles its saved responses. While hidden, Left/Right slides, Down starts ledge
-trump, and Up is normal. Directions held when closing must be released before
-starting gameplay tools. R3 is reserved for menu toggling; hold L3 without L for turbo teabag.
-Auto-mash stays enabled in the supplied startup configuration.
+Hold **L** for the selected fighter's saved ledge responses and configured walking
+limits. With Ledge trap mode ON, tracking stays active without L; L still adds
+walking/known-ledge stopping limits. An acquired setup is protected from competing
+configured responses until it finishes. Plus/Minus, menus and native safety keep
+their documented controls; see [current controls](CONTROLS.md).
 
-Use A=Attack, B=Special, X=Jump, ZL=Jump, R=Grab, ZR=Shield and Tap Jump off.
-Kirby attack-cancel bair also requires Tilt Attack C-stick. See [controls](CONTROLS.md).
+Minus opens/closes the menu. Outside Training, R3 switches between ledge and
+Buttons / Assists selectors. In Training, R3 edits recipes; L3/R3 on a
+sequence-based assist opens its separate rule list. X/Y/D-pad run the selected
+fighter-specific sequence or Normal button. Hard-coded slide/B-reverse/Down-trump
+bindings and the native Y Finisher selector are removed.
+
+Use the [controller mapping](CONTROLS.md#controller-mapping). Configure exact
+attack inputs, hold durations, checks and delays in the master file rather than
+relying on a compiled fighter recipe. Auto-mash is OFF in the supplied master.
 
 These controls apply to a human-controlled fighter with a loaded ledge profile
 on the selected local controller in valid battles. All non-DLC forms have
@@ -171,7 +186,7 @@ held. Release L and hold it again to rearm ledge assistance. Old
 not re-enable automatic throws.
 
 Kirby also has an optional neutral-get-up **Down-B / Stone** recipe in the
-[per-fighter saved lists](FIGHTER_CONFIGS.md#recipes-and-variants). Its grounded
+[per-fighter saved lists](FIGHTER_CONFIGS.md). Its grounded
 startup is configured separately (11 by default), with zero early lead; nair
 keeps its original lead of 8. This predicts an input time rather than proving
 a frame-perfect online hit. Stone confirmation hands controls back so B remains
@@ -179,8 +194,10 @@ available to leave Stone normally. Release/rehold L to rearm.
 
 ## Configuration
 
-The menu selects compiled fighter response functions. Global activation, shared
-spacing and supported numeric timing adjustments remain in `config.txt`.
+The menu selects compiled fighter response functions. An optional startup-only
+[`sequences.txt`](SEQUENCE_FILES.md) section can replace an existing ordinary
+choice's action recipe while retaining its compiled fallback. Global activation, shared
+shared startup settings and per-fighter overrides live in the master `sequences.txt`.
 Config files cannot register functions or define their action sequence.
 
 
@@ -260,88 +277,14 @@ opponent-relative frame-perfect timing online.
 
 ## Timing and limits
 
-[Kirby's frame data](https://ultimateframedata.com/kirby) gives nair startup 8
-and active frames 8–32, and down smash startup 7 with front/back active phases
-through frame 19.
-Nair is one lingering hit with weakening phases. A proposed contact must overlap
-known vulnerability and precede any known action deadline. Grounded recovery uses
-the earlier valid cancel/animation-end frame. Missing protection timing waits
-for observed vulnerability; it does not assume protection ended.
+Saved sequences start at the first eligible observation of the recognized option,
+then deliver the configured inputs and waits. Move startup is additional native
+move time, not a hidden sequence delay. There is no learned online-delay
+compensation or automatic retry behind literal attack inputs.
 
-Native transitions still control when Kirby can actually jump, attack or grab.
-Normal/jump timing ignores collision geometry by request: an attack can come out
-from across the stage and miss. The front-facing block-triggered grab ignores
-reach. The rear-side response preserves shield through shieldstun, jumps directly
-from guard with **neutral jump+A together**, then releases X while retaining A
-through jump squat, hitstop and takeoff. Rejected ground inputs retry the pair.
-
-Ledge-jump cover now sends **neutral X+A together** as the built-in
-[short-hop attack input](https://www.smashbros.com/en_US/howtoplay/technique.html).
-This gives the game's normal input pipeline the jump and aerial together, rather
-than waiting to observe a delayed jump before transmitting a separate attack.
-X is released in native jump squat while A remains queued. A rejected grounded
-pair gets a neutral release sample and another paired request. Sending the pair
-is an input request, not proof that either action was accepted.
-
-All committed nair hops now finish using Kirby's own native action state before
-opponent tracking or option selection is evaluated. Target loss, a regrab,
-changed recovery forecasts or the opponent landing cannot cancel the aerial
-partway through a hop. There is no aerial-readiness-term or six-attempt gate once
-a hop is committed. Neutral A stays held until the native aerial starts. A queued
-A hold remains owned through hitstop, so physical stick/C-stick or shield inputs
-cannot replace it. Damage, landing, L release and session changes end the
-sequence. One actual hop/nair is attempted per visit/block; an accepted aerial
-alone does not count as a confirmed hit.
-
-Normal get-up now also sends neutral jump+A together, using the same built-in
-short-hop attack recipe as ledge-jump cover. Short-hop jump and attack share one input request; live extra input-delay
-compensation is zero. Rejected ground requests retry the pair with release gaps. X is
-released in jump squat while A stays buffered, including frozen squat samples.
-Both options share the committed follow-through through target loss and takeoff.
-
-These changes require a newly built and installed plugin. Existing NROs do not
-change when source files are edited. Native observations and mapped-input
-confirmation improve reliability, but this integration has no authoritative
-online queue depth or future execution-frame API. It cannot guarantee an exact
-opponent-relative attack frame in every Arena connection. Offline host checks
-cannot establish online behavior; device testing with the rebuilt diagnostic
-plugin is required.
-
-Learned mapped-input delay compensation has been removed. There are no per-action
-sample histories, medians, runtime delay sampling, or paired jump/attack estimates.
-Live observations supply zero extra delay to ledge responses, slides, shortcuts,
-SDI, and tech prediction. Configured move frames and response timing adjustments
-remain in use, as do native readiness, hitstop handling, and acceptance checks.
-The scalar `input_delay` field remains available for explicit core callers and
-fixtures; the Switch adapter no longer learns or fills it with measured delay.
-This removal does not change the game's own online input buffer or a separate
-latency mod. Online behavior still needs device validation.
-
-Damage, target loss, tracking timeout, release of L, mash and tech retain their
-cancellation/priority rules. Hitstop preserves shield. Exact native attack
-status/motion plus a registered hit/capture confirm success; a button request
-alone does not. Diagnostics retain their throttled asynchronous output.
-
-These are source changes. Install a newly built NRO and the intended config, then
-restart Smash to use them.
-
-Normal get-up now defaults to `neutral_air` (`nair` is also accepted). The
-bundled config selects it; an existing config explicitly selecting a legacy tilt
-continues to select that tilt until updated. Kirby hop scheduling includes three jump-squat frames and eight nair startup
-frames, with zero extra live transport-delay compensation. Its Neutral nair
-adds two frames to the configured lead: the supplied eight becomes ten. It
-releases X while keeping neutral A buffered. With uninterrupted native activity,
-that plans the first hitbox ten frames before protection expiry and the last
-fourteen frames after expiry (nair frames 8–32). An expiry at get-up frame
-32–34 therefore targets first activity around frame 22–24. Yoshi uses a separate
-16-frame Neutral early-hit lead: short-hop/drift immediately with X+ZL (both
-mapped to Jump), then delay neutral A using the takeoff protection snapshot and
-native game progress. Jump nair is still immediate. Kirby Neutral uses its
-quarter-stick nudge below nair frame 4; Yoshi has brief full-stick nudges;
-see [Kirby/Yoshi](KIRBY_YOSHI_LEDGE.md).
-This is the planned animation window; spacing, landing, late recognition and
-unmeasured online delay can reduce actual coverage.
-Late recognition/action readiness can reduce that lead. Unknown protection waits
-for observed vulnerability. An expired recovery estimate does not veto the
-normal-getup hop, and previous-status evidence can recover a missed get-up
-transition. The active hitbox still needs correct player spacing.
+Only explicit spatial/check/wait-for-block actions add their documented waits.
+Missing targets, unsafe movement or invalid scope can end a sequence. Inputs
+cannot bypass shieldstun, landing lag, recovery or native action restrictions.
+Timing perfected in Training is not proof of identical online input acceptance.
+Use [input timing](SEQUENCE_FILES.md), [fighter references](OPPONENT_DATA.md) and
+[diagnostic observations](OBSERVATIONS_AND_TIMING.md).

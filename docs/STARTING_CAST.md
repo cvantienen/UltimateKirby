@@ -1,5 +1,8 @@
 # Starting-roster ledge profiles
 
+> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+
+
 Mario, Donkey Kong, Link, Samus, Yoshi, Kirby, Fox and Pikachu have independent
 compiled move data and ledge choices. Luigi and Captain Falcon remain registered.
 The remaining non-DLC fighters now have [dedicated profiles](NON_DLC_ROSTER.md).

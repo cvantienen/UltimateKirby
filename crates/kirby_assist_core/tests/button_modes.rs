@@ -7,16 +7,16 @@ use kirby_assist_core::{
 };
 
 #[test]
-fn held_y_mode_is_independent_of_l_and_requires_release_after_edit_or_reset() {
+fn removed_finisher_cannot_steal_the_custom_y_button() {
     let profiles = FighterProfiles::default();
     let presets = &profiles.profile(6).unwrap().menu_options;
     let mut menu = MenuSelection::new(presets);
     menu.auto_duck_available = true;
     menu.input(0, presets);
     menu.input(MAPPER_Y, presets);
-    assert!(menu.finisher_held(MAPPER_Y));
+    assert!(!menu.finisher_held(MAPPER_Y));
     assert!(
-        menu.finisher_held(MAPPER_Y | kirby_assist_core::manual_controls::LEFT_STICK_DIRECTIONS)
+        !menu.finisher_held(MAPPER_Y | kirby_assist_core::manual_controls::LEFT_STICK_DIRECTIONS)
     );
     assert!(!menu.ledge_held(MAPPER_Y));
     assert!(!menu.finisher_held(0));
@@ -30,7 +30,7 @@ fn held_y_mode_is_independent_of_l_and_requires_release_after_edit_or_reset() {
     );
     menu.input(0, presets);
     menu.input(MAPPER_Y, presets);
-    assert!(menu.finisher_held(MAPPER_Y));
+    assert!(!menu.finisher_held(MAPPER_Y));
     menu.begin_match();
     menu.input(MAPPER_Y, presets);
     assert!(!menu.finisher_held(MAPPER_Y));
@@ -40,8 +40,8 @@ fn held_y_mode_is_independent_of_l_and_requires_release_after_edit_or_reset() {
     assert!(menu.ledge_held(MAPPER_L));
     assert_eq!(
         menu.input(TWO_FRAME_TRIGGER, presets) & TWO_FRAME_TRIGGER,
-        0,
-        "L3 is no longer reserved by Kirby Assist"
+        TWO_FRAME_TRIGGER,
+        "L3 retains the built-in turbo/menu role"
     );
     assert_eq!(YMode::options(true), &[YMode::FairSmash, YMode::DairSmash]);
     assert!(YMode::options(false).is_empty());
@@ -53,6 +53,6 @@ fn held_y_mode_is_independent_of_l_and_requires_release_after_edit_or_reset() {
 
 #[test]
 fn whiff_punish_is_not_a_live_menu_row() {
-    assert_eq!(MenuRow::ALL.len(), 12);
+    assert!(MenuRow::ALL.iter().any(|r|r.slot()==Some(kirby_assist_core::fighter_profiles::presets::PresetSlot::Y)));
     assert!(MenuRow::ALL.iter().all(|row| row.label() != "Whiff punish"));
 }

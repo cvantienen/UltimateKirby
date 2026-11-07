@@ -1,4 +1,5 @@
-//! Compiled luigi registration. No fighter files load from SD.
+//! Fighter identity and independent reference facts. Ledge options and input
+//! scheduling are loaded exclusively from sequences.txt at startup.
 mod timing;
 use super::FighterProfile;
 pub use timing::LEDGE_DATA;
@@ -7,9 +8,8 @@ pub fn profile() -> FighterProfile {
     FighterProfile {
         name: "luigi",
         fighter_kind: 9,
-        aerial_execution: super::execution::AerialExecution::ADAPTIVE_JUMP,
         ledge: LEDGE_DATA,
 
-        menu_options: crate::ledge_trap::fighters::luigi::MENU,
+        menu_options: crate::fighter_profiles::presets::MenuPresets::EMPTY,
     }
 }

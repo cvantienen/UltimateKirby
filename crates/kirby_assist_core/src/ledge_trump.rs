@@ -30,6 +30,12 @@ pub fn floor_edge_with_limit(
     for direction in [preferred, -preferred] {
         for step in 1..=limit {
             let distance = step as f32;
+            // A boundary in this next unit interval cannot beat the edge we
+            // already found. Preserve unit-resolution gap detection and facing
+            // tie-breaking; only omit probes that cannot change the result.
+            if nearest.is_some_and(|old| distance - 1.0 >= (old[0] - position[0]).abs()) {
+                break;
+            }
             let probe = [position[0] + direction * distance, position[1]];
             if supported(probe) {
                 continue;
@@ -157,7 +163,11 @@ impl LedgeTrump {
             self.attempt = None;
             return self.output;
         }
-        let changed = self.last_context != Some(ctx);
+        let changed = self.last_context.is_none_or(|last| {
+            last.status != ctx.status
+                || last.motion_kind != ctx.motion_kind
+                || last.motion_frame != ctx.motion_frame
+        });
         self.last_context = Some(ctx);
         if changed && !ctx.stopped {
             attempt.updates += 1;

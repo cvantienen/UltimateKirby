@@ -3,8 +3,9 @@
 The live adapter creates one `FrameReads` inside each validated local-fighter
 observation. All assistance policies share this instance. It lazily copies
 status, situation, motion/frame/rate, position, total velocity, facing, team,
-stop, previous-status and animation-end facts into eight fixed identity slots.
-Repeated field reads reuse their first value. No heap allocation, new hook,
+stop, previous-status, animation-end and fighter-kind facts into eight fixed identity slots.
+Repeated field reads reuse their first value. A last-identity cursor avoids
+rescanning the slot table for consecutive fields of the same fighter. No heap allocation, new hook,
 worker, network activity or eager full-roster read is added. Unexpected extra
 identities read through without evicting cached fighters.
 
@@ -24,6 +25,48 @@ not a promise that individual native reads form an atomic engine snapshot.
 Readiness/transition terms, hit confirmations, active attacks, collision queries
 and protection metadata remain live, demand-driven reads. The snapshot never
 crosses the existing observation/publication fence.
+
+## Input and diagnostic work
+
+X/Y/D-pad input sequences are fighter-specific. Modes use only ON/OFF rows. No shared-button publication/cache or cross-fighter
+copying remains. The runtime resolves five ledge plus six button slots only after
+selection/edit changes; ordinary polls check numeric button identities. The
+outside-battle editor, last-used-fighter tracking and SDK controller interception
+hooks are removed. Only an explicitly pending save can request a safe-scene
+check outside battle; there is no lobby menu input polling.
+Diagnostic configuration rows rebuild only after menu revisions, fighter changes
+or changes to shared Auto-mash. Actual changed reports still use the existing
+bounded logger. These changes do not slow input polling or detection, and do not
+cache readiness, hit confirmation or attack-active flags.
+
+## Callback overhead and hidden menus
+
+The command-observation path refreshes validated human-controller routing and
+local presence before its existing duplicate guard. Fighter-profile/menu settings
+and assist setup now run only after that guard accepts the selected local fighter.
+The existing exception still lets command callbacks discover opponents after a
+mapper-only observation. Session, identity and publication checks remain in place;
+no observations are throttled and no facts are cached across native callbacks.
+
+The hidden Kirby Assist menu returns before ImGui context/window/draw calls.
+A visible menu reuses its cached strings; only changed revisions rebuild them.
+The master-switch toast uses an atomic pending flag so its empty cache needs no
+mutex on ordinary render callbacks. Publishing and expiring a toast update the
+flag under the toast lock, preserving notifications. Master-switch gesture and
+battle-presence checks still run as before. These optimizations do not disable
+or measure the shared ImGui host's own frame/GPU work or Deluxe's renderer.
+
+Ledge shield geometry reads an opponent's scale only when an active hitbox needs
+a geometry test, once per opponent in that pass. Near-hitbox early returns, native
+attack checks and detection ranges are unchanged. The optional auto-duck ATTACK
+observer hook remains uninstalled; these changes add no projectile scanning.
+D-pad sequence bindings remain fixed numeric checks over six button slots,
+with recipes resolved on selection/edit changes rather than every button poll.
+Removing those bindings is not expected to remove substantial ongoing work.
+
+These are source-level overhead reductions, not measured improvements to Switch
+temperature or FPS. Host tests/type checks cannot establish the cause of heat
+when Deluxe and Kirby Assist are loaded together.
 
 ## Consistent progress without changing timings
 
@@ -75,7 +118,99 @@ overlay; see [rules and actual live-wiring tests](ACTION_OWNERSHIP.md). This doe
 not add timing offsets or replace native readiness checks. No Switch plugin
 was built as part of the host-only verification.
 
-The broader legacy lib suite currently has 18 behavioral expectation failures.
-A temporary control using previous elapsed arithmetic reproduces the same 18
-failures (343 passes). The legacy diagnostic-logger harness also lacks report
-module imports. Focused regressions run separately; the full suite is not clean.
+The portable library suite is checked with the current expectations; the earlier
+historical failure count no longer describes this source. Host checks do not
+establish on-console acceptance, exact collision geometry or online outcomes.
+
+Six button identities are checked per input sample. Inactive bindings add no opponent scans, rays or separate policy timelines. Only a pressed input sequence runs its existing timeline. Hold/Toggle mode processing and mode override fields are removed; legacy saved mode sections are excluded at startup without rewriting the source file.
+
+See the [Training Modpack reference review](TRAINING_REFERENCE_REVIEW.md) for the
+tech, hook/counter, playback, ledge, shield, SDI/DI and shared-helper comparison.
+Raw-input calibration descriptions now distinguish an unavailable move model
+from input delivery; absent optional readiness/opponent observations alone are
+not treated as proof of a missed raw input.
+
+## Startup stack bound
+
+Fighter identities are constructed one at a time from a static table of function
+pointers. Do not restore an array of all 77 full profiles followed by `collect`:
+with eleven menu lists that array alone was roughly 25 KiB on the target and
+nested under config/parser frames on a 64 KiB loader stack. A silent startup
+crash report showed SP below its stack region during allocation. This change
+preserves all profiles, file entries and defaults, removes the bulk temporary
+and bulk-sort collection, and adds an optimized host 64 KiB-stack regression.
+No worker or gameplay timing change is involved; native restart still needs
+verification after installing the rebuilt binary.
+
+Yoshi/Kirby Dtilt face only requests opponent-facing reads while physical Down/
+down Tilt-stick intent or down-tilt recovery is present. Yoshi has no idle-crouch
+reads. Enabled Yoshi Jab lock checks the bounded roster for nearby native
+tumble/down/tech states; full recovery facts require an eligible state within
+60 horizontal / 24 vertical units. Floor-support rays require a relevant target
+and grounded Yoshi. The disabled chase adds no such reads. No new worker/hook
+or physics/status/hitbox writes are used.
+
+Auto-tech retains one copied floor-motion sample during eligible non-stopped
+tumble. Recent matching native progress can enable up to five short descending
+floor sweeps per body offset (15 floor rays maximum); missing/invalid trends
+retain linear prediction. No extra object scan, physics write, worker or learned
+network delay is added. See [floor-tech prediction](AUTO_TECH.md).
+
+Optional Out of shield uses the native GUARD_DAMAGE attacker ID, shieldstun count
+and existing transition/motion reads for one validated fighter. It never selects
+an attacker by proximity. Held-L approach warnings now cover verified compiled
+attack windows and bounded live active-hitbox geometry beyond the root warning
+envelope (16 active slots maximum, no weapon/item scan). Ledge get-up responses
+and committed text timelines retain priority. See [OOS](OUT_OF_SHIELD.md) and
+[held-L shielding](LEDGE_TRAP.md).
+
+Dtilt face Down intent includes physical right-stick axes captured before native
+mapping, not only digital aliases. Standing first-flick detection uses the same
+existing observation refresh. Only the winning grounded helper may angle that
+existing down C-stick flick; both axes are restored after mapping. No new scan,
+native query, worker, attack edge or intentional wait was added.
+
+Grab dodge + punish is an ON-by-default ON/OFF row in both builds. It reuses the existing
+status-gated eight-fighter ordinary-grab reader and now covers the full six-frame
+forecast with at most 13 half-frame arithmetic tests per candidate. Its optional avoided-grab response now uses the same file timeline as OOS,
+following only the tracked grabber after native spot-dodge acceptance. The forecast
+window is saved per fighter; at its maximum of eight frames it uses at most
+17 arithmetic tests per candidate. No configured follow-up means dodge only. OOS starts the first file response matching range/side after native shieldstun,
+or hands back shield/stick control immediately when no response matches. It no
+longer selects moves using compiled fighter startup/recovery timing.
+Diagnostic-only `MOVEMENT OVERRIDE` entries name the owner when a full forward
+stick is overridden near-neutral/opposite, once per owner/episode change with no
+new native reads. See [Grab dodge](GRAB_DODGE.md) and [OOS](OUT_OF_SHIELD.md).
+
+Neutral raw-input diagnostic reports now survive short recipe completion and
+record first native attack activity plus first activity during target vulnerability.
+Two fixed-size copied snapshots include target motion frame/protection/recovery
+and relative gap/height. Native attack-active queries are diagnostic-only, bounded
+to eight slots per eligible observation, outside STATE locks. Formatting remains
+on the existing logger worker; there is no input-timing/acceptance/recipe change.
+See [neutral miss evidence](CALIBRATION_CARD.md#neutral-get-up-attacks-that-execute-but-miss).
+
+Diagnostic health reports now add worker-formatted review flags and per-second
+rates for full local evaluations, mapping, roster discovery and draw callbacks.
+Additional fixed events count discarded publications, stale-input episodes and
+native timeline clock cancellations. Retained/save trend hints use the existing
+bounded estimates and worker gauges; they do not claim system heat or heap usage.
+A diagnostic-only manual test-delay label starts fresh Perf epochs without
+changing timing. Frozen input-path records keep request/ack/native evidence and
+clock-safe frame deltas separate from wall time and external latency labels.
+See [test workflow and review codes](TRAINING_MONITOR.md#labelled-latency-and-workload-trials).
+
+Static guard-on/held-shield poses may report a positive motion rate without
+advancing their frame. Those known states may use a fresh locked opponent motion
+clock, as teeter poses already do. Roll target discovery and follow snapshots
+carry the real native clock from the first match; own/opponent deltas are never
+added together. Stop and missing-sample gaps rebase rather than fabricate time.
+
+## Confirmed event endings
+
+The per-observation fact cache can export statuses it has already read. Automatic
+roll and incoming-grab histories use these copied facts to distinguish a known
+native event end from a missing observation. Consumed events survive observation
+gaps; confirmed status changes allow later events to rearm. This export performs
+no native query, roster pass, cross-frame cache reuse or heap allocation. Missing
+fields remain unknown, including when a candidate was intentionally not read.

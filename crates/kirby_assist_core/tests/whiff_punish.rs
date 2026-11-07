@@ -175,18 +175,18 @@ fn roster_slot_changes_do_not_rearm_the_same_enemy_move() {
     assert_eq!(p.sample(true, own(2.0), shifted).owned, 0);
 }
 #[test]
-fn yoshi_bair_starter_turns_away_then_short_hops_without_a_grounded_attack() {
+fn legacy_yoshi_bair_starter_turns_and_short_hops_without_a_grounded_attack() {
     let mut p = WhiffPunisher::default();
     let mut c = own(0.0);
     c.starter.fighter_kind = 5;
     c.starter.fighter.kirby = false;
     let turn = p.sample(true, c, targets(target(20.0, 30.0, 8.0)));
-    assert_eq!(turn.requested, 0);
-    assert_eq!(turn.stick, Some([-0.3, 0.0]));
+    assert_eq!(turn.requested, MAPPER_X | MAPPER_ZL);
+    assert_eq!(turn.stick, Some([-1.0, 0.0]));
     c.starter.fighter.frame = 1.0;
     c.starter.fighter.facing = -1.0;
     let hop = p.sample(true, c, targets(target(21.0, 29.0, 8.0)));
-    assert_eq!(hop.requested, MAPPER_X | MAPPER_ZL);
+    assert_eq!(hop.requested, 0,"one-shot jump is released while native startup is pending");
     assert!(YMode::YoshiBairSmash.supports(5));
     assert!(!YMode::FairSmash.supports(5));
 }

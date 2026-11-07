@@ -232,10 +232,86 @@ fn stopped_duplicate_samples_do_not_expire_attempt_and_target_loss_cancels() {
     assert!(j.watching());
     j.sample(true, idle(2.0), [None; 8]);
     assert!(!j.watching());
+    // A later visible knockdown is now an independent chase opportunity.
     assert_eq!(
-        j.sample(true, idle(3.0), targets(target(0x50, 5.0))).owned,
+        j.sample(true, idle(3.0), targets(target(0x50, 5.0)))
+            .requested,
+        MAPPER_A
+    );
+}
+
+#[test]
+fn late_aerial_tumble_arms_without_hit_attribution_but_never_steers_in_air() {
+    let mut j = JabLock::default();
+    let falling = Target {
+        grounded: false,
+        hit_by_us: false,
+        ..target(0x49, 40.0)
+    };
+    let out = j.sample(
+        true,
+        Context {
+            status: 0x36,
+            grounded: false,
+            ..idle(1.0)
+        },
+        targets(falling),
+    );
+    assert!(j.watching());
+    assert_eq!(out.owned, 0);
+    assert_eq!(out.stick, None);
+    let out = j.sample(true, idle(2.0), targets(falling));
+    assert_eq!(out.stick, Some([1.0, 0.0]));
+    assert_eq!(out.requested, 0);
+    let out = j.sample(
+        true,
+        Context {
+            safe_ground: [true, false],
+            ..idle(3.0)
+        },
+        targets(falling),
+    );
+    assert_eq!(out.stick, Some([0.0; 2]));
+    let out = j.sample(
+        true,
+        idle(4.0),
+        targets(Target {
+            hit_by_us: false,
+            ..target(0x50, 5.0)
+        }),
+    );
+    assert_eq!(out.requested, MAPPER_A);
+}
+
+#[test]
+fn independent_chase_uses_nearest_real_tech_state_and_respects_cancellation() {
+    let mut j = JabLock::default();
+    assert_eq!(
+        j.sample(true, idle(1.0), targets(target(0x47, 5.0))).owned,
         0
     );
+    assert!(!j.watching(), "ordinary flinch must not arm a chase");
+    let mut ts = targets(Target {
+        hit_by_us: false,
+        ..target(0x68, 40.0)
+    });
+    ts[1] = Some(Target {
+        id: 3,
+        hit_by_us: false,
+        ..target(0x67, 12.0)
+    });
+    assert_eq!(j.sample(true, idle(2.0), ts).requested, MAPPER_R);
+    j.cancel_pending();
+    let near = targets(ts[1].unwrap());
+    assert_eq!(j.sample(true, idle(3.0), near).owned, 0);
+    assert!(
+        !j.watching(),
+        "same visit cannot immediately rearm after cancellation"
+    );
+    j.sample(true, idle(4.0), [None; 8]);
+    assert_eq!(j.sample(true, idle(5.0), near).requested, MAPPER_R);
+    assert_eq!(j.sample(false, idle(6.0), near).owned, 0);
+    assert!(!j.watching());
 }
 #[test]
 fn accepted_jab_releases_a_even_in_hitstop_and_moving_rolls_need_future_reach() {

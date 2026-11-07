@@ -16,6 +16,7 @@ fn capture(frame: f32, delay: f32) -> TechContext {
         contact_in: grounded_ganon_contact_in(CATCHED_GANON, 0x18, 0x1e2, frame, 1.0),
         input_delay: delay,
         previous_guard: false,
+        prepare_guard: false,
     }
 }
 
@@ -128,4 +129,51 @@ fn ordinary_tumble_retains_its_existing_arrival_window_and_invalid_capture_never
             .press
     );
     assert!(!input.sample(false, true, 40, capture(27.0, 0.0)).press);
+}
+
+#[test]
+fn grounded_shared_release_can_deliver_unmapped_capture_request() {
+    let mut input = TechInput::default();
+    assert!(input.sample(true, true, 40, capture(27.0, 0.0)).press);
+    let release = TechContext {
+        status: CATCHED_AIR_END_GANON,
+        motion: 8,
+        frame: 1.0,
+        contact_in: Some(0.0), // adapter verified the grounded predecessor
+        ..capture(31.0, 0.0)
+    };
+    assert!(input.sample(true, true, 40, release).press);
+    input.mapped_press();
+    assert!(!input.sample(true, true, 40, release).press);
+    assert_eq!(input.cooldown_remaining(), 40.0);
+    let mut input = TechInput::default();
+    assert!(
+        !input
+            .sample(
+                true,
+                true,
+                40,
+                TechContext {
+                    contact_in: None, // aerial/unknown predecessor: adapter supplies no contact
+                    ..release
+                }
+            )
+            .press
+    );
+}
+
+#[test]
+fn floor_tech_can_buffer_before_last_two_hitstop_frames() {
+    let mut input = TechInput::default();
+    let ctx = TechContext {
+        status: 0x4b,
+        stopped: true,
+        remaining_stop: 5,
+        contact_in: Some(6.0),
+        ..capture(4.0, 0.0)
+    };
+    assert!(input.sample(true, true, 40, ctx).press);
+    input.mapped_press();
+    assert!(!input.sample(true, true, 40, ctx).press);
+    assert_eq!(input.cooldown_remaining(), 40.0);
 }

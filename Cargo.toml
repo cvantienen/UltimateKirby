@@ -6,8 +6,74 @@ name = "kirby_assist"
 # Required by the source syntax, dependency imports, and array iteration rules.
 edition = "2021"
 # Single release-version source: logger and release builder read this value.
-version = "1.7.2"
-description = """ 
+version = "2.7.5"
+description = """ menu update for preformance; simplified
+chatgpt fixes
+Allows leading Wait actions to hold a true neutral standstill before any supported recipe, including short_hop_nair, instead of rejecting Wait plus paired Nair. Adds paired short_hop_fair/bair/uair/dair actions that send Jump+Attack+direction together, with one jump pulse and native acceptance/retries. Preserves the explicit after-hop Nair Attack delay and separate C-stick aerial path. Uses bounded native-progress pause clocks with hitstop/duplicate protection and idle-loop handling, cleared on plan reset; no new rays, scans or file reads in play.
+
+Adds the startup action short_hop_nair as an explicit immediate neutral X+A short-hop Nair recipe and a separate Yoshi Neutral option, preserving existing wait-based Nair recipes. File directional Fair/Bair/Uair/Dair now opt into C-stick aerial selection only after native takeoff, with analog axes and digital flick edges released on acceptance; compiled recipes retain their prior inputs. Reuses the shared right-stick overlay, preserves paired jumps/Brother mapping, and adds parser plus native-progress regressions.
+
+Adds explicit toward-opponent and away-rom-opponent file directions, retaining opponent as the toward alias and nonnegative drift strengths. Away resolves independently of facing through the same native-confirmed drift engine without extra opponent scans; overlapping horizontal positions yield neutral away input. Adds a quick-start explanation and full supported action/direction key at the top of deployment sequences.txt.
+
+Changes auto-mash startup to OFF in the Rust fallback and supplied deployment configuration, retaining the in-game Auto-mash toggle for opt-in use. Updates the release helper summary and maintained control notes accordingly.
+
+Hardens the runtime master switch with an independent native match/intro lock that stays active during OFF passthrough, rather than relying on the expiring menu observation lease. Requires a 350ms Plus+Minus hold and 150ms complete release; rejects held chords crossing match boundaries and missing-controller samples. OFF clears pending overlays/requests and rejects in-flight observation publication; mapper rechecks passthrough before applying outputs. ON restores saved feature selections after cleanup. Adds portable gesture regressions; only minimal read-only battle/toggle checks remain while OFF.
+
+Adds tools/upload_sequences.py to send only deployment/ultimate/kirby_assist/sequences.txt to both saved Switch IPs using anonymous FTP port 5000, attempting both targets independently and verifying each by SHA-256 read-back. Includes dry-run preview and fake-FTP tests; never builds or uploads NROs.
+
+Reverts the recent stale-selection/cache changes at the user's request after the reported replay was identified as a different getup option. Restores prior recipe inheritance, observation publication and menu-change reset behavior; keeps silent test-option filtering and larger, more widely spaced menu text.
+
+Hardens menu option changes against stale recipe publication: clears pending output/evaluation state, rejects observations from an older settings epoch and removes inherited file overrides before resolving selected IDs. Filters file choice IDs starting with test and labels containing [TEST] from silent startup catalogs only. Enlarges the top-menu font and gaps, keeping the selected setting in view with hidden horizontal scrolling when needed.
+
+Restores the previous sequences.txt layout at the user's request, undoing the all-character heading reorganization while preserving every existing recipe, timing edit and dynamic file-option feature.
+
+Organizes sequences.txt with clear alphabetical headings for all 77 registered fighter profiles and five getup-situation subsections per fighter, preserving the ten active Kirby input tests. Explicitly labels empty sections and the remaining compiled-recipe fallback so the file cannot be mistaken for a completed all-roster timing migration.
+
+Moves all ten Kirby Neutral [TEST] choices from compiled menu handlers into enabled, named sequences.txt sections, preserving test labels and recipe values without changing the default selection. Removes the redundant Rust training fixture module; adds narrowly validated grounded Kirby Down Special/Stone support to the existing file executor so the special-input test also lives in text. Tests validate the supplied file and native short-hop/special delivery behavior.
+
+Extends startup sequences.txt to append bounded named ledge-menu choices and rename/override existing choices, keeping compiled options and defaults in place. Accepts optional name/label, readable Smash action names, short-hop/wait phrases, percentages and labeled motion-frame limits. Freezes augmented menus at startup; gameplay retains fixed recipes and existing native-confirmed executors without new file reads or parsing. Validates normalized duplicate IDs, labels, section/property caps, move data and 32-option list limits before installing hooks.
+
+Restores retired Spot punish, Grab dodge/punish and ledge trump only as diagnostic menu toggles, all initially OFF, and adds an opt-in Perf gauge. Samples 1/16 accepted local observations with fixed timing/ray counters; the existing writer formats ranked five-second reports and a cached compact card. Silent builds exclude instrumentation. Adds session generations and idle expiry for gauges, clears pending tech and grab targets on mode changes, skips airborne grounded-reader scans and idle combo velocity reads, and throttles failed trump edge searches to 30 mapper ticks.
+
+Restores auto-tech as a per-fighter ON/OFF menu row, initially OFF with the supplied configuration. Menu state controls both prediction and tech requests; OFF bypasses collision queries entirely. Eligible ON predictions stop after minimum one-frame contact is found because remaining rays cannot improve that result. Adds readable diagnostic configuration for the toggle; other retired reaction/trump features stay disabled.
+
+Fixes menu D-pad navigation leaking into the B-reverse shortcut by blocking shortcut delivery whenever menu directions are consumed and masking consumed D-pad buttons before edge sampling. Swaps menu navigation to Left/Right for lists and Up/Down for options. Hidden D-pad B-reverse now supplies an opposite-direction priming flick before neutral B and the selected-direction reversal, so the physical analog stick need not supply the setup.
+
+Temporarily disables auto-tech, spot-dodge punish, automatic grab detection/dodge/punish and auto ledge trump even with older enabled SD settings. Hides the two retired reaction menu rows and bypasses tech collision prediction, grab-target observation and trump edge searches. Keeps regular roll reads, ledge-trap responses, mash and other helpers available.
+
+Makes the separate Kirby automatic Fair-hit Fsmash helper first-hit-only through landing: any later connecting Fair hit cancels the queued smash, including contact observed during hitstop. Native hit observation now covers later Fair frames so cancellation can be detected.
+
+Replaces the previous Kirby combo launch-floor probes with a fixed 16-native-frame airborne descent ownership budget for all button starters. The automatic Fair-hit follow-up also hands control back after 16 airborne native frames from confirmation. Hitstop and duplicate polls do not spend the budget; landing within it retains normal smash follow-ups. Removes combo floor rays entirely.
+
+Adds an offstage safety gate to Kirby's Fair 1 > Fsmash button starter. Only while a grounded Fair starter is being considered, two short read-only floor probes check the facing/launch lane with velocity-scaled lookahead; an unsafe ledge prevents the automated hop, Fair and fast-fall sequence from starting, while established onstage sequences and other finishers remain unchanged.
+
+Stops the runtime master label from lingering across every non-battle screen: the lightweight selector path has no dependable character-select-only scene signal, so `Kirby Assist: ON/OFF` now appears only as a 1.8-second confirmation after Plus+Minus. Improves the in-battle top-line menu with moderately stronger translucent backing, slightly larger minimum text and wider spacing while preserving its single-line, borderless layout.
+
+Fixes the Arena and character-select runtime master switch by polling Plus+Minus from the configured controller through the installed ImGui callback instead of relying on the battle-only mapper path. A tiny persistent `Kirby Assist: ON/OFF` label now shows the current state outside active battles. The check is edge-debounced and limited to one controller; this supersedes the earlier mapper-only and temporary-toast behavior.
+
+Adds a subtle 38%-opacity near-black strip behind the horizontal top-edge controls, improving readability and eye comfort over bright stages while retaining the borderless, single-line layout and unchanged cached rendering path.
+
+Changes the saved-options menu from a left-side column to one transparent horizontal line pinned to the absolute top screen edge. Cached compact labels and option names are separated across the line, the selected token uses brackets/accent color, and font sizing adapts to available width without per-frame string construction. Diagnostic result cards remain in their existing left-side area below the top line.
+
+Adds a discreet character-select/results confirmation for the runtime master switch: a tiny translucent `KA ON` or `KA OFF` label appears at the top-left for 1.8 seconds after Plus+Minus toggles. It reuses the installed ImGui draw callback, performs no native scene queries or formatting in the render loop, and remains absent at all other times.
+
+Adds an in-game runtime master switch: press Plus+Minus together outside an active battle (including Arena character select/results) to toggle every mod feature. OFF cancels pending ownership, hides/clears overlays and bypasses fighter observation plus all controller rewriting; only the selected-controller chord check remains so the mod can be re-enabled without restarting. The chord is edge-debounced, blocked during ready-go gameplay, consumed on the toggle screen, and preserved by the Brother layout.
+
+Fixes Kirby ledge-trap Nair being interpreted as Fair: all delayed/retried Nair Attack inputs now use a neutral stick, and configured horizontal drift begins only after native ATTACK_AIR confirms the Neutral-Air motion. The same shared ordering protects neutral-getup and jump-getup Nair under delayed online delivery; focused Kirby/Yoshi Nair regressions cover launch, retries and post-acceptance drift.
+
+Menu now starts hidden and toggles on a fresh Minus press in normal and diagnostic Training play; R3 remains available except for the classic monitor chord. Brother controls retain A attack, L special, R/ZR jump, ZL shield, X grab and L3 ledge assist through canonical request translation. File-driven directional aerials now continue after takeoff so Kirby short-hop Fair selects forward+A instead of ending at the jump, with focused regressions for both layouts.
+
+Adds startup-loaded `sequences.txt` fighter sections that override existing
+ledge-menu choice recipes without recompilation. Parsing is capped at 256 KiB
+and 16 actions per recipe, validates fighter/situation/choice IDs, and copies
+fixed recipes into normal native-confirmed Nair, OneShot and grab execution.
+Missing sections retain compiled behavior; no SD reads/parsing occur in play.
+
+Fixes intermittent ordinary-grab spot-dodge misses: use each opponent's
+compiled standing/dash/pivot grab timing and reach (including DLC data), accept
+any grounded state with native dodge readiness, and preserve an unaccepted
+attempt when higher-priority ownership temporarily suppresses it. The forecast
+window is six advancing native frames; no command-grab model or device guarantee.
 
 Hardens recent movement controls for online sampling: held X is a single native
 update tap even before delayed jump-squat feedback, while dash pivot/walk state
@@ -738,7 +804,777 @@ spot/grab punish preparation, without blocking proposal generation.
 X short hop retains fresh grounded presses through native stop. Kirby combo
 starters request X immediately without ZL or a jump-term wait, preserve takeoff
 stick input, and release at native squat while retaining higher-mode priorities.
+
+Audits shared offline/online input paths. Cancels stale/interrupted dash pivot
+and dash-walk before cached output and on combat takeover. Trip/fair follow-up
+pulses and ledge-trump timeout now require native motion progress, not changed
+target/hit/geometry facts. Roll reads reject large clock gaps and preserve grab
+tracking across roster slot changes. Repairs the portable menu test imports.
+Keeps held physical X suppressed after short-hop ownership ends, while other
+owners' explicitly requested synthetic jumps remain deliverable.
+Manual attack/jump/shield/C-stick input also cancels dash assistance before
+native startup feedback, preserving the physical action's directional input.
+
+Fixes A+B follow-up stalling when its one-frame forward input has no separately
+observed WALK state: begin native grab/down-smash retries after that input.
+Marks the X shortcut's mapped jump with native JumpMini, preserving its held-X
+quarantine and other modes' full hops without injecting shield or attack.
+
+Adds Kirby Neutral -> Cross-up grab as a separate saved ledge option. Attempts
+a bounded grounded crossing toward the ledge side, confirms inward facing,
+then times standing-grab delivery against observed getup protection/recovery.
+Keeps an edge inset, ground probes, native-clock retries and existing priority;
+hands back on a blocked/expired attempt, target loss or native grab startup.
+
+Fixes combo starters full-hopping under delayed online startup feedback by
+applying native JumpMini to their owned takeoff requests as well as physical X.
+Verifies fair selection precedes the descending Down flick, then holds Down
+through duplicate polls/hitstop until landing without repeated jumps.
+
+Fixes the separate automatic manual fair-1 -> Fsmash helper forgetting its hit
+at frame 17, normal falling, or skipped native observations. Retains confirmed
+hit 1 until landing and buffers upward Fsmash through landing lag, with native
+startup release and damage/grab/dodge interruption. Handles mixed landing flags
+and first-hit evidence reported on the immediate landing transition.
+
+Reduces silent-build observation overhead without lowering reaction cadence:
+skips already-published callback setup after route refresh while retaining
+roster discovery, reuses identical floor-support probes only within a callback,
+omits floor forecasts unused by grounded combo starts/held rejected triggers,
+and prunes far-side ledge probes that cannot beat an already found nearer edge.
+
+Prevents menu/result overlays lingering after leaving Elite/warmup matchmaking:
+requires a fresh connected local fighter for mapper visibility and adds a
+render-side fighter-observation timeout when callbacks stop. Saved choices
+remain cached; stale diagnostic cards clear when the display expires.
+
+Removes live recovery/two-frame interception and its opponent scans/forced ledge
+searches. Combo buttons now start only grounded; deletes airborne-entry floor
+rays and landing prediction, retaining grounded short hops, fast-fall and hit
+follow-ups. Consolidates mode-setting locks, shares repeated target direction,
+and skips disabled grab-roster and movement-only attack-readiness queries.
+
+Gates ledge attack-readiness and jump-physics observations behind same-pass
+ledge/getup acquisition or an ongoing response, retaining automatic positioning
+and target-loss follow-ups. Completed visits stop tracking ordinary onstage
+targets; approach threat scans yield to the ledge policy's own shield responses.
+
+Defers roll/grab-dodge/recovery-punish readiness queries until a matching option
+is observed, retaining same-observation responses and empty-target cleanup.
+Skips disabled recovery profile lookups and turnaround-tilt enemy scans outside
+usable grounded states, retaining down-tilt hitstop buffering and fair re-aiming.
+
+Reserves detected ledge visits against general roll/spot/grab read owners,
+including previously committed reads, while preserving safety priority and
+normal reads between visits. Idle crouch yields on physical button history
+and release edges as well as active buttons, movement and higher-priority tools.
+
+Makes automatic smash retries less mechanical: the first eligible smash remains
+immediate, while ignored inputs retry with short uneven press/release bursts
+driven only by native game-clock progress, not repeated online controller polls.
+
+Adds a Brother control-layout preset for R/ZR Jump, ZL Shield, L Special and X
+Grab, translating assist actions while moving held ledge assist to L3. The
+existing enabled=false setting now bypasses mapper and fighter observation work
+at the earliest safe point for low-overhead unassisted play after restart.
+Kirby's neutral-getup nair now short-hops immediately, drifts fully inward, and
+delays nair five native updates; jump-getup nair attacks immediately. Cross-up
+grab now rolls straight toward the ledge and grabs as soon as native roll ends.
+Restores the canonical mapped-button value in the final mapper composition
+scope, fixing all movement, shortcut, jab and posture references in live builds.
+Adds a version-only multi-Switch uploader with fixed safe routing: .105 receives
+silent and .142 receives diagnostic, while both retain backup/hash verification.
+Marks committed short-hop ledge Nair takeoff samples as native JumpMini, keeping
+Kirby's neutral- and jump-getup Nair hops short even with delayed online status.
+Fixes Kirby's ledge-roll grab missing long native rolls: observed inward root
+travel now extends the walking catch point instead of chasing a stale fixed spot.
+Diagnostic upload confirmation is now limited to .105; the fixed .142 diagnostic
+route runs directly, while the multi-Switch wrapper always assigns .105 silent.
+Adds build_variants.py -upload: after both variants build and package successfully,
+it runs the version-matched fixed silent/diagnostic multi-Switch upload command.
+Keeps native JumpMini tied to the committed short-hop recipe plus the cached
+ledge X request, avoiding loss when mapper timing and policy output differ.
+Carries the short-hop marker in the cached ledge output across pre-map state
+updates so delayed online takeoff requests retain native JumpMini.
+
+Fixes Kirby Neutral/Jump get-up nairs and Yoshi ledge nairs to mark their
+committed launches as native short hops through final mapping. Kirby Neutral
+nair delays A by five native animation frames with 25% inward drift; Jump nair
+pairs A immediately with 50% drift. Yoshi's facing-independent nairs launch
+immediately and retain their brief 25% nudge. Kirby Neutral down tilt and down
+smash use earlier observed vulnerability/delivery edges while retaining their
+real active windows. Adds focused host regressions; no mod build or upload was
+performed.
+
+Makes Yoshi's bair-to-Fsmash starter retain its native short-hop marker and
+hold Down from the aerial apex for the earliest legal fast fall. Grounded
+canonical X now requests JumpMini independently of fighter and higher-priority
+policy ownership. D-pad Left/Right replace the former slide shortcut with
+bounded left/right B-reverse sequences; the legacy config key remains accepted.
+
+Replaces Kirby's simultaneous A+B jab-follow-up trigger with a physical Jab 1,
+A release, then fresh mapped-Grab press. The Grab edge is consumed during jab;
+native recovery/cancel readiness then drives one forward frame followed by the
+selected Grab or down-smash retry at the earliest legal offline/online frame.
+
+Retains a fresh D-pad Left/Right B-reverse direction across the one-observation
+native transition-readiness lag. Once neutral special becomes legal it emits
+the complete neutral, Special, directional-flick sequence without analog help.
+
+Yoshi's bair-to-Fsmash starter now launches directly from full sprint with a
+one-shot short hop plus full reverse input, retains the turnaround through jump
+squat, then attacks and drifts back toward the target before its fast fall.
+
+Yoshi's neutral-getup Nair punish now waits ten advancing native frames after
+recognizing Cliff Climb before beginning its existing short-hop Nair sequence.
+
+Yoshi's jump-getup Nair now uses 50% inward drift after native Nair acceptance;
+neutral-getup Nair retains its separate 25% drift and ten-frame pause.
+
+Extends Yoshi's jump-getup Nair to full inward drift through Nair frame 8;
+neutral-getup Nair keeps 25% strength but now retains it through frame 6.
+
+Removes Yoshi's neutral-getup Nair pause while retaining its extended 25%
+drift, and keeps jump-getup Nair at full drift. Yoshi's neutral-getup forward
+and down smashes now schedule one native frame earlier so their first active
+windows meet protection expiry instead of arriving after shielding is legal.
+
+Kirby's Neutral/Jump get-up Nairs now emit exactly one mapped short-hop Jump
+edge instead of retrying AX after a release gap while native squat feedback is
+delayed. Down tilt, down smash and grounded Stone schedule one additional native
+frame early to account for their observed training-room delivery offset.
+
+Adds an allocation-free declarative ledge-response sequence layer with named
+face, walk, run, hop, move, drift and range-aware grab actions for all five ledge
+situations, while retaining custom-handler escape hatches and the existing
+native-confirmed execution engines. Migrates Kirby's Neutral and Jump Nair
+recipes to readable action lists without changing their corrected input timing.
+
+Adds opt-in Kirby Neutral `[TEST]` choices for training-room validation of the
+shared sequence vocabulary: facing plus exact-distance walk/run, short/full hop,
+delayed Nair, turnaround Bair, drift, grounded down smash/down special, and
+profile/explicit/unverified grab ranges. Multi-frame preparation remains bound
+to its recognized getup recipe until the native action engine takes ownership.
+
+Hardens sequence recipes for offline/online sampling: duplicate mapper polls
+remain cached and stopped jump-squat frames cannot bypass a delayed Nair attack.
+The onstage smash reader now recognizes bounded same-roll side swaps and early
+overlapping departures, covering shield-faceoff rolls whose approaching sample
+was skipped, while ordinary away rolls and large clock gaps remain rejected.
+Keeps paired file short-hop aerial Jump+Attack inputs held together until native jump confirmation, then releases Jump with Attack buffered through squat. Preserves explicit waits and legacy staged aerials; adds delayed-delivery regression coverage without extra scans or file reads.
+Full FTP uploads always use current deployment sequences.txt instead of saved release copies, require the deployment file before connecting, print its source path, and preserve backup/read-back verification.
+Sequence-only uploads validate the exact payload using the shared Rust startup parser and silent/diagnostic fighter-menu validation before FTP, including dry runs, with readable failures and an offline cached host validator.
+Adds opt-in timed walk-to-opponent and short-hop drift-to-opponent before Nair actions with stick strength, maximum native frames and target gap. Neutralizes the stick for Nair selection, follows existing opponent snapshots, and pauses timers during hitstop without extra probes or gameplay allocations; existing paired aerial and post-attack drift recipes retain their behavior.
+Corrects deployment Yoshi roll-grab facing by removing the conflicting face-away command and labels walking recipes to match their actual eight-unit movement; preserves choice IDs, timings, strengths and range checks.
+Adds opt-in ordered grounded Face/Wait prefixes with observed turn confirmation, native-progress waits and bounded turn timeout. Configures Yoshi grab_shuffle to wait five frames, face away, wait five, face opponent, walk ten units at 40 percent stick and range-check the grab; preserves ordinary preparation, aerial and attack paths and adds offline/delayed-input regressions without new gameplay scans or allocations.
+Adds an optional opponent gap to distance-based file Walk actions with momentum/input-delay stopping allowance, existing ground-safety checks and completion latching to avoid chasing past the opponent. Applies a three-unit gap to Yoshi nair_v3 while retaining its four-unit travel cap and 80 percent stick; preserves legacy Walk behavior and adds parser and movement regressions without new probes or scans.
+Enables opponent spot-dodge punish reads and their menu toggle in silent as well as diagnostic builds, defaulting Spot punish and Auto-tech ON. Updates fallback/deployment auto-tech defaults while preserving explicit OFF configuration, toggles, master-disable gates and diagnostic-only grab-dodge/trump modes; adds menu/default regressions.
+
+Adds grounded Kirby Final Cutter to text-file sequences as up_special, Up B or Final Cutter, with native-start input release and startup validation.
+
+Extends text-file up_special / Up B to every configured fighter using universal native startup confirmation, without assuming fighter-specific hitbox timings.
+
+Adds universal grounded text-file dash_attack / Dash Attack with native dash confirmation before A, startup release, and bounded ground-checked setup.
+
+Disables the invalid hop-plus-Up-Special deployment recipe that blocked sequence startup, preserves its text as comments, and documents validation troubleshooting.
+
+Refactors file ledge recipes into fixed ordered input timelines with universal ground/air moves, multi-attack chains, explicit holds/waits/delays, raw button and stick controls, optional spatial gates and startup-bound code handlers. Preserves native-progress online/stop deduplication, cancels unverifiable clock gaps, skips rich observation for literal timelines, restores hop-to-Up-B and repairs duplicate deployment IDs.
+
+Moves all 1,515 fighter ledge menu options and their scheduling into sequences.txt with required per-option start_delay, file defaults and ordered input waits. Removes the compiled fighter option/recipe dispatcher, old code bindings, native scheduling leads and config.txt timing overrides; keeps only shared recognition, observation clocks and explicit spatial/block gates. Preserves custom recipes, removes their duplicate Kirby header, and documents input-only operation without changing native physics, hitboxes, move definitions or animation speed.
+
+Handles zero-rate poses using a read-only locked-opponent clock fallback without roster/ray/readiness scans, avoids double-counting actors or backfilling hitstop gaps, and normalizes native float roundoff at input-frame boundaries.
+
+Adds a lazy per-fighter RAM recipe editor and six-slot Custom choice in each ledge row, with editable initial/per-action delays, action types and bounded movement parameters. Caches resolved edits by revision, cancels input during editing, and enlarges the cached menu display without gameplay parsing or file writes.
+
+Clarifies in-game recipe timing labels, distinguishes neutral pauses from input holds and movement duration, and adds selected-field help and navigation position without changing execution timing.
+
+Removes Wait from the in-game action picker, translates existing file pauses into editable action delays, and groups indented settings beneath move names while preserving execution timing.
+
+Adds bounded hold-to-repeat acceleration for numeric recipe fields, retaining precise taps and tap-only move/direction selection; clears repeat state on release and editor/input boundaries.
+
+Defaults newly selected in-game input actions to four-frame holds while preserving existing file recipes and saved RAM action durations.
+
+Fixes duplicate Yoshi Neutral defaults in the deployment sequence catalog while preserving both custom Nair recipes and their timings. Validates all 1,538 sections against silent and diagnostic startup rules.
+
+Removes an invalid trailing colon from the custom Yoshi Neutral walk action; startup validation identifies a separate incomplete Yoshi Jump approach action for correction.
+
+Adds X test/stop for the highlighted ledge recipe using the existing native-clock input timeline and current RAM settings. Runs once without requiring a getup, uses a real opponent, disables automatic positioning, cancels on menu changes/transitions, and reserves the test button through release to prevent jump leakage.
+
+Replaces the full-width menu strip with a compact high-contrast focused-row card, readable fixed text, wrapped labels and option position. Limits recipe editing to the selected move and indented settings, with shorter contextual help and no gameplay/configuration changes.
+
+Changes Yoshi roll Tongue grab to inward four-unit walking followed by opponent-facing range-gated grab. Shares exact-byte Rust sequence validation across sequence-only and full deployment uploaders, adds local check-only mode and section/line error context, and rejects invalid files before FTP work.
+
+Preserves owned sequence walking analog strengths in the final mapped controller packet while retaining flick-alias suppression, native deadzones and movement physics. Limits forwarding to active distance-walk and grounded approach steps, with no timing or custom recipe changes.
+
+Adds explicit Y Save in the in-game recipe editor, with a lazy bounded background writer, saved/unsaved status and snapshot validation. Persists only the chosen recipe actions/timings, preserves unrelated sections/labels/defaults, appends named Custom recipes, verifies a backup and temporary file before replacement, and rejects invalid catalogs or conflicting file edits. Adds standalone range serialization and portable save/round-trip/filesystem safety checks.
+
+Fixes false sequence cancellation when grounded walking/running animation rates change: recognizes a single update advanced at the new native rate instead of dividing by the old rate. Preserves duplicate/stall and stable-rate gap handling, input strengths, attack clocks and all custom recipes; adds forward/reverse movement regressions across walk and drift strengths.
+
+Corrects fighter-range grab gates to use each selected fighter reference instead of the global range; Yoshi now checks range before facing and grabbing. Adds diagnostic-only controller list management for rename/add/duplicate/delete, stable draft indices and validated backed-up persistence. Pins numbered slot overviews and unsaved/last-change indicators while editing, suppresses unused-slot settings, and preserves explicit recipe inputs when menu buttons share bindings.
+
+Fixes Switch menu-save error 514 by setting both creation flags required by the installed Skyline filesystem backend. Closes the temporary writer before read-back, supports destination-exists rename errors with preserved-original rollback, and recovers interrupted replacements before startup/next save; retains validation, verified backups and refusal to overwrite unrelated temporary files. Adds Switch-style rename/failure/recovery regressions.
+
+Reworks the saved-option/editor presentation into a right-corner column with complete numbered move groups and compact per-action settings, pinned controls/status, exact field highlighting and focus-following overflow scrolling. Shows all configured actions in preview and editing, labels left/right stick axes, and moves diagnostic snapshots, performance/calibration cards and the master toast to the right using only existing ImGui bindings. Execution, input controls and configuration data are unchanged.
+
+Adds opt-in per-fighter X/Y sequence menus with the existing action editor, executor and diagnostic list manager. Preserves native bindings until configured, runs once per fresh press outside the menu, retains menu Test/Save controls, persists selected bindings including Native, and cancels on existing lifecycle/ownership boundaries. Extends the validated text schema with x/y sections, primes an absent opponent cache through the existing fighter callback, and preserves explicitly owned synthetic button inputs without recursive triggers or new dependencies.
+
+Keeps sequence frame timing advancing during held edge-balancing poses by sampling the already tracked opponent clock, preserving duplicate-update and hitstop pauses without changing game physics, move data or configured recipes.
+
+
+Adds a compact first-page ledge selector before the full editor: Minus cycles quick selection, full menu, and closed. Shows all five selected ledge responses together, cycles existing saved recipes without exposing blank templates or edit/test/manage commands, and preserves recipe data and input-release safeguards.
+
+
+Preserves active SD sequences.txt during full and sequence-only FTP uploads by sending the validated deployment copy as sequences.upload.txt. Separates the UI into quick selection, sequence editing, and an all-visible modes page before closing; limits the editor to ledge and X/Y recipes, and adds saved X/Y plus Native switching to the compact selector without changing existing recipes or gameplay policies.
+
+
+Adds an explicit diagnostic-to-silent sequence sync tool: downloads and validates the diagnostic active file, preserves unique local snapshots plus a verified silent SD backup, verifies replacement by SHA-256, and attempts rollback after transfer failure. Ordinary suffixed uploads remain unchanged; dry-run only reads diagnostic and no mod build or transfer runs automatically.
+
+
+Restores ordinary gameplay button passthrough in the compact selector instead of swallowing A/B/L/Y and stick-click inputs. Reserves X for one-shot highlighted recipe testing/stopping, displays test status, cancels tests on manual actions or navigation, and retains held-X quarantine plus Native-binding guards without changing recipe or game data.
+
+
+Changes compact-selector and modes-page navigation to Up/Down for rows and Left/Right for hovered values, including ON/OFF switches and X/Y saved recipes. Keeps sequence/action editor controls unchanged and updates the cached control hints.
+
+
+Anchors all silent-build menu pages to the bottom-left with auto-size growth upward, while diagnostic menu pages and their result panels retain the top-right layout. Controls, recipes and gameplay behavior remain unchanged.
+
+
+Limits Kirby idle crouch to an enemy within 45 horizontal and 20 vertical units, reusing one bounded roster observation for proximity and tilt facing. Restricts pass-through platform tech rays to descending floor probes, withholds automatic guard when native damage recovery permits air escape, and cancels stale tech requests outside supported tumble/capture states. Keeps game physics, move data, native lockout and sequence recipes unchanged.
+
+
+Adds OFF-by-default per-fighter grounded spacing assistance and Modes controls for gap, tolerance and observed-hitbox margin. Uses bounded read-only fighter geometry and shared floor probes to propose approach/retreat or grounded shield, with manual-input override and existing committed-action priority. Adds native analog forwarding, diagnostic evidence and portable regressions; no projectile coverage, air dodges, physics edits or perfect-avoidance guarantee.
+
+
+Restores held-L ledge trapping while the compact selector is visible. Preserves L readiness through compact navigation and consumes L as the existing assist trigger rather than a native shield press; directions and X remain isolated, with tests canceled on L takeover and held-L assistance resuming after navigation release.
+
+
+Fixes menu-save validation retaining whole startup catalogs on every save by checking temporary parsed data without publishing process-lifetime menu references. Bounds actual save/recovery file reads to 512 KiB, fixes the worker stack at 2 MiB, and adds repeated-save allocation and oversized-read regressions while preserving backup, verification and rollback behavior.
+
+
+Adds a last-used-fighter editor on confirmed non-battle screens through the existing ImGui host, with explicit cached-profile labeling, fresh-boot/no-fighter refusal, gameplay/test suppression and existing background saves. Resolves complete named SDK single/bulk controller-read pairs for input isolation, bypasses filtering for raw menu reads, fences held input/history on close, and expires capture on renderer loss or match entry. Unsupported/unknown paths stay unavailable; no fighter selection, physics, hitbox or network modifications.
+
+
+Refreshes menu styling with darker rounded panels, teal selection cards and state colors, hides on-screen control tips while preserving save/errors, slot indices and values, and anchors silent menus top-left while diagnostics remain top-right. Changes Minus to compact/modes/closed and opens the highlighted recipe directly with R3; R3 or Minus returns from editing to compact without discarding edits.
+
+
+Sequence transfer now accepts --from diagnostic or --from silent to copy active recipes in either direction, preserving source files and destination backups, validation, and read-back verification.
+
+Recipe editor clarifies button-hold frames, preserves and describes imported input choices when cycling, distinguishes numeric and fighter grab-range checks, and exposes shield-hit/facing checks with clear names. The old native Y combo/Finisher binding is disabled in favor of swappable X/Y input recipes; normal unconfigured Y passes through. Existing saved sequences are preserved.
+
+Moves menu save startup out of active battles: Save queues a recipe snapshot and the existing verified outside-battle editor path starts the worker after the match lock clears. Repeated requests update the same pending recipe, with explicit queued status; backup, verification and rollback remain intact. Catalog parsing reserves its large roster buffer once with fallible allocation to reduce save-time peak memory, with queue and allocation regressions.
+
+Removes the live A+B jab-to-grab producer and menu row. X/Y input recipes now form shared universal libraries with shared selections, edits, names and diagnostic list management across fighters, while ledge recipes remain local. Legacy fighter button sections migrate on explicit save with collision-safe IDs and preserved inputs; frozen button lists are reused across profiles, and save/transfer validation accepts universal X/Y headers.
+
+Reduces save/fighter-switch resource pressure: shared X/Y snapshots update from recipe/selection changes instead of unrelated UI revisions, and inactive fighters release redundant button-editor data while keeping ledge edits. Catalog validation counts each row once, and each queued save worker exits after its job instead of retaining an idle thread and 2 MiB stack across matches. Config contents and gameplay behavior are preserved, with worker-lifecycle, allocation and sharing regressions.
+
+Audits auto-tech performance and removes redundant construction of all body probes during each ray refinement. Preserves collision query order/count, coverage, platform flags, contact resolution and scheduler timing, with bit-exact equivalence coverage. Movement actions were reviewed without changing their behavior pending confirmation.
+
+With explicit movement approval, fixes only Backward Drift to capture its starting direction once per action so native turnarounds cannot alternate its horizontal stick. Preserves strengths, frame durations, duplicate-poll handling and every other movement direction; adds grounded/airborne, turnaround and consecutive-step regressions.
+
+Audits hot-path reuse without reducing polling or detection frequency: prepares identical immutable grab-reference facts once before hooks, reuses fighter-kind facts and a last-identity lookup cursor within one observation, classifies X/Y bindings without full action-array copies, and rebuilds diagnostic configuration only on relevant changes. Preserves fresh attack/readiness/contact queries and all movement/timing behavior, with cache and binding-equivalence regressions.
+
+Removes experimental automatic Spacing assist completely: dedicated observer/predictor modules, runtime state and proposals, menu settings, roster-demand flag and diagnostics ownership. Preserves manual walking, file movement actions, held-L positioning/defense, sequences and all other settings.
+
+Removes all universal and fighter-specific X/Y recipe bindings, menu rows, shared caches, metadata classification and extra runtime slots. Restores X to the existing short-hop shortcut and stops consuming gameplay Y so native mapping passes through. Retired X/Y file sections are ignored for compatibility and preserved during ledge saves; runtime settings now contain only five ledge response slots. Ledge recipes, simulated X/Y actions inside them, menu test/save controls and game physics are preserved.
+
+Restores fighter-specific X/Y recipe lists, editing and one-shot button activation without universal mappings or shared caches. Normal button retains X short hop or ordinary Y input. Removes outside-battle recipe editing, last-used-fighter tracking and dedicated SDK controller interception hooks; menus are battle-only. Preserves queued one-shot safe-scene SD saves, ledge recipes and all game physics, detection and input timing.
+
+
+Adds opt-in diagnostic runtime health measurements for mapping/menu/draw/save/logger work, callback gaps, rebuilds, state/profile churn, retained editable menu payload, save-worker lifetime and logger backlog. Keeps fixed counters and nonblocking sampled timing separate from gameplay policies; lifetime totals survive window resets. Splits enabled performance reports into performance.log while other evidence remains in status.log, sharing one bounded logger worker. Silent builds exclude the instrumentation; no physics, action timing or detection frequency changes.
+
+
+Fixes startup validation of fighter-specific X/Y lists with saved non-default recipes: the permanent Normal button entry at the end of the file choices is valid. Preserves default selections and strict bounds for ledge/custom entries; adds save-to-restart and both-build regressions. Prevents a valid first button save from disabling the mod on the next boot without changing inputs or game physics.
+
+
+Adds fighter-specific D-pad Up/Down/Left/Right bindings beside X/Y, supporting saved/custom input timelines or registered mode targets with Hold/Toggle activation. Splits menu pages into ledge traps, six button configs and mode toggles while preserving R3 editing, input-release fencing and safe saves. Removes native hard-coded D-pad B-reverse/Down-trump triggers, routes active mode bindings to existing policies in both builds, and keeps inactive bindings to fixed identity checks without extra observations. Adds mode/sequence save-restart, parser, page/navigation and hold/toggle regressions; preserves physics and all authored input timing.
+
+
+Adds cached recipe-editor frame spans and nominal total input time, with F1 tied to recognition and conditional movement/check timing marked variable; excludes move startup/recovery and respects displayed timeout limits. Reviews pinned Ultimate Training Modpack runtime patterns without copying forced-status/physics mechanisms. Skips unused rejected-state tech velocity reads in silent while preserving all prediction gates, geometry, windows and acknowledgment, and corrects raw-input diagnostic explanations that inferred failures from missing optional samples.
+
+
+Makes automatic DI survival-focused by default and for legacy Adaptive configs, keeping aggressive attacker-separation DI explicit. Survival candidate scoring rejects modeled LSI launch-speed increases. DI/SDI immediately respect physical stick input held before or during a hit; SDI reserves the final three launch-input frames even when DI is unavailable, and invalid stick data abstains. Preserves input-only operation with no new native reads, rays, physics/status changes or heavy prediction, with direction/manual-control/handoff regressions.
+
+
+Fixes startup stack exhaustion after expanding button menus: constructs the 77 fighter profiles individually from a static constructor table instead of materializing a roughly 25 KiB profile array under config/parser frames on the 64 KiB loader stack. Preserves identities, saved X/Y/D-pad recipes and defaults, avoids bulk profile collection/sorting and adds a small-stack host regression. No game physics, inputs, gameplay timing or new worker changes.
+
+Adds Yoshi to the existing input-only Dtilt face helper, including physical down Tilt-stick with a neutral left stick; preserves attack edges and adds no wait. Gates facing reads on Down intent/recovery. Extends optional Yoshi Jab lock to bounded nearby native tumble/knockdown/tech visits including late aerial setups, retaining grounded/floor/transition/vulnerability checks, target identity and native-progress clocks; runs only at long approach distance and walks near punish range. Adds focused facing, availability and chase regressions. No physics, hitbox, status writes or new workers.
+
+Improves descending floor/platform tech forecasts using a bounded recent native velocity trend and at most fifteen short floor rays within the existing five-frame horizon. Falls back to linear prediction on unknown/discontinuous motion, clears one-record history with session resets and preserves wall/ceiling rays, native eligibility, air-dodge suppression, cooldown and input-only behavior. Adds floor-gap, query-budget, fallback and native-clock regressions; no physics/status writes or new worker.
+
+Adds an optional per-fighter Out of shield mode, initially Yoshi only, with confirmed native shield-attacker tracking, shieldstun/multihit retention, projected front grab or close short-hop Nair and configurable fighter response lists including a future up-special input route. Adds Hold/Toggle bindings, mode UI and diagnostics while protecting reserved ledge responses and file timelines. Improves held-L approach shielding with five-frame compiled startup warnings and bounded read-only active-hitbox geometry for extended/descending attacks; passive jump tracking no longer suppresses defense. Adds focused choice, ownership, geometry, binding and native-acceptance regressions. No physics/hitbox/status writes, new hook/worker or config replacement.
+
+Fixes standing C-stick Dtilt face detection for Kirby/Yoshi by using the real pre-map right-stick axes before digital Down aliases appear. Routes the same Down intent through opponent observation and facing preparation, angles an existing down C-stick flick alongside the left-stick turn request, preserves attack edges and restores controller axes after mapping. Adds standing/crouching first-poll, release, side/up-input and aerial regressions. No crouch prerequisite, input wait, extra scan/worker or physics/status write.
+
+Removes every Hold/Toggle mode from X/Y/D-pad button choices and editors: buttons now select input sequences or Normal only, with modes controlled exclusively by existing ON/OFF rows. Removes per-poll mode override/toggle handling and its fields. Preserves legacy file parsing but excludes old mode sections from runtime choices without rewriting saved files; obsolete defaults safely choose Normal while retaining authored input recipes. Adds all-mode/all-button compatibility, sequence preservation and menu regressions. No gameplay timing, physics or saved-file changes.
+
+Exposes the existing bounded ordinary-grab spot-dodge detector as an OFF-by-default Grab dodge ON/OFF mode in both builds, with no button binding or automatic punish follow-up. Completes its six-frame interception sweep with thirteen half-frame arithmetic steps and removes unused avoided-grab punish tracking/recovery reads. Fixes OOS lingering neutral-stick/shield ownership when no punish exists, revalidates queued punish reach/recovery while retaining online acceptance through readiness changes, and adds diagnostic-only movement-override owner events with no new game reads. Adds forecast, release/forward-input, queue and mode visibility regressions. No movement recipe, physics/hitbox/status writes, new hook/worker or upload.
+
+Improves diagnostic evidence for intermittent neutral-getup whiffs: raw neutral attack reports stay open beyond short recipe completion and retain first native attack activity plus first activity during opponent vulnerability, with getup frame/protection/recovery and relative gap/height. Uses two bounded copied records and diagnostic-only native active-slot reads outside STATE locks, with existing worker/watchdog; adds report lifecycle/evidence regressions. No gameplay input, move timing, sequences, physics or hitbox changes.
+
+Makes diagnostic logs easier to triage for latency/workload investigations: adds worker-formatted review codes, full-evaluation/input-expiry/publication/clock-cancellation rates, bounded retained/save trend hints and logger-overhead flags. Adds a diagnostic-only manual external-delay label (unset or 0–30f) with fresh Perf epochs, frozen input request/mapper-ack/observed timing evidence, hook-boundary caveats and explicit sequence termination reasons. Keeps two existing logs and the existing worker/queue, with no new native query/hook/worker, automatic delay compensation or silent logging. Adds label isolation, triage, clock-delta and termination regressions; updates Training trial guidance. Gameplay timing, detection, physics and uploaded files are unchanged.
+
+Adds an explicit temporary silent-probe build for one match of bounded SD-only aggregate counters and 1/64 elapsed observation samples, with a 10-second writer interval, 32KiB/10-minute cap and persistent existing-file latch. Normal builds exclude the probe; no new game hooks, native queries, network output or gameplay timing changes. Adds opt-in packaging/marker checks and probe lifecycle/cap tests.
+
+Fixes temporary silent-probe log creation on Switch by supplying both create and create_new flags required by its std filesystem implementation. Preserves existing-file refusal, one-match limits and all gameplay behavior.
+
+Improves stage-tech input coverage: distinguishes grounded Ganondorf Flame Choke release from the shared aerial release using native previous status, preserving mapped-edge cooldown and aerial exclusion. Runs the existing bounded collision forecast during the final five known damage-hitstop frames instead of two to give floor impacts more input lead. Adds grounded/aerial release and hitstop scheduling regressions; retains air-dodge/passive-disabled gates, native lockouts and input-only behavior. No build or upload.
+
+Enables the existing Training Modpack shortcut/menu/save-load handoff in silent as well as diagnostic builds, using a startup plugin-presence check and Training-only runtime gate. Removes the logging-feature dependency while retaining configured gameplay features and normal controls outside Training. Updates compatibility regression coverage and docs; silent logging/probe remain disabled unless explicitly built in. No new hooks or native gameplay writes.
+
+Fixes configured continuous button holds being cancelled by valid observation gaps wholly inside the same active hold. Retains one press edge and the scheduled release, with aborts for crossed action boundaries, invalid clocks, damage and cancellation. Adds held-A duration/edge and missed-release regressions; no auto-mashing, move or physics changes.
+
+Preserves active menu-authored neutral-A holds in the existing mapped controller result using ordinary Attack/AttackRaw held bits, scoped to fresh winning sequence ownership. Adds menu-duration-through-jab-and-next-action and filtered-mapper hold/edge regressions. No repeated attack triggers, forced statuses, physics writes, new hooks or logging.
+
+Fixes explicit Custom/new-option previews for fighters with empty file catalogs while Ledge Trap mode is OFF. Shares sequence enablement between menu and runtime, refreshes the bounded opponent roster for any starting preview, and clarifies that queued saves require exiting the match while keeping Smash open. Adds diagnostic empty-Ness/Falcon create/edit/test/save-request coverage; retains deferred SD writes, input-only execution and existing controls.
+
+Allows diagnostic sessions to queue up to 32 recipe saves/renames/deletions, coalescing newer snapshots of the same recipe. Processes completion on the existing outside-battle draw path so all queued jobs drain sequentially, with one save job at a time, unchanged deferred SD writes and normal-silent one-slot behavior. Compares saved recipe snapshots independently of other edits, and fixes deletion of a Custom recipe saved earlier in the same session. Adds bounded-queue, rename/delete preservation and controller CRUD regressions. No gameplay/physics changes, new hooks or online logging.
+
+
+Ledge-first direct menu navigation; shared silent/diagnostic bounded recipe
+management and deferred sequential saves; numbered expandable action editor and
+fresh-observation conditional steps, retaining literal button-hold timing.
+
+Allow first in-memory ledge recipes for startup-empty fighters; missing response
+categories remain no-op without disabling configured categories.
+
+Fighter-scoped FTP sequence transfers with direction/name selection, merged-file
+validation, preserved other fighters, backups and verified failure recovery.
+
+Editable repeated-tap sequence actions with hold/release interval, stick/buttons
+and total-frame budget; down-tilt preset and literal frame-clock execution.
+
+Per-button While held activation loops configured recipes on their native clock
+and cancels on release; saved activation and down-tilt spam menu configuration.
+
+Simplify repeated-tap menu to A/B/tilt selection, between-tap delay and duration;
+retain independent Run once / Loop while held activation on every button recipe.
+
+Editor-only grouped action picker, step insert/delete/duplicate/reorder, direct
+step navigation, bounded one-edit Undo and clearer expanded step settings;
+cached presentation and unchanged gameplay execution/save timing.
+
+Current-fighter recipe template copying across ledge and button categories,
+including unsaved timings; preserve source/name/activation, Undo and lazy chooser.
+
+Skip hidden-menu ImGui context/IO access and unnecessary master-gesture HID reads
+during locked matches, retaining the existing 4Hz unlock probe and gameplay clocks.
+
+Restrict recipe editor entry to Training Mode in both builds; retain online compact
+selection, mode toggles and saved gameplay recipes without new hooks or logging.
+
+Use a cached plain-text two-page match selector (Minus ledge choices, R3 buttons/
+assists); retain Training editor and add Save as startup default. Discard transient
+fighter menu/editor data at confirmed match end and reload saved defaults without
+combat SD reads or repeated leaked static publication. Training saves now start
+one temporary worker immediately with verified backups/recovery, no pending queue.
+
+Prepare auto-tech shield release through existing native eligibility gates before
+contact prediction, preserving release across forecast gaps without extra rays or
+early presses. Add a parser-verified complete editor action cheat sheet with a
+standalone searchable/printable styled table and menu/file examples.
+
+Add a separate, opt-in Vanilla/no-overclock Deluxe test configuration for GPU
+crash isolation; normal Kirby packaging does not install or select this preset.
+
+Reuse the Training scene observation outside the shared menu/state lock and
+cancel stale deferred menu cleanup when a new battle is positively observed.
+
+Remove save-result application and profile/editor destruction from the graphics
+callback; use bounded one-shot mapper maintenance. Keep first-entry startup menu
+references until a successful save changes the catalog, avoiding redundant rebuilds.
+
+Add opt-in per-fighter roll reaction recipe tags, Training condition/priority
+editing and feedback; resolve at most eight responses on revisions and reuse
+the input timeline, bounded roster observations and existing ownership/safety.
+Persist conditions with recipes and leave renderer/save-worker architecture intact.
+
+Add a styled searchable/printable reaction-rule cheat sheet covering all current
+settings, trigger/state/side choices, file positions, examples and feedback.
+
+Add persisted Menu or X/Y/D-pad toggle activation groups to reaction recipes;
+use existing controller edges with release/chord/navigation protection, preserve
+manual recipes, and keep automatic helpers outside binding choices.
+
+Add a Training-only fighter settings page with persisted per-fighter walking
+input caps, grab estimates, ledge acquisition/follow ranges and existing spacing
+switches. Reuse the explicit-save worker, backups and verification; resolve
+numeric overrides only on menu/profile changes and preserve default behavior
+for profiles without overrides. No native move or physics parameters are changed.
+
+Add a local sequence-validator CLI and optional upload --file selection; report
+fighter settings counts alongside recipe validation and retain pre-upload checks.
+
+Fix two stale documentation section links that prevented strict MkDocs serving.
+
+Use fighter stand_distance to release manual ledge-assist walking toward the
+already-tracked cliff, with cached motion look-ahead and preserved retreat/Y input.
+Keep sequence input priority and unknown/other-height ledges unchanged; add no
+geometry searches, native parameter writes or extra ledge activation path.
+
+Isolate fighter-settings saves from recipe catalog replacement, drop validation
+snapshots before file commit, retain verified backup/recovery and require an
+unchorded Y press on that page. Restore cached Training edit/save/rename control
+hints without adding them to lightweight gameplay selectors.
+
+Add explicit saved-ledge/away movement directions and flat facing-conditioned
+recipe blocks using sequence-start facing. Keep legacy direction fallbacks,
+validate block structure, reject anchorless on-stage rules and show conditional
+rather than misleading absolute timing in the Training editor. No new hooks,
+move/physics changes or per-frame fighter scans.
+
+Expand editor cheat sheets with all movement direction choices and examples,
+link reaction references to the ledge guidance and retain legacy documentation
+anchors so strict docs serving accepts older deep links.
+
+Allow ordinary-grab spot-dodge requests from stationary shield animations while
+retaining native escape readiness, grounded/hitstop restrictions and attacker-clock
+retry timing. Keep shieldstun and invalid clocks rejected; add no scans, native
+animation changes, forced transitions or airborne shield requests.
+
+Skip recipe/property rewrites when actions and names are unchanged, preserve
+source formatting and prior backups, avoid live catalog publication on no-op
+saves and report Already saved accurately. Keep full validation and normal
+write/rename/delete/default behavior for actual edits.
+
+Print the requested deferred Training-to-online GPU investigation reminder after
+build-helper completion, without changing Switch configurations or plugins.
+
+Restore the legacy held-L walking curve and remove the recent manual ledge-stop
+clamp/motion cache. Reserve L on lightweight selector pages and R3 transitions
+so its native Special mapping cannot leak; retain compact held-L activation,
+editor suspension, single-path toggle activation and all saved recipe/settings data.
+
+Gate manual walking-speed and known-ledge distance limits on physical assist hold,
+while the autopilot toggle independently keeps tracking/responses and configured
+passive shielding active. Pressing L during toggled autopilot no longer cancels
+its response; compact menus always consume L to prevent native Special leakage.
+
+Retain bounded match-owned ledge-visit memory across temporary cancellations so
+one get-up cannot replay after L release, ownership changes or sticky previous
+status. Rearm on a real new cliff visit, keep explicit previews repeatable and
+source manual walking stops only from the opponent's retained actual cliff,
+never a platform/automatic-stance edge. Document separate GPU source investigation.
+
+Verify the installed shared ImGui host release-order pattern by read-only binary
+inspection and prepare a checked source patch to finalize GPU buffer/pool objects
+before backing allocation release. Add a host lifetime-contract regression;
+leave GPU synchronization, host rebuild/deployment and crash verification explicit.
+
+Add a persistent host build/upload/validator workbench with verified fighter or
+whole-file sequence transfers, recovery snapshots and per-operation artifact history;
+preserve standalone helper commands and exclude local history from source archives.
+
+Clarify the workbench sequence replacement menu and add in-script usage/help
+for replacing active files or individual fighters with existing recovery checks.
+
+Reduce rejected/duplicate fighter-callback overhead by deferring profile/menu and
+policy setup until after existing routing/reuse guards. Skip empty status-toast
+locking and unnecessary shield-geometry scale queries without changing detection,
+controller bindings, sequence timings or native game behavior. Repair the standalone
+menu test harness's missing fighter-tuning import and document the optimization scope.
+
+Add universal file-authored shield_hit and grab_dodged responses using the shared
+sequence timeline, priority/range/side editor and independent defensive mode rows.
+Replace compiled Yoshi OOS move selection with text recipes; supply Bowser Up-B
+and Yoshi grab/Nair examples without changing manual defaults. Enable defensive
+startup defaults, expose per-fighter ON/OFF defaults and bounded grab forecast,
+and support running/shield-entry grab defense without native status or move writes.
+Cache defensive metadata on edits and follow one confirmed target, preserving ledge
+reservation and input ownership. Repair fighter-doc constructor discovery so lazy
+registrations refresh all 77 pages instead of silently erasing overview links.
+
+Observe the locked ledge target during literal drop responses so a regrab cancels
+old shield tapes and clears passive shield-tail state immediately. Add grounded
+shield_until_manual input with physical-input epoch handback and an editor shield
+hold selector. Add ledge_regrab reaction recipes and an ON/OFF row, active only
+with ledge assist, using the existing timeline and visit tracking; include Bowser
+down-smash without replacing manual defaults. Preserve one response per regrab
+and later get-up recognition without adding a global scan or new hooks.
+
+Make A on a recipe move open the categorized picker directly, add a shoulder
+shortcut to step tools, skip empty categories and preserve configured hold times
+when swapping inputs. Extend until-manual takeover to general button inputs,
+including sustained specials across animation loops, with same-sample physical
+handback. Add Training R3 entry and response cycling for configurable mode rows,
+restore manual selections on exit, and simplify Roll rules ON/OFF display. Avoid
+copying the whole resolved settings bundle when preparing a save; retain long
+hold values and cover 160/255-frame and takeover saves with recovery checks.
+
+Audit shared analytical range/body assumptions and expose per-fighter overrides
+for shield warning/body/forecast/hold/scan estimates, grab defensive padding,
+tech-probe geometry, legacy punish and roll ranges, Yoshi jab-lock ranges and
+Kirby crouch proximity. Preserve existing defaults and native readiness gates;
+apply overrides to both early filters and final policy checks, keeping scan/ray
+budgets unchanged. Apply the attacker's saved grab-reach override to incoming grab forecasts,
+never the controlled fighter's override. Use fighter-specific rear down-smash windows
+in legacy punishment and keep explicit sequence ranges/timings independent.
+ Organized master sequences configuration with universal settings and fighter-grouped save placement. Protects acquired ledge responses from every configured action owner and promptly releases completed reservations for current-state reaction rules. Hardens explicit Training saves by retaining worker handles through exit, serializing save startup with cached-menu replacement, deferring cached-text cleanup and suppressing invisible edits during saves. Adds cached Training-only selected-move frame references and labeled roster-average ledge-option timing hints using existing fighter data without changing sequences or gameplay detection. Cleans unused live/menu helpers and obsolete diagnostic save-queue counters while retaining the parked whiff prototype FFI declaration. Extends ledge_regrab responses to actual vulnerable ledge hangs, preempts drop shielding and remembers one hanging punish per visit while preserving later getup responses. Separates assist rule lists from ledge/button selectors and playback, adds Training L3/R3 priority-list navigation, preserves legacy saved rule IDs, fixes assist save/preview snapshots and bounds rules to eight per assist with lazy storage. Refreshes maintained documentation for master configuration, separate assist lists, save lifecycle and current controls; removes retired instructions, regenerates fighter references and searchable cheat sheets, and adds deterministic cheat-sheet checks. Adds the separate saved Spot punish rule list and spot_dodge reaction with bounded existing recovery observations, per-mode priority/range selection, one attempt per dodge, shared input timelines and ledge/safety ownership protection. Reduces save-as-default validation and recipe-formatting peak memory by dropping finished catalogs before the next stage; prevents assist rules from replacing ledge/button startup defaults. Replaces menu text in-place collection with explicit independent checked C-string allocations, retains the last snapshot on allocation failure and stress-tests repeated save-status cache replacement.
+Auto-tech covers slow approaches, immediate narrow-platform contact and observed descent from rest; configured human-shield cooldown is retained before the initial motion clock becomes available.
+
+Grab dodge uses continuous two-axis contact intervals instead of half-frame sampling and allows unaccepted requests to recover after transient status/range interruptions without weakening native dodge gates.
+
+Roll reactions now start enabled in fresh fighter menus while retaining manual ON/OFF control and separate button-group activation.
+
+Reduces native startup loader stack pressure with one joined temporary 2 MiB config-loading worker, boxed config return and isolated OnceLock publication. The worker exits before hook installation; preserves saved settings and gameplay behavior with no ongoing gameplay worker.
+
+Grab dodge retries retain Shield and refresh Down every two native frames, avoiding shield-drop recovery; missing defensive rosters seed once. Grab follow-up recovery uses opponent variant-specific active windows and Rosalina shield-grab timing uses its 11-frame reference. Preserves saved overrides and documents unavailable geometry rather than inventing fighter data.
+
+Audits mode arbitration and cancels an older grab-dodge follow-up when a new dodge request takes control, preventing hidden sequence advancement and stale hold/C-stick replay while preserving ledge reservations and safety priority.
+
+Adds a plain-language reference for all 46 Fighter Settings entries, text keys, tuning effects, ledge acquire/follow versus stop gap, and reference-data versus estimated values; links it from the menu guide and documentation navigation.
+
+Auto-tech clears completed-attempt cooldown before animation-clock validation and rearms unacknowledged requests if mapped Guard becomes held, preventing stale cooldown/held-guard suppression without changing native eligibility, air-dodge gates or collision-query cost.
+
+Separates OOS and grab-dodge attacker snapshots with same-ID read reuse, and re-arms OOS from renewed shield hits instead of continuing a stale Up-B through shieldstun. Preserves saved recipes, ledge priority and native sequence clocks; documents roll-start versus vulnerability triggers.
+
+Records read-only silent match-end crash investigation, validated saved recipes and confirmed the installed shared renderer still matches the known buffer-release-order hazard; prepares isolated patched host source without build, deployment or recipe changes.
+
+Improves cross-fighter tech delivery for native-safe contacts with frozen/unavailable animation clocks without polling-based cooldown progress. Gives incoming-grab defense its own owner above general punishes while preserving ledge/safety protection, fixes inclusive final grab-frame forecasting, and resolves supported fighters grab defaults from their own reference rows before saved overrides.
+
+Removes hidden fixed Kirby/Yoshi roll and generic far-roll punish fallbacks from live execution, hides seven inert legacy setting keys while retaining parser compatibility, and removes retired manual-finisher/slide live state and work. Preserves current recipes and fighter-specific helpers. Fixes static shield sequence clocks and carries roll-target motion identity/timing from discovery through follow-up, without new scans or game writes.
+
+Adds startup rejection for missing/mismatched fighter reference identities and avoids constructing Kirby-only fair/trip helpers for other fighters.
+
+Adds a separate Training-configurable Shield pressure assist with seven enemy-shield and shield-origin roll events, per-fighter priority/range/state recipes, one attempt per visit and shared bounded observations. Preserves ledge and committed-action ownership, hands shield hits to OOS, and partitions shield-origin rolls from general roll rules. Adds menu/save roundtrip and trigger regressions, diagnostic mode visibility and setup references; no physics writes, mod build or deployment.
+
+
+Adds Bowser default D-pad Left Fire Breath and D-pad Right Flying Slam reversal recipes, with literal opponent-relative stick/button inputs mirrored at step entry. Preserves existing raw-input semantics, supports imported editor settings and save roundtrips, and cancels target-dependent inputs when observations disappear. Adds mirrored input-edge/default checks and updates references; no move/physics changes, mod build or Switch upload.
+
+
+Configures 40 Bowser assist rules across shield pressure, ordinary rolls, OOS, grab-dodge follow-ups, spot punishes and vulnerable ledge hangs. Retains existing assist identities and every ledge/get-up recipe, restores both D-pad reversal defaults, preserves calibrated fighter settings and adds explicit defensive startup switches. Uses bounded aggressive run-first chase ranges, shield-release branches, short Up-B steering and actual regrab down-smash inputs. Adds profile-selection checks and refreshed fighter notes; no gameplay code, mod build or Switch upload.
+
+
+Replaces Bowser speculative long-range assist chases and aerial/Nair follow-through with 28 close grab/Side-B/Up-B rules and six-unit checked chases. Adds opt-in ground_only playback safety with editor/save support, fresh manual-intent cancellation for reactive tapes, and release-to-rearm for shields suppressed by automatic punishes; preserves legacy ledge/button playback, native defense priority and other fighters' recipes. Counts Brother jump buttons as takeover intent. Adds handback/grounded/profile regressions and updated references; no physics edits, mod build or upload.
+
+
+Restores Bowser vulnerable ledge/regrab assist to a four-frame down-smash input, preserving its existing range, timing, ground-only safety and all ledge-getup recipes. Updates profile checks and fighter notes; no build or upload.
+
+
+Adds explicit --upload (safe suffixed copy, unchanged default) and --replace --smash-closed modes to the sequence uploader. Active replacement reuses workbench source/destination rechecks, local/remote backups, verification and rollback; both Switches remain independently attempted. Adds CLI/fake-transfer regressions and usage documentation; no Switch connection, build or upload.
+
+
+Audits and consolidates the Training action picker into 52 unique fixed entries with one category each, removes duplicate/legacy new-choice aliases while preserving saved tokens, and fixes new short/full-hop pulses. Adds eight-button combination editing, independent stick references and literal simultaneous buttons/both-stick controller input through the existing timeline/mapper. Preserves saved durations and imported payloads, extends input save/validation support, adds catalog/UI/controller regressions and refreshes references. No sequence-file edits, native hooks, physics changes, mod build or upload.
+
+
+Audits the non-Training selector: separates cursor/page navigation from actual configuration cancellation, reuses immutable cached text for cursor-only focus changes, stops unused live rule feedback invalidating menu snapshots, and avoids no-op single-choice swaps. Preserves preview takeover and pending-input cancellation for actual changes, fixes unavailable-choice numbering, and respects deferred match cleanup before snapshot reuse. Adds all-slot/mode/fresh-edge/idle regressions; no saved recipe, Training editor, renderer lifetime, detection or gameplay-clock changes, build or upload.
+
+Keeps held-L and always-on autopilot active through consumed lightweight-menu navigation, while retaining hidden gameplay D-pad and Training scope gates. Uses a match-clear generation to prevent stale cache reuse across sessions.
+
+
+Simplifies five Bowser assists to 11 explicit grab/Up-B rules: priority vulnerable front grabs at 22, immediate 30-unit Up-B/full 40-frame drift, and 30–40-unit one-frame dash fallbacks for roll/shield-pressure. Adds scoped vulnerable OOS/grab-dodge and combined shield-pressure events, plus an opt-in any-spot-dodge event without weakening existing vulnerability-trigger behavior. Preserves ledge/regrab/buttons and independent local file contents, native recovery/ownership and ground/manual safety. Adds event/menu/save/priority regressions and updated guidance; no build or Switch upload.
+
+Completes the independent parent master Bowser assist update after validation and corrects its malformed shield action to shield_until_manual as requested; preserves all other recipes and settings.
+
+Restricts ledge-regrab punishment to the current vulnerable CLIFF_WAIT hang at both visit detection and shared rule selection; excludes recovery/catch states and stale ledge history. Adds focused regression coverage, preserves drop recipes and adds no native queries.
+
+Makes file-authored sequences exclusively own all gameplay buttons and stick directions through delays/waits/actions; removes ordinary physical-intent cancellation in mapper and reaction tapes while retaining explicit until-manual holds, activation scope and safety. Adds contamination/handback regressions; no native hooks, queries, physics, build or upload changes.
+
+Adds shared neutral shield-release handoff before ordinary sequence attacks/movement, waits through native guard-off and starts full action duration afterward. Preserves direct OOS grab/jump/Up-B/up-smash and explicit shield-direction inputs; covers all sequence consumers with existing status observations and regression tests, no new native queries or hooks.
+
+Hardens Training saves: uses the exact compiled draft without stale-recipe fallback, freezes all visible menu pages during a save, rejects malformed/empty snapshots before worker creation and out-of-range action counts before serialization. Retains worker identity to report missing/failed completion and release the busy gate. Adds rapid axis-edit, boundary-duration, invalid-input/file-preservation and worker-stack regressions; no configs, gameplay, build or Switch changes.
+
+Fixes startup-default restoration across deferred match cleanup so stale menu selections cannot carry into the next profile. Aligns saved-catalog button fallback with cold startup (Normal button when no explicit default), and tests all six button defaults plus exact edited actions/timings/name/loop persistence and worker-file publication. No config rewrites, builds or Switch uploads.
+
+Matches asynchronous save completion to recipe identity before changing draft bookkeeping, avoiding stale-index updates after profile reload.
+
+Audits auto-tech delivery and prediction: tech takeover suppresses all raw gameplay/guard aliases and right stick while preserving left-stick DI/menu controls; full sequence ownership also covers unmapped layout buttons and blocks physical short-hop annotation. Late eligible hitstop predicts from the finite reserved launch vector shared with DI; bounded floor sweeps cover the descending portion after a near apex. Preserves passive/air-escape gates, cooldown, mapper acknowledgment and ray bounds; adds regressions, no physics/status changes or build/upload.
+
+Prepares neutral guard release earlier in known eligible damage hitstop without an early tech press, extra ray queries or a new timing counter.
+
+Simplifies native automatic modes: one grounded auto-react controller with one roll, spot-dodge or air-dodge recipe per event and no configurable priority/vulnerability/crossing arbitration; committed responses do not queue competing events. Grab avoidance has no punish recipe; fixed auto-grab handles confirmed shield contact or a vulnerable shielding opponent in front using configurable standing/one-frame approach ranges. Adds conditional fixed-duration chase and Bowser 30/80-range, exact 14-frame recheck, Up-B 4 plus full drift 65 recipes while preserving ledge recipes and older templates. Ground/safety/ledge reservations and exclusive input ownership remain; no docs, builds or uploads.
+
+Uses the existing bounded observation pass to pause all three simplified automatic modes whenever any opponent is attached to a ledge; an active ledge response and tech safety retain ownership.
+
+ Synchronized silent Bowser simple auto-react rules and automatic grab ranges; preserved all ledge recipes and mirrored verified silent sequences to both local files. Fixes simple automatic grabs from held shield; preserves guard for direct OOS inputs and latches dodge reactions through native roll/shield recovery without spending recipe frames. Existing grab-dodge detection and ledge sequences remain unchanged. Removes never-constructed legacy native shield-pressure/spot-punish controllers, unused fallback output and inactive diagnostic bucket; pending grab-dodge retries now honor native readiness without consuming the grab. Silent/diagnostic host checks and targeted regressions pass. Adds a standard-library local browser workbench GUI with version bump/Enter-to-build-and-upload, remembered settings, sequence previews/confirmation, original helpers and verified history; preserves the terminal interface via --cli and existing standalone commands. Corrects the local Bowser Grab default stored under Y to D-pad Up while retaining neutral-air-dodge Y; adds small-stack startup coverage for independent button defaults and rejects competing Y defaults. No gameplay hook or input-engine change. Updates fighter-doc generation to recognize simplified three-field Auto react entries instead of indexing legacy priority fields. Adds fighter-specific L/R/ZL/ZR/L3/R3 button recipes and swappable native Short hop, Ledge assist/walk and Turbo t-bag choices; retains existing defaults, physical-layout routing, menu reservations, saved recipes and held-loop release behavior. Keeps expanded startup settings boxed and universal validation off small parser frames; new binding/save/startup regressions and both host variants pass.
+Simplifies Auto react to direct single-range event responses, isolates committed input tapes from global requests, preserves continuous drift ownership and guard handback, and removes vulnerable-ledge punishment.
+
+Protects committed ledge and automatic-grab ownership, prevents queued button/helper takeover until release, and avoids redundant native binding refreshes on unchanged menu polls.
+
+Optimizes in-match observation work with callback-local roster reuse, lazy profile/menu settings resolution, single-pass scalar grab tuning, demand-driven floor probes, and removal of retired response-context and Training identity-setting passes; preserves native timing, safety and input ownership.
+
+Protects Auto react final release ownership across repeated mapper polls and stops interrupted input tapes/automatic grabs on verified knockdown, damage and rebound states, and distinguishes own throws from thrown victims without changing configured timing or native mechanics.
+
+Fences in-flight observations and clears stale proposals when menu choices change while preserving auto-tech delivery/cooldown history until normal lifecycle or enabled-state reset.
+
+Releases completed Auto react and automatic-grab ownership before sampling new proposals, avoiding an unnecessary rejected decision after the final mapped release.
+
+Fixes universal helper routing so held ledge assistance survives its own input ownership, short hop retains its own source without leaking a held aerial jump, physical rearming survives remaps, and menu navigation takes priority over remapped D-pad helpers.
+
+Retains built-in jump and walk/turbo commands at final controller-packet delivery, bypassing custom physical-source remapping for generated inputs. Sets physical defaults to L short hop, X ledge/walk and D-pad Down turbo in both layouts; preserves saved Y/Up/Left/Right recipes and sequence meanings.
+
+Uses observed crouch confirmation for built-in teabag to avoid frozen-pose stalls and routes compact-menu takeover through the assigned ledge role rather than the former physical L key.
+
+Moves compact Training test activation to its reserved L3 menu control so X retains its assigned gameplay helper; hidden-menu L3 and D-pad Down both retain turbo presets.
+
+Keeps L3 turbo t-bag alongside D-pad Down, L short hop and X walk/ledge defaults; reserves L3 for Training compact recipe testing so X retains its gameplay helper, and preserves bound-source consumption while that menu is open.
+
+Corrects the requested defaults so only L3 uses turbo t-bag; unassigned D-pad Down returns to Normal while explicit saved recipes remain unchanged.
+
+Unifies exclusive sequence analog delivery for ledge/button/Auto react inputs, preserves deliberate Drift/Run dash flicks while retaining walking suppression, masks native trigger axes and click/auxiliary aliases during ownership with full restoration, restores raw built-in jump pulses alongside mapped short-hop annotation, and filters stray mapped guard/tap-jump/C-stick channels. Auto react rebases a crossed delivered-hold boundary after a bounded observation gap instead of aborting or skipping the next input; ordinary ledge/button clocks stay strict. Adds controller-delivery regressions without new hooks, roster reads or game-state mutations.
+
+Audits conditional sequence delivery: satisfied Face/Approach steps bypass unnecessary shield handoff; opponent-facing and dynamic drift refresh copied geometry without spending another frame; first-frame air-dodge conditions receive the correct native situation; direct C-stick up-smash retains OOS guard. Separates fixed dash-grab/Chase flicks from capped walking, reuses per-observation fighter braking for Auto react/ledge distance checks, removes unused event velocity queries and skips consumed-event history searches during committed playback. Preserves ledge-origin filtering, held-button activation, safety/owner priority and authored waits; adds conditional-delivery regressions without new hooks or game-state writes.
+
+Restores built-in turbo teabag to one Down/release phase per selected local input update, replacing delayed crouch-status acknowledgment that stretched the online feedback loop. Removes the retired observed-pose turbo sampler; retains duplicate-input stability, grounded/safety/menu gates, source remapping and one-frame phases regardless of the legacy phase setting. Adds all-button/layout regressions with a frozen animation clock; automatic response timing and ledge priority remain unchanged.
+
+Corrects the recent post-map sequence filter that could remove legitimate native Grab Guard/Attack components or ZL Jump output. Physical ownership still masks manual buttons/axes before mapping; sequence results retain native action semantics with only unrequested C-stick filtering. Centralizes canonical recipe jump X/Y/ZL and shield ZR roles, preserving ZL OOS jumps and excluding jump from shield-handback quarantine. Adds the exact Y range-check/one-frame-drift/R-grab regression under every R built-in and both layouts; no recipe, physics, hook or activation changes.
+
+Replaces automatic approach/dash-grab phases with neutral-stick standing grabs against current vulnerable in-front targets inside the configured standing range, retaining native grab readiness and early catch-confirmed release. Broadens the bounded shared target pass beyond shielding/contact-only targets, removes the separate shield-attacker/follow passes and automatic-grab floor probes, and keeps the old dash-range file key inert/hidden for compatibility. Held or toggled ledge assist and explicit button tapes suspend automatic reactions immediately before acquisition; native safety and manual helpers remain available. Incoming grab defense is evaluated once before new offensive choices, committed responses cannot replace each other, and releasing inactive ledge ownership does not add a stale arbitration frame. Adds standing-grab, reservation, compatibility and ownership regressions without changing saved recipes, game physics or hooks.
+
+Hardens Auto react roll-chase delivery without changing automatic grabs: a new saturated horizontal reaction input re-arms only its first direction edge so prior manual stick history cannot suppress the flick, with no extra neutral frame or repeated flicks. Auto react's already-delivered neutral shield handoff survives bounded observation gaps and starts the authored chase duration only after guard-off ends; strict ledge/button timing remains unchanged. Adds held-direction, shield-release-gap, full-duration and non-reaction-history regressions; no new native reads, hooks or physics changes.
+
+Compares archived 2.2.6 input delivery with current recovery ownership: narrows tech takeover to shield/grab aliases, limits release preparation to known hitstop or imminent contact, and reuses held-guard handback to avoid synthetic shield edges when a forecast ends. Preserves built-in and literal one-frame jump bindings during damage/tech safety without admitting competing tapes, returns control immediately when damage cancels a sequence, and prevents new auto-reactions during incapacitation. Adds recovery/input-ownership regressions without changing recipes, prediction budgets, hooks, game physics, version, build or deployment.
+
+Restricts automatic grabs and grab avoidance to standing/shielding with immediate native readiness, revalidates unaccepted grab targets and releases stale ownership before other reactions. Removes Auto react's pre-start dodge/shieldstun wait and its neutral takeover: grounded Up-B reactions begin only when the native special transition is usable, while authored committed inputs and ledge priority remain protected. Preserves saved direct Up-B recipes/ranges and adds movement, readiness and grab-retry regressions; no version bump, NRO build or upload.
+
+Discards Auto react dodge events observed during grounded endlag/incapacitation using existing per-opponent consumed flags, preventing recovery from replaying a missed punish. Skips grab-dodge contact forecasts when an immediate dodge request is unavailable, and adds smash-endlag, expired-threat and fresh-event regressions. Current-target grab validation and committed sequence/ledge ownership remain unchanged; no new timers, hooks, recipe edits, version bump, NRO build or upload.
+
+Reverts trigger customization to the pre-2.4.0 fixed input path: removes L/R/ZL/ZR slots and menu rows, excludes triggers from custom-binding latch/ownership/rearm masks, restores default-layout fixed L walk/ledge assistance and native R/ZL/ZR passthrough, and leaves eight X/Y/D-pad/L3/R3 custom slots. Retired trigger sections load inertly for existing-file compatibility; literal sequence trigger inputs remain native. Preserves explicit retained-button defaults, restores unconfigured X short hop, and updates selector row bounds and controller regressions without version bump, NRO build or upload.
+
+Audits runtime observation, arbitration, conditional playback and native controller delivery after trigger reversion. Automatic Up-B responses now require observed startup before horizontal follow-through, cancel wrong native outcomes and end drift when ordinary control resumes; native jump triggers suspend automatic owners and fresh shield can cancel Auto react without mixing input streams. Preserves committed ledge/button tapes, adds actual Bowser ground/air startup cases, repairs hidden/out-of-range Fighter settings focus, and replaces obsolete/mutable-file test assumptions with current stable fixtures. No added hooks, network/logging, physics writes, stage scans, recipe edits, version bump, NRO build or upload.
+
+Adds narrowly scoped direct-Up-B Auto react mapped-input sanitation: removes unrequested Jump/JumpMini and Guard flags while retaining explicit X/Y/ZL jump, R-grab Guard/Attack and requested OOS shield semantics. Ordinary manual, ledge and button sequence mapping stays native; delivery regressions cover the earlier broad-filter failures.
+
+Fixes remembered ledge inward direction being reused at the opposite edge while preserving retreat and same-edge motion. Stationary grab/dodge admission now checks physical movement/attack intent to avoid intercepting a run before native status updates. Adds current relative-velocity grab reach projection using resolved fighter standing/shield startup, releases accepted/failed/expired grab ownership immediately, and evaluates usable Up-B reactions before new grabs with same-observation fallback after a failed pending grab. Preserves saved ranges/recipes, native accepted grabs, ledge priority and one sample per controller; adds mirrored-edge, input-intent, crossing, projection and cleanup regressions without new hooks, stage scans, version bump, NRO build or upload.
+
+Bounds unaccepted automatic-grab ownership by four distinct actually mapped grab packets as well as native motion progress, preventing frozen own/opponent shield clocks from leaving an attempt active indefinitely. Uses existing mapper acknowledgment with target/tick deduplication; repeated observations and stale target acknowledgments do not consume the attempt.
+
+Restricts automatic grabs to currently shielding opponents; uses direct shield grabs within the close range and one delivered approach pulse then grab outside shield, with Bowser defaults 22/35. Exposes the approach range in Training, validates approach floor support and preserves delivery acknowledgments. Reconsiders only still-live unused dodge events after native readiness returns, retains consumed history across transient suspension, and prevents a fresh shield edge from cancelling the initial grounded Auto react special while preserving airborne manual escape. Adds focused input-delivery and grab regressions.
+
+
+
+Allows automatic grabs and roll punishes while ledge assist is held or toggled outside an acquired ledge response, preserving exclusive action ownership and preview/manual escape suspension. Adds a separate immediate fighter grab-reach check that cancels out-of-range roll-punish recipes without waiting; keeps existing ledge range waits. Includes parser/save/editor, range-cancellation and held-binding ownership regressions.
+
+
+Expands automatic grabs to front vulnerable opponents without requiring enemy shield, rejecting invulnerable/captured/downed/ledge/noncombat targets and cancelling approaches on crossings. Gives immediately usable Auto react Up-B priority over unaccepted grab/approach attempts through the shared event selector, clearing pending grab output in the same observation while protecting native catches, ledge responses, safety and other committed modes. Adds front/vulnerability, priority, mapped-input and readiness regressions; updates maintained grab and ownership documentation.
+
+
+Adds an immediate either-side shield Up-B backup after legal grabs, sharing the existing close range and bounded opponent snapshot. Preserves roll/dodge priority, native shield/Up-B readiness and exclusive ownership; bounds Special delivery attempts and releases on startup or invalidation without a chase or shield-drop wait. Fresh manual input releases confirmed Auto react Up-B drift tails while protecting critical button pulses. Adds fallback, shieldstun, cancellation, layout/delivery and manual-handback regressions; documents current automatic-mode ranges and restrictions.
+
+
+Allows automatic grounded grabs during walking, running, turning, crouching and normal landing using native standing/dash-catch readiness. Moving grabs send R immediately without a preliminary approach/neutral packet and retain physical horizontal input; shield grabs retain neutral axes and roll-safe intent gating. Includes normal landing in grounded Up-B admission while preserving post-start air tracking, no fresh air admissions, existing roll priority and bounded delivery. Adds movement/readiness, tomahawk landing, air exclusion, layout and tracking regressions; updates maintained controls and range notes.
+
+
+Hardens Training-to-lightweight menu transitions by restoring manual choices, closing assist/editor tools and previews, resetting repeat state and delivering cancellation immediately. Fixes assist-settings R3 reentry so Back returns to the originating mode without losing unsaved tuning edits. Hidden selector updates skip save/snapshot locks once deferred cleanup completes; preserves save-safe cached text ownership and lightweight cursor reuse. Adds all-77-fighter navigation/retired-row and editor transition regressions and documents the maintained menu behavior.
+
+
+Extends Bowser's three automatic dodge Up-B recipes to 69 frames of full opponent-directed drift and adds the same bounded tracking after confirmed shield-backup Up-B startup, preserving native-end/manual/safety handback and no fresh air admissions. Fixes Bowser's far idle dash-grab startup by requiring observed native dash/run before R and retaining forward input, with bounded failed-start delivery; leaves moving/close/shield grab paths and tech-in-place handling unchanged. Adds focused startup/tracking regressions and updates Bowser execution notes and maintained documentation.
+
+
+Updates only the three automatic Bowser Up-B drift durations from 30 to 69 in the silent Switch's current active sequences file, verifies the uploaded bytes by FTP read-back, and replaces the repository sequence copy with that verified download so the latest Switch-authored ledge timings are retained. Keeps local recovery snapshots and refreshes generated fighter documentation.
+
+
+Restricts automatic grabs to visibly shielding vulnerable opponents; delivers one continuous grab-defense dodge and reuses the saved spot-dodge Up-B/69-frame tracking recipe after native confirmation and readiness. Protects delivered grab inputs from Up-B replacement, bounds zero-input receipt settling, and releases automatic/ledge tapes throughout native grab interactions so throw selection stays manual. Adds duplicate-poll, acceptance, ownership and throw-handoff regressions with updated mode documentation.
+
+Audits normal-match observation/publication and automatic ownership paths. Bounds unconfirmed automatic roll/grab-dodge Up-B delivery even with frozen native clocks, shares physical escape handling across automatic Up-B owners, and reuses already-read statuses to preserve consumed events through gaps while rearming on confirmed event ends. Adds runtime audit regressions without extra native scans, decision waits or sequence/timing changes.
+
+Also cancels unconfirmed automatic Up-B input on leaving the floor, preserving air-spin tracking only after native startup evidence.
+
+Keeps consumed roll/grab identities through roster slot reuse without expanding the bounded event-history arrays.
+
+Fixes E0277 in the live observation snapshot by grouping reaction target IDs within Rust's supported Default tuple arity; preserves snapshot values and gameplay behavior.
+
+Groups seven cached Auto react sequence types, adding configurable unshielded/shielded grabs, an independent grab-dodge follow-up, and shield backup with editable actions and X/Y limits. Migrates all 77 fighter grab defaults without retuning existing recipes, retains native movement/delivery/ownership/throw safeguards and legacy-file fallbacks, and consolidates Training editing while hiding overridden legacy range sliders. Adds cross-fighter output-parity, configurable-action, receipt-safety and menu regressions.
+
+Suspends all automatic punish searches while ledge trap is active; gates new reactions to controllable grounded states and excludes capture links. Preserves held shield after failed direct requests, cancels unconfirmed Up-B before drift/neutral output, gives physical Grab priority, and retains bounded input-free Grab receipts during suspension. Keeps shield-only grabs and confirmed Bowser tracking; adds native-state, guard-handoff and delivery regressions.
+
+Separates automatic grab target policies: unshielded grabs still require enemy shield, while shielded grabs accept vulnerable grabbable front opponents. Retains independent recipe ranges, immediate grab-first shield backup, downed/tripped fallback and exclusive native-delivery ownership; adds split-policy and conflict regressions without changing sequence timings.
+
+Keeps Guard through ledge shield-grab packets and waiting reach checks. Adds a shared mapped-Grab handoff for all sequence owners to prevent delayed throw-producing follow-ups and competing punishes, while preserving manual throws and native tech priority. Rearms raw tech Guard after automatic-mode mapping filters and delivers selected tech Guard press/release through the final controller packet; adds cross-mode, exact Bowser recipe and delivery regressions.
+
+Fixes E0015 in static native State initialization by providing a const GrabHandoff constructor; verifies construction inside a const State fixture without changing runtime delivery behavior.
+
+Keeps facing, reach and predicate waits responsive across short native-observation gaps without replaying missed timed inputs or removing authored waits. Adds input-only run_to_ledge positioning with inward offset, stick strength, arrival tolerance, braking distance and bounded movement time editable in Training. Adds instant opponent-facing/back-facing if/else blocks with precomputed jumps, serialization and editor support; preserves existing ledge-facing snapshot behavior and adds execution, cancellation, braking and save/reload regressions.
+
+Audits Training editor routing, copy/paste, Undo, save validation and Unicode
+rename controls; adds a reusable step clipboard and consistent Back/Done.
+Lightweight menu fits text, removes ledge counters, and uses L+D-pad navigation
+while preserving custom D-pad actions and release safety. Host tests only;
+no mod build/upload or on-device layout validation.
+
+Keeps automatic grab/dodge/punish searches suspended throughout toggled ledge
+mode, including manual pauses. Improves defensive-only ledge shield coverage for
+getup attacks, nearby recovering Up-Bs, multihit gaps and bounded weapon/item
+hitboxes. Preserves authored ledge tapes and tech safety priority. Adds native
+floor-tech eligibility and remaining-hitstun cooldown progress for frozen damage
+poses, with host detector, delivery and cross-mode regressions. No native move
+or physics changes, documentation edits, mod build or Switch upload.
+
+Keeps automatic Bowser Up-B chase active through ordinary movement-stick changes
+and shield release, while retaining fresh action/C-stick handback and safety
+cancellation. Confirmed spin tracking may follow its locked opponent at the
+ledge without permitting new ledge grabs/punishes; preserves configured 69-frame
+drift, input pulses and other fighters' controls. Adds cross-owner chase,
+range-independent tracking, timeout and interruption regressions.
+
+Requires fighter/event-specific automatic punish recipes, removes generic
+shield Up-B and cross-event grab-dodge fallbacks, and leaves new non-grab editor
+drafts inert. Removes 76 generated non-Bowser Up-B backup templates while
+preserving generic grabs and their per-fighter ranges. Tags live rule access
+with fighter/revision identity; delivers one grab-dodge packet with bounded
+neutral confirmation and rejected-packet budgets. Adds Yoshi/Lucina, fighter
+switching, explicit configuration and single-dodge regressions; no version bump,
+mod build or Switch upload.
+
+
+
+Keeps committed automatic Bowser Up-B startup and configured drift through physical button, stick and menu-toggle input across roll/dodge reads, grab-dodge follow-ups and shield backup. Ledge-trap L, native move end, target loss and safety retain cancellation; other fighters and new-reaction admission keep their existing manual controls. Adds cross-owner tracking and ownership regressions.
+
+
+Starts the lightweight match menu visible and removes its control hints while preserving Training editor hints and Minus/L navigation controls. Splits all 77 fighter configurations into named source files, assembles and validates the combined Switch catalog during build/upload, and supports backed-up split-source imports. Adds inert universal named templates to the Training copy picker with destination conditions, activation, Undo and save preservation; retains all existing fighter recipe values.
+
+
+Fixes Bowser automatic Up-B tracking loss across shield hitstop/readiness changes and delayed native startup. Verified mapped Special+Up now retains a bounded, input-free receipt and exclusive punish priority; late native confirmation resumes after the delivered B with the full configured drift duration. Rejects failed mapper receipts, never retries B, and preserves L, target loss, capture/damage, airborne-start and 24-update expiry safeguards across shield backup, roll/dodge reads and grab-dodge follow-ups. Adds receipt handoff, priority, duration and cancellation regressions without changing sequence values.
+
+
+Fixes reused lightweight menus starting hidden at battle entry and retaining stale page content. Applies scene-aware visibility defaults, removes lightweight character/page headings and control legends entirely, and preserves Training titles/hints and Minus/L+D-pad controls. Prevents Training save waits and stale cached cards from leaking into match selectors; permits allocation-free cursor refreshes while replacement is gated. Extracts the production snapshot builder and row renderer for host tests of actual displayed text, ImGui stack balance, rematches, cache invalidation and Training isolation without sequence changes.
+
+
+Restores the lightweight menu publisher's generation snapshot, nonblocking cached-view lock and save gate after extraction; gates its diagnostic-only SavedChoice import. Compiles and tests the exact production publication function in both host logging configurations to catch missing bindings without changing menu behavior or sequences.
+
+Fixes Training sequence saves retaining stale startup baselines after the first edit, refreshes runtime caches on verified completion and preserves newer drafts using payload identity. Retains the first explicit save through cached-menu refreshes without blocking input. Releases clean editor records and tool buffers on leaving Training, drains orphaned save completions and reuses unchanged lightweight button-role mappings; adds save/reopen, late-result, worker-gate and idle-poll regressions.
+
+Adds opt-in --replace-sequences --smash-closed to single/both-Switch release uploads, backing up and verifying active sequences.txt through the existing uploader before replacement. Assembles current universal and fighter sources at upload time, preserves staged uploads by default and read-only preview/verification modes, and adds routing, split-source, backup-failure and active-file replacement tests.
+
+Gates mapper feature work on fresh revalidated selected-controller fighter ownership before menus, analysis, overlays or profiling; clears local participation on lost routes without changing the master preference. Master OFF now fully resets plugin session/routes, pending inputs, tracking and Training handoffs with monotonic observation fences. Gates projectile capture, draw profiling and periodic diagnostic reports while inactive, retains native input passthrough and the existing local re-enable gesture, and adds production teardown/route/startup/reconnect regressions without new scene hooks, services or native gameplay writes.
+
+Audits cross-fighter automatic punishes: separates ordinary configured response readiness from direct Up-B, fixes independent grab/backup/grab-dodge movement observations, and preserves native Up-B checks and Bowser tracking. Caches per-event observation requirements, skips unnecessary Up-B queries and grab-only roll-engine construction, reuses enabled engines in place and adds all-77-fighter readiness, range, cancellation and no-placeholder-input regressions without retuning fighter files or adding waits.
+
+Adds a complete current sequence-text quick reference with searchable printable offline HTML: action aliases, durations, grab/range distinctions, movement and facing checks, current versus legacy reactions, templates, builtins and fighter/universal setting keys. Links it in maintained docs, extends the existing cheat-sheet generator and checks every copyable example plus parser-token coverage and all 48 fighter-setting bounds using host-only regressions.
+Adds Mr. Game & Watch Up-B automatic punish recipes for rolls, spot dodges, air dodges and dodged grabs, preserving his existing grab and shield-backup configuration.
+Corrects Mr. Game & Watch sequence-file syntax: uses the supported Nair action and explicit opponent-facing step before forward smash, retaining saved timings and automatic punish settings.
+Fixes automatic reaction sampling to accept the runtime boxed engine directly, retaining lazy allocation and reuse; adds a regression for disabled polling and stable engine storage.
+Configures the 74 non-Kirby/Bowser/Yoshi fighter text files against explicit F34/F14/F31 ledge baselines using fighter move intervals, jump squat and documented smash charge points. Adds all seven per-fighter automatic events with immediate character-specific responses and loadout-independent Mii options, preserves generic grab ranges, replaces recovery-only shield backups, and retires 44 weaker generic alternatives to fit the existing parser limits. Documents uncalibrated spacing/resource exceptions; runtime code and protected fighter files are unchanged.
+Fixes Training editor saves being silently dropped when gameplay input is unavailable, while preserving Training-only worker authorization. Prevents decorative save formatting from exceeding the file limit for valid compact roster files, and explains modified Y presses. Adds host regressions for all editable slots, all seven automatic recipes, builtins and fighter settings, plus full-roster edit/default/copy/delete/settings persistence on the actual worker stack.
+Fixes sequence-authored Up-B out of shield after blocked ledge getup attacks by retaining native guard through the direct Up+B cancel. Applies guard only to delivered grounded-guard output, preserving configured pulse lengths and avoiding cached shield leakage after special startup/takeoff. Adds block/hitstop/duplicate-poll and input-alias regressions; automatic-mode ownership and fighter text files remain unchanged.
+Compacts dormant recipe definitions into an indexed library and expands only the selected fighter's live menus and rules, releasing old fighter state on changes and match end. Rejects cross-fighter automatic snapshots, avoids repeated no-roster callback setup and unrelated live-config copies, and defers idle automatic-engine allocation. Copies diagnostic labels safely across menu teardown, corrects Captain Falcon/Jigglypuff reference identities, and adds startup, all-fighter round-trip, zero-idle-allocation and bounded-switch-memory host regressions. Imports the silent Switch's saved whole catalog into backed-up repository fighter/universal sources without writing to the Switch.
+Adds explicit fighter-specific Auto-reflect projectile defense, initially configured only for Mr. Game & Watch. Uses read-only native reflectable/absorbable hitboxes and bounded swept prediction, Bucket capacity/readiness checks, confirmed grounded turning and final Down+Special receipt. Integrates exclusive ownership, manual/ledge/master/spectator suspension, bounded cancellation and stable projectile targeting without changing existing punish tapes or native moves. Adds seven saved Fighter settings, a conditional Assist toggle, diagnostic ownership/configuration and core/native-adapter/production-wiring regressions; disabled fighters perform no native projectile queries.
+Fixes repeated Bucket defense being suppressed by stale projectile object IDs: the bounded ATTACK-source tracker now publishes coherent object/attack-generation identities, and reflection deduplicates each attack instead of blacklisting a reused object until 32 later attempts. Reuses vacant tracker slots and preserves in-flight ownership, native readiness, full-bucket and duplicate-input safeguards. Adds repeated Samus-style missile/charge-shot, partial-gauge and source-reuse regressions without changing sequence values or adding a cooldown.
+Registers Pyra and Mythra independently with editable nonattacking ledge starters, separate saved menus and reference/grab data; tests form swaps and first-save isolation. Raises the section admission bound to 2112 while retaining actual-count allocation and the 512 KiB file limit.
+
+
+Fences live input publication and delivery to the exact selected-controller update so recent cached packets and late observations cannot replay dashes, grabs or specials into newer input. Clears foreign selected sequences during fighter-profile fallback, with packet-release, production-publication and fighter-isolation host regressions.
+
+Cancels input tapes across shield break, sleep, bury/freeze, command captures, cinematic victims and kind-specific forced/swap states while preserving safety and opponent stun punishability. Replaces numeric Up-B continuation guesses with pinned per-fighter states and stops drift on unrelated moves. Validates the current human actor separately from an Ice Climber partner, includes both climbers in a bounded sixteen-actor observation roster, bounds nearest reaction candidates, handles ambiguous same-entry attribution, and excludes attached Pikmin/Luma from projectile reflection. Adds production native-adapter and rare-state regression coverage without changing sequence files.
+Retains consumed roll and grab-defense identities for all sixteen possible paired actors so nearest-candidate changes cannot replay an already handled event.
+
+Stops automatic grab runaways: close idle grabs send Grab directly, far idle dash startup is shared across fighters and bounded even without receipts, failed approaches require new intent or a confirmed enemy-shield end, and grab delivery releases forced horizontal input after its first packet. Manual retreat hands back control while preserving inert grab receipts. Resets OOS state on native fighter-kind changes, derives default grab ranges from that fighter's references and saved reach instead of Bowser constants, skips unused fallback lookups, and rejects stale pivot overrides after physical input changes.
+Protects routed manual jumps and released jump buffers from grounded automatic grabs/specials during delayed native feedback. Bowser tracking ownership now requires delivered or confirmed Up-B input; automatic tapes abandon pending Grab/Up-B steps on jump startup/takeoff while manual tapes stay literal. Shared grab receipts use native progress in live play, limit unacknowledged R delivery, and allow pure manual jump handoff without leaking competing specials. Adds stalled-feedback and actual live-guard regression coverage.
+
+Isolates ledge/button playback from earlier automatic grab reservations, preserves literal shield holds through grab handoff, and reconciles raw cancellation with fresh native OOS readiness without an extra observation. Routes old chase-first automatic grab tapes through native grab positioning, revalidates undelivered custom grabs on shield/target changes, and expires static-shield receipts from already observed opponent progress. Adds ledge-shield isolation and instant-grab regressions.
+
+Preserves selected directional and single-frame Attack inputs plus literal Special/Grab/Shield packets after native mapping, clears stale shield/Catch aliases on authored release frames, and keeps Up-Smash/jump shield cancels distinct from Up-Tilt shield drop. Passive ledge shield tails use existing copied opponent clocks when the guard pose is static and release stale tails without a usable clock; authored shields and shieldstun/hitstop retain their own rules. Adds smash delivery, static-guard release and live packet-wiring regressions.
+
+
+
+Centralizes exclusive sequence input ownership, protects committed automation from manual and competing requests, coordinates native safety inputs, and releases all controls and pending plans on completion or cancellation. Adds cross-feature controller and live arbitration regressions.
+
+
+Adds stage-aware survival DI with native blast-zone queries and stable launch-release inputs; uses native tech windows and lockout, surface eligibility and frame-segment collision forecasts; spaces SDI flicks on native hitstop with real stick rearming and blast-zone-aware directions. Enforces one exclusive safety phase with clean DI, tech, SDI and mash handoffs and adds host regressions; no native physics/status writes, documentation changes, mod build or upload.
+
+
+Improves roster-wide Auto Tech with read-only native floor/wall/ceiling contacts, animated ECB base offsets and current-scale forecasts, including frozen poses and the final victim-hitlag frame. Synchronizes shield releases and bounded delivery receipts with native Guard consumption, prioritizes imminent/committed tech edges ahead of DI without mixing modes, and cancels stale receipts while preserving lockout. Adds roster/contact/delivery/ownership host regressions; no documentation changes, native physics/status writes, mod build or upload.
 """
+
 
 
 [package.metadata.skyline]
@@ -752,6 +1588,7 @@ crate-type = ["cdylib", "rlib"]
 # A Cargo dependency imports code, not physical controller packets.
 [dependencies]
 skyline = "0.6.0"
+nnsdk = "0.6.2"
 imgui-api = { git = "https://github.com/Coolsonickirby/imgui-api", rev = "9259902433138ec9c9ef9e4b152de01403f9456f", optional = true }
 kirby_assist_core = { path = "crates/kirby_assist_core" }
 
@@ -762,6 +1599,8 @@ kirby_assist_core = { path = "crates/kirby_assist_core" }
 [features]
 default = ["imgui-menu"]
 diagnostic-logging = ["kirby_assist_core/diagnostic-logging"]
+# Temporary one-match file-only aggregate probe; not enabled by normal builds.
+silent-probe = ["kirby_assist_core/probe-counters"]
 # The battle combo engine is always available; only rendering is optional.
 # Disable default features for a headless build without the external ImGui host.
 imgui-menu = ["dep:imgui-api"]

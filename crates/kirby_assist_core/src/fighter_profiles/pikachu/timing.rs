@@ -18,7 +18,6 @@ pub const LEDGE_DATA: LedgeFighterData = LedgeFighterData {
         shield: 11,
         active_frames: 2,
     },
-    normal_hit_lead_frames: 3,
     common_roll_distance: 25.0,
 };
 

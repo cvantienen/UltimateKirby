@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Editor action cheat sheet</title><style>*{box-sizing:border-box}body{margin:0;background:#edf2f7;color:#182c42;font:15px/1.6 system-ui,sans-serif}main{max-width:1500px;margin:28px auto;padding:28px;background:white;border:1px solid #d9e3ef;border-radius:16px}h1{font-size:30px;margin-top:0}h2{margin-top:32px;color:#174c68}h3{color:#235369}a{color:#006f87}code{background:#eaf2f6;border-radius:4px;padding:2px 5px;font:13px/1.6 ui-monospace,monospace}pre{background:#102a3c;color:#e7f5ff;padding:18px;overflow:auto;border-radius:10px}pre code{background:transparent;color:inherit;padding:0}table{width:100%;border-collapse:collapse;font-size:14px;margin:14px 0 26px}th{text-align:left;background:#123c52;color:white;padding:12px;vertical-align:top}td{border-bottom:1px solid #dbe6ed;padding:11px;vertical-align:top}tbody tr:nth-child(even){background:#f3f7fa}td:first-child{font-weight:600;min-width:165px}td code{overflow-wrap:anywhere}blockquote{border-left:4px solid #3b9aa4;margin-left:0;padding-left:16px;color:#43576b}.search{position:sticky;top:0;z-index:1;background:#edf2f7ed;backdrop-filter:blur(6px);padding:14px max(20px,calc((100vw - 1444px)/2));border-bottom:1px solid #c9d8e6;display:flex;align-items:center;gap:14px}input{width:min(700px,80vw);font:inherit;padding:10px 14px;border:1px solid #a6bece;border-radius:9px}.search span{font-size:13px;color:#38556c}tr[hidden]{display:none}@media(max-width:850px){main{padding:16px;margin:12px}table{display:block;overflow-x:auto}h1{font-size:24px}.search{padding:10px}td{min-width:180px}}@media print{body,main{background:white}main{border:0;padding:0;margin:0}.search{display:none}table{font-size:10px}td,th{padding:6px}pre{white-space:pre-wrap}h2{break-after:avoid}tr{break-inside:avoid}tr[hidden]{display:table-row}}</style></head><body><div class="search"><input id="query" type="search" aria-label="Filter reference rows" placeholder="Find a move, setting, syntax or example…"><span id="count"></span></div><main><h1>Editor action cheat sheet</h1>
+<p>For the complete current text-file grammar, aliases, settings and copy/paste
+examples, use the <a href="SEQUENCE_SYNTAX_CHEATSHEET.md">sequence syntax cheat sheet</a>.</p>
+<p>For automatic mode conditions and triggers, see the
+<a href="REACTION_RULE_CHEATSHEET.md">reaction-rule cheat sheet</a> and its
+<a href="REACTION_RULE_CHEATSHEET.html">styled searchable table</a>.</p>
+<p>All <strong>52 unique fixed editor entries</strong>, plus dynamic saved inputs and timing/activation settings. <a href="EDITOR_ACTION_CHEATSHEET.html">Open the styled, searchable table</a>.</p>
+<p>All actions simulate inputs/check observations; they do not edit physics, hitboxes or move data. FRAMES is input-hold duration, not move startup or animation length. Every example uses explicit hold duration; do not assume a :1 is replaced by the editor’s 4-frame initial value. Strength accepts decimals (0.5) or percentages (50%) and is stick magnitude, not guaranteed movement speed. X/Y are left-stick axes except cstick, which is the right stick. +X is right for input, forward relative to step-start facing for facing_input; +Y is up. DIR: opponent, away_from_opponent, ledge, inward, outward, facing, backward, saved_ledge, away_from_ledge. Ledge directions need a usable ledge anchor. Check WAIT=0 requires the condition immediately; positive WAIT waits up to that many frames, then ends the remaining sequence on failure. Movement/range steps also respect spatial_timeout and safety checks.</p>
+<p>Duplicate input aliases have been consolidated: Forward A covers Fair/Fsmash (and an A input while already dashing), Up A covers Uair/Usmash, Down A covers Dair/Dsmash, and Neutral A covers jab/Nair/continuous A hold. The picker has one category per fixed action. To build a dash attack, choose <strong>Dash</strong> with a 1-frame duration, then <strong>Forward A</strong>; a simultaneous full-stick+A input alone does not insert a dash first. Native state determines the resulting move.</p>
+<p><strong>Controller input</strong> combines any of A/B/X/Y/L/R/ZL/ZR and both sticks in one frame. Select <strong>Buttons → A</strong> to open eight independent toggles (A or Left/Right toggles; B returns). Set left and right X references independently to <strong>screen</strong>, <strong>facing</strong>, or <strong>opponent</strong>, then configure both sticks and hold frames. Opponent references require an observed target; their horizontal direction is captured at step entry. A facing change/crossing during that hold does not flip the input. Vertical axes remain screen up/down.</p>
+<p>The picker no longer repeats Y/L/ZL or specific A+B/X+B shortcuts: use the button toggles. Until-manual hold is a setting on ordinary button inputs, not another duplicate shield action. Legacy <code>range:ignore</code>, <code>shield_until_manual</code> and ledge fallback directions remain loadable in saved recipes but are not new fixed picker choices. Nothing rewrites your existing actions or durations.</p>
+<p>Examples are <code>actions = ...</code> lines inside a valid section. Replace the fighter/category/ID for your recipe:</p>
+<pre><code class="language-ini">[kirby.neutral.example]
+name = Example
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, wait:2, down_tilt:4
+</code></pre>
+<h2>Attacks / aerials / tilts</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neutral A / Nair</td>
+<td>Neutral A input: jab while grounded, neutral aerial while airborne. Holds A for the chosen duration.</td>
+<td><code>nair:FRAMES</code></td>
+<td><code>actions = nair:4</code></td>
+</tr>
+<tr>
+<td>Forward A (Fair / Fsmash)</td>
+<td>A + full forward stick, relative to starting facing. Ground/air state and native input rules determine the move.</td>
+<td><code>fair:FRAMES</code></td>
+<td><code>actions = fair:4</code></td>
+</tr>
+<tr>
+<td>Up A (Uair / Usmash)</td>
+<td>A + full upward stick. Intended for up aerial airborne or up smash grounded.</td>
+<td><code>uair:FRAMES</code></td>
+<td><code>actions = uair:4</code></td>
+</tr>
+<tr>
+<td>Down A (Dair / Dsmash)</td>
+<td>A + full downward stick. Intended for down aerial airborne or down smash grounded.</td>
+<td><code>dair:FRAMES</code></td>
+<td><code>actions = dair:4</code></td>
+</tr>
+<tr>
+<td>Ftilt</td>
+<td>A + 60% forward left-stick input, relative to starting facing. Intended as forward tilt.</td>
+<td><code>forward_tilt:FRAMES</code></td>
+<td><code>actions = forward_tilt:4</code></td>
+</tr>
+<tr>
+<td>Utilt</td>
+<td>A + 60% up left-stick input. Intended as up tilt.</td>
+<td><code>up_tilt:FRAMES</code></td>
+<td><code>actions = up_tilt:4</code></td>
+</tr>
+<tr>
+<td>Dtilt</td>
+<td>A + 60% down left-stick input. Intended as down tilt.</td>
+<td><code>down_tilt:FRAMES</code></td>
+<td><code>actions = down_tilt:4</code></td>
+</tr>
+<tr>
+<td>C-stick</td>
+<td>Sends right-stick X/Y for FRAMES. This is the right stick; all ordinary input/stick actions use the left stick.</td>
+<td><code>cstick:X:Y:FRAMES</code></td>
+<td><code>actions = cstick:0:-0.6:4</code></td>
+</tr>
+<tr>
+<td>Bair</td>
+<td>A + full backward stick, relative to starting facing. Intended for back air when airborne; it does not jump first.</td>
+<td><code>bair:FRAMES</code></td>
+<td><code>actions = bair:4</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Jumps / jump attacks</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Short hop</td>
+<td>New selections use a brief 1-frame X pulse. Existing saved X durations remain unchanged. Native jump rules apply.</td>
+<td><code>short_hop:FRAMES</code></td>
+<td><code>actions = short_hop:1</code></td>
+</tr>
+<tr>
+<td>Full hop hold</td>
+<td>New selections hold X for 4 frames. Choosing Short/Full hop uses that preset’s pulse rather than inheriting another move’s hold; height still follows native rules.</td>
+<td><code>full_hop:FRAMES</code></td>
+<td><code>actions = full_hop:4</code></td>
+</tr>
+<tr>
+<td>Short hop Nair</td>
+<td>Sends X+A together with a neutral stick for the paired short-hop attack.</td>
+<td><code>short_hop_nair:FRAMES</code></td>
+<td><code>actions = short_hop_nair:4</code></td>
+</tr>
+<tr>
+<td>Short hop Fair</td>
+<td>X+A with full forward stick in the same input step; forward is relative to starting facing.</td>
+<td><code>short_hop_fair:FRAMES</code></td>
+<td><code>actions = short_hop_fair:4</code></td>
+</tr>
+<tr>
+<td>Short hop Bair</td>
+<td>X+A with full backward stick in the same input step.</td>
+<td><code>short_hop_bair:FRAMES</code></td>
+<td><code>actions = short_hop_bair:4</code></td>
+</tr>
+<tr>
+<td>Short hop Uair</td>
+<td>X+A with full up stick in the same input step.</td>
+<td><code>short_hop_uair:FRAMES</code></td>
+<td><code>actions = short_hop_uair:4</code></td>
+</tr>
+<tr>
+<td>Short hop Dair</td>
+<td>X+A with full down stick in the same input step.</td>
+<td><code>short_hop_dair:FRAMES</code></td>
+<td><code>actions = short_hop_dair:4</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Specials</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neutral B</td>
+<td>B with a neutral left stick. Grounded/airborne behavior comes from the fighter.</td>
+<td><code>neutral_b:FRAMES</code></td>
+<td><code>actions = neutral_b:4</code></td>
+</tr>
+<tr>
+<td>Side B</td>
+<td>B + full forward stick, relative to starting facing.</td>
+<td><code>side_b:FRAMES</code></td>
+<td><code>actions = side_b:4</code></td>
+</tr>
+<tr>
+<td>Up B</td>
+<td>B + full up stick. No grounded-only gate is added by this input step.</td>
+<td><code>up_b:FRAMES</code></td>
+<td><code>actions = up_b:4</code></td>
+</tr>
+<tr>
+<td>Down B</td>
+<td>B + full down stick.</td>
+<td><code>down_b:FRAMES</code></td>
+<td><code>actions = down_b:4</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Shield / dodge / grab</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shield / air dodge</td>
+<td>Shield input (ZR). The native situation decides shield or air dodge; this is not an automatic threat check.</td>
+<td><code>shield:FRAMES</code></td>
+<td><code>actions = shield:4</code></td>
+</tr>
+<tr>
+<td>Grab / Zair</td>
+<td>Canonical R grab input with neutral stick. The native situation decides grounded grab or aerial tether/other behavior.</td>
+<td><code>facing_input:BUTTONS:X:Y:FRAMES</code></td>
+<td><code>actions = facing_input:r:0:0:4</code></td>
+</tr>
+<tr>
+<td>Roll forward</td>
+<td>Shield + full forward stick, relative to starting facing. Native grounded eligibility is required for a roll.</td>
+<td><code>roll_forward:FRAMES</code></td>
+<td><code>actions = roll_forward:4</code></td>
+</tr>
+<tr>
+<td>Roll backward</td>
+<td>Shield + full backward stick, relative to starting facing.</td>
+<td><code>roll_backward:FRAMES</code></td>
+<td><code>actions = roll_backward:4</code></td>
+</tr>
+<tr>
+<td>Spot dodge</td>
+<td>Shield + full down stick. Native state decides whether spot dodge can begin.</td>
+<td><code>spot_dodge:FRAMES</code></td>
+<td><code>actions = spot_dodge:4</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Movement / facing</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dash</td>
+<td>Full forward left stick without an attack button, relative to starting facing.</td>
+<td><code>dash:FRAMES</code></td>
+<td><code>actions = dash:4</code></td>
+</tr>
+<tr>
+<td>Crouch / fast fall</td>
+<td>Full downward left stick without a button. Crouch on the ground; fast fall only when native aerial conditions permit.</td>
+<td><code>crouch:FRAMES</code></td>
+<td><code>actions = crouch:4</code></td>
+</tr>
+<tr>
+<td>Face direction</td>
+<td>Faces the chosen direction/target. This step uses facing checks; it is not a timed walking step.</td>
+<td><code>face:DIR</code></td>
+<td><code>actions = face:opponent</code></td>
+</tr>
+<tr>
+<td>Walk to opponent</td>
+<td>Walks toward the opponent for at most FRAMES, stopping at the requested horizontal GAP. Strength is analog input, not a speed percentage.</td>
+<td><code>walk_to_opponent:STRENGTH:FRAMES:GAP</code></td>
+<td><code>actions = walk_to_opponent:0.8:30:10</code></td>
+</tr>
+<tr>
+<td>Air approach</td>
+<td>Timed horizontal air approach toward the opponent, stopping at GAP when reached.</td>
+<td><code>drift_to_opponent:STRENGTH:FRAMES:GAP</code></td>
+<td><code>actions = drift_to_opponent:0.5:12:3</code></td>
+</tr>
+<tr>
+<td>Walk distance</td>
+<td>Walks UNITS from the step starting position in DIR at STRENGTH. Optional GAP applies only to opponent direction. Units are distance, not frames.</td>
+<td><code>walk:DIR:UNITS:STRENGTH[:GAP]</code></td>
+<td><code>actions = walk:opponent:8:50%:1</code></td>
+</tr>
+<tr>
+<td>Run distance</td>
+<td>Uses running movement in DIR until UNITS of horizontal displacement. Distance is not a fixed number of frames.</td>
+<td><code>run:DIR:UNITS</code></td>
+<td><code>actions = run:ledge:8</code></td>
+</tr>
+<tr>
+<td>Drift</td>
+<td>Holds a horizontal analog direction for FRAMES. It is a timed stick action, not a distance target.</td>
+<td><code>drift:DIR:STRENGTH:FRAMES</code></td>
+<td><code>actions = drift:opponent:25%:20</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Buttons / combinations</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Controller input</td>
+<td>Simultaneous button combination, left stick and C-stick. Canonical gameplay buttons only; no menu/click/taunt recursion. Timed hold 1–255 frames. References independently control each stick’s horizontal sign.</td>
+<td><code>controller_input:BUTTONS:LX:LY:RX:RY:FRAMES[:LEFT_REF[:RIGHT_REF]]</code></td>
+<td><code>actions = controller_input:a+b:0.5:0:-1:0:4:opponent:facing</code></td>
+</tr>
+<tr>
+<td>Empty</td>
+<td>Unused editor step. Remove it before saving; there is no Empty execution token.</td>
+<td><code>No file token — remove step</code></td>
+<td><code>actions = down_tilt:4  # Empty removed</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Conditions / checks</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>If facing ledge</td>
+<td>Run the block only if facing the saved ledge at sequence start. Close with End facing block.</td>
+<td><code>if_facing_ledge, ..., end_facing</code></td>
+<td><code>actions = if_facing_ledge, grab:4, end_facing</code></td>
+</tr>
+<tr>
+<td>If back to ledge</td>
+<td>Run the block only if facing away from the saved ledge at sequence start.</td>
+<td><code>if_back_to_ledge, ..., end_facing</code></td>
+<td><code>actions = if_back_to_ledge, short_hop_nair:4, end_facing</code></td>
+</tr>
+<tr>
+<td>End facing block</td>
+<td>Ends a facing block; adds no input or wait. Blocks cannot nest.</td>
+<td><code>end_facing</code></td>
+<td><code>actions = if_facing_ledge, grab:4, end_facing</code></td>
+</tr>
+<tr>
+<td>Wait for shield hit</td>
+<td>Holds shield until a block is observed and shield recovers. Ends the sequence if the FRAMES limit expires.</td>
+<td><code>shield_until_block:FRAMES</code></td>
+<td><code>actions = shield_until_block:90, nair:4</code></td>
+</tr>
+<tr>
+<td>Check opponent distance</td>
+<td>Waits until the opponent is within RANGE horizontally, subject to spatial_timeout; sends no attack itself.</td>
+<td><code>range:RANGE</code></td>
+<td><code>actions = range:10, grab</code></td>
+</tr>
+<tr>
+<td>Check fighter grab reach</td>
+<td>Waits until within this fighter’s configured standing-grab range. Does not press grab or guarantee a hit.</td>
+<td><code>range:fighter_range</code></td>
+<td><code>actions = range:fighter_range, grab</code></td>
+</tr>
+<tr>
+<td>Check fighter grab reach instantly</td>
+<td>Checks current horizontal standing-grab reach once; cancels the remaining recipe immediately if too far or the target is unavailable. Add Grab / Zair next to grab.</td>
+<td><code>range:fighter_range_instant</code></td>
+<td><code>actions = range:fighter_range_instant, grab</code></td>
+</tr>
+<tr>
+<td>Check: I am grounded</td>
+<td>Continue only while the controlled fighter is grounded. WAIT optionally waits for the condition before ending the sequence.</td>
+<td><code>check:self_grounded:WAIT</code></td>
+<td><code>actions = check:self_grounded:0, down_tilt:4</code></td>
+</tr>
+<tr>
+<td>Check: I am airborne</td>
+<td>Continue only while the controlled fighter is airborne.</td>
+<td><code>check:self_airborne:WAIT</code></td>
+<td><code>actions = check:self_airborne:0, down_tilt:4</code></td>
+</tr>
+<tr>
+<td>Check: enemy grounded</td>
+<td>Continue only when the observed enemy is grounded.</td>
+<td><code>check:enemy_grounded:WAIT</code></td>
+<td><code>actions = check:enemy_grounded:0, down_tilt:4</code></td>
+</tr>
+<tr>
+<td>Check: enemy airborne</td>
+<td>Continue only when the observed enemy is airborne.</td>
+<td><code>check:enemy_airborne:WAIT</code></td>
+<td><code>actions = check:enemy_airborne:0, down_tilt:4</code></td>
+</tr>
+<tr>
+<td>Check: enemy shielding</td>
+<td>Continue only when the observed enemy is shielding.</td>
+<td><code>check:enemy_shielding:WAIT</code></td>
+<td><code>actions = check:enemy_shielding:0, down_tilt:4</code></td>
+</tr>
+<tr>
+<td>Check: enemy not shielding</td>
+<td>Continue only when the observed enemy is not shielding.</td>
+<td><code>check:enemy_not_shielding:WAIT</code></td>
+<td><code>actions = check:enemy_not_shielding:0, down_tilt:4</code></td>
+</tr>
+<tr>
+<td>Check: enemy in front</td>
+<td>Continue only when the observed enemy is in front relative to your facing.</td>
+<td><code>check:enemy_in_front:WAIT</code></td>
+<td><code>actions = check:enemy_in_front:0, down_tilt:4</code></td>
+</tr>
+<tr>
+<td>Check: enemy behind</td>
+<td>Continue only when the observed enemy is behind relative to your facing.</td>
+<td><code>check:enemy_behind:WAIT</code></td>
+<td><code>actions = check:enemy_behind:0, down_tilt:4</code></td>
+</tr>
+<tr>
+<td>Check: enemy X distance within</td>
+<td>Continue only when absolute horizontal distance is at most RANGE. WAIT is the maximum condition wait.</td>
+<td><code>check:enemy_within:RANGE:WAIT</code></td>
+<td><code>actions = check:enemy_within:10:0, down_tilt:4</code></td>
+</tr>
+<tr>
+<td>Check: enemy X distance outside</td>
+<td>Continue only when absolute horizontal distance is at least RANGE. This does not measure diagonal/vertical distance.</td>
+<td><code>check:enemy_outside:RANGE:WAIT</code></td>
+<td><code>actions = check:enemy_outside:10:0, down_tilt:4</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Repeated taps</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Repeated taps</td>
+<td>Pulses A, B, forward tilt, up tilt or down tilt. HOLD is press time, GAP is released time, TOTAL is the overall frame budget.</td>
+<td><code>tap:BUTTONS:X:Y:HOLD:GAP:TOTAL</code></td>
+<td><code>actions = tap:a:0:-0.6:1:11:120</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Saved inputs</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Opponent-relative input (saved input)</td>
+<td>Literal buttons plus left stick: +X toward the observed opponent, −X away. Captures direction when each step starts; cancels if the target is unavailable. No facing-wait or move-readiness check. Imported recipes retain editable X/Y and duration.</td>
+<td><code>opponent_input:BUTTONS:X:Y:FRAMES</code></td>
+<td><code>actions = opponent_input:b:-1:0:1, opponent_input:none:1:0:2</code></td>
+</tr>
+<tr>
+<td>Saved inputs (dynamic group)</td>
+<td>Actions imported from the recipe you opened, with descriptive input/check labels. This list varies per recipe; it is not another fixed universal move.</td>
+<td><code>Original action token; commonly input:BUTTONS:X:Y:FRAMES or facing_input:BUTTONS:X:Y:FRAMES</code></td>
+<td><code>actions = input:a+zr:0:0:4</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Input settings</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Buttons</td>
+<td>A opens eight independent canonical button toggles. Works on regular, opponent-relative and controller inputs. No buttons means stick-only input.</td>
+<td><code>BUTTONS = a+b+x+y+l+r+zl+zr</code> or <code>none</code></td>
+<td><code>actions = controller_input:a+zr:0.2:0:0:0:4</code></td>
+</tr>
+<tr>
+<td>Left stick X reference</td>
+<td>Screen: +X right; Facing: +X forward at step start; Opponent: +X toward the observed enemy. Changing reference retains buttons/axes/hold, except until-manual inputs switch to a finite 4-frame hold when converted to opponent-relative.</td>
+<td><code>input</code>, <code>facing_input</code>, <code>opponent_input</code>; or <code>LEFT_REF</code> for controller input</td>
+<td><code>actions = opponent_input:b:1:0:4</code></td>
+</tr>
+<tr>
+<td>Right stick X reference</td>
+<td>Independent screen/facing/opponent sign for a Controller input’s C-stick.</td>
+<td><code>RIGHT_REF</code></td>
+<td><code>actions = controller_input:none:0.5:0:-1:0:4:opponent:facing</code></td>
+</tr>
+<tr>
+<td>Right stick X / Y</td>
+<td>Controller input’s simultaneous C-stick axes. Left X/Y remain independently editable.</td>
+<td><code>RX:RY</code></td>
+<td><code>actions = controller_input:none:0.5:0:0:1:4</code></td>
+</tr>
+</tbody>
+</table>
+<p>Aerial drifting + back-air input, for example, can use the last facing-relative C-stick example; it does not jump for you. Diagonal air dodge can use <code>check:self_airborne:0, controller_input:zr:0.7:0.7:0:0:4:screen:screen</code>. These are physical input combinations, not guaranteed native moves or hit confirms.</p>
+<h2>Timing / activation settings</h2>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wait BEFORE action (setting)</td>
+<td>Per-step delay, not a selectable Wait move. In the file, insert wait before that action.</td>
+<td><code>wait:FRAMES</code></td>
+<td><code>actions = short_hop:4, wait:5, nair:4</code></td>
+</tr>
+<tr>
+<td>Start delay (setting)</td>
+<td>Wait before the entire sequence. This is a section property, not an actions token.</td>
+<td><code>start_delay = FRAMES</code></td>
+<td><code>start_delay = 4</code></td>
+</tr>
+<tr>
+<td>Loop while held (button setting)</td>
+<td>Repeats the whole button recipe while its physical binding is held. Only button recipes support this.</td>
+<td><code>while_held = true / false</code></td>
+<td><code>while_held = true</code><br><code>actions = down_tilt:4, wait:8</code></td>
+</tr>
+<tr>
+<td>Timeout / spatial timeout (properties)</td>
+<td>Overall sequence limit and the bound for movement/range waits. These do not change the fighter’s move startup.</td>
+<td><code>timeout = FRAMES; spatial_timeout = FRAMES</code></td>
+<td><code>timeout = 3600</code><br><code>spatial_timeout = 60</code></td>
+</tr>
+<tr>
+<td>Startup default (saved choice)</td>
+<td>Select this saved recipe when the next match loads this fighter/category. Keep at most one true default per category.</td>
+<td><code>default = true</code></td>
+<td><code>default = true</code></td>
+</tr>
+</tbody>
+</table>
+<p>Built from the actual editor presets and checked against the Rust parser/serializer. Spatial and input actions still follow native game eligibility; these examples do not guarantee a hit or a legal tech.</p>
+<h2>Automatic reaction settings</h2>
+<p>These are recipe properties below the action list, not extra move choices.
+See <a href="REACTION_RULES.md">reaction rules</a> for all seven fields and priorities.</p>
+<table>
+<thead>
+<tr>
+<th>Menu name</th>
+<th>Description</th>
+<th>File syntax</th>
+<th>File example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stop if airborne</td>
+<td>Optional sequence safety switch, exposed for assist recipes. Stops pending/held inputs after leaving the ground. Defaults OFF so existing jump recipes are unchanged.</td>
+<td><code>ground_only = true</code></td>
+<td><code>ground_only = true</code> followed by <code>actions = check:self_grounded:0, up_b:3</code></td>
+</tr>
+<tr>
+<td>Auto reaction / My state / Min-max X distance / Height / Enemy side / Priority</td>
+<td>Available in separate Assist rule editors, not ordinary ledge/button recipes. Roll variants choose their condition; shield-hit, grab-dodged and ledge-regrab rules keep their own event family. Each assist has its ON/OFF control.</td>
+<td><code>reaction = TRIGGER:STATE:MIN:MAX:HEIGHT:SIDE:PRIORITY</code></td>
+<td><code>reaction = roll_cross_vulnerable:grounded:0:14:10:any:1</code></td>
+</tr>
+</tbody>
+</table>
+<p>Use movement <strong>Direction → Toward saved ledge / Away from saved ledge</strong> for
+explicit anchor-only movement. <code>walk:away_from_ledge:4:50%</code> moves four world units
+away; <code>run:saved_ledge:8</code> runs eight units toward it;
+<code>drift:away_from_ledge:25%:20</code> sends that stick direction for twenty frames.
+No known anchor means these new actions stop the sequence; legacy <code>ledge</code>
+retains its existing opponent fallback. Facing blocks use sequence-start facing,
+not the opponent's side, and cannot nest. Only the selected block's waits/inputs
+consume time. They need a known ledge; on-stage reaction rules cannot use them.
+See <a href="SEQUENCE_FILES.md#facing-dependent-ledge-recipes">facing-dependent recipes</a>.</p>
+<h2>Movement direction choices</h2>
+<p>These are the <strong>Direction</strong> settings on Face, Walk distance, Run distance and Drift, not separate move-picker entries. Walk/Run distances are world units; Drift duration is frames.</p>
+<table>
+<thead>
+<tr>
+<th>Menu direction</th>
+<th>Meaning</th>
+<th>DIR token</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Toward saved ledge</td>
+<td>Toward the retained ledge anchor. Ends the sequence if no anchor is known.</td>
+<td><code>saved_ledge</code></td>
+<td><code>actions = drift:saved_ledge:25%:20</code></td>
+</tr>
+<tr>
+<td>Away from saved ledge</td>
+<td>Away from the retained ledge anchor. Ends the sequence if no anchor is known.</td>
+<td><code>away_from_ledge</code></td>
+<td><code>actions = walk:away_from_ledge:4:50%</code></td>
+</tr>
+<tr>
+<td>Opponent</td>
+<td>Toward the observed opponent.</td>
+<td><code>opponent</code></td>
+<td><code>actions = walk:opponent:4:50%</code></td>
+</tr>
+<tr>
+<td>Away from opponent</td>
+<td>Away from the observed opponent.</td>
+<td><code>away_from_opponent</code></td>
+<td><code>actions = drift:away_from_opponent:25%:20</code></td>
+</tr>
+<tr>
+<td>Ledge (legacy saved/file input only)</td>
+<td>Toward the ledge, with the existing opponent-position fallback if no anchor is known.</td>
+<td><code>ledge</code></td>
+<td><code>actions = run:ledge:8</code></td>
+</tr>
+<tr>
+<td>Inward</td>
+<td>Along the retained inward stage direction.</td>
+<td><code>inward</code></td>
+<td><code>actions = walk:inward:4:50%</code></td>
+</tr>
+<tr>
+<td>Outward</td>
+<td>Opposite the retained inward stage direction.</td>
+<td><code>outward</code></td>
+<td><code>actions = drift:outward:25%:20</code></td>
+</tr>
+<tr>
+<td>Facing</td>
+<td>Along the fighter’s facing direction.</td>
+<td><code>facing</code></td>
+<td><code>actions = walk:facing:4:50%</code></td>
+</tr>
+<tr>
+<td>Backward</td>
+<td>Opposite facing; backward drift retains its step-start direction.</td>
+<td><code>backward</code></td>
+<td><code>actions = drift:backward:25%:20</code></td>
+</tr>
+</tbody>
+</table></main><script>const input=document.getElementById('query'),rows=[...document.querySelectorAll('tbody tr')],count=document.getElementById('count');function filter(){const terms=input.value.toLowerCase().trim().split(/\s+/).filter(Boolean);let visible=0;for(const row of rows){const text=row.textContent.toLowerCase();row.hidden=!terms.every(term=>text.includes(term));if(!row.hidden)visible++;}count.textContent=visible+' / '+rows.length+' rows';}input.addEventListener('input',filter);filter();</script></body></html>

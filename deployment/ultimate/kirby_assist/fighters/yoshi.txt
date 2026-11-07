@@ -1,0 +1,235 @@
+# ========================================================================
+#                                 YOSHI
+# ========================================================================
+
+# ---- LEDGE TRAPS: NEUTRAL ----
+# ---- Nair | yoshi.neutral.nair_ledge ----
+[yoshi.neutral.nair_ledge]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = drift:opponent:0.1:25, facing_input:a+x:0:0:4, drift:opponent:0.5:1
+name = Nair
+default = true
+
+# ---- Nair2 | yoshi.neutral.nair_oppenent ----
+[yoshi.neutral.nair_oppenent]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:x:0:0:1, drift:away_from_opponent:0.61:4, facing_input:a:0:0:2, wait:1, drift:opponent:1:10, wait:3, facing_input:none:0:-1:4
+name = Nair2
+default = false
+
+# ---- SHNAIR PLAIN | yoshi.neutral.nair_v2 ----
+[yoshi.neutral.nair_v2]
+name = Fsmash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:a:0:0:19
+
+# ---- LEDGE TRAPS: JUMP ----
+# ---- Nair (instant nair, max drift) | yoshi.jump.nair ----
+[yoshi.jump.nair]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:a+x:0.35:0:4, drift:opponent:1:20
+name = Nair (instant nair, max drift)
+default = true
+
+# ---- Fw air | yoshi.jump.up_air ----
+[yoshi.jump.up_air]
+name = Fw air
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:x:0:0:1, wait:5, facing_input:a:1:0:4, drift:away_from_opponent:1:6, wait:5, facing_input:none:0:-1:4
+default = false
+
+# ---- Meteor fair (spacing) | yoshi.jump.forward_air ----
+[yoshi.jump.forward_air]
+name = Meteor fair (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+# ---- SHNAIR 1/2 DRIFT | yoshi.jump.nair_fast ----
+[yoshi.jump.nair_fast]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+name = SHNAIR 1/2 DRIFT
+actions = short_hop_nair, drift:opponent:0.50:10
+
+# ---- SHNAIR MAX DRIFT | yoshi.jump.nair_fas-2 ----
+[yoshi.jump.nair_fas-2]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+name = SHNAIR MAX DRIFT
+actions = short_hop, nair, drift:opponent:1:10
+
+# ---- runs SHNAIR | yoshi.jump.nair_fas-3 ----
+[yoshi.jump.nair_fas-3]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+name = runs SHNAIR
+actions = drift:ledge:100%:4, short_hop_nair, drift:opponent:1:5
+
+# ---- LEDGE TRAPS: ROLL ----
+# ---- Tongue grab | yoshi.roll.grab ----
+[yoshi.roll.grab]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = drift:away_from_opponent:0.4:20, wait:10, range:30, facing_input:r:0:0:4
+name = Tongue grab
+default = true
+
+# ---- grab shuffle | yoshi.roll.grab_shuffle ----
+[yoshi.roll.grab_shuffle]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+name = grab shuffle
+actions = wait:1, face:away, wait:1, face:opponent, walk:opponent:10:0.4, grab:fighter_range
+
+# ---- LEDGE TRAPS: ATTACK ----
+# ---- Shield > nair | yoshi.attack.shield_nair ----
+[yoshi.attack.shield_nair]
+name = Shield > nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, short_hop_nair:4
+
+# ---- Grab / rear nair | yoshi.attack.shield_grab ----
+[yoshi.attack.shield_grab]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = shield_until_block:90, facing_input:r:0:0:4
+name = Grab / rear nair
+default = true
+
+# ---- LEDGE TRAPS: DROP ----
+# ---- Shield | yoshi.drop.shield ----
+[yoshi.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+# ---- Down tilt > shield | yoshi.drop.down_tilt_shield ----
+[yoshi.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+# ---- D AIR | yoshi.drop.menu_added_4 ----
+[yoshi.drop.menu_added_4]
+name = D AIR
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:x:0:0:1, facing_input:a:0:-1:4, drift:opponent:1:15
+default = false
+
+# ---- Fw AIR | yoshi.drop.menu_added_5 ----
+[yoshi.drop.menu_added_5]
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = facing_input:x:0:0:1, wait:9, facing_input:a:1:0:1, drift:away_from_opponent:1:4, wait:11, facing_input:none:0:-1:4
+name = Fw AIR
+default = false
+
+# ---- BUTTON SEQUENCES: Y ----
+# ---- Custom (saved) | yoshi.y.menu_custom ----
+[yoshi.y.menu_custom]
+default = false
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+actions = drift:away_from_opponent:1:1, facing_input:b:1:0:1, drift:opponent:1:1
+name = B-Reverse 
+
+# ---- Built-in: Short hop | yoshi.y.__builtin_short_hop ----
+[yoshi.x.__builtin_short_hop]
+default = true
+name = Built-in: Short hop
+builtin = short_hop
+
+# ---- ASSIST RULES: OUT OF SHIELD ----
+# ---- AUTO OOS Front grab | yoshi.attack.auto_oos_grab ----
+[yoshi.attack.auto_oos_grab]
+name = AUTO OOS Front grab
+start_delay = 0
+timeout = 120
+spatial_timeout = 60
+default = false
+reaction = shield_hit:grounded:0:23:19:front:1
+actions = input:r:0:0:4
+
+# ---- AUTO OOS Nair | yoshi.attack.auto_oos_nair ----
+[yoshi.attack.auto_oos_nair]
+name = AUTO OOS Nair
+start_delay = 0
+timeout = 120
+spatial_timeout = 60
+default = false
+reaction = shield_hit:grounded:0:25:20:any:2
+actions = short_hop_nair:4, drift:opponent:1:20
+
+# ---- ASSIST RULES: AUTO REACT ----
+# ---- Automatic grab (unshielded) | yoshi.roll.auto_grab ----
+[yoshi.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:34:24
+actions = drift:opponent:1:1,input:r:0:0:4
+
+# ---- Automatic grab (shielded) | yoshi.roll.auto_shield_grab ----
+[yoshi.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:30:24
+actions = input:r:0:0:4
+
+# ---- Shield grab backup | yoshi.roll.auto_shield_backup ----
+[yoshi.roll.auto_shield_backup]
+name = Shield grab backup
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_backup:19:24
+actions = short_hop_nair:4
+
+# YOUNG LINK
+# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
+# Move data: https://ultimateframedata.com/young_link
+# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
+# Ground attacks assume shield is already released; OOS uses the block helper.
+# Charged smash release and hitbox contact require in-game calibration.
+# Down-smash branches choose front/rear at entry; position for the roll endpoint.
+# Auto-react is immediate; ordinary dodges do not use the ledge timings.
+# Automatic admission is grounded; aerial tapes may finish after takeoff.
+

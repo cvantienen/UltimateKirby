@@ -39,6 +39,32 @@ fn roster(t: Target) -> [Option<Target>; 8] {
     out
 }
 #[test]
+fn target_first_readiness_preserves_acquisition_hitstop_and_target_loss() {
+    let mut reference = SpotDodge::default();
+    let mut gated = SpotDodge::default();
+    for tick in 0..8 {
+        let targets = if matches!(tick, 1 | 2 | 5 | 6) {
+            roster(target())
+        } else {
+            [None; 8]
+        };
+        let c = Context {
+            stopped: tick == 2 || tick == 3,
+            ..context(tick as f32)
+        };
+        let observed = Context {
+            can_spot_dodge: targets.iter().any(Option::is_some) && c.can_spot_dodge,
+            ..c
+        };
+        assert_eq!(
+            gated.sample(true, observed, targets),
+            reference.sample(true, c, targets),
+            "tick={tick}"
+        );
+    }
+}
+
+#[test]
 fn standing_dash_and_pivot_grabs_trigger_at_the_forecast_boundary() {
     for (status, first) in [(0x37, 6), (0x39, 9), (0x3b, 10)] {
         let mut tool = SpotDodge::default();
@@ -46,7 +72,7 @@ fn standing_dash_and_pivot_grabs_trigger_at_the_forecast_boundary() {
             status,
             first,
             last: first + 1,
-            frame: f32::from(first) - 5.0,
+            frame: f32::from(first) - 7.0,
             ..target()
         };
         assert_eq!(
@@ -139,14 +165,17 @@ fn no_air_dodges_damage_recovery_cancels_or_forced_dodge_terms() {
         },
         Context {
             status: 0x47,
+            can_spot_dodge: false,
             ..context(0.0)
         },
         Context {
             status: 0x27,
+            can_spot_dodge: false,
             ..context(0.0)
         },
         Context {
             status: 0x1e,
+            can_spot_dodge: false,
             ..context(0.0)
         },
         Context {
@@ -163,6 +192,38 @@ fn no_air_dodges_damage_recovery_cancels_or_forced_dodge_terms() {
             LedgeOutput::default()
         );
     }
+}
+
+#[test]
+fn native_cancel_term_does_not_bypass_stationary_only_grab_defense() {
+    let out = SpotDodge::default().sample(
+        true,
+        Context {
+            status: 0x2c,
+            can_spot_dodge: true,
+            ..context(0.0)
+        },
+        roster(target()),
+    );
+    assert_eq!(out.requested, 0);
+    assert_eq!(out.owned, 0);
+}
+
+#[test]
+fn priority_cancellation_does_not_consume_an_unaccepted_grab_attempt() {
+    let mut tool = SpotDodge::default();
+    let first = tool.sample(true, context(0.0), roster(target()));
+    assert_eq!(first.requested, MAPPER_ZR);
+    tool.cancel_pending();
+    let retry = tool.sample(
+        true,
+        context(1.0),
+        roster(Target {
+            frame: 3.0,
+            ..target()
+        }),
+    );
+    assert_eq!(retry.requested, MAPPER_ZR);
 }
 #[test]
 fn native_acceptance_releases_and_the_same_grab_cannot_retrigger_after_roster_reordering() {
@@ -192,16 +253,12 @@ fn native_acceptance_releases_and_the_same_grab_cannot_retrigger_after_roster_re
     let mut moved = [None; 8];
     moved[5] = Some(Target { frame: 4.0, ..t });
     assert_eq!(tool.sample(true, context(1.0), moved).requested, 0);
-    // A new native grab animation rewinds its age and may create a new attempt.
-    assert_eq!(
-        tool.sample(true, context(2.0), roster(Target { frame: 0.0, ..t }))
-            .requested,
-        0
-    );
-    assert_eq!(
-        tool.sample(true, context(3.0), roster(t)).requested,
-        MAPPER_ZR
-    );
+    // A rewind alone (including rollback) cannot authorize a second dodge.
+    tool.cancel_response();
+    assert_eq!(tool.sample(true,context(2.0),roster(Target{frame:0.,..t})).requested,0);
+    // A positively observed end rearms the next real grab.
+    tool.observe_statuses(&[Some((t.id,0)),None,None,None,None,None,None,None]);
+    assert_eq!(tool.sample(true,context(3.0),roster(Target{frame:0.,..t})).requested,MAPPER_ZR);
 }
 #[test]
 fn duplicate_polls_and_stop_do_not_spend_delivery_lifetime_or_repeat_attempts() {
@@ -223,10 +280,12 @@ fn duplicate_polls_and_stop_do_not_spend_delivery_lifetime_or_repeat_attempts() 
             out
         );
     }
-    assert_eq!(tool.sample(true, context(1.0), roster(target())), out);
+    let neutral = tool.sample(true, context(1.0), roster(target()));
+    assert_eq!(neutral.requested, MAPPER_ZR);
+    assert_eq!(neutral.stick, Some([0.0, -1.0]));
     assert_eq!(
-        tool.sample(true, context(3.0), roster(target())).requested,
-        0
+        tool.sample(true, context(3.0), roster(target())).stick,
+        Some([0.0, -1.0])
     );
     assert_eq!(
         tool.sample(true, context(4.0), roster(target())).requested,
@@ -313,8 +372,8 @@ fn grab_clock_retries_a_delayed_dodge_while_own_idle_is_frozen() {
                 ..target()
             })
         )
-        .requested,
-        0
+        .stick,
+        Some([0.0, -1.0])
     );
     let retry = tool.sample(
         true,
@@ -348,4 +407,179 @@ fn grab_clock_retries_a_delayed_dodge_while_own_idle_is_frozen() {
         .owned,
         0
     );
+}
+
+#[test]
+fn fast_dash_grab_that_reaches_only_in_the_last_two_forecast_frames_is_seen() {
+    let t = Target {
+        first: 6,
+        last: 13,
+        frame: 6.0,
+        position: [36.0, 0.0],
+        velocity: [-4.0, 0.0],
+        ..target()
+    };
+    assert_eq!(contact(context(1.0), t), Some(5.5));
+    let out = SpotDodge::default().sample(true, context(1.0), roster(t));
+    assert_eq!(out.requested, MAPPER_ZR);
+    assert_eq!(out.stick, Some([0.0, -1.0]));
+}
+
+#[test]
+fn stationary_shield_can_request_grab_dodge_without_releasing_shield_first() {
+    for status in [0x1b,0x1c] {
+        let c=Context {status,frame:0.0,rate:0.0,..context(0.0)};
+        let mut dodge=SpotDodge::default();
+        let first=dodge.sample(true,c,roster(target()));
+        assert_eq!(first.requested,MAPPER_ZR);
+        assert_eq!(first.stick,Some([0.0,-1.0]));
+        for _ in 0..10 {assert_eq!(dodge.sample(true,c,roster(target())),first);}
+        let mut t=target();
+        t.frame=5.0; // Three advancing attacker frames, while shield stays frozen.
+        let release=dodge.sample(true,c,roster(t));
+        assert_eq!(release.requested,MAPPER_ZR);
+        assert_eq!(release.stick,Some([0.0,-1.0]));
+        t.frame=6.0;
+        assert_eq!(dodge.sample(true,c,roster(t)).requested,MAPPER_ZR);
+        let accepted=Context {status:ESCAPE,rate:1.0,..c};
+        assert_eq!(dodge.sample(true,accepted,roster(t)).owned,0);
+        assert_eq!(dodge.sample(true,c,roster(t)).owned,0); // One accepted dodge per grab.
+    }
+}
+
+#[test]
+fn stationary_shield_exception_does_not_allow_air_shieldstun_or_disabled_escape() {
+    let shield=Context {status:0x1c,frame:0.0,rate:0.0,..context(0.0)};
+    for c in [
+        Context {situation:2,..shield},
+        Context {can_spot_dodge:false,..shield},
+        Context {status:0x1e,..shield},
+        Context {status:0,..shield},
+        Context {rate:f32::NAN,..shield},
+        Context {rate:-1.0,..shield},
+    ] {
+        assert_eq!(SpotDodge::default().sample(true,c,roster(target())),LedgeOutput::default());
+    }
+    assert_eq!(SpotDodge::default().sample(false,shield,roster(target())),LedgeOutput::default());
+}
+
+#[test]
+fn pending_shield_dodge_holds_through_hitstop_but_releases_on_air() {
+    let c=Context {status:0x1c,frame:0.0,rate:0.0,..context(0.0)};
+    let mut dodge=SpotDodge::default();
+    let initial=dodge.sample(true,c,roster(target()));
+    for _ in 0..12 {
+        assert_eq!(dodge.sample(true,Context {stopped:true,..c},roster(target())),initial);
+    }
+    assert_eq!(dodge.sample(true,Context {situation:2,..c},roster(target())),LedgeOutput::default());
+}
+
+#[test]
+fn fast_grab_crossing_between_half_frame_samples_is_detected() {
+    let t = Target {
+        frame: 5.0, rate: 4.0, first: 6, last: 7,
+        position: [20.0, 0.0], velocity: [-50.0, 0.0], reach: 1.0,
+        ..target()
+    };
+    let at = contact(context(0.0), t).expect("contact between sample times");
+    assert!((at - 0.34).abs() < 0.0001);
+    // Horizontal and vertical overlap must occur at the same instant.
+    assert!(contact(context(0.0), Target {
+        position: [20.0, 40.0], velocity: [-50.0, -50.0], ..t
+    }).is_none());
+}
+
+#[test]
+fn temporary_uncancelable_state_does_not_consume_an_unaccepted_dodge() {
+    let mut tool = SpotDodge::default();
+    assert_eq!(tool.sample(true, context(0.0), roster(target())).requested, MAPPER_ZR);
+    assert_eq!(tool.sample(true, Context {
+        status: 0x1e, can_spot_dodge: false, ..context(1.0)
+    }, roster(Target {frame: 3.0, ..target()})).owned, 0);
+    assert_eq!(tool.sample(true, context(2.0), roster(Target {
+        frame: 4.0, ..target()
+    })).requested, MAPPER_ZR);
+}
+
+#[test]
+fn predicted_range_change_does_not_consume_an_unaccepted_dodge() {
+    let mut tool = SpotDodge::default();
+    assert_eq!(tool.sample(true, context(0.0), roster(target())).requested, MAPPER_ZR);
+    assert_eq!(tool.sample(true, context(1.0), roster(Target {
+        frame: 3.0, position: [50.0, 0.0], ..target()
+    })).owned, 0);
+    assert_eq!(tool.sample(true, context(2.0), roster(Target {
+        frame: 4.0, ..target()
+    })).requested, MAPPER_ZR);
+}
+
+#[test]
+fn dk_grabs_use_dk_windows_and_keep_guard_held_for_bowsers_retry() {
+    use kirby_assist_core::opponent_data;
+    for (status, first, last) in [(0x37,8,10),(0x39,11,13),(0x3b,12,14)] {
+        let facts = opponent_data::ordinary_grab(1, status).unwrap();
+        assert_eq!((facts.first, facts.last, facts.reach), (first,last,19.5));
+        for own_status in [0,0x1b,0x1c] {
+            let mut dodge = SpotDodge::default();
+            let mut c = Context {status:own_status, ..context(0.0)};
+            if own_status != 0 { c.rate=0.0; }
+            let t = Target {status,frame:f32::from(first)-6.0,first,last,
+                reach:facts.reach,position:[19.0,0.0],..target()};
+            for age in 0..=4 {
+                let out = dodge.sample_with_shape(true, c,
+                    roster(Target {frame:t.frame+age as f32,..t}),7.0,10.0,8.0);
+                assert_eq!(out.requested, MAPPER_ZR, "status={own_status:x} age={age}");
+                assert_eq!(out.stick,Some([0.0,-1.0]));
+                // Standstill can use its own clock; held shield uses DK's clock.
+                if own_status==0 {c.frame+=1.0;}
+            }
+            assert_eq!(dodge.sample(true,Context {status:ESCAPE,rate:1.0,..c},roster(t)).owned,0);
+        }
+    }
+}
+
+#[test]
+fn final_active_grab_frame_remains_live_at_fractional_motion_times() {
+    let t=Target {first:6,last:7,frame:7.5,..target()};
+    assert_eq!(contact(context(0.0),t),Some(0.0));
+    assert_eq!(contact(context(0.0),Target {frame:8.0,..t}),None);
+    // Contact precisely when the active window ends is already too late.
+    assert_eq!(contact(context(0.0),Target {
+        position:[15.0,0.0],velocity:[-2.0,0.0],..t
+    }),None);
+}
+
+#[test]
+fn one_delivered_dodge_releases_down_guard_and_waits_for_native_success_without_an_unconfigured_punish() {
+ use kirby_assist_core::ledge_trap::{LedgeContext,LedgeSettings,Opponent};
+ let mut tool=SpotDodge::default();let t=Target{last:40,..target()};
+ assert_eq!(tool.sample(true,context(0.),roster(t)).requested,MAPPER_ZR);
+ tool.mapped_dodge(0,t.id);
+ for frame in 1..8 {
+  let c=Context{status:if frame>=3{ESCAPE}else{0},..context(frame as f32)};
+  let out=tool.sample(true,c,roster(t));assert_eq!(out.requested,0);
+  if frame<3 {assert_eq!(out.stick,Some([0.;2]));}
+  tool.delivery_tick(frame);
+  let punish=tool.punish_automatic(true,None,LedgeSettings::default(),LedgeContext{gameplay:true,can_act:true,status:c.status,motion_kind:1,motion_rate:1.,motion_frame:frame as f32,..Default::default()},Some(Opponent{id:t.id,..Default::default()}));
+  assert_eq!(punish.owned,0);assert_eq!(punish.requested,0);
+ }
+ assert_eq!(tool.sample(true,context(9.),roster(Target{frame:0.,..t})).requested,0);
+}
+#[test]
+fn delivered_dodge_wait_has_a_mapper_budget_even_with_frozen_poses_and_never_repeats_a_guard_edge() {
+ let mut tool=SpotDodge::default();let t=Target{last:40,..target()};tool.sample(true,context(0.),roster(t));tool.mapped_dodge(1,t.id);
+ for _ in 0..100 {tool.delivery_tick(1);let out=tool.sample(true,context(0.),roster(t));assert_eq!(out.requested,0);assert_ne!(out.owned,0);}
+ for tick in 2..=25 {tool.delivery_tick(tick);assert_eq!(tool.sample(true,context(0.),roster(t)).requested,0);}
+ assert_eq!(tool.sample(true,context(0.),roster(t)).owned,0);
+}
+
+#[test]
+fn rejected_guard_packets_are_bounded_without_falsely_confirming_a_dodge_or_a_punish() {
+ use kirby_assist_core::{ledge_trap::{LedgeContext,LedgeSettings,Opponent},sequence_config::Catalog};
+ let mut tool=SpotDodge::default();let t=Target{last:40,..target()};
+ for tick in 0..24 {assert_eq!(tool.sample(true,context(0.),roster(t)).requested,MAPPER_ZR);tool.attempted_dodge(tick,t.id);}
+ assert_eq!(tool.sample(true,context(0.),roster(t)).owned,0);
+ let s=Catalog::parse("[bowser.roll.after]\nstart_delay=0\nreaction=auto_grab_dodged:25:10\nactions=up_b:4\n").unwrap().entries()[0].sequence;
+ let p=tool.punish_automatic(true,Some(&s),LedgeSettings::default(),LedgeContext{gameplay:true,can_act:true,motion_kind:1,motion_rate:1.,..Default::default()},Some(Opponent{id:t.id,..Default::default()}));
+ assert_eq!(p.owned,0);assert!(!tool.punish_committed());
 }

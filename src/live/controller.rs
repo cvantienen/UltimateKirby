@@ -22,8 +22,10 @@ pub(super) struct Controller {
     pub(super) left_padding: u32,
     pub(super) right_stick_x: f32,
     pub(super) right_stick_y: f32,
-    // Rest of the native axes/gyro/repeat prefix remains untouched.
-    pub(super) sticks_gyro_repeat: [u8; 0x60],
+    pub(super) right_trigger: f32,
+    pub(super) right_padding: u32,
+    // Rest of the native gyro/repeat prefix remains untouched.
+    pub(super) sticks_gyro_repeat: [u8; 0x58],
     pub(super) just_down: u32,
     pub(super) just_release: u32,
     pub(super) autorepeat: [u32; 3],
@@ -43,6 +45,8 @@ const _: () = {
     assert!(std::mem::offset_of!(Controller, left_stick_y) == 0x14);
     assert!(std::mem::offset_of!(Controller, right_stick_x) == 0x20);
     assert!(std::mem::offset_of!(Controller, right_stick_y) == 0x24);
+    assert!(std::mem::offset_of!(Controller, left_trigger) == 0x18);
+    assert!(std::mem::offset_of!(Controller, right_trigger) == 0x28);
     assert!(std::mem::offset_of!(Controller, autorepeat) == 0x90);
     assert!(std::mem::offset_of!(Controller, just_down) == 0x88);
     assert!(std::mem::offset_of!(Controller, just_release) == 0x8c);

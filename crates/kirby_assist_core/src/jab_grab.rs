@@ -1,14 +1,14 @@
-//! A+B starts one Kirby jab 1 -> ordinary standing grab attempt.
-//! A alone is always physical. Native cancel/readiness gates own the earliest
-//! recovery -> one gentle forward input -> native-frame grab retries.
+//! A physical Jab 1 followed by a fresh Grab press starts Kirby's follow-up.
+//! Native cancel/readiness gates own the earliest recovery -> one gentle
+//! forward input -> native-frame grab retries.
 //! No distance gate, forced status, recovery edits or hitbox scan.
 use crate::{
     ledge_trap::LedgeOutput,
     manual_controls::{ShortcutContext, LEFT_STICK_DIRECTIONS},
-    native_input::{MAPPER_A, MAPPER_B, MAPPER_L, MAPPER_R},
+    native_input::{MAPPER_A, MAPPER_L, MAPPER_R},
     timing::{motion_elapsed, motion_hash},
 };
-pub const TRIGGER: u32 = MAPPER_A | MAPPER_B;
+pub const TRIGGER: u32 = MAPPER_R;
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 pub enum Followup {
     #[default]
@@ -40,8 +40,8 @@ pub struct Readiness {
 pub struct JabGrab {
     previous_buttons: Option<u32>,
     previous: Option<(i32, u64, f32, f32)>,
-    // 0 idle, 1 stand/prepare, 2 jab delivery, 3 jab recovery,
-    // 4 grab delivery, 5 release original chord (no auto-pummel/special).
+    // 0 idle, 3 jab recovery, 4 follow-up delivery,
+    // 5 release the physical Grab trigger (no auto-pummel).
     phase: u8,
     followup: Followup,
     latched: bool,
@@ -118,7 +118,7 @@ impl JabGrab {
         context: Option<ShortcutContext>,
         ready: Readiness,
     ) -> LedgeOutput {
-        let pressed = buttons & !self.previous_buttons.unwrap_or(buttons);
+        let pressed = buttons & !self.previous_buttons.unwrap_or(0);
         self.previous_buttons = Some(buttons);
         if buttons & TRIGGER == 0 {
             self.latched = false;
@@ -154,24 +154,20 @@ impl JabGrab {
             };
         }
         if self.phase == 0 {
-            let chord = buttons & TRIGGER == TRIGGER && pressed & TRIGGER != 0;
-            if !chord || self.latched {
+            let jab = c.status == 0x27 && c.motion == motion_hash("attack_11");
+            // The player supplies Jab 1 normally, releases A, then presses
+            // their mapped Grab button. Consume that Grab edge during jab so
+            // it cannot become a late jab continuation or premature grab.
+            let grab_after_jab = jab && buttons & MAPPER_A == 0 && pressed & TRIGGER != 0;
+            if !grab_after_jab || self.latched {
                 return LedgeOutput::default();
             }
             self.latched = true;
-            if !matches!(c.status,0..=9 | 0x11..=0x15 | 0x27) || c.stopped {
-                return self.tail(buttons);
-            }
-            self.phase = 1;
+            self.phase = 3;
             self.age = 0.0;
             self.request_age = 0.0;
             self.walk_request_at = None;
             self.previous = Some((c.status, c.motion, c.frame, c.rate));
-            // Consume B immediately: native A+B Smash must not receive it.
-            // Existing jab 1 can be used when A arrived just before B.
-            if c.status == 0x27 && c.motion == motion_hash("attack_11") {
-                self.phase = 3;
-            }
         }
         let stamp = (c.status, c.motion, c.frame, c.rate);
         let delta = if c.stopped {
@@ -237,14 +233,15 @@ impl JabGrab {
             // One gentle forward input only; duplicates retain it until the
             // next native frame, never advancing from controller poll counts.
             if let Some(at) = self.walk_request_at {
-                if self.age - at >= 1.0 && matches!(c.status, 1 | 2) {
+                if self.age - at >= 1.0 {
+                    // A one-frame movement input can be accepted without a
+                    // separately observed WALK state. Start ordinary grab/
+                    // smash retries now; the native buffer decides acceptance.
                     self.phase = 4;
                     self.request_age = 0.0;
                     self.output = self.followup_output();
-                } else if self.age - at < 1.0 {
+                } else {
                     self.output = crate::move_input::output([c.facing.signum() * 0.3, 0.0], 0);
-                } else if self.age - at > crate::move_input::ACCEPTANCE_TIMEOUT {
-                    return self.tail(buttons); // Walk was never observed; do not keep moving.
                 }
             } else if (!jab || ready.cancel_jab)
                 && (ready.can_walk || !jab && matches!(c.status, 0..=9))

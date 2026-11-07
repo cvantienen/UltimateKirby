@@ -1,7 +1,16 @@
 # King K. Rool and Isabelle
 
+Current [chart-based files](FIGHTER_EXECUTION.md#chart-based-roster-configurations)
+select forward tilt for normal getup, Nair for jump, down-smash for roll,
+shield into Nair for getup attack, and shield for drop on both fighters.
+Smash choices now explicitly hold/release Attack; the historical release-on-startup
+and adaptive-hop descriptions below do not schedule these text-file inputs.
+
+> Current ledge options and all input scheduling now come only from [sequences.txt](SEQUENCE_FILES.md). The compiled-engine descriptions below are historical/reference material, not active move timing. See the fighter pages for the current file-authored schedules.
+
+
 Both have independent compiled profiles, native move data and five saved lists.
-Controls: [L autopilot and R3 menu](LEDGE_MENU.md). Y is reserved for configured
+Controls: [L autopilot and Minus menu](LEDGE_MENU.md). Y is reserved for configured
 held modes; B-reverse is currently unbound.
 Bold entries below are defaults.
 

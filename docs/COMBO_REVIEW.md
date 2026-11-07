@@ -2,7 +2,7 @@
 
 Live combo playback, combo target acquisition and combo-specific damage/attribution
 reads have been removed. Existing ledge, trip, fair-confirm and SDI observations
-remain. The menu only selects compiled ledge responses. See
+remain. The ledge menu selects only file-authored input timelines; it has no compiled fighter fallback. See
 [the current menu](LEDGE_MENU.md) for controls and performance changes.
 
 The existing mapper overlay/restoration, local-human routing, higher-priority

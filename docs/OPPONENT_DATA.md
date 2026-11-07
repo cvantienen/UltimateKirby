@@ -32,18 +32,31 @@ Everything is compiled into read-only Rust tables. **No JSON, website, network
 connection, SD-card file or directory is read when a match starts.** The source
 JSON is a developer snapshot, not deployed runtime configuration.
 
-At plugin startup, `live::install()` calls `load_config()`: it reads the ordinary
-`config.txt`, constructs the existing compiled ledge-response catalog once,
-validates it and stores it in `PROFILES: OnceLock<FighterProfiles>` before hooks
-are installed. A failed configuration/catalog validation aborts installation.
-That catalog selects your fighter's compiled responses; it is distinct from the
+At plugin startup, `live::install()` calls `load_config()`: it reads and validates
+the master `sequences.txt` (legacy `config.txt` fallback). `PROFILES` holds the
+identity/reference registry and shared editor templates; a separate compact
+indexed library holds saved recipes. Only the selected fighter's owned menus and
+rule cache are expanded. A failed configuration/catalog validation aborts installation.
+That catalog selects your fighter's file inputs and delays; it is distinct from the
 90-kind opponent reference tables already stored in the plugin binary.
+
+The importer verifies native identity/name pairs, including Captain Falcon at
+kind 11 and Jigglypuff at kind 12. Host checks compare reference identities for
+every registered playable profile so another fighter's grab/movement facts
+cannot silently be substituted by an incorrectly ordered source list.
 
 The whiff observer/menu switch are disconnected from the live build. No live
 opponent-profile lookup pass runs for that feature. Static reference tables,
 exact-kind lookup and bounded cache helpers remain available for future policies
 and host tests. Unknown opponents never inherit Kirby reference data. Unused
 data may be discarded by the linker; actual NRO/memory cost remains unmeasured.
+
+Ordinary standing/dash/pivot grab reference values are validated and prepared
+once before gameplay hooks are installed. The fixed table allocates no heap
+memory and avoids repeated move-list scans and numeric parsing during a grab.
+It contains exactly the same immutable compiled values; opponent motion, current
+positions, velocity, facing, transitions and detection frequency remain live.
+Standalone core callers without startup preparation retain the original lookup.
 
 ## Source and maintenance
 
@@ -73,4 +86,35 @@ python3 tools/update_opponent_data.py --stats-only
 Review source changes, unknowns and whiff eligibility after any refresh. Never
 infer all multihit gaps are active or map an ambiguous move variant by picking
 its fastest row. The imported data does not silently replace existing ledge
-timings; those remain their current compiled response tuning.
+timings; input scheduling now comes exclusively from `sequences.txt`.
+
+## Fighter-specific values and remaining estimates
+
+Ordinary grab detection uses each attacker's compiled standing/dash/pivot active
+windows and grab reach; post-grab recovery uses the same variant-specific window.
+Own grab timings/reach and move windows use the selected fighter's profile. Native
+movement observations remain authoritative; saved fighter overrides take precedence.
+Rosalina's shield-grab reference is 11 frames. Shared warning horizons, stop gaps
+and input strengths are policy settings, not imported physical fighter attributes.
+The bundled reference has no hurtbox dimensions, ECB probe geometry or general
+smash-hitbox world reach. Those editable estimates are retained without replacing
+them with guessed fighter-specific numbers. Standing grab reach remains an estimate
+for dash/pivot geometry where separate reach measurements are unavailable.
+
+Startup profile construction now resolves each supported fighter's simple
+standing/dash/pivot grab startups, standing active duration/reach, and plain
+numeric post-shieldstun grab startup directly from its own reference row. Saved
+fighter overrides apply afterward. Compound/missing facts keep an authored
+same-fighter value; another fighter's row is never substituted. This does not
+replace authored move-part windows or unavailable body geometry with guesses.
+The lookup runs during profile construction, not in the per-frame input path.
+
+The fixed native roll/spot/far-roll punish paths are retired. Their generic
+12/21-unit smash estimates no longer enter live calculations. Current roll and
+spot punishes use the selected fighter's saved rule conditions and input tape;
+intentional Kirby/Yoshi-specific helpers remain explicitly fighter-gated. The
+inert `LedgeSettings` fixture default is replaced by the exact selected profile
+before live observations; invalid identities remain disabled.
+
+Startup validation also rejects a supported profile with missing/mismatched
+reference identity. An unavailable fighter is not silently assigned Kirby data.

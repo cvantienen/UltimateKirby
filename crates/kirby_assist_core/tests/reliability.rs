@@ -183,7 +183,7 @@ fn one_native_history_releases_ledge_attack_and_creates_a_fresh_tech_edge() {
 #[test]
 fn raw_scheduler_cancellation_wins_even_on_an_identical_native_tick() {
     let mut controls = RawAutoControls::default();
-    let settings = LiveSettings::default();
+    let settings = LiveSettings{auto_mash:true,auto_tech:true,..Default::default()};
     controls.update(settings, 1, 1, true, false);
     assert!(controls.mash_stick().is_some());
     assert_eq!(controls.update(settings, 1, 1, false, false), 0);

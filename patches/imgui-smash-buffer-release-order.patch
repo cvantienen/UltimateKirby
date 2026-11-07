@@ -1,0 +1,17 @@
+--- a/imgui-smash/src/imgui_backend/MemoryBuffer.cpp
++++ b/imgui-smash/src/imgui_backend/MemoryBuffer.cpp
+@@ -90,9 +90,12 @@
+ }
+ 
+ void MemoryBuffer::Finalize() {
++  // The buffer refers to the pool, and the pool refers to memBuffer.
++  // Release dependents before their backing resources. Callers must still
++  // ensure that GPU work using these resources has completed.
++  buffer.Finalize();
++  pool.Finalize();
+   IM_FREE(memBuffer);
+-  pool.Finalize();
+-  buffer.Finalize();
+ }
+ 
+ void MemoryBuffer::ClearBuffer() {

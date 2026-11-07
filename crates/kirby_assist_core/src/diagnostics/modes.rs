@@ -2,7 +2,7 @@
 use crate::{action_owner::Owner, native_input::*};
 use std::fmt::Write;
 
-pub const OWNERS: [Owner; 14] = [
+pub const OWNERS: [Owner; 17] = [
     Owner::Safety,
     Owner::OptionRead,
     Owner::Ledge,
@@ -17,16 +17,21 @@ pub const OWNERS: [Owner; 14] = [
     Owner::Defense,
     Owner::Turbo,
     Owner::Posture,
+    Owner::OutOfShield,
+    Owner::GrabDodge,
+    Owner::Reflect,
 ];
-pub fn bit(owner: Owner) -> u16 {
+pub fn bit(owner: Owner) -> u32 {
     1 << OWNERS.iter().position(|v| *v == owner).unwrap()
 }
 pub fn name(owner: Owner) -> &'static str {
     match owner {
         Owner::Safety => "Tech / mash / SDI / DI",
-        Owner::OptionRead => "Spot/grab/far-roll punish",
+        Owner::Reflect => "Projectile reflect / absorb",
+        Owner::GrabDodge => "Incoming grab dodge",
+        Owner::OptionRead => "Configured dodge follow-up / recovery punish",
         Owner::Ledge => "Ledge trapping",
-        Owner::RollRead => "Roll read",
+        Owner::RollRead => "Roll / shield-pressure rules",
         Owner::Trip => "Trip follow-up",
         Owner::JabLock => "Yoshi jab lock",
         Owner::Finisher => "Combo starter / landing finisher",
@@ -37,13 +42,17 @@ pub fn name(owner: Owner) -> &'static str {
         Owner::Defense => "Defensive spot dodge / shield / duck",
         Owner::Turbo => "Turbo movement",
         Owner::Posture => "Idle crouch / turnaround tilt",
+        Owner::OutOfShield => "Out of shield",
     }
 }
 /// Describe each tool's prerequisites without guessing a particular failed gate.
 pub fn purpose(owner: Owner) -> &'static str {
     match owner {
+        Owner::OutOfShield => "Confirms shield contact, retains defense through stun/multihits and selects the fighter-specific in-range response; yields to ledge responses.",
+        Owner::Reflect => "Uses the configured native reflector for an incoming eligible projectile; yields to ledge, safety, manual attacks and committed punish/grab input. A full bucket is never discharged automatically.",
         Owner::Safety => "Handles native tech windows, capture escape, hitstop SDI and launch DI; physical stick override can cancel DI.",
-        Owner::OptionRead => "Reads spot dodges, avoided grabs and far rolls; chooses down/forward smash by projected reach and recovery.",
+        Owner::GrabDodge => "Requests a native-ready spot dodge for an incoming ordinary grab; may preempt general punishes, but yields to protected ledge responses and safety.",
+        Owner::OptionRead => "Runs configured spot-dodge/grab-dodge follow-ups and retained recovery punishes; yields to incoming grab defense.",
         Owner::RollRead => "Watches approaching/crossing rolls; primes the chosen smash/grab only inside its timing and reach window.",
         Owner::Ledge => "Uses the saved response for neutral/jump/roll/attack/drop; waits for protection, reach and native readiness.",
         Owner::Trip => "Requires an observed trip/hit before buffering its grounded follow-up.",
@@ -52,10 +61,10 @@ pub fn purpose(owner: Owner) -> &'static str {
         Owner::Fair => "A fresh Kirby fair-one hit arms the landing smash; shield/stale flags do not arm it.",
         Owner::Trump => "Uses the held trump trigger, a known floor edge and native movement readiness.",
         Owner::Slide => "Queues a directional hop, waits for native takeoff, then requests the early directional air dodge.",
-        Owner::Shortcut => "Handles short hop and the selected A+B jab-to-grab/down-smash route; native startup ends each request.",
+        Owner::Shortcut => "Handles short hop and the selected Jab-then-Grab follow-up route; native startup ends each request.",
         Owner::Defense => "Defensive shield/duck proposals yield to reads and ledge sequences; low hitboxes cannot safely be ducked.",
         Owner::Turbo => "Repeats the configured movement while its trigger and native movement scope permit it.",
-        Owner::Posture => "Crouches only while grounded and idle, or aims a physical down tilt; movement/buttons suspend idle crouch.",
+        Owner::Posture => "Crouches while grounded and idle within 45 horizontal / 20 vertical units of an enemy, or aims a physical down tilt; movement/buttons suspend idle crouch.",
     }
 }
 pub fn motion_name(status: i32, motion: u64) -> &'static str {
@@ -124,7 +133,7 @@ pub fn native_name(status: i32) -> &'static str {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Snapshot {
     pub winner: Option<Owner>,
-    pub present: u16,
+    pub present: u32,
     pub committed: bool,
     pub requested: u32,
     /// Quantized directions only; analog jitter must not create log spam.
@@ -152,7 +161,7 @@ pub struct Report {
     pub last: Snapshot,
     pub at_ms: u64,
     changes: u16,
-    modes: [Evidence; 14],
+    modes: [Evidence; OWNERS.len()],
     hit_seen: bool,
     hit_sampled: bool,
     native_actions: u16,
@@ -164,7 +173,7 @@ impl Report {
             last: snapshot,
             at_ms,
             changes: 0,
-            modes: [Evidence::default(); 14],
+            modes: [Evidence::default(); OWNERS.len()],
             hit_seen: false,
             hit_sampled: false,
             native_actions: native_action(snapshot.status),
@@ -446,14 +455,51 @@ pub fn left_result_space(display_height: f32, scale: f32, menu_height: f32) -> O
     (remaining >= 40.0 * scale).then_some((y, remaining))
 }
 
+/// A copied menu name survives selected-fighter menu teardown without leaking
+/// strings. Configuration/report updates allocate no label storage on frames.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Label {
+    bytes: [u8; 64],
+    len: usize,
+}
+impl Label {
+    pub fn new(text: &str) -> Self {
+        let mut len = text.len().min(64);
+        while !text.is_char_boundary(len) {
+            len -= 1;
+        }
+        let mut label = Self { bytes: [0; 64], len };
+        label.bytes[..len].copy_from_slice(&text.as_bytes()[..len]);
+        label
+    }
+    pub fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.bytes[..self.len]).unwrap_or("")
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+}
+impl std::fmt::Display for Label {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Configuration {
     pub fighter: &'static str,
-    pub rows: [&'static str; 14],
+    pub rows: [Label; 26],
+    pub auto_reflect: bool,
 }
 impl Configuration {
+    pub fn new(fighter: &'static str, rows: [&str; 26]) -> Self {
+        Self { fighter, rows: rows.map(Label::new),auto_reflect:false }
+    }
+    pub fn with_reflect(mut self,enabled:bool)->Self {self.auto_reflect=enabled;self}
     pub fn format(&self) -> String {
         let mut text = format!("SAVED MODES for {} (changed configuration)\n", self.fighter);
+        if self.fighter=="mr_game_and_watch" {
+            let _=writeln!(text,"  Auto-reflect: {}. Native-ready projectile defense only; full bucket and ledge mode suspend it.",if self.auto_reflect {"ON"}else{"OFF"});
+        }
         for (label, value) in [
             "Neutral getup",
             "Jump getup",
@@ -465,22 +511,36 @@ impl Configuration {
             "Auto mash",
             "Idle crouch",
             "Turnaround tilt",
-            "A+B jab follow-up",
+            "Jab-then-Grab follow-up",
             "Yoshi jab lock",
             "Spot-dodge punish",
-            "Grab dodge + punish",
+            "Grab dodge",
+            "Auto tech",
+            "Ledge trump",
+            "Performance gauge",
+            "X button recipe",
+            "Y button recipe",
+            "D-pad Up binding",
+            "D-pad Down binding",
+            "D-pad Left binding",
+            "D-pad Right binding",
+            "Ledge trap mode",
+            "Out of shield",
+            "Shield pressure",
         ]
         .iter()
         .zip(self.rows)
         {
             let help = match *label {
                 "Neutral getup" | "Jump getup" | "Ledge roll" | "Getup attack" | "Ledge drop" => "Hold the ledge tool; waits for the matching ledge option, safe spacing and protection to end.",
+                "Shield pressure" => "Watches enemy shields and shield-origin rolls; selects a configured pressure response without interrupting protected ledge actions.",
                 "Onstage roll read" => "Watches approaching/crossing ground rolls; chooses the configured punish inside recovery and reach.",
-                "Y binding" => "Press Y once to start the selected combo; its landing finisher requires a real hit.",
+                "Y binding" => "Existing Y mode, used while Y sequence is set to Native.",
+                "X sequence" | "Y sequence" => "An assigned recipe runs once per fresh button press while the menu is closed; Native preserves the existing control.",
                 "Auto mash" => "Acts only during supported capture/mash states, then returns physical control.",
-                "Idle crouch" => "Grounded idle only; movement, actions or held L suspend crouching.",
+                "Idle crouch" => "Grounded idle within 45 horizontal / 20 vertical units of an enemy; movement, actions or held L suspend crouching.",
                 "Turnaround tilt" => "Aims a physical down tilt toward the enemy; does not generate an attack press.",
-                "A+B jab follow-up" => "Press A+B: jab, one gentle forward frame, then retry the selected grab/down smash until startup.",
+                "Jab-then-Grab follow-up" => "Jab 1, release A, then press Grab: at recovery, use one gentle forward frame and retry the selected grab/down smash until startup.",
                 "Yoshi jab lock" => "Requires an attributed down-tilt hit, native knockdown and legal lock/recovery window.",
                 "Spot-dodge punish" => "Reads enemy spot-dodge recovery; selects near down smash or farther forward smash.",
                 _ => "Detects ordinary grab threats, requests spot dodge, then watches recovery for a smash punish.",
@@ -495,6 +555,19 @@ impl Configuration {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn copied_labels_survive_menu_teardown_and_truncate_on_utf8_boundaries() {
+        let name = "é".repeat(40);
+        let label = Label::new(&name);
+        drop(name);
+        assert_eq!(label.as_str(), "é".repeat(32));
+        assert_eq!(label.to_string(), label.as_str());
+        assert!(Label::new("").is_empty());
+        let menu_name = String::from("Saved custom option");
+        let configuration = Configuration::new("Bowser", [menu_name.as_str();26]);
+        drop(menu_name);
+        assert_eq!(configuration.rows[0].as_str(), "Saved custom option");
+    }
     fn snapshot() -> Snapshot {
         Snapshot {
             winner: Some(Owner::Ledge),
@@ -610,15 +683,12 @@ mod tests {
     fn every_owner_and_configured_row_has_a_readable_label() {
         assert_eq!(
             OWNERS.iter().fold(0, |mask, owner| mask | bit(*owner)),
-            (1 << 14) - 1
+            (1u32 << OWNERS.len()) - 1
         );
         for owner in OWNERS {
             assert!(!name(owner).is_empty());
         }
-        let text = Configuration {
-            fighter: "yoshi",
-            rows: ["OFF"; 14],
-        }
+        let text = Configuration::new("yoshi",["OFF";26])
         .format();
         assert!(text.contains("Neutral getup: OFF"));
         assert!(text.contains("Yoshi jab lock: OFF"));

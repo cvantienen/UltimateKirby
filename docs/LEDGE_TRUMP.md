@@ -1,14 +1,18 @@
-# D-pad Down: ledge trump attempt
+# Assignable ledge trump mode
 
-D-pad Down triggers ledge trump only while the menu is hidden. R3 opens or closes the menu; Auto-mash is changed from its menu row. While open, the D-pad only navigates the [saved choices](LEDGE_MENU.md). Hidden Left/Right triggers slides; hidden Up remains normal mapped input. Opening or closing cancels queued tools, and menu-held directions must be released before they can start a tool.
+Available in both builds, initially OFF. Enable **Trump** on the Assist modes
+ON/OFF page. There is no default D-pad Down trigger and no generic Hold/Toggle
+mode assignment on Button configs; old such binding entries are ignored.
 
-Tap D-pad Down while grounded and actionable. No
-opponent is required. The feature defaults on, including with older configs
-that omit `auto_ledge_trump`. Set it to false to disable the trump assist.
-This feature uses the selected human fighter/controller scope.
+Trump movement pauses while a menu is visible. Native grounded readiness and
+the selected human fighter/controller scope are required. It uses existing
+read-only floor geometry and simulated movement inputs; it does not change
+positions, velocities or ledge physics.
 
-On activation only, native floor-support rays search both directions up to 100
-world units for the nearest boundary of the controlled fighter's current floor. The nearer edge
+On activation, native floor-support rays search both directions up to 100
+world units for the nearest boundary of the controlled fighter's current floor.
+Failed searches retry at most once per 30 mapper ticks while held; releasing
+the trigger or changing modes clears that search state. The nearer edge
 wins regardless of facing; equal distances prefer the controlled fighter’s facing.
 There is no opponent acquisition-range requirement. An undetected edge
 means no movement, and D-pad Down is still reserved. Start on the main flat
@@ -35,14 +39,14 @@ These observations are not a verified simulation-frame timer. Plus uses
 the existing cancellation path. A failed catch hands back physical control;
 there is no automated recovery. Tap again after release for another attempt.
 
-Holding L activates ledge autopilot, including Kirby recovery cover. R3 toggles the menu. Trump takes priority over ledge autopilot, shortcuts and
+Holding L activates ledge autopilot, including Kirby recovery cover. Minus toggles the menu. Trump takes priority over ledge autopilot, shortcuts and
 side-D-pad slides while active; mash and tech retain priority. D-pad Down is
 reserved while the feature is enabled. Disable the setting to restore it.
 
 Diagnostic builds identify the root Cargo package version at startup. `trump input:` logs enablement,
 gameplay scope, request freshness, phase and stick output when D-pad Down is pressed.
 `trump mapped:` logs final mapped buttons and stick, after taunt suppression.
-If D-pad Down does not trigger the attempt, check the loaded NRO/version, SD config, selected human fighter, selected player input slot and `player_index`. A host build cannot verify the SD install.
+If the enabled Trump mode does not start, check the loaded NRO/version, SD config, selected human fighter, selected player input slot and `player_index`. A host build cannot verify the SD install.
 
 The run-off/Down/inward approach follows the manual technique demonstrated in
 [How To Ledge Trump Like A Pro](https://www.youtube.com/watch?v=V6B0g3a0KpU).

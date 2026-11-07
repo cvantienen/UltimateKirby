@@ -9,9 +9,12 @@ Examples (run from the project root; default FTP port 5000):
     python3 tools/upload_switch.py 192.0.2.10 -v 1.1.2 -s --root /sdcard
 
 Reads AutoSmashMod/Latestbuild-<version>/silent or /diagnostic (default: silent).
+Always reads sequences.txt from this project's deployment directory at upload time.
+By default uploads an inactive sequences.upload.txt copy.
+--replace-sequences --smash-closed backs up and replaces active sequences.txt.
 Never builds, extracts archives, or reads the old UPLOAD folder.
 Close Smash and start the Switch FTP server first.
-Diagnostic uploads still require typing yes before connecting.
+Diagnostic uploads require typing yes only when targeting an IP ending in .105.
 Before replacing anything, retrieve all existing selected destination files,
 copy them to /ultimate/kirby_assist/bak/, and read back every backup to
 verify SHA-256. Failed backup means no installed files are overwritten.
@@ -32,15 +35,22 @@ import re
 import zipfile
 from pathlib import Path, PurePosixPath
 
+from sequence_validation import validate_sequences
+from sequence_sources import assemble
+
 DEFAULT_RELEASE_ROOT = Path(__file__).resolve().parents[2]
+DEPLOYMENT_SEQUENCES = Path(__file__).resolve().parents[1] / "deployment/ultimate/kirby_assist/sequences.txt"
 PLUGIN = PurePosixPath("atmosphere/contents/01006A800016E000/romfs/skyline/plugins/libkirby_assist.nro")
 CONFIG = PurePosixPath("ultimate/kirby_assist/config.txt")
+SEQUENCES = PurePosixPath("ultimate/kirby_assist/sequences.upload.txt")
+ACTIVE_SEQUENCES = PurePosixPath("ultimate/kirby_assist/sequences.txt")
 SUMMARY = PurePosixPath("ultimate/kirby_assist/RELEASE_SUMMARY.txt")
 SOURCE_ZIP = PurePosixPath("ultimate/kirby_assist/kirby_assist-source.zip")
 
 # Match the builder's explicit diagnostic markers; no Cargo/build imports needed.
 LOG_MARKERS = (
     b"sd:/ultimate/kirby_assist/status.log",
+    b"sd:/ultimate/kirby_assist/performance.log",
     b"[kirby_assist]",
     b"tech observation:",
     b"ledge observation:",
@@ -71,6 +81,10 @@ def verify_build_variant(binary: bytes, summary: bytes) -> str:
         raise RuntimeError(f"Build mismatch: summary says {expected.upper()}, NRO markers indicate {actual.upper()}")
     if actual == "diagnostic" and expected is None:
         raise RuntimeError("Diagnostic NRO requires a matching summary with Build: DIAGNOSTIC; copy both from the diagnostic folder")
+    if b"ONE_MATCH_PROBE_V1" in binary:
+        if actual != "silent" or "TEMPORARY: one-match SD aggregate probe enabled" not in text:
+            raise RuntimeError("One-match probe requires its matching temporary silent release summary")
+        print("TEMPORARY SILENT PROBE: one-match SD aggregate recording enabled.", flush=True)
     print(f"Local build check passed: {actual.upper()} NRO "
           f"({'all diagnostic markers present' if actual == 'diagnostic' else 'diagnostic markers absent'}).", flush=True)
     return actual
@@ -91,8 +105,8 @@ def ftp_ip(value: str) -> str:
         raise argparse.ArgumentTypeError("Supply the Switch IP address, without ftp:// or a port") from error
 
 
-def upload_payloads(source: Path) -> tuple[tuple[PurePosixPath, bytes], ...]:
-    """Read explicit flat-folder files and an optional source ZIP; never extract."""
+def upload_payloads(source: Path, *, replace_sequences: bool = False) -> tuple[tuple[PurePosixPath, bytes], ...]:
+    """Read prepared binaries/config, current deployment sequences, and optional ZIP."""
     summary = source / "RELEASE_SUMMARY.txt"
     candidates = list(source.glob("RELEASE_SUMMARY-*.txt"))
     if summary.exists() or summary.is_symlink():
@@ -111,8 +125,15 @@ def upload_payloads(source: Path) -> tuple[tuple[PurePosixPath, bytes], ...]:
     if payloads[-1][1][0x10:0x14] != b"NRO0":
         raise RuntimeError("libkirby_assist.nro does not have the expected NRO header")
     verify_build_variant(payloads[-1][1], payloads[1][1])
-    # Fighter responses/combos are compiled. Ignore obsolete profile files in
-    # older prepared folders; they are not part of the upload allowlist.
+    sequence_path = DEPLOYMENT_SEQUENCES
+    if sequence_path.is_symlink() or not sequence_path.is_file():
+        raise RuntimeError(f"Required deployment sequence file is missing or not a regular file: {sequence_path}")
+    sequence_bytes = assemble(sequence_path)
+    # Validate the frozen upload bytes before backup, verification or FTP writes.
+    validate_sequences(sequence_bytes)
+    payloads.insert(-1, (ACTIVE_SEQUENCES if replace_sequences else SEQUENCES, sequence_bytes))
+    # Ignore obsolete profile files in older prepared folders; they are not
+    # part of the upload allowlist.
     archives = list(source.glob("kirby_assist-*-source.zip"))
     stable_archive = source / "kirby_assist-source.zip"
     if stable_archive.exists() or stable_archive.is_symlink():
@@ -218,14 +239,17 @@ def backup_installed(ftp: ftplib.FTP, plan, backup: PurePosixPath) -> None:
 def upload_files(source: Path, host: str, *, port: int = 5000, root: str = "/",
                  user: str = "anonymous", password: str = "", dry_run: bool = False,
                  verify_only: bool = False, version: str | None = None,
-                 variant: str | None = None) -> None:
+                 variant: str | None = None, replace_sequences: bool = False) -> None:
     root_path = PurePosixPath(ftp_root(root))
-    payloads = upload_payloads(source)
+    payloads = upload_payloads(source, replace_sequences=replace_sequences)
     verify_selection(payloads, version, variant)
     plan = tuple((str(root_path / remote), data) for remote, data in payloads)
     operation = "verification" if verify_only else "update"
     backup = root_path / "ultimate/kirby_assist/bak"
     print(f"Source: {source}\nFTP {operation} to {host}:{port}; {len(plan)} selected files:", flush=True)
+    print(f"Sequences source (current deployment): {DEPLOYMENT_SEQUENCES}", flush=True)
+    print("Active sequences.txt will be backed up and replaced." if replace_sequences else
+          "Active sequences.txt is preserved; sequences.upload.txt is a separate, inactive copy.", flush=True)
     for remote, data in plan:
         print(f"  {remote} ({len(data):,} bytes; SHA-256 {hashlib.sha256(data).hexdigest()})", flush=True)
     if not verify_only:
@@ -234,7 +258,8 @@ def upload_files(source: Path, host: str, *, port: int = 5000, root: str = "/",
         print("Dry run: no FTP connection or remote changes.", flush=True)
         return
     binary = next(data for remote, data in payloads if remote == PLUGIN)
-    if not verify_only and all(marker in binary for marker in LOG_MARKERS):
+    if (not verify_only and host.endswith(".105")
+            and all(marker in binary for marker in LOG_MARKERS)):
         try:
             answer = input("Are you sure you want to upload diagnostic? Type yes to continue [default: no]: ")
         except (EOFError, KeyboardInterrupt):
@@ -302,10 +327,14 @@ def parse_options(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--root", type=ftp_root, default="/", help="Server's SD-root prefix (default: /)")
     parser.add_argument("--user", default="anonymous", help="FTP login (default: anonymous)")
     parser.add_argument("--password-env", help="Read FTP password from this environment variable")
+    parser.add_argument("--replace-sequences", action="store_true", help="back up and replace active sequences.txt instead of staging an inactive copy")
+    parser.add_argument("--smash-closed", action="store_true", help="confirm Smash is fully closed; required for active sequence replacement")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", help="Check files and print paths without connecting")
     mode.add_argument("--verify-only", action="store_true", help="Compare remote files to the selected build without writing anything")
     options = parser.parse_args(argv)
+    if options.replace_sequences and not options.smash_closed and not (options.dry_run or options.verify_only):
+        parser.error("Close Smash, then use --replace-sequences --smash-closed")
     if not 1 <= options.port <= 65535:
         parser.error("--port must be 1..65535")
     if options.password_env and options.password_env not in os.environ:
@@ -320,7 +349,8 @@ def main() -> None:
                      root=options.root, user=options.user,
                      password=os.environ[options.password_env] if options.password_env else "",
                      dry_run=options.dry_run, verify_only=options.verify_only,
-                     version=options.version, variant=options.variant)
+                     version=options.version, variant=options.variant,
+                     replace_sequences=options.replace_sequences)
     except (OSError, RuntimeError) as error:
         raise SystemExit(str(error)) from error
 

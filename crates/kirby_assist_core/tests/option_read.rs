@@ -19,6 +19,7 @@ fn c(frame: f32) -> Context {
 fn cfg() -> Config {
     Config {
         down: [7, 19],
+        down_back: None,
         forward: [13, 15],
         down_reach: 14.0,
         forward_reach: 22.0,
@@ -49,6 +50,36 @@ fn targets(t: Target) -> [Option<Target>; 8] {
     a[0] = Some(t);
     a
 }
+#[test]
+fn target_first_readiness_preserves_recovery_reads_and_cancellation() {
+    for kind in [Kind::Spot, Kind::Grab, Kind::Roll] {
+        let mut reference = Punisher::default();
+        let mut gated = Punisher::default();
+        for tick in 0..8 {
+            let targets = if matches!(tick, 1 | 2 | 5 | 6) {
+                targets(t(kind, 20.0))
+            } else {
+                [None; 8]
+            };
+            let c = Context {
+                stopped: tick == 2 || tick == 3,
+                ..c(tick as f32)
+            };
+            let relevant = targets.iter().any(Option::is_some);
+            let observed = Context {
+                can_act: relevant && c.can_act,
+                down_ready: relevant && c.down_ready,
+                forward_ready: relevant && c.forward_ready,
+                ..c
+            };
+            assert_eq!(
+                gated.sample(true, observed, cfg(), targets),
+                reference.sample(true, c, cfg(), targets)
+            );
+        }
+    }
+}
+
 #[test]
 fn all_three_options_select_down_near_forward_far_and_release_on_acceptance() {
     for kind in [Kind::Spot, Kind::Grab, Kind::Roll] {
@@ -176,19 +207,20 @@ fn toggles_are_saved_and_independent() {
     use kirby_assist_core::{
         fighter_profiles::FighterProfiles,
         ledge_menu::{MenuRow, MenuSelection},
-        manual_controls::DPAD_RIGHT,
+        ledge_trap::DPAD_DOWN,
     };
     let profiles = FighterProfiles::default();
     let menu = &profiles.profile(6).unwrap().menu_options;
     let mut s = MenuSelection::new(menu);
+    s.show();
     s.input(0, menu);
     s.row = MenuRow::SpotPunish;
-    s.input(DPAD_RIGHT, menu);
+    s.input(DPAD_DOWN, menu);
     assert!(!s.spot_punish);
     assert!(s.grab_dodge);
     s.input(0, menu);
     s.row = MenuRow::GrabDodge;
-    s.input(DPAD_RIGHT, menu);
+    s.input(DPAD_DOWN, menu);
     assert!(!s.grab_dodge);
 }
 
@@ -305,15 +337,22 @@ fn delayed_smash_acceptance_retries_but_native_startup_and_expiry_stop_it() {
             p.sample(true, c(1.0), cfg(), targets(target)).requested,
             MAPPER_A
         );
-        assert_eq!(p.sample(true, c(4.0), cfg(), targets(target)).requested, 0);
+        // First retry waits for a clean release, then uses an uneven human-like
+        // burst. Native startup still stops the sequence immediately below.
+        assert_eq!(p.sample(true, c(2.0), cfg(), targets(target)).requested, 0);
         assert_eq!(
-            p.sample(true, c(5.0), cfg(), targets(target)).requested,
+            p.sample(true, c(3.0), cfg(), targets(target)).requested,
+            MAPPER_A
+        );
+        assert_eq!(p.sample(true, c(5.0), cfg(), targets(target)).requested, 0);
+        assert_eq!(
+            p.sample(true, c(6.0), cfg(), targets(target)).requested,
             MAPPER_A
         );
         assert_eq!(
             p.sample(
                 true,
-                c(6.0),
+                c(7.0),
                 cfg(),
                 targets(Target {
                     closes: 1.0,
@@ -324,4 +363,15 @@ fn delayed_smash_acceptance_retries_but_native_startup_and_expiry_stop_it() {
             0
         );
     }
+}
+
+#[test]
+fn sequential_rear_smash_uses_its_own_window_instead_of_the_front_startup() {
+    let mut config=cfg();config.down=[7,8];config.down_back=Some([22,23]);
+    let mut short=t(Kind::Spot,-5.);short.opens=0.;short.closes=12.;
+    assert_eq!(Punisher::default().sample(true,c(0.),config,targets(short)).owned,0);
+    let mut long=short;long.closes=50.;
+    assert_ne!(Punisher::default().sample(true,c(0.),config,targets(long)).owned,0);
+    let front=Target{position:[5.,0.],..short};
+    assert_ne!(Punisher::default().sample(true,c(0.),config,targets(front)).owned,0);
 }

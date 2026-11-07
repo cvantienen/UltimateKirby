@@ -1,0 +1,45 @@
+# MYTHRA — separate form, separate saved menu
+# Editable starter slots; no default attack, swap or reflector is injected.
+# Open the Training editor to author each ledge response and Auto-react event.
+# Generic automatic grabs keep this form's independent native/reference range.
+# Character-specific automatic punish events remain OFF until configured.
+
+[mythra.neutral.custom]
+name = Custom (edit in Training)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = true
+actions = wait:0
+
+[mythra.jump.custom]
+name = Custom (edit in Training)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = true
+actions = wait:0
+
+[mythra.roll.custom]
+name = Custom (edit in Training)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = true
+actions = wait:0
+
+[mythra.attack.custom]
+name = Custom (edit in Training)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = true
+actions = wait:0
+
+[mythra.drop.custom]
+name = Custom (edit in Training)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = true
+actions = wait:0

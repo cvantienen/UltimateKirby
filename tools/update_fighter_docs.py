@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
-"""Refresh fighter reference pages from compiled Rust declarations, without building.
+"""Refresh fighter pages from file menus and independent reference facts, without building.
 
 This deliberately supports only the static catalog syntax used in this repo.
 Unknown expressions fail before any pages are written; it never executes Rust.
 Keep authored notes outside the generated markers. Run --check to detect drift.
 """
 import argparse
+import configparser
 from functools import lru_cache
 import json
 from pathlib import Path
 import re
+from sequence_sources import assemble
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT / "crates/kirby_assist_core/src"
-HANDLERS = CORE / "ledge_trap/fighters"
 PROFILES = CORE / "fighter_profiles"
 BEGIN = "<!-- BEGIN GENERATED FIGHTER REFERENCE -->"
 END = "<!-- END GENERATED FIGHTER REFERENCE -->"
@@ -38,90 +39,49 @@ def source(path):
                   lambda m: "" if m[0].startswith("//") else m[0], path.read_text())
 
 
-def split_top(text, separator=","):
-    parts, start, depth, quoted, escaped = [], 0, 0, False, False
-    for index, char in enumerate(text):
-        if quoted:
-            if escaped: escaped = False
-            elif char == "\\": escaped = True
-            elif char == '"': quoted = False
+@lru_cache(maxsize=1)
+def sequence_catalog():
+    parser = configparser.RawConfigParser(strict=True)
+    parser.read_string(assemble(ROOT / "deployment/ultimate/kirby_assist/sequences.txt").decode())
+    return parser
+
+
+def file_menu(module):
+    profile = source(PROFILES / (module + ".rs"))
+    name = re.search(r'name:\s*"([^"]+)"', profile)[1]
+    result = [{"selected": 0, "options": []} for _ in ROWS]
+    for section in sequence_catalog().sections():
+        parts = section.split(".")
+        # Fighter policy sections and button recipes are not ledge-response rows.
+        if len(parts) != 3 or parts[1] not in [r.lower() for r in ROWS]:
             continue
-        if char == '"': quoted = True
-        elif char in "([{": depth += 1
-        elif char in ")]}": depth -= 1
-        elif char == separator and depth == 0:
-            parts.append(text[start:index].strip()); start = index + 1
-    parts.append(text[start:].strip())
-    return [part for part in parts if part]
-
-
-@lru_cache(None)
-def constants(module):
-    text = source(HANDLERS / (module + ".rs"))
-    result = {}
-    for match in re.finditer(r"\b(?:const|static)\s+(\w+)\s*:[^=]+?=", text):
-        result[match[1]] = split_top(text[match.end():], ";")[0]
+        fighter, situation, choice = parts
+        if fighter != name: continue
+        row = result[[r.lower() for r in ROWS].index(situation)]
+        values = sequence_catalog()[section]
+        if values.get("reaction", "off").split(":", 1)[0].strip() != "off":
+            continue  # Assist rules are not manual ledge choices/defaults.
+        if values.getboolean("default", fallback=False): row["selected"] = len(row["options"])
+        row["options"].append({"id": choice, "name": values.get("name", choice).strip('"'),
+                               "start_delay": values["start_delay"], "actions": values["actions"]})
     return result
 
 
-def fields(expression):
-    body = expression[expression.index("{") + 1:expression.rindex("}")]
-    return dict(part.split(":", 1) for part in split_top(body))
-
-
-def field(expression, key):
-    return {name.strip(): value.strip() for name, value in fields(expression).items()}[key]
-
-
-def evaluate(module, expression):
-    expression = expression.strip().removeprefix("&").strip()
-    if expression in constants(module):
-        return evaluate(module, constants(module)[expression])
-    standard = re.fullmatch(r"(?:super::)?standard::menu\((.*)\)", expression, re.S)
-    if standard:
-        neutral, attack, up_b = split_top(standard[1])
-        names = ["NEUTRAL_OPTIONS", "JUMP_OPTIONS", "ROLL_OPTIONS",
-                 "ATTACK_UP_B_OPTIONS" if up_b == "true" else "ATTACK_OPTIONS", "DROP_OPTIONS"]
-        return [{"selected": int(neutral) if i == 0 else int(attack) if i == 3 else 0,
-                 "options": evaluate("standard", name)} for i, name in enumerate(names)]
-    alias = re.fullmatch(r"super::(\w+)::MENU", expression)
-    if alias:
-        return evaluate(alias[1], "MENU")
-    reference = re.fullmatch(r"(\w+)\.lists\[(\d+)\](?:\.options(?:\[(\d+)\])?)?", expression)
-    if reference:
-        value = evaluate(module, reference[1])[int(reference[2])]
-        if ".options" in expression:
-            value = value["options"]
-            if reference[3] is not None: value = value[int(reference[3])]
-        return value
-    item = re.fullmatch(r"(\w+)\[(\d+)\]", expression)
-    if item:
-        return evaluate(module, item[1])[int(item[2])]
-    if expression.startswith("MenuPresets {"):
-        return evaluate(module, field(expression, "lists"))
-    if expression.startswith("SavedList {"):
-        return {"selected": int(field(expression, "selected")),
-                "options": evaluate(module, field(expression, "options"))}
-    if expression.startswith("SavedList::new("):
-        return {"selected": 0, "options": evaluate(module, expression[len("SavedList::new("):-1])}
-    if expression.startswith("SavedChoice::new("):
-        args = split_top(expression[len("SavedChoice::new("):-1])
-        assert len(args) == 4, expression
-        return {"id": json.loads(args[0]), "name": json.loads(args[1]),
-                "handler": args[2], "prepare": args[3]}
-    if expression.startswith("SavedChoice {"):
-        parts = split_top(expression[expression.index("{")+1:expression.rindex("}")])
-        base = next(part[2:].strip() for part in parts if part.startswith(".."))
-        choice = dict(evaluate(module, base))
-        for part in parts:
-            if part.startswith(".."): continue
-            key, value = [s.strip() for s in part.split(":", 1)]
-            key = "handler" if key == "respond" else key
-            choice[key] = json.loads(value) if key in ("id", "name") else value
-        return choice
-    if expression.startswith("[") and expression.endswith("]"):
-        return [evaluate(module, item) for item in split_top(expression[1:-1])]
-    raise ValueError("Unsupported static catalog expression in %s: %s" % (module, expression[:160]))
+def file_assists(module):
+    profile = source(PROFILES / (module + ".rs"))
+    name = re.search(r'name:\s*"([^"]+)"', profile)[1]
+    rules = []
+    for section in sequence_catalog().sections():
+        if section.split(".")[0] != name:
+            continue
+        values = sequence_catalog()[section]
+        fields = values.get("reaction", "off").split(":")
+        if fields[0].strip() == "off":
+            continue
+        simple = fields[0].strip() in {"auto_roll", "auto_spot_dodge", "auto_air_dodge", "auto_grab", "auto_shield_grab", "auto_grab_dodged", "auto_shield_backup"}
+        priority = 1 if simple else int(fields[6])
+        rules.append((fields[0], priority, values.get("name", section).strip('"'), section))
+    return sorted(rules, key=lambda r: (r[0], r[1]))
 
 
 def number(text, key):
@@ -145,11 +105,12 @@ def menu_names():
 
 def render(module):
     profile = source(PROFILES / (module + ".rs"))
+    source_name = re.search(r'name:\s*"([^"]+)"', profile)[1]
     kind = re.search(r"fighter_kind:\s*(\w+)", profile)[1]
     if not re.fullmatch(r"0x[\da-fA-F]+|\d+", kind):
         kind = re.search(r"const\s+" + kind + r"\s*:\s*i32\s*=\s*(0x[\da-fA-F]+|\d+)", profile)[1]
     kind = str(int(kind, 0))
-    menu = evaluate(module, "MENU")
+    menu = file_menu(module)
     assert len(menu) == 5, module
     for row in menu:
         assert row["options"] and 0 <= row["selected"] < len(row["options"]), module
@@ -161,7 +122,7 @@ def render(module):
              "Native fighter kind **%s** (`%s`). This reference follows the compiled source;" % (kind, module),
              "it is not a device-calibration result. No fighter file loads during a match.", "",
              "## Saved ledge responses", "",
-             "Open the menu with **R3**.",
+             "The lightweight selector starts visible; **Minus** hides/shows it. Training opens with **Minus**.",
              "Up/Down selects a row; Left/Right cycles its",
              "choices. Hold **L** to run the selected responses. Defaults are bold.", "",
              "| Row | Saved choices, in menu order |", "| --- | --- |"]
@@ -171,12 +132,26 @@ def render(module):
                    for index, name in enumerate(names)]
         lines.append("| %s | %s |" % (name, "; ".join(choices)))
     lines += ["", "These are the compact UI names; SH means short hop and Msl means missile.",
-              "Compact move labels match the menu without spacing hints. Capture returns control for manual",
-              "pummels/throws. Selecting a choice does not add a combo or change native hitboxes.", "",
-              "## Compiled move windows", "",
-              "These are stored inclusive animation-frame spans. They are not total input-to-hit",
+              "Input timelines hand back control after their last step; the game decides acceptance.",
+              "Selecting a choice never changes native moves, hitboxes, physics or animation speed.", "",
+              "## Native move reference (not scheduling)", "",
+              "These independent game facts do not schedule file inputs. They are inclusive animation-frame spans, not input-to-hit",
               "delays or proof that every phase of a multihit move stays active.", "",
               "| Move | Stored frames |", "| --- | --- |"]
+    # Put assist lists beside, never inside, the manual ledge-choice table.
+    marker = lines.index("## Native move reference (not scheduling)")
+    assists = ["## Saved assist rules", "",
+               "These rules have separate ON/OFF assists and Training L3/R3 rule lists;",
+               "they are not selected ledge/button recipes. Auto react has one sequence per event;",
+               "priority numbers apply only to legacy rule lists. Vulnerable-ledge punishment is retired.", "",
+               "| Assist trigger | Priority | Saved rule | Section |", "| --- | --- | --- | --- |"]
+    rules = file_assists(module)
+    for trigger, priority, label, section in rules:
+        shown_priority = "—" if trigger in {"auto_roll", "auto_spot_dodge", "auto_air_dodge", "auto_grab", "auto_shield_grab", "auto_grab_dodged", "auto_shield_backup"} else priority
+        assists.append(f"| `{trigger}` | {shown_priority} | {label} | `{section}` |")
+    if not rules:
+        assists.append("| — | — | No saved assist rules in the supplied master | — |")
+    lines[marker:marker] = assists + [""]
     for key, label in [("neutral_air", "Neutral air"), ("down_tilt", "Down tilt"),
                        ("forward_tilt", "Forward tilt"), ("down_smash", "Down smash")]:
         match = re.search(key + r"\s*:\s*MoveFrames\s*\{([^}]+)\}", data, re.S)
@@ -197,8 +172,8 @@ def render(module):
                        ("active_frames", "Active duration"), ("standing_range", "Standing reach reference (world units)")]:
         lines.append("| %s | %s |" % (label, number(grab, key)))
     lines += ["", "Reach is an approximate root-based reference, not an animated grab/hurtbox model.",
-              "Shared roll grabs test predicted range/facing, height and vulnerability on the",
-              "same active frame. Native catch readiness and input delivery still matter.", "",
+              "The file decides whether to request an explicit range check. No native timing gate",
+              "is inferred from this table; input delivery and the game's buffering rules still matter.", "",
               "## Execution and calibration", ""]
     facts = opponent_reference().get(int(kind))
     if facts:
@@ -215,12 +190,13 @@ def render(module):
             section.append("| %s | %s |" % (label, table.get(key, "Unknown")))
         section += ["", "[Move source](%s) · [Stats source](https://ultimateframedata.com/stats.php)" % facts["source"], ""]
         lines[-2:-2] = section
-    if "AerialExecution::SHORT" in profile:
-        lines += ["The profile declares short hops for common nair responses."]
-    else:
-        lines += ["The profile declares adaptive short/full-hop selection for generic Jump coverage;",
-                  "common Neutral and shield nairs remain short hops. A named handler can override",
-                  "that policy, including grounded attacks and immediate short-hop recipes."]
+    lines += [f"Option definitions and input delays come from `fighters/{source_name}.txt`, assembled into the Switch’s `sequences.txt`. Each option",
+              "has an explicit `start_delay`; waits between actions are literal native frames.",
+              "No compiled fighter recipe, adaptive-hop policy or native move window schedules them.", "",
+              "| Situation / ID | Start delay | Ordered inputs |", "| --- | --- | --- |"]
+    for situation, row in zip(ROWS, menu):
+        for choice in row["options"]:
+            lines.append("| %s / `%s` | %s | `%s` |" % (situation, choice["id"], choice["start_delay"], choice["actions"]))
     related = {"kirby": "KIRBY_YOSHI_LEDGE.md", "yoshi": "KIRBY_YOSHI_LEDGE.md",
                "samus": "SAMUS_LEDGE.md", "dark_samus": "SAMUS_LEDGE.md", "sonic": "SONIC_LEDGE.md",
                "krool": "KROOL_ISABELLE_LEDGE.md", "isabelle": "KROOL_ISABELLE_LEDGE.md",
@@ -242,16 +218,20 @@ def render(module):
               "Paths are relative to the repository root:", "",
               "- Registration: `crates/kirby_assist_core/src/fighter_profiles/%s.rs`." % module,
               "- Move data: `crates/kirby_assist_core/src/fighter_profiles/%s/timing.rs`." % module,
-              "- Menu and handlers: `crates/kirby_assist_core/src/ledge_trap/fighters/%s.rs`." % module,
+              "- Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.",
+              "- Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.",
               "", "[Adding a response](../FIGHTER_CONFIGS.md) explains registration and shared helpers.",
-              "These are compiled choices; source changes need a separately authorized build/install.",
+              "Recipes are saved file configuration. External file edits need a Smash restart;",
+              "Rust/reference-data changes need a separately authorized build/install.",
               "Refresh this reference with `python3 tools/update_fighter_docs.py` after catalog edits.", "", END]
     return "\n".join(lines) + "\n", int(kind)
 
 
 def outputs():
     catalog = (CORE / "fighter_profiles.rs").read_text()
-    modules = re.findall(r"(\w+)::profile\(\)", catalog)
+    modules = re.findall(r"\b(\w+)::profile(?:\(\))?\s*,", catalog)
+    if not modules:
+        raise ValueError("No registered fighter constructors found; refusing to erase fighter links")
     assert len(modules) == len(set(modules)), "Duplicate registration"
     result, identities = {}, set()
     for module in modules:
@@ -267,7 +247,7 @@ def outputs():
         result[path] = content
     index = ["<!-- BEGIN INDIVIDUAL FIGHTER LINKS -->", "", "## Individual fighter pages", "",
              "Each registered fighter form has its own source-based reference, including",
-             "all five saved lists, default choices, move windows and grab data.", "",
+             "all five file-authored lists, selected defaults, input schedules and reference facts.", "",
              "| Fighter | Fighter | Fighter |", "| --- | --- | --- |"]
     links = ["[%s](fighters/%s.md)" % (title(m), m) for m in sorted(modules, key=title)]
     for i in range(0, len(links), 3): index.append("| " + " | ".join((links[i:i+3] + [""] * 3)[:3]) + " |")

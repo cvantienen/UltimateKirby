@@ -4,36 +4,152 @@
 //! cached panel each render frame, as an immediate-mode GUI normally does.
 use imgui_api::bindings::*;
 use kirby_assist_core::{
-    fighter_profiles::{spacing, FighterProfile},
+    fighter_profiles::FighterProfile,
     ledge_menu::{MenuRow, MenuSelection},
+    session::MenuPresence,
 };
 use std::{
     ffi::{CStr, CString},
     sync::{
-        atomic::{AtomicBool, AtomicPtr, Ordering},
+        atomic::{AtomicBool, AtomicPtr, AtomicI32, AtomicU64, Ordering},
         Mutex,
     },
+    time::{Duration, Instant},
 };
 
-struct Snapshot {
-    row: MenuRow,
-    values: Vec<SavedChoice>,
-    position: [f32; 2],
-    auto_mash: bool,
-}
-struct SavedChoice {
-    row: MenuRow,
-    // Complete single-column lines are cached on edits, never formatted in draw.
-    line: CString,
-    selected_line: CString,
-}
+#[path="view.rs"]mod view;
+use view::Snapshot;
+#[cfg(feature="diagnostic-logging")]
+use view::SavedChoice;
+#[path="lightweight.rs"]mod lightweight;
+
 static VIEW: Mutex<Option<Snapshot>> = Mutex::new(None);
+static DEFERRED_CLEAR: AtomicBool = AtomicBool::new(false);
+static VIEW_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+static LAST_FOCUS: Mutex<Option<(i32, MenuRow, usize, u8, Option<usize>, u64)>> = Mutex::new(None);
+static PRESENCE: Mutex<MenuPresence> = Mutex::new(MenuPresence::new());
+static MASTER_TOAST: Mutex<Option<(bool, Instant)>> = Mutex::new(None);
+// A hidden/inactive toast needs no mutex on every shared-renderer callback.
+static MASTER_TOAST_PENDING: AtomicBool = AtomicBool::new(false);
+const MASTER_TOAST_LIFETIME: Duration = Duration::from_millis(1800);
+pub(super) fn show_master_status(enabled: bool) {
+    if let Ok(mut toast) = MASTER_TOAST.try_lock() {
+        *toast = Some((enabled, Instant::now()));
+        MASTER_TOAST_PENDING.store(true, Ordering::Release);
+    }
+}
+
+static MASTER_GESTURE: Mutex<kirby_assist_core::runtime_toggle::RuntimeToggle> =
+    Mutex::new(kirby_assist_core::runtime_toggle::RuntimeToggle::new());
+static MASTER_CLOCK: Mutex<Option<Instant>> = Mutex::new(None);
+static MASTER_PROBE_TICK: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(u64::MAX);
+
+unsafe fn selected_hid_buttons() -> Option<u64> {
+    selected_hid_buttons_inner()
+}
+unsafe fn selected_hid_buttons_inner() -> Option<u64> {
+    let player = super::super::CONFIG.get()?.player_index;
+    let ids = [player, if player == 0 { 0x20 } else { u32::MAX }];
+    for id in ids {
+        if id == u32::MAX {
+            continue;
+        }
+        let style = nnsdk::nn::hid::GetNpadStyleSet(&id).flags;
+        if style == 0 {
+            continue;
+        }
+        if style & 0x20 != 0 {
+            let mut state = nnsdk::nn::hid::NpadGcState::default();
+            nnsdk::nn::hid::GetNpadGcState(&mut state, &id);
+            return Some(state.Buttons);
+        }
+        let mut state = nnsdk::nn::hid::NpadHandheldState::default();
+        if style & 0x1 != 0 {
+            nnsdk::nn::hid::GetNpadFullKeyState(&mut state, &id);
+        } else if style & 0x2 != 0 {
+            nnsdk::nn::hid::GetNpadHandheldState(&mut state, &id);
+        } else if style & 0x4 != 0 {
+            nnsdk::nn::hid::GetNpadJoyDualState(&mut state, &id);
+        } else if style & 0x8 != 0 {
+            nnsdk::nn::hid::GetNpadJoyLeftState(&mut state, &id);
+        } else if style & 0x10 != 0 {
+            nnsdk::nn::hid::GetNpadJoyRightState(&mut state, &id);
+        } else {
+            continue;
+        }
+        return Some(state.Buttons);
+    }
+    None
+}
+
+unsafe fn poll_master_switch() {
+    if !super::super::CONFIG
+        .get()
+        .is_some_and(|config| config.controls.enabled)
+    {
+        return;
+    }
+    super::super::MASTER_PULSE_REQUESTED.store(true, Ordering::Relaxed);
+    let elapsed = {
+        let Ok(mut clock) = MASTER_CLOCK.try_lock() else {
+            return;
+        };
+        clock.get_or_insert_with(Instant::now).elapsed()
+    };
+    let probe_tick = (elapsed.as_millis() / 250) as u64;
+    let periodic_probe = MASTER_PROBE_TICK.swap(probe_tick, Ordering::Relaxed) != probe_tick;
+    // During a locked match the master gesture cannot activate. Avoid native
+    // HID reads on repeated render callbacks; retain the existing 4Hz unlock
+    // probe so leaving battle remains observable without mapper callbacks.
+    if super::super::MASTER_IN_MATCH.load(Ordering::Acquire) {
+        if periodic_probe {
+            super::super::refresh_master_match_lock(
+                super::super::observations::battle_menu_ready_go(),
+            );
+        }
+        if super::super::MASTER_IN_MATCH.load(Ordering::Acquire) {
+            if let Ok(mut gesture) = MASTER_GESTURE.try_lock() {
+                gesture.disarm();
+            }
+            return;
+        }
+    }
+    let Some(buttons) = selected_hid_buttons() else {
+        if let Ok(mut gesture) = MASTER_GESTURE.try_lock() {
+            gesture.disarm();
+        }
+        return;
+    };
+    if buttons & kirby_assist_core::runtime_toggle::CHORD
+        == kirby_assist_core::runtime_toggle::CHORD
+    {
+        super::super::refresh_master_match_lock(super::super::observations::battle_menu_ready_go());
+    }
+    let blocked = super::super::MASTER_IN_MATCH.load(Ordering::Acquire);
+    let toggled = MASTER_GESTURE
+        .try_lock()
+        .is_ok_and(|mut gesture| gesture.sample(buttons, blocked, elapsed));
+    if toggled {
+        super::super::set_runtime_enabled(!super::super::RUNTIME_ENABLED.load(Ordering::Acquire));
+    }
+}
+pub(super) fn observe_local_fighter(now: Instant) {
+    if let Ok(mut presence) = PRESENCE.try_lock() {
+        presence.observe(now);
+    }
+}
 // Display lifetime follows the battle, independently of expiring attack
-// requests, hitstop, death and respawn. Drawing makes no native game queries.
+// requests, hitstop, death and respawn. Master-switch probes above are separate
+// read-only manager checks; menu rendering does not query fighter state.
 static BATTLE_ACTIVE: AtomicBool = AtomicBool::new(false);
 // Visibility must not depend on acquiring the cached-text mutex. A close
 // request can arrive while ImGui is drawing the previous snapshot.
 static MENU_VISIBLE: AtomicBool = AtomicBool::new(false);
+static LIGHTWEIGHT_REQUESTED: AtomicBool = AtomicBool::new(true);
+static REQUESTED_FIGHTER: AtomicI32 = AtomicI32::new(-1);
+static REQUESTED_REVISION: AtomicU64 = AtomicU64::new(0);
 // The installed host supplies its context through this setup callback. Older
 // compatible hosts do not export imgui_get_context_export; importing that
 // optional getter would stop Skyline from loading the entire plugin.
@@ -49,136 +165,32 @@ pub(super) fn set_battle_active(active: bool) {
     let _ = was_active;
 }
 pub(super) fn clear() {
+    VIEW_GENERATION.fetch_add(1,Ordering::AcqRel);
     MENU_VISIBLE.store(false, Ordering::Release);
+    REQUESTED_FIGHTER.store(-1,Ordering::Release);
     set_battle_active(false);
+    if let Ok(mut presence) = PRESENCE.try_lock() {
+        presence.clear();
+    }
+    DEFERRED_CLEAR.store(true, Ordering::Release);
+    finish_deferred_clear();
+}
+pub(super) fn finish_deferred_clear() {
+    if !DEFERRED_CLEAR.load(Ordering::Acquire) { return; }
+    let Some(_save_gate) = super::save::try_ui_edit() else { return; };
     if let Ok(mut view) = VIEW.try_lock() {
-        *view = None;
+        // Take first so the shared slot is empty before owned text is freed.
+        let old = view.take();
+        DEFERRED_CLEAR.store(false, Ordering::Release);
+        drop(view);
+        drop(old);
+        #[cfg(feature = "diagnostic-logging")]
+        crate::performance::health::view_bytes(0);
     }
 }
-pub(super) fn publish(
-    profile: &FighterProfile,
-    selection: &MenuSelection,
-    auto_mash: bool,
-) -> bool {
-    MENU_VISIBLE.store(!selection.menu_hidden, Ordering::Release);
-    let Ok(mut view) = VIEW.try_lock() else {
-        return false;
-    };
-    if selection.menu_hidden {
-        *view = None;
-        return true;
-    }
-    let mut values = Vec::with_capacity(MenuRow::ALL.len());
-    for row in MenuRow::ALL {
-        let (name, index, count) = if let Some(slot) = row.slot() {
-            let options = profile.menu_options.list(slot).options;
-            let index = selection.choices[slot as usize];
-            (
-                options.get(index).map_or_else(
-                    || "Unavailable".to_owned(),
-                    |v| spacing::menu_name(v.name).to_owned(),
-                ),
-                index,
-                options.len(),
-            )
-        } else if row == MenuRow::RollRead && selection.roll_read_available {
-            (
-                selection.roll_read.label().to_owned(),
-                selection.roll_read as usize,
-                3,
-            )
-        } else if row == MenuRow::YMode && selection.auto_duck_available {
-            let options =
-                kirby_assist_core::button_modes::YMode::options_for_kind(selection.y_fighter_kind);
-            (
-                selection.y_mode.label().to_owned(),
-                options
-                    .iter()
-                    .position(|v| *v == selection.y_mode)
-                    .unwrap_or(0),
-                options.len(),
-            )
-        } else if row == MenuRow::IdleCrouch && selection.y_fighter_kind == 6 {
-            (
-                if selection.idle_crouch { "ON" } else { "OFF" }.to_owned(),
-                usize::from(selection.idle_crouch),
-                2,
-            )
-        } else if row == MenuRow::TiltTurn && selection.y_fighter_kind == 6 {
-            (
-                if selection.tilt_turn { "ON" } else { "OFF" }.to_owned(),
-                usize::from(selection.tilt_turn),
-                2,
-            )
-        } else if row == MenuRow::JabGrab && selection.y_fighter_kind == 6 {
-            (
-                selection.jab_grab.label().to_owned(),
-                usize::from(selection.jab_grab == kirby_assist_core::jab_grab::Followup::DownSmash),
-                2,
-            )
-        } else if row == MenuRow::JabLock && selection.y_fighter_kind == 5 {
-            (
-                if selection.jab_lock { "ON" } else { "OFF" }.to_owned(),
-                usize::from(selection.jab_lock),
-                2,
-            )
-        } else if matches!(row, MenuRow::SpotPunish | MenuRow::GrabDodge) {
-            let enabled = if row == MenuRow::SpotPunish {
-                selection.spot_punish
-            } else {
-                selection.grab_dodge
-            };
-            (
-                if enabled { "ON" } else { "OFF" }.to_owned(),
-                usize::from(enabled),
-                2,
-            )
-        } else if row == MenuRow::AutoMash {
-            (
-                if auto_mash { "ON" } else { "OFF" }.to_owned(),
-                usize::from(auto_mash),
-                2,
-            )
-        } else {
-            continue;
-        };
-        let position = if index < count { index + 1 } else { 0 };
-        let body = if matches!(
-            row,
-            MenuRow::AutoMash
-                | MenuRow::SpotPunish
-                | MenuRow::GrabDodge
-                | MenuRow::IdleCrouch
-                | MenuRow::TiltTurn
-                | MenuRow::JabGrab
-                | MenuRow::JabLock
-        ) {
-            format!("{}: {name}", row.label())
-        } else {
-            format!("{}: {name}  {position}/{count}", row.label())
-        };
-        let (Ok(line), Ok(selected_line)) = (
-            CString::new(format!("  {body}")),
-            CString::new(format!("> {body}")),
-        ) else {
-            *view = None;
-            return false;
-        };
-        values.push(SavedChoice {
-            row,
-            line,
-            selected_line,
-        });
-    }
-    *view = Some(Snapshot {
-        row: selection.row,
-        values,
-        // Anchor the panel's top-left corner just inside the screen edge.
-        position: [0.005, 0.008],
-        auto_mash,
-    });
-    true
-}
+
+include!("publish.rs");
+
 fn color(r: f32, g: f32, b: f32, a: f32) -> ImVec4_c {
     ImVec4_c {
         x: r,
@@ -187,47 +199,11 @@ fn color(r: f32, g: f32, b: f32, a: f32) -> ImVec4_c {
         w: a,
     }
 }
-unsafe fn text(value: &CStr, wrap: bool) {
-    let position = igGetCursorScreenPos();
-    let wrap_width = if wrap {
-        igGetContentRegionAvail().x.max(1.0)
-    } else {
-        0.0
-    };
-    let font_size = igGetFontSize();
-    // Small opposing dark shadows preserve contrast without a panel backdrop.
-    // Reuse the same cached string/font; no icons, textures or font atlas work.
-    for direction in [-1.0, 1.0] {
-        ImDrawList_AddText_FontPtr(
-            igGetWindowDrawList(),
-            igGetFont(),
-            font_size,
-            ImVec2_c {
-                x: position.x + direction * font_size * 0.065,
-                y: position.y + direction * font_size * 0.065,
-            },
-            0xf5000000,
-            value.as_ptr(),
-            std::ptr::null(),
-            wrap_width,
-            std::ptr::null(),
-        );
-    }
+unsafe fn card_text(value: &CStr) {
+    // Native wrapping advances layout by the same height that gets drawn.
+    igPushTextWrapPos(0.0);
     igTextUnformatted(value.as_ptr(), std::ptr::null());
-    ImDrawList_AddText_FontPtr(
-        igGetWindowDrawList(),
-        igGetFont(),
-        font_size,
-        ImVec2_c {
-            x: position.x + font_size * 0.03,
-            y: position.y,
-        },
-        igGetColorU32_Col(ImGuiCol_Text as _, 1.0),
-        value.as_ptr(),
-        std::ptr::null(),
-        wrap_width,
-        std::ptr::null(),
-    );
+    igPopTextWrapPos();
 }
 unsafe extern "C" fn setup(context: *mut u64) {
     CONTEXT.store(context, Ordering::Release);
@@ -236,15 +212,51 @@ unsafe extern "C" fn setup(context: *mut u64) {
     }
 }
 unsafe extern "C" fn draw() {
-    if !BATTLE_ACTIVE.load(Ordering::Acquire) || !MENU_VISIBLE.load(Ordering::Acquire) {
+    let now = Instant::now();
+    if BATTLE_ACTIVE.load(Ordering::Acquire)
+        && PRESENCE
+            .try_lock()
+            .ok()
+            .is_some_and(|presence| !presence.fresh(now))
+    {
+        set_battle_active(false);
+    }
+    poll_master_switch();
+    let active = super::super::feature_activity_allowed();
+    #[cfg(feature = "diagnostic-logging")]
+    let _draw_time = active.then(|| crate::performance::health::Trace::new(crate::performance::health::Lane::Draw));
+    #[cfg(feature = "diagnostic-logging")]
+    if active { crate::performance::health::draw_tick(now); }
+    // Profile/editor cleanup and save completion run on the existing mapper
+    // callback. Rendering never applies edits or destroys the fighter roster.
+    let toast = if MASTER_TOAST_PENDING.load(Ordering::Acquire) {
+        MASTER_TOAST.try_lock().ok().and_then(|mut toast| {
+            let active = toast
+                .as_ref()
+                .copied()
+                .filter(|(_, shown)| now.duration_since(*shown) < MASTER_TOAST_LIFETIME);
+            if active.is_none() {
+                *toast = None;
+                // Update under the same lock as show_master_status, so expiry
+                // cannot clear the flag for a newly published toast.
+                MASTER_TOAST_PENDING.store(false, Ordering::Release);
+            }
+            active.map(|(enabled, _)| enabled)
+        })
+    } else {
+        None
+    };
+    let battle_active = BATTLE_ACTIVE.load(Ordering::Acquire);
+    // There is no dependable character-select-only scene signal in this lightweight UI
+    // callback. Show confirmation only after the chord instead of leaving a
+    // label across unrelated menus and single-player screens.
+    let status = toast.filter(|_| !super::super::MASTER_IN_MATCH.load(Ordering::Acquire) || active);
+    let menu_requested = battle_active
+        && MENU_VISIBLE.load(Ordering::Acquire)
+        && active;
+    if status.is_none() && !menu_requested {
         return;
     }
-    let Ok(view) = VIEW.try_lock() else {
-        return;
-    };
-    let Some(view) = view.as_ref() else {
-        return;
-    };
     let context = CONTEXT.load(Ordering::Acquire);
     if context.is_null() {
         return;
@@ -259,71 +271,91 @@ unsafe extern "C" fn draw() {
         return;
     }
     let scale = (display.y / 720.0).clamp(0.65, 3.0);
-    // Measure the cached complete lines. No word wrapping, per-frame string
-    // formatting or hardcoded width that clips a fighter's longer move names.
-    let diagnostic = cfg!(feature = "diagnostic-logging");
-    let menu_font_size = if diagnostic { 14.0 } else { 19.0 } * scale;
-    igPushFont(std::ptr::null_mut(), menu_font_size);
-    let width = if diagnostic {
-        (280.0 * scale).min(display.x * 0.25)
-    } else {
-        (view
-            .values
-            .iter()
-            .map(|v| igCalcTextSize(v.selected_line.as_ptr(), std::ptr::null(), false, -1.0).x)
-            .fold(0.0_f32, f32::max)
-            + 8.0 * scale)
-            .min(display.x - 8.0)
-    };
-    igPopFont();
-    if width < 100.0 {
+    if let Some(enabled) = status {
+        draw_master_toast(scale, enabled, display);
+    }
+    if !menu_requested {
         return;
     }
-    let accent = color(1.0, 0.88, 0.35, 1.0);
-    let normal = color(0.94, 0.97, 1.0, 1.0);
-    let modes = color(0.82, 0.78, 1.0, 1.0);
+    // Only recent battle presence can display the menu.
+    let fresh = PRESENCE.try_lock().ok().is_some_and(|p| p.fresh(now));
+    if !fresh {
+        set_battle_active(false);
+        return;
+    }
+    let Ok(view_guard) = VIEW.try_lock() else {
+        return;
+    };
+    let Some(view) = view_guard.as_ref() else {
+        return;
+    };
+    // A busy save may postpone snapshot replacement during a scene switch.
+    // Never display a cached Training card in the match-only layout.
+    let lightweight=LIGHTWEIGHT_REQUESTED.load(Ordering::Acquire);
+    if !view.matches_request(lightweight,REQUESTED_FIGHTER.load(Ordering::Acquire),
+        REQUESTED_REVISION.load(Ordering::Acquire),VIEW_GENERATION.load(Ordering::Acquire)) {return;}
+    if lightweight {
+        lightweight::draw(view, display, scale);
+        return;
+    }
+    // A fixed-width card shows only the focused row; never shrink text to fit
+    // the entire catalog or horizontally scroll the gameplay overlay.
+    let menu_font_size = 15.0 * scale;
+    let gap = 5.0 * scale;
+    let width = (if view.quick || view.modes {
+        390.0
+    } else {
+        560.0
+    } * scale)
+        .min(display.x * if view.quick || view.modes { 0.44 } else { 0.49 })
+        .min((display.x - 16.0 * scale).max(1.0));
+    let accent = color(0.35, 0.86, 0.78, 1.0);
     igPushFont(std::ptr::null_mut(), menu_font_size);
     for (slot, value) in [
-        (ImGuiCol_WindowBg, color(0.0, 0.0, 0.0, 0.0)),
-        (ImGuiCol_Border, color(0.0, 0.0, 0.0, 0.0)),
-        (ImGuiCol_Text, color(0.9, 0.94, 1.0, 1.0)),
+        (ImGuiCol_WindowBg, color(0.035, 0.047, 0.070, 0.96)),
+        (ImGuiCol_Border, color(0.19, 0.25, 0.32, 0.70)),
+        (ImGuiCol_Text, color(0.86, 0.90, 0.95, 1.0)),
     ] {
         igPushStyleColor_Vec4(slot as _, value);
     }
-    igPushStyleVar_Float(ImGuiStyleVar_WindowBorderSize as _, 0.0);
+    igPushStyleVar_Float(ImGuiStyleVar_WindowBorderSize as _, 1.0 * scale);
+    igPushStyleVar_Float(ImGuiStyleVar_WindowRounding as _, 10.0 * scale);
     igPushStyleVar_Vec2(
         ImGuiStyleVar_WindowPadding as _,
         ImVec2_c {
-            x: 3.0 * scale,
-            y: 3.0 * scale,
+            x: 12.0 * scale,
+            y: 10.0 * scale,
         },
     );
     igPushStyleVar_Vec2(
         ImGuiStyleVar_ItemSpacing as _,
         ImVec2_c {
-            x: 0.0,
-            y: if diagnostic { 2.0 } else { 4.0 } * scale,
+            x: gap,
+            y: 5.0 * scale,
         },
     );
-    igSetNextWindowPos(
-        ImVec2_c {
-            x: if diagnostic {
-                4.0 * scale
-            } else {
-                (display.x * view.position[0]).clamp(4.0, (display.x - width - 4.0).max(4.0))
+    // Anchor by the window's corner so auto-sized pages grow into the screen.
+    let (menu_position, menu_pivot) = if cfg!(feature = "diagnostic-logging") {
+        (
+            ImVec2_c {
+                x: display.x - 8.0 * scale,
+                y: 8.0 * scale,
             },
-            y: if diagnostic {
-                8.0 * scale
-            } else {
-                display.y * view.position[1]
+            ImVec2_c { x: 1.0, y: 0.0 },
+        )
+    } else {
+        (
+            ImVec2_c {
+                x: 8.0 * scale,
+                y: 8.0 * scale,
             },
-        },
-        ImGuiCond_Always as _,
-        ImVec2_c { x: 0.0, y: 0.0 },
-    );
+            ImVec2_c { x: 0.0, y: 0.0 },
+        )
+    };
+    igSetNextWindowPos(menu_position, ImGuiCond_Always as _, menu_pivot);
     igSetNextWindowSize(ImVec2_c { x: width, y: 0.0 }, ImGuiCond_Always as _);
     let flags = ImGuiWindowFlags_NoDecoration
-        | ImGuiWindowFlags_NoBackground
+        | ImGuiWindowFlags_NoScrollbar
         | ImGuiWindowFlags_AlwaysAutoResize
         | ImGuiWindowFlags_NoSavedSettings
         | ImGuiWindowFlags_NoInputs
@@ -334,61 +366,278 @@ unsafe extern "C" fn draw() {
         std::ptr::null_mut(),
         flags as _,
     ) {
-        for value in &view.values {
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.58, 0.69, 0.79, 1.0));
+        if let Some(navigation)=&view.navigation {card_text(navigation);}
+        igPopStyleColor(1);
+        igSeparator();
+        for value in view
+            .values
+            .iter()
+            .filter(|v| view.quick || view.modes || v.row == view.row)
+        {
+            if MenuSelection::page_link(value.row) {
+                igSeparator();
+            }
             let selected = value.row == view.row;
+            if selected {
+                let p = igGetCursorScreenPos();
+                let available = igGetContentRegionAvail().x.max(1.0);
+                let height =
+                    igCalcTextSize(value.line.as_ptr(), std::ptr::null(), false, available).y;
+                let draw = igGetWindowDrawList();
+                ImDrawList_AddRectFilled(
+                    draw,
+                    ImVec2_c {
+                        x: p.x - 5.0 * scale,
+                        y: p.y - 2.0 * scale,
+                    },
+                    ImVec2_c {
+                        x: p.x + available + 5.0 * scale,
+                        y: p.y + height + 2.0 * scale,
+                    },
+                    igGetColorU32_Vec4(color(0.17, 0.54, 0.50, 0.19)),
+                    5.0 * scale,
+                    0 as _,
+                );
+                ImDrawList_AddRectFilled(
+                    draw,
+                    ImVec2_c {
+                        x: p.x - 7.0 * scale,
+                        y: p.y - 1.0 * scale,
+                    },
+                    ImVec2_c {
+                        x: p.x - 5.0 * scale,
+                        y: p.y + height + 1.0 * scale,
+                    },
+                    igGetColorU32_Vec4(accent),
+                    1.0 * scale,
+                    0 as _,
+                );
+            }
             let tint = if selected {
                 accent
-            } else if value.row == MenuRow::AutoMash {
-                if view.auto_mash {
-                    color(0.45, 1.0, 0.6, 1.0)
-                } else {
-                    color(1.0, 0.48, 0.42, 1.0)
-                }
-            } else if matches!(value.row, MenuRow::RollRead | MenuRow::YMode) {
-                modes
             } else {
-                normal
+                match value.enabled {
+                    Some(true) => color(0.50, 0.82, 0.70, 1.0),
+                    Some(false) => color(0.54, 0.61, 0.69, 1.0),
+                    None => color(0.86, 0.90, 0.95, 1.0),
+                }
             };
             igPushStyleColor_Vec4(ImGuiCol_Text as _, tint);
-            if diagnostic {
-                igPushTextWrapPos(0.0);
-            }
-            text(
-                if selected {
-                    &value.selected_line
+            card_text(&value.line);
+            igPopStyleColor(1);
+        }
+        for line in &view.header {
+            igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.60, 0.84, 0.94, 1.0));
+            card_text(line);
+            igPopStyleColor(1);
+        }
+        if !view.body.is_empty() {
+            igSeparator();
+            let wrap = (igGetContentRegionAvail().x - 8.0 * scale).max(1.0);
+            let measure = |line: &CString| {
+                igCalcTextSize(line.as_ptr(), std::ptr::null(), false, wrap).y + 5.0 * scale
+            };
+            let title = |line: &CString| {
+                let b = line.as_bytes();
+                let b = b.strip_prefix(b"> ").unwrap_or(b);
+                b.len() > 2 && b[0].is_ascii_digit() && b[1].is_ascii_digit()
+            };
+            let footer_height = view.footer.iter().map(&measure).sum::<f32>() + 12.0 * scale;
+            let content_height = view
+                .body
+                .iter()
+                .map(|line| measure(line) + if title(line) { 7.0 * scale } else { 0.0 })
+                .sum::<f32>()
+                + 8.0 * scale;
+            // Reserve room below the diagnostic editor for its cached logs.
+            let limit = display.y
+                * if cfg!(feature = "diagnostic-logging") {
+                    0.72
                 } else {
-                    &value.line
-                },
-                diagnostic,
+                    0.90
+                };
+            let budget =
+                (limit - igGetCursorPosY() - footer_height - 16.0 * scale).max(32.0 * scale);
+            let height = content_height.min(budget);
+            let key = (
+                view.fighter,
+                view.row,
+                view.choice,
+                view.mode,
+                view.focus,
+                view.revision,
             );
-            if diagnostic {
-                igPopTextWrapPos();
+            let changed = LAST_FOCUS.try_lock().ok().is_some_and(|mut previous| {
+                let changed = *previous != Some(key);
+                *previous = Some(key);
+                changed
+            });
+            igPushStyleVar_Vec2(
+                ImGuiStyleVar_WindowPadding as _,
+                ImVec2_c {
+                    x: 4.0 * scale,
+                    y: 4.0 * scale,
+                },
+            );
+            let shown = igBeginChild_Str(
+                c"##recipe_actions".as_ptr(),
+                ImVec2_c { x: 0.0, y: height },
+                0 as _,
+                (ImGuiWindowFlags_NoInputs
+                    | ImGuiWindowFlags_NoScrollbar
+                    | ImGuiWindowFlags_NoBackground
+                    | ImGuiWindowFlags_NoSavedSettings) as _,
+            );
+            if shown {
+                if changed && view.focus.is_none() {
+                    igSetScrollY(0.0);
+                }
+                for (i, line) in view.body.iter().enumerate() {
+                    let is_title = title(line);
+                    if is_title {
+                        igSeparator();
+                    }
+                    let focused = view.focus == Some(i);
+                    let text_height =
+                        igCalcTextSize(line.as_ptr(), std::ptr::null(), false, wrap).y;
+                    let local_y = igGetCursorPosY();
+                    let top = igGetScrollY();
+                    let outside = local_y < top + 4.0 * scale
+                        || local_y + text_height > top + height - 4.0 * scale;
+                    if focused {
+                        let p = igGetCursorScreenPos();
+                        ImDrawList_AddRectFilled(
+                            igGetWindowDrawList(),
+                            ImVec2_c {
+                                x: p.x - 2.0 * scale,
+                                y: p.y - 1.0 * scale,
+                            },
+                            ImVec2_c {
+                                x: p.x + igGetContentRegionAvail().x + 2.0 * scale,
+                                y: p.y + text_height + 1.0 * scale,
+                            },
+                            igGetColorU32_Vec4(color(0.17, 0.54, 0.50, 0.19)),
+                            4.0 * scale,
+                            0 as _,
+                        );
+                    }
+                    let tint = if focused {
+                        accent
+                    } else if is_title {
+                        color(0.55, 0.85, 0.95, 1.0)
+                    } else {
+                        color(0.92, 0.94, 0.97, 1.0)
+                    };
+                    igPushStyleColor_Vec4(ImGuiCol_Text as _, tint);
+                    card_text(line);
+                    igPopStyleColor(1);
+                    if changed && focused && outside {
+                        igSetScrollHereY(0.5);
+                    }
+                }
             }
+            igEndChild();
+            igPopStyleVar(1);
+            igSeparator();
+        }
+        for line in &view.footer {
+            igPushStyleColor_Vec4(
+                ImGuiCol_Text as _,
+                if line.as_bytes().starts_with(b"Save failed") {
+                    color(1.0, 0.55, 0.45, 1.0)
+                } else if line.as_bytes().starts_with(b"Saved") {
+                    accent
+                } else if line.as_bytes().starts_with(b"Unsaved") {
+                    color(0.96, 0.77, 0.42, 1.0)
+                } else {
+                    color(0.72, 0.78, 0.87, 1.0)
+                },
+            );
+            card_text(line);
             igPopStyleColor(1);
         }
     }
     #[cfg(feature = "diagnostic-logging")]
     let result_space = kirby_assist_core::diagnostics::modes::left_result_space(
-        display.y,
+        display.y - if status.is_some() { 24.0 * scale } else { 0.0 },
         scale,
-        igGetWindowHeight(),
+        igGetWindowHeight() + 8.0 * scale,
     );
     igEnd();
     #[cfg(feature = "diagnostic-logging")]
     if let Some((result_y, available)) = result_space {
-        draw_result(scale, width, result_y, available, flags as _);
+        draw_result(
+            scale,
+            width,
+            display.x - 8.0 * scale,
+            result_y,
+            available,
+            flags as _,
+        );
     }
-    igPopStyleVar(3);
+    igPopStyleVar(4);
     igPopStyleColor(3);
     igPopFont();
 }
+
+unsafe fn draw_master_toast(scale: f32, enabled: bool, display: ImVec2_c) {
+    let flags = ImGuiWindowFlags_NoDecoration
+        | ImGuiWindowFlags_NoBackground
+        | ImGuiWindowFlags_AlwaysAutoResize
+        | ImGuiWindowFlags_NoSavedSettings
+        | ImGuiWindowFlags_NoInputs
+        | ImGuiWindowFlags_NoFocusOnAppearing
+        | ImGuiWindowFlags_NoBringToFrontOnFocus;
+    igSetNextWindowPos(
+        ImVec2_c {
+            x: display.x - 8.0 * scale,
+            y: display.y - 6.0 * scale,
+        },
+        ImGuiCond_Always as _,
+        ImVec2_c { x: 1.0, y: 1.0 },
+    );
+    igPushFont(std::ptr::null_mut(), 11.0 * scale);
+    igPushStyleColor_Vec4(
+        ImGuiCol_Text as _,
+        if enabled {
+            color(0.45, 1.0, 0.58, 0.82)
+        } else {
+            color(1.0, 0.48, 0.42, 0.82)
+        },
+    );
+    if igBegin(
+        c"##kirby_assist_master".as_ptr(),
+        std::ptr::null_mut(),
+        flags as _,
+    ) {
+        igTextUnformatted(
+            if enabled {
+                c"Kirby Assist: ON".as_ptr()
+            } else {
+                c"Kirby Assist: OFF".as_ptr()
+            },
+            std::ptr::null(),
+        );
+    }
+    igEnd();
+    igPopStyleColor(1);
+    igPopFont();
+}
 #[cfg(feature = "diagnostic-logging")]
-unsafe fn draw_result(scale: f32, width: f32, y: f32, available: f32, flags: ImGuiWindowFlags) {
+unsafe fn draw_result(
+    scale: f32,
+    width: f32,
+    right: f32,
+    y: f32,
+    available: f32,
+    flags: ImGuiWindowFlags,
+) {
     {
         igSetNextWindowPos(
-            ImVec2_c { x: 4.0 * scale, y },
+            ImVec2_c { x: right, y },
             ImGuiCond_Always as _,
-            ImVec2_c { x: 0.0, y: 0.0 },
+            ImVec2_c { x: 1.0, y: 0.0 },
         );
         igSetNextWindowSize(ImVec2_c { x: width, y: 0.0 }, ImGuiCond_Always as _);
         igSetNextWindowSizeConstraints(
@@ -400,7 +649,7 @@ unsafe fn draw_result(scale: f32, width: f32, y: f32, available: f32, flags: ImG
             None,
             std::ptr::null_mut(),
         );
-        igPushFont(std::ptr::null_mut(), 12.5 * scale);
+        igPushFont(std::ptr::null_mut(), 13.5 * scale);
         igPushStyleColor_Vec4(ImGuiCol_WindowBg as _, color(0.035, 0.045, 0.075, 0.97));
         if igBegin(
             c"##ledge_result".as_ptr(),
@@ -408,6 +657,10 @@ unsafe fn draw_result(scale: f32, width: f32, y: f32, available: f32, flags: ImG
             flags & !(ImGuiWindowFlags_NoBackground as ImGuiWindowFlags),
         ) {
             igPushTextWrapPos(0.0);
+            crate::performance::with_card(|card| {
+                igTextUnformatted(card.as_ptr(), std::ptr::null());
+                igSeparator();
+            });
             // Both cards are cached by the worker. Drawing performs no native
             // reads, formatting, file I/O or blocking lock acquisition.
             if !crate::logging::with_snapshot(|card| {
