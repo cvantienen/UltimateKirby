@@ -37,7 +37,7 @@ fn full_deployment_catalog_loads_on_the_temporary_config_worker_stack() {
 
 #[test]
 fn bowser_dpad_up_and_y_defaults_are_independent_and_not_legacy_modes() {
-    use kirby_assist_core::{fighter_profiles::presets::PresetSlot, ledge_menu::MenuSelection};
+    use kirby_assist_core::{fighter_profiles::presets::PresetSlot, settings_menu::MenuSelection};
     const SAVED: &str = "[bowser.dpad_up.grab]\nname=Grab\nstart_delay=0\ndefault=true\nactions=check:enemy_within:45:0,drift:opponent:1:1,opponent_input:r:0:0:1\n[bowser.y.menu_custom]\nname=Neutral air dodge\nstart_delay=0\ndefault=true\nground_only=false\nactions=wait:1,shield:1\n[bowser.dpad_left.saved]\nstart_delay=0\ndefault=true\nactions=b:4\n[bowser.dpad_right.saved]\nstart_delay=0\ndefault=true\nactions=side_b:4\n";
     // Putting Grab under Y is the configuration mistake found in the repo.
     let invalid = SAVED.replace("bowser.dpad_up.grab", "bowser.y.grab");

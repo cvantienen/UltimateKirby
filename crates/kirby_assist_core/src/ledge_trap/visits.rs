@@ -80,7 +80,7 @@ impl LedgeVisits {
             self.visit_epoch = self.visit_epoch.wrapping_add(1);
             // Keep the last real grabbed edge until a fresh cliff anchor is
             // available; a clock-only regrab observation supplies no new edge.
-        } else if old.is_none() && is_hanging(e.previous_status) && e.situation == 2 {
+        } else if old.is_none() && is_hanging(e.previous_status) && e.situation == crate::native_states::situation::AIR {
             visit.armed = true; // First observation of an actual ledge release/drop.
         }
         if is_hanging(e.status) {

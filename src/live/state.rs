@@ -4,7 +4,7 @@ use super::*;
 // One session for the configured controller, rather than one global session per
 // fighter. `cancel` clears assistance without changing the game's native state.
 pub(super) struct State {
-    pub(super) ledge_menu: Option<ledge_menu::LedgeMenu>,
+    pub(super) settings_menu: Option<settings_menu::SettingsMenu>,
     // UI identity/lifetime survive combat cancellation and respawn. They never
     // authorize an input sequence; fighter_kind retains that separate role.
     pub(super) menu_fighter_kind: Option<i32>,
@@ -46,7 +46,7 @@ pub(super) struct State {
     pub(super) jab_grab: Option<kirby_assist_core::jab_grab::JabGrab>,
     pub(super) jab_grab_ready: kirby_assist_core::jab_grab::Readiness,
     pub(super) shortcut_context: Option<ShortcutContext>,
-    pub(super) posture: Option<kirby_assist_core::kirby_posture::Posture>,
+    pub(super) posture: Option<kirby_assist_core::posture::Posture>,
     pub(super) posture_target: Option<f32>,
     pub(super) posture_down: bool,
     pub(super) posture_floor_safe: bool,
@@ -242,11 +242,11 @@ impl State {
         if !matches!(keep, Some(Owner::Ledge | Owner::Defense)) {
             // A preempted test is cancelled, never rearmed on the next mapper poll.
             if self
-                .ledge_menu
+                .settings_menu
                 .as_ref()
                 .is_some_and(|m| m.preview_slot().is_some())
             {
-                if let Some(menu) = self.ledge_menu.as_mut() {
+                if let Some(menu) = self.settings_menu.as_mut() {
                     menu.finish_preview();
                 }
                 self.ledge = None;
@@ -320,7 +320,7 @@ impl State {
                 stick: None,
                 native_short_hop: false,
             },
-            ledge_menu: None,
+            settings_menu: None,
             menu_fighter_kind: None,
             menu_battle_active: false,
             menu_intro_object: None,
@@ -576,16 +576,16 @@ impl State {
             #[cfg(feature = "diagnostic-logging")]
             self.calibration.reset("match session ended");
             let session = self.session;
-            let mut ledge_menu = self.ledge_menu.take();
-            if let Some(ledge_menu) = ledge_menu.as_mut() {
-                ledge_menu.invalidate();
+            let mut settings_menu = self.settings_menu.take();
+            if let Some(settings_menu) = settings_menu.as_mut() {
+                settings_menu.invalidate();
             }
             let menu_fighter_kind = self.menu_fighter_kind;
             let menu_battle_active = self.menu_battle_active;
             let menu_intro_object = self.menu_intro_object;
             *self = Self::new();
             self.session = session;
-            self.ledge_menu = ledge_menu;
+            self.settings_menu = settings_menu;
             self.menu_fighter_kind = menu_fighter_kind;
             self.menu_battle_active = menu_battle_active;
             self.menu_intro_object = menu_intro_object;
@@ -621,7 +621,7 @@ impl State {
         self.grab_trace.reset("session_or_controller_cancelled");
         #[cfg(feature = "diagnostic-logging")]
         self.calibration.reset("session/controller cancelled");
-        if let Some(menu) = self.ledge_menu.as_mut() {
+        if let Some(menu) = self.settings_menu.as_mut() {
             menu.invalidate();
         }
         self.observation_sequence = self.observation_sequence.wrapping_add(1);

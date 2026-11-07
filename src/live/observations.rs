@@ -6,6 +6,8 @@
 //! these are separate from our fighter's attack startup and input recipes.
 use super::{MANAGER_SLOT, STATE};
 use crate::game_ffi as game;
+
+const ATTACK_GEOMETRY_SCAN_BUDGET: usize = 16;
 use kirby_assist_core::autopilot_guard::duck::DefenseThreat;
 use kirby_assist_core::combat_assist::TripTarget;
 use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
@@ -35,7 +37,7 @@ pub(super) unsafe fn incoming_fighter_attack(
     let roster = reads.roster();
     let roster = roster.unwrap_or([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
     let team = reads.team(own);
-    let mut geometry_budget = 16;
+    let mut geometry_budget = ATTACK_GEOMETRY_SCAN_BUDGET;
     let mut own_z = None;
     for id in roster
         .into_iter()
@@ -54,14 +56,11 @@ pub(super) unsafe fn incoming_fighter_attack(
             continue;
         }
         let enemy = game::module_accessor(id);
-        if enemy.is_null()
-            || enemy.cast::<u8>().add(8).cast::<u32>().read() != id
-            || reads.team(enemy) == team
-        {
+        if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == team {
             continue;
         }
         let target = [reads.pos_x(enemy), reads.pos_y(enemy)];
-        let target_velocity = [reads.speed_x(enemy, -1), reads.speed_y(enemy, -1)];
+        let target_velocity = [reads.speed_x(enemy), reads.speed_y(enemy)];
         if !target
             .iter()
             .chain(target_velocity.iter())
@@ -86,7 +85,7 @@ pub(super) unsafe fn incoming_fighter_attack(
             let status = reads.status_kind(enemy);
             if status >= kirby_assist_core::native_states::status::SPECIAL_HI {
                 let previous = if status >= kirby_assist_core::native_states::status::FINAL {
-                    reads.previous_status(enemy, 0)
+                    reads.previous_status(enemy, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX)
                 } else {
                     0
                 };
@@ -130,7 +129,7 @@ pub(super) unsafe fn incoming_fighter_attack(
                 continue;
             }
             let data = data.read();
-            if data.situation & 1 == 0
+            if data.situation & kirby_assist_core::native_states::situation::ATTACK_GROUND_MASK == 0
                 || ![data.x, data.y, data.z, data.x2, data.y2, data.z2, data.size]
                     .iter()
                     .all(|x| x.is_finite())
@@ -206,8 +205,8 @@ pub(super) unsafe fn native_air_physics(
     object: *mut game::Object,
 ) -> Option<kirby_assist_core::gameplay::AirPhysics> {
     kirby_assist_core::gameplay::AirPhysics::new(
-        game::param_float(object, 0xba18057d9, 0),  // air_accel_y
-        game::param_float(object, 0x12ec5626fe, 0), // air_speed_y_stable
+        game::param_float(object, super::native_params::PARAM_AIR_ACCEL_Y, 0),
+        game::param_float(object, super::native_params::PARAM_AIR_SPEED_Y_STABLE, 0),
     )
 }
 
@@ -265,10 +264,7 @@ pub(super) unsafe fn posture_opponent(
             continue;
         }
         let enemy = game::module_accessor(id);
-        if enemy.is_null()
-            || enemy.cast::<u8>().add(8).cast::<u32>().read() != id
-            || reads.team(enemy) == team
-        {
+        if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == team {
             continue;
         }
         let dx = reads.pos_x(enemy) - x;
@@ -308,10 +304,7 @@ pub(super) unsafe fn jab_lock_targets(
             continue;
         };
         let enemy = game::module_accessor(id);
-        if enemy.is_null()
-            || enemy.cast::<u8>().add(8).cast::<u32>().read() != id
-            || reads.team(enemy) == team
-        {
+        if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == team {
             continue;
         }
         let status = reads.status_kind(enemy);
@@ -351,7 +344,7 @@ pub(super) unsafe fn jab_lock_targets(
                 status,
                 frame,
                 position,
-                velocity_x: reads.speed_x(enemy, -1),
+                velocity_x: reads.speed_x(enemy),
                 grounded: reads.situation_kind(enemy) == 0,
                 // Pinned instance work ID; status-local slots are not read in damage.
                 lock_count: game::work_int(enemy, kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_INT_DOWN_DAMAGE_COUNT),
@@ -415,10 +408,7 @@ pub(super) unsafe fn combat_targets(
             continue;
         };
         let enemy = game::module_accessor(id);
-        if enemy.is_null()
-            || enemy.cast::<u8>().add(8).cast::<u32>().read() != id
-            || reads.team(enemy) == own_team
-        {
+        if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == own_team {
             continue;
         }
         if watch_sdi {
@@ -441,7 +431,8 @@ pub(super) unsafe fn combat_targets(
                 *slot = Some(TripTarget {
                     id,
                     status: reads.status_kind(enemy),
-                    previous_status: reads.previous_status(enemy, 0),
+                    previous_status: reads
+                        .previous_status(enemy, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX),
                 });
             }
         }
@@ -497,8 +488,7 @@ pub(super) unsafe fn rule_targets(
             continue;
         };
         let e = game::module_accessor(id);
-        if e.is_null() || e.cast::<u8>().add(8).cast::<u32>().read() != id || reads.team(e) == team
-        {
+        if e.is_null() || game::battle_object_id(e) != id || reads.team(e) == team {
             continue;
         }
         let status = reads.status_kind(e);
@@ -539,17 +529,17 @@ pub(super) unsafe fn rule_targets(
         let eligible_event = event
             && !((kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE
                 ..=kirby_assist_core::native_states::status::CLIFF_JUMP3)
-                .contains(&reads.previous_status(e, 0))
+                .contains(&reads.previous_status(e, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX))
                 || matches!(
                     status,
                     kirby_assist_core::native_states::ESCAPE
                         ..=kirby_assist_core::native_states::ESCAPE_B
-                ) && situation != 0
+                ) && situation != kirby_assist_core::native_states::situation::GROUND
                 || matches!(
                     status,
                     kirby_assist_core::native_states::ESCAPE_AIR
                         | kirby_assist_core::native_states::ESCAPE_AIR_SLIDE
-                ) && situation != 2);
+                ) && situation != kirby_assist_core::native_states::situation::AIR);
         let position = [reads.pos_x(e), reads.pos_y(e)];
         let eligible_grab =
             grab && grab_from.is_some_and(|(from, facing, range)| {
@@ -562,7 +552,9 @@ pub(super) unsafe fn rule_targets(
                 && !(event
                     && (kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE
                         ..=kirby_assist_core::native_states::status::CLIFF_JUMP3)
-                        .contains(&reads.previous_status(e, 0)));
+                        .contains(
+                            &reads.previous_status(e, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX),
+                        ));
         if !eligible_event && !eligible_grab && follow != Some(id) {
             continue;
         }
@@ -574,7 +566,7 @@ pub(super) unsafe fn rule_targets(
         };
         // Only current grab candidates need a velocity read for startup reach.
         let velocity_x = if eligible_grab {
-            reads.speed_x(e, -1)
+            reads.speed_x(e)
         } else {
             0.
         };
@@ -628,10 +620,7 @@ unsafe fn rule_follow(
         return None;
     }
     let e = game::module_accessor(id);
-    if e.is_null()
-        || e.cast::<u8>().add(8).cast::<u32>().read() != id
-        || reads.team(e) == reads.team(own)
-    {
+    if e.is_null() || game::battle_object_id(e) != id || reads.team(e) == reads.team(own) {
         return None;
     }
     let status = reads.status_kind(e);
@@ -708,7 +697,7 @@ pub(super) unsafe fn tracked_ledge_clock(reads: &super::frame::FrameReads) -> Op
         return None;
     }
     let object = game::module_accessor(id);
-    if object.is_null() || object.cast::<u8>().add(8).cast::<u32>().read() != id {
+    if object.is_null() || game::battle_object_id(object) != id {
         return None;
     }
     let motion = MotionTiming {
@@ -737,7 +726,7 @@ pub(super) unsafe fn tracked_ledge_clock(reads: &super::frame::FrameReads) -> Op
     Some(Opponent {
         id,
         status,
-        previous_status: reads.previous_status(object, 0),
+        previous_status: reads.previous_status(object, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX),
         cliff_position,
         situation: reads.situation_kind(object),
         // One read on the already locked actor, only while actually at ledge.
@@ -766,7 +755,7 @@ pub(super) unsafe fn nearest_ledge_opponent(
             state.ledge_position.as_ref().and_then(LedgePosition::spot),
             state.ledge_roster.map(|(ids, _)| ids)?,
             state
-                .ledge_menu
+                .settings_menu
                 .as_ref()
                 .is_some_and(|m| m.preview_slot().is_some()),
         )
@@ -782,14 +771,12 @@ pub(super) unsafe fn nearest_ledge_opponent(
             continue;
         }
         let enemy = game::module_accessor(id);
-        if enemy.is_null()
-            || enemy.cast::<u8>().add(8).cast::<u32>().read() != id
-            || reads.team(enemy) == team
-        {
+        if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == team {
             continue;
         }
         let status = reads.status_kind(enemy);
-        let previous_status = reads.previous_status(enemy, 0);
+        let previous_status =
+            reads.previous_status(enemy, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX);
         let on_ledge = (CLIFF_CATCH_MOVE..=CLIFF_JUMP3).contains(&status);
         let recent_option = (kirby_assist_core::native_states::status::CLIFF_ATTACK..=CLIFF_JUMP3)
             .contains(&previous_status)
@@ -872,7 +859,7 @@ pub(super) unsafe fn nearest_ledge_opponent(
             situation: reads.situation_kind(enemy),
             position: [reads.pos_x(enemy), reads.pos_y(enemy)],
             vulnerable,
-            velocity: [reads.speed_x(enemy, -1), reads.speed_y(enemy, -1)],
+            velocity: [reads.speed_x(enemy), reads.speed_y(enemy)],
             cliff_position,
             vulnerable_in,
             motion,
@@ -970,10 +957,7 @@ pub(super) unsafe fn grab_targets(
             continue;
         };
         let enemy = game::module_accessor(id);
-        if enemy.is_null()
-            || enemy.cast::<u8>().add(8).cast::<u32>().read() != id
-            || reads.team(enemy) == team
-        {
+        if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == team {
             continue;
         }
         let status = reads.status_kind(enemy);
@@ -1014,7 +998,7 @@ pub(super) unsafe fn grab_targets(
                 frame: reads.motion_frame(enemy),
                 rate: reads.motion_rate(enemy),
                 position: [reads.pos_x(enemy), reads.pos_y(enemy)],
-                velocity: [reads.speed_x(enemy, -1), reads.speed_y(enemy, -1)],
+                velocity: [reads.speed_x(enemy), reads.speed_y(enemy)],
                 facing: reads.facing(enemy),
                 first: grab.first,
                 last: grab.last,

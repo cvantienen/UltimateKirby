@@ -9,8 +9,11 @@ use crate::native_input::MAPPER_A;
 use crate::{gameplay::ControllerOutput, native_input::ASSIST_BUTTONS};
 pub use fair_followup::{FairContext, FairFollowup};
 
+const MIN_REMAINING_DI_INPUT_FRAMES: u64 = 3;
+const MAX_DAMAGE_STOP_DI_FRAMES: u64 = 120;
+
 // Trip takeover also suppresses taunts; Plus/Minus remain available.
-const TRIP_BUTTONS: u32 = ASSIST_BUTTONS | 0xf;
+const TRIP_BUTTONS: u32 = ASSIST_BUTTONS | crate::native_input::MAPPER_DPAD_BUTTONS;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TripTarget {
@@ -235,10 +238,14 @@ impl SdiState {
         // owns a neutral sample between flicks; those outputs are different.
         if !enabled
             || !ctx.damage_stop
-            || ctx.remaining <= 3 // Reserve final launch-input frames for DI/manual control.
-            || ctx.remaining > 120
+            || ctx.remaining <= MIN_REMAINING_DI_INPUT_FRAMES
+            || ctx.remaining > MAX_DAMAGE_STOP_DI_FRAMES
             || !ctx.input_delay.is_finite()
-            || ctx.remaining as f32 <= ctx.input_delay.clamp(0.0, 12.0).ceil()
+            || ctx.remaining as f32
+                <= ctx
+                    .input_delay
+                    .clamp(0.0, crate::tech_input::MAX_INPUT_DELAY_FRAMES)
+                    .ceil()
         {
             *self = Self::default();
             return None;

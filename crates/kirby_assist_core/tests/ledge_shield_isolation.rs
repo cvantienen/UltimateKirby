@@ -33,7 +33,7 @@ fn own(context: GameplayContext) -> Context {
         frame: context.motion_frame,
         rate: context.motion_rate,
         stopped: context.stopped,
-        grounded: context.situation == 0,
+        grounded: context.situation == kirby_assist_core::native_states::situation::GROUND,
         position: context.position,
         facing: context.facing,
         shield_ready: true,

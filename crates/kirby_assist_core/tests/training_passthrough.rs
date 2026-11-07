@@ -1,6 +1,6 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
-    ledge_menu::{MenuRow, MenuSelection},
+    settings_menu::{MenuRow, MenuSelection},
     ledge_trap::DPAD_DOWN,
     native_input::{MAPPER_L, MAPPER_MINUS},
 };

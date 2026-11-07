@@ -11,11 +11,11 @@ static SEQUENCES_UPDATED: std::sync::atomic::AtomicBool = std::sync::atomic::Ato
 static MASTER_IN_MATCH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 struct HostState {
     menu_battle_active: bool,
-    ledge_menu: Option<live_menu::LedgeMenu>,
+    settings_menu: Option<live_menu::SettingsMenu>,
 }
 static STATE: Mutex<HostState> = Mutex::new(HostState {
     menu_battle_active: false,
-    ledge_menu: None,
+    settings_menu: None,
 });
 fn ledge_settings(_: Option<i32>, base: LedgeSettings) -> LedgeSettings {
     base
@@ -30,7 +30,7 @@ mod calibration {
 mod logging {
     pub fn write_configuration(_: kirby_assist_core::diagnostics::modes::Configuration) {}
 }
-#[path = "../../../src/live/ledge_menu.rs"]
+#[path = "../../../src/live/settings_menu.rs"]
 mod live_menu;
 
 struct Counted;
@@ -82,7 +82,7 @@ fn fighter_change_never_inherits_bowser_actions_and_grab_dodge_cannot_borrow_ano
     let _save_guard = live_menu::save_test_guard();
     use kirby_assist_core::native_input::{MAPPER_A, MAPPER_B};
     prepare_compact_library();
-    let mut menu = live_menu::LedgeMenu::default();
+    let mut menu = live_menu::SettingsMenu::default();
     let registered = (0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT)
         .filter(|kind| PROFILES.get().unwrap().profile(*kind).is_some());
     for kind in [
@@ -183,7 +183,7 @@ fn pyra_mythra_swaps_reload_only_the_active_forms_menu_and_saved_inputs() {
     };
     let _save_guard = live_menu::save_test_guard();
     prepare_compact_library();
-    let mut menu = live_menu::LedgeMenu::default();
+    let mut menu = live_menu::SettingsMenu::default();
     for kind in [
         kirby_assist_core::fighter_kinds::PYRA,
         kirby_assist_core::fighter_kinds::MYTHRA,
@@ -252,7 +252,7 @@ fn pyra_mythra_swaps_reload_only_the_active_forms_menu_and_saved_inputs() {
 fn production_reflector_configuration_tracks_only_the_current_fighter_and_live_scope() {
     let _save_guard = live_menu::save_test_guard();
     prepare_compact_library();
-    let mut menu = live_menu::LedgeMenu::default();
+    let mut menu = live_menu::SettingsMenu::default();
     for (kind, gameplay) in [
         (28, true),
         (22, true),
@@ -295,8 +295,8 @@ fn production_reflector_configuration_tracks_only_the_current_fighter_and_live_s
 fn compact_runtime_idle_has_no_allocations_and_fighter_switches_do_not_retain_old_menus() {
     let _guard = live_menu::save_test_guard();
     prepare_compact_library();
-    let mut menu = live_menu::LedgeMenu::default();
-    let sample = |m: &mut live_menu::LedgeMenu, kind| {
+    let mut menu = live_menu::SettingsMenu::default();
+    let sample = |m: &mut live_menu::SettingsMenu, kind| {
         m.input(
             true,
             true,

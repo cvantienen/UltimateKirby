@@ -74,7 +74,11 @@ fn release_conflict_pause_and_unsupported_movement_cancel_immediately() {
         assert_eq!(output.consume_dpad, gameplay);
     }
     assert!(!turbo_movement_allowed(0, 2, false));
-    assert!(!turbo_movement_allowed(0x49, 0, false));
+    assert!(!turbo_movement_allowed(
+        crate::native_states::status::DAMAGE_FLY,
+        0,
+        false
+    ));
     assert!(!turbo_movement_allowed(0, 0, true));
     for status in [
         crate::native_states::status::WAIT,
@@ -177,15 +181,18 @@ fn left_stick_trigger_and_attack_release_share_one_consistent_history() {
 }
 #[test]
 fn reserved_taunts_are_removed_from_mapped_result_without_affecting_other_actions() {
-    let attack_and_up = 0x1 | 0x400;
-    let all = attack_and_up | 0x7000;
+    let attack_and_up =
+        crate::native_input::MAPPED_ATTACK | crate::native_input::MAPPED_TAUNT_UP;
+    let all = attack_and_up
+        | crate::native_input::MAPPED_TAUNT_SIDES
+        | crate::native_input::MAPPED_TAUNT_DOWN;
     assert_eq!(
         suppress_reserved_taunts(all, DPAD_SIDES),
-        attack_and_up | 0x1000
+        attack_and_up | crate::native_input::MAPPED_TAUNT_DOWN
     );
     assert_eq!(
         suppress_reserved_taunts(all, crate::ledge_trap::DPAD_DOWN),
-        attack_and_up | 0x6000
+        attack_and_up | crate::native_input::MAPPED_TAUNT_SIDES
     );
     assert_eq!(
         suppress_reserved_taunts(all, DPAD_SIDES | crate::ledge_trap::DPAD_DOWN),
@@ -237,7 +244,16 @@ fn diagonal_up_is_quarantined_until_its_release_without_disabling_normal_up_taun
     let mut reservation = DpadReservation::default();
     let diagonal = reservation.sample(DPAD_SIDES, DPAD_LEFT | DPAD_UP, true);
     assert_ne!(diagonal & DPAD_UP, 0);
-    assert_eq!(suppress_reserved_taunts(0x7400 | 1, diagonal), 0x1000 | 1);
+    assert_eq!(
+        suppress_reserved_taunts(
+            crate::native_input::MAPPED_TAUNT_SIDES
+                | crate::native_input::MAPPED_TAUNT_UP
+                | crate::native_input::MAPPED_TAUNT_DOWN
+                | crate::native_input::MAPPER_DPAD_UP,
+            diagonal
+        ),
+        crate::native_input::MAPPED_TAUNT_DOWN | crate::native_input::MAPPER_DPAD_UP
+    );
     assert_ne!(reservation.sample(DPAD_SIDES, DPAD_UP, true) & DPAD_UP, 0);
     assert_ne!(reservation.sample(DPAD_SIDES, 0, true) & DPAD_UP, 0);
     assert_eq!(reservation.sample(DPAD_SIDES, 0, true) & DPAD_UP, 0);
@@ -250,7 +266,7 @@ fn turbo_starts_down_on_first_poll_and_in_grounded_running_states() {
         enabled: true,
         ..TurboSettings::default()
     };
-    for status in 0..=9 {
+    for status in crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE {
         assert!(turbo_movement_allowed(
             status,
             crate::native_states::status::WAIT,
@@ -286,7 +302,23 @@ fn dash_pivot_holds_a_full_reversal_for_two_native_updates_only() {
 
 #[test]
 fn dash_pivot_does_not_rewrite_walk_air_or_hitstop_input() {
-    for (status, situation, stopped) in [(1, 0, false), (3, 1, false), (3, 0, true)] {
+    for (status, situation, stopped) in [
+        (
+            crate::native_states::status::WALK,
+            crate::native_states::situation::GROUND,
+            false,
+        ),
+        (
+            crate::native_states::status::DASH,
+            crate::native_states::situation::CLIFF,
+            false,
+        ),
+        (
+            crate::native_states::status::DASH,
+            crate::native_states::situation::GROUND,
+            true,
+        ),
+    ] {
         let mut pivot = DashPivotAssist::default();
         pivot.sample(1, 3, 0, false, [1.0, 0.0]);
         assert_eq!(
@@ -301,12 +333,42 @@ fn dash_pivot_does_not_rewrite_walk_air_or_hitstop_input() {
 #[test]
 fn pending_movement_cancels_before_same_tick_cache_on_interruption() {
     for (status, situation, stopped, stick) in [
-        (3, 2, false, [-1.0, 0.0]),
-        (0x27, 0, false, [-1.0, 0.0]),
-        (3, 0, true, [-1.0, 0.0]),
-        (3, 0, false, [-1.0, -1.0]),
-        (3, 0, false, [0.0, 0.0]),
-        (3, 0, false, [-1.0, f32::NAN]),
+        (
+            crate::native_states::status::DASH,
+            crate::native_states::situation::AIR,
+            false,
+            [-1.0, 0.0],
+        ),
+        (
+            crate::native_states::status::ATTACK,
+            crate::native_states::situation::GROUND,
+            false,
+            [-1.0, 0.0],
+        ),
+        (
+            crate::native_states::status::DASH,
+            crate::native_states::situation::GROUND,
+            true,
+            [-1.0, 0.0],
+        ),
+        (
+            crate::native_states::status::DASH,
+            crate::native_states::situation::GROUND,
+            false,
+            [-1.0, -1.0],
+        ),
+        (
+            crate::native_states::status::DASH,
+            crate::native_states::situation::GROUND,
+            false,
+            [0.0, 0.0],
+        ),
+        (
+            crate::native_states::status::DASH,
+            crate::native_states::situation::GROUND,
+            false,
+            [-1.0, f32::NAN],
+        ),
     ] {
         let mut tool = DashPivotAssist::default();
         tool.sample(1, 3, 0, false, [1.0, 0.0]);
@@ -495,7 +557,7 @@ fn l_assist_and_l3_turbo_have_independent_consumed_bindings() {
 #[test]
 fn l3_turbo_restores_facing_walk_cancel_at_one_update_per_phase() {
     assert_eq!(TURBO_TRIGGER, 1 << 16);
-    assert_eq!(TURBO_TRIGGER & crate::ledge_menu::MENU_STICK_CLICK, 0);
+    assert_eq!(TURBO_TRIGGER & crate::settings_menu::MENU_STICK_CLICK, 0);
     assert_eq!(SHORT_HOP_TRIGGER, crate::native_input::MAPPER_X);
     for facing in [-1.0, 1.0] {
         let mut tool = TurboState::default();

@@ -6,7 +6,7 @@ fn delayed_takeoff_and_dodge_readiness_still_complete_the_requested_slide() {
         gameplay: true,
         stopped: false,
         status: crate::native_states::status::WAIT,
-        situation: 0,
+        situation: crate::native_states::situation::GROUND,
         motion_frame: 0.0,
         can_jump: true,
         can_air_dodge: false,
@@ -37,7 +37,7 @@ fn delayed_takeoff_and_dodge_readiness_still_complete_the_requested_slide() {
     }
     let air = SlideContext {
         status: crate::native_states::status::JUMP,
-        situation: 2,
+        situation: crate::native_states::situation::AIR,
         motion_frame: 3.0,
         can_jump: false,
         can_air_dodge: true,
@@ -113,7 +113,7 @@ fn dodge_buffers_in_late_native_squat_before_airborne_and_transition_flags() {
                 4,
                 0,
                 SlideContext {
-                    situation: 2,
+                    situation: crate::native_states::situation::AIR,
                     motion_frame: 1.0,
                     ..mixed
                 }
@@ -128,7 +128,7 @@ fn dodge_buffers_in_late_native_squat_before_airborne_and_transition_flags() {
                     0,
                     SlideContext {
                         status: crate::native_states::ESCAPE_AIR_SLIDE,
-                        situation: 2,
+                        situation: crate::native_states::situation::AIR,
                         ..mixed
                     }
                 )
@@ -145,7 +145,7 @@ fn missed_squat_observation_uses_first_native_jump_without_waiting_for_readiness
     slide.sample(true, 0, DPAD_RIGHT, ground);
     let early = SlideContext {
         status: crate::native_states::status::JUMP,
-        situation: 0,
+        situation: crate::native_states::situation::GROUND,
         motion_frame: 0.0,
         can_jump: false,
         can_air_dodge: false,

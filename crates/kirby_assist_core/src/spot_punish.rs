@@ -62,7 +62,7 @@ impl Punisher {
                 .filter(|t| {
                     t.kind == Kind::Spot
                         && t.status == crate::native_states::ESCAPE
-                        && t.motion != 0
+                        && t.motion != crate::timing::NO_MOTION_KIND
                         && t.rate.is_finite()
                         && t.rate > 0.
                         && t.frame.is_finite()
@@ -104,7 +104,7 @@ impl Punisher {
                 let enemy = Opponent {
                     id: t.id,
                     status: t.status,
-                    situation: 0,
+                    situation: crate::native_states::situation::GROUND,
                     position: t.position,
                     velocity: t.velocity,
                     motion: Some(crate::gameplay::MotionTiming {

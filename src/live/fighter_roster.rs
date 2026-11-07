@@ -25,7 +25,7 @@ pub(crate) unsafe fn fighter_ids() -> Option<FighterRoster> {
             continue;
         }
         let object = game::module_accessor(id);
-        if object.is_null() || object.cast::<u8>().add(8).cast::<u32>().read() != id {
+        if object.is_null() || game::battle_object_id(object) != id {
             continue;
         }
         append_fighter(&mut ids, id);
@@ -47,7 +47,7 @@ pub(crate) unsafe fn fighter_ids() -> Option<FighterRoster> {
         }
         let other = game::module_accessor(partner);
         if other.is_null()
-            || other.cast::<u8>().add(8).cast::<u32>().read() != partner
+            || game::battle_object_id(other) != partner
             || game_entry_id(partner) != entry_id
             || game::fighter_kind(partner)
                 != if kind == kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO {

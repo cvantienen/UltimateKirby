@@ -25,7 +25,7 @@ pub use identity::ResponseImplementation;
 pub use types::{in_tracking_range, LedgeContext, LedgeOutput, LedgeSettings};
 pub use visits::LedgeVisits;
 
-pub const DPAD_DOWN: u32 = 1 << 2;
+pub const DPAD_DOWN: u32 = crate::native_input::MAPPER_DPAD_DOWN;
 pub const LEDGE_TRIGGER: u32 = MAPPER_L;
 pub const CLIFF_CATCH_MOVE: i32 = crate::native_states::status::CLIFF_CATCH_MOVE;
 pub const CLIFF_WAIT: i32 = crate::native_states::status::CLIFF_WAIT;
@@ -46,13 +46,13 @@ pub fn needs_opponent_clock(status: i32, motion_rate: f32) -> bool {
                 | crate::native_states::status::OTTOTTO_WAIT
         )
 }
-#[cfg(feature = "diagnostic-logging")]
-const ATTACK_AIR: i32 = 0x36;
 /// Legacy alias; shared policies should use `ASSIST_BUTTONS`.
 pub const LEDGE_BUTTONS: u32 = ASSIST_BUTTONS;
 /// Exclusive literal-sequence ownership; pause/menu remain available.
 pub const SEQUENCE_BUTTONS: u32 =
-    ASSIST_BUTTONS | 0xf | crate::manual_controls::LEFT_STICK_DIRECTIONS;
+    ASSIST_BUTTONS
+        | crate::native_input::MAPPER_DPAD_BUTTONS
+        | crate::manual_controls::LEFT_STICK_DIRECTIONS;
 /// Native incapacitation ends an input tape. Keep ordinary get-up, attack,
 /// shield, dodge and special recovery distinct from knockdown/damage.
 /// Verified against pinned skyline-smash d2ca90d9, src/lua_const.rs:
@@ -69,8 +69,12 @@ fn is_hanging(status: i32) -> bool {
 // sequence inputs. These native term IDs are not move-start timing values.
 pub fn grab_transition_term(status: i32) -> i32 {
     match status {
-        0x3 | 0x4 => crate::native_states::transition_terms::CONT_CATCH_DASH,
-        0x7 | 0x8 => crate::native_states::transition_terms::CONT_CATCH_TURN,
+        crate::native_states::status::DASH | crate::native_states::status::RUN => {
+            crate::native_states::transition_terms::CONT_CATCH_DASH
+        }
+        crate::native_states::status::TURN_DASH | crate::native_states::status::TURN_RUN => {
+            crate::native_states::transition_terms::CONT_CATCH_TURN
+        }
         _ => crate::native_states::transition_terms::CONT_CATCH,
     }
 }
@@ -283,7 +287,7 @@ impl LedgeTrap {
             _ if (CLIFF_JUMP1..=CLIFF_JUMP3).contains(&enemy.previous_status) => {
                 Some(PresetSlot::Jump)
             }
-            _ if enemy.situation == 2
+            _ if enemy.situation == crate::native_states::situation::AIR
                 && from_hang
                 && !hang
                 && !matches!(

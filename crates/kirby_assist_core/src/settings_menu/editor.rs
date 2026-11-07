@@ -1130,7 +1130,7 @@ mod tests {
     use super::*;
     use crate::{
         fighter_profiles::{presets::PresetSlot, FighterProfiles},
-        ledge_menu::{MenuSelection, MENU_STICK_CLICK},
+        settings_menu::{MenuSelection, MENU_STICK_CLICK},
         ledge_trap::{LedgeSettings, DPAD_DOWN},
         manual_controls::DPAD_RIGHT,
     };
@@ -1943,7 +1943,11 @@ mod tests {
             let (status, motion, native_frame) = if frame == 0 {
                 (0, "wait", 0.)
             } else if frame < 15 {
-                (0x27, "attack_11", (frame - 1) as f32)
+                (
+                    crate::native_states::status::ATTACK,
+                    "attack_11",
+                    (frame - 1) as f32,
+                )
             } else {
                 (0, "wait", (frame - 15) as f32)
             };
@@ -1993,7 +1997,7 @@ mod tests {
 #[cfg(test)]
 mod reaction_editor_tests {
     use super::*;
-    use crate::{fighter_profiles::presets::PresetSlot, ledge_menu::MenuSelection};
+    use crate::{fighter_profiles::presets::PresetSlot, settings_menu::MenuSelection};
     #[test]
     fn assist_editor_tunes_roll_conditions_without_moving_rule_to_manual_choices() {
         let source = crate::sequence_config::Catalog::parse(

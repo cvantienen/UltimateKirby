@@ -34,7 +34,7 @@ fn lc(c: Context) -> GameplayContext {
         held: true,
         can_act: true,
         status: c.status,
-        situation: if c.grounded { 0 } else { 2 },
+        situation: if c.grounded {kirby_assist_core::native_states::situation::GROUND} else {kirby_assist_core::native_states::situation::AIR},
         stopped: c.stopped,
         motion_kind: c.motion,
         motion_frame: c.frame,

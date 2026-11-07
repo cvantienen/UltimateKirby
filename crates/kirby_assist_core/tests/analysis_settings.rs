@@ -137,7 +137,7 @@ fn own() -> Context {
     Context {
         object: 1,
         status: kirby_assist_core::native_states::status::WAIT,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: 1,
         frame: 1.,
         rate: 1.,
@@ -250,7 +250,7 @@ fn zero_shield_tail_still_shields_an_actual_threat_and_specialist_rows_are_filte
 #[test]
 fn filtered_settings_navigation_and_focus_match_the_visible_rows() {
     use kirby_assist_core::{
-        fighter_profiles::presets::MenuPresets, ledge_menu::MenuRow, ledge_menu::MenuSelection,
+        fighter_profiles::presets::MenuPresets, settings_menu::MenuRow, settings_menu::MenuSelection,
         ledge_trap::DPAD_DOWN,
     };
     let p = MenuPresets::default();

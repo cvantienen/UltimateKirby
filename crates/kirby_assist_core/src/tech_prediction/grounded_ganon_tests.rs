@@ -4,7 +4,12 @@ use super::*;
 #[test]
 fn grounded_capture_uses_captor_throw_clock_instead_of_tumble_or_velocity() {
     assert_eq!(
-        tech_gate(CATCHED_GANON, 0, false, false),
+        tech_gate(
+            CATCHED_GANON,
+            crate::native_states::situation::GROUND,
+            false,
+            false,
+        ),
         TechGate::OutsideTumble
     );
     for rate in [0.5, 1.0, 2.0] {
@@ -94,10 +99,19 @@ fn aerial_slams_other_captors_and_invalid_or_passed_clocks_do_not_predict() {
 #[test]
 fn shared_ganon_release_requires_grounded_capture_predecessor() {
     assert!(grounded_ganon_release(CATCHED_AIR_END_GANON, CATCHED_GANON));
-    for previous in [0xbf, 0xc0, 0xc1, 0x49, 0] {
+    for previous in [
+        crate::native_states::status::CATCHED_AIR_GANON,
+        crate::native_states::status::CATCHED_AIR_FALL_GANON,
+        crate::native_states::status::CATCHED_AIR_END_GANON,
+        crate::native_states::status::DAMAGE_FLY,
+        crate::native_states::status::WAIT,
+    ] {
         assert!(!grounded_ganon_release(CATCHED_AIR_END_GANON, previous));
     }
-    assert!(!grounded_ganon_release(0xbf, CATCHED_GANON));
+    assert!(!grounded_ganon_release(
+        crate::native_states::status::CATCHED_AIR_GANON,
+        CATCHED_GANON
+    ));
 }
 
 #[test]

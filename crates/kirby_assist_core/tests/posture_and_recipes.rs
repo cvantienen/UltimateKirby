@@ -1,13 +1,13 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
-    kirby_posture::Posture,
+    posture::Posture,
     manual_controls::ShortcutContext,
     native_input::{MAPPER_A, MAPPER_X},
 };
 fn context(frame: f32) -> ShortcutContext {
     ShortcutContext {
         status: kirby_assist_core::native_states::status::WAIT,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: 1,
         frame,
         rate: 1.0,
@@ -83,7 +83,7 @@ fn down_cstick_with_neutral_left_stick_aims_without_changing_attack_edges() {
                 [0.0; 2],
                 Some(-facing),
                 ShortcutContext {
-                    situation: 2,
+                    situation: kirby_assist_core::native_states::situation::AIR,
                     ..context(3.0)
                 }
             )
@@ -193,7 +193,7 @@ fn omitted_facing_scans_cannot_change_unusable_posture_states() {
         kirby_assist_core::native_states::status::ATTACK_LW4,
         kirby_assist_core::native_states::status::DAMAGE,
     ] {
-        for situation in [0, 2] {
+        for situation in [kirby_assist_core::native_states::situation::GROUND, kirby_assist_core::native_states::situation::AIR] {
             for stopped in [false, true] {
                 let c = ShortcutContext {
                     status,
@@ -358,7 +358,7 @@ fn idle_crouch_never_eats_buttons_movement_air_or_stop_and_roll_wins() {
             0,
             [0.0; 2],
             ShortcutContext {
-                situation: 2,
+                situation: kirby_assist_core::native_states::situation::AIR,
                 ..context(3.0)
             },
         ),
@@ -646,7 +646,7 @@ fn raw_cstick_aim_releases_immediately_and_cannot_convert_other_tilts_or_aerials
             true,
             true,
             ShortcutContext {
-                situation: 2,
+                situation: kirby_assist_core::native_states::situation::AIR,
                 ..context(4.0)
             },
         ),

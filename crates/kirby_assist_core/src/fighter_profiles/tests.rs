@@ -1,6 +1,6 @@
 //! File-only menu and reference-data invariants.
 use super::*;
-use crate::{ledge_menu::MenuSelection, live_input::LiveConfig};
+use crate::{settings_menu::MenuSelection, live_input::LiveConfig};
 #[test]
 fn registered_fighters_have_no_embedded_options_or_scheduling_fallback() {
     let profiles = FighterProfiles::default();
@@ -38,7 +38,7 @@ fn startup_builds_every_fighter_and_five_menus_from_the_file_only() {
 fn non_ledge_numeric_settings_cannot_override_selected_file_scheduling() {
     let config = LiveConfig::parse("ledge_trap=true\nledge_nair_hit_lead_frames=19\nledge_stone_startup_frames=13\nledge_stone_hit_lead_frames=1").unwrap();
     let profiles = FighterProfiles::from_test_file();
-    let profile = profiles.profile(6).unwrap();
+    let profile = profiles.profile(crate::fighter_kinds::KIRBY).unwrap();
     let menu = MenuSelection::new(&profile.menu_options);
     let a = menu.settings(&profile.menu_options, profile.apply(config.ledge));
     let b = menu.settings(
@@ -57,12 +57,12 @@ fn file_menu_rebuild_replaces_removed_sections_instead_of_retaining_choices() {
         crate::sequence_config::Catalog::parse("[kirby.neutral.only]\nstart_delay=2\nactions=jab")
             .unwrap();
     profiles.add_sequence_choices(&file).unwrap();
-    let kirby = profiles.profile(6).unwrap();
+    let kirby = profiles.profile(crate::fighter_kinds::KIRBY).unwrap();
     assert_eq!(kirby.menu_options.lists[0].options.len(), 1);
     assert_eq!(kirby.menu_options.lists[0].options[0].id, "only");
     assert!(kirby.menu_options.lists[1].options.is_empty());
     assert!(profiles
-        .profile(5)
+        .profile(crate::fighter_kinds::YOSHI)
         .unwrap()
         .menu_options
         .lists
@@ -89,7 +89,7 @@ fn invalid_fighter_grab_data_fails_before_hooks_install() {
     let mut catalog = FighterProfiles::default();
     catalog
         .profiles
-        .get_mut(&6)
+        .get_mut(&crate::fighter_kinds::KIRBY)
         .unwrap()
         .ledge
         .grab
@@ -168,5 +168,9 @@ fn profile_grab_facts_follow_the_matching_reference_row() {
     }
 
     assert!(profiles.profile(-1).is_none());
-    assert!(profiles.profile(0x5e).is_none());
+    assert!(
+        profiles
+            .profile(crate::fighter_kinds::PLAYABLE_KIND_COUNT)
+            .is_none()
+    );
 }

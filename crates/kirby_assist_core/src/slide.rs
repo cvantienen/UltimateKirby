@@ -60,7 +60,10 @@ impl SlideState {
         if !ctx.gameplay
             || !ctx.stopped
             || !ctx.motion_frame.is_finite()
-            || !matches!(ctx.situation, 0 | 2)
+            || !matches!(
+                ctx.situation,
+                crate::native_states::situation::GROUND | crate::native_states::situation::AIR
+            )
         {
             return ControllerOutput::default();
         }
@@ -110,9 +113,9 @@ impl SlideState {
         let supported_status = matches!(
             ctx.status,
             crate::native_states::status::WAIT..=crate::native_states::THROWN
-        ) || ctx.situation == 0
+        ) || ctx.situation == crate::native_states::situation::GROUND
             && ctx.status >= crate::native_states::status::SPECIAL_N;
-        let can_queue = ctx.situation == 0
+        let can_queue = ctx.situation == crate::native_states::situation::GROUND
             || matches!(
                 ctx.status,
                 crate::native_states::ESCAPE_AIR..=crate::native_states::ESCAPE_AIR_SLIDE
@@ -148,10 +151,14 @@ impl SlideState {
                         if tick.saturating_sub(self.started) > 24 {
                             self.phase = Phase::Idle;
                         } else if (ctx.status == crate::native_states::status::JUMP_SQUAT
-                            && ctx.situation == 0
+                            && ctx.situation == crate::native_states::situation::GROUND
                             && ctx.motion_frame >= 2.0)
                             || ctx.status == crate::native_states::status::JUMP
-                                && matches!(ctx.situation, 0 | 2)
+                                && matches!(
+                                    ctx.situation,
+                                    crate::native_states::situation::GROUND
+                                        | crate::native_states::situation::AIR
+                                )
                                 && (0.0..=6.0).contains(&ctx.motion_frame)
                         {
                             // Native squat/jump proves the hop was accepted.
@@ -163,7 +170,7 @@ impl SlideState {
                             out.requested = MAPPER_ZR;
                             self.phase = Phase::Dodge;
                             self.started = tick;
-                        } else if ctx.situation == 2 {
+                        } else if ctx.situation == crate::native_states::situation::AIR {
                             self.phase = Phase::Idle; // Never begin a late/high dodge.
                         } else {
                             out = owned(); // Release X during jump squat.
@@ -174,7 +181,7 @@ impl SlideState {
                             ctx.status,
                             crate::native_states::ESCAPE_AIR
                                 ..=crate::native_states::ESCAPE_AIR_SLIDE
-                        ) || ctx.situation == 0
+                        ) || ctx.situation == crate::native_states::situation::GROUND
                             && !matches!(
                                 ctx.status,
                                 crate::native_states::status::JUMP_SQUAT
@@ -206,7 +213,11 @@ impl SlideState {
                 }
             }
         }
-        if self.phase == Phase::Landing && !ctx.stopped && ctx.situation == 0 && ctx.can_jump {
+        if self.phase == Phase::Landing
+            && !ctx.stopped
+            && ctx.situation == crate::native_states::situation::GROUND
+            && ctx.can_jump
+        {
             self.phase = Phase::Idle;
             out = ControllerOutput::default();
             if self.jump_ready(ctx, direction) {
@@ -227,7 +238,7 @@ impl SlideState {
 
     fn jump_ready(&self, ctx: SlideContext, direction: i8) -> bool {
         direction != 0
-            && ctx.situation == 0
+            && ctx.situation == crate::native_states::situation::GROUND
             && ctx.can_jump
             && ctx.safe_ground[usize::from(direction > 0)]
     }

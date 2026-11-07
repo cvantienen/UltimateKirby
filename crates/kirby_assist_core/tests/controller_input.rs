@@ -75,7 +75,7 @@ fn screen_relative_controller_does_not_require_an_enemy_or_move_readiness() {
     let out = t.sample(
         LedgeSettings::default(),
         GameplayContext {
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..c(0., -1.)
         },
         None,

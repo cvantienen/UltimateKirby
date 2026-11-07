@@ -6,6 +6,11 @@ pub use progress::{
     motion_elapsed, motion_progress, simulation_elapsed, MotionProgress, MotionStamp,
 };
 
+pub const NO_MOTION_KIND: u64 = 0;
+pub const MOTION_ATTACK_AIR_F: u64 = 0xc3495ada5;
+pub const MOTION_ATTACK_AIR_LW: u64 = 0xd40042152;
+const HASH40_CRC32_POLYNOMIAL: u32 = 0xedb88320;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActiveWindow {
     pub first: u16,
@@ -89,7 +94,7 @@ impl AnimationClock {
     }
     pub fn observe(&mut self, sample: AnimationSample, stopped: bool) -> Option<i64> {
         if stopped
-            || sample.kind == 0
+            || sample.kind == NO_MOTION_KIND
             || !sample.frame.is_finite()
             || sample.frame < 0.0
             || !sample.auxiliary.is_finite()
@@ -245,7 +250,7 @@ pub fn motion_hash(name: &str) -> u64 {
     for byte in name.bytes() {
         crc ^= u32::from(byte);
         for _ in 0..8 {
-            crc = (crc >> 1) ^ (0xedb88320 & (0u32.wrapping_sub(crc & 1)));
+            crc = (crc >> 1) ^ (HASH40_CRC32_POLYNOMIAL & (0u32.wrapping_sub(crc & 1)));
         }
     }
     ((name.len() as u64) << 32) | u64::from(!crc)

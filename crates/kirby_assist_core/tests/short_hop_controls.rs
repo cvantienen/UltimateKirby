@@ -7,7 +7,7 @@ use kirby_assist_core::{
 fn horizontal_short_hop_never_injects_shield_and_releases_on_squat() {
     let ctx = ShortcutContext {
         status: kirby_assist_core::native_states::status::WAIT,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: 1,
         frame: 0.,
         rate: 1.,
@@ -62,7 +62,7 @@ fn held_x_stays_suppressed_after_shortcut_ownership_ends_and_other_jump_tools_st
     let mut overlay = ManualOverlay::default();
     let grounded = ShortcutContext {
         status: kirby_assist_core::native_states::status::WAIT,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: 1,
         frame: 0.0,
         rate: 1.0,
@@ -85,13 +85,13 @@ fn held_x_stays_suppressed_after_shortcut_ownership_ends_and_other_jump_tools_st
         },
         ShortcutContext {
             status: kirby_assist_core::native_states::status::JUMP,
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             motion: 3,
             ..grounded
         },
         ShortcutContext {
             status: kirby_assist_core::native_states::status::JUMP,
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             motion: 3,
             frame: 1.0,
             ..grounded

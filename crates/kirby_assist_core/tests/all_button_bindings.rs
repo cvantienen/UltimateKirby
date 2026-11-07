@@ -5,7 +5,7 @@ use kirby_assist_core::{
         presets::{MenuPresets, PresetSlot},
         FighterProfiles,
     },
-    ledge_menu::{MenuRow, MenuSelection, MENU_STICK_CLICK},
+    settings_menu::{MenuRow, MenuSelection, MENU_STICK_CLICK},
     manual_controls::TURBO_TRIGGER,
     native_input::*,
     sequence_config::{persist, Catalog, Sequence},
@@ -305,7 +305,7 @@ fn every_button_slot_executes_its_saved_tape_on_ground_and_in_air() {
     use kirby_assist_core::gameplay::{GameplayContext, MotionTiming, Opponent};
     use kirby_assist_core::ledge_trap::{LedgeSettings, LedgeTrap};
     for slot in PresetSlot::BUTTONS {
-        for situation in [0, 2] {
+        for situation in [kirby_assist_core::native_states::situation::GROUND, kirby_assist_core::native_states::situation::AIR] {
             let p = presets(&format!(
                 "[bowser.{}.saved]\nstart_delay=0\ndefault=true\nactions=b:4\n",
                 token(slot)
@@ -504,7 +504,7 @@ fn short_hop_works_on_every_source_without_becoming_an_extra_air_jump() {
         rate: 1.,
         stopped: false,
         facing: 1.,
-        can_short_hop: situation == 0,
+        can_short_hop: situation == kirby_assist_core::native_states::situation::GROUND,
         input_delay: 0.,
         can_neutral_special: false,
     };
@@ -619,7 +619,7 @@ fn builtin_jump_is_delivered_after_source_consumption_without_a_fabricated_physi
                 true,
                 Some(ShortcutContext {
                     status: kirby_assist_core::native_states::status::WAIT,
-                    situation: 0,
+                    situation: kirby_assist_core::native_states::situation::GROUND,
                     motion: 1,
                     frame: 1.,
                     rate: 1.,
@@ -828,7 +828,7 @@ fn turbo_binding_alternates_each_local_input_update_without_delayed_pose_confirm
 #[test]
 fn builtin_hop_survives_the_runtime_menu_consumption_filter_on_every_source() {
     use kirby_assist_core::{
-        ledge_menu::observation_buttons,
+        settings_menu::observation_buttons,
         manual_controls::{ShortcutContext, Shortcuts},
     };
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
@@ -855,7 +855,7 @@ fn builtin_hop_survives_the_runtime_menu_consumption_filter_on_every_source() {
                 policy & (5 | MAPPER_MINUS) == 0,
                 Some(ShortcutContext {
                     status: kirby_assist_core::native_states::status::WAIT,
-                    situation: 0,
+                    situation: kirby_assist_core::native_states::situation::GROUND,
                     motion: 1,
                     frame: 10.,
                     rate: 1.,
@@ -974,7 +974,7 @@ fn safety_preserves_builtin_and_literal_one_frame_jump_on_every_physical_binding
                 let routed = m.native_buttons(layout.policy_buttons(slot.button()));
                 assert_ne!(routed & MAPPER_X, 0, "{layout:?} {slot:?} {recipe}");
                 assert_ne!(
-                    kirby_assist_core::ledge_menu::observation_buttons(
+                    kirby_assist_core::settings_menu::observation_buttons(
                         routed,
                         consumed & !m.builtin_consumed
                     ) & MAPPER_X,

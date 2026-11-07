@@ -3,7 +3,7 @@
 use super::FighterProfile;
 
 // FIGHTER_KIND_SONIC in the pinned skyline-smash lua_const.rs.
-pub const FIGHTER_KIND: i32 = 0x29;
+pub const FIGHTER_KIND: i32 = crate::fighter_kinds::SONIC;
 
 pub fn profile() -> FighterProfile {
     FighterProfile {

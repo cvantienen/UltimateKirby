@@ -172,7 +172,7 @@ fn explicit_conditions_require_fresh_enemy_and_continue_without_extra_frames() {
         sample(
             &mut t,
             GameplayContext {
-                situation: 0,
+                situation: crate::native_states::situation::GROUND,
                 ..ctx(0.)
             }
         )
@@ -185,12 +185,12 @@ fn condition_flags_distance_and_facing_use_only_copied_facts() {
     let own = GameplayContext {
         position: [0., 0.],
         facing: 1.,
-        situation: 0,
+        situation: crate::native_states::situation::GROUND,
         ..ctx(0.)
     };
     let target = Opponent {
         position: [10., 0.],
-        situation: 2,
+        situation: crate::native_states::situation::AIR,
         status: crate::native_states::GUARD,
         ..moving_enemy(0.)
     };
@@ -727,7 +727,7 @@ fn blocked_getup_attack_cancels_shield_into_up_b_on_the_first_guard_frame() {
         // synthetic shield bit once the special has started or is airborne.
         let started = GameplayContext {
             status: crate::native_states::status::SPECIAL_HI,
-            situation: 2,
+            situation: crate::native_states::situation::AIR,
             motion_kind: crate::timing::motion_hash("special_hi"),
             ..ctx(0.)
         };
@@ -788,7 +788,7 @@ fn direct_up_b_guard_retention_is_grounded_status_scoped_and_keeps_literal_shiel
             &mut t,
             GameplayContext {
                 status: crate::native_states::status::SPECIAL_HI,
-                situation: 2,
+                situation: crate::native_states::situation::AIR,
                 ..ctx(0.)
             }
         )
@@ -876,7 +876,7 @@ fn timeline_spatial_timeout_cancels_without_starting_a_late_attack() {
 #[test]
 fn backward_drift_keeps_entry_direction_through_turnaround_and_exact_duration() {
     for facing in [-1.0, 1.0] {
-        for situation in [0, 2] {
+        for situation in [crate::native_states::situation::GROUND, crate::native_states::situation::AIR] {
             let mut t = timeline("drift:backward:0.5:3,grab");
             for frame in 0..3 {
                 let c = GameplayContext {
@@ -997,7 +997,7 @@ fn timeline_inputs_are_immediate_even_without_readiness_or_ground() {
         let out = sample(
             &mut t,
             GameplayContext {
-                situation: 2,
+                situation: crate::native_states::situation::AIR,
                 status: crate::native_states::status::FALL,
                 can_act: false,
                 can_control: false,
@@ -1182,7 +1182,7 @@ fn timeline_dispatch_survives_takeoff_target_loss_and_hit_confirm_then_hands_bac
             settings,
             100 * frame,
             GameplayContext {
-                situation: 2,
+                situation: crate::native_states::situation::AIR,
                 can_control: false,
                 can_act: false,
                 hit_confirmed: true,
@@ -1198,7 +1198,7 @@ fn timeline_dispatch_survives_takeoff_target_loss_and_hit_confirm_then_hands_bac
             settings,
             999,
             GameplayContext {
-                situation: 2,
+                situation: crate::native_states::situation::AIR,
                 can_control: false,
                 can_act: false,
                 ..ctx(3.0)

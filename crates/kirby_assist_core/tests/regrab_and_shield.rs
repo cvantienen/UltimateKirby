@@ -23,7 +23,7 @@ fn ctx(frame: f32) -> GameplayContext {
         held: true,
         gameplay: true,
         status: kirby_assist_core::native_states::status::WAIT,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion_kind: 1,
         motion_frame: frame,
         motion_rate: 1.,
@@ -37,7 +37,7 @@ fn enemy(status: i32) -> Opponent {
         id: 2,
         status,
         vulnerable: status == CLIFF_CATCH_MOVE,
-        situation: 2,
+        situation: kirby_assist_core::native_states::situation::AIR,
         position: [6., -2.],
         cliff_position: Some([10., 0.]),
         ..Default::default()
@@ -70,7 +70,7 @@ fn shield_until_manual_ignores_duplicates_and_timeout_then_hands_back_without_ne
 #[test]
 fn until_manual_cannot_create_an_air_dodge_and_timed_shield_stays_timed() {
     let mut c = ctx(0.);
-    c.situation = 2;
+    c.situation = kirby_assist_core::native_states::situation::AIR;
     let mut tape = InputTimeline::new(sequence("shield_until_manual"), enemy(CLIFF_WAIT));
     assert_eq!(
         tape.sample(LedgeSettings::default(), c, None, None, 0.)
@@ -171,7 +171,7 @@ fn landing_between_visits_is_not_a_regrab_and_new_syntax_round_trips() {
         &mut v,
         2,
         Opponent {
-            situation: 0,
+            situation: kirby_assist_core::native_states::situation::GROUND,
             status: kirby_assist_core::native_states::status::WAIT,
             ..enemy(0)
         },

@@ -8,9 +8,9 @@ use kirby_assist_core::{
 fn punch(frame: f32) -> DuckEnemy {
     DuckEnemy {
         id: 10,
-        kind: 0xb,
+        kind: kirby_assist_core::fighter_kinds::CAPTAIN_FALCON,
         status: kirby_assist_core::native_states::status::SPECIAL_N,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: FALCON_PUNCH_MOTION,
         frame,
         rate: 1.0,
@@ -118,15 +118,15 @@ fn unknown_variants_movement_height_size_and_platforms_are_not_ducked() {
             ..punch(40.)
         }, // copied Punch is a different height
         DuckEnemy {
-            status: 0x1e1,
+            status: kirby_assist_core::native_states::fighter_status::DUCKHUNT_SPECIAL_HI_FLY,
             ..punch(40.)
-        }, // reverse
+        }, // Cross-fighter status collision; IDs require a fighter-kind check.
         DuckEnemy {
             motion: 0xe396c1260,
             ..punch(40.)
         },
         DuckEnemy {
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..punch(40.)
         },
         DuckEnemy {

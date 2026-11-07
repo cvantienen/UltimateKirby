@@ -260,7 +260,7 @@ impl GuardHold {
         // A gap between multihit hitboxes must not release an existing shield
         // during native shieldstun. Never generate an attack on shield release.
         let threat = threat || c.status == crate::native_states::GUARD_DAMAGE;
-        let valid = c.motion != 0
+        let valid = c.motion != crate::timing::NO_MOTION_KIND
             && c.frame.is_finite()
             && c.frame >= 0.0
             && c.rate.is_finite()
@@ -294,7 +294,7 @@ impl GuardHold {
             })
         };
         let enemy = enemy.filter(|(_, e)| {
-            e.motion != 0
+            e.motion != crate::timing::NO_MOTION_KIND
                 && e.frame.is_finite()
                 && e.frame >= 0.
                 && e.rate.is_finite()

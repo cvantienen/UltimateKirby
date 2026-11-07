@@ -268,8 +268,14 @@ impl Catalog {
                     }
                     let frames: u16 = value.trim().parse()
                         .map_err(|_| format!("line {line_number}: {key} must be an integer frame count"))?;
-                    if frames > 3600 || key != "start_delay" && frames == 0 {
-                        return Err(format!("line {line_number}: {key} must be {}..3600", if key == "start_delay" { 0 } else { 1 }));
+                    let exceeds_frame_limit = frames > super::MAX_SEQUENCE_FRAME_COUNT;
+                    let missing_required_frame = key != "start_delay" && frames == 0;
+                    if exceeds_frame_limit || missing_required_frame {
+                        return Err(format!(
+                            "line {line_number}: {key} must be {}..{}",
+                            if key == "start_delay" { 0 } else { 1 },
+                            super::MAX_SEQUENCE_FRAME_COUNT,
+                        ));
                     }
                     match key.as_str() {
                         "start_delay" => { entry.sequence.start_delay = frames; entry.explicit_start = true; },

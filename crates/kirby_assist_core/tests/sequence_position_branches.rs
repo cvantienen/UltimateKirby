@@ -302,7 +302,7 @@ fn positioning_cancels_on_air_unsafe_floor_missing_ledge_or_timeout_without_foll
         let mut c = own(0., 50., 1.);
         let mut anchor = Some([100., 0.]);
         match mode {
-            0 => c.situation = 2,
+            0 => c.situation = kirby_assist_core::native_states::situation::AIR,
             1 => c.safe_ground = [false; 2],
             2 => anchor = None,
             _ => {
@@ -394,7 +394,7 @@ fn reaching_the_target_in_air_never_runs_the_ground_positioning_followup() {
             sample(&mut t, own(0., 60., 1.), 100., Some([100., 0.]), -1.);
         }
         let c = GameplayContext {
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..own(1., 88., 1.)
         };
         assert_eq!(sample(&mut t, c, 100., Some([100., 0.]), -1.).requested, 0);

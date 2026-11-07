@@ -1,5 +1,6 @@
 //! Constant, input-only ordinary-grab defense. Root-space geometry is an
 //! approximation, not proof of collision or a guaranteed dodge online.
+use crate::fighter_tuning;
 use crate::{gameplay::ControllerOutput, native_input::MAPPER_ZR, timing::motion_elapsed};
 // Spot dodge becomes intangible after startup; six native frames gives the
 // mapper/online queue margin without firing so early that normal dodge duration
@@ -61,7 +62,13 @@ pub fn contact(c: Context, t: Target) -> Option<f32> {
     contact_with_lookahead(c, t, LOOKAHEAD)
 }
 pub fn contact_with_lookahead(c: Context, t: Target, lookahead: f32) -> Option<f32> {
-    contact_with_shape(c, t, lookahead, 2., 8.)
+    contact_with_shape(
+        c,
+        t,
+        lookahead,
+        fighter_tuning::DEFAULT_GRAB_DODGE_PADDING,
+        fighter_tuning::DEFAULT_GRAB_DODGE_HEIGHT,
+    )
 }
 pub fn contact_with_shape(
     c: Context,
@@ -71,13 +78,17 @@ pub fn contact_with_shape(
     height: f32,
 ) -> Option<f32> {
     if !padding.is_finite()
-        || !(0.0..=30.0).contains(&padding)
+        || !(0.0..=fighter_tuning::MAX_GRAB_DODGE_PADDING).contains(&padding)
         || !height.is_finite()
-        || !(0.0..=60.0).contains(&height)
+        || !(0.0..=fighter_tuning::MAX_GRAB_DODGE_HEIGHT).contains(&height)
     {
         return None;
     }
-    if !lookahead.is_finite() || !(1.0..=8.0).contains(&lookahead) {
+    if !lookahead.is_finite()
+        || !(fighter_tuning::MIN_GRAB_DODGE_LOOKAHEAD_FRAMES
+            ..=fighter_tuning::MAX_GRAB_DODGE_LOOKAHEAD_FRAMES)
+            .contains(&lookahead)
+    {
         return None;
     }
     if !matches!(
@@ -85,7 +96,7 @@ pub fn contact_with_shape(
         crate::native_states::CATCH
             | crate::native_states::CATCH_DASH
             | crate::native_states::CATCH_TURN
-    ) || t.motion == 0
+    ) || t.motion == crate::timing::NO_MOTION_KIND
         || !t.frame.is_finite()
         || t.frame < 0.0
         || !t.rate.is_finite()
@@ -268,7 +279,7 @@ impl SpotDodge {
             return ControllerOutput::default();
         }
         if self.response.target().is_none() && self.punish_target.is_some() {
-            if context.situation != 0
+            if context.situation != crate::native_states::situation::GROUND
                 || matches!(
                     context.status,
                     crate::native_states::THROW
@@ -356,7 +367,8 @@ impl SpotDodge {
             return ControllerOutput::default();
         };
         self.punish_clock.advance_pause(context, Some(enemy), 60);
-        if context.situation != 0 || self.punish_clock.expired {
+        if context.situation != crate::native_states::situation::GROUND || self.punish_clock.expired
+        {
             self.cancel_response();
             return ControllerOutput::default();
         }
@@ -410,7 +422,14 @@ impl SpotDodge {
         targets: [Option<Target>; 8],
         lookahead: f32,
     ) -> ControllerOutput {
-        self.sample_with_shape(enabled, c, targets, lookahead, 2., 8.)
+        self.sample_with_shape(
+            enabled,
+            c,
+            targets,
+            lookahead,
+            fighter_tuning::DEFAULT_GRAB_DODGE_PADDING,
+            fighter_tuning::DEFAULT_GRAB_DODGE_HEIGHT,
+        )
     }
     pub fn sample_with_shape(
         &mut self,
@@ -436,9 +455,9 @@ impl SpotDodge {
         }
         if enabled
             && c.stopped
-            && c.situation == 0
+            && c.situation == crate::native_states::situation::GROUND
             && ground_status(c.status)
-            && c.motion != 0
+            && c.motion != crate::timing::NO_MOTION_KIND
             && c.frame.is_finite()
             && c.frame >= 0.0
             && valid_clock_rate(c)
@@ -450,7 +469,7 @@ impl SpotDodge {
         // collision forecasts when this sample cannot request a dodge.
         let request_ready = enabled
             && !c.stopped
-            && c.situation == 0
+            && c.situation == crate::native_states::situation::GROUND
             && ground_status(c.status)
             && c.can_spot_dodge
             && self.punish_target.is_none()
@@ -466,7 +485,7 @@ impl SpotDodge {
                 crate::native_states::CATCH
                     | crate::native_states::CATCH_DASH
                     | crate::native_states::CATCH_TURN
-            ) || t.motion == 0
+            ) || t.motion == crate::timing::NO_MOTION_KIND
                 || !t.frame.is_finite()
                 || t.frame < 0.0
             {
@@ -522,8 +541,8 @@ impl SpotDodge {
             return self.output;
         }
         if !enabled
-            || c.situation != 0
-            || c.motion == 0
+            || c.situation != crate::native_states::situation::GROUND
+            || c.motion == crate::timing::NO_MOTION_KIND
             || !c.frame.is_finite()
             || c.frame < 0.0
             || !valid_clock_rate(c)

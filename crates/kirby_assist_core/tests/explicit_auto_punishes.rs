@@ -2,7 +2,7 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
     gameplay::GameplayContext,
-    ledge_menu::MenuSelection,
+    settings_menu::MenuSelection,
     ledge_trap::LedgeSettings,
     native_input::*,
     out_of_shield::{AutomaticConfig, Context, OutOfShield},

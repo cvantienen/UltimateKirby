@@ -119,7 +119,7 @@ impl Punisher {
             || !c.grounded
             || !c.frame.is_finite()
             || c.frame < 0.0
-            || c.motion == 0
+            || c.motion == crate::timing::NO_MOTION_KIND
             || !c.rate.is_finite()
             || c.rate <= 0.0
             || !c.facing.is_finite()
@@ -285,7 +285,7 @@ fn contact(c: Context, cfg: Config, t: Target, forward: bool, setup: f32, height
         || t.opens < 0.0
         || !t.closes.is_finite()
         || t.closes <= t.opens
-        || t.motion == 0
+        || t.motion == crate::timing::NO_MOTION_KIND
         || !c
             .position
             .iter()

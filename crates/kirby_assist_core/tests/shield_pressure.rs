@@ -1,7 +1,7 @@
 use kirby_assist_core::{
     fighter_profiles::{presets::PresetSlot, FighterProfiles},
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_menu::{MenuRow, MenuSelection},
+    settings_menu::{MenuRow, MenuSelection},
     ledge_trap::LedgeSettings,
     native_input::*,
     reaction_rules::{Candidate, Resolved, Trigger},
@@ -260,7 +260,7 @@ fn pressure_rules_save_separately_and_roundtrip_without_becoming_ledge_choices()
     menu.show_modes();
     menu.row = MenuRow::ShieldPressure;
     menu.input(0, &presets);
-    menu.input(kirby_assist_core::ledge_menu::MENU_STICK_CLICK, &presets);
+    menu.input(kirby_assist_core::settings_menu::MENU_STICK_CLICK, &presets);
     assert!(menu.assist_rule_page());
     assert!(menu
         .recipe_panel(&presets)

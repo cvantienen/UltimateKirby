@@ -7,6 +7,7 @@ use crate::{
 
 // FIGHTER_STATUS_KIND_FALL in the native lua_const bindings.
 const FALL: i32 = 0xe;
+const DEFAULT_TRUMP_EDGE_SCAN_LIMIT: u16 = 100;
 
 /// Find the nearest edge of the current floor using read-only support probes.
 /// This detects collision edges, not native grabbability (platforms can differ).
@@ -16,7 +17,7 @@ pub fn nearest_floor_edge(
     facing: f32,
     supported: impl FnMut([f32; 2]) -> bool,
 ) -> Option<[f32; 2]> {
-    floor_edge_with_limit(position, facing, 100, supported)
+    floor_edge_with_limit(position, facing, DEFAULT_TRUMP_EDGE_SCAN_LIMIT, supported)
 }
 
 /// Shared short floor probes; the trap may search farther than a trump run.
@@ -147,7 +148,7 @@ impl LedgeTrump {
                     && (0.0..=100.0).contains(&dx.abs())
                     && dx != 0.0
                     && (anchor[1] - ctx.position[1]).abs() <= 3.0
-                    && ctx.situation == 0
+                    && ctx.situation == crate::native_states::situation::GROUND
                 {
                     self.attempt = Some(Attempt {
                         anchor,
@@ -191,11 +192,12 @@ impl LedgeTrump {
         // Freeze that attempt; damage/attacks still cancel, including in stop.
         let supported_state =
             crate::manual_controls::turbo_movement_allowed(ctx.status, ctx.situation, false)
-                || ctx.situation == 2 && ctx.status == FALL;
+                || ctx.situation == crate::native_states::situation::AIR && ctx.status == FALL;
         if !bounded
             || !supported_state
             || !ctx.stopped
-                && !(ctx.can_act && ctx.situation == 0 || ctx.situation == 2 && ctx.status == FALL)
+                && !(ctx.can_act && ctx.situation == crate::native_states::situation::GROUND
+                    || ctx.situation == crate::native_states::situation::AIR && ctx.status == FALL)
         {
             self.attempt = None;
             return self.output;
@@ -205,7 +207,7 @@ impl LedgeTrump {
             return self.output;
         }
         let stick = match attempt.phase {
-            Phase::Approach if ctx.situation == 0 => {
+            Phase::Approach if ctx.situation == crate::native_states::situation::GROUND => {
                 // If stage motion invalidated the chosen boundary, do not run
                 // farther outward across the stage in search of a different one.
                 if (attempt.anchor[0] - ctx.position[0]) * attempt.outward < -3.0 {
@@ -224,7 +226,9 @@ impl LedgeTrump {
                 };
                 [-attempt.outward, -1.0]
             }
-            Phase::Down { status, frame } if ctx.situation == 2 => {
+            Phase::Down { status, frame }
+                if ctx.situation == crate::native_states::situation::AIR =>
+            {
                 // Mapper polls are not frames. Hold Down until the fighter's
                 // native animation advances, then stop Down so ledge catch is legal.
                 if ctx.status == status && ctx.motion_frame <= frame {
@@ -234,7 +238,9 @@ impl LedgeTrump {
                     [-attempt.outward, 0.0]
                 }
             }
-            Phase::Return if ctx.situation == 2 => [-attempt.outward, 0.0],
+            Phase::Return if ctx.situation == crate::native_states::situation::AIR => {
+                [-attempt.outward, 0.0]
+            }
             _ => {
                 self.attempt = None;
                 return self.output;

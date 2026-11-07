@@ -9,7 +9,7 @@ use kirby_assist_core::{
     },
     gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
     grab_handoff::GrabHandoff,
-    ledge_menu::MenuSelection,
+    settings_menu::MenuSelection,
     ledge_trap::{InputTimeline, LedgeSettings},
     manual_controls::ManualJumpFence,
     native_input::*,
@@ -23,7 +23,7 @@ fn c(frame: f32) -> GameplayContext {
         held: true,
         can_act: true,
         status: kirby_assist_core::native_states::status::WAIT,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion_kind: 1,
         motion_frame: frame,
         motion_rate: 1.,
@@ -143,7 +143,7 @@ fn released_jump_remains_protected_during_lag_then_clears_on_native_jump() {
         15,
         false,
         GameplayContext {
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..c(2.)
         }
     ));
@@ -192,7 +192,7 @@ fn delayed_automatic_grab_and_up_b_cancel_in_jump_startup_or_air() {
         for airborne in [false, true] {
             let next = if airborne {
                 GameplayContext {
-                    situation: 2,
+                    situation: kirby_assist_core::native_states::situation::AIR,
                     ..c(1.)
                 }
             } else {
@@ -264,7 +264,7 @@ fn literal_manual_tapes_retain_their_explicit_airborne_specials() {
     let out = tape.sample(
         settings(),
         GameplayContext {
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..c(1.)
         },
         Some(enemy(1.)),

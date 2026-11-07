@@ -38,7 +38,7 @@ unsafe fn remember_attack(lua_state: u64) {
     if object.is_null() {
         return;
     }
-    let id = object.cast::<u8>().add(8).cast::<u32>().read();
+    let id = game::battle_object_id(object);
     // Native category nibbles: Weapon=1, Item=4. Fighters come from the
     // existing roster, so their many hitboxes do not evict projectiles.
     if !matches!(
@@ -89,16 +89,13 @@ pub(super) unsafe fn observe(
             continue;
         }
         let object = game::module_accessor(id);
-        if object.is_null()
-            || object.cast::<u8>().add(8).cast::<u32>().read() != id
-            || reads.team(object) == team
-        {
+        if object.is_null() || game::battle_object_id(object) != id || reads.team(object) == team {
             continue;
         }
         let root = [reads.pos_x(object), reads.pos_y(object)];
         // Cheap prefilter before up to eight native slot/joint queries. A
         // projectile can travel up to six frames; its speed expands the radius.
-        let speed = [reads.speed_x(object, -1), reads.speed_y(object, -1)];
+        let speed = [reads.speed_x(object), reads.speed_y(object)];
         if !root.iter().chain(speed.iter()).all(|v| v.is_finite())
             || (root[0] - position[0]).abs() > 96.0 + (speed[0] - velocity[0]).abs() * 6.0
             || (root[1] - position[1]).abs() > 96.0 + (speed[1] - velocity[1]).abs() * 6.0
@@ -125,7 +122,10 @@ pub(super) unsafe fn observe(
                 continue;
             }
             let data = data.read();
-            if data.situation & 1 == 0 || !data.size.is_finite() || data.size <= 0.0 {
+            if data.situation & kirby_assist_core::native_states::situation::ATTACK_GROUND_MASK == 0
+                || !data.size.is_finite()
+                || data.size <= 0.0
+            {
                 continue;
             }
             let local = game::Vector3 {

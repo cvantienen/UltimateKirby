@@ -137,10 +137,10 @@ impl JabGrab {
         let valid = stick.iter().all(|v| v.is_finite())
             && stick[0].abs() <= 0.2
             && stick[1].abs() <= 0.2
-            && c.situation == 0
+            && c.situation == crate::native_states::situation::GROUND
             && c.facing.is_finite()
             && c.facing.abs() >= 0.5
-            && c.motion != 0
+            && c.motion != crate::timing::NO_MOTION_KIND
             && c.frame.is_finite()
             && c.frame >= 0.0
             && c.rate.is_finite()

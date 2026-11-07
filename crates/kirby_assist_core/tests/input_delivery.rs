@@ -177,7 +177,7 @@ fn native_jump_pulse_survives_consumption_of_its_remapped_physical_source() {
                 true,
                 Some(ShortcutContext {
                     status: kirby_assist_core::native_states::status::WAIT,
-                    situation: 0,
+                    situation: kirby_assist_core::native_states::situation::GROUND,
                     motion: 1,
                     frame: 10.,
                     rate: 1.,
@@ -259,7 +259,7 @@ fn a_saved_y_dash_grab_uses_native_r_even_when_r_has_a_custom_binding() {
     use kirby_assist_core::{
         button_bindings::Builtin,
         fighter_profiles::{presets::PresetSlot, FighterProfiles},
-        ledge_menu::MenuSelection,
+        settings_menu::MenuSelection,
     };
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
         for builtin in Builtin::ALL {

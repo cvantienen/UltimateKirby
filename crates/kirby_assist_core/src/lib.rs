@@ -60,9 +60,9 @@ pub mod finisher;
 pub mod grab_handoff;
 pub mod jab_grab;
 pub mod jab_lock;
-pub mod kirby_posture;
 pub mod move_input;
 pub mod out_of_shield;
+pub mod posture;
 pub mod projectile_reflect;
 pub mod reaction_rules;
 pub mod roll_read;
@@ -78,10 +78,10 @@ pub mod whiff_punish;
 pub mod button_bindings;
 pub mod button_modes;
 pub mod config;
-pub mod ledge_menu;
 pub mod manual_controls;
 pub mod option_read;
 pub mod sequence_config;
+pub mod settings_menu;
 
 // Stateful orchestration, diagnostics, and reusable examples/tools.
 pub mod diagnostics;

@@ -233,7 +233,7 @@ impl Timeline {
         inward: f32,
     ) -> ControllerOutput {
         if self.grounded_automatic_actions
-            && (ctx.situation != 0 || ctx.status == crate::native_states::status::JUMP_SQUAT)
+            && (ctx.situation != crate::native_states::situation::GROUND || ctx.status == crate::native_states::status::JUMP_SQUAT)
             && !crate::native_states::up_special_status(settings.fighter_kind, ctx.status)
             && self
                 .automatic_ground_steps
@@ -254,7 +254,7 @@ impl Timeline {
                 && out.stick.is_some_and(|s| s[1] > 0.5)
                 && !crate::native_states::up_special_status(settings.fighter_kind, ctx.status);
             if (grab || special)
-                && (ctx.situation != 0 || ctx.status == crate::native_states::status::JUMP_SQUAT)
+                && (ctx.situation != crate::native_states::situation::GROUND || ctx.status == crate::native_states::status::JUMP_SQUAT)
             {
                 self.finish("automatic_ground_action_became_airborne");
                 self.output = ControllerOutput::default();
@@ -266,7 +266,7 @@ impl Timeline {
         // in the same packet. Apply this only to the returned output: cached
         // literal controls must not retain an injected guard after a status
         // change/takeoff on a duplicate clock sample. No retry or extra frame.
-        if ctx.situation == 0 {
+        if ctx.situation == crate::native_states::situation::GROUND {
             crate::out_of_shield::direct_shield_input(ctx.status, out, self.right_stick)
         } else {
             out
@@ -299,7 +299,7 @@ impl Timeline {
         }
         // Ordinary physical input is masked throughout the tape, not treated
         // as cancellation. Only explicit until-manual holds hand back on intent.
-        if self.sequence.ground_only && ctx.situation != 0 {
+        if self.sequence.ground_only && ctx.situation != crate::native_states::situation::GROUND {
             self.finish("ground_only_airborne");
             self.output = ControllerOutput::default();
             return self.output;
@@ -316,7 +316,7 @@ impl Timeline {
                 self.sequence.actions().get(self.cursor as usize),
                 Some(Action::ShieldUntilManual)
             ) || self.output.requested & crate::native_input::MAPPER_ZR != 0;
-            if shield && ctx.situation != 0 || ctx.manual_input_epoch != self.manual_epoch {
+            if shield && ctx.situation != crate::native_states::situation::GROUND || ctx.manual_input_epoch != self.manual_epoch {
                 self.finish("manual_takeover_or_airborne");
                 self.output = ControllerOutput::default(); // Physical input owns this very sample.
                 return self.output;
@@ -476,7 +476,7 @@ impl Timeline {
                 frames,
             } = action
             {
-                if ctx.situation != 0 {
+                if ctx.situation != crate::native_states::situation::GROUND {
                     return self.finish("ledge_position_requires_ground");
                 }
                 if !self.entered
@@ -676,7 +676,7 @@ impl Timeline {
                     return self.output;
                 }
                 Action::ShieldUntilManual => {
-                    if ctx.situation != 0 {
+                    if ctx.situation != crate::native_states::situation::GROUND {
                         self.finish("shield_requires_ground");
                         self.output = ControllerOutput::default();
                         return self.output;
@@ -719,7 +719,7 @@ impl Timeline {
                     }
                     if frames == 0 {
                         if buttons == 0
-                            || buttons & crate::native_input::MAPPER_ZR != 0 && ctx.situation != 0
+                            || buttons & crate::native_input::MAPPER_ZR != 0 && ctx.situation != crate::native_states::situation::GROUND
                         {
                             self.finish("invalid_manual_hold_scope");
                             self.output = ControllerOutput::default();
@@ -887,7 +887,7 @@ impl Timeline {
                         continue;
                     }
                     if elapsed >= f32::from(self.sequence.spatial_timeout)
-                        || ctx.situation != 0
+                        || ctx.situation != crate::native_states::situation::GROUND
                         || !ctx.safe_ground[usize::from(self.direction > 0.0)]
                     {
                         return self.finish("unsafe_ground_or_air");
@@ -911,7 +911,7 @@ impl Timeline {
                         continue;
                     }
                     let dir = dx.signum();
-                    if ctx.situation != 0
+                    if ctx.situation != crate::native_states::situation::GROUND
                         || !ctx.safe_ground[usize::from(dir > 0.)]
                         || elapsed >= f32::from(frames)
                     {
@@ -943,7 +943,7 @@ impl Timeline {
                         continue;
                     }
                     if elapsed >= f32::from(self.sequence.spatial_timeout)
-                        || ctx.situation != 0
+                        || ctx.situation != crate::native_states::situation::GROUND
                         || !ctx.safe_ground[usize::from(self.direction > 0.0)]
                     {
                         return self.finish("walk_timeout");
@@ -963,7 +963,7 @@ impl Timeline {
                         continue;
                     }
                     let dx = self.enemy.position[0] - ctx.position[0];
-                    if ctx.situation != 0 || !ctx.safe_ground[usize::from(dx > 0.)] {
+                    if ctx.situation != crate::native_states::situation::GROUND || !ctx.safe_ground[usize::from(dx > 0.)] {
                         return self.finish("unsafe_chase");
                     }
                     self.output = controls([dx.signum() * strength, 0.], 0);
@@ -982,11 +982,11 @@ impl Timeline {
                     }
                     // A file may place an air approach immediately after Jump;
                     // wait through squat, spending the explicitly configured time.
-                    if airborne && ctx.situation != 2 {
+                    if airborne && ctx.situation != crate::native_states::situation::AIR {
                         self.output = controls([0.0; 2], 0);
                     } else {
                         if !airborne
-                            && (ctx.situation != 0 || !ctx.safe_ground[usize::from(dx > 0.0)])
+                            && (ctx.situation != crate::native_states::situation::GROUND || !ctx.safe_ground[usize::from(dx > 0.0)])
                         {
                             return self.finish("unsafe_approach");
                         }
@@ -1125,18 +1125,18 @@ fn condition_met(
     value: f32,
 ) -> bool {
     if condition == Condition::SelfGrounded {
-        return ctx.situation == 0;
+        return ctx.situation == crate::native_states::situation::GROUND;
     }
     if condition == Condition::SelfAirborne {
-        return ctx.situation == 2;
+        return ctx.situation == crate::native_states::situation::AIR;
     }
     let Some(enemy) = enemy else {
         return false;
     };
     let dx = enemy.position[0] - ctx.position[0];
     match condition {
-        Condition::EnemyGrounded => enemy.situation == 0,
-        Condition::EnemyAirborne => enemy.situation == 2,
+        Condition::EnemyGrounded => enemy.situation == crate::native_states::situation::GROUND,
+        Condition::EnemyAirborne => enemy.situation == crate::native_states::situation::AIR,
         Condition::EnemyShielding => matches!(
             enemy.status,
             crate::native_states::GUARD_ON
@@ -1159,7 +1159,7 @@ fn condition_met(
 // Native statuses: guard-on, guard, guard-off, guard-damage. No new queries.
 fn shield_handoff_needed(action: Action, status: i32, situation: i32) -> bool {
     use crate::native_input::*;
-    if situation != 0
+    if situation != crate::native_states::situation::GROUND
         || !matches!(
             status,
             crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE

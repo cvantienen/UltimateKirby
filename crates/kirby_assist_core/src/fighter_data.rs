@@ -8,14 +8,15 @@ use std::{collections::BTreeMap, sync::OnceLock};
 const DATA_FILE: &str = include_str!("../../../data/Ultimate_stats.json");
 const DATA_SCHEMA_VERSION: u32 = 1;
 const EXPECTED_FIGHTER_COUNT: usize = 90;
+const MAX_VALID_MOVE_FRAME: u16 = 120;
 
-const STATUS_DASH_ATTACK: i32 = 0x29;
-const STATUS_FORWARD_TILT: i32 = 0x2a;
-const STATUS_UP_TILT: i32 = 0x2b;
-const STATUS_DOWN_TILT: i32 = 0x2c;
-const STATUS_FORWARD_SMASH: i32 = 0x2f;
-const STATUS_DOWN_SMASH: i32 = 0x32;
-const STATUS_UP_SMASH: i32 = 0x35;
+const STATUS_DASH_ATTACK: i32 = crate::native_states::status::ATTACK_DASH;
+const STATUS_FORWARD_TILT: i32 = crate::native_states::status::ATTACK_S3;
+const STATUS_UP_TILT: i32 = crate::native_states::status::ATTACK_HI3;
+const STATUS_DOWN_TILT: i32 = crate::native_states::status::ATTACK_LW3;
+const STATUS_FORWARD_SMASH: i32 = crate::native_states::status::ATTACK_S4;
+const STATUS_DOWN_SMASH: i32 = crate::native_states::status::ATTACK_LW4;
+const STATUS_UP_SMASH: i32 = crate::native_states::status::ATTACK_HI4;
 const STATUS_GRAB: i32 = crate::native_states::CATCH;
 const STATUS_DASH_GRAB: i32 = crate::native_states::CATCH_DASH;
 const STATUS_PIVOT_GRAB: i32 = crate::native_states::CATCH_TURN;
@@ -371,7 +372,7 @@ fn ordinary_grab_uncached(kind: i32, status: i32) -> Option<GrabReference> {
         active_window = Some(candidate);
     }
     let (first, last) = active_window?;
-    if first == 0 || last < first || last > 120 {
+    if first == 0 || last < first || last > MAX_VALID_MOVE_FRAME {
         return None;
     }
     let reach = fighter

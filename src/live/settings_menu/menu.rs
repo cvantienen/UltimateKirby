@@ -5,7 +5,8 @@
 use imgui_api::bindings::*;
 use kirby_assist_core::{
     fighter_profiles::FighterProfile,
-    ledge_menu::{MenuRow, MenuSelection},
+    native_input::HANDHELD_NPAD_ID,
+    settings_menu::{MenuRow, MenuSelection},
     session::MenuPresence,
 };
 use std::{
@@ -48,12 +49,19 @@ static MASTER_CLOCK: Mutex<Option<Instant>> = Mutex::new(None);
 static MASTER_PROBE_TICK: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(u64::MAX);
 
+const NPAD_STYLE_FULL_KEY: u32 = 0x1;
+const NPAD_STYLE_HANDHELD: u32 = 0x2;
+const NPAD_STYLE_JOY_DUAL: u32 = 0x4;
+const NPAD_STYLE_JOY_LEFT: u32 = 0x8;
+const NPAD_STYLE_JOY_RIGHT: u32 = 0x10;
+const NPAD_STYLE_GAMECUBE: u32 = 0x20;
+
 unsafe fn selected_hid_buttons() -> Option<u64> {
     selected_hid_buttons_inner()
 }
 unsafe fn selected_hid_buttons_inner() -> Option<u64> {
     let player = super::super::CONFIG.get()?.player_index;
-    let ids = [player, if player == 0 { 0x20 } else { u32::MAX }];
+    let ids = [player, if player == 0 { HANDHELD_NPAD_ID } else { u32::MAX }];
     for id in ids {
         if id == u32::MAX {
             continue;
@@ -62,21 +70,21 @@ unsafe fn selected_hid_buttons_inner() -> Option<u64> {
         if style == 0 {
             continue;
         }
-        if style & 0x20 != 0 {
+        if style & NPAD_STYLE_GAMECUBE != 0 {
             let mut state = nnsdk::nn::hid::NpadGcState::default();
             nnsdk::nn::hid::GetNpadGcState(&mut state, &id);
             return Some(state.Buttons);
         }
         let mut state = nnsdk::nn::hid::NpadHandheldState::default();
-        if style & 0x1 != 0 {
+        if style & NPAD_STYLE_FULL_KEY != 0 {
             nnsdk::nn::hid::GetNpadFullKeyState(&mut state, &id);
-        } else if style & 0x2 != 0 {
+        } else if style & NPAD_STYLE_HANDHELD != 0 {
             nnsdk::nn::hid::GetNpadHandheldState(&mut state, &id);
-        } else if style & 0x4 != 0 {
+        } else if style & NPAD_STYLE_JOY_DUAL != 0 {
             nnsdk::nn::hid::GetNpadJoyDualState(&mut state, &id);
-        } else if style & 0x8 != 0 {
+        } else if style & NPAD_STYLE_JOY_LEFT != 0 {
             nnsdk::nn::hid::GetNpadJoyLeftState(&mut state, &id);
-        } else if style & 0x10 != 0 {
+        } else if style & NPAD_STYLE_JOY_RIGHT != 0 {
             nnsdk::nn::hid::GetNpadJoyRightState(&mut state, &id);
         } else {
             continue;

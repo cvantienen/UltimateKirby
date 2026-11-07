@@ -43,8 +43,28 @@ pub unsafe fn ray_check(
 // We treat game-owned objects as opaque pointers. Rust must not allocate/free
 // them or assume they remain valid across loading, respawn, or match changes.
 pub type Object = c_void;
+pub const BATTLE_OBJECT_ID_OFFSET_BYTES: usize = 8;
+pub const LATEST_PREVIOUS_STATUS_HISTORY_INDEX: u32 = 0;
+// Aggregate main, gravity, and damage knockback energy in sum-speed queries.
+pub const ALL_KINETIC_ENERGY_RESERVES: i32 = -1;
+
+/// Read the object ID from the pinned BattleObject layout.
+///
+/// # Safety
+/// `object` must be a live, non-null game object with the pinned ABI layout.
+#[inline]
+pub unsafe fn battle_object_id(object: *mut Object) -> u32 {
+    object
+        .cast::<u8>()
+        .add(BATTLE_OBJECT_ID_OFFSET_BYTES)
+        .cast::<u32>()
+        .read()
+}
+
 // Verified in the pinned lua_const.rs; HIT is 0x2 (0x1 is not a hit mask).
 pub const COLLISION_KIND_MASK_HIT: i32 = 0x2;
+pub const CONTROL_PAD_BUTTON_GUARD: i32 = 0x3;
+pub const CONTROL_PAD_BUTTON_GUARD_HOLD: i32 = 0x10;
 // The game's Vector2 contains two adjacent floats. repr(C) fixes their layout
 // so pointers passed to ray_check refer to the format the game expects.
 #[repr(C)]
@@ -111,13 +131,33 @@ pub struct AttackGeometry {
     pub absorbable: u8,
     pub direct: u8,
 }
+const ATTACK_GEOMETRY_SIZE_FIELD_OFFSET_BYTES: usize = 0x24;
+const ATTACK_GEOMETRY_NODE_FIELD_OFFSET_BYTES: usize = 0x48;
+const ATTACK_GEOMETRY_SITUATION_FIELD_OFFSET_BYTES: usize = 0x52;
+const ATTACK_GEOMETRY_REFLECTABLE_FIELD_OFFSET_BYTES: usize = 0x65;
+const ATTACK_GEOMETRY_ABSORBABLE_FIELD_OFFSET_BYTES: usize = 0x66;
+const ATTACK_GEOMETRY_DIRECT_FIELD_OFFSET_BYTES: usize = 0x67;
+const VECTOR2_SIZE_BYTES: usize = 8;
+const VECTOR3_SIZE_BYTES: usize = 12;
+const ATTACK_GEOMETRY_SIZE_BYTES: usize = 0x68;
 const _: () = {
-    assert!(std::mem::offset_of!(AttackGeometry, size) == 0x24);
-    assert!(std::mem::offset_of!(AttackGeometry, node) == 0x48);
-    assert!(std::mem::offset_of!(AttackGeometry, situation) == 0x52);
-    assert!(std::mem::offset_of!(AttackGeometry, reflectable) == 0x65);
-    assert!(std::mem::offset_of!(AttackGeometry, absorbable) == 0x66);
-    assert!(std::mem::offset_of!(AttackGeometry, direct) == 0x67);
+    assert!(std::mem::offset_of!(AttackGeometry, size) == ATTACK_GEOMETRY_SIZE_FIELD_OFFSET_BYTES);
+    assert!(std::mem::offset_of!(AttackGeometry, node) == ATTACK_GEOMETRY_NODE_FIELD_OFFSET_BYTES);
+    assert!(
+        std::mem::offset_of!(AttackGeometry, situation)
+            == ATTACK_GEOMETRY_SITUATION_FIELD_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(AttackGeometry, reflectable)
+            == ATTACK_GEOMETRY_REFLECTABLE_FIELD_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(AttackGeometry, absorbable)
+            == ATTACK_GEOMETRY_ABSORBABLE_FIELD_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(AttackGeometry, direct) == ATTACK_GEOMETRY_DIRECT_FIELD_OFFSET_BYTES
+    );
 };
 extern "C" {
     #[link_name = "\u{1}_ZN3app10sv_animcmd6ATTACKEP9lua_State"]
@@ -142,9 +182,9 @@ extern "C" {
     pub fn pos_z(module_accessor: *mut Object) -> f32;
 }
 const _: () = {
-    assert!(std::mem::size_of::<Vector2>() == 8);
-    assert!(std::mem::size_of::<Vector3>() == 12);
-    assert!(std::mem::size_of::<AttackGeometry>() == 0x68);
+    assert!(std::mem::size_of::<Vector2>() == VECTOR2_SIZE_BYTES);
+    assert!(std::mem::size_of::<Vector3>() == VECTOR3_SIZE_BYTES);
+    assert!(std::mem::size_of::<AttackGeometry>() == ATTACK_GEOMETRY_SIZE_BYTES);
 };
 // Calling these functions is unsafe: the caller must establish that the game
 // object is live and that the executable matches the assumed native interface.

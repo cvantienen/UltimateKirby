@@ -33,7 +33,7 @@ fn context() -> GameplayContext {
         can_control: true,
         stopped: false,
         status: crate::native_states::status::WAIT,
-        situation: 0,
+        situation: crate::native_states::situation::GROUND,
         motion_frame: 0.0,
         motion_kind: 1,
         motion_rate: 1.0,
@@ -87,7 +87,7 @@ fn changed_geometry_on_duplicate_native_frames_cannot_spend_trump_timeout() {
         150,
         false,
         GameplayContext {
-            situation: 2,
+            situation: crate::native_states::situation::AIR,
             status: FALL,
             can_act: false,
             position: [-1.0, -0.1],
@@ -110,7 +110,7 @@ fn tap_runs_both_ledges_and_releases_at_catch_without_a_followup() {
         assert_eq!(start.stick, Some([-side * 0.55, 0.0]));
         assert_eq!(start.requested, 0);
         let falling = GameplayContext {
-            situation: 2,
+            situation: crate::native_states::situation::AIR,
             status: crate::native_states::status::FALL,
             can_act: false,
             position: [-side, -0.1],
@@ -209,13 +209,13 @@ fn damage_and_excessive_drop_cancel_control() {
         GameplayContext {
             can_act: false,
             status: crate::native_states::status::DAMAGE_FLY_METEOR,
-            situation: 2,
+            situation: crate::native_states::situation::AIR,
             ..context()
         },
         GameplayContext {
             can_act: false,
             status: crate::native_states::status::FALL,
-            situation: 2,
+            situation: crate::native_states::situation::AIR,
             position: [0.0, -17.0],
             ..context()
         },
@@ -353,7 +353,13 @@ fn old_config_down_press_is_consumed_before_mapping_even_without_an_edge() {
         }
         assert_eq!(mapped.stick, [0.25, 0.0]);
         // Native history must not reintroduce the down-taunt action.
-        assert_eq!(suppress_reserved_taunts(0x1000 | 1, consumed), 1);
+        assert_eq!(
+            suppress_reserved_taunts(
+                crate::native_input::MAPPED_TAUNT_DOWN | crate::native_input::MAPPER_DPAD_UP,
+                consumed
+            ),
+            crate::native_input::MAPPER_DPAD_UP
+        );
     }
 }
 #[test]

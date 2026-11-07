@@ -3,7 +3,7 @@
 use super::*;
 use kirby_assist_core::{
     fighter_profiles::{presets::PresetSlot, FighterProfiles},
-    ledge_menu::{MenuRow, MENU_STICK_CLICK},
+    settings_menu::{MenuRow, MENU_STICK_CLICK},
     native_input::MAPPER_Y,
     sequence_config::{Catalog, Sequence},
 };
@@ -14,7 +14,7 @@ fn tap(selection: &mut MenuSelection, profiles: &FighterProfiles, buttons: u32) 
     selection.input(buttons, presets);
 }
 
-fn prepared() -> (FighterProfiles, LedgeMenu, save::ResultMessage, Sequence) {
+fn prepared() -> (FighterProfiles, SettingsMenu, save::ResultMessage, Sequence) {
     let mut profiles = FighterProfiles::default();
     profiles
         .add_sequence_choices(
@@ -51,7 +51,7 @@ fn prepared() -> (FighterProfiles, LedgeMenu, save::ResultMessage, Sequence) {
         snapshot: Some((sequence, None)),
         tuning: None,
     };
-    let menu = LedgeMenu {
+    let menu = SettingsMenu {
         selections: [(15, selection)].into(),
         kind: Some(15),
         resolved_recipe_revision: Some(revision),
@@ -244,7 +244,7 @@ fn every_training_editor_dispatches_y_save_without_gameplay_input_permission() {
     JOBS.lock().unwrap().clear();
     *save::TEST_OPERATION.lock().unwrap() = Some(record);
     let _hook = Hook;
-    let sample = |menu: &mut LedgeMenu, buttons| {
+    let sample = |menu: &mut SettingsMenu, buttons| {
         menu.input(
             true,
             false,
@@ -285,7 +285,7 @@ fn every_training_editor_dispatches_y_save_without_gameplay_input_permission() {
         selection.input_with_editing(MENU_STICK_CLICK, presets, true);
         selection.input_with_editing(0, presets, true);
         assert!(selection.recipe_editing, "{row:?} / {choice}");
-        let mut menu = LedgeMenu {
+        let mut menu = SettingsMenu {
             kind: Some(15),
             selections: [(15, selection)].into(),
             ..Default::default()
@@ -320,7 +320,7 @@ fn every_training_editor_dispatches_y_save_without_gameplay_input_permission() {
     selection.row = MenuRow::FighterSettings;
     selection.tuning_page = true;
     selection.tuning.set("walk_strength", "0.4").unwrap();
-    let mut menu = LedgeMenu {
+    let mut menu = SettingsMenu {
         kind: Some(15),
         selections: [(15, selection)].into(),
         ..Default::default()

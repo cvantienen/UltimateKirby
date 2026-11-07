@@ -5,6 +5,19 @@ use crate::ledge_trap::LedgeSettings;
 mod analysis;
 mod schema;
 
+pub const MIN_GAMEWATCH_REFLECT_STARTUP_FRAMES: f32 = 6.0;
+pub const MIN_GRAB_DODGE_LOOKAHEAD_FRAMES: f32 = 1.0;
+pub const MAX_GRAB_DODGE_LOOKAHEAD_FRAMES: f32 = 8.0;
+pub const DEFAULT_GRAB_DODGE_PADDING: f32 = 2.0;
+pub const MAX_GRAB_DODGE_PADDING: f32 = 30.0;
+pub const DEFAULT_GRAB_DODGE_HEIGHT: f32 = 8.0;
+pub const MAX_GRAB_DODGE_HEIGHT: f32 = 60.0;
+pub const DEFAULT_REFLECT_MARGIN_FRAMES: f32 = 2.0;
+pub const DEFAULT_REFLECT_MAX_HOLD_FRAMES: f32 = 45.0;
+pub const DEFAULT_REFLECT_HALF_WIDTH: f32 = 5.0;
+pub const DEFAULT_REFLECT_HEIGHT: f32 = 16.0;
+pub const DEFAULT_REFLECT_HALF_DEPTH: f32 = 5.0;
+
 pub use schema::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -39,18 +52,20 @@ impl Tuning {
     pub fn frames(i: usize) -> bool {
         matches!(
             i,
-            13 | SHIELD_FORECAST
+            GRAB_DODGE_LOOKAHEAD
+                | SHIELD_FORECAST
                 | SHIELD_HOLD
                 | REFLECT_STARTUP
                 | REFLECT_MARGIN
                 | REFLECT_MAX_HOLD
+                | GRAB_DODGE_LOOKAHEAD
         )
     }
     pub fn visible_index(kind: i32, row: usize) -> usize {
         (row..COUNT)
             .find(|i| Self::visible(kind, *i))
             .or_else(|| (0..COUNT).rev().find(|i| Self::visible(kind, *i)))
-            .unwrap_or(0)
+            .unwrap_or(WALK_STRENGTH)
     }
     pub fn visible(kind: i32, i: usize) -> bool {
         if i >= COUNT {
@@ -72,16 +87,16 @@ impl Tuning {
         true
     }
     pub fn is_bool(i: usize) -> bool {
-        (8..=12).contains(&i) || i == REFLECT_DEFAULT
+        (MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT).contains(&i) || i == REFLECT_DEFAULT
     }
     pub fn grab_dodge_default(self, base: bool) -> bool {
-        self.0[11].map_or(base, |x| x == 1.0)
+        self.0[GRAB_DODGE_DEFAULT].map_or(base, |x| x == 1.0)
     }
     pub fn oos_default(self) -> bool {
-        self.0[12].unwrap_or(1.0) == 1.0
+        self.0[OUT_OF_SHIELD_DEFAULT].unwrap_or(1.0) == 1.0
     }
     pub fn dodge_lookahead(self) -> f32 {
-        self.0[13].unwrap_or(crate::spot_dodge::LOOKAHEAD)
+        self.0[GRAB_DODGE_LOOKAHEAD].unwrap_or(crate::spot_dodge::LOOKAHEAD)
     }
     pub fn bounds(i: usize) -> (f32, f32, f32) {
         match i {
@@ -91,11 +106,15 @@ impl Tuning {
             REFLECT_MAX_HOLD => (6., 120., 1.),
             REFLECT_HALF_WIDTH | REFLECT_HALF_DEPTH => (1., 30., 0.5),
             REFLECT_HEIGHT => (1., 60., 0.5),
-            8..=12 => (0.0, 1.0, 1.0),
-            13 => (1.0, 8.0, 0.5),
-            0 => (0.1, 0.5, 0.01),
-            7 => (0.1, 1.0, 0.01),
-            1 => (1.0, 60.0, 0.5),
+            MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT => (0.0, 1.0, 1.0),
+            GRAB_DODGE_LOOKAHEAD => (
+                MIN_GRAB_DODGE_LOOKAHEAD_FRAMES,
+                MAX_GRAB_DODGE_LOOKAHEAD_FRAMES,
+                0.5,
+            ),
+            WALK_STRENGTH => (0.1, 0.5, 0.01),
+            MOVE_STRENGTH => (0.1, 1.0, 0.01),
+            GRAB_RANGE => (1.0, 60.0, 0.5),
             AUTO_GRAB_CLOSE | AUTO_GRAB_FAR => (0.0, 150.0, 0.5),
             SHIELD_WARNING_X => (0.0, 100.0, 0.5),
             SHIELD_WARNING_Y => (0.0, 100.0, 0.5),
@@ -157,111 +176,113 @@ impl Tuning {
         Ok(())
     }
     pub fn values(s: LedgeSettings) -> Values {
-        Values([
-            s.walk_strength,
-            s.fighter.grab.standing_range,
-            s.horizontal_range,
-            s.vertical_range,
-            s.follow_range,
-            s.follow_vertical_range,
-            s.stand_distance,
-            s.move_strength,
-            if s.manual_spacing { 1.0 } else { 0.0 },
-            if s.auto_position { 1.0 } else { 0.0 },
-            if s.distance_agnostic { 0.0 } else { 1.0 },
-            1.0,
-            1.0,
-            crate::spot_dodge::LOOKAHEAD,
-            24.0,
-            28.0,
-            6.0,
-            18.0,
-            6.0,
-            5.0,
-            4.0,
-            2.0,
-            8.0,
-            2.5,
-            1.0,
-            1.0,
-            3.5,
-            6.0,
-            5.0,
-            1.5,
-            2.0,
-            if s.fighter_kind == crate::fighter_kinds::KIRBY {
-                14.0
-            } else if s.fighter_kind == crate::fighter_kinds::YOSHI {
-                13.0
-            } else {
-                12.0
-            },
-            if s.fighter_kind == crate::fighter_kinds::KIRBY {
-                22.0
-            } else {
-                21.0
-            },
-            8.0,
-            6.0,
-            64.0,
-            4.0,
-            if s.fighter_kind == crate::fighter_kinds::KIRBY {
-                32.0
-            } else {
-                36.0
-            },
-            7.0,
-            12.0,
-            60.0,
-            24.0,
-            45.0,
-            20.0,
-            96.0,
-            96.0,
-            analysis::default_auto_grab_ranges(s.fighter_kind, s.fighter.grab.standing_range).0,
-            analysis::default_auto_grab_ranges(s.fighter_kind, s.fighter.grab.standing_range).1,
-            0.,
-            6.,
-            2.,
-            45.,
-            5.,
-            16.,
-            5.,
-        ])
+        let mut values = [0.0; COUNT];
+        values[WALK_STRENGTH] = s.walk_strength;
+        values[GRAB_RANGE] = s.fighter.grab.standing_range;
+        values[HORIZONTAL_RANGE] = s.horizontal_range;
+        values[VERTICAL_RANGE] = s.vertical_range;
+        values[FOLLOW_RANGE] = s.follow_range;
+        values[FOLLOW_VERTICAL_RANGE] = s.follow_vertical_range;
+        values[STAND_DISTANCE] = s.stand_distance;
+        values[MOVE_STRENGTH] = s.move_strength;
+        values[MANUAL_SPACING] = if s.manual_spacing { 1.0 } else { 0.0 };
+        values[AUTO_POSITION] = if s.auto_position { 1.0 } else { 0.0 };
+        values[USE_RANGE_LIMITS] = if s.distance_agnostic { 0.0 } else { 1.0 };
+        values[GRAB_DODGE_DEFAULT] = 1.0;
+        values[OUT_OF_SHIELD_DEFAULT] = 1.0;
+        values[GRAB_DODGE_LOOKAHEAD] = crate::spot_dodge::LOOKAHEAD;
+        values[SHIELD_WARNING_X] = 24.0;
+        values[SHIELD_WARNING_Y] = 28.0;
+        values[SHIELD_BODY_HALF_WIDTH] = 6.0;
+        values[SHIELD_BODY_HEIGHT] = 18.0;
+        values[SHIELD_BODY_HALF_DEPTH] = 6.0;
+        values[SHIELD_FORECAST] = 5.0;
+        values[SHIELD_HOLD] = 4.0;
+        values[GRAB_DODGE_PADDING] = DEFAULT_GRAB_DODGE_PADDING;
+        values[GRAB_DODGE_HEIGHT] = DEFAULT_GRAB_DODGE_HEIGHT;
+        values[TECH_HALF_WIDTH] = 2.5;
+        values[TECH_FLOOR_ORIGIN] = 1.0;
+        values[TECH_WALL_LOW] = 1.0;
+        values[TECH_WALL_MID] = 3.5;
+        values[TECH_WALL_HIGH] = 6.0;
+        values[TECH_CEILING_ORIGIN] = 5.0;
+        values[TECH_FLOOR_PADDING] = 1.5;
+        values[TECH_CEILING_PADDING] = 2.0;
+        values[PUNISH_DOWN_REACH] = if s.fighter_kind == crate::fighter_kinds::KIRBY {
+            14.0
+        } else if s.fighter_kind == crate::fighter_kinds::YOSHI {
+            13.0
+        } else {
+            12.0
+        };
+        values[PUNISH_FORWARD_REACH] = if s.fighter_kind == crate::fighter_kinds::KIRBY {
+            22.0
+        } else {
+            21.0
+        };
+        values[PUNISH_HEIGHT] = 8.0;
+        values[ROLL_SMASH_HEIGHT] = 6.0;
+        values[ROLL_SMASH_WATCH] = 64.0;
+        values[ROLL_GRAB_HEIGHT] = 4.0;
+        values[ROLL_GRAB_WATCH] = if s.fighter_kind == crate::fighter_kinds::KIRBY {
+            32.0
+        } else {
+            36.0
+        };
+        values[JAB_LOCK_REACH] = 7.0;
+        values[JAB_LOCK_SMASH_REACH] = 12.0;
+        values[JAB_LOCK_CHASE_DISTANCE] = 60.0;
+        values[JAB_LOCK_HEIGHT] = 24.0;
+        values[CROUCH_RANGE] = 45.0;
+        values[CROUCH_HEIGHT] = 20.0;
+        values[SHIELD_SCAN_X] = 96.0;
+        values[SHIELD_SCAN_Y] = 96.0;
+        let (auto_grab_close, auto_grab_far) =
+            analysis::default_auto_grab_ranges(s.fighter_kind, s.fighter.grab.standing_range);
+        values[AUTO_GRAB_CLOSE] = auto_grab_close;
+        values[AUTO_GRAB_FAR] = auto_grab_far;
+        values[REFLECT_DEFAULT] = 0.0;
+        values[REFLECT_STARTUP] = MIN_GAMEWATCH_REFLECT_STARTUP_FRAMES;
+        values[REFLECT_MARGIN] = DEFAULT_REFLECT_MARGIN_FRAMES;
+        values[REFLECT_MAX_HOLD] = DEFAULT_REFLECT_MAX_HOLD_FRAMES;
+        values[REFLECT_HALF_WIDTH] = DEFAULT_REFLECT_HALF_WIDTH;
+        values[REFLECT_HEIGHT] = DEFAULT_REFLECT_HEIGHT;
+        values[REFLECT_HALF_DEPTH] = DEFAULT_REFLECT_HALF_DEPTH;
+        Values(values)
     }
     pub fn apply(self, mut s: LedgeSettings) -> LedgeSettings {
         let v = self.0;
-        if let Some(x) = v[0] {
+        if let Some(x) = v[WALK_STRENGTH] {
             s.walk_strength = x;
         }
-        if let Some(x) = v[1] {
+        if let Some(x) = v[GRAB_RANGE] {
             s.fighter.grab.standing_range = x;
         }
-        if let Some(x) = v[2] {
+        if let Some(x) = v[HORIZONTAL_RANGE] {
             s.horizontal_range = x;
         }
-        if let Some(x) = v[3] {
+        if let Some(x) = v[VERTICAL_RANGE] {
             s.vertical_range = x;
         }
-        if let Some(x) = v[4] {
+        if let Some(x) = v[FOLLOW_RANGE] {
             s.follow_range = x;
         }
-        if let Some(x) = v[5] {
+        if let Some(x) = v[FOLLOW_VERTICAL_RANGE] {
             s.follow_vertical_range = x;
         }
-        if let Some(x) = v[6] {
+        if let Some(x) = v[STAND_DISTANCE] {
             s.stand_distance = x;
         }
-        if let Some(x) = v[7] {
+        if let Some(x) = v[MOVE_STRENGTH] {
             s.move_strength = x;
         }
-        if let Some(x) = v[8] {
+        if let Some(x) = v[MANUAL_SPACING] {
             s.manual_spacing = x == 1.0;
         }
-        if let Some(x) = v[9] {
+        if let Some(x) = v[AUTO_POSITION] {
             s.auto_position = x == 1.0;
         }
-        if let Some(x) = v[10] {
+        if let Some(x) = v[USE_RANGE_LIMITS] {
             s.distance_agnostic = x != 1.0;
         }
         s

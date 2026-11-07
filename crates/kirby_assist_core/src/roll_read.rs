@@ -195,12 +195,12 @@ impl RollRead {
             };
         }
         if choice == Choice::Off
-            || c.situation != 0
+            || c.situation != crate::native_states::situation::GROUND
             || !c.frame.is_finite()
             || c.frame < 0.0
             || !c.rate.is_finite()
             || c.rate <= 0.0
-            || c.motion == 0
+            || c.motion == crate::timing::NO_MOTION_KIND
             || !c.facing.is_finite()
             || c.facing.abs() < 0.5
             || !c.position.iter().all(|v| v.is_finite())

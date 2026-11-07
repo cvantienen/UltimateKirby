@@ -1598,6 +1598,11 @@ Names shared shield, dodge, grab, and capture status IDs for clearer native-stat
 Moves shared gameplay observations and controller requests into a neutral module and names shared assist button ownership without ledge-specific labels.
 Names shared native fighter kinds and generic status IDs so gameplay checks no longer rely on unexplained literals.
 Names fighter-specific native statuses, transition terms, work IDs, weapon kinds, and battle-object categories from the pinned SDK table.
+Refactors finisher validation, hit confirmation, native-status checks, and input selection into named helpers without changing behavior.
+Renames the shared settings menu and grounded posture helper to reflect their use across multiple features.
+Names ledge positioning eligibility and movement phases, sequence frame validation, grab edges, and tech clocks to clarify compound decisions.
+Separates roster-refresh prerequisites from active observation consumers for easier review.
+Names tuning indexes, controller inputs, native work IDs, motion/parameter hashes, and ABI offsets to clarify Rust numeric literals.
 """
 
 

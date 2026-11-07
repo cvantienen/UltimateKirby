@@ -12,10 +12,38 @@ use crate::live_input::{HID_A, HID_B, HID_L, HID_R, HID_X, HID_Y, HID_ZL, HID_ZR
 // MappedInputs::buttons is a different word from ControlModule button IDs.
 // Pinned HDR ext.rs a8f98eace1c6a7b45c88cb3f0ac1ef05426624dc, Buttons.
 pub const MAPPED_SPECIAL: u32 = 0x2;
+pub const MAPPED_ATTACK: u32 = 0x1;
 pub const MAPPED_GUARD: u32 = 0x8;
 pub const MAPPED_CATCH: u32 = 0x10;
+pub const MAPPED_JUMP: u32 = 0x4;
+pub const MAPPED_JUMP_MINI: u32 = 0x40;
 pub const MAPPED_GUARD_HOLD: u32 = 0x10000;
+pub const MAPPED_TAUNT_UP: u32 = 0x400;
+pub const MAPPED_TAUNT_DOWN: u32 = 0x1000;
+pub const MAPPED_TAUNT_SIDES: u32 = 0x6000;
+pub const MAPPED_ATTACK_RAW: u32 = 0x200;
+pub const MAPPED_ATTACK_HOLD_BITS: u32 = MAPPED_ATTACK | MAPPED_ATTACK_RAW;
+const MAPPED_CSTICK_BUTTON: u32 = 0x80;
+/// `NPAD_ID_HANDHELD` from libnx's `hid.h`.
+pub const HANDHELD_NPAD_ID: u32 = 0x20;
 
+pub const MAPPER_SLOT_COUNT: i32 = 8;
+pub const MAPPER_DPAD_UP: u32 = 1;
+pub const MAPPER_DPAD_RIGHT: u32 = 1 << 1;
+pub const MAPPER_DPAD_DOWN: u32 = 1 << 2;
+pub const MAPPER_DPAD_LEFT: u32 = 1 << 3;
+pub const MAPPER_DPAD_BUTTONS: u32 =
+    MAPPER_DPAD_UP | MAPPER_DPAD_RIGHT | MAPPER_DPAD_DOWN | MAPPER_DPAD_LEFT;
+pub const MAPPER_STICK_CLICKS: u32 = 3 << 16;
+pub const MAPPER_LEFT_STICK_DIRECTIONS: u32 = 0xf << 20;
+pub const MAPPER_RIGHT_STICK_DIRECTIONS: u32 = 0xf << 24;
+const MAPPER_EXTRA_BUTTON_CHANNELS: u32 = 0xf << 12;
+const MODULE_ACCESSOR_CONTROL_MODULE_POINTER_OFFSET_BYTES: usize = 0x48;
+const CONTROL_MODULE_INPUT_CONTEXT_POINTER_OFFSET_BYTES: usize = 0x118;
+const INPUT_CONTEXT_CONTROLLER_RECORD_POINTER_OFFSET_BYTES: usize = 0x58;
+const CONTROLLER_RECORD_INDEX_POINTER_OFFSET_BYTES: usize = 8;
+const INPUT_INDEX_FIELD_OFFSET_BYTES: usize = 8;
+const MINIMUM_NATIVE_POINTER_ADDRESS: usize = 0x1000;
 pub const MAPPER_A: u32 = 1 << 5;
 pub const MAPPER_B: u32 = 1 << 6;
 pub const MAPPER_X: u32 = 1 << 4;
@@ -37,7 +65,8 @@ pub const SEQUENCE_GUARD_INPUTS: u32 = SEQUENCE_GUARD_BUTTONS | MAPPER_R;
 // Native Controller channels outside the ordinary face/shoulder words.
 pub const MAPPER_DIGITAL_L: u32 = 1 << 28;
 pub const MAPPER_DIGITAL_R: u32 = 1 << 29;
-pub const MAPPER_EXTRA_BUTTONS: u32 = (0xf << 12) | MAPPER_DIGITAL_L | MAPPER_DIGITAL_R;
+pub const MAPPER_EXTRA_BUTTONS: u32 =
+    MAPPER_EXTRA_BUTTON_CHANNELS | MAPPER_DIGITAL_L | MAPPER_DIGITAL_R;
 /// Native buttons that an assist policy may replace, excluding the D-pad.
 pub const ASSIST_BUTTONS: u32 = MAPPER_A
     | MAPPER_B
@@ -47,11 +76,11 @@ pub const ASSIST_BUTTONS: u32 = MAPPER_A
     | MAPPER_R
     | MAPPER_ZL
     | MAPPER_ZR
-    | (3 << 16)
-    | (0xf << 24)
+    | MAPPER_STICK_CLICKS
+    | MAPPER_RIGHT_STICK_DIRECTIONS
     | MAPPER_EXTRA_BUTTONS;
 /// Physical gameplay controls, excluding pause/menu and left-stick DI directions.
-pub const GAMEPLAY_BUTTONS: u32 = 0xf
+pub const GAMEPLAY_BUTTONS: u32 = MAPPER_DPAD_BUTTONS
     | MAPPER_A
     | MAPPER_B
     | MAPPER_X
@@ -60,8 +89,8 @@ pub const GAMEPLAY_BUTTONS: u32 = 0xf
     | MAPPER_R
     | MAPPER_ZL
     | MAPPER_ZR
-    | (3 << 16)
-    | (0xf << 24)
+    | MAPPER_STICK_CLICKS
+    | MAPPER_RIGHT_STICK_DIRECTIONS
     | MAPPER_EXTRA_BUTTONS;
 
 /// Consume the alternate native click channel of an owned physical shoulder.
@@ -118,7 +147,7 @@ pub fn sequence_flick_consumption(owned: u32, walking: bool) -> u32 {
 /// the canonical recipe layout. Only suppress an unrequested physical C-stick.
 pub fn mapped_sequence_cstick(buttons: u32, right: [f32; 2]) -> u32 {
     if right == [0.; 2] {
-        buttons & !0x80
+        buttons & !MAPPED_CSTICK_BUTTON
     } else {
         buttons
     }
@@ -130,7 +159,7 @@ pub fn mapped_sequence_cstick(buttons: u32, right: [f32; 2]) -> u32 {
 pub fn mapped_automatic_actions(buttons: u32, requested: u32) -> u32 {
     let mut result = buttons;
     if requested & SEQUENCE_JUMP_BUTTONS == 0 {
-        result &= !(0x4 | 0x40);
+        result &= !(MAPPED_JUMP | MAPPED_JUMP_MINI);
     }
     if requested & SEQUENCE_GUARD_INPUTS == 0 {
         result &= !(MAPPED_GUARD | MAPPED_GUARD_HOLD);
@@ -306,8 +335,12 @@ impl ControlLayout {
 pub fn mapped_builtin_jump(buttons: u32, owned: Option<bool>, short: bool) -> u32 {
     match owned {
         None => buttons,
-        Some(false) => buttons & !(0x4 | 0x40),
-        Some(true) => (buttons & !(0x4 | 0x40)) | 0x4 | if short { 0x40 } else { 0 },
+        Some(false) => buttons & !(MAPPED_JUMP | MAPPED_JUMP_MINI),
+        Some(true) => {
+            (buttons & !(MAPPED_JUMP | MAPPED_JUMP_MINI))
+                | MAPPED_JUMP
+                | if short { MAPPED_JUMP_MINI } else { 0 }
+        }
     }
 }
 
@@ -316,8 +349,8 @@ pub fn mapped_builtin_jump(buttons: u32, owned: Option<bool>, short: bool) -> u3
 /// Annotate an existing mapped jump only when its owner requested a short hop;
 /// never manufacture a jump, attack, or shield input.
 pub fn mapped_short_hop(buttons: u32, requested: bool) -> u32 {
-    if requested && buttons & 0x4 != 0 {
-        buttons | 0x40
+    if requested && buttons & MAPPED_JUMP != 0 {
+        buttons | MAPPED_JUMP_MINI
     } else {
         buttons
     }
@@ -337,9 +370,9 @@ pub fn selected_controller_mapper(
     controller_npad: u32,
     mapper_index: i32,
 ) -> Option<i32> {
-    // libnx hid.h: No1..No8 = 0..7; Handheld = 0x20. Handheld is the
+    // libnx hid.h: No1..No8 = 0..7; Handheld has its own ID. It is the
     // console's local Player 1 input, rather than an additional battle slot.
-    let local_player = if controller_npad == 0x20 {
+    let local_player = if controller_npad == HANDHELD_NPAD_ID {
         0
     } else {
         controller_npad
@@ -367,7 +400,7 @@ pub fn mapper_buttons(hid: u64) -> u32 {
 /// No ownership/input request means the original mapper output is untouched.
 pub fn mapped_attack_hold(buttons: u32, requested: bool) -> u32 {
     if requested {
-        buttons | 0x201
+        buttons | MAPPED_ATTACK_HOLD_BITS
     } else {
         buttons
     }
@@ -495,24 +528,39 @@ pub unsafe fn controller_index(accessor: *const u8) -> Option<i32> {
     // add(offset) alone moves an address; read() follows the stored pointer.
     // A non-null pointer is still not proof of validity: native lifetime/version
     // checks remain the caller's responsibility, as documented in Safety above.
-    let control = accessor.add(0x48).cast::<*const u8>().read();
+    let control = accessor
+        .add(MODULE_ACCESSOR_CONTROL_MODULE_POINTER_OFFSET_BYTES)
+        .cast::<*const u8>()
+        .read();
     if !native_pointer_address(control) {
         return None;
     }
-    let first = control.add(0x118).cast::<*const u8>().read();
+    let first = control
+        .add(CONTROL_MODULE_INPUT_CONTEXT_POINTER_OFFSET_BYTES)
+        .cast::<*const u8>()
+        .read();
     if !native_pointer_address(first) {
         return None;
     }
-    let second = first.add(0x58).cast::<*const u8>().read();
+    let second = first
+        .add(INPUT_CONTEXT_CONTROLLER_RECORD_POINTER_OFFSET_BYTES)
+        .cast::<*const u8>()
+        .read();
     if !native_pointer_address(second) {
         return None;
     }
-    let input = second.add(8).cast::<*const u8>().read();
+    let input = second
+        .add(CONTROLLER_RECORD_INDEX_POINTER_OFFSET_BYTES)
+        .cast::<*const u8>()
+        .read();
     if !native_pointer_address(input) {
         return None;
     }
-    let index = input.add(8).cast::<i32>().read();
-    (0..8).contains(&index).then_some(index)
+    let index = input
+        .add(INPUT_INDEX_FIELD_OFFSET_BYTES)
+        .cast::<i32>()
+        .read();
+    (0..MAPPER_SLOT_COUNT).contains(&index).then_some(index)
 }
 
 // These checks reject null, small sentinel and misaligned addresses. They do
@@ -520,7 +568,8 @@ pub unsafe fn controller_index(accessor: *const u8) -> Option<i32> {
 // native callback identity/readiness before entering this chain.
 fn native_pointer_address(pointer: *const u8) -> bool {
     let address = pointer as usize;
-    address >= 0x1000 && address.is_multiple_of(std::mem::align_of::<usize>())
+    address >= MINIMUM_NATIVE_POINTER_ADDRESS
+        && address.is_multiple_of(std::mem::align_of::<usize>())
 }
 
 // Compiled only by cargo test on the host; these assertions are not live

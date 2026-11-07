@@ -1,6 +1,6 @@
 //! Mythra's own identity/reference facts. Recipes are owned by her text file.
 use super::FighterProfile;
-pub const FIGHTER_KIND: i32 = 91;
+pub const FIGHTER_KIND: i32 = crate::fighter_kinds::MYTHRA;
 pub fn profile() -> FighterProfile {
     FighterProfile {
         name: "mythra",

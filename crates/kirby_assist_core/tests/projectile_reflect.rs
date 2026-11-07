@@ -3,7 +3,7 @@ use kirby_assist_core::{
     autopilot_guard::duck_geometry::Hitbox,
     fighter_profiles::{presets::MenuPresets, FighterProfiles},
     fighter_tuning::{self, Tuning},
-    ledge_menu::{MenuRow, MenuSelection},
+    settings_menu::{MenuRow, MenuSelection},
     native_input::MAPPER_B,
     projectile_reflect::*,
     timing::AnimationSample,
@@ -19,7 +19,7 @@ fn config() -> Config {
 fn own(frame: f32, status: i32) -> Context {
     Context {
         kind: GAMEWATCH,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         facing: 1.,
         can_special: true,
         gauge: 0.,
@@ -263,7 +263,7 @@ fn ground_turn_is_confirmed_before_bucket_and_air_does_not_fake_a_turn() {
         MAPPER_B
     );
     let air = Context {
-        situation: 2,
+        situation: kirby_assist_core::native_states::situation::AIR,
         ..own(0., 0xe)
     };
     assert_eq!(

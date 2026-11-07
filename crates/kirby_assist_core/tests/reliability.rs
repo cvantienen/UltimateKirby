@@ -21,13 +21,13 @@ fn steps() -> [ConfirmedStep; 2] {
     [
         ConfirmedStep {
             recipe: InputRecipe::buttons(ButtonSet::ATTACK),
-            accepted_status: 0x2c,
+            accepted_status: kirby_assist_core::native_states::status::ATTACK_LW3,
             require_hit: true,
             timeout_frames: 10,
         },
         ConfirmedStep {
             recipe: InputRecipe::buttons(ButtonSet::JUMP),
-            accepted_status: 0xb,
+            accepted_status: kirby_assist_core::native_states::status::JUMP,
             require_hit: false,
             timeout_frames: 5,
         },

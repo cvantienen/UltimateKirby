@@ -28,7 +28,7 @@ impl Posture {
     /// Facing preparation cannot affect aerials, other attacks or frozen
     /// locomotion. Down tilt is the exception: its hitstop can buffer a reversal.
     pub fn needs_target(status: i32, situation: i32, stopped: bool) -> bool {
-        situation == 0
+        situation == crate::native_states::situation::GROUND
             && (matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV)
                 && !stopped
                 || status == crate::native_states::status::ATTACK_LW3)
@@ -91,7 +91,7 @@ impl Posture {
     ) -> ControllerOutput {
         let c_down = Self::down_c_stick(buttons, right);
         let locomotion = matches!(c.status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV);
-        if !enabled || c.situation != 0
+        if !enabled || c.situation != crate::native_states::situation::GROUND
             || !(locomotion || c.status == crate::native_states::status::ATTACK_LW3) // Current down tilt may buffer the next.
             || !stick.iter().all(|v| v.is_finite())
             || !c.facing.is_finite() || c.facing.abs() < 0.5

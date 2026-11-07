@@ -15,7 +15,7 @@ Read these files in order. Paths are relative to the repository root; open them
 in your editor (the documentation site does not publish Rust source files).
 
 1. `sequence_config.rs` defines the fixed-size recipe data; `sequence_config/parser.rs` reads and validates file sections at startup.
-2. `fighter_profiles.rs` freezes file entries into menu lists; `ledge_menu.rs` caches selected timelines.
+2. `fighter_profiles.rs` freezes file entries into menu lists; `settings_menu.rs` caches selected timelines.
 3. `ledge_trap.rs` recognizes the opponent's option and starts only that row's file timeline.
 4. `ledge_trap/file_timeline.rs` executes ordered inputs/waits and explicit spatial/block gates.
 5. `src/live.rs` publishes requests through the existing input owner/overlay; it does not force moves.
@@ -28,10 +28,10 @@ Paths below are relative to the project root. Core paths begin with
 | File | Responsibility |
 | --- | --- |
 | `docs/FIGHTER_ADDITIONS.md` | Luigi/Falcon source, timing, performance and validation notes. |
-| Core `ledge_menu.rs` | Five saved ledge choices, Kirby Roll read/Y mode rows, Minus menu binding, Auto-mash row and trigger reservation. |
-| Core `ledge_menu/editor.rs` | Recipe editing, action presets, field selection, and the editor's displayed schedule. |
-| Core `ledge_menu/editor/commands.rs` | Input-driven copy, paste, reorder, undo, and delete commands for recipe editing. |
-| Core `ledge_menu/editor/presentation.rs` | Maps each action to editable fields and renders recipe schedule details. |
+| Core `settings_menu.rs` | Shared per-fighter menu selections, ledge choices, feature-mode rows, bindings, recipe editing and trigger reservation. |
+| Core `settings_menu/editor.rs` | Recipe editing, action presets, field selection, and the editor's displayed schedule. |
+| Core `settings_menu/editor/commands.rs` | Input-driven copy, paste, reorder, undo, and delete commands for recipe editing. |
+| Core `settings_menu/editor/presentation.rs` | Maps each action to editable fields and renders recipe schedule details. |
 | Core `button_modes.rs` | Retained legacy mode definitions; the old Y Finisher selector/binding is removed. |
 | Core `finisher.rs` | Parked portable starter/follow-up implementation; no live binding or per-frame state. See [retired finisher binding](FINISHERS.md). |
 | Core `fighter_data.rs` | Exact-kind stats and move-frame facts from the canonical roster JSON, plus native recovery validation. |
@@ -140,11 +140,11 @@ compatibility. Follow the relevant feature guide for device-validation details.
 
 ## Follow a menu choice
 
-1. `ledge_menu.rs` maps fresh menu D-pad presses to row/choice indices.
-2. `src/live/ledge_menu.rs` resolves cached response settings only on changes.
+1. `settings_menu.rs` maps fresh menu D-pad presses to row/choice indices.
+2. `src/live/settings_menu.rs` resolves cached response settings only on changes.
 3. `src/live.rs` reads native context only when a tool needs it, then composes
    requests with the existing higher-priority mash/tech/SDI inputs.
-4. `src/live/ledge_menu/menu.rs` draws cached labels without game queries.
+4. `src/live/settings_menu/menu.rs` draws cached labels without game queries.
 
 Live combo playback and fighter combo libraries have been removed. See
 [the current controls](LEDGE_MENU.md).

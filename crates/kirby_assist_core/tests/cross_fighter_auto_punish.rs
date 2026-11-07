@@ -31,7 +31,7 @@ fn context() -> GameplayContext {
         gameplay: true,
         held: true,
         status: kirby_assist_core::native_states::status::WAIT,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion_kind: 1,
         motion_rate: 1.,
         facing: 1.,
@@ -160,7 +160,7 @@ fn shield_readiness_is_lazy_shared_and_never_queried_for_invalid_or_unconfigured
     }
     for c in [
         GameplayContext { stopped: true, ..c },
-        GameplayContext { situation: 2, ..c },
+        GameplayContext { situation: kirby_assist_core::native_states::situation::AIR, ..c },
         GameplayContext {
             gameplay: false,
             ..c

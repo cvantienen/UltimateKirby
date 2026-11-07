@@ -5,7 +5,7 @@ pub(super) fn ground() -> SlideContext {
         gameplay: true,
         stopped: false,
         status: crate::native_states::status::WAIT,
-        situation: 0,
+        situation: crate::native_states::situation::GROUND,
         motion_frame: 0.0,
         can_jump: true,
         can_air_dodge: false,
@@ -16,7 +16,7 @@ pub(super) fn ground() -> SlideContext {
 fn air(frame: f32) -> SlideContext {
     SlideContext {
         status: crate::native_states::status::JUMP,
-        situation: 2,
+        situation: crate::native_states::situation::AIR,
         motion_frame: frame,
         can_jump: false,
         can_air_dodge: true,
@@ -407,7 +407,7 @@ fn tap_during_air_dodge_slide_is_retained_until_grounded_jump_readiness() {
     let mut state = SlideState::default();
     let sliding = SlideContext {
         status: crate::native_states::ESCAPE_AIR_SLIDE,
-        situation: 2,
+        situation: crate::native_states::situation::AIR,
         can_jump: false,
         ..ground()
     };
@@ -420,7 +420,7 @@ fn tap_during_air_dodge_slide_is_retained_until_grounded_jump_readiness() {
         ControllerOutput::default()
     );
     let grounded = SlideContext {
-        situation: 0,
+        situation: crate::native_states::situation::GROUND,
         can_jump: true,
         ..sliding
     };

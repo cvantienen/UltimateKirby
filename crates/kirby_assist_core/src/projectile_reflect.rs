@@ -8,6 +8,16 @@ use crate::{
     timing::{AnimationClock, AnimationSample},
 };
 
+const REFLECT_CONTACT_SAFETY_MARGIN_FRAMES: f32 = 2.0;
+const MAX_PROJECTILE_RADIUS: f32 = 100.0;
+const MAX_REFLECTOR_HORIZON_FRAMES: f32 = 40.0;
+const MAX_RECEIPT_POLL_COUNT: u8 = 24;
+const MAX_UNCONFIRMED_REFLECT_FRAMES: f32 = 24.0;
+const MIN_REFLECT_RETRY_INTERVAL_FRAMES: f32 = 2.0;
+const MAX_TURNING_FRAMES: f32 = 2.0;
+const MAX_UNSENT_REFLECT_FRAMES: f32 = 4.0;
+const TURNING_REFLECT_STARTUP_EXTRA_FRAMES: f32 = 1.0;
+
 pub const GAMEWATCH: i32 = crate::fighter_kinds::MR_GAME_AND_WATCH;
 /// Adding a fighter requires a verified native move/resource adapter too.
 pub fn supports(kind: i32) -> bool {
@@ -30,26 +40,43 @@ impl Config {
             return None;
         }
         Some(Self {
-            startup: values.value(tuning::REFLECT_STARTUP, 6.).max(6.),
-            margin: values.value(tuning::REFLECT_MARGIN, 2.),
-            max_hold: values.value(tuning::REFLECT_MAX_HOLD, 45.),
-            half_width: values.value(tuning::REFLECT_HALF_WIDTH, 5.),
-            height: values.value(tuning::REFLECT_HEIGHT, 16.),
-            half_depth: values.value(tuning::REFLECT_HALF_DEPTH, 5.),
+            startup: values
+                .value(
+                    tuning::REFLECT_STARTUP,
+                    tuning::MIN_GAMEWATCH_REFLECT_STARTUP_FRAMES,
+                )
+                .max(tuning::MIN_GAMEWATCH_REFLECT_STARTUP_FRAMES),
+            margin: values.value(
+                tuning::REFLECT_MARGIN,
+                tuning::DEFAULT_REFLECT_MARGIN_FRAMES,
+            ),
+            max_hold: values.value(
+                tuning::REFLECT_MAX_HOLD,
+                tuning::DEFAULT_REFLECT_MAX_HOLD_FRAMES,
+            ),
+            half_width: values.value(
+                tuning::REFLECT_HALF_WIDTH,
+                tuning::DEFAULT_REFLECT_HALF_WIDTH,
+            ),
+            height: values.value(tuning::REFLECT_HEIGHT, tuning::DEFAULT_REFLECT_HEIGHT),
+            half_depth: values.value(
+                tuning::REFLECT_HALF_DEPTH,
+                tuning::DEFAULT_REFLECT_HALF_DEPTH,
+            ),
         })
     }
     pub fn horizon(self) -> f32 {
-        self.startup + self.margin + 2.
+        self.startup + self.margin + REFLECT_CONTACT_SAFETY_MARGIN_FRAMES
     }
 }
 
 pub fn movable(status: i32, situation: i32) -> bool {
     match situation {
-        0 => {
+        crate::native_states::situation::GROUND => {
             matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT | crate::native_states::status::OTTOTTO | crate::native_states::status::OTTOTTO_WAIT)
         }
         // Ordinary jump/fall only. Never recovery, tumble, attack or air dodge.
-        2 => matches!(
+        crate::native_states::situation::AIR => matches!(
             status,
             crate::native_states::status::JUMP
                 | crate::native_states::status::JUMP_AERIAL
@@ -123,11 +150,11 @@ pub fn predict(
             ])
             .all(|v| v.is_finite())
         || hit.radius <= 0.
-        || hit.radius > 100.
+        || hit.radius > MAX_PROJECTILE_RADIUS
         || facing.abs() < 0.5
-        || config.startup < 6.
+        || config.startup < tuning::MIN_GAMEWATCH_REFLECT_STARTUP_FRAMES
         || config.margin < 0.
-        || config.horizon() > 40.
+        || config.horizon() > MAX_REFLECTOR_HORIZON_FRAMES
         || config.half_width <= 0.
         || config.height <= 0.
         || config.half_depth <= 0.
@@ -262,7 +289,7 @@ impl Reflector {
         if self.target.is_some() && !self.confirmed && self.last_poll != Some(tick) {
             self.last_poll = Some(tick);
             self.receipt_polls = self.receipt_polls.saturating_add(1);
-            if self.receipt_polls >= 24 {
+            if self.receipt_polls >= MAX_RECEIPT_POLL_COUNT {
                 self.remember_target();
                 self.cancel();
             }
@@ -309,10 +336,13 @@ impl Reflector {
         if self.sent && !self.confirmed {
             if bucket(status) {
                 self.confirmed = true;
-            } else if !movable(status, c.situation) || elapsed >= 24. || self.delivery.exhausted() {
+            } else if !movable(status, c.situation)
+                || elapsed >= MAX_UNCONFIRMED_REFLECT_FRAMES
+                || self.delivery.exhausted()
+            {
                 self.cancel();
                 return Default::default();
-            } else if elapsed >= 2. || threat.is_none() {
+            } else if elapsed >= MIN_REFLECT_RETRY_INTERVAL_FRAMES || threat.is_none() {
                 // An online-delayed packet is a receipt reservation, not a
                 // neutral-stick hold or a stream of repeated special inputs.
                 // Physical movement stays free while other auto punishes yield.
@@ -337,9 +367,22 @@ impl Reflector {
             if !movable(status, c.situation)
                 || !c.can_special
                 || self.attempted.contains(&Some(threat.key()))
-                || !facing && c.situation != 0
-                || threat.in_frames < config.startup + if facing { 0. } else { 1. }
-                || threat.in_frames > config.startup + config.margin + if facing { 0. } else { 2. }
+                || !facing && c.situation != crate::native_states::situation::GROUND
+                || threat.in_frames
+                    < config.startup
+                        + if facing {
+                            0.
+                        } else {
+                            TURNING_REFLECT_STARTUP_EXTRA_FRAMES
+                        }
+                || threat.in_frames
+                    > config.startup
+                        + config.margin
+                        + if facing {
+                            0.
+                        } else {
+                            REFLECT_CONTACT_SAFETY_MARGIN_FRAMES
+                        }
             {
                 return Default::default();
             }
@@ -359,7 +402,10 @@ impl Reflector {
             return Default::default();
         }
         if self.turning {
-            if !movable(status, c.situation) || c.situation != 0 || elapsed >= 2. {
+            if !movable(status, c.situation)
+                || c.situation != crate::native_states::situation::GROUND
+                || elapsed >= MAX_TURNING_FRAMES
+            {
                 if self.receipt_polls > 0 {
                     self.remember_target();
                 }
@@ -378,7 +424,7 @@ impl Reflector {
             || !self.confirmed
                 && (!movable(status, c.situation)
                     || !c.can_special
-                    || !self.sent && elapsed >= 4.
+                    || !self.sent && elapsed >= MAX_UNSENT_REFLECT_FRAMES
                     || self.delivery.exhausted())
             || self.confirmed && !bucket(status)
         {

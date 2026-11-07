@@ -229,7 +229,7 @@ impl Grab {
                 crate::native_states::CATCH..=crate::native_states::THROW
             ) || !lc.gameplay
                 || !c.grounded
-                || lc.situation != 0
+                || lc.situation != crate::native_states::situation::GROUND
                 || crate::ledge_trap::sequence_interrupted(c.status)
             {
                 self.cancel();
@@ -254,7 +254,7 @@ impl Grab {
                 return ControllerOutput::default(); // Settling owns no buttons or movement.
             }
         }
-        if !allowed || !c.grounded || lc.situation != 0 || !lc.gameplay || lc.stopped {
+        if !allowed || !c.grounded || lc.situation != crate::native_states::situation::GROUND || !lc.gameplay || lc.stopped {
             self.cancel();
             return ControllerOutput::default();
         }

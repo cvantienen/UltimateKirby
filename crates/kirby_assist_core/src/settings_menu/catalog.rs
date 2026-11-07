@@ -3,6 +3,9 @@ use super::*;
 use crate::sequence_config::Sequence;
 use std::collections::BTreeMap;
 
+const UTF8_CONTINUATION_MASK: u8 = 0xc0;
+const UTF8_CONTINUATION_PREFIX: u8 = 0x80;
+
 #[derive(Clone)]
 pub(super) struct Draft {
     pub id: String,
@@ -42,14 +45,14 @@ pub(super) enum Event {
 // Cursors are UTF-8 byte boundaries; saved recipe names allow 64 bytes.
 fn next_character(text: &[u8], cursor: usize) -> usize {
     let mut end = cursor + 1;
-    while end < text.len() && text[end] & 0xc0 == 0x80 {
+    while end < text.len() && text[end] & UTF8_CONTINUATION_MASK == UTF8_CONTINUATION_PREFIX {
         end += 1;
     }
     end
 }
 fn previous_character(text: &[u8], cursor: usize) -> usize {
     let mut start = if cursor == 0 { text.len() } else { cursor } - 1;
-    while start > 0 && text[start] & 0xc0 == 0x80 {
+    while start > 0 && text[start] & UTF8_CONTINUATION_MASK == UTF8_CONTINUATION_PREFIX {
         start -= 1;
     }
     start

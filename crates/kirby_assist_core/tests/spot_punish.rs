@@ -25,7 +25,7 @@ fn ctx(frame: f32) -> GameplayContext {
         held: true,
         gameplay: true,
         status: kirby_assist_core::native_states::status::WAIT,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion_kind: 1,
         motion_frame: frame,
         motion_rate: 1.,
@@ -212,7 +212,7 @@ fn pending_automatic_ground_grab_cancels_on_takeoff_and_spatial_actions_require_
     let mut p = Punisher::default();
     sample(&mut p, &r, 0., target(12.));
     let air = GameplayContext {
-        situation: 2,
+        situation: kirby_assist_core::native_states::situation::AIR,
         ..ctx(1.)
     };
     assert_eq!(

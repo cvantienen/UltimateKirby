@@ -80,7 +80,7 @@ impl Shortcuts {
         }
         let Some(ctx) = ctx.filter(|c| {
             allowed
-                && c.motion != 0
+                && c.motion != crate::timing::NO_MOTION_KIND
                 && c.frame.is_finite()
                 && c.frame >= 0.0
                 && c.rate.is_finite()
@@ -120,7 +120,7 @@ impl Shortcuts {
             self.cancel();
             return self.output;
         }
-        if ctx.situation != 0 && matches!(self.phase, Some(Phase::Hop | Phase::HopRelease)) {
+        if ctx.situation != crate::native_states::situation::GROUND && matches!(self.phase, Some(Phase::Hop | Phase::HopRelease)) {
             self.cancel();
             return self.output; // A fresh airborne X press remains physical.
         }
@@ -131,7 +131,7 @@ impl Shortcuts {
             self.phase = if matches!(reverse, DPAD_LEFT | DPAD_RIGHT) {
                 Some(Phase::Neutral)
             } else if pressed & SHORT_HOP_TRIGGER != 0
-                && ctx.situation == 0
+                && ctx.situation == crate::native_states::situation::GROUND
                 && (ctx.can_short_hop || Self::hop_bufferable(ctx))
             {
                 self.hop_requested = false;
@@ -175,7 +175,7 @@ impl Shortcuts {
         }
         self.output = match self.phase {
             Some(Phase::Hop) => {
-                if ctx.situation != 0
+                if ctx.situation != crate::native_states::situation::GROUND
                     || (!Self::hop_bufferable(ctx) && !ctx.can_short_hop)
                     || self.age >= 8.0
                 {
@@ -206,7 +206,7 @@ impl Shortcuts {
             Some(Phase::HopRelease) => {
                 // Holding physical X must not turn the hop into a full jump or
                 // create an extra aerial jump when the input is handed back.
-                if ctx.situation != 0
+                if ctx.situation != crate::native_states::situation::GROUND
                     || ctx.status != crate::native_states::status::JUMP_SQUAT
                     || self.age > 8.0
                 {
@@ -269,7 +269,7 @@ impl Shortcuts {
     fn hop_bufferable(ctx: ShortcutContext) -> bool {
         // Ground locomotion, squat, landing and guard. Attacks, damage, grabs,
         // air dodges and specials cannot accumulate a delayed jump request.
-        ctx.situation == 0
+        ctx.situation == crate::native_states::situation::GROUND
             && matches!(ctx.status, crate::native_states::status::WAIT..=crate::native_states::status::JUMP_SQUAT | crate::native_states::status::SQUAT..=crate::native_states::GUARD_DAMAGE)
     }
     fn hop_release() -> ControllerOutput {
@@ -309,7 +309,7 @@ mod tests {
     fn ctx(frame: f32) -> ShortcutContext {
         ShortcutContext {
             status: crate::native_states::status::WAIT,
-            situation: 0,
+            situation: crate::native_states::situation::GROUND,
             motion: 1,
             frame,
             rate: 1.0,
@@ -345,7 +345,7 @@ mod tests {
                 true,
                 Some(ShortcutContext {
                     status: crate::native_states::status::JUMP,
-                    situation: 2,
+                    situation: crate::native_states::situation::AIR,
                     stopped: false,
                     ..squat
                 })
@@ -359,7 +359,7 @@ mod tests {
             true,
             Some(ShortcutContext {
                 status: crate::native_states::status::JUMP,
-                situation: 2,
+                situation: crate::native_states::situation::AIR,
                 ..ctx(1.0)
             }),
         );
@@ -369,7 +369,7 @@ mod tests {
                 true,
                 Some(ShortcutContext {
                     status: crate::native_states::status::JUMP,
-                    situation: 2,
+                    situation: crate::native_states::situation::AIR,
                     ..ctx(2.0)
                 })
             )
@@ -433,7 +433,7 @@ mod tests {
         }
         let air = ShortcutContext {
             status: crate::native_states::status::JUMP,
-            situation: 2,
+            situation: crate::native_states::situation::AIR,
             motion: 3,
             frame: 0.0,
             ..ctx(0.0)
@@ -491,7 +491,7 @@ mod tests {
             let mut tool = Shortcuts::default();
             let c = ShortcutContext {
                 facing,
-                situation: 2,
+                situation: crate::native_states::situation::AIR,
                 ..ctx(0.0)
             };
             tool.sample(0, true, Some(c));

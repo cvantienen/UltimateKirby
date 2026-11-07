@@ -10,7 +10,7 @@ fn context() -> GameplayContext {
         can_control: true,
         stopped: false,
         status: crate::native_states::status::WAIT,
-        situation: 0,
+        situation: crate::native_states::situation::GROUND,
         motion_frame: 0.0,
         motion_kind: 1,
         motion_rate: 1.0,
@@ -67,7 +67,7 @@ fn air_has_no_inputs_and_ground_approach_starts_on_landing() {
     let mut nav = LedgePosition::default();
     let air = GameplayContext {
         status: crate::native_states::status::FALL,
-        situation: 2,
+        situation: crate::native_states::situation::AIR,
         ..context()
     };
     assert_eq!(nav.sample(0, air, settings()), ControllerOutput::default());

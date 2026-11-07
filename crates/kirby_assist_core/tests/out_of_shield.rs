@@ -29,7 +29,7 @@ fn context(status: i32, frame: f32) -> GameplayContext {
         held: true,
         gameplay: true,
         status,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion_kind: 1,
         motion_frame: frame,
         motion_rate: 1.,
@@ -48,7 +48,7 @@ fn native(c: GameplayContext, ready: bool) -> Context {
         frame: c.motion_frame,
         rate: c.motion_rate,
         stopped: c.stopped,
-        grounded: c.situation == 0,
+        grounded: c.situation == kirby_assist_core::native_states::situation::GROUND,
         position: c.position,
         facing: c.facing,
         shield_ready: ready,
@@ -344,7 +344,7 @@ fn dodge_context(status: i32, frame: f32) -> spot_dodge::Context {
     spot_dodge::Context {
         object: 1,
         status,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: 1,
         frame,
         rate: 1.,
@@ -491,17 +491,17 @@ fn defensive_triggers_are_not_roll_rules_or_button_toggles() {
         0
     );
     for kind in [0, 5, 6, 15, 0x5d] {
-        let mut m = kirby_assist_core::ledge_menu::MenuSelection::new(&Default::default());
+        let mut m = kirby_assist_core::settings_menu::MenuSelection::new(&Default::default());
         m.y_fighter_kind = kind;
         m.modes_menu = true;
         assert!(m.out_of_shield && m.grab_dodge);
-        assert!(m.row_visible(kirby_assist_core::ledge_menu::MenuRow::OutOfShield));
+        assert!(m.row_visible(kirby_assist_core::settings_menu::MenuRow::OutOfShield));
     }
 }
 
 #[test]
 fn startup_and_edited_metadata_keep_defensive_recipes_without_reserving_buttons() {
-    use kirby_assist_core::{fighter_profiles::FighterProfiles, ledge_menu::MenuSelection};
+    use kirby_assist_core::{fighter_profiles::FighterProfiles, settings_menu::MenuSelection};
     let text="[bowser.x.response]\nstart_delay=0\ndefault=false\nreaction=shield_hit:any:0:12:18:any:1\nactions=up_b:4\n";
     let mut profiles = FighterProfiles::default();
     profiles

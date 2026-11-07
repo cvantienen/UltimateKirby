@@ -6,6 +6,22 @@
 //! cooldown begin. A prediction or a requested button alone is not delivery.
 //! See src/live/tech.rs for native detection and tech_prediction.rs for geometry.
 use crate::tech_prediction::{CATCHED_AIR_END_GANON, CATCHED_GANON};
+pub const DEFAULT_PASSIVE_TRIGGER_FRAME: u16 = 12;
+pub const DEFAULT_GANON_PASSIVE_TRIGGER_FRAME: u16 = 7;
+pub const MAX_INPUT_DELAY_FRAMES: f32 = 12.0;
+pub const MAX_REACTION_REMAINING_FRAMES: f32 = 1200.0;
+pub const MIN_TECH_COOLDOWN_FRAMES: u16 = 2;
+const MAX_HITSTOP_OBSERVATION_FRAMES: u64 = 120;
+const MAX_REACTION_CLOCK_ADVANCE_FRAMES: f32 = 4.0;
+const STABLE_ANIMATION_RATE_EPSILON: f32 = 0.001;
+const MAX_ANIMATION_CLOCK_ADVANCE_FRAMES: f32 = 4.0;
+const MIN_NATIVE_TECH_WINDOW_FRAMES: u16 = 2;
+const MAX_NATIVE_TECH_WINDOW_FRAMES: u16 = 60;
+const TECH_WINDOW_SAFETY_MARGIN_FRAMES: u16 = 3;
+const MIN_TECH_ARRIVAL_LEAD_FRAMES: u16 = 1;
+const NEAR_CONTACT_EXTRA_MARGIN_FRAMES: f32 = 2.0;
+const URGENT_CONTACT_LEAD_FRAMES: f32 = 1.25;
+const MAX_GUARD_PREPARATION_ADVANCES: u8 = 3;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TechContext {
     pub object: u32,
@@ -83,8 +99,10 @@ impl TechInput {
                         contact.is_finite()
                             && contact >= 0.
                             && (self.delivery.is_some()
-                                || contact - c.remaining_stop as f32 - c.input_delay.clamp(0., 12.)
-                                    <= 1.25)
+                                || contact
+                                    - c.remaining_stop as f32
+                                    - c.input_delay.clamp(0., MAX_INPUT_DELAY_FRAMES)
+                                    <= URGENT_CONTACT_LEAD_FRAMES)
                     })
             })
     }
@@ -103,7 +121,7 @@ impl TechInput {
     /// Called only after a fresh mapped GUARD edge, never for a policy proposal.
     pub fn mapped_press(&mut self) {
         if self.waiting_for_mapper && self.output.press {
-            self.cooldown = f32::from(self.cooldown_setting.max(2));
+            self.cooldown = f32::from(self.cooldown_setting.max(MIN_TECH_COOLDOWN_FRAMES));
             self.waiting_for_mapper = false;
             if self.native_guard.is_some() {
                 self.delivery = self.last.map(|stamp| Delivery {
@@ -131,7 +149,7 @@ impl TechInput {
                 )
                 || matches!(ctx.status, CATCHED_GANON | CATCHED_AIR_END_GANON)
         }) {
-            self.cooldown = f32::from(self.cooldown_setting.max(2));
+            self.cooldown = f32::from(self.cooldown_setting.max(MIN_TECH_COOLDOWN_FRAMES));
             self.waiting_for_mapper = false;
             self.output = TechOutput::default();
             self.delivery = None;
@@ -156,7 +174,15 @@ impl TechInput {
         ctx: TechContext,
         reaction_remaining: Option<f32>,
     ) -> TechOutput {
-        self.sample_with_native_window(enabled, takeover, cooldown, ctx, reaction_remaining, 12, 7)
+        self.sample_with_native_window(
+            enabled,
+            takeover,
+            cooldown,
+            ctx,
+            reaction_remaining,
+            DEFAULT_PASSIVE_TRIGGER_FRAME,
+            DEFAULT_GANON_PASSIVE_TRIGGER_FRAME,
+        )
     }
     /// Native windows count the input frame too. Keep a three-frame margin for
     /// release, mapper delivery and collision refinement, without guessing a
@@ -232,7 +258,7 @@ impl TechInput {
         let reaction_remaining = reaction_remaining.filter(|v| {
             v.is_finite()
                 && *v > 0.
-                && *v <= 1200.
+                && *v <= MAX_REACTION_REMAINING_FRAMES
                 && (crate::native_states::status::DAMAGE_FLY
                     ..=crate::native_states::status::DAMAGE_FALL)
                     .contains(&ctx.status)
@@ -249,7 +275,9 @@ impl TechInput {
             .and_then(|_| previous_reaction.zip(reaction_remaining))
             .and_then(|(previous, current)| {
                 let elapsed = previous - current;
-                (0.0..=4.0).contains(&elapsed).then_some(elapsed)
+                (0.0..=MAX_REACTION_CLOCK_ADVANCE_FRAMES)
+                    .contains(&elapsed)
+                    .then_some(elapsed)
             });
         // Even an unavailable animation clock can be followed by a real human
         // guard edge. Remember its configured lockout before early returns.
@@ -272,21 +300,22 @@ impl TechInput {
             && ctx.frame >= 0.0
             && ctx.rate.is_finite()
             && ctx.rate > 0.0
-            && ctx.motion != 0;
-        let hitstop_clock_known = ctx.stopped && (1..=120).contains(&ctx.remaining_stop);
+            && ctx.motion != crate::timing::NO_MOTION_KIND;
+        let hitstop_clock_known =
+            ctx.stopped && (1..=MAX_HITSTOP_OBSERVATION_FRAMES).contains(&ctx.remaining_stop);
         // Collision/air-escape eligibility is verified by the native adapter.
         // A frozen pose must not veto that safe imminent input merely because
         // no animation-derived elapsed time can be measured. It still cannot
         // advance a previous press's cooldown without an advancing clock.
         let native_safe =
             ctx.prepare_guard && crate::tech_prediction::tech_press_allowed(ctx.status, false);
-        if !ctx.input_delay.is_finite() || !animation_known && !hitstop_clock_known && !native_safe
-        {
+        let has_usable_clock = animation_known || hitstop_clock_known || native_safe;
+        if !ctx.input_delay.is_finite() || !has_usable_clock {
             // A missing/frozen native clock withholds input, but must not erase
             // a cooldown belonging to an already mapped shield press.
             self.last = Some(ctx);
             if consumed {
-                self.cooldown = f32::from(cooldown.max(2));
+                self.cooldown = f32::from(cooldown.max(MIN_TECH_COOLDOWN_FRAMES));
             }
             self.waiting_for_mapper = false;
             self.delivery = None;
@@ -300,7 +329,7 @@ impl TechInput {
                 let advance = if ctx.status == last.status
                     && ctx.motion == last.motion
                     && ctx.frame >= last.frame
-                    && (ctx.rate - last.rate).abs() < 0.001
+                    && (ctx.rate - last.rate).abs() < STABLE_ANIMATION_RATE_EPSILON
                 {
                     crate::timing::motion_progress(
                         // Preserve this cooldown's existing stable-rate policy.
@@ -316,7 +345,7 @@ impl TechInput {
                     )
                     .elapsed(0.0, 1.0)
                     .unwrap_or(0.0)
-                    .clamp(0.0, 4.0)
+                    .clamp(0.0, MAX_ANIMATION_CLOCK_ADVANCE_FRAMES)
                 } else {
                     0.0
                 };
@@ -327,7 +356,7 @@ impl TechInput {
         if consumed {
             // Native consumption can lag the mapper by a frame. Start the
             // no-rapid interval at the observed engine edge, not one frame early.
-            self.cooldown = f32::from(cooldown.max(2));
+            self.cooldown = f32::from(cooldown.max(MIN_TECH_COOLDOWN_FRAMES));
         }
         if !enabled {
             // Turning the feature off releases its proposal, not the native
@@ -341,14 +370,24 @@ impl TechInput {
         // The command-grab slam needs a tighter arrival margin than ordinary
         // tumble. Re-evaluate contact rather than replaying an old prediction.
         let arrival_lead = if ctx.status == CATCHED_GANON {
-            f32::from(ganon_window.clamp(2, 60).saturating_sub(3).max(1))
+            f32::from(
+                ganon_window
+                    .clamp(MIN_NATIVE_TECH_WINDOW_FRAMES, MAX_NATIVE_TECH_WINDOW_FRAMES)
+                    .saturating_sub(TECH_WINDOW_SAFETY_MARGIN_FRAMES)
+                    .max(MIN_TECH_ARRIVAL_LEAD_FRAMES),
+            )
         } else {
-            f32::from(window.clamp(2, 60).saturating_sub(3).max(1))
+            f32::from(
+                window
+                    .clamp(MIN_NATIVE_TECH_WINDOW_FRAMES, MAX_NATIVE_TECH_WINDOW_FRAMES)
+                    .saturating_sub(TECH_WINDOW_SAFETY_MARGIN_FRAMES)
+                    .max(MIN_TECH_ARRIVAL_LEAD_FRAMES),
+            )
         };
         let due = ctx.contact_in.is_some_and(|contact| {
             contact.is_finite()
                 && contact >= 0.0
-                && contact - ctx.input_delay.clamp(0.0, 12.0) <= arrival_lead
+                && contact - ctx.input_delay.clamp(0.0, MAX_INPUT_DELAY_FRAMES) <= arrival_lead
         });
         if !due || !crate::tech_prediction::tech_press_allowed(ctx.status, false) {
             self.waiting_for_mapper = false;
@@ -361,7 +400,8 @@ impl TechInput {
                     // hitstop preparation would starve SDI for an entire hit.
                     && ctx.contact_in.is_some_and(|contact|
                         contact.is_finite() && contact>=0.
-                            && contact-ctx.input_delay.clamp(0.,12.)<=arrival_lead+2.)
+                            && contact-ctx.input_delay.clamp(0.,MAX_INPUT_DELAY_FRAMES)
+                                <=arrival_lead+NEAR_CONTACT_EXTRA_MARGIN_FRAMES)
                     && crate::tech_prediction::tech_press_allowed(ctx.status, false),
             };
             return self.output;
@@ -379,7 +419,7 @@ impl TechInput {
             }
             delivery.stamp = ctx;
             delivery.reaction = reaction_remaining;
-            if ctx.prepare_guard && delivery.advances < 3 {
+            if ctx.prepare_guard && delivery.advances < MAX_GUARD_PREPARATION_ADVANCES {
                 self.delivery = Some(delivery);
                 self.output = TechOutput {
                     press: true,

@@ -10,9 +10,9 @@ pub(super) fn context() -> GameplayContext {
         can_control: true,
         stopped: false,
         status: crate::native_states::status::WAIT,
-        situation: 0,
+        situation: crate::native_states::situation::GROUND,
         motion_frame: 0.0,
-        motion_kind: 0,
+        motion_kind: crate::timing::NO_MOTION_KIND,
         motion_rate: 1.0,
         position: [0.0, 0.0],
         velocity: [0.0, 0.0],
@@ -42,7 +42,7 @@ pub(super) fn enemy(status: i32, vulnerable: bool) -> Opponent {
         id: 2,
         status,
         previous_status: crate::native_states::status::WAIT,
-        situation: 0,
+        situation: crate::native_states::situation::GROUND,
         vulnerable,
         position: [5.0, 0.0],
         velocity: [0.0, 0.0],
@@ -60,7 +60,7 @@ fn input_settings() -> LedgeSettings {
     let mut profiles = crate::fighter_profiles::FighterProfiles::default();
     profiles.add_sequence_choices(&catalog).unwrap();
     let p = profiles.profile(6).unwrap();
-    crate::ledge_menu::MenuSelection::new(&p.menu_options).settings(
+    crate::settings_menu::MenuSelection::new(&p.menu_options).settings(
         &p.menu_options,
         p.apply(LedgeSettings {
             enabled: true,
@@ -78,11 +78,36 @@ fn frame(n: f32) -> GameplayContext {
 #[test]
 fn every_recognized_getup_selects_only_its_file_timeline() {
     for (status, situation, previous, expected) in [
-        (CLIFF_CLIMB, 0, CLIFF_WAIT, MAPPER_A),
-        (CLIFF_JUMP1, 2, CLIFF_WAIT, MAPPER_B),
-        (CLIFF_ESCAPE, 0, CLIFF_WAIT, MAPPER_X),
-        (CLIFF_ATTACK, 0, CLIFF_WAIT, MAPPER_Y),
-        (0xe, 2, CLIFF_WAIT, MAPPER_R),
+        (
+            CLIFF_CLIMB,
+            crate::native_states::situation::GROUND,
+            CLIFF_WAIT,
+            MAPPER_A,
+        ),
+        (
+            CLIFF_JUMP1,
+            crate::native_states::situation::AIR,
+            CLIFF_WAIT,
+            MAPPER_B,
+        ),
+        (
+            CLIFF_ESCAPE,
+            crate::native_states::situation::GROUND,
+            CLIFF_WAIT,
+            MAPPER_X,
+        ),
+        (
+            CLIFF_ATTACK,
+            crate::native_states::situation::GROUND,
+            CLIFF_WAIT,
+            MAPPER_Y,
+        ),
+        (
+            crate::native_states::status::FALL,
+            crate::native_states::situation::AIR,
+            CLIFF_WAIT,
+            MAPPER_R,
+        ),
     ] {
         let mut trap = LedgeTrap::default();
         let output = trap.sample(
@@ -103,10 +128,10 @@ fn hanging_and_ordinary_airborne_movement_do_not_start_an_option() {
     for target in [
         enemy(CLIFF_WAIT, false),
         Opponent {
-            situation: 2,
-            ..enemy(0xe, false)
+            situation: crate::native_states::situation::AIR,
+            ..enemy(crate::native_states::status::FALL, false)
         },
-        enemy(0xb5, false),
+        enemy(crate::native_states::status::DEAD, false),
     ] {
         let mut trap = LedgeTrap::default();
         assert_eq!(
@@ -349,7 +374,7 @@ fn button_slots_execute_authored_delays_and_holds_without_a_ledge_or_move_readin
     let mut profiles = crate::fighter_profiles::FighterProfiles::default();
     profiles.add_sequence_choices(&c).unwrap();
     let p = profiles.profile(6).unwrap();
-    let s = crate::ledge_menu::MenuSelection::new(&p.menu_options).settings(
+    let s = crate::settings_menu::MenuSelection::new(&p.menu_options).settings(
         &p.menu_options,
         LedgeSettings {
             enabled: true,
@@ -386,7 +411,7 @@ fn button_slots_execute_authored_delays_and_holds_without_a_ledge_or_move_readin
             let ctx = GameplayContext {
                 can_act: false,
                 can_control: false,
-                situation: 2,
+                situation: crate::native_states::situation::AIR,
                 motion_frame: n as f32,
                 motion_kind: 123,
                 ..context()
@@ -404,7 +429,7 @@ fn button_slots_execute_authored_delays_and_holds_without_a_ledge_or_move_readin
 fn ness_can_create_first_neutral_recipe_without_other_ledge_entries() {
     use crate::{
         fighter_profiles::FighterProfiles,
-        ledge_menu::{MenuSelection, MENU_STICK_CLICK},
+        settings_menu::{MenuSelection, MENU_STICK_CLICK},
         native_input::*,
     };
     let profiles = FighterProfiles::default();

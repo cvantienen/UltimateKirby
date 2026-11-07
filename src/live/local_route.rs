@@ -11,7 +11,7 @@ pub(crate) unsafe fn valid_local_route(id: u32, index: i32) -> bool {
     }
     let object = game::module_accessor(id);
     !object.is_null()
-        && object.cast::<u8>().add(8).cast::<u32>().read() == id
+        && game::battle_object_id(object) == id
         && kirby_assist_core::native_input::controller_index(object.cast()) == Some(index)
         && human_fighter(object)
 }

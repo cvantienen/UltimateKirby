@@ -3,7 +3,7 @@ use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
     autopilot_guard::{recovery_warning, Envelope, GuardClock, GuardHold},
     fighter_profiles::FighterProfiles,
-    ledge_menu::MenuSelection,
+    settings_menu::MenuSelection,
     native_input::*,
     tech_input::{mapped_guard, TechContext, TechInput},
     tech_prediction::{tech_gate_with_floor, TechGate},
@@ -215,7 +215,7 @@ fn shield_stun_multihit_gaps_and_invalid_hitstop_clock_keep_guard_then_release_w
     assert!(shield.sample(true, true, clock(10.)));
     let frozen = GuardClock {
         status: kirby_assist_core::native_states::GUARD_DAMAGE,
-        motion: 0,
+        motion: kirby_assist_core::timing::NO_MOTION_KIND,
         frame: f32::NAN,
         rate: 0.,
         stopped: true,

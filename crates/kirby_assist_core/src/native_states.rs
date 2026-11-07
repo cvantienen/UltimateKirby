@@ -2,6 +2,8 @@
 //! Own incapacitation and opponent punishability are deliberately distinct.
 pub mod fighter_status;
 mod final_states;
+pub mod ground_touch;
+pub mod situation;
 pub mod status;
 pub mod transition_terms;
 mod up_special;

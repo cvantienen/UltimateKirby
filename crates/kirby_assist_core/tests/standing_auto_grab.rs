@@ -345,7 +345,7 @@ fn grab_dodge_ignores_running_even_if_the_native_escape_term_is_enabled() {
         let context = DodgeContext {
             object: 1,
             status,
-            situation: 0,
+            situation: kirby_assist_core::native_states::situation::GROUND,
             motion: 1,
             frame: 0.,
             rate: 1.,
@@ -428,7 +428,7 @@ fn endlag_clears_grab_attempt_and_cannot_replay_an_expired_grab_threat() {
     let context = DodgeContext {
         object: 1,
         status: kirby_assist_core::native_states::status::ATTACK_S4,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: 1,
         frame: 0.,
         rate: 1.,

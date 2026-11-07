@@ -32,7 +32,7 @@ impl NativeAttempt {
             self.enemy_was_fresh = false;
             return;
         }
-        if ctx.motion_kind == 0
+        if ctx.motion_kind == crate::timing::NO_MOTION_KIND
             || !ctx.motion_frame.is_finite()
             || ctx.motion_frame < 0.0
             || !ctx.motion_rate.is_finite()
@@ -204,6 +204,9 @@ mod tests {
         }
         assert!(super::super::needs_opponent_clock(0, 0.0));
         assert!(!super::super::needs_opponent_clock(0, 1.0));
-        assert!(!super::super::needs_opponent_clock(0xe, 1.0));
+        assert!(!super::super::needs_opponent_clock(
+            crate::native_states::status::FALL,
+            1.0
+        ));
     }
 }

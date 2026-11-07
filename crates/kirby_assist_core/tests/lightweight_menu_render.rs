@@ -10,7 +10,7 @@
 extern crate self as imgui_api;
 use kirby_assist_core::{
     fighter_profiles::{FighterProfile, FighterProfiles},
-    ledge_menu::{MenuRow, MenuSelection, MENU_STICK_CLICK},
+    settings_menu::{MenuRow, MenuSelection, MENU_STICK_CLICK},
     native_input::*,
     sequence_config::Catalog,
 };
@@ -18,10 +18,10 @@ use std::{
     cell::RefCell,
     ffi::{c_char, c_void, CStr},
 };
-#[path = "../../../src/live/ledge_menu/view.rs"]
+#[path = "../../../src/live/settings_menu/view.rs"]
 mod view;
 use view::Snapshot;
-#[path = "../../../src/live/ledge_menu/lightweight.rs"]
+#[path = "../../../src/live/settings_menu/lightweight.rs"]
 mod lightweight;
 #[derive(Default)]
 struct Trace {
@@ -441,7 +441,7 @@ mod publisher {
             DEFERRED_CLEAR.store(false, Ordering::Release);
         }
     }
-    include!("../../../src/live/ledge_menu/publish.rs");
+    include!("../../../src/live/settings_menu/publish.rs");
     #[test]
     fn actual_publisher_builds_refreshes_and_retries_without_missing_scope_or_blocking() {
         let profiles = profiles();

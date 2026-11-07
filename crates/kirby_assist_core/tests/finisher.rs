@@ -32,19 +32,19 @@ fn short_hop_descent_timeout_releases_controls_and_does_not_restart_while_held()
         let mut tool = Finisher::default();
         start(&mut tool, mode);
         let motion = if mode == YMode::FairSmash {
-            0xc3495ada5
+            kirby_assist_core::timing::MOTION_ATTACK_AIR_F
         } else {
-            0xd40042152
+            kirby_assist_core::timing::MOTION_ATTACK_AIR_LW
         };
         for frame in 0..16 {
-            let c = ctx(0x36, motion, frame as f32, false);
+            let c = ctx(kirby_assist_core::native_states::status::ATTACK_AIR, motion, frame as f32, false);
             assert_ne!(tool.sample(true, true, mode, c).owned, 0);
             for _ in 0..4 {
                 tool.sample(true, true, mode, c);
             }
         }
-        tool.sample(true, true, mode, ctx(0x36, motion, 16.0, false));
-        let released = tool.sample(true, true, mode, ctx(0x36, motion, 17.0, false));
+        tool.sample(true, true, mode, ctx(kirby_assist_core::native_states::status::ATTACK_AIR, motion, 16.0, false));
+        let released = tool.sample(true, true, mode, ctx(kirby_assist_core::native_states::status::ATTACK_AIR, motion, 17.0, false));
         assert_eq!(released.owned, 0);
         assert_eq!(released.stick, None);
         assert!(!tool.active());
@@ -118,7 +118,7 @@ fn fair_combo_marks_delayed_takeoff_short_then_fast_falls_and_holds_down_until_l
     );
     assert!(!tool.requests_short_hop());
     for frame in 0..12 {
-        let mut airborne = ctx(0x36, 0xc3495ada5, frame as f32, false);
+        let mut airborne = ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_F, frame as f32, false);
         airborne.fighter.hit_now = frame == 10;
         let down = tool.sample(true, true, mode, airborne);
         assert_eq!(down.stick, Some([0.0, -1.0]));
@@ -190,11 +190,11 @@ fn delayed_jump_acceptance_preserves_every_finisher_and_never_repeats_jump() {
             "{mode:?} must proceed after native Jump"
         );
         let motion = match mode {
-            YMode::FairSmash => 0xc3495ada5,
-            YMode::DairSmash => 0xd40042152,
+            YMode::FairSmash => kirby_assist_core::timing::MOTION_ATTACK_AIR_F,
+            YMode::DairSmash => kirby_assist_core::timing::MOTION_ATTACK_AIR_LW,
             YMode::YoshiBairSmash => kirby_assist_core::timing::motion_hash("attack_air_b"),
         };
-        let accepted = f.sample(true, false, mode, make(0x36, motion, 0.0, true));
+        let accepted = f.sample(true, false, mode, make(kirby_assist_core::native_states::status::ATTACK_AIR, motion, 0.0, true));
         assert_eq!(accepted.requested, 0);
         assert!(f.active());
     }
@@ -269,9 +269,9 @@ fn fair_waits_for_apex_then_selects_fair_before_fast_fall_and_requires_hit() {
     let fair = tool.sample(true, false, mode, apex);
     assert_eq!(fair.requested, MAPPER_A);
     assert_eq!(fair.stick, Some([1.0, 0.0]));
-    let accepted = ctx(0x36, 0xc3495ada5, 0.0, false);
+    let accepted = ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_F, 0.0, false);
     assert_eq!(tool.sample(true, false, mode, accepted).requested, 0);
-    let down = tool.sample(true, false, mode, ctx(0x36, 0xc3495ada5, 4.0, false));
+    let down = tool.sample(true, false, mode, ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_F, 4.0, false));
     assert_eq!(down.stick, Some([0.0, -1.0]));
     assert!(!tool.confirmed());
     assert_eq!(
@@ -366,11 +366,11 @@ fn aerial_delivery_buffers_in_squat_retries_missed_inputs_and_stops_on_native_ac
             }
             assert!(retry_edge, "an ignored A must get a fresh press edge");
             let motion = match mode {
-                YMode::DairSmash => 0xd40042152,
-                YMode::FairSmash => 0xc3495ada5,
+                YMode::DairSmash => kirby_assist_core::timing::MOTION_ATTACK_AIR_LW,
+                YMode::FairSmash => kirby_assist_core::timing::MOTION_ATTACK_AIR_F,
                 YMode::YoshiBairSmash => kirby_assist_core::timing::motion_hash("attack_air_b"),
             };
-            let accepted = tool.sample(true, false, mode, make(0x36, motion, 0.0, false));
+            let accepted = tool.sample(true, false, mode, make(kirby_assist_core::native_states::status::ATTACK_AIR, motion, 0.0, false));
             assert_eq!(accepted.requested, 0);
             assert!(tool.active());
         }
@@ -382,13 +382,13 @@ fn both_routes_confirm_real_hits_then_buffer_landing_smashes_without_charging_or
         let mut tool = Finisher::default();
         start(&mut tool, mode);
         let motion = if mode == YMode::FairSmash {
-            0xc3495ada5
+            kirby_assist_core::timing::MOTION_ATTACK_AIR_F
         } else {
-            0xd40042152
+            kirby_assist_core::timing::MOTION_ATTACK_AIR_LW
         };
         let first = if mode == YMode::FairSmash { 10 } else { 18 };
         for frame in 0..=first {
-            let mut c = ctx(0x36, motion, frame as f32, false);
+            let mut c = ctx(kirby_assist_core::native_states::status::ATTACK_AIR, motion, frame as f32, false);
             c.velocity_y = if frame < first { 0.5 } else { -0.5 };
             c.fighter.hit_now = frame == first;
             c.fighter.stopped = frame == first;
@@ -448,12 +448,12 @@ fn whiffs_shields_damage_and_mode_changes_never_issue_a_finisher() {
         let mut tool = Finisher::default();
         start(&mut tool, mode);
         let motion = if mode == YMode::FairSmash {
-            0xc3495ada5
+            kirby_assist_core::timing::MOTION_ATTACK_AIR_F
         } else {
-            0xd40042152
+            kirby_assist_core::timing::MOTION_ATTACK_AIR_LW
         };
         for frame in 0..=11 {
-            tool.sample(true, false, mode, ctx(0x36, motion, frame as f32, false));
+            tool.sample(true, false, mode, ctx(kirby_assist_core::native_states::status::ATTACK_AIR, motion, frame as f32, false));
         }
         assert_eq!(
             tool.sample(true, false, mode, ctx(0x18, 4, 0.0, true))
@@ -485,7 +485,7 @@ fn dair_landing_hit_and_later_fair_hits_confirm_their_finishers() {
         true,
         false,
         YMode::DairSmash,
-        ctx(0x36, 0xd40042152, 0.0, false),
+        ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_LW, 0.0, false),
     );
     let mut landing = ctx(
         0x18,
@@ -502,7 +502,7 @@ fn dair_landing_hit_and_later_fair_hits_confirm_their_finishers() {
     let mut tool = Finisher::default();
     start(&mut tool, YMode::FairSmash);
     for frame in 0..=17 {
-        let mut c = ctx(0x36, 0xc3495ada5, frame as f32, false);
+        let mut c = ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_F, frame as f32, false);
         c.velocity_y = if frame < 10 { 0.5 } else { -0.5 };
         c.fighter.hit_now = frame == 10 || frame == 17;
         tool.sample(true, false, YMode::FairSmash, c);
@@ -525,7 +525,7 @@ fn fair_confirm_persists_through_later_hits_and_aims_up_fsmash_at_current_enemy(
         let mode = YMode::FairSmash;
         start(&mut tool, mode);
         for frame in 0..=26 {
-            let mut c = ctx(0x36, 0xc3495ada5, frame as f32, false);
+            let mut c = ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_F, frame as f32, false);
             c.velocity_y = if frame < 17 { 0.5 } else { -0.5 };
             c.fighter.hit_now = frame == hit_frame;
             tool.sample(true, false, mode, c);
@@ -561,16 +561,16 @@ fn fair_confirm_persists_through_later_hits_and_aims_up_fsmash_at_current_enemy(
 #[test]
 fn fair_contact_on_landing_or_grounded_air_status_still_arms_fsmash() {
     for landing_motion in [
-        0xc3495ada5,
+        kirby_assist_core::timing::MOTION_ATTACK_AIR_F,
         kirby_assist_core::timing::motion_hash("landing_air_f"),
     ] {
         let mut tool = Finisher::default();
         let mode = YMode::FairSmash;
         start(&mut tool, mode);
-        tool.sample(true, false, mode, ctx(0x36, 0xc3495ada5, 0.0, false));
+        tool.sample(true, false, mode, ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_F, 0.0, false));
         let mut contact = ctx(
-            if landing_motion == 0xc3495ada5 {
-                0x36
+            if landing_motion == kirby_assist_core::timing::MOTION_ATTACK_AIR_F {
+                kirby_assist_core::native_states::status::ATTACK_AIR
             } else {
                 0x18
             },
@@ -599,7 +599,7 @@ fn disabled_and_identity_changes_cancel_even_a_confirmed_route() {
         let mut tool = Finisher::default();
         start(&mut tool, YMode::FairSmash);
         for frame in 0..=10 {
-            let mut c = ctx(0x36, 0xc3495ada5, frame as f32, false);
+            let mut c = ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_F, frame as f32, false);
             c.fighter.hit_now = frame == 10;
             tool.sample(true, false, YMode::FairSmash, c);
         }
@@ -641,7 +641,7 @@ fn yoshi_sprint_instant_turnaround_bair_confirms_then_faces_target_for_fsmash() 
     );
     for frame in 0..=11 {
         let mut c = make(
-            0x36,
+            kirby_assist_core::native_states::status::ATTACK_AIR,
             kirby_assist_core::timing::motion_hash("attack_air_b"),
             frame as f32,
             false,
@@ -672,7 +672,13 @@ fn yoshi_sprint_instant_turnaround_bair_confirms_then_faces_target_for_fsmash() 
 #[test]
 fn kirby_starters_accept_all_grounded_movement_states_and_queue_transient_jump_readiness() {
     use kirby_assist_core::finisher::grounded_start_allowed;
-    for status in (0..=9).chain(0x11..=0x15) {
+    for status in (kirby_assist_core::native_states::status::WAIT
+        ..=kirby_assist_core::native_states::status::TURN_RUN_BRAKE)
+        .chain(
+            kirby_assist_core::native_states::status::SQUAT
+                ..=kirby_assist_core::native_states::status::SQUAT_RV,
+        )
+    {
         for mode in [YMode::FairSmash, YMode::DairSmash] {
             let mut tool = Finisher::default();
             let mut moving = ctx(
@@ -743,11 +749,11 @@ fn descending_dair_rearms_down_after_delayed_acceptance_then_keeps_it_held() {
     let mut tool = Finisher::default();
     let mode = YMode::DairSmash;
     start(&mut tool, mode);
-    let accepted = tool.sample(true, false, mode, ctx(0x36, 0xd40042152, 0.0, false));
+    let accepted = tool.sample(true, false, mode, ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_LW, 0.0, false));
     assert_eq!(accepted.stick, Some([0.0; 2]));
-    let down = tool.sample(true, false, mode, ctx(0x36, 0xd40042152, 1.0, false));
+    let down = tool.sample(true, false, mode, ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_LW, 1.0, false));
     assert_eq!(down.stick, Some([0.0, -1.0]));
-    let mut rising_read = ctx(0x36, 0xd40042152, 2.0, false);
+    let mut rising_read = ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_LW, 2.0, false);
     rising_read.velocity_y = 0.1;
     assert_eq!(
         tool.sample(true, false, mode, rising_read).stick,
@@ -759,7 +765,7 @@ fn descending_dair_rearms_down_after_delayed_acceptance_then_keeps_it_held() {
 fn automatic_fair_followup_holds_down_across_frozen_hit_frames() {
     use kirby_assist_core::combat_assist::FairFollowup;
     let mut tool = FairFollowup::default();
-    let mut hit = ctx(0x36, 0xc3495ada5, 10.0, false).fighter;
+    let mut hit = ctx(kirby_assist_core::native_states::status::ATTACK_AIR, kirby_assist_core::timing::MOTION_ATTACK_AIR_F, 10.0, false).fighter;
     hit.hit_now = true;
     assert_eq!(
         tool.sample_with_velocity(true, hit, -0.5).stick,

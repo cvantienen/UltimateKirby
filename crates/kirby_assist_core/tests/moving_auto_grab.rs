@@ -219,7 +219,7 @@ fn airborne_snapshots_and_unready_movement_never_start_a_grab_and_landing_does_n
         let mut own = lc(3);
         match mismatch {
             0 => ctx.grounded = false,
-            1 => own.situation = 2,
+            1 => own.situation = kirby_assist_core::native_states::situation::AIR,
             _ => ctx.can_grab = false,
         }
         assert_eq!(
@@ -329,7 +329,7 @@ fn ground_up_b_admission_keeps_tracking_after_native_takeoff_without_starting_ne
         for frame in 1..=5 {
             let own = GameplayContext {
                 status: kirby_assist_core::native_states::status::SPECIAL_HI,
-                situation: 2,
+                situation: kirby_assist_core::native_states::situation::AIR,
                 motion_frame: frame as f32,
                 ..lc(start)
             };
@@ -369,7 +369,7 @@ fn ground_up_b_admission_keeps_tracking_after_native_takeoff_without_starting_ne
                     &rules,
                     LedgeSettings::default(),
                     GameplayContext {
-                        situation: 2,
+                        situation: kirby_assist_core::native_states::situation::AIR,
                         ..lc(start)
                     },
                     ts,

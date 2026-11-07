@@ -14,6 +14,7 @@ use parser::{parse_slot, slot_name, valid_id, words_id};
 
 pub const MAX_ACTIONS: usize = 32;
 pub const MAX_FILE_BYTES: u64 = 512 * 1024;
+pub const MAX_SEQUENCE_FRAME_COUNT: u16 = 3600;
 // Admission bound only: parser allocation uses the actual header count, and
 // live menus expand only the selected fighter. Leaves room for Pyra/Mythra
 // without removing any saved choices; the 512 KiB file limit remains unchanged.
@@ -294,7 +295,7 @@ impl Default for Sequence {
             actions: [Action::Empty; MAX_ACTIONS],
             len: 0,
             start_delay: 0,
-            timeout: 3600,
+            timeout: MAX_SEQUENCE_FRAME_COUNT,
             spatial_timeout: 60,
             mode: None,
             builtin: None,

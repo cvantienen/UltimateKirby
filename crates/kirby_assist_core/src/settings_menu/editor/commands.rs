@@ -519,7 +519,7 @@ impl RecipeEditor {
     ) -> Option<(bool, bool)> {
         use crate::native_input::{MAPPER_A as A, MAPPER_B as B};
         let shoulders = MAPPER_ZL | MAPPER_ZR;
-        if pressed & crate::ledge_menu::MENU_STICK_CLICK != 0
+        if pressed & crate::settings_menu::MENU_STICK_CLICK != 0
             || buttons == MAPPER_Y && pressed & MAPPER_Y != 0
             || buttons == MAPPER_X && pressed & MAPPER_X != 0
         {
@@ -571,7 +571,7 @@ impl RecipeEditor {
                 }
                 return Some((false, false));
             }
-            if pressed & crate::ledge_menu::MENU_STICK_CLICK != 0 {
+            if pressed & crate::settings_menu::MENU_STICK_CLICK != 0 {
                 return None;
             }
             if pressed & (A | shoulders) == 0 {
@@ -854,10 +854,10 @@ impl RecipeEditor {
         }
         Some((true, false))
     }
-    pub fn command_panel(&self, key: (usize, usize)) -> Option<crate::ledge_menu::RecipePanel> {
+    pub fn command_panel(&self, key: (usize, usize)) -> Option<crate::settings_menu::RecipePanel> {
         let modal = self.modal?;
         let r = self.recipes.get(&key)?;
-        let mut panel = crate::ledge_menu::RecipePanel::default();
+        let mut panel = crate::settings_menu::RecipePanel::default();
         match modal {
             Modal::Buttons { slot, item } => {
                 panel
@@ -1490,7 +1490,7 @@ mod menu_audit_tests {
         tap(&mut e, DST, MAPPER_B);
         assert!(matches!(e.modal, Some(Modal::Tools { item: 0, .. })));
         tap(&mut e, DST, MAPPER_A);
-        assert_eq!(tap(&mut e, DST, crate::ledge_menu::MENU_STICK_CLICK), None);
+        assert_eq!(tap(&mut e, DST, crate::settings_menu::MENU_STICK_CLICK), None);
         assert!(e.modal.is_none());
         assert!(e.return_modal.is_none());
         tap(&mut e, DST, MAPPER_ZL | MAPPER_ZR);

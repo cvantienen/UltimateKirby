@@ -1,13 +1,13 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
-    ledge_menu::{MenuRow, MenuSelection},
+    settings_menu::{MenuRow, MenuSelection},
     native_input::MAPPER_A,
     roll_read::{self, Choice, Context, RollRead, Target, ESCAPE_F},
 };
 fn own(frame: f32) -> Context {
     Context {
         status: kirby_assist_core::native_states::status::WAIT,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: 123,
         frame,
         rate: 1.0,

@@ -69,7 +69,11 @@ fn kirby_selects_smash_or_tilt_by_actual_recovery_and_issues_once() {
         assert_eq!(fire.requested, MAPPER_A);
         assert_eq!(fire.stick, Some(stick));
         let mut accepted = own(0.0);
-        accepted.starter.fighter.status = if remaining > 10.0 { 0x2d } else { 0x2c };
+        accepted.starter.fighter.status = if remaining > 10.0 {
+            kirby_assist_core::native_states::status::ATTACK_S4_START
+        } else {
+            kirby_assist_core::native_states::status::ATTACK_LW3
+        };
         accepted.starter.fighter.motion = 2;
         assert_eq!(
             p.sample(

@@ -2,6 +2,7 @@
 //!
 //! These values are copied between automation policies and the live adapter.
 //! They contain no game pointers and do not write native fighter state.
+const MAX_ANIMATION_FORECAST_FRAMES: f32 = 120.0;
 
 /// Read-only animation timing; remaining values are measured in game frames.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -29,7 +30,8 @@ pub fn frames_until(frame: f32, deadline: f32, rate: f32) -> Option<f32> {
         return None;
     }
     let remaining = (deadline - frame) / rate;
-    (deadline > 0.0 && (0.0..=120.0).contains(&remaining)).then_some(remaining)
+    (deadline > 0.0 && (0.0..=MAX_ANIMATION_FORECAST_FRAMES).contains(&remaining))
+        .then_some(remaining)
 }
 
 /// Validated native air kinetics for short movement forecasts.
@@ -54,7 +56,7 @@ impl AirPhysics {
     pub(crate) fn displacement(self, speed: f32, frames: f32) -> f32 {
         let mut speed = speed;
         let mut distance = 0.0;
-        let mut remaining = frames.clamp(0.0, 120.0);
+        let mut remaining = frames.clamp(0.0, MAX_ANIMATION_FORECAST_FRAMES);
         while remaining > 0.0 {
             let step = remaining.min(1.0);
             distance += speed * step;

@@ -8,7 +8,7 @@ fn context(frame: f32) -> Context {
     Context {
         object: 1,
         status: kirby_assist_core::native_states::status::WAIT,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: 1,
         frame,
         rate: 1.0,
@@ -119,7 +119,7 @@ fn distant_behind_high_expired_unknown_and_malformed_grabs_do_not_trigger() {
             ..target()
         },
         Target {
-            motion: 0,
+            motion: kirby_assist_core::timing::NO_MOTION_KIND,
             ..target()
         },
         Target {
@@ -164,7 +164,7 @@ fn movement_is_projected_to_the_same_time_as_grab_activity() {
 fn no_air_dodges_damage_recovery_cancels_or_forced_dodge_terms() {
     for c in [
         Context {
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..context(0.0)
         },
         Context {
@@ -483,7 +483,7 @@ fn stationary_shield_exception_does_not_allow_air_shieldstun_or_disabled_escape(
     };
     for c in [
         Context {
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..shield
         },
         Context {
@@ -535,7 +535,7 @@ fn pending_shield_dodge_holds_through_hitstop_but_releases_on_air() {
         );
     }
     assert_eq!(
-        dodge.sample(true, Context { situation: 2, ..c }, roster(target())),
+        dodge.sample(true, Context { situation: kirby_assist_core::native_states::situation::AIR, ..c }, roster(target())),
         ControllerOutput::default()
     );
 }

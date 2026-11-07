@@ -195,7 +195,7 @@ fn confirmed_native_guard_prevents_replayed_edges_across_frozen_poses_and_hitlag
     let c = TechContext {
         stopped: true,
         remaining_stop: 0,
-        motion: 0,
+        motion: kirby_assist_core::timing::NO_MOTION_KIND,
         frame: f32::NAN,
         rate: 0.,
         ..context()

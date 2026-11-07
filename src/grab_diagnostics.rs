@@ -1,15 +1,14 @@
 //! A small flight recorder for roll grabs. Hooks copy numbers into fixed storage;
 //! only the background logger formats the completed report. No gameplay decisions.
-use kirby_assist_core::ledge_trap::RollGrabSnapshot;
+use kirby_assist_core::{
+    ledge_trap::RollGrabSnapshot,
+    native_input::MAPPED_CATCH,
+};
 use std::{fmt::Write, time::Instant};
 
 const CHECKPOINTS: usize = 32;
 const PROGRESS_MS: u64 = 125;
 const WATCHDOG_MS: u64 = 3_000;
-// Verified against the pinned common/input.rs Buttons::CATCH (logical mapped
-// input, distinct from the physical R button or ControlModule command flags).
-const MAPPED_CATCH: u32 = 0x10;
-
 #[derive(Clone, Copy)]
 enum Event {
     Observation(RollGrabSnapshot),
@@ -351,7 +350,15 @@ mod tests {
             .format()
             .contains("overlay_not_delivered"));
         // GUARD is not CATCH; a shield mapping must not confirm grab delivery.
-        trace.mapped(MAPPER_R, MAPPER_R, MAPPER_R, 0x8, [0, 0], "ledge", now);
+        trace.mapped(
+            MAPPER_R,
+            MAPPER_R,
+            MAPPER_R,
+            kirby_assist_core::native_input::MAPPED_GUARD,
+            [0, 0],
+            "ledge",
+            now,
+        );
         assert!(trace
             .active
             .as_ref()

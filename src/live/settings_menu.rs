@@ -1,13 +1,14 @@
-//! Saved fighter ledge choices. No playback, target acquisition, or combo reads.
-//! Resolve response metadata on edits; rebuild UI strings only on revisions.
+//! Cached per-fighter menu selections and settings. No playback, target
+//! acquisition, or combo reads; resolve response metadata only on edits.
 use super::PROFILES;
 use kirby_assist_core::button_bindings::Mode;
-use kirby_assist_core::{ledge_menu::MenuSelection, ledge_trap::LedgeSettings};
+use kirby_assist_core::{settings_menu::MenuSelection, ledge_trap::LedgeSettings};
 use std::collections::BTreeMap;
 
 #[cfg(feature = "imgui-menu")]
+#[path = "settings_menu/menu.rs"]
 mod menu;
-#[path = "ledge_menu/save.rs"]
+#[path = "settings_menu/save.rs"]
 mod save;
 
 // Host adapters and worker tests share the same process-wide save globals.
@@ -59,7 +60,7 @@ pub(super) fn poll_maintenance() {
     };
     let cleanup =
         cleanup && !state.menu_battle_active && !super::MASTER_IN_MATCH.load(Ordering::Acquire);
-    if let Some(menu) = state.ledge_menu.as_mut() {
+    if let Some(menu) = state.settings_menu.as_mut() {
         if cleanup {
             menu.end_match();
         }
@@ -77,7 +78,7 @@ pub(super) fn poll_maintenance() {
 }
 
 #[derive(Default)]
-pub(super) struct LedgeMenu {
+pub(super) struct SettingsMenu {
     selections: BTreeMap<i32, MenuSelection>,
     kind: Option<i32>,
     pub consumed: u32,
@@ -107,7 +108,7 @@ pub(super) struct LedgeMenu {
     #[cfg(feature = "diagnostic-logging")]
     retained_stamp: Option<(i32, u64)>,
 }
-impl LedgeMenu {
+impl SettingsMenu {
     /// Native fighter changes can precede the next mapper/menu poll. Never
     /// expose a previous fighter's automatic rules or ranges in that gap.
     pub fn for_fighter(&self, kind: i32) -> Option<&Self> {
@@ -599,8 +600,8 @@ impl LedgeMenu {
             & (kirby_assist_core::manual_controls::DPAD_SIDES
                 | kirby_assist_core::manual_controls::DPAD_UP
                 | kirby_assist_core::ledge_trap::DPAD_DOWN
-                | kirby_assist_core::ledge_menu::MENU_STICK_CLICK
-                | kirby_assist_core::ledge_menu::TWO_FRAME_TRIGGER
+                | kirby_assist_core::settings_menu::MENU_STICK_CLICK
+                | kirby_assist_core::settings_menu::TWO_FRAME_TRIGGER
                 | kirby_assist_core::manual_controls::SHORT_HOP_TRIGGER
                 | kirby_assist_core::native_input::MAPPER_Y
                 | kirby_assist_core::native_input::MAPPER_MINUS
@@ -914,5 +915,5 @@ pub(super) fn install() {
 }
 
 #[cfg(test)]
-#[path = "ledge_menu/save_completion_tests.rs"]
+#[path = "settings_menu/save_completion_tests.rs"]
 mod save_completion_tests;

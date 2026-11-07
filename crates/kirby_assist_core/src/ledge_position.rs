@@ -5,11 +5,27 @@
 //! This prepares a stance for the selected response. Ordered response inputs
 //! are executed separately by `ledge_trap/file_timeline.rs`.
 use crate::ledge_trump::floor_edge_with_limit;
+const MAX_GROUNDED_LEDGE_SCAN_DISTANCE: u16 = 400;
 use crate::{
     gameplay::{ControllerOutput, GameplayContext},
     ledge_trap::LedgeSettings,
     native_input::ASSIST_BUTTONS,
 };
+
+fn eligible_for_positioning(settings: LedgeSettings, ctx: GameplayContext) -> bool {
+    settings.enabled
+        && ctx.held
+        && settings.auto_position
+        && ctx.can_act
+        && !ctx.stopped
+        && ctx.gameplay
+        && ctx
+            .position
+            .iter()
+            .chain(ctx.velocity.iter())
+            .all(|v| v.is_finite())
+        && ctx.facing.is_finite()
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeSpot {
@@ -25,7 +41,12 @@ pub fn nearest_ground_ledge(
     mut supported: impl FnMut([f32; 2]) -> bool,
     stand_distance: f32,
 ) -> Option<LedgeSpot> {
-    let edge = floor_edge_with_limit(position, facing, 400, &mut supported)?;
+    let edge = floor_edge_with_limit(
+        position,
+        facing,
+        MAX_GROUNDED_LEDGE_SCAN_DISTANCE,
+        &mut supported,
+    )?;
     let inward = (position[0] - edge[0]).signum();
     if inward == 0.0 || !stand_distance.is_finite() || stand_distance < 2.0 {
         return None;
@@ -68,7 +89,7 @@ impl LedgePosition {
     ) -> ControllerOutput {
         // Air always yields, even on a repeated mapper tick. Landing starts a
         // fresh floor selection rather than retaining a destination from flight.
-        if ctx.situation != 0 {
+        if ctx.situation != crate::native_states::situation::GROUND {
             *self = Self::default();
             return ControllerOutput::default();
         }
@@ -76,19 +97,7 @@ impl LedgePosition {
             *self = Self::default();
         }
         // Eligibility and cancellation must win over a duplicate-tick cache.
-        if !settings.enabled
-            || !ctx.held
-            || !settings.auto_position
-            || !ctx.can_act
-            || ctx.stopped
-            || !ctx.gameplay
-            || !ctx
-                .position
-                .iter()
-                .chain(ctx.velocity.iter())
-                .all(|v| v.is_finite())
-            || !ctx.facing.is_finite()
-        {
+        if !eligible_for_positioning(settings, ctx) {
             self.output = ControllerOutput::default();
             return self.output;
         }
@@ -105,13 +114,20 @@ impl LedgePosition {
         out.stick = Some([0.0, 0.0]);
         let dx = spot.edge[0] + spot.inward * settings.stand_distance - ctx.position[0];
         let predicted = dx - ctx.velocity[0] * 3.0;
-        if self.settled && (dx.abs() > 1.0 || ctx.velocity[0].abs() > 0.2) {
+        let stance_drifted = dx.abs() > 1.0 || ctx.velocity[0].abs() > 0.2;
+        if self.settled && stance_drifted {
             self.settled = false;
         }
-        if !self.settled && dx.abs() <= 0.5 && ctx.velocity[0].abs() <= 0.12 {
+        let at_stance = dx.abs() <= 0.5 && ctx.velocity[0].abs() <= 0.12;
+        if !self.settled && at_stance {
             self.settled = true;
         }
-        if !self.settled && predicted.abs() > 0.35 && predicted.signum() == dx.signum() {
+        let should_approach =
+            !self.settled && predicted.abs() > 0.35 && predicted.signum() == dx.signum();
+        let should_face_edge = self.settled
+            && ctx.facing * -spot.inward < 0.0
+            && ctx.safe_ground[usize::from(-spot.inward > 0.0)];
+        if should_approach {
             let strength = if dx.abs() > 12.0 {
                 settings.move_strength
             } else {
@@ -120,10 +136,7 @@ impl LedgePosition {
             if ctx.safe_ground[usize::from(dx > 0.0)] {
                 out.stick = Some([dx.signum() * strength, 0.0]);
             }
-        } else if self.settled
-            && ctx.facing * -spot.inward < 0.0
-            && ctx.safe_ground[usize::from(-spot.inward > 0.0)]
-        {
+        } else if should_face_edge {
             out.stick = Some([-spot.inward * 0.3, 0.0]);
         }
         self.output = out;

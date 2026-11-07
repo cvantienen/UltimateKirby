@@ -29,7 +29,7 @@ fn reset_state(state: &mut State) {
     let mut session = state.session;
     session.update(false);
     let sequence = state.observation_sequence.wrapping_add(1);
-    if let Some(mut menu) = state.ledge_menu.take() {
+    if let Some(mut menu) = state.settings_menu.take() {
         menu.display_battle(false);
         menu.end_match();
     }
@@ -74,7 +74,7 @@ pub(super) fn set_runtime_enabled(enabled: bool) {
     if let Ok(mut state) = STATE.lock() {
         reset_state(&mut state);
     } else {
-        ledge_menu::show_master_status(false);
+        settings_menu::show_master_status(false);
         return;
     }
     TRAINING_PASSTHROUGH.store(false, Ordering::Relaxed);
@@ -87,5 +87,5 @@ pub(super) fn set_runtime_enabled(enabled: bool) {
         crate::logging::clear_snapshot();
     }
     RUNTIME_ENABLED.store(enabled, Ordering::Release);
-    ledge_menu::show_master_status(enabled);
+    settings_menu::show_master_status(enabled);
 }

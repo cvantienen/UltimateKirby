@@ -17,13 +17,13 @@ mod shortcuts;
 pub use shortcuts::{ShortcutContext, Shortcuts};
 pub const TURBO_TRIGGER: u32 = 1 << 16; // Canonical turbo role; physical source comes from button bindings.
 pub const SHORT_HOP_TRIGGER: u32 = crate::native_input::MAPPER_X; // Canonical short-hop role; physical source is remappable.
-pub const DPAD_UP: u32 = 1;
-pub const DPAD_RIGHT: u32 = 1 << 1;
-pub const DPAD_LEFT: u32 = 1 << 3;
+pub const DPAD_UP: u32 = crate::native_input::MAPPER_DPAD_UP;
+pub const DPAD_RIGHT: u32 = crate::native_input::MAPPER_DPAD_RIGHT;
+pub const DPAD_LEFT: u32 = crate::native_input::MAPPER_DPAD_LEFT;
 pub const DPAD_SIDES: u32 = DPAD_LEFT | DPAD_RIGHT;
-pub const LEFT_STICK_DIRECTIONS: u32 = 0xf << 20;
-pub const RIGHT_STICK_DIRECTIONS: u32 = 0xf << 24;
-pub const STICK_CLICKS: u32 = 3 << 16;
+pub const LEFT_STICK_DIRECTIONS: u32 = crate::native_input::MAPPER_LEFT_STICK_DIRECTIONS;
+pub const RIGHT_STICK_DIRECTIONS: u32 = crate::native_input::MAPPER_RIGHT_STICK_DIRECTIONS;
+pub const STICK_CLICKS: u32 = crate::native_input::MAPPER_STICK_CLICKS;
 
 /// Preserve fine physical input and crouching while capping horizontal motion
 /// for manual ledge spacing. Attack recipes bypass this cap explicitly.
@@ -104,7 +104,7 @@ impl DpadReservation {
             return 0;
         }
         if physical & enabled != 0 {
-            self.quarantined |= physical & 0xf;
+            self.quarantined |= physical & crate::native_input::MAPPER_DPAD_BUTTONS;
         }
         // Include the old quarantine BEFORE dropping released bits: this poll
         // must swallow the release edge too. Enabled triggers stay reserved even
@@ -136,7 +136,7 @@ impl Default for TurboSettings {
 /// Grounded idle/walk/run/turn/crouch states qualify. Do not change game
 /// statuses to force the macro through attacks, grabs, hitstop, or aerial states.
 pub fn turbo_movement_allowed(status: i32, situation: i32, stopped: bool) -> bool {
-    situation == 0
+    situation == crate::native_states::situation::GROUND
         && !stopped
         && ((crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE)
             .contains(&status)
@@ -177,7 +177,7 @@ impl DashPivotAssist {
     ) -> TurboOutput {
         // Revalidate before the duplicate cache: landing/stop/damage and fresh
         // physical vertical input can change between mapper polls online.
-        if situation != 0
+        if situation != crate::native_states::situation::GROUND
             || stopped
             || !(crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN)
                 .contains(&status)
@@ -588,7 +588,7 @@ fn remove_consumed(trace: ButtonTrace, mask: u32) -> ButtonTrace {
 /// Physical bindings reserve taunts, but an explicit owned sequence request
 /// must retain its ordinary D-pad meaning. Side-taunt filtering is a pair.
 pub fn sequence_taunt_reservation(consumed: u32, requested: u32, owned: u32) -> u32 {
-    let intentional = requested & owned & 0xf;
+    let intentional = requested & owned & crate::native_input::MAPPER_DPAD_BUTTONS;
     let sides = if intentional & DPAD_SIDES != 0 {
         DPAD_SIDES
     } else {
@@ -598,16 +598,20 @@ pub fn sequence_taunt_reservation(consumed: u32, requested: u32, owned: u32) -> 
 }
 pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
     let sides = if consumed & DPAD_SIDES != 0 {
-        0x6000
+        crate::native_input::MAPPED_TAUNT_SIDES
     } else {
         0
     };
     let down = if consumed & crate::ledge_trap::DPAD_DOWN != 0 {
-        0x1000
+        crate::native_input::MAPPED_TAUNT_DOWN
     } else {
         0
     };
-    let up = if consumed & DPAD_UP != 0 { 0x400 } else { 0 };
+    let up = if consumed & DPAD_UP != 0 {
+        crate::native_input::MAPPED_TAUNT_UP
+    } else {
+        0
+    };
     mapped_buttons & !(sides | down | up)
 }
 

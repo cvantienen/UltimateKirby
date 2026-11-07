@@ -9,6 +9,9 @@
 use crate::ledge_trap::LedgeSettings;
 use crate::manual_controls::TurboSettings;
 
+pub const DEFAULT_TECH_COOLDOWN_FRAMES: u16 = 40;
+pub const DEFAULT_COLLISION_LOOKAHEAD_FRAMES: f32 = 3.0;
+
 #[derive(Clone, Copy, Debug)]
 // These are Copy values, so each callback can take a stable settings snapshot.
 // Fields named "frames" in the text config count observed mapper updates; their
@@ -35,7 +38,7 @@ impl Default for LiveSettings {
             auto_tech: true,
             tech_debug: false,
             takeover: false,
-            tech_cooldown: 40,
+            tech_cooldown: DEFAULT_TECH_COOLDOWN_FRAMES,
         }
     }
 }
@@ -82,7 +85,7 @@ impl Default for LiveConfig {
             turbo: TurboSettings::default(),
             ledge: LedgeSettings::default(),
             player_index: 0,
-            lookahead: 3.0,
+            lookahead: DEFAULT_COLLISION_LOOKAHEAD_FRAMES,
         }
     }
 }

@@ -30,7 +30,7 @@ fn dodge_context(frame: f32, status: i32) -> Context {
     Context {
         object: 1,
         status,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: 1,
         frame,
         rate: 1.,
@@ -241,7 +241,7 @@ fn lost_out_of_range_captured_airborne_and_disabled_followups_do_not_queue() {
             1 => e.position[0] = 35.01,
             2 => e.position[1] = 12.01,
             3 => e.status = kirby_assist_core::native_states::CAPTURE_PULLED,
-            4 => c.situation = 2,
+            4 => c.situation = kirby_assist_core::native_states::situation::AIR,
             5 => enabled = false,
             _ => unreachable!(),
         }
@@ -352,7 +352,7 @@ fn confirmed_up_b_tracks_for_69_native_frames_and_can_follow_air_spin() {
             Some(&recipe()),
             settings(),
             GameplayContext {
-                situation: 2,
+                situation: kirby_assist_core::native_states::situation::AIR,
                 ..own(
                     frame as f32,
                     kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,

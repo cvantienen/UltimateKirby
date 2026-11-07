@@ -7,6 +7,27 @@
 //! them after native mapping. This file does not decide which tool wins.
 use kirby_assist_core::native_input::ButtonTrace;
 
+const CONTROLLER_GYRO_REPEAT_BYTES: usize = 0x58;
+const CONTROLLER_COLOR_FLAGS_BYTES: usize = 0x17;
+const CONTROLLER_TRAILING_FLAGS_BYTES: usize = 8;
+const CONTROLLER_AUTOREPEAT_WORDS: usize = 3;
+const CONTROLLER_CURRENT_BUTTONS_OFFSET_BYTES: usize = 8;
+const CONTROLLER_PREVIOUS_BUTTONS_OFFSET_BYTES: usize = 0xc;
+const CONTROLLER_LEFT_STICK_X_OFFSET_BYTES: usize = 0x10;
+const CONTROLLER_LEFT_STICK_Y_OFFSET_BYTES: usize = 0x14;
+const CONTROLLER_LEFT_TRIGGER_OFFSET_BYTES: usize = 0x18;
+const CONTROLLER_RIGHT_STICK_X_OFFSET_BYTES: usize = 0x20;
+const CONTROLLER_RIGHT_STICK_Y_OFFSET_BYTES: usize = 0x24;
+const CONTROLLER_RIGHT_TRIGGER_OFFSET_BYTES: usize = 0x28;
+const CONTROLLER_JUST_DOWN_OFFSET_BYTES: usize = 0x88;
+const CONTROLLER_JUST_RELEASE_OFFSET_BYTES: usize = 0x8c;
+const CONTROLLER_AUTOREPEAT_OFFSET_BYTES: usize = 0x90;
+const CONTROLLER_STYLE_OFFSET_BYTES: usize = 0x9c;
+const CONTROLLER_CONNECTED_OFFSET_BYTES: usize = 0xbb;
+const CONTROLLER_NPAD_OFFSET_BYTES: usize = 0xc4;
+const MAPPED_INPUTS_SIZE_BYTES: usize = 8;
+const MAPPED_INPUTS_BUTTONS_OFFSET_BYTES: usize = 0;
+
 // Pinned Controller prefix: overlay button words, stick floats, and affected
 // repeat flags as requested by the active tool. Restore them after mapping.
 #[repr(C)]
@@ -25,34 +46,58 @@ pub(super) struct Controller {
     pub(super) right_trigger: f32,
     pub(super) right_padding: u32,
     // Rest of the native gyro/repeat prefix remains untouched.
-    pub(super) sticks_gyro_repeat: [u8; 0x58],
+    pub(super) sticks_gyro_repeat: [u8; CONTROLLER_GYRO_REPEAT_BYTES],
     pub(super) just_down: u32,
     pub(super) just_release: u32,
-    pub(super) autorepeat: [u32; 3],
+    pub(super) autorepeat: [u32; CONTROLLER_AUTOREPEAT_WORDS],
     pub(super) style: u32,
     pub(super) controller_id: u32,
-    pub(super) colors_and_flags: [u8; 0x17],
+    pub(super) colors_and_flags: [u8; CONTROLLER_COLOR_FLAGS_BYTES],
     pub(super) connected: u8,
-    pub(super) trailing_flags: [u8; 8],
+    pub(super) trailing_flags: [u8; CONTROLLER_TRAILING_FLAGS_BYTES],
     pub(super) npad: u32,
 }
 // Compile-time checks catch mistakes in OUR declared layout. They cannot prove
 // that an unknown/new game executable uses that same layout.
 const _: () = {
-    assert!(std::mem::offset_of!(Controller, current_buttons) == 8);
-    assert!(std::mem::offset_of!(Controller, previous_buttons) == 0xc);
-    assert!(std::mem::offset_of!(Controller, left_stick_x) == 0x10);
-    assert!(std::mem::offset_of!(Controller, left_stick_y) == 0x14);
-    assert!(std::mem::offset_of!(Controller, right_stick_x) == 0x20);
-    assert!(std::mem::offset_of!(Controller, right_stick_y) == 0x24);
-    assert!(std::mem::offset_of!(Controller, left_trigger) == 0x18);
-    assert!(std::mem::offset_of!(Controller, right_trigger) == 0x28);
-    assert!(std::mem::offset_of!(Controller, autorepeat) == 0x90);
-    assert!(std::mem::offset_of!(Controller, just_down) == 0x88);
-    assert!(std::mem::offset_of!(Controller, just_release) == 0x8c);
-    assert!(std::mem::offset_of!(Controller, style) == 0x9c);
-    assert!(std::mem::offset_of!(Controller, connected) == 0xbb);
-    assert!(std::mem::offset_of!(Controller, npad) == 0xc4);
+    assert!(
+        std::mem::offset_of!(Controller, current_buttons)
+            == CONTROLLER_CURRENT_BUTTONS_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(Controller, previous_buttons)
+            == CONTROLLER_PREVIOUS_BUTTONS_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(Controller, left_stick_x) == CONTROLLER_LEFT_STICK_X_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(Controller, left_stick_y) == CONTROLLER_LEFT_STICK_Y_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(Controller, left_trigger) == CONTROLLER_LEFT_TRIGGER_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(Controller, right_stick_x) == CONTROLLER_RIGHT_STICK_X_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(Controller, right_stick_y) == CONTROLLER_RIGHT_STICK_Y_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(Controller, right_trigger) == CONTROLLER_RIGHT_TRIGGER_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(Controller, just_down) == CONTROLLER_JUST_DOWN_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(Controller, just_release) == CONTROLLER_JUST_RELEASE_OFFSET_BYTES
+    );
+    assert!(
+        std::mem::offset_of!(Controller, autorepeat) == CONTROLLER_AUTOREPEAT_OFFSET_BYTES
+    );
+    assert!(std::mem::offset_of!(Controller, style) == CONTROLLER_STYLE_OFFSET_BYTES);
+    assert!(std::mem::offset_of!(Controller, connected) == CONTROLLER_CONNECTED_OFFSET_BYTES);
+    assert!(std::mem::offset_of!(Controller, npad) == CONTROLLER_NPAD_OFFSET_BYTES);
 };
 
 // Pinned MappedInputs result (common/input.rs). The post-map filter clears
@@ -66,8 +111,8 @@ pub(super) struct MappedInputs {
     pub(super) right_y: i8,
 }
 const _: () = {
-    assert!(std::mem::size_of::<MappedInputs>() == 8);
-    assert!(std::mem::offset_of!(MappedInputs, buttons) == 0);
+    assert!(std::mem::size_of::<MappedInputs>() == MAPPED_INPUTS_SIZE_BYTES);
+    assert!(std::mem::offset_of!(MappedInputs, buttons) == MAPPED_INPUTS_BUTTONS_OFFSET_BYTES);
 };
 
 // Copy the four physical button words before changing any of them.

@@ -44,7 +44,8 @@ mod game_ffi {
             let mut geometry: AttackGeometry = unsafe { std::mem::zeroed() };
             geometry.y = 8.;
             geometry.size = 1.;
-            geometry.situation = 3;
+            geometry.situation = kirby_assist_core::native_states::situation::ATTACK_GROUND_MASK
+                | kirby_assist_core::native_states::situation::ATTACK_AIR_MASK;
             geometry.reflectable = 1;
             Self {
                 header: 0,
@@ -52,7 +53,7 @@ mod game_ffi {
                 generation: 1,
                 kind: 0,
                 status: kirby_assist_core::native_states::status::WAIT,
-                situation: 0,
+                situation: kirby_assist_core::native_states::situation::GROUND,
                 stopped: false,
                 linked: false,
                 ready: true,
@@ -330,7 +331,9 @@ fn actual_capability_team_situation_and_active_geometry_filter_the_incoming_shot
             0 => p.geometry.direct = 1,
             1 => p.geometry.reflectable = 0,
             2 => p.team = 1,
-            3 => p.geometry.situation = 2,
+            3 => {
+                p.geometry.situation = kirby_assist_core::native_states::situation::ATTACK_AIR_MASK
+            }
             4 => p.active = false,
             5 => p.attacks = false,
             6 => p.geometry.size = f32::NAN,

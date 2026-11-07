@@ -29,7 +29,7 @@ pub(super) fn load_config() -> Result<LoadedConfig, String> {
 // the caller's small loader stack. This box is freed after publication.
 #[inline(never)]
 fn load_on_worker() -> Result<LoadedConfig, String> {
-    super::ledge_menu::recover_saved_file()?;
+    super::settings_menu::recover_saved_file()?;
     let sequences = match std::fs::metadata(SEQUENCES_PATH) {
         Ok(metadata) if metadata.len() > MAX_FILE_BYTES => {
             return Err(format!(

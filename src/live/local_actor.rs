@@ -7,7 +7,7 @@ pub(crate) unsafe fn human_fighter(object: *mut game::Object) -> bool {
     let Some(manager) = fighter_manager_instance() else {
         return false;
     };
-    let id = object.cast::<u8>().add(8).cast::<u32>().read();
+    let id = game::battle_object_id(object);
     if id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
         || !game::is_active(id)
     {

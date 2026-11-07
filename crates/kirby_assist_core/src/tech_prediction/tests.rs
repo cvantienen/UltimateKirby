@@ -8,12 +8,60 @@ fn crosses_plane(ray: &CollisionRay, axis: usize, position: f32) -> bool {
 
 #[test]
 fn native_gate_reasons_distinguish_disabled_hitstop_and_non_tumble_hits() {
-    assert_eq!(tech_gate(0x4b, 2, true, false), TechGate::PassiveDisabled);
-    assert_eq!(tech_gate(0x4b, 0, false, false), TechGate::NotAirborne);
-    assert_eq!(tech_gate(0x4b, 2, false, true), TechGate::Hitstop);
-    assert_eq!(tech_gate(0x47, 0, false, false), TechGate::OutsideTumble);
-    assert_eq!(tech_gate(0x48, 2, false, false), TechGate::OutsideTumble);
-    assert_eq!(tech_gate(0x4b, 2, false, false), TechGate::Predict);
+    assert_eq!(
+        tech_gate(
+            crate::native_states::status::DAMAGE_FLY_METEOR,
+            crate::native_states::situation::AIR,
+            true,
+            false
+        ),
+        TechGate::PassiveDisabled
+    );
+    assert_eq!(
+        tech_gate(
+            crate::native_states::status::DAMAGE_FLY_METEOR,
+            crate::native_states::situation::GROUND,
+            false,
+            false
+        ),
+        TechGate::NotAirborne
+    );
+    assert_eq!(
+        tech_gate(
+            crate::native_states::status::DAMAGE_FLY_METEOR,
+            crate::native_states::situation::AIR,
+            false,
+            true
+        ),
+        TechGate::Hitstop
+    );
+    assert_eq!(
+        tech_gate(
+            crate::native_states::status::DAMAGE,
+            crate::native_states::situation::GROUND,
+            false,
+            false
+        ),
+        TechGate::OutsideTumble
+    );
+    assert_eq!(
+        tech_gate(
+            crate::native_states::status::DAMAGE_AIR,
+            crate::native_states::situation::AIR,
+            false,
+            false
+        ),
+        TechGate::OutsideTumble
+    );
+    assert_eq!(
+        tech_gate(
+            crate::native_states::status::DAMAGE_FLY_METEOR,
+            crate::native_states::situation::AIR,
+            false,
+            false
+        ),
+        TechGate::Predict
+    );
 }
 
 #[test]
@@ -121,7 +169,10 @@ fn native_air_escape_availability_blocks_tech_guard_even_during_tumble() {
         assert!(tech_press_allowed(status, false));
         assert!(!tech_press_allowed(status, true));
     }
-    assert!(!tech_press_allowed(0xe, false));
+    assert!(!tech_press_allowed(
+        crate::native_states::status::FALL,
+        false
+    ));
     assert!(tech_press_allowed(CATCHED_GANON, false));
 }
 

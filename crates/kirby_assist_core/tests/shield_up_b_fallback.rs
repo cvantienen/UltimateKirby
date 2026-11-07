@@ -535,7 +535,7 @@ fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames(
         };
         let context = GameplayContext {
             status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..lc(frame as f32)
         };
         let out = o.sample_automatic_configured(
@@ -570,7 +570,7 @@ fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames(
         },
         GameplayContext {
             status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..lc(69.)
         },
         targets(50.),
@@ -669,7 +669,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
                 },
                 GameplayContext {
                     status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
-                    situation: 2,
+                    situation: kirby_assist_core::native_states::situation::AIR,
                     ..lc(0.)
                 },
                 targets(-10.),

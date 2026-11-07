@@ -104,7 +104,7 @@ impl WhiffPunisher {
             || own.rate <= 0.0
             || !c.position.iter().all(|x| x.is_finite())
             || !c.velocity_x.is_finite()
-            || own.motion == 0
+            || own.motion == crate::timing::NO_MOTION_KIND
             || !own.facing.is_finite()
             || own.facing.abs() < 0.5
         {
@@ -302,7 +302,7 @@ impl WhiffPunisher {
     }
 }
 fn valid(t: Target, c: Context) -> bool {
-    t.motion != 0
+    t.motion != crate::timing::NO_MOTION_KIND
         && t.frame.is_finite()
         && t.frame >= 0.0
         && t.remaining.is_finite()
@@ -323,7 +323,7 @@ fn controls(stick: [f32; 2], requested: u32) -> ControllerOutput {
     ControllerOutput {
         stick: Some(stick),
         requested,
-        owned: ASSIST_BUTTONS | 0xf,
+        owned: ASSIST_BUTTONS | crate::native_input::MAPPER_DPAD_BUTTONS,
         consume_trigger: false,
         native_short_hop: false,
     }

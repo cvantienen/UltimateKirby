@@ -10,11 +10,11 @@ static SEQUENCES_UPDATED: std::sync::atomic::AtomicBool = std::sync::atomic::Ato
 static MASTER_IN_MATCH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 struct HostState {
     menu_battle_active: bool,
-    ledge_menu: Option<live_menu::LedgeMenu>,
+    settings_menu: Option<live_menu::SettingsMenu>,
 }
 static STATE: Mutex<HostState> = Mutex::new(HostState {
     menu_battle_active: false,
-    ledge_menu: None,
+    settings_menu: None,
 });
 fn ledge_settings(_: Option<i32>, base: LedgeSettings) -> LedgeSettings {
     base
@@ -31,7 +31,7 @@ mod logging {
         super::CONFIGS.lock().unwrap().push(config);
     }
 }
-#[path = "../../../src/live/ledge_menu.rs"]
+#[path = "../../../src/live/settings_menu.rs"]
 mod live_menu;
 
 #[test]
@@ -42,7 +42,7 @@ fn configuration_logs_once_on_entry_and_on_choice_edits_but_not_navigation_or_po
         let c=kirby_assist_core::sequence_config::Catalog::parse("[kirby.jump.first]\nstart_delay=0\nactions=short_hop\n[kirby.jump.second]\nstart_delay=0\nactions=nair\n").unwrap();
         let mut profiles=FighterProfiles::default();profiles.add_sequence_choices(&c).unwrap();profiles
     });
-    let mut menu = live_menu::LedgeMenu::default();
+    let mut menu = live_menu::SettingsMenu::default();
     let mut sample = |kind, buttons| {
         menu.input(
             true,

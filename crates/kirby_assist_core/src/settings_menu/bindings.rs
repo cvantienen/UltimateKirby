@@ -23,7 +23,7 @@ impl MenuSelection {
         let physical = self.binding_physical;
         let binding_pressed = self.binding_pressed;
         let physical_quarantine = self.binding_layout.physical_buttons(quarantined);
-        let exclusive = (MAPPER_X | MAPPER_Y | 0xf) | self.binding_sources;
+        let exclusive = (MAPPER_X | MAPPER_Y | MAPPER_DPAD_BUTTONS) | self.binding_sources;
         if self.held_binding.is_some_and(|slot| {
             !available
                 || physical & slot.button() == 0
@@ -327,12 +327,12 @@ impl MenuSelection {
                 MENU_STICK_CLICK
                     | if self.lightweight {
                         if self.lightweight_navigation() {
-                            0xf
+                            MAPPER_DPAD_BUTTONS
                         } else {
                             0
                         }
                     } else {
-                        TWO_FRAME_TRIGGER | 0xf
+                        TWO_FRAME_TRIGGER | MAPPER_DPAD_BUTTONS
                     }
             };
             for (index, dest) in [MAPPER_X, MAPPER_L, TURBO_TRIGGER].into_iter().enumerate() {

@@ -8,7 +8,7 @@ static SEQUENCES_UPDATED: std::sync::atomic::AtomicBool = std::sync::atomic::Ato
 #[path = "."]
 mod live {
     #[allow(dead_code)]
-    #[path = "../../../src/live/ledge_menu/save.rs"]
+    #[path = "../../../src/live/settings_menu/save.rs"]
     mod menu_save;
 }
 
@@ -19,5 +19,5 @@ mod performance;
 
 // Exercise the exact cache-copy implementation without loading ImGui/native UI.
 #[allow(dead_code)]
-#[path = "../../../src/live/ledge_menu/text_cache.rs"]
+#[path = "../../../src/live/settings_menu/text_cache.rs"]
 mod menu_text_cache;

@@ -128,7 +128,7 @@ impl Response {
         enemy: Opponent,
     ) -> bool {
         if !c.gameplay
-            || c.situation != 0
+            || c.situation != crate::native_states::situation::GROUND
             || c.stopped
             || !c.can_act
             || !(crate::reaction_rules::automatic_start_status(c.status)
@@ -169,7 +169,7 @@ impl Response {
             return self.start_up_b(sequence, c, enemy);
         }
         if !c.gameplay
-            || c.situation != 0
+            || c.situation != crate::native_states::situation::GROUND
             || c.stopped
             || !c.can_act
             || !(crate::reaction_rules::automatic_start_status(c.status)
@@ -217,7 +217,7 @@ impl Response {
     ) -> ControllerOutput {
         if self.grab_sent {
             if !c.gameplay
-                || c.situation != 0
+                || c.situation != crate::native_states::situation::GROUND
                 || crate::action_owner::native_grab_active(c.status)
                 || crate::ledge_trap::sequence_interrupted(c.status)
                 || self.grab_delivery.exhausted()
@@ -281,7 +281,7 @@ impl Response {
                 }
             }
             self.up_b_seen |= native;
-            let wrong = matches!(
+            let interrupted_by_status = matches!(
                 c.status,
                 crate::native_states::status::JUMP..=crate::native_states::status::FALL_AERIAL
                     | crate::native_states::ESCAPE_F
@@ -291,20 +291,31 @@ impl Response {
                     | crate::native_states::status::SPECIAL_S
                     | crate::native_states::status::SPECIAL_LW
             );
-            let wrong =
-                wrong || c.status == crate::native_states::ESCAPE && (!c.can_act || self.up_b_seen);
-            let ended = self.up_b_seen
-                && matches!(c.status,crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE|crate::native_states::status::FALL_SPECIAL|crate::native_states::status::LANDING..=crate::native_states::GUARD_DAMAGE);
-            if wrong
-                || ended
-                || self.up_b_seen && !native
-                || !self.up_b_seen
-                    && (c.situation != 0
-                        || c.stopped
-                        || !c.can_act
-                        || !(crate::reaction_rules::automatic_start_status(c.status)
-                            || c.status == crate::native_states::ESCAPE)
-                        || self.delivery.exhausted())
+            let invalid_escape =
+                c.status == crate::native_states::ESCAPE && (!c.can_act || self.up_b_seen);
+            let up_b_ended = self.up_b_seen
+                && matches!(
+                    c.status,
+                    crate::native_states::status::WAIT
+                        ..=crate::native_states::status::TURN_RUN_BRAKE
+                        | crate::native_states::status::FALL_SPECIAL
+                        | crate::native_states::status::LANDING
+                            ..=crate::native_states::GUARD_DAMAGE
+                );
+            let native_up_b_ended = self.up_b_seen && !native;
+            let initial_up_b_can_start = crate::reaction_rules::automatic_start_status(c.status)
+                || c.status == crate::native_states::ESCAPE;
+            let initial_up_b_is_invalid = !self.up_b_seen
+                && (c.situation != crate::native_states::situation::GROUND
+                    || c.stopped
+                    || !c.can_act
+                    || !initial_up_b_can_start
+                    || self.delivery.exhausted());
+            if interrupted_by_status
+                || invalid_escape
+                || up_b_ended
+                || native_up_b_ended
+                || initial_up_b_is_invalid
             {
                 self.cancel();
                 return ControllerOutput::default();

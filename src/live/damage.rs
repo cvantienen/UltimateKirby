@@ -43,13 +43,32 @@ pub(super) unsafe fn observe(
         // The original upward launch sector selects this mode, before DI.
         let top = launch.iter().all(|v| v.is_finite()) && (70.0..=110.0).contains(&angle);
         let physics = kirby_assist_core::gameplay::AirPhysics::new(
-            game::param_float(object, if top { 0x1a58828323 } else { 0xba18057d9 }, 0),
-            game::param_float(object, if top { 0x1d71e21b0b } else { 0x12ec5626fe }, 0),
+            game::param_float(
+                object,
+                if top {
+                    super::native_params::PARAM_DAMAGE_FLY_TOP_GRAVITY
+                } else {
+                    super::native_params::PARAM_AIR_ACCEL_Y
+                },
+                0,
+            ),
+            game::param_float(
+                object,
+                if top {
+                    super::native_params::PARAM_DAMAGE_FLY_TOP_TERMINAL_SPEED
+                } else {
+                    super::native_params::PARAM_AIR_SPEED_Y_STABLE
+                },
+                0,
+            ),
         )?;
         Some(Trajectory {
             position,
             blast,
-            hitstun: game::work_float(object, 0x13),
+            hitstun: game::work_float(
+                object,
+                kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_REACTION_FRAME,
+            ),
             gravity: physics.gravity,
             fall_speed: physics.terminal_speed,
         })

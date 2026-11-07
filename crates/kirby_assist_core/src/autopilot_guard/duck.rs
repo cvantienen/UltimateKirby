@@ -112,7 +112,7 @@ pub fn geometry_threat(id: u32, frame: f32, lead: f32) -> DuckThreat {
 pub fn candidate(own: [f32; 2], velocity: [f32; 2], enemy: DuckEnemy) -> Option<DuckThreat> {
     if enemy.kind != crate::fighter_kinds::CAPTAIN_FALCON
         || enemy.status != crate::native_states::status::SPECIAL_N
-        || enemy.situation != 0
+        || enemy.situation != crate::native_states::situation::GROUND
         || enemy.motion != FALCON_PUNCH_MOTION
         || !own
             .iter()

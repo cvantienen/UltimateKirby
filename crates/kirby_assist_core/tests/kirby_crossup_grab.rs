@@ -2,7 +2,7 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
     gameplay::{GameplayContext, Opponent},
-    ledge_menu::MenuSelection,
+    settings_menu::MenuSelection,
     ledge_trap::{LedgeSettings, LedgeTrap, CLIFF_CLIMB},
     native_input::MAPPER_R,
     sequence_config::Catalog,

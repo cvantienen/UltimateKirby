@@ -191,7 +191,7 @@ fn native_confirmation_wins_at_delivery_limit_and_preserves_all_69_drift_frames(
     }
     for frame in 4..73 {
         let c = GameplayContext {
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..own(
                 frame as f32,
                 kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
@@ -318,7 +318,7 @@ fn dodge_context(status: i32) -> DodgeContext {
     DodgeContext {
         object: 1,
         status,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: 1,
         frame: 0.,
         rate: 1.,
@@ -470,7 +470,7 @@ fn leaving_ground_before_native_confirmation_cannot_turn_the_request_into_an_air
             MAPPER_B
         );
         let air = GameplayContext {
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..own(1., status)
         };
         assert_eq!(

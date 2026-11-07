@@ -188,7 +188,7 @@ impl OutOfShield {
             let valid = allowed
                 && self.configured_shielded == shielded
                 && c.grounded
-                && context.situation == 0
+                && context.situation == crate::native_states::situation::GROUND
                 && super::ground_grab_state(c.status)
                 && enemy.is_some_and(|e| {
                     simple::target_valid(

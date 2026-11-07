@@ -2,7 +2,7 @@
 //! scheduling are loaded exclusively from sequences.txt at startup.
 use super::FighterProfile;
 
-pub const FIGHTER_KIND: i32 = 6;
+pub const FIGHTER_KIND: i32 = crate::fighter_kinds::KIRBY;
 
 pub fn profile() -> FighterProfile {
     FighterProfile {

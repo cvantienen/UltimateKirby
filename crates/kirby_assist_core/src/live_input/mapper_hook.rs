@@ -6,8 +6,32 @@ pub const MAPPING_NEEDLE: &[u8] = &[
     0xfd, 0x7b, 0x07, 0xa9, 0xfd, 0xc3, 0x01, 0x91, 0x3f, 0x04, 0x00, 0x31, 0xe0, 0x77, 0x00, 0x54,
 ];
 
+const AARCH64_INSTRUCTION_BYTES: usize = 4;
+const AARCH64_INSTRUCTION_WORD_BITS: u32 = 32;
+const PATCHED_ENTRY_PREFIX_BYTES: usize = 5 * AARCH64_INSTRUCTION_BYTES;
+const ENTRY_INSTRUCTION_0_OFFSET_BYTES: usize = 0;
+const ENTRY_INSTRUCTION_1_OFFSET_BYTES: usize = AARCH64_INSTRUCTION_BYTES;
+const ENTRY_INSTRUCTION_2_OFFSET_BYTES: usize = 2 * AARCH64_INSTRUCTION_BYTES;
+const ENTRY_INSTRUCTION_3_OFFSET_BYTES: usize = 3 * AARCH64_INSTRUCTION_BYTES;
+const ENTRY_INSTRUCTION_4_OFFSET_BYTES: usize = 4 * AARCH64_INSTRUCTION_BYTES;
+const BRANCH_OPCODE_MASK: u32 = 0xfc00_0000;
+const BRANCH_OPCODE: u32 = 0x1400_0000;
+const LOAD_X17_LITERAL_OPCODE: u32 = 0x5800_0051;
+const BRANCH_X17_OPCODE: u32 = 0xd61f_0220;
+const NO_OPERATION_OPCODE: u32 = 0xd503_201f;
+#[cfg(test)]
+const TEST_BRANCH_PATCH_WORD: u32 = 0x1400_0100;
+#[cfg(test)]
+const TEST_TARGET_LOW_WORD: u32 = 0x1234_5000;
+#[cfg(test)]
+const TEST_TARGET_HIGH_WORD: u32 = 0x71;
+
 fn instruction(bytes: &[u8], offset: usize) -> u32 {
-    u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap())
+    u32::from_le_bytes(
+        bytes[offset..offset + AARCH64_INSTRUCTION_BYTES]
+            .try_into()
+            .unwrap(),
+    )
 }
 
 /// Accept only the original entry or Skyline's B / LDR+BR entry replacements.
@@ -18,24 +42,35 @@ pub fn mapper_offset(text: &[u8]) -> Option<usize> {
         return None;
     }
     let mut found = None;
-    for offset in (0..=text.len() - MAPPING_NEEDLE.len()).step_by(4) {
+    for offset in (0..=text.len() - MAPPING_NEEDLE.len()).step_by(AARCH64_INSTRUCTION_BYTES) {
         let entry = &text[offset..offset + MAPPING_NEEDLE.len()];
         // Skyline overwrites at most five instructions. Filter by the intact
         // suffix first, then validate the exact layout and remaining prologue.
-        if entry[20..] != MAPPING_NEEDLE[20..] {
+        if entry[PATCHED_ENTRY_PREFIX_BYTES..] != MAPPING_NEEDLE[PATCHED_ENTRY_PREFIX_BYTES..] {
             continue;
         }
         let original = entry == MAPPING_NEEDLE;
-        let branch =
-            instruction(entry, 0) & 0xfc00_0000 == 0x1400_0000 && entry[4..] == MAPPING_NEEDLE[4..];
-        let absolute = instruction(entry, 0) == 0x5800_0051
-            && instruction(entry, 4) == 0xd61f_0220
-            && instruction(entry, 8) as u64 | ((instruction(entry, 12) as u64) << 32) != 0
-            && entry[16..] == MAPPING_NEEDLE[16..];
-        let aligned_absolute = instruction(entry, 0) == 0xd503_201f
-            && instruction(entry, 4) == 0x5800_0051
-            && instruction(entry, 8) == 0xd61f_0220
-            && instruction(entry, 12) as u64 | ((instruction(entry, 16) as u64) << 32) != 0;
+        let branch = instruction(entry, ENTRY_INSTRUCTION_0_OFFSET_BYTES) & BRANCH_OPCODE_MASK
+            == BRANCH_OPCODE
+            && entry[ENTRY_INSTRUCTION_1_OFFSET_BYTES..]
+                == MAPPING_NEEDLE[ENTRY_INSTRUCTION_1_OFFSET_BYTES..];
+        let absolute = instruction(entry, ENTRY_INSTRUCTION_0_OFFSET_BYTES)
+            == LOAD_X17_LITERAL_OPCODE
+            && instruction(entry, ENTRY_INSTRUCTION_1_OFFSET_BYTES) == BRANCH_X17_OPCODE
+            && instruction(entry, ENTRY_INSTRUCTION_2_OFFSET_BYTES) as u64
+                | ((instruction(entry, ENTRY_INSTRUCTION_3_OFFSET_BYTES) as u64)
+                    << AARCH64_INSTRUCTION_WORD_BITS)
+                != 0
+            && entry[ENTRY_INSTRUCTION_4_OFFSET_BYTES..]
+                == MAPPING_NEEDLE[ENTRY_INSTRUCTION_4_OFFSET_BYTES..];
+        let aligned_absolute = instruction(entry, ENTRY_INSTRUCTION_0_OFFSET_BYTES)
+            == NO_OPERATION_OPCODE
+            && instruction(entry, ENTRY_INSTRUCTION_1_OFFSET_BYTES) == LOAD_X17_LITERAL_OPCODE
+            && instruction(entry, ENTRY_INSTRUCTION_2_OFFSET_BYTES) == BRANCH_X17_OPCODE
+            && instruction(entry, ENTRY_INSTRUCTION_3_OFFSET_BYTES) as u64
+                | ((instruction(entry, ENTRY_INSTRUCTION_4_OFFSET_BYTES) as u64)
+                    << AARCH64_INSTRUCTION_WORD_BITS)
+                != 0;
         if original || branch || absolute || aligned_absolute {
             if found.is_some() {
                 return None;
@@ -62,9 +97,20 @@ mod tests {
     fn recognizes_original_and_all_skyline_entry_layouts() {
         for entry in [
             MAPPING_NEEDLE.to_vec(),
-            patched(&[0x1400_0100]),
-            patched(&[0x5800_0051, 0xd61f_0220, 0x1234_5000, 0x71]),
-            patched(&[0xd503_201f, 0x5800_0051, 0xd61f_0220, 0x1234_5000, 0x71]),
+            patched(&[TEST_BRANCH_PATCH_WORD]),
+            patched(&[
+                LOAD_X17_LITERAL_OPCODE,
+                BRANCH_X17_OPCODE,
+                TEST_TARGET_LOW_WORD,
+                TEST_TARGET_HIGH_WORD,
+            ]),
+            patched(&[
+                NO_OPERATION_OPCODE,
+                LOAD_X17_LITERAL_OPCODE,
+                BRANCH_X17_OPCODE,
+                TEST_TARGET_LOW_WORD,
+                TEST_TARGET_HIGH_WORD,
+            ]),
         ] {
             let mut text = vec![0; 12];
             text.extend(entry);
@@ -75,13 +121,18 @@ mod tests {
     #[test]
     fn rejects_ambiguity_damage_null_target_and_unaligned_matches() {
         let mut duplicate = MAPPING_NEEDLE.to_vec();
-        duplicate.extend(patched(&[0x1400_0100]));
+        duplicate.extend(patched(&[TEST_BRANCH_PATCH_WORD]));
         assert_eq!(mapper_offset(&duplicate), None);
-        let mut damaged = patched(&[0x1400_0100]);
+        let mut damaged = patched(&[TEST_BRANCH_PATCH_WORD]);
         damaged[24] ^= 1;
         assert_eq!(mapper_offset(&damaged), None);
         assert_eq!(
-            mapper_offset(&patched(&[0x5800_0051, 0xd61f_0220, 0, 0])),
+            mapper_offset(&patched(&[
+                LOAD_X17_LITERAL_OPCODE,
+                BRANCH_X17_OPCODE,
+                0,
+                0,
+            ])),
             None
         );
         let mut unaligned = vec![0];

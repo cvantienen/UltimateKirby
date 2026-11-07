@@ -32,7 +32,10 @@ pub(super) unsafe fn observe(
     }
     // Verified FIGHTER_GAMEWATCH_INSTANCE_WORK_ID_FLOAT_SPECIAL_LW_GAUGE.
     // Full bucket would be Oil Panic's attack, never automatic projectile defense.
-    let gauge = game::work_float(own, 0x4c);
+    let gauge = game::work_float(
+        own,
+        kirby_assist_core::native_states::work_ids::FIGHTER_GAMEWATCH_INSTANCE_WORK_ID_FLOAT_SPECIAL_LW_GAUGE,
+    );
     if !gauge.is_finite() || !(0.0..3.0).contains(&gauge) {
         return None;
     }
@@ -74,7 +77,7 @@ pub(super) unsafe fn observe(
         return None;
     }
     let origin = [reads.pos_x(own), reads.pos_y(own), game::pos_z(own)];
-    let velocity = [reads.speed_x(own, -1), reads.speed_y(own, -1)];
+    let velocity = [reads.speed_x(own), reads.speed_y(own)];
     if !origin
         .iter()
         .chain(velocity.iter())
@@ -103,14 +106,14 @@ pub(super) unsafe fn observe(
         }
         let object = game::module_accessor(id);
         if object.is_null()
-            || object.cast::<u8>().add(8).cast::<u32>().read() != id
+            || game::battle_object_id(object) != id
             || reads.team(object) == team
             || reads.is_stop(object)
         {
             continue;
         }
         let root = [reads.pos_x(object), reads.pos_y(object)];
-        let speed = [reads.speed_x(object, -1), reads.speed_y(object, -1)];
+        let speed = [reads.speed_x(object), reads.speed_y(object)];
         if !root.iter().chain(speed.iter()).all(|v| v.is_finite())
             || (root[0] - origin[0]).abs() > 96. + (speed[0] - velocity[0]).abs() * config.horizon()
             || (root[1] - origin[1]).abs() > 96. + (speed[1] - velocity[1]).abs() * config.horizon()
@@ -150,7 +153,13 @@ pub(super) unsafe fn observe(
             let data = data.read();
             if data.direct != 0
                 || data.reflectable != 1 && data.absorbable != 1
-                || data.situation & if situation == 0 { 1 } else { 2 } == 0
+                || data.situation
+                    & if situation == kirby_assist_core::native_states::situation::GROUND {
+                        kirby_assist_core::native_states::situation::ATTACK_GROUND_MASK
+                    } else {
+                        kirby_assist_core::native_states::situation::ATTACK_AIR_MASK
+                    }
+                    == 0
                 || ![data.x, data.y, data.z, data.x2, data.y2, data.z2, data.size]
                     .iter()
                     .all(|v| v.is_finite())

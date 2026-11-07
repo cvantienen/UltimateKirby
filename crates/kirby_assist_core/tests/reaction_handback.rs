@@ -78,7 +78,7 @@ fn ground_only_prevents_aerial_up_b_after_leaving_floor() {
         0
     );
     let c = GameplayContext {
-        situation: 2,
+        situation: kirby_assist_core::native_states::situation::AIR,
         position: [7., 0.],
         ..ctx(1.)
     };
@@ -94,7 +94,7 @@ fn existing_grounded_start_filters_do_not_cancel_aerial_sequences_without_opt_in
     let mut t = InputTimeline::new(config("short_hop:1,up_b:3", false, true), enemy(0.));
     t.sample(LedgeSettings::default(), ctx(0.), Some(enemy(0.)), None, 0.);
     let c = GameplayContext {
-        situation: 2,
+        situation: kirby_assist_core::native_states::situation::AIR,
         ..ctx(1.)
     };
     assert_eq!(

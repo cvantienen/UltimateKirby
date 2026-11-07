@@ -1,6 +1,6 @@
 //! Pyra's own identity/reference facts. Recipes are owned by her text file.
 use super::FighterProfile;
-pub const FIGHTER_KIND: i32 = 90;
+pub const FIGHTER_KIND: i32 = crate::fighter_kinds::PYRA;
 pub fn profile() -> FighterProfile {
     FighterProfile {
         name: "pyra",

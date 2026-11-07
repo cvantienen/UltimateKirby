@@ -95,7 +95,7 @@ impl Pressure {
                 targets[i]
                     .filter(|t| {
                         (shield_context(t.status) || roll(t.status))
-                            && t.motion != 0
+                            && t.motion != crate::timing::NO_MOTION_KIND
                             && t.frame.is_finite()
                             && t.frame >= 0.
                             && t.position.iter().all(|v| v.is_finite())
@@ -231,7 +231,7 @@ impl Pressure {
                     let enemy = Opponent {
                         id: t.id,
                         status: t.status,
-                        situation: 0,
+                        situation: crate::native_states::situation::GROUND,
                         position: t.position,
                         velocity: [t.velocity_x, 0.],
                         motion: Some(MotionTiming {

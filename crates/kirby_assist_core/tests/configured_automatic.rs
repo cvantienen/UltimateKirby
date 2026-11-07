@@ -43,7 +43,7 @@ fn lc(c: Context) -> GameplayContext {
         motion_frame: c.frame,
         motion_rate: c.rate,
         stopped: c.stopped,
-        situation: if c.grounded { 0 } else { 2 },
+        situation: if c.grounded {kirby_assist_core::native_states::situation::GROUND} else {kirby_assist_core::native_states::situation::AIR},
         position: c.position,
         facing: c.facing,
         safe_ground: [true; 2],
@@ -381,7 +381,7 @@ fn dodged() -> SpotDodge {
     let c = DodgeContext {
         object: 1,
         status: kirby_assist_core::native_states::status::WAIT,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: 1,
         frame: 0.,
         rate: 1.,

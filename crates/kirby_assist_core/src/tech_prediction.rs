@@ -60,7 +60,7 @@ impl FloorMotionHistory {
         if ![now.frame, now.rate, now.vy].iter().all(|v| v.is_finite())
             || now.frame < 0.0
             || now.rate <= 0.0
-            || now.motion == 0
+            || now.motion == crate::timing::NO_MOTION_KIND
         {
             *self = Self::default();
             return 0.0;
@@ -117,7 +117,7 @@ pub fn grounded_ganon_contact_in(
     rate: f32,
 ) -> Option<f32> {
     if victim_status != CATCHED_GANON
-        || captor_kind != 0x18
+        || captor_kind != crate::fighter_kinds::GANONDORF
         || captor_status != crate::native_states::fighter_status::GANON_SPECIAL_S_CATCH
         || !frame.is_finite()
         || !(0.0..=31.0).contains(&frame)
@@ -161,7 +161,7 @@ pub fn tech_gate(status: i32, situation: i32, passive_disabled: bool, stopped: b
         .contains(&status)
     {
         TechGate::OutsideTumble
-    } else if situation != 2 {
+    } else if situation != crate::native_states::situation::AIR {
         TechGate::NotAirborne
     } else if passive_disabled {
         TechGate::PassiveDisabled
@@ -184,7 +184,7 @@ pub fn tech_gate_with_floor(
 ) -> TechGate {
     tech_gate(
         status,
-        if situation == 0 && native_floor_tech {
+        if situation == crate::native_states::situation::GROUND && native_floor_tech {
             2
         } else {
             situation

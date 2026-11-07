@@ -264,12 +264,12 @@ impl SelfState {
     pub(crate) fn matches(self, c: GameplayContext) -> bool {
         match self {
             Self::Any => true,
-            Self::Grounded => c.situation == 0,
-            Self::Airborne => c.situation == 2,
-            Self::Standing => c.situation == 0 && c.status == crate::native_states::status::WAIT,
-            Self::Walking => c.situation == 0 && c.status == crate::native_states::status::WALK,
+            Self::Grounded => c.situation == crate::native_states::situation::GROUND,
+            Self::Airborne => c.situation == crate::native_states::situation::AIR,
+            Self::Standing => c.situation == crate::native_states::situation::GROUND && c.status == crate::native_states::status::WAIT,
+            Self::Walking => c.situation == crate::native_states::situation::GROUND && c.status == crate::native_states::status::WALK,
             Self::Running => {
-                c.situation == 0
+                c.situation == crate::native_states::situation::GROUND
                     && matches!(
                         c.status,
                         crate::native_states::status::DASH
@@ -279,7 +279,7 @@ impl SelfState {
                     )
             }
             Self::Shielding => {
-                c.situation == 0
+                c.situation == crate::native_states::situation::GROUND
                     && matches!(
                         c.status,
                         crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
@@ -1013,7 +1013,7 @@ impl Engine {
                     let enemy = Opponent {
                         id: t.id,
                         status: t.status,
-                        situation: 0,
+                        situation: crate::native_states::situation::GROUND,
                         position: t.position,
                         velocity: [t.velocity_x, 0.],
                         motion: Some(crate::gameplay::MotionTiming {
@@ -1083,7 +1083,7 @@ mod tests {
             held: true,
             gameplay: true,
             status: crate::native_states::status::WAIT,
-            situation: 0,
+            situation: crate::native_states::situation::GROUND,
             motion_kind: 1,
             motion_frame: frame,
             motion_rate: 1.,
@@ -1328,7 +1328,7 @@ mod combined_trigger_test {
             held: true,
             gameplay: true,
             status: crate::native_states::status::WAIT,
-            situation: 0,
+            situation: crate::native_states::situation::GROUND,
             motion_kind: 1,
             motion_frame: 1.,
             motion_rate: 1.,
@@ -1412,7 +1412,7 @@ mod activation_tests {
         let mut c = GameplayContext {
             held: true,
             gameplay: true,
-            situation: 0,
+            situation: crate::native_states::situation::GROUND,
             status: crate::native_states::status::WAIT,
             motion_kind: 1,
             motion_frame: 1.,

@@ -252,7 +252,7 @@ fn inactive_automation_and_passive_helpers_do_not_acquire_gameplay_inputs() {
 fn a_blocked_new_ledge_trigger_or_manual_attack_cannot_cancel_existing_playback() {
     use kirby_assist_core::{
         fighter_profiles::presets::{MenuPresets, PresetSlot},
-        ledge_menu::MenuSelection,
+        settings_menu::MenuSelection,
         native_input::MAPPER_L,
     };
     let presets = MenuPresets::default();

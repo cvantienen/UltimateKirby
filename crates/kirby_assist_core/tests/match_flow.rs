@@ -14,7 +14,7 @@ fn context(frame: f32, status: i32) -> GameplayContext {
         gameplay: true,
         can_act: true,
         status,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion_kind: 1,
         motion_frame: frame,
         motion_rate: 1.,

@@ -151,13 +151,15 @@ pub fn aerial_stick(move_: Aerial, facing: f32) -> [f32; 2] {
 /// grounded turnaround. Jump-only launch avoids accidental grounded tilts.
 pub fn aerial_ready(status: i32, situation: i32) -> bool {
     status == crate::native_states::status::JUMP_SQUAT
-        || matches!(situation, 0 | 2)
-            && matches!(
-                status,
-                crate::native_states::status::JUMP
-                    | crate::native_states::status::FALL
-                    | crate::native_states::status::FALL_AERIAL
-            )
+        || matches!(
+            situation,
+            crate::native_states::situation::GROUND | crate::native_states::situation::AIR
+        ) && matches!(
+            status,
+            crate::native_states::status::JUMP
+                | crate::native_states::status::FALL
+                | crate::native_states::status::FALL_AERIAL
+        )
 }
 pub fn fast_fall(velocity_y: f32) -> Option<[f32; 2]> {
     (velocity_y.is_finite() && velocity_y < -0.05).then_some([0.0, -1.0])

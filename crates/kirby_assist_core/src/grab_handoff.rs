@@ -54,7 +54,7 @@ impl GrabHandoff {
     }
     pub fn observe(&mut self, valid: bool, status: i32, situation: i32) {
         if !valid
-            || situation != 0
+            || situation != crate::native_states::situation::GROUND
             || native_grab_active(status)
             || sequence_interrupted(status)
             || self.delivery.exhausted()
@@ -88,7 +88,7 @@ impl GrabHandoff {
             return;
         };
         self.native_context = Some(c);
-        if c.situation != 0 || native_grab_active(c.status) || sequence_interrupted(c.status) {
+        if c.situation != crate::native_states::situation::GROUND || native_grab_active(c.status) || sequence_interrupted(c.status) {
             self.clear_receipt();
         } else if self.pending {
             self.native_clock.advance_pause(c, None, u16::MAX);
@@ -192,8 +192,9 @@ impl GrabHandoff {
         native_catch: bool,
         eligible: bool,
     ) {
-        let fresh =
-            requested_grab && !self.previous_request || native_catch && !self.previous_catch;
+        let new_grab_request = requested_grab && !self.previous_request;
+        let new_native_catch = native_catch && !self.previous_catch;
+        let fresh = new_grab_request || new_native_catch;
         if eligible && !self.pending && fresh {
             self.pending = true;
             self.owner = owner;

@@ -37,6 +37,8 @@ fn tape() -> InputTimeline {
 }
 #[test]
 fn shield_break_sleep_bind_bury_freeze_and_special_captures_abort_without_resuming_old_inputs() {
+    // The remaining raw values are intentionally unmapped native status IDs;
+    // this regression exercises the conservative fallback for unknown states.
     let states = [
         native_states::status::REBOUND_STOP, native_states::status::SHIELD_BREAK_FLY, native_states::status::SHIELD_BREAK_FALL, native_states::status::SHIELD_BREAK_DOWN, native_states::status::FURAFURA_STAND, native_states::status::FURAFURA, native_states::status::FURAFURA_END, native_states::status::DAMAGE_SONG_START, native_states::status::DAMAGE_SONG_END, native_states::status::BIND, native_states::status::SLIP, native_states::status::SWIM_DIVE, 0xb3, native_states::status::TREAD_DAMAGE, native_states::status::CLUNG_GANON,
         native_states::status::CATCHED_GANON, native_states::status::CATCHED_AIR_END_GANON, 0xc4, 0xc5, native_states::status::BURY, 0xc9, 0xcb, native_states::status::ICE_JUMP, 0xcd, 0xd6, native_states::status::SWALLOWED, 0xed, 0xf0, 0xf3, 0xf4,

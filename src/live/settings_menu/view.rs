@@ -2,7 +2,7 @@
 //! Builds only on content changes; lightweight contains option rows only.
 use kirby_assist_core::{
     fighter_profiles::{spacing, FighterProfile},
-    ledge_menu::{MenuRow, MenuSelection},
+    settings_menu::{MenuRow, MenuSelection},
 };
 use std::ffi::CString;
 #[path = "text_cache.rs"]
@@ -380,11 +380,11 @@ pub(super) fn build(
         Some(text_cache::copy_text(&navigation_text)?.ok_or("Invalid menu heading")?)
     };
     let panel = if selection.lightweight {
-        kirby_assist_core::ledge_menu::RecipePanel::default()
+        kirby_assist_core::settings_menu::RecipePanel::default()
     } else if selection.tuning_page {
         selection.recipe_panel(&profile.menu_options)
     } else if selection.quick_menu {
-        kirby_assist_core::ledge_menu::RecipePanel {
+        kirby_assist_core::settings_menu::RecipePanel {
             header: {
                 let mut lines=Vec::new();
                 if selection.preview_slot.is_some() {lines.push("TEST RUNNING".into());}
@@ -397,7 +397,7 @@ pub(super) fn build(
             ..Default::default()
         }
     } else if selection.modes_menu {
-        kirby_assist_core::ledge_menu::RecipePanel::default()
+        kirby_assist_core::settings_menu::RecipePanel::default()
     } else {
         selection.recipe_panel(&profile.menu_options)
     };

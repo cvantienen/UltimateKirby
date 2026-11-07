@@ -36,7 +36,7 @@ fn context(frame: u32, h: &ManualTakeover) -> GameplayContext {
         } else {
             kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A
         },
-        situation: if frame < 20 { 0 } else { 2 },
+        situation: if frame < 20 {kirby_assist_core::native_states::situation::GROUND} else {kirby_assist_core::native_states::situation::AIR},
         motion_kind: 1,
         motion_frame: frame as f32,
         motion_rate: 1.,
@@ -244,7 +244,7 @@ fn shield(c: GameplayContext) -> ShieldContext {
         motion: 1,
         frame: c.motion_frame,
         rate: 1.,
-        grounded: c.situation == 0,
+        grounded: c.situation == kirby_assist_core::native_states::situation::GROUND,
         position: c.position,
         facing: 1.,
         shield_ready: c.can_act,
@@ -996,7 +996,7 @@ fn pending_receipt_never_survives_ledge_stop_damage_capture_target_loss_or_airbo
             1 => c.status = kirby_assist_core::native_states::status::DAMAGE_FLY,
             2 => c.status = kirby_assist_core::native_states::CAPTURE_PULLED,
             3 => e = None,
-            4 => c.situation = 2,
+            4 => c.situation = kirby_assist_core::native_states::situation::AIR,
             _ => e.as_mut().unwrap().status = kirby_assist_core::native_states::CAPTURE_PULLED,
         }
         let out = o.sample_automatic_configured(

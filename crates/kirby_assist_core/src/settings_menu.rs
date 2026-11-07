@@ -1,30 +1,46 @@
-//! Fighter-specific ledge and X/Y input recipes: L runs ledge autopilot.
-//! Minus toggles the panel; Auto-mash is a saved menu row.
+//! Shared settings menu state for fighter recipes, feature modes and input bindings.
+//! Minus toggles the panel; ledge choices and other settings are saved per fighter.
+const MENU_REPEAT_INITIAL_DELAY_TICKS: u16 = 24;
+const MENU_REPEAT_FAST_MODE_TICKS: u16 = 90;
+const MENU_REPEAT_FAST_INTERVAL_TICKS: u16 = 2;
+const MENU_REPEAT_SLOW_INTERVAL_TICKS: u16 = 6;
+
+fn menu_repeat_due(ticks: u16) -> bool {
+    ticks >= MENU_REPEAT_INITIAL_DELAY_TICKS
+        && (ticks - MENU_REPEAT_INITIAL_DELAY_TICKS)
+            % if ticks >= MENU_REPEAT_FAST_MODE_TICKS {
+                MENU_REPEAT_FAST_INTERVAL_TICKS
+            } else {
+                MENU_REPEAT_SLOW_INTERVAL_TICKS
+            }
+            == 0
+}
+
 #[cfg(test)]
-#[path = "ledge_menu/binding_tests.rs"]
+#[path = "settings_menu/binding_tests.rs"]
 mod binding_tests;
 #[cfg(test)]
-#[path = "ledge_menu/button_tests.rs"]
+#[path = "settings_menu/button_tests.rs"]
 mod button_tests;
-#[path = "ledge_menu/choices.rs"]
+#[path = "settings_menu/choices.rs"]
 mod choices;
-#[path = "ledge_menu/editor.rs"]
+#[path = "settings_menu/editor.rs"]
 mod editor;
-#[path = "ledge_menu/mode_editor.rs"]
+#[path = "settings_menu/mode_editor.rs"]
 mod mode_editor;
-#[path = "ledge_menu/reference.rs"]
+#[path = "settings_menu/reference.rs"]
 mod reference;
 use crate::manual_controls::DPAD_LEFT;
 pub use choices::Choice;
-#[path = "ledge_menu/bindings.rs"]
+#[path = "settings_menu/bindings.rs"]
 mod bindings;
-#[path = "ledge_menu/catalog.rs"]
+#[path = "settings_menu/catalog.rs"]
 mod catalog;
 use crate::button_modes::YMode;
 use crate::fighter_profiles::presets::{MenuPresets, PresetSlot};
 use crate::ledge_trap::{LedgeSettings, DPAD_DOWN};
 use crate::manual_controls::{DPAD_RIGHT, DPAD_SIDES, DPAD_UP, SHORT_HOP_TRIGGER};
-use crate::native_input::{MAPPER_L, MAPPER_MINUS, MAPPER_X, MAPPER_Y};
+use crate::native_input::{MAPPER_DPAD_BUTTONS, MAPPER_L, MAPPER_MINUS, MAPPER_X, MAPPER_Y};
 pub const MENU_STICK_CLICK: u32 = 1 << 17; // Physical right-stick click (R3).
 pub const TWO_FRAME_TRIGGER: u32 = 1 << 16; // L3: Training compact test; gameplay binding when hidden.
 pub const MENU_TOGGLE_CHORD: u32 = MAPPER_MINUS;
@@ -447,7 +463,7 @@ impl MenuSelection {
         }
         self.edit_hold_ticks = self.edit_hold_ticks.saturating_add(1);
         let t = self.edit_hold_ticks;
-        t >= 24 && (t - 24) % if t >= 90 { 2 } else { 6 } == 0
+        menu_repeat_due(t)
     }
     // The fixed ledge modifier owns lightweight navigation. Custom D-pad
     // bindings (including a D-pad assigned to ledge assist) remain gameplay.
@@ -907,7 +923,7 @@ impl MenuSelection {
             && !self.recipe_editing
             && !self.managing()
             && !self.cancel_pending
-            && (buttons & 0xf == 0
+            && (buttons & MAPPER_DPAD_BUTTONS == 0
                 || self.lightweight && !self.menu_hidden && self.lightweight_navigation())
     }
 
@@ -1540,7 +1556,7 @@ impl MenuSelection {
             } else {
                 self.edit_hold_ticks = self.edit_hold_ticks.saturating_add(1);
                 let ticks = self.edit_hold_ticks;
-                edit_repeat = ticks >= 24 && (ticks - 24) % if ticks >= 90 { 2 } else { 6 } == 0;
+                edit_repeat = menu_repeat_due(ticks);
             }
         } else {
             self.edit_hold_direction = 0;
@@ -1871,9 +1887,9 @@ fn cycle(index: usize, count: usize, forward: bool) -> usize {
 }
 
 #[cfg(test)]
-#[path = "ledge_menu/tests.rs"]
+#[path = "settings_menu/tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "ledge_menu/maintenance_tests.rs"]
+#[path = "settings_menu/maintenance_tests.rs"]
 mod maintenance_tests;

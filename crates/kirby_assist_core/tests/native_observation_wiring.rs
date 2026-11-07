@@ -34,13 +34,13 @@ struct State {
     ledge: Option<LedgeTrap>,
     ledge_position: Option<LedgePosition>,
     ledge_roster: Option<(FighterRoster, i64)>,
-    ledge_menu: Option<Menu>,
+    settings_menu: Option<Menu>,
 }
 static STATE: Mutex<State> = Mutex::new(State {
     ledge: None,
     ledge_position: None,
     ledge_roster: None,
-    ledge_menu: None,
+    settings_menu: None,
 });
 static PROFILES: OnceLock<FighterProfiles> = OnceLock::new();
 static SEQUENCES: OnceLock<Mutex<SequenceLibrary>> = OnceLock::new();

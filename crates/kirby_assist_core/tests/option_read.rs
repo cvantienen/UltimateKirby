@@ -206,7 +206,7 @@ fn duplicate_polls_stop_and_disabled_toggles_do_not_repeat_a_punish() {
 fn toggles_are_saved_and_independent() {
     use kirby_assist_core::{
         fighter_profiles::FighterProfiles,
-        ledge_menu::{MenuRow, MenuSelection},
+        settings_menu::{MenuRow, MenuSelection},
         ledge_trap::DPAD_DOWN,
     };
     let profiles = FighterProfiles::default();

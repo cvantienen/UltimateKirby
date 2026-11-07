@@ -3,7 +3,7 @@
 use super::TRIP_BUTTONS;
 use crate::gameplay::ControllerOutput;
 use crate::native_input::MAPPER_A;
-const FAIR: u64 = 0xc3495ada5; // Hash40("attack_air_f")
+const FAIR: u64 = crate::timing::MOTION_ATTACK_AIR_F;
 const UP_ANGLE: f32 = 0.5;
 
 #[derive(Clone, Copy, Debug, PartialEq)]

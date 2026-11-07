@@ -3,12 +3,22 @@
 //! This detector reports a possible contact. The portable TechInput scheduler
 //! separately decides whether to request/release shield and tracks mapper
 //! acknowledgment. Prediction, button delivery and successful tech are distinct.
+use super::native_params::{
+    PARAM_COMMON, PARAM_GANON_SPECIAL_S_PASSIVE_TRIGGER_FRAME, PARAM_NO_RAPID_FRAME_VALUE,
+    PARAM_PASSIVE_TRIGGER_FRAME,
+};
 use crate::game_ffi as game;
 use kirby_assist_core::tech_prediction::{
     first_contact_swept, grounded_ganon_contact_in, grounded_ganon_release,
     late_damage_stop_prediction, tech_gate_with_floor, tech_press_allowed, FloorMotionHistory,
     FloorMotionSample, TechGate, CATCHED_AIR_END_GANON, CATCHED_GANON,
 };
+const MIN_NATIVE_TRIGGER_FRAME: u16 = 2;
+const MAX_NATIVE_TRIGGER_FRAME: u16 = 120;
+const FLOOR_CONTACT_UPWARD_SPEED_TOLERANCE: f32 = 0.0001;
+const MAX_GROUND_OFFSET_MAGNITUDE: f32 = 100.0;
+const MIN_CONTACT_HORIZON_FRAMES: f32 = 1.0;
+const MAX_CONTACT_HORIZON_FRAMES: f32 = 20.0;
 
 // Diagnostic snapshot only: the string describes our detector's decision, not
 // a complete explanation of all native tech restrictions or proof of success.
@@ -31,13 +41,26 @@ pub(super) unsafe fn native_timing(object: *mut game::Object, fallback: u16) -> 
     let bounded = |value: i32, fallback: u16| {
         u16::try_from(value)
             .ok()
-            .filter(|v| (2..=120).contains(v))
+            .filter(|v| (MIN_NATIVE_TRIGGER_FRAME..=MAX_NATIVE_TRIGGER_FRAME).contains(v))
             .unwrap_or(fallback)
     };
     (
-        bounded(game::param_int(object, 0x6e5ec7051, 0x14459066dd), fallback), // no_rapid_frame_value
-        bounded(game::param_int(object, 0x6e5ec7051, 0x15ba3cdb02), 12), // passive_trigger_frame
-        bounded(game::param_int(object, 0x6e5ec7051, 0x2535742c20), 7),
+        bounded(
+            game::param_int(object, PARAM_COMMON, PARAM_NO_RAPID_FRAME_VALUE),
+            fallback,
+        ), // no_rapid_frame_value
+        bounded(
+            game::param_int(object, PARAM_COMMON, PARAM_PASSIVE_TRIGGER_FRAME),
+            kirby_assist_core::tech_input::DEFAULT_PASSIVE_TRIGGER_FRAME,
+        ), // passive_trigger_frame
+        bounded(
+            game::param_int(
+                object,
+                PARAM_COMMON,
+                PARAM_GANON_SPECIAL_S_PASSIVE_TRIGGER_FRAME,
+            ),
+            kirby_assist_core::tech_input::DEFAULT_GANON_PASSIVE_TRIGGER_FRAME,
+        ),
     ) // ganon_special_s_passive_trigger_frame
 }
 
@@ -49,7 +72,7 @@ unsafe fn grounded_ganon_timing(
         return None;
     }
     let id = u32::try_from(game::link_object_id(object, 0)).ok()?;
-    let own_id = object.cast::<u8>().add(8).cast::<u32>().read();
+    let own_id = game::battle_object_id(object);
     if id == own_id
         || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
         || !game::is_active(id)
@@ -57,11 +80,11 @@ unsafe fn grounded_ganon_timing(
         return None;
     }
     let captor = game::module_accessor(id);
-    if captor.is_null() || captor.cast::<u8>().add(8).cast::<u32>().read() != id {
+    if captor.is_null() || game::battle_object_id(captor) != id {
         return None;
     }
     let motion = reads.motion_kind(captor);
-    if motion == 0 {
+    if motion == kirby_assist_core::timing::NO_MOTION_KIND {
         return None;
     }
     let frame = reads.motion_frame(captor);
@@ -116,7 +139,7 @@ pub(super) unsafe fn assess_tech(
     // tumble contact must not be discarded solely because situation changed.
     // Require an actual airborne->ground transition, not a grounded launch
     // whose floor-tech term is enabled before the fighter leaves the stage.
-    let floor_tech = situation == 0
+    let floor_tech = situation == kirby_assist_core::native_states::situation::GROUND
         && (kirby_assist_core::native_states::status::DAMAGE_FLY
             ..=kirby_assist_core::native_states::status::DAMAGE_FALL)
             .contains(&status)
@@ -128,7 +151,8 @@ pub(super) unsafe fn assess_tech(
             object,
             kirby_assist_core::native_states::transition_terms::PASSIVE_FB,
         ))
-        && game::previous_situation_kind(object) == 2;
+        && game::previous_situation_kind(object)
+            == kirby_assist_core::native_states::situation::AIR;
     let gate = tech_gate_with_floor(status, situation, disabled, stopped, floor_tech);
     if gate != TechGate::Predict {
         *floor_motion = FloorMotionHistory::default();
@@ -151,8 +175,14 @@ pub(super) unsafe fn assess_tech(
             ..=kirby_assist_core::native_states::status::DAMAGE_FALL)
             .contains(&status)
         {
-            let remaining = game::work_float(object, 0x13);
-            (remaining.is_finite() && remaining > 0. && remaining <= 1200.).then_some(remaining)
+            let remaining = game::work_float(
+                object,
+                kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_REACTION_FRAME,
+            );
+            (remaining.is_finite()
+                && remaining > 0.
+                && remaining <= kirby_assist_core::tech_input::MAX_REACTION_REMAINING_FRAMES)
+                .then_some(remaining)
         } else {
             None
         },
@@ -160,7 +190,7 @@ pub(super) unsafe fn assess_tech(
     // The native STOP_WALL / STOP_CEIL statuses still admit passive input at
     // collision. Damage-fly-only gates used to discard this final opportunity.
     // Native transition terms, not the status name alone, authorize the input.
-    if situation == 2
+    if situation == kirby_assist_core::native_states::situation::AIR
         && matches!(
             status,
             kirby_assist_core::native_states::status::STOP_WALL
@@ -187,7 +217,7 @@ pub(super) unsafe fn assess_tech(
         return assessment;
     }
     if floor_tech && (!stopped || victim_stop) {
-        let vy = reads.speed_y(object, -1);
+        let vy = reads.speed_y(object);
         let velocity = if victim_stop {
             kirby_assist_core::tech_prediction::prediction_velocity(
                 [0., vy],
@@ -200,7 +230,7 @@ pub(super) unsafe fn assess_tech(
         // hit upward. That is a new launch, not an impact to buffer a tech for.
         // Reflect-down is the native exception after a real floor rebound.
         if status == kirby_assist_core::native_states::status::DAMAGE_FLY_REFLECT_D
-            || velocity[1].is_finite() && velocity[1] <= 0.0001
+            || velocity[1].is_finite() && velocity[1] <= FLOOR_CONTACT_UPWARD_SPEED_TOLERANCE
         {
             assessment.velocity = velocity;
             assessment.contact_in = Some(assessment.remaining_stop as f32);
@@ -220,7 +250,10 @@ pub(super) unsafe fn assess_tech(
         return assessment;
     }
     if status == CATCHED_AIR_END_GANON
-        && grounded_ganon_release(status, game::previous_status(object, 0))
+        && grounded_ganon_release(
+            status,
+            game::previous_status(object, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX),
+        )
     {
         // Both types of Flame Choke use this status. Never infer its origin
         // from proximity or situation; the native predecessor must be grounded.
@@ -252,7 +285,7 @@ pub(super) unsafe fn assess_tech(
         && victim_stop
         && (late_damage_stop_prediction(assessment.remaining_stop, input_delay)
             || assessment.remaining_stop == 0);
-    let surfaces = [
+    let (floor_surface_enabled, wall_surface_enabled, ceiling_surface_enabled) = (
         game::transition_enabled(
             object,
             kirby_assist_core::native_states::transition_terms::PASSIVE,
@@ -268,39 +301,55 @@ pub(super) unsafe fn assess_tech(
             object,
             kirby_assist_core::native_states::transition_terms::PASSIVE_CEIL,
         ),
-    ];
+    );
     let supported = (kirby_assist_core::native_states::status::DAMAGE_FLY
         ..=kirby_assist_core::native_states::status::DAMAGE_FALL)
         .contains(&status)
         && !disabled
-        && (situation == 2 || situation == 0);
+        && (situation == kirby_assist_core::native_states::situation::AIR
+            || situation == kirby_assist_core::native_states::situation::GROUND);
     // Use the game's current collision shape, including character animation,
     // scale and terrain corrections. Contact can precede a situation/status
     // change and frozen tumble poses need not have an advancing motion clock.
     let can_observe_contact = supported && (!stopped || victim_stop);
-    let touched = [
-        can_observe_contact && surfaces[0] && game::passive_ground_touch(object, 0xc8),
-        can_observe_contact
-            && surfaces[1]
-            && (game::ground_touch(object, 0x52) || game::ground_touch(object, 0xa4)),
-        can_observe_contact && surfaces[2] && game::ground_touch(object, 0x31),
-    ];
+    let floor_touched = can_observe_contact
+        && floor_surface_enabled
+        && game::passive_ground_touch(
+            object,
+            kirby_assist_core::native_states::ground_touch::DOWN_SIDE,
+        );
+    let wall_touched = can_observe_contact
+        && wall_surface_enabled
+        && (game::ground_touch(
+            object,
+            kirby_assist_core::native_states::ground_touch::LEFT_SIDE,
+        ) || game::ground_touch(
+            object,
+            kirby_assist_core::native_states::ground_touch::RIGHT_SIDE,
+        ));
+    let ceiling_touched = can_observe_contact
+        && ceiling_surface_enabled
+        && game::ground_touch(
+            object,
+            kirby_assist_core::native_states::ground_touch::UP_SIDE,
+        );
+    let any_surface_touched = floor_touched || wall_touched || ceiling_touched;
     let predict = gate == TechGate::Predict || late_hitstop;
     // Diagnostics retain rejected-state velocity evidence. Silent only needs
     // these reads when prediction actually runs; no eligibility/window changes.
-    if (predict || touched.iter().any(|v| *v) || cfg!(feature = "diagnostic-logging"))
+    if (predict || any_surface_touched || cfg!(feature = "diagnostic-logging"))
         && (kirby_assist_core::native_states::status::DAMAGE
             ..=kirby_assist_core::native_states::status::DOWN_REFLECT_LR)
             .contains(&status)
     {
         // ALL includes damage knockback as well as main/gravity velocity.
         // MAIN (1) alone can omit the force carrying Kirby toward the surface.
-        assessment.velocity = [reads.speed_x(object, -1), reads.speed_y(object, -1)];
+        assessment.velocity = [reads.speed_x(object), reads.speed_y(object)];
     }
-    if !predict && !touched.iter().any(|v| *v) {
+    if !predict && !any_surface_touched {
         return assessment;
     }
-    if victim_stop && (late_hitstop || touched.iter().any(|v| *v)) {
+    if victim_stop && (late_hitstop || any_surface_touched) {
         // Kinetic energies may be frozen or still describe the previous hit.
         // Project the already reserved new launch, not zero/old motion.
         assessment.velocity = kirby_assist_core::tech_prediction::prediction_velocity(
@@ -329,10 +378,11 @@ pub(super) unsafe fn assess_tech(
     }
     // Do not mistake an upward grounded launch's existing floor contact for
     // an impact. A reflect-down status itself is authoritative after rebound.
-    let floor_contact = touched[0]
+    let floor_contact = floor_touched
         && (status == kirby_assist_core::native_states::status::DAMAGE_FLY_REFLECT_D
-            || assessment.velocity[1].is_finite() && assessment.velocity[1] <= 0.0001);
-    if floor_contact || touched[1] || touched[2] {
+            || assessment.velocity[1].is_finite()
+                && assessment.velocity[1] <= FLOOR_CONTACT_UPWARD_SPEED_TOLERANCE);
+    if floor_contact || wall_touched || ceiling_touched {
         assessment.prepare_guard = true;
         assessment.contact_in = Some(assessment.remaining_stop as f32);
         assessment.reason = "native_collision_contact";
@@ -349,7 +399,10 @@ pub(super) unsafe fn assess_tech(
     // Copy the animated ECB base afresh for this observation. Generic probes
     // anchored only to PostureModule::pos miss shifted/large/small fighters.
     let offset = [game::ground_offset_x(object), game::ground_offset_y(object)];
-    let offset = if offset.iter().all(|v| v.is_finite() && v.abs() <= 100.) {
+    let offset = if offset
+        .iter()
+        .all(|v| v.is_finite() && v.abs() <= MAX_GROUND_OFFSET_MAGNITUDE)
+    {
         offset
     } else {
         [0.; 2]
@@ -364,12 +417,14 @@ pub(super) unsafe fn assess_tech(
         return assessment;
     }
     assessment.reason = "no_collision_predicted";
-    let horizon = (horizon + input_delay.clamp(0.0, 12.0)).clamp(1.0, 20.0);
+    let horizon = (horizon
+        + input_delay.clamp(0.0, kirby_assist_core::tech_input::MAX_INPUT_DELAY_FRAMES))
+    .clamp(MIN_CONTACT_HORIZON_FRAMES, MAX_CONTACT_HORIZON_FRAMES);
     let acceleration = if stopped {
         0.0
     } else {
         floor_motion.sample(FloorMotionSample {
-            object: object.cast::<u8>().add(8).cast::<u32>().read(),
+            object: game::battle_object_id(object),
             status,
             motion: reads.motion_kind(object),
             frame: reads.motion_frame(object),

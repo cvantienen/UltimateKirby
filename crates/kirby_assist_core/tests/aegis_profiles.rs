@@ -1,7 +1,7 @@
 //! Playable registrations are distinct from read-only DLC reference records.
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
-    ledge_menu::MenuSelection,
+    settings_menu::MenuSelection,
     ledge_trap::{LedgeSettings, ResponseImplementation},
     projectile_reflect,
     sequence_config::{Action, Catalog, SequenceLibrary},

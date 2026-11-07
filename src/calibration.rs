@@ -19,7 +19,7 @@ static EPOCH: AtomicUsize = AtomicUsize::new(0);
 #[cfg(feature = "imgui-menu")]
 static CARD: Mutex<Option<(usize, CString)>> = Mutex::new(None);
 const WATCHDOG_MS: u64 = 4_000;
-const RAW_CSTICK: u32 = 0xf << 24;
+const RAW_CSTICK: u32 = crate::manual_controls::RIGHT_STICK_DIRECTIONS;
 const CHANNELS: [&str; 5] = ["Jump", "Attack", "Grab", "Special", "Shield"];
 
 #[derive(Clone, Copy, Debug)]
@@ -784,7 +784,7 @@ impl Recorder {
         } else if frame.blocked && report.model.kind == CalibrationKind::Shield {
             Some("shield block")
         } else if frame.enemy.is_some_and(|e| {
-            e.situation == 0
+            e.situation == kirby_assist_core::native_states::situation::GROUND
                 && e.status < kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE
         }) && !native
             && !frame.context.stopped
@@ -804,7 +804,13 @@ impl Recorder {
             return;
         };
         let masks = channel_masks(report.last, report.model.kind);
-        let logical = [0x4 | 0x40, 0x1, 0x10, 0x2, 0x8];
+        let logical = [
+            crate::native_input::MAPPED_JUMP | crate::native_input::MAPPED_JUMP_MINI,
+            crate::native_input::MAPPED_ATTACK,
+            crate::native_input::MAPPED_CATCH,
+            crate::native_input::MAPPED_SPECIAL,
+            crate::native_input::MAPPED_GUARD,
+        ];
         for i in 0..5 {
             if proposed & applied & masks[i] != 0 && mapped & logical[i] != 0 {
                 report.mapped[i] = true;
@@ -896,7 +902,7 @@ mod tests {
             can_control: true,
             stopped: false,
             status: kirby_assist_core::native_states::status::WAIT,
-            situation: 0,
+            situation: kirby_assist_core::native_states::situation::GROUND,
             motion_frame: 1.0,
             motion_kind: motion_hash("wait"),
             motion_rate: 1.0,
@@ -926,7 +932,7 @@ mod tests {
             id: 42,
             status: kirby_assist_core::native_states::status::CLIFF_ESCAPE,
             previous_status: kirby_assist_core::native_states::status::CLIFF_WAIT,
-            situation: 0,
+            situation: kirby_assist_core::native_states::situation::GROUND,
             position: [5.0, 0.0],
             vulnerable: false,
             velocity: [0.0; 2],
@@ -985,7 +991,12 @@ mod tests {
         f.output.requested = MAPPER_ZR;
         let mut recorder = Recorder::new();
         recorder.observe(Some(f), ("yoshi", 5), "Shield", Instant::now());
-        recorder.mapped(MAPPER_ZR, MAPPER_ZR, 0x8, "ledge");
+        recorder.mapped(
+            MAPPER_ZR,
+            MAPPER_ZR,
+            crate::native_input::MAPPED_GUARD,
+            "ledge",
+        );
         let report = recorder.active.as_ref().unwrap();
         assert_eq!(report.result(), "INPUT requested; move model unavailable");
         assert!(report.explanation().contains("raw-input recipe"));
@@ -1015,11 +1026,16 @@ mod tests {
         let mut recorder = Recorder::new();
         let mut f = frame(PresetSlot::Neutral);
         recorder.observe(Some(f), ("kirby", 6), "Nair", now);
-        recorder.mapped(MAPPER_X | MAPPER_A, MAPPER_X, 0x4, "ledge");
+        recorder.mapped(
+            MAPPER_X | MAPPER_A,
+            MAPPER_X,
+            crate::native_input::MAPPED_JUMP,
+            "ledge",
+        );
         assert!(recorder.active.as_ref().unwrap().mapped[0]);
         assert!(!recorder.active.as_ref().unwrap().mapped[1]);
         f.output = ControllerOutput::default();
-        f.context.situation = 2;
+        f.context.situation = kirby_assist_core::native_states::situation::AIR;
         f.context.status = kirby_assist_core::native_states::status::ATTACK_AIR;
         f.context.motion_kind = motion_hash("attack_air_f");
         recorder.observe(
@@ -1054,8 +1070,8 @@ mod tests {
         f.expected = CalibrationMove {
             kind: CalibrationKind::Attack,
             native: NativeRule::Ground {
-                startup: 0x30,
-                attack: 0x32,
+                startup: kirby_assist_core::native_states::status::ATTACK_LW4_START,
+                attack: kirby_assist_core::native_states::status::ATTACK_LW4,
             },
             first: Some(7),
             last: Some(19),
@@ -1109,7 +1125,12 @@ mod tests {
                 .position[0],
             2.0
         );
-        recorder.mapped(f.output.requested, f.output.requested, 0x18, "ledge");
+        recorder.mapped(
+            f.output.requested,
+            f.output.requested,
+            crate::native_input::MAPPED_GUARD | crate::native_input::MAPPED_CATCH,
+            "ledge",
+        );
         assert!(recorder.active.as_ref().unwrap().mapped[2]);
     }
 
@@ -1224,7 +1245,12 @@ mod tests {
         let mut r = Recorder::new();
         let f = frame(PresetSlot::Jump);
         r.observe(Some(f), ("kirby", 6), "Nair", Instant::now());
-        r.mapped(f.output.requested, f.output.requested, 0x5, "test");
+        r.mapped(
+            f.output.requested,
+            f.output.requested,
+            crate::native_input::MAPPED_ATTACK | crate::native_input::MAPPED_JUMP,
+            "test",
+        );
         r.active.as_mut().unwrap().test_latency = Some(4);
         let report = r.active.as_ref().unwrap();
         assert_eq!(report.test_latency, Some(4));

@@ -7,7 +7,7 @@ use kirby_assist_core::{
 fn context(status: i32, frame: f32) -> ShortcutContext {
     ShortcutContext {
         status,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         motion: motion_hash(
             if status == kirby_assist_core::native_states::status::ATTACK {
                 "attack_11"

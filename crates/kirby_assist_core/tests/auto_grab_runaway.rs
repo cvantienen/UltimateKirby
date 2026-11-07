@@ -126,7 +126,11 @@ fn lost_dash_and_grab_acknowledgements_are_bounded_even_when_native_animation_is
             sample(&mut o, 15, 0, 30.);
             o.mapped_approach(-1, 2);
         }
-        let status = if phase == 0 { 0 } else { 3 };
+        let status = if phase == 0 {
+            kirby_assist_core::native_states::status::WAIT
+        } else {
+            kirby_assist_core::native_states::status::DASH
+        };
         for tick in 0..4 {
             let out = sample(&mut o, 15, status, 30.);
             assert_ne!(out.owned, 0);

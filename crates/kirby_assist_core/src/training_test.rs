@@ -2,7 +2,7 @@
 //! complete controller back to Training for its own menus/save/record shortcuts.
 //! No Training-private state, virtual L press or reduced gameplay config.
 use crate::{
-    ledge_menu::menu_toggle_pressed,
+    settings_menu::menu_toggle_pressed,
     ledge_trap::DPAD_DOWN,
     live_input::LiveConfig,
     manual_controls::DPAD_UP,
@@ -15,7 +15,7 @@ pub fn active(installed: bool, training: bool) -> bool {
 
 pub fn passthrough(buttons: u32, pressed: u32, already: bool) -> bool {
     let overlay_chord =
-        crate::native_input::MAPPER_L | DPAD_DOWN | crate::ledge_menu::MENU_STICK_CLICK;
+        crate::native_input::MAPPER_L | DPAD_DOWN | crate::settings_menu::MENU_STICK_CLICK;
     let training_shortcut = buttons & overlay_chord == overlay_chord
         || buttons & MAPPER_PLUS != 0
         || (buttons & (MAPPER_B | MAPPER_ZL | MAPPER_ZR) != 0
@@ -28,7 +28,7 @@ pub fn passthrough(buttons: u32, pressed: u32, already: bool) -> bool {
 /// Default ZL+Up/Down save/load is momentary. Menus, recording/playback and
 /// OS-overlay shortcuts can stay open after release and require a Minus resume.
 pub fn sticky_shortcut(buttons: u32) -> bool {
-    crate::ledge_menu::monitor_chord(buttons)
+    crate::settings_menu::monitor_chord(buttons)
         || buttons & MAPPER_PLUS != 0
         || buttons & MAPPER_B != 0 && buttons & (DPAD_UP | DPAD_DOWN) != 0
         || buttons & MAPPER_ZR != 0 && buttons & (DPAD_UP | DPAD_DOWN) != 0

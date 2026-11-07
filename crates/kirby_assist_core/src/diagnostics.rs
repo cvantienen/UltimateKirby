@@ -1,5 +1,7 @@
 //! Coalesce unchanged diagnostic snapshots before allocating/formatting strings.
 //! Native action edges remain immediate; wall-clock samples explain long waits.
+const PERIODIC_DIAGNOSTIC_INTERVAL_MS: u64 = 500;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DiagnosticEmission {
     pub periodic: bool,
@@ -22,9 +24,9 @@ impl<K: PartialEq> DiagnosticGate<K> {
     pub fn sample(&mut self, key: K, now_ms: u64, periodic: bool) -> Option<DiagnosticEmission> {
         let changed = self.last.as_ref() != Some(&key);
         let sample_due = periodic
-            && self
-                .last_emission_ms
-                .is_none_or(|last| now_ms.saturating_sub(last) >= 500 || now_ms < last);
+            && self.last_emission_ms.is_none_or(|last| {
+                now_ms.saturating_sub(last) >= PERIODIC_DIAGNOSTIC_INTERVAL_MS || now_ms < last
+            });
         if changed || sample_due {
             let emission = DiagnosticEmission {
                 periodic: !changed,

@@ -31,7 +31,10 @@ fn trip_immediately_owns_controls_and_buffers_smash_without_readiness_or_target_
     let mut state = TripFollowup::default();
     let trip = TripContext {
         stopped: true,
-        ..ctx(0x2c, 0x86)
+        ..ctx(
+            crate::native_states::status::ATTACK_LW3,
+            crate::native_states::status::SLIP,
+        )
     };
     let prepare = state.sample(true, trip);
     assert_eq!(prepare.requested, 0);
@@ -103,7 +106,11 @@ fn either_tilt_trip_flicks_in_existing_facing_and_new_tilt_rearms() {
         crate::native_states::status::ATTACK_LW3,
     ] {
         for facing in [-1.0, 1.0] {
-            for trip_status in [0x86, 0x87, 0x88] {
+            for trip_status in [
+                crate::native_states::status::SLIP,
+                crate::native_states::status::SLIP_DAMAGE,
+                crate::native_states::status::SLIP_WAIT,
+            ] {
                 let mut state = TripFollowup::default();
                 let trip = TripContext {
                     facing,
@@ -154,7 +161,10 @@ fn trip_takeover_suppresses_physical_actions_stick_and_taunts_through_release_ga
             true,
             TripContext {
                 frame: frame as f32,
-                ..ctx(0x2c, 0x86)
+                ..ctx(
+                    crate::native_states::status::ATTACK_LW3,
+                    crate::native_states::status::SLIP,
+                )
             },
         );
         let mapped = overlay.apply_controls(
@@ -172,7 +182,13 @@ fn trip_takeover_suppresses_physical_actions_stick_and_taunts_through_release_ga
         assert_eq!(mapped.stick, out.stick.unwrap());
         assert_eq!(mapped.buttons.pressed & MAPPER_A, out.requested);
     }
-    let off = state.sample(false, ctx(0x2c, 0x86));
+    let off = state.sample(
+        false,
+        ctx(
+            crate::native_states::status::ATTACK_LW3,
+            crate::native_states::status::SLIP,
+        ),
+    );
     let restored = overlay.apply_controls(
         human,
         [-1.0, -1.0],
@@ -193,11 +209,20 @@ fn trip_takeover_suppresses_physical_actions_stick_and_taunts_through_release_ga
 #[test]
 fn no_trip_no_tilt_and_non_kirby_are_inert_and_interruptions_cancel() {
     for sample in [
-        ctx(0x2c, 0),
-        ctx(0, 0x86),
+        ctx(
+            crate::native_states::status::ATTACK_LW3,
+            crate::native_states::status::WAIT,
+        ),
+        ctx(
+            crate::native_states::status::WAIT,
+            crate::native_states::status::SLIP,
+        ),
         TripContext {
             kirby: false,
-            ..ctx(0x2c, 0x86)
+            ..ctx(
+                crate::native_states::status::ATTACK_LW3,
+                crate::native_states::status::SLIP,
+            )
         },
     ] {
         assert_eq!(
@@ -208,12 +233,24 @@ fn no_trip_no_tilt_and_non_kirby_are_inert_and_interruptions_cancel() {
     for terminal in [
         TripContext {
             grounded: false,
-            ..ctx(0xb, 0x86)
+            ..ctx(
+                crate::native_states::status::JUMP,
+                crate::native_states::status::SLIP,
+            )
         },
-        ctx(0x47, 0x86),
+        ctx(
+            crate::native_states::status::DAMAGE,
+            crate::native_states::status::SLIP,
+        ),
     ] {
         let mut state = TripFollowup::default();
-        state.sample(true, ctx(0x2c, 0x86));
+        state.sample(
+            true,
+            ctx(
+                crate::native_states::status::ATTACK_LW3,
+                crate::native_states::status::SLIP,
+            ),
+        );
         assert_eq!(state.sample(true, terminal).requested, 0);
         assert!(!state.watching());
         assert_eq!(
@@ -230,17 +267,43 @@ fn no_trip_no_tilt_and_non_kirby_are_inert_and_interruptions_cancel() {
         );
     }
     let mut state = TripFollowup::default();
-    state.sample(true, ctx(0x2c, 0x86));
-    assert_eq!(state.sample(false, ctx(0x2c, 0x86)).owned, 0);
+    state.sample(
+        true,
+        ctx(
+            crate::native_states::status::ATTACK_LW3,
+            crate::native_states::status::SLIP,
+        ),
+    );
+    assert_eq!(
+        state
+            .sample(
+                false,
+                ctx(
+                    crate::native_states::status::ATTACK_LW3,
+                    crate::native_states::status::SLIP,
+                )
+            )
+            .owned,
+        0
+    );
     assert!(!state.watching());
-    state.sample(true, ctx(0x2c, 0x86));
+    state.sample(
+        true,
+        ctx(
+            crate::native_states::status::ATTACK_LW3,
+            crate::native_states::status::SLIP,
+        ),
+    );
     assert_eq!(
         state
             .sample(
                 true,
                 TripContext {
                     object: 3,
-                    ..ctx(0, 0)
+                    ..ctx(
+                        crate::native_states::status::WAIT,
+                        crate::native_states::status::WAIT,
+                    )
                 }
             )
             .owned,

@@ -5,5 +5,5 @@ pub use kirby_assist_core::{
     ledge_trap, manual_controls, native_input, out_of_shield, projectile_reflect, reaction_rules,
     roll_read, sequence_config, timing,
 };
-#[path = "../src/ledge_menu.rs"]
-mod ledge_menu;
+#[path = "../src/settings_menu.rs"]
+mod settings_menu;

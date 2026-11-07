@@ -7,6 +7,9 @@ use crate::{
 
 /// Short-hop descent budget; native progress excludes hitstop and repeated polls.
 pub const FAST_FALL_FRAMES: f32 = 16.0;
+const MIN_DIRECTION_MAGNITUDE: f32 = 0.5;
+const ACTIVE_FRAME_END_INCLUSIVE_OFFSET: f32 = 1.0;
+const LANDING_HIT_CONFIRM_WINDOW_FRAMES: f32 = 2.0;
 
 #[derive(Clone, Copy)]
 pub struct Context {
@@ -20,11 +23,28 @@ pub struct Context {
 /// Locomotion/crouch, including run/turn braking. Attacks, shield stun and
 /// damage remain ineligible even when the situation flag still says grounded.
 pub fn grounded_start_allowed(status: i32, situation: i32) -> bool {
-    situation == 0
+    situation == crate::native_states::situation::GROUND
         && matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV)
 }
+fn valid_direction(direction: Option<f32>) -> Option<f32> {
+    direction.filter(|value| value.is_finite() && value.abs() > MIN_DIRECTION_MAGNITUDE)
+}
+fn has_required_frame_data(mode: YMode) -> bool {
+    match mode {
+        YMode::DairSmash => {
+            crate::fighter_data::named_move(crate::fighter_kinds::KIRBY, "Down Air")
+                .is_some_and(|move_data| !move_data.active.is_empty())
+        }
+        YMode::YoshiBairSmash => {
+            crate::fighter_data::named_move(crate::fighter_kinds::YOSHI, "Back Air")
+                .is_some_and(|move_data| !move_data.active.is_empty())
+        }
+        YMode::FairSmash => true,
+    }
+}
 pub fn yoshi_early_bair_hit(frame: f32) -> bool {
-    let Some(move_data) = crate::fighter_data::named_move(5, "Back Air") else {
+    let Some(move_data) = crate::fighter_data::named_move(crate::fighter_kinds::YOSHI, "Back Air")
+    else {
         return false;
     };
     let Some(final_hit) = move_data.active.iter().map(|span| span.last).max() else {
@@ -32,21 +52,97 @@ pub fn yoshi_early_bair_hit(frame: f32) -> bool {
     };
     move_data.active.iter().any(|span| {
         span.last < final_hit
-            && (f32::from(span.first)..f32::from(span.last) + 1.0).contains(&frame)
+            && (f32::from(span.first)..f32::from(span.last) + ACTIVE_FRAME_END_INCLUSIVE_OFFSET)
+                .contains(&frame)
     })
 }
 fn yoshi_bair_final_hit_start() -> Option<f32> {
-    let move_data = crate::fighter_data::named_move(5, "Back Air")?;
+    let move_data = crate::fighter_data::named_move(crate::fighter_kinds::YOSHI, "Back Air")?;
     let final_hit = move_data.active.iter().max_by_key(|span| span.last)?;
     Some(f32::from(final_hit.first))
 }
 fn kirby_dair_hit(frame: f32) -> bool {
-    crate::fighter_data::named_move(6, "Down Air").is_some_and(|move_data| {
-        move_data
-            .active
-            .iter()
-            .any(|span| (f32::from(span.first)..f32::from(span.last) + 1.0).contains(&frame))
-    })
+    crate::fighter_data::named_move(crate::fighter_kinds::KIRBY, "Down Air").is_some_and(
+        |move_data| {
+            move_data.active.iter().any(|span| {
+                (f32::from(span.first)..f32::from(span.last) + ACTIVE_FRAME_END_INCLUSIVE_OFFSET)
+                    .contains(&frame)
+            })
+        },
+    )
+}
+fn is_expected_aerial(mode: YMode, fighter: FairContext) -> bool {
+    let motion = match mode {
+        YMode::FairSmash => crate::timing::MOTION_ATTACK_AIR_F,
+        YMode::DairSmash => crate::timing::MOTION_ATTACK_AIR_LW,
+        YMode::YoshiBairSmash => crate::timing::motion_hash("attack_air_b"),
+    };
+    fighter.status == crate::native_states::status::ATTACK_AIR && fighter.motion == motion
+}
+fn aerial_hit_window(mode: YMode, frame: f32) -> bool {
+    match mode {
+        YMode::FairSmash => true,
+        YMode::DairSmash => kirby_dair_hit(frame),
+        YMode::YoshiBairSmash => yoshi_early_bair_hit(frame),
+    }
+}
+fn confirms_landing_hit(mode: YMode, aerial_seen: bool, fighter: FairContext) -> bool {
+    if !aerial_seen
+        || !fighter.grounded
+        || fighter.status != crate::native_states::status::LANDING_ATTACK_AIR
+        || !fighter.hit_now
+    {
+        return false;
+    }
+    match mode {
+        YMode::FairSmash => fighter.motion == crate::timing::motion_hash("landing_air_f"),
+        YMode::DairSmash => {
+            fighter.motion == crate::timing::motion_hash("landing_air_lw")
+                && (0.0..LANDING_HIT_CONFIRM_WINDOW_FRAMES).contains(&fighter.frame)
+        }
+        YMode::YoshiBairSmash => false,
+    }
+}
+fn is_airborne_status(status: i32) -> bool {
+    matches!(
+        status,
+        crate::native_states::status::JUMP
+            | crate::native_states::status::JUMP_AERIAL
+            | crate::native_states::status::FALL
+            | crate::native_states::status::FALL_AERIAL
+            | crate::native_states::status::ATTACK_AIR
+    )
+}
+fn is_valid_smash_buffer_status(status: i32) -> bool {
+    matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_ATTACK_AIR)
+}
+fn smash_startup_statuses(mode: YMode) -> (i32, i32) {
+    match mode {
+        YMode::FairSmash | YMode::YoshiBairSmash => (
+            crate::native_states::status::ATTACK_S4_START,
+            crate::native_states::status::ATTACK_S4,
+        ),
+        YMode::DairSmash => (
+            crate::native_states::status::ATTACK_LW4_START,
+            crate::native_states::status::ATTACK_LW4,
+        ),
+    }
+}
+fn smash_stick(mode: YMode, facing: f32) -> [f32; 2] {
+    let direction = match mode {
+        YMode::FairSmash => crate::move_input::Smash::ForwardUp,
+        YMode::YoshiBairSmash => crate::move_input::Smash::Forward,
+        YMode::DairSmash => crate::move_input::Smash::Down,
+    };
+    crate::move_input::smash_stick(direction, facing)
+}
+fn aerial_stick(mode: YMode, facing: f32) -> [f32; 2] {
+    let (aerial, direction) = match mode {
+        YMode::FairSmash => (crate::move_input::Aerial::Forward, facing),
+        YMode::DairSmash => (crate::move_input::Aerial::Down, facing),
+        YMode::YoshiBairSmash => (crate::move_input::Aerial::Back, -facing),
+    };
+    crate::move_input::aerial_stick(aerial, direction)
 }
 #[derive(Default)]
 pub struct Finisher {
@@ -81,6 +177,33 @@ impl Finisher {
     pub fn requests_short_hop(&self) -> bool {
         self.active && !self.jump_seen && self.output.requested & crate::native_input::MAPPER_X != 0
     }
+    fn sample_is_valid(&self, enabled: bool, mode: YMode, context: Context) -> bool {
+        let fighter = context.fighter;
+        enabled
+            && mode.supports(context.fighter_kind)
+            && fighter.frame.is_finite()
+            && fighter.frame >= 0.0
+            && fighter.rate.is_finite()
+            && fighter.rate > 0.0
+            && context.velocity_y.is_finite()
+            && fighter.facing.is_finite()
+            && fighter.facing.abs() >= 0.5
+            && (!self.active
+                || mode == self.mode
+                    && !self
+                        .previous
+                        .is_some_and(|previous| previous.object != fighter.object))
+    }
+
+    fn can_start(pressed: bool, context: Context) -> bool {
+        let fighter = context.fighter;
+        pressed
+            && fighter.grounded
+            && context.can_start
+            && grounded_start_allowed(fighter.status, crate::native_states::status::WAIT)
+            && (!fighter.stopped || context.fighter_kind == crate::fighter_kinds::KIRBY)
+    }
+
     pub fn sample(
         &mut self,
         enabled: bool,
@@ -91,37 +214,14 @@ impl Finisher {
         let f = c.fighter;
         let pressed = held && !self.held;
         self.held = held;
-        if !enabled
-            || !mode.supports(c.fighter_kind)
-            || !f.frame.is_finite()
-            || f.frame < 0.0
-            || !f.rate.is_finite()
-            || f.rate <= 0.0
-            || !c.velocity_y.is_finite()
-            || !f.facing.is_finite()
-            || f.facing.abs() < 0.5
-            || self.active
-                && (mode != self.mode || self.previous.is_some_and(|p| p.object != f.object))
-        {
+        if !self.sample_is_valid(enabled, mode, c) {
             return self.end();
         }
-        let frame_data_available = match mode {
-            YMode::DairSmash => crate::fighter_data::named_move(6, "Down Air")
-                .is_some_and(|move_data| !move_data.active.is_empty()),
-            YMode::YoshiBairSmash => crate::fighter_data::named_move(5, "Back Air")
-                .is_some_and(|move_data| !move_data.active.is_empty()),
-            YMode::FairSmash => true,
-        };
-        if !frame_data_available {
+        if !has_required_frame_data(mode) {
             return self.end();
         }
         if !self.active {
-            if !pressed
-                || !f.grounded
-                || !c.can_start
-                || !grounded_start_allowed(f.status, crate::native_states::status::WAIT)
-                || f.stopped && c.fighter_kind != crate::fighter_kinds::KIRBY
-            {
+            if !Self::can_start(pressed, c) {
                 return ControllerOutput::default();
             }
             self.active = true;
@@ -135,13 +235,16 @@ impl Finisher {
             self.jump_requested = false;
             self.aerial_request_age = 0.0;
             self.fair_apex_ready = false;
-            self.facing = c
-                .target_direction
-                .filter(|x| x.is_finite() && x.abs() > 0.5)
+            self.facing = valid_direction(c.target_direction)
                 .unwrap_or(f.facing)
                 .signum();
             self.previous = Some(f);
-            self.output = if c.can_jump || matches!(c.fighter_kind, 5 | 6) && c.can_start {
+            self.output = if c.can_jump
+                || matches!(
+                    c.fighter_kind,
+                    crate::fighter_kinds::YOSHI | crate::fighter_kinds::KIRBY
+                ) && c.can_start
+            {
                 self.jump_requested = true;
                 self.jump_input()
             } else {
@@ -165,33 +268,11 @@ impl Finisher {
         }
         // A hit flag may change in a duplicate native frame; inspect it before
         // the duplicate guard without spending time or creating a button edge.
-        let motion = match self.mode {
-            YMode::FairSmash => 0xc3495ada5,
-            YMode::DairSmash => 0xd40042152,
-            YMode::YoshiBairSmash => crate::timing::motion_hash("attack_air_b"),
-        };
-        let aerial = f.status == crate::native_states::status::ATTACK_AIR && f.motion == motion;
+        let aerial = is_expected_aerial(self.mode, f);
         self.aerial_seen |= aerial;
-        let hit_window = match self.mode {
-            YMode::FairSmash => true, // Any real hit from this exact fair arms Fsmash.
-            YMode::DairSmash => kirby_dair_hit(f.frame),
-            YMode::YoshiBairSmash => yoshi_early_bair_hit(f.frame),
-        };
-        self.confirmed |= aerial && hit_window && f.hit_now;
-        // A landing transition may be the first observation reporting contact.
-        self.confirmed |= self.mode == YMode::FairSmash
-            && self.aerial_seen
-            && f.grounded
-            && f.status == crate::native_states::status::LANDING_ATTACK_AIR
-            && f.motion == crate::timing::motion_hash("landing_air_f")
-            && f.hit_now;
-        self.confirmed |= self.mode == YMode::DairSmash
-            && self.aerial_seen
-            && f.grounded
-            && f.status == crate::native_states::status::LANDING_ATTACK_AIR
-            && f.motion == crate::timing::motion_hash("landing_air_lw")
-            && (0.0..2.0).contains(&f.frame)
-            && f.hit_now;
+        let confirmed_by_aerial_hit = aerial && aerial_hit_window(self.mode, f.frame) && f.hit_now;
+        let confirmed_by_landing_hit = confirms_landing_hit(self.mode, self.aerial_seen, f);
+        self.confirmed |= confirmed_by_aerial_hit || confirmed_by_landing_hit;
         // Squat is native jump acceptance: release even if stop begins there.
         if f.status == crate::native_states::status::JUMP_SQUAT {
             self.jump_seen = true;
@@ -235,20 +316,9 @@ impl Finisher {
         }
         // Native jump/fall status can appear before the copied situation flag
         // changes at takeoff. Do not treat that overlap as a failed landing.
-        let airborne_status = matches!(
-            f.status,
-            crate::native_states::status::JUMP
-                | crate::native_states::status::JUMP_AERIAL
-                | crate::native_states::status::FALL
-                | crate::native_states::status::FALL_AERIAL
-                | crate::native_states::status::ATTACK_AIR
-        );
-        if f.grounded && !airborne_status {
-            let (start, attack) = match self.mode {
-                YMode::FairSmash => (0x2d, 0x2f),
-                YMode::YoshiBairSmash => (0x2d, 0x2f),
-                YMode::DairSmash => (0x30, 0x32),
-            };
+        let airborne = is_airborne_status(f.status);
+        if f.grounded && !airborne {
+            let (start, attack) = smash_startup_statuses(self.mode);
             if f.status == attack || f.status == start + 1 {
                 return self.end();
             }
@@ -259,15 +329,11 @@ impl Finisher {
                 return self.output; // Release A, never charge.
             }
             if self.mode == YMode::FairSmash && self.confirmed {
-                if let Some(direction) = c
-                    .target_direction
-                    .filter(|x| x.is_finite() && x.abs() > 0.5)
-                {
+                if let Some(direction) = valid_direction(c.target_direction) {
                     self.facing = direction.signum();
                 }
             }
-            if !matches!(f.status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_ATTACK_AIR)
-            {
+            if !is_valid_smash_buffer_status(f.status) {
                 return self.end();
             }
             if self.jump_seen {
@@ -288,23 +354,7 @@ impl Finisher {
                 if previous.grounded && was_attack {
                     return self.output;
                 }
-                self.output = controls(
-                    match self.mode {
-                        YMode::FairSmash => crate::move_input::smash_stick(
-                            crate::move_input::Smash::ForwardUp,
-                            self.facing,
-                        ),
-                        YMode::YoshiBairSmash => crate::move_input::smash_stick(
-                            crate::move_input::Smash::Forward,
-                            self.facing,
-                        ),
-                        YMode::DairSmash => crate::move_input::smash_stick(
-                            crate::move_input::Smash::Down,
-                            self.facing,
-                        ),
-                    },
-                    MAPPER_A,
-                );
+                self.output = controls(smash_stick(self.mode, self.facing), MAPPER_A);
             } else if !self.jump_requested && self.mode != YMode::YoshiBairSmash {
                 if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT {
                     return self.end();
@@ -341,21 +391,13 @@ impl Finisher {
             return self.output;
         }
         self.jump_seen = true;
-        if !matches!(
-            f.status,
-            crate::native_states::status::JUMP
-                | crate::native_states::status::JUMP_AERIAL
-                | crate::native_states::status::FALL
-                | crate::native_states::status::FALL_AERIAL
-                | crate::native_states::status::ATTACK_AIR
-        ) {
+        if !is_airborne_status(f.status) {
             return self.end();
         }
         if f.status == crate::native_states::status::ATTACK_AIR {
-            if !aerial
-                || self.mode == YMode::YoshiBairSmash
-                    && yoshi_bair_final_hit_start().is_none_or(|first| f.frame >= first)
-            {
+            let after_yoshi_bair_hit_window = self.mode == YMode::YoshiBairSmash
+                && yoshi_bair_final_hit_start().is_none_or(|first| f.frame >= first);
+            if !aerial || after_yoshi_bair_hit_window {
                 return self.end();
             }
             if self.mode != YMode::YoshiBairSmash {
@@ -420,24 +462,10 @@ impl Finisher {
         } else {
             0.0
         };
-        let stick = crate::move_input::aerial_stick(
-            if self.mode == YMode::DairSmash {
-                crate::move_input::Aerial::Down
-            } else if self.mode == YMode::YoshiBairSmash {
-                crate::move_input::Aerial::Back
-            } else {
-                crate::move_input::Aerial::Forward
-            },
-            if self.mode == YMode::YoshiBairSmash {
-                -self.facing
-            } else {
-                self.facing
-            },
-        );
         // Three advancing frames held, then one released. No Jump remains held
         // and down is never mixed into the forward/back aerial selection.
         self.output = controls(
-            stick,
+            aerial_stick(self.mode, self.facing),
             if self.aerial_request_age < 3.0 {
                 MAPPER_A
             } else {
@@ -454,6 +482,6 @@ impl Finisher {
 }
 fn controls(stick: [f32; 2], requested: u32) -> ControllerOutput {
     let mut output = crate::move_input::output(stick, requested);
-    output.owned |= 0xf;
+    output.owned |= crate::native_input::MAPPER_DPAD_BUTTONS;
     output
 }

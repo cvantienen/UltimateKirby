@@ -9,7 +9,7 @@ fn context(frame: f32, facing: f32) -> GameplayContext {
     GameplayContext {
         held: true,
         gameplay: true,
-        situation: 2,
+        situation: kirby_assist_core::native_states::situation::AIR,
         motion_kind: 1,
         motion_frame: frame,
         motion_rate: 1.,

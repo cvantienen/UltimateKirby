@@ -157,7 +157,7 @@ fn native_hitstop_allows_a_buffered_request_and_additive_mode_preserves_held_gua
     let mut input = TechInput::default();
     let stop = TechContext {
         stopped: true,
-        motion: 0,
+        motion: crate::timing::NO_MOTION_KIND,
         rate: 0.0,
         remaining_stop: 2,
         ..ctx(1.0)
@@ -228,7 +228,7 @@ fn unavailable_animation_data_and_human_guard_do_not_erase_lockout_tracking() {
                 true,
                 40,
                 TechContext {
-                    motion: 0,
+                    motion: crate::timing::NO_MOTION_KIND,
                     rate: 0.0,
                     ..ctx(1.0)
                 }
@@ -367,7 +367,7 @@ fn prediction_gap_releases_ownership_without_rearming_lockout_and_recovery_hands
 fn first_unknown_clock_still_records_the_configured_human_guard_cooldown() {
     let mut input = TechInput::default();
     let unknown = TechContext {
-        motion: 0,
+        motion: crate::timing::NO_MOTION_KIND,
         frame: f32::NAN,
         contact_in: None,
         ..ctx(0.)
@@ -388,7 +388,7 @@ fn observed_tech_clears_lockout_even_before_its_animation_clock_is_available() {
         assert_eq!(input.cooldown_remaining(), 40.0);
         let accepted = TechContext {
             status,
-            motion: 0,
+            motion: crate::timing::NO_MOTION_KIND,
             frame: f32::NAN,
             rate: 0.0,
             contact_in: None,

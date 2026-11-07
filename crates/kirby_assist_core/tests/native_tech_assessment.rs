@@ -38,9 +38,9 @@ mod game_ffi {
                 header: 0,
                 id: 1,
                 status: kirby_assist_core::native_states::status::DAMAGE_FLY,
-                situation: 2,
+                situation: kirby_assist_core::native_states::situation::AIR,
                 previous: 0,
-                previous_situation: 2,
+                previous_situation: kirby_assist_core::native_states::situation::AIR,
                 floor_tech: true,
                 wall_tech: true,
                 ceil_tech: true,
@@ -241,7 +241,7 @@ mod live {
     #[test]
     fn actual_detector_accepts_native_ground_contact_without_rays_and_keeps_native_restrictions() {
         let mut o = crate::game_ffi::Object {
-            situation: 0,
+            situation: kirby_assist_core::native_states::situation::GROUND,
             floor_tech: true,
             ..Default::default()
         };
@@ -250,13 +250,13 @@ mod live {
         assert_eq!(a.contact_in, Some(0.));
         assert!(a.prepare_guard);
         assert_eq!(o.rays.get(), 0);
-        o.previous_situation = 0;
+        o.previous_situation = kirby_assist_core::native_states::situation::GROUND;
         assert_eq!(
             assess(&mut o, false, true).contact_in,
             None,
             "a grounded launch is not an impact"
         );
-        o.previous_situation = 2;
+        o.previous_situation = kirby_assist_core::native_states::situation::AIR;
         o.floor_tech = false;
         assert_eq!(assess(&mut o, false, true).reason, "not_airborne");
         o.floor_tech = true;
@@ -274,7 +274,7 @@ mod live {
     #[test]
     fn grounded_global_stop_does_not_fake_contact_but_known_damage_stop_retains_it() {
         let mut o = crate::game_ffi::Object {
-            situation: 0,
+            situation: kirby_assist_core::native_states::situation::GROUND,
             floor_tech: true,
             ..Default::default()
         };
@@ -509,20 +509,20 @@ mod live {
     #[test]
     fn a_grounded_upward_launch_is_not_a_floor_impact_but_downward_and_reflect_contacts_are() {
         let mut o = crate::game_ffi::Object {
-            situation: 0,
-            previous_situation: 0,
+            situation: kirby_assist_core::native_states::situation::GROUND,
+            previous_situation: kirby_assist_core::native_states::situation::GROUND,
             touches: 0x8,
             velocity: [0., 4.],
             ..Default::default()
         };
         assert_eq!(assess(&mut o, false, true).contact_in, None);
-        o.previous_situation = 2;
+        o.previous_situation = kirby_assist_core::native_states::situation::AIR;
         assert_eq!(
             assess(&mut o, false, true).contact_in,
             None,
             "a just-landed upward launch must not spend the upcoming fall's tech window"
         );
-        o.previous_situation = 0;
+        o.previous_situation = kirby_assist_core::native_states::situation::GROUND;
         o.velocity = [0., -0.01];
         assert_eq!(assess(&mut o, false, true).contact_in, Some(0.));
         o.velocity = [0., 4.];

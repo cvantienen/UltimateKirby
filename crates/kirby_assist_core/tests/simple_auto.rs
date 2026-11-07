@@ -11,7 +11,7 @@ fn c(n: f32) -> GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
-        situation: 0,
+        situation: kirby_assist_core::native_states::situation::GROUND,
         status: kirby_assist_core::native_states::status::WAIT,
         motion_kind: 1,
         motion_frame: n,
@@ -140,7 +140,7 @@ fn airborne_and_ledge_getup_roll_cannot_start_any_response() {
         (
             0x20,
             GameplayContext {
-                situation: 2,
+                situation: kirby_assist_core::native_states::situation::AIR,
                 ..c(0.)
             },
         ),
@@ -167,7 +167,7 @@ fn airborne_and_ledge_getup_roll_cannot_start_any_response() {
             20.,
             true,
             GameplayContext {
-                situation: 2,
+                situation: kirby_assist_core::native_states::situation::AIR,
                 ..c(1.)
             }
         )
@@ -605,7 +605,7 @@ fn drift_keeps_exclusive_ownership_across_interior_clock_gap_and_air_transition(
             true,
             GameplayContext {
                 status: if n == 0 {
-                    0
+                    kirby_assist_core::native_states::status::WAIT
                 } else {
                     kirby_assist_core::native_states::status::SPECIAL_HI
                 },
@@ -622,7 +622,7 @@ fn drift_keeps_exclusive_ownership_across_interior_clock_gap_and_air_transition(
         true,
         GameplayContext {
             status: kirby_assist_core::native_states::status::SPECIAL_HI,
-            situation: 2,
+            situation: kirby_assist_core::native_states::situation::AIR,
             ..c(7.)
         },
     );
@@ -641,7 +641,7 @@ fn drift_keeps_exclusive_ownership_across_interior_clock_gap_and_air_transition(
             true,
             GameplayContext {
                 status: if n == 0 {
-                    0
+                    kirby_assist_core::native_states::status::WAIT
                 } else {
                     kirby_assist_core::native_states::status::SPECIAL_HI
                 },

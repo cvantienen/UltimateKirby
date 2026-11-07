@@ -22,7 +22,8 @@ mod damage;
 #[allow(dead_code)] // Retained for offline calibration; Auto-duck is disabled.
 mod duck_hits;
 mod frame;
-mod ledge_menu;
+mod native_params;
+mod settings_menu;
 mod observations;
 mod reflect;
 #[path = "live/runtime.rs"]
@@ -123,6 +124,8 @@ fn refresh_master_match_lock(ready_go: Option<bool>) {
 // controller/policy history shared by callbacks; never call game APIs while
 // holding it, since a native call can re-enter another hooked function.
 static MAPPING_OFFSET: AtomicUsize = AtomicUsize::new(0);
+const CONTROLLER_POINTER_OFFSET_BYTES: usize = 0x10;
+const ATTACK_SLOT_COUNT: i32 = 8;
 #[cfg(feature = "diagnostic-logging")]
 static SEEN_MAPPERS: AtomicUsize = AtomicUsize::new(0);
 #[cfg(feature = "diagnostic-logging")]
@@ -147,7 +150,7 @@ fn diagnostic_config(mut config: Config) -> Config {
         .lock()
         .ok()
         .and_then(|state| {
-            state.ledge_menu.as_ref().map(|menu| {
+            state.settings_menu.as_ref().map(|menu| {
                 let (_, perf) = menu.diagnostic_options();
                 (menu.trump_mode(), perf)
             })
@@ -156,7 +159,7 @@ fn diagnostic_config(mut config: Config) -> Config {
     #[cfg(not(feature = "diagnostic-logging"))]
     let trump = STATE.lock().ok().is_some_and(|state| {
         state
-            .ledge_menu
+            .settings_menu
             .as_ref()
             .is_some_and(|menu| menu.trump_mode())
     });
@@ -260,10 +263,12 @@ unsafe fn map_controls(
     }
     // This read-only battle gate also runs in vanilla passthrough. Without it,
     // an OFF mod cannot distinguish gameplay from character select reliably.
-    let master_ready_go = if !wrapper.is_null() && (0..8).contains(&index) {
+    let master_ready_go = if !wrapper.is_null()
+        && (0..kirby_assist_core::native_input::MAPPER_SLOT_COUNT).contains(&index)
+    {
         let controller = wrapper
             .cast::<u8>()
-            .add(0x10)
+            .add(CONTROLLER_POINTER_OFFSET_BYTES)
             .cast::<*mut Controller>()
             .read();
         if !controller.is_null()
@@ -285,7 +290,7 @@ unsafe fn map_controls(
     };
     // Consume bounded menu work outside the GPU callback and before any
     // mapper STATE lock. No thread/file work when these one-shot flags are off.
-    ledge_menu::poll_maintenance();
+    settings_menu::poll_maintenance();
     if !RUNTIME_ENABLED.load(Ordering::Acquire) {
         original!()(mappings, index, output, wrapper, arg);
         return;
@@ -293,12 +298,14 @@ unsafe fn map_controls(
     // Discovery binds only the selected physical controller. No menu, policy,
     // roster scan, ray, diagnostic sample or input overlay runs without its
     // current live fighter. Other controller polls are native passthrough.
-    let controller = if wrapper.is_null() || !(0..8).contains(&index) {
+    let controller = if wrapper.is_null()
+        || !(0..kirby_assist_core::native_input::MAPPER_SLOT_COUNT).contains(&index)
+    {
         std::ptr::null_mut()
     } else {
         wrapper
             .cast::<u8>()
-            .add(0x10)
+            .add(CONTROLLER_POINTER_OFFSET_BYTES)
             .cast::<*mut Controller>()
             .read()
     };
@@ -344,7 +351,7 @@ unsafe fn map_controls(
         } else {
             let controller = wrapper
                 .cast::<u8>()
-                .add(0x10)
+                .add(CONTROLLER_POINTER_OFFSET_BYTES)
                 .cast::<*mut Controller>()
                 .read();
             if !controller.is_null()
@@ -376,13 +383,13 @@ unsafe fn map_controls(
                     state.cancel();
                 }
                 state
-                    .ledge_menu
-                    .get_or_insert_with(ledge_menu::LedgeMenu::default)
+                    .settings_menu
+                    .get_or_insert_with(settings_menu::SettingsMenu::default)
                     .observe_passthrough(
                         training_test::policy_buttons(physical.held),
                         config.control_layout,
                     );
-                if let Some(menu) = state.ledge_menu.as_ref() {
+                if let Some(menu) = state.settings_menu.as_ref() {
                     // Save/load must not hide the saved-options panel or demand
                     // a Minus tap before the CPU's next ledge get-up.
                     menu.display_battle(
@@ -410,7 +417,7 @@ unsafe fn map_controls(
         if training_test_mode && !was_modal {
             if let Ok(mut state) = STATE.lock() {
                 state
-                    .ledge_menu
+                    .settings_menu
                     .get_or_insert_with(Default::default)
                     .resume_saved_state();
             }
@@ -418,8 +425,8 @@ unsafe fn map_controls(
         if training_test_mode && was_modal {
             if let Ok(mut state) = STATE.lock() {
                 state
-                    .ledge_menu
-                    .get_or_insert_with(ledge_menu::LedgeMenu::default)
+                    .settings_menu
+                    .get_or_insert_with(settings_menu::SettingsMenu::default)
                     .request_open();
             }
         }
@@ -469,13 +476,16 @@ unsafe fn map_controls(
             original!()(mappings, index, output, wrapper, arg);
             return;
         }
-        if !wrapper.is_null() && !output.is_null() && (0..8).contains(&index) {
-            // The wrapper stores a Controller pointer at +0x10. read() loads
+        if !wrapper.is_null()
+            && !output.is_null()
+            && (0..kirby_assist_core::native_input::MAPPER_SLOT_COUNT).contains(&index)
+        {
+            // The wrapper stores a Controller pointer at this byte offset. read() loads
             // that pointer; cast() alone only changes its type. These native
             // offsets belong to the verified layout, not user-tunable settings.
             let controller = wrapper
                 .cast::<u8>()
-                .add(0x10)
+                .add(CONTROLLER_POINTER_OFFSET_BYTES)
                 .cast::<*mut Controller>()
                 .read();
             #[cfg(feature = "diagnostic-logging")]
@@ -494,13 +504,13 @@ unsafe fn map_controls(
                 // Let the classic monitor chord pass before D-pad Down can
                 // start a trump. This applies to standalone builds as well as
                 // Training; OS overlays remain responsible for their own focus.
-                if kirby_assist_core::ledge_menu::monitor_chord(
+                if kirby_assist_core::settings_menu::monitor_chord(
                     config.control_layout.policy_buttons(physical.held),
                 ) {
                     if let Ok(mut state) = STATE.lock() {
                         state.cancel();
                         state
-                            .ledge_menu
+                            .settings_menu
                             .get_or_insert_with(Default::default)
                             .observe_passthrough(physical.held, config.control_layout);
                     }
@@ -540,14 +550,14 @@ unsafe fn map_controls(
                         if menu_battle_active {
                             #[cfg(feature = "imgui-menu")]
                             state
-                                .ledge_menu
-                                .get_or_insert_with(ledge_menu::LedgeMenu::default)
+                                .settings_menu
+                                .get_or_insert_with(settings_menu::SettingsMenu::default)
                                 .begin_match();
                         } else {
                             duck_hits::clear();
                             state.menu_fighter_kind = None;
-                            if let Some(ledge_menu) = state.ledge_menu.as_mut() {
-                                ledge_menu.end_match();
+                            if let Some(settings_menu) = state.settings_menu.as_mut() {
+                                settings_menu.end_match();
                             }
                         }
                     }
@@ -596,7 +606,7 @@ unsafe fn map_controls(
                             ],
                         );
                         state.posture_down =
-                            kirby_assist_core::kirby_posture::Posture::down_tilt_intent(
+                            kirby_assist_core::posture::Posture::down_tilt_intent(
                                 policy_buttons,
                                 physical_stick,
                                 physical_right_stick,
@@ -627,8 +637,8 @@ unsafe fn map_controls(
                                     s.active() && s.consumed_buttons() & SHORT_HOP_TRIGGER != 0
                                 });
                             let changed = state
-                                .ledge_menu
-                                .get_or_insert_with(ledge_menu::LedgeMenu::default)
+                                .settings_menu
+                                .get_or_insert_with(settings_menu::SettingsMenu::default)
                                 .input(
                                     menu_available,
                                     gameplay,
@@ -661,9 +671,9 @@ unsafe fn map_controls(
                                     state.cancel_manual_tools();
                                 }
                             }
-                            let consumed = state.ledge_menu.as_ref().map_or(0, |p| p.consumed);
-                            if let Some(ledge_menu) = state.ledge_menu.as_ref() {
-                                ledge_menu
+                            let consumed = state.settings_menu.as_ref().map_or(0, |p| p.consumed);
+                            if let Some(settings_menu) = state.settings_menu.as_ref() {
+                                settings_menu
                                     .display_battle(state.menu_battle_active && kind.is_some());
                             }
                             // L remains an assist trigger; Up remains available to bindings
@@ -671,35 +681,35 @@ unsafe fn map_controls(
                             // Preserve Y for the first native-readiness check;
                             // the later overlay still consumes its mapped action.
                             let helper_consumed = consumed
-                                & !state.ledge_menu.as_ref().map_or(0, |m| m.builtin_consumed);
+                                & !state.settings_menu.as_ref().map_or(0, |m| m.builtin_consumed);
                             let policy_buttons = state
-                                .ledge_menu
+                                .settings_menu
                                 .as_ref()
                                 .map_or(policy_buttons, |m| m.native_buttons);
-                            state.raw_buttons = kirby_assist_core::ledge_menu::observation_buttons(
+                            state.raw_buttons = kirby_assist_core::settings_menu::observation_buttons(
                                 policy_buttons,
                                 helper_consumed,
                             );
                             let ledge_held = config.controls.enabled
                                 && state
-                                    .ledge_menu
+                                    .settings_menu
                                     .as_ref()
                                     .is_some_and(|p| p.sequence_enabled(config.ledge.enabled))
-                                && state.ledge_menu.as_ref().is_some_and(|p| p.ledge_held);
+                                && state.settings_menu.as_ref().is_some_and(|p| p.ledge_held);
                             duck_hits::tracking(
                                 config.autopilot_shield && ledge_held
                                     || !ledge_held
-                                        && state.ledge_menu.as_ref().is_some_and(|m| {
+                                        && state.settings_menu.as_ref().is_some_and(|m| {
                                             m.reflect_config(kind.unwrap_or(-1)).is_some()
                                         }),
                             );
                             let manual_actions = state
-                                .ledge_menu
+                                .settings_menu
                                 .as_ref()
                                 .map_or(0, |m| m.manual_native_actions());
                             let ledge_inputs_reserved = ledge_held
                                 || state
-                                    .ledge_menu
+                                    .settings_menu
                                     .as_ref()
                                     .is_some_and(|m| m.reserves_automatic_modes());
                             let suspend_auto = state.action_owner.current_owner().is_none()
@@ -710,7 +720,7 @@ unsafe fn map_controls(
                                         physical.held,
                                         physical.pressed,
                                         false,
-                                        state.shortcut_context.is_some_and(|c| c.situation == 0),
+                                        state.shortcut_context.is_some_and(|c| c.situation == kirby_assist_core::native_states::situation::GROUND),
                                         0,
                                     ));
                             state.action_owner.set_automatic_suspended(suspend_auto);
@@ -731,9 +741,11 @@ unsafe fn map_controls(
                             #[cfg(feature = "diagnostic-logging")]
                             {
                                 trump_pressed = physical.pressed
-                                    & (0xf | kirby_assist_core::native_input::MAPPER_X | MAPPER_Y)
+                                    & (kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS
+                                        | kirby_assist_core::native_input::MAPPER_X
+                                        | MAPPER_Y)
                                     != 0
-                                    && state.ledge_menu.as_ref().is_some_and(|m| m.trump_mode());
+                                    && state.settings_menu.as_ref().is_some_and(|m| m.trump_mode());
                             }
                             if consumed & DPAD_SIDES != 0
                                 || physical.held & (DPAD_UP | DPAD_DOWN | MAPPER_MINUS) != 0
@@ -766,7 +778,7 @@ unsafe fn map_controls(
                             }
                             if state.ledge_active && state.ledge.is_none() {
                                 if let Some(slot) =
-                                    state.ledge_menu.as_ref().and_then(|m| m.preview_slot())
+                                    state.settings_menu.as_ref().and_then(|m| m.preview_slot())
                                 {
                                     let mut preview = LedgeTrap::default();
                                     preview.request_preview(slot);
@@ -793,7 +805,7 @@ unsafe fn map_controls(
                         std::ptr::null_mut()
                     };
                     let valid_route = !object.is_null()
-                        && object.cast::<u8>().add(8).cast::<u32>().read() == id
+                        && game::battle_object_id(object) == id
                         && controller_index(object.cast()) == Some(index)
                         && human_fighter(object);
                     if valid_route {
@@ -823,7 +835,7 @@ unsafe fn map_controls(
                         };
                         let policy_buttons = config.control_layout.policy_buttons(policy_buttons);
                         let policy_buttons = state
-                            .ledge_menu
+                            .settings_menu
                             .as_ref()
                             .map_or(policy_buttons, |m| m.native_buttons);
                         let now = Instant::now();
@@ -839,7 +851,7 @@ unsafe fn map_controls(
                                 Some(id) == state.associated_object
                                     && seen.elapsed() < SESSION_OBSERVATION_GAP
                             });
-                        let ledge_config = state.ledge_menu.as_ref().map_or_else(
+                        let ledge_config = state.settings_menu.as_ref().map_or_else(
                             || ledge_settings(state.fighter_kind, config.ledge),
                             |p| p.settings(state.fighter_kind, &config.ledge),
                         );
@@ -872,7 +884,7 @@ unsafe fn map_controls(
                             kirby_assist_core::action_owner::native_grab_active(c.status)
                         });
                         let auto_mash = state
-                            .ledge_menu
+                            .settings_menu
                             .as_ref()
                             .map_or(config.controls.auto_mash, |menu| {
                                 menu.auto_mash(config.controls.auto_mash)
@@ -958,7 +970,7 @@ unsafe fn map_controls(
                             && policy_buttons & MAPPER_L != 0
                             && state.ledge_active
                             && !state
-                                .ledge_menu
+                                .settings_menu
                                 .as_ref()
                                 .is_some_and(|m| m.preview_slot().is_some())
                         {
@@ -1011,15 +1023,23 @@ unsafe fn map_controls(
                             && fresh
                             && state.action_owner.allows(Owner::Shortcut)
                             && (state.action_owner.current_owner() == Some(Owner::Shortcut)
-                                || (state.ledge_menu.as_ref().is_none_or(|menu| {
-                                    (menu.consumed & !menu.builtin_consumed) & 0xf == 0
+                                || (state.settings_menu.as_ref().is_none_or(|menu| {
+                                    (menu.consumed & !menu.builtin_consumed)
+                                        & kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS
+                                        == 0
                                 }) && mash_stick.is_none()
                                     && !state.tech_output.owns_guard
-                                    && policy_buttons & ((0xf & !DPAD_SIDES) | MAPPER_MINUS) == 0));
+                                    && policy_buttons
+                                        & ((kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS
+                                            & !DPAD_SIDES)
+                                            | MAPPER_MINUS)
+                                        == 0));
                         let shortcut_buttons = policy_buttons
                             & !MAPPER_Y
-                            & !state.ledge_menu.as_ref().map_or(0, |menu| {
-                                (menu.consumed & !menu.builtin_consumed) & (0xf | SHORT_HOP_TRIGGER)
+                            & !state.settings_menu.as_ref().map_or(0, |menu| {
+                                (menu.consumed & !menu.builtin_consumed)
+                                    & (kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS
+                                        | SHORT_HOP_TRIGGER)
                             })
                             & !DPAD_SIDES;
                         let shortcut = state
@@ -1031,7 +1051,7 @@ unsafe fn map_controls(
                             .as_ref()
                             .map_or(0, Shortcuts::consumed_buttons);
                         let (idle_crouch, tilt_turn) = state
-                            .ledge_menu
+                            .settings_menu
                             .as_ref()
                             .map_or((false, false), |m| m.posture_modes());
                         let posture_target = state.posture_target;
@@ -1045,7 +1065,7 @@ unsafe fn map_controls(
                                         // Yield immediately on action edges and
                                         // the release poll; do not add Down to
                                         // an input returning from a grab/shield.
-                                        && kirby_assist_core::kirby_posture::Posture::idle_buttons_clear(physical),
+                                        && kirby_assist_core::posture::Posture::idle_buttons_clear(physical),
                                     tilt_turn,
                                     policy_buttons,
                                     physical_stick,
@@ -1058,7 +1078,7 @@ unsafe fn map_controls(
                         // lowest priority, including physical tilt buffer gaps.
                         let tilt_aiming = tilt_turn
                             && posture.stick.is_some()
-                            && kirby_assist_core::kirby_posture::Posture::down_tilt_intent(
+                            && kirby_assist_core::posture::Posture::down_tilt_intent(
                                 policy_buttons,
                                 physical_stick,
                                 physical_right_stick,
@@ -1066,11 +1086,12 @@ unsafe fn map_controls(
                         // Menu input is reserved during entry/respawn too.
                         let menu_consumed =
                             if state.menu_battle_active && state.menu_fighter_kind.is_some() {
-                                state.ledge_menu.as_ref().map_or(0, |menu| menu.consumed)
+                                state.settings_menu.as_ref().map_or(0, |menu| menu.consumed)
                             } else {
                                 0
                             };
-                        reserved_dpad |= menu_consumed & 0xf;
+                        reserved_dpad |= menu_consumed
+                            & kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS;
                         let sdi_context = state.sdi_context;
                         let sdi_enabled = config.auto_sdi && manual_scope && fresh;
                         let di_context = state.di_context;
@@ -1278,7 +1299,10 @@ unsafe fn map_controls(
                                 shortcut, None,
                             );
                         let handoff_status = state.shortcut_context.map_or(-1, |c| c.status);
-                        let handoff_situation = state.shortcut_context.map_or(-1, |c| c.situation);
+                        let handoff_situation = state.shortcut_context.map_or(
+                            kirby_assist_core::native_states::situation::UNAVAILABLE,
+                            |c| c.situation,
+                        );
                         let handoff_context =
                             state
                                 .shortcut_context
@@ -1336,16 +1360,16 @@ unsafe fn map_controls(
                             let movement = state.action_owner.policy_inputs().stick();
                             selected = state.oos.with_grab_movement(selected, movement);
                         }
-                        if handoff_situation == 0 {
+                        if handoff_situation == kirby_assist_core::native_states::situation::GROUND {
                             selected =
                                 kirby_assist_core::grab_handoff::GrabHandoff::grab_packet(selected);
                         }
-                        if handoff_situation == 0
+                        if handoff_situation == kirby_assist_core::native_states::situation::GROUND
                             && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
                         {
                             short_hop_requested = false;
                         }
-                        let selected_right = if handoff_situation == 0
+                        let selected_right = if handoff_situation == kirby_assist_core::native_states::situation::GROUND
                             && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
                         {
                             Some([0.; 2])
@@ -1400,7 +1424,8 @@ unsafe fn map_controls(
                             fresh
                                 && manual_scope
                                 && !native_grab
-                                && handoff_situation == 0
+                                && handoff_situation
+                                    == kirby_assist_core::native_states::situation::GROUND
                                 && !kirby_assist_core::ledge_trap::sequence_interrupted(
                                     handoff_status,
                                 ),
@@ -1412,10 +1437,13 @@ unsafe fn map_controls(
                             && selected.owned & kirby_assist_core::native_input::GAMEPLAY_BUTTONS
                                 != kirby_assist_core::native_input::GAMEPLAY_BUTTONS
                             && (menu_consumed
-                                & !state.ledge_menu.as_ref().map_or(0, |m| m.builtin_consumed))
+                                & !state.settings_menu.as_ref().map_or(0, |m| m.builtin_consumed))
                                 & SHORT_HOP_TRIGGER
                                 == 0
-                            && shortcut_context.is_some_and(|ctx| ctx.situation == 0)
+                            && shortcut_context.is_some_and(|ctx| {
+                                ctx.situation
+                                    == kirby_assist_core::native_states::situation::GROUND
+                            })
                             && policy_buttons & SHORT_HOP_TRIGGER != 0;
                         ledge = selected;
                         turbo_output.stick = match winner {
@@ -1487,11 +1515,23 @@ unsafe fn map_controls(
                                 can_act: state.turbo_ready,
                                 hit: state.mode_hit,
                                 valid: fresh && manual_scope,
-                                safety: u8::from(
-                                    state.tech_output.press || state.tech_output.owns_guard,
-                                ) | (u8::from(mash_stick.is_some()) << 1)
-                                    | (u8::from(sdi_stick.is_some() && di_stick.is_none()) << 2)
-                                    | (u8::from(di_stick.is_some()) << 3),
+                                safety: (if state.tech_output.press || state.tech_output.owns_guard {
+                                    kirby_assist_core::diagnostics::modes::SAFETY_TECH_GUARD
+                                } else {
+                                    0
+                                }) | (if mash_stick.is_some() {
+                                    kirby_assist_core::diagnostics::modes::SAFETY_MASH
+                                } else {
+                                    0
+                                }) | (if sdi_stick.is_some() && di_stick.is_none() {
+                                    kirby_assist_core::diagnostics::modes::SAFETY_SDI
+                                } else {
+                                    0
+                                }) | (if di_stick.is_some() {
+                                    kirby_assist_core::diagnostics::modes::SAFETY_DI
+                                } else {
+                                    0
+                                }),
                             };
                             // Reuse the mapper's timestamp; do not read another clock per poll.
                             let origin = *state.mode_log_origin.get_or_insert(now);
@@ -1516,7 +1556,8 @@ unsafe fn map_controls(
                         } else {
                             0
                         };
-                        let cancel_stick = if handoff_situation == 0
+                        let cancel_stick = if handoff_situation
+                            == kirby_assist_core::native_states::situation::GROUND
                             && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
                         {
                             Some([0.; 2])
@@ -1562,7 +1603,7 @@ unsafe fn map_controls(
                             & kirby_assist_core::native_input::GAMEPLAY_BUTTONS
                             == kirby_assist_core::native_input::GAMEPLAY_BUTTONS;
                         if exclusive_sequence {
-                            reserved_dpad |= 0xf;
+                            reserved_dpad |= kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS;
                         }
                         let canonical_consumed =
                             kirby_assist_core::native_input::sequence_flick_consumption(
@@ -1961,7 +2002,7 @@ unsafe fn map_controls(
                         }
                         if winner == Some(Owner::Posture) {
                             if let Some(stick) =
-                                kirby_assist_core::kirby_posture::Posture::aimed_c_stick(
+                                kirby_assist_core::posture::Posture::aimed_c_stick(
                                     policy_buttons,
                                     physical_right_stick,
                                     posture.stick,
@@ -2062,7 +2103,12 @@ unsafe fn map_controls(
             != 0;
         if let Ok(mut state) = STATE.lock() {
             if state.mapping_index == Some(index) && state.session.accepts(session_ticket) {
-                if mapped_manual_jump && (*mapped).buttons & (0x4 | 0x40) != 0 {
+                if mapped_manual_jump
+                    && (*mapped).buttons
+                        & (kirby_assist_core::native_input::MAPPED_JUMP
+                            | kirby_assist_core::native_input::MAPPED_JUMP_MINI)
+                        != 0
+                {
                     if let (Some(object), Some(kind), Some(context)) = (
                         state.associated_object,
                         state.fighter_kind,
@@ -2233,9 +2279,9 @@ unsafe fn map_controls(
         if requested & (MAPPER_X | MAPPER_A) == (MAPPER_X | MAPPER_A) {
             messages.push(format!(
                 "short-hop mapped pair: jump={}, jump_mini={}, attack={}, neutral_stick={}; native ATTACK_AIR/attack_air_n still confirms acceptance",
-                mapped.buttons & 0x4 != 0,
-                mapped.buttons & 0x40 != 0,
-                mapped.buttons & 0x1 != 0,
+                mapped.buttons & kirby_assist_core::native_input::MAPPED_JUMP != 0,
+                mapped.buttons & kirby_assist_core::native_input::MAPPED_JUMP_MINI != 0,
+                mapped.buttons & kirby_assist_core::native_input::MAPPED_ATTACK != 0,
                 mapped.left_x == 0 && mapped.left_y == 0,
             ));
         }
@@ -2333,7 +2379,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     }
     // The callback owns a live accessor. Reject inactive/recycled identities
     // before dereferencing any ControlModule or other fighter module pointers.
-    let object_id = object.cast::<u8>().add(8).cast::<u32>().read();
+    let object_id = game::battle_object_id(object);
     if object_id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
         || !game::is_active(object_id)
         || game::module_accessor(object_id) != object
@@ -2377,7 +2423,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         let now = Instant::now();
         state.human_routes[index as usize] = Some((object_id, now));
         if state.mapping_index == Some(index) {
-            ledge_menu::observe_local_fighter(now);
+            settings_menu::observe_local_fighter(now);
         }
         let tick = state.raw_tick;
         // Keep controller discovery fresh, but skip setup already rejected by
@@ -2426,7 +2472,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             .lock()
             .ok()
             .and_then(|s| {
-                s.ledge_menu
+                s.settings_menu
                     .as_ref()
                     .map(|p| p.settings(Some(fighter_kind), &config.ledge))
             })
@@ -2449,7 +2495,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         let Ok(state) = STATE.lock() else {
             return;
         };
-        let trump_held = state.ledge_menu.as_ref().is_some_and(|m| m.trump_mode());
+        let trump_held = state.settings_menu.as_ref().is_some_and(|m| m.trump_mode());
         (
             config.auto_ledge_trump
                 && state
@@ -2466,7 +2512,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 && !config.ledge.distance_agnostic
                 && state.ledge_active
                 && !state
-                    .ledge_menu
+                    .settings_menu
                     .as_ref()
                     .is_some_and(|m| m.preview_slot().is_some())
                 && state
@@ -2478,7 +2524,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                     .is_none_or(|p| p.spot().is_none()),
             config.ledge.enabled && state.ledge_active,
             state
-                .ledge_menu
+                .settings_menu
                 .as_ref()
                 .is_some_and(|m| m.preview_slot().is_some())
                 && !state
@@ -2522,7 +2568,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let timing_rate = reads.motion_rate(object);
     let manual_automatic_blocked = STATE.lock().ok().map_or(true, |mut state| {
         let actions = state
-            .ledge_menu
+            .settings_menu
             .as_ref()
             .and_then(|m| m.for_fighter(fighter_kind))
             .map_or(0, |m| m.manual_native_actions());
@@ -2593,7 +2639,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         ),
     ) = STATE.lock().ok().map_or(Default::default(), |s| {
         let menu = s
-            .ledge_menu
+            .settings_menu
             .as_ref()
             .and_then(|m| m.for_fighter(fighter_kind));
         let committed_automatic = s.action_owner.automatic_active();
@@ -2750,7 +2796,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let auto_previous = if automatic_up_b_committed
         && native_status >= kirby_assist_core::native_states::status::FINAL
     {
-        reads.previous_status(object, 0)
+        reads.previous_status(object, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX)
     } else {
         0
     };
@@ -2813,25 +2859,26 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         ) || trip_queued);
     let observe_roll_read =
         automatic_scope.acquire && (rules_on || pressure_on) || automatic_scope.follow;
-    // A first Down input can need facing before any other assist discovered
-    // opponents. Seed once here; ordinary refreshes stay on the existing path.
-    if (discover_roster
+    let defense_observation_enabled = grab_dodge_enabled || oos_enabled;
+    let roster_scan_requested = discover_roster
         || preview_start
         || (rules_on || pressure_on) && roster_missing
-        || (grab_dodge_enabled || oos_enabled) && roster_missing
-        || posture_modes.1 && posture_down && roster_missing)
-        && (observe_ledge
-            || observe_duck
-            || trip_watch
-            || damage_stop
-            || observe_roll_read
-            || posture_modes.1
-                && (posture_down
-                    || native_status == kirby_assist_core::native_states::status::ATTACK_LW3)
-            || posture_modes.0
-            || observe_jab_lock
-            || (grab_dodge_enabled || oos_enabled) && automatic_scope.acquire)
-    {
+        || defense_observation_enabled && roster_missing
+        || posture_modes.1 && posture_down && roster_missing;
+    let roster_has_active_consumer = observe_ledge
+        || observe_duck
+        || trip_watch
+        || damage_stop
+        || observe_roll_read
+        || posture_modes.1
+            && (posture_down
+                || native_status == kirby_assist_core::native_states::status::ATTACK_LW3)
+        || posture_modes.0
+        || observe_jab_lock
+        || defense_observation_enabled && automatic_scope.acquire;
+    // A first Down input can need facing before any other assist discovered
+    // opponents. Seed once here; ordinary refreshes stay on the existing path.
+    if roster_scan_requested && roster_has_active_consumer {
         let needs_roster = STATE.lock().ok().is_some_and(|state| {
             state
                 .ledge_roster
@@ -2907,7 +2954,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         STATE.lock().ok().map_or(Default::default(), |state| {
             (
                 state
-                    .ledge_menu
+                    .settings_menu
                     .as_ref()
                     .map_or(config.controls.auto_tech, |menu| {
                         menu.auto_tech(config.controls.auto_tech)
@@ -2929,14 +2976,20 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     // Read the fighter's consumed button state outside STATE. GuardHold is a
     // second shield alias; a mapped neutral/press can still be in transit.
     let native_tech_guard =
-        auto_tech_enabled && (game::button_on(object, 3) || game::button_on(object, 0x10));
+        auto_tech_enabled
+            && (game::button_on(object, game::CONTROL_PAD_BUTTON_GUARD)
+                || game::button_on(object, game::CONTROL_PAD_BUTTON_GUARD_HOLD));
     // Current native common.prc values, rather than the legacy configured
     // synthetic forty-frame lockout. Invalid/missing keys retain compatibility.
     // Parameter names and integer types are pinned in skyline-smash params/common.rs.
     let tech_timing = if auto_tech_enabled && (tech || assessment.prepare_guard) {
         self::tech::native_timing(object, config.controls.tech_cooldown)
     } else {
-        (config.controls.tech_cooldown, 12, 7)
+        (
+            config.controls.tech_cooldown,
+            kirby_assist_core::tech_input::DEFAULT_PASSIVE_TRIGGER_FRAME,
+            kirby_assist_core::tech_input::DEFAULT_GANON_PASSIVE_TRIGGER_FRAME,
+        )
     };
     if matches!(
         assessment.status,
@@ -2977,7 +3030,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             analysis_settings.value(kirby_assist_core::fighter_tuning::JAB_LOCK_HEIGHT, 24.),
         );
         let relevant = watching || tilt_hit || targets.iter().any(Option::is_some);
-        let grounded = assessment.situation == 0;
+        let grounded = assessment.situation == kirby_assist_core::native_states::situation::GROUND;
         Some((
             kirby_assist_core::jab_lock::Context {
                 object: object_id,
@@ -2987,7 +3040,8 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 frame: ledge_motion_frame,
                 rate: timing_rate,
                 stopped: stopped || clatter || tech,
-                grounded: assessment.situation == 0,
+                grounded: assessment.situation
+                    == kirby_assist_core::native_states::situation::GROUND,
                 hit: tilt_hit,
                 facing: reads.facing(object),
                 position,
@@ -3011,7 +3065,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                         kirby_assist_core::native_states::transition_terms::CONT_CATCH,
                     ),
                 safe_ground: if relevant && grounded {
-                    reads.ground_support(object, position, reads.speed_x(object, -1))
+                    reads.ground_support(object, position, reads.speed_x(object))
                 } else {
                     [false; 2]
                 },
@@ -3050,7 +3104,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             ([None; 8], None)
         };
         let position = [reads.pos_x(object), reads.pos_y(object)];
-        let velocity = [reads.speed_x(object, -1), reads.speed_y(object, -1)];
+        let velocity = [reads.speed_x(object), reads.speed_y(object)];
         let rule_needs_ground = rules_ground.is_some_and(|(distance, height, active)| {
             if rule_target.is_some() || oos_target.is_some() {
                 active
@@ -3082,7 +3136,9 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                             && assessment.status == kirby_assist_core::native_states::status::WAIT
                             && (t.position[0] - position[0]).abs() > auto_grab_range
                     }));
-        let needs_ground = assessment.situation == 0 && (rule_needs_ground || grab_ground);
+        let needs_ground = assessment.situation
+            == kirby_assist_core::native_states::situation::GROUND
+            && (rule_needs_ground || grab_ground);
         Some((
             GameplayContext {
                 held: true,
@@ -3099,7 +3155,8 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 position,
                 velocity,
                 facing: reads.facing(object),
-                previous_status: reads.previous_status(object, 0),
+                previous_status: reads
+                    .previous_status(object, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX),
                 // Only admit a new grounded Up-B reaction when the native game
                 // can accept it now. Locomotion keeps its momentum until then.
                 can_act: want_up_special
@@ -3107,7 +3164,8 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                     && !clatter
                     && !tech
                     && !stopped
-                    && assessment.situation == 0
+                    && assessment.situation
+                        == kirby_assist_core::native_states::situation::GROUND
                     && (automatic_scope.acquire
                         || automatic_scope.follow
                             && assessment.status == kirby_assist_core::native_states::ESCAPE
@@ -3116,7 +3174,10 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                         object,
                         kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_HI,
                     ), // CONT_SPECIAL_HI
-                ground_brake: if assessment.situation == 0 && rule_needs_ground {
+                ground_brake: if assessment.situation
+                    == kirby_assist_core::native_states::situation::GROUND
+                    && rule_needs_ground
+                {
                     reads.ground_brake(object)
                 } else {
                     None
@@ -3156,7 +3217,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             || fighter_kind == kirby_assist_core::fighter_kinds::BOWSER
                 && oos_target.is_some()
                 && automatic_up_b_committed)
-        && assessment.situation == 0
+        && assessment.situation == kirby_assist_core::native_states::situation::GROUND
         && kirby_assist_core::out_of_shield::ground_grab_state(assessment.status)
         && (oos_target.is_some()
             || rule_observation.as_ref().is_some_and(|(_, targets, _)| {
@@ -3167,7 +3228,10 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             })) {
         let ready = !stopped
             && (assessment.status != kirby_assist_core::native_states::GUARD_DAMAGE
-                || game::work_int(object, 0x1100000e) <= 0);
+                || game::work_int(
+                    object,
+                    kirby_assist_core::native_states::work_ids::FIGHTER_STATUS_GUARD_DAMAGE_WORK_INT_STIFF_FRAME,
+                ) <= 0);
         (
             ready,
             ready
@@ -3195,7 +3259,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     // fighter warning pass; it does not enable ledge rays/physics acquisition.
     let duck_observation = if observe_duck
         && fighter_kind == kirby::FIGHTER_KIND
-        && assessment.situation == 0
+        && assessment.situation == kirby_assist_core::native_states::situation::GROUND
         && !clatter
         && !tech
     {
@@ -3229,7 +3293,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 object,
                 object_id,
                 [reads.pos_x(object), reads.pos_y(object)],
-                [reads.speed_x(object, -1), reads.speed_y(object, -1)],
+                [reads.speed_x(object), reads.speed_y(object)],
                 true,
                 analysis_settings.shield(),
             )
@@ -3286,11 +3350,11 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         #[cfg(feature = "diagnostic-logging")]
         let _performance = crate::performance::Scope::new(crate::performance::Part::Ledge);
         let position = [reads.pos_x(object), reads.pos_y(object)];
-        let velocity = [reads.speed_x(object, -1), reads.speed_y(object, -1)];
+        let velocity = [reads.speed_x(object), reads.speed_y(object)];
         let guard_armed = observe_ledge
             && !file_ledge_timeline
             && config.autopilot_shield
-            && assessment.situation == 0
+            && assessment.situation == kirby_assist_core::native_states::situation::GROUND
             && !kirby_assist_core::native_states::fighter_sequence_interrupted(
                 fighter_kind,
                 assessment.status,
@@ -3349,7 +3413,8 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 None
             },
             facing: reads.facing(object),
-            previous_status: reads.previous_status(object, 0),
+            previous_status: reads
+                .previous_status(object, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX),
             can_grab: false,
             can_tilt: false,
             can_down_tilt: false,
@@ -3365,7 +3430,8 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             shield_stun_frames,
             shield_attacker,
             hit_confirmed: false,
-            safe_ground: if assessment.situation == 0
+            safe_ground: if assessment.situation
+                == kirby_assist_core::native_states::situation::GROUND
                 && (response_observation
                     || spatial_timeline
                     || observe_trump
@@ -3430,7 +3496,8 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         status: assessment.status,
         motion: own_motion_kind,
         frame: ledge_motion_frame,
-        grounded: assessment.situation == 0,
+        grounded: assessment.situation
+            == kirby_assist_core::native_states::situation::GROUND,
         stopped,
         facing: reads.facing(object),
         targets: trip_targets,
@@ -3446,7 +3513,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         && fighter_kind == kirby::FIGHTER_KIND
         && config.kirby_fair1_smash
         && (assessment.status == kirby_assist_core::native_states::status::ATTACK_AIR
-            && own_motion_kind == 0xc3495ada5
+            && own_motion_kind == kirby_assist_core::timing::MOTION_ATTACK_AIR_F
             || assessment.status == kirby_assist_core::native_states::status::LANDING_ATTACK_AIR
                 && own_motion_kind == kirby_assist_core::timing::motion_hash("landing_air_f"));
     let fair_context = FairContext {
@@ -3456,7 +3523,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         motion: own_motion_kind,
         frame: ledge_motion_frame,
         rate: timing_rate,
-        grounded: assessment.situation == 0,
+        grounded: assessment.situation == kirby_assist_core::native_states::situation::GROUND,
         stopped,
         facing: trip_context.facing,
         hit_now: fair_hit_window
@@ -3466,7 +3533,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         || posture_modes.1
             && (posture_down
                 || assessment.status == kirby_assist_core::native_states::status::ATTACK_LW3))
-        && kirby_assist_core::kirby_posture::Posture::needs_target(
+        && kirby_assist_core::posture::Posture::needs_target(
             assessment.status,
             assessment.situation,
             stopped || clatter || tech,
@@ -3483,8 +3550,8 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     // A Down input on a passable platform may drop through. Leave those floors
     // free of automatic Down; walking remains capped on these floors.
     let posture_floor_safe = posture_modes.0
-        && assessment.situation == 0
-        && kirby_assist_core::kirby_posture::Posture::opponent_near_with(
+        && assessment.situation == kirby_assist_core::native_states::situation::GROUND
+        && kirby_assist_core::posture::Posture::opponent_near_with(
             posture_opponent,
             analysis_settings.value(kirby_assist_core::fighter_tuning::CROUCH_RANGE, 45.),
             analysis_settings.value(kirby_assist_core::fighter_tuning::CROUCH_HEIGHT, 20.),
@@ -3499,7 +3566,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         stopped: stopped || clatter || tech,
         facing: trip_context.facing,
         can_short_hop: observe_shortcuts
-            && assessment.situation == 0
+            && assessment.situation == kirby_assist_core::native_states::situation::GROUND
             && (game::transition_enabled(
                 object,
                 kirby_assist_core::native_states::transition_terms::CONT_JUMP_SQUAT_BUTTON,
@@ -3518,14 +3585,14 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let jab_grab_ready = kirby_assist_core::jab_grab::Readiness::default();
 
     let combo_velocity_y = if fair_hit_window || fair_pending {
-        reads.speed_y(object, -1)
+        reads.speed_y(object)
     } else {
         0.0
     };
     let dodge_response_ready = if grab_dodge_enabled && !dodge_direct_up_b {
         !own_capture_link
             && !stopped
-            && assessment.situation == 0
+            && assessment.situation == kirby_assist_core::native_states::situation::GROUND
             && (automatic_scope.acquire
                 || automatic_scope.follow
                     && assessment.status == kirby_assist_core::native_states::ESCAPE
@@ -3535,7 +3602,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     };
     let spot_observation = if grab_dodge_enabled
         && !own_capture_link
-        && assessment.situation == 0
+        && assessment.situation == kirby_assist_core::native_states::situation::GROUND
         && (automatic_scope.acquire
             || automatic_scope.follow && assessment.status == kirby_assist_core::spot_dodge::ESCAPE)
         && (stationary_intent && kirby_assist_core::spot_dodge::ground_status(assessment.status)
@@ -3566,7 +3633,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                             kirby_assist_core::native_states::transition_terms::CONT_GUARD_ON,
                         )),
                 position: [reads.pos_x(object), reads.pos_y(object)],
-                velocity: [reads.speed_x(object, -1), reads.speed_y(object, -1)],
+                velocity: [reads.speed_x(object), reads.speed_y(object)],
             },
             targets,
         ))
@@ -3624,7 +3691,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 frame: ledge_motion_frame,
                 rate: timing_rate,
                 stopped,
-                grounded: assessment.situation == 0,
+                grounded: assessment.situation == kirby_assist_core::native_states::situation::GROUND,
                 position: [reads.pos_x(object), reads.pos_y(object)],
                 facing: reads.facing(object),
                 shield_ready: oos_readiness.0,
@@ -3647,7 +3714,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 assessment.status,
                 kirby_assist_core::native_states::status::ATTACK
                     ..=kirby_assist_core::native_states::status::ATTACK_AIR
-            ) && (0..8).any(|slot| game::attack_active(object, slot, false)),
+            ) && (0..ATTACK_SLOT_COUNT).any(|slot| game::attack_active(object, slot, false)),
         )
     } else {
         None
@@ -3662,7 +3729,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                     | kirby_assist_core::native_input::SEQUENCE_GUARD_INPUTS)
                 != 0;
             (
-                s.ledge_menu
+                s.settings_menu
                     .as_ref()
                     .and_then(|m| m.reflect_config(fighter_kind)),
                 s.reflector.target(),
@@ -3801,7 +3868,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         let admission_suspended = automatic_suspended
             || state.ledge_active
             || state
-                .ledge_menu
+                .settings_menu
                 .as_ref()
                 .is_some_and(|m| m.reserves_automatic_modes());
         state
@@ -3915,13 +3982,13 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         if let Some((context, _, follow)) = rule_observation {
             let State {
                 spot_dodge,
-                ledge_menu,
+                settings_menu,
                 action_owner,
                 spot_output,
                 ..
             } = &mut *state;
             if let Some(spot) = spot_dodge.as_mut() {
-                let sequence = ledge_menu.as_ref().and_then(|m| {
+                let sequence = settings_menu.as_ref().and_then(|m| {
                     m.grab_dodge_sequence().or_else(|| {
                         (fighter_kind == kirby_assist_core::fighter_kinds::BOWSER
                             && spot.direct_up_b())
@@ -3969,12 +4036,12 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                     let yielded = {
                         let State {
                             rule_engine,
-                            ledge_menu,
+                            settings_menu,
                             oos,
                             action_owner,
                             ..
                         } = state;
-                        if let Some(rules) = ledge_menu.as_ref().and_then(|m| m.rule_config()) {
+                        if let Some(rules) = settings_menu.as_ref().and_then(|m| m.rule_config()) {
                             let engine = rule_engine.get_or_insert_with(Box::default);
                             engine.preempt_automatic_grab(
                                 true,
@@ -4023,9 +4090,9 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                     .map(|(c, t, _)| (c, t))
                     .unwrap_or((GameplayContext::default(), [None; 8]));
                 let State {
-                    oos, ledge_menu, ..
+                    oos, settings_menu, ..
                 } = state;
-                let sequences = ledge_menu
+                let sequences = settings_menu
                     .as_ref()
                     .map_or(Default::default(), |m| m.automatic_sequences());
                 oos.sample_automatic_configured(
@@ -4092,7 +4159,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             let state = &mut *state;
             let rules = rules_on
                 .then(|| {
-                    state.ledge_menu.as_ref().and_then(|m| {
+                    state.settings_menu.as_ref().and_then(|m| {
                         m.rule_config()
                             .or_else(|| keep_spin.then(|| m.automatic_rules()).flatten())
                     })
@@ -4230,7 +4297,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             }
         }
         let auto_mash = state
-            .ledge_menu
+            .settings_menu
             .as_ref()
             .map_or(config.controls.auto_mash, |menu| {
                 menu.auto_mash(config.controls.auto_mash)
@@ -4310,7 +4377,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         // movement and higher-priority mash/tech keep their physical inputs.
         state.ledge_walk_ready = !clatter
             && !tech
-            && assessment.situation == 0
+            && assessment.situation == kirby_assist_core::native_states::situation::GROUND
             && (0..=kirby_assist_core::native_states::THROW).contains(&assessment.status);
         #[cfg(feature = "diagnostic-logging")]
         {
@@ -4331,12 +4398,12 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 .ledge_walk_ready
                 .then_some((context.position, context.velocity));
             let previewing = state
-                .ledge_menu
+                .settings_menu
                 .as_ref()
                 .is_some_and(|m| m.preview_slot().is_some());
             context.input_delay = 0.0;
             context.can_act = state.turbo_ready;
-            let trump_held = state.ledge_menu.as_ref().is_some_and(|m| m.trump_mode());
+            let trump_held = state.settings_menu.as_ref().is_some_and(|m| m.trump_mode());
             if !trump_held || !config.auto_ledge_trump {
                 state.trump_seek_tick = None;
             } else if find_trump_edge
@@ -4363,7 +4430,8 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             // Preparation stays grounded. Continue only a policy-started hop and
             // keep ownership through attack/shield/grab animations; mash/tech keep their existing priority.
             // The policy can preserve ZR during native guard hitstop.
-            let grounded = assessment.situation == 0
+            let grounded = assessment.situation
+                == kirby_assist_core::native_states::situation::GROUND
                 && (state.turbo_ready
                     || matches!(assessment.status, kirby_assist_core::native_states::status::GUARD_ON..=kirby_assist_core::native_states::status::GUARD_DAMAGE | kirby_assist_core::native_states::status::ATTACK_DASH..=kirby_assist_core::native_states::status::ATTACK_LW4 | kirby_assist_core::native_states::status::CATCH..=kirby_assist_core::native_states::status::CATCH_ATTACK));
             let owned_jump = state
@@ -4377,13 +4445,13 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             context.held = held;
             context.can_act = state.turbo_ready;
             context.can_control = can_control;
-            if context.situation != 0 {
+            if context.situation != kirby_assist_core::native_states::situation::GROUND {
                 state.ledge_position = None;
                 state.ledge_seek_tick = None;
             }
             if held
                 && !previewing
-                && context.situation == 0
+                && context.situation == kirby_assist_core::native_states::situation::GROUND
                 && config.ledge.auto_position
                 && !config.ledge.manual_spacing
                 && !config.ledge.distance_agnostic
@@ -4444,7 +4512,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                     .as_ref()
                     .is_some_and(LedgeTrap::manual_after_response)
             {
-                if let Some(menu) = state.ledge_menu.as_mut() {
+                if let Some(menu) = state.settings_menu.as_mut() {
                     menu.finish_preview();
                 }
             }
@@ -4465,7 +4533,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                     .is_some_and(LedgeTrap::manual_after_response)
                 && !config.ledge.manual_spacing
                 && !config.ledge.distance_agnostic
-                && context.situation == 0
+                && context.situation == kirby_assist_core::native_states::situation::GROUND
                 && !clatter
                 && !tech
             {
@@ -4511,7 +4579,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 && held
                 && config.autopilot_shield
                 && passive_plan
-                && context.situation == 0
+                && context.situation == kirby_assist_core::native_states::situation::GROUND
                 && !clatter
                 && !tech
                 && state.ledge_output.requested == 0
@@ -4561,7 +4629,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                     let slot = trap.calibration_slot()?;
                     let profile = PROFILES.get()?.profile(state.fighter_kind?)?;
                     let (id, name) = state
-                        .ledge_menu
+                        .settings_menu
                         .as_ref()?
                         .selected_choice_labels(fighter_kind, slot)?;
                     let mut frame = trap.calibration_frame(config.ledge, context, opponent, id)?;
@@ -4874,7 +4942,7 @@ pub fn install() {
         #[cfg(feature = "silent-probe")]
         crate::one_match_probe::start();
         skyline::install_hook!(observe_commands);
-        ledge_menu::install();
+        settings_menu::install();
         log!(&format!("observer installed; mapper={offset:#x} deferred until fighter callback; training_modpack_present={}; config={config:?}; physical-controller routing; pre-map fighter refresh; callback-only fighter discovery", TRAINING_MODPACK_PRESENT.load(Ordering::Relaxed)));
     }
 }

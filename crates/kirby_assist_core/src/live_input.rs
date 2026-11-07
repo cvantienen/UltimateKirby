@@ -239,7 +239,9 @@ impl RawAutoControls {
         };
         if decision.recipe.buttons_to_add.contains(ButtonSet::SHIELD) {
             self.proposed |= HID_ZR;
-            self.cooldown = settings.tech_cooldown.max(2);
+            self.cooldown = settings
+                .tech_cooldown
+                .max(crate::tech_input::MIN_TECH_COOLDOWN_FRAMES);
         }
         self.proposed
     }

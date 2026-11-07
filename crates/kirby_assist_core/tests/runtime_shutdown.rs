@@ -30,7 +30,7 @@ impl Menu {
 struct State {
     session: MatchSession,
     observation_sequence: u64,
-    ledge_menu: Option<Menu>,
+    settings_menu: Option<Menu>,
     associated_object: Option<u32>,
     menu_battle_active: bool,
     mapping_index: Option<i32>,
@@ -49,7 +49,7 @@ impl State {
         Self {
             session: MatchSession::new(),
             observation_sequence: 0,
-            ledge_menu: None,
+            settings_menu: None,
             associated_object: None,
             menu_battle_active: false,
             mapping_index: None,
@@ -66,7 +66,7 @@ mod duck_hits {
         super::CLEANUPS.fetch_add(1, super::Ordering::Relaxed);
     }
 }
-mod ledge_menu {
+mod settings_menu {
     pub fn show_master_status(on: bool) {
         super::TOAST.store(on, super::Ordering::Relaxed);
     }
@@ -99,7 +99,7 @@ fn seed() -> kirby_assist_core::session::SessionTicket {
     *state = State::new();
     state.session.update(true);
     state.observation_sequence = 90;
-    state.ledge_menu = Some(Menu);
+    state.settings_menu = Some(Menu);
     state.associated_object = Some(7);
     state.menu_battle_active = true;
     state.mapping_index = Some(0);
@@ -119,7 +119,7 @@ fn assert_clean(old: kirby_assist_core::session::SessionTicket) {
         "old observations cannot rejoin a fresh session"
     );
     assert!(state.observation_sequence > 90);
-    assert!(state.ledge_menu.is_none() && state.associated_object.is_none());
+    assert!(state.settings_menu.is_none() && state.associated_object.is_none());
     assert!(!state.menu_battle_active && state.mapping_index.is_none());
     assert_eq!(state.human_routes, [None; 8]);
     assert_eq!((state.requested, state.owned), (0, 0));
@@ -184,7 +184,7 @@ fn startup_and_reconnect_require_fresh_matching_ownership_without_allocating_a_m
     *STATE.lock().unwrap() = State::new();
     assert_eq!(runtime::mapper_candidate(0), None);
     assert_eq!(STATE.lock().unwrap().mapping_index, Some(0));
-    assert!(STATE.lock().unwrap().ledge_menu.is_none());
+    assert!(STATE.lock().unwrap().settings_menu.is_none());
     // Native callbacks establish identity; no artificial wait or second press.
     {
         let mut state = STATE.lock().unwrap();

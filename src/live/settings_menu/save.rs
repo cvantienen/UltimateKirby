@@ -17,6 +17,7 @@ const PATH: &str = "sd:/ultimate/kirby_assist/sequences.txt";
 const TEMP: &str = "sd:/ultimate/kirby_assist/sequences.txt.menu.tmp";
 const BACKUP: &str = "sd:/ultimate/kirby_assist/sequences.txt.menu.bak";
 const WORKER_STACK_BYTES: usize = 2 * 1024 * 1024;
+const RAW_OS_ERROR_ALREADY_EXISTS: i32 = 0x402;
 pub(super) struct Job {
     pub kind: i32,
     pub slot: PresetSlot,
@@ -488,7 +489,9 @@ where
 {
     match rename(temp, path) {
         Ok(()) => return Ok(()),
-        Err(e) if e.kind() == io::ErrorKind::AlreadyExists || e.raw_os_error() == Some(0x402) => {}
+        Err(e)
+            if e.kind() == io::ErrorKind::AlreadyExists
+                || e.raw_os_error() == Some(RAW_OS_ERROR_ALREADY_EXISTS) => {}
         Err(e) => {
             return Err(format!(
                 "Could not replace sequences.txt; original retained: {e}"

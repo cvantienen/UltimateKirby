@@ -2,7 +2,22 @@
 use crate::{action_owner::Owner, native_input::*};
 use std::fmt::Write;
 
-pub const OWNERS: [Owner; 17] = [
+const OWNER_COUNT: usize = 17;
+const REPORT_TEXT_CAPACITY_BYTES: usize = 1200;
+const MIN_REPORT_INTERVAL_MS: u64 = 250;
+const LABEL_CAPACITY_BYTES: usize = 64;
+const CONFIGURATION_ROW_COUNT: usize = 26;
+const MAX_RECORDER_SIZE_BYTES: usize = 1024;
+const MAX_REPORT_SIZE_BYTES: usize = 768;
+const RESULT_TOP_MARGIN: f32 = 14.0;
+const RESULT_BOTTOM_MARGIN: f32 = 8.0;
+const MIN_RESULT_HEIGHT: f32 = 40.0;
+pub const SAFETY_TECH_GUARD: u8 = 1 << 0;
+pub const SAFETY_MASH: u8 = 1 << 1;
+pub const SAFETY_SDI: u8 = 1 << 2;
+pub const SAFETY_DI: u8 = 1 << 3;
+
+pub const OWNERS: [Owner; OWNER_COUNT] = [
     Owner::Safety,
     Owner::OptionRead,
     Owner::Ledge,
@@ -85,42 +100,74 @@ pub fn motion_name(status: i32, motion: u64) -> &'static str {
 }
 fn native_action(status: i32) -> u16 {
     match status {
-        0xa..=0x10 => 1,
-        crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE => 2,
-        crate::native_states::ESCAPE => 4,
-        crate::native_states::ESCAPE_F..=crate::native_states::ESCAPE_AIR_SLIDE => 8,
-        0x27..=0x35 => 16,
-        0x36 => 32,
-        crate::native_states::status::CATCH..=crate::native_states::status::CATCH_JUMP => 64,
-        0x47..=0x6b => 128,
-        0x75..=0x7c => 256,
-        _ => 0,
+        crate::native_states::status::JUMP_SQUAT..=crate::native_states::status::FALL_SPECIAL => {
+            NATIVE_ACTION_AIRBORNE
+        }
+        crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE => NATIVE_ACTION_SHIELD,
+        crate::native_states::ESCAPE => NATIVE_ACTION_SPOT_DODGE,
+        crate::native_states::ESCAPE_F..=crate::native_states::ESCAPE_AIR_SLIDE => {
+            NATIVE_ACTION_ROLL_OR_AIR_DODGE
+        }
+        crate::native_states::status::ATTACK..=crate::native_states::status::ATTACK_HI4 => {
+            NATIVE_ACTION_GROUND_ATTACK
+        }
+        crate::native_states::status::ATTACK_AIR => NATIVE_ACTION_AERIAL_ATTACK,
+        crate::native_states::status::CATCH..=crate::native_states::status::CATCH_JUMP => {
+            NATIVE_ACTION_GRAB
+        }
+        crate::native_states::status::DAMAGE..=crate::native_states::status::PASSIVE_CEIL => {
+            NATIVE_ACTION_DAMAGE_OR_TECH
+        }
+        crate::native_states::status::CLIFF_CATCH_MOVE
+            ..=crate::native_states::status::CLIFF_JUMP2 => NATIVE_ACTION_LEDGE_ACTION,
+        _ => NATIVE_ACTION_NONE,
     }
 }
+const NATIVE_ACTION_NONE: u16 = 0;
+const NATIVE_ACTION_AIRBORNE: u16 = 1;
+const NATIVE_ACTION_SHIELD: u16 = 2;
+const NATIVE_ACTION_SPOT_DODGE: u16 = 4;
+const NATIVE_ACTION_ROLL_OR_AIR_DODGE: u16 = 8;
+const NATIVE_ACTION_GROUND_ATTACK: u16 = 16;
+const NATIVE_ACTION_AERIAL_ATTACK: u16 = 32;
+const NATIVE_ACTION_GRAB: u16 = 64;
+const NATIVE_ACTION_DAMAGE_OR_TECH: u16 = 128;
+const NATIVE_ACTION_LEDGE_ACTION: u16 = 256;
 pub fn native_name(status: i32) -> &'static str {
     match status {
-        0 => "standing",
-        1..=2 => "walking",
-        3..=9 => "running / turning",
-        0xa => "jump squat",
-        0xb..=0x10 => "airborne",
-        0x11..=0x15 => "crouching",
-        0x16..=0x18 => "landing",
+        crate::native_states::status::WAIT => "standing",
+        crate::native_states::status::WALK..=crate::native_states::status::WALK_BRAKE => "walking",
+        crate::native_states::status::DASH..=crate::native_states::status::TURN_RUN_BRAKE => {
+            "running / turning"
+        }
+        crate::native_states::status::JUMP_SQUAT => "jump squat",
+        crate::native_states::status::JUMP..=crate::native_states::status::FALL_SPECIAL => {
+            "airborne"
+        }
+        crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV => "crouching",
+        crate::native_states::status::LANDING
+            ..=crate::native_states::status::LANDING_ATTACK_AIR => "landing",
         crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE => {
             "shield / shield stun"
         }
         crate::native_states::ESCAPE => "spot dodge",
         crate::native_states::ESCAPE_F..=crate::native_states::ESCAPE_B => "roll dodge",
         crate::native_states::ESCAPE_AIR..=crate::native_states::ESCAPE_AIR_SLIDE => "air dodge",
-        0x27 => "jab",
-        0x28..=0x29 => "jab follow-up / dash attack",
-        0x2a => "forward tilt",
-        0x2b => "up tilt",
-        0x2c => "down tilt",
-        0x2d..=0x2f => "forward smash",
-        0x30..=0x32 => "down smash",
-        0x33..=0x35 => "up smash",
-        0x36 => "aerial attack",
+        crate::native_states::status::ATTACK => "jab",
+        crate::native_states::status::ATTACK_100..=crate::native_states::status::ATTACK_DASH => {
+            "jab follow-up / dash attack"
+        }
+        crate::native_states::status::ATTACK_S3 => "forward tilt",
+        crate::native_states::status::ATTACK_HI3 => "up tilt",
+        crate::native_states::status::ATTACK_LW3 => "down tilt",
+        crate::native_states::status::ATTACK_S4_START..=crate::native_states::status::ATTACK_S4 => {
+            "forward smash"
+        }
+        crate::native_states::status::ATTACK_LW4_START
+            ..=crate::native_states::status::ATTACK_LW4 => "down smash",
+        crate::native_states::status::ATTACK_HI4_START
+            ..=crate::native_states::status::ATTACK_HI4 => "up smash",
+        crate::native_states::status::ATTACK_AIR => "aerial attack",
         crate::native_states::CATCH => "standing grab startup",
         crate::native_states::CATCH_DASH => "dash grab startup",
         crate::native_states::CATCH_TURN => "pivot grab startup",
@@ -129,9 +176,13 @@ pub fn native_name(status: i32) -> &'static str {
         | crate::native_states::status::CATCH_WAIT..=crate::native_states::status::CATCH_JUMP => {
             "grab pull / hold / pummel"
         }
-        0x5c..=0x6b => "knockdown / getup",
-        0x47..=0x5b => "damage / hitstun",
-        0x75..=0x7c => "ledge action",
+        crate::native_states::status::SHIELD_BREAK_FLY
+            ..=crate::native_states::status::PASSIVE_CEIL => "knockdown / getup",
+        crate::native_states::status::DAMAGE..=crate::native_states::status::DOWN_REFLECT_LR => {
+            "damage / hitstun"
+        }
+        crate::native_states::status::CLIFF_CATCH_MOVE
+            ..=crate::native_states::status::CLIFF_JUMP2 => "ledge action",
         _ => "other native action",
     }
 }
@@ -151,7 +202,7 @@ pub struct Snapshot {
     pub can_act: bool,
     pub hit: Option<bool>,
     pub valid: bool,
-    /// Bit 0 tech/guard, bit 1 mash, bit 2 SDI.
+    /// Flags are the `SAFETY_*` constants in this module.
     pub safety: u8,
 }
 #[derive(Clone, Copy, Default)]
@@ -246,7 +297,7 @@ impl Report {
     }
     /// Called by the background writer, never the input hook.
     pub fn format(&self) -> String {
-        let mut text = String::with_capacity(1200);
+        let mut text = String::with_capacity(REPORT_TEXT_CAPACITY_BYTES);
         let last = self.last;
         let winner = last.winner.map_or("physical controls", name);
         let _ = writeln!(
@@ -298,15 +349,15 @@ impl Report {
             last.motion
         );
         let observed: Vec<_> = [
-            (1, "jump/fall"),
-            (2, "shield"),
-            (4, "spot dodge"),
-            (8, "roll/air dodge"),
-            (16, "ground attack"),
-            (32, "aerial attack"),
-            (64, "grab/capture"),
-            (128, "damage/knockdown"),
-            (256, "ledge action"),
+            (NATIVE_ACTION_AIRBORNE, "jump/fall"),
+            (NATIVE_ACTION_SHIELD, "shield"),
+            (NATIVE_ACTION_SPOT_DODGE, "spot dodge"),
+            (NATIVE_ACTION_ROLL_OR_AIR_DODGE, "roll/air dodge"),
+            (NATIVE_ACTION_GROUND_ATTACK, "ground attack"),
+            (NATIVE_ACTION_AERIAL_ATTACK, "aerial attack"),
+            (NATIVE_ACTION_GRAB, "grab/capture"),
+            (NATIVE_ACTION_DAMAGE_OR_TECH, "damage/knockdown"),
+            (NATIVE_ACTION_LEDGE_ACTION, "ledge action"),
         ]
         .into_iter()
         .filter_map(|(mask, label)| (self.native_actions & mask != 0).then_some(label))
@@ -375,10 +426,10 @@ impl Report {
             let _ = writeln!(
                 text,
                 "Safety flags: tech={}, mash={}, SDI={}, DI={}.",
-                last.safety & 1 != 0,
-                last.safety & 2 != 0,
-                last.safety & 4 != 0,
-                last.safety & 8 != 0
+                last.safety & SAFETY_TECH_GUARD != 0,
+                last.safety & SAFETY_MASH != 0,
+                last.safety & SAFETY_SDI != 0,
+                last.safety & SAFETY_DI != 0
             );
         }
         let _ = write!(text, "Evidence: {}. Requests above describe inputs sent before mapping; they do not prove the selected move started or hit. Button names are a union across the batch, not necessarily simultaneous presses. Native state is the latest copied observation. +ms is wall-clock time, not a simulation-frame count.",
@@ -431,7 +482,7 @@ impl Recorder {
         self.previous = Some(snapshot);
         if self
             .last_ms
-            .is_none_or(|last| ms.saturating_sub(last) >= 250)
+            .is_none_or(|last| ms.saturating_sub(last) >= MIN_REPORT_INTERVAL_MS)
         {
             if let Some(report) = self.pending.take() {
                 self.last_ms = Some(ms);
@@ -456,26 +507,26 @@ pub fn left_result_space(display_height: f32, scale: f32, menu_height: f32) -> O
     {
         return None;
     }
-    let y = 14.0 * scale + menu_height;
-    let remaining = display_height - y - 8.0 * scale;
-    (remaining >= 40.0 * scale).then_some((y, remaining))
+    let y = RESULT_TOP_MARGIN * scale + menu_height;
+    let remaining = display_height - y - RESULT_BOTTOM_MARGIN * scale;
+    (remaining >= MIN_RESULT_HEIGHT * scale).then_some((y, remaining))
 }
 
 /// A copied menu name survives selected-fighter menu teardown without leaking
 /// strings. Configuration/report updates allocate no label storage on frames.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Label {
-    bytes: [u8; 64],
+    bytes: [u8; LABEL_CAPACITY_BYTES],
     len: usize,
 }
 impl Label {
     pub fn new(text: &str) -> Self {
-        let mut len = text.len().min(64);
+        let mut len = text.len().min(LABEL_CAPACITY_BYTES);
         while !text.is_char_boundary(len) {
             len -= 1;
         }
         let mut label = Self {
-            bytes: [0; 64],
+            bytes: [0; LABEL_CAPACITY_BYTES],
             len,
         };
         label.bytes[..len].copy_from_slice(&text.as_bytes()[..len]);
@@ -496,11 +547,11 @@ impl std::fmt::Display for Label {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Configuration {
     pub fighter: &'static str,
-    pub rows: [Label; 26],
+    pub rows: [Label; CONFIGURATION_ROW_COUNT],
     pub auto_reflect: bool,
 }
 impl Configuration {
-    pub fn new(fighter: &'static str, rows: [&str; 26]) -> Self {
+    pub fn new(fighter: &'static str, rows: [&str; CONFIGURATION_ROW_COUNT]) -> Self {
         Self {
             fighter,
             rows: rows.map(Label::new),
@@ -580,7 +631,8 @@ mod tests {
         assert_eq!(label.to_string(), label.as_str());
         assert!(Label::new("").is_empty());
         let menu_name = String::from("Saved custom option");
-        let configuration = Configuration::new("Bowser", [menu_name.as_str(); 26]);
+        let configuration =
+            Configuration::new("Bowser", [menu_name.as_str(); CONFIGURATION_ROW_COUNT]);
         drop(menu_name);
         assert_eq!(configuration.rows[0].as_str(), "Saved custom option");
     }
@@ -631,7 +683,10 @@ mod tests {
         assert!(report.card_text().contains("Hit: not confirmed"));
         assert_eq!(report.at_ms, 250);
         assert_eq!(
-            motion_name(0x36, crate::timing::motion_hash("attack_air_lw")),
+            motion_name(
+                crate::native_states::status::ATTACK_AIR,
+                crate::timing::motion_hash("attack_air_lw"),
+            ),
             "down air"
         );
     }
@@ -704,7 +759,7 @@ mod tests {
         for owner in OWNERS {
             assert!(!name(owner).is_empty());
         }
-        let text = Configuration::new("yoshi", ["OFF"; 26]).format();
+        let text = Configuration::new("yoshi", ["OFF"; CONFIGURATION_ROW_COUNT]).format();
         assert!(text.contains("Neutral getup: OFF"));
         assert!(text.contains("Yoshi jab lock: OFF"));
     }
@@ -732,8 +787,8 @@ mod tests {
             };
             assert!(r.sample(idle, ms).is_none());
         }
-        assert!(std::mem::size_of::<Recorder>() <= 1024);
-        assert!(std::mem::size_of::<Report>() <= 768);
+        assert!(std::mem::size_of::<Recorder>() <= MAX_RECORDER_SIZE_BYTES);
+        assert!(std::mem::size_of::<Report>() <= MAX_REPORT_SIZE_BYTES);
     }
     #[test]
     fn unknown_hit_evidence_and_invalid_scope_are_explained_without_inventing_a_blocker() {
