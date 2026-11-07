@@ -14,7 +14,7 @@ See [fighter configuration](FIGHTER_CONFIGS.md) and [sequence syntax](SEQUENCE_F
 Read these files in order. Paths are relative to the repository root; open them
 in your editor (the documentation site does not publish Rust source files).
 
-1. `sequence_config.rs` validates sections and expands controller terms once at startup.
+1. `sequence_config.rs` defines the fixed-size recipe data; `sequence_config/parser.rs` reads and validates file sections at startup.
 2. `fighter_profiles.rs` freezes file entries into menu lists; `ledge_menu.rs` caches selected timelines.
 3. `ledge_trap.rs` recognizes the opponent's option and starts only that row's file timeline.
 4. `ledge_trap/file_timeline.rs` executes ordered inputs/waits and explicit spatial/block gates.
@@ -29,6 +29,9 @@ Paths below are relative to the project root. Core paths begin with
 | --- | --- |
 | `docs/FIGHTER_ADDITIONS.md` | Luigi/Falcon source, timing, performance and validation notes. |
 | Core `ledge_menu.rs` | Five saved ledge choices, Kirby Roll read/Y mode rows, Minus menu binding, Auto-mash row and trigger reservation. |
+| Core `ledge_menu/editor.rs` | Recipe editing, action presets, field selection, and the editor's displayed schedule. |
+| Core `ledge_menu/editor/commands.rs` | Input-driven copy, paste, reorder, undo, and delete commands for recipe editing. |
+| Core `ledge_menu/editor/presentation.rs` | Maps each action to editable fields and renders recipe schedule details. |
 | Core `button_modes.rs` | Retained legacy mode definitions; the old Y Finisher selector/binding is removed. |
 | Core `finisher.rs` | Parked portable starter/follow-up implementation; no live binding or per-frame state. See [retired finisher binding](FINISHERS.md). |
 | Core `fighter_data.rs` | Exact-kind stats and move-frame facts from the canonical roster JSON, plus native recovery validation. |
@@ -51,17 +54,18 @@ Paths below are relative to the project root. Core paths begin with
 | `src/calibration.rs` | Diagnostic-only fixed observation recorder, completed result formatting and cached card publication. |
 | Core `ledge_trap/diagnostics.rs` | Read-only response metadata for all five rows and detailed roll-grab snapshots. |
 | Core `live_input.rs` | Mash/tech request policy and compatibility helpers. |
+| Core `gameplay.rs` | Shared `GameplayContext`, `ControllerOutput`, opponent observations, motion timing, and recovery-frame helpers. |
 | Core `roll_read.rs` / `roll_read/smash.rs` | Shared roll target facts/constants; fixed punish prototype is parked. Live roll responses use reaction_rules.rs. |
 | Core `ledge_trap.rs` | Held-trigger visit history, response selection and native action confirmation. |
-| Core `ledge_trap/types.rs` | Settings, copied observations, output values and animation/physics helpers. |
-| Core `fighter_profiles.rs` | Fighter identities/reference facts and startup-only file menu construction. |
+| Core `ledge_trap/types.rs` | Ledge-specific settings and opponent range checks. Shared gameplay values live in `gameplay.rs`. |
+| Core `fighter_profiles.rs` | Fighter identities, generic grab references, and startup-only file menu construction. |
 | Core `fighter_profiles/kirby.rs` | Built-in Kirby compatibility data. |
 | Core `fighter_tuning.rs`, `fighter_tuning/schema.rs`, and `fighter_tuning/analysis.rs` | Public tuning facade, stable saved-setting/menu schema, and fighter-derived policy defaults. |
 | Core `ledge_trap/attempt.rs` | Native-progress clock for ordered input timelines. |
-| Core `sequence_config.rs` | Compile/validate bounded startup-only input timelines and build the sole file menu catalog. |
+| Core `sequence_config.rs`, `sequence_config/parser.rs`, and `sequence_config/parser/actions.rs` | Keep fixed-size recipe data and the public catalog API in the parent module; parse catalog sections and action tokens in focused startup-only modules. |
 | Core `ledge_trap/file_timeline.rs` | File-ordered input holds/waits, native-progress clock, explicit spatial/block predicates. |
 | Core `ledge_position.rs` / `ledge_trump.rs` | Grounded stance preparation / run-off ledge trump. |
-| Core `manual_controls.rs` / `native_input.rs` | Trigger reservation and shared input overlay / raw button conversion. |
+| Core `manual_controls.rs` / `native_input.rs` | Trigger reservation, shared button-ownership masks, input overlays, and raw button conversion. |
 | Core `combat_assist.rs` | Either tilt trip to forward smash, and damage-hitstop SDI. |
 | Core `tech_prediction.rs` / `tech_input.rs` | Pure collision timing / shield request and acknowledgment scheduling. |
 | Core `timing.rs` / `timing/progress.rs` | Share motion-progress classification, event deduplication, simulation-frame arithmetic and forecast overlap. No learned compensation. |
@@ -73,7 +77,8 @@ Paths below are relative to the project root. Core paths begin with
 | Core `runtime.rs` / `sequence.rs` | Generic adapter loop used by examples / sequence helpers. |
 
 Large test modules live beside the corresponding implementation, for example
-`ledge_trap/tests.rs`, `live_input/tests.rs` and `tech_input/tests.rs`.
+`ledge_trap/tests.rs`, `ledge_trap/file_timeline/tests.rs`,
+`live_input/tests.rs` and `tech_input/tests.rs`.
 `#[cfg(test)] mod tests;` includes those files only for test builds. Tiny
 existing test modules elsewhere may remain inline.
 
@@ -83,8 +88,9 @@ run every tool through that example's synchronous loop.
 
 ## Rust details that matter here
 
-- A `struct` groups named values. `LedgeContext` is copied data; `LedgeTrap`
-  remembers history between observations.
+- A `struct` groups named values. `GameplayContext` is copied fighter data and
+  `ControllerOutput` is a requested input packet; `LedgeTrap` remembers ledge
+  history between observations.
 - `&mut self` lets a method update that history. Splitting `impl LedgeTrap`
   across files still operates on the same instance.
 - `mod aerial;` loads a child module from a source file. It does not start a
@@ -113,25 +119,32 @@ Menu selection and cached resolved rules refer to stable saved recipe IDs.
 See [fighter configuration](FIGHTER_CONFIGS.md), [master-file syntax](SEQUENCE_FILES.md)
 and [assist rules](REACTION_RULES.md).
 
-## Validation for the profile change
+## Validation
 
-Formatting parses both Rust module trees. Catalog, selection and policy
-regressions cover shipped baseline values, invalid profiles, disabled options
-and changed move scheduling. Use the relevant portable core tests and host checks. A host check is distinct
-from building/installing a Switch NRO. Dependency lockfiles can be resolved offline.
-The packaging/upload preparation tests use temporary fixtures, mocked builds
-and fake FTP; no actual project package or Switch connection is created.
+Run the portable core tests for policy and editor changes:
 
-No plugin build, compiled Rust tests or deployment was performed. Static checks
-do not establish runtime or Switch compatibility.
+```sh
+cargo test --manifest-path crates/kirby_assist_core/Cargo.toml --offline
+```
+
+For documentation changes, check generated pages and build the site:
+
+```sh
+python3 tools/update_fighter_docs.py --check
+.venv-docs/bin/python tools/update_cheatsheets.py --check
+.venv-docs/bin/python -m mkdocs build --strict
+```
+
+Host tests and documentation builds do not verify Switch timing or live-game
+compatibility. Follow the relevant feature guide for device-validation details.
 
 ## Follow a menu choice
 
 1. `ledge_menu.rs` maps fresh menu D-pad presses to row/choice indices.
 2. `src/live/ledge_menu.rs` resolves cached response settings only on changes.
-4. `src/live.rs` reads native context only when a tool needs it, then composes
+3. `src/live.rs` reads native context only when a tool needs it, then composes
    requests with the existing higher-priority mash/tech/SDI inputs.
-5. `src/live/ledge_menu/menu.rs` draws cached labels without game queries.
+4. `src/live/ledge_menu/menu.rs` draws cached labels without game queries.
 
 Live combo playback and fighter combo libraries have been removed. See
 [the current controls](LEDGE_MENU.md).

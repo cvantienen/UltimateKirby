@@ -37,7 +37,7 @@ mod game_ffi {
             Self {
                 header: 0,
                 id: 1,
-                status: 0x49,
+                status: kirby_assist_core::native_states::status::DAMAGE_FLY,
                 situation: 2,
                 previous: 0,
                 previous_situation: 2,
@@ -55,7 +55,7 @@ mod game_ffi {
                 position: [0., 10.],
                 velocity: [0., -4.],
                 rays: Cell::new(0),
-                kind: 15,
+                kind: kirby_assist_core::fighter_kinds::BOWSER,
                 wall_plane: None,
                 ceiling_plane: None,
                 touches: 0,
@@ -109,17 +109,18 @@ mod game_ffi {
     }
     pub unsafe fn is_flag(o: *mut Object, key: i32) -> bool {
         match key {
-            0x21000016 => (*o).disabled,
-            0x2100000d => (*o).air_escape,
+            kirby_assist_core::native_states::work_ids::FIGHTER_STATUS_DAMAGE_FLAG_FLY_DISABLE_PASSIVE => (*o).disabled,
+            kirby_assist_core::native_states::work_ids::FIGHTER_STATUS_DAMAGE_FLAG_END_REACTION => (*o).air_escape,
             _ => false,
         }
     }
     pub unsafe fn transition_enabled(o: *mut Object, key: i32) -> bool {
         match key {
-            0x1e000013 | 0x1e000014 => (*o).floor_tech,
-            0x1e000015 => (*o).wall_tech,
-            0x1e000018 => (*o).ceil_tech,
-            0x1e00003d => (*o).air_escape,
+            kirby_assist_core::native_states::transition_terms::PASSIVE
+            | kirby_assist_core::native_states::transition_terms::PASSIVE_FB => (*o).floor_tech,
+            kirby_assist_core::native_states::transition_terms::PASSIVE_WALL => (*o).wall_tech,
+            kirby_assist_core::native_states::transition_terms::PASSIVE_CEIL => (*o).ceil_tech,
+            kirby_assist_core::native_states::transition_terms::CONT_ESCAPE_AIR => (*o).air_escape,
             _ => false,
         }
     }
@@ -262,12 +263,12 @@ mod live {
         o.disabled = true;
         assert_eq!(assess(&mut o, false, true).contact_in, None);
         o.disabled = false;
-        o.status = 0x50;
+        o.status = kirby_assist_core::native_states::status::DOWN;
         assert_eq!(
             assess(&mut o, false, true).reason,
             "outside_supported_tumble"
         );
-        o.status = 0x49;
+        o.status = kirby_assist_core::native_states::status::DAMAGE_FLY;
         assert_eq!(assess(&mut o, false, false).reason, "auto_tech_disabled");
     }
     #[test]
@@ -343,7 +344,10 @@ mod live {
     }
     #[test]
     fn native_surface_stop_states_require_the_matching_transition_term_and_a_live_clock() {
-        for status in [0x6c, 0x6d] {
+        for status in [
+            kirby_assist_core::native_states::status::STOP_WALL,
+            kirby_assist_core::native_states::status::STOP_CEIL,
+        ] {
             let mut o = crate::game_ffi::Object {
                 status,
                 ..Default::default()
@@ -356,7 +360,7 @@ mod live {
                 assess(&mut o, true, true).contact_in.is_none(),
                 "global stop cannot create an input opportunity"
             );
-            if status == 0x6c {
+            if status == kirby_assist_core::native_states::status::STOP_WALL {
                 o.wall_tech = false;
             } else {
                 o.ceil_tech = false;
@@ -392,7 +396,7 @@ mod live {
     #[test]
     fn roster_contacts_ignore_model_size_and_frozen_animations() {
         let mut count = 0;
-        for kind in 0..0x5e {
+        for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
             count += 1;
             for (touch, velocity) in [
                 (0x8, [0., -0.001]),
@@ -400,7 +404,12 @@ mod live {
                 (0x4, [0., 0.]),
                 (0x1, [0., 0.]),
             ] {
-                for status in [0x49, 0x4a, 0x4b, 0x4f] {
+                for status in [
+                    kirby_assist_core::native_states::status::DAMAGE_FLY,
+                    kirby_assist_core::native_states::status::DAMAGE_FLY_ROLL,
+                    kirby_assist_core::native_states::status::DAMAGE_FLY_METEOR,
+                    kirby_assist_core::native_states::status::DAMAGE_FALL,
+                ] {
                     let mut o = crate::game_ffi::Object {
                         kind,
                         status,
@@ -517,7 +526,7 @@ mod live {
         o.velocity = [0., -0.01];
         assert_eq!(assess(&mut o, false, true).contact_in, Some(0.));
         o.velocity = [0., 4.];
-        o.status = 0x4e;
+        o.status = kirby_assist_core::native_states::status::DAMAGE_FLY_REFLECT_D;
         assert_eq!(assess(&mut o, false, true).contact_in, Some(0.));
     }
     #[test]

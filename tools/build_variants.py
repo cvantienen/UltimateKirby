@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Build/package logging variants, optionally uploading both after packaging.
 
-This uses only Python 3.11+'s standard library. Run it from any working directory;
-ROOT comes from this script's own location, not the shell's current directory.
-Cargo/Skyline must already be installed. An optional --cargo-home can select
-an isolated cache if the normal cache has permission problems.
+This supports Python 3.9+; Python versions before 3.11 use the tomli backport
+from requirements-docs.txt. Run it from any working directory; ROOT comes from
+this script's location, not the shell's current directory. Cargo/Skyline must
+already be installed. An optional --cargo-home can select an isolated cache if
+the normal cache has permission problems.
 Pass -upload to run the fixed multi-Switch uploader after both builds succeed.
 """
 from __future__ import annotations
@@ -18,15 +19,16 @@ import shutil
 import sys
 from pathlib import Path
 import subprocess
-import tomllib
+from typing import BinaryIO
 import zipfile
 from sequence_sources import assemble, write_generated
+from toml_compat import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def read_release_version() -> str:
-    """Read the literal package version without requiring Python 3.11/tomllib."""
+    """Read the literal version without parsing the full Cargo manifest."""
     manifest = (ROOT / "Cargo.toml").read_text()
     package = re.search(r"(?ms)^\[package\][ \t]*\n(.*?)(?=^\[|\Z)", manifest)
     version = re.search(r'^version\s*=\s*"([^"]+)"', package[1], re.MULTILINE) if package else None
@@ -345,6 +347,14 @@ def upload_built_release() -> None:
     )
 
 
+def sha256_digest(file_obj: BinaryIO) -> bytes:
+    """Hash a file in bounded chunks on Python versions without file_digest."""
+    digest = hashlib.sha256()
+    for chunk in iter(lambda: file_obj.read(1024 * 1024), b""):
+        digest.update(chunk)
+    return digest.digest()
+
+
 def main() -> None:
     options = parse_options()
     summary = read_release_summary()
@@ -369,12 +379,12 @@ def main() -> None:
     # copy those exact verified bytes into the other selected variant folder.
     source_archive = create_source_backup(latest_build / variants[0])
     with source_archive.open("rb") as archive_file:
-        source_hash = hashlib.file_digest(archive_file, "sha256").digest()
+        source_hash = sha256_digest(archive_file)
     for variant in variants[1:]:
         target = latest_build / variant / source_archive.name
         shutil.copy2(source_archive, target)
         with target.open("rb") as archive_file:
-            if hashlib.file_digest(archive_file, "sha256").digest() != source_hash:
+            if sha256_digest(archive_file) != source_hash:
                 raise RuntimeError(f"Source backup copy differs: {target}")
         print(f"Copied verified source backup to {target}", flush=True)
     if options.upload:

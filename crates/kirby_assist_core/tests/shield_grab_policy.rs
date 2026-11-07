@@ -1,7 +1,8 @@
 //! Distinct shielded/unshielded grab policies and exclusive shield fallback.
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Owner},
-    ledge_trap::{LedgeContext, LedgeOutput, LedgeSettings},
+    gameplay::{ControllerOutput, GameplayContext},
+    ledge_trap::LedgeSettings,
     native_input::{MAPPER_B, MAPPER_R, MAPPER_X, MAPPER_ZR},
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
     reaction_rules::{Candidate, Engine, Resolved},
@@ -11,7 +12,7 @@ use kirby_assist_core::{
 fn own(status: i32, frame: f32) -> Context {
     Context {
         object: 1,
-        kind: 15,
+        kind: kirby_assist_core::fighter_kinds::BOWSER,
         status,
         motion: 1,
         frame,
@@ -27,8 +28,8 @@ fn own(status: i32, frame: f32) -> Context {
         threatened: false,
     }
 }
-fn lc(c: Context) -> LedgeContext {
-    LedgeContext {
+fn lc(c: Context) -> GameplayContext {
+    GameplayContext {
         gameplay: true,
         held: true,
         can_act: true,
@@ -68,7 +69,7 @@ fn sample(
     ts: [Option<Target>; 8],
     shielded: bool,
     custom: bool,
-) -> LedgeOutput {
+) -> ControllerOutput {
     let grab = recipe("auto_grab", 35., 24., "input:r:0:0:4");
     let shield = recipe(
         "auto_shield_grab",
@@ -92,7 +93,7 @@ fn sample(
         35.,
         Some(12.),
         LedgeSettings {
-            fighter_kind: 15,
+            fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
             ..Default::default()
         },
         AutomaticConfig {
@@ -113,7 +114,11 @@ fn shielded_front_grabs_do_not_require_enemy_shield_and_use_their_own_recipe() {
     for enemy in [
         0, 1, 3, 4, 0x1b, 0x1c, 0x1e, 0x27, 0x2c, 0x36, 0x47, 0x57, 0x59,
     ] {
-        for status in [0, 0x1b, 0x1c] {
+        for status in [
+            kirby_assist_core::native_states::status::WAIT,
+            kirby_assist_core::native_states::GUARD_ON,
+            kirby_assist_core::native_states::GUARD,
+        ] {
             for custom in [false, true] {
                 let mut tool = OutOfShield::new();
                 let out = sample(
@@ -124,9 +129,19 @@ fn shielded_front_grabs_do_not_require_enemy_shield_and_use_their_own_recipe() {
                     custom,
                 );
                 let expected = if custom {
-                    MAPPER_X | if status == 0 { 0 } else { MAPPER_ZR }
+                    MAPPER_X
+                        | if status == kirby_assist_core::native_states::status::WAIT {
+                            0
+                        } else {
+                            MAPPER_ZR
+                        }
                 } else {
-                    MAPPER_R | if status == 0 { 0 } else { MAPPER_ZR }
+                    MAPPER_R
+                        | if status == kirby_assist_core::native_states::status::WAIT {
+                            0
+                        } else {
+                            MAPPER_ZR
+                        }
                 };
                 assert_eq!(
                     out.requested, expected,
@@ -141,7 +156,19 @@ fn shielded_front_grabs_do_not_require_enemy_shield_and_use_their_own_recipe() {
 }
 #[test]
 fn unshielded_movement_only_grabs_enemy_shield_and_reacts_on_first_shield_sample() {
-    for status in [1, 3, 4, 5, 6, 7, 8, 9, 0x11, 0x12, 0x13] {
+    for status in [
+        kirby_assist_core::native_states::status::WALK,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::RUN,
+        kirby_assist_core::native_states::status::RUN_BRAKE,
+        kirby_assist_core::native_states::status::TURN,
+        kirby_assist_core::native_states::status::TURN_DASH,
+        kirby_assist_core::native_states::status::TURN_RUN,
+        kirby_assist_core::native_states::status::TURN_RUN_BRAKE,
+        kirby_assist_core::native_states::status::SQUAT,
+        kirby_assist_core::native_states::status::SQUAT_WAIT,
+        kirby_assist_core::native_states::status::SQUAT_F,
+    ] {
         let mut tool = OutOfShield::new();
         for enemy in [0, 3, 0x27, 0x36, 0x47] {
             assert_eq!(
@@ -160,7 +187,7 @@ fn unshielded_movement_only_grabs_enemy_shield_and_reacts_on_first_shield_sample
         let out = sample(
             &mut tool,
             own(status, 1.),
-            target(0x1b, 10., 0.),
+            target(kirby_assist_core::native_states::GUARD_ON, 10., 0.),
             false,
             false,
         );
@@ -191,7 +218,7 @@ fn shield_backup_is_immediate_for_behind_ungrabbable_and_outside_grab_limits() {
             &mut tool,
             Context {
                 can_grab: grab_ready,
-                ..own(0x1c, 0.)
+                ..own(kirby_assist_core::native_states::GUARD, 0.)
             },
             target(status, x, y),
             true,
@@ -205,7 +232,21 @@ fn shield_backup_is_immediate_for_behind_ungrabbable_and_outside_grab_limits() {
 #[test]
 fn illegal_native_states_and_captured_or_invulnerable_targets_never_take_controls() {
     for status in [
-        0x1d, 0x1e, 0x1f, 0x20, 0x22, 0x27, 0x37, 0x3e, 0x40, 0x41, 0x47, 0x50, 0x67, 0xb5, 0x1de,
+        kirby_assist_core::native_states::status::GUARD_OFF,
+        kirby_assist_core::native_states::status::GUARD_DAMAGE,
+        kirby_assist_core::native_states::status::ESCAPE,
+        kirby_assist_core::native_states::status::ESCAPE_F,
+        kirby_assist_core::native_states::status::ESCAPE_AIR,
+        kirby_assist_core::native_states::status::ATTACK,
+        kirby_assist_core::native_states::status::CATCH,
+        kirby_assist_core::native_states::status::CATCH_CUT,
+        kirby_assist_core::native_states::status::THROW,
+        kirby_assist_core::native_states::status::CAPTURE_PULLED,
+        kirby_assist_core::native_states::status::DAMAGE,
+        kirby_assist_core::native_states::status::DOWN,
+        kirby_assist_core::native_states::status::PASSIVE,
+        kirby_assist_core::native_states::status::DEAD,
+        kirby_assist_core::native_states::status::SPECIAL_HI,
     ] {
         let mut tool = OutOfShield::new();
         assert_eq!(
@@ -214,11 +255,20 @@ fn illegal_native_states_and_captured_or_invulnerable_targets_never_take_control
             "own status {status:#x}"
         );
     }
-    for status in [0x38, 0x3e, 0x40, 0x41, 0x46, 0x77, 0xb5, 0xb6] {
+    for status in [
+        kirby_assist_core::native_states::CATCH_PULL,
+        kirby_assist_core::native_states::status::CATCH_CUT,
+        kirby_assist_core::native_states::THROW,
+        kirby_assist_core::native_states::CAPTURE_PULLED,
+        kirby_assist_core::native_states::THROWN,
+        kirby_assist_core::native_states::status::CLIFF_WAIT,
+        kirby_assist_core::native_states::status::DEAD,
+        kirby_assist_core::native_states::status::REBIRTH,
+    ] {
         assert_eq!(
             sample(
                 &mut OutOfShield::new(),
-                own(0x1c, 0.),
+                own(kirby_assist_core::native_states::GUARD, 0.),
                 target(status, 5., 0.),
                 true,
                 false
@@ -230,11 +280,18 @@ fn illegal_native_states_and_captured_or_invulnerable_targets_never_take_control
     let mut ts = target(0x36, 5., 0.);
     ts[0].as_mut().unwrap().vulnerable_in = None;
     assert_eq!(
-        sample(&mut OutOfShield::new(), own(0x1c, 0.), ts, true, false).owned,
+        sample(
+            &mut OutOfShield::new(),
+            own(kirby_assist_core::native_states::GUARD, 0.),
+            ts,
+            true,
+            false
+        )
+        .owned,
         0
     );
     for case in 0..4 {
-        let mut c = own(0x1c, 0.);
+        let mut c = own(kirby_assist_core::native_states::GUARD, 0.);
         match case {
             0 => c.stopped = true,
             1 => c.grounded = false,
@@ -254,11 +311,24 @@ fn illegal_native_states_and_captured_or_invulnerable_targets_never_take_control
 fn delivered_nonshield_target_grab_cannot_turn_into_up_b_or_a_second_punish() {
     let mut tool = OutOfShield::new();
     assert_eq!(
-        sample(&mut tool, own(0x1c, 0.), target(0x36, 5., 0.), true, false).requested,
+        sample(
+            &mut tool,
+            own(kirby_assist_core::native_states::GUARD, 0.),
+            target(0x36, 5., 0.),
+            true,
+            false
+        )
+        .requested,
         MAPPER_R | MAPPER_ZR
     );
     tool.mapped_grab(0, 2);
-    let out = sample(&mut tool, own(0x1c, 1.), target(0x36, -5., 0.), true, false);
+    let out = sample(
+        &mut tool,
+        own(kirby_assist_core::native_states::GUARD, 1.),
+        target(0x36, -5., 0.),
+        true,
+        false,
+    );
     assert_eq!(out.requested, 0);
     assert!(tool.grab_delivery_pending());
     assert!(!tool.shield_up_b_pending());
@@ -275,14 +345,21 @@ fn delivered_nonshield_target_grab_cannot_turn_into_up_b_or_a_second_punish() {
     assert!(!engine.preempt_automatic_grab(
         true,
         &rules,
-        lc(own(0x1c, 1.)),
-        &target(0x20, 5., 0.),
+        lc(own(kirby_assist_core::native_states::GUARD, 1.)),
+        &target(kirby_assist_core::native_states::ESCAPE_F, 5., 0.),
         None,
         &mut tool,
         &mut owner
     ));
     assert_eq!(
-        sample(&mut tool, own(0x37, 2.), target(0x36, 5., 0.), true, false).owned,
+        sample(
+            &mut tool,
+            own(kirby_assist_core::native_states::CATCH, 2.),
+            target(0x36, 5., 0.),
+            true,
+            false
+        )
+        .owned,
         0
     );
     assert!(!tool.grab_delivery_pending());
@@ -293,11 +370,24 @@ fn delivered_nonshield_target_grab_cannot_turn_into_up_b_or_a_second_punish() {
 fn committed_shield_up_b_cannot_switch_to_a_front_grab_mid_pulse() {
     let mut tool = OutOfShield::new();
     assert_eq!(
-        sample(&mut tool, own(0x1c, 0.), target(0x36, -5., 0.), true, false).requested,
+        sample(
+            &mut tool,
+            own(kirby_assist_core::native_states::GUARD, 0.),
+            target(0x36, -5., 0.),
+            true,
+            false
+        )
+        .requested,
         MAPPER_B | MAPPER_ZR
     );
     tool.mapped_up_special(0, 2);
-    let out = sample(&mut tool, own(0x1c, 1.), target(0x36, 5., 0.), true, false);
+    let out = sample(
+        &mut tool,
+        own(kirby_assist_core::native_states::GUARD, 1.),
+        target(0x36, 5., 0.),
+        true,
+        false,
+    );
     assert_eq!(out.requested, MAPPER_B | MAPPER_ZR);
     assert!(!tool.automatic_grab_pending());
 }
@@ -308,10 +398,17 @@ fn shield_grab_policy_tracks_facing_and_enemy_shield_release_without_switching_t
         let mut tool = OutOfShield::new();
         let c = Context {
             facing,
-            ..own(0x1c, 0.)
+            ..own(kirby_assist_core::native_states::GUARD, 0.)
         };
         assert_eq!(
-            sample(&mut tool, c, target(0x1c, 5. * facing, 0.), true, false).requested,
+            sample(
+                &mut tool,
+                c,
+                target(kirby_assist_core::native_states::GUARD, 5. * facing, 0.),
+                true,
+                false
+            )
+            .requested,
             MAPPER_R | MAPPER_ZR
         );
         tool.mapped_grab(0, 2);
@@ -346,7 +443,7 @@ fn an_edited_shield_backup_uses_its_own_recipe_without_preliminary_grab_or_speci
     let backup = recipe("auto_shield_backup", 20., 12., "input:x:0:0:2");
     for (status, x, y) in [(0, -5., 0.), (0x36, 15., 0.), (0x53, 5., 0.), (0, 5., 8.)] {
         let mut tool = OutOfShield::new();
-        let c = own(0x1c, 0.);
+        let c = own(kirby_assist_core::native_states::GUARD, 0.);
         let out = tool.sample_automatic_configured(
             true,
             c,
@@ -358,7 +455,7 @@ fn an_edited_shield_backup_uses_its_own_recipe_without_preliminary_grab_or_speci
             35.,
             Some(12.),
             LedgeSettings {
-                fighter_kind: 15,
+                fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                 ..Default::default()
             },
             AutomaticConfig {

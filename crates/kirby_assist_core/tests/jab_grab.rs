@@ -8,7 +8,13 @@ fn context(status: i32, frame: f32) -> ShortcutContext {
     ShortcutContext {
         status,
         situation: 0,
-        motion: motion_hash(if status == 0x27 { "attack_11" } else { "wait" }),
+        motion: motion_hash(
+            if status == kirby_assist_core::native_states::status::ATTACK {
+                "attack_11"
+            } else {
+                "wait"
+            },
+        ),
         frame,
         rate: 1.0,
         stopped: false,
@@ -18,7 +24,7 @@ fn context(status: i32, frame: f32) -> ShortcutContext {
         can_neutral_special: false,
     }
 }
-fn arm(j: &mut JabGrab) -> kirby_assist_core::ledge_trap::LedgeOutput {
+fn arm(j: &mut JabGrab) -> kirby_assist_core::gameplay::ControllerOutput {
     // Physical Jab 1, release A, then press the mapped Grab button while the
     // native jab motion is active.
     j.sample(true, MAPPER_A, [0.0; 2], Some(context(0, 0.0)), true);
@@ -93,8 +99,14 @@ fn jab_then_grab_press_waits_for_recovery_and_native_grab() {
         MAPPER_R
     );
     assert_eq!(
-        j.sample(true, 0, [0.0; 2], Some(context(0x37, 0.0)), false)
-            .owned,
+        j.sample(
+            true,
+            0,
+            [0.0; 2],
+            Some(context(kirby_assist_core::native_states::CATCH, 0.0)),
+            false
+        )
+        .owned,
         0
     );
     assert!(!j.active());
@@ -151,7 +163,10 @@ fn actual_overlay_consumes_the_early_physical_grab_press() {
 }
 #[test]
 fn grab_outside_native_jab_is_entirely_physical() {
-    for status in [0x12, 3] {
+    for status in [
+        kirby_assist_core::native_states::status::SQUAT_WAIT,
+        kirby_assist_core::native_states::status::DASH,
+    ] {
         let mut j = JabGrab::default();
         j.sample(true, 0, [0.0; 2], Some(context(status, 0.0)), true);
         let physical = j.sample(true, TRIGGER, [0.0; 2], Some(context(status, 1.0)), true);
@@ -195,21 +210,54 @@ fn capture_and_cancel_return_movement_without_pummel_or_special_from_original_ch
     arm(&mut j);
     j.sample(true, TRIGGER, [0.0; 2], Some(context(0x27, 0.0)), false);
     j.sample(true, TRIGGER, [0.0; 2], Some(context(0, 0.0)), true);
-    let caught = j.sample(true, TRIGGER, [0.0; 2], Some(context(0x37, 0.0)), false);
+    let caught = j.sample(
+        true,
+        TRIGGER,
+        [0.0; 2],
+        Some(context(kirby_assist_core::native_states::CATCH, 0.0)),
+        false,
+    );
     assert_eq!(caught.owned, TRIGGER);
     assert!(caught.stick.is_none());
     assert_eq!(caught.requested, 0);
-    let moving = j.sample(true, TRIGGER, [1.0, 0.0], Some(context(0x3c, 1.0)), false);
+    let moving = j.sample(
+        true,
+        TRIGGER,
+        [1.0, 0.0],
+        Some(context(
+            kirby_assist_core::native_states::status::CATCH_WAIT,
+            1.0,
+        )),
+        false,
+    );
     assert!(moving.stick.is_none());
     assert_eq!(moving.owned, TRIGGER);
     assert_eq!(
-        j.sample(true, 0, [0.0; 2], Some(context(0x3c, 2.0)), false)
-            .owned,
+        j.sample(
+            true,
+            0,
+            [0.0; 2],
+            Some(context(
+                kirby_assist_core::native_states::status::CATCH_WAIT,
+                2.0
+            )),
+            false
+        )
+        .owned,
         0
     );
     assert_eq!(
-        j.sample(true, MAPPER_A, [0.0; 2], Some(context(0x3c, 3.0)), false)
-            .owned,
+        j.sample(
+            true,
+            MAPPER_A,
+            [0.0; 2],
+            Some(context(
+                kirby_assist_core::native_states::status::CATCH_WAIT,
+                3.0
+            )),
+            false
+        )
+        .owned,
         0
     );
     let mut j = JabGrab::default();
@@ -270,7 +318,7 @@ fn native_recovery_starts_one_forward_input_then_grab_without_catch_gate() {
             true,
             0,
             [0.0; 2],
-            Some(context(0x37, 0.0)),
+            Some(context(kirby_assist_core::native_states::CATCH, 0.0)),
             Readiness::default()
         )
         .owned,
@@ -436,7 +484,13 @@ fn grab_retries_survive_long_delay_and_stop_on_native_startup() {
             );
         }
     }
-    let accepted = j.sample(true, 0, [0.0; 2], Some(context(0x37, 0.0)), false);
+    let accepted = j.sample(
+        true,
+        0,
+        [0.0; 2],
+        Some(context(kirby_assist_core::native_states::CATCH, 0.0)),
+        false,
+    );
     assert_eq!(accepted.requested, 0);
     assert!(!j.active());
 }

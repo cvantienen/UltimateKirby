@@ -1,11 +1,11 @@
 //! Constant, input-only ordinary-grab defense. Root-space geometry is an
 //! approximation, not proof of collision or a guaranteed dodge online.
-use crate::{ledge_trap::LedgeOutput, native_input::MAPPER_ZR, timing::motion_elapsed};
+use crate::{gameplay::ControllerOutput, native_input::MAPPER_ZR, timing::motion_elapsed};
 // Spot dodge becomes intangible after startup; six native frames gives the
 // mapper/online queue margin without firing so early that normal dodge duration
 // ends before an ordinary grab's active window.
 pub const LOOKAHEAD: f32 = 6.0;
-pub const ESCAPE: i32 = 0x1f;
+pub const ESCAPE: i32 = crate::native_states::ESCAPE;
 #[derive(Clone, Copy)]
 pub struct Context {
     pub object: u32,
@@ -25,7 +25,10 @@ pub fn ground_status(status: i32) -> bool {
 // Held shields may have a stationary animation. Only these guard states may
 // use a zero motion rate; native escape readiness still gates every new request.
 fn stationary_guard(c: Context) -> bool {
-    matches!(c.status, 0x1b | 0x1c) && c.rate == 0.0
+    matches!(
+        c.status,
+        crate::native_states::GUARD_ON | crate::native_states::GUARD
+    ) && c.rate == 0.0
 }
 fn valid_clock_rate(c: Context) -> bool {
     c.rate.is_finite() && (c.rate > 0.0 || stationary_guard(c))
@@ -77,8 +80,12 @@ pub fn contact_with_shape(
     if !lookahead.is_finite() || !(1.0..=8.0).contains(&lookahead) {
         return None;
     }
-    if !matches!(t.status, 0x37 | 0x39 | 0x3b)
-        || t.motion == 0
+    if !matches!(
+        t.status,
+        crate::native_states::CATCH
+            | crate::native_states::CATCH_DASH
+            | crate::native_states::CATCH_TURN
+    ) || t.motion == 0
         || !t.frame.is_finite()
         || t.frame < 0.0
         || !t.rate.is_finite()
@@ -150,7 +157,7 @@ pub struct SpotDodge {
     tracks: [Option<Track>; crate::battle_objects::FIGHTER_CAPACITY],
     target: Option<u32>,
     age: f32,
-    output: LedgeOutput,
+    output: ControllerOutput,
     response: crate::defense_response::Response,
     punish_target: Option<u32>,
     mapped: u8,
@@ -245,23 +252,31 @@ impl SpotDodge {
         can_act: bool,
         rules: Option<&crate::reaction_rules::Resolved>,
         settings: crate::ledge_trap::LedgeSettings,
-        context: crate::ledge_trap::LedgeContext,
-        follow: Option<crate::ledge_trap::Opponent>,
-    ) -> LedgeOutput {
+        context: crate::gameplay::GameplayContext,
+        follow: Option<crate::gameplay::Opponent>,
+    ) -> ControllerOutput {
         if !enabled || rules.is_none() {
             self.response.cancel();
             self.punish_target = None;
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         // The dodge and its configured punish share one native action owner.
         // A new dodge preempts an older punish; do not advance a hidden plan
         // that could later resume with stale attack/hold/C-stick output.
         if self.target.is_some() {
             self.cancel_response();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.response.target().is_none() && self.punish_target.is_some() {
-            if context.situation != 0 || matches!(context.status, 0x40..=0x4f | 0xb5 | 0xb6) {
+            if context.situation != 0
+                || matches!(
+                    context.status,
+                    crate::native_states::THROW
+                        ..=crate::native_states::status::DAMAGE_FALL
+                            | crate::native_states::status::DEAD
+                            | crate::native_states::status::REBIRTH
+                )
+            {
                 self.punish_target = None;
             } else if can_act && !context.stopped {
                 if let Some(enemy) = follow.filter(|e| Some(e.id) == self.punish_target) {
@@ -309,9 +324,9 @@ impl SpotDodge {
         allowed: bool,
         sequence: Option<&crate::sequence_config::Sequence>,
         settings: crate::ledge_trap::LedgeSettings,
-        context: crate::ledge_trap::LedgeContext,
-        follow: Option<crate::ledge_trap::Opponent>,
-    ) -> LedgeOutput {
+        context: crate::gameplay::GameplayContext,
+        follow: Option<crate::gameplay::Opponent>,
+    ) -> ControllerOutput {
         if !allowed
             || sequence.is_none()
             || !context.gameplay
@@ -321,13 +336,13 @@ impl SpotDodge {
             return self.response.sample(false, settings, context, follow);
         }
         if self.target.is_some() {
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.response.target().is_some() {
             return self.response.sample(true, settings, context, follow);
         }
         let Some(id) = self.punish_target else {
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         };
         let Some(enemy) = follow.filter(|e| {
             e.id == id
@@ -338,15 +353,15 @@ impl SpotDodge {
                 && crate::reaction_rules::automatic_target_available(e.status)
         }) else {
             self.cancel_response();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         };
         self.punish_clock.advance_pause(context, Some(enemy), 60);
         if context.situation != 0 || self.punish_clock.expired {
             self.cancel_response();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if context.status == ESCAPE && !context.can_act || context.stopped {
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         // This is the first recovery opportunity, not a queued future attack.
         let sequence = sequence.unwrap();
@@ -356,10 +371,10 @@ impl SpotDodge {
             || (enemy.position[0] - context.position[0]).abs() > r.max
             || (enemy.position[1] - context.position[1]).abs() > r.height
         {
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if !self.response.start_sequence(*sequence, context, enemy) {
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         self.response.sample(true, settings, context, Some(enemy))
     }
@@ -371,7 +386,7 @@ impl SpotDodge {
         self.mapped = 0;
         self.last_mapped = None;
         self.dodge_delivered = false;
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
     }
     fn mark_used(&mut self, id: u32) {
         for track in self.tracks.iter_mut().flatten() {
@@ -385,7 +400,7 @@ impl SpotDodge {
         enabled: bool,
         c: Context,
         targets: [Option<Target>; 8],
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         self.sample_with_lookahead(enabled, c, targets, LOOKAHEAD)
     }
     pub fn sample_with_lookahead(
@@ -394,7 +409,7 @@ impl SpotDodge {
         c: Context,
         targets: [Option<Target>; 8],
         lookahead: f32,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         self.sample_with_shape(enabled, c, targets, lookahead, 2., 8.)
     }
     pub fn sample_with_shape(
@@ -405,7 +420,7 @@ impl SpotDodge {
         lookahead: f32,
         padding: f32,
         height: f32,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if self.object != Some(c.object) {
             *self = Self::default();
             self.object = Some(c.object);
@@ -446,8 +461,12 @@ impl SpotDodge {
             let Some(t) = entry else {
                 continue;
             };
-            if !matches!(t.status, 0x37 | 0x39 | 0x3b)
-                || t.motion == 0
+            if !matches!(
+                t.status,
+                crate::native_states::CATCH
+                    | crate::native_states::CATCH_DASH
+                    | crate::native_states::CATCH_TURN
+            ) || t.motion == 0
                 || !t.frame.is_finite()
                 || t.frame < 0.0
             {
@@ -577,7 +596,7 @@ impl SpotDodge {
             }
             return self.output;
         }
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
         if let Some((id, _)) = threat {
             self.target = Some(id);
             self.age = 0.0;

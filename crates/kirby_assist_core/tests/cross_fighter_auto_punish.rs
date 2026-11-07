@@ -1,7 +1,8 @@
 //! Cross-fighter admission and revision-built observation requirements.
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
-    ledge_trap::{LedgeContext, LedgeSettings},
+    gameplay::GameplayContext,
+    ledge_trap::LedgeSettings,
     native_input::{MAPPER_A, MAPPER_B, MAPPER_ZR},
     reaction_rules::{sample_optional_simple, simple_readiness, Candidate, Engine, Resolved},
     roll_read::Target,
@@ -25,11 +26,11 @@ fn rules(events: &[(&str, &str)]) -> Resolved {
     }
     result
 }
-fn context() -> LedgeContext {
-    LedgeContext {
+fn context() -> GameplayContext {
+    GameplayContext {
         gameplay: true,
         held: true,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         situation: 0,
         motion_kind: 1,
         motion_rate: 1.,
@@ -65,7 +66,7 @@ fn custom_attacks_do_not_require_up_b_and_up_b_keeps_its_own_gate_for_every_figh
     let up_b = rules(&[("auto_roll", "up_b:4")]);
     let profiles = FighterProfiles::default();
     let mut checked = 0;
-    for kind in 0..0x5e {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         if profiles.profile(kind).is_none() {
             continue;
         }
@@ -74,7 +75,11 @@ fn custom_attacks_do_not_require_up_b_and_up_b_keeps_its_own_gate_for_every_figh
             fighter_kind: kind,
             ..Default::default()
         };
-        for status in [0x20, 0x1f, 0x22] {
+        for status in [
+            kirby_assist_core::native_states::ESCAPE_F,
+            kirby_assist_core::native_states::ESCAPE,
+            kirby_assist_core::native_states::status::ESCAPE_AIR,
+        ] {
             let t = targets(status, 20., 8.);
             let readiness = simple_readiness(attacks.simple_starts(), context(), &t, || {
                 panic!("standing attack needs no extra shield query")
@@ -96,7 +101,7 @@ fn custom_attacks_do_not_require_up_b_and_up_b_keeps_its_own_gate_for_every_figh
             );
             assert_eq!(output.requested & MAPPER_B, 0);
         }
-        let t = targets(0x20, 10., 0.);
+        let t = targets(kirby_assist_core::native_states::ESCAPE_F, 10., 0.);
         let readiness = simple_readiness(up_b.simple_starts(), context(), &t, || {
             panic!("Up-B must never use ordinary action readiness")
         });
@@ -122,12 +127,12 @@ fn custom_attacks_do_not_require_up_b_and_up_b_keeps_its_own_gate_for_every_figh
 #[test]
 fn shield_readiness_is_lazy_shared_and_never_queried_for_invalid_or_unconfigured_events() {
     let rules = rules(&[("auto_roll", "down_smash:1"), ("auto_spot_dodge", "a:1")]);
-    let c = LedgeContext {
-        status: 0x1c,
+    let c = GameplayContext {
+        status: kirby_assist_core::native_states::GUARD,
         ..context()
     };
-    let mut t = targets(0x20, 10., 0.);
-    t[1] = targets(0x1f, 5., 0.)[0];
+    let mut t = targets(kirby_assist_core::native_states::ESCAPE_F, 10., 0.);
+    t[1] = targets(kirby_assist_core::native_states::ESCAPE, 5., 0.)[0];
     let mut calls = 0;
     assert_eq!(
         simple_readiness(rules.simple_starts(), c, &t, || {
@@ -142,9 +147,9 @@ fn shield_readiness_is_lazy_shared_and_never_queried_for_invalid_or_unconfigured
         [false; 3]
     );
     for t in [
-        targets(0x20, 20.1, 0.),
-        targets(0x20, 0., 8.1),
-        targets(0x22, 5., 0.),
+        targets(kirby_assist_core::native_states::ESCAPE_F, 20.1, 0.),
+        targets(kirby_assist_core::native_states::ESCAPE_F, 0., 8.1),
+        targets(kirby_assist_core::native_states::ESCAPE_AIR, 5., 0.),
     ] {
         assert_eq!(
             simple_readiness(rules.simple_starts(), c, &t, || panic!(
@@ -154,15 +159,24 @@ fn shield_readiness_is_lazy_shared_and_never_queried_for_invalid_or_unconfigured
         );
     }
     for c in [
-        LedgeContext { stopped: true, ..c },
-        LedgeContext { situation: 2, ..c },
-        LedgeContext {
+        GameplayContext { stopped: true, ..c },
+        GameplayContext { situation: 2, ..c },
+        GameplayContext {
             gameplay: false,
             ..c
         },
-        LedgeContext { status: 0x4c, ..c },
-        LedgeContext { status: 0x3c, ..c },
-        LedgeContext { status: 3, ..c },
+        GameplayContext {
+            status: kirby_assist_core::native_states::status::DAMAGE_FLY_REFLECT_LR,
+            ..c
+        },
+        GameplayContext {
+            status: kirby_assist_core::native_states::status::CATCH_WAIT,
+            ..c
+        },
+        GameplayContext {
+            status: kirby_assist_core::native_states::status::DASH,
+            ..c
+        },
     ] {
         assert_eq!(
             simple_readiness(rules.simple_starts(), c, &t, || panic!(
@@ -229,7 +243,7 @@ fn unconfigured_fighters_do_not_construct_or_retain_a_roll_engine_during_grab_ob
                 Some(&grabs),
                 Default::default(),
                 context(),
-                targets(0x1c, 5., 0.),
+                targets(kirby_assist_core::native_states::GUARD, 5., 0.),
                 None,
                 [false; 3]
             )
@@ -261,14 +275,14 @@ fn ordinary_shield_backup_does_not_emit_up_b_or_require_its_native_transition() 
     let ordinary = rules(&[("auto_shield_backup", "up_smash:4")]);
     let up_b = rules(&[("auto_shield_backup", "up_b:4")]);
     let profiles = FighterProfiles::default();
-    for kind in 0..0x5e {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         if profiles.profile(kind).is_none() {
             continue;
         }
         let c = Context {
             object: 1,
             kind,
-            status: 0x1c,
+            status: kirby_assist_core::native_states::GUARD,
             motion: 1,
             frame: 0.,
             rate: 1.,
@@ -282,8 +296,8 @@ fn ordinary_shield_backup_does_not_emit_up_b_or_require_its_native_transition() 
             can_up_special: false,
             threatened: false,
         };
-        let lc = LedgeContext {
-            status: 0x1c,
+        let lc = GameplayContext {
+            status: kirby_assist_core::native_states::GUARD,
             ..context()
         };
         let mut t = targets(0, -5., 0.);
@@ -330,7 +344,10 @@ fn ordinary_shield_backup_does_not_emit_up_b_or_require_its_native_transition() 
                 grounded: false,
                 ..c
             },
-            Context { status: 0x3c, ..c },
+            Context {
+                status: kirby_assist_core::native_states::status::CATCH_WAIT,
+                ..c
+            },
         ] {
             let output = OutOfShield::new().sample_automatic_configured(
                 true,

@@ -1,8 +1,9 @@
 use kirby_assist_core::{
     fighter_profiles::presets::PresetSlot,
+    gameplay::{ControllerOutput, GameplayContext, Opponent},
     ledge_trap::{
-        InputTimeline, LedgeContext, LedgeOutput, LedgeSettings, LedgeTrap, LedgeVisits, Opponent,
-        CLIFF_CATCH_MOVE, CLIFF_CLIMB, CLIFF_WAIT,
+        InputTimeline, LedgeSettings, LedgeTrap, LedgeVisits, CLIFF_CATCH_MOVE, CLIFF_CLIMB,
+        CLIFF_WAIT,
     },
     manual_controls::ManualTakeover,
     native_input::*,
@@ -17,11 +18,11 @@ fn sequence(actions: &str) -> kirby_assist_core::sequence_config::Sequence {
     .entries()[0]
         .sequence
 }
-fn ctx(frame: f32) -> LedgeContext {
-    LedgeContext {
+fn ctx(frame: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         situation: 0,
         motion_kind: 1,
         motion_frame: frame,
@@ -115,7 +116,7 @@ fn settings() -> LedgeSettings {
 }
 fn drop() -> Opponent {
     Opponent {
-        status: 0xe,
+        status: kirby_assist_core::native_states::status::FALL,
         previous_status: CLIFF_WAIT,
         ..enemy(0xe)
     }
@@ -126,7 +127,7 @@ fn sample(
     n: i64,
     e: Opponent,
     _r: Option<&Resolved>,
-) -> LedgeOutput {
+) -> ControllerOutput {
     t.sample_with_visits(v, settings(), n, ctx(n as f32), Some(e))
 }
 #[test]
@@ -171,7 +172,7 @@ fn landing_between_visits_is_not_a_regrab_and_new_syntax_round_trips() {
         2,
         Opponent {
             situation: 0,
-            status: 0,
+            status: kirby_assist_core::native_states::status::WAIT,
             ..enemy(0)
         },
         Some(&r),

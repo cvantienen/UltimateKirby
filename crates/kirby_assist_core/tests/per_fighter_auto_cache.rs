@@ -83,12 +83,24 @@ fn fighter_change_never_inherits_bowser_actions_and_grab_dodge_cannot_borrow_ano
     use kirby_assist_core::native_input::{MAPPER_A, MAPPER_B};
     prepare_compact_library();
     let mut menu = live_menu::LedgeMenu::default();
-    let registered = (0..0x5e).filter(|kind| PROFILES.get().unwrap().profile(*kind).is_some());
-    for kind in [15, 22, 5, 22, 15, 5, 22]
-        .into_iter()
-        .chain(registered)
-        .chain([15, 5, 22])
-    {
+    let registered = (0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT)
+        .filter(|kind| PROFILES.get().unwrap().profile(*kind).is_some());
+    for kind in [
+        kirby_assist_core::fighter_kinds::BOWSER,
+        kirby_assist_core::fighter_kinds::WARIO,
+        kirby_assist_core::fighter_kinds::YOSHI,
+        kirby_assist_core::fighter_kinds::WARIO,
+        kirby_assist_core::fighter_kinds::BOWSER,
+        kirby_assist_core::fighter_kinds::YOSHI,
+        kirby_assist_core::fighter_kinds::WARIO,
+    ]
+    .into_iter()
+    .chain(registered)
+    .chain([
+        kirby_assist_core::fighter_kinds::BOWSER,
+        kirby_assist_core::fighter_kinds::YOSHI,
+        kirby_assist_core::fighter_kinds::WARIO,
+    ]) {
         for other in [15, 22, 5] {
             if menu.for_fighter(other).is_some() {
                 assert_eq!(
@@ -172,7 +184,15 @@ fn pyra_mythra_swaps_reload_only_the_active_forms_menu_and_saved_inputs() {
     let _save_guard = live_menu::save_test_guard();
     prepare_compact_library();
     let mut menu = live_menu::LedgeMenu::default();
-    for kind in [90, 91, 90, 15, 91, 90, 91] {
+    for kind in [
+        kirby_assist_core::fighter_kinds::PYRA,
+        kirby_assist_core::fighter_kinds::MYTHRA,
+        kirby_assist_core::fighter_kinds::PYRA,
+        kirby_assist_core::fighter_kinds::BOWSER,
+        kirby_assist_core::fighter_kinds::MYTHRA,
+        kirby_assist_core::fighter_kinds::PYRA,
+        kirby_assist_core::fighter_kinds::MYTHRA,
+    ] {
         let base = PROFILES
             .get()
             .unwrap()
@@ -196,10 +216,20 @@ fn pyra_mythra_swaps_reload_only_the_active_forms_menu_and_saved_inputs() {
             false,
         );
         assert!(menu.for_fighter(kind).is_some());
-        for old in [90, 91, 15].into_iter().filter(|old| *old != kind) {
+        for old in [
+            kirby_assist_core::fighter_kinds::PYRA,
+            kirby_assist_core::fighter_kinds::MYTHRA,
+            kirby_assist_core::fighter_kinds::BOWSER,
+        ]
+        .into_iter()
+        .filter(|old| *old != kind)
+        {
             assert!(menu.for_fighter(old).is_none());
         }
-        if matches!(kind, 90 | 91) {
+        if matches!(
+            kind,
+            kirby_assist_core::fighter_kinds::PYRA | kirby_assist_core::fighter_kinds::MYTHRA
+        ) {
             let current = menu.settings(Some(kind), &base);
             for slot in PresetSlot::ALL.into_iter().take(5) {
                 let sequence =
@@ -208,7 +238,7 @@ fn pyra_mythra_swaps_reload_only_the_active_forms_menu_and_saved_inputs() {
             }
             let saved = current.sequence_overrides[PresetSlot::X as usize].unwrap();
             assert!(
-                matches!(saved.actions()[0],Action::Input{buttons,..}if buttons==if kind==90{MAPPER_A}else{MAPPER_B})
+                matches!(saved.actions()[0],Action::Input{buttons,..}if buttons==if kind==kirby_assist_core::fighter_kinds::PYRA{MAPPER_A}else{MAPPER_B})
             );
             assert!(menu.automatic_rules().is_none());
             assert!(menu.reflect_config(kind).is_none());
@@ -247,9 +277,14 @@ fn production_reflector_configuration_tracks_only_the_current_fighter_and_live_s
             true,
             false,
         );
-        assert_eq!(menu.reflect_config(kind).is_some(), kind == 28 && gameplay);
-        if kind != 28 {
-            assert!(menu.reflect_config(28).is_none());
+        assert_eq!(
+            menu.reflect_config(kind).is_some(),
+            kind == kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH && gameplay
+        );
+        if kind != kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH {
+            assert!(menu
+                .reflect_config(kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH)
+                .is_none());
         }
     }
     menu.end_match();

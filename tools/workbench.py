@@ -43,6 +43,7 @@ import shlex
 import sys
 
 import sequence_transfer as transfer
+from toml_compat import tomllib
 import upload_switch
 from upload_all_switches import TARGETS
 from workbench_history import History, ROOT, STATE, command
@@ -81,7 +82,6 @@ def confirm(label, token):
 
 def version():
     # Re-read so editing the manifest while the launcher stays open is supported.
-    import tomllib
     return str(tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"])
 
 

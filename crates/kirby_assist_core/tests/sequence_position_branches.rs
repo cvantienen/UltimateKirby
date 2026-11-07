@@ -1,6 +1,7 @@
 //! Native-input scheduling, spatial ledge placement and zero-frame branches.
 use kirby_assist_core::{
-    ledge_trap::{InputTimeline, LedgeContext, LedgeOutput, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     native_input::{MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_ZR},
     sequence_config::{persist, Action, Catalog, Sequence},
 };
@@ -12,11 +13,11 @@ fn recipe(actions: &str) -> Sequence {
     .entries()[0]
         .sequence
 }
-fn own(frame: f32, x: f32, facing: f32) -> LedgeContext {
-    LedgeContext {
+fn own(frame: f32, x: f32, facing: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         motion_kind: 1,
         motion_frame: frame,
         motion_rate: 1.,
@@ -30,7 +31,7 @@ fn own(frame: f32, x: f32, facing: f32) -> LedgeContext {
 fn enemy(frame: f32, x: f32) -> Opponent {
     Opponent {
         id: 2,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         position: [x, 0.],
         motion: Some(MotionTiming {
             kind: 2,
@@ -43,11 +44,11 @@ fn enemy(frame: f32, x: f32) -> Opponent {
 }
 fn sample(
     t: &mut InputTimeline,
-    c: LedgeContext,
+    c: GameplayContext,
     x: f32,
     anchor: Option<[f32; 2]>,
     inward: f32,
-) -> LedgeOutput {
+) -> ControllerOutput {
     t.sample(
         LedgeSettings::default(),
         c,
@@ -252,8 +253,8 @@ fn run_to_ledge_uses_both_stage_sides_and_approaches_the_same_point_from_either_
 fn arrived_ledge_position_skips_shield_drop_and_brakes_only_when_configured() {
     let seq = recipe("run_to_ledge:12:1:1:6,up_b:4");
     let mut t = InputTimeline::new(seq, enemy(0., 100.));
-    let c = LedgeContext {
-        status: 0x1c,
+    let c = GameplayContext {
+        status: kirby_assist_core::native_states::GUARD,
         ..own(0., 88., 1.)
     };
     assert_eq!(
@@ -264,7 +265,7 @@ fn arrived_ledge_position_skips_shield_drop_and_brakes_only_when_configured() {
     let mut t = InputTimeline::new(recipe("run_to_ledge:12:1:1:6"), enemy(0., 100.));
     let out = sample(
         &mut t,
-        LedgeContext {
+        GameplayContext {
             velocity: [2., 0.],
             ..own(0., 80., 1.)
         },
@@ -281,7 +282,7 @@ fn arrived_ledge_position_skips_shield_drop_and_brakes_only_when_configured() {
     assert_eq!(
         sample(
             &mut t,
-            LedgeContext {
+            GameplayContext {
                 velocity: [2., 0.],
                 ..own(0., 80., 1.)
             },
@@ -367,14 +368,14 @@ fn braking_does_not_finish_while_fast_momentum_would_carry_the_fighter_past_the_
         recipe("run_to_ledge:12:1:1:6,input:a:0:0:1"),
         enemy(0., 100.),
     );
-    let fast = LedgeContext {
+    let fast = GameplayContext {
         velocity: [2., 0.],
         ..own(0., 88., 1.)
     };
     let out = sample(&mut t, fast, 100., Some([100., 0.]), -1.);
     assert_eq!(out.requested, 0);
     assert_eq!(out.stick, Some([0.; 2]));
-    let slow = LedgeContext {
+    let slow = GameplayContext {
         velocity: [0.1, 0.],
         ..own(1., 88.5, 1.)
     };
@@ -392,7 +393,7 @@ fn reaching_the_target_in_air_never_runs_the_ground_positioning_followup() {
         if first_ground {
             sample(&mut t, own(0., 60., 1.), 100., Some([100., 0.]), -1.);
         }
-        let c = LedgeContext {
+        let c = GameplayContext {
             situation: 2,
             ..own(1., 88., 1.)
         };
@@ -424,8 +425,8 @@ fn native_poll_gaps_do_not_abort_waiting_reach_or_confirmed_shield_hit_checks() 
     );
     sample(
         &mut t,
-        LedgeContext {
-            status: 0x1c,
+        GameplayContext {
+            status: kirby_assist_core::native_states::GUARD,
             ..own(0., 0., 1.)
         },
         10.,
@@ -434,8 +435,8 @@ fn native_poll_gaps_do_not_abort_waiting_reach_or_confirmed_shield_hit_checks() 
     );
     sample(
         &mut t,
-        LedgeContext {
-            status: 0x1e,
+        GameplayContext {
+            status: kirby_assist_core::native_states::GUARD_DAMAGE,
             stopped: true,
             ..own(1., 0., 1.)
         },
@@ -443,8 +444,8 @@ fn native_poll_gaps_do_not_abort_waiting_reach_or_confirmed_shield_hit_checks() 
         None,
         0.,
     );
-    let c = LedgeContext {
-        status: 0x1c,
+    let c = GameplayContext {
+        status: kirby_assist_core::native_states::GUARD,
         ..own(3., 0., 1.)
     };
     assert_eq!(
@@ -480,7 +481,7 @@ fn arrival_tolerance_includes_projected_coast_instead_of_allowing_a_second_toler
         recipe("run_to_ledge:12:1:1:6,input:a:0:0:1"),
         enemy(0., 100.),
     );
-    let c = LedgeContext {
+    let c = GameplayContext {
         velocity: [0.6, 0.],
         ..own(0., 88.9, 1.)
     };

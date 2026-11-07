@@ -66,7 +66,7 @@ with every `fighters/<fighter>.txt`, validates it and packages the result as the
 Switch's single `sequences.txt`. It also refreshes `assembled/sequences.txt` for
 host checks. This adds no game-time file processing. See [source layout](SEQUENCE_FILES.md).
 
-If compilation reports E0015 for `LedgeOutput::default()` inside `State::new`,
+If compilation reports E0015 for `ControllerOutput::default()` inside `State::new`,
 the source needs the const-compatible empty struct initializer. The shared
 startup constructor is `const fn`; ordinary `Default::default()` is not const.
 This source fix applies to both variants without changing the empty output.
@@ -87,7 +87,7 @@ Each command writes `target/aarch64-skyline-switch/release/libkirby_assist.nro`.
 python3 tools/build_variants.py
 ```
 
-The helper defaults to building both silent and diagnostic sequentially. `-v silent` or `-v diagnostic` selects just one. It verifies the NRO header and selected logger/message markers, snapshots the binary/config, and checks the ZIP contents. It never installs or uploads anything; uploading is a separate command. It requires Python 3.11 or newer and no third-party Python packages. If your Cargo cache needs an isolated directory, pass `--cargo-home /path/to/cache`; this changes only the build process's environment.
+The helper defaults to building both silent and diagnostic sequentially. `-v silent` or `-v diagnostic` selects just one. It verifies the NRO header and selected logger/message markers, snapshots the binary/config, and checks the ZIP contents. It never installs or uploads anything; uploading is a separate command. It supports Python 3.9 or newer. On Python versions before 3.11, install `requirements-docs.txt` to provide the `tomli` TOML-reader backport. If your Cargo cache needs an isolated directory, pass `--cargo-home /path/to/cache`; this changes only the build process's environment.
 
 Outputs:
 

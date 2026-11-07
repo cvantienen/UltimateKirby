@@ -3,7 +3,7 @@
 //! forward input -> native-frame grab retries.
 //! No distance gate, forced status, recovery edits or hitbox scan.
 use crate::{
-    ledge_trap::LedgeOutput,
+    gameplay::ControllerOutput,
     manual_controls::{ShortcutContext, LEFT_STICK_DIRECTIONS},
     native_input::{MAPPER_A, MAPPER_L, MAPPER_R},
     timing::{motion_elapsed, motion_hash},
@@ -48,7 +48,7 @@ pub struct JabGrab {
     age: f32,
     request_age: f32,
     walk_request_at: Option<f32>,
-    output: LedgeOutput,
+    output: ControllerOutput,
 }
 impl JabGrab {
     pub fn active(&self) -> bool {
@@ -61,13 +61,13 @@ impl JabGrab {
             0
         };
         self.previous = None;
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
     }
-    fn tail(&mut self, buttons: u32) -> LedgeOutput {
+    fn tail(&mut self, buttons: u32) -> ControllerOutput {
         self.phase = if buttons & TRIGGER != 0 { 5 } else { 0 };
-        self.output = LedgeOutput {
+        self.output = ControllerOutput {
             owned: buttons & TRIGGER,
-            ..LedgeOutput::default()
+            ..ControllerOutput::default()
         };
         self.output
     }
@@ -78,7 +78,7 @@ impl JabGrab {
         stick: [f32; 2],
         context: Option<ShortcutContext>,
         can_grab: bool,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         self.sample_with_readiness(
             enabled,
             buttons,
@@ -98,13 +98,13 @@ impl JabGrab {
         context: Option<ShortcutContext>,
         ready: Readiness,
         followup: Followup,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if self.phase == 0 {
             self.followup = followup;
         }
         self.sample_with_readiness(enabled, buttons, stick, context, ready)
     }
-    fn followup_output(&self) -> LedgeOutput {
+    fn followup_output(&self) -> ControllerOutput {
         match self.followup {
             Followup::Grab => crate::move_input::output([0.0; 2], MAPPER_R),
             Followup::DownSmash => crate::move_input::output([0.0, -1.0], MAPPER_A),
@@ -117,7 +117,7 @@ impl JabGrab {
         stick: [f32; 2],
         context: Option<ShortcutContext>,
         ready: Readiness,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         let pressed = buttons & !self.previous_buttons.unwrap_or(0);
         self.previous_buttons = Some(buttons);
         if buttons & TRIGGER == 0 {
@@ -125,11 +125,11 @@ impl JabGrab {
         }
         let Some(c) = context else {
             self.cancel_pending();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         };
         if !enabled {
             self.cancel_pending();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.phase == 5 {
             return self.tail(buttons);
@@ -150,17 +150,18 @@ impl JabGrab {
             return if self.active() {
                 self.tail(buttons)
             } else {
-                LedgeOutput::default()
+                ControllerOutput::default()
             };
         }
         if self.phase == 0 {
-            let jab = c.status == 0x27 && c.motion == motion_hash("attack_11");
+            let jab = c.status == crate::native_states::status::ATTACK
+                && c.motion == motion_hash("attack_11");
             // The player supplies Jab 1 normally, releases A, then presses
             // their mapped Grab button. Consume that Grab edge during jab so
             // it cannot become a late jab continuation or premature grab.
             let grab_after_jab = jab && buttons & MAPPER_A == 0 && pressed & TRIGGER != 0;
             if !grab_after_jab || self.latched {
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             self.latched = true;
             self.phase = 3;
@@ -183,17 +184,28 @@ impl JabGrab {
         if self.age > 90.0 && self.phase != 4 {
             return self.tail(buttons);
         }
-        if matches!(c.status, 0x37..=0x3f)
-            || self.phase == 4
-                && self.followup == Followup::DownSmash
-                && matches!(c.status, 0x30..=0x32)
+        if matches!(
+            c.status,
+            crate::native_states::status::CATCH..=crate::native_states::status::CATCH_JUMP
+        ) || self.phase == 4
+            && self.followup == Followup::DownSmash
+            && matches!(
+                c.status,
+                crate::native_states::status::ATTACK_LW4_START
+                    ..=crate::native_states::status::ATTACK_LW4
+            )
         {
             return self.tail(buttons);
         }
-        let jab = c.status == 0x27 && c.motion == motion_hash("attack_11");
-        if !(matches!(c.status,0..=9 | 0x11..=0x15)
+        let jab = c.status == crate::native_states::status::ATTACK
+            && c.motion == motion_hash("attack_11");
+        if !(matches!(c.status,crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV)
             || jab
-            || self.phase == 4 && matches!(c.status, 0x1b..=0x1d))
+            || self.phase == 4
+                && matches!(
+                    c.status,
+                    crate::native_states::GUARD_ON..=crate::native_states::GUARD_OFF
+                ))
         {
             return self.tail(buttons);
         }
@@ -213,7 +225,10 @@ impl JabGrab {
                 return self.tail(buttons);
             }
             // Neutralize crouch first, rather than turning A into a down tilt.
-            if matches!(c.status, 0..=2) {
+            if matches!(
+                c.status,
+                crate::native_states::status::WAIT..=crate::native_states::status::WALK_BRAKE
+            ) {
                 self.phase = 2;
                 self.request_age = 0.0;
                 self.output = crate::move_input::output([0.0; 2], MAPPER_A);
@@ -244,7 +259,13 @@ impl JabGrab {
                     self.output = crate::move_input::output([c.facing.signum() * 0.3, 0.0], 0);
                 }
             } else if (!jab || ready.cancel_jab)
-                && (ready.can_walk || !jab && matches!(c.status, 0..=9))
+                && (ready.can_walk
+                    || !jab
+                        && matches!(
+                            c.status,
+                            crate::native_states::status::WAIT
+                                ..=crate::native_states::status::TURN_RUN_BRAKE
+                        ))
             {
                 self.walk_request_at = Some(self.age);
                 self.output = crate::move_input::output([c.facing.signum() * 0.3, 0.0], 0);

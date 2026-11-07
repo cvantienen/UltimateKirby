@@ -609,7 +609,10 @@ impl LedgeMenu {
         let selection = self.selections.get_mut(&kind).unwrap();
         selection.roll_read_available =
             kirby_assist_core::roll_read::fighter_config(kind).is_some();
-        selection.auto_duck_available = matches!(kind, 5 | 6);
+        selection.auto_duck_available = matches!(
+            kind,
+            kirby_assist_core::fighter_kinds::YOSHI | kirby_assist_core::fighter_kinds::KIRBY
+        );
         selection.y_fighter_kind = kind;
         if selection.auto_duck_available && !selection.y_mode.supports(kind) {
             selection.y_mode = kirby_assist_core::button_modes::YMode::options_for_kind(kind)[0];
@@ -779,16 +782,20 @@ impl LedgeMenu {
                 if kirby_assist_core::roll_read::fighter_config(kind).is_some() {
                     rows[5] = selection.roll_read.label();
                 }
-                if matches!(kind, 5 | 6) {
+                if matches!(
+                    kind,
+                    kirby_assist_core::fighter_kinds::YOSHI
+                        | kirby_assist_core::fighter_kinds::KIRBY
+                ) {
                     rows[6] = "Removed (use Y sequence)";
                 }
                 rows[7] = on_off(*auto_mash);
-                if kind == 6 {
+                if kind == kirby_assist_core::fighter_kinds::KIRBY {
                     rows[8] = on_off(selection.idle_crouch);
                     rows[9] = on_off(selection.tilt_turn);
                     rows[10] = "Removed";
                 }
-                if kind == 5 {
+                if kind == kirby_assist_core::fighter_kinds::YOSHI {
                     rows[9] = on_off(selection.tilt_turn);
                     rows[11] = on_off(selection.jab_lock);
                 }

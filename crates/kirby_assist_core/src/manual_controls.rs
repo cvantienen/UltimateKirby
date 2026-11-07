@@ -136,7 +136,12 @@ impl Default for TurboSettings {
 /// Grounded idle/walk/run/turn/crouch states qualify. Do not change game
 /// statuses to force the macro through attacks, grabs, hitstop, or aerial states.
 pub fn turbo_movement_allowed(status: i32, situation: i32, stopped: bool) -> bool {
-    situation == 0 && !stopped && ((0..=9).contains(&status) || (0x11..=0x15).contains(&status))
+    situation == 0
+        && !stopped
+        && ((crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE)
+            .contains(&status)
+            || (crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV)
+                .contains(&status))
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -174,7 +179,8 @@ impl DashPivotAssist {
         // physical vertical input can change between mapper polls online.
         if situation != 0
             || stopped
-            || !(0..=8).contains(&status)
+            || !(crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN)
+                .contains(&status)
             || !physical_stick.iter().all(|v| v.is_finite())
             || physical_stick[1].abs() > 0.3
             || physical_stick[0].abs() < 0.1
@@ -194,7 +200,10 @@ impl DashPivotAssist {
             if self.last_output.stick.is_some_and(|stick| {
                 stick[0] * physical_stick[0] < 0.
                     || (stick[0].abs() >= 0.8) != (physical_stick[0].abs() >= 0.8)
-                    || stick[0].abs() >= 0.8 && !(3..=8).contains(&status)
+                    || stick[0].abs() >= 0.8
+                        && !(crate::native_states::status::DASH
+                            ..=crate::native_states::status::TURN_RUN)
+                            .contains(&status)
             }) {
                 self.cancel_pending();
                 return TurboOutput::default();
@@ -211,7 +220,9 @@ impl DashPivotAssist {
         };
         // Native common statuses 3..=8 cover dash/turn-dash/run/brake/turn-run.
         // Do not reshape ordinary walking, crouching, attacks, or aerial input.
-        let movement_status = (3..=8).contains(&status);
+        let movement_status = (crate::native_states::status::DASH
+            ..=crate::native_states::status::TURN_RUN)
+            .contains(&status);
         if !movement_status || direction == 0 {
             self.updates_left = 0;
             self.active_direction = 0;
@@ -227,7 +238,7 @@ impl DashPivotAssist {
         // A full dash followed by a deliberate same-direction stick ease is a
         // dash-walk gesture. Keep the eased input at the fastest value below
         // the digital dash threshold; a continuously full stick still runs.
-        if status == 3 && direction != 0 {
+        if status == crate::native_states::status::DASH && direction != 0 {
             self.dash_walk_direction = direction;
         }
         let gentle_direction = if (0.1..0.8).contains(&x) {
@@ -239,7 +250,8 @@ impl DashPivotAssist {
         };
         let dash_walking = self.dash_walk_direction != 0
             && gentle_direction == self.dash_walk_direction
-            && (0..=8).contains(&status);
+            && (crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN)
+                .contains(&status);
         if x.abs() < 0.1
             || direction != 0 && direction != self.dash_walk_direction
             || gentle_direction != 0 && gentle_direction != self.dash_walk_direction
@@ -645,7 +657,11 @@ impl ManualTakeover {
             {
                 return false;
             }
-            let cap = if matches!(status, 0x1b | 0x1c) && buttons & MAPPER_ZR != 0 {
+            let cap = if matches!(
+                status,
+                crate::native_states::GUARD_ON | crate::native_states::GUARD
+            ) && buttons & MAPPER_ZR != 0
+            {
                 0.7
             } else {
                 0.2
@@ -659,7 +675,12 @@ impl ManualTakeover {
     pub fn grounded_grab_assist(&self, status: i32) -> bool {
         use crate::native_input::*;
         self.previous.is_some_and(|(buttons, axes)| {
-            if buttons & MAPPER_ZR != 0 || matches!(status, 0x1b..=0x1e) {
+            if buttons & MAPPER_ZR != 0
+                || matches!(
+                    status,
+                    crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
+                )
+            {
                 return self.stationary_assist(status);
             }
             axes.iter().all(|v| v.is_finite())

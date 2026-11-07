@@ -122,8 +122,13 @@ impl TechInput {
     /// Track it so automation does not immediately press again into its lockout.
     pub fn mapped_human_guard(&mut self) {
         if self.last.is_some_and(|ctx| {
-            (0x49..=0x4f).contains(&ctx.status)
-                || matches!(ctx.status, 0x6c | 0x6d)
+            (crate::native_states::status::DAMAGE_FLY..=crate::native_states::status::DAMAGE_FALL)
+                .contains(&ctx.status)
+                || matches!(
+                    ctx.status,
+                    crate::native_states::status::STOP_WALL
+                        | crate::native_states::status::STOP_CEIL
+                )
                 || matches!(ctx.status, CATCHED_GANON | CATCHED_AIR_END_GANON)
         }) {
             self.cooldown = f32::from(self.cooldown_setting.max(2));
@@ -225,7 +230,12 @@ impl TechInput {
             self.delivery = None;
         }
         let reaction_remaining = reaction_remaining.filter(|v| {
-            v.is_finite() && *v > 0. && *v <= 1200. && (0x49..=0x4f).contains(&ctx.status)
+            v.is_finite()
+                && *v > 0.
+                && *v <= 1200.
+                && (crate::native_states::status::DAMAGE_FLY
+                    ..=crate::native_states::status::DAMAGE_FALL)
+                    .contains(&ctx.status)
         });
         let previous_reaction = std::mem::replace(&mut self.reaction_remaining, reaction_remaining);
         let reaction_elapsed = self
@@ -247,7 +257,10 @@ impl TechInput {
         // Native success is authoritative even on a transition observation
         // whose animation clock is not available yet. Do not let the old
         // attempt's synthetic lockout survive into a later eligible impact.
-        if matches!(ctx.status, 0x67..=0x6b) {
+        if matches!(
+            ctx.status,
+            crate::native_states::status::PASSIVE..=crate::native_states::status::PASSIVE_CEIL
+        ) {
             self.cooldown = 0.0;
             self.waiting_for_mapper = false;
             self.delivery = None;

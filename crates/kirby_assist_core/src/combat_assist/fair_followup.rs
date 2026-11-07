@@ -1,7 +1,7 @@
 //! Kirby fast-fall fair hit 1 -> landing -> upward-angled forward smash.
 //! A fresh hurtbox hit arms the follow-up. Shield/stale hit flags do not.
 use super::TRIP_BUTTONS;
-use crate::ledge_trap::LedgeOutput;
+use crate::gameplay::ControllerOutput;
 use crate::native_input::MAPPER_A;
 const FAIR: u64 = 0xc3495ada5; // Hash40("attack_air_f")
 const UP_ANGLE: f32 = 0.5;
@@ -23,7 +23,7 @@ pub struct FairContext {
 #[derive(Default)]
 pub struct FairFollowup {
     last: Option<FairContext>,
-    output: LedgeOutput,
+    output: ControllerOutput,
     queued: bool,
     spent: bool,
     age: f32,
@@ -36,9 +36,9 @@ impl FairFollowup {
     }
     pub fn cancel_pending(&mut self) {
         self.finish();
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
     }
-    pub fn sample(&mut self, enabled: bool, ctx: FairContext) -> LedgeOutput {
+    pub fn sample(&mut self, enabled: bool, ctx: FairContext) -> ControllerOutput {
         self.sample_with_velocity(enabled, ctx, 0.0)
     }
     pub fn sample_with_velocity(
@@ -46,7 +46,7 @@ impl FairFollowup {
         enabled: bool,
         ctx: FairContext,
         velocity_y: f32,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if !enabled
             || !ctx.kirby
             || !ctx.frame.is_finite()
@@ -70,13 +70,23 @@ impl FairFollowup {
                 ctx.status != last.status || ctx.motion != last.motion || ctx.frame != last.frame
             });
         let was_queued = self.queued;
-        let fair = ctx.status == 0x36 && ctx.motion == FAIR;
+        let fair = ctx.status == crate::native_states::status::ATTACK_AIR && ctx.motion == FAIR;
         // Native aerial status can overlap a grounded situation flag on the
         // landing update. Do not discard its hit or issue another aerial A.
-        let landed = ctx.grounded && !fair && !matches!(ctx.status, 0xb | 0xc | 0xe | 0xf);
+        let landed = ctx.grounded
+            && !fair
+            && !matches!(
+                ctx.status,
+                crate::native_states::status::JUMP
+                    | crate::native_states::status::JUMP_AERIAL
+                    | crate::native_states::status::FALL
+                    | crate::native_states::status::FALL_AERIAL
+            );
         let new_fair = fair
             && self.last.is_none_or(|last| {
-                last.status != 0x36 || last.motion != FAIR || ctx.frame < last.frame
+                last.status != crate::native_states::status::ATTACK_AIR
+                    || last.motion != FAIR
+                    || ctx.frame < last.frame
             });
         if new_fair && !self.queued {
             self.spent = false;
@@ -89,10 +99,12 @@ impl FairFollowup {
             self.finish();
         }
         let landing_hit = landed
-            && ctx.status == 0x18
+            && ctx.status == crate::native_states::status::LANDING_ATTACK_AIR
             && ctx.motion == crate::timing::motion_hash("landing_air_f")
             && self.last.is_some_and(|last| {
-                last.status == 0x36 && last.motion == FAIR && (10.0..12.0).contains(&last.frame)
+                last.status == crate::native_states::status::ATTACK_AIR
+                    && last.motion == FAIR
+                    && (10.0..12.0).contains(&last.frame)
             });
         let recognized = !self.queued && !self.spent && (first_hit || landing_hit) && ctx.hit_now;
         if recognized {
@@ -110,7 +122,10 @@ impl FairFollowup {
             // hit latch, not an exact-frame aerial sequence; skipped advancing
             // snapshots must not erase the pending grounded smash either.
             if delta.is_nan()
-                && matches!(ctx.status, 0xe | 0xf)
+                && matches!(
+                    ctx.status,
+                    crate::native_states::status::FALL | crate::native_states::status::FALL_AERIAL
+                )
                 && self.last.is_some_and(|last| {
                     ctx.status == last.status && ctx.motion == last.motion && ctx.frame < last.frame
                 })
@@ -123,19 +138,29 @@ impl FairFollowup {
                 self.age += delta;
             }
         }
-        let mut out = LedgeOutput::default();
+        let mut out = ControllerOutput::default();
         if self.queued {
             // Later animation frames without contact retain hit 1. A later
             // connecting hit, damage, grab, dodge or special cancels the latch.
             let supported = if landed {
-                matches!(ctx.status, 0..=9 | 0x11..=0x18 | 0x2d..=0x2f)
+                matches!(ctx.status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_ATTACK_AIR | crate::native_states::status::ATTACK_S4_START..=crate::native_states::status::ATTACK_S4)
             } else {
-                fair || matches!(ctx.status, 0xb | 0xc | 0xe | 0xf)
+                fair || matches!(
+                    ctx.status,
+                    crate::native_states::status::JUMP
+                        | crate::native_states::status::JUMP_AERIAL
+                        | crate::native_states::status::FALL
+                        | crate::native_states::status::FALL_AERIAL
+                )
             };
             if !supported
                 || self.age > 180.0
                 || !landed && self.age >= crate::finisher::FAST_FALL_FRAMES
-                || matches!(ctx.status, 0x2e | 0x2f)
+                || matches!(
+                    ctx.status,
+                    crate::native_states::status::ATTACK_S4_HOLD
+                        | crate::native_states::status::ATTACK_S4
+                )
             {
                 self.finish();
             } else {
@@ -147,7 +172,7 @@ impl FairFollowup {
                         out.stick = Some([0.0, -1.0]);
                     }
                 }
-                if ctx.status == 0x2d {
+                if ctx.status == crate::native_states::status::ATTACK_S4_START {
                     // Release A to avoid charge, but preserve the angle through
                     // startup until native forward-smash attack selection.
                     out.stick = Some([self.facing, UP_ANGLE]);
@@ -195,7 +220,7 @@ mod tests {
         assert!(!tool.queued);
         let landing = FairContext {
             grounded: true,
-            status: 0x18,
+            status: crate::native_states::status::LANDING_ATTACK_AIR,
             motion: 4,
             frame: 0.0,
             hit_now: false,
@@ -207,7 +232,7 @@ mod tests {
         FairContext {
             object: 1,
             kirby: true,
-            status: 0x36,
+            status: crate::native_states::status::ATTACK_AIR,
             motion: FAIR,
             frame,
             rate: 1.0,
@@ -243,7 +268,7 @@ mod tests {
             }
             for frame in [0.0, 2.0, 0.0] {
                 let c = FairContext {
-                    status: 0xe,
+                    status: crate::native_states::status::FALL,
                     motion: 3,
                     frame,
                     facing,
@@ -255,7 +280,7 @@ mod tests {
             }
             let landing = FairContext {
                 grounded: true,
-                status: 0x18,
+                status: crate::native_states::status::LANDING_ATTACK_AIR,
                 motion: 4,
                 frame: 0.0,
                 facing,
@@ -280,7 +305,7 @@ mod tests {
             let accepted = tool.sample(
                 true,
                 FairContext {
-                    status: 0x2d,
+                    status: crate::native_states::status::ATTACK_S4_START,
                     motion: 5,
                     ..landing
                 },
@@ -299,7 +324,7 @@ mod tests {
         assert_eq!(tool.sample(true, contact).requested, 0);
         assert!(tool.queued);
         let landing = FairContext {
-            status: 0x18,
+            status: crate::native_states::status::LANDING_ATTACK_AIR,
             motion: 2,
             frame: 0.0,
             hit_now: false,
@@ -319,7 +344,7 @@ mod tests {
                 },
             );
             let landing = FairContext {
-                status: 0x18,
+                status: crate::native_states::status::LANDING_ATTACK_AIR,
                 motion: crate::timing::motion_hash("landing_air_f"),
                 frame: 0.0,
                 grounded: true,
@@ -346,7 +371,7 @@ mod tests {
         tool.sample(true, fair(10.0));
         let landing = FairContext {
             grounded: true,
-            status: 0x18,
+            status: crate::native_states::status::LANDING_ATTACK_AIR,
             motion: 2,
             frame: 0.0,
             hit_now: false,
@@ -396,7 +421,7 @@ mod tests {
             );
             let landing = FairContext {
                 grounded: true,
-                status: 0x18,
+                status: crate::native_states::status::LANDING_ATTACK_AIR,
                 motion: 2,
                 frame: 0.0,
                 hit_now: false,
@@ -429,7 +454,7 @@ mod tests {
                 MAPPER_A
             );
             let startup = FairContext {
-                status: 0x2d,
+                status: crate::native_states::status::ATTACK_S4_START,
                 motion: 3,
                 frame: 0.0,
                 ..landing
@@ -438,7 +463,7 @@ mod tests {
             assert_eq!(accepted.requested, 0);
             assert_eq!(accepted.stick, Some([facing, UP_ANGLE]));
             let attack = FairContext {
-                status: 0x2f,
+                status: crate::native_states::status::ATTACK_S4,
                 motion: 4,
                 frame: 0.0,
                 ..landing
@@ -478,14 +503,14 @@ mod tests {
         ] {
             assert_eq!(
                 FairFollowup::default().sample(true, c),
-                LedgeOutput::default()
+                ControllerOutput::default()
             );
         }
     }
     #[test]
     fn damage_still_cancels_the_confirm() {
         for changed in [FairContext {
-            status: 0x49,
+            status: crate::native_states::status::DAMAGE_FLY,
             motion: 5,
             frame: 0.0,
             ..fair(10.0)
@@ -496,7 +521,7 @@ mod tests {
             assert!(!tool.queued);
             let ground = FairContext {
                 grounded: true,
-                status: 0,
+                status: crate::native_states::status::WAIT,
                 motion: 6,
                 frame: 1.0,
                 hit_now: false,

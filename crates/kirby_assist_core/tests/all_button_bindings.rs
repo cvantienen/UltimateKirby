@@ -302,9 +302,8 @@ fn builtin_in_compact_selector_is_not_started_as_an_empty_test_tape() {
 
 #[test]
 fn every_button_slot_executes_its_saved_tape_on_ground_and_in_air() {
-    use kirby_assist_core::ledge_trap::{
-        LedgeContext, LedgeSettings, LedgeTrap, MotionTiming, Opponent,
-    };
+    use kirby_assist_core::gameplay::{GameplayContext, MotionTiming, Opponent};
+    use kirby_assist_core::ledge_trap::{LedgeSettings, LedgeTrap};
     for slot in PresetSlot::BUTTONS {
         for situation in [0, 2] {
             let p = presets(&format!(
@@ -322,7 +321,7 @@ fn every_button_slot_executes_its_saved_tape_on_ground_and_in_air() {
             let mut trap = LedgeTrap::default();
             trap.request_preview(slot);
             for n in 0..5 {
-                let own = LedgeContext {
+                let own = GameplayContext {
                     held: true,
                     gameplay: true,
                     situation,
@@ -619,7 +618,7 @@ fn builtin_jump_is_delivered_after_source_consumption_without_a_fabricated_physi
                 m.native_buttons(layout.policy_buttons(slot.button())),
                 true,
                 Some(ShortcutContext {
-                    status: 0,
+                    status: kirby_assist_core::native_states::status::WAIT,
                     situation: 0,
                     motion: 1,
                     frame: 1.,
@@ -787,7 +786,7 @@ fn turbo_binding_alternates_each_local_input_update_without_delayed_pose_confirm
             let mut animation = AnimationClock::default();
             let frozen = AnimationSample {
                 object: 1,
-                status: 0x12,
+                status: kirby_assist_core::native_states::status::SQUAT_WAIT,
                 kind: 1,
                 frame: 10.,
                 auxiliary: 0.,
@@ -855,7 +854,7 @@ fn builtin_hop_survives_the_runtime_menu_consumption_filter_on_every_source() {
                 buttons,
                 policy & (5 | MAPPER_MINUS) == 0,
                 Some(ShortcutContext {
-                    status: 0,
+                    status: kirby_assist_core::native_states::status::WAIT,
                     situation: 0,
                     motion: 1,
                     frame: 10.,

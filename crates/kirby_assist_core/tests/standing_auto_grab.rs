@@ -1,6 +1,7 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
-    ledge_trap::{LedgeContext, SEQUENCE_BUTTONS},
+    gameplay::GameplayContext,
+    ledge_trap::SEQUENCE_BUTTONS,
     native_input::*,
     out_of_shield::{Context, OutOfShield},
     roll_read::Target,
@@ -8,7 +9,7 @@ use kirby_assist_core::{
 fn c(frame: f32, status: i32) -> Context {
     Context {
         object: 1,
-        kind: 15,
+        kind: kirby_assist_core::fighter_kinds::BOWSER,
         status,
         motion: 1,
         frame,
@@ -24,8 +25,8 @@ fn c(frame: f32, status: i32) -> Context {
         threatened: false,
     }
 }
-fn lc(frame: f32, status: i32) -> LedgeContext {
-    LedgeContext {
+fn lc(frame: f32, status: i32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         status,
@@ -53,8 +54,16 @@ fn targets(status: i32, x: f32) -> [Option<Target>; 8] {
 }
 #[test]
 fn shielding_vulnerable_front_targets_can_be_grabbed_with_or_without_own_shield() {
-    for own in [0, 0x1b, 0x1c] {
-        for enemy in [0x1b, 0x1c, 0x1e] {
+    for own in [
+        0,
+        kirby_assist_core::native_states::GUARD_ON,
+        kirby_assist_core::native_states::GUARD,
+    ] {
+        for enemy in [
+            kirby_assist_core::native_states::GUARD_ON,
+            kirby_assist_core::native_states::GUARD,
+            kirby_assist_core::native_states::GUARD_DAMAGE,
+        ] {
             let out = OutOfShield::new().sample_simple(
                 true,
                 c(0., own),
@@ -92,8 +101,15 @@ fn out_of_range_behind_invulnerable_and_captured_targets_never_start_an_approach
         if !vulnerable {
             ts[0].as_mut().unwrap().vulnerable_in = None;
         }
-        let out =
-            OutOfShield::new().sample_simple(true, c(0., 0x1c), lc(0., 0x1c), ts, None, 22., 100.);
+        let out = OutOfShield::new().sample_simple(
+            true,
+            c(0., kirby_assist_core::native_states::GUARD),
+            lc(0., kirby_assist_core::native_states::GUARD),
+            ts,
+            None,
+            22.,
+            100.,
+        );
         assert_eq!(out.owned, 0);
         assert!(out.stick.is_none());
     }
@@ -107,13 +123,13 @@ fn shieldstun_does_not_queue_an_old_attacker_and_grabs_on_first_ready_sample() {
             can_grab: false,
             shield_ready: false,
             stopped: true,
-            ..c(0., 0x1e)
+            ..c(0., kirby_assist_core::native_states::GUARD_DAMAGE)
         },
-        LedgeContext {
+        GameplayContext {
             stopped: true,
-            ..lc(0., 0x1e)
+            ..lc(0., kirby_assist_core::native_states::GUARD_DAMAGE)
         },
-        targets(0x1c, 15.),
+        targets(kirby_assist_core::native_states::GUARD, 15.),
         None,
         22.,
         35.,
@@ -122,9 +138,9 @@ fn shieldstun_does_not_queue_an_old_attacker_and_grabs_on_first_ready_sample() {
     assert!(grab.target().is_none());
     let out = grab.sample_simple(
         true,
-        c(1., 0x1c),
-        lc(1., 0x1c),
-        targets(0x1c, 15.),
+        c(1., kirby_assist_core::native_states::GUARD),
+        lc(1., kirby_assist_core::native_states::GUARD),
+        targets(kirby_assist_core::native_states::GUARD, 15.),
         None,
         22.,
         35.,
@@ -133,9 +149,9 @@ fn shieldstun_does_not_queue_an_old_attacker_and_grabs_on_first_ready_sample() {
     assert_eq!(out.stick, Some([0.; 2]));
     let out = grab.sample_simple(
         true,
-        c(2., 0x37),
-        lc(2., 0x37),
-        targets(0x1c, 15.),
+        c(2., kirby_assist_core::native_states::CATCH),
+        lc(2., kirby_assist_core::native_states::CATCH),
+        targets(kirby_assist_core::native_states::GUARD, 15.),
         None,
         22.,
         35.,
@@ -225,13 +241,23 @@ fn approach_range_is_visible_and_remains_parseable_for_existing_files() {
 
 #[test]
 fn unready_or_uninterruptible_grabs_never_reserve_the_controller() {
-    for status in [0xb, 0xe, 0x18, 0x19, 0x1d, 0x1e, 0x2c, 0x7e, 0x7f] {
+    for status in [
+        kirby_assist_core::native_states::status::JUMP,
+        kirby_assist_core::native_states::status::FALL,
+        kirby_assist_core::native_states::status::LANDING_ATTACK_AIR,
+        kirby_assist_core::native_states::status::LANDING_FALL_SPECIAL,
+        kirby_assist_core::native_states::GUARD_OFF,
+        kirby_assist_core::native_states::GUARD_DAMAGE,
+        kirby_assist_core::native_states::status::ATTACK_LW3,
+        kirby_assist_core::native_states::status::OTTOTTO,
+        kirby_assist_core::native_states::status::OTTOTTO_WAIT,
+    ] {
         let mut grab = OutOfShield::new();
         let out = grab.sample_simple(
             true,
             c(0., status),
             lc(0., status),
-            targets(0x1c, 10.),
+            targets(kirby_assist_core::native_states::GUARD, 10.),
             None,
             22.,
             35.,
@@ -249,10 +275,10 @@ fn unready_or_uninterruptible_grabs_never_reserve_the_controller() {
             true,
             Context {
                 can_grab: ready,
-                ..c(0., 0x1c)
+                ..c(0., kirby_assist_core::native_states::GUARD)
             },
-            lc(0., 0x1c),
-            targets(0x1c, 10.),
+            lc(0., kirby_assist_core::native_states::GUARD),
+            targets(kirby_assist_core::native_states::GUARD, 10.),
             None,
             22.,
             35.,
@@ -271,7 +297,7 @@ fn a_grab_retry_cancels_if_target_leaves_range_or_becomes_invulnerable() {
                 true,
                 c(0., 0),
                 lc(0., 0),
-                targets(0x1c, 10.),
+                targets(kirby_assist_core::native_states::GUARD, 10.),
                 None,
                 22.,
                 35.
@@ -279,7 +305,7 @@ fn a_grab_retry_cancels_if_target_leaves_range_or_becomes_invulnerable() {
             .requested,
             0
         );
-        let mut enemy = targets(0x1c, x);
+        let mut enemy = targets(kirby_assist_core::native_states::GUARD, x);
         if !vulnerable {
             enemy[0].as_mut().unwrap().vulnerable_in = None;
         }
@@ -294,7 +320,7 @@ fn grab_dodge_ignores_running_even_if_the_native_escape_term_is_enabled() {
     use kirby_assist_core::spot_dodge::{Context as DodgeContext, SpotDodge, Target as GrabTarget};
     let enemy = GrabTarget {
         id: 2,
-        status: 0x37,
+        status: kirby_assist_core::native_states::CATCH,
         motion: 2,
         frame: 5.,
         rate: 1.,
@@ -305,7 +331,17 @@ fn grab_dodge_ignores_running_even_if_the_native_escape_term_is_enabled() {
         last: 8,
         reach: 20.,
     };
-    for status in [0, 0x1b, 0x1c, 1, 3, 4, 0x1d, 0x1e, 0x2c] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::GUARD_ON,
+        kirby_assist_core::native_states::GUARD,
+        kirby_assist_core::native_states::status::WALK,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::RUN,
+        kirby_assist_core::native_states::GUARD_OFF,
+        kirby_assist_core::native_states::GUARD_DAMAGE,
+        kirby_assist_core::native_states::status::ATTACK_LW3,
+    ] {
         let context = DodgeContext {
             object: 1,
             status,
@@ -325,7 +361,12 @@ fn grab_dodge_ignores_running_even_if_the_native_escape_term_is_enabled() {
         );
         assert_eq!(
             out.owned != 0,
-            matches!(status, 0 | 0x1b | 0x1c),
+            matches!(
+                status,
+                kirby_assist_core::native_states::status::WAIT
+                    | kirby_assist_core::native_states::GUARD_ON
+                    | kirby_assist_core::native_states::GUARD
+            ),
             "{status:#x}"
         );
     }
@@ -339,7 +380,7 @@ fn endlag_clears_grab_attempt_and_cannot_replay_an_expired_grab_threat() {
             true,
             c(0., 0),
             lc(0., 0),
-            targets(0x1c, 10.),
+            targets(kirby_assist_core::native_states::GUARD, 10.),
             None,
             22.,
             35.
@@ -356,7 +397,7 @@ fn endlag_clears_grab_attempt_and_cannot_replay_an_expired_grab_threat() {
             true,
             endlag,
             lc(1., 0x2f),
-            targets(0x1c, 10.),
+            targets(kirby_assist_core::native_states::GUARD, 10.),
             None,
             22.,
             35.
@@ -373,7 +414,7 @@ fn endlag_clears_grab_attempt_and_cannot_replay_an_expired_grab_threat() {
     use kirby_assist_core::spot_dodge::{Context as DodgeContext, SpotDodge, Target as GrabTarget};
     let enemy = GrabTarget {
         id: 2,
-        status: 0x37,
+        status: kirby_assist_core::native_states::CATCH,
         motion: 2,
         frame: 5.,
         rate: 1.,
@@ -386,7 +427,7 @@ fn endlag_clears_grab_attempt_and_cannot_replay_an_expired_grab_threat() {
     };
     let context = DodgeContext {
         object: 1,
-        status: 0x2f,
+        status: kirby_assist_core::native_states::status::ATTACK_S4,
         situation: 0,
         motion: 1,
         frame: 0.,
@@ -413,7 +454,7 @@ fn endlag_clears_grab_attempt_and_cannot_replay_an_expired_grab_threat() {
             .sample(
                 true,
                 DodgeContext {
-                    status: 0,
+                    status: kirby_assist_core::native_states::status::WAIT,
                     frame: 1.,
                     can_spot_dodge: true,
                     ..context
@@ -469,10 +510,17 @@ fn grab_startup_forecast_keeps_stationary_grabs_but_rejects_escape_and_crossing(
         (10., -0.5, true),
     ] {
         let mut grab = OutOfShield::new();
-        let mut ts = targets(0x1c, x);
+        let mut ts = targets(kirby_assist_core::native_states::GUARD, x);
         ts[0].as_mut().unwrap().velocity_x = speed;
-        let out =
-            grab.sample_simple_timed(true, c(0., 0x1c), lc(0., 0x1c), ts, None, 22., Some(12.));
+        let out = grab.sample_simple_timed(
+            true,
+            c(0., kirby_assist_core::native_states::GUARD),
+            lc(0., kirby_assist_core::native_states::GUARD),
+            ts,
+            None,
+            22.,
+            Some(12.),
+        );
         assert_eq!(out.requested != 0, should_grab, "x={x} speed={speed}");
         if !should_grab {
             assert_eq!(out.owned, 0);
@@ -484,7 +532,7 @@ fn grab_startup_forecast_keeps_stationary_grabs_but_rejects_escape_and_crossing(
 #[test]
 fn automatic_grab_finishes_with_no_controller_or_target_left_reserved() {
     let mut grab = OutOfShield::new();
-    let ts = targets(0x1c, 10.);
+    let ts = targets(kirby_assist_core::native_states::GUARD, 10.);
     for n in 0..4 {
         assert_ne!(
             grab.sample_simple(true, c(n as f32, 0), lc(n as f32, 0), ts, None, 22., 35.)
@@ -514,16 +562,16 @@ fn close_roll_up_b_is_chosen_before_new_grab_in_front_across_or_behind_shield() 
             sequence: cat.entries()[0].sequence,
         })
         .unwrap();
-    for own in [0, 0x1c] {
+    for own in [0, kirby_assist_core::native_states::GUARD] {
         for x in [-20., 0., 20.] {
             for vulnerable in [false, true] {
                 let mut engine = Engine::default();
                 let mut grab = OutOfShield::new();
-                let mut ts = targets(0x20, x);
+                let mut ts = targets(kirby_assist_core::native_states::ESCAPE_F, x);
                 if !vulnerable {
                     ts[0].as_mut().unwrap().vulnerable_in = None;
                 }
-                let context = LedgeContext {
+                let context = GameplayContext {
                     can_act: true,
                     ..lc(0., own)
                 };
@@ -531,7 +579,7 @@ fn close_roll_up_b_is_chosen_before_new_grab_in_front_across_or_behind_shield() 
                     true,
                     &rules,
                     LedgeSettings {
-                        fighter_kind: 15,
+                        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                         ..Default::default()
                     },
                     context,
@@ -557,16 +605,24 @@ fn close_roll_up_b_is_chosen_before_new_grab_in_front_across_or_behind_shield() 
     }
     let mut engine = Engine::default();
     let mut grab = OutOfShield::new();
-    let ts = targets(0x1c, 10.);
-    let context = LedgeContext {
+    let ts = targets(kirby_assist_core::native_states::GUARD, 10.);
+    let context = GameplayContext {
         can_act: true,
-        ..lc(0., 0x1c)
+        ..lc(0., kirby_assist_core::native_states::GUARD)
     };
     let reaction = engine.sample_simple(true, &rules, LedgeSettings::default(), context, ts, None);
     assert_eq!(reaction.owned, 0);
     assert_eq!(
-        grab.sample_simple(true, c(0., 0x1c), context, ts, None, 22., 35.)
-            .requested,
+        grab.sample_simple(
+            true,
+            c(0., kirby_assist_core::native_states::GUARD),
+            context,
+            ts,
+            None,
+            22.,
+            35.
+        )
+        .requested,
         MAPPER_R | MAPPER_ZR,
         "stationary shield grabs stay unchanged"
     );
@@ -593,9 +649,9 @@ fn a_failed_pending_grab_releases_for_a_same_observation_roll_fallback() {
     let mut engine = Engine::default();
     let started = grab.sample_simple(
         true,
-        c(0., 0x1c),
-        lc(0., 0x1c),
-        targets(0x1c, 10.),
+        c(0., kirby_assist_core::native_states::GUARD),
+        lc(0., kirby_assist_core::native_states::GUARD),
+        targets(kirby_assist_core::native_states::GUARD, 10.),
         None,
         22.,
         35.,
@@ -604,12 +660,20 @@ fn a_failed_pending_grab_releases_for_a_same_observation_roll_fallback() {
         true,
         &[Intent::input_sequence(Owner::OutOfShield, started.owned)],
     );
-    let rolled = targets(0x20, -10.);
-    let context = LedgeContext {
+    let rolled = targets(kirby_assist_core::native_states::ESCAPE_F, -10.);
+    let context = GameplayContext {
         can_act: true,
-        ..lc(1., 0x1c)
+        ..lc(1., kirby_assist_core::native_states::GUARD)
     };
-    let rejected = grab.sample_simple(true, c(1., 0x1c), context, rolled, None, 22., 35.);
+    let rejected = grab.sample_simple(
+        true,
+        c(1., kirby_assist_core::native_states::GUARD),
+        context,
+        rolled,
+        None,
+        22.,
+        35.,
+    );
     assert_eq!(rejected.owned, 0);
     assert!(grab.target().is_none());
     owner.release(Owner::OutOfShield);
@@ -635,13 +699,13 @@ fn a_failed_pending_grab_releases_for_a_same_observation_roll_fallback() {
 #[test]
 fn frozen_shields_cannot_hold_an_unaccepted_grab_forever_and_duplicate_polls_do_not_count() {
     let mut grab = OutOfShield::new();
-    let mut shield = c(0., 0x1c);
+    let mut shield = c(0., kirby_assist_core::native_states::GUARD);
     shield.rate = 0.;
-    let context = LedgeContext {
+    let context = GameplayContext {
         motion_rate: 0.,
-        ..lc(0., 0x1c)
+        ..lc(0., kirby_assist_core::native_states::GUARD)
     };
-    let mut ts = targets(0x1c, 10.);
+    let mut ts = targets(kirby_assist_core::native_states::GUARD, 10.);
     ts[0].as_mut().unwrap().rate = 0.;
     for tick in 0..4 {
         for _ in 0..20 {
@@ -674,14 +738,27 @@ fn frozen_shields_cannot_hold_an_unaccepted_grab_forever_and_duplicate_polls_do_
 #[test]
 fn unshielded_grabs_require_enemy_shield_but_shielded_grabs_accept_other_vulnerable_fronts() {
     for status in [
-        0, 3, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x2c, 0x37, 0x47,
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::GUARD_ON,
+        kirby_assist_core::native_states::status::GUARD,
+        kirby_assist_core::native_states::status::GUARD_OFF,
+        kirby_assist_core::native_states::status::GUARD_DAMAGE,
+        kirby_assist_core::native_states::status::ESCAPE,
+        kirby_assist_core::native_states::status::ESCAPE_F,
+        kirby_assist_core::native_states::status::ESCAPE_B,
+        kirby_assist_core::native_states::status::ESCAPE_AIR,
+        kirby_assist_core::native_states::status::ESCAPE_AIR_SLIDE,
+        kirby_assist_core::native_states::status::ATTACK_LW3,
+        kirby_assist_core::native_states::status::CATCH,
+        kirby_assist_core::native_states::status::DAMAGE,
     ] {
         for shielding in [false, true] {
             for vulnerable in [false, true] {
                 for side in [-1., 1.] {
                     let mut grab = OutOfShield::new();
                     let own = if shielding { 0x1c } else { 0 };
-                    let context = LedgeContext {
+                    let context = GameplayContext {
                         safe_ground: [true; 2],
                         ..lc(0., own)
                     };
@@ -700,20 +777,34 @@ fn unshielded_grabs_require_enemy_shield_but_shielded_grabs_accept_other_vulnera
                         35.,
                         Some(12.),
                     );
-                    assert_eq!(out.owned!=0,vulnerable&&side>0.&&(shielding||matches!(status,0x1b|0x1c|0x1e)),"enemy={status:#x} self-shield={shielding} vulnerable={vulnerable} side={side}");
+                    assert_eq!(out.owned!=0,vulnerable&&side>0.&&(shielding||matches!(status,kirby_assist_core::native_states::GUARD_ON|kirby_assist_core::native_states::GUARD|kirby_assist_core::native_states::GUARD_DAMAGE)),"enemy={status:#x} self-shield={shielding} vulnerable={vulnerable} side={side}");
                 }
             }
         }
     }
     for status in [
-        -1, 0x41, 0x42, 0x46, 0x50, 0x53, 0x55, 0x75, 0x77, 0x79, 0x7d, 0xb5, 0xb6, 0x1d9, 0x1da,
-        0x1db,
+        -kirby_assist_core::native_states::status::WALK,
+        kirby_assist_core::native_states::status::CAPTURE_PULLED,
+        kirby_assist_core::native_states::status::CAPTURE_WAIT,
+        kirby_assist_core::native_states::status::THROWN,
+        kirby_assist_core::native_states::status::DOWN,
+        kirby_assist_core::native_states::status::DOWN_WAIT,
+        kirby_assist_core::native_states::status::DOWN_EAT,
+        kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE,
+        kirby_assist_core::native_states::status::CLIFF_WAIT,
+        kirby_assist_core::native_states::status::CLIFF_CLIMB,
+        kirby_assist_core::native_states::status::CLIFF_JUMP3,
+        kirby_assist_core::native_states::status::DEAD,
+        kirby_assist_core::native_states::status::REBIRTH,
+        kirby_assist_core::native_states::status::ENTRY,
+        0x1da,
+        kirby_assist_core::native_states::status::LOSE,
     ] {
         let mut grab = OutOfShield::new();
         let out = grab.sample_automatic(
             true,
             c(0., 0),
-            LedgeContext {
+            GameplayContext {
                 safe_ground: [true; 2],
                 ..lc(0., 0)
             },
@@ -732,8 +823,8 @@ fn unshielded_grabs_require_enemy_shield_but_shielded_grabs_accept_other_vulnera
 fn approach_is_one_delivered_pulse_then_four_grab_packets_and_never_dashes_from_shield() {
     for side in [-1., 1.] {
         let mut grab = OutOfShield::new();
-        let ts = targets(0x1c, side * 30.);
-        let context = LedgeContext {
+        let ts = targets(kirby_assist_core::native_states::GUARD, side * 30.);
+        let context = GameplayContext {
             facing: side,
             safe_ground: [true; 2],
             ..lc(0., 0)
@@ -774,8 +865,8 @@ fn approach_is_one_delivered_pulse_then_four_grab_packets_and_never_dashes_from_
             let o = grab.sample_automatic(
                 true,
                 running,
-                LedgeContext {
-                    status: 3,
+                GameplayContext {
+                    status: kirby_assist_core::native_states::status::DASH,
                     ..context
                 },
                 ts,
@@ -794,7 +885,11 @@ fn approach_is_one_delivered_pulse_then_four_grab_packets_and_never_dashes_from_
         assert_eq!(o.owned, 0);
         assert!(grab.grab_delivery_pending());
     }
-    for own in [0, 0x1b, 0x1c] {
+    for own in [
+        0,
+        kirby_assist_core::native_states::GUARD_ON,
+        kirby_assist_core::native_states::GUARD,
+    ] {
         // Includes a fresh physical shield before native WAIT changes.
         let mut grab = OutOfShield::new();
         let context = lc(0., own);
@@ -803,7 +898,7 @@ fn approach_is_one_delivered_pulse_then_four_grab_packets_and_never_dashes_from_
                 true,
                 c(0., own),
                 context,
-                targets(0x1c, 30.),
+                targets(kirby_assist_core::native_states::GUARD, 30.),
                 None,
                 true,
                 22.,
@@ -817,7 +912,7 @@ fn approach_is_one_delivered_pulse_then_four_grab_packets_and_never_dashes_from_
             true,
             c(0., own),
             context,
-            targets(0x1c, 20.),
+            targets(kirby_assist_core::native_states::GUARD, 20.),
             None,
             true,
             22.,
@@ -835,7 +930,7 @@ fn approach_obeys_35_range_ground_support_shield_takeover_and_live_target_state(
     for (distance, safe, expected) in [(35., true, true), (35.01, true, false), (30., false, false)]
     {
         let mut grab = OutOfShield::new();
-        let context = LedgeContext {
+        let context = GameplayContext {
             safe_ground: [safe; 2],
             ..lc(0., 0)
         };
@@ -843,7 +938,7 @@ fn approach_obeys_35_range_ground_support_shield_takeover_and_live_target_state(
             true,
             c(0., 0),
             context,
-            targets(0x1c, distance),
+            targets(kirby_assist_core::native_states::GUARD, distance),
             None,
             false,
             22.,
@@ -853,7 +948,7 @@ fn approach_obeys_35_range_ground_support_shield_takeover_and_live_target_state(
         assert_eq!(o.owned != 0, expected);
     }
     let mut grab = OutOfShield::new();
-    let context = LedgeContext {
+    let context = GameplayContext {
         safe_ground: [true; 2],
         ..lc(0., 0)
     };
@@ -862,7 +957,7 @@ fn approach_obeys_35_range_ground_support_shield_takeover_and_live_target_state(
             true,
             c(0., 0),
             context,
-            targets(0x1c, 30.),
+            targets(kirby_assist_core::native_states::GUARD, 30.),
             None,
             false,
             22.,
@@ -877,7 +972,7 @@ fn approach_obeys_35_range_ground_support_shield_takeover_and_live_target_state(
             true,
             c(0., 0),
             context,
-            targets(0x1c, 30.),
+            targets(kirby_assist_core::native_states::GUARD, 30.),
             None,
             true,
             22.,
@@ -893,7 +988,7 @@ fn approach_obeys_35_range_ground_support_shield_takeover_and_live_target_state(
         true,
         c(0., 0),
         context,
-        targets(0x1c, 30.),
+        targets(kirby_assist_core::native_states::GUARD, 30.),
         None,
         false,
         22.,
@@ -906,7 +1001,7 @@ fn approach_obeys_35_range_ground_support_shield_takeover_and_live_target_state(
             true,
             c(1., 3),
             context,
-            targets(0x1c, 30.),
+            targets(kirby_assist_core::native_states::GUARD, 30.),
             None,
             false,
             22.,
@@ -968,7 +1063,7 @@ fn usable_up_b_wins_over_an_uncommitted_grab_proposal_without_mixed_input() {
     for shielded in [false, true] {
         for other_target in [false, true] {
             let own = if shielded { 0x1c } else { 0 };
-            let context = LedgeContext {
+            let context = GameplayContext {
                 can_act: true,
                 safe_ground: [true; 2],
                 ..lc(0., own)
@@ -978,7 +1073,7 @@ fn usable_up_b_wins_over_an_uncommitted_grab_proposal_without_mixed_input() {
                 true,
                 c(0., own),
                 context,
-                targets(0x1c, 10.),
+                targets(kirby_assist_core::native_states::GUARD, 10.),
                 None,
                 shielded,
                 22.,
@@ -988,14 +1083,14 @@ fn usable_up_b_wins_over_an_uncommitted_grab_proposal_without_mixed_input() {
             assert_ne!(started.owned, 0);
             // Both are proposals; neither has acquired the controller yet.
             let mut owner = ActionOwnership::new();
-            let mut ts = targets(0x20, 10.);
+            let mut ts = targets(kirby_assist_core::native_states::ESCAPE_F, 10.);
             if other_target {
                 ts[1] = ts[0].map(|t| Target {
                     id: 3,
                     position: [-20., 0.],
                     ..t
                 });
-                ts[0].as_mut().unwrap().status = 0;
+                ts[0].as_mut().unwrap().status = kirby_assist_core::native_states::status::WAIT;
             }
             let mut engine = Engine::default();
             assert!(engine
@@ -1089,23 +1184,23 @@ fn priority_handoff_never_cancels_native_grabs_or_bypasses_other_modes_and_readi
         let mut owner = ActionOwnership::new();
         let started = grab.sample_simple(
             true,
-            c(0., 0x1c),
-            lc(0., 0x1c),
-            targets(0x1c, 10.),
+            c(0., kirby_assist_core::native_states::GUARD),
+            lc(0., kirby_assist_core::native_states::GUARD),
+            targets(kirby_assist_core::native_states::GUARD, 10.),
             None,
             22.,
             35.,
         );
         assert_ne!(started.owned, 0);
-        let mut context = LedgeContext {
+        let mut context = GameplayContext {
             can_act: true,
-            ..lc(1., 0x1c)
+            ..lc(1., kirby_assist_core::native_states::GUARD)
         };
-        let mut ts = targets(0x20, 10.);
+        let mut ts = targets(kirby_assist_core::native_states::ESCAPE_F, 10.);
         match case {
             0 => context.stopped = true,
             1 => context.can_act = false,
-            2 => context.status = 0x37, // Native catch accepted: never replace it.
+            2 => context.status = kirby_assist_core::native_states::CATCH, // Native catch accepted: never replace it.
             3 => ts[0].as_mut().unwrap().position[0] = 41.,
             4 => {
                 engine.sample_simple(false, &rules, LedgeSettings::default(), context, ts, None);
@@ -1149,9 +1244,9 @@ fn priority_handoff_never_cancels_native_grabs_or_bypasses_other_modes_and_readi
             assert_eq!(
                 grab.sample_simple(
                     true,
-                    c(1., 0x37),
+                    c(1., kirby_assist_core::native_states::CATCH),
                     context,
-                    targets(0x1c, 10.),
+                    targets(kirby_assist_core::native_states::GUARD, 10.),
                     None,
                     22.,
                     35.
@@ -1169,14 +1264,14 @@ fn priority_handoff_never_cancels_native_grabs_or_bypasses_other_modes_and_readi
 
 #[test]
 fn approach_cancels_before_grab_when_live_target_crosses_disappears_or_becomes_ungrabbable() {
-    let context = LedgeContext {
+    let context = GameplayContext {
         safe_ground: [true; 2],
         ..lc(0., 0)
     };
     for next in [
         targets(0, -1.),
         targets(0, 36.),
-        targets(0x41, 10.),
+        targets(kirby_assist_core::native_states::CAPTURE_PULLED, 10.),
         [None; 8],
     ] {
         let mut grab = OutOfShield::new();
@@ -1184,7 +1279,7 @@ fn approach_cancels_before_grab_when_live_target_crosses_disappears_or_becomes_u
             true,
             c(0., 0),
             context,
-            targets(0x1c, 30.),
+            targets(kirby_assist_core::native_states::GUARD, 30.),
             None,
             false,
             22.,
@@ -1196,8 +1291,8 @@ fn approach_cancels_before_grab_when_live_target_crosses_disappears_or_becomes_u
         let out = grab.sample_automatic(
             true,
             c(1., 3),
-            LedgeContext {
-                status: 3,
+            GameplayContext {
+                status: kirby_assist_core::native_states::status::DASH,
                 ..context
             },
             next,

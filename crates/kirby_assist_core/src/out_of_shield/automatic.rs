@@ -1,7 +1,8 @@
 //! File configuration over the existing grab/backup admission and delivery paths.
 use super::*;
 use crate::{
-    ledge_trap::{LedgeContext, LedgeSettings, Opponent},
+    gameplay::{GameplayContext, Opponent},
+    ledge_trap::LedgeSettings,
     native_input::{MAPPER_B, MAPPER_R},
     sequence_config::{Action, Direction, Sequence},
 };
@@ -96,7 +97,7 @@ fn backup_timing(s: &Sequence, kind: i32) -> Option<super::shield_up_b::Timing> 
     if s.actions().len() == 1 {
         return Some(timing);
     }
-    if kind == 15 && s.actions().len() == 2 {
+    if kind == crate::fighter_kinds::BOWSER && s.actions().len() == 2 {
         if let Action::Drift {
             direction,
             strength,
@@ -126,7 +127,7 @@ fn copied(t: crate::roll_read::Target) -> Opponent {
         position: t.position,
         velocity: [t.velocity_x, 0.],
         vulnerable: t.vulnerable_in == Some(0.),
-        motion: Some(crate::ledge_trap::MotionTiming {
+        motion: Some(crate::gameplay::MotionTiming {
             kind: t.motion,
             frame: t.frame,
             rate: t.rate,
@@ -140,7 +141,7 @@ impl OutOfShield {
         &mut self,
         allowed: bool,
         c: Context,
-        context: LedgeContext,
+        context: GameplayContext,
         targets: [Option<crate::roll_read::Target>; 8],
         follow: Option<Opponent>,
         shielded: bool,
@@ -149,7 +150,7 @@ impl OutOfShield {
         startup: Option<f32>,
         settings: LedgeSettings,
         config: AutomaticConfig<'_>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         self.bind_actor(c);
         if config.backup.is_none()
             && (self.shield_up_b.active() || self.configured_response && self.configured_backup)
@@ -158,10 +159,14 @@ impl OutOfShield {
             self.response.suspend();
             self.configured_response = self.response.grab_delivery_pending();
             self.configured_backup = false;
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         let limits = config.limits(close, approach);
-        let shielded = shielded || matches!(c.status, 0x1b..=0x1e);
+        let shielded = shielded
+            || matches!(
+                c.status,
+                crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
+            );
         let backup_timing = config.backup.and_then(|s| backup_timing(s, c.kind));
         let native_timing =
             backup_timing.unwrap_or_else(|| super::shield_up_b::Timing::legacy(c.kind));
@@ -239,7 +244,7 @@ impl OutOfShield {
                 self.configured_settling = false;
                 self.simple.cancel();
             }
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.configured_response {
             let delivered = self.simple.delivery_pending();
@@ -269,7 +274,7 @@ impl OutOfShield {
                     self.response.cancel();
                     self.configured_response = false;
                     self.configured_settling = self.simple.delivery_pending();
-                    return LedgeOutput::default();
+                    return ControllerOutput::default();
                 }
             }
             let output = self.response.sample(allowed, settings, context, follow);
@@ -278,7 +283,7 @@ impl OutOfShield {
                 self.response.cancel();
                 self.configured_response = false;
                 self.configured_settling = self.simple.delivery_pending();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             if !self.simple.delivery_pending() && output.requested & MAPPER_R != 0 {
                 self.simple.rebase_custom_delivery();
@@ -385,13 +390,13 @@ impl OutOfShield {
         &mut self,
         sequence: Sequence,
         allowed: bool,
-        mut context: LedgeContext,
+        mut context: GameplayContext,
         targets: [Option<crate::roll_read::Target>; 8],
         follow: Option<Opponent>,
         settings: LedgeSettings,
         backup: bool,
         shielded: bool,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         let id = if backup {
             self.shield_up_b.target()
         } else {
@@ -406,7 +411,7 @@ impl OutOfShield {
         });
         let Some(enemy) = enemy else {
             self.cancel_pending();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         };
         // Grab readiness already authorized an ordinary configured response;
         // direct Up-B additionally keeps its specific native readiness gate.
@@ -415,7 +420,7 @@ impl OutOfShield {
         }
         if !self.response.start_sequence(sequence, context, enemy) {
             self.cancel_pending();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if backup {
             self.shield_up_b.cancel();

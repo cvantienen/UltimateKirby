@@ -1,8 +1,9 @@
 //! A missing fighter/event recipe is inert. Only ordinary grabs stay generic.
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
+    gameplay::GameplayContext,
     ledge_menu::MenuSelection,
-    ledge_trap::{LedgeContext, LedgeSettings},
+    ledge_trap::LedgeSettings,
     native_input::*,
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
     reaction_rules::{Engine, Resolved},
@@ -28,8 +29,8 @@ fn own(kind: i32, status: i32) -> Context {
         threatened: false,
     }
 }
-fn lc(c: Context) -> LedgeContext {
-    LedgeContext {
+fn lc(c: Context) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
@@ -75,7 +76,7 @@ fn generic_templates_never_become_roll_dodge_or_grab_followups_and_fighter_grab_
     for c in [saved, templates_only] {
         let mut profiles = FighterProfiles::default();
         profiles.add_sequence_choices(&c).unwrap();
-        for kind in 0..0x5e {
+        for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
             let Some(p) = profiles.profile(kind) else {
                 continue;
             };
@@ -93,7 +94,11 @@ fn generic_templates_never_become_roll_dodge_or_grab_followups_and_fighter_grab_
                     "fighter {kind}, event {event}"
                 );
             }
-            for (event, status) in [(0, 0x20), (1, 0x1f), (2, 0x22)] {
+            for (event, status) in [
+                (0, kirby_assist_core::native_states::ESCAPE_F),
+                (1, kirby_assist_core::native_states::ESCAPE),
+                (2, 0x22),
+            ] {
                 if rules.simple_sequence(event).is_none() {
                     assert_eq!(
                         Engine::default()
@@ -116,16 +121,21 @@ fn generic_templates_never_become_roll_dodge_or_grab_followups_and_fighter_grab_
 #[test]
 fn unconfigured_fighters_never_get_up_b_from_generic_grab_backup_even_with_empty_rules() {
     let profiles = FighterProfiles::default();
-    for kind in 0..0x5e {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         let Some(p) = profiles.profile(kind) else {
             continue;
         };
         let (close, far) = kirby_assist_core::fighter_tuning::Tuning::default()
             .auto_grab_ranges(kind, p.ledge.grab.standing_range);
-        for enemy in [0, 0x1f, 0x20, 0x22] {
+        for enemy in [
+            0,
+            kirby_assist_core::native_states::ESCAPE,
+            kirby_assist_core::native_states::ESCAPE_F,
+            kirby_assist_core::native_states::ESCAPE_AIR,
+        ] {
             for x in [-close * 0.5, 0., close + 1.] {
                 let mut o = OutOfShield::new();
-                let c = own(kind, 0x1c);
+                let c = own(kind, kirby_assist_core::native_states::GUARD);
                 let out = o.sample_automatic(
                     true,
                     c,
@@ -146,7 +156,7 @@ fn unconfigured_fighters_never_get_up_b_from_generic_grab_backup_even_with_empty
             }
         }
         let mut o = OutOfShield::new();
-        let c = own(kind, 0x1c);
+        let c = own(kind, kirby_assist_core::native_states::GUARD);
         let grab = o
             .sample_automatic(
                 true,
@@ -173,7 +183,7 @@ fn unconfigured_fighters_never_get_up_b_from_generic_grab_backup_even_with_empty
                 true,
                 c,
                 lc(c),
-                target(0x1c, close * 0.5),
+                target(kirby_assist_core::native_states::GUARD, close * 0.5),
                 None,
                 false,
                 close,
@@ -223,7 +233,7 @@ fn yoshi_and_lucina_keep_saved_grab_limits_and_only_their_explicit_backup_metada
         let (close, far) = kirby_assist_core::fighter_tuning::Tuning::default()
             .auto_grab_ranges(kind, p.ledge.grab.standing_range);
         for (distance, want_grab) in [(s.reaction.max * 0.5, true), (s.reaction.max + 0.1, false)] {
-            let c = own(kind, 0x1c);
+            let c = own(kind, kirby_assist_core::native_states::GUARD);
             let out = OutOfShield::new().sample_automatic_configured(
                 true,
                 c,
@@ -254,7 +264,7 @@ fn yoshi_and_lucina_keep_saved_grab_limits_and_only_their_explicit_backup_metada
 fn deleting_a_configured_backup_stops_its_active_spin_without_another_attack_or_grab() {
     let b=Catalog::parse("[bowser.roll.backup]\nstart_delay=0\nreaction=auto_shield_backup:25:24\nactions=up_b:4,drift:opponent:1:69\n").unwrap().entries()[0].sequence;
     let mut o = OutOfShield::new();
-    let c = own(15, 0x1c);
+    let c = own(15, kirby_assist_core::native_states::GUARD);
     let ts = target(0, -5.);
     assert_ne!(
         o.sample_automatic_configured(

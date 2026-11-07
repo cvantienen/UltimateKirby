@@ -1,18 +1,60 @@
 //! Shared read-only native state vocabulary (skyline-smash d2ca90d lua_const).
 //! Own incapacitation and opponent punishability are deliberately distinct.
+pub mod fighter_status;
 mod final_states;
+pub mod status;
+pub mod transition_terms;
 mod up_special;
+pub mod work_ids;
 pub use up_special::up_special_status;
+
+// Common FIGHTER_STATUS_KIND values from the pinned native status table.
+pub const GUARD_ON: i32 = status::GUARD_ON;
+pub const GUARD: i32 = status::GUARD;
+pub const GUARD_OFF: i32 = status::GUARD_OFF;
+pub const GUARD_DAMAGE: i32 = status::GUARD_DAMAGE;
+pub const ESCAPE: i32 = status::ESCAPE;
+pub const ESCAPE_F: i32 = status::ESCAPE_F;
+pub const ESCAPE_B: i32 = status::ESCAPE_B;
+pub const ESCAPE_AIR: i32 = status::ESCAPE_AIR;
+pub const ESCAPE_AIR_SLIDE: i32 = status::ESCAPE_AIR_SLIDE;
+pub const CATCH: i32 = status::CATCH;
+pub const CATCH_PULL: i32 = status::CATCH_PULL;
+pub const CATCH_DASH: i32 = status::CATCH_DASH;
+pub const CATCH_DASH_PULL: i32 = status::CATCH_DASH_PULL;
+pub const CATCH_TURN: i32 = status::CATCH_TURN;
+// Preserve the old public values for compatibility. Use `status::*` internally
+// because these historical labels do not match the pinned native table.
+pub const CATCH_TURN_PULL: i32 = status::CATCH_WAIT;
+pub const CATCH_WAIT: i32 = status::CATCH_ATTACK;
+pub const CATCH_ATTACK: i32 = status::CATCH_CUT;
+pub const CATCH_CUT: i32 = status::CATCH_JUMP;
+pub const THROW: i32 = status::THROW;
+pub const CAPTURE_PULLED: i32 = status::CAPTURE_PULLED;
+pub const THROWN: i32 = status::THROWN;
 
 /// Special captures/final victims are not ordinary combat targets, even when a
 /// transient LinkModule capture link is absent or uses a move-specific link.
 pub fn captured_or_scripted(status: i32) -> bool {
     matches!(status,
-        0x41..=0x46 | 0xbd..=0xc7 | 0xe6..=0xf7 | 0xfe..=0xff
-        | 0x102 | 0x107..=0x110 | 0x116..=0x119 | 0x11f..=0x147
-        | 0x14a..=0x14b | 0x14d..=0x16e | 0x171..=0x174
-        | 0x176..=0x18c | 0x18f..=0x1a2 | 0x1ab..=0x1ba
-        | 0x1be..=0x1d0 | 0x1d2..=0x1d6 | 0x1d9..=0x1db | 0x1e0)
+        status::CAPTURE_PULLED..=status::THROWN
+        | status::CLUNG_GANON..=status::SHOULDERED_DONKEY_THROWN
+        | status::SWALLOWED..=status::CAPTURE_DAMAGE_YOSHI
+        | status::CATCHED_REFLET..=status::CAPTURE_MASTERHAND
+        | status::GIMMICK_EATEN
+        | status::DEMO..=status::KASEY_WARP
+        | status::CLIFF_ROBBED..=status::METAKNIGHT_FINAL_DAMAGE_FALL
+        | status::FINAL_VISUAL_ATTACK_OTHER..=status::PSYCHOBREAK
+        | status::RYU_FINAL_DAMAGE..=status::RYU_FINAL_DAMAGE_FLY
+        | status::CLOUD_FINAL_DAMAGE_FLY..=status::RIDLEY_FINAL_TARGET_END
+        | status::CATCHED_RIDLEY..=status::STABBED_DAMAGE
+        | status::SWING_GAOGAEN_CATCHED..=status::CAPTURE_WAIT_OCTOPUS
+        | status::SIMON_FINAL_TARGET_START..=status::BRAVE_FINAL_TARGET_END
+        | status::BUDDY_FINAL_TARGET_START..=status::TANTAN_FINAL_TARGET_END
+        | status::CATCHED_PICKEL_TROLLEY..=status::EDGE_FINAL_TARGET_END
+        | status::CAPTURE_TRAIL_KEYHOLE..=status::STANDBY
+        | status::ENTRY..=status::LOSE
+        | status::FINAL)
 }
 
 /// Abort existing input tapes on forced states, without disabling native
@@ -20,16 +62,35 @@ pub fn captured_or_scripted(status: i32) -> bool {
 pub fn sequence_interrupted(status: i32) -> bool {
     captured_or_scripted(status)
         || matches!(status,
-        0x24..=0x26 | 0x47..=0x54 | 0x5a..=0x66 | 0x86..=0x88
-        | 0xab..=0xb6 | 0xb9..=0xbc | 0xc8..=0xdf
-        | 0x100 | 0x103..=0x106 | 0x111..=0x115 | 0x148..=0x149
-        | 0x14c | 0x196..=0x198 | 0x1a3..=0x1aa | 0x1bb..=0x1bd | 0x1d1)
+        status::REBOUND_STOP..=status::REBOUND_JUMP
+        | status::DAMAGE..=status::DOWN_WAIT_CONTINUE
+        | status::DOWN_DAMAGE..=status::BIND
+        | status::SLIP..=status::SLIP_WAIT
+        | status::SWIM_DIVE..=status::REBIRTH
+        | status::TREAD_DAMAGE..=status::TREAD_FALL
+        | status::BURY..=status::HAMMER_LANDING
+        | status::KILLER
+        | status::GENESIS_SHOOT_START..=status::GENESIS_GET
+        | status::LADDER_CATCH..=status::LADDER_END
+        | status::SAVING_DAMAGE..=status::SAVING_DAMAGE_FLY
+        | status::SAVING_DAMAGE_AIR
+        | status::METAMON_OUT..=status::BOSS_DEAD
+        | status::DAMAGE_SLEEP_START..=status::SLEEP_END
+        | status::GIMMICK_JUMP_BOARD..=status::DAMAGE_FLY_REFLECT_JUMP_BOARD
+        | status::TRAIL_REBOUND)
 }
 
 /// These vulnerable bodies may be hit by a configured shield backup, but an
 /// ordinary grab must not be chosen for their downed/buried/frozen states.
 pub fn ordinary_grab_immune(status: i32) -> bool {
-    matches!(status, 0x50..=0x56 | 0x5a..=0x5b | 0x5e | 0x86..=0x88 | 0xc8..=0xcc)
+    matches!(
+        status,
+        status::DOWN..=status::LAY_DOWN
+            | status::DOWN_DAMAGE..=status::DOWN_REFLECT_LR
+            | status::SHIELD_BREAK_DOWN
+            | status::SLIP..=status::SLIP_WAIT
+            | status::BURY..=status::ICE_JUMP
+    )
 }
 
 /// Private status values overlap across fighters. Apply these forced-state
@@ -38,10 +99,23 @@ pub fn fighter_sequence_interrupted(kind: i32, status: i32) -> bool {
     sequence_interrupted(status)
         || fighter_noncombat(kind, status)
         || match kind {
-            39 => matches!(status, 0x1ef | 0x1f1 | 0x1f3), // Diddy damage phases.
-            53 => status == 0x1e8,                         // Greninja recovery wall damage.
-            58 => status == 0x1eb,                         // Clown-car recovery damage end.
-            36 | 37 | 38 | 90 | 91 => status == 0x1e2,     // Own swap-out recovery.
+            crate::fighter_kinds::DIDDY_KONG => matches!(
+                status,
+                fighter_status::DIDDY_SPECIAL_S_DAMAGE_FALL
+                    | fighter_status::DIDDY_SPECIAL_HI_CHARGE_DAMAGE
+                    | fighter_status::DIDDY_SPECIAL_HI_UPPER_DAMAGE
+            ),
+            crate::fighter_kinds::GRENINJA => {
+                status == fighter_status::GEKKOUGA_SPECIAL_HI_WALL_DAMAGE
+            }
+            crate::fighter_kinds::BOWSER_JR => {
+                status == fighter_status::KOOPAJR_SPECIAL_HI_DAMAGE_END
+            }
+            crate::fighter_kinds::SQUIRTLE => status == fighter_status::PZENIGAME_SPECIAL_LW_OUT,
+            crate::fighter_kinds::IVYSAUR => status == fighter_status::PFUSHIGISOU_SPECIAL_LW_OUT,
+            crate::fighter_kinds::CHARIZARD => status == fighter_status::PLIZARDON_SPECIAL_LW_OUT,
+            crate::fighter_kinds::PYRA => status == fighter_status::EFLAME_SPECIAL_LW_OUT,
+            crate::fighter_kinds::MYTHRA => status == fighter_status::ELIGHT_SPECIAL_LW_OUT,
             _ => false,
         }
 }
@@ -50,5 +124,23 @@ pub fn fighter_sequence_interrupted(kind: i32, status: i32) -> bool {
 /// targets, even through a transient missing capture link.
 pub fn fighter_noncombat(kind: i32, status: i32) -> bool {
     final_states::final_status(kind, status)
-        || matches!(kind, 36 | 37 | 38 | 90 | 91) && status == 0x1e1
+        || matches!(
+            (kind, status),
+            (
+                crate::fighter_kinds::SQUIRTLE,
+                fighter_status::PZENIGAME_SPECIAL_LW_STANDBY
+            ) | (
+                crate::fighter_kinds::IVYSAUR,
+                fighter_status::PFUSHIGISOU_SPECIAL_LW_STANDBY
+            ) | (
+                crate::fighter_kinds::CHARIZARD,
+                fighter_status::PLIZARDON_SPECIAL_LW_STANDBY
+            ) | (
+                crate::fighter_kinds::PYRA,
+                fighter_status::EFLAME_SPECIAL_LW_STANDBY
+            ) | (
+                crate::fighter_kinds::MYTHRA,
+                fighter_status::ELIGHT_SPECIAL_LW_STANDBY
+            )
+        )
 }

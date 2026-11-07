@@ -3,7 +3,7 @@
 /// Controllable grounded movement, ordinary landing, or native ready shield.
 /// A cancel flag alone never admits a new punish during an attack or dodge.
 pub fn automatic_start_status(status: i32) -> bool {
-    matches!(status,0..=9|0x11..=0x17|0x1b|0x1c|0x7e|0x7f)
+    matches!(status,crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE|crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT|crate::native_states::GUARD_ON|crate::native_states::GUARD|crate::native_states::status::OTTOTTO|crate::native_states::status::OTTOTTO_WAIT)
 }
 pub fn automatic_start_allowed(status: i32, situation: i32, stopped: bool, linked: bool) -> bool {
     situation == 0 && !stopped && !linked && automatic_start_status(status)
@@ -11,14 +11,17 @@ pub fn automatic_start_allowed(status: i32, situation: i32, stopped: bool, linke
 /// Grab attempts may be defended/punished. Pull/hold/pummel/throw and victims
 /// already in capture are not ordinary automatic-punish targets.
 pub fn automatic_target_available(status: i32) -> bool {
-    status >= 0
+    status >= crate::native_states::status::WAIT
         && !crate::native_states::captured_or_scripted(status)
-        && !matches!(status,0x38|0x3a|0x3c..=0x40|0x75..=0x7d|0xb5|0xb6)
+        && !matches!(status,crate::native_states::status::CATCH_PULL|crate::native_states::status::CATCH_DASH_PULL|crate::native_states::status::CATCH_WAIT..=crate::native_states::status::THROW|crate::native_states::status::CLIFF_CATCH_MOVE..=crate::native_states::status::CLIFF_JUMP3|crate::native_states::status::DEAD|crate::native_states::status::REBIRTH)
 }
 /// Position-only following of an already confirmed spin may continue through
 /// a target's ledge grab/invulnerability. This never admits a new attack/grab.
 pub fn automatic_tracking_target_available(status: i32) -> bool {
-    automatic_target_available(status) || (0x75..=0x7d).contains(&status)
+    automatic_target_available(status)
+        || (crate::native_states::status::CLIFF_CATCH_MOVE
+            ..=crate::native_states::status::CLIFF_JUMP3)
+            .contains(&status)
 }
 pub fn automatic_up_b_status(kind: i32, status: i32, _previous: i32) -> bool {
     crate::native_states::up_special_status(kind, status)
@@ -29,8 +32,11 @@ pub fn automatic_up_b_status(kind: i32, status: i32, _previous: i32) -> bool {
 pub fn automatic_up_b_receipt_status(status: i32, situation: i32, assisted_dodge: bool) -> bool {
     situation == 0
         && (automatic_start_status(status)
-            || matches!(status, 0x1d | 0x1e)
-            || assisted_dodge && status == 0x1f)
+            || matches!(
+                status,
+                crate::native_states::GUARD_OFF | crate::native_states::GUARD_DAMAGE
+            )
+            || assisted_dodge && status == crate::native_states::ESCAPE)
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -56,12 +62,15 @@ impl AutomaticObservationScope {
         Self {
             acquire: automatic_start_allowed(status, situation, stopped, false),
             follow: committed_up_b && native_up_b
-                || assisted_dodge && situation == 0 && status == 0x1f
+                || assisted_dodge && situation == 0 && status == crate::native_states::ESCAPE
                 || committed_sequence
                     && automatic_target_available(status)
                     && !crate::action_owner::native_grab_active(status)
                     && !crate::ledge_trap::sequence_interrupted(status)
-                    && !matches!(status, 0x1f..=0x23),
+                    && !matches!(
+                        status,
+                        crate::native_states::ESCAPE..=crate::native_states::ESCAPE_AIR_SLIDE
+                    ),
         }
     }
     pub fn with_up_b_receipt(

@@ -1,17 +1,18 @@
 use kirby_assist_core::{
-    ledge_trap::{LedgeContext, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::LedgeSettings,
     native_input::*,
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
 };
-fn c(n: f32) -> LedgeContext {
-    LedgeContext {
+fn c(n: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
         situation: 0,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         motion_kind: 1,
         motion_frame: n,
         motion_rate: 1.,
@@ -75,8 +76,8 @@ fn sample(
     status: i32,
     x: f32,
     allowed: bool,
-    own: LedgeContext,
-) -> kirby_assist_core::ledge_trap::LedgeOutput {
+    own: GameplayContext,
+) -> kirby_assist_core::gameplay::ControllerOutput {
     let target = t(status, x, n);
     let mut ts = [None; 8];
     ts[0] = Some(target);
@@ -92,8 +93,22 @@ fn sample(
 #[test]
 fn any_dodge_starts_near_up_b_without_vulnerability_or_facing_priority_checks() {
     let r = rules();
-    for status in [0x1f, 0x20, 0x21, 0x22, 0x23] {
-        for own in [0, 1, 3, 4, 0x1c, 0x7e, 0x7f] {
+    for status in [
+        kirby_assist_core::native_states::ESCAPE,
+        kirby_assist_core::native_states::ESCAPE_F,
+        kirby_assist_core::native_states::ESCAPE_B,
+        kirby_assist_core::native_states::status::ESCAPE_AIR,
+        kirby_assist_core::native_states::status::ESCAPE_AIR_SLIDE,
+    ] {
+        for own in [
+            0,
+            1,
+            3,
+            4,
+            kirby_assist_core::native_states::GUARD,
+            0x7e,
+            0x7f,
+        ] {
             let mut e = Engine::default();
             let out = sample(
                 &mut e,
@@ -102,7 +117,7 @@ fn any_dodge_starts_near_up_b_without_vulnerability_or_facing_priority_checks() 
                 status,
                 -25.,
                 true,
-                LedgeContext {
+                GameplayContext {
                     status: own,
                     ..c(0.)
                 },
@@ -124,7 +139,7 @@ fn airborne_and_ledge_getup_roll_cannot_start_any_response() {
         (0x7a, c(0.)),
         (
             0x20,
-            LedgeContext {
+            GameplayContext {
                 situation: 2,
                 ..c(0.)
             },
@@ -134,7 +149,15 @@ fn airborne_and_ledge_getup_roll_cannot_start_any_response() {
         assert_eq!(sample(&mut e, &r, 0., status, 20., true, own).owned, 0);
     }
     let mut e = Engine::default();
-    sample(&mut e, &r, 0., 0x20, 20., true, c(0.));
+    sample(
+        &mut e,
+        &r,
+        0.,
+        kirby_assist_core::native_states::ESCAPE_F,
+        20.,
+        true,
+        c(0.),
+    );
     assert_eq!(
         sample(
             &mut e,
@@ -143,7 +166,7 @@ fn airborne_and_ledge_getup_roll_cannot_start_any_response() {
             0x20,
             20.,
             true,
-            LedgeContext {
+            GameplayContext {
                 situation: 2,
                 ..c(1.)
             }
@@ -157,12 +180,40 @@ fn airborne_and_ledge_getup_roll_cannot_start_any_response() {
 fn committed_response_ignores_new_events_and_does_not_queue_them() {
     let r = rules();
     let mut e = Engine::default();
-    sample(&mut e, &r, 0., 0x20, 20., true, c(0.));
+    sample(
+        &mut e,
+        &r,
+        0.,
+        kirby_assist_core::native_states::ESCAPE_F,
+        20.,
+        true,
+        c(0.),
+    );
     for n in 1..70 {
-        sample(&mut e, &r, n as f32, 0x1f, 20., true, c(n as f32));
+        sample(
+            &mut e,
+            &r,
+            n as f32,
+            kirby_assist_core::native_states::ESCAPE,
+            20.,
+            true,
+            c(n as f32),
+        );
     }
     assert!(!e.committed());
-    assert_eq!(sample(&mut e, &r, 70., 0x1f, 20., true, c(70.)).owned, 0);
+    assert_eq!(
+        sample(
+            &mut e,
+            &r,
+            70.,
+            kirby_assist_core::native_states::ESCAPE,
+            20.,
+            true,
+            c(70.)
+        )
+        .owned,
+        0
+    );
 }
 #[test]
 fn fixed_grab_mode_only_sends_standing_grab_inside_close_range() {
@@ -171,8 +222,8 @@ fn fixed_grab_mode_only_sends_standing_grab_inside_close_range() {
         let mut a = OutOfShield::new();
         let native = Context {
             object: 1,
-            kind: 15,
-            status: 0,
+            kind: kirby_assist_core::fighter_kinds::BOWSER,
+            status: kirby_assist_core::native_states::status::WAIT,
             motion: 1,
             frame: 0.,
             rate: 1.,
@@ -235,11 +286,18 @@ fn duplicate_event_configs_are_rejected_instead_of_competing_by_priority() {
 fn confirmed_shield_contact_grabs_only_after_shieldstun_and_only_front_vulnerable() {
     use kirby_assist_core::out_of_shield::{Context, OutOfShield};
     let mut a = OutOfShield::new();
-    for (n, status, ready, expected) in [(0, 0x1e, false, 0), (1, 0x1c, true, MAPPER_R | MAPPER_ZR)]
-    {
+    for (n, status, ready, expected) in [
+        (0, kirby_assist_core::native_states::GUARD_DAMAGE, false, 0),
+        (
+            1,
+            kirby_assist_core::native_states::GUARD,
+            true,
+            MAPPER_R | MAPPER_ZR,
+        ),
+    ] {
         let native = Context {
             object: 1,
-            kind: 15,
+            kind: kirby_assist_core::fighter_kinds::BOWSER,
             status,
             motion: 1,
             frame: n as f32,
@@ -262,7 +320,7 @@ fn confirmed_shield_contact_grabs_only_after_shieldstun_and_only_front_vulnerabl
             a.sample_simple(
                 true,
                 native,
-                LedgeContext {
+                GameplayContext {
                     status,
                     ..c(n as f32)
                 },
@@ -283,8 +341,8 @@ fn old_far_grab_range_never_drops_shield_or_drives_an_approach() {
     for n in 0..8 {
         let native = Context {
             object: 1,
-            kind: 15,
-            status: 0x1c,
+            kind: kirby_assist_core::fighter_kinds::BOWSER,
+            status: kirby_assist_core::native_states::GUARD,
             motion: 1,
             frame: n as f32,
             rate: 1.,
@@ -306,8 +364,8 @@ fn old_far_grab_range_never_drops_shield_or_drives_an_approach() {
         let out = a.sample_simple(
             true,
             native,
-            LedgeContext {
-                status: 0x1c,
+            GameplayContext {
+                status: kirby_assist_core::native_states::GUARD,
                 ..c(n as f32)
             },
             targets,
@@ -325,9 +383,17 @@ fn old_far_grab_range_never_drops_shield_or_drives_an_approach() {
 fn regrabbing_ledge_stops_an_already_committed_auto_response() {
     let r = rules();
     let mut engine = Engine::default();
-    sample(&mut engine, &r, 0., 0x20, 20., true, c(0.));
+    sample(
+        &mut engine,
+        &r,
+        0.,
+        kirby_assist_core::native_states::ESCAPE_F,
+        20.,
+        true,
+        c(0.),
+    );
     let hanging = Opponent {
-        status: 0x77,
+        status: kirby_assist_core::native_states::status::CLIFF_WAIT,
         ..follow(t(0x20, 20., 1.))
     };
     assert_eq!(
@@ -359,7 +425,15 @@ fn shield_grab_readiness_uses_guard_even_when_ordinary_catch_term_is_disabled() 
 #[test]
 fn unavailable_up_b_never_reserves_controls_or_queues_a_finished_enemy_roll() {
     let r = rules();
-    for own in [0x1f, 0x20, 0x21, 0x1b, 0x1d, 0x1e, 0x2c] {
+    for own in [
+        kirby_assist_core::native_states::ESCAPE,
+        kirby_assist_core::native_states::ESCAPE_F,
+        kirby_assist_core::native_states::ESCAPE_B,
+        kirby_assist_core::native_states::GUARD_ON,
+        kirby_assist_core::native_states::GUARD_OFF,
+        kirby_assist_core::native_states::GUARD_DAMAGE,
+        0x2c,
+    ] {
         let mut e = Engine::default();
         for n in 0..7 {
             let out = sample(
@@ -369,7 +443,7 @@ fn unavailable_up_b_never_reserves_controls_or_queues_a_finished_enemy_roll() {
                 0x20,
                 20.,
                 true,
-                LedgeContext {
+                GameplayContext {
                     status: own,
                     can_act: false,
                     ..c(n as f32)
@@ -385,7 +459,16 @@ fn unavailable_up_b_never_reserves_controls_or_queues_a_finished_enemy_roll() {
             "old roll is not queued"
         );
         assert_eq!(
-            sample(&mut e, &r, 8., 0x20, 20., true, c(8.)).requested,
+            sample(
+                &mut e,
+                &r,
+                8.,
+                kirby_assist_core::native_states::ESCAPE_F,
+                20.,
+                true,
+                c(8.)
+            )
+            .requested,
             MAPPER_B,
             "fresh current roll reacts immediately"
         );
@@ -396,14 +479,22 @@ fn unavailable_up_b_never_reserves_controls_or_queues_a_finished_enemy_roll() {
 fn held_shield_grabs_an_approaching_shield_and_releases_synthetic_guard_on_catch() {
     use kirby_assist_core::out_of_shield::{automatic_grab_ready, Context, OutOfShield};
     let mut a = OutOfShield::new();
-    for (n, status, expected) in [(0, 0x20, 0), (1, 0x1c, MAPPER_R | MAPPER_ZR), (2, 0x37, 0)] {
-        let lc = LedgeContext {
+    for (n, status, expected) in [
+        (0, kirby_assist_core::native_states::ESCAPE_F, 0),
+        (
+            1,
+            kirby_assist_core::native_states::GUARD,
+            MAPPER_R | MAPPER_ZR,
+        ),
+        (2, kirby_assist_core::native_states::CATCH, 0),
+    ] {
+        let lc = GameplayContext {
             status,
             ..c(n as f32)
         };
         let native = Context {
             object: 1,
-            kind: 15,
+            kind: kirby_assist_core::fighter_kinds::BOWSER,
             status,
             motion: 1,
             frame: n as f32,
@@ -438,7 +529,11 @@ fn held_shield_grabs_an_approaching_shield_and_releases_synthetic_guard_on_catch
 #[test]
 fn exact_event_ranges_and_heights_have_no_far_approach() {
     let r = rules();
-    for (status, x, y) in [(0x20, 30., 10.), (0x1f, 30., 10.), (0x22, 40., 20.)] {
+    for (status, x, y) in [
+        (kirby_assist_core::native_states::ESCAPE_F, 30., 10.),
+        (kirby_assist_core::native_states::ESCAPE, 30., 10.),
+        (0x22, 40., 20.),
+    ] {
         for (dx, dy, expected) in [
             (x, y, true),
             (-x, -y, true),
@@ -469,8 +564,32 @@ fn exact_event_ranges_and_heights_have_no_far_approach() {
 fn preempted_event_is_not_replayed_when_ledge_priority_ends() {
     let r = rules();
     let mut e = Engine::default();
-    assert_eq!(sample(&mut e, &r, 0., 0x20, 20., false, c(0.)).owned, 0);
-    assert_eq!(sample(&mut e, &r, 1., 0x20, 20., true, c(1.)).owned, 0);
+    assert_eq!(
+        sample(
+            &mut e,
+            &r,
+            0.,
+            kirby_assist_core::native_states::ESCAPE_F,
+            20.,
+            false,
+            c(0.)
+        )
+        .owned,
+        0
+    );
+    assert_eq!(
+        sample(
+            &mut e,
+            &r,
+            1.,
+            kirby_assist_core::native_states::ESCAPE_F,
+            20.,
+            true,
+            c(1.)
+        )
+        .owned,
+        0
+    );
 }
 #[test]
 fn drift_keeps_exclusive_ownership_across_interior_clock_gap_and_air_transition() {
@@ -484,7 +603,7 @@ fn drift_keeps_exclusive_ownership_across_interior_clock_gap_and_air_transition(
             0x20,
             20.,
             true,
-            LedgeContext {
+            GameplayContext {
                 status: if n == 0 { 0 } else { 0x1de },
                 ..c(n as f32)
             },
@@ -497,8 +616,8 @@ fn drift_keeps_exclusive_ownership_across_interior_clock_gap_and_air_transition(
         0,
         20.,
         true,
-        LedgeContext {
-            status: 0x1de,
+        GameplayContext {
+            status: kirby_assist_core::native_states::status::SPECIAL_HI,
             situation: 2,
             ..c(7.)
         },
@@ -516,7 +635,7 @@ fn drift_keeps_exclusive_ownership_across_interior_clock_gap_and_air_transition(
             0x20,
             20.,
             true,
-            LedgeContext {
+            GameplayContext {
                 status: if n == 0 { 0 } else { 0x1de },
                 ..c(n as f32)
             },
@@ -529,8 +648,8 @@ fn drift_keeps_exclusive_ownership_across_interior_clock_gap_and_air_transition(
         0,
         20.,
         true,
-        LedgeContext {
-            status: 0x1de,
+        GameplayContext {
+            status: kirby_assist_core::native_states::status::SPECIAL_HI,
             ..c(5.)
         },
     );
@@ -569,30 +688,11 @@ fn direct_shield_up_b_keeps_a_continuously_held_guard_after_handoff() {
 #[test]
 fn automatic_grab_recovery_does_not_start_an_up_b_or_mask_manual_throws() {
     let r = rules();
-    for status in [0x37, 0x39, 0x3e, 0x40] {
-        let mut e = Engine::default();
-        let out = sample(
-            &mut e,
-            &r,
-            0.,
-            0x20,
-            20.,
-            true,
-            LedgeContext { status, ..c(0.) },
-        );
-        assert_eq!(out.owned, 0);
-        assert!(!e.committed());
-        let out = sample(&mut e, &r, 1., 0x20, 20., true, c(1.));
-        assert_ne!(out.requested & MAPPER_B, 0);
-        assert!(e.committed());
-    }
-}
-
-#[test]
-fn damage_and_knockdown_do_not_admit_an_abort_then_neutral_mask() {
-    let r = rules();
     for status in [
-        0x41, 0x46, 0x47, 0x49, 0x4f, 0x50, 0x54, 0x5a, 0x5b, 0xb5, 0xb6, 0x1bd,
+        kirby_assist_core::native_states::CATCH,
+        kirby_assist_core::native_states::CATCH_DASH,
+        kirby_assist_core::native_states::status::CATCH_CUT,
+        kirby_assist_core::native_states::THROW,
     ] {
         let mut e = Engine::default();
         let out = sample(
@@ -602,10 +702,61 @@ fn damage_and_knockdown_do_not_admit_an_abort_then_neutral_mask() {
             0x20,
             20.,
             true,
-            LedgeContext { status, ..c(0.) },
+            GameplayContext { status, ..c(0.) },
+        );
+        assert_eq!(out.owned, 0);
+        assert!(!e.committed());
+        let out = sample(
+            &mut e,
+            &r,
+            1.,
+            kirby_assist_core::native_states::ESCAPE_F,
+            20.,
+            true,
+            c(1.),
+        );
+        assert_ne!(out.requested & MAPPER_B, 0);
+        assert!(e.committed());
+    }
+}
+
+#[test]
+fn damage_and_knockdown_do_not_admit_an_abort_then_neutral_mask() {
+    let r = rules();
+    for status in [
+        kirby_assist_core::native_states::status::CAPTURE_PULLED,
+        kirby_assist_core::native_states::status::THROWN,
+        kirby_assist_core::native_states::status::DAMAGE,
+        kirby_assist_core::native_states::status::DAMAGE_FLY,
+        kirby_assist_core::native_states::status::DAMAGE_FALL,
+        kirby_assist_core::native_states::status::DOWN,
+        kirby_assist_core::native_states::status::DOWN_WAIT_CONTINUE,
+        kirby_assist_core::native_states::status::DOWN_DAMAGE,
+        kirby_assist_core::native_states::status::DOWN_REFLECT_LR,
+        kirby_assist_core::native_states::status::DEAD,
+        kirby_assist_core::native_states::status::REBIRTH,
+        kirby_assist_core::native_states::status::DAMAGE_FLY_REFLECT_JUMP_BOARD,
+    ] {
+        let mut e = Engine::default();
+        let out = sample(
+            &mut e,
+            &r,
+            0.,
+            0x20,
+            20.,
+            true,
+            GameplayContext { status, ..c(0.) },
         );
         assert_eq!(out.owned, 0, "incapacitated own status {status:#x}");
-        let recovered = sample(&mut e, &r, 1., 0x20, 20., true, c(1.));
+        let recovered = sample(
+            &mut e,
+            &r,
+            1.,
+            kirby_assist_core::native_states::ESCAPE_F,
+            20.,
+            true,
+            c(1.),
+        );
         assert_ne!(
             recovered.requested & MAPPER_B,
             0,
@@ -642,7 +793,7 @@ fn moving_reactions_must_begin_with_up_b_not_a_grab_or_approach() {
                 0x20,
                 20.,
                 true,
-                LedgeContext {
+                GameplayContext {
                     status: own,
                     ..c(0.)
                 },
@@ -661,8 +812,8 @@ fn live_dodges_are_reconsidered_after_endlag_but_finished_events_are_never_queue
     let r = rules();
     for event in [0x20, 0x21, 0x1f, 0x22, 0x23] {
         for stopped in [false, true] {
-            let blocked = LedgeContext {
-                status: 0x2f,
+            let blocked = GameplayContext {
+                status: kirby_assist_core::native_states::status::ATTACK_S4,
                 can_act: false,
                 stopped,
                 ..c(0.)
@@ -696,16 +847,43 @@ fn unconfirmed_up_b_cannot_turn_into_a_walk_or_drift_chase() {
     let mut e = Engine::default();
     for n in 0..4 {
         assert_ne!(
-            sample(&mut e, &r, n as f32, 0x20, 20., true, c(n as f32)).requested & MAPPER_B,
+            sample(
+                &mut e,
+                &r,
+                n as f32,
+                kirby_assist_core::native_states::ESCAPE_F,
+                20.,
+                true,
+                c(n as f32)
+            )
+            .requested
+                & MAPPER_B,
             0
         );
     }
-    let out = sample(&mut e, &r, 4., 0x20, 20., true, c(4.));
+    let out = sample(
+        &mut e,
+        &r,
+        4.,
+        kirby_assist_core::native_states::ESCAPE_F,
+        20.,
+        true,
+        c(4.),
+    );
     assert_eq!(out.owned, 0);
     assert_eq!(out.stick, None);
     assert!(!e.committed());
     assert_eq!(
-        sample(&mut e, &r, 5., 0x20, 20., true, c(5.)).owned,
+        sample(
+            &mut e,
+            &r,
+            5.,
+            kirby_assist_core::native_states::ESCAPE_F,
+            20.,
+            true,
+            c(5.)
+        )
+        .owned,
         0,
         "failed response is not retried on the same roll"
     );
@@ -714,9 +892,28 @@ fn unconfirmed_up_b_cannot_turn_into_a_walk_or_drift_chase() {
 #[test]
 fn wrong_native_moves_and_finished_up_b_return_control_without_extra_drift() {
     let r = rules();
-    for status in [0xb, 0xc, 0xe, 0x1f, 0x20, 0x21, 0x22, 0x1dc, 0x1dd, 0x1df] {
+    for status in [
+        kirby_assist_core::native_states::status::JUMP,
+        kirby_assist_core::native_states::status::JUMP_AERIAL,
+        kirby_assist_core::native_states::status::FALL,
+        kirby_assist_core::native_states::ESCAPE,
+        kirby_assist_core::native_states::ESCAPE_F,
+        kirby_assist_core::native_states::ESCAPE_B,
+        kirby_assist_core::native_states::status::ESCAPE_AIR,
+        kirby_assist_core::native_states::status::SPECIAL_N,
+        0x1dd,
+        kirby_assist_core::native_states::status::SPECIAL_LW,
+    ] {
         let mut e = Engine::default();
-        sample(&mut e, &r, 0., 0x20, 20., true, c(0.));
+        sample(
+            &mut e,
+            &r,
+            0.,
+            kirby_assist_core::native_states::ESCAPE_F,
+            20.,
+            true,
+            c(0.),
+        );
         assert_eq!(
             sample(
                 &mut e,
@@ -725,7 +922,7 @@ fn wrong_native_moves_and_finished_up_b_return_control_without_extra_drift() {
                 0x20,
                 20.,
                 true,
-                LedgeContext { status, ..c(1.) }
+                GameplayContext { status, ..c(1.) }
             )
             .owned,
             0,
@@ -735,7 +932,7 @@ fn wrong_native_moves_and_finished_up_b_return_control_without_extra_drift() {
     for special in [0x1de, 0x1e1, 0x1e2] {
         let mut e = Engine::default();
         let settings = LedgeSettings {
-            fighter_kind: 15,
+            fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
             ..Default::default()
         };
         let target = t(0x20, 20., 0.);
@@ -746,7 +943,7 @@ fn wrong_native_moves_and_finished_up_b_return_control_without_extra_drift() {
                 true,
                 &r,
                 settings,
-                LedgeContext {
+                GameplayContext {
                     status: special,
                     ..c(n as f32)
                 },
@@ -777,14 +974,30 @@ fn instant_roll_grab_cancels_outside_reach_and_never_queues_the_same_roll() {
     let settings = LedgeSettings::default();
     let reach = settings.fighter.grab.standing_range;
     let mut engine = Engine::default();
-    let out = sample(&mut engine, &rules, 0., 0x20, reach + 1., true, c(0.));
+    let out = sample(
+        &mut engine,
+        &rules,
+        0.,
+        kirby_assist_core::native_states::ESCAPE_F,
+        reach + 1.,
+        true,
+        c(0.),
+    );
     assert_eq!(out.requested, 0);
     assert!(
         !engine.committed(),
         "out-of-range check releases the plan immediately"
     );
     assert!(engine.target().is_none());
-    let out = sample(&mut engine, &rules, 1., 0x20, reach, true, c(1.));
+    let out = sample(
+        &mut engine,
+        &rules,
+        1.,
+        kirby_assist_core::native_states::ESCAPE_F,
+        reach,
+        true,
+        c(1.),
+    );
     assert_eq!(
         out.owned, 0,
         "no neutral range wait on the next observation"
@@ -794,7 +1007,15 @@ fn instant_roll_grab_cancels_outside_reach_and_never_queues_the_same_roll() {
         "the consumed roll cannot start a late grab"
     );
     let mut fresh = Engine::default();
-    let out = sample(&mut fresh, &rules, 0., 0x20, reach, true, c(0.));
+    let out = sample(
+        &mut fresh,
+        &rules,
+        0.,
+        kirby_assist_core::native_states::ESCAPE_F,
+        reach,
+        true,
+        c(0.),
+    );
     assert_eq!(
         out.requested, MAPPER_R,
         "in-range roll grab starts in the same observation"
@@ -807,12 +1028,24 @@ fn manual_intent_hands_back_confirmed_up_b_drift_without_cutting_its_b_pulse() {
     for fresh_at in [2, 4, 5] {
         let mut engine = Engine::default();
         for n in 0..=5 {
-            let context = LedgeContext {
-                status: if n == 0 { 0x1c } else { 0x1de },
+            let context = GameplayContext {
+                status: if n == 0 {
+                    kirby_assist_core::native_states::GUARD
+                } else {
+                    0x1de
+                },
                 manual_input_epoch: u64::from(n >= fresh_at),
                 ..c(n as f32)
             };
-            let out = sample(&mut engine, &r, n as f32, 0x20, 10., true, context);
+            let out = sample(
+                &mut engine,
+                &r,
+                n as f32,
+                kirby_assist_core::native_states::ESCAPE_F,
+                10.,
+                true,
+                context,
+            );
             if n < 4 {
                 assert_ne!(
                     out.requested & MAPPER_B,

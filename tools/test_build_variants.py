@@ -1,5 +1,6 @@
 """Builder packaging tests; no plugin compilation or network connections."""
 import contextlib
+import hashlib
 import io
 from pathlib import Path
 import tempfile
@@ -11,6 +12,16 @@ import build_variants as builder
 
 
 class BuildTests(unittest.TestCase):
+    def test_toml_reader_loads_multiline_cargo_description(self):
+        self.assertTrue(builder.read_release_summary().strip())
+
+    def test_sha256_digest_reads_large_files_in_chunks(self):
+        contents = b"sequence archive" * 100_000
+        self.assertEqual(
+            builder.sha256_digest(io.BytesIO(contents)),
+            hashlib.sha256(contents).digest(),
+        )
+
     def test_defaults_and_variant_selection_are_build_only(self):
         self.assertEqual(builder.parse_options([]).variant, "all")
         options = builder.parse_options(["--cargo-home", "/private/tmp/kirby-assist-build-cargo"])

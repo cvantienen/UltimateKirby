@@ -19,7 +19,11 @@ impl Sources {
         }
     }
     pub(super) fn remember(&self, id: u32) {
-        if !matches!(id >> 28, 1 | 4) {
+        if !matches!(
+            id >> 28,
+            kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON
+                | kirby_assist_core::battle_objects::OBJECT_CATEGORY_ITEM
+        ) {
             return;
         }
         let generation = self

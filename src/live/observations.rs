@@ -8,10 +8,10 @@ use super::{MANAGER_SLOT, STATE};
 use crate::game_ffi as game;
 use kirby_assist_core::autopilot_guard::duck::DefenseThreat;
 use kirby_assist_core::combat_assist::TripTarget;
+use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
 use kirby_assist_core::ledge_position::LedgePosition;
 use kirby_assist_core::ledge_trap::{
-    frames_until, in_tracking_range, LedgeSettings, LedgeTrap, MotionTiming, Opponent,
-    CLIFF_CATCH_MOVE, CLIFF_JUMP3,
+    in_tracking_range, LedgeSettings, LedgeTrap, CLIFF_CATCH_MOVE, CLIFF_JUMP3,
 };
 use std::sync::atomic::Ordering;
 
@@ -42,7 +42,15 @@ pub(super) unsafe fn incoming_fighter_attack(
         .chain(super::duck_hits::sources())
         .flatten()
     {
-        if id == own_id || !matches!(id >> 28, 0 | 1 | 4) || !game::is_active(id) {
+        if id == own_id
+            || !matches!(
+                id >> 28,
+                kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+                    | kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON
+                    | kirby_assist_core::battle_objects::OBJECT_CATEGORY_ITEM
+            )
+            || !game::is_active(id)
+        {
             continue;
         }
         let enemy = game::module_accessor(id);
@@ -74,10 +82,10 @@ pub(super) unsafe fn incoming_fighter_attack(
             target_velocity,
             envelope,
         );
-        if id >> 28 == 0 {
+        if id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER {
             let status = reads.status_kind(enemy);
-            if status >= 0x1de {
-                let previous = if status >= 0x1e0 {
+            if status >= kirby_assist_core::native_states::status::SPECIAL_HI {
+                let previous = if status >= kirby_assist_core::native_states::status::FINAL {
                     reads.previous_status(enemy, 0)
                 } else {
                     0
@@ -170,7 +178,7 @@ pub(super) unsafe fn incoming_fighter_attack(
                 return threats;
             }
         }
-        if !near || id >> 28 != 0 {
+        if !near || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER {
             continue;
         }
         let kind = reads.fighter_kind(enemy);
@@ -196,8 +204,8 @@ pub(super) unsafe fn incoming_fighter_attack(
 // Missing/invalid keys stay None; no character-wide gravity constants are invented.
 pub(super) unsafe fn native_air_physics(
     object: *mut game::Object,
-) -> Option<kirby_assist_core::ledge_trap::AirPhysics> {
-    kirby_assist_core::ledge_trap::AirPhysics::new(
+) -> Option<kirby_assist_core::gameplay::AirPhysics> {
+    kirby_assist_core::gameplay::AirPhysics::new(
         game::param_float(object, 0xba18057d9, 0),  // air_accel_y
         game::param_float(object, 0x12ec5626fe, 0), // air_speed_y_stable
     )
@@ -250,7 +258,10 @@ pub(super) unsafe fn posture_opponent(
     let team = reads.team(own);
     let mut nearest: Option<(f32, [f32; 2])> = None;
     for id in roster.into_iter().flatten() {
-        if id == own_id || id >> 28 != 0 || !game::is_active(id) {
+        if id == own_id
+            || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+            || !game::is_active(id)
+        {
             continue;
         }
         let enemy = game::module_accessor(id);
@@ -289,8 +300,11 @@ pub(super) unsafe fn jab_lock_targets(
     let team = reads.team(own);
     let entry = game_entry_id(own_id);
     for id in roster.into_iter() {
-        let Some(id) = id.filter(|id| *id != own_id && *id >> 28 == 0 && game::is_active(*id))
-        else {
+        let Some(id) = id.filter(|id| {
+            *id != own_id
+                && *id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+                && game::is_active(*id)
+        }) else {
             continue;
         };
         let enemy = game::module_accessor(id);
@@ -302,7 +316,8 @@ pub(super) unsafe fn jab_lock_targets(
         }
         let status = reads.status_kind(enemy);
         let candidate = kirby_assist_core::jab_lock::tech_chase_status(status)
-            || include_damage && matches!(status,0x47..=0x54 | 0x57..=0x5b | 0x67..=0x68);
+            || include_damage
+                && matches!(status,kirby_assist_core::native_states::status::DAMAGE..=kirby_assist_core::native_states::status::DOWN_WAIT_CONTINUE | kirby_assist_core::native_states::status::DOWN_STAND..=kirby_assist_core::native_states::status::DOWN_REFLECT_LR | kirby_assist_core::native_states::status::PASSIVE..=kirby_assist_core::native_states::status::PASSIVE_FB);
         if !candidate {
             continue;
         }
@@ -316,7 +331,7 @@ pub(super) unsafe fn jab_lock_targets(
         let frame = reads.motion_frame(enemy);
         let rate = reads.motion_rate(enemy);
         let motion = reads.motion_kind(enemy);
-        let remaining = kirby_assist_core::ledge_trap::recovery_frames(
+        let remaining = kirby_assist_core::gameplay::recovery_frames(
             frame,
             reads.motion_end_frame(enemy),
             game::cancel_frame(enemy, motion, false),
@@ -339,15 +354,23 @@ pub(super) unsafe fn jab_lock_targets(
                 velocity_x: reads.speed_x(enemy, -1),
                 grounded: reads.situation_kind(enemy) == 0,
                 // Pinned instance work ID; status-local slots are not read in damage.
-                lock_count: game::work_int(enemy, 0x1000006a),
-                tech_available: matches!(status, 0x50..=0x54)
-                    && (game::transition_enabled(enemy, 0x1e000013)
-                        || game::transition_enabled(enemy, 0x1e000014)),
+                lock_count: game::work_int(enemy, kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_INT_DOWN_DAMAGE_COUNT),
+                tech_available: matches!(
+                    status,
+                    kirby_assist_core::native_states::status::DOWN
+                        ..=kirby_assist_core::native_states::status::DOWN_WAIT_CONTINUE
+                ) && (game::transition_enabled(enemy, kirby_assist_core::native_states::transition_terms::PASSIVE)
+                    || game::transition_enabled(enemy, kirby_assist_core::native_states::transition_terms::PASSIVE_FB)),
                 vulnerable_in,
                 remaining,
                 hit_by_us: (0..8).contains(&entry)
-                    && game::work_int(enemy, 0x100000b3) == entry
-                    && matches!(status, 0x47..=0x54 | 0x5a),
+                    && game::work_int(enemy, kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_INT_SUCCEED_ATTACKER_ENTRY_ID) == entry
+                    && matches!(
+                        status,
+                        kirby_assist_core::native_states::status::DAMAGE
+                            ..=kirby_assist_core::native_states::status::DOWN_WAIT_CONTINUE
+                                | kirby_assist_core::native_states::status::DOWN_DAMAGE
+                    ),
             },
             |target| {
                 kirby_assist_core::battle_objects::distance_squared(own_position, target.position)
@@ -378,14 +401,17 @@ pub(super) unsafe fn combat_targets(
         return (targets, outward);
     };
     let attacker_entry = if watch_sdi {
-        game::work_int(own, 0x100000b3)
+        game::work_int(own, kirby_assist_core::native_states::work_ids::FIGHTER_INSTANCE_WORK_ID_INT_SUCCEED_ATTACKER_ENTRY_ID)
     } else {
         -1
     };
     let own_team = reads.team(own);
     for id in roster.into_iter() {
-        let Some(id) = id.filter(|id| *id != own_id && *id >> 28 == 0 && game::is_active(*id))
-        else {
+        let Some(id) = id.filter(|id| {
+            *id != own_id
+                && *id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+                && game::is_active(*id)
+        }) else {
             continue;
         };
         let enemy = game::module_accessor(id);
@@ -463,8 +489,11 @@ pub(super) unsafe fn rule_targets(
         .filter(|r| r[0].is_finite() && r[0] > 0. && r[1].is_finite() && r[1] >= 0.)
         .map(|r| (own_position, reads.facing(own), r));
     for id in roster.into_iter() {
-        let Some(id) = id.filter(|id| *id != own_id && *id >> 28 == 0 && game::is_active(*id))
-        else {
+        let Some(id) = id.filter(|id| {
+            *id != own_id
+                && *id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+                && game::is_active(*id)
+        }) else {
             continue;
         };
         let e = game::module_accessor(id);
@@ -473,7 +502,7 @@ pub(super) unsafe fn rule_targets(
             continue;
         }
         let status = reads.status_kind(e);
-        if status >= 0x1e0
+        if status >= kirby_assist_core::native_states::status::FINAL
             && kirby_assist_core::native_states::fighter_noncombat(reads.fighter_kind(e), status)
         {
             continue;
@@ -486,7 +515,13 @@ pub(super) unsafe fn rule_targets(
         {
             continue;
         }
-        let event = available && watch_events && matches!(status, 0x1f..=0x23);
+        let event = available
+            && watch_events
+            && matches!(
+                status,
+                kirby_assist_core::native_states::ESCAPE
+                    ..=kirby_assist_core::native_states::ESCAPE_AIR_SLIDE
+            );
         let grab = available
             && grab_from.is_some()
             && if shield_fallback {
@@ -502,9 +537,19 @@ pub(super) unsafe fn rule_targets(
         }
         let situation = reads.situation_kind(e);
         let eligible_event = event
-            && !((0x75..=0x7d).contains(&reads.previous_status(e, 0))
-                || matches!(status, 0x1f..=0x21) && situation != 0
-                || matches!(status, 0x22 | 0x23) && situation != 2);
+            && !((kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE
+                ..=kirby_assist_core::native_states::status::CLIFF_JUMP3)
+                .contains(&reads.previous_status(e, 0))
+                || matches!(
+                    status,
+                    kirby_assist_core::native_states::ESCAPE
+                        ..=kirby_assist_core::native_states::ESCAPE_B
+                ) && situation != 0
+                || matches!(
+                    status,
+                    kirby_assist_core::native_states::ESCAPE_AIR
+                        | kirby_assist_core::native_states::ESCAPE_AIR_SLIDE
+                ) && situation != 2);
         let position = [reads.pos_x(e), reads.pos_y(e)];
         let eligible_grab =
             grab && grab_from.is_some_and(|(from, facing, range)| {
@@ -514,7 +559,10 @@ pub(super) unsafe fn rule_targets(
                     && (position[0] - from[0]).abs() <= range[0]
                     && (position[1] - from[1]).abs() <= range[1]
             }) && game::hit_status(e, 0) == 0
-                && !(event && (0x75..=0x7d).contains(&reads.previous_status(e, 0)));
+                && !(event
+                    && (kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE
+                        ..=kirby_assist_core::native_states::status::CLIFF_JUMP3)
+                        .contains(&reads.previous_status(e, 0)));
         if !eligible_event && !eligible_grab && follow != Some(id) {
             continue;
         }
@@ -573,7 +621,10 @@ unsafe fn rule_follow(
     id: u32,
     spin: bool,
 ) -> Option<Opponent> {
-    if id == own_id || id >> 28 != 0 || !game::is_active(id) {
+    if id == own_id
+        || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+        || !game::is_active(id)
+    {
         return None;
     }
     let e = game::module_accessor(id);
@@ -584,7 +635,7 @@ unsafe fn rule_follow(
         return None;
     }
     let status = reads.status_kind(e);
-    if status >= 0x1e0
+    if status >= kirby_assist_core::native_states::status::FINAL
         && kirby_assist_core::native_states::fighter_noncombat(reads.fighter_kind(e), status)
     {
         return None;
@@ -740,15 +791,17 @@ pub(super) unsafe fn nearest_ledge_opponent(
         let status = reads.status_kind(enemy);
         let previous_status = reads.previous_status(enemy, 0);
         let on_ledge = (CLIFF_CATCH_MOVE..=CLIFF_JUMP3).contains(&status);
-        let recent_option = (0x78..=CLIFF_JUMP3).contains(&previous_status)
+        let recent_option = (kirby_assist_core::native_states::status::CLIFF_ATTACK..=CLIFF_JUMP3)
+            .contains(&previous_status)
             || settings.drop_defense
                 && reads.situation_kind(enemy) == 2
-                && (CLIFF_CATCH_MOVE..=0x77).contains(&previous_status);
+                && (CLIFF_CATCH_MOVE..=kirby_assist_core::native_states::status::CLIFF_WAIT)
+                    .contains(&previous_status);
         if !preview && !on_ledge && !recent_option && tracked != Some(id) {
             continue;
         }
         let vulnerable = game::hit_status(enemy, 0) == 0;
-        let cliff_position = if status == 0x77 {
+        let cliff_position = if status == kirby_assist_core::native_states::status::CLIFF_WAIT {
             let p = game::cliff_position(enemy);
             (p.x.is_finite()
                 && p.y.is_finite()
@@ -766,7 +819,11 @@ pub(super) unsafe fn nearest_ledge_opponent(
         let frame = reads.motion_frame(enemy);
         let rate = reads.motion_rate(enemy);
         let kind = reads.motion_kind(enemy);
-        let cancel = if (0x78..=0x7d).contains(&status) && kind != 0 {
+        let cancel = if (kirby_assist_core::native_states::status::CLIFF_ATTACK
+            ..=kirby_assist_core::native_states::status::CLIFF_JUMP3)
+            .contains(&status)
+            && kind != 0
+        {
             game::cancel_frame(enemy, kind, false)
         } else {
             0.0
@@ -777,7 +834,7 @@ pub(super) unsafe fn nearest_ledge_opponent(
                     kind,
                     frame,
                     rate,
-                    remaining: kirby_assist_core::ledge_trap::recovery_frames(
+                    remaining: kirby_assist_core::gameplay::recovery_frames(
                         frame,
                         reads.motion_end_frame(enemy),
                         cancel,
@@ -786,13 +843,21 @@ pub(super) unsafe fn nearest_ledge_opponent(
                 });
         // None means unknown, not "vulnerable immediately". Divide animation
         // time by its native rate in frames_until before comparing attack startup.
-        let vulnerable_in = if !vulnerable && motion.is_some() && (0x78..=0x7d).contains(&status) {
+        let vulnerable_in = if !vulnerable
+            && motion.is_some()
+            && (kirby_assist_core::native_states::status::CLIFF_ATTACK
+                ..=kirby_assist_core::native_states::status::CLIFF_JUMP3)
+                .contains(&status)
+        {
             frames_until(frame, game::normal_hit_frame(enemy, kind, false), rate).or_else(|| {
                 // Grounded ledge options keep an instance-specific normal-hit
                 // deadline in their shared cliff status work. Never read this
                 // status-local slot from jump/fall, which use different work.
-                if (0x78..=0x7a).contains(&status) {
-                    frames_until(frame, game::work_float(enemy, 0x1000007), rate)
+                if (kirby_assist_core::native_states::status::CLIFF_ATTACK
+                    ..=kirby_assist_core::native_states::status::CLIFF_ESCAPE)
+                    .contains(&status)
+                {
+                    frames_until(frame, game::work_float(enemy, kirby_assist_core::native_states::work_ids::FIGHTER_STATUS_CLIFF_WORK_FLOAT_HIT_NORMAL_FRAME), rate)
                 } else {
                     None
                 }
@@ -812,20 +877,38 @@ pub(super) unsafe fn nearest_ledge_opponent(
             vulnerable_in,
             motion,
             attack_active: Some((0..8).any(|index| game::attack_active(enemy, index, false))),
-            air_physics: if reads.situation_kind(enemy) == 2 && !matches!(status, 0x7b | 0x7c) {
+            air_physics: if reads.situation_kind(enemy) == 2
+                && !matches!(
+                    status,
+                    kirby_assist_core::native_states::status::CLIFF_JUMP1
+                        | kirby_assist_core::native_states::status::CLIFF_JUMP2
+                ) {
                 native_air_physics(enemy)
             } else {
                 None
             },
-            actionable_in: if status == 0x7d && cancel.is_finite() && cancel > 0.0 {
+            actionable_in: if status == kirby_assist_core::native_states::status::CLIFF_JUMP3
+                && cancel.is_finite()
+                && cancel > 0.0
+            {
                 if cancel <= frame {
                     Some(0.0)
                 } else {
                     frames_until(frame, cancel, rate)
                 }
-            } else if matches!(status, 0x78..=0x7a) {
+            } else if matches!(
+                status,
+                kirby_assist_core::native_states::status::CLIFF_ATTACK
+                    ..=kirby_assist_core::native_states::status::CLIFF_ESCAPE
+            ) {
                 motion.and_then(|motion| motion.remaining)
-            } else if matches!(status, 0xb..=0xf | 0x36 | 0x22..=0x23) {
+            } else if matches!(
+                status,
+                kirby_assist_core::native_states::status::JUMP..=kirby_assist_core::native_states::status::FALL_AERIAL
+                    | kirby_assist_core::native_states::status::ATTACK_AIR
+                    | kirby_assist_core::native_states::ESCAPE_AIR
+                        ..=kirby_assist_core::native_states::ESCAPE_AIR_SLIDE
+            ) {
                 // These are ordinary actionable air states, not forced ledge recovery.
                 Some(0.0)
             } else {
@@ -879,8 +962,11 @@ pub(super) unsafe fn grab_targets(
     let own_position = [reads.pos_x(own), reads.pos_y(own)];
     let team = reads.team(own);
     for id in roster.into_iter() {
-        let Some(id) = id.filter(|id| *id != own_id && *id >> 28 == 0 && game::is_active(*id))
-        else {
+        let Some(id) = id.filter(|id| {
+            *id != own_id
+                && *id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+                && game::is_active(*id)
+        }) else {
             continue;
         };
         let enemy = game::module_accessor(id);
@@ -891,8 +977,12 @@ pub(super) unsafe fn grab_targets(
             continue;
         }
         let status = reads.status_kind(enemy);
-        if !matches!(status, 0x37 | 0x39 | 0x3b)
-            || reads.is_stop(enemy)
+        if !matches!(
+            status,
+            kirby_assist_core::native_states::CATCH
+                | kirby_assist_core::native_states::CATCH_DASH
+                | kirby_assist_core::native_states::CATCH_TURN
+        ) || reads.is_stop(enemy)
             || reads.capture_link(enemy)
         {
             continue;

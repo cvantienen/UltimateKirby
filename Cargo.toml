@@ -6,7 +6,7 @@ name = "kirby_assist"
 # Required by the source syntax, dependency imports, and array iteration rules.
 edition = "2021"
 # Single release-version source: logger and release builder read this value.
-version = "2.7.5"
+version = "2.7.6"
 description = """ menu update for preformance; simplified
 chatgpt fixes
 Allows leading Wait actions to hold a true neutral standstill before any supported recipe, including short_hop_nair, instead of rejecting Wait plus paired Nair. Adds paired short_hop_fair/bair/uair/dair actions that send Jump+Attack+direction together, with one jump pulse and native acceptance/retries. Preserves the explicit after-hop Nair Attack delay and separate C-stick aerial path. Uses bounded native-progress pause clocks with hitstop/duplicate protection and idle-loop handling, cleared on plan reset; no new rays, scans or file reads in play.
@@ -1585,6 +1585,17 @@ Normalizes formatting across maintained Rust modules while keeping generated opp
 Canonicalizes generated split-sequence bundles to one final newline while retaining section separation.
 
 Centralizes roster-wide fighter stats and move-frame facts in data/Ultimate_stats.json, keyed by native kind and shared across player/opponent roles; removes duplicate per-fighter timing mirrors and external fallback paths, and refreshes fighter-reference documentation.
+
+Splits embedded fighter-data parsing into validated fighter and move steps, and groups recovery checks by eligibility, native state, and frame validity.
+
+Extracts recipe preset matching into named helpers and refreshes the source map and maintenance guidance to match current code and validation commands.
+Separates sequence catalog parsing from the fixed-size recipe data model.
+Supports Python 3.9+ build tools with a TOML reader backport.
+Uses silent-build-safe diagnostic bindings and counts deferred menu lock retries.
+Names shared shield, dodge, grab, and capture status IDs for clearer native-state checks.
+Moves shared gameplay observations and controller requests into a neutral module and names shared assist button ownership without ledge-specific labels.
+Names shared native fighter kinds and generic status IDs so gameplay checks no longer rely on unexplained literals.
+Names fighter-specific native statuses, transition terms, work IDs, weapon kinds, and battle-object categories from the pinned SDK table.
 """
 
 

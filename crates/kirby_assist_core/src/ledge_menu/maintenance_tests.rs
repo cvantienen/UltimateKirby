@@ -172,7 +172,7 @@ fn training_assist_sequence_lists_back_returns_to_the_same_modes_row() {
 fn lightweight_production_pages_navigate_all_registered_fighters_without_editor_or_retired_rows() {
     let profiles = FighterProfiles::default();
     let mut checked = 0;
-    for kind in 0..0x5e {
+    for kind in 0..crate::fighter_kinds::PLAYABLE_KIND_COUNT {
         let Some(profile) = profiles.profile(kind) else {
             continue;
         };

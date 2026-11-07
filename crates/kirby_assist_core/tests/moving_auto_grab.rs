@@ -1,5 +1,6 @@
 use kirby_assist_core::{
-    ledge_trap::{LedgeContext, LedgeSettings, MotionTiming, Opponent, SEQUENCE_BUTTONS},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::{LedgeSettings, SEQUENCE_BUTTONS},
     manual_controls::{ManualOverlay, ManualTakeover, TurboOutput},
     native_input::*,
     out_of_shield::{automatic_grab_ready, Context, OutOfShield},
@@ -10,7 +11,7 @@ use kirby_assist_core::{
 fn c(status: i32) -> Context {
     Context {
         object: 1,
-        kind: 15,
+        kind: kirby_assist_core::fighter_kinds::BOWSER,
         status,
         motion: 1,
         frame: 0.,
@@ -26,8 +27,8 @@ fn c(status: i32) -> Context {
         threatened: false,
     }
 }
-fn lc(status: i32) -> LedgeContext {
-    LedgeContext {
+fn lc(status: i32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         status,
@@ -43,7 +44,7 @@ fn targets(x: f32) -> [Option<Target>; 8] {
     [
         Some(Target {
             id: 2,
-            status: 0x1c,
+            status: kirby_assist_core::native_states::GUARD,
             motion: 2,
             frame: 0.,
             rate: 1.,
@@ -63,7 +64,21 @@ fn targets(x: f32) -> [Option<Target>; 8] {
 }
 #[test]
 fn ground_locomotion_and_normal_landing_grab_on_the_first_observation_without_an_approach_pulse() {
-    for status in [1, 2, 3, 4, 5, 6, 7, 8, 9, 0x11, 0x12, 0x16, 0x17] {
+    for status in [
+        kirby_assist_core::native_states::status::WALK,
+        kirby_assist_core::native_states::status::WALK_BRAKE,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::RUN,
+        kirby_assist_core::native_states::status::RUN_BRAKE,
+        kirby_assist_core::native_states::status::TURN,
+        kirby_assist_core::native_states::status::TURN_DASH,
+        kirby_assist_core::native_states::status::TURN_RUN,
+        kirby_assist_core::native_states::status::TURN_RUN_BRAKE,
+        kirby_assist_core::native_states::status::SQUAT,
+        kirby_assist_core::native_states::status::SQUAT_WAIT,
+        kirby_assist_core::native_states::status::LANDING,
+        kirby_assist_core::native_states::status::LANDING_LIGHT,
+    ] {
         for side in [-1., 1.] {
             let mut o = OutOfShield::new();
             let ctx = Context {
@@ -73,7 +88,7 @@ fn ground_locomotion_and_normal_landing_grab_on_the_first_observation_without_an
             let out = o.sample_automatic(
                 true,
                 ctx,
-                LedgeContext {
+                GameplayContext {
                     facing: side,
                     ..lc(status)
                 },
@@ -103,7 +118,7 @@ fn ground_locomotion_and_normal_landing_grab_on_the_first_observation_without_an
         o.sample_automatic(
             true,
             c(0),
-            LedgeContext {
+            GameplayContext {
                 velocity: [1., 0.],
                 ..lc(0)
             },
@@ -121,20 +136,40 @@ fn ground_locomotion_and_normal_landing_grab_on_the_first_observation_without_an
 }
 #[test]
 fn native_dash_catch_readiness_is_used_without_waiting_for_standing_catch() {
-    for status in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0x16, 0x17] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::status::WALK,
+        kirby_assist_core::native_states::status::WALK_BRAKE,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::RUN,
+        kirby_assist_core::native_states::status::RUN_BRAKE,
+        kirby_assist_core::native_states::status::TURN,
+        kirby_assist_core::native_states::status::TURN_DASH,
+        kirby_assist_core::native_states::status::TURN_RUN,
+        kirby_assist_core::native_states::status::TURN_RUN_BRAKE,
+        kirby_assist_core::native_states::status::LANDING,
+        kirby_assist_core::native_states::status::LANDING_LIGHT,
+    ] {
         let mut seen = Vec::new();
         assert!(automatic_grab_ready(status, |term| {
             seen.push(term);
-            term == 0x1e000070
+            term == kirby_assist_core::native_states::transition_terms::CONT_CATCH_DASH
         }));
-        assert_eq!(seen, vec![0x1e00006f, 0x1e000070]);
+        assert_eq!(
+            seen,
+            vec![
+                kirby_assist_core::native_states::transition_terms::CONT_CATCH,
+                kirby_assist_core::native_states::transition_terms::CONT_CATCH_DASH
+            ]
+        );
         assert!(!automatic_grab_ready(status, |_| false));
     }
     assert!(automatic_grab_ready(0x1c, |_| panic!(
         "native held shield remains a direct grab"
     )));
     assert!(
-        !automatic_grab_ready(0x1b, |term| term == 0x1e000070),
+        !automatic_grab_ready(0x1b, |term| term
+            == kirby_assist_core::native_states::transition_terms::CONT_CATCH_DASH),
         "guard startup cannot become a dash grab"
     );
 }
@@ -142,13 +177,23 @@ fn native_dash_catch_readiness_is_used_without_waiting_for_standing_catch() {
 fn horizontal_intent_allows_ground_offense_but_shield_rolls_and_manual_attacks_are_preserved() {
     let mut input = ManualTakeover::new();
     assert!(!input.grounded_grab_assist(0));
-    for status in [0, 1, 3, 4, 0x16] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::status::WALK,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::RUN,
+        kirby_assist_core::native_states::status::LANDING,
+    ] {
         for x in [-1., -0.5, 0.5, 1.] {
             input.sample(0, [x, 0., 0., 0.]);
             assert!(input.grounded_grab_assist(status));
         }
     }
-    for status in [0, 0x1b, 0x1c] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::GUARD_ON,
+        kirby_assist_core::native_states::GUARD,
+    ] {
         for x in [-1., 1.] {
             input.sample(MAPPER_ZR, [x, 0., 0., 0.]);
             assert!(
@@ -214,7 +259,11 @@ fn airborne_snapshots_and_unready_movement_never_start_a_grab_and_landing_does_n
 fn both_layouts_preserve_horizontal_grab_delivery_and_neutralize_only_shield_grabs() {
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
         for shielded in [false, true] {
-            let status = if shielded { 0x1c } else { 4 };
+            let status = if shielded {
+                kirby_assist_core::native_states::GUARD
+            } else {
+                4
+            };
             let mut o = OutOfShield::new();
             let raw = o.sample_automatic(
                 true,
@@ -274,19 +323,19 @@ fn ground_up_b_admission_keeps_tracking_after_native_takeoff_without_starting_ne
     for start in [0, 1, 3, 4, 0x16, 0x1c] {
         let mut e = Engine::default();
         let mut ts = targets(20.);
-        ts[0].as_mut().unwrap().status = 0x20;
+        ts[0].as_mut().unwrap().status = kirby_assist_core::native_states::ESCAPE_F;
         let out = e.sample_simple(true, &rules, LedgeSettings::default(), lc(start), ts, None);
         assert_ne!(out.requested & MAPPER_B, 0, "grounded status {start:#x}");
         for frame in 1..=5 {
-            let own = LedgeContext {
-                status: 0x1de,
+            let own = GameplayContext {
+                status: kirby_assist_core::native_states::status::SPECIAL_HI,
                 situation: 2,
                 motion_frame: frame as f32,
                 ..lc(start)
             };
             let follow = Opponent {
                 id: 2,
-                status: 0x20,
+                status: kirby_assist_core::native_states::ESCAPE_F,
                 position: [if frame == 5 { -20. } else { 20. }, 0.],
                 motion: Some(MotionTiming {
                     kind: 2,
@@ -319,7 +368,7 @@ fn ground_up_b_admission_keeps_tracking_after_native_takeoff_without_starting_ne
                     true,
                     &rules,
                     LedgeSettings::default(),
-                    LedgeContext {
+                    GameplayContext {
                         situation: 2,
                         ..lc(start)
                     },
@@ -348,7 +397,10 @@ fn absent_targets_native_catch_start_and_air_takeover_release_horizontal_control
     );
     assert_eq!(absent.owned, 0);
     assert_eq!(o.with_grab_movement(absent, [1., 0.]).stick, None);
-    for (status, grounded, situation) in [(0x39, true, 0), (0xe, false, 2)] {
+    for (status, grounded, situation) in [
+        (kirby_assist_core::native_states::CATCH_DASH, true, 0),
+        (0xe, false, 2),
+    ] {
         let mut o = OutOfShield::new();
         assert_eq!(
             o.sample_automatic(
@@ -372,7 +424,7 @@ fn absent_targets_native_catch_start_and_air_takeover_release_horizontal_control
                 grounded,
                 ..c(4)
             },
-            LedgeContext {
+            GameplayContext {
                 situation,
                 ..lc(status)
             },
@@ -395,7 +447,7 @@ fn native_movement_replaces_an_unmapped_idle_approach_without_waiting_for_an_ack
     let idle = o.sample_automatic(
         true,
         c(0),
-        LedgeContext {
+        GameplayContext {
             safe_ground: [true; 2],
             ..lc(0)
         },
@@ -430,9 +482,19 @@ fn native_movement_replaces_an_unmapped_idle_approach_without_waiting_for_an_ack
 #[test]
 fn fresh_physical_shield_cannot_borrow_dash_readiness_before_native_guard_starts() {
     use kirby_assist_core::out_of_shield::automatic_grab_ready_with_shield;
-    for status in [0, 1, 3, 4, 0x16] {
-        assert!(!automatic_grab_ready_with_shield(status, true, |term| term == 0x1e000070));
-        assert!(automatic_grab_ready_with_shield(status, false, |term| term == 0x1e000070));
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::status::WALK,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::RUN,
+        kirby_assist_core::native_states::status::LANDING,
+    ] {
+        assert!(!automatic_grab_ready_with_shield(status, true, |term| {
+            term == kirby_assist_core::native_states::transition_terms::CONT_CATCH_DASH
+        }));
+        assert!(automatic_grab_ready_with_shield(status, false, |term| {
+            term == kirby_assist_core::native_states::transition_terms::CONT_CATCH_DASH
+        }));
     }
 }
 
@@ -445,10 +507,10 @@ fn bowser_far_idle_grab_never_presses_r_before_native_dash_and_keeps_forward_dur
                 facing: side,
                 ..c(0)
             };
-            let own = LedgeContext {
+            let own = GameplayContext {
                 facing: side,
                 velocity: [side * speed, 0.],
-                previous_status: 0x1d,
+                previous_status: kirby_assist_core::native_states::GUARD_OFF,
                 safe_ground: [true; 2],
                 ..lc(0)
             };
@@ -466,8 +528,14 @@ fn bowser_far_idle_grab_never_presses_r_before_native_dash_and_keeps_forward_dur
             }
             let dash = o.sample_automatic(
                 true,
-                Context { status: 3, ..ctx },
-                LedgeContext { status: 3, ..own },
+                Context {
+                    status: kirby_assist_core::native_states::status::DASH,
+                    ..ctx
+                },
+                GameplayContext {
+                    status: kirby_assist_core::native_states::status::DASH,
+                    ..own
+                },
                 ts,
                 None,
                 false,
@@ -492,7 +560,7 @@ fn bowser_far_idle_grab_never_presses_r_before_native_dash_and_keeps_forward_dur
 #[test]
 fn failed_bowser_dash_start_is_bounded_and_never_falls_through_to_a_standing_grab() {
     let mut o = OutOfShield::new();
-    let own = LedgeContext {
+    let own = GameplayContext {
         safe_ground: [true; 2],
         ..lc(0)
     };
@@ -546,7 +614,7 @@ fn tech_in_place_is_not_a_dodge_event_and_far_targets_do_not_own_grab_input() {
         })
         .unwrap();
     let mut tech = targets(80.);
-    tech[0].as_mut().unwrap().status = 0x67;
+    tech[0].as_mut().unwrap().status = kirby_assist_core::native_states::status::PASSIVE;
     let mut engine = Engine::default();
     assert_eq!(
         engine

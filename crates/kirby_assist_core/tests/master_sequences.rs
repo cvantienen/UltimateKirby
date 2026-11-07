@@ -57,7 +57,8 @@ fn default_save_cannot_replace_ledge_defaults_with_an_assist_rule() {
         catalog
             .entries()
             .iter()
-            .find(|e| e.choice == "first" && e.fighter_kind == 6)
+            .find(|e| e.choice == "first"
+                && e.fighter_kind == kirby_assist_core::fighter_kinds::KIRBY)
             .unwrap()
             .default
     );

@@ -2,12 +2,13 @@
 use crate::{
     autopilot_guard::duck_geometry::Hitbox,
     fighter_tuning::{self as tuning, Tuning},
-    ledge_trap::{LedgeOutput, SEQUENCE_BUTTONS},
+    gameplay::ControllerOutput,
+    ledge_trap::SEQUENCE_BUTTONS,
     native_input::MAPPER_B,
     timing::{AnimationClock, AnimationSample},
 };
 
-pub const GAMEWATCH: i32 = 28;
+pub const GAMEWATCH: i32 = crate::fighter_kinds::MR_GAME_AND_WATCH;
 /// Adding a fighter requires a verified native move/resource adapter too.
 pub fn supports(kind: i32) -> bool {
     kind == GAMEWATCH
@@ -44,14 +45,27 @@ impl Config {
 
 pub fn movable(status: i32, situation: i32) -> bool {
     match situation {
-        0 => matches!(status, 0..=9 | 0x11..=0x17 | 0x7e | 0x7f),
+        0 => {
+            matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT | crate::native_states::status::OTTOTTO | crate::native_states::status::OTTOTTO_WAIT)
+        }
         // Ordinary jump/fall only. Never recovery, tumble, attack or air dodge.
-        2 => matches!(status, 0xb | 0xc | 0xe | 0xf),
+        2 => matches!(
+            status,
+            crate::native_states::status::JUMP
+                | crate::native_states::status::JUMP_AERIAL
+                | crate::native_states::status::FALL
+                | crate::native_states::status::FALL_AERIAL
+        ),
         _ => false,
     }
 }
 pub fn bucket(status: i32) -> bool {
-    matches!(status, 0x1df | 0x1e3 | 0x1e4)
+    matches!(
+        status,
+        crate::native_states::status::SPECIAL_LW
+            | crate::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT_START
+            | crate::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT
+    )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -271,7 +285,7 @@ impl Reflector {
         config: Option<Config>,
         c: Context,
         threat: Option<Threat>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         let Some(config) = config.filter(|_| {
             allowed
                 && supports(c.kind)
@@ -334,7 +348,13 @@ impl Reflector {
             self.turning = !facing;
         }
         let elapsed = now.saturating_sub(self.began) as f32;
-        if elapsed > config.max_hold || matches!(status, 0x1e5..=0x1e8) {
+        if elapsed > config.max_hold
+            || matches!(
+                status,
+                crate::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_CATCH
+                    ..=crate::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_END
+            )
+        {
             self.cancel();
             return Default::default();
         }
@@ -368,7 +388,7 @@ impl Reflector {
             self.cancel();
             return Default::default();
         }
-        LedgeOutput {
+        ControllerOutput {
             requested: MAPPER_B,
             owned: SEQUENCE_BUTTONS,
             stick: Some([0., -1.]),

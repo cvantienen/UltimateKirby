@@ -539,15 +539,20 @@ impl MenuSelection {
         } else {
             row.slot()
                 .is_some_and(|s| s.is_button() == self.button_menu)
-        }) && !(row == MenuRow::JabLock && self.y_fighter_kind != 5)
+        }) && !(row == MenuRow::JabLock && self.y_fighter_kind != crate::fighter_kinds::YOSHI)
             && !(!cfg!(feature = "diagnostic-logging")
                 && matches!(row, MenuRow::Performance | MenuRow::TestLatency))
             && row != MenuRow::RollRead
             && !matches!(row, MenuRow::YMode | MenuRow::JabGrab)
             && !(self.simplified_reactions
                 && matches!(row, MenuRow::ShieldPressure | MenuRow::SpotPunish))
-            && !(matches!(row, MenuRow::IdleCrouch | MenuRow::JabGrab) && self.y_fighter_kind != 6)
-            && !(row == MenuRow::TiltTurn && !matches!(self.y_fighter_kind, 5 | 6))
+            && !(matches!(row, MenuRow::IdleCrouch | MenuRow::JabGrab)
+                && self.y_fighter_kind != crate::fighter_kinds::KIRBY)
+            && !(row == MenuRow::TiltTurn
+                && !matches!(
+                    self.y_fighter_kind,
+                    crate::fighter_kinds::YOSHI | crate::fighter_kinds::KIRBY
+                ))
             && !(row == MenuRow::AutoReflect
                 && crate::projectile_reflect::Config::for_fighter(self.y_fighter_kind, self.tuning)
                     .is_none())
@@ -565,7 +570,7 @@ impl MenuSelection {
             roll_read: crate::roll_read::Choice::Off,
             roll_rules: true,
             shield_pressure: true,
-            y_fighter_kind: 6,
+            y_fighter_kind: crate::fighter_kinds::KIRBY,
             idle_crouch: true,
             tilt_turn: true,
             jab_grab: crate::jab_grab::Followup::Grab,

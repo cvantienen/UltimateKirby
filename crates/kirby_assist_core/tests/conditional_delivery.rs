@@ -1,13 +1,14 @@
 //! Conditional actions use copied facts and continue on the satisfying sample.
 use kirby_assist_core::{
-    ledge_trap::{InputTimeline, LedgeContext, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     native_input::*,
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
 };
-fn context() -> LedgeContext {
-    LedgeContext {
+fn context() -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
@@ -58,7 +59,7 @@ fn react(
     rules: &Resolved,
     status: i32,
     own_status: i32,
-) -> kirby_assist_core::ledge_trap::LedgeOutput {
+) -> kirby_assist_core::gameplay::ControllerOutput {
     let mut targets = [None; 8];
     targets[0] = Some(Target {
         id: 2,
@@ -75,7 +76,7 @@ fn react(
         true,
         rules,
         LedgeSettings::default(),
-        LedgeContext {
+        GameplayContext {
             status: own_status,
             ..context()
         },
@@ -105,7 +106,7 @@ fn satisfied_self_enemy_and_distance_checks_add_no_input_frame() {
         let mut t = timeline(&format!("check:{check},up_b:4"), other);
         let out = t.sample(
             LedgeSettings::default(),
-            LedgeContext {
+            GameplayContext {
                 situation: own_situation,
                 ..context()
             },
@@ -125,7 +126,11 @@ fn satisfied_face_and_approach_keep_direct_out_of_shield_up_b_immediate() {
         "walk_to_opponent:50%:10:20,up_b:4",
         "chase_if_far:20:1:14,up_b:4",
     ] {
-        let out = react(&rules("auto_roll", actions), 0x20, 0x1c);
+        let out = react(
+            &rules("auto_roll", actions),
+            kirby_assist_core::native_states::ESCAPE_F,
+            kirby_assist_core::native_states::GUARD,
+        );
         assert_eq!(out.requested, MAPPER_B | MAPPER_ZR, "{actions}");
         assert_eq!(out.stick, Some([0., 1.]));
     }
@@ -134,8 +139,8 @@ fn satisfied_face_and_approach_keep_direct_out_of_shield_up_b_immediate() {
     let mut t = timeline("face:opponent,up_b:4", other);
     let out = t.sample(
         LedgeSettings::default(),
-        LedgeContext {
-            status: 0x1c,
+        GameplayContext {
+            status: kirby_assist_core::native_states::GUARD,
             ..context()
         },
         Some(other),
@@ -203,22 +208,47 @@ fn copied_conditions_refresh_during_a_duplicate_own_animation_sample() {
 #[test]
 fn first_air_dodge_observation_has_airborne_data_before_any_follow_sample() {
     let r = rules("auto_air_dodge", "check:enemy_airborne:0,up_b:4");
-    for status in [0x22, 0x23] {
-        assert_eq!(react(&r, status, 0).requested, MAPPER_B);
+    for status in [
+        kirby_assist_core::native_states::ESCAPE_AIR,
+        kirby_assist_core::native_states::ESCAPE_AIR_SLIDE,
+    ] {
+        assert_eq!(
+            react(&r, status, kirby_assist_core::native_states::status::WAIT).requested,
+            MAPPER_B
+        );
     }
     let ground = rules("auto_roll", "check:enemy_grounded:0,up_b:4");
-    for status in [0x20, 0x21] {
-        assert_eq!(react(&ground, status, 0).requested, MAPPER_B);
+    for status in [
+        kirby_assist_core::native_states::ESCAPE_F,
+        kirby_assist_core::native_states::ESCAPE_B,
+    ] {
+        assert_eq!(
+            react(
+                &ground,
+                status,
+                kirby_assist_core::native_states::status::WAIT
+            )
+            .requested,
+            MAPPER_B
+        );
     }
 }
 #[test]
 fn cstick_up_smash_retains_guard_without_an_added_shield_drop() {
-    let out = react(&rules("auto_roll", "cstick:0:1:4"), 0x20, 0x1c);
+    let out = react(
+        &rules("auto_roll", "cstick:0:1:4"),
+        kirby_assist_core::native_states::ESCAPE_F,
+        kirby_assist_core::native_states::GUARD,
+    );
     assert_eq!(out.requested, MAPPER_RIGHT_STICK_UP | MAPPER_ZR);
 }
 
 #[test]
 fn canonical_zl_is_an_out_of_shield_jump_not_a_shield_or_unrequested_jump() {
-    let out = react(&rules("auto_roll", "input:zl:0:0:1"), 0x20, 0x1c);
+    let out = react(
+        &rules("auto_roll", "input:zl:0:0:1"),
+        kirby_assist_core::native_states::ESCAPE_F,
+        kirby_assist_core::native_states::GUARD,
+    );
     assert_eq!(out.requested, MAPPER_ZL | MAPPER_ZR);
 }

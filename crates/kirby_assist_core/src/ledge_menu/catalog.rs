@@ -378,7 +378,7 @@ mod tests {
     }
     #[test]
     fn empty_ness_and_falcon_catalogs_can_create_edit_preview_and_queue_a_recipe() {
-        use crate::ledge_trap::{LedgeContext, LedgeTrap, Opponent};
+        use crate::ledge_trap::{GameplayContext, LedgeTrap, Opponent};
         for kind in [10, 11] {
             let profiles = crate::fighter_profiles::FighterProfiles::default();
             let profile = profiles.profile(kind).unwrap();
@@ -416,13 +416,13 @@ mod tests {
             let out = trap.sample(
                 settings,
                 0,
-                LedgeContext {
+                GameplayContext {
                     gameplay: true,
                     held: true,
                     facing: 1.,
                     motion_rate: 1.,
                     motion_kind: crate::timing::motion_hash("wait"),
-                    ..LedgeContext::default()
+                    ..GameplayContext::default()
                 },
                 Some(Opponent {
                     id: 2,

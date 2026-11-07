@@ -1,13 +1,14 @@
 //! Shield release is shared by every file-authored sequence consumer.
 use kirby_assist_core::{
     defense_response::Response,
-    ledge_trap::{InputTimeline, LedgeContext, LedgeSettings, Opponent},
+    gameplay::{GameplayContext, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     native_input::*,
     reaction_rules::{Candidate, Resolved, Trigger},
     sequence_config::Catalog,
 };
-fn context(status: i32, frame: f32) -> LedgeContext {
-    LedgeContext {
+fn context(status: i32, frame: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         status,
@@ -42,9 +43,19 @@ fn block_to_down_smash_releases_neutral_until_guard_off_ends_then_holds_full_dur
             0.,
         )
     };
-    assert_eq!(sample(&mut t, 0x1c, 0.).requested, MAPPER_ZR);
-    assert_eq!(sample(&mut t, 0x1e, 1.).requested, MAPPER_ZR);
-    for (status, frame) in [(0x1c, 2.), (0x1d, 3.), (0x1d, 4.)] {
+    assert_eq!(
+        sample(&mut t, kirby_assist_core::native_states::GUARD, 0.).requested,
+        MAPPER_ZR
+    );
+    assert_eq!(
+        sample(&mut t, kirby_assist_core::native_states::GUARD_DAMAGE, 1.).requested,
+        MAPPER_ZR
+    );
+    for (status, frame) in [
+        (kirby_assist_core::native_states::GUARD, 2.),
+        (kirby_assist_core::native_states::GUARD_OFF, 3.),
+        (kirby_assist_core::native_states::GUARD_OFF, 4.),
+    ] {
         let o = sample(&mut t, status, frame);
         assert_eq!(o.requested, 0);
         assert_eq!(o.stick, Some([0.; 2]));
@@ -72,8 +83,20 @@ fn direct_oos_inputs_do_not_gain_an_extra_release_frame() {
             sequence(&format!("shield_until_block:30,{action}")),
             Opponent::default(),
         );
-        t.sample(LedgeSettings::default(), context(0x1e, 0.), None, None, 0.);
-        let o = t.sample(LedgeSettings::default(), context(0x1c, 1.), None, None, 0.);
+        t.sample(
+            LedgeSettings::default(),
+            context(kirby_assist_core::native_states::GUARD_DAMAGE, 0.),
+            None,
+            None,
+            0.,
+        );
+        let o = t.sample(
+            LedgeSettings::default(),
+            context(kirby_assist_core::native_states::GUARD, 1.),
+            None,
+            None,
+            0.,
+        );
         assert_eq!(o.requested & button, button, "{action}");
         assert_eq!(o.requested & MAPPER_ZR,MAPPER_ZR,"{action}: direct grab, special, up-smash and jump keep guard through native OOS cancellation");
     }
@@ -105,8 +128,16 @@ fn shared_response_and_movement_cannot_feed_directions_into_shield() {
             ..Default::default()
         };
         let mut r = Response::new();
-        assert!(r.start(&rules, Trigger::ShieldHit, context(0x1c, 0.), enemy));
-        for (status, frame) in [(0x1c, 0.), (0x1d, 1.)] {
+        assert!(r.start(
+            &rules,
+            Trigger::ShieldHit,
+            context(kirby_assist_core::native_states::GUARD, 0.),
+            enemy
+        ));
+        for (status, frame) in [
+            (kirby_assist_core::native_states::GUARD, 0.),
+            (kirby_assist_core::native_states::GUARD_OFF, 1.),
+        ] {
             let o = r.sample(
                 true,
                 LedgeSettings::default(),

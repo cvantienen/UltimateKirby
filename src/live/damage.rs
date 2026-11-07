@@ -42,7 +42,7 @@ pub(super) unsafe fn observe(
         // Native damage-fly-top uses its own gravity/fall-speed parameters.
         // The original upward launch sector selects this mode, before DI.
         let top = launch.iter().all(|v| v.is_finite()) && (70.0..=110.0).contains(&angle);
-        let physics = kirby_assist_core::ledge_trap::AirPhysics::new(
+        let physics = kirby_assist_core::gameplay::AirPhysics::new(
             game::param_float(object, if top { 0x1a58828323 } else { 0xba18057d9 }, 0),
             game::param_float(object, if top { 0x1d71e21b0b } else { 0x12ec5626fe }, 0),
         )?;

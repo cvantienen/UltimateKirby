@@ -1,7 +1,7 @@
 //! Existing regression cases for `ledge_position`. Kept outside the runtime code.
 use super::*;
-fn context() -> LedgeContext {
-    LedgeContext {
+fn context() -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         manual_input_epoch: 0,
@@ -9,7 +9,7 @@ fn context() -> LedgeContext {
         can_act: true,
         can_control: true,
         stopped: false,
-        status: 0,
+        status: crate::native_states::status::WAIT,
         situation: 0,
         motion_frame: 0.0,
         motion_kind: 1,
@@ -18,7 +18,7 @@ fn context() -> LedgeContext {
         velocity: [0.0, 0.0],
         ground_brake: Some(0.1),
         facing: 1.0,
-        previous_status: 0,
+        previous_status: crate::native_states::status::WAIT,
         can_grab: true,
         can_tilt: true,
         can_down_tilt: true,
@@ -65,24 +65,24 @@ fn selects_current_floor_edge_on_both_sides_and_checks_stance_support() {
 #[test]
 fn air_has_no_inputs_and_ground_approach_starts_on_landing() {
     let mut nav = LedgePosition::default();
-    let air = LedgeContext {
-        status: 0xe,
+    let air = GameplayContext {
+        status: crate::native_states::status::FALL,
         situation: 2,
         ..context()
     };
-    assert_eq!(nav.sample(0, air, settings()), LedgeOutput::default());
+    assert_eq!(nav.sample(0, air, settings()), ControllerOutput::default());
     nav.lock(Some(LedgeSpot {
         edge: [60.0, 0.0],
         inward: -1.0,
     }));
-    let ground = LedgeContext {
+    let ground = GameplayContext {
         position: [20.0, 0.0],
         ..context()
     };
     let out = nav.sample(1, ground, settings());
     assert!(out.stick.unwrap()[0] > 0.0);
     assert_eq!(out.requested, 0);
-    assert_eq!(nav.sample(1, air, settings()), LedgeOutput::default());
+    assert_eq!(nav.sample(1, air, settings()), ControllerOutput::default());
     assert_eq!(nav.spot(), None);
 }
 #[test]
@@ -94,7 +94,7 @@ fn waits_facing_the_edge_and_never_jumps_over_unsupported_ground() {
     }));
     assert_eq!(nav.sample(0, context(), settings()).stick, Some([0.0, 0.0]));
     assert_eq!(nav.action_name(), "ready_at_ledge");
-    let displaced = LedgeContext {
+    let displaced = GameplayContext {
         position: [30.0, 0.0],
         safe_ground: [false, false],
         ..context()
@@ -115,7 +115,7 @@ fn same_tick_damage_and_toggle_off_release_navigation_and_invalid_spots_are_reje
         edge: [60.0, 0.0],
         inward: -1.0,
     }));
-    let ctx = LedgeContext {
+    let ctx = GameplayContext {
         position: [20.0, 0.0],
         ..context()
     };
@@ -123,16 +123,16 @@ fn same_tick_damage_and_toggle_off_release_navigation_and_invalid_spots_are_reje
     assert_eq!(
         nav.sample(
             0,
-            LedgeContext {
+            GameplayContext {
                 can_act: false,
                 ..ctx
             },
             settings()
         ),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     assert_eq!(
-        nav.sample(0, LedgeContext { held: false, ..ctx }, settings()),
-        LedgeOutput::default()
+        nav.sample(0, GameplayContext { held: false, ..ctx }, settings()),
+        ControllerOutput::default()
     );
 }

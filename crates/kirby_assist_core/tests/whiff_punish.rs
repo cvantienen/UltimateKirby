@@ -2,7 +2,7 @@ use kirby_assist_core::{
     button_modes::YMode,
     combat_assist::FairContext,
     finisher,
-    ledge_trap::LedgeOutput,
+    gameplay::ControllerOutput,
     native_input::{MAPPER_A, MAPPER_X, MAPPER_ZL},
     timing::motion_hash,
     whiff_punish::{Context, Target, WhiffPunisher},
@@ -10,12 +10,12 @@ use kirby_assist_core::{
 fn own(frame: f32) -> Context {
     Context {
         starter: finisher::Context {
-            fighter_kind: 6,
+            fighter_kind: kirby_assist_core::fighter_kinds::KIRBY,
             target_direction: None,
             fighter: FairContext {
                 object: 1,
                 kirby: true,
-                status: 0,
+                status: kirby_assist_core::native_states::status::WAIT,
                 motion: 1,
                 frame,
                 rate: 1.0,
@@ -39,7 +39,7 @@ fn own(frame: f32) -> Context {
 fn target(frame: f32, remaining: f32, x: f32) -> Target {
     Target {
         id: 2,
-        kind: 6,
+        kind: kirby_assist_core::fighter_kinds::KIRBY,
         motion: motion_hash("attack_lw4"),
         frame,
         position: [x, 0.0],
@@ -118,7 +118,7 @@ fn approach_needs_time_and_floor_and_stops_before_attack() {
     ] {
         assert_eq!(
             WhiffPunisher::default().sample(true, c, targets(t)),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
     }
     let mut c = own(0.0);
@@ -167,7 +167,7 @@ fn roster_slot_changes_do_not_rearm_the_same_enemy_move() {
         MAPPER_A
     );
     let mut accepted = own(0.0);
-    accepted.starter.fighter.status = 0x2d;
+    accepted.starter.fighter.status = kirby_assist_core::native_states::status::ATTACK_S4_START;
     accepted.starter.fighter.motion = 2;
     p.sample(true, accepted, targets(target(22.0, 28.0, 6.0)));
     let mut shifted = [None; 8];

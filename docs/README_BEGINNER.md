@@ -98,7 +98,7 @@ reach. A requested button is an attempt: an attack animation is different from
 a confirmed hit, and a grab animation is different from capturing an opponent.
 `GetupAttack` still supports legacy down/forward tilts for normal get-up configs.
 
-`LedgeContext` is the input data, `LedgeSettings` is the tuning, and `LedgeOutput` is the proposed result. `requested` names the buttons to hold; `owned` names the buttons the assist replaces, including releases. Native status constants give names to game state numbers. Host regression examples live separately in `src/ledge_trap/tests.rs` inside the core crate.
+`GameplayContext` is the copied fighter data, `LedgeSettings` is ledge tuning, and `ControllerOutput` is a proposed controller-input packet. `requested` names the buttons to hold; `owned` names the buttons the assist replaces, including releases. Native status constants give names to game state numbers. Host regression examples live separately in `src/ledge_trap/tests.rs` inside the core crate.
 
 See [LEDGE_TRAP.md](LEDGE_TRAP.md) for the function map, controls, and configuration. The removed forward-air settings in older SD configs are ignored so the other tools can still load.
 

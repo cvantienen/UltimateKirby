@@ -4,8 +4,8 @@ use super::FighterProfile;
 pub fn profile() -> FighterProfile {
     FighterProfile {
         name: "ganondorf",
-        fighter_kind: 24,
-        ledge: super::LedgeFighterData::from_kind(24),
+        fighter_kind: crate::fighter_kinds::GANONDORF,
+        ledge: super::FighterGrabData::from_kind(24),
         menu_options: crate::fighter_profiles::presets::MenuPresets::EMPTY,
     }
 }

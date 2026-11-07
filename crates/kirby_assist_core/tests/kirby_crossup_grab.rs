@@ -1,13 +1,14 @@
 //! Cross-up is now a file-authored spatial tape, not a compiled Kirby option.
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
+    gameplay::{GameplayContext, Opponent},
     ledge_menu::MenuSelection,
-    ledge_trap::{LedgeContext, LedgeSettings, LedgeTrap, Opponent, CLIFF_CLIMB},
+    ledge_trap::{LedgeSettings, LedgeTrap, CLIFF_CLIMB},
     native_input::MAPPER_R,
     sequence_config::Catalog,
 };
-fn context(frame: f32, x: f32, facing: f32) -> LedgeContext {
-    LedgeContext {
+fn context(frame: f32, x: f32, facing: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         motion_kind: 1,

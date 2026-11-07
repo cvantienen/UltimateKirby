@@ -1,5 +1,6 @@
 use kirby_assist_core::{
-    ledge_trap::{LedgeContext, LedgeSettings},
+    gameplay::GameplayContext,
+    ledge_trap::LedgeSettings,
     native_input::*,
     option_read::{Kind, Target},
     reaction_rules::{Candidate, Resolved, Trigger},
@@ -19,11 +20,11 @@ fn rules() -> Resolved {
     }
     r
 }
-fn ctx(frame: f32) -> LedgeContext {
-    LedgeContext {
+fn ctx(frame: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         situation: 0,
         motion_kind: 1,
         motion_frame: frame,
@@ -37,7 +38,7 @@ fn target(frame: f32) -> Target {
     Target {
         id: 2,
         kind: Kind::Spot,
-        status: 0x1f,
+        status: kirby_assist_core::native_states::ESCAPE,
         motion: 22,
         frame,
         rate: 1.,
@@ -52,7 +53,7 @@ fn sample(
     r: &Resolved,
     frame: f32,
     t: Target,
-) -> kirby_assist_core::ledge_trap::LedgeOutput {
+) -> kirby_assist_core::gameplay::ControllerOutput {
     p.sample(
         true,
         1,
@@ -168,7 +169,7 @@ fn ordinary_rolls_unknown_windows_and_safety_cancellation_do_not_fire_or_retry()
             0.,
             Target {
                 kind: Kind::Roll,
-                status: 0x20,
+                status: kirby_assist_core::native_states::ESCAPE_F,
                 ..target(12.)
             }
         )
@@ -210,7 +211,7 @@ fn pending_automatic_ground_grab_cancels_on_takeoff_and_spatial_actions_require_
     let r = rules();
     let mut p = Punisher::default();
     sample(&mut p, &r, 0., target(12.));
-    let air = LedgeContext {
+    let air = GameplayContext {
         situation: 2,
         ..ctx(1.)
     };

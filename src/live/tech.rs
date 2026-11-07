@@ -50,7 +50,10 @@ unsafe fn grounded_ganon_timing(
     }
     let id = u32::try_from(game::link_object_id(object, 0)).ok()?;
     let own_id = object.cast::<u8>().add(8).cast::<u32>().read();
-    if id == own_id || id >> 28 != 0 || !game::is_active(id) {
+    if id == own_id
+        || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+        || !game::is_active(id)
+    {
         return None;
     }
     let captor = game::module_accessor(id);
@@ -105,16 +108,26 @@ pub(super) unsafe fn assess_tech(
     // A zero countdown can still be the final native victim-stop observation.
     // Global stop with the same zero value must never manufacture eligibility.
     let victim_stop = stopped && game::is_damage_stop(object);
-    let disabled = (0x49..=0x4f).contains(&status) && game::is_flag(object, 0x21000016);
+    let disabled = (kirby_assist_core::native_states::status::DAMAGE_FLY
+        ..=kirby_assist_core::native_states::status::DAMAGE_FALL)
+        .contains(&status)
+        && game::is_flag(object, kirby_assist_core::native_states::work_ids::FIGHTER_STATUS_DAMAGE_FLAG_FLY_DISABLE_PASSIVE);
     // PASSIVE / PASSIVE_FB: read-only native floor-tech eligibility. A grounded
     // tumble contact must not be discarded solely because situation changed.
     // Require an actual airborne->ground transition, not a grounded launch
     // whose floor-tech term is enabled before the fighter leaves the stage.
     let floor_tech = situation == 0
-        && (0x49..=0x4f).contains(&status)
+        && (kirby_assist_core::native_states::status::DAMAGE_FLY
+            ..=kirby_assist_core::native_states::status::DAMAGE_FALL)
+            .contains(&status)
         && !disabled
-        && (game::transition_enabled(object, 0x1e000013)
-            || game::transition_enabled(object, 0x1e000014))
+        && (game::transition_enabled(
+            object,
+            kirby_assist_core::native_states::transition_terms::PASSIVE,
+        ) || game::transition_enabled(
+            object,
+            kirby_assist_core::native_states::transition_terms::PASSIVE_FB,
+        ))
         && game::previous_situation_kind(object) == 2;
     let gate = tech_gate_with_floor(status, situation, disabled, stopped, floor_tech);
     if gate != TechGate::Predict {
@@ -134,7 +147,10 @@ pub(super) unsafe fn assess_tech(
         capture_clock: None,
         prepare_guard: false,
         // FIGHTER_INSTANCE_WORK_ID_FLOAT_DAMAGE_REACTION_FRAME (pinned lua_const).
-        reaction_remaining: if (0x49..=0x4f).contains(&status) {
+        reaction_remaining: if (kirby_assist_core::native_states::status::DAMAGE_FLY
+            ..=kirby_assist_core::native_states::status::DAMAGE_FALL)
+            .contains(&status)
+        {
             let remaining = game::work_float(object, 0x13);
             (remaining.is_finite() && remaining > 0. && remaining <= 1200.).then_some(remaining)
         } else {
@@ -144,11 +160,17 @@ pub(super) unsafe fn assess_tech(
     // The native STOP_WALL / STOP_CEIL statuses still admit passive input at
     // collision. Damage-fly-only gates used to discard this final opportunity.
     // Native transition terms, not the status name alone, authorize the input.
-    if situation == 2 && matches!(status, 0x6c | 0x6d) {
-        let term = if status == 0x6c {
-            0x1e000015
+    if situation == 2
+        && matches!(
+            status,
+            kirby_assist_core::native_states::status::STOP_WALL
+                | kirby_assist_core::native_states::status::STOP_CEIL
+        )
+    {
+        let term = if status == kirby_assist_core::native_states::status::STOP_WALL {
+            kirby_assist_core::native_states::transition_terms::PASSIVE_WALL
         } else {
-            0x1e000018
+            kirby_assist_core::native_states::transition_terms::PASSIVE_CEIL
         };
         if game::transition_enabled(object, term) && (!stopped || victim_stop) {
             assessment.contact_in = Some(assessment.remaining_stop as f32);
@@ -157,7 +179,10 @@ pub(super) unsafe fn assess_tech(
         }
         return assessment;
     }
-    if (0x67..=0x6b).contains(&status) {
+    if (kirby_assist_core::native_states::status::PASSIVE
+        ..=kirby_assist_core::native_states::status::PASSIVE_CEIL)
+        .contains(&status)
+    {
         assessment.reason = "tech_status_observed";
         return assessment;
     }
@@ -174,7 +199,9 @@ pub(super) unsafe fn assess_tech(
         // Previous situation can still be AIR when a newly landed fighter is
         // hit upward. That is a new launch, not an impact to buffer a tech for.
         // Reflect-down is the native exception after a real floor rebound.
-        if status == 0x4e || velocity[1].is_finite() && velocity[1] <= 0.0001 {
+        if status == kirby_assist_core::native_states::status::DAMAGE_FLY_REFLECT_D
+            || velocity[1].is_finite() && velocity[1] <= 0.0001
+        {
             assessment.velocity = velocity;
             assessment.contact_in = Some(assessment.remaining_stop as f32);
             assessment.prepare_guard = true;
@@ -206,12 +233,18 @@ pub(super) unsafe fn assess_tech(
         }
         return assessment;
     }
-    if (0xbf..=0xc1).contains(&status) {
+    if (kirby_assist_core::native_states::status::CATCHED_AIR_GANON
+        ..=kirby_assist_core::native_states::status::CATCHED_AIR_END_GANON)
+        .contains(&status)
+    {
         assessment.reason = "ganon_aerial_slam_untechable";
         return assessment;
     }
     if gate == TechGate::OutsideTumble
-        && !(cfg!(feature = "diagnostic-logging") && (0x47..=0x5b).contains(&status))
+        && !(cfg!(feature = "diagnostic-logging")
+            && (kirby_assist_core::native_states::status::DAMAGE
+                ..=kirby_assist_core::native_states::status::DOWN_REFLECT_LR)
+                .contains(&status))
     {
         return assessment;
     }
@@ -220,13 +253,27 @@ pub(super) unsafe fn assess_tech(
         && (late_damage_stop_prediction(assessment.remaining_stop, input_delay)
             || assessment.remaining_stop == 0);
     let surfaces = [
-        game::transition_enabled(object, 0x1e000013)
-            || game::transition_enabled(object, 0x1e000014),
-        game::transition_enabled(object, 0x1e000015),
-        game::transition_enabled(object, 0x1e000018),
+        game::transition_enabled(
+            object,
+            kirby_assist_core::native_states::transition_terms::PASSIVE,
+        ) || game::transition_enabled(
+            object,
+            kirby_assist_core::native_states::transition_terms::PASSIVE_FB,
+        ),
+        game::transition_enabled(
+            object,
+            kirby_assist_core::native_states::transition_terms::PASSIVE_WALL,
+        ),
+        game::transition_enabled(
+            object,
+            kirby_assist_core::native_states::transition_terms::PASSIVE_CEIL,
+        ),
     ];
-    let supported =
-        (0x49..=0x4f).contains(&status) && !disabled && (situation == 2 || situation == 0);
+    let supported = (kirby_assist_core::native_states::status::DAMAGE_FLY
+        ..=kirby_assist_core::native_states::status::DAMAGE_FALL)
+        .contains(&status)
+        && !disabled
+        && (situation == 2 || situation == 0);
     // Use the game's current collision shape, including character animation,
     // scale and terrain corrections. Contact can precede a situation/status
     // change and frozen tumble poses need not have an advancing motion clock.
@@ -242,7 +289,9 @@ pub(super) unsafe fn assess_tech(
     // Diagnostics retain rejected-state velocity evidence. Silent only needs
     // these reads when prediction actually runs; no eligibility/window changes.
     if (predict || touched.iter().any(|v| *v) || cfg!(feature = "diagnostic-logging"))
-        && (0x47..=0x5b).contains(&status)
+        && (kirby_assist_core::native_states::status::DAMAGE
+            ..=kirby_assist_core::native_states::status::DOWN_REFLECT_LR)
+            .contains(&status)
     {
         // ALL includes damage knockback as well as main/gravity velocity.
         // MAIN (1) alone can omit the force carrying Kirby toward the surface.
@@ -262,8 +311,16 @@ pub(super) unsafe fn assess_tech(
     // A transition term alone can be enabled before damage recovery permits
     // the transition. Require native END_REACTION / REACTION_CANCEL too.
     // All three keys are named in the pinned lua_const.rs; these are reads.
-    let air_escape_available = game::transition_enabled(object, 0x1e00003d)
-        && (game::is_flag(object, 0x2100000d) || game::is_flag(object, 0x2100000c));
+    let air_escape_available = game::transition_enabled(
+        object,
+        kirby_assist_core::native_states::transition_terms::CONT_ESCAPE_AIR,
+    ) && (game::is_flag(
+        object,
+        kirby_assist_core::native_states::work_ids::FIGHTER_STATUS_DAMAGE_FLAG_END_REACTION,
+    ) || game::is_flag(
+        object,
+        kirby_assist_core::native_states::work_ids::FIGHTER_STATUS_DAMAGE_FLAG_REACTION_CANCEL,
+    ));
     if !tech_press_allowed(status, air_escape_available) {
         *floor_motion = FloorMotionHistory::default();
         assessment.reason = "air_dodge_available";
@@ -273,7 +330,7 @@ pub(super) unsafe fn assess_tech(
     // Do not mistake an upward grounded launch's existing floor contact for
     // an impact. A reflect-down status itself is authoritative after rebound.
     let floor_contact = touched[0]
-        && (status == 0x4e
+        && (status == kirby_assist_core::native_states::status::DAMAGE_FLY_REFLECT_D
             || assessment.velocity[1].is_finite() && assessment.velocity[1] <= 0.0001);
     if floor_contact || touched[1] || touched[2] {
         assessment.prepare_guard = true;

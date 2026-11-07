@@ -1,14 +1,15 @@
 //! Admission, shield retention and native-delivery safety regressions.
 use kirby_assist_core::{
     defense_response::Response,
-    ledge_trap::{LedgeContext, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::LedgeSettings,
     native_input::{ButtonTrace, MAPPER_B, MAPPER_R, MAPPER_ZR},
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target as ReactionTarget,
     sequence_config::{Catalog, Sequence},
 };
-fn own(frame: f32, status: i32) -> LedgeContext {
-    LedgeContext {
+fn own(frame: f32, status: i32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
@@ -42,7 +43,7 @@ fn recipe() -> Sequence {
 }
 fn settings() -> LedgeSettings {
     LedgeSettings {
-        fighter_kind: 15,
+        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     }
 }
@@ -66,10 +67,36 @@ fn targets(status: i32) -> [Option<ReactionTarget>; 8] {
 fn busy_native_states_never_acquire_even_with_a_cancel_flag() {
     use kirby_assist_core::reaction_rules::AutomaticObservationScope as Scope;
     for status in [
-        0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x27, 0x36, 0x37, 0x3e, 0x40, 0x47, 0x50, 0x54,
-        0x75, 0xb5, 0x1de,
+        kirby_assist_core::native_states::status::GUARD_OFF,
+        kirby_assist_core::native_states::status::GUARD_DAMAGE,
+        kirby_assist_core::native_states::status::ESCAPE,
+        kirby_assist_core::native_states::status::ESCAPE_F,
+        kirby_assist_core::native_states::status::ESCAPE_B,
+        kirby_assist_core::native_states::status::ESCAPE_AIR,
+        kirby_assist_core::native_states::status::ESCAPE_AIR_SLIDE,
+        kirby_assist_core::native_states::status::ATTACK,
+        kirby_assist_core::native_states::status::ATTACK_AIR,
+        kirby_assist_core::native_states::status::CATCH,
+        kirby_assist_core::native_states::status::CATCH_CUT,
+        kirby_assist_core::native_states::status::THROW,
+        kirby_assist_core::native_states::status::DAMAGE,
+        kirby_assist_core::native_states::status::DOWN,
+        kirby_assist_core::native_states::status::DOWN_WAIT_CONTINUE,
+        kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE,
+        kirby_assist_core::native_states::status::DEAD,
+        kirby_assist_core::native_states::status::SPECIAL_HI,
     ] {
-        let scope = Scope::new(false, status, 0, false, false, false, false, false, false);
+        let scope = Scope::new(
+            false,
+            status,
+            kirby_assist_core::native_states::status::WAIT,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+        );
         assert!(!scope.observe_targets(), "busy native status {status:#x}");
         let mut engine = Engine::default();
         let mut rules = Resolved::default();
@@ -80,7 +107,7 @@ fn busy_native_states_never_acquire_even_with_a_cancel_flag() {
                 sequence: recipe(),
             })
             .unwrap();
-        let mut ts = targets(0x1f);
+        let mut ts = targets(kirby_assist_core::native_states::ESCAPE);
         ts[0].as_mut().unwrap().frame = 1.;
         assert_eq!(
             engine
@@ -90,7 +117,7 @@ fn busy_native_states_never_acquire_even_with_a_cancel_flag() {
                     settings(),
                     own(0., status),
                     ts,
-                    Some(enemy(0., 0x1f))
+                    Some(enemy(0., kirby_assist_core::native_states::ESCAPE))
                 )
                 .owned,
             0
@@ -104,7 +131,7 @@ fn busy_native_states_never_acquire_even_with_a_cancel_flag() {
                     settings(),
                     own(1., 0),
                     ts,
-                    Some(enemy(1., 0x1f))
+                    Some(enemy(1., kirby_assist_core::native_states::ESCAPE))
                 )
                 .requested
                 & MAPPER_B,
@@ -112,16 +139,74 @@ fn busy_native_states_never_acquire_even_with_a_cancel_flag() {
             "rejected event was not consumed"
         );
     }
-    for status in [0, 1, 3, 4, 5, 9, 0x11, 0x12, 0x17, 0x1b, 0x1c, 0x7e, 0x7f] {
-        assert!(Scope::new(false, status, 0, false, false, false, false, false, false).acquire);
-        assert!(!Scope::new(false, status, 2, false, false, false, false, false, false).acquire);
-        assert!(!Scope::new(false, status, 0, true, false, false, false, false, false).acquire);
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::status::WALK,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::RUN,
+        kirby_assist_core::native_states::status::RUN_BRAKE,
+        kirby_assist_core::native_states::status::TURN_RUN_BRAKE,
+        kirby_assist_core::native_states::status::SQUAT,
+        kirby_assist_core::native_states::status::SQUAT_WAIT,
+        kirby_assist_core::native_states::status::LANDING_LIGHT,
+        kirby_assist_core::native_states::GUARD_ON,
+        kirby_assist_core::native_states::GUARD,
+        kirby_assist_core::native_states::status::OTTOTTO,
+        kirby_assist_core::native_states::status::OTTOTTO_WAIT,
+    ] {
+        assert!(
+            Scope::new(
+                false,
+                status,
+                kirby_assist_core::native_states::status::WAIT,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            )
+            .acquire
+        );
+        assert!(
+            !Scope::new(
+                false,
+                status,
+                kirby_assist_core::native_states::status::WALK_BRAKE,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false
+            )
+            .acquire
+        );
+        assert!(
+            !Scope::new(
+                false,
+                status,
+                kirby_assist_core::native_states::status::WAIT,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false
+            )
+            .acquire
+        );
     }
 }
 #[test]
 fn ledge_suspension_and_capture_links_disable_all_search_and_follow() {
     use kirby_assist_core::reaction_rules::AutomaticObservationScope as Scope;
-    for (status, air) in [(0, 0), (0x1c, 0), (0x1f, 0), (0x1e1, 2)] {
+    for (status, air) in [
+        (0, 0),
+        (kirby_assist_core::native_states::GUARD, 0),
+        (kirby_assist_core::native_states::ESCAPE, 0),
+        (0x1e1, 2),
+    ] {
         assert!(
             !Scope::new(true, status, air, false, false, true, true, true, true).observe_targets()
         );
@@ -136,11 +221,26 @@ fn ledge_suspension_and_capture_links_disable_all_search_and_follow() {
         !attack.acquire && attack.follow,
         "configured attack only follows its existing target"
     );
-    for status in [0x20, 0x37, 0x3e, 0x40, 0x47, 0xb5] {
-        assert!(
-            !Scope::new(false, status, 0, false, false, false, false, false, true)
-                .observe_targets()
-        );
+    for status in [
+        kirby_assist_core::native_states::ESCAPE_F,
+        kirby_assist_core::native_states::CATCH,
+        kirby_assist_core::native_states::status::CATCH_CUT,
+        kirby_assist_core::native_states::THROW,
+        kirby_assist_core::native_states::status::DAMAGE,
+        kirby_assist_core::native_states::status::DEAD,
+    ] {
+        assert!(!Scope::new(
+            false,
+            status,
+            kirby_assist_core::native_states::status::WAIT,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+        )
+        .observe_targets());
     }
     let dodge = Scope::new(false, 0x1f, 0, false, false, false, false, true, false);
     assert!(
@@ -199,10 +299,14 @@ fn unconfirmed_up_b_never_enters_even_zero_horizontal_drift_or_neutral_release()
         let seq=Catalog::parse(&format!("[bowser.roll.test]\nstart_delay=0\ntimeout=180\nreaction=auto_spot_dodge:35:12\nactions={actions}\n")).unwrap().entries()[0].sequence;
         let target = Opponent {
             position: [0., 0.],
-            ..enemy(0., 0x1f)
+            ..enemy(0., kirby_assist_core::native_states::ESCAPE)
         };
         let mut response = Response::new();
-        assert!(response.start_up_b(seq, own(0., 0x1c), target));
+        assert!(response.start_up_b(
+            seq,
+            own(0., kirby_assist_core::native_states::GUARD),
+            target
+        ));
         let mut rules = Resolved::default();
         rules
             .add(Candidate {
@@ -212,10 +316,10 @@ fn unconfirmed_up_b_never_enters_even_zero_horizontal_drift_or_neutral_release()
             })
             .unwrap();
         let mut engine = Engine::default();
-        let mut ts = targets(0x1f);
+        let mut ts = targets(kirby_assist_core::native_states::ESCAPE);
         ts[0].as_mut().unwrap().position = [0.; 2];
         for n in 0..4 {
-            let c = own(n as f32, 0x1c);
+            let c = own(n as f32, kirby_assist_core::native_states::GUARD);
             assert_eq!(
                 response.sample(true, settings(), c, Some(target)).requested,
                 MAPPER_B | MAPPER_ZR
@@ -229,13 +333,25 @@ fn unconfirmed_up_b_never_enters_even_zero_horizontal_drift_or_neutral_release()
         }
         assert_eq!(
             response
-                .sample(true, settings(), own(4., 0x1c), Some(target))
+                .sample(
+                    true,
+                    settings(),
+                    own(4., kirby_assist_core::native_states::GUARD),
+                    Some(target)
+                )
                 .owned,
             0
         );
         assert_eq!(
             engine
-                .sample_simple(true, &rules, settings(), own(4., 0x1c), ts, Some(target))
+                .sample_simple(
+                    true,
+                    &rules,
+                    settings(),
+                    own(4., kirby_assist_core::native_states::GUARD),
+                    ts,
+                    Some(target)
+                )
                 .owned,
             0
         );
@@ -245,12 +361,25 @@ fn unconfirmed_up_b_never_enters_even_zero_horizontal_drift_or_neutral_release()
 }
 #[test]
 fn unconfirmed_up_b_releases_on_shield_damage_stop_or_attack_recovery() {
-    for (status, stop) in [(0x1e, false), (0x27, false), (0x1c, true)] {
+    for (status, stop) in [
+        (kirby_assist_core::native_states::GUARD_DAMAGE, false),
+        (0x27, false),
+        (kirby_assist_core::native_states::GUARD, true),
+    ] {
         let mut response = Response::new();
-        assert!(response.start_up_b(recipe(), own(0., 0x1c), enemy(0., 0x1f)));
+        assert!(response.start_up_b(
+            recipe(),
+            own(0., kirby_assist_core::native_states::GUARD),
+            enemy(0., kirby_assist_core::native_states::ESCAPE)
+        ));
         assert_ne!(
             response
-                .sample(true, settings(), own(0., 0x1c), Some(enemy(0., 0x1f)))
+                .sample(
+                    true,
+                    settings(),
+                    own(0., kirby_assist_core::native_states::GUARD),
+                    Some(enemy(0., kirby_assist_core::native_states::ESCAPE))
+                )
                 .requested,
             0
         );
@@ -259,11 +388,11 @@ fn unconfirmed_up_b_releases_on_shield_damage_stop_or_attack_recovery() {
                 .sample(
                     true,
                     settings(),
-                    LedgeContext {
+                    GameplayContext {
                         stopped: stop,
                         ..own(1., status)
                     },
-                    Some(enemy(1., 0x1f))
+                    Some(enemy(1., kirby_assist_core::native_states::ESCAPE))
                 )
                 .owned,
             0
@@ -274,10 +403,24 @@ fn unconfirmed_up_b_releases_on_shield_damage_stop_or_attack_recovery() {
 #[test]
 fn captured_or_throwing_targets_cancel_punishes_but_grab_attempts_remain_defendable() {
     use kirby_assist_core::reaction_rules::automatic_target_available;
-    for status in [0x38, 0x3a, 0x3c, 0x3e, 0x40, 0x41, 0x46, 0xb5, 0xb6] {
+    for status in [
+        kirby_assist_core::native_states::CATCH_PULL,
+        kirby_assist_core::native_states::CATCH_DASH_PULL,
+        kirby_assist_core::native_states::status::CATCH_WAIT,
+        kirby_assist_core::native_states::status::CATCH_CUT,
+        kirby_assist_core::native_states::THROW,
+        kirby_assist_core::native_states::CAPTURE_PULLED,
+        kirby_assist_core::native_states::THROWN,
+        kirby_assist_core::native_states::status::DEAD,
+        kirby_assist_core::native_states::status::REBIRTH,
+    ] {
         assert!(!automatic_target_available(status));
         let mut response = Response::new();
-        assert!(response.start_up_b(recipe(), own(0., 0), enemy(0., 0x1f)));
+        assert!(response.start_up_b(
+            recipe(),
+            own(0., 0),
+            enemy(0., kirby_assist_core::native_states::ESCAPE)
+        ));
         assert_eq!(
             response
                 .sample(true, settings(), own(0., 0), Some(enemy(0., status)))
@@ -286,7 +429,15 @@ fn captured_or_throwing_targets_cancel_punishes_but_grab_attempts_remain_defenda
         );
         assert!(!response.configured_committed());
     }
-    for status in [0, 0x1c, 0x27, 0x36, 0x37, 0x39, 0x3b] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::GUARD,
+        kirby_assist_core::native_states::status::ATTACK,
+        kirby_assist_core::native_states::status::ATTACK_AIR,
+        kirby_assist_core::native_states::CATCH,
+        kirby_assist_core::native_states::CATCH_DASH,
+        kirby_assist_core::native_states::CATCH_TURN,
+    ] {
         assert!(automatic_target_available(status));
     }
 }
@@ -294,7 +445,7 @@ fn captured_or_throwing_targets_cancel_punishes_but_grab_attempts_remain_defenda
 fn suspension_keeps_only_a_bounded_inert_grab_receipt() {
     let seq=Catalog::parse("[bowser.roll.test]\nstart_delay=0\ntimeout=180\nreaction=auto_grab:35:24\nactions=input:r:0:0:4,up_b:4\n").unwrap().entries()[0].sequence;
     let mut response = Response::new();
-    let target = enemy(0., 0x1c);
+    let target = enemy(0., kirby_assist_core::native_states::GUARD);
     assert!(response.start_sequence(seq, own(0., 0), target));
     assert_eq!(
         response
@@ -322,8 +473,8 @@ fn ledge_suspension_cancels_native_grab_inputs_but_keeps_receipt_until_catch_or_
         let mut tool = OutOfShield::new();
         let mut context = Context {
             object: 1,
-            kind: 15,
-            status: 0x1c,
+            kind: kirby_assist_core::fighter_kinds::BOWSER,
+            status: kirby_assist_core::native_states::GUARD,
             motion: 1,
             frame: 0.,
             rate: 1.,
@@ -340,8 +491,8 @@ fn ledge_suspension_cancels_native_grab_inputs_but_keeps_receipt_until_catch_or_
         let out = tool.sample_automatic(
             true,
             context,
-            own(0., 0x1c),
-            targets(0x1c),
+            own(0., kirby_assist_core::native_states::GUARD),
+            targets(kirby_assist_core::native_states::GUARD),
             None,
             true,
             22.,
@@ -356,7 +507,7 @@ fn ledge_suspension_cancels_native_grab_inputs_but_keeps_receipt_until_catch_or_
             tool.suspend_automatic();
             tool.delivery_tick(tick);
             if caught {
-                context.status = 0x37;
+                context.status = kirby_assist_core::native_states::CATCH;
             }
             context.frame = tick as f32;
             let out = tool.sample_automatic(

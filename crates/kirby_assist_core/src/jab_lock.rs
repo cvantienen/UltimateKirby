@@ -1,7 +1,7 @@
 //! Shared knockdown recognition; fighter-specific input-only chase policy.
 //! A lock is confirmed by native DOWN_DAMAGE/count, never by a jab press alone.
 use crate::{
-    ledge_trap::LedgeOutput,
+    gameplay::ControllerOutput,
     native_input::{MAPPER_A, MAPPER_R},
     timing::{motion_elapsed, motion_hash},
 };
@@ -17,7 +17,7 @@ pub struct Config {
     pub chase_distance: f32,
 }
 pub fn config(kind: i32) -> Option<Config> {
-    if kind != 5 {
+    if kind != crate::fighter_kinds::YOSHI {
         return None;
     }
     let active_start = |name| {
@@ -29,7 +29,7 @@ pub fn config(kind: i32) -> Option<Config> {
             .map(f32::from)
     };
     let fighter = crate::fighter_data::fighter(kind)?;
-    let grab = crate::fighter_data::ordinary_grab(kind, 0x37)?;
+    let grab = crate::fighter_data::ordinary_grab(kind, crate::native_states::CATCH)?;
     Some(Config {
         jab_start: active_start("Jab 1")?,
         jab_reach: 7.0,
@@ -59,11 +59,13 @@ pub const CHASE_HEIGHT: f32 = 24.0;
 /// Observed states that can lead to, or already describe, a tech/get-up visit.
 /// Ordinary damage flinches do not independently authorize an automatic chase.
 pub fn tech_chase_status(status: i32) -> bool {
-    matches!(status,0x49..=0x54 | 0x57..=0x5a | 0x67..=0x68)
+    matches!(status,crate::native_states::status::DAMAGE_FLY..=crate::native_states::status::DOWN_WAIT_CONTINUE | crate::native_states::status::DOWN_STAND..=crate::native_states::status::DOWN_DAMAGE | crate::native_states::status::PASSIVE..=crate::native_states::status::PASSIVE_FB)
 }
 pub fn jab_lockable(t: Target) -> bool {
-    matches!(t.status, 0x50..=0x54)
-        && t.grounded
+    matches!(
+        t.status,
+        crate::native_states::status::DOWN..=crate::native_states::status::DOWN_WAIT_CONTINUE
+    ) && t.grounded
         && !t.tech_available
         && (0..2).contains(&t.lock_count)
         && t.vulnerable_in == Some(0.0)
@@ -92,8 +94,8 @@ pub struct JabLock {
     target: Option<u32>,
     spent_target: Option<u32>,
     last: Option<Context>,
-    output: LedgeOutput,
-    request: LedgeOutput,
+    output: ControllerOutput,
+    request: ControllerOutput,
     age: f32,
     spent_tilt: Option<(u32, u64)>,
     previous_tilt_frame: f32,
@@ -108,7 +110,7 @@ impl JabLock {
     }
     pub fn cancel_pending(&mut self) {
         self.target = None;
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
         self.phase = 0;
     }
     pub fn sample(
@@ -116,7 +118,7 @@ impl JabLock {
         enabled: bool,
         c: Context,
         targets: [Option<Target>; 8],
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         self.sample_configured(enabled, c, targets, config(c.kind), CHASE_HEIGHT)
     }
     pub fn sample_configured(
@@ -126,10 +128,10 @@ impl JabLock {
         targets: [Option<Target>; 8],
         cfg: Option<Config>,
         height: f32,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         let Some(cfg) = cfg.filter(|_| enabled) else {
             *self = Self::default();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         };
         if self.last.is_some_and(|p| p.object != c.object) {
             *self = Self::default();
@@ -158,7 +160,9 @@ impl JabLock {
             self.last = Some(c);
             return self.output;
         }
-        if c.status != 0x2c || c.frame < self.previous_tilt_frame {
+        if c.status != crate::native_states::status::ATTACK_LW3
+            || c.frame < self.previous_tilt_frame
+        {
             self.spent_tilt = None;
         }
         self.previous_tilt_frame = c.frame;
@@ -169,12 +173,13 @@ impl JabLock {
         {
             self.spent_target = None;
         }
-        if matches!(c.status,0x47..=0x6b | 0x37..=0x3f) {
+        if matches!(c.status,crate::native_states::status::DAMAGE..=crate::native_states::status::PASSIVE_CEIL |         crate::native_states::status::CATCH..=crate::native_states::status::CATCH_JUMP)
+        {
             self.cancel_pending();
             return self.output;
         }
         if self.target.is_none() {
-            let tilt_hit = c.status == 0x2c
+            let tilt_hit = c.status == crate::native_states::status::ATTACK_LW3
                 && c.motion == motion_hash("attack_lw3")
                 && c.hit
                 && self.spent_tilt != Some((c.object, c.motion));
@@ -211,7 +216,9 @@ impl JabLock {
                 self.age = 0.0;
                 self.phase = 0;
                 self.request_age = 0.0;
-                self.confirmed_lock = t.status == 0x5a && t.hit_by_us && t.lock_count > 0;
+                self.confirmed_lock = t.status == crate::native_states::status::DOWN_DAMAGE
+                    && t.hit_by_us
+                    && t.lock_count > 0;
                 self.lock_count = t.lock_count;
                 if tilt_hit {
                     self.spent_tilt = Some((c.object, c.motion));
@@ -219,7 +226,7 @@ impl JabLock {
             }
         }
         let Some(id) = self.target else {
-            self.output = LedgeOutput::default();
+            self.output = ControllerOutput::default();
             return self.output;
         };
         self.age += delta;
@@ -238,19 +245,28 @@ impl JabLock {
         // A late aerial can create the visit before Yoshi lands. Keep the ID,
         // but never steer, jab or grab from the air on this ground-chase policy.
         if !c.grounded {
-            self.output = LedgeOutput::default();
+            self.output = ControllerOutput::default();
             return self.output;
         }
-        if self.phase == 3 && matches!(c.status,0x30..=0x32 | 0x37..=0x3f) {
+        if self.phase == 3
+            && matches!(c.status,crate::native_states::status::ATTACK_LW4_START..=crate::native_states::status::ATTACK_LW4 |             crate::native_states::status::CATCH..=crate::native_states::status::CATCH_JUMP)
+        {
             self.cancel_pending();
             return self.output;
         }
-        if self.phase == 1 && c.status == 0x27 && c.motion == motion_hash("attack_11") {
+        if self.phase == 1
+            && c.status == crate::native_states::status::ATTACK
+            && c.motion == motion_hash("attack_11")
+        {
             self.phase = 2;
             self.request_age = 0.0;
             self.output = crate::move_input::output([0.0; 2], 0);
         }
-        if self.phase == 2 && t.hit_by_us && t.status == 0x5a && t.lock_count > self.lock_count {
+        if self.phase == 2
+            && t.hit_by_us
+            && t.status == crate::native_states::status::DOWN_DAMAGE
+            && t.lock_count > self.lock_count
+        {
             self.confirmed_lock = true;
         }
         if c.stopped {
@@ -264,9 +280,12 @@ impl JabLock {
         };
         let distance = dx.abs();
         let facing = direction * c.facing > 0.0;
-        let roll = matches!(t.status, 0x58 | 0x68);
-        let grab = roll || t.status == 0x67;
-        let getup = matches!(t.status,0x57..=0x59 | 0x67..=0x68);
+        let roll = matches!(
+            t.status,
+            crate::native_states::status::DOWN_STAND_FB | crate::native_states::status::PASSIVE_FB
+        );
+        let grab = roll || t.status == crate::native_states::status::PASSIVE;
+        let getup = matches!(t.status,crate::native_states::status::DOWN_STAND..=crate::native_states::status::DOWN_STAND_ATTACK | crate::native_states::status::PASSIVE..=crate::native_states::status::PASSIVE_FB);
         let startup = if grab {
             cfg.grab_start
         } else {
@@ -391,5 +410,5 @@ fn valid(t: Target, c: Context, cfg: Config, height: f32) -> bool {
         && t.frame.is_finite()
         && (t.position[0] - c.position[0]).abs() <= cfg.chase_distance
         && (t.position[1] - c.position[1]).abs() <= height
-        && matches!(t.status,0x47..=0x4f | 0x50..=0x54 | 0x57..=0x5b | 0x67..=0x68)
+        && matches!(t.status,crate::native_states::status::DAMAGE..=crate::native_states::status::DAMAGE_FALL | crate::native_states::status::DOWN..=crate::native_states::status::DOWN_WAIT_CONTINUE | crate::native_states::status::DOWN_STAND..=crate::native_states::status::DOWN_REFLECT_LR | crate::native_states::status::PASSIVE..=crate::native_states::status::PASSIVE_FB)
 }

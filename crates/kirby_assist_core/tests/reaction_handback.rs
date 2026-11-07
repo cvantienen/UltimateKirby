@@ -1,5 +1,6 @@
 use kirby_assist_core::{
-    ledge_trap::{InputTimeline, LedgeContext, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     manual_controls::{AssistGuardHandoff, ManualOverlay, TurboOutput},
     native_input::{ButtonTrace, MAPPER_B, MAPPER_ZR},
     sequence_config::{persist, Catalog},
@@ -24,7 +25,7 @@ fn config(
 fn enemy(frame: f32) -> Opponent {
     Opponent {
         id: 2,
-        status: 0x20,
+        status: kirby_assist_core::native_states::ESCAPE_F,
         position: [20., 0.],
         motion: Some(MotionTiming {
             kind: 2,
@@ -35,8 +36,8 @@ fn enemy(frame: f32) -> Opponent {
         ..Default::default()
     }
 }
-fn ctx(frame: f32) -> LedgeContext {
-    LedgeContext {
+fn ctx(frame: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         motion_kind: 1,
@@ -57,7 +58,7 @@ fn fresh_manual_intent_cannot_cancel_or_mix_into_ordinary_reaction_tape() {
             & MAPPER_B,
         MAPPER_B
     );
-    let c = LedgeContext {
+    let c = GameplayContext {
         manual_input_epoch: 1,
         ..ctx(0.)
     };
@@ -76,7 +77,7 @@ fn ground_only_prevents_aerial_up_b_after_leaving_floor() {
             .requested,
         0
     );
-    let c = LedgeContext {
+    let c = GameplayContext {
         situation: 2,
         position: [7., 0.],
         ..ctx(1.)
@@ -92,7 +93,7 @@ fn ground_only_prevents_aerial_up_b_after_leaving_floor() {
 fn existing_grounded_start_filters_do_not_cancel_aerial_sequences_without_opt_in() {
     let mut t = InputTimeline::new(config("short_hop:1,up_b:3", false, true), enemy(0.));
     t.sample(LedgeSettings::default(), ctx(0.), Some(enemy(0.)), None, 0.);
-    let c = LedgeContext {
+    let c = GameplayContext {
         situation: 2,
         ..ctx(1.)
     };
@@ -109,7 +110,7 @@ fn existing_grounded_start_filters_do_not_cancel_aerial_sequences_without_opt_in
         literal
             .sample(
                 LedgeSettings::default(),
-                LedgeContext {
+                GameplayContext {
                     manual_input_epoch: 1,
                     ..ctx(1.)
                 },
@@ -222,7 +223,7 @@ fn exclusive_tape_masks_all_physical_gameplay_buttons_through_wait_and_drift() {
             );
         }
         for frame in 0..7 {
-            let c = LedgeContext {
+            let c = GameplayContext {
                 manual_input_epoch: frame as u64,
                 ..ctx(frame as f32)
             };

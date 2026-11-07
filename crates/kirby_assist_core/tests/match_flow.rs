@@ -1,16 +1,15 @@
 //! In-match handoff regressions: final release delivery and incapacitation.
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
-    ledge_trap::{
-        InputTimeline, LedgeContext, LedgeSettings, MotionTiming, Opponent, SEQUENCE_BUTTONS,
-    },
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
     native_input::{MAPPER_B, MAPPER_R, MAPPER_ZR},
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
 };
-fn context(frame: f32, status: i32) -> LedgeContext {
-    LedgeContext {
+fn context(frame: f32, status: i32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
@@ -27,7 +26,7 @@ fn context(frame: f32, status: i32) -> LedgeContext {
 fn enemy(frame: f32) -> Opponent {
     Opponent {
         id: 2,
-        status: 0x20,
+        status: kirby_assist_core::native_states::ESCAPE_F,
         position: [20., 0.],
         motion: Some(MotionTiming {
             kind: 2,
@@ -173,7 +172,20 @@ fn only_native_safety_can_preempt_a_committed_final_release() {
 #[test]
 fn knockdown_and_rebound_cancel_existing_inputs_but_getups_and_specials_do_not() {
     for status in [
-        0x41, 0x46, 0x47, 0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, 0x5a, 0x5b, 0x1bd, 0xb5, 0xb6,
+        kirby_assist_core::native_states::status::CAPTURE_PULLED,
+        kirby_assist_core::native_states::status::THROWN,
+        kirby_assist_core::native_states::status::DAMAGE,
+        kirby_assist_core::native_states::status::DAMAGE_FALL,
+        kirby_assist_core::native_states::status::DOWN,
+        kirby_assist_core::native_states::status::DOWN_SPOT,
+        kirby_assist_core::native_states::status::DOWN_CONTINUE,
+        kirby_assist_core::native_states::status::DOWN_WAIT,
+        kirby_assist_core::native_states::status::DOWN_WAIT_CONTINUE,
+        kirby_assist_core::native_states::status::DOWN_DAMAGE,
+        kirby_assist_core::native_states::status::DOWN_REFLECT_LR,
+        kirby_assist_core::native_states::status::DAMAGE_FLY_REFLECT_JUMP_BOARD,
+        kirby_assist_core::native_states::status::DEAD,
+        kirby_assist_core::native_states::status::REBIRTH,
     ] {
         for actions in ["up_b:4,drift:opponent:1:65", "hold_until_manual:b:0:0"] {
             let mut tape = InputTimeline::new(sequence(actions), enemy(0.));
@@ -204,7 +216,18 @@ fn knockdown_and_rebound_cancel_existing_inputs_but_getups_and_specials_do_not()
             assert_eq!(out.stick, None);
         }
     }
-    for status in [0, 3, 0x1c, 0x20, 0x57, 0x58, 0x59, 0x7e, 0x7f, 0x1de] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::GUARD,
+        kirby_assist_core::native_states::ESCAPE_F,
+        kirby_assist_core::native_states::status::DOWN_STAND,
+        kirby_assist_core::native_states::status::DOWN_STAND_FB,
+        kirby_assist_core::native_states::status::DOWN_STAND_ATTACK,
+        kirby_assist_core::native_states::status::OTTOTTO,
+        kirby_assist_core::native_states::status::OTTOTTO_WAIT,
+        kirby_assist_core::native_states::status::SPECIAL_HI,
+    ] {
         let mut tape = InputTimeline::new(sequence("up_b:4"), enemy(0.));
         tape.sample(
             LedgeSettings::default(),
@@ -223,19 +246,29 @@ fn knockdown_and_rebound_cancel_existing_inputs_but_getups_and_specials_do_not()
         assert!(!tape.finished(), "ordinary state {status:#x}");
         assert_eq!(
             out.requested,
-            MAPPER_B | if status == 0x1c { MAPPER_ZR } else { 0 }
+            MAPPER_B
+                | if status == kirby_assist_core::native_states::GUARD {
+                    MAPPER_ZR
+                } else {
+                    0
+                }
         );
     }
 }
 #[test]
 fn grounded_damage_interrupts_a_fixed_automatic_grab() {
     use kirby_assist_core::out_of_shield::{Context, OutOfShield};
-    for status in [0x47, 0x50, 0x5a, 0x1bd] {
+    for status in [
+        kirby_assist_core::native_states::status::DAMAGE,
+        kirby_assist_core::native_states::status::DOWN,
+        kirby_assist_core::native_states::status::DOWN_DAMAGE,
+        kirby_assist_core::native_states::status::DAMAGE_FLY_REFLECT_JUMP_BOARD,
+    ] {
         let mut assist = OutOfShield::new();
         let mut native = Context {
             object: 1,
-            kind: 15,
-            status: 0,
+            kind: kirby_assist_core::fighter_kinds::BOWSER,
+            status: kirby_assist_core::native_states::status::WAIT,
             motion: 1,
             frame: 0.,
             rate: 1.,
@@ -252,7 +285,7 @@ fn grounded_damage_interrupts_a_fixed_automatic_grab() {
         let mut targets = [None; 8];
         targets[0] = Some(Target {
             id: 2,
-            status: 0x1c,
+            status: kirby_assist_core::native_states::GUARD,
             motion: 2,
             frame: 0.,
             rate: 1.,

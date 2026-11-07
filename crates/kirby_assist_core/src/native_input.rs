@@ -38,6 +38,18 @@ pub const SEQUENCE_GUARD_INPUTS: u32 = SEQUENCE_GUARD_BUTTONS | MAPPER_R;
 pub const MAPPER_DIGITAL_L: u32 = 1 << 28;
 pub const MAPPER_DIGITAL_R: u32 = 1 << 29;
 pub const MAPPER_EXTRA_BUTTONS: u32 = (0xf << 12) | MAPPER_DIGITAL_L | MAPPER_DIGITAL_R;
+/// Native buttons that an assist policy may replace, excluding the D-pad.
+pub const ASSIST_BUTTONS: u32 = MAPPER_A
+    | MAPPER_B
+    | MAPPER_X
+    | MAPPER_Y
+    | MAPPER_L
+    | MAPPER_R
+    | MAPPER_ZL
+    | MAPPER_ZR
+    | (3 << 16)
+    | (0xf << 24)
+    | MAPPER_EXTRA_BUTTONS;
 /// Physical gameplay controls, excluding pause/menu and left-stick DI directions.
 pub const GAMEPLAY_BUTTONS: u32 = 0xf
     | MAPPER_A

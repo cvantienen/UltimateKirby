@@ -2,9 +2,9 @@
 use super::*;
 pub fn event(status: i32) -> Option<usize> {
     match status {
-        0x20 | 0x21 => Some(0),
-        0x1f => Some(1),
-        0x22 | 0x23 => Some(2),
+        crate::native_states::ESCAPE_F | crate::native_states::ESCAPE_B => Some(0),
+        crate::native_states::ESCAPE => Some(1),
+        crate::native_states::ESCAPE_AIR | crate::native_states::ESCAPE_AIR_SLIDE => Some(2),
         _ => None,
     }
 }
@@ -15,14 +15,14 @@ pub(super) fn starts_up_b(sequence: &Sequence) -> bool {
             |crate::sequence_config::Action::Controller{buttons,stick,..})
             if *buttons==crate::native_input::MAPPER_B && stick[1]>0.5)
 }
-pub(super) fn up_b_status(kind: i32, c: LedgeContext) -> bool {
+pub(super) fn up_b_status(kind: i32, c: GameplayContext) -> bool {
     automatic_up_b_status(kind, c.status, c.previous_status)
 }
 impl Engine {
     fn simple_candidate<'a>(
         &self,
         rules: &'a Resolved,
-        c: LedgeContext,
+        c: GameplayContext,
         targets: &[Option<Target>; 8],
         readiness: [bool; 3],
     ) -> Option<(usize, &'a Sequence)> {
@@ -77,12 +77,18 @@ impl Engine {
     fn prefers_simple_up_b(
         &self,
         rules: &Resolved,
-        c: LedgeContext,
+        c: GameplayContext,
         targets: &[Option<Target>; 8],
         follow: Option<Opponent>,
     ) -> bool {
         self.plan.is_none()
-            && !follow.is_some_and(|e| matches!(e.status, 0x75..=0x77))
+            && !follow.is_some_and(|e| {
+                matches!(
+                    e.status,
+                    crate::native_states::status::CLIFF_CATCH_MOVE
+                        ..=crate::native_states::status::CLIFF_WAIT
+                )
+            })
             && self
                 .simple_candidate(rules, c, targets, [c.can_act; 3])
                 .is_some_and(|(_, sequence)| sequence.start_delay == 0 && starts_up_b(sequence))
@@ -94,7 +100,7 @@ impl Engine {
         &self,
         allowed: bool,
         rules: &Resolved,
-        c: LedgeContext,
+        c: GameplayContext,
         targets: &[Option<Target>; 8],
         follow: Option<Opponent>,
         grab: &mut crate::out_of_shield::OutOfShield,
@@ -117,10 +123,10 @@ impl Engine {
         allowed: bool,
         rules: &Resolved,
         settings: LedgeSettings,
-        c: LedgeContext,
+        c: GameplayContext,
         targets: [Option<Target>; 8],
         follow: Option<Opponent>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         self.sample_simple_ready(allowed, rules, settings, c, targets, follow, [c.can_act; 3])
     }
     pub fn sample_simple_ready(
@@ -128,12 +134,12 @@ impl Engine {
         allowed: bool,
         rules: &Resolved,
         settings: LedgeSettings,
-        mut c: LedgeContext,
+        mut c: GameplayContext,
         targets: [Option<Target>; 8],
         mut follow: Option<Opponent>,
         readiness: [bool; 3],
-    ) -> LedgeOutput {
-        let tracking = settings.fighter_kind == 15
+    ) -> ControllerOutput {
+        let tracking = settings.fighter_kind == crate::fighter_kinds::BOWSER
             && self.simple_up_b
             && (self.simple_up_b_seen
                 || up_b_status(settings.fighter_kind, c)
@@ -146,12 +152,12 @@ impl Engine {
             for track in self.tracks.iter_mut().flatten() {
                 track.used = true;
             }
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if !c.gameplay {
             self.cancel();
             self.tracks = [None; crate::battle_objects::FIGHTER_CAPACITY];
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         // Read current live events without queuing an unactable response. A
         // still-occurring roll can become usable after shieldstun/recovery.
@@ -211,7 +217,7 @@ impl Engine {
             for t in self.tracks.iter_mut().flatten() {
                 t.used = true;
             }
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         // Only a selected/cancelled event is consumed. There is no delayed
         // response: admission still requires a live event and readiness now.
@@ -246,14 +252,17 @@ impl Engine {
                     // These three event families have known native situations.
                     // Keep first-frame conditional checks consistent with the
                     // subsequent read-only follow sample.
-                    situation: if matches!(t.status, 0x22 | 0x23) {
+                    situation: if matches!(
+                        t.status,
+                        crate::native_states::ESCAPE_AIR | crate::native_states::ESCAPE_AIR_SLIDE
+                    ) {
                         2
                     } else {
                         0
                     },
                     position: t.position,
                     velocity: [t.velocity_x, 0.],
-                    motion: Some(crate::ledge_trap::MotionTiming {
+                    motion: Some(crate::gameplay::MotionTiming {
                         kind: t.motion,
                         frame: t.frame,
                         rate: t.rate,
@@ -271,7 +280,10 @@ impl Engine {
         }
         if self.simple_up_b && self.plan.is_some() {
             let native = up_b_status(settings.fighter_kind, c);
-            if settings.fighter_kind == 15 && !self.simple_up_b_seen && self.simple_receipt.sent() {
+            if settings.fighter_kind == crate::fighter_kinds::BOWSER
+                && !self.simple_up_b_seen
+                && self.simple_receipt.sent()
+            {
                 if follow.is_none_or(|e| {
                     Some(e.id) != self.target
                         || !e
@@ -281,7 +293,7 @@ impl Engine {
                             .all(|v| v.is_finite())
                 }) {
                     self.cancel();
-                    return LedgeOutput::default();
+                    return ControllerOutput::default();
                 }
                 if native && self.simple_waiting {
                     if let Some(enemy) = follow.filter(|e| Some(e.id) == self.target) {
@@ -292,7 +304,7 @@ impl Engine {
                         || self.simple_receipt.expired()
                     {
                         self.cancel();
-                        return LedgeOutput::default();
+                        return ControllerOutput::default();
                     }
                     if self.simple_waiting
                         || c.stopped
@@ -300,15 +312,25 @@ impl Engine {
                         || self.simple_delivery.exhausted()
                     {
                         self.simple_waiting = true;
-                        return LedgeOutput::default();
+                        return ControllerOutput::default();
                     }
                 }
             }
             self.simple_up_b_seen |= native;
             // A native roll/jump/wrong special is not successful Up-B delivery.
             // Confirmed Up-B drift also ends once ordinary control resumes.
-            let wrong = matches!(c.status,0xb..=0xf|0x1f..=0x23|0x37..=0x40|0x1dc|0x1dd|0x1df);
-            let ended = self.simple_up_b_seen && matches!(c.status,0..=9|0x10|0x16..=0x1e);
+            let wrong = matches!(
+                c.status,
+                crate::native_states::status::JUMP..=crate::native_states::status::FALL_AERIAL
+                    | crate::native_states::ESCAPE
+                        ..=crate::native_states::ESCAPE_AIR_SLIDE
+                    | crate::native_states::CATCH..=crate::native_states::THROW
+                    | crate::native_states::status::SPECIAL_N
+                    | crate::native_states::status::SPECIAL_S
+                    | crate::native_states::status::SPECIAL_LW
+            );
+            let ended = self.simple_up_b_seen
+                && matches!(c.status,crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE|crate::native_states::status::FALL_SPECIAL|crate::native_states::status::LANDING..=crate::native_states::GUARD_DAMAGE);
             if wrong
                 || ended
                 || self.simple_up_b_seen && !native
@@ -318,23 +340,23 @@ impl Engine {
                         || self.simple_delivery.exhausted())
             {
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
         }
         if let Some(plan) = self.plan.as_mut() {
             let enemy = follow.filter(|e| Some(e.id) == self.target);
             if enemy.is_none() {
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
-            let manual_drift = settings.fighter_kind != 15
+            let manual_drift = settings.fighter_kind != crate::fighter_kinds::BOWSER
                 && self.simple_up_b
                 && self.simple_up_b_seen
                 && c.automatic_up_b_epoch.unwrap_or(c.manual_input_epoch)
                     != self.simple_manual_epoch;
             if manual_drift && plan.drifting() {
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             c.held = true;
             // Admission required immediate native Up-B readiness. Never reserve
@@ -348,7 +370,7 @@ impl Engine {
             // Bowser retains the entire tail; never cut the critical B pulse.
             if manual_drift && plan.drifting() {
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             // Never drift before native startup. A delivered Bowser packet may
             // keep only a bounded, input-free receipt; no B is retried.
@@ -356,12 +378,14 @@ impl Engine {
                 && !self.simple_up_b_seen
                 && output.requested & crate::native_input::MAPPER_B == 0
             {
-                if settings.fighter_kind == 15 && self.simple_receipt.sent() {
+                if settings.fighter_kind == crate::fighter_kinds::BOWSER
+                    && self.simple_receipt.sent()
+                {
                     self.simple_waiting = true;
-                    return LedgeOutput::default();
+                    return ControllerOutput::default();
                 }
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             if plan.finished() {
                 self.simple_up_b = false;
@@ -371,7 +395,7 @@ impl Engine {
             }
             output
         } else {
-            LedgeOutput::default()
+            ControllerOutput::default()
         }
     }
 }

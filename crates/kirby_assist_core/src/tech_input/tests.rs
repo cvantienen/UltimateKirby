@@ -3,7 +3,7 @@ use super::*;
 fn ctx(frame: f32) -> TechContext {
     TechContext {
         object: 1,
-        status: 0x49,
+        status: crate::native_states::status::DAMAGE_FLY,
         motion: 1,
         frame,
         rate: 1.0,
@@ -69,7 +69,7 @@ fn success_clears_synthetic_cooldown_and_changed_prediction_cancels_unmapped_pre
                 true,
                 40,
                 TechContext {
-                    status: 0x69,
+                    status: crate::native_states::status::PASSIVE_WALL,
                     motion: 2,
                     frame: 1.0,
                     ..ctx(1.0)
@@ -244,7 +244,12 @@ fn unavailable_animation_data_and_human_guard_do_not_erase_lockout_tracking() {
 
 #[test]
 fn pending_tech_cannot_replay_into_ordinary_fall_or_air_dodge() {
-    for status in [0xe, 0xf, 0x22, 0x23] {
+    for status in [
+        crate::native_states::status::FALL,
+        crate::native_states::status::FALL_AERIAL,
+        crate::native_states::ESCAPE_AIR,
+        crate::native_states::ESCAPE_AIR_SLIDE,
+    ] {
         let mut input = TechInput::default();
         assert!(input.sample(true, true, 40, ctx(1.0)).press);
         let output = input.sample(
@@ -335,7 +340,12 @@ fn prediction_gap_releases_ownership_without_rearming_lockout_and_recovery_hands
         ),
         TechOutput::default()
     );
-    for status in [0xe, 0xf, 0x22, 0x67] {
+    for status in [
+        crate::native_states::status::FALL,
+        crate::native_states::status::FALL_AERIAL,
+        crate::native_states::ESCAPE_AIR,
+        crate::native_states::status::PASSIVE,
+    ] {
         let mut input = TechInput::default();
         assert_eq!(
             input.sample(
@@ -370,7 +380,8 @@ fn first_unknown_clock_still_records_the_configured_human_guard_cooldown() {
 
 #[test]
 fn observed_tech_clears_lockout_even_before_its_animation_clock_is_available() {
-    for status in 0x67..=0x6b {
+    for status in crate::native_states::status::PASSIVE..=crate::native_states::status::PASSIVE_CEIL
+    {
         let mut input = TechInput::default();
         input.sample(true, true, 40, ctx(1.0));
         input.mapped_press();
@@ -433,7 +444,10 @@ fn native_safe_contact_can_deliver_during_a_frozen_or_unavailable_animation_cloc
                 "unknown clock must not spend lockout by poll count"
             );
         }
-        let unsafe_c = TechContext { status: 0xe, ..c };
+        let unsafe_c = TechContext {
+            status: crate::native_states::status::FALL,
+            ..c
+        };
         assert_eq!(
             input.sample(true, true, 40, unsafe_c),
             TechOutput::default()

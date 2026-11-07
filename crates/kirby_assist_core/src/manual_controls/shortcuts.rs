@@ -1,8 +1,11 @@
 //! Small physical-button shortcuts. They only propose ordinary controller input.
 //! Native animation progress, not mapper poll count, advances each sequence.
 use super::{DPAD_LEFT, DPAD_RIGHT, DPAD_SIDES, SHORT_HOP_TRIGGER};
-use crate::ledge_trap::LedgeOutput;
+use crate::gameplay::ControllerOutput;
 use crate::native_input::{MAPPER_B, MAPPER_X};
+
+// This policy ceiling includes the custom-status range without accepting arbitrary IDs.
+const SPECIAL_STATUS_UPPER_BOUND: i32 = 0x3ff;
 
 #[derive(Clone, Copy, Debug)]
 pub struct ShortcutContext {
@@ -34,7 +37,7 @@ pub struct Shortcuts {
     clock: Option<ShortcutContext>,
     age: f32,
     direction: f32,
-    output: LedgeOutput,
+    output: ControllerOutput,
     hop_requested: bool,
     hop_quarantined: bool,
 }
@@ -69,7 +72,7 @@ impl Shortcuts {
         buttons: u32,
         allowed: bool,
         ctx: Option<ShortcutContext>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         let pressed = buttons & !self.previous_buttons.unwrap_or(0);
         self.previous_buttons = Some(buttons);
         if buttons & MAPPER_X == 0 {
@@ -92,7 +95,7 @@ impl Shortcuts {
             if matches!(self.phase, Some(Phase::Hop | Phase::HopRelease))
                 && Self::hop_bufferable(ctx)
             {
-                if ctx.status == 0xa {
+                if ctx.status == crate::native_states::status::JUMP_SQUAT {
                     self.phase = Some(Phase::HopRelease);
                     self.output = Self::hop_release();
                 }
@@ -107,10 +110,10 @@ impl Shortcuts {
                 self.hop_quarantined = true;
                 self.clock = Some(ctx);
                 self.age = 0.0;
-                self.output = LedgeOutput {
+                self.output = ControllerOutput {
                     requested: MAPPER_X,
                     owned: MAPPER_X,
-                    ..LedgeOutput::default()
+                    ..ControllerOutput::default()
                 };
                 return self.output;
             }
@@ -183,7 +186,9 @@ impl Shortcuts {
                 // Emit X for one native update, then release it even if online
                 // delay postpones visible jump-squat confirmation. Repeated
                 // mapper polls have delta zero and reuse the same press trace.
-                if ctx.status == 0xa || self.hop_requested && self.age >= 1.0 {
+                if ctx.status == crate::native_states::status::JUMP_SQUAT
+                    || self.hop_requested && self.age >= 1.0
+                {
                     self.phase = Some(Phase::HopRelease);
                     self.age = 0.0;
                     Self::hop_release()
@@ -191,17 +196,20 @@ impl Shortcuts {
                     // A one-update jump-button tap produces a short hop without
                     // injecting shield. ZL could be mapped to shield and roll.
                     self.hop_requested = true;
-                    LedgeOutput {
+                    ControllerOutput {
                         requested: MAPPER_X,
                         owned: MAPPER_X,
-                        ..LedgeOutput::default()
+                        ..ControllerOutput::default()
                     }
                 }
             }
             Some(Phase::HopRelease) => {
                 // Holding physical X must not turn the hop into a full jump or
                 // create an extra aerial jump when the input is handed back.
-                if ctx.situation != 0 || ctx.status != 0xa || self.age > 8.0 {
+                if ctx.situation != 0
+                    || ctx.status != crate::native_states::status::JUMP_SQUAT
+                    || self.age > 8.0
+                {
                     self.cancel();
                 }
                 Self::hop_release()
@@ -254,40 +262,44 @@ impl Shortcuts {
                 }
                 Self::special_input(0, [self.direction, 0.0])
             }
-            None => LedgeOutput::default(),
+            None => ControllerOutput::default(),
         };
         self.output
     }
     fn hop_bufferable(ctx: ShortcutContext) -> bool {
         // Ground locomotion, squat, landing and guard. Attacks, damage, grabs,
         // air dodges and specials cannot accumulate a delayed jump request.
-        ctx.situation == 0 && matches!(ctx.status, 0..=0xa | 0x11..=0x1e)
+        ctx.situation == 0
+            && matches!(ctx.status, crate::native_states::status::WAIT..=crate::native_states::status::JUMP_SQUAT | crate::native_states::status::SQUAT..=crate::native_states::GUARD_DAMAGE)
     }
-    fn hop_release() -> LedgeOutput {
-        LedgeOutput {
+    fn hop_release() -> ControllerOutput {
+        ControllerOutput {
             owned: MAPPER_X,
-            ..LedgeOutput::default()
+            ..ControllerOutput::default()
         }
     }
     fn continuation_allowed(status: i32) -> bool {
         // Common movement/attack states or fighter-specific special states.
         // Damage, captures, dodges and scene transitions cannot continue a flick.
-        matches!(status, 0..=0x1d | 0x1dc..=0x3ff)
-            && !crate::native_states::sequence_interrupted(status)
+        matches!(
+            status,
+            crate::native_states::status::WAIT..=crate::native_states::GUARD_OFF
+                | crate::native_states::status::SPECIAL_N..=SPECIAL_STATUS_UPPER_BOUND
+        ) && !crate::native_states::sequence_interrupted(status)
     }
-    fn special_input(buttons: u32, stick: [f32; 2]) -> LedgeOutput {
-        LedgeOutput {
+    fn special_input(buttons: u32, stick: [f32; 2]) -> ControllerOutput {
+        ControllerOutput {
             stick: Some(stick),
             requested: buttons,
             owned: MAPPER_B,
-            ..LedgeOutput::default()
+            ..ControllerOutput::default()
         }
     }
     fn cancel(&mut self) {
         self.phase = None;
         self.clock = None;
         self.age = 0.0;
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
     }
 }
 
@@ -296,7 +308,7 @@ mod tests {
     use super::*;
     fn ctx(frame: f32) -> ShortcutContext {
         ShortcutContext {
-            status: 0,
+            status: crate::native_states::status::WAIT,
             situation: 0,
             motion: 1,
             frame,
@@ -322,7 +334,7 @@ mod tests {
             assert_eq!(tool.sample(MAPPER_X, true, Some(stopped)), press);
         }
         let squat = ShortcutContext {
-            status: 0xa,
+            status: crate::native_states::status::JUMP_SQUAT,
             motion: 2,
             ..stopped
         };
@@ -332,7 +344,7 @@ mod tests {
                 MAPPER_X,
                 true,
                 Some(ShortcutContext {
-                    status: 0xb,
+                    status: crate::native_states::status::JUMP,
                     situation: 2,
                     stopped: false,
                     ..squat
@@ -346,7 +358,7 @@ mod tests {
             0,
             true,
             Some(ShortcutContext {
-                status: 0xb,
+                status: crate::native_states::status::JUMP,
                 situation: 2,
                 ..ctx(1.0)
             }),
@@ -356,7 +368,7 @@ mod tests {
                 MAPPER_X,
                 true,
                 Some(ShortcutContext {
-                    status: 0xb,
+                    status: crate::native_states::status::JUMP,
                     situation: 2,
                     ..ctx(2.0)
                 })
@@ -379,7 +391,7 @@ mod tests {
         assert_eq!(hop.stick, None);
         assert_eq!(tool.sample(SHORT_HOP_TRIGGER, true, Some(ctx(0.0))), hop);
         let squat = ShortcutContext {
-            status: 0xa,
+            status: crate::native_states::status::JUMP_SQUAT,
             motion: 2,
             frame: 0.0,
             ..ctx(0.0)
@@ -402,7 +414,7 @@ mod tests {
             MAPPER_X
         );
         let squat = ShortcutContext {
-            status: 0xa,
+            status: crate::native_states::status::JUMP_SQUAT,
             motion: 2,
             frame: 0.0,
             ..ctx(0.0)
@@ -420,7 +432,7 @@ mod tests {
             assert_eq!(release.owned, MAPPER_X);
         }
         let air = ShortcutContext {
-            status: 0xb,
+            status: crate::native_states::status::JUMP,
             situation: 2,
             motion: 3,
             frame: 0.0,
@@ -496,7 +508,7 @@ mod tests {
                 0,
                 true,
                 Some(ShortcutContext {
-                    status: 0x1dc,
+                    status: crate::native_states::status::SPECIAL_N,
                     motion: 3,
                     frame: 0.0,
                     can_neutral_special: false,
@@ -510,13 +522,13 @@ mod tests {
                     0,
                     true,
                     Some(ShortcutContext {
-                        status: 0x1dc,
+                        status: crate::native_states::status::SPECIAL_N,
                         motion: 3,
                         frame: 1.0,
                         ..c
                     })
                 ),
-                LedgeOutput::default()
+                ControllerOutput::default()
             );
         }
     }
@@ -542,7 +554,7 @@ mod tests {
                 true,
                 Some(ShortcutContext {
                     facing: -c.facing,
-                    status: 0x1dc,
+                    status: crate::native_states::status::SPECIAL_N,
                     motion: 3,
                     frame: 0.0,
                     ..c
@@ -577,7 +589,7 @@ mod tests {
             DPAD_LEFT,
             true,
             Some(ShortcutContext {
-                status: 0x1dc,
+                status: crate::native_states::status::SPECIAL_N,
                 motion: 3,
                 frame: 0.0,
                 ..waiting
@@ -591,11 +603,11 @@ mod tests {
         tool.sample(0, true, Some(ctx(0.0)));
         assert_eq!(
             tool.sample(DPAD_LEFT, false, Some(ctx(1.0))),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
         assert_eq!(
             tool.sample(DPAD_LEFT, true, Some(ctx(2.0))),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
         tool.sample(0, true, Some(ctx(3.0)));
         tool.sample(DPAD_LEFT, true, Some(ctx(4.0)));
@@ -609,12 +621,12 @@ mod tests {
                     ..ctx(4.0)
                 })
             ),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
         assert!(!tool.active());
         assert_eq!(
             tool.sample(DPAD_LEFT, true, Some(ctx(5.0))),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
     }
     #[test]
@@ -622,8 +634,14 @@ mod tests {
         let mut tool = Shortcuts::default();
         tool.sample(0, true, Some(ctx(0.0)));
         tool.sample(DPAD_RIGHT, true, Some(ctx(0.0)));
-        assert_eq!(tool.sample(0, true, Some(ctx(4.0))), LedgeOutput::default());
+        assert_eq!(
+            tool.sample(0, true, Some(ctx(4.0))),
+            ControllerOutput::default()
+        );
         assert!(!tool.active());
-        assert_eq!(tool.sample(DPAD_RIGHT, true, None), LedgeOutput::default());
+        assert_eq!(
+            tool.sample(DPAD_RIGHT, true, None),
+            ControllerOutput::default()
+        );
     }
 }

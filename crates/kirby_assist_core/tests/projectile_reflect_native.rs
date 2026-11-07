@@ -51,7 +51,7 @@ mod game_ffi {
                 id,
                 generation: 1,
                 kind: 0,
-                status: 0,
+                status: kirby_assist_core::native_states::status::WAIT,
                 situation: 0,
                 stopped: false,
                 linked: false,
@@ -89,7 +89,10 @@ mod game_ffi {
     }
     pub unsafe fn transition_enabled(o: *mut Object, key: i32) -> bool {
         read();
-        assert_eq!(key, 0x1e000066);
+        assert_eq!(
+            key,
+            kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_LW
+        );
         (*o).ready
     }
     pub unsafe fn scale(o: *mut Object) -> f32 {
@@ -267,7 +270,17 @@ fn disabled_unsupported_and_unconfigured_modes_make_zero_native_queries() {
 #[test]
 fn busy_captured_full_unready_and_shielding_states_never_read_projectile_geometry() {
     for status in [
-        0x1b, 0x1c, 0x1e, 0x20, 0x37, 0x3f, 0x47, 0x50, 0x75, 0x1de, 0x1e7,
+        kirby_assist_core::native_states::status::GUARD_ON,
+        kirby_assist_core::native_states::status::GUARD,
+        kirby_assist_core::native_states::status::GUARD_DAMAGE,
+        kirby_assist_core::native_states::status::ESCAPE_F,
+        kirby_assist_core::native_states::status::CATCH,
+        kirby_assist_core::native_states::status::CATCH_JUMP,
+        kirby_assist_core::native_states::status::DAMAGE,
+        kirby_assist_core::native_states::status::DOWN,
+        kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE,
+        kirby_assist_core::native_states::status::SPECIAL_HI,
+        0x1e7,
     ] {
         let mut own = reset();
         own.status = status;

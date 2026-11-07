@@ -2,7 +2,8 @@
 use kirby_assist_core::{
     action_owner::{automatic_escape_request, Owner},
     defense_response::Response,
-    ledge_trap::{LedgeContext, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::LedgeSettings,
     native_input::{automatic_escape, ControlLayout, MAPPER_B, MAPPER_R, MAPPER_ZL, MAPPER_ZR},
     observation::{Fact, Field, ObservationSnapshot},
     reaction_rules::{Candidate, Engine, Resolved},
@@ -10,8 +11,8 @@ use kirby_assist_core::{
     sequence_config::{Catalog, Sequence},
     spot_dodge::{Context as DodgeContext, SpotDodge, Target as GrabTarget},
 };
-fn own(frame: f32, status: i32) -> LedgeContext {
-    LedgeContext {
+fn own(frame: f32, status: i32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
@@ -39,7 +40,7 @@ fn rules(frames: u8) -> Resolved {
 fn enemy(frame: f32) -> Opponent {
     Opponent {
         id: 2,
-        status: 0x20,
+        status: kirby_assist_core::native_states::ESCAPE_F,
         position: [10., 0.],
         motion: Some(MotionTiming {
             kind: 2,
@@ -54,7 +55,7 @@ fn targets(frame: f32) -> [Option<Target>; 8] {
     let mut out = [None; 8];
     out[0] = Some(Target {
         id: 2,
-        status: 0x20,
+        status: kirby_assist_core::native_states::ESCAPE_F,
         motion: 2,
         frame,
         rate: 0.,
@@ -67,16 +68,16 @@ fn targets(frame: f32) -> [Option<Target>; 8] {
 }
 fn settings() -> LedgeSettings {
     LedgeSettings {
-        fighter_kind: 15,
+        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     }
 }
 
 #[test]
 fn frozen_native_clocks_cannot_hold_unconfirmed_automatic_up_b_forever() {
-    let c = LedgeContext {
+    let c = GameplayContext {
         motion_rate: 0.,
-        ..own(0., 0x1c)
+        ..own(0., kirby_assist_core::native_states::GUARD)
     };
     let mut engine = Engine::default();
     let rules = rules(4);
@@ -106,7 +107,7 @@ fn frozen_native_clocks_cannot_hold_unconfirmed_automatic_up_b_forever() {
             response.mapped_up_special(tick, 2);
         }
     }
-    let stopped = LedgeContext { stopped: true, ..c };
+    let stopped = GameplayContext { stopped: true, ..c };
     assert_eq!(
         engine
             .sample_simple(
@@ -186,7 +187,7 @@ fn native_confirmation_wins_at_delivery_limit_and_preserves_all_69_drift_frames(
         response.mapped_up_special(frame, 2);
     }
     for frame in 4..73 {
-        let c = LedgeContext {
+        let c = GameplayContext {
             situation: 2,
             ..own(frame as f32, 0x1e1)
         };
@@ -289,7 +290,7 @@ fn grab(frame: f32) -> [Option<GrabTarget>; 8] {
     let mut out = [None; 8];
     out[0] = Some(GrabTarget {
         id: 2,
-        status: 0x37,
+        status: kirby_assist_core::native_states::CATCH,
         motion: 2,
         frame,
         rate: 1.,
@@ -323,11 +324,24 @@ fn known_grab_end_rearms_defense_without_rearming_for_unknown_or_stopped_targets
         dodge.sample(true, dodge_context(0), grab(2.)).requested,
         MAPPER_ZR
     );
-    dodge.sample(true, dodge_context(0x1f), grab(3.));
+    dodge.sample(
+        true,
+        dodge_context(kirby_assist_core::native_states::ESCAPE),
+        grab(3.),
+    );
     dodge.cancel_response();
     dodge.observe_statuses(&[None; 8]);
     dodge.sample(true, dodge_context(0), [None; 8]);
-    dodge.observe_statuses(&[Some((2, 0x37)), None, None, None, None, None, None, None]);
+    dodge.observe_statuses(&[
+        Some((2, kirby_assist_core::native_states::CATCH)),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    ]);
     assert_eq!(dodge.sample(true, dodge_context(0), grab(4.)).owned, 0);
     dodge.observe_statuses(&[Some((99, 0)), None, None, None, None, None, None, None]);
     assert_eq!(dodge.sample(true, dodge_context(0), grab(5.)).owned, 0);
@@ -416,7 +430,11 @@ fn known_status_export_only_uses_existing_facts_and_does_not_claim_unknown_field
 
 #[test]
 fn leaving_ground_before_native_confirmation_cannot_turn_the_request_into_an_air_up_b() {
-    for status in [0x10, 0xb, 0xe] {
+    for status in [
+        kirby_assist_core::native_states::status::FALL_SPECIAL,
+        kirby_assist_core::native_states::status::JUMP,
+        kirby_assist_core::native_states::status::FALL,
+    ] {
         let mut engine = Engine::default();
         let rules = rules(4);
         let mut response = Response::default();
@@ -440,7 +458,7 @@ fn leaving_ground_before_native_confirmation_cannot_turn_the_request_into_an_air
                 .requested,
             MAPPER_B
         );
-        let air = LedgeContext {
+        let air = GameplayContext {
             situation: 2,
             ..own(1., status)
         };
@@ -496,7 +514,7 @@ fn another_fighter_reusing_a_roster_slot_cannot_erase_a_consumed_event() {
         true,
         &rules,
         settings(),
-        LedgeContext {
+        GameplayContext {
             can_act: false,
             ..own(2., 0)
         },
@@ -514,7 +532,11 @@ fn another_fighter_reusing_a_roster_slot_cannot_erase_a_consumed_event() {
 
     let mut dodge = SpotDodge::default();
     dodge.sample(true, dodge_context(0), grab(2.));
-    dodge.sample(true, dodge_context(0x1f), grab(3.));
+    dodge.sample(
+        true,
+        dodge_context(kirby_assist_core::native_states::ESCAPE),
+        grab(3.),
+    );
     dodge.cancel_response();
     let mut other = grab(4.);
     other[0].as_mut().unwrap().id = 3;
@@ -541,7 +563,11 @@ fn sixteen_climber_grabs_remain_consumed_when_warning_candidates_change() {
             dodge.sample(true, dodge_context(0), targets).requested,
             MAPPER_ZR
         );
-        dodge.sample(true, dodge_context(0x1f), targets);
+        dodge.sample(
+            true,
+            dodge_context(kirby_assist_core::native_states::ESCAPE),
+            targets,
+        );
         dodge.cancel_response();
     }
     for id in 1..=16 {

@@ -68,7 +68,7 @@ pub fn purpose(owner: Owner) -> &'static str {
     }
 }
 pub fn motion_name(status: i32, motion: u64) -> &'static str {
-    if status == 0x36 {
+    if status == crate::native_states::status::ATTACK_AIR {
         for (key, name) in [
             ("attack_air_n", "neutral air"),
             ("attack_air_f", "forward air"),
@@ -86,12 +86,12 @@ pub fn motion_name(status: i32, motion: u64) -> &'static str {
 fn native_action(status: i32) -> u16 {
     match status {
         0xa..=0x10 => 1,
-        0x1b..=0x1e => 2,
-        0x1f => 4,
-        0x20..=0x23 => 8,
+        crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE => 2,
+        crate::native_states::ESCAPE => 4,
+        crate::native_states::ESCAPE_F..=crate::native_states::ESCAPE_AIR_SLIDE => 8,
         0x27..=0x35 => 16,
         0x36 => 32,
-        0x37..=0x3f => 64,
+        crate::native_states::status::CATCH..=crate::native_states::status::CATCH_JUMP => 64,
         0x47..=0x6b => 128,
         0x75..=0x7c => 256,
         _ => 0,
@@ -106,10 +106,12 @@ pub fn native_name(status: i32) -> &'static str {
         0xb..=0x10 => "airborne",
         0x11..=0x15 => "crouching",
         0x16..=0x18 => "landing",
-        0x1b..=0x1e => "shield / shield stun",
-        0x1f => "spot dodge",
-        0x20..=0x21 => "roll dodge",
-        0x22..=0x23 => "air dodge",
+        crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE => {
+            "shield / shield stun"
+        }
+        crate::native_states::ESCAPE => "spot dodge",
+        crate::native_states::ESCAPE_F..=crate::native_states::ESCAPE_B => "roll dodge",
+        crate::native_states::ESCAPE_AIR..=crate::native_states::ESCAPE_AIR_SLIDE => "air dodge",
         0x27 => "jab",
         0x28..=0x29 => "jab follow-up / dash attack",
         0x2a => "forward tilt",
@@ -119,10 +121,14 @@ pub fn native_name(status: i32) -> &'static str {
         0x30..=0x32 => "down smash",
         0x33..=0x35 => "up smash",
         0x36 => "aerial attack",
-        0x37 => "standing grab startup",
-        0x39 => "dash grab startup",
-        0x3b => "pivot grab startup",
-        0x38 | 0x3a | 0x3c..=0x3f => "grab pull / hold / pummel",
+        crate::native_states::CATCH => "standing grab startup",
+        crate::native_states::CATCH_DASH => "dash grab startup",
+        crate::native_states::CATCH_TURN => "pivot grab startup",
+        crate::native_states::CATCH_PULL
+        | crate::native_states::CATCH_DASH_PULL
+        | crate::native_states::status::CATCH_WAIT..=crate::native_states::status::CATCH_JUMP => {
+            "grab pull / hold / pummel"
+        }
         0x5c..=0x6b => "knockdown / getup",
         0x47..=0x5b => "damage / hitstun",
         0x75..=0x7c => "ledge action",
@@ -585,7 +591,7 @@ mod tests {
             committed: false,
             requested: 0,
             stick: None,
-            status: 0,
+            status: crate::native_states::status::WAIT,
             motion: 1,
             native_frame: 0,
             stopped: false,
@@ -612,7 +618,7 @@ mod tests {
         r.sample(snapshot(), 0);
         r.sample(
             Snapshot {
-                status: 0x36,
+                status: crate::native_states::status::ATTACK_AIR,
                 motion: crate::timing::motion_hash("attack_air_f"),
                 native_frame: 10,
                 ..snapshot()
@@ -677,7 +683,7 @@ mod tests {
         );
         r.sample(
             Snapshot {
-                status: 0xa,
+                status: crate::native_states::status::JUMP_SQUAT,
                 can_act: false,
                 ..snapshot()
             },

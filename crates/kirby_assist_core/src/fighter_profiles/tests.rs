@@ -104,7 +104,9 @@ fn profile_grab_facts_follow_the_matching_reference_row() {
     for profile in profiles.profiles.values() {
         let grab_data = profile.ledge.grab;
 
-        if let Some(reference) = crate::fighter_data::ordinary_grab(profile.fighter_kind, 0x37) {
+        if let Some(reference) =
+            crate::fighter_data::ordinary_grab(profile.fighter_kind, crate::native_states::CATCH)
+        {
             assert_eq!(
                 grab_data.standing_startup, reference.first,
                 "{}",
@@ -126,13 +128,19 @@ fn profile_grab_facts_follow_the_matching_reference_row() {
 
         for (status, reference_frame, profile_frame) in [
             (
-                0x39,
-                crate::fighter_data::ordinary_grab(profile.fighter_kind, 0x39),
+                crate::native_states::CATCH_DASH,
+                crate::fighter_data::ordinary_grab(
+                    profile.fighter_kind,
+                    crate::native_states::CATCH_DASH,
+                ),
                 grab_data.dash_startup,
             ),
             (
-                0x3b,
-                crate::fighter_data::ordinary_grab(profile.fighter_kind, 0x3b),
+                crate::native_states::CATCH_TURN,
+                crate::fighter_data::ordinary_grab(
+                    profile.fighter_kind,
+                    crate::native_states::CATCH_TURN,
+                ),
                 grab_data.pivot_startup,
             ),
         ] {

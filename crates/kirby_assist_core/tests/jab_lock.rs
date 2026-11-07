@@ -6,8 +6,8 @@ use kirby_assist_core::{
 fn context(frame: f32) -> Context {
     Context {
         object: 1,
-        kind: 5,
-        status: 0x2c,
+        kind: kirby_assist_core::fighter_kinds::YOSHI,
+        status: kirby_assist_core::native_states::status::ATTACK_LW3,
         motion: motion_hash("attack_lw3"),
         frame,
         rate: 1.0,
@@ -50,7 +50,7 @@ fn configured_reach() -> Config {
 }
 fn idle(frame: f32) -> Context {
     Context {
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         motion: motion_hash("wait"),
         hit: false,
         can_move: true,
@@ -183,7 +183,7 @@ fn chases_stops_at_floor_edge_turns_then_jabs_and_only_confirms_real_lock() {
     assert_eq!(out.requested, MAPPER_A);
     // Exact jab 1 startup releases A before the jab-2 chain window.
     let jab = Context {
-        status: 0x27,
+        status: kirby_assist_core::native_states::status::ATTACK,
         motion: motion_hash("attack_11"),
         can_move: false,
         can_jab: false,
@@ -207,7 +207,7 @@ fn chases_stops_at_floor_edge_turns_then_jabs_and_only_confirms_real_lock() {
     let out = j.sample(
         true,
         Context {
-            status: 0x30,
+            status: kirby_assist_core::native_states::status::ATTACK_LW4_START,
             ..idle(1.0)
         },
         targets(target(0x5a, 5.0)),
@@ -292,7 +292,7 @@ fn late_aerial_tumble_arms_without_hit_attribution_but_never_steers_in_air() {
     let out = j.sample(
         true,
         Context {
-            status: 0x36,
+            status: kirby_assist_core::native_states::status::ATTACK_AIR,
             grounded: false,
             ..idle(1.0)
         },
@@ -388,7 +388,7 @@ fn accepted_jab_releases_a_even_in_hitstop_and_moving_rolls_need_future_reach() 
         MAPPER_A
     );
     let jab = Context {
-        status: 0x27,
+        status: kirby_assist_core::native_states::status::ATTACK,
         motion: motion_hash("attack_11"),
         stopped: true,
         ..idle(1.0)
@@ -431,7 +431,7 @@ fn delayed_jab_startup_keeps_chase_alive_until_native_acceptance() {
         );
     }
     let jab = Context {
-        status: 0x27,
+        status: kirby_assist_core::native_states::status::ATTACK,
         motion: motion_hash("attack_11"),
         can_smash: false,
         ..idle(0.0)

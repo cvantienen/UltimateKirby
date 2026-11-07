@@ -1,6 +1,6 @@
 //! Keep a released manual jump from racing a new grounded automatic input
 //! while the native fighter has not acknowledged the queued jump yet.
-use crate::ledge_trap::{LedgeContext, NativeAttempt};
+use crate::{gameplay::GameplayContext, ledge_trap::NativeAttempt};
 #[derive(Default)]
 pub struct ManualJumpFence {
     owner: Option<(u32, i32)>,
@@ -20,7 +20,7 @@ impl ManualJumpFence {
     pub fn pending(&self) -> bool {
         self.pending
     }
-    pub fn sample(&mut self, object: u32, kind: i32, held: bool, c: LedgeContext) -> bool {
+    pub fn sample(&mut self, object: u32, kind: i32, held: bool, c: GameplayContext) -> bool {
         if self.owner != Some((object, kind)) {
             *self = Self::new();
             self.owner = Some((object, kind));
@@ -35,7 +35,7 @@ impl ManualJumpFence {
         }
         self.held = held;
         if self.pending {
-            if c.status == 0xa || c.situation == 2 {
+            if c.status == crate::native_states::status::JUMP_SQUAT || c.situation == 2 {
                 self.pending = false;
             } else {
                 // A lag pause/duplicate mapper poll cannot spend this fence.

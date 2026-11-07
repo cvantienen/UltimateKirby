@@ -9,7 +9,7 @@ fn punch(frame: f32) -> DuckEnemy {
     DuckEnemy {
         id: 10,
         kind: 0xb,
-        status: 0x1dc,
+        status: kirby_assist_core::native_states::status::SPECIAL_N,
         situation: 0,
         motion: FALCON_PUNCH_MOTION,
         frame,
@@ -114,7 +114,7 @@ fn unknown_variants_movement_height_size_and_platforms_are_not_ducked() {
     assert!(threats(mirrored).duck.is_some());
     for enemy in [
         DuckEnemy {
-            kind: 6,
+            kind: kirby_assist_core::fighter_kinds::KIRBY,
             ..punch(40.)
         }, // copied Punch is a different height
         DuckEnemy {
@@ -217,7 +217,7 @@ fn independent_held_mode_outputs_down_or_shield_and_release_clears_both() {
     let mut defense = DuckDefense::default();
     let c = DuckContext {
         clock: GuardClock {
-            status: 0,
+            status: kirby_assist_core::native_states::status::WAIT,
             motion: 123,
             frame: 0.,
             rate: 1.,

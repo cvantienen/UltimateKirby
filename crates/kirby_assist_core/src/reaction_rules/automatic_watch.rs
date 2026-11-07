@@ -56,7 +56,7 @@ impl Resolved {
 /// only for an in-range candidate. All native queries happen before STATE locks.
 pub fn simple_readiness(
     starts: [Option<SimpleStart>; 3],
-    c: LedgeContext,
+    c: GameplayContext,
     targets: &[Option<Target>; 8],
     mut shield_ready: impl FnMut() -> bool,
 ) -> [bool; 3] {
@@ -94,7 +94,7 @@ pub fn simple_readiness(
             c.can_act
         } else if !crate::out_of_shield::stationary_grab_state(c.status) {
             false
-        } else if c.status == 0 || c.can_act {
+        } else if c.status == crate::native_states::status::WAIT || c.can_act {
             true
         } else {
             *shield.get_or_insert_with(&mut shield_ready)
@@ -110,17 +110,17 @@ pub fn sample_optional_simple(
     allowed: bool,
     rules: Option<&Resolved>,
     settings: LedgeSettings,
-    c: LedgeContext,
+    c: GameplayContext,
     targets: [Option<Target>; 8],
     follow: Option<Opponent>,
     readiness: [bool; 3],
-) -> LedgeOutput {
+) -> ControllerOutput {
     let Some(rules) = rules.filter(|rules| rules.has_simple_events()) else {
         *engine = None;
-        return LedgeOutput::default();
+        return ControllerOutput::default();
     };
     if engine.is_none() && (!allowed || !readiness.into_iter().any(|ready| ready)) {
-        return LedgeOutput::default();
+        return ControllerOutput::default();
     }
     engine
         .get_or_insert_with(Box::<Engine>::default)

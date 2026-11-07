@@ -12,7 +12,7 @@ fn constructor_and_saved_binding_validation_fit_a_small_loader_stack() {
         profiles.validate().unwrap();
         assert!(profiles.profile(6).is_some());
         assert!(profiles.profile(5).is_some());
-        assert_eq!((0..0x5e).filter(|kind|profiles.profile(*kind).is_some()).count(),79);
+        assert_eq!((0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT).filter(|kind|profiles.profile(*kind).is_some()).count(),79);
     }).unwrap().join().unwrap();
 }
 

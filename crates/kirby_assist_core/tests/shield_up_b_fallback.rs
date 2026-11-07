@@ -1,6 +1,7 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
-    ledge_trap::{LedgeContext, LedgeSettings, SEQUENCE_BUTTONS},
+    gameplay::GameplayContext,
+    ledge_trap::{LedgeSettings, SEQUENCE_BUTTONS},
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::*,
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
@@ -11,8 +12,8 @@ use kirby_assist_core::{
 fn c(frame: f32) -> Context {
     Context {
         object: 1,
-        kind: 15,
-        status: 0x1c,
+        kind: kirby_assist_core::fighter_kinds::BOWSER,
+        status: kirby_assist_core::native_states::GUARD,
         motion: 1,
         frame,
         rate: 1.,
@@ -27,11 +28,11 @@ fn c(frame: f32) -> Context {
         threatened: false,
     }
 }
-fn lc(frame: f32) -> LedgeContext {
-    LedgeContext {
+fn lc(frame: f32) -> GameplayContext {
+    GameplayContext {
         gameplay: true,
         held: true,
-        status: 0x1c,
+        status: kirby_assist_core::native_states::GUARD,
         motion_kind: 1,
         motion_frame: frame,
         motion_rate: 1.,
@@ -44,7 +45,7 @@ fn targets(x: f32) -> [Option<Target>; 8] {
     [
         Some(Target {
             id: 2,
-            status: 0x1c,
+            status: kirby_assist_core::native_states::GUARD,
             motion: 2,
             frame: 0.,
             rate: 1.,
@@ -66,9 +67,9 @@ fn sample(
     o: &mut OutOfShield,
     allowed: bool,
     c: Context,
-    lc: LedgeContext,
+    lc: GameplayContext,
     t: [Option<Target>; 8],
-) -> kirby_assist_core::ledge_trap::LedgeOutput {
+) -> kirby_assist_core::gameplay::ControllerOutput {
     o.sample_automatic_configured(
         allowed,
         c,
@@ -94,7 +95,11 @@ fn explicit_backup_for(kind: i32) -> AutomaticConfig<'static> {
         std::sync::OnceLock::new();
     static OTHER: std::sync::OnceLock<kirby_assist_core::sequence_config::Sequence> =
         std::sync::OnceLock::new();
-    let cell = if kind == 15 { &BOWSER } else { &OTHER };
+    let cell = if kind == kirby_assist_core::fighter_kinds::BOWSER {
+        &BOWSER
+    } else {
+        &OTHER
+    };
     AutomaticConfig{backup:Some(cell.get_or_init(||{
         let actions=if kind==15{"up_b:4,drift:opponent:1:69"}else{"up_b:4"};
         Catalog::parse(&format!("[bowser.roll.backup]\nstart_delay=0\nreaction=auto_shield_backup:22:24\nactions={actions}\n")).unwrap().entries()[0].sequence
@@ -146,13 +151,13 @@ fn shieldstun_hitstop_and_unready_states_do_not_queue_or_neutralize_manual_contr
         let mut context = c(0.);
         let mut own = lc(0.);
         match case {
-            0 => context.status = 0x1e,
+            0 => context.status = kirby_assist_core::native_states::GUARD_DAMAGE,
             1 => context.stopped = true,
             2 => own.stopped = true,
             3 => context.can_up_special = false,
             4 => context.shield_ready = false,
             5 => context.grounded = false,
-            6 => context.status = 0,
+            6 => context.status = kirby_assist_core::native_states::status::WAIT,
             7 => own.gameplay = false,
             _ => {}
         }
@@ -233,7 +238,7 @@ fn failed_or_crossed_grab_hands_to_up_b_without_mixing_inputs_or_adding_a_releas
 fn fallback_is_bounded_by_delivered_packets_and_releases_on_native_start_or_manual_escape() {
     let mut o = OutOfShield::new();
     let ctx = Context { rate: 0., ..c(0.) };
-    let own = LedgeContext {
+    let own = GameplayContext {
         motion_rate: 0.,
         ..lc(0.)
     };
@@ -261,7 +266,14 @@ fn fallback_is_bounded_by_delivered_packets_and_releases_on_native_start_or_manu
         o.target().is_none(),
         "passive confirmation is bounded even with frozen motion clocks"
     );
-    for status in [0, 3, 0x1d, 0x1e, 0x37, 0x47] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::GUARD_OFF,
+        kirby_assist_core::native_states::GUARD_DAMAGE,
+        kirby_assist_core::native_states::CATCH,
+        kirby_assist_core::native_states::status::DAMAGE,
+    ] {
         let mut o = OutOfShield::new();
         sample(&mut o, true, c(0.), lc(0.), targets(-10.));
         assert_eq!(
@@ -291,7 +303,7 @@ fn native_grab_acceptance_and_other_input_owners_are_never_replaced_by_the_fallb
             &mut o,
             true,
             Context {
-                status: 0x37,
+                status: kirby_assist_core::native_states::CATCH,
                 ..c(1.)
             },
             lc(1.),
@@ -339,7 +351,7 @@ fn roll_up_b_wins_before_new_shield_fallback_and_active_fallback_cannot_become_a
         })
         .unwrap();
     let mut ts = targets(-10.);
-    ts[0].as_mut().unwrap().status = 0x20;
+    ts[0].as_mut().unwrap().status = kirby_assist_core::native_states::ESCAPE_F;
     let mut e = Engine::default();
     let mut o = OutOfShield::new();
     let reaction = e.sample_simple(true, &rules, LedgeSettings::default(), lc(0.), ts, None);
@@ -477,7 +489,7 @@ fn roll_priority_is_rechecked_when_a_cancelled_fallback_proposes_a_fresh_grab() 
     next[0].as_mut().unwrap().id = 3;
     next[1] = next[0].map(|t| Target {
         id: 4,
-        status: 0x20,
+        status: kirby_assist_core::native_states::ESCAPE_F,
         position: [-15., 0.],
         ..t
     });
@@ -521,7 +533,7 @@ fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames(
             shield_ready: false,
             ..c(frame as f32)
         };
-        let context = LedgeContext {
+        let context = GameplayContext {
             status: 0x1e2,
             situation: 2,
             ..lc(frame as f32)
@@ -537,7 +549,7 @@ fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames(
             35.,
             Some(8.),
             LedgeSettings {
-                fighter_kind: 15,
+                fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                 ..Default::default()
             },
             explicit_backup(),
@@ -556,7 +568,7 @@ fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames(
             grounded: false,
             ..c(69.)
         },
-        LedgeContext {
+        GameplayContext {
             status: 0x1e2,
             situation: 2,
             ..lc(69.)
@@ -568,7 +580,7 @@ fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames(
         35.,
         Some(8.),
         LedgeSettings {
-            fighter_kind: 15,
+            fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
             ..Default::default()
         },
         explicit_backup(),
@@ -587,7 +599,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
             status: 0x1e1,
             ..c(0.)
         };
-        let context = LedgeContext {
+        let context = GameplayContext {
             status: 0x1e1,
             ..lc(0.)
         };
@@ -603,7 +615,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
                 35.,
                 Some(8.),
                 LedgeSettings {
-                    fighter_kind: 15,
+                    fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                     ..Default::default()
                 },
                 explicit_backup()
@@ -612,7 +624,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
             Some([-1., 0.])
         );
         let mut next = Context { frame: 1., ..own };
-        let ctx = LedgeContext {
+        let ctx = GameplayContext {
             motion_frame: 1.,
             manual_input_epoch: 1,
             automatic_up_b_epoch: Some(1),
@@ -620,7 +632,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
         };
         let mut ts = targets(-10.);
         match case {
-            0 => next.status = 0x10,
+            0 => next.status = kirby_assist_core::native_states::status::FALL_SPECIAL,
             1 => ts = [None; 8],
             _ => {}
         }
@@ -636,7 +648,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
                 35.,
                 Some(8.),
                 LedgeSettings {
-                    fighter_kind: 15,
+                    fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                     ..Default::default()
                 },
                 explicit_backup()
@@ -655,7 +667,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
                     grounded: false,
                     ..c(0.)
                 },
-                LedgeContext {
+                GameplayContext {
                     status: 0x1e2,
                     situation: 2,
                     ..lc(0.)
@@ -667,7 +679,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
                 35.,
                 Some(8.),
                 LedgeSettings {
-                    fighter_kind: 15,
+                    fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                     ..Default::default()
                 },
                 explicit_backup()
@@ -676,14 +688,17 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
         0
     );
     let mut other = OutOfShield::new();
-    let other_ctx = Context { kind: 6, ..c(0.) };
+    let other_ctx = Context {
+        kind: kirby_assist_core::fighter_kinds::KIRBY,
+        ..c(0.)
+    };
     sample(&mut other, true, other_ctx, lc(0.), targets(-10.));
     assert_eq!(
         other
             .sample_automatic_configured(
                 true,
                 Context {
-                    status: 0x1de,
+                    status: kirby_assist_core::native_states::status::SPECIAL_HI,
                     ..other_ctx
                 },
                 lc(1.),
@@ -694,7 +709,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
                 35.,
                 Some(8.),
                 LedgeSettings {
-                    fighter_kind: 6,
+                    fighter_kind: kirby_assist_core::fighter_kinds::KIRBY,
                     ..Default::default()
                 },
                 explicit_backup_for(6)
@@ -716,7 +731,7 @@ fn supplied_bowser_dodge_sequences_have_only_the_requested_69_frame_drift_change
         let e = catalog
             .entries()
             .iter()
-            .find(|e| e.fighter_kind == 15 && e.choice == id)
+            .find(|e| e.fighter_kind == kirby_assist_core::fighter_kinds::BOWSER && e.choice == id)
             .unwrap();
         assert_eq!(e.sequence.start_delay, 0);
         assert_eq!(e.sequence.actions().len(), 2);
@@ -739,7 +754,7 @@ fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clo
         status: 0x1e1,
         ..c(0.)
     };
-    let context = LedgeContext {
+    let context = GameplayContext {
         status: 0x1e1,
         ..lc(0.)
     };
@@ -755,7 +770,7 @@ fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clo
             35.,
             Some(8.),
             LedgeSettings {
-                fighter_kind: 15,
+                fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                 ..Default::default()
             },
             explicit_backup()
@@ -771,7 +786,7 @@ fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clo
                     stopped: true,
                     ..own
                 },
-                LedgeContext {
+                GameplayContext {
                     stopped: true,
                     ..context
                 },
@@ -782,7 +797,7 @@ fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clo
                 35.,
                 Some(8.),
                 LedgeSettings {
-                    fighter_kind: 15,
+                    fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                     ..Default::default()
                 },
                 explicit_backup()
@@ -795,7 +810,7 @@ fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clo
         o.sample_automatic_configured(
             true,
             Context { frame: 1., ..own },
-            LedgeContext {
+            GameplayContext {
                 motion_frame: 1.,
                 ..context
             },
@@ -806,7 +821,7 @@ fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clo
             35.,
             Some(8.),
             LedgeSettings {
-                fighter_kind: 15,
+                fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                 ..Default::default()
             },
             explicit_backup()

@@ -2,7 +2,8 @@
 //! Catch. Never turn a delivered Grab into a competing Special/throw packet.
 use crate::{
     action_owner::{native_grab_active, Intent, Owner},
-    ledge_trap::{sequence_interrupted, LedgeContext, LedgeOutput, NativeAttempt, Opponent},
+    gameplay::{ControllerOutput, GameplayContext, Opponent},
+    ledge_trap::{sequence_interrupted, NativeAttempt},
     native_input::{MAPPER_R, MAPPER_ZR, SEQUENCE_JUMP_BUTTONS},
 };
 #[derive(Default)]
@@ -13,7 +14,7 @@ pub struct GrabHandoff {
     previous_request: bool,
     previous_catch: bool,
     native_clock: NativeAttempt,
-    native_context: Option<LedgeContext>,
+    native_context: Option<GameplayContext>,
     enemy_clock: NativeAttempt,
     enemy_id: Option<u32>,
     packets: u8,
@@ -43,7 +44,7 @@ impl GrabHandoff {
     pub fn reserve_ledge_inputs(&self) -> bool {
         !self.pending || self.owner == Some(Owner::Ledge)
     }
-    pub fn grab_packet(mut out: LedgeOutput) -> LedgeOutput {
+    pub fn grab_packet(mut out: ControllerOutput) -> ControllerOutput {
         if out.requested & MAPPER_R != 0 {
             out.requested &= MAPPER_R | MAPPER_ZR;
             out.stick = Some([out.stick.map_or(0., |s| s[0]), 0.]);
@@ -78,7 +79,7 @@ impl GrabHandoff {
     /// Live observations expire on native progress, not controller polls. A
     /// missing/frozen observation cannot prove a queued Catch has expired.
     /// This receipt emits no input while awaiting acknowledgment.
-    pub fn observe_native(&mut self, valid: bool, context: Option<LedgeContext>) {
+    pub fn observe_native(&mut self, valid: bool, context: Option<GameplayContext>) {
         if !valid {
             *self = Self::new();
             return;
@@ -99,7 +100,7 @@ impl GrabHandoff {
     /// Held shield can have a static animation even while the game advances.
     /// Reuse a current opponent motion already read by the active watch; never
     /// poll another fighter or count controller ticks as simulated frames.
-    pub fn observe_enemy_progress(&mut self, c: LedgeContext, enemy: Option<Opponent>) {
+    pub fn observe_enemy_progress(&mut self, c: GameplayContext, enemy: Option<Opponent>) {
         if !self.pending {
             return;
         }
@@ -116,7 +117,7 @@ impl GrabHandoff {
             self.enemy_id = Some(enemy.id);
         }
         self.enemy_clock.advance_pause(
-            LedgeContext {
+            GameplayContext {
                 status: enemy.status,
                 motion_kind: motion.kind,
                 motion_frame: motion.frame,
@@ -130,13 +131,13 @@ impl GrabHandoff {
             self.clear_receipt();
         }
     }
-    pub fn manual_jump_packet(out: LedgeOutput, right: Option<[f32; 2]>) -> bool {
+    pub fn manual_jump_packet(out: ControllerOutput, right: Option<[f32; 2]>) -> bool {
         out.requested & SEQUENCE_JUMP_BUTTONS != 0
             && out.requested & !SEQUENCE_JUMP_BUTTONS == 0
             && out.stick.is_none_or(|s| s[1] == 0.)
             && right.is_none_or(|s| s == [0.; 2])
     }
-    pub fn shield_packet(out: LedgeOutput, right: Option<[f32; 2]>) -> bool {
+    pub fn shield_packet(out: ControllerOutput, right: Option<[f32; 2]>) -> bool {
         out.requested == MAPPER_ZR
             && out.stick.is_none_or(|s| s == [0.; 2])
             && right.is_none_or(|s| s == [0.; 2])
@@ -159,7 +160,12 @@ impl GrabHandoff {
     }
     /// Same owner's remaining neutral-axis Grab pulse is safe. At its first
     /// other action, abort playback and retain only this input-free receipt.
-    pub fn permits(&self, owner: Option<Owner>, out: LedgeOutput, right: Option<[f32; 2]>) -> bool {
+    pub fn permits(
+        &self,
+        owner: Option<Owner>,
+        out: ControllerOutput,
+        right: Option<[f32; 2]>,
+    ) -> bool {
         !self.pending
             || owner == Some(Owner::Safety)
             || owner.is_some()

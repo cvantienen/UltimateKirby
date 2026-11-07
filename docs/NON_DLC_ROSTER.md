@@ -2,7 +2,7 @@
 
 The runtime has 79 registered fighter-profile identities for menu/configuration
 behavior. Fighter statistics and move-frame facts are a separate catalog:
-[`data/Ultimate_stats.json`](../data/Ultimate_stats.json) contains 90 exact
+`data/Ultimate_stats.json` contains 90 exact
 native-kind records across the roster, including DLC fighters.
 
 ## One canonical stats source

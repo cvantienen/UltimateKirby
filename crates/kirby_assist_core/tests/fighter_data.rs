@@ -70,7 +70,11 @@ fn fighter_data_is_available_independent_of_match_role() {
 #[test]
 fn ordinary_grab_lookup_uses_each_fighters_own_data_including_dlc() {
     for fighter in fighter_data::all() {
-        for status in [0x37, 0x39, 0x3b] {
+        for status in [
+            kirby_assist_core::native_states::CATCH,
+            kirby_assist_core::native_states::CATCH_DASH,
+            kirby_assist_core::native_states::CATCH_TURN,
+        ] {
             assert!(
                 fighter_data::ordinary_grab(fighter.kind, status).is_some(),
                 "missing ordinary grab status {status:#x} for {}",
@@ -79,16 +83,21 @@ fn ordinary_grab_lookup_uses_each_fighters_own_data_including_dlc() {
         }
     }
     assert_eq!(
-        fighter_data::ordinary_grab(6, 0x37),
+        fighter_data::ordinary_grab(6, kirby_assist_core::native_states::CATCH),
         Some(fighter_data::GrabReference {
             first: 6,
             last: 7,
             reach: Some(12.5),
         })
     );
-    assert_eq!(fighter_data::ordinary_grab(43, 0x37).unwrap().first, 12);
     assert_eq!(
-        fighter_data::ordinary_grab(82, 0x39),
+        fighter_data::ordinary_grab(43, kirby_assist_core::native_states::CATCH)
+            .unwrap()
+            .first,
+        12
+    );
+    assert_eq!(
+        fighter_data::ordinary_grab(82, kirby_assist_core::native_states::CATCH_DASH),
         Some(fighter_data::GrabReference {
             first: 8,
             last: 9,
@@ -96,8 +105,8 @@ fn ordinary_grab_lookup_uses_each_fighters_own_data_including_dlc() {
         }),
         "Joker must not inherit Kirby's dash-grab timing"
     );
-    assert!(fighter_data::ordinary_grab(82, 0x1f).is_none());
-    assert!(fighter_data::ordinary_grab(0x77, 0x37).is_none());
+    assert!(fighter_data::ordinary_grab(82, kirby_assist_core::native_states::ESCAPE).is_none());
+    assert!(fighter_data::ordinary_grab(0x77, kirby_assist_core::native_states::CATCH).is_none());
 }
 #[test]
 fn recovery_rejects_contact_active_hits_cancel_and_changed_animations() {
@@ -107,7 +116,7 @@ fn recovery_rejects_contact_active_hits_cancel_and_changed_animations() {
         .unwrap();
     let o = RecoveryObservation {
         motion: motion_hash("attack_lw4"),
-        status: 0x32,
+        status: kirby_assist_core::native_states::status::ATTACK_LW4,
         grounded: true,
         frame: 20.0,
         rate: 1.0,
@@ -152,7 +161,10 @@ fn recovery_rejects_contact_active_hits_cancel_and_changed_animations() {
         RecoveryObservation { end: 100.0, ..o },
         RecoveryObservation { cancel: 19.0, ..o },
         RecoveryObservation { rate: 0.0, ..o },
-        RecoveryObservation { status: 0x30, ..o },
+        RecoveryObservation {
+            status: kirby_assist_core::native_states::status::ATTACK_LW4_START,
+            ..o
+        },
     ] {
         assert_eq!(m.recovery(bad), None);
     }

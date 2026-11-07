@@ -1,6 +1,7 @@
 //! Final controller delivery regressions shared by ledge/button/Auto react tapes.
 use kirby_assist_core::{
-    ledge_trap::{InputTimeline, LedgeContext, LedgeSettings, Opponent, SEQUENCE_BUTTONS},
+    gameplay::{GameplayContext, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
     manual_controls::{
         ManualOverlay, ShortcutContext, Shortcuts, TurboOutput, LEFT_STICK_DIRECTIONS,
     },
@@ -21,8 +22,8 @@ fn tape(actions: &str) -> InputTimeline {
         },
     )
 }
-fn context(frame: f32) -> LedgeContext {
-    LedgeContext {
+fn context(frame: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         motion_kind: 1,
@@ -175,7 +176,7 @@ fn native_jump_pulse_survives_consumption_of_its_remapped_physical_source() {
                 MAPPER_X,
                 true,
                 Some(ShortcutContext {
-                    status: 0,
+                    status: kirby_assist_core::native_states::status::WAIT,
                     situation: 0,
                     motion: 1,
                     frame: 10.,

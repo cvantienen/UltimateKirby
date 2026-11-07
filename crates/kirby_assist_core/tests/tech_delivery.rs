@@ -6,7 +6,7 @@ use kirby_assist_core::{
 fn context() -> TechContext {
     TechContext {
         object: 1,
-        status: 0x49,
+        status: kirby_assist_core::native_states::status::DAMAGE_FLY,
         motion: 1,
         frame: 0.,
         rate: 1.,
@@ -153,7 +153,10 @@ fn no_contact_recovery_disable_and_cancel_invalidate_the_delivery_receipt() {
             contact_in: None,
             ..c
         },
-        TechContext { status: 0xe, ..c },
+        TechContext {
+            status: kirby_assist_core::native_states::status::FALL,
+            ..c
+        },
         TechContext {
             prepare_guard: false,
             contact_in: None,

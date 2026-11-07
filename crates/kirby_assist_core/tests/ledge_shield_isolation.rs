@@ -2,18 +2,16 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
     fighter_profiles::presets::PresetSlot,
+    gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
     grab_handoff::GrabHandoff,
-    ledge_trap::{
-        InputTimeline, LedgeContext, LedgeOutput, LedgeSettings, MotionTiming, Opponent,
-        SEQUENCE_BUTTONS,
-    },
+    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
     native_input::{MAPPER_B, MAPPER_R, MAPPER_ZR},
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
     roll_read::Target,
     sequence_config::{Catalog, Sequence},
 };
-fn c(status: i32, frame: f32) -> LedgeContext {
-    LedgeContext {
+fn c(status: i32, frame: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
@@ -26,10 +24,10 @@ fn c(status: i32, frame: f32) -> LedgeContext {
         ..Default::default()
     }
 }
-fn own(context: LedgeContext) -> Context {
+fn own(context: GameplayContext) -> Context {
     Context {
         object: 1,
-        kind: 15,
+        kind: kirby_assist_core::fighter_kinds::BOWSER,
         status: context.status,
         motion: context.motion_kind,
         frame: context.motion_frame,
@@ -77,7 +75,7 @@ fn enemy(status: i32, x: f32, frame: f32) -> Opponent {
 }
 fn settings() -> LedgeSettings {
     LedgeSettings {
-        fighter_kind: 15,
+        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     }
 }
@@ -91,12 +89,12 @@ fn recipe(event: &str, actions: &str) -> Sequence {
 }
 fn sample(
     tool: &mut OutOfShield,
-    context: LedgeContext,
+    context: GameplayContext,
     ts: [Option<Target>; 8],
     shielded: bool,
     grab: &Sequence,
     shield: &Sequence,
-) -> LedgeOutput {
+) -> ControllerOutput {
     tool.sample_automatic_configured(
         true,
         own(context),
@@ -115,8 +113,8 @@ fn sample(
         },
     )
 }
-fn shield() -> LedgeOutput {
-    LedgeOutput {
+fn shield() -> ControllerOutput {
+    ControllerOutput {
         requested: MAPPER_ZR,
         owned: SEQUENCE_BUTTONS,
         stick: Some([0.; 2]),
@@ -137,7 +135,7 @@ fn saved_bowser_chase_first_grab_uses_immediate_native_grab_instead_of_69_frame_
     let out = sample(
         &mut tool,
         c(0, 0.),
-        targets(0x1c, 10., 0.),
+        targets(kirby_assist_core::native_states::GUARD, 10., 0.),
         false,
         grab,
         shield,
@@ -148,15 +146,19 @@ fn saved_bowser_chase_first_grab_uses_immediate_native_grab_instead_of_69_frame_
     for frame in 1..70 {
         let out = sample(
             &mut tool,
-            c(0x37, frame as f32),
-            targets(0x41, 10., frame as f32),
+            c(kirby_assist_core::native_states::CATCH, frame as f32),
+            targets(
+                kirby_assist_core::native_states::CAPTURE_PULLED,
+                10.,
+                frame as f32,
+            ),
             false,
             grab,
             shield,
         );
         assert_eq!(
             out,
-            LedgeOutput::default(),
+            ControllerOutput::default(),
             "no retained drift after native Catch"
         );
     }
@@ -164,7 +166,7 @@ fn saved_bowser_chase_first_grab_uses_immediate_native_grab_instead_of_69_frame_
     let out = sample(
         &mut tool,
         c(0, 0.),
-        targets(0x1c, 30., 0.),
+        targets(kirby_assist_core::native_states::GUARD, 30., 0.),
         false,
         grab,
         shield,
@@ -175,7 +177,7 @@ fn saved_bowser_chase_first_grab_uses_immediate_native_grab_instead_of_69_frame_
     let out = sample(
         &mut tool,
         c(3, 1.),
-        targets(0x1c, 30., 1.),
+        targets(kirby_assist_core::native_states::GUARD, 30., 1.),
         false,
         grab,
         shield,
@@ -189,8 +191,11 @@ fn saved_bowser_chase_first_grab_uses_immediate_native_grab_instead_of_69_frame_
 fn a_fresh_shield_grab_is_sent_on_its_first_legal_observation_without_dropping_guard() {
     let grab = recipe("auto_grab", "input:r:0:0:4");
     let shield = recipe("auto_shield_grab", "input:r:0:0:4");
-    for status in [0x1b, 0x1c] {
-        for enemy_status in [0, 0x1c, 0x27, 0x57] {
+    for status in [
+        kirby_assist_core::native_states::GUARD_ON,
+        kirby_assist_core::native_states::GUARD,
+    ] {
+        for enemy_status in [0, kirby_assist_core::native_states::GUARD, 0x27, 0x57] {
             let mut tool = OutOfShield::new();
             let out = sample(
                 &mut tool,
@@ -215,7 +220,7 @@ fn shield_entry_replaces_an_undelivered_custom_grab_plan_on_the_same_observation
         sample(
             &mut tool,
             c(0, 0.),
-            targets(0x1c, 10., 0.),
+            targets(kirby_assist_core::native_states::GUARD, 10., 0.),
             false,
             &grab,
             &shield
@@ -225,7 +230,7 @@ fn shield_entry_replaces_an_undelivered_custom_grab_plan_on_the_same_observation
     );
     let out = sample(
         &mut tool,
-        c(0x1c, 1.),
+        c(kirby_assist_core::native_states::GUARD, 1.),
         targets(0, 10., 1.),
         true,
         &grab,
@@ -238,12 +243,16 @@ fn shield_entry_replaces_an_undelivered_custom_grab_plan_on_the_same_observation
 fn an_undelivered_custom_grab_cannot_chase_a_lost_unshielded_or_rear_target() {
     let grab = recipe("auto_grab", "wait:10,input:r:0:0:4");
     let shield = recipe("auto_shield_grab", "input:r:0:0:4");
-    for (status, x) in [(0, 10.), (0x1c, -10.), (0x1c, 36.)] {
+    for (status, x) in [
+        (0, 10.),
+        (kirby_assist_core::native_states::GUARD, -10.),
+        (kirby_assist_core::native_states::GUARD, 36.),
+    ] {
         let mut tool = OutOfShield::new();
         sample(
             &mut tool,
             c(0, 0.),
-            targets(0x1c, 10., 0.),
+            targets(kirby_assist_core::native_states::GUARD, 10., 0.),
             false,
             &grab,
             &shield,
@@ -257,7 +266,7 @@ fn an_undelivered_custom_grab_cannot_chase_a_lost_unshielded_or_rear_target() {
                 &grab,
                 &shield
             ),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
         assert!(!tool.configured_committed());
     }
@@ -271,7 +280,7 @@ fn ledge_takeover_waits_for_prior_receipts_and_never_replaces_a_queued_grab_with
         Some(Owner::RollRead),
     ] {
         let mut h = GrabHandoff::new();
-        h.observe_native(true, Some(c(0x1c, 0.)));
+        h.observe_native(true, Some(c(kirby_assist_core::native_states::GUARD, 0.)));
         h.mapped(0, previous, true, true, true);
         let mut ownership = ActionOwnership::new();
         if let Some(owner) = previous {
@@ -287,7 +296,7 @@ fn ledge_takeover_waits_for_prior_receipts_and_never_replaces_a_queued_grab_with
         assert!(h.pending());
         assert!(!h.permits(
             Some(Owner::Ledge),
-            LedgeOutput {
+            ControllerOutput {
                 requested: MAPPER_B,
                 ..shield()
             },
@@ -308,7 +317,7 @@ fn ledge_takeover_waits_for_prior_receipts_and_never_replaces_a_queued_grab_with
         assert!(h.permits(Some(Owner::Ledge), shield(), None));
         assert!(h.permits(
             Some(Owner::Ledge),
-            LedgeOutput {
+            ControllerOutput {
                 requested: MAPPER_B,
                 stick: Some([0., 1.]),
                 ..shield()
@@ -323,7 +332,7 @@ fn a_ledge_tapes_own_grab_receipt_preserves_both_authored_four_frame_shield_hold
     let mut tape = InputTimeline::new(sequence, enemy(0x77, 10., 0.));
     let mut h = GrabHandoff::new();
     for tick in 0..12 {
-        let context = c(0x1c, tick as f32);
+        let context = c(kirby_assist_core::native_states::GUARD, tick as f32);
         h.observe_native(true, Some(context));
         h.reserve_ledge_inputs();
         let out = tape.sample(
@@ -351,7 +360,7 @@ fn a_ledge_tapes_own_grab_receipt_preserves_both_authored_four_frame_shield_hold
     assert!(h.pending());
     assert!(!h.permits(
         Some(Owner::Ledge),
-        LedgeOutput {
+        ControllerOutput {
             requested: MAPPER_B,
             stick: Some([0., 1.]),
             ..shield()
@@ -372,11 +381,11 @@ fn a_queued_grab_never_blocks_passive_defensive_shield() {
     assert!(!intents[1].present);
     assert!(h.permits(Some(Owner::Defense), shield(), None));
     for bad in [
-        LedgeOutput {
+        ControllerOutput {
             requested: MAPPER_ZR | MAPPER_B,
             ..shield()
         },
-        LedgeOutput {
+        ControllerOutput {
             stick: Some([1., 0.]),
             ..shield()
         },
@@ -387,7 +396,7 @@ fn a_queued_grab_never_blocks_passive_defensive_shield() {
 #[test]
 fn static_shield_receipts_expire_from_already_observed_enemy_progress_without_an_extra_grab_frame()
 {
-    let context = c(0x1c, 0.);
+    let context = c(kirby_assist_core::native_states::GUARD, 0.);
     let mut h = GrabHandoff::new();
     h.observe_native(true, Some(context));
     h.mapped(0, Some(Owner::OutOfShield), true, true, true);
@@ -418,7 +427,7 @@ fn static_shield_receipts_expire_from_already_observed_enemy_progress_without_an
 }
 #[test]
 fn stopped_or_missing_clock_samples_cannot_be_charged_to_a_queued_grab() {
-    let context = c(0x1c, 0.);
+    let context = c(kirby_assist_core::native_states::GUARD, 0.);
     let mut h = GrabHandoff::new();
     h.observe_native(true, Some(context));
     h.mapped(0, None, true, true, true);
@@ -427,7 +436,7 @@ fn stopped_or_missing_clock_samples_cannot_be_charged_to_a_queued_grab() {
         h.observe_enemy_progress(context, Some(enemy(0, 10., frame as f32)));
     }
     h.observe_enemy_progress(
-        LedgeContext {
+        GameplayContext {
             stopped: true,
             ..context
         },
@@ -443,11 +452,11 @@ fn stopped_or_missing_clock_samples_cannot_be_charged_to_a_queued_grab() {
 #[test]
 fn a_new_ledge_grab_requires_the_prior_receipt_to_end_and_a_new_input_edge() {
     let mut h = GrabHandoff::new();
-    h.observe_native(true, Some(c(0x1c, 0.)));
+    h.observe_native(true, Some(c(kirby_assist_core::native_states::GUARD, 0.)));
     h.mapped(0, Some(Owner::OutOfShield), true, true, true);
     assert!(!h.reserve_ledge_inputs());
-    h.observe_native(true, Some(c(0x37, 0.)));
-    h.observe_native(true, Some(c(0x1c, 0.)));
+    h.observe_native(true, Some(c(kirby_assist_core::native_states::CATCH, 0.)));
+    h.observe_native(true, Some(c(kirby_assist_core::native_states::GUARD, 0.)));
     h.mapped(1, Some(Owner::Ledge), true, true, true);
     assert!(
         !h.pending(),
@@ -461,7 +470,7 @@ fn a_new_ledge_grab_requires_the_prior_receipt_to_end_and_a_new_input_edge() {
     assert!(h.permits(Some(Owner::Ledge), shield(), None));
     assert!(!h.permits(
         Some(Owner::Ledge),
-        LedgeOutput {
+        ControllerOutput {
             requested: MAPPER_B,
             stick: Some([0., 1.]),
             ..shield()
@@ -478,7 +487,7 @@ fn manual_retreat_ends_an_undelivered_unshielded_custom_grab_but_not_a_shield_ti
     let out = sample(
         &mut tool,
         c(0, 0.),
-        targets(0x1c, 10., 0.),
+        targets(kirby_assist_core::native_states::GUARD, 10., 0.),
         false,
         &grab,
         &shield,
@@ -486,13 +495,13 @@ fn manual_retreat_ends_an_undelivered_unshielded_custom_grab_but_not_a_shield_ti
     assert_ne!(out.owned, 0);
     assert_eq!(
         tool.with_grab_movement(out, [-0.7, 0.]),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     assert!(!tool.configured_committed());
     let mut tool = OutOfShield::new();
     let out = sample(
         &mut tool,
-        c(0x1c, 0.),
+        c(kirby_assist_core::native_states::GUARD, 0.),
         targets(0, 10., 0.),
         true,
         &grab,

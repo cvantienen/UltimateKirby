@@ -96,16 +96,16 @@ pub struct GrabTiming {
     pub standing_active_frames: u8,
 }
 
-/// The fighter's exact grab references used by ledge range checks and tuning.
+/// Grab timing and reach values derived from a fighter's canonical data.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct LedgeFighterData {
+pub struct FighterGrabData {
     pub grab: GrabTiming,
 }
-impl LedgeFighterData {
+impl FighterGrabData {
     /// Resolve simple grab facts from this fighter's canonical data row.
     pub fn from_kind(kind: i32) -> Self {
         let grab = |status| crate::fighter_data::ordinary_grab(kind, status);
-        let standing = grab(0x37);
+        let standing = grab(crate::native_states::CATCH);
         let shield = crate::fighter_data::fighter(kind)
             .and_then(|fighter| fighter.stat("outofshield.grabpostshieldstun"))
             .and_then(|value| value.parse::<u8>().ok())
@@ -114,14 +114,17 @@ impl LedgeFighterData {
             grab: GrabTiming {
                 standing_range: standing.and_then(|facts| facts.reach).unwrap_or(0.0),
                 standing_startup: standing.map_or(0, |facts| facts.first),
-                dash_startup: grab(0x39).map_or(0, |facts| facts.first),
-                pivot_startup: grab(0x3b).map_or(0, |facts| facts.first),
+                dash_startup: grab(crate::native_states::CATCH_DASH).map_or(0, |facts| facts.first),
+                pivot_startup: grab(crate::native_states::CATCH_TURN)
+                    .map_or(0, |facts| facts.first),
                 shield_startup: shield.unwrap_or(0),
                 standing_active_frames: standing.map_or(0, |facts| facts.last - facts.first + 1),
             },
         }
     }
 }
+/// Compatibility alias for callers using the previous ledge-specific name.
+pub type LedgeFighterData = FighterGrabData;
 
 /// Response switches. Move selection for normal get-up uses GetupAttack.
 /// Ledge-drop recipes are selected separately through LedgeSettings.
@@ -149,7 +152,7 @@ impl Default for LedgeResponses {
 pub struct FighterProfile {
     pub name: &'static str,
     pub fighter_kind: i32,
-    pub ledge: LedgeFighterData,
+    pub ledge: FighterGrabData,
     pub menu_options: presets::MenuPresets,
 }
 impl FighterProfile {
@@ -426,7 +429,7 @@ impl FighterProfiles {
         // Native playable kinds are 0..FIGHTER_KIND_TERM (0x5e), exclusive.
         // Missing/invalid identities are inert; never substitute another fighter's
         // option catalog.
-        if !(0..0x5e).contains(&fighter_kind) {
+        if !(0..crate::fighter_kinds::PLAYABLE_KIND_COUNT).contains(&fighter_kind) {
             return None;
         }
         self.profiles.get(&fighter_kind)

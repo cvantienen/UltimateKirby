@@ -18,7 +18,7 @@ fn whole_roster_round_trips_one_fighter_at_a_time_without_static_menu_publicatio
             "dormant definitions must not retain full tapes"
         );
         let mut fighters = 0;
-        for kind in 0..0x5e {
+        for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
             let Some(profile) = profiles.profile(kind) else {
                 continue;
             };
@@ -60,7 +60,10 @@ fn compact_storage_preserves_all_timing_binding_and_reaction_fields() {
     let source="[template.held]\nname=Generic hold\nstart_delay=3\nactions=hold_until_manual:a:0:0\n[kirby.x.track]\nname=Custom\nstart_delay=4\ntimeout=99\nspatial_timeout=13\nground_only=true\nwhile_held=true\nactions=controller_input:a:0.2:0.6:1:0:4:opponent:facing,wait:2\n[bowser.roll.auto]\nstart_delay=0\nreaction=auto_roll:30:12\nactions=up_b:4,drift:opponent:1:69\n[kirby.y.normal]\nbuiltin=normal\ndefault=true\n[kirby.dpad_up.mode]\nmode=ledge_trap\nactivation=toggle\n[kirby.settings]\nwalk_strength=0.3\n[bowser.settings]\nwalk_strength=0.4\n";
     let catalog = Catalog::parse(source).unwrap();
     let library = SequenceLibrary::from_catalog(catalog.clone());
-    for kind in [6, 15] {
+    for kind in [
+        kirby_assist_core::fighter_kinds::KIRBY,
+        kirby_assist_core::fighter_kinds::BOWSER,
+    ] {
         let active = library.for_fighter(kind);
         assert_eq!(
             active.entries(),
@@ -79,7 +82,7 @@ fn compact_storage_preserves_all_timing_binding_and_reaction_fields() {
 #[test]
 fn every_registered_fighter_reference_belongs_to_the_same_native_identity() {
     let profiles = FighterProfiles::default();
-    for kind in 0..0x5e {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         let Some(profile) = profiles.profile(kind) else {
             continue;
         };

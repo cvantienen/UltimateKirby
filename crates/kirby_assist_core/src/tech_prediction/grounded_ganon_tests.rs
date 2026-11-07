@@ -9,30 +9,66 @@ fn grounded_capture_uses_captor_throw_clock_instead_of_tumble_or_velocity() {
     );
     for rate in [0.5, 1.0, 2.0] {
         assert_eq!(
-            grounded_ganon_contact_in(CATCHED_GANON, 0x18, 0x1e2, 31.0 - 4.0 * rate, rate),
+            grounded_ganon_contact_in(
+                CATCHED_GANON,
+                crate::fighter_kinds::GANONDORF,
+                crate::native_states::fighter_status::GANON_SPECIAL_S_CATCH,
+                31.0 - 4.0 * rate,
+                rate,
+            ),
             Some(4.0)
         );
     }
     assert_eq!(
-        grounded_ganon_contact_in(CATCHED_GANON, 0x18, 0x1e2, 31.0, 1.0),
+        grounded_ganon_contact_in(
+            CATCHED_GANON,
+            crate::fighter_kinds::GANONDORF,
+            crate::native_states::fighter_status::GANON_SPECIAL_S_CATCH,
+            31.0,
+            1.0,
+        ),
         Some(0.0)
     );
 }
 
 #[test]
 fn aerial_slams_other_captors_and_invalid_or_passed_clocks_do_not_predict() {
-    for status in [0xbf, 0xc0, 0xc1, 0x42, 0x49] {
+    for status in [
+        crate::native_states::status::CATCHED_AIR_GANON,
+        crate::native_states::status::CATCHED_AIR_FALL_GANON,
+        crate::native_states::status::CATCHED_AIR_END_GANON,
+        crate::native_states::status::CAPTURE_WAIT,
+        crate::native_states::status::DAMAGE_FLY,
+    ] {
         assert_eq!(
-            grounded_ganon_contact_in(status, 0x18, 0x1e2, 27.0, 1.0),
+            grounded_ganon_contact_in(
+                status,
+                crate::native_states::status::LANDING_ATTACK_AIR,
+                crate::native_states::fighter_status::GANON_SPECIAL_S_CATCH,
+                27.0,
+                1.0,
+            ),
             None
         );
     }
     assert_eq!(
-        grounded_ganon_contact_in(CATCHED_GANON, 6, 0x1e2, 27.0, 1.0),
+        grounded_ganon_contact_in(
+            CATCHED_GANON,
+            6,
+            crate::native_states::fighter_status::GANON_SPECIAL_S_CATCH,
+            27.0,
+            1.0,
+        ),
         None
     );
     assert_eq!(
-        grounded_ganon_contact_in(CATCHED_GANON, 0x18, 0x1e3, 27.0, 1.0),
+        grounded_ganon_contact_in(
+            CATCHED_GANON,
+            crate::fighter_kinds::GANONDORF,
+            crate::native_states::fighter_status::GANON_SPECIAL_AIR_S_CATCH,
+            27.0,
+            1.0,
+        ),
         None
     );
     for (frame, rate) in [
@@ -43,7 +79,13 @@ fn aerial_slams_other_captors_and_invalid_or_passed_clocks_do_not_predict() {
         (27.0, f32::INFINITY),
     ] {
         assert_eq!(
-            grounded_ganon_contact_in(CATCHED_GANON, 0x18, 0x1e2, frame, rate),
+            grounded_ganon_contact_in(
+                CATCHED_GANON,
+                crate::fighter_kinds::GANONDORF,
+                crate::native_states::fighter_status::GANON_SPECIAL_S_CATCH,
+                frame,
+                rate,
+            ),
             None
         );
     }

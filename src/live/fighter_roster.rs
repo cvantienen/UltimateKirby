@@ -19,7 +19,9 @@ pub(crate) unsafe fn fighter_ids() -> Option<FighterRoster> {
             continue;
         }
         let id = game::current_fighter_id(entry) as u32;
-        if id >> 28 != 0 || !game::is_active(id) {
+        if id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+            || !game::is_active(id)
+        {
             continue;
         }
         let object = game::module_accessor(id);
@@ -28,19 +30,31 @@ pub(crate) unsafe fn fighter_ids() -> Option<FighterRoster> {
         }
         append_fighter(&mut ids, id);
         let kind = game::fighter_kind(id);
-        if !matches!(kind, 75 | 76) {
+        if !matches!(
+            kind,
+            kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO
+                | kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA
+        ) {
             continue;
         }
         // FIGHTER_POPO_INSTANCE_WORK_ID_INT_PARTNER_OBJECT_ID, pinned SDK.
-        let partner = game::work_int(object, 0x100000be) as u32;
-        if partner == id || partner >> 28 != 0 || !game::is_active(partner) {
+        let partner = game::work_int(object, kirby_assist_core::native_states::work_ids::FIGHTER_POPO_INSTANCE_WORK_ID_INT_PARTNER_OBJECT_ID) as u32;
+        if partner == id
+            || partner >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+            || !game::is_active(partner)
+        {
             continue;
         }
         let other = game::module_accessor(partner);
         if other.is_null()
             || other.cast::<u8>().add(8).cast::<u32>().read() != partner
             || game_entry_id(partner) != entry_id
-            || game::fighter_kind(partner) != if kind == 75 { 76 } else { 75 }
+            || game::fighter_kind(partner)
+                != if kind == kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO {
+                    kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA
+                } else {
+                    kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO
+                }
         {
             continue;
         }

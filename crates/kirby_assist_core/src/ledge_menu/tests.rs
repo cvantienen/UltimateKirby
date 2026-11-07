@@ -485,7 +485,11 @@ fn fighter_settings_save_requires_y_alone_and_keeps_hints_after_status() {
 
 #[test]
 fn custom_roll_toggle_never_reactivates_a_retired_fixed_roll_helper() {
-    for kind in [5, 6, 15] {
+    for kind in [
+        crate::fighter_kinds::YOSHI,
+        crate::fighter_kinds::KIRBY,
+        crate::fighter_kinds::BOWSER,
+    ] {
         let profiles = file_profiles();
         let presets = &profiles.profile(kind).unwrap().menu_options;
         let mut menu = MenuSelection::new(presets);

@@ -13,7 +13,13 @@ fn capture(frame: f32, delay: f32) -> TechContext {
         rate: 1.0,
         stopped: false,
         remaining_stop: 0,
-        contact_in: grounded_ganon_contact_in(CATCHED_GANON, 0x18, 0x1e2, frame, 1.0),
+        contact_in: grounded_ganon_contact_in(
+            CATCHED_GANON,
+            crate::fighter_kinds::GANONDORF,
+            crate::native_states::fighter_status::GANON_SPECIAL_S_CATCH,
+            frame,
+            1.0,
+        ),
         input_delay: delay,
         previous_guard: false,
         prepare_guard: false,
@@ -96,7 +102,7 @@ fn cooldown_keeps_held_shield_aliases_released_until_the_collision_ends() {
         true,
         40,
         TechContext {
-            status: 0x67,
+            status: crate::native_states::status::PASSIVE,
             contact_in: None,
             ..context
         },
@@ -109,7 +115,7 @@ fn cooldown_keeps_held_shield_aliases_released_until_the_collision_ends() {
 fn ordinary_tumble_retains_its_existing_arrival_window_and_invalid_capture_never_presses() {
     let mut input = TechInput::default();
     let ordinary = TechContext {
-        status: 0x49,
+        status: crate::native_states::status::DAMAGE_FLY,
         contact_in: Some(8.0),
         ..capture(20.0, 0.0)
     };
@@ -166,7 +172,7 @@ fn grounded_shared_release_can_deliver_unmapped_capture_request() {
 fn floor_tech_can_buffer_before_last_two_hitstop_frames() {
     let mut input = TechInput::default();
     let ctx = TechContext {
-        status: 0x4b,
+        status: crate::native_states::status::DAMAGE_FLY_METEOR,
         stopped: true,
         remaining_stop: 5,
         contact_in: Some(6.0),

@@ -4,7 +4,7 @@ pub(super) fn ground() -> SlideContext {
     SlideContext {
         gameplay: true,
         stopped: false,
-        status: 0,
+        status: crate::native_states::status::WAIT,
         situation: 0,
         motion_frame: 0.0,
         can_jump: true,
@@ -15,7 +15,7 @@ pub(super) fn ground() -> SlideContext {
 }
 fn air(frame: f32) -> SlideContext {
     SlideContext {
-        status: 0xb,
+        status: crate::native_states::status::JUMP,
         situation: 2,
         motion_frame: frame,
         can_jump: false,
@@ -31,7 +31,7 @@ fn tap_either_direction_short_hops_dodges_and_returns_control_after_landing() {
         assert_eq!(jump.requested, MAPPER_X);
         assert_eq!(state.sample(true, 0, button, ground()), jump);
         let squat = SlideContext {
-            status: 0xa,
+            status: crate::native_states::status::JUMP_SQUAT,
             motion_frame: 1.0,
             can_jump: false,
             ..ground()
@@ -45,18 +45,21 @@ fn tap_either_direction_short_hops_dodges_and_returns_control_after_landing() {
         );
         assert_eq!(state.sample(true, 2, 0, air(1.0)), dodge);
         let escape = SlideContext {
-            status: 0x23,
+            status: crate::native_states::ESCAPE_AIR_SLIDE,
             motion_frame: 2.0,
             ..air(1.0)
         };
         assert_eq!(state.sample(true, 3, 0, escape).requested, 0);
         let lag = SlideContext {
-            status: 0x19,
+            status: crate::native_states::status::LANDING_FALL_SPECIAL,
             can_jump: false,
             ..ground()
         };
         assert_eq!(state.sample(true, 4, 0, lag).requested, 0);
-        assert_eq!(state.sample(true, 5, 0, ground()), LedgeOutput::default());
+        assert_eq!(
+            state.sample(true, 5, 0, ground()),
+            ControllerOutput::default()
+        );
     }
 }
 #[test]
@@ -69,7 +72,7 @@ fn held_direction_repeats_only_when_landing_recovery_allows_jump() {
         2,
         DPAD_RIGHT,
         SlideContext {
-            status: 0x23,
+            status: crate::native_states::ESCAPE_AIR_SLIDE,
             ..air(2.0)
         },
     );
@@ -81,7 +84,7 @@ fn held_direction_repeats_only_when_landing_recovery_allows_jump() {
                     tick,
                     DPAD_RIGHT,
                     SlideContext {
-                        status: 0x19,
+                        status: crate::native_states::status::LANDING_FALL_SPECIAL,
                         can_jump: false,
                         motion_frame: tick as f32,
                         ..ground()
@@ -123,23 +126,23 @@ fn unsafe_busy_conflicting_or_disabled_starts_do_not_jump() {
             ..ground()
         },
         SlideContext {
-            status: 0x47,
+            status: crate::native_states::status::DAMAGE,
             ..ground()
         },
         air(1.0),
     ] {
         assert_eq!(
             SlideState::default().sample(true, 0, DPAD_RIGHT, ctx),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
     }
     assert_eq!(
         SlideState::default().sample(true, 0, DPAD_SIDES, ground()),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     assert_eq!(
         SlideState::default().sample(false, 0, DPAD_RIGHT, ground()),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
 }
 #[test]
@@ -168,15 +171,15 @@ fn damage_scope_loss_and_clock_rewind_cancel_but_stop_freezes_without_dodging() 
             3,
             DPAD_RIGHT,
             SlideContext {
-                status: 0x47,
+                status: crate::native_states::status::DAMAGE,
                 ..air(2.0)
             }
         ),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     assert_eq!(
         state.sample(true, 4, DPAD_RIGHT, air(1.0)),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     assert_eq!(
         state.sample(
@@ -188,13 +191,16 @@ fn damage_scope_loss_and_clock_rewind_cancel_but_stop_freezes_without_dodging() 
                 ..ground()
             }
         ),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     assert_eq!(
         state.sample(true, 6, DPAD_RIGHT, ground()).requested,
         MAPPER_X
     );
-    assert_eq!(state.sample(true, 0, 0, ground()), LedgeOutput::default());
+    assert_eq!(
+        state.sample(true, 0, 0, ground()),
+        ControllerOutput::default()
+    );
 }
 #[test]
 fn directional_air_dodge_landing_can_loop_on_the_first_jump_ready_observation() {
@@ -215,7 +221,7 @@ fn slide_recipe_has_real_jump_and_shield_edges_with_the_shared_overlay() {
     let mut state = SlideState::default();
     let mut overlay = ManualOverlay::default();
     let human = ButtonTrace::default();
-    let mut apply = |out: LedgeOutput| {
+    let mut apply = |out: ControllerOutput| {
         overlay.apply_controls(
             human,
             [-1.0, 0.0],
@@ -235,7 +241,7 @@ fn slide_recipe_has_real_jump_and_shield_edges_with_the_shared_overlay() {
         1,
         DPAD_RIGHT,
         SlideContext {
-            status: 0xa,
+            status: crate::native_states::status::JUMP_SQUAT,
             can_jump: false,
             motion_frame: 1.0,
             ..ground()
@@ -254,7 +260,7 @@ fn slide_recipe_has_real_jump_and_shield_edges_with_the_shared_overlay() {
         3,
         0,
         SlideContext {
-            status: 0x23,
+            status: crate::native_states::ESCAPE_AIR_SLIDE,
             ..air(2.0)
         },
     ));
@@ -277,7 +283,7 @@ fn downward_angle_and_guard_are_preserved_until_native_dodge_acceptance() {
             3,
             button,
             SlideContext {
-                status: 0x23,
+                status: crate::native_states::ESCAPE_AIR_SLIDE,
                 ..air(1.0)
             },
         );
@@ -287,7 +293,20 @@ fn downward_angle_and_guard_are_preserved_until_native_dodge_acceptance() {
 }
 #[test]
 fn moving_and_cancel_ready_grounded_actions_start_without_waiting_for_idle() {
-    for status in [1, 2, 3, 4, 5, 6, 7, 8, 9, 0x23, 0x29, 0x2a] {
+    for status in [
+        crate::native_states::status::WALK,
+        crate::native_states::status::WALK_BRAKE,
+        crate::native_states::status::DASH,
+        crate::native_states::status::RUN,
+        crate::native_states::status::RUN_BRAKE,
+        crate::native_states::status::TURN,
+        crate::native_states::status::TURN_DASH,
+        crate::native_states::status::TURN_RUN,
+        crate::native_states::status::TURN_RUN_BRAKE,
+        crate::native_states::ESCAPE_AIR_SLIDE,
+        crate::native_states::status::ATTACK_DASH,
+        crate::native_states::status::ATTACK_S3,
+    ] {
         let ctx = SlideContext { status, ..ground() };
         assert_eq!(
             SlideState::default()
@@ -302,15 +321,15 @@ fn moving_and_cancel_ready_grounded_actions_start_without_waiting_for_idle() {
 fn a_tapped_slide_queues_through_recovery_without_owning_inputs_then_starts_when_legal() {
     let mut state = SlideState::default();
     let busy = SlideContext {
-        status: 0x29,
+        status: crate::native_states::status::ATTACK_DASH,
         can_jump: false,
         ..ground()
     };
     assert_eq!(
         state.sample(true, 0, DPAD_RIGHT, busy),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
-    assert_eq!(state.sample(true, 1, 0, busy), LedgeOutput::default());
+    assert_eq!(state.sample(true, 1, 0, busy), ControllerOutput::default());
     let ready = SlideContext {
         can_jump: true,
         motion_frame: 20.0,
@@ -329,7 +348,7 @@ fn queued_slide_uses_the_correct_side_floor_probe_and_remembers_a_hitstop_tap() 
     };
     assert_eq!(
         state.sample(true, 0, DPAD_RIGHT, stopped),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     assert_eq!(state.sample(true, 1, 0, ground()).requested, MAPPER_X);
     for (button, safe) in [(DPAD_LEFT, [true, false]), (DPAD_RIGHT, [false, true])] {
@@ -353,13 +372,13 @@ fn queued_slide_uses_the_correct_side_floor_probe_and_remembers_a_hitstop_tap() 
 #[test]
 fn queued_slide_expires_or_cancels_on_damage_and_disable() {
     let busy = SlideContext {
-        status: 0x29,
+        status: crate::native_states::status::ATTACK_DASH,
         can_jump: false,
         ..ground()
     };
     for cancel in [
         SlideContext {
-            status: 0x47,
+            status: crate::native_states::status::DAMAGE,
             ..busy
         },
         SlideContext {
@@ -370,27 +389,36 @@ fn queued_slide_expires_or_cancels_on_damage_and_disable() {
         let mut state = SlideState::default();
         state.sample(true, 0, DPAD_RIGHT, busy);
         state.sample(true, 1, 0, cancel);
-        assert_eq!(state.sample(true, 2, 0, ground()), LedgeOutput::default());
+        assert_eq!(
+            state.sample(true, 2, 0, ground()),
+            ControllerOutput::default()
+        );
     }
     let mut state = SlideState::default();
     state.sample(true, 0, DPAD_RIGHT, busy);
     state.sample(true, 61, 0, busy);
-    assert_eq!(state.sample(true, 62, 0, ground()), LedgeOutput::default());
+    assert_eq!(
+        state.sample(true, 62, 0, ground()),
+        ControllerOutput::default()
+    );
 }
 #[test]
 fn tap_during_air_dodge_slide_is_retained_until_grounded_jump_readiness() {
     let mut state = SlideState::default();
     let sliding = SlideContext {
-        status: 0x23,
+        status: crate::native_states::ESCAPE_AIR_SLIDE,
         situation: 2,
         can_jump: false,
         ..ground()
     };
     assert_eq!(
         state.sample(true, 0, DPAD_LEFT, sliding),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
-    assert_eq!(state.sample(true, 1, 0, sliding), LedgeOutput::default());
+    assert_eq!(
+        state.sample(true, 1, 0, sliding),
+        ControllerOutput::default()
+    );
     let grounded = SlideContext {
         situation: 0,
         can_jump: true,
@@ -403,7 +431,7 @@ fn tap_during_air_dodge_slide_is_retained_until_grounded_jump_readiness() {
 fn holding_slide_through_long_recovery_starts_at_first_legal_window() {
     let mut state = SlideState::default();
     let busy = SlideContext {
-        status: 0x29,
+        status: crate::native_states::status::ATTACK_DASH,
         can_jump: false,
         ..ground()
     };
@@ -411,7 +439,7 @@ fn holding_slide_through_long_recovery_starts_at_first_legal_window() {
     for tick in 1..90 {
         assert_eq!(
             state.sample(true, tick, DPAD_RIGHT, busy),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
     }
     assert_eq!(
@@ -431,9 +459,18 @@ fn plain_dpad_starts_slide_and_scope_loss_cancels_pending_air_dodge() {
         gameplay: false,
         ..air(1.0)
     };
-    assert_eq!(state.sample(true, 1, 0, blocked), LedgeOutput::default());
-    assert_eq!(state.sample(true, 2, 0, air(2.0)), LedgeOutput::default());
-    assert_eq!(state.sample(true, 3, 0, ground()), LedgeOutput::default());
+    assert_eq!(
+        state.sample(true, 1, 0, blocked),
+        ControllerOutput::default()
+    );
+    assert_eq!(
+        state.sample(true, 2, 0, air(2.0)),
+        ControllerOutput::default()
+    );
+    assert_eq!(
+        state.sample(true, 3, 0, ground()),
+        ControllerOutput::default()
+    );
 }
 
 #[test]
@@ -446,5 +483,8 @@ fn scope_loss_while_dodge_is_queued_releases_guard_and_angle() {
         gameplay: false,
         ..air(2.0)
     };
-    assert_eq!(state.sample(true, 2, 0, blocked), LedgeOutput::default());
+    assert_eq!(
+        state.sample(true, 2, 0, blocked),
+        ControllerOutput::default()
+    );
 }

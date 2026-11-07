@@ -6,7 +6,7 @@ use kirby_assist_core::{
 };
 fn ctx(status: i32, motion: u64, frame: f32, grounded: bool) -> Context {
     Context {
-        fighter_kind: 6,
+        fighter_kind: kirby_assist_core::fighter_kinds::KIRBY,
         target_direction: None,
         fighter: FairContext {
             object: 1,
@@ -55,9 +55,19 @@ fn short_hop_descent_timeout_releases_controls_and_does_not_restart_while_held()
 #[test]
 fn airborne_combo_presses_do_nothing_and_cannot_queue_a_takeoff_after_landing() {
     for mode in [YMode::FairSmash, YMode::DairSmash, YMode::YoshiBairSmash] {
-        for status in [0xb, 0xc, 0xe, 0xf] {
+        for status in [
+            kirby_assist_core::native_states::status::JUMP,
+            kirby_assist_core::native_states::status::JUMP_AERIAL,
+            kirby_assist_core::native_states::status::FALL,
+            kirby_assist_core::native_states::status::FALL_AERIAL,
+        ] {
             let mut tool = Finisher::default();
-            let mut c = ctx(status, 3, 0.0, false);
+            let mut c = ctx(
+                status,
+                kirby_assist_core::native_states::status::DASH,
+                0.0,
+                false,
+            );
             c.fighter_kind = if mode == YMode::YoshiBairSmash { 5 } else { 6 };
             assert_eq!(tool.sample(true, true, mode, c).owned, 0);
             assert!(!tool.active());
@@ -409,8 +419,18 @@ fn both_routes_confirm_real_hits_then_buffer_landing_smashes_without_charging_or
         );
         let status = if mode == YMode::FairSmash { 0x2d } else { 0x30 };
         assert_eq!(
-            tool.sample(true, true, mode, ctx(status, 5, 0.0, true))
-                .requested,
+            tool.sample(
+                true,
+                true,
+                mode,
+                ctx(
+                    status,
+                    kirby_assist_core::native_states::status::RUN_BRAKE,
+                    0.0,
+                    true
+                )
+            )
+            .requested,
             0
         );
         tool.sample(true, true, mode, ctx(status + 2, 6, 0.0, true));
@@ -561,7 +581,7 @@ fn fair_contact_on_landing_or_grounded_air_status_still_arms_fsmash() {
         contact.fighter.hit_now = true;
         let first = tool.sample(true, false, mode, contact);
         assert!(tool.confirmed());
-        if contact.fighter.status == 0x18 {
+        if contact.fighter.status == kirby_assist_core::native_states::status::LANDING_ATTACK_AIR {
             assert_eq!(first.requested, MAPPER_A);
         } else {
             assert_eq!(
@@ -655,8 +675,14 @@ fn kirby_starters_accept_all_grounded_movement_states_and_queue_transient_jump_r
     for status in (0..=9).chain(0x11..=0x15) {
         for mode in [YMode::FairSmash, YMode::DairSmash] {
             let mut tool = Finisher::default();
-            let mut moving = ctx(status, 1, 0.0, true);
-            moving.can_start = grounded_start_allowed(status, 0);
+            let mut moving = ctx(
+                status,
+                kirby_assist_core::native_states::status::WALK,
+                0.0,
+                true,
+            );
+            moving.can_start =
+                grounded_start_allowed(status, kirby_assist_core::native_states::status::WAIT);
             moving.can_jump = false;
             let waiting = tool.sample(true, true, mode, moving);
             assert_ne!(waiting.owned, 0, "status {status:#x} lost the starter");
@@ -680,12 +706,32 @@ fn kirby_starters_accept_all_grounded_movement_states_and_queue_transient_jump_r
             );
         }
     }
-    for status in [0xa, 0x18, 0x1e, 0x27, 0x32, 0x47] {
-        assert!(!grounded_start_allowed(status, 0));
+    for status in [
+        kirby_assist_core::native_states::status::JUMP_SQUAT,
+        kirby_assist_core::native_states::status::LANDING_ATTACK_AIR,
+        kirby_assist_core::native_states::GUARD_DAMAGE,
+        kirby_assist_core::native_states::status::ATTACK,
+        kirby_assist_core::native_states::status::ATTACK_LW4,
+        kirby_assist_core::native_states::status::DAMAGE,
+    ] {
+        assert!(!grounded_start_allowed(
+            status,
+            kirby_assist_core::native_states::status::WAIT
+        ));
         let mut tool = Finisher::default();
         assert_eq!(
-            tool.sample(true, true, YMode::FairSmash, ctx(status, 1, 0.0, true))
-                .owned,
+            tool.sample(
+                true,
+                true,
+                YMode::FairSmash,
+                ctx(
+                    status,
+                    kirby_assist_core::native_states::status::WALK,
+                    0.0,
+                    true
+                )
+            )
+            .owned,
             0
         );
     }
@@ -758,7 +804,7 @@ fn kirby_combo_jump_is_immediate_x_only_and_keeps_physical_takeoff_direction() {
         for _ in 0..100 {
             assert_eq!(tool.sample(true, false, mode, c), jump);
         }
-        c.fighter.status = 0xa;
+        c.fighter.status = kirby_assist_core::native_states::status::JUMP_SQUAT;
         c.fighter.motion = 2;
         let release = tool.sample(true, false, mode, c);
         assert_eq!(release.requested & (MAPPER_X | MAPPER_ZL), 0);

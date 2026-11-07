@@ -161,7 +161,7 @@ mod tests {
         let mut clock = AnimationClock::default();
         let sample = AnimationSample {
             object: 1,
-            status: 0,
+            status: crate::native_states::status::WAIT,
             kind: 1,
             frame: 5.0,
             auxiliary: 0.0,
@@ -209,7 +209,7 @@ mod tests {
         let mut clock = AnimationClock::default();
         let sample = AnimationSample {
             object: 1,
-            status: 1,
+            status: crate::native_states::status::WALK,
             kind: 1,
             frame: 0.0,
             auxiliary: 30.0,

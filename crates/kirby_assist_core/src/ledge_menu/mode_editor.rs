@@ -779,7 +779,11 @@ mod explicit_draft_tests {
     #[test]
     fn new_non_grab_events_start_blank_for_bowser_yoshi_and_lucina() {
         let profiles = crate::fighter_profiles::FighterProfiles::default();
-        for kind in [5, 15, 22] {
+        for kind in [
+            crate::fighter_kinds::YOSHI,
+            crate::fighter_kinds::BOWSER,
+            crate::fighter_kinds::WARIO,
+        ] {
             let p = profiles.profile(kind).unwrap().menu_options;
             for event in 0..7 {
                 let mut m = MenuSelection::new(&p);

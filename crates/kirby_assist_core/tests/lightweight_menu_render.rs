@@ -342,7 +342,7 @@ fn every_configured_fighter_renders_both_lightweight_pages_without_headers_hints
     let mut profiles = FighterProfiles::default();
     profiles.add_sequence_choices(&catalog).unwrap();
     let mut count = 0;
-    for kind in 0..0x5e {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         let Some(p) = profiles.profile(kind) else {
             continue;
         };

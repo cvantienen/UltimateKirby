@@ -45,7 +45,7 @@ fn sdi_context(remaining: u64) -> SdiContext {
 fn tech_context() -> TechContext {
     TechContext {
         object: 1,
-        status: 0x49,
+        status: kirby_assist_core::native_states::status::DAMAGE_FLY,
         motion: 1,
         frame: 0.,
         rate: 1.,
@@ -316,7 +316,7 @@ fn tech_window_and_lockout_follow_native_parameters_without_poll_or_transition_t
         28,
         TechContext {
             motion: 2,
-            status: 0x4f,
+            status: kirby_assist_core::native_states::status::DAMAGE_FALL,
             frame: 0.,
             ..c
         },

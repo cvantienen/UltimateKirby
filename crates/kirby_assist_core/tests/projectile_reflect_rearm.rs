@@ -16,7 +16,7 @@ fn config() -> Config {
 }
 fn own(status: i32, gauge: f32) -> Context {
     Context {
-        kind: 28,
+        kind: kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH,
         situation: 0,
         facing: 1.,
         can_special: true,

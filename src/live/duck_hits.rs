@@ -41,7 +41,11 @@ unsafe fn remember_attack(lua_state: u64) {
     let id = object.cast::<u8>().add(8).cast::<u32>().read();
     // Native category nibbles: Weapon=1, Item=4. Fighters come from the
     // existing roster, so their many hitboxes do not evict projectiles.
-    if !matches!(id >> 28, 1 | 4) {
+    if !matches!(
+        id >> 28,
+        kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON
+            | kirby_assist_core::battle_objects::OBJECT_CATEGORY_ITEM
+    ) {
         return;
     }
     SOURCES.remember(id);

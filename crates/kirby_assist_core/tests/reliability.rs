@@ -10,7 +10,7 @@ fn observation(frame: u64) -> SequenceObservation {
     SequenceObservation {
         frame,
         target: 2,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         can_act: true,
         hit_confirmed: false,
         stopped: false,
@@ -44,7 +44,7 @@ fn combo_requires_native_hit_and_readiness_then_releases_between_steps() {
         assert_eq!(combo.sample(observation(100)), first);
     }
     let whiff = SequenceObservation {
-        status: 0x2c,
+        status: kirby_assist_core::native_states::status::ATTACK_LW3,
         can_act: false,
         ..observation(101)
     };
@@ -64,7 +64,7 @@ fn combo_requires_native_hit_and_readiness_then_releases_between_steps() {
     assert_eq!(combo.sample(observation(104)), steps[1].recipe);
     assert_eq!(
         combo.sample(SequenceObservation {
-            status: 0xb,
+            status: kirby_assist_core::native_states::status::JUMP,
             ..observation(105)
         }),
         InputRecipe::NONE
@@ -88,7 +88,7 @@ fn combo_cancels_on_whiff_timeout_damage_target_change_clock_rewind_and_expired_
         observation(99),
         observation(110),
         SequenceObservation {
-            status: 0x2c,
+            status: kirby_assist_core::native_states::status::ATTACK_LW3,
             hit_confirmed: true,
             ..observation(111)
         },
@@ -127,7 +127,7 @@ fn combo_hitstop_does_not_consume_confirmation_timeout_or_repeat_an_input() {
     combo.sample(observation(100));
     assert_eq!(combo.state(), SequenceState::WaitingForConfirmation);
     combo.sample(SequenceObservation {
-        status: 0x2c,
+        status: kirby_assist_core::native_states::status::ATTACK_LW3,
         hit_confirmed: true,
         ..observation(101)
     });
@@ -140,7 +140,7 @@ fn combo_does_not_accept_a_preexisting_animation_as_a_new_step() {
     let mut combo = ConfirmedSequence::new(&steps, 2);
     assert_eq!(
         combo.sample(SequenceObservation {
-            status: 0x2c,
+            status: kirby_assist_core::native_states::status::ATTACK_LW3,
             hit_confirmed: true,
             ..observation(0)
         }),

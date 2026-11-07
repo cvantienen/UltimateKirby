@@ -6,6 +6,7 @@
 //! maximum. Keep numerical distances out until measured in world coordinates.
 //! Nothing here gates an attack or reads live fighter/opponent state.
 use super::presets::PresetSlot;
+use crate::fighter_kinds as kind;
 
 /// Compact display aliases only. IDs, handlers and timing stay unchanged.
 /// The UI resolves these when its cached snapshot changes, never per game frame.
@@ -80,20 +81,80 @@ pub fn hint(fighter_kind: i32, slot: PresetSlot, choice: &str) -> &'static str {
     }
     match choice {
         "nair" | "shield_nair" | "drop_nair" => match fighter_kind {
-            0x34 => "~touching", // Little Mac's intentionally tiny aerial.
-            1 | 2 | 3 | 4 | 0xf | 0x15 | 0x16 | 0x18 | 0x1a | 0x1b | 0x23 | 0x26 | 0x29 | 0x2a
-            | 0x2d | 0x33 | 0x39 | 0x3e | 0x3f | 0x42 | 0x45 => "~mid",
+            kind::LITTLE_MAC => "~touching", // Little Mac's intentionally tiny aerial.
+            kind::DONKEY_KONG
+            | kind::LINK
+            | kind::SAMUS
+            | kind::DARK_SAMUS
+            | kind::BOWSER
+            | kind::MARTH
+            | kind::LUCINA
+            | kind::GANONDORF
+            | kind::ROY
+            | kind::CHROM
+            | kind::IKE
+            | kind::CHARIZARD
+            | kind::SONIC
+            | kind::KING_DEDEDE
+            | kind::ROB
+            | kind::ROSALINA_AND_LUMA
+            | kind::SHULK
+            | kind::CLOUD
+            | kind::CORRIN
+            | kind::RIDLEY
+            | kind::KING_K_ROOL => "~mid",
             _ => "~close",
         },
         "down_tilt" | "down_tilt_shield" => match fighter_kind {
-            1 | 2 | 3 | 4 | 5 | 6 | 11 | 0x15 | 0x16 | 0x18 | 0x19 | 0x1a | 0x1b | 0x23 | 0x25
-            | 0x26 | 0x2a | 0x2e | 0x35 | 0x36 | 0x38 | 0x39 | 0x3e | 0x3f | 0x42 | 0x45 | 0x46
-            | 0x49 => "~mid / low",
+            kind::DONKEY_KONG
+            | kind::LINK
+            | kind::SAMUS
+            | kind::DARK_SAMUS
+            | kind::YOSHI
+            | kind::KIRBY
+            | kind::CAPTAIN_FALCON
+            | kind::MARTH
+            | kind::LUCINA
+            | kind::GANONDORF
+            | kind::MEWTWO
+            | kind::ROY
+            | kind::CHROM
+            | kind::IKE
+            | kind::IVYSAUR
+            | kind::CHARIZARD
+            | kind::KING_DEDEDE
+            | kind::TOON_LINK
+            | kind::GRENINJA
+            | kind::PALUTENA
+            | kind::ROBIN
+            | kind::SHULK
+            | kind::CLOUD
+            | kind::CORRIN
+            | kind::RIDLEY
+            | kind::KING_K_ROOL
+            | kind::ISABELLE
+            | kind::MII_SWORDFIGHTER => "~mid / low",
             _ => "~close / low",
         },
         "forward_tilt" | "poke" => match fighter_kind {
-            1 | 2 | 3 | 4 | 0x15 | 0x16 | 0x18 | 0x19 | 0x23 | 0x26 | 0x39 | 0x3e | 0x3f | 0x42
-            | 0x43 | 0x44 | 0x45 | 0x49 => "~long",
+            kind::DONKEY_KONG
+            | kind::LINK
+            | kind::SAMUS
+            | kind::DARK_SAMUS
+            | kind::MARTH
+            | kind::LUCINA
+            | kind::GANONDORF
+            | kind::MEWTWO
+            | kind::IKE
+            | kind::CHARIZARD
+            | kind::SHULK
+            | kind::CLOUD
+            | kind::CORRIN
+            | kind::RIDLEY
+            | kind::SIMON
+            | kind::RICHTER
+            | kind::KING_K_ROOL
+            | kind::MII_SWORDFIGHTER => "~long",
             _ => "~mid",
         },
         "stone" => "~close",
@@ -102,80 +163,83 @@ pub fn hint(fighter_kind: i32, slot: PresetSlot, choice: &str) -> &'static str {
         "bomb" => "~near ledge",
         "up_tilt" => "~close / above",
         "up_air" | "shield_up_air" => {
-            if fighter_kind == 0x34 {
+            if fighter_kind == kind::LITTLE_MAC {
                 "~touching / above"
             } else {
                 "~above"
             }
         }
-        "forward_air" if fighter_kind == 0x46 => "~ranged / front",
+        "forward_air" if fighter_kind == kind::ISABELLE => "~ranged / front",
         "forward_air" | "shield_fair" => "~mid / front",
-        "bair" if fighter_kind == 5 => "~close / rear",
+        "bair" if fighter_kind == kind::YOSHI => "~close / rear",
         "slingshot" => "~ranged / front",
         "short_hop_dair"
             if matches!(
                 fighter_kind,
-                4 | 10
-                    | 12
-                    | 13
-                    | 14
-                    | 15
-                    | 16
-                    | 17
-                    | 18
-                    | 19
-                    | 20
-                    | 21
-                    | 22
-                    | 23
-                    | 24
-                    | 25
-                    | 26
-                    | 27
-                    | 28
-                    | 29
-                    | 30
-                    | 31
-                    | 32
-                    | 33
-                    | 34
-                    | 35
-                    | 36
-                    | 37
-                    | 38
-                    | 39
-                    | 40
-                    | 42
-                    | 43
-                    | 44
-                    | 45
-                    | 46
-                    | 47
-                    | 48
-                    | 49
-                    | 50
-                    | 51
-                    | 53
-                    | 54
-                    | 56
-                    | 57
-                    | 58
-                    | 59
-                    | 60
-                    | 61
-                    | 62
-                    | 63
-                    | 64
-                    | 65
-                    | 66
-                    | 67
-                    | 68
-                    | 71
-                    | 72
-                    | 73
-                    | 74
-                    | 75
-                    | 76
+                kind::DARK_SAMUS
+                    | kind::NESS
+                    | kind::JIGGLYPUFF
+                    | kind::PEACH
+                    | kind::DAISY
+                    | kind::MARTH
+                    | kind::LUCINA
+                    | kind::YOUNG_LINK
+                    | kind::GANONDORF
+                    | kind::MEWTWO
+                    | kind::ROY
+                    | kind::CHROM
+                    | kind::MR_GAME_AND_WATCH
+                    | kind::META_KNIGHT
+                    | kind::PIT
+                    | kind::DARK_PIT
+                    | kind::ZERO_SUIT_SAMUS
+                    | kind::WARIO
+                    | kind::SNAKE
+                    | kind::IKE
+                    | kind::SQUIRTLE
+                    | kind::IVYSAUR
+                    | kind::CHARIZARD
+                    | kind::DIDDY_KONG
+                    | kind::LUCAS
+                    | kind::SONIC
+                    | kind::KING_DEDEDE
+                    | kind::OLIMAR
+                    | kind::LUCARIO
+                    | kind::ROB
+                    | kind::TOON_LINK
+                    | kind::WOLF
+                    | kind::VILLAGER
+                    | kind::MEGA_MAN
+                    | kind::WII_FIT_TRAINER
+                    | kind::ROSALINA_AND_LUMA
+                    | kind::LITTLE_MAC
+                    | kind::GRENINJA
+                    | kind::PALUTENA
+                    | kind::PAC_MAN
+                    | kind::ROBIN
+                    | kind::SHULK
+                    | kind::BOWSER_JR
+                    | kind::DUCK_HUNT
+                    | kind::RYU
+                    | kind::KEN
+                    | kind::CLOUD
+                    | kind::CORRIN
+                    | kind::BAYONETTA
+                    | kind::INKLING
+                    | kind::RIDLEY
+                    | kind::SIMON
+                    | kind::RICHTER
+                    | kind::KING_K_ROOL
+                    | kind::ISABELLE
+                    | kind::INCINEROAR
+                    | kind::SQUIRTLE_FIGHTER
+                    | kind::IVYSAUR_FIGHTER
+                    | kind::CHARIZARD_FIGHTER
+                    | kind::POKEMON_TRAINER
+                    | kind::PYRA_FIGHTER
+                    | kind::MYTHRA_FIGHTER
+                    | kind::ICE_CLIMBERS_POPO
+                    | kind::ICE_CLIMBERS_NANA
             ) =>
         {
             "~below / near edge"

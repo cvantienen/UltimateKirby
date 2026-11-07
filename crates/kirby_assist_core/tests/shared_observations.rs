@@ -162,7 +162,7 @@ fn shared_event_clock_preserves_mash_slide_turbo_ticks_and_auxiliary_progress() 
     let mut clock = AnimationClock::default();
     let sample = AnimationSample {
         object: 1,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         kind: 1,
         frame: 8.0,
         auxiliary: 0.0,

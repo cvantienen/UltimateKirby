@@ -4,7 +4,10 @@
 /// Native grab startup, pull, hold, pummel, release and throw belong to the
 /// player's grab interaction. No automated punish may inject a throw here.
 pub fn native_grab_active(status: i32) -> bool {
-    matches!(status, 0x37..=0x40)
+    matches!(
+        status,
+        crate::native_states::CATCH..=crate::native_states::THROW
+    )
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Owner {
@@ -97,8 +100,8 @@ impl Owner {
 pub fn exclusive_output(
     owner: Option<Owner>,
     committed: bool,
-    mut output: crate::ledge_trap::LedgeOutput,
-) -> crate::ledge_trap::LedgeOutput {
+    mut output: crate::gameplay::ControllerOutput,
+) -> crate::gameplay::ControllerOutput {
     if committed && owner.is_some_and(Owner::exclusive) {
         output.owned |= crate::ledge_trap::SEQUENCE_BUTTONS;
         output.stick = Some(output.stick.unwrap_or([0.; 2]));
@@ -115,7 +118,7 @@ pub fn safety_output(
     di: Option<[f32; 2]>,
     sdi: Option<[f32; 2]>,
 ) -> (
-    crate::ledge_trap::LedgeOutput,
+    crate::gameplay::ControllerOutput,
     Option<crate::tech_input::TechOutput>,
 ) {
     safety_output_with_deadline(tech, mash, di, sdi, false)
@@ -129,14 +132,14 @@ pub fn safety_output_with_deadline(
     sdi: Option<[f32; 2]>,
     urgent: bool,
 ) -> (
-    crate::ledge_trap::LedgeOutput,
+    crate::gameplay::ControllerOutput,
     Option<crate::tech_input::TechOutput>,
 ) {
     let tech = (mash.is_none()
         && (di.is_none() || urgent && tech.press)
         && (tech.press || tech.owns_guard))
         .then_some(tech);
-    let output = crate::ledge_trap::LedgeOutput {
+    let output = crate::gameplay::ControllerOutput {
         requested: if tech.is_some_and(|t| t.press) {
             crate::native_input::MAPPER_ZR
         } else {

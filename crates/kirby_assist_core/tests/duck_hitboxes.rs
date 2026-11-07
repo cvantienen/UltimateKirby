@@ -113,7 +113,7 @@ fn ignores_invalid_far_above_or_depth_separated_geometry() {
 fn context() -> DuckContext {
     DuckContext {
         clock: GuardClock {
-            status: 0,
+            status: kirby_assist_core::native_states::status::WAIT,
             motion: 123,
             frame: 1.,
             rate: 1.,

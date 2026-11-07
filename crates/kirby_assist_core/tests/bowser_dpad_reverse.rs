@@ -1,11 +1,12 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
-    ledge_trap::{InputTimeline, LedgeContext, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     native_input::MAPPER_B,
     sequence_config::{persist, Catalog},
 };
-fn context(frame: f32, facing: f32) -> LedgeContext {
-    LedgeContext {
+fn context(frame: f32, facing: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         situation: 2,
@@ -37,7 +38,7 @@ fn bowser_defaults_deliver_mirrored_input_edges_without_a_facing_wait() {
         .entries()
         .iter()
         .filter(|e| {
-            e.fighter_kind == 15
+            e.fighter_kind == kirby_assist_core::fighter_kinds::BOWSER
                 && matches!(
                     e.choice.as_str(),
                     "reverse_fire_breath" | "reverse_flying_slam"
@@ -56,7 +57,10 @@ fn bowser_defaults_deliver_mirrored_input_edges_without_a_facing_wait() {
             parsed
                 .entries()
                 .iter()
-                .find(|e| e.fighter_kind == 15 && e.choice == entry.choice)
+                .find(
+                    |e| e.fighter_kind == kirby_assist_core::fighter_kinds::BOWSER
+                        && e.choice == entry.choice
+                )
                 .unwrap()
                 .sequence
                 .actions(),

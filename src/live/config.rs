@@ -83,7 +83,7 @@ mod tests {
         let catalog=Catalog::parse("[template.defend]\nstart_delay=0\nactions=shield:4\n[bowser.roll.spin]\nstart_delay=0\nreaction=auto_roll:30:12\nactions=up_b:4,drift:opponent:1:69\n[lucina.neutral.poke]\nstart_delay=23\nactions=forward_tilt:1\n").unwrap();
         let (_, profiles, library) = prepare_runtime(LiveConfig::default(), catalog).unwrap();
         let mut count = 0;
-        for kind in 0..0x5e {
+        for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
             let Some(profile) = profiles.profile(kind) else {
                 continue;
             };

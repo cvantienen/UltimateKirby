@@ -6,7 +6,7 @@ use kirby_assist_core::{
 };
 fn context(frame: f32) -> ShortcutContext {
     ShortcutContext {
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         situation: 0,
         motion: 1,
         frame,
@@ -160,7 +160,8 @@ fn crouch_yields_to_grab_edges_and_restores_neutral_without_a_down_tail() {
     }
     // Once a native catch/hold/throw is visible, neutral physical input must
     // never become an automatic Down that can select a throw direction.
-    for status in 0x37..=0x40 {
+    for status in kirby_assist_core::native_states::CATCH..=kirby_assist_core::native_states::THROW
+    {
         let out = posture.sample(
             true,
             true,
@@ -180,7 +181,18 @@ fn crouch_yields_to_grab_edges_and_restores_neutral_without_a_down_tail() {
 
 #[test]
 fn omitted_facing_scans_cannot_change_unusable_posture_states() {
-    for status in [0, 3, 9, 0x11, 0x15, 0xb, 0x18, 0x2c, 0x32, 0x47] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::TURN_RUN_BRAKE,
+        kirby_assist_core::native_states::status::SQUAT,
+        kirby_assist_core::native_states::status::SQUAT_RV,
+        kirby_assist_core::native_states::status::JUMP,
+        kirby_assist_core::native_states::status::LANDING_ATTACK_AIR,
+        kirby_assist_core::native_states::status::ATTACK_LW3,
+        kirby_assist_core::native_states::status::ATTACK_LW4,
+        kirby_assist_core::native_states::status::DAMAGE,
+    ] {
         for situation in [0, 2] {
             for stopped in [false, true] {
                 let c = ShortcutContext {
@@ -231,7 +243,7 @@ fn dtilt_keeps_angle_in_hitstop_and_preserves_physical_tilt_stick() {
                 [0.0, -1.0],
                 Some(-facing),
                 ShortcutContext {
-                    status: 0x2c,
+                    status: kirby_assist_core::native_states::status::ATTACK_LW3,
                     stopped: true,
                     facing,
                     ..context(8.0)
@@ -258,7 +270,7 @@ fn dtilt_keeps_angle_in_hitstop_and_preserves_physical_tilt_stick() {
         }
     }
     assert!(blocks_physical_c_stick(
-        kirby_assist_core::ledge_trap::LEDGE_BUTTONS
+        kirby_assist_core::ledge_trap::ASSIST_BUTTONS
     ));
 }
 #[test]
@@ -291,7 +303,7 @@ fn idle_crouch_holds_through_entry_wait_turn_rise_and_animation_wraps() {
         assert_eq!(out.owned, 0);
     }
     let c = ShortcutContext {
-        status: 0x12,
+        status: kirby_assist_core::native_states::status::SQUAT_WAIT,
         ..context(1.0)
     };
     assert!(p
@@ -322,7 +334,7 @@ fn held_l_suspends_idle_crouch_and_release_resumes_it_without_changing_toggle() 
             [0.0; 2],
             None,
             ShortcutContext {
-                status: 0x12,
+                status: kirby_assist_core::native_states::status::SQUAT_WAIT,
                 ..context(1.0)
             }
         )
@@ -456,7 +468,7 @@ fn dtilt_angles_down_toward_latest_target_and_preserves_mashed_attack_edges() {
             [0.0, -1.0],
             Some(facing),
             ShortcutContext {
-                status: 0x2c,
+                status: kirby_assist_core::native_states::status::ATTACK_LW3,
                 facing,
                 ..context(1.0)
             },
@@ -534,7 +546,13 @@ fn raw_down_cstick_first_poll_from_standing_and_crouch_needs_no_digital_alias() 
         manual_controls::{ManualOverlay, TurboOutput},
         native_input::ButtonTrace,
     };
-    for status in [0, 1, 0x11, 0x12, 0x2c] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::status::WALK,
+        kirby_assist_core::native_states::status::SQUAT,
+        kirby_assist_core::native_states::status::SQUAT_WAIT,
+        kirby_assist_core::native_states::status::ATTACK_LW3,
+    ] {
         for facing in [-1.0, 1.0] {
             let c = ShortcutContext {
                 status,

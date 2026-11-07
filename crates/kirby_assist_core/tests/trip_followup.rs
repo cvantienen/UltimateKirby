@@ -69,7 +69,7 @@ fn down_tilt_recognizes_trip_rehit_damage_and_buffers_forward_smash() {
         let accepted = tool.sample(
             true,
             TripContext {
-                status: 0x2d,
+                status: kirby_assist_core::native_states::status::ATTACK_S4_START,
                 frame: 0.,
                 ..c
             },
@@ -87,7 +87,7 @@ fn new_down_tilt_rearms_even_when_opponent_never_leaves_trip_wait() {
     tool.sample(
         true,
         TripContext {
-            status: 0x2d,
+            status: kirby_assist_core::native_states::status::ATTACK_S4_START,
             frame: 0.,
             ..c
         },
@@ -95,7 +95,7 @@ fn new_down_tilt_rearms_even_when_opponent_never_leaves_trip_wait() {
     tool.sample(
         true,
         TripContext {
-            status: 0,
+            status: kirby_assist_core::native_states::status::WAIT,
             frame: 0.,
             ..c
         },

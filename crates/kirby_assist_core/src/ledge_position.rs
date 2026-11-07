@@ -4,8 +4,12 @@
 //! a candidate once; `LedgePosition` remembers it and proposes a damped approach.
 //! This prepares a stance for the selected response. Ordered response inputs
 //! are executed separately by `ledge_trap/file_timeline.rs`.
-use crate::ledge_trap::{LedgeContext, LedgeOutput, LedgeSettings, LEDGE_BUTTONS};
 use crate::ledge_trump::floor_edge_with_limit;
+use crate::{
+    gameplay::{ControllerOutput, GameplayContext},
+    ledge_trap::LedgeSettings,
+    native_input::ASSIST_BUTTONS,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeSpot {
@@ -35,7 +39,7 @@ pub struct LedgePosition {
     spot: Option<LedgeSpot>,
     settled: bool,
     last_tick: Option<i64>,
-    output: LedgeOutput,
+    output: ControllerOutput,
 }
 impl LedgePosition {
     pub fn spot(&self) -> Option<LedgeSpot> {
@@ -56,12 +60,17 @@ impl LedgePosition {
             "prepare_ground_ledge_position"
         }
     }
-    pub fn sample(&mut self, tick: i64, ctx: LedgeContext, settings: LedgeSettings) -> LedgeOutput {
+    pub fn sample(
+        &mut self,
+        tick: i64,
+        ctx: GameplayContext,
+        settings: LedgeSettings,
+    ) -> ControllerOutput {
         // Air always yields, even on a repeated mapper tick. Landing starts a
         // fresh floor selection rather than retaining a destination from flight.
         if ctx.situation != 0 {
             *self = Self::default();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.last_tick.is_some_and(|last| tick < last) {
             *self = Self::default();
@@ -80,19 +89,19 @@ impl LedgePosition {
                 .all(|v| v.is_finite())
             || !ctx.facing.is_finite()
         {
-            self.output = LedgeOutput::default();
+            self.output = ControllerOutput::default();
             return self.output;
         }
         if self.last_tick == Some(tick) {
             return self.output;
         }
         self.last_tick = Some(tick);
-        let mut out = LedgeOutput::default();
+        let mut out = ControllerOutput::default();
         let Some(spot) = self.spot else {
             self.output = out;
             return out;
         };
-        out.owned = LEDGE_BUTTONS;
+        out.owned = ASSIST_BUTTONS;
         out.stick = Some([0.0, 0.0]);
         let dx = spot.edge[0] + spot.inward * settings.stand_distance - ctx.position[0];
         let predicted = dx - ctx.velocity[0] * 3.0;

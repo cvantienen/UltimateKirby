@@ -1,5 +1,5 @@
 //! Read-only file-timeline telemetry. No inferred fighter scheduling constants.
-use super::{LedgeContext, LedgeOutput, LedgeSettings, LedgeTrap, Opponent};
+use super::{ControllerOutput, GameplayContext, LedgeSettings, LedgeTrap, Opponent};
 use crate::fighter_profiles::presets::PresetSlot;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CalibrationKind {
@@ -26,7 +26,7 @@ pub enum NativeRule {
     Inhale,
 }
 impl NativeRule {
-    pub fn matches(self, c: LedgeContext) -> bool {
+    pub fn matches(self, c: GameplayContext) -> bool {
         match self {
             Self::Unknown => false,
             Self::Ground { startup, attack } => (startup..=attack).contains(&c.status),
@@ -38,7 +38,12 @@ impl NativeRule {
                     && c.motion_kind == motion
             }
             Self::Statuses(statuses) => statuses.contains(&c.status),
-            Self::Inhale => c.status == 0x1dc || (0x1e1..=0x1f2).contains(&c.status),
+            Self::Inhale => {
+                c.status == crate::native_states::status::SPECIAL_N
+                    || (crate::native_states::fighter_status::KIRBY_SPECIAL_N_LOOP
+                        ..=crate::native_states::fighter_status::KIRBY_SPECIAL_N_SPIT)
+                        .contains(&c.status)
+            }
         }
     }
 }
@@ -77,9 +82,9 @@ pub struct CalibrationFrame {
     /// Diagnostic-only native activity evidence; never a gameplay gate.
     pub native_attack_active: Option<bool>,
     pub timeline_end: Option<&'static str>,
-    pub context: LedgeContext,
+    pub context: GameplayContext,
     pub enemy: Option<Opponent>,
-    pub output: LedgeOutput,
+    pub output: ControllerOutput,
     pub phase: &'static str,
     pub complete: bool,
     pub captured: bool,
@@ -132,7 +137,7 @@ impl LedgeTrap {
     pub fn calibration_frame(
         &self,
         settings: LedgeSettings,
-        context: LedgeContext,
+        context: GameplayContext,
         enemy: Option<Opponent>,
         _: &str,
     ) -> Option<CalibrationFrame> {
@@ -148,7 +153,7 @@ impl LedgeTrap {
             phase: self.action_name(),
             complete: self.complete,
             captured: self.captured,
-            blocked: context.status == 0x1e,
+            blocked: context.status == crate::native_states::GUARD_DAMAGE,
             endpoint: None,
             configured_range: None,
             lead: None,

@@ -76,8 +76,22 @@ fn release_conflict_pause_and_unsupported_movement_cancel_immediately() {
     assert!(!turbo_movement_allowed(0, 2, false));
     assert!(!turbo_movement_allowed(0x49, 0, false));
     assert!(!turbo_movement_allowed(0, 0, true));
-    for status in [0, 1, 2, 6, 0x11, 0x12, 0x13, 0x14, 0x15] {
-        assert!(turbo_movement_allowed(status, 0, false));
+    for status in [
+        crate::native_states::status::WAIT,
+        crate::native_states::status::WALK,
+        crate::native_states::status::WALK_BRAKE,
+        crate::native_states::status::TURN,
+        crate::native_states::status::SQUAT,
+        crate::native_states::status::SQUAT_WAIT,
+        crate::native_states::status::SQUAT_F,
+        crate::native_states::status::SQUAT_B,
+        crate::native_states::status::SQUAT_RV,
+    ] {
+        assert!(turbo_movement_allowed(
+            status,
+            crate::native_states::status::WAIT,
+            false
+        ));
     }
 }
 #[test]
@@ -181,8 +195,8 @@ fn reserved_taunts_are_removed_from_mapped_result_without_affecting_other_action
 }
 #[test]
 fn first_reservation_clears_stale_dpad_history_and_takeover_releases_human_attack() {
-    use crate::ledge_trap::{DPAD_DOWN, LEDGE_BUTTONS};
     use crate::native_input::MAPPER_A;
+    use crate::{ledge_trap::DPAD_DOWN, native_input::ASSIST_BUTTONS};
     let mut overlay = ManualOverlay::default();
     let human = ButtonTrace {
         held: DPAD_DOWN | DPAD_LEFT | MAPPER_A,
@@ -197,7 +211,7 @@ fn first_reservation_clears_stale_dpad_history_and_takeover_releases_human_attac
         TurboOutput::default(),
         DPAD_SIDES | DPAD_DOWN,
         0,
-        LEDGE_BUTTONS,
+        ASSIST_BUTTONS,
     );
     for word in [
         setup.buttons.held,
@@ -214,7 +228,7 @@ fn first_reservation_clears_stale_dpad_history_and_takeover_releases_human_attac
         TurboOutput::default(),
         DPAD_SIDES | DPAD_DOWN,
         MAPPER_A,
-        LEDGE_BUTTONS,
+        ASSIST_BUTTONS,
     );
     assert_eq!(press.buttons.pressed & MAPPER_A, MAPPER_A);
 }
@@ -237,7 +251,11 @@ fn turbo_starts_down_on_first_poll_and_in_grounded_running_states() {
         ..TurboSettings::default()
     };
     for status in 0..=9 {
-        assert!(turbo_movement_allowed(status, 0, false));
+        assert!(turbo_movement_allowed(
+            status,
+            crate::native_states::status::WAIT,
+            false
+        ));
         let mut state = TurboState::default();
         assert_eq!(
             state.sample(settings, 12345, DPAD_RIGHT, true, true).stick,

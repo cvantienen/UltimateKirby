@@ -40,7 +40,7 @@ fn prepared() -> (FighterProfiles, LedgeMenu, save::ResultMessage, Sequence) {
     assert_eq!(sequence.start_delay, 3);
     let revision = selection.recipe_revision;
     let result = save::ResultMessage {
-        kind: 15,
+        kind: kirby_assist_core::fighter_kinds::BOWSER,
         slot: PresetSlot::Roll,
         index: 0,
         revision,

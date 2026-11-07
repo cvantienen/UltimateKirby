@@ -117,7 +117,14 @@ impl<const N: usize> ObservationSnapshotSized<N> {
             let Fact::Int(status) = f.facts[Field::Status as usize].get()? else {
                 return None;
             };
-            if matches!(status, 0x1b | 0x1c | 0x77 | 0x7e | 0x7f) {
+            if matches!(
+                status,
+                crate::native_states::GUARD_ON
+                    | crate::native_states::GUARD
+                    | crate::native_states::status::CLIFF_WAIT
+                    | crate::native_states::status::OTTOTTO
+                    | crate::native_states::status::OTTOTTO_WAIT
+            ) {
                 return None;
             }
             if f.facts[Field::Stop as usize].get() == Some(Fact::Bool(true)) {

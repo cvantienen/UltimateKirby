@@ -7,21 +7,22 @@ use kirby_assist_core::{
         presets::{MenuPresets, PresetSlot},
         FighterProfiles,
     },
+    gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
     grab_handoff::GrabHandoff,
     ledge_menu::MenuSelection,
-    ledge_trap::{InputTimeline, LedgeContext, LedgeOutput, LedgeSettings, MotionTiming, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     manual_controls::ManualJumpFence,
     native_input::*,
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::{Catalog, Sequence},
 };
-fn c(frame: f32) -> LedgeContext {
-    LedgeContext {
+fn c(frame: f32) -> GameplayContext {
+    GameplayContext {
         gameplay: true,
         held: true,
         can_act: true,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         situation: 0,
         motion_kind: 1,
         motion_frame: frame,
@@ -34,7 +35,7 @@ fn c(frame: f32) -> LedgeContext {
 fn enemy(frame: f32) -> Opponent {
     Opponent {
         id: 2,
-        status: 0x20,
+        status: kirby_assist_core::native_states::ESCAPE_F,
         position: [10., 0.],
         vulnerable: true,
         motion: Some(MotionTiming {
@@ -56,7 +57,7 @@ fn sequence(actions: &str) -> Sequence {
 }
 fn settings() -> LedgeSettings {
     LedgeSettings {
-        fighter_kind: 15,
+        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     }
 }
@@ -131,8 +132,8 @@ fn released_jump_remains_protected_during_lag_then_clears_on_native_jump() {
         1,
         15,
         false,
-        LedgeContext {
-            status: 0xa,
+        GameplayContext {
+            status: kirby_assist_core::native_states::status::JUMP_SQUAT,
             ..c(1.)
         }
     ));
@@ -141,7 +142,7 @@ fn released_jump_remains_protected_during_lag_then_clears_on_native_jump() {
         1,
         15,
         false,
-        LedgeContext {
+        GameplayContext {
             situation: 2,
             ..c(2.)
         }
@@ -165,7 +166,7 @@ fn jump_fence_uses_native_progress_and_resets_on_actor_or_scope_change() {
             1,
             15,
             false,
-            LedgeContext {
+            GameplayContext {
                 stopped: true,
                 ..c(25.)
             }
@@ -179,7 +180,7 @@ fn jump_fence_uses_native_progress_and_resets_on_actor_or_scope_change() {
         2,
         5,
         false,
-        LedgeContext {
+        GameplayContext {
             gameplay: false,
             ..c(25.)
         }
@@ -190,13 +191,13 @@ fn delayed_automatic_grab_and_up_b_cancel_in_jump_startup_or_air() {
     for actions in ["wait:1,up_b:4", "wait:1,grab:4"] {
         for airborne in [false, true] {
             let next = if airborne {
-                LedgeContext {
+                GameplayContext {
                     situation: 2,
                     ..c(1.)
                 }
             } else {
-                LedgeContext {
-                    status: 0xa,
+                GameplayContext {
+                    status: kirby_assist_core::native_states::status::JUMP_SQUAT,
                     ..c(1.)
                 }
             };
@@ -210,7 +211,7 @@ fn delayed_automatic_grab_and_up_b_cancel_in_jump_startup_or_air() {
             );
             assert_eq!(
                 response.sample(true, settings(), next, Some(enemy(1.))),
-                LedgeOutput::default()
+                ControllerOutput::default()
             );
             let mut rules = Resolved::default();
             rules
@@ -224,7 +225,7 @@ fn delayed_automatic_grab_and_up_b_cancel_in_jump_startup_or_air() {
                 let mut t = [None; 8];
                 t[0] = Some(Target {
                     id: 2,
-                    status: 0x20,
+                    status: kirby_assist_core::native_states::ESCAPE_F,
                     motion: 2,
                     frame,
                     rate: 1.,
@@ -251,7 +252,7 @@ fn delayed_automatic_grab_and_up_b_cancel_in_jump_startup_or_air() {
             );
             assert_eq!(
                 engine.sample_simple(true, &rules, settings(), next, targets(1.), Some(enemy(1.))),
-                LedgeOutput::default()
+                ControllerOutput::default()
             );
         }
     }
@@ -262,7 +263,7 @@ fn literal_manual_tapes_retain_their_explicit_airborne_specials() {
     tape.sample(settings(), c(0.), Some(enemy(0.)), None, 0.);
     let out = tape.sample(
         settings(),
-        LedgeContext {
+        GameplayContext {
             situation: 2,
             ..c(1.)
         },
@@ -290,8 +291,8 @@ fn up_b_tracking_protection_requires_a_delivered_packet_or_native_confirmation()
     native.sample(
         true,
         settings(),
-        LedgeContext {
-            status: 0x1de,
+        GameplayContext {
+            status: kirby_assist_core::native_states::status::SPECIAL_HI,
             ..c(1.)
         },
         Some(enemy(1.)),
@@ -308,7 +309,7 @@ fn up_b_tracking_protection_requires_a_delivered_packet_or_native_confirmation()
     let mut targets = [None; 8];
     targets[0] = Some(Target {
         id: 2,
-        status: 0x20,
+        status: kirby_assist_core::native_states::ESCAPE_F,
         motion: 2,
         frame: 0.,
         rate: 1.,
@@ -323,8 +324,8 @@ fn up_b_tracking_protection_requires_a_delivered_packet_or_native_confirmation()
     engine.mapped_up_special(1, 2);
     assert!(engine.up_b_delivery_started());
 }
-fn grab() -> LedgeOutput {
-    LedgeOutput {
+fn grab() -> ControllerOutput {
+    ControllerOutput {
         requested: MAPPER_R,
         stick: Some([0., 0.]),
         ..Default::default()
@@ -346,7 +347,7 @@ fn frozen_native_feedback_cannot_rearm_grab_or_leak_a_competing_special() {
         assert!(!h.permits(Some(Owner::OutOfShield), grab(), None));
         assert!(!h.permits(
             Some(Owner::RollRead),
-            LedgeOutput {
+            ControllerOutput {
                 requested: MAPPER_B,
                 stick: Some([0., 1.]),
                 ..Default::default()
@@ -357,8 +358,8 @@ fn frozen_native_feedback_cannot_rearm_grab_or_leak_a_competing_special() {
     }
     h.observe_native(
         true,
-        Some(LedgeContext {
-            status: 0x37,
+        Some(GameplayContext {
+            status: kirby_assist_core::native_states::CATCH,
             ..c(1.)
         }),
     );
@@ -386,7 +387,7 @@ fn queued_grab_allows_manual_jump_without_clearing_receipt_or_allowing_special()
     let mut h = GrabHandoff::new();
     h.observe_native(true, Some(c(0.)));
     h.mapped(0, Some(Owner::OutOfShield), true, true, true);
-    let jump = LedgeOutput {
+    let jump = ControllerOutput {
         requested: MAPPER_X,
         ..Default::default()
     };
@@ -400,11 +401,11 @@ fn queued_grab_allows_manual_jump_without_clearing_receipt_or_allowing_special()
     assert!(h.permits(Some(Owner::Shortcut), jump, None));
     assert!(h.pending());
     for out in [
-        LedgeOutput {
+        ControllerOutput {
             requested: MAPPER_X | MAPPER_B,
             ..jump
         },
-        LedgeOutput {
+        ControllerOutput {
             stick: Some([0., 1.]),
             ..jump
         },

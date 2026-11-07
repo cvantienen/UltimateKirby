@@ -5,7 +5,7 @@ fn delayed_takeoff_and_dodge_readiness_still_complete_the_requested_slide() {
     let ground = SlideContext {
         gameplay: true,
         stopped: false,
-        status: 0,
+        status: crate::native_states::status::WAIT,
         situation: 0,
         motion_frame: 0.0,
         can_jump: true,
@@ -36,7 +36,7 @@ fn delayed_takeoff_and_dodge_readiness_still_complete_the_requested_slide() {
         );
     }
     let air = SlideContext {
-        status: 0xb,
+        status: crate::native_states::status::JUMP,
         situation: 2,
         motion_frame: 3.0,
         can_jump: false,
@@ -68,7 +68,7 @@ fn delayed_takeoff_and_dodge_readiness_still_complete_the_requested_slide() {
                 15,
                 0,
                 SlideContext {
-                    status: 0x23,
+                    status: crate::native_states::ESCAPE_AIR_SLIDE,
                     ..air
                 }
             )
@@ -84,7 +84,7 @@ fn dodge_buffers_in_late_native_squat_before_airborne_and_transition_flags() {
         let ground = super::tests::ground();
         assert_eq!(slide.sample(true, 0, button, ground).requested, MAPPER_X);
         let squat = SlideContext {
-            status: 0xa,
+            status: crate::native_states::status::JUMP_SQUAT,
             can_jump: false,
             motion_frame: 1.0,
             ..ground
@@ -102,7 +102,7 @@ fn dodge_buffers_in_late_native_squat_before_airborne_and_transition_flags() {
         }
         // Native jump may precede the situation flag; do not call this a landing.
         let mixed = SlideContext {
-            status: 0xb,
+            status: crate::native_states::status::JUMP,
             motion_frame: 0.0,
             ..late
         };
@@ -127,7 +127,7 @@ fn dodge_buffers_in_late_native_squat_before_airborne_and_transition_flags() {
                     5,
                     0,
                     SlideContext {
-                        status: 0x23,
+                        status: crate::native_states::ESCAPE_AIR_SLIDE,
                         situation: 2,
                         ..mixed
                     }
@@ -144,7 +144,7 @@ fn missed_squat_observation_uses_first_native_jump_without_waiting_for_readiness
     let ground = super::tests::ground();
     slide.sample(true, 0, DPAD_RIGHT, ground);
     let early = SlideContext {
-        status: 0xb,
+        status: crate::native_states::status::JUMP,
         situation: 0,
         motion_frame: 0.0,
         can_jump: false,
@@ -167,7 +167,7 @@ fn unavailable_clock_preserves_only_existing_input_through_native_stop() {
         super::owned()
     );
     let late = SlideContext {
-        status: 0xa,
+        status: crate::native_states::status::JUMP_SQUAT,
         motion_frame: 2.0,
         can_jump: false,
         ..ground
@@ -183,7 +183,7 @@ fn unavailable_clock_preserves_only_existing_input_through_native_stop() {
     }
     for bad in [
         SlideContext {
-            status: 0x47,
+            status: crate::native_states::status::DAMAGE,
             ..stopped
         },
         SlideContext {
@@ -191,11 +191,11 @@ fn unavailable_clock_preserves_only_existing_input_through_native_stop() {
             ..stopped
         },
         SlideContext {
-            status: 0x23,
+            status: crate::native_states::ESCAPE_AIR_SLIDE,
             ..stopped
         },
         late, // Missing clock without actual native stop is not delivery evidence.
     ] {
-        assert_eq!(slide.frozen_output(bad), LedgeOutput::default());
+        assert_eq!(slide.frozen_output(bad), ControllerOutput::default());
     }
 }

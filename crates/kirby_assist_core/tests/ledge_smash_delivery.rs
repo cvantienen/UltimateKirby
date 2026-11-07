@@ -1,17 +1,18 @@
 //! Literal ledge attack packets and passive guard expiry under a static pose.
 use kirby_assist_core::{
     autopilot_guard::{GuardClock, GuardHold},
-    ledge_trap::{InputTimeline, LedgeContext, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::*,
     observation::{Fact, Field, ObservationSnapshot},
     sequence_config::Catalog,
 };
-fn own(frame: f32) -> LedgeContext {
-    LedgeContext {
+fn own(frame: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         motion_kind: 1,
         motion_frame: frame,
         motion_rate: 1.,
@@ -22,7 +23,7 @@ fn own(frame: f32) -> LedgeContext {
 fn enemy(frame: f32) -> Opponent {
     Opponent {
         id: 2,
-        status: 0x78,
+        status: kirby_assist_core::native_states::status::CLIFF_ATTACK,
         position: [10., 0.],
         motion: Some(MotionTiming {
             kind: 2,
@@ -42,7 +43,7 @@ fn tape(actions: &str) -> InputTimeline {
 }
 fn gc(frame: f32) -> GuardClock {
     GuardClock {
-        status: 0x1c,
+        status: kirby_assist_core::native_states::GUARD,
         motion: 1,
         frame,
         rate: 1.,
@@ -53,7 +54,7 @@ fn source(frame: f32) -> Option<(u32, GuardClock)> {
     Some((
         2,
         GuardClock {
-            status: 0x27,
+            status: kirby_assist_core::native_states::status::ATTACK,
             motion: 2,
             ..gc(frame)
         },
@@ -157,8 +158,8 @@ fn literal_oos_requests_keep_grab_special_and_guard_without_inventing_attack_or_
 fn up_smash_uses_native_shield_cancel_while_side_smash_waits_for_legal_shield_drop() {
     let mut up = tape("up_smash:1");
     let mut side = tape("forward_smash:1");
-    let shield = LedgeContext {
-        status: 0x1c,
+    let shield = GameplayContext {
+        status: kirby_assist_core::native_states::GUARD,
         ..own(0.)
     };
     let out = up.sample(LedgeSettings::default(), shield, Some(enemy(0.)), None, 0.);
@@ -195,14 +196,14 @@ fn missing_or_passive_clock_cannot_latch_shield_after_the_threat_ends() {
         Some((
             2,
             GuardClock {
-                status: 0x1c,
+                status: kirby_assist_core::native_states::GUARD,
                 ..gc(0.)
             },
         )),
         Some((
             2,
             GuardClock {
-                status: 0x77,
+                status: kirby_assist_core::native_states::status::CLIFF_WAIT,
                 ..gc(0.)
             },
         )),
@@ -233,7 +234,7 @@ fn shieldstun_and_hitstop_keep_defense_but_do_not_spend_or_bridge_enemy_clock_ga
         true,
         false,
         GuardClock {
-            status: 0x1e,
+            status: kirby_assist_core::native_states::GUARD_DAMAGE,
             ..gc(0.)
         },
         4.,
@@ -282,7 +283,11 @@ fn an_authored_shield_hold_keeps_its_duration_independently_of_passive_defense()
 fn cached_progress_clock_reads_only_existing_facts_and_ignores_own_or_static_guard_poses() {
     let facts = ObservationSnapshot::default();
     let mut calls = 0;
-    for (id, status) in [(1, 0), (2, 0x1c), (3, 0x27)] {
+    for (id, status) in [
+        (1, 0),
+        (2, kirby_assist_core::native_states::GUARD),
+        (3, 0x27),
+    ] {
         for (field, value) in [
             (Field::Status, Fact::Int(status)),
             (Field::Motion, Fact::Motion(42)),
@@ -322,8 +327,8 @@ fn up_tilt_keeps_its_authored_strength_and_waits_for_shield_drop() {
     let mut t = tape("up_tilt:1");
     let out = t.sample(
         LedgeSettings::default(),
-        LedgeContext {
-            status: 0x1c,
+        GameplayContext {
+            status: kirby_assist_core::native_states::GUARD,
             ..own(0.)
         },
         Some(enemy(0.)),

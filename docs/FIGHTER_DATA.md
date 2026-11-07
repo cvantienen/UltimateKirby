@@ -1,7 +1,7 @@
 # Fighter Data
 
-[`data/Ultimate_stats.json`](../data/Ultimate_stats.json) is the single source
-of truth for fighter statistics and move frame data. It contains 90 exact
+`data/Ultimate_stats.json` is the single source of truth for fighter statistics
+and move frame data. It contains 90 exact
 native-kind records, including DLC fighters and both Ice Climbers identities.
 Data lookup is keyed by native fighter kind, not by whether the fighter is
 controlled by the player or observed as an opponent.
@@ -13,6 +13,12 @@ at startup, and retains the parsed records for the lifetime of the process.
 There is no generated Rust copy, runtime file/network access, remote fallback,
 or substitution of one fighter's values for another's. Invalid or incomplete
 embedded data stops plugin installation with an explicit error.
+
+Loading has distinct checks: the schema version and roster size are checked
+first; each fighter's identity, stats, and moves are then converted; active
+frame spans are validated; and readable motion names are converted to hashes.
+Finally, records must be ordered by unique native kind so exact lookups can use
+a binary search.
 
 `fighter_data::all()` exposes the roster, and `fighter_data::fighter(kind)`
 returns the exact row or `None` for an unknown native kind. Each row contains
@@ -27,6 +33,13 @@ profile initialization and reference-hint rendering use this lookup, so
 player-controlled and opponent fighters share the same data path. Native
 observations such as current position, motion, facing, and readiness remain
 authoritative for live state.
+
+Recovery estimates are intentionally narrow: the move must be eligible, its
+motion and status must match, and the observation must show a grounded,
+vulnerable fighter past the active frames without a cancel or registered hit.
+Invalid frame values or a move-end time that differs too much from the catalog
+also make the estimate unavailable. Grab timing references are prepared for
+standing, dash, and pivot grabs; conflicting move variants stay unknown.
 
 The dataset currently has 4,076 move records. It is not a complete hitbox,
 hurtbox, collision, or per-instance physics model. Numeric reference stats do

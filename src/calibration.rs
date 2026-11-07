@@ -701,7 +701,11 @@ impl Recorder {
             }
         }
         if report.requests[0].is_some()
-            && matches!(frame.context.status, 0xa | 0xb)
+            && matches!(
+                frame.context.status,
+                kirby_assist_core::native_states::status::JUMP_SQUAT
+                    | kirby_assist_core::native_states::status::JUMP
+            )
             && report.jump_start.is_none()
         {
             report.jump_start = Some(stamp);
@@ -766,7 +770,11 @@ impl Recorder {
             Some("response handed back control")
         } else if neutral_raw_attack
             && report.neutral_first_active.is_some()
-            && !matches!(frame.context.status, 0x27..=0x36)
+            && !matches!(
+                frame.context.status,
+                kirby_assist_core::native_states::status::ATTACK
+                    ..=kirby_assist_core::native_states::status::ATTACK_AIR
+            )
             && !frame.context.stopped
         {
             Some("observed neutral attack ended/interrupted")
@@ -775,10 +783,10 @@ impl Recorder {
             None
         } else if frame.blocked && report.model.kind == CalibrationKind::Shield {
             Some("shield block")
-        } else if frame
-            .enemy
-            .is_some_and(|e| e.situation == 0 && e.status < 0x75)
-            && !native
+        } else if frame.enemy.is_some_and(|e| {
+            e.situation == 0
+                && e.status < kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE
+        }) && !native
             && !frame.context.stopped
         {
             Some("target option ended")
@@ -872,15 +880,14 @@ mod tests {
     use super::*;
     use kirby_assist_core::{
         fighter_profiles::presets::PresetSlot,
-        ledge_trap::{
-            LedgeContext, LedgeOutput, LedgeSettings, MotionTiming, NativeRule, Opponent,
-        },
+        gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
+        ledge_trap::{LedgeSettings, NativeRule},
         timing::motion_hash,
     };
     use std::time::Duration;
 
     fn frame(slot: PresetSlot) -> CalibrationFrame {
-        let context = LedgeContext {
+        let context = GameplayContext {
             held: true,
             gameplay: true,
             manual_input_epoch: 0,
@@ -888,7 +895,7 @@ mod tests {
             can_act: true,
             can_control: true,
             stopped: false,
-            status: 0,
+            status: kirby_assist_core::native_states::status::WAIT,
             situation: 0,
             motion_frame: 1.0,
             motion_kind: motion_hash("wait"),
@@ -897,7 +904,7 @@ mod tests {
             velocity: [0.0; 2],
             ground_brake: Some(0.1),
             facing: 1.0,
-            previous_status: 0,
+            previous_status: kirby_assist_core::native_states::status::WAIT,
             can_grab: true,
             can_tilt: true,
             can_down_tilt: true,
@@ -917,8 +924,8 @@ mod tests {
         };
         let enemy = Opponent {
             id: 42,
-            status: 0x7a,
-            previous_status: 0x77,
+            status: kirby_assist_core::native_states::status::CLIFF_ESCAPE,
+            previous_status: kirby_assist_core::native_states::status::CLIFF_WAIT,
             situation: 0,
             position: [5.0, 0.0],
             vulnerable: false,
@@ -952,9 +959,9 @@ mod tests {
             },
             context,
             enemy: Some(enemy),
-            output: LedgeOutput {
+            output: ControllerOutput {
                 requested: MAPPER_X | MAPPER_A,
-                ..LedgeOutput::default()
+                ..ControllerOutput::default()
             },
             phase: "prepare",
             complete: false,
@@ -1011,9 +1018,9 @@ mod tests {
         recorder.mapped(MAPPER_X | MAPPER_A, MAPPER_X, 0x4, "ledge");
         assert!(recorder.active.as_ref().unwrap().mapped[0]);
         assert!(!recorder.active.as_ref().unwrap().mapped[1]);
-        f.output = LedgeOutput::default();
+        f.output = ControllerOutput::default();
         f.context.situation = 2;
-        f.context.status = 0x36;
+        f.context.status = kirby_assist_core::native_states::status::ATTACK_AIR;
         f.context.motion_kind = motion_hash("attack_air_f");
         recorder.observe(
             Some(f),
@@ -1055,7 +1062,7 @@ mod tests {
             ..CalibrationMove::unknown()
         };
         recorder.observe(Some(f), ("kirby", 6), "Dsmash", now);
-        f.context.status = 0x31;
+        f.context.status = kirby_assist_core::native_states::status::ATTACK_LW4_HOLD;
         f.context.motion_frame = 9.0;
         f.context.hit_confirmed = true;
         recorder.observe(
@@ -1077,7 +1084,7 @@ mod tests {
         let mut f = frame(PresetSlot::Attack);
         f.expected = CalibrationMove {
             kind: CalibrationKind::Grab,
-            native: NativeRule::Statuses(&[0x37]),
+            native: NativeRule::Statuses(&[kirby_assist_core::native_states::CATCH]),
             ..CalibrationMove::unknown()
         };
         f.output.requested = MAPPER_ZR;
@@ -1126,7 +1133,7 @@ mod tests {
         let mut f = frame(PresetSlot::Neutral);
         f.expected = CalibrationMove::unknown();
         f.complete = true;
-        f.context.status = 0xa;
+        f.context.status = kirby_assist_core::native_states::status::JUMP_SQUAT;
         f.native_attack_active = Some(false);
         let mut enemy = f.enemy.unwrap();
         enemy.status = kirby_assist_core::ledge_trap::CLIFF_CLIMB;
@@ -1136,11 +1143,11 @@ mod tests {
             recorder.active(),
             "recipe completion is not attack completion"
         );
-        f.context.status = 0x36;
+        f.context.status = kirby_assist_core::native_states::status::ATTACK_AIR;
         f.context.motion_kind = motion_hash("attack_air_n");
         f.context.motion_frame = 3.0;
         f.context.position = [0.0, 8.0];
-        f.output = LedgeOutput::default();
+        f.output = ControllerOutput::default();
         f.native_attack_active = Some(true);
         recorder.observe(
             Some(f),
@@ -1172,7 +1179,7 @@ mod tests {
         assert!(text.contains("recovery_left=1.0"));
         assert!(text.contains("ACTIVE attack observed"));
         assert!(report.hit.is_none());
-        f.context.status = 0x18;
+        f.context.status = kirby_assist_core::native_states::status::LANDING_ATTACK_AIR;
         f.native_attack_active = Some(false);
         recorder.observe(
             Some(f),

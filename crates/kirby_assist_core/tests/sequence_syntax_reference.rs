@@ -58,7 +58,7 @@ fn every_copyable_action_reaction_and_ini_example_passes_both_build_filters() {
 
 #[test]
 fn action_aliases_directions_buttons_and_conditions_from_the_parser_are_covered() {
-    let parser = include_str!("../src/sequence_config.rs");
+    let parser = include_str!("../src/sequence_config/parser/actions.rs");
     let action_source = parser
         .split("fn parse_action(")
         .nth(1)
@@ -87,7 +87,7 @@ fn action_aliases_directions_buttons_and_conditions_from_the_parser_are_covered(
         }
     }
     assert!(checked > 70);
-    let condition_source = parser
+    let condition_source = include_str!("../src/sequence_config.rs")
         .split("impl Condition {")
         .nth(1)
         .unwrap()

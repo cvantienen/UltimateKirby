@@ -581,7 +581,11 @@ mod tests {
             j.name = Some(format!("{name} saved once"));
             j.make_default = true;
             let before = Catalog::parse(&fs::read_to_string(&path).unwrap()).unwrap();
-            let other = if kind == 90 { 91 } else { 90 };
+            let other = if kind == kirby_assist_core::fighter_kinds::PYRA {
+                kirby_assist_core::fighter_kinds::MYTHRA
+            } else {
+                kirby_assist_core::fighter_kinds::PYRA
+            };
             let unchanged = before.find(other, PresetSlot::Neutral, "custom");
             drop(before);
             let (saved, changed) = write_recipe_paths(&j, &path, &temp, &backup).unwrap();
@@ -643,7 +647,7 @@ mod tests {
         let handle = std::thread::spawn(move || {
             publish(ResultMessage {
                 choice: Some("grab".into()),
-                kind: 5,
+                kind: kirby_assist_core::fighter_kinds::YOSHI,
                 slot: PresetSlot::Roll,
                 index: 0,
                 revision: 0,
@@ -716,7 +720,10 @@ mod tests {
             !saved
                 .entries()
                 .iter()
-                .find(|e| e.fighter_kind == 5 && e.choice == "grab")
+                .find(
+                    |e| e.fighter_kind == kirby_assist_core::fighter_kinds::YOSHI
+                        && e.choice == "grab"
+                )
                 .unwrap()
                 .default
         );
@@ -724,7 +731,10 @@ mod tests {
             saved
                 .entries()
                 .iter()
-                .find(|e| e.fighter_kind == 5 && e.choice == "other")
+                .find(
+                    |e| e.fighter_kind == kirby_assist_core::fighter_kinds::YOSHI
+                        && e.choice == "other"
+                )
                 .unwrap()
                 .default
         );
@@ -924,7 +934,9 @@ mod tests {
         let y = catalog
             .entries()
             .iter()
-            .find(|e| e.fighter_kind == 5 && e.slot == PresetSlot::Y)
+            .find(|e| {
+                e.fighter_kind == kirby_assist_core::fighter_kinds::YOSHI && e.slot == PresetSlot::Y
+            })
             .unwrap();
         assert!(!y.default);
         for diagnostic in [false, true] {
@@ -1326,7 +1338,11 @@ mod tests {
         let selected = saved
             .entries()
             .iter()
-            .find(|e| e.fighter_kind == 5 && e.slot == PresetSlot::Y && e.default)
+            .find(|e| {
+                e.fighter_kind == kirby_assist_core::fighter_kinds::YOSHI
+                    && e.slot == PresetSlot::Y
+                    && e.default
+            })
             .unwrap();
         assert_eq!(selected.choice, "new");
         assert_eq!(selected.sequence, j.sequence);
@@ -1335,7 +1351,11 @@ mod tests {
             saved
                 .entries()
                 .iter()
-                .filter(|e| e.fighter_kind == 5 && e.slot == PresetSlot::Y && e.default)
+                .filter(
+                    |e| e.fighter_kind == kirby_assist_core::fighter_kinds::YOSHI
+                        && e.slot == PresetSlot::Y
+                        && e.default
+                )
                 .count(),
             1
         );

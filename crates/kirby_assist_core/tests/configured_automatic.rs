@@ -2,7 +2,8 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
     fighter_profiles::FighterProfiles,
-    ledge_trap::{LedgeContext, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::LedgeSettings,
     native_input::{MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_ZR},
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
     reaction_rules::{Candidate, Engine, Resolved, Trigger},
@@ -32,8 +33,8 @@ fn own(kind: i32, status: i32, frame: f32) -> Context {
         threatened: false,
     }
 }
-fn lc(c: Context) -> LedgeContext {
-    LedgeContext {
+fn lc(c: Context) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
@@ -107,7 +108,7 @@ fn all_seven_events_roundtrip_and_reject_duplicate_recipes_in_any_slot() {
 #[test]
 fn canonical_grab_recipes_preserve_generic_grab_outputs_for_every_fighter() {
     let profiles = FighterProfiles::default();
-    for kind in 0..0x5e {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         let Some(p) = profiles.profile(kind) else {
             continue;
         };
@@ -115,13 +116,28 @@ fn canonical_grab_recipes_preserve_generic_grab_outputs_for_every_fighter() {
             .auto_grab_ranges(kind, p.ledge.grab.standing_range);
         let g = recipe("auto_grab", far, 24., "input:r:0:0:4");
         let s = recipe("auto_shield_grab", close, 24., "input:r:0:0:4");
-        for status in [0, 1, 3, 4, 0x1b, 0x1c] {
-            for enemy in [0, 0x1c, 0x20] {
+        for status in [
+            kirby_assist_core::native_states::status::WAIT,
+            kirby_assist_core::native_states::status::WALK,
+            kirby_assist_core::native_states::status::DASH,
+            kirby_assist_core::native_states::status::RUN,
+            kirby_assist_core::native_states::GUARD_ON,
+            kirby_assist_core::native_states::GUARD,
+        ] {
+            for enemy in [
+                0,
+                kirby_assist_core::native_states::GUARD,
+                kirby_assist_core::native_states::ESCAPE_F,
+            ] {
                 for x in [-far, -1., 1., close, close + 0.1, far, far + 0.1] {
                     for y in [0., 24., 24.1] {
                         let mut old = OutOfShield::new();
                         let mut new = OutOfShield::new();
-                        let shielded = matches!(status, 0x1b | 0x1c);
+                        let shielded = matches!(
+                            status,
+                            kirby_assist_core::native_states::GUARD_ON
+                                | kirby_assist_core::native_states::GUARD
+                        );
                         let ts = targets(enemy, x, y);
                         for tick in 0..6 {
                             let c = own(kind, status, tick as f32);
@@ -189,7 +205,7 @@ fn an_edited_grab_recipe_replaces_the_final_input_without_an_extra_grab_or_up_b(
         true,
         c,
         lc(c),
-        targets(0x1c, 10., 0.),
+        targets(kirby_assist_core::native_states::GUARD, 10., 0.),
         None,
         false,
         20.,
@@ -221,17 +237,17 @@ fn an_edited_grab_recipe_replaces_the_final_input_without_an_extra_grab_or_up_b(
         true,
         &rules,
         lc(c),
-        &targets(0x20, 10., 0.),
+        &targets(kirby_assist_core::native_states::ESCAPE_F, 10., 0.),
         None,
         &mut o,
         &mut owner
     ));
-    let caught = own(15, 0x37, 1.);
+    let caught = own(15, kirby_assist_core::native_states::CATCH, 1.);
     let out = o.sample_automatic_configured(
         true,
         caught,
         lc(caught),
-        targets(0x41, 10., 0.),
+        targets(kirby_assist_core::native_states::CAPTURE_PULLED, 10., 0.),
         None,
         false,
         20.,
@@ -255,12 +271,12 @@ fn edited_grab_inputs_cannot_fall_through_to_a_throw_producing_follow_up() {
         shield_grab: Some(&s),
         ..Default::default()
     };
-    let c = own(15, 0x1c, 0.);
+    let c = own(15, kirby_assist_core::native_states::GUARD, 0.);
     let out = o.sample_automatic_configured(
         true,
         c,
         lc(c),
-        targets(0x1c, 10., 0.),
+        targets(kirby_assist_core::native_states::GUARD, 10., 0.),
         None,
         true,
         20.,
@@ -273,12 +289,12 @@ fn edited_grab_inputs_cannot_fall_through_to_a_throw_producing_follow_up() {
     o.mapped_grab(0, 2);
     o.delivery_tick(0);
     for tick in 1..24 {
-        let c = own(15, 0x1c, tick as f32);
+        let c = own(15, kirby_assist_core::native_states::GUARD, tick as f32);
         let out = o.sample_automatic_configured(
             true,
             c,
             lc(c),
-            targets(0x1c, 10., 0.),
+            targets(kirby_assist_core::native_states::GUARD, 10., 0.),
             None,
             true,
             20.,
@@ -294,13 +310,13 @@ fn edited_grab_inputs_cannot_fall_through_to_a_throw_producing_follow_up() {
         assert!(o.grab_delivery_pending());
         o.delivery_tick(tick);
     }
-    let c = own(15, 0x37, 24.);
+    let c = own(15, kirby_assist_core::native_states::CATCH, 24.);
     assert_eq!(
         o.sample_automatic_configured(
             true,
             c,
             lc(c),
-            targets(0x41, 10., 0.),
+            targets(kirby_assist_core::native_states::CAPTURE_PULLED, 10., 0.),
             None,
             true,
             20.,
@@ -331,7 +347,15 @@ fn configurable_grab_and_backup_heights_keep_front_shield_and_vulnerability_gate
         (true, 0, -10., 3.01, 0),
     ] {
         let mut o = OutOfShield::new();
-        let c = own(15, if shield { 0x1c } else { 3 }, 0.);
+        let c = own(
+            15,
+            if shield {
+                kirby_assist_core::native_states::GUARD
+            } else {
+                3
+            },
+            0.,
+        );
         let out = o.sample_automatic_configured(
             true,
             c,
@@ -356,7 +380,7 @@ fn dodged() -> SpotDodge {
     let mut d = SpotDodge::default();
     let c = DodgeContext {
         object: 1,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         situation: 0,
         motion: 1,
         frame: 0.,
@@ -369,7 +393,7 @@ fn dodged() -> SpotDodge {
     let mut ts = [None; 8];
     ts[0] = Some(GrabTarget {
         id: 2,
-        status: 0x37,
+        status: kirby_assist_core::native_states::CATCH,
         motion: 2,
         frame: 2.,
         rate: 1.,
@@ -382,7 +406,15 @@ fn dodged() -> SpotDodge {
     });
     assert_eq!(d.sample(true, c, ts).requested, MAPPER_ZR);
     assert_eq!(
-        d.sample(true, DodgeContext { status: 0x1f, ..c }, ts).owned,
+        d.sample(
+            true,
+            DodgeContext {
+                status: kirby_assist_core::native_states::ESCAPE,
+                ..c
+            },
+            ts
+        )
+        .owned,
         0
     );
     d
@@ -390,7 +422,7 @@ fn dodged() -> SpotDodge {
 fn follow(frame: f32, x: f32) -> Opponent {
     Opponent {
         id: 2,
-        status: 0x37,
+        status: kirby_assist_core::native_states::CATCH,
         position: [x, 0.],
         motion: Some(MotionTiming {
             kind: 2,
@@ -461,7 +493,7 @@ fn configured_grab_dodge_grab_keeps_a_zero_input_receipt_until_native_catch() {
             true,
             Some(&s),
             settings(15),
-            lc(own(15, 0x37, 2.)),
+            lc(own(15, kirby_assist_core::native_states::CATCH, 2.)),
             Some(follow(2., 10.))
         )
         .owned,
@@ -479,10 +511,13 @@ fn supplied_catalog_exposes_native_grab_defaults_for_all_fighters_without_enabli
     .unwrap();
     let p = FighterProfiles::default();
     c.validate(&p).unwrap();
-    for kind in 0..0x5e {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         // New editable-only Aegis profiles intentionally have no auto recipes.
         // Their generic native grab admission does not require a text recipe.
-        if matches!(kind, 90 | 91) {
+        if matches!(
+            kind,
+            kirby_assist_core::fighter_kinds::PYRA | kirby_assist_core::fighter_kinds::MYTHRA
+        ) {
             assert!(c
                 .entries()
                 .iter()
@@ -523,7 +558,7 @@ fn editing_backup_drift_keeps_native_startup_handoff_and_uses_the_new_duration_a
         ..Default::default()
     };
     let mut o = OutOfShield::new();
-    let c = own(15, 0x1c, 0.);
+    let c = own(15, kirby_assist_core::native_states::GUARD, 0.);
     assert_eq!(
         o.sample_automatic_configured(
             true,
@@ -543,7 +578,7 @@ fn editing_backup_drift_keeps_native_startup_handoff_and_uses_the_new_duration_a
     );
     for frame in 1..6 {
         let c = Context {
-            status: 0x1de,
+            status: kirby_assist_core::native_states::status::SPECIAL_HI,
             frame: frame as f32,
             ..c
         };
@@ -565,7 +600,7 @@ fn editing_backup_drift_keeps_native_startup_handoff_and_uses_the_new_duration_a
         assert_eq!(out.stick, Some([x.signum() * 0.5, 0.]), "frame {frame}");
     }
     let c = Context {
-        status: 0x1de,
+        status: kirby_assist_core::native_states::status::SPECIAL_HI,
         frame: 6.,
         ..c
     };
@@ -598,7 +633,15 @@ fn editing_only_backup_timeout_still_bounds_the_native_tracking_path() {
     };
     let mut o = OutOfShield::new();
     for frame in 0..30 {
-        let c = own(15, if frame == 0 { 0x1c } else { 0x1de }, frame as f32);
+        let c = own(
+            15,
+            if frame == 0 {
+                kirby_assist_core::native_states::GUARD
+            } else {
+                0x1de
+            },
+            frame as f32,
+        );
         assert_ne!(
             o.sample_automatic_configured(
                 true,
@@ -654,7 +697,11 @@ fn confirmed_dodge_followup_keeps_ownership_through_recovery_and_ignores_manual_
             if frame % 2 == 0 { MAPPER_A } else { MAPPER_R },
             [1., -1., 1., -1.],
         );
-        let mut c = lc(own(15, 0x1f, frame as f32));
+        let mut c = lc(own(
+            15,
+            kirby_assist_core::native_states::ESCAPE,
+            frame as f32,
+        ));
         c.can_act = false;
         c.manual_input_epoch = owners.physical_inputs().epoch();
         let out = d.punish_automatic(

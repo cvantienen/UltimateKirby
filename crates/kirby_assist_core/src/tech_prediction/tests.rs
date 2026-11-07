@@ -115,7 +115,9 @@ fn one_way_platform_is_only_used_by_descending_floor_probes() {
 
 #[test]
 fn native_air_escape_availability_blocks_tech_guard_even_during_tumble() {
-    for status in 0x49..=0x4f {
+    for status in
+        crate::native_states::status::DAMAGE_FLY..=crate::native_states::status::DAMAGE_FALL
+    {
         assert!(tech_press_allowed(status, false));
         assert!(!tech_press_allowed(status, true));
     }
@@ -220,7 +222,7 @@ fn floor_adjustment_preserves_fallback_wall_ceiling_and_platform_direction() {
 fn floor_acceleration_requires_recent_matching_native_progress() {
     let sample = FloorMotionSample {
         object: 1,
-        status: 0x49,
+        status: crate::native_states::status::DAMAGE_FLY,
         motion: 1,
         frame: 1.0,
         rate: 1.0,
@@ -240,7 +242,7 @@ fn floor_acceleration_requires_recent_matching_native_progress() {
     for bad in [
         FloorMotionSample { object: 2, ..next },
         FloorMotionSample {
-            status: 0x4a,
+            status: crate::native_states::status::DAMAGE_FLY_ROLL,
             ..next
         },
         FloorMotionSample { motion: 2, ..next },

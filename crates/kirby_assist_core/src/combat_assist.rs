@@ -5,12 +5,12 @@
 //! hitstop. Each `sample` receives copied facts and returns an input proposal.
 //! Native detection and tool priority live in the Switch adapter, not here.
 mod fair_followup;
-use crate::ledge_trap::{LedgeOutput, LEDGE_BUTTONS};
 use crate::native_input::MAPPER_A;
+use crate::{gameplay::ControllerOutput, native_input::ASSIST_BUTTONS};
 pub use fair_followup::{FairContext, FairFollowup};
 
 // Trip takeover also suppresses taunts; Plus/Minus remain available.
-const TRIP_BUTTONS: u32 = LEDGE_BUTTONS | 0xf;
+const TRIP_BUTTONS: u32 = ASSIST_BUTTONS | 0xf;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TripTarget {
@@ -19,10 +19,16 @@ pub struct TripTarget {
     pub previous_status: i32,
 }
 fn trip_tilt(status: i32) -> bool {
-    matches!(status, 0x2a | 0x2c)
+    matches!(
+        status,
+        crate::native_states::status::ATTACK_S3 | crate::native_states::status::ATTACK_LW3
+    )
 }
 fn tripping(status: i32) -> bool {
-    matches!(status, 0x86..=0x88)
+    matches!(
+        status,
+        crate::native_states::status::SLIP..=crate::native_states::status::SLIP_WAIT
+    )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -40,7 +46,7 @@ pub struct TripContext {
 #[derive(Default)]
 pub struct TripFollowup {
     last: Option<TripContext>,
-    output: LedgeOutput,
+    output: ControllerOutput,
     queued: bool,
     spent: bool,
     facing: f32,
@@ -49,17 +55,17 @@ impl TripFollowup {
     pub fn cancel_pending(&mut self) {
         self.queued = false;
         self.spent = true;
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
     }
     pub fn watching(&self) -> bool {
         self.queued
     }
-    pub fn sample(&mut self, enabled: bool, ctx: TripContext) -> LedgeOutput {
+    pub fn sample(&mut self, enabled: bool, ctx: TripContext) -> ControllerOutput {
         // Invalid/changed identity resets the tool. An identical observation
         // reuses output, so repeated mapper polls do not manufacture new pulses.
         if !enabled || !ctx.kirby || !ctx.frame.is_finite() || ctx.frame < 0.0 {
             *self = Self::default();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.last.is_some_and(|last| last.object != ctx.object) {
             *self = Self::default();
@@ -85,7 +91,12 @@ impl TripFollowup {
             && trip_tilt(ctx.status)
             && ctx.targets.iter().flatten().any(|enemy| {
                 tripping(enemy.status)
-                    || tripping(enemy.previous_status) && matches!(enemy.status, 0x47 | 0x5a)
+                    || tripping(enemy.previous_status)
+                        && matches!(
+                            enemy.status,
+                            crate::native_states::status::DAMAGE
+                                | crate::native_states::status::DOWN_DAMAGE
+                        )
             });
         if recognized {
             self.queued = true;
@@ -95,12 +106,16 @@ impl TripFollowup {
                 1.0
             };
         }
-        let mut out = LedgeOutput::default();
+        let mut out = ControllerOutput::default();
         let was_queued = self.queued;
         if self.queued {
-            let accepted = matches!(ctx.status, 0x2d..=0x2f);
-            let supported =
-                ctx.grounded && matches!(ctx.status, 0..=0x9 | 0x11..=0x15 | 0x2a | 0x2c);
+            let accepted = matches!(
+                ctx.status,
+                crate::native_states::status::ATTACK_S4_START
+                    ..=crate::native_states::status::ATTACK_S4
+            );
+            let supported = ctx.grounded
+                && matches!(ctx.status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV | crate::native_states::status::ATTACK_S3 | crate::native_states::status::ATTACK_LW3);
             if accepted || !supported {
                 self.queued = false;
                 self.spent = true;

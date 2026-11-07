@@ -3,12 +3,12 @@
 //! registration. Its fixtures remain available for development/reference.
 mod smash;
 use crate::{
-    ledge_trap::LedgeOutput,
+    gameplay::ControllerOutput,
     native_input::{MAPPER_A, MAPPER_R},
 };
 
-pub const ESCAPE_F: i32 = 0x20;
-pub const ESCAPE_B: i32 = 0x21;
+pub const ESCAPE_F: i32 = crate::native_states::ESCAPE_F;
+pub const ESCAPE_B: i32 = crate::native_states::ESCAPE_B;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Choice {
     #[default]
@@ -141,7 +141,7 @@ pub struct RollRead {
     phase: u8,
     target: Option<u32>,
     previous: Option<(i32, u64, f32)>,
-    output: LedgeOutput,
+    output: ControllerOutput,
     choice: Choice,
     request_age: f32,
     previous_rate: f32,
@@ -161,7 +161,7 @@ impl RollRead {
         }
         self.phase = 0;
         self.target = None;
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
     }
     pub fn sample(
         &mut self,
@@ -169,7 +169,7 @@ impl RollRead {
         config: FighterConfig,
         c: Context,
         targets: [Option<Target>; 8],
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         self.sample_choice(
             if enabled {
                 Choice::DownSmash
@@ -187,7 +187,7 @@ impl RollRead {
         config: FighterConfig,
         c: Context,
         targets: [Option<Target>; 8],
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if self.choice != choice {
             *self = Self {
                 choice,
@@ -220,7 +220,7 @@ impl RollRead {
             || config.watch_distance <= 0.0
         {
             *self = Self::default();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if choice == Choice::DownSmash {
             return self.sample_smash(config, c, targets);
@@ -228,7 +228,7 @@ impl RollRead {
         if self.phase != 0 {
             return self.deliver_grab(config, c, targets);
         }
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
         // Preserve identity if the observed roster slots reorder online.
         let old_tracks = self.tracks;
         for (slot, target) in targets.into_iter().enumerate() {
@@ -310,7 +310,7 @@ impl RollRead {
                 );
                 if !c.facing.is_finite() || c.facing.abs() < 0.5 {
                     self.phase = 0;
-                    self.output = LedgeOutput::default();
+                    self.output = ControllerOutput::default();
                 } else if c.facing * desired < 0.0 {
                     self.output = controls([desired * 0.3, 0.0], 0);
                 }
@@ -328,10 +328,15 @@ impl RollRead {
         config: FighterConfig,
         c: Context,
         targets: [Option<Target>; 8],
-    ) -> LedgeOutput {
-        if matches!(c.status, 0x37..=0x40) || !c.facing.is_finite() || c.facing.abs() < 0.5 {
+    ) -> ControllerOutput {
+        if matches!(
+            c.status,
+            crate::native_states::CATCH..=crate::native_states::THROW
+        ) || !c.facing.is_finite()
+            || c.facing.abs() < 0.5
+        {
             self.phase = 0;
-            self.output = LedgeOutput::default();
+            self.output = ControllerOutput::default();
             return self.output;
         }
         if c.stopped {
@@ -339,7 +344,7 @@ impl RollRead {
         }
         if !c.can_act {
             self.phase = 0;
-            self.output = LedgeOutput::default();
+            self.output = ControllerOutput::default();
             return self.output;
         }
         let clock = (c.status, c.motion, c.frame);
@@ -372,7 +377,7 @@ impl RollRead {
         }
         if !(0.0..=8.0).contains(&elapsed) {
             self.phase = 0;
-            self.output = LedgeOutput::default();
+            self.output = ControllerOutput::default();
             return self.output;
         }
         self.previous = Some(clock);
@@ -387,7 +392,7 @@ impl RollRead {
             }
         {
             self.phase = 0;
-            self.output = LedgeOutput::default();
+            self.output = ControllerOutput::default();
             return self.output;
         }
         let target = targets.into_iter().flatten().find(|t| {
@@ -405,14 +410,14 @@ impl RollRead {
         });
         let Some(t) = target else {
             self.phase = 0;
-            self.output = LedgeOutput::default();
+            self.output = ControllerOutput::default();
             return self.output;
         };
         let dx = t.position[0] - c.position[0];
         let projected = dx + t.velocity_x * f32::from(config.first).min(6.0);
         if dx.abs() > config.watch_distance || projected.abs() > config.reach {
             self.phase = 0;
-            self.output = LedgeOutput::default();
+            self.output = ControllerOutput::default();
             return self.output;
         }
         // Revalidate live reach/window even when neither native clock advances.
@@ -457,6 +462,6 @@ fn grab_direction(projected: f32, facing: f32) -> f32 {
         projected.signum()
     }
 }
-fn controls(stick: [f32; 2], requested: u32) -> LedgeOutput {
+fn controls(stick: [f32; 2], requested: u32) -> ControllerOutput {
     crate::move_input::output(stick, requested)
 }

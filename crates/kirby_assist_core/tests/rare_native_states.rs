@@ -1,6 +1,7 @@
 use kirby_assist_core::{
     battle_objects::{append_fighter, insert_nearest, FighterRoster},
-    ledge_trap::{InputTimeline, LedgeContext, LedgeSettings, Opponent},
+    gameplay::{GameplayContext, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     native_input::MAPPER_B,
     native_states,
     observation::RosterSnapshot,
@@ -9,8 +10,8 @@ use kirby_assist_core::{
     },
     sequence_config::Catalog,
 };
-fn ctx(status: i32, frame: f32) -> LedgeContext {
-    LedgeContext {
+fn ctx(status: i32, frame: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
@@ -52,7 +53,7 @@ fn shield_break_sleep_bind_bury_freeze_and_special_captures_abort_without_resumi
             );
             let out = t.sample(
                 LedgeSettings::default(),
-                LedgeContext {
+                GameplayContext {
                     stopped,
                     ..ctx(status, 1.)
                 },
@@ -70,7 +71,15 @@ fn shield_break_sleep_bind_bury_freeze_and_special_captures_abort_without_resumi
                 0
             );
             let scope = AutomaticObservationScope::new(
-                false, status, 0, stopped, false, false, false, false, true,
+                false,
+                status,
+                kirby_assist_core::native_states::status::WAIT,
+                stopped,
+                false,
+                false,
+                false,
+                false,
+                true,
             );
             assert!(!scope.acquire && !scope.follow, "status {status:#x}");
         }
@@ -79,7 +88,18 @@ fn shield_break_sleep_bind_bury_freeze_and_special_captures_abort_without_resumi
 #[test]
 fn stunned_opponents_remain_punishable_but_capture_and_scene_actors_are_not() {
     use kirby_assist_core::out_of_shield::automatic_grab_target_status_with_shield as grab;
-    for status in [0x5c, 0x5d, 0x5e, 0x60, 0x62, 0x66, 0xc8, 0xcb, 0x148, 0x1a4] {
+    for status in [
+        kirby_assist_core::native_states::status::SHIELD_BREAK_FLY,
+        kirby_assist_core::native_states::status::SHIELD_BREAK_FALL,
+        kirby_assist_core::native_states::status::SHIELD_BREAK_DOWN,
+        kirby_assist_core::native_states::status::FURAFURA,
+        kirby_assist_core::native_states::status::DAMAGE_SONG_START,
+        kirby_assist_core::native_states::status::BIND,
+        kirby_assist_core::native_states::status::BURY,
+        0xcb,
+        kirby_assist_core::native_states::status::SAVING_DAMAGE,
+        0x1a4,
+    ] {
         assert!(
             automatic_target_available(status),
             "hittable status {status:#x}"
@@ -89,17 +109,53 @@ fn stunned_opponents_remain_punishable_but_capture_and_scene_actors_are_not() {
         grab(0x60, true),
         "dizzy standing opponent remains grabbable"
     );
-    for status in [0x50, 0x53, 0x5e, 0x86, 0xc8, 0xc9, 0xcb, 0xcc] {
+    for status in [
+        kirby_assist_core::native_states::status::DOWN,
+        kirby_assist_core::native_states::status::DOWN_WAIT,
+        kirby_assist_core::native_states::status::SHIELD_BREAK_DOWN,
+        kirby_assist_core::native_states::status::SLIP,
+        kirby_assist_core::native_states::status::BURY,
+        0xc9,
+        0xcb,
+        kirby_assist_core::native_states::status::ICE_JUMP,
+    ] {
         assert!(!grab(status, true));
     }
     for status in [
-        0x42, 0xbd, 0xbe, 0xc4, 0xc6, 0xe6, 0xed, 0xf4, 0xfe, 0x10e, 0x124, 0x146, 0x156, 0x172,
-        0x184, 0x18b, 0x19c, 0x1be, 0x1ca, 0x1d6, 0x1da, 0x1e0,
+        kirby_assist_core::native_states::status::CAPTURE_WAIT,
+        kirby_assist_core::native_states::status::CLUNG_GANON,
+        kirby_assist_core::native_states::status::CATCHED_GANON,
+        0xc4,
+        0xc6,
+        kirby_assist_core::native_states::status::SWALLOWED,
+        0xed,
+        0xf4,
+        kirby_assist_core::native_states::status::CATCHED_REFLET,
+        0x10e,
+        0x124,
+        0x146,
+        0x156,
+        0x172,
+        0x184,
+        0x18b,
+        0x19c,
+        kirby_assist_core::native_states::status::CATCHED_PICKEL_TROLLEY,
+        0x1ca,
+        kirby_assist_core::native_states::status::STANDBY,
+        0x1da,
+        kirby_assist_core::native_states::status::FINAL,
     ] {
         assert!(!automatic_target_available(status), "status {status:#x}");
         assert!(!grab(status, true));
     }
-    for status in [0x57, 0x58, 0x59, 0x67, 0x68, 0x1de] {
+    for status in [
+        kirby_assist_core::native_states::status::DOWN_STAND,
+        kirby_assist_core::native_states::status::DOWN_STAND_FB,
+        kirby_assist_core::native_states::status::DOWN_STAND_ATTACK,
+        kirby_assist_core::native_states::status::PASSIVE,
+        kirby_assist_core::native_states::status::PASSIVE_FB,
+        kirby_assist_core::native_states::status::SPECIAL_HI,
+    ] {
         assert!(
             !native_states::sequence_interrupted(status),
             "ordinary recovery {status:#x}"
@@ -108,10 +164,18 @@ fn stunned_opponents_remain_punishable_but_capture_and_scene_actors_are_not() {
 }
 #[test]
 fn custom_status_numbers_cannot_borrow_another_fighters_up_b_identity() {
-    for kind in 0..0x5e {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         assert!(automatic_up_b_status(kind, 0x1de, 0));
-        for status in [0x1e0, 0x3ff, 0x7fffffff] {
-            assert!(!automatic_up_b_status(kind, status, 0x1de));
+        for status in [
+            kirby_assist_core::native_states::status::FINAL,
+            0x3ff,
+            0x7fffffff,
+        ] {
+            assert!(!automatic_up_b_status(
+                kind,
+                status,
+                kirby_assist_core::native_states::status::SPECIAL_HI
+            ));
         }
     }
     for (kind, status) in [
@@ -126,7 +190,11 @@ fn custom_status_numbers_cannot_borrow_another_fighters_up_b_identity() {
         (91, 0x1ed),
         (88, 0x20c),
     ] {
-        assert!(automatic_up_b_status(kind, status, 0));
+        assert!(automatic_up_b_status(
+            kind,
+            status,
+            kirby_assist_core::native_states::status::WAIT
+        ));
     }
     for (kind, status) in [
         (90, 0x1e1),
@@ -135,7 +203,11 @@ fn custom_status_numbers_cannot_borrow_another_fighters_up_b_identity() {
         (15, 0x1e3),
         (43, 0x1e1),
     ] {
-        assert!(!automatic_up_b_status(kind, status, 0x1de));
+        assert!(!automatic_up_b_status(
+            kind,
+            status,
+            kirby_assist_core::native_states::status::SPECIAL_HI
+        ));
     }
 }
 #[test]
@@ -199,7 +271,11 @@ fn private_damage_and_swap_states_are_scoped_to_their_actual_native_fighter() {
         let out = t.sample(settings, ctx(status, 1.), None, None, 0.);
         assert_eq!(out.owned, 0);
         assert!(t.finished());
-        assert!(!automatic_up_b_status(kind, status, 0x1de));
+        assert!(!automatic_up_b_status(
+            kind,
+            status,
+            kirby_assist_core::native_states::status::SPECIAL_HI
+        ));
     }
     assert!(!native_states::fighter_sequence_interrupted(15, 0x1e1));
     assert!(automatic_up_b_status(15, 0x1e1, 0));
@@ -294,13 +370,13 @@ fn consumed_rolls_for_all_sixteen_actors_survive_candidate_pool_changes() {
         .unwrap();
     let mut engine = Engine::default();
     let settings = LedgeSettings {
-        fighter_kind: 15,
+        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     };
     for id in 1..=16 {
         let t = Target {
             id,
-            status: 0x20,
+            status: kirby_assist_core::native_states::ESCAPE_F,
             motion: 2,
             frame: 1.,
             rate: 1.,
@@ -311,7 +387,7 @@ fn consumed_rolls_for_all_sixteen_actors_survive_candidate_pool_changes() {
         };
         let e = Opponent {
             id,
-            status: 0x20,
+            status: kirby_assist_core::native_states::ESCAPE_F,
             position: [10., 0.],
             motion: Some(MotionTiming {
                 kind: 2,
@@ -351,7 +427,7 @@ fn consumed_rolls_for_all_sixteen_actors_survive_candidate_pool_changes() {
         let mut targets = [None; 8];
         targets[0] = Some(Target {
             id,
-            status: 0x20,
+            status: kirby_assist_core::native_states::ESCAPE_F,
             motion: 2,
             frame: 100.,
             rate: 1.,

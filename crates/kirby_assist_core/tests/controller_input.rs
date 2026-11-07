@@ -1,10 +1,11 @@
 use kirby_assist_core::{
-    ledge_trap::{InputTimeline, LedgeContext, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     native_input::*,
     sequence_config::{persist, Action, Catalog},
 };
-fn c(frame: f32, facing: f32) -> LedgeContext {
-    LedgeContext {
+fn c(frame: f32, facing: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         motion_kind: 1,
@@ -73,7 +74,7 @@ fn screen_relative_controller_does_not_require_an_enemy_or_move_readiness() {
     assert!(t.inputs_only());
     let out = t.sample(
         LedgeSettings::default(),
-        LedgeContext {
+        GameplayContext {
             situation: 2,
             ..c(0., -1.)
         },

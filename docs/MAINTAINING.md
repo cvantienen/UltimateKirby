@@ -14,11 +14,6 @@ Use the virtual environment so documentation packages stay separate from your
 system Python. To update the pinned MkDocs version, edit `requirements-docs.txt`,
 reinstall it, and run the strict build below.
 
-This workspace's environment was created with `/usr/bin/python3` (Python 3.9),
-after Homebrew Python environment setup failed. If `python3 -m venv` fails in
-`ensurepip` or cannot import `pyexpat`, use `/usr/bin/python3 -m venv .venv-docs` when
-creating a fresh environment. The project does not change system Python.
-
 ## Preview while editing
 
 ```sh

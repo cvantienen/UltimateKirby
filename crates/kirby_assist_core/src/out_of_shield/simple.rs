@@ -1,12 +1,13 @@
 //! Front vulnerable-target selection: enemy shield required only when unshielded.
 use crate::{
-    ledge_trap::{LedgeContext, LedgeOutput, NativeAttempt, Opponent, SEQUENCE_BUTTONS},
+    gameplay::{ControllerOutput, GameplayContext, Opponent},
+    ledge_trap::{NativeAttempt, SEQUENCE_BUTTONS},
     native_input::MAPPER_R,
     roll_read::Target,
 };
 pub(super) fn target_valid(
     c: super::Context,
-    lc: LedgeContext,
+    lc: GameplayContext,
     e: Opponent,
     range: f32,
     height: f32,
@@ -180,8 +181,8 @@ impl Grab {
             self.last_mapped = Some(tick);
         }
     }
-    fn output(buttons: u32) -> LedgeOutput {
-        LedgeOutput {
+    fn output(buttons: u32) -> ControllerOutput {
+        ControllerOutput {
             owned: SEQUENCE_BUTTONS,
             requested: buttons,
             stick: Some([0.; 2]),
@@ -192,7 +193,7 @@ impl Grab {
         &mut self,
         allowed: bool,
         c: super::Context,
-        lc: LedgeContext,
+        lc: GameplayContext,
         targets: [Option<Target>; 8],
         follow: Option<Opponent>,
         range: f32,
@@ -201,7 +202,7 @@ impl Grab {
         close: f32,
         approach: bool,
         shielded: bool,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if self
             .failed_approach
             .is_some_and(|(_, epoch)| epoch != lc.manual_input_epoch)
@@ -218,19 +219,21 @@ impl Grab {
             } else {
                 self.cancel();
             }
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         // A mapped R may still be in the game's input queue. Once delivered,
         // release control instead of switching that unresolved request to Up+B.
         if self.delivery_pending() {
-            if matches!(c.status, 0x37..=0x40)
-                || !lc.gameplay
+            if matches!(
+                c.status,
+                crate::native_states::CATCH..=crate::native_states::THROW
+            ) || !lc.gameplay
                 || !c.grounded
                 || lc.situation != 0
                 || crate::ledge_trap::sequence_interrupted(c.status)
             {
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             self.clock.advance_pause(lc, follow, 120);
             if self.delivery_polls >= 24 || self.clock.expired || self.clock.elapsed() >= 24. {
@@ -239,33 +242,40 @@ impl Grab {
                 } else {
                     self.cancel();
                 }
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             if !allowed
                 || c.stopped
                 || lc.stopped
-                || c.status == 0x1e
+                || c.status == crate::native_states::GUARD_DAMAGE
                 || self.mapped >= 4
                 || self.clock.elapsed() >= 4.
             {
-                return LedgeOutput::default(); // Settling owns no buttons or movement.
+                return ControllerOutput::default(); // Settling owns no buttons or movement.
             }
         }
         if !allowed || !c.grounded || lc.situation != 0 || !lc.gameplay || lc.stopped {
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         // A renewed shield hit or native incapacitation ends the previous tap;
         // never queue it through shieldstun or force a cancel of native recovery.
-        if self.active() && (crate::ledge_trap::sequence_interrupted(c.status) || c.status == 0x1e)
+        if self.active()
+            && (crate::ledge_trap::sequence_interrupted(c.status)
+                || c.status == crate::native_states::GUARD_DAMAGE)
         {
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         // Native catch startup confirms delivery; release the input immediately.
-        if self.active() && matches!(c.status, 0x37..=0x40) {
+        if self.active()
+            && matches!(
+                c.status,
+                crate::native_states::CATCH..=crate::native_states::THROW
+            )
+        {
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         // A new shield press cancels the approach; it can never launch a dash
         // from shield. Ground locomotion can also begin a fresh direct Grab.
@@ -273,7 +283,7 @@ impl Grab {
             if !self.delivery_pending() {
                 self.cancel();
             }
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         let own_ready = if self.active() && self.approach {
             super::ground_grab_state(c.status) && !c.stopped
@@ -284,14 +294,20 @@ impl Grab {
             if !self.delivery_pending() {
                 self.cancel();
             }
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
-        if self.active() && self.await_dash && matches!(c.status, 1..=9 | 0x11..=0x17) {
+        if self.active()
+            && self.await_dash
+            && matches!(c.status, crate::native_states::status::WALK..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT)
+        {
             self.await_dash = false;
             self.dash_sent = true;
             // The player may have begun walking before our dash was mapped.
             // Keep that movement manual instead of boosting it into a run.
-            if !matches!(c.status, 3 | 4) {
+            if !matches!(
+                c.status,
+                crate::native_states::status::DASH | crate::native_states::status::RUN
+            ) {
                 self.assisted_dash = false;
             }
             self.clock = NativeAttempt::default();
@@ -315,7 +331,7 @@ impl Grab {
             position: t.position,
             velocity: [t.velocity_x, 0.],
             vulnerable: t.vulnerable_in == Some(0.),
-            motion: Some(crate::ledge_trap::MotionTiming {
+            motion: Some(crate::gameplay::MotionTiming {
                 kind: t.motion,
                 frame: t.frame,
                 rate: t.rate,
@@ -333,7 +349,7 @@ impl Grab {
             })
         } else {
             if c.stopped || !c.can_grab || !c.shield_ready {
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             targets
                 .iter()
@@ -344,7 +360,7 @@ impl Grab {
                     valid(*e)
                         && !(self.failed_approach.is_some()
                             && approach
-                            && c.status == 0
+                            && c.status == crate::native_states::status::WAIT
                             && (e.position[0] - c.position[0]).abs() > close)
                 })
                 .min_by(|a, b| {
@@ -357,11 +373,11 @@ impl Grab {
             if !self.delivery_pending() {
                 self.cancel();
             }
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if !self.active() {
             let Some(e) = enemy else {
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             };
             self.target = Some(e.id);
             self.clock = NativeAttempt::default();
@@ -371,7 +387,7 @@ impl Grab {
             // A far idle grab must enter native dash before pressing R.
             // A mapped stick packet (or residual shield-drop speed) is not proof.
             self.await_dash = approach
-                && c.status == 0
+                && c.status == crate::native_states::status::WAIT
                 && close.is_finite()
                 && (e.position[0] - c.position[0]).abs() > close;
             self.assisted_dash = self.await_dash;
@@ -393,27 +409,30 @@ impl Grab {
                     || self.clock.elapsed() >= 4.
                 {
                     self.fail_approach(lc.manual_input_epoch);
-                    return LedgeOutput::default();
+                    return ControllerOutput::default();
                 }
             }
-            if matches!(c.status, 0x1b..=0x1e) || !lc.safe_ground[usize::from(self.direction > 0.)]
+            if matches!(
+                c.status,
+                crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
+            ) || !lc.safe_ground[usize::from(self.direction > 0.)]
             {
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
-            return LedgeOutput {
+            return ControllerOutput {
                 stick: Some([self.direction, 0.]),
                 ..Self::output(0)
             };
         }
         if self.mapped >= 4 {
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         self.clock.advance_pause(lc, enemy, 120);
         if self.clock.expired || self.clock.elapsed() >= 4. {
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         super::direct_shield_input(c.status, Self::output(MAPPER_R), [0.; 2])
     }

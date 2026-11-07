@@ -4,8 +4,8 @@ use super::FighterProfile;
 pub fn profile() -> FighterProfile {
     FighterProfile {
         name: "wii_fit_trainer",
-        fighter_kind: 50,
-        ledge: super::LedgeFighterData::from_kind(50),
+        fighter_kind: crate::fighter_kinds::WII_FIT_TRAINER,
+        ledge: super::FighterGrabData::from_kind(50),
         menu_options: crate::fighter_profiles::presets::MenuPresets::EMPTY,
     }
 }

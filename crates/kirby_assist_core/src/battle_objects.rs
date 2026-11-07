@@ -1,9 +1,14 @@
 //! Bounded copied identities and candidate selection; no native pointers.
 pub const FIGHTER_CAPACITY: usize = 16; // Eight entries, each with an IC partner.
+pub const OBJECT_CATEGORY_FIGHTER: u32 = 0;
+pub const OBJECT_CATEGORY_WEAPON: u32 = 1;
+pub const OBJECT_CATEGORY_ITEM: u32 = 4;
+pub const WEAPON_KIND_PIKMIN_PIKMIN: i32 = 0x9d;
+pub const WEAPON_KIND_ROSETTA_TICO: i32 = 0xe6;
 pub type FighterRoster = [Option<u32>; FIGHTER_CAPACITY];
 
 pub fn append_fighter(roster: &mut FighterRoster, id: u32) {
-    if id >> 28 != 0 || roster.contains(&Some(id)) {
+    if id >> 28 != OBJECT_CATEGORY_FIGHTER || roster.contains(&Some(id)) {
         return;
     }
     if let Some(slot) = roster.iter_mut().find(|slot| slot.is_none()) {
@@ -47,8 +52,16 @@ pub fn distance_squared(from: [f32; 2], to: [f32; 2]) -> f32 {
 /// cannot be bucketed; native hitbox capability checks still decide all others.
 pub fn projectile_actor(id: u32, kind: i32, status: i32) -> bool {
     match id >> 28 {
-        1 => kind != 0xe6 && !(kind == 0x9d && matches!(status, 0x17..=0x19)),
-        4 => true,
+        OBJECT_CATEGORY_WEAPON => {
+            kind != WEAPON_KIND_ROSETTA_TICO
+                && !(kind == WEAPON_KIND_PIKMIN_PIKMIN
+                    && matches!(
+                        status,
+                        crate::native_states::status::LANDING_LIGHT
+                            ..=crate::native_states::status::LANDING_FALL_SPECIAL
+                    ))
+        }
+        OBJECT_CATEGORY_ITEM => true,
         _ => false,
     }
 }

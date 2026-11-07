@@ -64,10 +64,10 @@ impl Tuning {
             return false;
         }
         if (JAB_LOCK_REACH..=JAB_LOCK_HEIGHT).contains(&i) {
-            return kind == 5;
+            return kind == crate::fighter_kinds::YOSHI;
         }
         if (CROUCH_RANGE..=CROUCH_HEIGHT).contains(&i) {
-            return kind == 6;
+            return kind == crate::fighter_kinds::KIRBY;
         }
         true
     }
@@ -189,19 +189,27 @@ impl Tuning {
             5.0,
             1.5,
             2.0,
-            if s.fighter_kind == 6 {
+            if s.fighter_kind == crate::fighter_kinds::KIRBY {
                 14.0
-            } else if s.fighter_kind == 5 {
+            } else if s.fighter_kind == crate::fighter_kinds::YOSHI {
                 13.0
             } else {
                 12.0
             },
-            if s.fighter_kind == 6 { 22.0 } else { 21.0 },
+            if s.fighter_kind == crate::fighter_kinds::KIRBY {
+                22.0
+            } else {
+                21.0
+            },
             8.0,
             6.0,
             64.0,
             4.0,
-            if s.fighter_kind == 6 { 32.0 } else { 36.0 },
+            if s.fighter_kind == crate::fighter_kinds::KIRBY {
+                32.0
+            } else {
+                36.0
+            },
             7.0,
             12.0,
             60.0,

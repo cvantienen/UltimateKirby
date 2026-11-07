@@ -1,6 +1,7 @@
 //! Bounded, input-only roll reaction rules. No native queries or file access.
 use crate::{
-    ledge_trap::{InputTimeline, LedgeContext, LedgeOutput, LedgeSettings, Opponent},
+    gameplay::{ControllerOutput, GameplayContext, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     roll_read::{Target, ESCAPE_B, ESCAPE_F},
     sequence_config::{Action, Sequence},
 };
@@ -15,7 +16,7 @@ pub use scope::{
     automatic_target_available, automatic_tracking_target_available, automatic_up_b_receipt_status,
     automatic_up_b_status, AutomaticObservationScope,
 };
-pub(crate) fn native_up_b_started(kind: i32, c: LedgeContext) -> bool {
+pub(crate) fn native_up_b_started(kind: i32, c: GameplayContext) -> bool {
     simple::up_b_status(kind, c)
 }
 pub const MAX_RULES_PER_MODE: usize = 8;
@@ -260,15 +261,30 @@ impl SelfState {
             Self::Shielding => "shielding",
         }
     }
-    pub(crate) fn matches(self, c: LedgeContext) -> bool {
+    pub(crate) fn matches(self, c: GameplayContext) -> bool {
         match self {
             Self::Any => true,
             Self::Grounded => c.situation == 0,
             Self::Airborne => c.situation == 2,
-            Self::Standing => c.situation == 0 && c.status == 0,
-            Self::Walking => c.situation == 0 && c.status == 1,
-            Self::Running => c.situation == 0 && matches!(c.status, 3 | 4 | 7 | 8),
-            Self::Shielding => c.situation == 0 && matches!(c.status, 0x1b..=0x1e),
+            Self::Standing => c.situation == 0 && c.status == crate::native_states::status::WAIT,
+            Self::Walking => c.situation == 0 && c.status == crate::native_states::status::WALK,
+            Self::Running => {
+                c.situation == 0
+                    && matches!(
+                        c.status,
+                        crate::native_states::status::DASH
+                            | crate::native_states::status::RUN
+                            | crate::native_states::status::TURN_DASH
+                            | crate::native_states::status::TURN_RUN
+                    )
+            }
+            Self::Shielding => {
+                c.situation == 0
+                    && matches!(
+                        c.status,
+                        crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
+                    )
+            }
         }
     }
 }
@@ -898,10 +914,10 @@ impl Engine {
         allowed: bool,
         rules: &Resolved,
         settings: LedgeSettings,
-        mut c: LedgeContext,
+        mut c: GameplayContext,
         targets: [Option<Target>; 8],
         mut follow: Option<Opponent>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         let old = self.tracks;
         for (i, t) in targets.iter().enumerate() {
             self.tracks[i] = t
@@ -946,7 +962,7 @@ impl Engine {
             || c.facing.abs() < 0.5
         {
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.plan.is_none() && !c.stopped {
             self.feedback = Feedback::Watching;
@@ -1000,7 +1016,7 @@ impl Engine {
                         situation: 0,
                         position: t.position,
                         velocity: [t.velocity_x, 0.],
-                        motion: Some(crate::ledge_trap::MotionTiming {
+                        motion: Some(crate::gameplay::MotionTiming {
                             kind: t.motion,
                             frame: t.frame,
                             rate: t.rate,
@@ -1029,7 +1045,7 @@ impl Engine {
             if !plan.inputs_only() && follow.filter(|e| Some(e.id) == self.target).is_none() {
                 self.cancel();
                 self.feedback = Feedback::MissingTarget;
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             let out = plan.sample(settings, c, follow, None, 0.);
             if plan.finished() {
@@ -1040,7 +1056,7 @@ impl Engine {
             }
             out
         } else {
-            LedgeOutput::default()
+            ControllerOutput::default()
         }
     }
 }
@@ -1062,11 +1078,11 @@ mod tests {
         .entries()[0]
             .sequence
     }
-    fn context(frame: f32) -> LedgeContext {
-        LedgeContext {
+    fn context(frame: f32) -> GameplayContext {
+        GameplayContext {
             held: true,
             gameplay: true,
-            status: 0,
+            status: crate::native_states::status::WAIT,
             situation: 0,
             motion_kind: 1,
             motion_frame: frame,
@@ -1074,7 +1090,7 @@ mod tests {
             facing: 1.,
             position: [0., 0.],
             safe_ground: [true; 2],
-            ..LedgeContext::default()
+            ..GameplayContext::default()
         }
     }
     fn target(frame: f32, x: f32) -> Target {
@@ -1100,7 +1116,7 @@ mod tests {
         .unwrap();
         r
     }
-    fn sample(e: &mut Engine, r: &Resolved, c: LedgeContext, t: Target) -> LedgeOutput {
+    fn sample(e: &mut Engine, r: &Resolved, c: GameplayContext, t: Target) -> ControllerOutput {
         e.sample(
             true,
             r,
@@ -1115,8 +1131,8 @@ mod tests {
         for repeats in [0, 20] {
             let rules = resolved(sequence("roll:shielding:0:20:12:any:1", "wait:2,up_b:1"));
             let mut engine = Engine::default();
-            let c = LedgeContext {
-                status: 0x1c,
+            let c = GameplayContext {
+                status: crate::native_states::GUARD,
                 motion_frame: 0.0,
                 motion_rate: 1.0,
                 ..context(0.0)
@@ -1128,7 +1144,7 @@ mod tests {
                     id: t.id,
                     status: t.status,
                     position: t.position,
-                    motion: Some(crate::ledge_trap::MotionTiming {
+                    motion: Some(crate::gameplay::MotionTiming {
                         kind: t.motion,
                         frame: t.frame,
                         rate: t.rate,
@@ -1250,7 +1266,7 @@ mod tests {
         let mut c = context(1.);
         assert_eq!(sample(&mut e, &r, c, target(1., 5.)).requested, 0);
         assert_eq!(e.feedback, Feedback::State);
-        c.status = 1;
+        c.status = crate::native_states::status::WALK;
         c.motion_frame = 2.;
         let mut t = target(2., 5.);
         t.vulnerable_in = Some(2.);
@@ -1308,16 +1324,16 @@ mod combined_trigger_test {
             })
             .unwrap();
         let mut engine = Engine::default();
-        let mut ctx = LedgeContext {
+        let mut ctx = GameplayContext {
             held: true,
             gameplay: true,
-            status: 0,
+            status: crate::native_states::status::WAIT,
             situation: 0,
             motion_kind: 1,
             motion_frame: 1.,
             motion_rate: 1.,
             facing: 1.,
-            ..LedgeContext::default()
+            ..GameplayContext::default()
         };
         for (frame, x, vuln, expected) in [
             (1., 5., 0., false),
@@ -1393,16 +1409,16 @@ mod activation_tests {
             })
             .unwrap();
         let mut e = Engine::default();
-        let mut c = LedgeContext {
+        let mut c = GameplayContext {
             held: true,
             gameplay: true,
             situation: 0,
-            status: 0,
+            status: crate::native_states::status::WAIT,
             motion_kind: 1,
             motion_frame: 1.,
             motion_rate: 1.,
             facing: 1.,
-            ..LedgeContext::default()
+            ..GameplayContext::default()
         };
         let t = Target {
             id: 1,

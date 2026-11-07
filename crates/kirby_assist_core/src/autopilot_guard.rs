@@ -259,7 +259,7 @@ impl GuardHold {
         }
         // A gap between multihit hitboxes must not release an existing shield
         // during native shieldstun. Never generate an attack on shield release.
-        let threat = threat || c.status == 0x1e;
+        let threat = threat || c.status == crate::native_states::GUARD_DAMAGE;
         let valid = c.motion != 0
             && c.frame.is_finite()
             && c.frame >= 0.0
@@ -300,7 +300,14 @@ impl GuardHold {
                 && e.rate.is_finite()
                 && e.rate > 0.
                 && !e.stopped
-                && !matches!(e.status, 0x1b | 0x1c | 0x77 | 0x7e | 0x7f)
+                && !matches!(
+                    e.status,
+                    crate::native_states::GUARD_ON
+                        | crate::native_states::GUARD
+                        | crate::native_states::status::CLIFF_WAIT
+                        | crate::native_states::status::OTTOTTO
+                        | crate::native_states::status::OTTOTTO_WAIT
+                )
         });
         let enemy_elapsed = enemy.and_then(|(id, e)| {
             let previous = self
@@ -315,7 +322,14 @@ impl GuardHold {
             .filter(|n| n.is_finite() && (0.0..=8.0).contains(n))
         });
         self.previous_enemy = if c.stopped { None } else { enemy };
-        if source_aware && !c.stopped && elapsed == 0. && matches!(c.status, 0x1b | 0x1c) {
+        if source_aware
+            && !c.stopped
+            && elapsed == 0.
+            && matches!(
+                c.status,
+                crate::native_states::GUARD_ON | crate::native_states::GUARD
+            )
+        {
             if let Some(delta) = enemy_elapsed {
                 elapsed = delta;
             } else if !threat {

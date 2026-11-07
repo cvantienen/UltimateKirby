@@ -101,11 +101,11 @@ pub fn smash_retry_pressed(age: f32, target: u32) -> bool {
 /// Owning only left-stick aim must not erase a physical tilt-stick attack.
 /// Full automated sequences still suppress competing physical aerials/tilts.
 pub fn blocks_physical_c_stick(owned: u32) -> bool {
-    owned & crate::ledge_trap::LEDGE_BUTTONS != 0
+    owned & crate::native_input::ASSIST_BUTTONS != 0
 }
-pub fn output(stick: [f32; 2], requested: u32) -> crate::ledge_trap::LedgeOutput {
-    crate::ledge_trap::LedgeOutput {
-        owned: crate::ledge_trap::LEDGE_BUTTONS,
+pub fn output(stick: [f32; 2], requested: u32) -> crate::gameplay::ControllerOutput {
+    crate::gameplay::ControllerOutput {
+        owned: crate::native_input::ASSIST_BUTTONS,
         requested,
         stick: Some(stick),
         consume_trigger: false,
@@ -150,7 +150,14 @@ pub fn aerial_stick(move_: Aerial, facing: f32) -> [f32; 2] {
 /// Directional A is legal in native jump squat or in the air, never in a
 /// grounded turnaround. Jump-only launch avoids accidental grounded tilts.
 pub fn aerial_ready(status: i32, situation: i32) -> bool {
-    status == 0xa || matches!(situation, 0 | 2) && matches!(status, 0xb | 0xe | 0xf)
+    status == crate::native_states::status::JUMP_SQUAT
+        || matches!(situation, 0 | 2)
+            && matches!(
+                status,
+                crate::native_states::status::JUMP
+                    | crate::native_states::status::FALL
+                    | crate::native_states::status::FALL_AERIAL
+            )
 }
 pub fn fast_fall(velocity_y: f32) -> Option<[f32; 2]> {
     (velocity_y.is_finite() && velocity_y < -0.05).then_some([0.0, -1.0])

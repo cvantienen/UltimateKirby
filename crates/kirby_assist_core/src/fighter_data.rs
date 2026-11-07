@@ -9,6 +9,18 @@ const DATA_FILE: &str = include_str!("../../../data/Ultimate_stats.json");
 const DATA_SCHEMA_VERSION: u32 = 1;
 const EXPECTED_FIGHTER_COUNT: usize = 90;
 
+const STATUS_DASH_ATTACK: i32 = 0x29;
+const STATUS_FORWARD_TILT: i32 = 0x2a;
+const STATUS_UP_TILT: i32 = 0x2b;
+const STATUS_DOWN_TILT: i32 = 0x2c;
+const STATUS_FORWARD_SMASH: i32 = 0x2f;
+const STATUS_DOWN_SMASH: i32 = 0x32;
+const STATUS_UP_SMASH: i32 = 0x35;
+const STATUS_GRAB: i32 = crate::native_states::CATCH;
+const STATUS_DASH_GRAB: i32 = crate::native_states::CATCH_DASH;
+const STATUS_PIVOT_GRAB: i32 = crate::native_states::CATCH_TURN;
+const GRAB_STATUSES: [i32; 3] = [STATUS_GRAB, STATUS_DASH_GRAB, STATUS_PIVOT_GRAB];
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Span {
     pub first: u16,
@@ -46,32 +58,40 @@ impl MoveData {
 
     pub fn recovery(&self, observation: RecoveryObservation) -> Option<f32> {
         let expected_status = match self.name.as_str() {
-            "Dash Attack" => 0x29,
-            "Forward Tilt" => 0x2a,
-            "Up Tilt" => 0x2b,
-            "Down Tilt" => 0x2c,
-            "Forward Smash" => 0x2f,
-            "Down Smash" => 0x32,
-            "Up Smash" => 0x35,
+            "Dash Attack" => STATUS_DASH_ATTACK,
+            "Forward Tilt" => STATUS_FORWARD_TILT,
+            "Up Tilt" => STATUS_UP_TILT,
+            "Down Tilt" => STATUS_DOWN_TILT,
+            "Forward Smash" => STATUS_FORWARD_SMASH,
+            "Down Smash" => STATUS_DOWN_SMASH,
+            "Up Smash" => STATUS_UP_SMASH,
             _ => return None,
         };
         let total = self.total?;
-        if !self.whiff_eligible
-            || !self.motions.contains(&observation.motion)
-            || observation.status != expected_status
-            || !observation.grounded
-            || observation.can_cancel
+        let last_active = self.last_active()?;
+
+        if !self.whiff_eligible || !self.motions.contains(&observation.motion) {
+            return None;
+        }
+        if observation.status != expected_status || !observation.grounded {
+            return None;
+        }
+        if observation.can_cancel
             || observation.active_attack
             || observation.registered_contact
             || !observation.vulnerable
-            || !observation.frame.is_finite()
-            || observation.frame <= f32::from(self.last_active()?)
+        {
+            return None;
+        }
+        if !observation.frame.is_finite()
+            || observation.frame <= f32::from(last_active)
             || !observation.end.is_finite()
             || (observation.end - f32::from(total)).abs() > 2.0
         {
             return None;
         }
-        crate::ledge_trap::recovery_frames(
+
+        crate::gameplay::recovery_frames(
             observation.frame,
             observation.end.min(f32::from(total)),
             observation.cancel,
@@ -184,74 +204,92 @@ fn load_fighters() -> Result<Vec<FighterData>, String> {
         ));
     }
 
-    let mut fighters = Vec::with_capacity(file.fighters.len());
-    for record in file.fighters {
-        if record.name.is_empty() || record.stats.is_empty() || record.moves.is_empty() {
-            return Err(format!(
-                "fighter record {} ({}) is missing identity, stats, or frame data",
-                record.kind, record.name
-            ));
-        }
-        let mut stats = Vec::with_capacity(record.stats.len());
-        for stat in record.stats {
-            if stat.key.is_empty() {
-                return Err(format!(
-                    "fighter {} has a statistic with an empty key",
-                    record.name
-                ));
-            }
-            stats.push(Stat {
-                key: stat.key,
-                value: stat.value,
-            });
-        }
-        let mut moves = Vec::with_capacity(record.moves.len());
-        for move_record in record.moves {
-            let active = move_record
-                .active
-                .into_iter()
-                .map(|[first, last]| Span { first, last })
-                .collect::<Vec<_>>();
-            if active
-                .iter()
-                .any(|span| span.first == 0 || span.first > span.last)
-            {
-                return Err(format!(
-                    "fighter {} has an invalid active-frame span for {}",
-                    record.name, move_record.name
-                ));
-            }
-            let motions = move_record
-                .motions
-                .iter()
-                .map(|name| crate::timing::motion_hash(name))
-                .collect();
-            let raw = move_record
-                .raw
-                .into_iter()
-                .map(|(key, value)| Stat { key, value })
-                .collect();
-            moves.push(MoveData {
-                name: move_record.name,
-                total: move_record.total,
-                landing_lag: move_record.landing_lag,
-                active,
-                motions,
-                whiff_eligible: move_record.whiff_eligible,
-                raw,
-            });
-        }
-        fighters.push(FighterData {
-            kind: record.kind,
-            name: record.name,
-            stats,
-            moves,
-        });
-    }
+    // Validate each record while converting it into the smaller runtime types.
+    let fighters = file
+        .fighters
+        .into_iter()
+        .map(parse_fighter)
+        .collect::<Result<Vec<_>, _>>()?;
+
     if !fighters.windows(2).all(|pair| pair[0].kind < pair[1].kind) {
         return Err("Ultimate_stats.json fighter records must be ordered by unique kind".into());
     }
     Ok(fighters)
+}
+
+fn parse_fighter(record: FighterRecord) -> Result<FighterData, String> {
+    if record.name.is_empty() || record.stats.is_empty() || record.moves.is_empty() {
+        return Err(format!(
+            "fighter record {} ({}) is missing identity, stats, or frame data",
+            record.kind, record.name
+        ));
+    }
+
+    let mut stats = Vec::with_capacity(record.stats.len());
+    for stat in record.stats {
+        if stat.key.is_empty() {
+            return Err(format!(
+                "fighter {} has a statistic with an empty key",
+                record.name
+            ));
+        }
+        stats.push(Stat {
+            key: stat.key,
+            value: stat.value,
+        });
+    }
+
+    let moves = record
+        .moves
+        .into_iter()
+        .map(|move_record| parse_move(&record.name, move_record))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(FighterData {
+        kind: record.kind,
+        name: record.name,
+        stats,
+        moves,
+    })
+}
+
+fn parse_move(fighter_name: &str, record: MoveRecord) -> Result<MoveData, String> {
+    let active = record
+        .active
+        .into_iter()
+        .map(|[first, last]| Span { first, last })
+        .collect::<Vec<_>>();
+    if active
+        .iter()
+        .any(|span| span.first == 0 || span.first > span.last)
+    {
+        return Err(format!(
+            "fighter {fighter_name} has an invalid active-frame span for {}",
+            record.name
+        ));
+    }
+
+    // Convert readable motion names to hashes once, not during live lookups.
+    let motions = record
+        .motions
+        .iter()
+        .map(|name| crate::timing::motion_hash(name))
+        .collect();
+    let raw = record
+        .raw
+        .into_iter()
+        .map(|(key, value)| Stat { key, value })
+        .collect();
+
+    Ok(MoveData {
+        name: record.name,
+        total: record.total,
+        landing_lag: record.landing_lag,
+        active,
+        motions,
+        whiff_eligible: record.whiff_eligible,
+        raw,
+    })
 }
 
 /// Validate and initialize the embedded roster before installing live hooks.
@@ -289,7 +327,7 @@ pub fn prepare_grab_references() -> Result<(), &'static str> {
             .map(|fighter| {
                 (
                     fighter.kind,
-                    [0x37, 0x39, 0x3b].map(|status| ordinary_grab_uncached(fighter.kind, status)),
+                    GRAB_STATUSES.map(|status| ordinary_grab_uncached(fighter.kind, status)),
                 )
             })
             .collect()
@@ -299,12 +337,7 @@ pub fn prepare_grab_references() -> Result<(), &'static str> {
 
 /// Exact standing, dash, or pivot grab facts for any fighter-data row.
 pub fn ordinary_grab(kind: i32, status: i32) -> Option<GrabReference> {
-    let slot = match status {
-        0x37 => 0,
-        0x39 => 1,
-        0x3b => 2,
-        _ => return None,
-    };
+    let slot = GRAB_STATUSES.iter().position(|&known| known == status)?;
     if let Some(facts) = GRAB_FACTS.get() {
         return facts
             .binary_search_by_key(&kind, |(fighter_kind, _)| *fighter_kind)
@@ -316,16 +349,18 @@ pub fn ordinary_grab(kind: i32, status: i32) -> Option<GrabReference> {
 
 fn ordinary_grab_uncached(kind: i32, status: i32) -> Option<GrabReference> {
     let move_name = match status {
-        0x37 => "Grab",
-        0x39 => "Dash Grab",
-        0x3b => "Pivot Grab",
+        STATUS_GRAB => "Grab",
+        STATUS_DASH_GRAB => "Dash Grab",
+        STATUS_PIVOT_GRAB => "Pivot Grab",
         _ => return None,
     };
     let fighter = fighter(kind)?;
     let mut active_window = None;
     for move_data in fighter.moves.iter().filter(|move_data| {
-        move_data.name == move_name || status == 0x37 && move_data.name.ends_with(" Grabs")
+        move_data.name == move_name || (status == STATUS_GRAB && move_data.name.ends_with(" Grabs"))
     }) {
+        // Some fighters have more than one grab variant. Conflicting timings
+        // are unknown, so do not select one variant arbitrarily.
         let candidate = (
             move_data.active.iter().map(|span| span.first).min()?,
             move_data.active.iter().map(|span| span.last).max()?,
@@ -397,7 +432,13 @@ mod grab_reference_cache_tests {
         let expected = all()
             .iter()
             .flat_map(|fighter| {
-                [0x37, 0x39, 0x3b, 0x1f].map(|status| {
+                [
+                    STATUS_GRAB,
+                    STATUS_DASH_GRAB,
+                    STATUS_PIVOT_GRAB,
+                    crate::native_states::ESCAPE,
+                ]
+                .map(|status| {
                     (
                         fighter.kind,
                         status,
@@ -412,8 +453,8 @@ mod grab_reference_cache_tests {
         }
         for kind in [-1, 0x77, i32::MAX] {
             assert_eq!(
-                ordinary_grab(kind, 0x37),
-                ordinary_grab_uncached(kind, 0x37)
+                ordinary_grab(kind, crate::native_states::CATCH),
+                ordinary_grab_uncached(kind, crate::native_states::CATCH)
             );
         }
     }

@@ -6,9 +6,9 @@
 //! native airborne state, request the angled dodge, then wait for landing.
 //! Inputs request transitions; observing the game confirms them. Poll-count
 //! timeouts bound abandoned attempts and do not replace animation readiness.
-use crate::ledge_trap::{LedgeOutput, LEDGE_BUTTONS};
 use crate::manual_controls::{DPAD_LEFT, DPAD_RIGHT, DPAD_SIDES};
 use crate::native_input::{MAPPER_X, MAPPER_ZR};
+use crate::{gameplay::ControllerOutput, native_input::ASSIST_BUTTONS};
 
 // Requested raw controller values; on-device slide distance is not established.
 // Restore the shallow downward vector used before the vertical-angle change.
@@ -46,7 +46,7 @@ pub struct SlideState {
     previous_direction: i8,
     started: i64,
     last_sample: Option<(i64, u32, SlideContext)>,
-    last_output: LedgeOutput,
+    last_output: ControllerOutput,
 }
 impl SlideState {
     /// Keep sampling an in-flight tool after its physical trigger is released.
@@ -56,18 +56,27 @@ impl SlideState {
 
     /// Preserve only an already-owned hop/dodge through native stop. Never
     /// issue a new press or hold Jump while no native clock is available.
-    pub fn frozen_output(&self, ctx: SlideContext) -> LedgeOutput {
+    pub fn frozen_output(&self, ctx: SlideContext) -> ControllerOutput {
         if !ctx.gameplay
             || !ctx.stopped
             || !ctx.motion_frame.is_finite()
             || !matches!(ctx.situation, 0 | 2)
         {
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         match self.phase {
-            Phase::Takeoff if matches!(ctx.status, 0..=0xb | 0x11..=0x15) => owned(),
-            Phase::Dodge if matches!(ctx.status, 0xa | 0xb) => self.last_output,
-            _ => LedgeOutput::default(),
+            Phase::Takeoff if matches!(ctx.status, crate::native_states::status::WAIT..=crate::native_states::status::JUMP | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV) => {
+                owned()
+            }
+            Phase::Dodge
+                if matches!(
+                    ctx.status,
+                    crate::native_states::status::JUMP_SQUAT | crate::native_states::status::JUMP
+                ) =>
+            {
+                self.last_output
+            }
+            _ => ControllerOutput::default(),
         }
     }
 
@@ -77,10 +86,10 @@ impl SlideState {
         tick: i64,
         physical: u32,
         ctx: SlideContext,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if !enabled || !ctx.gameplay || !ctx.motion_frame.is_finite() {
             *self = Self::default();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.last_sample.is_some_and(|last| tick < last.0) {
             *self = Self::default();
@@ -98,16 +107,23 @@ impl SlideState {
         self.previous_direction = direction;
         // Damage/captures/ledge states cancel. A grounded attack/recovery can
         // queue a tap, but receives no override until native jump readiness.
-        let supported_status =
-            matches!(ctx.status, 0..=0x46) || ctx.situation == 0 && ctx.status >= 0x1dc;
-        let can_queue = ctx.situation == 0 || matches!(ctx.status, 0x22..=0x23);
+        let supported_status = matches!(
+            ctx.status,
+            crate::native_states::status::WAIT..=crate::native_states::THROWN
+        ) || ctx.situation == 0
+            && ctx.status >= crate::native_states::status::SPECIAL_N;
+        let can_queue = ctx.situation == 0
+            || matches!(
+                ctx.status,
+                crate::native_states::ESCAPE_AIR..=crate::native_states::ESCAPE_AIR_SLIDE
+            );
 
         if pressed && can_queue && supported_status && physical & DPAD_SIDES != DPAD_SIDES {
             self.phase = Phase::Queued;
             self.direction = direction;
             self.started = tick;
         }
-        let mut out = LedgeOutput::default();
+        let mut out = ControllerOutput::default();
         if physical & DPAD_SIDES == DPAD_SIDES || !supported_status {
             self.phase = Phase::Idle;
         } else if !ctx.stopped {
@@ -131,10 +147,10 @@ impl SlideState {
                     Phase::Takeoff => {
                         if tick.saturating_sub(self.started) > 24 {
                             self.phase = Phase::Idle;
-                        } else if (ctx.status == 0xa
+                        } else if (ctx.status == crate::native_states::status::JUMP_SQUAT
                             && ctx.situation == 0
                             && ctx.motion_frame >= 2.0)
-                            || ctx.status == 0xb
+                            || ctx.status == crate::native_states::status::JUMP
                                 && matches!(ctx.situation, 0 | 2)
                                 && (0.0..=6.0).contains(&ctx.motion_frame)
                         {
@@ -154,8 +170,16 @@ impl SlideState {
                         }
                     }
                     Phase::Dodge => {
-                        if matches!(ctx.status, 0x22..=0x23)
-                            || ctx.situation == 0 && !matches!(ctx.status, 0xa | 0xb)
+                        if matches!(
+                            ctx.status,
+                            crate::native_states::ESCAPE_AIR
+                                ..=crate::native_states::ESCAPE_AIR_SLIDE
+                        ) || ctx.situation == 0
+                            && !matches!(
+                                ctx.status,
+                                crate::native_states::status::JUMP_SQUAT
+                                    | crate::native_states::status::JUMP
+                            )
                         {
                             self.phase = Phase::Landing;
                             out = owned(); // Release ZR, retain slide momentum.
@@ -176,7 +200,7 @@ impl SlideState {
                         out = owned();
                         if tick.saturating_sub(self.started) > 120 {
                             self.phase = Phase::Idle;
-                            out = LedgeOutput::default();
+                            out = ControllerOutput::default();
                         }
                     }
                 }
@@ -184,7 +208,7 @@ impl SlideState {
         }
         if self.phase == Phase::Landing && !ctx.stopped && ctx.situation == 0 && ctx.can_jump {
             self.phase = Phase::Idle;
-            out = LedgeOutput::default();
+            out = ControllerOutput::default();
             if self.jump_ready(ctx, direction) {
                 self.direction = direction;
                 self.phase = Phase::Takeoff;
@@ -208,11 +232,11 @@ impl SlideState {
             && ctx.safe_ground[usize::from(direction > 0)]
     }
 }
-fn owned() -> LedgeOutput {
-    LedgeOutput {
+fn owned() -> ControllerOutput {
+    ControllerOutput {
         stick: Some([0.0, 0.0]),
-        owned: LEDGE_BUTTONS,
-        ..LedgeOutput::default()
+        owned: ASSIST_BUTTONS,
+        ..ControllerOutput::default()
     }
 }
 

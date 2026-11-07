@@ -8,7 +8,9 @@ pub(crate) unsafe fn human_fighter(object: *mut game::Object) -> bool {
         return false;
     };
     let id = object.cast::<u8>().add(8).cast::<u32>().read();
-    if id >> 28 != 0 || !game::is_active(id) {
+    if id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+        || !game::is_active(id)
+    {
         return false;
     }
     let entry_id = game_entry_id(id);

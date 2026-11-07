@@ -1,7 +1,7 @@
 //! One input-only Kirby/Yoshi starter per Y press. A fresh hurtbox hit, not a shield
 //! or a persistent hit flag, permits the landing finisher. No loops or chasing.
 use crate::{
-    button_modes::YMode, combat_assist::FairContext, ledge_trap::LedgeOutput,
+    button_modes::YMode, combat_assist::FairContext, gameplay::ControllerOutput,
     native_input::MAPPER_A,
 };
 
@@ -20,7 +20,8 @@ pub struct Context {
 /// Locomotion/crouch, including run/turn braking. Attacks, shield stun and
 /// damage remain ineligible even when the situation flag still says grounded.
 pub fn grounded_start_allowed(status: i32, situation: i32) -> bool {
-    situation == 0 && matches!(status, 0..=9 | 0x11..=0x15)
+    situation == 0
+        && matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV)
 }
 pub fn yoshi_early_bair_hit(frame: f32) -> bool {
     let Some(move_data) = crate::fighter_data::named_move(5, "Back Air") else {
@@ -63,7 +64,7 @@ pub struct Finisher {
     down_held: bool,
     down_age: f32,
     facing: f32,
-    output: LedgeOutput,
+    output: ControllerOutput,
 }
 impl Finisher {
     pub fn cancel_pending(&mut self) {
@@ -80,7 +81,13 @@ impl Finisher {
     pub fn requests_short_hop(&self) -> bool {
         self.active && !self.jump_seen && self.output.requested & crate::native_input::MAPPER_X != 0
     }
-    pub fn sample(&mut self, enabled: bool, held: bool, mode: YMode, c: Context) -> LedgeOutput {
+    pub fn sample(
+        &mut self,
+        enabled: bool,
+        held: bool,
+        mode: YMode,
+        c: Context,
+    ) -> ControllerOutput {
         let f = c.fighter;
         let pressed = held && !self.held;
         self.held = held;
@@ -112,10 +119,10 @@ impl Finisher {
             if !pressed
                 || !f.grounded
                 || !c.can_start
-                || !grounded_start_allowed(f.status, 0)
-                || f.stopped && c.fighter_kind != 6
+                || !grounded_start_allowed(f.status, crate::native_states::status::WAIT)
+                || f.stopped && c.fighter_kind != crate::fighter_kinds::KIRBY
             {
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             self.active = true;
             self.mode = mode;
@@ -163,7 +170,7 @@ impl Finisher {
             YMode::DairSmash => 0xd40042152,
             YMode::YoshiBairSmash => crate::timing::motion_hash("attack_air_b"),
         };
-        let aerial = f.status == 0x36 && f.motion == motion;
+        let aerial = f.status == crate::native_states::status::ATTACK_AIR && f.motion == motion;
         self.aerial_seen |= aerial;
         let hit_window = match self.mode {
             YMode::FairSmash => true, // Any real hit from this exact fair arms Fsmash.
@@ -175,18 +182,18 @@ impl Finisher {
         self.confirmed |= self.mode == YMode::FairSmash
             && self.aerial_seen
             && f.grounded
-            && f.status == 0x18
+            && f.status == crate::native_states::status::LANDING_ATTACK_AIR
             && f.motion == crate::timing::motion_hash("landing_air_f")
             && f.hit_now;
         self.confirmed |= self.mode == YMode::DairSmash
             && self.aerial_seen
             && f.grounded
-            && f.status == 0x18
+            && f.status == crate::native_states::status::LANDING_ATTACK_AIR
             && f.motion == crate::timing::motion_hash("landing_air_lw")
             && (0.0..2.0).contains(&f.frame)
             && f.hit_now;
         // Squat is native jump acceptance: release even if stop begins there.
-        if f.status == 0xa {
+        if f.status == crate::native_states::status::JUMP_SQUAT {
             self.jump_seen = true;
             self.output = if self.mode == YMode::YoshiBairSmash {
                 controls([-self.facing, 0.0], 0)
@@ -215,7 +222,7 @@ impl Finisher {
         let was_down = self.output.stick.is_some_and(|s| s[1] < -0.5);
         let was_moving = self.output.stick.is_some_and(|s| s[0].abs() > 0.1);
         self.output = controls([0.0, 0.0], 0);
-        if f.status == 0xa {
+        if f.status == crate::native_states::status::JUMP_SQUAT {
             self.jump_seen = true;
             // Native squat confirms Jump was accepted, not that an aerial is
             // legal yet. Situation can change before status at takeoff.
@@ -228,7 +235,14 @@ impl Finisher {
         }
         // Native jump/fall status can appear before the copied situation flag
         // changes at takeoff. Do not treat that overlap as a failed landing.
-        let airborne_status = matches!(f.status, 0xb | 0xc | 0xe | 0xf | 0x36);
+        let airborne_status = matches!(
+            f.status,
+            crate::native_states::status::JUMP
+                | crate::native_states::status::JUMP_AERIAL
+                | crate::native_states::status::FALL
+                | crate::native_states::status::FALL_AERIAL
+                | crate::native_states::status::ATTACK_AIR
+        );
         if f.grounded && !airborne_status {
             let (start, attack) = match self.mode {
                 YMode::FairSmash => (0x2d, 0x2f),
@@ -252,7 +266,8 @@ impl Finisher {
                     self.facing = direction.signum();
                 }
             }
-            if !matches!(f.status, 0..=9 | 0x11..=0x18) {
+            if !matches!(f.status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_ATTACK_AIR)
+            {
                 return self.end();
             }
             if self.jump_seen {
@@ -315,7 +330,10 @@ impl Finisher {
                 self.output = controls([-self.facing, 0.0], 0);
             } else if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT {
                 return self.end();
-            } else if c.fighter_kind == 6 && !self.jump_seen && self.jump_requested {
+            } else if c.fighter_kind == crate::fighter_kinds::KIRBY
+                && !self.jump_seen
+                && self.jump_requested
+            {
                 // Request now, not after a transition-term observation round trip.
                 // Hold the same jump press until native squat, never a second jump.
                 self.output = self.jump_input();
@@ -323,10 +341,17 @@ impl Finisher {
             return self.output;
         }
         self.jump_seen = true;
-        if !matches!(f.status, 0xb | 0xc | 0xe | 0xf | 0x36) {
+        if !matches!(
+            f.status,
+            crate::native_states::status::JUMP
+                | crate::native_states::status::JUMP_AERIAL
+                | crate::native_states::status::FALL
+                | crate::native_states::status::FALL_AERIAL
+                | crate::native_states::status::ATTACK_AIR
+        ) {
             return self.end();
         }
-        if f.status == 0x36 {
+        if f.status == crate::native_states::status::ATTACK_AIR {
             if !aerial
                 || self.mode == YMode::YoshiBairSmash
                     && yoshi_bair_final_hit_start().is_none_or(|first| f.frame >= first)
@@ -377,7 +402,7 @@ impl Finisher {
         }
         self.output
     }
-    fn jump_input(&self) -> LedgeOutput {
+    fn jump_input(&self) -> ControllerOutput {
         if self.mode == YMode::YoshiBairSmash {
             // Reverse-aerial-rush launch: jump and full reverse together. Hold
             // the direction through squat, then attack/drift back toward the
@@ -420,14 +445,14 @@ impl Finisher {
             },
         );
     }
-    fn end(&mut self) -> LedgeOutput {
+    fn end(&mut self) -> ControllerOutput {
         self.active = false;
         self.previous = None;
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
         self.output
     }
 }
-fn controls(stick: [f32; 2], requested: u32) -> LedgeOutput {
+fn controls(stick: [f32; 2], requested: u32) -> ControllerOutput {
     let mut output = crate::move_input::output(stick, requested);
     output.owned |= 0xf;
     output

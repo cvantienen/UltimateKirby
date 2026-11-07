@@ -1,5 +1,5 @@
 //! Read-only native-progress clock; no fighter timing, retries or wall-clock input scheduling.
-use super::{LedgeContext, Opponent};
+use super::{GameplayContext, Opponent};
 type Stamp = (i32, u64, f32, f32);
 #[derive(Default)]
 pub(crate) struct NativeAttempt {
@@ -27,7 +27,7 @@ impl NativeAttempt {
     pub fn elapsed(&self) -> f32 {
         self.age
     }
-    pub fn advance_pause(&mut self, ctx: LedgeContext, enemy: Option<Opponent>, timeout: u16) {
+    pub fn advance_pause(&mut self, ctx: GameplayContext, enemy: Option<Opponent>, timeout: u16) {
         if ctx.stopped {
             self.enemy_was_fresh = false;
             return;
@@ -146,9 +146,14 @@ mod tests {
 
     #[test]
     fn held_guard_and_teeter_poses_use_opponent_frames_without_counting_duplicates_or_hitstop() {
-        for status in [0x1b, 0x1c, 0x7e, 0x7f] {
+        for status in [
+            crate::native_states::GUARD_ON,
+            crate::native_states::GUARD,
+            crate::native_states::status::OTTOTTO,
+            crate::native_states::status::OTTOTTO_WAIT,
+        ] {
             let mut clock = NativeAttempt::default();
-            let ctx = LedgeContext {
+            let ctx = GameplayContext {
                 status,
                 motion_kind: 123,
                 motion_frame: 20.0,
@@ -174,7 +179,7 @@ mod tests {
             }
             assert_eq!(clock.elapsed(), 1.0);
             clock.advance_pause(
-                LedgeContext {
+                GameplayContext {
                     stopped: true,
                     ..ctx
                 },
@@ -187,7 +192,7 @@ mod tests {
             assert_eq!(clock.elapsed(), 2.0);
             // Returning to a progressing pose must not add both clocks.
             clock.advance_pause(
-                LedgeContext {
+                GameplayContext {
                     motion_frame: 21.0,
                     ..ctx
                 },

@@ -1,5 +1,5 @@
 //! Confirmed shield-contact responses. Inputs only; never force native states.
-use crate::ledge_trap::LedgeOutput;
+use crate::gameplay::ControllerOutput;
 mod automatic;
 mod simple;
 pub use automatic::{AutomaticConfig, AutomaticLimits};
@@ -7,22 +7,39 @@ mod shield_up_b;
 
 /// Retained stationary gate for incoming-grab avoidance and legacy reactions.
 pub fn stationary_grab_state(status: i32) -> bool {
-    matches!(status, 0 | 0x1b | 0x1c)
+    matches!(
+        status,
+        crate::native_states::status::WAIT
+            | crate::native_states::GUARD_ON
+            | crate::native_states::GUARD
+    )
 }
 /// Ground locomotion, crouch and ordinary landing may grab as soon as native
 /// transitions permit it. Attack recovery, shield drop/stun and air stay out.
 pub fn ground_grab_state(status: i32) -> bool {
-    matches!(status,0..=9 | 0x11..=0x17 | 0x1b | 0x1c)
+    matches!(
+        status,
+        crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT | crate::native_states::GUARD_ON | crate::native_states::GUARD
+    )
 }
 /// Existing idle assistance retains its one delivered approach pulse. Already
 /// moving/landing actors send Grab immediately, without first easing the stick.
 pub fn automatic_grab_needs_approach(status: i32, velocity_x: f32) -> bool {
-    status == 0 && velocity_x.is_finite() && velocity_x.abs() <= 0.01
+    status == crate::native_states::status::WAIT
+        && velocity_x.is_finite()
+        && velocity_x.abs() <= 0.01
 }
 /// Held guard permits direct shield grab. Ground movement can use standing or
 /// dash-catch readiness; no pivot input or native status is forced.
 pub fn automatic_grab_ready(status: i32, enabled: impl FnMut(i32) -> bool) -> bool {
-    automatic_grab_ready_with_shield(status, matches!(status, 0x1b | 0x1c), enabled)
+    automatic_grab_ready_with_shield(
+        status,
+        matches!(
+            status,
+            crate::native_states::GUARD_ON | crate::native_states::GUARD
+        ),
+        enabled,
+    )
 }
 /// A fresh physical shield press counts before the native status catches up;
 /// its direct grab must never borrow dash-catch readiness from locomotion.
@@ -32,14 +49,24 @@ pub fn automatic_grab_ready_with_shield(
     mut enabled: impl FnMut(i32) -> bool,
 ) -> bool {
     ground_grab_state(status)
-        && (status == 0x1c
-            || enabled(0x1e00006f)
-            || !shielded && !matches!(status, 0x1b | 0x1c) && enabled(0x1e000070))
+        && (status == crate::native_states::GUARD
+            || enabled(crate::native_states::transition_terms::CONT_CATCH)
+            || !shielded
+                && !matches!(
+                    status,
+                    crate::native_states::GUARD_ON | crate::native_states::GUARD
+                )
+                && enabled(crate::native_states::transition_terms::CONT_CATCH_DASH))
 }
 /// Unshielded automatic grabs require observed enemy shield startup/hold/damage.
 /// Native vulnerability, capture links, front side and range are separate gates.
 pub fn automatic_grab_target_status(status: i32) -> bool {
-    matches!(status, 0x1b | 0x1c | 0x1e)
+    matches!(
+        status,
+        crate::native_states::GUARD_ON
+            | crate::native_states::GUARD
+            | crate::native_states::GUARD_DAMAGE
+    )
 }
 /// Shield grabs may punish ordinary hittable opponents without enemy shield.
 /// Downed/tripped bodies cannot be ordinary-grab targets; shield Up-B may hit
@@ -62,19 +89,20 @@ pub fn automatic_shield_target_status(status: i32) -> bool {
 /// the attack together. Movement/ordinary attacks keep the tape's neutral drop.
 pub(crate) fn direct_shield_input(
     status: i32,
-    mut out: LedgeOutput,
+    mut out: ControllerOutput,
     right: [f32; 2],
-) -> LedgeOutput {
+) -> ControllerOutput {
     use crate::native_input::*;
-    if matches!(status, 0x1b | 0x1c)
-        && out.stick.is_some_and(|s| {
-            out.requested & MAPPER_R != 0 && s[1] >= 0.
-                || out.requested & SEQUENCE_JUMP_BUTTONS != 0 && s[1] >= 0.
-                || out.requested & MAPPER_A != 0 && s[1] >= 0.95
-                || out.requested & MAPPER_B != 0 && s[1] > 0.5
-                || right[1] > 0.5
-        })
-    {
+    if matches!(
+        status,
+        crate::native_states::GUARD_ON | crate::native_states::GUARD
+    ) && out.stick.is_some_and(|s| {
+        out.requested & MAPPER_R != 0 && s[1] >= 0.
+            || out.requested & SEQUENCE_JUMP_BUTTONS != 0 && s[1] >= 0.
+            || out.requested & MAPPER_A != 0 && s[1] >= 0.95
+            || out.requested & MAPPER_B != 0 && s[1] > 0.5
+            || right[1] > 0.5
+    }) {
         out.requested |= MAPPER_ZR;
     }
     out
@@ -211,13 +239,14 @@ impl OutOfShield {
         &mut self,
         allowed: bool,
         c: Context,
-        context: crate::ledge_trap::LedgeContext,
+        context: crate::gameplay::GameplayContext,
         targets: [Option<crate::roll_read::Target>; 8],
-        attacker: Option<crate::ledge_trap::Opponent>,
+        attacker: Option<crate::gameplay::Opponent>,
         close: f32,
         _legacy_far: f32,
-    ) -> LedgeOutput {
-        let startup = crate::fighter_data::ordinary_grab(c.kind, 0x37).map(|g| f32::from(g.first));
+    ) -> ControllerOutput {
+        let startup = crate::fighter_data::ordinary_grab(c.kind, crate::native_states::CATCH)
+            .map(|g| f32::from(g.first));
         self.sample_simple_timed(allowed, c, context, targets, attacker, close, startup)
     }
     /// The live adapter supplies this fighter's resolved standing/shield startup.
@@ -226,12 +255,12 @@ impl OutOfShield {
         &mut self,
         allowed: bool,
         c: Context,
-        context: crate::ledge_trap::LedgeContext,
+        context: crate::gameplay::GameplayContext,
         targets: [Option<crate::roll_read::Target>; 8],
-        attacker: Option<crate::ledge_trap::Opponent>,
+        attacker: Option<crate::gameplay::Opponent>,
         range: f32,
         startup: Option<f32>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         self.bind_actor(c);
         self.shield_up_b.cancel();
         self.simple.sample(
@@ -245,7 +274,10 @@ impl OutOfShield {
             startup,
             range,
             false,
-            matches!(c.status, 0x1b..=0x1e),
+            matches!(
+                c.status,
+                crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
+            ),
         )
     }
     /// Front vulnerable-target grab (enemy shield required only when unshielded):
@@ -255,14 +287,14 @@ impl OutOfShield {
         &mut self,
         allowed: bool,
         c: Context,
-        context: crate::ledge_trap::LedgeContext,
+        context: crate::gameplay::GameplayContext,
         targets: [Option<crate::roll_read::Target>; 8],
-        follow: Option<crate::ledge_trap::Opponent>,
+        follow: Option<crate::gameplay::Opponent>,
         shielded: bool,
         close: f32,
         approach: f32,
         startup: Option<f32>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         self.sample_automatic_configured(
             allowed,
             c,
@@ -284,12 +316,12 @@ impl OutOfShield {
     /// Shield grabs always retain neutral axes to avoid an accidental roll.
     pub fn with_grab_movement(
         &mut self,
-        mut output: LedgeOutput,
+        mut output: ControllerOutput,
         physical: [f32; 2],
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if self.simple.turning_away(physical[0]) {
             self.suspend_automatic();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.simple.preserve_movement() && output.requested & crate::native_input::MAPPER_R != 0
         {
@@ -355,20 +387,20 @@ impl OutOfShield {
         rules: Option<&crate::reaction_rules::Resolved>,
         settings: crate::ledge_trap::LedgeSettings,
         c: Context,
-        context: crate::ledge_trap::LedgeContext,
+        context: crate::gameplay::GameplayContext,
         target: Option<Target>,
-        follow: Option<crate::ledge_trap::Opponent>,
-    ) -> LedgeOutput {
+        follow: Option<crate::gameplay::Opponent>,
+    ) -> ControllerOutput {
         self.simple.cancel();
         self.shield_up_b.cancel();
         if !enabled || rules.is_none() {
             self.cancel_pending();
-            self.guarded = c.status == 0x1e;
-            return LedgeOutput::default();
+            self.guarded = c.status == crate::native_states::GUARD_DAMAGE;
+            return ControllerOutput::default();
         }
         self.bind_actor(c);
         if let Some(previous_attacker) = self.response.target() {
-            let renewed_hit = c.status == 0x1e
+            let renewed_hit = c.status == crate::native_states::GUARD_DAMAGE
                 && (!self.guarded
                     || c.stopped
                     || !c.shield_ready
@@ -380,27 +412,32 @@ impl OutOfShield {
                 self.cancel_pending();
                 self.guarded = false;
             } else {
-                self.guarded = c.status == 0x1e;
+                self.guarded = c.status == crate::native_states::GUARD_DAMAGE;
                 return self.response.sample(enabled, settings, context, follow);
             }
         }
-        let hit = c.status == 0x1e;
+        let hit = c.status == crate::native_states::GUARD_DAMAGE;
         if hit
             && (!self.guarded || target.is_some_and(|t| self.target.is_some_and(|id| id != t.id)))
         {
             self.target = target.map(|t| t.id);
         }
         self.guarded = hit;
-        if !c.grounded || !matches!(c.status, 0x1b..=0x1e) {
+        if !c.grounded
+            || !matches!(
+                c.status,
+                crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
+            )
+        {
             self.cancel_pending();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         let Some(t) = target.filter(|t| Some(t.id) == self.target) else {
             self.target = None;
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         };
         if c.stopped || !c.shield_ready {
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         // One response per confirmed contact. No waiting in shield for a later
         // range/recovery window, and no hard-coded fighter move or startup.

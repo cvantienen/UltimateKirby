@@ -1,7 +1,7 @@
 //! Match-owned ledge memory, independent of temporary input owners and L releases.
 //! Only already-observed opponents are inspected; no roster/geometry queries.
 use super::{
-    is_hanging, LedgeContext, LedgeOutput, LedgeSettings, LedgeTrap, Opponent, CLIFF_CLIMB,
+    is_hanging, ControllerOutput, GameplayContext, LedgeSettings, LedgeTrap, Opponent, CLIFF_CLIMB,
     CLIFF_JUMP3,
 };
 use crate::ledge_position::LedgeSpot;
@@ -118,9 +118,9 @@ impl LedgeTrap {
         visits: &mut LedgeVisits,
         settings: LedgeSettings,
         tick: i64,
-        ctx: LedgeContext,
+        ctx: GameplayContext,
         enemy: Option<Opponent>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if self.preview.is_some() {
             return self.sample(settings, tick, ctx, enemy);
         }
@@ -142,7 +142,7 @@ impl LedgeTrap {
                 let continuing = self.file_timeline.is_some() && self.target == Some(e.id);
                 if !continuing && !visit.allowed {
                     self.visit_consumed = true;
-                    self.last_output = LedgeOutput::default();
+                    self.last_output = ControllerOutput::default();
                     return self.last_output;
                 }
             }
@@ -176,8 +176,8 @@ mod tests {
         s.sequence_overrides[PresetSlot::Neutral as usize] = Some(c.entries()[0].sequence);
         s
     }
-    fn ctx(frame: f32) -> LedgeContext {
-        LedgeContext {
+    fn ctx(frame: f32) -> GameplayContext {
+        GameplayContext {
             motion_kind: 123,
             motion_frame: frame,
             ..context()
@@ -207,7 +207,7 @@ mod tests {
             &mut v,
             settings(),
             2,
-            LedgeContext {
+            GameplayContext {
                 held: false,
                 ..ctx(2.0)
             },
@@ -246,7 +246,7 @@ mod tests {
             &mut v,
             settings(),
             1,
-            LedgeContext {
+            GameplayContext {
                 held: false,
                 ..ctx(1.0)
             },
@@ -377,7 +377,7 @@ mod preview_tests {
         for tick in [0, 1] {
             let mut t = LedgeTrap::default();
             t.request_preview(PresetSlot::Neutral);
-            let ctx = LedgeContext {
+            let ctx = GameplayContext {
                 motion_kind: 123,
                 motion_frame: tick as f32,
                 ..context()
@@ -398,7 +398,7 @@ mod preview_tests {
                 &mut v,
                 s,
                 2,
-                LedgeContext {
+                GameplayContext {
                     motion_kind: 123,
                     motion_frame: 2.0,
                     ..context()

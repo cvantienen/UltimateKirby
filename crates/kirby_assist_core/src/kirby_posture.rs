@@ -1,6 +1,6 @@
 //! Optional grounded stick helpers. Attack buttons always remain physical.
 use crate::{
-    ledge_trap::LedgeOutput,
+    gameplay::ControllerOutput,
     manual_controls::{ShortcutContext, LEFT_STICK_DIRECTIONS, RIGHT_STICK_DIRECTIONS},
     native_input::{ButtonTrace, MAPPER_A, MAPPER_L, MAPPER_RIGHT_STICK_DOWN},
 };
@@ -28,7 +28,10 @@ impl Posture {
     /// Facing preparation cannot affect aerials, other attacks or frozen
     /// locomotion. Down tilt is the exception: its hitstop can buffer a reversal.
     pub fn needs_target(status: i32, situation: i32, stopped: bool) -> bool {
-        situation == 0 && (matches!(status, 0..=9 | 0x11..=0x15) && !stopped || status == 0x2c)
+        situation == 0
+            && (matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV)
+                && !stopped
+                || status == crate::native_states::status::ATTACK_LW3)
     }
     pub fn down_tilt_angle(buttons: u32, stick: [f32; 2]) -> bool {
         Self::down_tilt_intent(buttons, stick, [0.0; 2])
@@ -72,7 +75,7 @@ impl Posture {
         stick: [f32; 2],
         target: Option<f32>,
         c: ShortcutContext,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         self.sample_controls(enabled, crouch, turn, buttons, stick, [0.0; 2], target, c)
     }
     pub fn sample_controls(
@@ -85,15 +88,15 @@ impl Posture {
         right: [f32; 2],
         target: Option<f32>,
         c: ShortcutContext,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         let c_down = Self::down_c_stick(buttons, right);
-        let locomotion = matches!(c.status, 0..=9 | 0x11..=0x15);
+        let locomotion = matches!(c.status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV);
         if !enabled || c.situation != 0
-            || !(locomotion || c.status == 0x2c) // Current down tilt may buffer the next.
+            || !(locomotion || c.status == crate::native_states::status::ATTACK_LW3) // Current down tilt may buffer the next.
             || !stick.iter().all(|v| v.is_finite())
             || !c.facing.is_finite() || c.facing.abs() < 0.5
         {
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         // A held directional tilt may be buffered during its hitstop. Releasing
         // its angle there lets buffered A select the old facing. This is only
@@ -121,11 +124,11 @@ impl Posture {
                 } else {
                     0.0
                 };
-                return LedgeOutput {
+                return ControllerOutput {
                     // ManualOverlay owns stick axes itself. Do not mark this
                     // as walking: that suppresses the horizontal reversal flick.
                     stick: Some([x, -1.0]),
-                    ..LedgeOutput::default()
+                    ..ControllerOutput::default()
                 };
             }
         }
@@ -138,11 +141,11 @@ impl Posture {
             && stick[0].abs() <= 0.08
             && stick[1].abs() <= 0.08
         {
-            return LedgeOutput {
+            return ControllerOutput {
                 stick: Some([0.0, -1.0]),
-                ..LedgeOutput::default()
+                ..ControllerOutput::default()
             };
         }
-        LedgeOutput::default()
+        ControllerOutput::default()
     }
 }

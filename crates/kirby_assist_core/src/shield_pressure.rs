@@ -2,7 +2,8 @@
 //! No native queries, guessed move timings, allocation or physics writes.
 use crate::{
     defense_response::Response,
-    ledge_trap::{LedgeContext, LedgeOutput, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
+    ledge_trap::LedgeSettings,
     reaction_rules::{Resolved, Side, Trigger},
     roll_read::Target,
 };
@@ -27,10 +28,13 @@ pub struct Pressure {
     claim_rolls: bool,
 }
 fn shield_context(s: i32) -> bool {
-    (0x1b..=0x1e).contains(&s)
+    (crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE).contains(&s)
 }
 fn roll(s: i32) -> bool {
-    matches!(s, 0x20 | 0x21)
+    matches!(
+        s,
+        crate::native_states::ESCAPE_F | crate::native_states::ESCAPE_B
+    )
 }
 impl Pressure {
     pub fn target(&self) -> Option<u32> {
@@ -69,17 +73,17 @@ impl Pressure {
         object: u32,
         rules: Option<&Resolved>,
         settings: LedgeSettings,
-        c: LedgeContext,
+        c: GameplayContext,
         targets: [Option<Target>; 8],
         follow: Option<Opponent>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if self.object != Some(object) {
             *self = Self::default();
             self.object = Some(object);
         }
         if !enabled || rules.is_none() || !c.gameplay {
             *self = Self::default();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         let rules = rules.unwrap();
         self.claim_rolls = Trigger::SHIELD_EVENTS[1..]
@@ -149,9 +153,9 @@ impl Pressure {
             });
         }
         // A fresh hit on our shield belongs to OOS, not an old pressure tape.
-        if !allowed || c.status == 0x1e {
+        if !allowed || c.status == crate::native_states::GUARD_DAMAGE {
             self.cancel_pending();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         let mut following = follow.filter(|e| Some(e.id) == self.target());
         if !self.committed() && !c.stopped && c.can_act {
@@ -183,11 +187,20 @@ impl Pressure {
                     }
                     let matched = match r.trigger {
                         Trigger::ShieldPressureVulnerable => {
-                            (matches!(t.status, 0x1b | 0x1c | 0x1e)
-                                || roll(t.status) && seen.from_shield)
+                            (matches!(
+                                t.status,
+                                crate::native_states::GUARD_ON
+                                    | crate::native_states::GUARD
+                                    | crate::native_states::GUARD_DAMAGE
+                            ) || roll(t.status) && seen.from_shield)
                                 && t.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.)
                         }
-                        Trigger::EnemyShield => matches!(t.status, 0x1b | 0x1c | 0x1e),
+                        Trigger::EnemyShield => matches!(
+                            t.status,
+                            crate::native_states::GUARD_ON
+                                | crate::native_states::GUARD
+                                | crate::native_states::GUARD_DAMAGE
+                        ),
                         Trigger::ShieldRoll => roll(t.status) && seen.from_shield,
                         Trigger::ShieldCross => roll(t.status) && seen.from_shield && seen.crossed,
                         Trigger::ShieldVulnerable => {

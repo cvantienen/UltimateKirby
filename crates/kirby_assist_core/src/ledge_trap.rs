@@ -2,9 +2,8 @@
 //! fighter-specific input schedule live in startup-loaded sequences.txt.
 //! No fighter recipe, move-start delay, hitbox window or retry engine lives here.
 use crate::fighter_profiles::presets::PresetSlot;
-use crate::native_input::{
-    MAPPER_A, MAPPER_B, MAPPER_L, MAPPER_R, MAPPER_X, MAPPER_Y, MAPPER_ZL, MAPPER_ZR,
-};
+pub use crate::native_input::ASSIST_BUTTONS;
+use crate::native_input::MAPPER_L;
 mod attempt;
 pub(crate) use attempt::NativeAttempt;
 #[cfg(feature = "diagnostic-logging")]
@@ -14,47 +13,46 @@ pub use file_timeline::Timeline as InputTimeline;
 mod identity;
 mod types;
 mod visits;
+pub use crate::gameplay::{
+    frames_until, recovery_frames, AirPhysics, ControllerOutput, GameplayContext, MotionTiming,
+    Opponent,
+};
 #[cfg(feature = "diagnostic-logging")]
 pub use diagnostics::{
     CalibrationFrame, CalibrationKind, CalibrationMove, NativeRule, RollGrabSnapshot,
 };
 pub use identity::ResponseImplementation;
-pub use types::{
-    frames_until, in_tracking_range, recovery_frames, AirPhysics, LedgeContext, LedgeOutput,
-    LedgeSettings, MotionTiming, Opponent,
-};
+pub use types::{in_tracking_range, LedgeContext, LedgeOutput, LedgeSettings};
 pub use visits::LedgeVisits;
 
 pub const DPAD_DOWN: u32 = 1 << 2;
 pub const LEDGE_TRIGGER: u32 = MAPPER_L;
-pub const CLIFF_CATCH_MOVE: i32 = 0x75;
-pub const CLIFF_WAIT: i32 = 0x77;
-pub const CLIFF_ATTACK: i32 = 0x78;
-pub const CLIFF_CLIMB: i32 = 0x79;
-pub const CLIFF_ESCAPE: i32 = 0x7a;
-pub const CLIFF_JUMP1: i32 = 0x7b;
-pub const CLIFF_JUMP3: i32 = 0x7d;
+pub const CLIFF_CATCH_MOVE: i32 = crate::native_states::status::CLIFF_CATCH_MOVE;
+pub const CLIFF_WAIT: i32 = crate::native_states::status::CLIFF_WAIT;
+pub const CLIFF_ATTACK: i32 = crate::native_states::status::CLIFF_ATTACK;
+pub const CLIFF_CLIMB: i32 = crate::native_states::status::CLIFF_CLIMB;
+pub const CLIFF_ESCAPE: i32 = crate::native_states::status::CLIFF_ESCAPE;
+pub const CLIFF_JUMP1: i32 = crate::native_states::status::CLIFF_JUMP1;
+pub const CLIFF_JUMP3: i32 = crate::native_states::status::CLIFF_JUMP3;
 /// Held shield/edge balancing can freeze a pose at a positive reported rate.
 /// Keep a read-only clock sample of the locked opponent in those states too.
 pub fn needs_opponent_clock(status: i32, motion_rate: f32) -> bool {
-    motion_rate == 0.0 || matches!(status, 0x1b | 0x1c | 0x7e | 0x7f)
+    motion_rate == 0.0
+        || matches!(
+            status,
+            crate::native_states::GUARD_ON
+                | crate::native_states::GUARD
+                | crate::native_states::status::OTTOTTO
+                | crate::native_states::status::OTTOTTO_WAIT
+        )
 }
 #[cfg(feature = "diagnostic-logging")]
 const ATTACK_AIR: i32 = 0x36;
-pub const LEDGE_BUTTONS: u32 = MAPPER_A
-    | MAPPER_B
-    | MAPPER_X
-    | MAPPER_Y
-    | MAPPER_L
-    | MAPPER_R
-    | MAPPER_ZL
-    | MAPPER_ZR
-    | (3 << 16)
-    | (0xf << 24)
-    | crate::native_input::MAPPER_EXTRA_BUTTONS;
+/// Legacy alias; shared policies should use `ASSIST_BUTTONS`.
+pub const LEDGE_BUTTONS: u32 = ASSIST_BUTTONS;
 /// Exclusive literal-sequence ownership; pause/menu remain available.
 pub const SEQUENCE_BUTTONS: u32 =
-    LEDGE_BUTTONS | 0xf | crate::manual_controls::LEFT_STICK_DIRECTIONS;
+    ASSIST_BUTTONS | 0xf | crate::manual_controls::LEFT_STICK_DIRECTIONS;
 /// Native incapacitation ends an input tape. Keep ordinary get-up, attack,
 /// shield, dodge and special recovery distinct from knockdown/damage.
 /// Verified against pinned skyline-smash d2ca90d9, src/lua_const.rs:
@@ -71,18 +69,22 @@ fn is_hanging(status: i32) -> bool {
 // sequence inputs. These native term IDs are not move-start timing values.
 pub fn grab_transition_term(status: i32) -> i32 {
     match status {
-        0x3 | 0x4 => 0x1e000070,
-        0x7 | 0x8 => 0x1e000071,
-        _ => 0x1e00006f,
+        0x3 | 0x4 => crate::native_states::transition_terms::CONT_CATCH_DASH,
+        0x7 | 0x8 => crate::native_states::transition_terms::CONT_CATCH_TURN,
+        _ => crate::native_states::transition_terms::CONT_CATCH,
     }
 }
 pub fn grab_input_ready(status: i32, mut enabled: impl FnMut(i32) -> bool) -> bool {
     let preferred = grab_transition_term(status);
     enabled(preferred)
-        || matches!(status, 0..=9 | 0x11..=0x15)
-            && [0x1e00006f, 0x1e000070, 0x1e000071]
-                .into_iter()
-                .any(|term| term != preferred && enabled(term))
+        || matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV)
+            && [
+                crate::native_states::transition_terms::CONT_CATCH,
+                crate::native_states::transition_terms::CONT_CATCH_DASH,
+                crate::native_states::transition_terms::CONT_CATCH_TURN,
+            ]
+            .into_iter()
+            .any(|term| term != preferred && enabled(term))
 }
 
 #[derive(Default)]
@@ -100,7 +102,7 @@ pub struct LedgeTrap {
     complete: bool,
     visit_consumed: bool,
     captured: bool,
-    last_output: LedgeOutput,
+    last_output: ControllerOutput,
     last_tick: Option<i64>,
 }
 impl LedgeTrap {
@@ -198,20 +200,20 @@ impl LedgeTrap {
         &mut self,
         settings: LedgeSettings,
         tick: i64,
-        ctx: LedgeContext,
+        ctx: GameplayContext,
         enemy: Option<Opponent>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if !settings.enabled
             || !ctx.held
             || !ctx.gameplay
             || self.last_tick.is_some_and(|last| tick < last)
         {
             *self = Self::default();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         self.last_tick = Some(tick);
         if self.complete {
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if !ctx
             .position
@@ -223,7 +225,7 @@ impl LedgeTrap {
         {
             self.file_timeline = None;
             self.complete = true;
-            self.last_output = LedgeOutput::default();
+            self.last_output = ControllerOutput::default();
             return self.last_output;
         }
         if self.file_timeline.is_some() {
@@ -237,7 +239,7 @@ impl LedgeTrap {
                     .all(|v| v.is_finite())
             }) else {
                 self.complete = true;
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             };
             self.target = Some(enemy.id);
             self.slot = Some(slot);
@@ -249,7 +251,7 @@ impl LedgeTrap {
             }
             let Some(sequence) = settings.sequence_overrides[slot as usize] else {
                 self.complete = true;
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             };
             self.file_timeline = Some(file_timeline::Timeline::new(sequence, enemy));
             return self.continue_timeline(settings, ctx, Some(enemy));
@@ -261,11 +263,11 @@ impl LedgeTrap {
                 .all(|v| v.is_finite())
         }) else {
             self.target = None;
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         };
         if !in_tracking_range(settings, ctx.position, enemy, self.target == Some(enemy.id)) {
             self.target = None;
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         let hang = is_hanging(enemy.status);
         let from_hang = self.target == Some(enemy.id) && is_hanging(self.last_status)
@@ -284,7 +286,13 @@ impl LedgeTrap {
             _ if enemy.situation == 2
                 && from_hang
                 && !hang
-                && !matches!(enemy.status, 0x40..=0x4f | 0xb5 | 0xb6) =>
+                && !matches!(
+                    enemy.status,
+                    crate::native_states::THROW
+                        ..=crate::native_states::status::DAMAGE_FALL
+                            | crate::native_states::status::DEAD
+                            | crate::native_states::status::REBIRTH
+                ) =>
             {
                 Some(PresetSlot::Drop)
             }
@@ -305,7 +313,7 @@ impl LedgeTrap {
         }
         self.last_status = enemy.status;
         let Some(slot) = slot else {
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         };
         self.slot = Some(slot);
         // No file recipe means no response. There is no compiled fighter fallback.
@@ -313,7 +321,7 @@ impl LedgeTrap {
             // An explicitly empty row is a completed no-response choice; it
             // must not reserve other input helpers for the rest of this visit.
             self.complete = true;
-            self.last_output = LedgeOutput::default();
+            self.last_output = ControllerOutput::default();
             return self.last_output;
         };
         self.file_timeline = Some(file_timeline::Timeline::new(sequence, enemy));
@@ -322,9 +330,9 @@ impl LedgeTrap {
     fn continue_timeline(
         &mut self,
         settings: LedgeSettings,
-        ctx: LedgeContext,
+        ctx: GameplayContext,
         enemy: Option<Opponent>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         let timeline = self.file_timeline.as_mut().expect("active timeline");
         let out = timeline.sample(settings, ctx, enemy, self.anchor, self.inward);
         if timeline.finished() {
@@ -334,7 +342,13 @@ impl LedgeTrap {
             }
             self.file_timeline = None;
             self.complete = true;
-            self.captured = matches!(ctx.status, 0x38 | 0x3a | 0x3c | 0x3d);
+            self.captured = matches!(
+                ctx.status,
+                crate::native_states::CATCH_PULL
+                    | crate::native_states::CATCH_DASH_PULL
+                    | crate::native_states::status::CATCH_WAIT
+                    | crate::native_states::status::CATCH_ATTACK
+            );
         }
         self.last_output = out;
         out

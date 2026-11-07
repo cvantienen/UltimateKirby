@@ -13,12 +13,13 @@
 //! This crate can be tested on a computer without Skyline or a connected Switch.
 
 // Suggested learning order:
-// 1. state.rs / input.rs: the small values passed between components.
+// 1. state.rs / input.rs / gameplay.rs: values passed between components.
 // 2. config.rs / assist.rs: choose a rule and compute one logical proposal.
 // 3. examples/walkthrough.rs: a complete, pretend frame loop on your computer.
 // 4. live_input.rs: mash/tech scheduling; manual_controls.rs: D-pad tools.
 // 5. ledge_trap.rs: the larger state machine, backed by ledge_trap/tests.rs.
 //    ledge_trap/types.rs defines its data; its response files contain recipes.
+//    sequence_config/parser.rs loads and validates the startup recipe file.
 // See docs/CODE_MAP.md for module responsibilities and docs/FIGHTER_CONFIGS.md
 // for compiled fighter catalogs.
 //
@@ -44,8 +45,10 @@ pub mod state;
 pub mod timing;
 
 // Fighter-specific reference facts, move data, and startup catalogs.
+pub mod fighter_kinds;
 pub mod fighter_profiles;
 pub mod fighter_tuning;
+pub mod gameplay;
 
 // Independent assistance policies and their decision helpers.
 pub mod assist;

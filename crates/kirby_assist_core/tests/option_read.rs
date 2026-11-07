@@ -2,7 +2,7 @@ use kirby_assist_core::{native_input::MAPPER_A, option_read::*};
 fn c(frame: f32) -> Context {
     Context {
         object: 1,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         motion: 1,
         frame,
         rate: 1.0,
@@ -251,7 +251,7 @@ fn primer_requires_real_native_progress_but_can_use_the_opponents_clock() {
 fn native_readiness_does_not_cancel_uncancellable_own_attacks() {
     let mut p = Punisher::default();
     let own = Context {
-        status: 0x27,
+        status: kirby_assist_core::native_states::status::ATTACK,
         can_act: false,
         ..c(0.0)
     };
@@ -271,7 +271,7 @@ fn held_shield_releases_before_a_punish_and_does_not_add_another_primer() {
         ..t(Kind::Spot, 10.0)
     };
     let shield = Context {
-        status: 0x1b,
+        status: kirby_assist_core::native_states::GUARD_ON,
         can_act: false,
         down_ready: false,
         forward_ready: false,
@@ -282,7 +282,7 @@ fn held_shield_releases_before_a_punish_and_does_not_add_another_primer() {
     assert_eq!(release.requested, 0);
     assert_eq!(release.stick, Some([0.0; 2]));
     let off = Context {
-        status: 0x1d,
+        status: kirby_assist_core::native_states::GUARD_OFF,
         frame: 5.0,
         ..shield
     };
@@ -305,7 +305,7 @@ fn held_shield_releases_before_a_punish_and_does_not_add_another_primer() {
         p.sample(
             true,
             Context {
-                status: 0x1d,
+                status: kirby_assist_core::native_states::GUARD_OFF,
                 frame: 11.0,
                 can_act: false,
                 ..c(0.0)

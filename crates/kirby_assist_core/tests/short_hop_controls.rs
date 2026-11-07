@@ -6,7 +6,7 @@ use kirby_assist_core::{
 #[test]
 fn horizontal_short_hop_never_injects_shield_and_releases_on_squat() {
     let ctx = ShortcutContext {
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         situation: 0,
         motion: 1,
         frame: 0.,
@@ -46,7 +46,7 @@ fn horizontal_short_hop_never_injects_shield_and_releases_on_squat() {
             MAPPER_X,
             true,
             Some(ShortcutContext {
-                status: 0xa,
+                status: kirby_assist_core::native_states::status::JUMP_SQUAT,
                 motion: 2,
                 ..ctx
             }),
@@ -61,7 +61,7 @@ fn held_x_stays_suppressed_after_shortcut_ownership_ends_and_other_jump_tools_st
     let mut shortcut = Shortcuts::default();
     let mut overlay = ManualOverlay::default();
     let grounded = ShortcutContext {
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         situation: 0,
         motion: 1,
         frame: 0.0,
@@ -79,18 +79,18 @@ fn held_x_stays_suppressed_after_shortcut_ownership_ends_and_other_jump_tools_st
     for context in [
         grounded,
         ShortcutContext {
-            status: 0xa,
+            status: kirby_assist_core::native_states::status::JUMP_SQUAT,
             motion: 2,
             ..grounded
         },
         ShortcutContext {
-            status: 0xb,
+            status: kirby_assist_core::native_states::status::JUMP,
             situation: 2,
             motion: 3,
             ..grounded
         },
         ShortcutContext {
-            status: 0xb,
+            status: kirby_assist_core::native_states::status::JUMP,
             situation: 2,
             motion: 3,
             frame: 1.0,

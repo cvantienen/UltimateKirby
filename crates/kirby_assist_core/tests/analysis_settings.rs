@@ -37,7 +37,10 @@ fn defaults_preserve_geometry_and_per_fighter_references() {
         ],
         [24., 28., 6., 18., 6., 5., 96., 96.]
     );
-    for kind in [5, 6] {
+    for kind in [
+        kirby_assist_core::fighter_kinds::YOSHI,
+        kirby_assist_core::fighter_kinds::KIRBY,
+    ] {
         for choice in [Choice::DownSmash, Choice::Grab] {
             let Some(base) = roll_read::config_for(kind, choice) else {
                 assert_eq!((kind, choice), (5, Choice::Grab));
@@ -133,7 +136,7 @@ fn configured_tech_offsets_apply_to_curved_and_linear_probes_without_more_rays()
 fn own() -> Context {
     Context {
         object: 1,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         situation: 0,
         motion: 1,
         frame: 1.,
@@ -147,7 +150,7 @@ fn own() -> Context {
 fn enemy() -> Target {
     Target {
         id: 2,
-        status: 0x37,
+        status: kirby_assist_core::native_states::CATCH,
         motion: 2,
         frame: 1.,
         rate: 1.,
@@ -174,7 +177,7 @@ fn grab_padding_and_height_are_independent_of_the_attackers_reach() {
 fn saved_values_round_trip_per_fighter_and_leave_recipe_inputs_unchanged() {
     let mut t = Tuning::default();
     let base = LedgeSettings {
-        fighter_kind: 5,
+        fighter_kind: kirby_assist_core::fighter_kinds::YOSHI,
         ..Default::default()
     };
     let defaults = Tuning::values(base);
@@ -222,7 +225,7 @@ fn saved_values_round_trip_per_fighter_and_leave_recipe_inputs_unchanged() {
 fn zero_shield_tail_still_shields_an_actual_threat_and_specialist_rows_are_filtered() {
     let mut hold = autopilot_guard::GuardHold::default();
     let c = autopilot_guard::GuardClock {
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         motion: 1,
         frame: 1.,
         rate: 1.,
@@ -258,7 +261,7 @@ fn filtered_settings_navigation_and_focus_match_the_visible_rows() {
     m.tuning_page = true;
     m.row = MenuRow::FighterSettings;
     m.tuning_values = Tuning::values(LedgeSettings {
-        fighter_kind: 15,
+        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     });
     m.tuning_row = SHIELD_SCAN_Y;
@@ -292,7 +295,11 @@ fn every_supported_fighter_uses_its_own_reference_grab_defaults_before_saved_ove
         let Some(profile) = profiles.profile(reference.kind) else {
             continue;
         };
-        for status in [0x37, 0x39, 0x3b] {
+        for status in [
+            kirby_assist_core::native_states::CATCH,
+            kirby_assist_core::native_states::CATCH_DASH,
+            kirby_assist_core::native_states::CATCH_TURN,
+        ] {
             let Some(g) = fighter_data::ordinary_grab(reference.kind, status) else {
                 continue;
             };
@@ -331,7 +338,7 @@ fn every_supported_fighter_uses_its_own_reference_grab_defaults_before_saved_ove
 fn lightweight_automatic_grab_values_match_full_defaults_for_every_registered_fighter() {
     use kirby_assist_core::fighter_profiles::FighterProfiles;
     let profiles = FighterProfiles::default();
-    for kind in 0..0x5e {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         let Some(profile) = profiles.profile(kind) else {
             continue;
         };

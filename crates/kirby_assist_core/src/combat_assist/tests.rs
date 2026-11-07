@@ -14,7 +14,7 @@ fn ctx(status: i32, target_status: i32) -> TripContext {
             Some(TripTarget {
                 id: 2,
                 status: target_status,
-                previous_status: 0,
+                previous_status: crate::native_states::status::WAIT,
             }),
             None,
             None,
@@ -64,7 +64,7 @@ fn trip_immediately_owns_controls_and_buffers_smash_without_readiness_or_target_
     }
     // A transition to idle still receives a forward-smash request at once.
     let ready = TripContext {
-        status: 0,
+        status: crate::native_states::status::WAIT,
         frame: 0.0,
         targets: [None; 8],
         ..trip
@@ -75,7 +75,7 @@ fn trip_immediately_owns_controls_and_buffers_smash_without_readiness_or_target_
     };
     assert_eq!(state.sample(true, ready).requested, MAPPER_A);
     let accepted = TripContext {
-        status: 0x2d,
+        status: crate::native_states::status::ATTACK_S4_START,
         frame: 1.0,
         ..ready
     };
@@ -98,7 +98,10 @@ fn trip_immediately_owns_controls_and_buffers_smash_without_readiness_or_target_
 }
 #[test]
 fn either_tilt_trip_flicks_in_existing_facing_and_new_tilt_rearms() {
-    for status in [0x2a, 0x2c] {
+    for status in [
+        crate::native_states::status::ATTACK_S3,
+        crate::native_states::status::ATTACK_LW3,
+    ] {
         for facing in [-1.0, 1.0] {
             for trip_status in [0x86, 0x87, 0x88] {
                 let mut state = TripFollowup::default();
@@ -113,11 +116,17 @@ fn either_tilt_trip_flicks_in_existing_facing_and_new_tilt_rearms() {
                 state.sample(
                     true,
                     TripContext {
-                        status: 0x2d,
+                        status: crate::native_states::status::ATTACK_S4_START,
                         ..trip
                     },
                 );
-                state.sample(true, TripContext { status: 0, ..trip });
+                state.sample(
+                    true,
+                    TripContext {
+                        status: crate::native_states::status::WAIT,
+                        ..trip
+                    },
+                );
                 state.sample(true, trip);
                 assert!(state.watching());
                 assert_eq!(
@@ -193,7 +202,7 @@ fn no_trip_no_tilt_and_non_kirby_are_inert_and_interruptions_cancel() {
     ] {
         assert_eq!(
             TripFollowup::default().sample(true, sample),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
     }
     for terminal in [

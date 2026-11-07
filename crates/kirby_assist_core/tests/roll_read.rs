@@ -6,7 +6,7 @@ use kirby_assist_core::{
 };
 fn own(frame: f32) -> Context {
     Context {
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         situation: 0,
         motion: 123,
         frame,
@@ -93,7 +93,7 @@ fn shielded_roll_read_releases_held_shield_then_smashes_on_native_readiness() {
     let cfg = roll_read::fighter_config(6).unwrap();
     let mut r = RollRead::default();
     let shield = Context {
-        status: 0x1c,
+        status: kirby_assist_core::native_states::GUARD,
         can_act: false,
         can_smash: false,
         ..own(0.0)
@@ -137,7 +137,7 @@ fn shielded_roll_read_releases_held_shield_then_smashes_on_native_readiness() {
             true,
             cfg,
             Context {
-                status: 0x1d,
+                status: kirby_assist_core::native_states::GUARD_OFF,
                 frame: frame as f32,
                 ..shield
             },
@@ -179,7 +179,7 @@ fn shield_stun_and_rolls_too_late_to_drop_shield_are_not_forced() {
     };
     let mut r = RollRead::default();
     let shield = Context {
-        status: 0x1c,
+        status: kirby_assist_core::native_states::GUARD,
         can_act: false,
         can_smash: false,
         ..own(0.0)
@@ -195,7 +195,7 @@ fn shield_stun_and_rolls_too_late_to_drop_shield_are_not_forced() {
             true,
             cfg,
             Context {
-                status: 0x1e,
+                status: kirby_assist_core::native_states::GUARD_DAMAGE,
                 ..shield
             },
             targets(Target {
@@ -221,7 +221,7 @@ fn shield_stun_and_rolls_too_late_to_drop_shield_are_not_forced() {
             true,
             cfg,
             Context {
-                status: 0x1d,
+                status: kirby_assist_core::native_states::GUARD_OFF,
                 ..shield
             },
             [None; 8]
@@ -486,7 +486,7 @@ fn reachable_far_roll_walks_then_brakes_primes_and_smashes() {
         true,
         cfg,
         Context {
-            status: 0x30,
+            status: kirby_assist_core::native_states::status::ATTACK_LW4_START,
             ..walking(0., -6.)
         },
         targets(t),
@@ -674,7 +674,7 @@ fn approach_primes_then_smashes_once_and_releases_on_native_startup() {
         true,
         cfg,
         Context {
-            status: 0x30,
+            status: kirby_assist_core::native_states::status::ATTACK_LW4_START,
             can_act: false,
             ..own(0.)
         },
@@ -705,11 +705,11 @@ fn refuses_outside_vicinity_high_ledge_spot_dodge_and_unknown_timing() {
             ..enemy()
         },
         Target {
-            status: 0x7a,
+            status: kirby_assist_core::native_states::status::CLIFF_ESCAPE,
             ..enemy()
         },
         Target {
-            status: 0x1f,
+            status: kirby_assist_core::native_states::ESCAPE,
             ..enemy()
         },
         Target {
@@ -800,7 +800,7 @@ fn skipped_approach_sample_still_recognizes_same_roll_crossing_kirbys_body() {
 fn shield_faceoff_detects_an_overlapping_roll_already_moving_past_kirby() {
     let cfg = roll_read::fighter_config(6).unwrap();
     let shield = Context {
-        status: 0x1c,
+        status: kirby_assist_core::native_states::GUARD,
         can_act: false,
         can_smash: false,
         ..own(0.0)
@@ -863,7 +863,10 @@ fn grab_primes_once_then_hands_back_on_native_grab_without_pummeling() {
             ),
             grab
         );
-        for status in [0x37, 0x3c] {
+        for status in [
+            kirby_assist_core::native_states::CATCH,
+            kirby_assist_core::native_states::status::CATCH_WAIT,
+        ] {
             assert_eq!(
                 read.sample_choice(
                     Choice::Grab,

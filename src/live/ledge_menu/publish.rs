@@ -39,9 +39,13 @@ pub(super) fn publish(
         }
     }
     let Some(_save_gate) = super::save::try_ui_edit() else {
+        #[cfg(feature = "diagnostic-logging")]
+        crate::performance::health::event(crate::performance::health::Event::MenuRetry);
         return false;
     };
     let Ok(mut view) = VIEW.try_lock() else {
+        #[cfg(feature = "diagnostic-logging")]
+        crate::performance::health::event(crate::performance::health::Event::MenuRetry);
         return false;
     };
     DEFERRED_CLEAR.store(false, Ordering::Release);

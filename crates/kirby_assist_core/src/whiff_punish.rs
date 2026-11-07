@@ -4,7 +4,8 @@
 use crate::{
     button_modes::YMode,
     finisher::{Context as StarterContext, Finisher},
-    ledge_trap::{LedgeOutput, LEDGE_BUTTONS},
+    gameplay::ControllerOutput,
+    native_input::ASSIST_BUTTONS,
     native_input::MAPPER_A,
 };
 const KIRBY_TILT_REACH: f32 = 8.0;
@@ -12,7 +13,10 @@ const KIRBY_SMASH_REACH: f32 = 12.0;
 const YOSHI_BAIR_REACH: f32 = 12.0;
 
 pub fn supported(kind: i32) -> bool {
-    matches!(kind, 5 | 6)
+    matches!(
+        kind,
+        crate::fighter_kinds::YOSHI | crate::fighter_kinds::KIRBY
+    )
 }
 #[derive(Clone, Copy)]
 pub struct Context {
@@ -78,7 +82,7 @@ pub struct WhiffPunisher {
     previous: Option<(i32, u64, f32)>,
     previous_rate: f32,
     age: f32,
-    output: LedgeOutput,
+    output: ControllerOutput,
     yoshi: Finisher,
 }
 impl WhiffPunisher {
@@ -90,7 +94,7 @@ impl WhiffPunisher {
         enabled: bool,
         c: Context,
         targets: [Option<Target>; 8],
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         let own = c.starter.fighter;
         if !enabled
             || !supported(c.starter.fighter_kind)
@@ -105,7 +109,7 @@ impl WhiffPunisher {
             || own.facing.abs() < 0.5
         {
             *self = Self::default();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.yoshi.active() {
             let out = self
@@ -165,8 +169,12 @@ impl WhiffPunisher {
         }
         if self.phase == 2 {
             let accepted = match self.action {
-                Some(Action::Tilt) => own.status == 0x2c,
-                Some(Action::Smash) => matches!(own.status, 0x2d..=0x2f),
+                Some(Action::Tilt) => own.status == crate::native_states::status::ATTACK_LW3,
+                Some(Action::Smash) => matches!(
+                    own.status,
+                    crate::native_states::status::ATTACK_S4_START
+                        ..=crate::native_states::status::ATTACK_S4
+                ),
                 _ => false,
             };
             self.age += elapsed;
@@ -189,7 +197,7 @@ impl WhiffPunisher {
                 let dx = t.position[0] + t.velocity_x * t.remaining.min(3.0)
                     - c.position[0]
                     - c.velocity_x * 2.0;
-                let actions: &[Action] = if c.starter.fighter_kind == 6 {
+                let actions: &[Action] = if c.starter.fighter_kind == crate::fighter_kinds::KIRBY {
                     &[Action::Smash, Action::Tilt]
                 } else {
                     &[Action::YoshiBair]
@@ -285,11 +293,11 @@ impl WhiffPunisher {
         );
         self.output
     }
-    fn end(&mut self) -> LedgeOutput {
+    fn end(&mut self) -> ControllerOutput {
         self.phase = 0;
         self.target = None;
         self.action = None;
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
         self.output
     }
 }
@@ -311,11 +319,11 @@ fn valid(t: Target, c: Context) -> bool {
                         .is_some_and(|last| t.frame > f32::from(last))
             })
 }
-fn controls(stick: [f32; 2], requested: u32) -> LedgeOutput {
-    LedgeOutput {
+fn controls(stick: [f32; 2], requested: u32) -> ControllerOutput {
+    ControllerOutput {
         stick: Some(stick),
         requested,
-        owned: LEDGE_BUTTONS | 0xf,
+        owned: ASSIST_BUTTONS | 0xf,
         consume_trigger: false,
         native_short_hop: false,
     }

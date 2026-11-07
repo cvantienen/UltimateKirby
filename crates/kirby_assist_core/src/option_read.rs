@@ -1,7 +1,7 @@
 //! Shared, bounded recovery punish for spot dodges, avoided grabs and far rolls.
 //! Reach values are calibration estimates; native recovery and readiness gate inputs.
 use crate::{
-    ledge_trap::LedgeOutput,
+    gameplay::ControllerOutput,
     native_input::MAPPER_A,
     timing::{motion_elapsed, ActiveWindow, RecoveryWindow},
 };
@@ -66,7 +66,7 @@ pub struct Punisher {
     phase: u8,
     forward: bool,
     age: f32,
-    output: LedgeOutput,
+    output: ControllerOutput,
 }
 impl Punisher {
     pub fn committed(&self) -> bool {
@@ -75,7 +75,7 @@ impl Punisher {
     pub fn cancel_pending(&mut self) {
         self.target = None;
         self.phase = 0;
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
     }
     pub fn sample(
         &mut self,
@@ -83,7 +83,7 @@ impl Punisher {
         c: Context,
         cfg: Config,
         targets: [Option<Target>; 8],
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         self.sample_with_height(enabled, c, cfg, targets, 8.)
     }
     pub fn sample_with_height(
@@ -93,7 +93,7 @@ impl Punisher {
         cfg: Config,
         targets: [Option<Target>; 8],
         height: f32,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if self.object != Some(c.object) {
             *self = Self::default();
             self.object = Some(c.object);
@@ -129,7 +129,11 @@ impl Punisher {
             self.previous = None;
             return self.output;
         }
-        if matches!(c.status, 0x2d..=0x32) {
+        if matches!(
+            c.status,
+            crate::native_states::status::ATTACK_S4_START
+                ..=crate::native_states::status::ATTACK_LW4
+        ) {
             self.cancel_pending();
             return self.output;
         }
@@ -198,13 +202,16 @@ impl Punisher {
             return self.output;
         }
         let shield = match c.status {
-            0x1b..=0x1c => 11.0,
-            0x1d => (11.0 - c.frame).max(0.0),
+            crate::native_states::GUARD_ON..=crate::native_states::GUARD => 11.0,
+            crate::native_states::GUARD_OFF => (11.0 - c.frame).max(0.0),
             _ => 0.0,
         };
         if !c.can_act
             && shield == 0.0
-            && !(matches!(c.status, 0x1b..=0x1d) && (c.down_ready || c.forward_ready))
+            && !(matches!(
+                c.status,
+                crate::native_states::GUARD_ON..=crate::native_states::GUARD_OFF
+            ) && (c.down_ready || c.forward_ready))
         {
             self.cancel_pending();
             return self.output;

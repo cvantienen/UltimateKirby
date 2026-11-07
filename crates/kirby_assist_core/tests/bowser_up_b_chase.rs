@@ -1,9 +1,8 @@
 //! Real movement-intent history drives every automatic Bowser Up-B owner.
 use kirby_assist_core::{
     defense_response::Response,
-    ledge_trap::{
-        InputTimeline, LedgeContext, LedgeSettings, MotionTiming, Opponent, SEQUENCE_BUTTONS,
-    },
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
     manual_controls::ManualTakeover,
     native_input::*,
     out_of_shield::{AutomaticConfig, Context as ShieldContext, OutOfShield},
@@ -15,7 +14,7 @@ fn recipe(event: &str) -> Sequence {
 }
 fn settings() -> LedgeSettings {
     LedgeSettings {
-        fighter_kind: 15,
+        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     }
 }
@@ -25,8 +24,8 @@ fn history() -> ManualTakeover {
     h.sample(MAPPER_ZR, [0.; 4]);
     h
 }
-fn context(frame: u32, h: &ManualTakeover) -> LedgeContext {
-    LedgeContext {
+fn context(frame: u32, h: &ManualTakeover) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: frame == 0,
@@ -205,8 +204,8 @@ fn every_option_read_keeps_69_frames_of_live_full_drift_despite_movement_release
 fn dodge_grab_followup_keeps_its_configured_69_frame_chase_and_target_lock() {
     let mut r = Response::default();
     let mut h = history();
-    let start = LedgeContext {
-        status: 0x1f,
+    let start = GameplayContext {
+        status: kirby_assist_core::native_states::ESCAPE,
         ..context(0, &h)
     };
     assert!(r.start_sequence(recipe("auto_grab_dodged"), start, enemy(0)));
@@ -237,10 +236,10 @@ fn dodge_grab_followup_keeps_its_configured_69_frame_chase_and_target_lock() {
     );
     assert!(r.target().is_none());
 }
-fn shield(c: LedgeContext) -> ShieldContext {
+fn shield(c: GameplayContext) -> ShieldContext {
     ShieldContext {
         object: 1,
-        kind: 15,
+        kind: kirby_assist_core::fighter_kinds::BOWSER,
         status: c.status,
         motion: 1,
         frame: c.motion_frame,
@@ -268,7 +267,7 @@ fn configured_shield_backup_tracks_for_69_confirmed_frames_without_rechecking_st
     let mut h = history();
     let c = context(0, &h);
     let mut e = enemy(0);
-    e.status = 0;
+    e.status = kirby_assist_core::native_states::status::WAIT;
     e.vulnerable = true;
     assert_ne!(
         o.sample_automatic_configured(
@@ -338,7 +337,7 @@ fn other_fighters_keep_movement_handback_and_literal_manual_actions_keep_the_ori
     assert_ne!(h.action_epoch(), start);
     let mut r = Response::default();
     let mut h = history();
-    let c = LedgeContext {
+    let c = GameplayContext {
         automatic_up_b_epoch: None,
         ..context(0, &h)
     };
@@ -347,16 +346,20 @@ fn other_fighters_keep_movement_handback_and_literal_manual_actions_keep_the_ori
         r.sample(
             true,
             LedgeSettings {
-                fighter_kind: 6,
+                fighter_kind: kirby_assist_core::fighter_kinds::KIRBY,
                 ..settings()
             },
-            LedgeContext {
+            GameplayContext {
                 automatic_up_b_epoch: None,
-                status: if frame == 0 { 0x1c } else { 0x1de },
+                status: if frame == 0 {
+                    kirby_assist_core::native_states::GUARD
+                } else {
+                    0x1de
+                },
                 ..context(frame, &h)
             },
             Some(Opponent {
-                status: 0,
+                status: kirby_assist_core::native_states::status::WAIT,
                 ..enemy(frame)
             }),
         );
@@ -366,11 +369,11 @@ fn other_fighters_keep_movement_handback_and_literal_manual_actions_keep_the_ori
         r.sample(
             true,
             LedgeSettings {
-                fighter_kind: 6,
+                fighter_kind: kirby_assist_core::fighter_kinds::KIRBY,
                 ..settings()
             },
-            LedgeContext {
-                status: 0x1de,
+            GameplayContext {
+                status: kirby_assist_core::native_states::status::SPECIAL_HI,
                 automatic_up_b_epoch: None,
                 ..context(5, &h)
             },
@@ -394,10 +397,10 @@ fn chasing_never_survives_target_loss_capture_death_damage_ledge_mode_or_native_
         let mut e = Some(enemy(5));
         match case {
             0 => e = None,
-            1 => e.as_mut().unwrap().status = 0x41,
-            2 => e.as_mut().unwrap().status = 0xb5,
-            3 => c.status = 0x49,
-            5 => c.status = 0,
+            1 => e.as_mut().unwrap().status = kirby_assist_core::native_states::CAPTURE_PULLED,
+            2 => e.as_mut().unwrap().status = kirby_assist_core::native_states::status::DEAD,
+            3 => c.status = kirby_assist_core::native_states::status::DAMAGE_FLY,
+            5 => c.status = kirby_assist_core::native_states::status::WAIT,
             _ => {}
         }
         assert_eq!(
@@ -422,8 +425,8 @@ fn chasing_never_survives_target_loss_capture_death_damage_ledge_mode_or_native_
         0
     );
     move_stick(&mut h, 1);
-    let c = LedgeContext {
-        status: 0x1c,
+    let c = GameplayContext {
+        status: kirby_assist_core::native_states::GUARD,
         ..context(1, &h)
     };
     assert_eq!(t.sample(settings(), c, Some(enemy(1)), None, 0.).owned, 0);
@@ -486,7 +489,7 @@ fn noncanonical_configured_shield_backup_keeps_chasing_with_buttons_and_cstick()
     let mut h = history();
     let c = context(0, &h);
     let mut e = enemy(0);
-    e.status = 0;
+    e.status = kirby_assist_core::native_states::status::WAIT;
     e.vulnerable = true;
     assert_ne!(
         o.sample_automatic_configured(
@@ -590,14 +593,14 @@ fn button_changes_during_grounded_startup_do_not_detach_tracking_from_the_specia
     };
     let mut o = OutOfShield::new();
     let mut e = enemy(0);
-    e.status = 0;
+    e.status = kirby_assist_core::native_states::status::WAIT;
     e.vulnerable = true;
     for frame in 0..4 {
         if frame > 0 {
             fight_controls(&mut h, frame);
         }
-        let c = LedgeContext {
-            status: 0x1c,
+        let c = GameplayContext {
+            status: kirby_assist_core::native_states::GUARD,
             can_act: true,
             ..context(frame, &h)
         };
@@ -668,7 +671,7 @@ fn delivered_shield_up_b_receipt_survives_shield_hitstop_until_native_confirmati
     let h = history();
     let start = context(0, &h);
     let mut e = enemy(0);
-    e.status = 0;
+    e.status = kirby_assist_core::native_states::status::WAIT;
     e.vulnerable = true;
     assert_ne!(
         o.sample_automatic_configured(
@@ -689,8 +692,8 @@ fn delivered_shield_up_b_receipt_survives_shield_hitstop_until_native_confirmati
         0
     );
     o.mapped_up_special(0, e.id);
-    let pause = LedgeContext {
-        status: 0x1e,
+    let pause = GameplayContext {
+        status: kirby_assist_core::native_states::GUARD_DAMAGE,
         stopped: true,
         can_act: false,
         ..context(1, &h)
@@ -752,8 +755,8 @@ fn delivered_roll_and_grab_dodge_receipts_survive_hitstop_without_resending_b() 
     response.sample(true, settings(), context(0, &h), Some(enemy(0)));
     engine.mapped_up_special(0, 2);
     response.mapped_up_special(0, 2);
-    let pause = LedgeContext {
-        status: 0x1e,
+    let pause = GameplayContext {
+        status: kirby_assist_core::native_states::GUARD_DAMAGE,
         stopped: true,
         can_act: false,
         ..context(1, &h)
@@ -798,11 +801,11 @@ fn shield_receipt_after_the_four_frame_pulse_gets_all_69_drift_frames_and_no_ext
     let mut o = OutOfShield::new();
     let h = history();
     let mut e = enemy(0);
-    e.status = 0;
+    e.status = kirby_assist_core::native_states::status::WAIT;
     e.vulnerable = true;
     for frame in 0..4 {
-        let c = LedgeContext {
-            status: 0x1c,
+        let c = GameplayContext {
+            status: kirby_assist_core::native_states::GUARD,
             can_act: true,
             ..context(frame, &h)
         };
@@ -828,8 +831,8 @@ fn shield_receipt_after_the_four_frame_pulse_gets_all_69_drift_frames_and_no_ext
     }
     for frame in 4..9 {
         o.delivery_tick(frame as i64);
-        let c = LedgeContext {
-            status: 0x1c,
+        let c = GameplayContext {
+            status: kirby_assist_core::native_states::GUARD,
             can_act: true,
             ..context(frame, &h)
         };
@@ -911,8 +914,8 @@ fn all_late_confirmed_sequence_tails_keep_their_full_budget_after_hitstop() {
     for frame in 1..9 {
         engine.delivery_tick(frame as i64);
         response.delivery_tick(frame as i64);
-        let c = LedgeContext {
-            status: 0x1e,
+        let c = GameplayContext {
+            status: kirby_assist_core::native_states::GUARD_DAMAGE,
             stopped: true,
             can_act: false,
             ..context(frame, &h)
@@ -965,7 +968,7 @@ fn pending_receipt_never_survives_ledge_stop_damage_capture_target_loss_or_airbo
         let h = history();
         let c = context(0, &h);
         let mut e = enemy(0);
-        e.status = 0;
+        e.status = kirby_assist_core::native_states::status::WAIT;
         e.vulnerable = true;
         o.sample_automatic_configured(
             true,
@@ -981,8 +984,8 @@ fn pending_receipt_never_survives_ledge_stop_damage_capture_target_loss_or_airbo
             cfg,
         );
         o.mapped_up_special(0, 2);
-        let mut c = LedgeContext {
-            status: 0x1e,
+        let mut c = GameplayContext {
+            status: kirby_assist_core::native_states::GUARD_DAMAGE,
             stopped: true,
             can_act: false,
             ..context(1, &h)
@@ -990,11 +993,11 @@ fn pending_receipt_never_survives_ledge_stop_damage_capture_target_loss_or_airbo
         let mut e = Some(e);
         match case {
             0 => {}
-            1 => c.status = 0x49,
-            2 => c.status = 0x41,
+            1 => c.status = kirby_assist_core::native_states::status::DAMAGE_FLY,
+            2 => c.status = kirby_assist_core::native_states::CAPTURE_PULLED,
             3 => e = None,
             4 => c.situation = 2,
-            _ => e.as_mut().unwrap().status = 0x41,
+            _ => e.as_mut().unwrap().status = kirby_assist_core::native_states::CAPTURE_PULLED,
         }
         let out = o.sample_automatic_configured(
             case != 0,
@@ -1038,11 +1041,31 @@ fn passive_receipt_scope_does_not_acquire_and_reserves_priority_without_owning_i
         action_owner::{ActionOwnership, Intent, Owner},
         reaction_rules::AutomaticObservationScope,
     };
-    for status in [0x1b, 0x1c, 0x1d, 0x1e] {
+    for status in [
+        kirby_assist_core::native_states::GUARD_ON,
+        kirby_assist_core::native_states::GUARD,
+        kirby_assist_core::native_states::GUARD_OFF,
+        kirby_assist_core::native_states::GUARD_DAMAGE,
+    ] {
         let scope = AutomaticObservationScope::new(
-            false, status, 0, true, false, true, false, false, false,
+            false,
+            status,
+            kirby_assist_core::native_states::status::WAIT,
+            true,
+            false,
+            true,
+            false,
+            false,
+            false,
         )
-        .with_up_b_receipt(false, false, true, status, 0, false);
+        .with_up_b_receipt(
+            false,
+            false,
+            true,
+            status,
+            kirby_assist_core::native_states::status::WAIT,
+            false,
+        );
         assert!(!scope.acquire);
         assert!(scope.follow);
     }
@@ -1108,7 +1131,7 @@ fn rejected_mapper_packets_never_arm_late_tracking_and_wrong_target_receipts_are
     };
     let mut o = OutOfShield::new();
     let mut e = enemy(0);
-    e.status = 0;
+    e.status = kirby_assist_core::native_states::status::WAIT;
     e.vulnerable = true;
     o.sample_automatic_configured(
         true,
@@ -1134,8 +1157,8 @@ fn rejected_mapper_packets_never_arm_late_tracking_and_wrong_target_receipts_are
             && !response.up_b_receipt_pending()
             && !o.up_b_receipt_pending()
     );
-    let c = LedgeContext {
-        status: 0x1e,
+    let c = GameplayContext {
+        status: kirby_assist_core::native_states::GUARD_DAMAGE,
         stopped: true,
         can_act: false,
         ..context(1, &h)
@@ -1184,8 +1207,8 @@ fn receipt_expiry_is_mapper_bounded_but_native_confirmation_wins_at_the_deadline
             let c = if tick == 23 && confirms {
                 context(1, &h)
             } else {
-                LedgeContext {
-                    status: 0x1e,
+                GameplayContext {
+                    status: kirby_assist_core::native_states::GUARD_DAMAGE,
                     stopped: true,
                     can_act: false,
                     ..context(1, &h)
@@ -1227,8 +1250,8 @@ fn losing_the_locked_target_during_passive_receipt_releases_priority_immediately
         Some(enemy(0)),
     );
     engine.mapped_up_special(0, 2);
-    let c = LedgeContext {
-        status: 0x1e,
+    let c = GameplayContext {
+        status: kirby_assist_core::native_states::GUARD_DAMAGE,
         stopped: true,
         can_act: false,
         ..context(1, &h)
@@ -1244,7 +1267,11 @@ fn losing_the_locked_target_during_passive_receipt_releases_priority_immediately
 
 #[test]
 fn confirmed_spin_cannot_follow_into_an_unrelated_custom_move_or_final() {
-    for status in [0x1e0, 0x1e3, 0x1e6] {
+    for status in [
+        kirby_assist_core::native_states::status::FINAL,
+        0x1e3,
+        0x1e6,
+    ] {
         let h = history();
         let rules = rules("auto_roll");
         let mut engine = Engine::default();
@@ -1258,7 +1285,7 @@ fn confirmed_spin_cannot_follow_into_an_unrelated_custom_move_or_final() {
         };
         let mut oos = OutOfShield::new();
         let shield_enemy = Opponent {
-            status: 0,
+            status: kirby_assist_core::native_states::status::WAIT,
             vulnerable: true,
             ..enemy(0)
         };
@@ -1306,9 +1333,9 @@ fn confirmed_spin_cannot_follow_into_an_unrelated_custom_move_or_final() {
             settings(),
             config,
         );
-        let changed = LedgeContext {
+        let changed = GameplayContext {
             status,
-            previous_status: 0x1de,
+            previous_status: kirby_assist_core::native_states::status::SPECIAL_HI,
             ..context(5, &h)
         };
         for output in [

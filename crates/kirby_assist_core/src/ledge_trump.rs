@@ -1,5 +1,9 @@
 //! One-shot run-off ledge trump. Inputs only; native ledge catch ends ownership.
-use crate::ledge_trap::{LedgeContext, LedgeOutput, CLIFF_CATCH_MOVE, CLIFF_WAIT, LEDGE_BUTTONS};
+use crate::{
+    gameplay::{ControllerOutput, GameplayContext},
+    ledge_trap::{CLIFF_CATCH_MOVE, CLIFF_WAIT},
+    native_input::ASSIST_BUTTONS,
+};
 
 // FIGHTER_STATUS_KIND_FALL in the native lua_const bindings.
 const FALL: i32 = 0xe;
@@ -86,14 +90,14 @@ pub struct LedgeTrump {
     held: bool,
     attempt: Option<Attempt>,
     last_tick: Option<i64>,
-    last_context: Option<LedgeContext>,
-    output: LedgeOutput,
+    last_context: Option<GameplayContext>,
+    output: ControllerOutput,
 }
 
 impl LedgeTrump {
     pub fn cancel_pending(&mut self) {
         self.attempt = None;
-        self.output = LedgeOutput::default(); // Keep held-Down history.
+        self.output = ControllerOutput::default(); // Keep held-Down history.
     }
     /// Keep sampling an in-flight tool after its physical trigger is released.
     pub fn active(&self) -> bool {
@@ -118,12 +122,12 @@ impl LedgeTrump {
         enabled: bool,
         tick: i64,
         down: bool,
-        ctx: LedgeContext,
+        ctx: GameplayContext,
         edge: Option<[f32; 2]>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if !enabled || !ctx.gameplay {
             *self = Self::default();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.last_tick.is_some_and(|last| tick < last) {
             *self = Self::default();
@@ -134,7 +138,7 @@ impl LedgeTrump {
         self.last_tick = Some(tick);
         let pressed = down && !self.held;
         self.held = down;
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
         if pressed && self.attempt.is_none() && ctx.can_act && !ctx.stopped {
             if let Some(anchor) = edge {
                 let dx = anchor[0] - ctx.position[0];
@@ -237,15 +241,15 @@ impl LedgeTrump {
             }
         };
         self.attempt = Some(attempt);
-        self.output = LedgeOutput {
+        self.output = ControllerOutput {
             stick: Some(stick),
-            owned: LEDGE_BUTTONS
+            owned: ASSIST_BUTTONS
                 | if stick[0].abs() < 1.0 {
                     crate::manual_controls::LEFT_STICK_DIRECTIONS
                 } else {
                     0
                 },
-            ..LedgeOutput::default()
+            ..ControllerOutput::default()
         };
         self.output
     }

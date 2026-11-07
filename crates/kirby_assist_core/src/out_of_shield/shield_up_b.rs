@@ -1,6 +1,7 @@
 //! Immediate shield-grab fallback. Fixed-size facts, no search beyond eight fighters.
 use crate::{
-    ledge_trap::{LedgeContext, LedgeOutput, NativeAttempt, Opponent, SEQUENCE_BUTTONS},
+    gameplay::{ControllerOutput, GameplayContext, Opponent},
+    ledge_trap::{NativeAttempt, SEQUENCE_BUTTONS},
     native_input::{MAPPER_B, MAPPER_ZR},
     roll_read::Target,
 };
@@ -17,7 +18,11 @@ impl Timing {
     pub fn legacy(kind: i32) -> Self {
         Self {
             delivery: 4,
-            tracking: if kind == 15 { 69 } else { 0 },
+            tracking: if kind == crate::fighter_kinds::BOWSER {
+                69
+            } else {
+                0
+            },
             strength: 1.,
             timeout: 120,
             direction: crate::sequence_config::Direction::Opponent,
@@ -91,21 +96,22 @@ impl ShieldUpB {
         &mut self,
         allowed: bool,
         c: super::Context,
-        lc: LedgeContext,
+        lc: GameplayContext,
         targets: [Option<Target>; 8],
         follow: Option<Opponent>,
         range: f32,
         height: f32,
         timing: Timing,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         // Bowser only: after confirmed native startup, use the existing tracked
         // identity for up to 69 progress frames of full opponent-directed drift.
         // This never starts a special in air or carries drift past the spin.
-        let bowser_spin = c.kind == 15 && crate::native_states::up_special_status(c.kind, c.status);
+        let bowser_spin = c.kind == crate::fighter_kinds::BOWSER
+            && crate::native_states::up_special_status(c.kind, c.status);
         if self.active() && (self.tracking || bowser_spin) {
             if !allowed || !lc.gameplay || !bowser_spin {
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             let enemy = follow.filter(|e| Some(e.id) == self.target).or_else(|| {
                 targets
@@ -127,7 +133,7 @@ impl ShieldUpB {
                     && crate::reaction_rules::automatic_tracking_target_available(e.status)
             }) else {
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             };
             let toward = || {
                 let dx = enemy.position[0] - c.position[0];
@@ -145,7 +151,7 @@ impl ShieldUpB {
                 self.spent_before_tracking = self.clock.elapsed();
                 if self.clock.expired {
                     self.cancel();
-                    return LedgeOutput::default();
+                    return ControllerOutput::default();
                 }
                 self.tracking = true;
                 self.clock = NativeAttempt::default();
@@ -157,12 +163,12 @@ impl ShieldUpB {
                 || self.spent_before_tracking + self.clock.elapsed() >= f32::from(timing.timeout)
             {
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             if !c.stopped && !lc.stopped {
                 self.direction = toward();
             }
-            return LedgeOutput {
+            return ControllerOutput {
                 owned: SEQUENCE_BUTTONS,
                 stick: Some([self.direction, 0.]),
                 ..Default::default()
@@ -171,12 +177,15 @@ impl ShieldUpB {
         let ready = c.grounded
             && !c.stopped
             && !lc.stopped
-            && matches!(c.status, 0x1b | 0x1c)
+            && matches!(
+                c.status,
+                crate::native_states::GUARD_ON | crate::native_states::GUARD
+            )
             && c.shield_ready
             && c.can_up_special;
         if !allowed || !lc.gameplay || !self.receipt_pending() && !ready {
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.receipt_pending()
             && (!crate::reaction_rules::automatic_up_b_receipt_status(
@@ -186,7 +195,7 @@ impl ShieldUpB {
             ) || self.receipt.expired())
         {
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         let valid = |e: Opponent| {
             e.vulnerable
@@ -208,7 +217,7 @@ impl ShieldUpB {
             position: t.position,
             velocity: [t.velocity_x, 0.],
             vulnerable: t.vulnerable_in == Some(0.),
-            motion: Some(crate::ledge_trap::MotionTiming {
+            motion: Some(crate::gameplay::MotionTiming {
                 kind: t.motion,
                 frame: t.frame,
                 rate: t.rate,
@@ -246,7 +255,7 @@ impl ShieldUpB {
         };
         let Some(enemy) = enemy else {
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         };
         if self.receipt_pending()
             && (self.waiting
@@ -256,11 +265,11 @@ impl ShieldUpB {
                 || self.clock.elapsed() >= f32::from(timing.delivery))
         {
             self.waiting = true;
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.target.is_none() {
             self.target = Some(enemy.id);
-            self.bowser = c.kind == 15;
+            self.bowser = c.kind == crate::fighter_kinds::BOWSER;
         }
         self.clock.advance_pause(lc, Some(enemy), timing.timeout);
         if self.mapped >= timing.delivery
@@ -269,12 +278,12 @@ impl ShieldUpB {
         {
             if self.receipt_pending() && !self.clock.expired {
                 self.waiting = true;
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
-        LedgeOutput {
+        ControllerOutput {
             owned: SEQUENCE_BUTTONS,
             requested: MAPPER_B | MAPPER_ZR,
             stick: Some([0., 1.]),

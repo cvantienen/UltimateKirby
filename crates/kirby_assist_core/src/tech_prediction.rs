@@ -93,8 +93,15 @@ impl FloorMotionHistory {
 pub fn tech_press_allowed(status: i32, air_escape_enabled: bool) -> bool {
     // Release eligibility additionally requires a verified grounded predecessor
     // in the native adapter; aerial releases never receive a contact forecast.
-    ((0x49..=0x4f).contains(&status)
-        || matches!(status, 0x6c | 0x6d | CATCHED_GANON | CATCHED_AIR_END_GANON))
+    ((crate::native_states::status::DAMAGE_FLY..=crate::native_states::status::DAMAGE_FALL)
+        .contains(&status)
+        || matches!(
+            status,
+            crate::native_states::status::STOP_WALL
+                | crate::native_states::status::STOP_CEIL
+                | CATCHED_GANON
+                | CATCHED_AIR_END_GANON
+        ))
         && !air_escape_enabled
 }
 
@@ -111,7 +118,7 @@ pub fn grounded_ganon_contact_in(
 ) -> Option<f32> {
     if victim_status != CATCHED_GANON
         || captor_kind != 0x18
-        || captor_status != 0x1e2
+        || captor_status != crate::native_states::fighter_status::GANON_SPECIAL_S_CATCH
         || !frame.is_finite()
         || !(0.0..=31.0).contains(&frame)
         || !rate.is_finite()
@@ -150,7 +157,9 @@ impl TechGate {
 pub fn tech_gate(status: i32, situation: i32, passive_disabled: bool, stopped: bool) -> TechGate {
     // This pinned status range covers damage-fly/reflect/fall, not ordinary
     // airborne movement. Broadening it carelessly could cause unrelated dodges.
-    if !(0x49..=0x4f).contains(&status) {
+    if !(crate::native_states::status::DAMAGE_FLY..=crate::native_states::status::DAMAGE_FALL)
+        .contains(&status)
+    {
         TechGate::OutsideTumble
     } else if situation != 2 {
         TechGate::NotAirborne

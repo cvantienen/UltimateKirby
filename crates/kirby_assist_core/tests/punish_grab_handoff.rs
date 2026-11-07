@@ -2,7 +2,8 @@
 use kirby_assist_core::{
     action_owner::{native_grab_active, ActionOwnership, Intent, Owner},
     defense_response::Response,
-    ledge_trap::{InputTimeline, LedgeContext, LedgeOutput, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::{ButtonTrace, MAPPER_B, MAPPER_R, MAPPER_ZR},
     out_of_shield::{Context as GrabContext, OutOfShield},
@@ -11,8 +12,8 @@ use kirby_assist_core::{
     sequence_config::{Catalog, Sequence},
     spot_dodge::{Context, SpotDodge, Target, ESCAPE},
 };
-fn own(frame: f32, status: i32) -> LedgeContext {
-    LedgeContext {
+fn own(frame: f32, status: i32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
@@ -43,7 +44,7 @@ fn threat(frame: f32) -> [Option<Target>; 8] {
     let mut out = [None; 8];
     out[0] = Some(Target {
         id: 2,
-        status: 0x37,
+        status: kirby_assist_core::native_states::CATCH,
         motion: 2,
         frame,
         rate: 1.,
@@ -77,7 +78,7 @@ fn recipe() -> Sequence {
 }
 fn settings() -> LedgeSettings {
     LedgeSettings {
-        fighter_kind: 15,
+        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     }
 }
@@ -98,19 +99,22 @@ fn accepted() -> SpotDodge {
     );
     dodge
 }
-fn punish(dodge: &mut SpotDodge, c: LedgeContext) -> LedgeOutput {
+fn punish(dodge: &mut SpotDodge, c: GameplayContext) -> ControllerOutput {
     dodge.punish_automatic(
         true,
         Some(&recipe()),
         settings(),
         c,
-        Some(enemy(c.motion_frame, 0x37)),
+        Some(enemy(
+            c.motion_frame,
+            kirby_assist_core::native_states::CATCH,
+        )),
     )
 }
-fn grab_context(c: LedgeContext) -> GrabContext {
+fn grab_context(c: GameplayContext) -> GrabContext {
     GrabContext {
         object: 1,
-        kind: 15,
+        kind: kirby_assist_core::fighter_kinds::BOWSER,
         status: c.status,
         motion: c.motion_kind,
         frame: c.motion_frame,
@@ -176,7 +180,7 @@ fn one_delivered_down_guard_packet_then_native_recovery_up_b_on_first_legal_obse
         assert_eq!(
             punish(
                 &mut dodge,
-                LedgeContext {
+                GameplayContext {
                     can_act: false,
                     ..own(frame as f32, ESCAPE)
                 }
@@ -198,7 +202,7 @@ fn native_dodge_cancel_readiness_does_not_add_an_idle_wait_frame() {
     assert_eq!(
         punish(
             &mut dodge,
-            LedgeContext {
+            GameplayContext {
                 can_act: false,
                 ..own(1., ESCAPE)
             }
@@ -224,19 +228,19 @@ fn unaccepted_or_unrelated_manual_dodge_never_claims_an_automatic_punish() {
 fn lost_out_of_range_captured_airborne_and_disabled_followups_do_not_queue() {
     for case in 0..6 {
         let mut dodge = accepted();
-        let mut c = LedgeContext {
+        let mut c = GameplayContext {
             can_act: false,
             ..own(1., ESCAPE)
         };
         assert_eq!(punish(&mut dodge, c).owned, 0);
         c = own(2., 0);
-        let mut e = enemy(2., 0x37);
+        let mut e = enemy(2., kirby_assist_core::native_states::CATCH);
         let mut enabled = true;
         match case {
             0 => e.id = 99,
             1 => e.position[0] = 35.01,
             2 => e.position[1] = 12.01,
-            3 => e.status = 0x41,
+            3 => e.status = kirby_assist_core::native_states::CAPTURE_PULLED,
             4 => c.situation = 2,
             5 => enabled = false,
             _ => unreachable!(),
@@ -340,7 +344,7 @@ fn confirmed_up_b_tracks_for_69_native_frames_and_can_follow_air_spin() {
             true,
             Some(&recipe()),
             settings(),
-            LedgeContext {
+            GameplayContext {
                 situation: 2,
                 ..own(frame as f32, 0x1e1)
             },
@@ -366,12 +370,12 @@ fn unconfirmed_up_b_never_turns_into_a_drift_chase() {
 #[test]
 fn mapped_grab_cannot_be_replaced_by_up_b_before_native_acceptance() {
     let mut grab = OutOfShield::new();
-    let c = own(0., 0x1c);
+    let c = own(0., kirby_assist_core::native_states::GUARD);
     let out = grab.sample_automatic(
         true,
         grab_context(c),
         c,
-        targets(0x1c),
+        targets(kirby_assist_core::native_states::GUARD),
         None,
         true,
         22.,
@@ -446,12 +450,12 @@ fn mapped_grab_cannot_be_replaced_by_up_b_before_native_acceptance() {
 #[test]
 fn zero_input_receipt_reservation_blocks_competing_punishes_with_exclusive_neutral_output() {
     let mut grab = OutOfShield::new();
-    let c = own(0., 0x1c);
+    let c = own(0., kirby_assist_core::native_states::GUARD);
     let first = grab.sample_automatic(
         true,
         grab_context(c),
         c,
-        targets(0x1c),
+        targets(kirby_assist_core::native_states::GUARD),
         None,
         true,
         22.,
@@ -464,9 +468,9 @@ fn zero_input_receipt_reservation_blocks_competing_punishes_with_exclusive_neutr
         &[Intent::input_sequence(Owner::OutOfShield, first.owned)],
     );
     grab.mapped_grab(0, 2);
-    let stun = LedgeContext {
+    let stun = GameplayContext {
         can_act: false,
-        ..own(1., 0x1e)
+        ..own(1., kirby_assist_core::native_states::GUARD_DAMAGE)
     };
     let out = grab.sample_automatic(
         true,
@@ -479,7 +483,7 @@ fn zero_input_receipt_reservation_blocks_competing_punishes_with_exclusive_neutr
         35.,
         Some(12.),
     );
-    assert_eq!(out, LedgeOutput::default());
+    assert_eq!(out, ControllerOutput::default());
     let packet =
         kirby_assist_core::action_owner::exclusive_output(Some(Owner::OutOfShield), true, out);
     assert_eq!(
@@ -510,13 +514,14 @@ fn zero_input_receipt_reservation_blocks_competing_punishes_with_exclusive_neutr
             Some(Owner::OutOfShield)
         );
     }
-    for status in 0x37..=0x40 {
+    for status in kirby_assist_core::native_states::CATCH..=kirby_assist_core::native_states::THROW
+    {
         let mut delivered = OutOfShield::new();
         delivered.sample_automatic(
             true,
             grab_context(c),
             c,
-            targets(0x1c),
+            targets(kirby_assist_core::native_states::GUARD),
             None,
             true,
             22.,
@@ -536,7 +541,7 @@ fn zero_input_receipt_reservation_blocks_competing_punishes_with_exclusive_neutr
             35.,
             Some(12.),
         );
-        assert_eq!(out, LedgeOutput::default());
+        assert_eq!(out, ControllerOutput::default());
         assert!(!delivered.grab_delivery_pending());
         assert!(delivered.target().is_none());
     }
@@ -552,7 +557,8 @@ fn native_grab_cancels_every_tape_and_active_up_b_and_leaves_throw_input_manual(
             sequence: recipe(),
         })
         .unwrap();
-    for status in 0x37..=0x40 {
+    for status in kirby_assist_core::native_states::CATCH..=kirby_assist_core::native_states::THROW
+    {
         assert!(native_grab_active(status));
         let mut timeline = InputTimeline::new(recipe(), enemy(0., ESCAPE));
         let mut response = Response::default();
@@ -576,12 +582,27 @@ fn native_grab_cancels_every_tape_and_active_up_b_and_leaves_throw_input_manual(
                 .requested,
             MAPPER_B
         );
-        let release = timeline.sample(settings(), own(1., status), Some(enemy(1., 0x41)), None, 0.);
-        assert_eq!(release, LedgeOutput::default(), "native status {status:#x}");
+        let release = timeline.sample(
+            settings(),
+            own(1., status),
+            Some(enemy(1., kirby_assist_core::native_states::CAPTURE_PULLED)),
+            None,
+            0.,
+        );
+        assert_eq!(
+            release,
+            ControllerOutput::default(),
+            "native status {status:#x}"
+        );
         assert!(timeline.finished());
         assert_eq!(
             response
-                .sample(true, settings(), own(1., status), Some(enemy(1., 0x41)))
+                .sample(
+                    true,
+                    settings(),
+                    own(1., status),
+                    Some(enemy(1., kirby_assist_core::native_states::CAPTURE_PULLED))
+                )
                 .owned,
             0
         );
@@ -632,13 +653,13 @@ fn native_grab_cancels_every_tape_and_active_up_b_and_leaves_throw_input_manual(
 #[test]
 fn manual_input_during_confirmed_dodge_recovery_cannot_cancel_its_configured_punish() {
     let mut dodge = accepted();
-    let c = LedgeContext {
+    let c = GameplayContext {
         can_act: false,
         ..own(1., ESCAPE)
     };
     assert_eq!(punish(&mut dodge, c).owned, 0);
     assert!(dodge.punish_pending());
-    let c = LedgeContext {
+    let c = GameplayContext {
         manual_input_epoch: 42,
         ..own(2., 0)
     };

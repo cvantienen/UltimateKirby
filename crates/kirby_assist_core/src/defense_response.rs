@@ -1,6 +1,7 @@
 //! Event-triggered, file-authored defensive responses. No native calls or scans.
 use crate::{
-    ledge_trap::{InputTimeline, LedgeContext, LedgeOutput, LedgeSettings, Opponent},
+    gameplay::{ControllerOutput, GameplayContext, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings},
     reaction_rules::{Resolved, Side, Trigger},
 };
 
@@ -123,16 +124,20 @@ impl Response {
     pub fn start_up_b(
         &mut self,
         mut sequence: crate::sequence_config::Sequence,
-        c: LedgeContext,
+        c: GameplayContext,
         enemy: Opponent,
     ) -> bool {
         if !c.gameplay
             || c.situation != 0
             || c.stopped
             || !c.can_act
-            || !(crate::reaction_rules::automatic_start_status(c.status) || c.status == 0x1f)
+            || !(crate::reaction_rules::automatic_start_status(c.status)
+                || c.status == crate::native_states::ESCAPE)
             || !crate::reaction_rules::automatic_target_available(enemy.status)
-            || matches!(c.status, 0x37..=0x40)
+            || matches!(
+                c.status,
+                crate::native_states::CATCH..=crate::native_states::THROW
+            )
             || sequence.start_delay != 0
             || !crate::reaction_rules::starts_direct_up_b(&sequence)
         {
@@ -148,7 +153,7 @@ impl Response {
         self.target = Some(enemy.id);
         self.automatic_up_b = true;
         self.configured = true;
-        self.up_b_from_dodge = c.status == 0x1f;
+        self.up_b_from_dodge = c.status == crate::native_states::ESCAPE;
         self.manual_epoch = c.automatic_up_b_epoch.unwrap_or(c.manual_input_epoch);
         true
     }
@@ -157,7 +162,7 @@ impl Response {
     pub fn start_sequence(
         &mut self,
         mut sequence: crate::sequence_config::Sequence,
-        c: LedgeContext,
+        c: GameplayContext,
         enemy: Opponent,
     ) -> bool {
         if crate::reaction_rules::starts_direct_up_b(&sequence) && sequence.start_delay == 0 {
@@ -167,7 +172,8 @@ impl Response {
             || c.situation != 0
             || c.stopped
             || !c.can_act
-            || !(crate::reaction_rules::automatic_start_status(c.status) || c.status == 0x1f)
+            || !(crate::reaction_rules::automatic_start_status(c.status)
+                || c.status == crate::native_states::ESCAPE)
             || !crate::reaction_rules::automatic_target_available(enemy.status)
             || crate::action_owner::native_grab_active(c.status)
             || crate::ledge_trap::sequence_interrupted(c.status)
@@ -189,7 +195,7 @@ impl Response {
         &mut self,
         rules: &Resolved,
         trigger: Trigger,
-        c: LedgeContext,
+        c: GameplayContext,
         enemy: Opponent,
     ) -> bool {
         let Some(sequence) = select(rules, trigger, c, enemy) else {
@@ -206,9 +212,9 @@ impl Response {
         &mut self,
         allowed: bool,
         settings: LedgeSettings,
-        mut c: LedgeContext,
+        mut c: GameplayContext,
         enemy: Option<Opponent>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if self.grab_sent {
             if !c.gameplay
                 || c.situation != 0
@@ -217,17 +223,17 @@ impl Response {
                 || self.grab_delivery.exhausted()
             {
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             if self.grab_settling {
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
         }
         if !allowed {
             self.suspend();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
-        let tracking = settings.fighter_kind == 15
+        let tracking = settings.fighter_kind == crate::fighter_kinds::BOWSER
             && self.automatic_up_b
             && (self.up_b_seen
                 || crate::reaction_rules::native_up_b_started(settings.fighter_kind, c)
@@ -246,11 +252,14 @@ impl Response {
             })
         {
             self.suspend();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.automatic_up_b && self.plan.is_some() {
             let native = crate::reaction_rules::native_up_b_started(settings.fighter_kind, c);
-            if settings.fighter_kind == 15 && !self.up_b_seen && self.receipt.sent() {
+            if settings.fighter_kind == crate::fighter_kinds::BOWSER
+                && !self.up_b_seen
+                && self.receipt.sent()
+            {
                 if native && self.waiting_up_b {
                     if let Some(enemy) = enemy.filter(|e| Some(e.id) == self.target) {
                         self.plan.as_mut().unwrap().confirm_initial_up_b(c, enemy);
@@ -263,18 +272,29 @@ impl Response {
                     ) || self.receipt.expired()
                     {
                         self.cancel();
-                        return LedgeOutput::default();
+                        return ControllerOutput::default();
                     }
                     if self.waiting_up_b || c.stopped || !c.can_act || self.delivery.exhausted() {
                         self.waiting_up_b = true;
-                        return LedgeOutput::default();
+                        return ControllerOutput::default();
                     }
                 }
             }
             self.up_b_seen |= native;
-            let wrong = matches!(c.status,0xb..=0xf|0x20..=0x23|0x37..=0x40|0x1dc|0x1dd|0x1df);
-            let wrong = wrong || c.status == 0x1f && (!c.can_act || self.up_b_seen);
-            let ended = self.up_b_seen && matches!(c.status,0..=9|0x10|0x16..=0x1e);
+            let wrong = matches!(
+                c.status,
+                crate::native_states::status::JUMP..=crate::native_states::status::FALL_AERIAL
+                    | crate::native_states::ESCAPE_F
+                        ..=crate::native_states::ESCAPE_AIR_SLIDE
+                    | crate::native_states::CATCH..=crate::native_states::THROW
+                    | crate::native_states::status::SPECIAL_N
+                    | crate::native_states::status::SPECIAL_S
+                    | crate::native_states::status::SPECIAL_LW
+            );
+            let wrong =
+                wrong || c.status == crate::native_states::ESCAPE && (!c.can_act || self.up_b_seen);
+            let ended = self.up_b_seen
+                && matches!(c.status,crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE|crate::native_states::status::FALL_SPECIAL|crate::native_states::status::LANDING..=crate::native_states::GUARD_DAMAGE);
             if wrong
                 || ended
                 || self.up_b_seen && !native
@@ -283,28 +303,28 @@ impl Response {
                         || c.stopped
                         || !c.can_act
                         || !(crate::reaction_rules::automatic_start_status(c.status)
-                            || c.status == 0x1f)
+                            || c.status == crate::native_states::ESCAPE)
                         || self.delivery.exhausted())
             {
                 self.cancel();
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
         }
         let Some(plan) = self.plan.as_mut() else {
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         };
         let enemy = enemy.filter(|e| Some(e.id) == self.target);
         if !plan.inputs_only() && enemy.is_none() {
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
-        let manual = settings.fighter_kind != 15
+        let manual = settings.fighter_kind != crate::fighter_kinds::BOWSER
             && self.automatic_up_b
             && self.up_b_seen
             && c.automatic_up_b_epoch.unwrap_or(c.manual_input_epoch) != self.manual_epoch;
         if manual && plan.drifting() {
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         c.held = true;
         let output = plan.sample(settings, c, enemy, None, 0.0);
@@ -317,17 +337,20 @@ impl Response {
             && (manual && plan.drifting()
                 || !self.up_b_seen && output.requested & crate::native_input::MAPPER_B == 0)
         {
-            if settings.fighter_kind == 15 && !self.up_b_seen && self.receipt.sent() {
+            if settings.fighter_kind == crate::fighter_kinds::BOWSER
+                && !self.up_b_seen
+                && self.receipt.sent()
+            {
                 self.waiting_up_b = true;
-                return LedgeOutput::default();
+                return ControllerOutput::default();
             }
             self.cancel();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if self.grab_sent && output.requested & crate::native_input::MAPPER_R == 0 {
             self.plan = None;
             self.grab_settling = true;
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         if plan.finished() {
             self.cancel();
@@ -340,7 +363,7 @@ impl Response {
 pub fn select(
     rules: &Resolved,
     trigger: Trigger,
-    c: LedgeContext,
+    c: GameplayContext,
     enemy: Opponent,
 ) -> Option<crate::sequence_config::Sequence> {
     if !trigger.defensive() || c.stopped || !c.gameplay

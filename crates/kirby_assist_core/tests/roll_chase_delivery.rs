@@ -1,11 +1,12 @@
 use kirby_assist_core::{
-    ledge_trap::{InputTimeline, LedgeContext, LedgeSettings, Opponent, SEQUENCE_BUTTONS},
+    gameplay::{GameplayContext, Opponent},
+    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
     manual_controls::{ManualOverlay, TurboOutput, LEFT_STICK_DIRECTIONS},
     native_input::*,
     sequence_config::Catalog,
 };
-fn context(status: i32, frame: f32) -> LedgeContext {
-    LedgeContext {
+fn context(status: i32, frame: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         status,
@@ -110,7 +111,11 @@ fn partial_drift_and_non_reaction_grab_or_ledge_paths_keep_their_existing_histor
 fn shield_release_observation_gap_keeps_the_chase_and_its_entire_ten_frame_duration() {
     let mut t = timeline();
     t.allow_continuous_progress();
-    for (status, frame) in [(0x1c, 0.), (0x1d, 0.), (0x1d, 2.)] {
+    for (status, frame) in [
+        (kirby_assist_core::native_states::GUARD, 0.),
+        (kirby_assist_core::native_states::GUARD_OFF, 0.),
+        (kirby_assist_core::native_states::GUARD_OFF, 2.),
+    ] {
         let out = t.sample(
             LedgeSettings::default(),
             context(status, frame),
@@ -147,7 +152,13 @@ fn neutral_shield_release_still_suppresses_human_directions_before_chase_starts(
     let mut overlay = ManualOverlay::default();
     let mut t = timeline();
     t.allow_continuous_progress();
-    let waiting = t.sample(LedgeSettings::default(), context(0x1c, 0.), None, None, 0.);
+    let waiting = t.sample(
+        LedgeSettings::default(),
+        context(kirby_assist_core::native_states::GUARD, 0.),
+        None,
+        None,
+        0.,
+    );
     let out = overlay.apply_reaction_controls(
         physical,
         [1., -1.],

@@ -1,7 +1,8 @@
 use kirby_assist_core::{
     action_owner::{exclusive_output, safety_output, ActionOwnership, Intent, Owner},
+    gameplay::{ControllerOutput, GameplayContext},
     grab_handoff::GrabHandoff,
-    ledge_trap::{LedgeContext, LedgeOutput, SEQUENCE_BUTTONS},
+    ledge_trap::SEQUENCE_BUTTONS,
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::{
         self, ButtonTrace, ControlLayout, GAMEPLAY_BUTTONS, MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_ZR,
@@ -74,7 +75,7 @@ fn all_sequence_packets_mask_manual_buttons_axes_aliases_and_triggers_through_ne
                 let packet = exclusive_output(
                     Some(owner),
                     true,
-                    LedgeOutput {
+                    ControllerOutput {
                         requested,
                         owned: requested,
                         ..Default::default()
@@ -191,7 +192,7 @@ fn neutral_native_receipts_retain_their_owner_without_allowing_a_late_special() 
         let mut handoff = GrabHandoff::new();
         handoff.observe_native(
             true,
-            Some(LedgeContext {
+            Some(GameplayContext {
                 gameplay: true,
                 motion_kind: 1,
                 motion_rate: 1.,
@@ -199,10 +200,10 @@ fn neutral_native_receipts_retain_their_owner_without_allowing_a_late_special() 
             }),
         );
         handoff.mapped(0, Some(owner), true, true, true);
-        assert!(handoff.permits(Some(owner), LedgeOutput::default(), None));
+        assert!(handoff.permits(Some(owner), ControllerOutput::default(), None));
         assert!(!handoff.permits(
             Some(owner),
-            LedgeOutput {
+            ControllerOutput {
                 requested: MAPPER_B,
                 ..Default::default()
             },
@@ -219,7 +220,7 @@ fn neutral_native_receipts_retain_their_owner_without_allowing_a_late_special() 
                 ],
             );
             assert_eq!(winner, Some(owner));
-            let packet = exclusive_output(winner, true, LedgeOutput::default());
+            let packet = exclusive_output(winner, true, ControllerOutput::default());
             assert_eq!(packet.stick, Some([0.; 2]));
             assert_eq!(packet.owned, SEQUENCE_BUTTONS);
         }
@@ -237,13 +238,13 @@ fn inactive_automation_and_passive_helpers_do_not_acquire_gameplay_inputs() {
         Some(Owner::Posture),
     ] {
         assert_eq!(
-            exclusive_output(owner, true, LedgeOutput::default()),
-            LedgeOutput::default()
+            exclusive_output(owner, true, ControllerOutput::default()),
+            ControllerOutput::default()
         );
     }
     assert_eq!(
-        exclusive_output(Some(Owner::Ledge), false, LedgeOutput::default()),
-        LedgeOutput::default()
+        exclusive_output(Some(Owner::Ledge), false, ControllerOutput::default()),
+        ControllerOutput::default()
     );
 }
 
@@ -275,7 +276,8 @@ fn a_blocked_new_ledge_trigger_or_manual_attack_cannot_cancel_existing_playback(
 fn authored_timeline_survives_manual_churn_and_duplicate_polls_then_restores_manual_control() {
     use kirby_assist_core::{
         fighter_profiles::presets::PresetSlot,
-        ledge_trap::{LedgeSettings, LedgeTrap, Opponent},
+        gameplay::Opponent,
+        ledge_trap::{LedgeSettings, LedgeTrap},
         sequence_config::Catalog,
     };
     let catalog = Catalog::parse(
@@ -285,7 +287,7 @@ fn authored_timeline_survives_manual_churn_and_duplicate_polls_then_restores_man
     let sequence = catalog.entries()[0].sequence;
     let mut settings = LedgeSettings {
         enabled: true,
-        fighter_kind: 15,
+        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     };
     settings.sequence_overrides[PresetSlot::Neutral as usize] = Some(sequence);
@@ -308,7 +310,7 @@ fn authored_timeline_survives_manual_churn_and_duplicate_polls_then_restores_man
             ..Default::default()
         };
         owners.observe_manual(physical.held, [1., -1., -1., 1.]);
-        let context = LedgeContext {
+        let context = GameplayContext {
             held: true,
             gameplay: true,
             can_act: true,
@@ -325,7 +327,7 @@ fn authored_timeline_survives_manual_churn_and_duplicate_polls_then_restores_man
             baseline.sample(
                 settings,
                 frame as i64,
-                LedgeContext {
+                GameplayContext {
                     manual_input_epoch: 0,
                     ..context
                 },

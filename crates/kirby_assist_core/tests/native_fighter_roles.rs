@@ -100,7 +100,7 @@ mod game {
         })
     }
     pub unsafe fn work_int(o: *mut Object, slot: i32) -> i32 {
-        assert_eq!(slot, 0x100000be);
+        assert_eq!(slot, kirby_assist_core::native_states::work_ids::FIGHTER_POPO_INSTANCE_WORK_ID_INT_PARTNER_OBJECT_ID);
         WORLD.with(|w| {
             let w = w.borrow();
             let a = w.actors.iter().find(|a| a.object.id == (*o).id).unwrap();

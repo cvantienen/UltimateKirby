@@ -1,5 +1,5 @@
 use kirby_assist_core::{
-    ledge_trap::LedgeOutput,
+    gameplay::ControllerOutput,
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::{ButtonTrace, MAPPER_A, MAPPER_B, MAPPER_ZR},
     spot_dodge::{contact, Context, SpotDodge, Target, ESCAPE},
@@ -7,7 +7,7 @@ use kirby_assist_core::{
 fn context(frame: f32) -> Context {
     Context {
         object: 1,
-        status: 0,
+        status: kirby_assist_core::native_states::status::WAIT,
         situation: 0,
         motion: 1,
         frame,
@@ -21,7 +21,7 @@ fn context(frame: f32) -> Context {
 fn target() -> Target {
     Target {
         id: 2,
-        status: 0x37,
+        status: kirby_assist_core::native_states::CATCH,
         motion: 2,
         frame: 2.0,
         rate: 1.0,
@@ -66,7 +66,11 @@ fn target_first_readiness_preserves_acquisition_hitstop_and_target_loss() {
 
 #[test]
 fn standing_dash_and_pivot_grabs_trigger_at_the_forecast_boundary() {
-    for (status, first) in [(0x37, 6), (0x39, 9), (0x3b, 10)] {
+    for (status, first) in [
+        (kirby_assist_core::native_states::CATCH, 6),
+        (kirby_assist_core::native_states::CATCH_DASH, 9),
+        (kirby_assist_core::native_states::CATCH_TURN, 10),
+    ] {
         let mut tool = SpotDodge::default();
         let t = Target {
             status,
@@ -77,7 +81,7 @@ fn standing_dash_and_pivot_grabs_trigger_at_the_forecast_boundary() {
         };
         assert_eq!(
             tool.sample(true, context(0.0), roster(t)),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
         let out = tool.sample(
             true,
@@ -111,7 +115,7 @@ fn distant_behind_high_expired_unknown_and_malformed_grabs_do_not_trigger() {
             ..target()
         },
         Target {
-            status: 0x1e0,
+            status: kirby_assist_core::native_states::status::FINAL,
             ..target()
         },
         Target {
@@ -129,7 +133,7 @@ fn distant_behind_high_expired_unknown_and_malformed_grabs_do_not_trigger() {
     ] {
         assert_eq!(
             SpotDodge::default().sample(true, context(0.0), roster(t)),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
     }
 }
@@ -164,17 +168,17 @@ fn no_air_dodges_damage_recovery_cancels_or_forced_dodge_terms() {
             ..context(0.0)
         },
         Context {
-            status: 0x47,
+            status: kirby_assist_core::native_states::status::DAMAGE,
             can_spot_dodge: false,
             ..context(0.0)
         },
         Context {
-            status: 0x27,
+            status: kirby_assist_core::native_states::status::ATTACK,
             can_spot_dodge: false,
             ..context(0.0)
         },
         Context {
-            status: 0x1e,
+            status: kirby_assist_core::native_states::GUARD_DAMAGE,
             can_spot_dodge: false,
             ..context(0.0)
         },
@@ -189,7 +193,7 @@ fn no_air_dodges_damage_recovery_cancels_or_forced_dodge_terms() {
     ] {
         assert_eq!(
             SpotDodge::default().sample(true, c, roster(target())),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
     }
 }
@@ -199,7 +203,7 @@ fn native_cancel_term_does_not_bypass_stationary_only_grab_defense() {
     let out = SpotDodge::default().sample(
         true,
         Context {
-            status: 0x2c,
+            status: kirby_assist_core::native_states::status::ATTACK_LW3,
             can_spot_dodge: true,
             ..context(0.0)
         },
@@ -306,12 +310,12 @@ fn target_loss_disable_and_identity_change_have_bounded_behavior() {
     tool.sample(true, context(0.0), roster(target()));
     assert_eq!(
         tool.sample(true, context(1.0), [None; 8]),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     tool.sample(true, context(2.0), roster(target()));
     assert_eq!(
         tool.sample(false, context(3.0), roster(target())),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     assert_eq!(
         tool.sample(
@@ -435,7 +439,10 @@ fn fast_dash_grab_that_reaches_only_in_the_last_two_forecast_frames_is_seen() {
 
 #[test]
 fn stationary_shield_can_request_grab_dodge_without_releasing_shield_first() {
-    for status in [0x1b, 0x1c] {
+    for status in [
+        kirby_assist_core::native_states::GUARD_ON,
+        kirby_assist_core::native_states::GUARD,
+    ] {
         let c = Context {
             status,
             frame: 0.0,
@@ -469,7 +476,7 @@ fn stationary_shield_can_request_grab_dodge_without_releasing_shield_first() {
 #[test]
 fn stationary_shield_exception_does_not_allow_air_shieldstun_or_disabled_escape() {
     let shield = Context {
-        status: 0x1c,
+        status: kirby_assist_core::native_states::GUARD,
         frame: 0.0,
         rate: 0.0,
         ..context(0.0)
@@ -484,11 +491,11 @@ fn stationary_shield_exception_does_not_allow_air_shieldstun_or_disabled_escape(
             ..shield
         },
         Context {
-            status: 0x1e,
+            status: kirby_assist_core::native_states::GUARD_DAMAGE,
             ..shield
         },
         Context {
-            status: 0,
+            status: kirby_assist_core::native_states::status::WAIT,
             ..shield
         },
         Context {
@@ -502,19 +509,19 @@ fn stationary_shield_exception_does_not_allow_air_shieldstun_or_disabled_escape(
     ] {
         assert_eq!(
             SpotDodge::default().sample(true, c, roster(target())),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
     }
     assert_eq!(
         SpotDodge::default().sample(false, shield, roster(target())),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
 }
 
 #[test]
 fn pending_shield_dodge_holds_through_hitstop_but_releases_on_air() {
     let c = Context {
-        status: 0x1c,
+        status: kirby_assist_core::native_states::GUARD,
         frame: 0.0,
         rate: 0.0,
         ..context(0.0)
@@ -529,7 +536,7 @@ fn pending_shield_dodge_holds_through_hitstop_but_releases_on_air() {
     }
     assert_eq!(
         dodge.sample(true, Context { situation: 2, ..c }, roster(target())),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
 }
 
@@ -570,7 +577,7 @@ fn temporary_uncancelable_state_does_not_consume_an_unaccepted_dodge() {
         tool.sample(
             true,
             Context {
-                status: 0x1e,
+                status: kirby_assist_core::native_states::GUARD_DAMAGE,
                 can_spot_dodge: false,
                 ..context(1.0)
             },
@@ -633,7 +640,11 @@ fn predicted_range_change_does_not_consume_an_unaccepted_dodge() {
 #[test]
 fn dk_grabs_use_dk_windows_and_keep_guard_held_for_bowsers_retry() {
     use kirby_assist_core::fighter_data;
-    for (status, first, last) in [(0x37, 8, 10), (0x39, 11, 13), (0x3b, 12, 14)] {
+    for (status, first, last) in [
+        (kirby_assist_core::native_states::CATCH, 8, 10),
+        (kirby_assist_core::native_states::CATCH_DASH, 11, 13),
+        (kirby_assist_core::native_states::CATCH_TURN, 12, 14),
+    ] {
         let facts = fighter_data::ordinary_grab(1, status).unwrap();
         assert_eq!(
             (facts.first, facts.last, facts.reach),
@@ -642,7 +653,11 @@ fn dk_grabs_use_dk_windows_and_keep_guard_held_for_bowsers_retry() {
         let reach = facts
             .reach
             .expect("Donkey Kong grab reach should be present");
-        for own_status in [0, 0x1b, 0x1c] {
+        for own_status in [
+            0,
+            kirby_assist_core::native_states::GUARD_ON,
+            kirby_assist_core::native_states::GUARD,
+        ] {
             let mut dodge = SpotDodge::default();
             let mut c = Context {
                 status: own_status,
@@ -724,7 +739,10 @@ fn final_active_grab_frame_remains_live_at_fractional_motion_times() {
 #[test]
 fn one_delivered_dodge_releases_down_guard_and_waits_for_native_success_without_an_unconfigured_punish(
 ) {
-    use kirby_assist_core::ledge_trap::{LedgeContext, LedgeSettings, Opponent};
+    use kirby_assist_core::{
+        gameplay::{GameplayContext, Opponent},
+        ledge_trap::LedgeSettings,
+    };
     let mut tool = SpotDodge::default();
     let t = Target {
         last: 40,
@@ -750,7 +768,7 @@ fn one_delivered_dodge_releases_down_guard_and_waits_for_native_success_without_
             true,
             None,
             LedgeSettings::default(),
-            LedgeContext {
+            GameplayContext {
                 gameplay: true,
                 can_act: true,
                 status: c.status,
@@ -799,7 +817,8 @@ fn delivered_dodge_wait_has_a_mapper_budget_even_with_frozen_poses_and_never_rep
 #[test]
 fn rejected_guard_packets_are_bounded_without_falsely_confirming_a_dodge_or_a_punish() {
     use kirby_assist_core::{
-        ledge_trap::{LedgeContext, LedgeSettings, Opponent},
+        gameplay::{GameplayContext, Opponent},
+        ledge_trap::LedgeSettings,
         sequence_config::Catalog,
     };
     let mut tool = SpotDodge::default();
@@ -825,7 +844,7 @@ fn rejected_guard_packets_are_bounded_without_falsely_confirming_a_dodge_or_a_pu
         true,
         Some(&s),
         LedgeSettings::default(),
-        LedgeContext {
+        GameplayContext {
             gameplay: true,
             can_act: true,
             motion_kind: 1,

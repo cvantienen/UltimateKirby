@@ -22,13 +22,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs
 
 import sequence_transfer as transfer
+from toml_compat import tomllib
 import upload_switch
 from workbench import DEFAULT_FILE, HELPERS, ROOT, TARGETS, helper, version
 
 
 def set_version(manifest: Path, release: str):
     """Change only the literal package version, atomically; preserve all other TOML."""
-    import tomllib
     if not re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?', release):
         raise ValueError("Build version must look like 2.2.5")
     upload_switch.release_version(release)

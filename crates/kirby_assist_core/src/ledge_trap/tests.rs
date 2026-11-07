@@ -1,7 +1,7 @@
 //! Host fixtures and regressions for file-only ledge recognition.
 use super::*;
-pub(super) fn context() -> LedgeContext {
-    LedgeContext {
+pub(super) fn context() -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         manual_input_epoch: 0,
@@ -9,7 +9,7 @@ pub(super) fn context() -> LedgeContext {
         can_act: true,
         can_control: true,
         stopped: false,
-        status: 0,
+        status: crate::native_states::status::WAIT,
         situation: 0,
         motion_frame: 0.0,
         motion_kind: 0,
@@ -18,7 +18,7 @@ pub(super) fn context() -> LedgeContext {
         velocity: [0.0, 0.0],
         ground_brake: Some(0.1),
         facing: 1.0,
-        previous_status: 0,
+        previous_status: crate::native_states::status::WAIT,
         can_grab: true,
         can_tilt: true,
         can_down_tilt: true,
@@ -41,7 +41,7 @@ pub(super) fn enemy(status: i32, vulnerable: bool) -> Opponent {
     Opponent {
         id: 2,
         status,
-        previous_status: 0,
+        previous_status: crate::native_states::status::WAIT,
         situation: 0,
         vulnerable,
         position: [5.0, 0.0],
@@ -68,8 +68,8 @@ fn input_settings() -> LedgeSettings {
         }),
     )
 }
-fn frame(n: f32) -> LedgeContext {
-    LedgeContext {
+fn frame(n: f32) -> GameplayContext {
+    GameplayContext {
         motion_kind: crate::timing::motion_hash("wait"),
         motion_frame: n,
         ..context()
@@ -135,11 +135,11 @@ fn missing_selected_row_has_no_fallback_input_or_move_window() {
 #[test]
 fn disabling_releasing_or_leaving_gameplay_resets_the_timeline() {
     for changed in [
-        LedgeContext {
+        GameplayContext {
             held: false,
             ..frame(1.0)
         },
-        LedgeContext {
+        GameplayContext {
             gameplay: false,
             ..frame(1.0)
         },
@@ -153,7 +153,7 @@ fn disabling_releasing_or_leaving_gameplay_resets_the_timeline() {
         );
         assert_eq!(
             trap.sample(settings, 1, changed, None),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
         assert!(!trap.file_timeline_active());
         assert_eq!(trap.target(), None);
@@ -164,7 +164,7 @@ fn disabling_releasing_or_leaving_gameplay_resets_the_timeline() {
     settings.enabled = false;
     assert_eq!(
         trap.sample(settings, 1, frame(1.0), None),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
 }
 #[test]
@@ -178,11 +178,11 @@ fn mapper_clock_reversal_cancels_and_completed_inputs_do_not_repeat() {
     assert!(trap.manual_after_response());
     assert_eq!(
         trap.sample(settings, 12, frame(2.0), Some(enemy(CLIFF_CLIMB, false))),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     assert_eq!(
         trap.sample(settings, 1, frame(0.0), None),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     assert!(!trap.manual_after_response());
 }
@@ -215,22 +215,22 @@ fn menu_preview_cancels_without_target_or_gameplay_and_on_damage() {
     for (ctx, opponent) in [
         (frame(0.0), None),
         (
-            LedgeContext {
+            GameplayContext {
                 gameplay: false,
                 ..frame(0.0)
             },
             Some(enemy(0, true)),
         ),
         (
-            LedgeContext {
+            GameplayContext {
                 held: false,
                 ..frame(0.0)
             },
             Some(enemy(0, true)),
         ),
         (
-            LedgeContext {
-                status: 0x47,
+            GameplayContext {
+                status: crate::native_states::status::DAMAGE,
                 ..frame(0.0)
             },
             Some(enemy(0, true)),
@@ -258,7 +258,7 @@ fn sequence_walk_input_preserves_sub_eighty_percent_strength_in_both_facing_dire
             settings.sequence_overrides[0] = Some(catalog.entries()[0].sequence);
             let mut trap = LedgeTrap::default();
             trap.request_preview(PresetSlot::Neutral);
-            let ctx = LedgeContext {
+            let ctx = GameplayContext {
                 facing,
                 ..frame(0.0)
             };
@@ -285,7 +285,7 @@ fn sequence_walk_input_preserves_sub_eighty_percent_strength_in_both_facing_dire
             );
             assert_ne!(mapped_stick_axis(applied.stick[0]), 0);
             // Completion releases the walking override before delivering Grab.
-            let next = LedgeContext {
+            let next = GameplayContext {
                 position: [facing * 8.0, 0.0],
                 facing,
                 ..frame(1.0)
@@ -316,7 +316,7 @@ fn walk_to_opponent_preserves_low_strength_until_its_explicit_frame_limit() {
                 ..enemy(0, true)
             };
             for tick in 0..2 {
-                let ctx = LedgeContext {
+                let ctx = GameplayContext {
                     facing: direction,
                     ..frame(tick as f32)
                 };
@@ -331,7 +331,7 @@ fn walk_to_opponent_preserves_low_strength_until_its_explicit_frame_limit() {
             let out = trap.sample(
                 settings,
                 2,
-                LedgeContext {
+                GameplayContext {
                     facing: direction,
                     ..frame(2.0)
                 },
@@ -383,7 +383,7 @@ fn button_slots_execute_authored_delays_and_holds_without_a_ledge_or_move_readin
         let mut trap = LedgeTrap::default();
         trap.request_preview(slot);
         for (n, buttons) in expected.into_iter().enumerate() {
-            let ctx = LedgeContext {
+            let ctx = GameplayContext {
                 can_act: false,
                 can_control: false,
                 situation: 2,

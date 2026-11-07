@@ -1,7 +1,8 @@
 use kirby_assist_core::{
     fighter_profiles::{presets::PresetSlot, FighterProfiles},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
     ledge_menu::{MenuRow, MenuSelection},
-    ledge_trap::{LedgeContext, LedgeSettings, MotionTiming, Opponent},
+    ledge_trap::LedgeSettings,
     native_input::*,
     reaction_rules::{Candidate, Resolved, Trigger},
     roll_read::Target,
@@ -21,8 +22,8 @@ fn rules(text: &str) -> Resolved {
     }
     r
 }
-fn ctx(f: f32) -> LedgeContext {
-    LedgeContext {
+fn ctx(f: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         can_act: true,
@@ -55,7 +56,7 @@ fn sample(
     r: &Resolved,
     f: f32,
     t: Target,
-) -> kirby_assist_core::ledge_trap::LedgeOutput {
+) -> kirby_assist_core::gameplay::ControllerOutput {
     p.sample(
         true,
         true,
@@ -85,15 +86,48 @@ fn nearby_shield_grab_fires_once_per_shield_visit_and_never_for_an_ordinary_roll
     let r = rules(HOLD);
     let mut p = Pressure::default();
     assert_eq!(
-        sample(&mut p, &r, 0., enemy(0x1b, 6., 0.)).requested & MAPPER_R,
+        sample(
+            &mut p,
+            &r,
+            0.,
+            enemy(kirby_assist_core::native_states::GUARD_ON, 6., 0.)
+        )
+        .requested
+            & MAPPER_R,
         MAPPER_R
     );
-    sample(&mut p, &r, 1., enemy(0x1c, 6., 0.));
-    assert_eq!(sample(&mut p, &r, 2., enemy(0x1c, 6., 0.)).requested, 0);
-    sample(&mut p, &r, 3., enemy(0x20, 6., 1.));
+    sample(
+        &mut p,
+        &r,
+        1.,
+        enemy(kirby_assist_core::native_states::GUARD, 6., 0.),
+    );
+    assert_eq!(
+        sample(
+            &mut p,
+            &r,
+            2.,
+            enemy(kirby_assist_core::native_states::GUARD, 6., 0.)
+        )
+        .requested,
+        0
+    );
+    sample(
+        &mut p,
+        &r,
+        3.,
+        enemy(kirby_assist_core::native_states::ESCAPE_F, 6., 1.),
+    );
     assert!(!p.claims_roll(2)); // No shield-roll recipe: generic Roll remains available.
     assert_eq!(
-        sample(&mut p, &r, 4., enemy(0x1b, 6., 0.)).requested & MAPPER_R,
+        sample(
+            &mut p,
+            &r,
+            4.,
+            enemy(kirby_assist_core::native_states::GUARD_ON, 6., 0.)
+        )
+        .requested
+            & MAPPER_R,
         MAPPER_R
     );
 }
@@ -101,13 +135,32 @@ fn nearby_shield_grab_fires_once_per_shield_visit_and_never_for_an_ordinary_roll
 fn crossing_requires_shield_origin_and_vulnerability_and_claims_only_that_roll() {
     let r = rules(ROLL);
     let mut p = Pressure::default();
-    assert_eq!(sample(&mut p, &r, 0., enemy(0x20, 5., 1.)).owned, 0);
+    assert_eq!(
+        sample(
+            &mut p,
+            &r,
+            0.,
+            enemy(kirby_assist_core::native_states::ESCAPE_F, 5., 1.)
+        )
+        .owned,
+        0
+    );
     assert!(!p.claims_roll(2));
-    sample(&mut p, &r, 1., enemy(0x1c, 5., 1.));
-    sample(&mut p, &r, 2., enemy(0x1d, 5., 0.)); // Shield-drop phase retains provenance.
+    sample(
+        &mut p,
+        &r,
+        1.,
+        enemy(kirby_assist_core::native_states::GUARD, 5., 1.),
+    );
+    sample(
+        &mut p,
+        &r,
+        2.,
+        enemy(kirby_assist_core::native_states::GUARD_OFF, 5., 0.),
+    ); // Shield-drop phase retains provenance.
     let t = Target {
         vulnerable_in: Some(4.),
-        ..enemy(0x20, -5., 1.)
+        ..enemy(kirby_assist_core::native_states::ESCAPE_F, -5., 1.)
     };
     assert_eq!(sample(&mut p, &r, 3., t).requested, 0);
     assert!(p.claims_roll(2));
@@ -129,14 +182,14 @@ fn crossing_requires_shield_origin_and_vulnerability_and_claims_only_that_roll()
 fn range_priority_side_native_readiness_and_disabled_scope_are_respected() {
     let r=rules(&format!("{HOLD}[bowser.attack.shield_far]\nstart_delay=0\nreaction=enemy_shield:grounded:10:25:12:front:2\nactions=up_b:1\n"));
     let mut p = Pressure::default();
-    let t = enemy(0x1c, 16., 1.);
+    let t = enemy(kirby_assist_core::native_states::GUARD, 16., 1.);
     let out = p.sample(
         true,
         true,
         1,
         Some(&r),
         LedgeSettings::default(),
-        LedgeContext {
+        GameplayContext {
             can_act: false,
             ..ctx(0.)
         },
@@ -161,8 +214,26 @@ fn range_priority_side_native_readiness_and_disabled_scope_are_respected() {
     );
     assert!(!p.committed());
     let mut p = Pressure::default();
-    assert_eq!(sample(&mut p, &r, 1., enemy(0x1c, -6., 1.)).owned, 0);
-    assert_eq!(sample(&mut p, &r, 2., enemy(0x1c, 30., 2.)).owned, 0);
+    assert_eq!(
+        sample(
+            &mut p,
+            &r,
+            1.,
+            enemy(kirby_assist_core::native_states::GUARD, -6., 1.)
+        )
+        .owned,
+        0
+    );
+    assert_eq!(
+        sample(
+            &mut p,
+            &r,
+            2.,
+            enemy(kirby_assist_core::native_states::GUARD, 30., 2.)
+        )
+        .owned,
+        0
+    );
     assert_eq!(
         p.sample(
             true,
@@ -212,15 +283,34 @@ fn pressure_rules_save_separately_and_roundtrip_without_becoming_ledge_choices()
 fn roll_away_direction_is_observed_and_does_not_flip_after_a_roll_crosses() {
     let r=rules("[bowser.attack.away]\nstart_delay=0\nreaction=shield_roll_away:grounded:10:30:12:any:1\nactions=up_b:1\n");
     let mut p = Pressure::default();
-    sample(&mut p, &r, 0., enemy(0x1c, 16., 0.));
-    assert_eq!(sample(&mut p, &r, 1., enemy(0x20, 16., 0.)).owned, 0); // No guessed direction at zero speed.
+    sample(
+        &mut p,
+        &r,
+        0.,
+        enemy(kirby_assist_core::native_states::GUARD, 16., 0.),
+    );
+    assert_eq!(
+        sample(
+            &mut p,
+            &r,
+            1.,
+            enemy(kirby_assist_core::native_states::ESCAPE_F, 16., 0.)
+        )
+        .owned,
+        0
+    ); // No guessed direction at zero speed.
     let away = Target {
         velocity_x: 2.,
-        ..enemy(0x20, 18., 1.)
+        ..enemy(kirby_assist_core::native_states::ESCAPE_F, 18., 1.)
     };
     assert_ne!(sample(&mut p, &r, 2., away).requested & MAPPER_B, 0);
     let mut p = Pressure::default();
-    sample(&mut p, &r, 0., enemy(0x1c, 16., 0.));
+    sample(
+        &mut p,
+        &r,
+        0.,
+        enemy(kirby_assist_core::native_states::GUARD, 16., 0.),
+    );
     assert_eq!(
         sample(
             &mut p,
@@ -228,7 +318,7 @@ fn roll_away_direction_is_observed_and_does_not_flip_after_a_roll_crosses() {
             1.,
             Target {
                 velocity_x: -2.,
-                ..enemy(0x20, 14., 1.)
+                ..enemy(kirby_assist_core::native_states::ESCAPE_F, 14., 1.)
             }
         )
         .owned,
@@ -241,7 +331,7 @@ fn roll_away_direction_is_observed_and_does_not_flip_after_a_roll_crosses() {
             2.,
             Target {
                 velocity_x: -2.,
-                ..enemy(0x20, -14., 2.)
+                ..enemy(kirby_assist_core::native_states::ESCAPE_F, -14., 2.)
             }
         )
         .owned,
@@ -252,9 +342,18 @@ fn roll_away_direction_is_observed_and_does_not_flip_after_a_roll_crosses() {
 fn hit_on_our_shield_cancels_pressure_without_replaying_the_old_action() {
     let r = rules(HOLD);
     let mut p = Pressure::default();
-    assert_ne!(sample(&mut p, &r, 0., enemy(0x1c, 6., 0.)).owned, 0);
-    let blocked = LedgeContext {
-        status: 0x1e,
+    assert_ne!(
+        sample(
+            &mut p,
+            &r,
+            0.,
+            enemy(kirby_assist_core::native_states::GUARD, 6., 0.)
+        )
+        .owned,
+        0
+    );
+    let blocked = GameplayContext {
+        status: kirby_assist_core::native_states::GUARD_DAMAGE,
         stopped: true,
         ..ctx(1.)
     };
@@ -266,14 +365,23 @@ fn hit_on_our_shield_cancels_pressure_without_replaying_the_old_action() {
             Some(&r),
             LedgeSettings::default(),
             blocked,
-            roster(enemy(0x1c, 6., 1.)),
+            roster(enemy(kirby_assist_core::native_states::GUARD, 6., 1.)),
             None
         )
         .owned,
         0
     );
     assert!(!p.committed());
-    assert_eq!(sample(&mut p, &r, 2., enemy(0x1c, 6., 2.)).owned, 0);
+    assert_eq!(
+        sample(
+            &mut p,
+            &r,
+            2.,
+            enemy(kirby_assist_core::native_states::GUARD, 6., 2.)
+        )
+        .owned,
+        0
+    );
 }
 
 #[test]
@@ -282,10 +390,15 @@ fn ordinary_roll_engine_does_not_steal_a_claimed_shield_roll() {
     let r = rules(&format!("{ROLL}[bowser.roll.ordinary]\nstart_delay=0\nreaction=roll:grounded:0:20:12:any:1\nactions=up_b:1\n"));
     let mut p = Pressure::default();
     let mut generic = Engine::default();
-    sample(&mut p, &r, 0., enemy(0x1c, 5., 0.));
+    sample(
+        &mut p,
+        &r,
+        0.,
+        enemy(kirby_assist_core::native_states::GUARD, 5., 0.),
+    );
     let shield_roll = Target {
         vulnerable_in: Some(4.),
-        ..enemy(0x20, 4., 1.)
+        ..enemy(kirby_assist_core::native_states::ESCAPE_F, 4., 1.)
     };
     assert_eq!(sample(&mut p, &r, 1., shield_roll).owned, 0);
     assert!(p.claims_roll(2));

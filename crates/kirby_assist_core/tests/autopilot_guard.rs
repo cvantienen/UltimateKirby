@@ -102,7 +102,7 @@ fn imminent_moves_use_real_startup_and_rate_without_predicting_unknown_aerials()
 fn guard_tail_bridges_gaps_in_native_frames_and_release_cancels_immediately() {
     use kirby_assist_core::autopilot_guard::{GuardClock, GuardHold};
     let clock = |frame| GuardClock {
-        status: 0x1c,
+        status: kirby_assist_core::native_states::GUARD,
         motion: 123,
         frame,
         rate: 1.,
@@ -136,7 +136,7 @@ fn guard_tail_bridges_gaps_in_native_frames_and_release_cancels_immediately() {
 fn unknown_or_rewound_clocks_do_not_leave_a_shield_latched() {
     use kirby_assist_core::autopilot_guard::{GuardClock, GuardHold};
     let c = GuardClock {
-        status: 0x1c,
+        status: kirby_assist_core::native_states::GUARD,
         motion: 123,
         frame: 10.,
         rate: 1.,

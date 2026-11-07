@@ -4,7 +4,8 @@ use kirby_assist_core::{
     defense_response::Response,
     fighter_profiles::presets::PresetSlot,
     fighter_tuning::Tuning,
-    ledge_trap::{LedgeContext, LedgeSettings, MotionTiming, Opponent},
+    gameplay::{GameplayContext, MotionTiming, Opponent},
+    ledge_trap::LedgeSettings,
     native_input::*,
     out_of_shield::{Context, OutOfShield, Target},
     reaction_rules::{Candidate, Engine, Resolved, Trigger},
@@ -23,8 +24,8 @@ fn rules(trigger: &str, max: f32, side: &str, actions: &str) -> Resolved {
     .unwrap();
     r
 }
-fn context(status: i32, frame: f32) -> LedgeContext {
-    LedgeContext {
+fn context(status: i32, frame: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         status,
@@ -38,10 +39,10 @@ fn context(status: i32, frame: f32) -> LedgeContext {
         ..Default::default()
     }
 }
-fn native(c: LedgeContext, ready: bool) -> Context {
+fn native(c: GameplayContext, ready: bool) -> Context {
     Context {
         object: 1,
-        kind: 15,
+        kind: kirby_assist_core::fighter_kinds::BOWSER,
         status: c.status,
         motion: c.motion_kind,
         frame: c.motion_frame,
@@ -60,7 +61,7 @@ fn native(c: LedgeContext, ready: bool) -> Context {
 fn enemy(x: f32, frame: f32) -> Opponent {
     Opponent {
         id: 2,
-        status: 0x27,
+        status: kirby_assist_core::native_states::status::ATTACK,
         position: [x, 0.],
         motion: Some(MotionTiming {
             kind: 2,
@@ -74,10 +75,10 @@ fn enemy(x: f32, frame: f32) -> Opponent {
 fn sample(
     o: &mut OutOfShield,
     r: &Resolved,
-    c: LedgeContext,
+    c: GameplayContext,
     ready: bool,
     x: f32,
-) -> kirby_assist_core::ledge_trap::LedgeOutput {
+) -> kirby_assist_core::gameplay::ControllerOutput {
     o.sample_configured(
         true,
         Some(r),
@@ -99,9 +100,29 @@ fn sample(
 fn universal_response_requires_confirmed_hit_then_runs_bowser_up_b_once() {
     let r = rules("shield_hit", 12., "any", "up_b:4");
     let mut o = OutOfShield::new();
-    assert_eq!(sample(&mut o, &r, context(0x1c, 0.), true, 6.).owned, 0);
-    assert_eq!(sample(&mut o, &r, context(0x1e, 1.), false, 6.).owned, 0);
-    let c = context(0x1c, 2.);
+    assert_eq!(
+        sample(
+            &mut o,
+            &r,
+            context(kirby_assist_core::native_states::GUARD, 0.),
+            true,
+            6.
+        )
+        .owned,
+        0
+    );
+    assert_eq!(
+        sample(
+            &mut o,
+            &r,
+            context(kirby_assist_core::native_states::GUARD_DAMAGE, 1.),
+            false,
+            6.
+        )
+        .owned,
+        0
+    );
+    let c = context(kirby_assist_core::native_states::GUARD, 2.);
     assert_eq!(
         sample(&mut o, &r, c, true, 6.).requested & MAPPER_B,
         MAPPER_B
@@ -120,18 +141,28 @@ fn universal_response_requires_confirmed_hit_then_runs_bowser_up_b_once() {
         sample(&mut o, &r, context(0x1dd, 6.), true, 6.).requested,
         0
     );
-    assert_eq!(sample(&mut o, &r, context(0x1c, 7.), true, 6.).owned, 0);
+    assert_eq!(
+        sample(
+            &mut o,
+            &r,
+            context(kirby_assist_core::native_states::GUARD, 7.),
+            true,
+            6.
+        )
+        .owned,
+        0
+    );
 }
 #[test]
 fn stun_hitstop_and_zero_rate_guard_do_not_launch_early_or_inject_extra_shield() {
     let r = rules("shield_hit", 12., "any", "up_b:4");
     let mut o = OutOfShield::new();
     for frame in 1..=20 {
-        let mut c = context(0x1e, frame as f32);
+        let mut c = context(kirby_assist_core::native_states::GUARD_DAMAGE, frame as f32);
         c.stopped = frame < 10;
         assert_eq!(sample(&mut o, &r, c, false, 6.).owned, 0);
     }
-    let mut c = context(0x1c, 21.);
+    let mut c = context(kirby_assist_core::native_states::GUARD, 21.);
     c.motion_rate = 0.;
     assert_ne!(sample(&mut o, &r, c, true, 6.).requested & MAPPER_B, 0);
 }
@@ -140,9 +171,35 @@ fn range_facing_and_height_are_recipe_conditions_and_misses_release_control() {
     let r = rules("shield_hit", 8., "front", "grab:4");
     for x in [-5., 9.] {
         let mut o = OutOfShield::new();
-        sample(&mut o, &r, context(0x1e, 1.), false, x);
-        assert_eq!(sample(&mut o, &r, context(0x1c, 2.), true, x).owned, 0);
-        assert_eq!(sample(&mut o, &r, context(0x1c, 3.), true, 4.).owned, 0);
+        sample(
+            &mut o,
+            &r,
+            context(kirby_assist_core::native_states::GUARD_DAMAGE, 1.),
+            false,
+            x,
+        );
+        assert_eq!(
+            sample(
+                &mut o,
+                &r,
+                context(kirby_assist_core::native_states::GUARD, 2.),
+                true,
+                x
+            )
+            .owned,
+            0
+        );
+        assert_eq!(
+            sample(
+                &mut o,
+                &r,
+                context(kirby_assist_core::native_states::GUARD, 3.),
+                true,
+                4.
+            )
+            .owned,
+            0
+        );
     }
     let mut response = Response::default();
     let mut e = enemy(4., 1.);
@@ -153,8 +210,14 @@ fn range_facing_and_height_are_recipe_conditions_and_misses_release_control() {
 fn disabled_lost_attacker_and_ledge_preemption_cancel_pending_or_running_sequence() {
     let r = rules("shield_hit", 12., "any", "up_b:4");
     let mut o = OutOfShield::new();
-    sample(&mut o, &r, context(0x1e, 1.), false, 6.);
-    let c = context(0x1c, 2.);
+    sample(
+        &mut o,
+        &r,
+        context(kirby_assist_core::native_states::GUARD_DAMAGE, 1.),
+        false,
+        6.,
+    );
+    let c = context(kirby_assist_core::native_states::GUARD, 2.);
     assert_eq!(
         o.sample_configured(
             true,
@@ -168,9 +231,31 @@ fn disabled_lost_attacker_and_ledge_preemption_cancel_pending_or_running_sequenc
         .owned,
         0
     );
-    sample(&mut o, &r, context(0x1c, 3.), true, 6.);
-    sample(&mut o, &r, context(0x1e, 4.), false, 6.);
-    assert_ne!(sample(&mut o, &r, context(0x1c, 5.), true, 6.).owned, 0);
+    sample(
+        &mut o,
+        &r,
+        context(kirby_assist_core::native_states::GUARD, 3.),
+        true,
+        6.,
+    );
+    sample(
+        &mut o,
+        &r,
+        context(kirby_assist_core::native_states::GUARD_DAMAGE, 4.),
+        false,
+        6.,
+    );
+    assert_ne!(
+        sample(
+            &mut o,
+            &r,
+            context(kirby_assist_core::native_states::GUARD, 5.),
+            true,
+            6.
+        )
+        .owned,
+        0
+    );
     let mut owner = ActionOwnership::default();
     let intent = |who| Intent {
         owner: who,
@@ -235,7 +320,7 @@ fn shared_sequence_supports_delays_holds_and_fresh_target_facing() {
     response.sample(
         true,
         LedgeSettings::default(),
-        context(0x46, 4.),
+        context(kirby_assist_core::native_states::THROWN, 4.),
         Some(enemy(-5., 4.)),
     );
     assert_eq!(response.target(), None);
@@ -243,7 +328,7 @@ fn shared_sequence_supports_delays_holds_and_fresh_target_facing() {
 fn grab() -> spot_dodge::Target {
     spot_dodge::Target {
         id: 2,
-        status: 0x37,
+        status: kirby_assist_core::native_states::CATCH,
         motion: 7,
         frame: 4.,
         rate: 1.,
@@ -271,12 +356,26 @@ fn dodge_context(status: i32, frame: f32) -> spot_dodge::Context {
 }
 #[test]
 fn ordinary_grab_defense_only_starts_when_standing_or_shielding() {
-    for status in [0, 1, 3, 4, 7, 8, 0x1b, 0x1c] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::status::WALK,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::RUN,
+        kirby_assist_core::native_states::status::TURN_DASH,
+        kirby_assist_core::native_states::status::TURN_RUN,
+        kirby_assist_core::native_states::GUARD_ON,
+        kirby_assist_core::native_states::GUARD,
+    ] {
         let mut s = spot_dodge::SpotDodge::default();
         let mut targets = [None; 8];
         targets[0] = Some(grab());
         let out = s.sample(true, dodge_context(status, 1.), targets);
-        if matches!(status, 0 | 0x1b | 0x1c) {
+        if matches!(
+            status,
+            kirby_assist_core::native_states::status::WAIT
+                | kirby_assist_core::native_states::GUARD_ON
+                | kirby_assist_core::native_states::GUARD
+        ) {
             assert_eq!(out.requested & MAPPER_ZR, MAPPER_ZR);
             assert_eq!(out.stick, Some([0., -1.]));
         } else {
@@ -506,12 +605,26 @@ fn renewed_shield_hit_cancels_old_up_b_and_arms_the_current_attacker() {
     for attacker_id in [2, 3] {
         let r = rules("shield_hit", 12., "any", "up_b:4");
         let mut o = OutOfShield::new();
-        sample(&mut o, &r, context(0x1e, 1.), false, 6.);
+        sample(
+            &mut o,
+            &r,
+            context(kirby_assist_core::native_states::GUARD_DAMAGE, 1.),
+            false,
+            6.,
+        );
         assert_ne!(
-            sample(&mut o, &r, context(0x1c, 2.), true, 6.).requested & MAPPER_B,
+            sample(
+                &mut o,
+                &r,
+                context(kirby_assist_core::native_states::GUARD, 2.),
+                true,
+                6.
+            )
+            .requested
+                & MAPPER_B,
             0
         );
-        let mut c = context(0x1e, 3.);
+        let mut c = context(kirby_assist_core::native_states::GUARD_DAMAGE, 3.);
         c.stopped = true;
         let attacker = Target {
             id: attacker_id,
@@ -539,7 +652,7 @@ fn renewed_shield_hit_cancels_old_up_b_and_arms_the_current_attacker() {
             "old Up-B must not continue during renewed shieldstun"
         );
         assert_eq!(o.target(), Some(attacker_id));
-        c = context(0x1c, 4.);
+        c = context(kirby_assist_core::native_states::GUARD, 4.);
         let ready = o.sample_configured(
             true,
             Some(&r),

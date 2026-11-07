@@ -39,8 +39,12 @@ pub(super) unsafe fn observe(
     let stopped = reads.is_stop(own);
     // CONT_SPECIAL_LW from pinned lua_const.rs. Shield is excluded by movable;
     // this mode never drops guard to queue an unavailable down special.
-    let can_special =
-        !stopped && policy::movable(status, situation) && game::transition_enabled(own, 0x1e000066);
+    let can_special = !stopped
+        && policy::movable(status, situation)
+        && game::transition_enabled(
+            own,
+            kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_LW,
+        );
     if !active && !can_special {
         return None;
     }
@@ -84,7 +88,13 @@ pub(super) unsafe fn observe(
     let mut geometry = 0;
     'sources: for source in sources.into_iter().flatten() {
         let id = source.id;
-        if id == own_id || !matches!(id >> 28, 1 | 4) {
+        if id == own_id
+            || !matches!(
+                id >> 28,
+                kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON
+                    | kirby_assist_core::battle_objects::OBJECT_CATEGORY_ITEM
+            )
+        {
             continue;
         }
         if !game::is_active(id) {
@@ -107,13 +117,14 @@ pub(super) unsafe fn observe(
         {
             continue;
         }
-        if id >> 28 == 1 {
+        if id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON {
             let source_kind = reads.fighter_kind(object);
-            let source_status = if source_kind == 0x9d {
-                reads.status_kind(object)
-            } else {
-                0
-            };
+            let source_status =
+                if source_kind == kirby_assist_core::battle_objects::WEAPON_KIND_PIKMIN_PIKMIN {
+                    reads.status_kind(object)
+                } else {
+                    0
+                };
             if !kirby_assist_core::battle_objects::projectile_actor(id, source_kind, source_status)
             {
                 continue;

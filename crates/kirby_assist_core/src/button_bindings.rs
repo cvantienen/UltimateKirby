@@ -59,9 +59,12 @@ impl Mode {
     }
     pub fn supports(self, kind: i32) -> bool {
         match self {
-            Self::IdleCrouch => kind == 6,
-            Self::TiltTurn => matches!(kind, 5 | 6),
-            Self::JabLock => kind == 5,
+            Self::IdleCrouch => kind == crate::fighter_kinds::KIRBY,
+            Self::TiltTurn => matches!(
+                kind,
+                crate::fighter_kinds::YOSHI | crate::fighter_kinds::KIRBY
+            ),
+            Self::JabLock => kind == crate::fighter_kinds::YOSHI,
             Self::OutOfShield => true,
             _ => true,
         }

@@ -23,8 +23,8 @@ fn configuration_is_explicit_and_rejects_invalid_values() {
     assert!(LiveConfig::parse("auto_ledge_trump = yes").is_err());
 }
 
-fn context() -> LedgeContext {
-    LedgeContext {
+fn context() -> GameplayContext {
+    GameplayContext {
         held: false,
         gameplay: true,
         manual_input_epoch: 0,
@@ -32,7 +32,7 @@ fn context() -> LedgeContext {
         can_act: true,
         can_control: true,
         stopped: false,
-        status: 0,
+        status: crate::native_states::status::WAIT,
         situation: 0,
         motion_frame: 0.0,
         motion_kind: 1,
@@ -41,7 +41,7 @@ fn context() -> LedgeContext {
         velocity: [0.0, 0.0],
         ground_brake: Some(0.1),
         facing: -1.0,
-        previous_status: 0,
+        previous_status: crate::native_states::status::WAIT,
         can_grab: true,
         can_tilt: true,
         can_down_tilt: true,
@@ -74,7 +74,7 @@ fn changed_geometry_on_duplicate_native_frames_cannot_spend_trump_timeout() {
             true,
             tick,
             false,
-            LedgeContext {
+            GameplayContext {
                 velocity: [tick as f32 * 0.001, 0.0],
                 ..context()
             },
@@ -86,7 +86,7 @@ fn changed_geometry_on_duplicate_native_frames_cannot_spend_trump_timeout() {
         true,
         150,
         false,
-        LedgeContext {
+        GameplayContext {
             situation: 2,
             status: FALL,
             can_act: false,
@@ -102,16 +102,16 @@ fn changed_geometry_on_duplicate_native_frames_cannot_spend_trump_timeout() {
 fn tap_runs_both_ledges_and_releases_at_catch_without_a_followup() {
     for side in [-1.0, 1.0] {
         let mut state = LedgeTrump::default();
-        let ground = LedgeContext {
+        let ground = GameplayContext {
             position: [side * 8.0, 0.0],
             ..context()
         };
         let start = state.sample(true, 0, true, ground, Some(edge()));
         assert_eq!(start.stick, Some([-side * 0.55, 0.0]));
         assert_eq!(start.requested, 0);
-        let falling = LedgeContext {
+        let falling = GameplayContext {
             situation: 2,
-            status: 0xe,
+            status: crate::native_states::status::FALL,
             can_act: false,
             position: [-side, -0.1],
             ..ground
@@ -124,24 +124,24 @@ fn tap_runs_both_ledges_and_releases_at_catch_without_a_followup() {
             true,
             3,
             false,
-            LedgeContext {
+            GameplayContext {
                 motion_frame: 1.0,
                 ..falling
             },
             None,
         );
         assert_eq!(inward.stick, Some([side, 0.0]));
-        let catch = LedgeContext {
+        let catch = GameplayContext {
             status: CLIFF_CATCH_MOVE,
             ..falling
         };
         assert_eq!(
             state.sample(true, 4, false, catch, None),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
         assert_eq!(
             state.sample(true, 5, false, catch, None),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
     }
 }
@@ -154,7 +154,7 @@ fn holding_down_cannot_relaunch_after_catch() {
         true,
         1,
         true,
-        LedgeContext {
+        GameplayContext {
             status: CLIFF_WAIT,
             ..context()
         },
@@ -162,7 +162,7 @@ fn holding_down_cannot_relaunch_after_catch() {
     );
     assert_eq!(
         state.sample(true, 2, true, context(), Some(edge())),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     state.sample(true, 3, false, context(), Some(edge()));
     assert!(state
@@ -181,40 +181,40 @@ fn requires_detected_edge_and_grounded_actionability_but_no_opponent() {
     ] {
         assert_eq!(
             LedgeTrump::default().sample(true, 0, true, context(), target),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
     }
     assert_eq!(
         LedgeTrump::default().sample(false, 0, true, context(), Some(edge())),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
     assert_eq!(
         LedgeTrump::default().sample(
             true,
             0,
             true,
-            LedgeContext {
+            GameplayContext {
                 can_act: false,
                 ..context()
             },
             Some(edge())
         ),
-        LedgeOutput::default()
+        ControllerOutput::default()
     );
 }
 
 #[test]
 fn damage_and_excessive_drop_cancel_control() {
     for interrupted in [
-        LedgeContext {
+        GameplayContext {
             can_act: false,
-            status: 0x4b,
+            status: crate::native_states::status::DAMAGE_FLY_METEOR,
             situation: 2,
             ..context()
         },
-        LedgeContext {
+        GameplayContext {
             can_act: false,
-            status: 0xe,
+            status: crate::native_states::status::FALL,
             situation: 2,
             position: [0.0, -17.0],
             ..context()
@@ -224,7 +224,7 @@ fn damage_and_excessive_drop_cancel_control() {
         state.sample(true, 0, true, context(), Some(edge()));
         assert_eq!(
             state.sample(true, 1, false, interrupted, None),
-            LedgeOutput::default()
+            ControllerOutput::default()
         );
     }
 }
@@ -237,14 +237,14 @@ fn grounded_attempt_times_out_instead_of_running_forever() {
             true,
             tick,
             tick == 0,
-            LedgeContext {
+            GameplayContext {
                 motion_frame: tick as f32,
                 ..context()
             },
             Some(edge()),
         );
     }
-    assert_eq!(state.output, LedgeOutput::default());
+    assert_eq!(state.output, ControllerOutput::default());
 }
 
 #[test]
@@ -361,15 +361,15 @@ fn hitstop_preserves_a_run_but_same_tick_damage_cancels_cached_movement() {
     let mut state = LedgeTrump::default();
     let ctx = context();
     assert_ne!(state.sample(true, 0, true, ctx, Some(edge())).owned, 0);
-    let stopped = LedgeContext {
+    let stopped = GameplayContext {
         stopped: true,
         can_act: false,
         ..ctx
     };
     assert_eq!(state.sample(true, 1, false, stopped, None).owned, 0);
     assert_ne!(state.sample(true, 2, false, ctx, None).owned, 0);
-    let damage = LedgeContext {
-        status: 0x49,
+    let damage = GameplayContext {
+        status: crate::native_states::status::DAMAGE_FLY,
         can_act: false,
         ..ctx
     };

@@ -35,7 +35,7 @@ impl DuckDefense {
         enabled: bool,
         c: DuckContext,
         threats: DefenseThreat,
-    ) -> crate::ledge_trap::LedgeOutput {
+    ) -> crate::gameplay::ControllerOutput {
         let ducking = self.hold.sample(
             enabled && c.can_crouch && !self.shielding,
             !c.clock.stopped,
@@ -48,11 +48,11 @@ impl DuckDefense {
             c.clock,
         );
         if !ducking && !self.shielding {
-            return crate::ledge_trap::LedgeOutput::default();
+            return crate::gameplay::ControllerOutput::default();
         }
-        crate::ledge_trap::LedgeOutput {
+        crate::gameplay::ControllerOutput {
             consume_trigger: false,
-            owned: crate::ledge_trap::LEDGE_BUTTONS,
+            owned: crate::native_input::ASSIST_BUTTONS,
             requested: if self.shielding {
                 crate::native_input::MAPPER_ZR
             } else {
@@ -110,12 +110,16 @@ pub fn geometry_threat(id: u32, frame: f32, lead: f32) -> DuckThreat {
 /// Cheap spatial/motion filter, called inside the existing opponent pass.
 /// Live callers additionally require normal size and solid, non-passable floor.
 pub fn candidate(own: [f32; 2], velocity: [f32; 2], enemy: DuckEnemy) -> Option<DuckThreat> {
-    if enemy.kind != 0xb // FIGHTER_KIND_CAPTAIN
-        || enemy.status != 0x1dc // FIGHTER_STATUS_KIND_SPECIAL_N
+    if enemy.kind != crate::fighter_kinds::CAPTAIN_FALCON
+        || enemy.status != crate::native_states::status::SPECIAL_N
         || enemy.situation != 0
         || enemy.motion != FALCON_PUNCH_MOTION
-        || !own.iter().chain(velocity.iter()).chain(enemy.position.iter())
-            .chain(enemy.velocity.iter()).chain([&enemy.frame, &enemy.rate, &enemy.facing])
+        || !own
+            .iter()
+            .chain(velocity.iter())
+            .chain(enemy.position.iter())
+            .chain(enemy.velocity.iter())
+            .chain([&enemy.frame, &enemy.rate, &enemy.facing])
             .all(|v| v.is_finite())
         || enemy.rate <= 0.0
         || enemy.frame < 0.0

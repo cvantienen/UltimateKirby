@@ -53,7 +53,7 @@ fn hit(x: f32, y: f32, vx: f32, vy: f32) -> Hitbox {
 #[test]
 fn only_explicit_supported_fighter_configuration_enables_projectile_defense() {
     let profiles = FighterProfiles::default();
-    for kind in 0..0x5e {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         if profiles.profile(kind).is_none() {
             continue;
         }
@@ -196,15 +196,40 @@ fn first_legal_observation_emits_down_b_without_waiting_and_busy_states_emit_not
         assert_eq!(output.owned, 0);
         assert_eq!(output.stick, None);
     }
-    for status in [0, 1, 3, 4, 5, 9, 0x11, 0x12, 0x7e] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::status::WALK,
+        kirby_assist_core::native_states::status::DASH,
+        kirby_assist_core::native_states::status::RUN,
+        kirby_assist_core::native_states::status::RUN_BRAKE,
+        kirby_assist_core::native_states::status::TURN_RUN_BRAKE,
+        kirby_assist_core::native_states::status::SQUAT,
+        kirby_assist_core::native_states::status::SQUAT_WAIT,
+        kirby_assist_core::native_states::status::OTTOTTO,
+    ] {
         let mut engine = Reflector::new();
         let output = engine.sample(true, Some(config()), own(0., status), threat(2, 7., 1.));
         assert_eq!(output.requested, MAPPER_B);
         assert_eq!(output.stick, Some([0., -1.]));
     }
     for status in [
-        0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x22, 0x27, 0x36, 0x37, 0x3f, 0x47, 0x50, 0x75, 0xb5,
-        0x1de, 0x1e7,
+        kirby_assist_core::native_states::status::GUARD_ON,
+        kirby_assist_core::native_states::status::GUARD,
+        kirby_assist_core::native_states::status::GUARD_OFF,
+        kirby_assist_core::native_states::status::GUARD_DAMAGE,
+        kirby_assist_core::native_states::status::ESCAPE,
+        kirby_assist_core::native_states::status::ESCAPE_F,
+        kirby_assist_core::native_states::status::ESCAPE_AIR,
+        kirby_assist_core::native_states::status::ATTACK,
+        kirby_assist_core::native_states::status::ATTACK_AIR,
+        kirby_assist_core::native_states::status::CATCH,
+        kirby_assist_core::native_states::status::CATCH_JUMP,
+        kirby_assist_core::native_states::status::DAMAGE,
+        kirby_assist_core::native_states::status::DOWN,
+        kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE,
+        kirby_assist_core::native_states::status::DEAD,
+        kirby_assist_core::native_states::status::SPECIAL_HI,
+        0x1e7,
     ] {
         let output =
             Reflector::new().sample(true, Some(config()), own(0., status), threat(2, 7., 1.));

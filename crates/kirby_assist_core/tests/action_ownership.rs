@@ -128,13 +128,13 @@ fn trip_fsmash_stick_and_a_remain_paired_when_no_timed_punish_is_present() {
         let mut targets = [None; 8];
         targets[0] = Some(TripTarget {
             id: 2,
-            status: 0x88,
-            previous_status: 0x86,
+            status: kirby_assist_core::native_states::status::SLIP_WAIT,
+            previous_status: kirby_assist_core::native_states::status::SLIP,
         });
         let base = TripContext {
             object: 1,
             kirby: true,
-            status: 0x2c,
+            status: kirby_assist_core::native_states::status::ATTACK_LW3,
             motion: 1,
             frame: 10.0,
             grounded: true,

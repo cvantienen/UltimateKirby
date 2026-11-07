@@ -10,7 +10,7 @@ use kirby_assist_core::{
 };
 fn clock(frame: f32) -> GuardClock {
     GuardClock {
-        status: 0x1c,
+        status: kirby_assist_core::native_states::GUARD,
         motion: 1,
         frame,
         rate: 1.,
@@ -20,7 +20,7 @@ fn clock(frame: f32) -> GuardClock {
 fn tc(frame: f32) -> TechContext {
     TechContext {
         object: 1,
-        status: 0x49,
+        status: kirby_assist_core::native_states::status::DAMAGE_FLY,
         motion: 1,
         frame,
         rate: 1.,
@@ -198,7 +198,7 @@ fn shield_stun_multihit_gaps_and_invalid_hitstop_clock_keep_guard_then_release_w
     let mut shield = GuardHold::default();
     assert!(shield.sample(true, true, clock(10.)));
     let frozen = GuardClock {
-        status: 0x1e,
+        status: kirby_assist_core::native_states::GUARD_DAMAGE,
         motion: 0,
         frame: f32::NAN,
         rate: 0.,
@@ -211,7 +211,7 @@ fn shield_stun_multihit_gaps_and_invalid_hitstop_clock_keep_guard_then_release_w
         true,
         false,
         GuardClock {
-            status: 0x1e,
+            status: kirby_assist_core::native_states::GUARD_DAMAGE,
             ..clock(0.)
         }
     ));
@@ -241,9 +241,23 @@ fn floor_tech_requires_native_transition_and_never_accepts_normal_ground_states_
         tech_gate_with_floor(0x49, 0, true, false, true),
         TechGate::PassiveDisabled
     );
-    for status in [0, 0x1c, 0x1f, 0x47, 0x50, 0x53, 0x5a] {
+    for status in [
+        kirby_assist_core::native_states::status::WAIT,
+        kirby_assist_core::native_states::GUARD,
+        kirby_assist_core::native_states::ESCAPE,
+        kirby_assist_core::native_states::status::DAMAGE,
+        kirby_assist_core::native_states::status::DOWN,
+        kirby_assist_core::native_states::status::DOWN_WAIT,
+        kirby_assist_core::native_states::status::DOWN_DAMAGE,
+    ] {
         assert_eq!(
-            tech_gate_with_floor(status, 0, false, false, true),
+            tech_gate_with_floor(
+                status,
+                kirby_assist_core::native_states::status::WAIT,
+                false,
+                false,
+                true
+            ),
             TechGate::OutsideTumble
         );
     }

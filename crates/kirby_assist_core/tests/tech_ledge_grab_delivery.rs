@@ -2,18 +2,16 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
     fighter_profiles::presets::PresetSlot,
+    gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
     grab_handoff::GrabHandoff,
-    ledge_trap::{
-        InputTimeline, LedgeContext, LedgeOutput, LedgeSettings, MotionTiming, Opponent,
-        SEQUENCE_BUTTONS,
-    },
+    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::*,
     sequence_config::Catalog,
     tech_input::{mapped_guard, TechContext, TechInput, TechOutput},
 };
-fn c(status: i32, frame: f32) -> LedgeContext {
-    LedgeContext {
+fn c(status: i32, frame: f32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         status,
@@ -28,7 +26,7 @@ fn c(status: i32, frame: f32) -> LedgeContext {
 fn enemy(x: f32, frame: f32) -> Opponent {
     Opponent {
         id: 2,
-        status: 0x78,
+        status: kirby_assist_core::native_states::status::CLIFF_ATTACK,
         position: [x, 0.],
         vulnerable: true,
         motion: Some(MotionTiming {
@@ -40,8 +38,8 @@ fn enemy(x: f32, frame: f32) -> Opponent {
         ..Default::default()
     }
 }
-fn packet(buttons: u32, y: f32) -> LedgeOutput {
-    LedgeOutput {
+fn packet(buttons: u32, y: f32) -> ControllerOutput {
+    ControllerOutput {
         owned: SEQUENCE_BUTTONS,
         requested: buttons,
         stick: Some([1., y]),
@@ -51,7 +49,7 @@ fn packet(buttons: u32, y: f32) -> LedgeOutput {
 fn tc(frame: f32, previous_guard: bool) -> TechContext {
     TechContext {
         object: 1,
-        status: 0x49,
+        status: kirby_assist_core::native_states::status::DAMAGE_FLY,
         motion: 1,
         frame,
         rate: 1.,
@@ -72,34 +70,68 @@ fn exact_bowser_shield_getup_attack_grab_keeps_guard_through_range_then_grabs() 
     let seq = cat
         .entries()
         .iter()
-        .find(|e| e.fighter_kind == 15 && e.slot == PresetSlot::Attack && e.choice == "shield_grab")
+        .find(|e| {
+            e.fighter_kind == kirby_assist_core::fighter_kinds::BOWSER
+                && e.slot == PresetSlot::Attack
+                && e.choice == "shield_grab"
+        })
         .unwrap()
         .sequence;
     let mut t = InputTimeline::new(seq, enemy(30., 0.));
     let settings = LedgeSettings::default();
     let anchor = Some([50., 0.]);
     assert_eq!(
-        t.sample(settings, c(0x1c, 0.), Some(enemy(30., 0.)), anchor, 1.)
-            .requested,
+        t.sample(
+            settings,
+            c(kirby_assist_core::native_states::GUARD, 0.),
+            Some(enemy(30., 0.)),
+            anchor,
+            1.
+        )
+        .requested,
         MAPPER_ZR
     );
     assert_eq!(
-        t.sample(settings, c(0x1e, 1.), Some(enemy(30., 1.)), anchor, 1.)
-            .requested,
+        t.sample(
+            settings,
+            c(kirby_assist_core::native_states::GUARD_DAMAGE, 1.),
+            Some(enemy(30., 1.)),
+            anchor,
+            1.
+        )
+        .requested,
         MAPPER_ZR
     );
     // The saved fighter-range check waits in shield instead of dropping it.
     assert_eq!(
-        t.sample(settings, c(0x1c, 2.), Some(enemy(30., 2.)), anchor, 1.)
-            .requested,
+        t.sample(
+            settings,
+            c(kirby_assist_core::native_states::GUARD, 2.),
+            Some(enemy(30., 2.)),
+            anchor,
+            1.
+        )
+        .requested,
         MAPPER_ZR
     );
-    let out = t.sample(settings, c(0x1c, 3.), Some(enemy(1., 3.)), anchor, 1.);
+    let out = t.sample(
+        settings,
+        c(kirby_assist_core::native_states::GUARD, 3.),
+        Some(enemy(1., 3.)),
+        anchor,
+        1.,
+    );
     assert_eq!(out.requested, MAPPER_R | MAPPER_ZR);
     assert_eq!(out.stick, Some([0.; 2]));
     assert_eq!(
-        t.sample(settings, c(0x37, 4.), Some(enemy(1., 4.)), anchor, 1.)
-            .owned,
+        t.sample(
+            settings,
+            c(kirby_assist_core::native_states::CATCH, 4.),
+            Some(enemy(1., 4.)),
+            anchor,
+            1.
+        )
+        .owned,
         0
     );
     assert!(
@@ -122,14 +154,14 @@ fn all_direct_literal_grab_forms_preserve_shield_without_a_drop_frame() {
         let mut t = InputTimeline::new(cat.entries()[0].sequence, enemy(5., 0.));
         t.sample(
             LedgeSettings::default(),
-            c(0x1e, 0.),
+            c(kirby_assist_core::native_states::GUARD_DAMAGE, 0.),
             Some(enemy(5., 0.)),
             Some([50., 0.]),
             1.,
         );
         let out = t.sample(
             LedgeSettings::default(),
-            c(0x1c, 1.),
+            c(kirby_assist_core::native_states::GUARD, 1.),
             Some(enemy(5., 1.)),
             Some([50., 0.]),
             1.,
@@ -226,7 +258,7 @@ fn first_grab_packet_never_contains_synthetic_throw_directions_or_extra_attacks(
     h.mapped(0, None, false, true, true);
     h.observe(true, 0x3e, 0);
     assert!(!h.pending());
-    assert!(h.permits(None, LedgeOutput::default(), None));
+    assert!(h.permits(None, ControllerOutput::default(), None));
 }
 #[test]
 fn a_tech_preempts_every_committed_mode_and_overrides_stale_mapped_guard() {

@@ -153,7 +153,9 @@ pub(super) fn build(
                     .unwrap_or(0),
                 options.len(),
             )
-        } else if row == MenuRow::IdleCrouch && selection.y_fighter_kind == 6 {
+        } else if row == MenuRow::IdleCrouch
+            && selection.y_fighter_kind == kirby_assist_core::fighter_kinds::KIRBY
+        {
             (
                 if selection.effective_mode(
                     kirby_assist_core::button_bindings::Mode::IdleCrouch,
@@ -187,7 +189,9 @@ pub(super) fn build(
                 )),
                 2,
             )
-        } else if row == MenuRow::JabGrab && selection.y_fighter_kind == 6 {
+        } else if row == MenuRow::JabGrab
+            && selection.y_fighter_kind == kirby_assist_core::fighter_kinds::KIRBY
+        {
             (
                 selection.jab_grab.label().to_owned(),
                 usize::from(selection.jab_grab == kirby_assist_core::jab_grab::Followup::DownSmash),
@@ -209,7 +213,9 @@ pub(super) fn build(
                 usize::from(enabled),
                 2,
             )
-        } else if row == MenuRow::JabLock && selection.y_fighter_kind == 5 {
+        } else if row == MenuRow::JabLock
+            && selection.y_fighter_kind == kirby_assist_core::fighter_kinds::YOSHI
+        {
             (
                 if selection.effective_mode(
                     kirby_assist_core::button_bindings::Mode::JabLock,

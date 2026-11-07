@@ -1,7 +1,8 @@
 //! Configured spot-dodge punish, using existing bounded recovery observations.
 use crate::{
     defense_response::Response,
-    ledge_trap::{LedgeContext, LedgeOutput, LedgeSettings, Opponent},
+    gameplay::{ControllerOutput, GameplayContext, Opponent},
+    ledge_trap::LedgeSettings,
     option_read::{Kind, Target},
     reaction_rules::{Resolved, Trigger},
 };
@@ -47,10 +48,10 @@ impl Punisher {
         object: u32,
         rules: Option<&Resolved>,
         settings: LedgeSettings,
-        c: LedgeContext,
+        c: GameplayContext,
         targets: [Option<Target>; 8],
         follow: Option<Opponent>,
-    ) -> LedgeOutput {
+    ) -> ControllerOutput {
         if self.object != Some(object) {
             *self = Self::default();
             self.object = Some(object);
@@ -60,7 +61,7 @@ impl Punisher {
             targets[i]
                 .filter(|t| {
                     t.kind == Kind::Spot
-                        && t.status == 0x1f
+                        && t.status == crate::native_states::ESCAPE
                         && t.motion != 0
                         && t.rate.is_finite()
                         && t.rate > 0.
@@ -87,7 +88,7 @@ impl Punisher {
         });
         if !enabled || rules.is_none() || !c.gameplay {
             self.cancel_pending();
-            return LedgeOutput::default();
+            return ControllerOutput::default();
         }
         let mut following = follow.filter(|e| Some(e.id) == self.target());
         if !self.committed() && !c.stopped {
@@ -106,7 +107,7 @@ impl Punisher {
                     situation: 0,
                     position: t.position,
                     velocity: t.velocity,
-                    motion: Some(crate::ledge_trap::MotionTiming {
+                    motion: Some(crate::gameplay::MotionTiming {
                         kind: t.motion,
                         frame: t.frame,
                         rate: t.rate,

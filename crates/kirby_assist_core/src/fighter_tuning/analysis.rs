@@ -4,8 +4,11 @@ pub fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
     if !standing.is_finite() || standing <= 0. {
         return (0., 0.);
     }
-    let Some((base, dash)) = crate::fighter_data::ordinary_grab(kind, 0x37)
-        .zip(crate::fighter_data::ordinary_grab(kind, 0x39))
+    let Some((base, dash)) = crate::fighter_data::ordinary_grab(kind, crate::native_states::CATCH)
+        .zip(crate::fighter_data::ordinary_grab(
+            kind,
+            crate::native_states::CATCH_DASH,
+        ))
         .and_then(|(base, dash)| Some((base.reach?, dash.reach?)))
         .filter(|(base, dash)| *base > 0. && *dash > 0.)
     else {

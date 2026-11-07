@@ -8,8 +8,12 @@ impl RollRead {
         cfg: FighterConfig,
         c: Context,
         targets: [Option<Target>; 8],
-    ) -> LedgeOutput {
-        if matches!(c.status, 0x30..=0x32) {
+    ) -> ControllerOutput {
+        if matches!(
+            c.status,
+            crate::native_states::status::ATTACK_LW4_START
+                ..=crate::native_states::status::ATTACK_LW4
+        ) {
             return self.end_smash();
         }
         let old_tracks = self.tracks;
@@ -127,7 +131,10 @@ impl RollRead {
             };
             return self.output;
         }
-        let releasing_shield = matches!(c.status, 0x1b..=0x1d);
+        let releasing_shield = matches!(
+            c.status,
+            crate::native_states::GUARD_ON..=crate::native_states::GUARD_OFF
+        );
         if !c.can_act && !c.can_smash && !releasing_shield {
             return self.end_smash();
         }
@@ -190,10 +197,10 @@ impl RollRead {
         }
         self.output
     }
-    fn end_smash(&mut self) -> LedgeOutput {
+    fn end_smash(&mut self) -> ControllerOutput {
         self.phase = 0;
         self.target = None;
-        self.output = LedgeOutput::default();
+        self.output = ControllerOutput::default();
         self.output
     }
 }
@@ -264,7 +271,13 @@ fn can_approach(t: Target, cfg: FighterConfig, c: Context, dx: f32) -> bool {
     let Some(m) = movement(c) else {
         return false;
     };
-    if (!c.can_act && !matches!(c.status, 0x1b..=0x1d)) || !m.safe_ground[usize::from(dx > 0.0)] {
+    if (!c.can_act
+        && !matches!(
+            c.status,
+            crate::native_states::GUARD_ON..=crate::native_states::GUARD_OFF
+        ))
+        || !m.safe_ground[usize::from(dx > 0.0)]
+    {
         return false;
     }
     let travel = (dx.abs() - cfg.reach + 1.0) / (m.walk_speed * SMASH_WALK_STICK);
@@ -277,9 +290,9 @@ fn can_approach(t: Target, cfg: FighterConfig, c: Context, dx: f32) -> bool {
 /// This is eligibility only: actual A delivery still waits for native readiness.
 fn shield_release_frames(c: Context) -> f32 {
     match c.status {
-        0x1b => 11.0 + ((3.0 - c.frame).max(0.0) / c.rate),
-        0x1c => 11.0,
-        0x1d => (11.0 - c.frame).max(0.0) / c.rate,
+        crate::native_states::GUARD_ON => 11.0 + ((3.0 - c.frame).max(0.0) / c.rate),
+        crate::native_states::GUARD => 11.0,
+        crate::native_states::GUARD_OFF => (11.0 - c.frame).max(0.0) / c.rate,
         _ => 0.0,
     }
 }

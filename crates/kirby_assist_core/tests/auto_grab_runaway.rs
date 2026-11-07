@@ -1,5 +1,5 @@
 use kirby_assist_core::{
-    ledge_trap::LedgeContext,
+    ledge_trap::GameplayContext,
     native_input::MAPPER_R,
     out_of_shield::{Context, OutOfShield},
     roll_read::Target,
@@ -23,8 +23,8 @@ fn own(kind: i32, status: i32) -> Context {
         threatened: false,
     }
 }
-fn context(status: i32) -> LedgeContext {
-    LedgeContext {
+fn context(status: i32) -> GameplayContext {
+    GameplayContext {
         held: true,
         gameplay: true,
         status,
@@ -39,7 +39,7 @@ fn target(x: f32) -> [Option<Target>; 8] {
     let mut t = [None; 8];
     t[0] = Some(Target {
         id: 2,
-        status: 0x1c,
+        status: kirby_assist_core::native_states::GUARD,
         motion: 2,
         frame: 0.,
         rate: 1.,
@@ -55,7 +55,7 @@ fn sample(
     kind: i32,
     status: i32,
     x: f32,
-) -> kirby_assist_core::ledge_trap::LedgeOutput {
+) -> kirby_assist_core::gameplay::ControllerOutput {
     o.sample_automatic(
         true,
         own(kind, status),
@@ -70,7 +70,15 @@ fn sample(
 }
 #[test]
 fn close_idle_grab_does_not_create_a_run_on_any_fighter() {
-    for kind in [15, 6, 5, 22, 28, 90, 91] {
+    for kind in [
+        kirby_assist_core::fighter_kinds::BOWSER,
+        kirby_assist_core::fighter_kinds::KIRBY,
+        kirby_assist_core::fighter_kinds::YOSHI,
+        kirby_assist_core::fighter_kinds::WARIO,
+        kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH,
+        kirby_assist_core::fighter_kinds::PYRA,
+        kirby_assist_core::fighter_kinds::MYTHRA,
+    ] {
         let mut o = OutOfShield::new();
         let out = sample(&mut o, kind, 0, 10.);
         assert_eq!(out.requested, MAPPER_R, "kind {kind}");
@@ -215,15 +223,19 @@ fn default_grab_calculations_use_each_fighters_references_and_saved_reach() {
     };
     let profiles = FighterProfiles::default();
     let t = Tuning::default();
-    for kind in 0..0x5e {
+    for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         let Some(p) = profiles.profile(kind) else {
             continue;
         };
         let range = p.ledge.grab.standing_range;
-        let known_reaches = fighter_data::ordinary_grab(kind, 0x37)
-            .zip(fighter_data::ordinary_grab(kind, 0x39))
-            .and_then(|(stand, dash)| Some((stand.reach?, dash.reach?)))
-            .filter(|(stand, dash)| *stand > 0.0 && *dash > 0.0);
+        let known_reaches =
+            fighter_data::ordinary_grab(kind, kirby_assist_core::native_states::CATCH)
+                .zip(fighter_data::ordinary_grab(
+                    kind,
+                    kirby_assist_core::native_states::CATCH_DASH,
+                ))
+                .and_then(|(stand, dash)| Some((stand.reach?, dash.reach?)))
+                .filter(|(stand, dash)| *stand > 0.0 && *dash > 0.0);
         for scale in [0.5, 1., 1.5] {
             let requested = range * scale;
             let (close, far) = t.auto_grab_ranges(kind, requested);
