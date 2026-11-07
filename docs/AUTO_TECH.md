@@ -183,8 +183,8 @@ requested build/install and diagnostic console test are still needed.
 Training Modpack's CPU auto-tech substitutes a passive/tech status at an engine
 collision transition after checking native eligibility. It does not predict a
 shield press. That method cannot be copied while keeping this project input-only.
-The focused [reference review](TRAINING_REFERENCE_REVIEW.md) records the checked
-runtime areas, compatible patterns and rejected internal-write approaches.
+The [runtime safety guide](RUNTIME_SAFETY.md) documents the current identity,
+freshness, cancellation, and input-only constraints.
 
 Native gates, timing windows and mapper acknowledgment remain unchanged.
 Silent skips rejected-state velocity reads used only by diagnostics. The

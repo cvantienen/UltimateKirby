@@ -1,92 +1,62 @@
-# Kirby Assist
+# Kirby Assist documentation
 
-Kirby Assist supplies raw stick/button input for the selected local human
-controller before Smash applies the player's controller mapping. It includes
-ledge responses, automatic mash/tech/SDI and manual controller shortcuts.
+Kirby Assist is an input-only Rust Skyline plugin for Super Smash Bros.
+Ultimate. It observes gameplay, evaluates configured/controller-only assists,
+and requests simulated inputs for the selected local human fighter. It does not
+change native moves, hitboxes, physics, or fighter status.
 
-Start with [current controls](CONTROLS.md), [fighters](FIGHTERS.md), or
-[installation and configuration](INTEGRATION.md).
+## Find your path
 
-## Current source and installed builds
+### Set up and use the mod
 
-The release version is recorded in `Cargo.toml`. These maintained docs describe the
-current working source, including later Kirby/Yoshi nair and roll-grab edits.
-An existing 1.5.3 NRO or source ZIP may predate those edits: editing source or docs
-does not update an installed plugin. Check the built package and diagnostic
-startup header when reporting behavior.
+1. Read [installation and compatibility](INTEGRATION.md).
+2. Learn the [controls](CONTROLS.md) and [ledge menu](LEDGE_MENU.md).
+   The [shortcuts and turbo controls](TURBO_CONTROLS.md) guide covers the
+   additional controller bindings.
+3. Configure saved responses using [sequence files](SEQUENCE_FILES.md) and
+   [fighter settings](FIGHTER_SETTINGS.md).
+4. Browse the current [fighter roster](FIGHTERS.md) and its generated guides.
 
-Supplied Switch logs confirm mapped Grab inputs, native grab startup and some
-Kirby/Yoshi captures in the tested version. They also exposed delayed approaches
-and a mismatched common roll estimate. The latest source changes address those
-paths, but have not been compiled or tested on Switch here. Formatting and a
-successful documentation build do not establish gameplay or online accuracy.
+### Understand a feature
 
-## Controls at a glance
+Start with [assist rules](REACTION_RULES.md) for automatic reactions, or use the
+specific guides for [ledge autopilot](LEDGE_TRAP.md),
+[shield pressure](SHIELD_PRESSURE.md), [out of shield](OUT_OF_SHIELD.md),
+[grab dodge](GRAB_DODGE.md), [automatic tech](AUTO_TECH.md),
+[DI/SDI](DI_SDI.md), [jab-lock chase](JAB_LOCK.md), and
+[training/monitoring](TRAINING_MONITOR.md). The assist guides distinguish
+automatic rules from manually selected recipes and explain their own settings
+and timing.
 
-| Input | Action |
-| --- | --- |
-| Hold L | Ledge autopilot |
-| Minus | Cycle compact selector → modes → closed |
-| Hold L3 without L | Turbo teabag; release to stop |
-| R3, compact selector | Edit the highlighted recipe; R3 or Minus returns to compact |
-| D-pad, compact/modes | Up/Down selects a row; Left/Right changes its value |
-| D-pad, recipe editor | Up/Down selects a field; Left/Right changes its value |
-| D-pad, menu hidden | Fighter-specific input sequence; Normal button passes through |
-| Auto-mash row, Left/Right | Toggle mash ON/OFF |
-| X | Existing short-hop shortcut |
-| Press Y | Normal mapped game input |
-| Hold L | Saved ledge responses and configured walking/ledge-distance limits |
+### Develop or extend the project
 
-Required mapping, menu behavior and automatic tools are documented in
-[the full control reference](CONTROLS.md). The older combo engine and B-reverse
-binding remain removed. The old Y Finisher binding remains removed. X/Y/D-pad input sequences are fighter-specific; modes are ON/OFF menu settings only; Normal button restores X short hop or ordinary Y. Recipe menus are battle-only. The A+B jab-to-grab shortcut is removed. Ledge moves, menu choices, defaults and input delays come only from `sequences.txt`. Existing
-ledge-choice recipes may be overridden through startup-only
-[`sequences.txt`](SEQUENCE_FILES.md); shared startup settings live at the top of that master file in `[universal.settings]`. `config.txt` is only a fallback for older files without that section.
+Read the [runtime architecture](ARCHITECTURE.md) for the observation-to-input
+flow and shared-state boundaries, and [runtime safety](RUNTIME_SAFETY.md) for
+freshness, cancellation, and live feature limits. Then use
+[extending the project](DEVELOPMENT.md) for implementation, tests, configuration
+changes, fighter references, and documentation maintenance.
 
-## Fighters and ledge responses
+## Project map
 
-[Fighters](FIGHTERS.md) collects the individual guides and full non-DLC roster.
-Each fighter has saved choices for Neutral, Jump, Roll, Attack and Drop. Recipes deliver the configured controller inputs; the game determines native action acceptance. Reach,
-root travel and online input arrival remain estimates; a correctly requested
-move does not guarantee a hit.
-
-[Kirby/Yoshi](KIRBY_YOSHI_LEDGE.md) documents the brief nair nudges, earlier
-scheduling, Kirby bair and the latest walking-grab changes.
-
-## Builds and diagnostics
-
-Silent and diagnostic are optimized variants with the same gameplay policy.
-Silent excludes this plugin's explicit logger; diagnostic records startup,
-input/action evidence and bounded roll-grab traces. See
-[build variants](BUILD_VARIANTS.md) for packaging and the separate uploader.
-
-Diagnostic creates `SD:/ultimate/kirby_assist/status.log` at startup, before a
-match. The uploader defaults to silent unless `-d` is supplied. Restart Smash
-after replacing the NRO. Missing files and stale artifacts are covered in
-[diagnostic setup](INTEGRATION.md#read-the-status-log-before-changing-code).
-
-## Understand or extend the code
-
-Read [the source map](CODE_MAP.md), [file-authored fighter options](FIGHTER_CONFIGS.md),
-[startup sequence files](SEQUENCE_FILES.md),
-[execution and calibration](FIGHTER_EXECUTION.md), and the
-[Rust beginner guide](README_BEGINNER.md). The [reliability notes](RUST_RELIABILITY_REVIEW.md)
-distinguish mapped requests, native acceptance and measured outcomes.
-
-## Build and check
-
-From the repository root with the Skyline toolchain configured:
-
-```sh
-# Package optimized silent and diagnostic variants; does not upload.
-python3 tools/build_variants.py
-
-# Portable Rust logic tests; compiling tests is separate from a docs build.
-cargo test --manifest-path crates/kirby_assist_core/Cargo.toml
-
-# Validate and generate documentation only.
-.venv-docs/bin/python -m mkdocs build --strict
+```text
+src/                         Switch plugin and native integration
+  live.rs                    Hook installation, observation, runtime, mapping
+  live/                      Callback observations, state, controller helpers
+crates/kirby_assist_core/    Portable policy, configuration, and tests
+deployment/ultimate/...      Canonical startup sequence configuration
+data/                        Canonical roster/fighter facts
+docs/                        User guides and developer references
+tools/                       Validation, documentation, build, and workbench tools
 ```
 
-Run mod builds or uploads only when intended. See [maintaining the docs](MAINTAINING.md)
-for Python setup and previewing, and [TODO](TODO.md) for the work template.
+The [source map](CODE_MAP.md) lists the main modules. The
+[build and release guide](BUILD_VARIANTS.md) covers packaging; the
+[interactive workbench](WORKBENCH.md) covers its local tooling.
+
+## Validation and support caveats
+
+Portable tests and strict documentation builds can validate host-side logic,
+configuration, and links. They do not prove Switch timing, online compatibility,
+crash resolution, or temperature behavior. See
+[extending the project](DEVELOPMENT.md#test-and-validate) for test commands and
+[installation and compatibility](INTEGRATION.md) for runtime troubleshooting.

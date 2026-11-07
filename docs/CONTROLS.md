@@ -67,7 +67,8 @@ when nearby active or known imminent fighter attacks enter an approximate danger
 works without a ledge grab. Releasing the ledge binding disengages it when the toggle is OFF; committed punishes retain
 priority. Projectiles and grabs are not detected by this check.
 Auto-duck and its hitbox-reader hook are disabled, even with an older config
-that sets `kirby_auto_duck = true`. The old [finisher reference](FINISHERS.md) is historical.
+that sets `kirby_auto_duck = true`. The old Y Finisher binding is retired; Y
+uses the selected recipe or Normal button. See [sequence files](SEQUENCE_FILES.md).
 
 Menus appear in the **top-left in silent builds** and **top-right in diagnostic
 builds**, using dark rounded panels and a teal selection highlight. Training edit/save control hints are visible; lightweight gameplay selectors
@@ -223,8 +224,8 @@ not disable tech. Automatic tech and SDI otherwise follow their startup settings
 DI/SDI respect a stick already held or moved outside 20% during hitstop, retaining manual control for that hit. SDI stops for the final three launch-input frames; automatic DI defaults to Survival. Legacy Adaptive also uses survival behavior. Explicit Escape remains available but can worsen survival. See [DI/SDI behavior](DI_SDI.md).
 
 See [the menu](LEDGE_MENU.md), [shortcuts](TURBO_CONTROLS.md),
-[slides](SLIDE_CONTROLS.md), [ledge trump](LEDGE_TRUMP.md),
-[recovery cover](TWO_FRAME.md), and [fighters](FIGHTERS.md).
+[ledge trump](LEDGE_TRUMP.md), [recovery cover](TWO_FRAME.md), and
+[fighters](FIGHTERS.md).
 
 Kirby has **Idle crouch** and Kirby/Yoshi have **Dtilt face** ON/OFF rows, initially ON.
 Idle crouch requires an enemy within 45 horizontal / 20 vertical units and starts

@@ -189,8 +189,8 @@ still needs Switch calibration.
 Yoshi has **Bair drag > Fsmash** on Y. It turns before the short hop and only
 an early bair hit can queue the landing Fsmash. This is not a verified true
 combo. Automatic whiff punishing is removed from the live build/menu.
-See [finisher sequences](../FINISHERS.md) and the canonical
-[Fighter Data catalog](../FIGHTER_DATA.md).
+Yoshi's Y recipe is file-authored; see [sequence files](../SEQUENCE_FILES.md)
+and the canonical [Fighter Data catalog](../FIGHTER_DATA.md).
 
 Neutral nair reacts immediately to recognized Neutral get-up: face the remembered
 ledge (turn with 0.6 stick if needed), confirm native facing, then send **X+ZL**

@@ -33,7 +33,7 @@ Paths below are relative to the project root. Core paths begin with
 | Core `settings_menu/editor/commands.rs` | Input-driven copy, paste, reorder, undo, and delete commands for recipe editing. |
 | Core `settings_menu/editor/presentation.rs` | Maps each action to editable fields and renders recipe schedule details. |
 | Core `button_modes.rs` | Retained legacy mode definitions; the old Y Finisher selector/binding is removed. |
-| Core `finisher.rs` | Parked portable starter/follow-up implementation; no live binding or per-frame state. See [retired finisher binding](FINISHERS.md). |
+| Core `finisher.rs` | Parked portable starter/follow-up implementation; no live binding or per-frame state. |
 | Core `fighter_data.rs` | Exact-kind stats and move-frame facts from the canonical roster JSON, plus native recovery validation. |
 | Core `whiff_punish.rs` and `src/live/whiff.rs` | Parked prototype, not wired into the live build/menu. |
 | Core `action_owner.rs` | One committed input owner, explicit interruption rules and losing-plan cancellation. |

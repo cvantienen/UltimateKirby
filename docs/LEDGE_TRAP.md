@@ -63,13 +63,8 @@ Disable with `autopilot_shield = false` in `[universal.settings]` of startup `se
 
 ## Kirby auto-duck
 
-**Currently disabled**, including its Y binding, source tracking and ATTACK
-observer-hook installation. The legacy config cannot restore it. Y instead
-attempts the selected [Finisher](FINISHERS.md). The retained implementation
-below documents the former behavior for future offline calibration.
-The live path no longer uses a Falcon Punch/move-name allowlist. It reads active
-hitbox sphere/capsule endpoints in world coordinates from nearby enemy fighters
-and cached projectile/item objects, including size and root velocity.
+Auto-duck is disabled and its Y binding is retired. Y uses the selected fighter
+recipe or Normal button; legacy configuration cannot re-enable auto-duck.
 
 A fixed six-frame swept envelope predicts incoming contact. It requests normal
 down-stick crouching when the detected hitbox overlaps an estimated standing

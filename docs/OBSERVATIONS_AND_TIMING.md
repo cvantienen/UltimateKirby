@@ -124,8 +124,6 @@ establish on-console acceptance, exact collision geometry or online outcomes.
 
 Six button identities are checked per input sample. Inactive bindings add no opponent scans, rays or separate policy timelines. Only a pressed input sequence runs its existing timeline. Hold/Toggle mode processing and mode override fields are removed; legacy saved mode sections are excluded at startup without rewriting the source file.
 
-See the [Training Modpack reference review](TRAINING_REFERENCE_REVIEW.md) for the
-tech, hook/counter, playback, ledge, shield, SDI/DI and shared-helper comparison.
 Raw-input calibration descriptions now distinguish an unavailable move model
 from input delivery; absent optional readiness/opponent observations alone are
 not treated as proof of a missed raw input.

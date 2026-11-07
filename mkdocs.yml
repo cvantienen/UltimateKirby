@@ -9,67 +9,65 @@ theme:
 
 nav:
   - Home: index.md
-  - Installation and configuration: INTEGRATION.md
-  - Fighters: FIGHTERS.md
-  - Controls:
+  - Get started:
+      - Installation and compatibility: INTEGRATION.md
       - Control reference: CONTROLS.md
       - Saved ledge menu: LEDGE_MENU.md
       - Fighter settings explained: FIGHTER_SETTINGS.md
+      - Sequence configuration: SEQUENCE_FILES.md
       - Sequence text syntax cheat sheet: SEQUENCE_SYNTAX_CHEATSHEET.md
       - Editor action cheat sheet: EDITOR_ACTION_CHEATSHEET.md
-      - Ledge autopilot: LEDGE_TRAP.md
-      - Onstage Roll read: ROLL_READ.md
+      - Shortcuts and turbo controls: TURBO_CONTROLS.md
+  - Assist features:
       - Configurable reaction rules: REACTION_RULES.md
       - Reaction-rule cheat sheet: REACTION_RULE_CHEATSHEET.md
+      - Onstage Roll read: ROLL_READ.md
       - Shield pressure: SHIELD_PRESSURE.md
       - Out of shield: OUT_OF_SHIELD.md
       - Grab dodge: GRAB_DODGE.md
       - Spot punish: SPOT_PUNISH.md
-      - Retired native Y finisher: FINISHERS.md
-      - Analog mash: ANALOG_MASH.md
-      - Automatic tech: AUTO_TECH.md
-      - Trip follow-up: TRIP_AND_SDI.md
-      - DI and SDI: DI_SDI.md
-      - Jab-lock chase: JAB_LOCK.md
-      - Shortcuts: TURBO_CONTROLS.md
-      - Input recipes and posture: INPUT_RECIPES.md
-      - Training and monitoring: TRAINING_MONITOR.md
-      - Retired D-pad slide bindings: SLIDE_CONTROLS.md
-      - Vulnerable ledge and regrabs: TWO_FRAME.md
+      - Ledge autopilot: LEDGE_TRAP.md
       - Ledge trump: LEDGE_TRUMP.md
-  - Development:
+      - Automatic tech: AUTO_TECH.md
+      - Analog mash: ANALOG_MASH.md
+      - DI and SDI: DI_SDI.md
+      - Trip follow-up: TRIP_AND_SDI.md
+      - Jab-lock chase: JAB_LOCK.md
+      - Input recipes: INPUT_RECIPES.md
+      - Training and monitoring: TRAINING_MONITOR.md
+      - Vulnerable ledge and regrabs: TWO_FRAME.md
+  - Fighters:
+      - Roster overview: FIGHTERS.md
+      - Non-DLC roster: NON_DLC_ROSTER.md
+      - Fighter-specific guides:
+          - Starting cast: STARTING_CAST.md
+          - Kirby and Yoshi ledge notes: KIRBY_YOSHI_LEDGE.md
+          - Samus ledge notes: SAMUS_LEDGE.md
+          - Sonic ledge notes: SONIC_LEDGE.md
+          - Pac-Man and Mac ledge notes: PACMAN_MAC_LEDGE.md
+          - Kirby Fair confirm: KIRBY_FAIR_CONFIRM.md
+  - Build and release:
+      - Build variants: BUILD_VARIANTS.md
+      - Interactive workbench: WORKBENCH.md
+  - Developer guide:
+      - Runtime architecture: ARCHITECTURE.md
+      - Runtime safety and feature limits: RUNTIME_SAFETY.md
+      - Extending the project: DEVELOPMENT.md
       - Source map: CODE_MAP.md
-      - Startup sequence files: SEQUENCE_FILES.md
       - Shared observations and timing: OBSERVATIONS_AND_TIMING.md
       - Action ownership: ACTION_OWNERSHIP.md
-      - Parked whiff prototype: WHIFF_PUNISH.md
+      - Fighter execution: FIGHTER_EXECUTION.md
+      - Fighter configuration reference: FIGHTER_CONFIGS.md
       - Fighter data: FIGHTER_DATA.md
-      - Diagnostic result card: CALIBRATION_CARD.md
-      - Ledge menu source review: COMBO_REVIEW.md
-      - Removed combo system: CUSTOM_COMBOS.md
-      - Rust beginner guide: README_BEGINNER.md
-      - Runtime reliability: RUST_RELIABILITY_REVIEW.md
-      - Training Modpack source review: TRAINING_REFERENCE_REVIEW.md
-      - Builds and releases: BUILD_VARIANTS.md
-      - Interactive workbench: WORKBENCH.md
-      - TODO and task template: TODO.md
+      - Diagnostics and calibration: CALIBRATION_CARD.md
       - Maintaining the docs: MAINTAINING.md
+      - Development backlog: TODO.md
 
-# Keep fighter guides searchable and linked from the overview, without adding
-# every profile to the sidebar. New guide pages should also be linked there.
+# Generated profiles remain linked from the roster rather than listed individually.
 not_in_nav: |
   /fighters/**
-  /FIGHTER_CONFIGS.md
-  /FIGHTER_EXECUTION.md
-  /STARTING_CAST.md
   /FIGHTER_ADDITIONS.md
-  /SAMUS_LEDGE.md
-  /SONIC_LEDGE.md
-  /NON_DLC_ROSTER.md
   /KROOL_ISABELLE_LEDGE.md
-  /PACMAN_MAC_LEDGE.md
-  /KIRBY_YOSHI_LEDGE.md
-  /KIRBY_FAIR_CONFIRM.md
 
 plugins:
   - search

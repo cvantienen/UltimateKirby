@@ -1,31 +1,19 @@
-# Project backlog
+# Maintainer backlog
 
-### Character-specific changes needed
+This is a non-user-facing working list, not a feature promise or authoritative
+release plan. Confirm each item against current issues, source, and device
+results before scheduling work; the list can lag the implementation.
 
-- [ ] Fix and device-test Kirby's forward-facing attack-cancel bair route; it can
-  still turn into forward tilt instead of bair.
-- [ ] Continue fighter-by-fighter roll-grab calibration for approach distance,
-  facing, grab range and the vulnerable-frame target.
-- [ ] Finish on-device calibration of Yoshi's Neutral short-hop nair and bair
-  choices, including hit timing, fast fall, drift and handback.
-- [ ] Validate each fighter's saved ledge choices on hardware and record any
-  timing, spacing or move-delivery adjustments on that fighter's page.
-- [ ] Add or tune fighter-specific response choices as testing exposes gaps.
+## Investigation and validation candidates
 
-### System-level changes
+- Review Kirby Bair routing and fighter-specific roll/grab behavior.
+- Calibrate Yoshi and other fighter-specific responses on hardware.
+- Investigate reported doubles behavior and verify Training Modpack integration.
+- Measure callback/frame-time behavior on the target device.
+- Compare offline and Arena behavior where those environments are in scope.
+- Record Switch acceptance and compatibility separately from host tests or
+  compilation.
 
-- [ ] Investigate the doubles connection error.
-- [ ] Confirm Minus-menu and assist-list Training testing with stock Training Modpack v7.1.1 in
-  Training Mode on the diagnostic Switch.
-- [ ] Measure silent and diagnostic callback cost on the Switch and keep logging,
-  result-card rendering and observations within the frame-time budget.
-- [ ] Compare offline and Arena timing with controlled diagnostic captures; keep
-  network delay findings separate from local input-delivery bugs.
-- [ ] Revisit live combo playback later; it is currently removed.
-
-## Task notes
-
-Record expected behavior and validation for each task. Keep portable/host checks
-separate from actual Switch testing. Gameplay timing, save-crash resolution,
-Training-to-online GPU stability and heat still require on-device confirmation;
-no documentation or passing host test establishes those outcomes.
+Removed combo playback is not an active feature or a committed future item.
+See [runtime safety and feature limits](RUNTIME_SAFETY.md) for the distinction
+between current input recipes and reserved playback abstractions.
