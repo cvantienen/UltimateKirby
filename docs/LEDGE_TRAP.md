@@ -207,30 +207,19 @@ ledge_manual_spacing = true
 ledge_distance_agnostic = true
 ledge_walk_strength = 0.35
 ledge_drop_defense = true
-ledge_getup_attack = neutral_air
-ledge_roll_dash_range = 10.0
-ledge_roll_hit_window_frames = 5
-ledge_roll_distance = 25.0
 ledge_follow_range = 40.0
 ```
 
 Distance-agnostic mode defaults to true even if an old config omits the key.
-Setting it false restores the previous reach-gated normal/jump/grab policy.
-Legacy tilt, grab, anti-air and acquisition distances remain parsed but do not
-gate those responses in the default mode.
+Setting it false makes `ledge_trap_range` and
+`ledge_trap_vertical_range` constrain opponent acquisition. The old
+fighter-independent tilt, grab, anti-air and roll ranges remain accepted and
+validated for config compatibility, but do not affect live responses; grab
+recipes use the selected fighter's profile reach instead.
 
-Roll down-smash coverage uses a fixed common spot: by default,
-**25 world units inward from the remembered ledge**. `ledge_roll_distance` tunes
-this coverage preset from 2–100; an old `auto` value also uses 25. This is a common
-coverage area, not a measured endpoint or a guarantee that every character's
-roll is caught. Correct spacing still needs device testing.
-
-As soon as a roll is recognized, Kirby moves toward that point without waiting
-for opponent velocity, root-travel forecasts or protection metadata. The ledge
-anchor determines direction; if no anchor was observed, the first roll position
-is the fallback origin. The destination is locked for that roll and bounded by
-`ledge_follow_range`. Roll navigation runs even when legacy automatic positioning
-is disabled. Floor probes still prevent movement across unsupported ground.
+Use the selected fighter's saved sequence to define the roll response. Stand
+positioning remains controlled separately by `ledge_stand_distance`; a legacy
+`ledge_roll_distance` value does not tune it.
 
 Native speed and ground braking guide early stick release; live extra delay is zero.
 The final short approach slows down near the fixed point. Missing braking data

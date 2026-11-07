@@ -22,7 +22,6 @@ pub const LEDGE_DATA: LedgeFighterData = LedgeFighterData {
         shield: 18,
         active_frames: 2,
     },
-    common_roll_distance: 25.0,
 };
 pub const UP_AIR: MoveFrames = MoveFrames { first: 6, last: 31 };
 // Slingshot emission/first projectile phase; travel to target is not modeled.

@@ -21,7 +21,6 @@ pub const LEDGE_DATA: LedgeFighterData = LedgeFighterData {
         shield: 19,
         active_frames: 8,
     },
-    common_roll_distance: 25.0,
 };
 
 // Only the first continuous hit is scheduled; later multihits have gaps.

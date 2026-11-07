@@ -46,6 +46,7 @@ pub mod mii_brawler;
 pub mod mii_gunner;
 pub mod mii_swordfighter;
 pub mod mr_game_and_watch;
+pub mod mythra;
 pub mod ness;
 pub mod olimar;
 pub mod pacman;
@@ -54,9 +55,8 @@ pub mod peach;
 pub mod pichu;
 pub mod pikachu;
 pub mod pit;
-pub mod pyra;
-pub mod mythra;
 pub mod presets;
+pub mod pyra;
 pub mod richter;
 pub mod ridley;
 pub mod rob;
@@ -141,7 +141,6 @@ pub struct LedgeFighterData {
     /// Grounded up-special startup for registered shield-punish recipes.
     pub up_special_startup: Option<u8>,
     pub grab: GrabTiming,
-    pub common_roll_distance: f32,
 }
 impl LedgeFighterData {
     pub fn down_smash_toward(self, dx: f32, facing: f32) -> MoveFrames {
@@ -202,7 +201,8 @@ impl FighterProfile {
         if let Some(g) = crate::opponent_data::ordinary_grab(self.fighter_kind, 0x3b) {
             self.ledge.grab.turn_or_shield = g.first;
         }
-        if let Some(frame) = self.reference()
+        if let Some(frame) = self
+            .reference()
             .and_then(|r| r.stat("outofshield.grabpostshieldstun"))
             .and_then(|s| s.parse::<u8>().ok())
             .filter(|f| (1..=120).contains(f))
@@ -344,9 +344,14 @@ impl FighterProfiles {
     /// Share inert Training templates without expanding fighter-specific menus.
     /// Runtime uses owned selected-fighter records instead of leaking all tapes.
     pub fn add_sequence_templates(&mut self, templates: &[crate::sequence_config::Template]) {
-        if templates.is_empty() {return;}
-        let templates: &'static [crate::sequence_config::Template]=Box::leak(templates.to_vec().into_boxed_slice());
-        for profile in self.profiles.values_mut() {profile.menu_options.templates=templates;}
+        if templates.is_empty() {
+            return;
+        }
+        let templates: &'static [crate::sequence_config::Template] =
+            Box::leak(templates.to_vec().into_boxed_slice());
+        for profile in self.profiles.values_mut() {
+            profile.menu_options.templates = templates;
+        }
     }
     pub fn add_sequence_choices(
         &mut self,
@@ -354,9 +359,10 @@ impl FighterProfiles {
     ) -> Result<(), String> {
         catalog.validate(self)?;
         // One shared startup allocation, never duplicated per fighter or frame.
-        let templates: &'static [crate::sequence_config::Template]=Box::leak(catalog.templates.clone().into_boxed_slice());
+        let templates: &'static [crate::sequence_config::Template] =
+            Box::leak(catalog.templates.clone().into_boxed_slice());
         for profile in self.profiles.values_mut() {
-            profile.menu_options.templates=templates;
+            profile.menu_options.templates = templates;
             for slot in presets::PresetSlot::ALL {
                 let entries = catalog.entries().iter().filter(|e| {
                     e.fighter_kind == profile.fighter_kind
@@ -378,13 +384,20 @@ impl FighterProfiles {
                     );
                     if !entry.sequence.reaction.active() {
                         first_regular.get_or_insert(options.len());
-                        if entry.default { selected = Some(options.len()); }
+                        if entry.default {
+                            selected = Some(options.len());
+                        }
                     }
                     let sequence = Box::leak(Box::new(entry.sequence));
                     options.push(presets::SavedChoice::file(id, name, sequence));
                 }
-                list.selected =
-                    selected.unwrap_or_else(|| if slot.is_button() { slot.default_index(options.len()) } else { first_regular.unwrap_or(options.len()) });
+                list.selected = selected.unwrap_or_else(|| {
+                    if slot.is_button() {
+                        slot.default_index(options.len())
+                    } else {
+                        first_regular.unwrap_or(options.len())
+                    }
+                });
                 list.options = Box::leak(options.into_boxed_slice());
             }
         }
@@ -397,7 +410,10 @@ impl FighterProfiles {
         }
         for (&kind, profile) in &self.profiles {
             if profile.fighter_kind != kind || profile.reference().is_none_or(|r| r.kind != kind) {
-                return Err(format!("missing/mismatched fighter reference {}", profile.name));
+                return Err(format!(
+                    "missing/mismatched fighter reference {}",
+                    profile.name
+                ));
             }
             if crate::ledge_trap::ResponseImplementation::for_kind(profile.fighter_kind).is_none() {
                 return Err(format!("unregistered compiled fighter {}", profile.name));
@@ -438,8 +454,6 @@ impl FighterProfiles {
                 || data
                     .down_special_startup
                     .is_some_and(|startup| !(1..=120).contains(&startup))
-                || !data.common_roll_distance.is_finite()
-                || !(2.0..=100.0).contains(&data.common_roll_distance)
             {
                 return Err(format!("invalid compiled move timing {}", profile.name));
             }
@@ -450,8 +464,16 @@ impl FighterProfiles {
                 let selected_is_valid = list.selected < list.options.len()
                     || slot.is_button() && list.selected < list.options.len() + slot.templates()
                     || list.selected == list.options.len()
-                        && (slot.is_button() || list.options.iter().all(|c| c.sequence.reaction.active()));
-                if list.options.iter().filter(|c| !c.sequence.reaction.active()).count() > slot.max_choices() || !selected_is_valid {
+                        && (slot.is_button()
+                            || list.options.iter().all(|c| c.sequence.reaction.active()));
+                if list
+                    .options
+                    .iter()
+                    .filter(|c| !c.sequence.reaction.active())
+                    .count()
+                    > slot.max_choices()
+                    || !selected_is_valid
+                {
                     return Err(format!(
                         "invalid file response list {} / {slot:?}",
                         profile.name
@@ -487,7 +509,11 @@ impl FighterProfiles {
 
     /// Use only the requested fighter identity and its loaded file catalog.
     /// None still covers startup before a valid fighter is observed.
-    pub fn ledge_settings(&self, fighter_kind: Option<i32>, mut base: LedgeSettings) -> LedgeSettings {
+    pub fn ledge_settings(
+        &self,
+        fighter_kind: Option<i32>,
+        mut base: LedgeSettings,
+    ) -> LedgeSettings {
         // A fallback may receive a previously resolved live snapshot. Selected
         // indices and tapes belong to that identity, never the incoming one.
         if fighter_kind != Some(base.fighter_kind) {

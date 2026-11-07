@@ -27,7 +27,6 @@ pub const LEDGE_DATA: LedgeFighterData = LedgeFighterData {
         active_frames: 3,
     },
     // Coverage point for the opponent's roll, not this fighter's movement speed.
-    common_roll_distance: 25.0,
 };
 pub const UP_TILT: MoveFrames = MoveFrames { first: 8, last: 15 };
 pub const FORWARD_SMASH: MoveFrames = MoveFrames {

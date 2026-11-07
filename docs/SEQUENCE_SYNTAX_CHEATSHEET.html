@@ -1180,7 +1180,7 @@ auto_tech = true
 <td><code>true</code> / <code>false</code></td>
 </tr>
 <tr>
-<td><code>ledge_trap_range</code>, <code>ledge_trap_vertical_range</code>, <code>ledge_tilt_range</code>, <code>ledge_grab_range</code></td>
+<td><code>ledge_trap_range</code>, <code>ledge_trap_vertical_range</code></td>
 <td>Finite 1–20</td>
 </tr>
 <tr>
@@ -1192,28 +1192,12 @@ auto_tech = true
 <td>Finite 0.1–0.45</td>
 </tr>
 <tr>
-<td><code>ledge_roll_dash_range</code>, <code>ledge_roll_smash_range</code></td>
-<td>Finite 1–20; aliases</td>
-</tr>
-<tr>
 <td><code>ledge_stand_distance</code></td>
 <td>Finite 2–15</td>
 </tr>
 <tr>
-<td><code>ledge_roll_distance</code></td>
-<td><code>auto</code> or finite 2–100</td>
-</tr>
-<tr>
 <td><code>ledge_move_strength</code></td>
 <td>Finite 0.1–1</td>
-</tr>
-<tr>
-<td><code>ledge_anti_air_range</code></td>
-<td>Finite 1–20</td>
-</tr>
-<tr>
-<td><code>ledge_anti_air_height</code></td>
-<td>Finite 1–40</td>
 </tr>
 <tr>
 <td><code>ledge_grab_button</code></td>
@@ -1244,7 +1228,10 @@ auto_tech = true
 <code>ledge_drop_request_timeout_frames</code>, <code>ledge_roll_hit_window_frames</code>,
 <code>ledge_grab_buffer_frames</code>, <code>ledge_getup_attack</code>, <code>ledge_jump_response</code>,
 <code>ledge_fair_range</code>, <code>ledge_fair_vertical_range</code>, <code>ledge_fair_delay_frames</code>,
-<code>ledge_fair_lead_frames</code>, <code>ledge_fair_jump_squat_buffer</code>, <code>ledge_fair_buffer_frame</code>.
+<code>ledge_fair_lead_frames</code>, <code>ledge_fair_jump_squat_buffer</code>, <code>ledge_fair_buffer_frame</code>,
+<code>ledge_roll_dash_range</code>, <code>ledge_roll_smash_range</code>, <code>ledge_roll_distance</code>,
+<code>ledge_tilt_range</code>, <code>ledge_grab_range</code>, <code>ledge_anti_air_range</code>,
+<code>ledge_anti_air_height</code>.
 They do not configure a current automatic response. Unknown keys are rejected.</p>
 <h2>Validate before uploading</h2>
 <pre><code class="language-sh">python3 tools/sequence_validation.py deployment/ultimate/kirby_assist/fighters/bowser.txt

@@ -38,7 +38,6 @@ Paths below are relative to the project root. Core paths begin with
 | Core `autopilot_guard/duck.rs` | Held-Y crouch/shield ownership; legacy move fixtures remain separate from live geometry. |
 | Core `autopilot_guard/duck_geometry.rs` | Allocation-free swept hitbox/body-envelope tests and calibration bounds. |
 | `src/live/duck_hits.rs` | Disabled reference implementation; its native hitbox scans, source tracking and ATTACK hook are not enabled. |
-| Core `two_frame.rs` | Kirby-only recovery-cover registration and native-clock timing inside L autopilot. |
 | `src/lib.rs` | Skyline entry point; calls installation once. |
 | `src/live.rs` | Hook orchestration, profile selection, shared session state and tool priority. |
 | `src/live/config.rs` | Startup-only master `sequences.txt` loading/validation; `config.txt` fallback for older files. |
@@ -57,6 +56,7 @@ Paths below are relative to the project root. Core paths begin with
 | Core `ledge_trap/types.rs` | Settings, copied observations, output values and animation/physics helpers. |
 | Core `fighter_profiles.rs` | Fighter identities/reference facts and startup-only file menu construction. |
 | Core `fighter_profiles/kirby.rs` | Built-in Kirby compatibility data. |
+| Core `fighter_tuning.rs`, `fighter_tuning/schema.rs`, and `fighter_tuning/analysis.rs` | Public tuning facade, stable saved-setting/menu schema, and fighter-derived policy defaults. |
 | Core `ledge_trap/attempt.rs` | Native-progress clock for ordered input timelines. |
 | Core `sequence_config.rs` | Compile/validate bounded startup-only input timelines and build the sole file menu catalog. |
 | Core `ledge_trap/file_timeline.rs` | File-ordered input holds/waits, native-progress clock, explicit spatial/block predicates. |
@@ -143,7 +143,10 @@ and `grab_dodged` recipes. `out_of_shield.rs` gates a confirmed shield-contact
 response; `spot_dodge.rs` records native dodge acceptance before an optional
 follow-up. `reaction_rules.rs` caches trigger/range metadata on recipe edits.
 These events use their own mode rows, not the roll engine's Menu/button groups.
-`fighter_tuning.rs` stores startup switches and the bounded grab forecast.
+`fighter_tuning.rs` preserves the tuning API; `fighter_tuning/schema.rs` owns
+the stable setting keys, labels, hints, and indices, while
+`fighter_tuning/analysis.rs` owns fighter-derived defaults and policy
+conversions. Existing `fighter_tuning::*` imports continue to work.
 The live adapter follows one confirmed identity without adding a global object
 scan, hook or live file read. See [OOS](OUT_OF_SHIELD.md) and
 [Grab dodge](GRAB_DODGE.md).

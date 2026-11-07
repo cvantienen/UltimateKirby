@@ -559,8 +559,6 @@ impl MenuSelection {
         s.enabled = self.sequence_enabled(base.enabled);
         s.sequence_overrides = [None; crate::fighter_profiles::presets::PresetSlot::COUNT];
         s.response_choices = [None; crate::fighter_profiles::presets::PresetSlot::COUNT];
-        s.two_frame = false; // Saved responses always belong to L's ledge trap.
-        s.two_frame_down_tilt = false;
         for slot in PresetSlot::ALL {
             let index = self.choices[slot as usize];
             let source = self.choice(presets, slot, index).map(|c| c.sequence);

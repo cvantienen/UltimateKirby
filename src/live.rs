@@ -13,20 +13,25 @@
 //! in the core, and verified button translations in `native_input.rs`. Defining
 //! a Scenario alone does not make the live integration detect or output it.
 // Keep hook/session orchestration here; native layouts and read-only queries
-// live in children. pub(super) exposes a helper only to this module's family.
+// live in children. `pub(super)` exposes a helper only to this module's family.
+// Keep these child declarations together so the integration's file layout is
+// visible before its imports and runtime implementation.
 mod config;
 mod controller;
+mod damage;
 #[allow(dead_code)] // Retained for offline calibration; Auto-duck is disabled.
 mod duck_hits;
-mod reflect;
 mod frame;
-mod damage;
 mod ledge_menu;
 mod observations;
+mod reflect;
+#[path = "live/runtime.rs"]
+mod runtime;
 mod tech;
 
 use config::load_config;
 use controller::{trace, write_trace, Controller, MappedInputs};
+use runtime::set_runtime_enabled;
 use kirby_assist_core::action_owner::{ActionOwnership, Intent, Owner};
 use kirby_assist_core::training_test;
 use observations::{
@@ -152,10 +157,6 @@ fn diagnostic_config(config: Config) -> Config {
     }
 }
 static OBSERVING_FIGHTER: AtomicBool = AtomicBool::new(false);
-
-#[path = "live/runtime.rs"]
-mod runtime;
-use runtime::set_runtime_enabled;
 
 // Only a freshly revalidated selected-controller route may authorize gameplay,
 // UI telemetry or projectile tracking. Native ownership discovery stays read-only.
@@ -1091,7 +1092,6 @@ unsafe fn map_controls(
     let mut tech_applied = false;
     let mut mapped_tech_output=None;
     let mut mapped_grab_handoff=None;
-    let mut attack_cancel_applied = false;
     let mut short_hop_requested = false;
     let mut mapped_manual_jump = false;
     #[cfg(feature = "diagnostic-logging")]
@@ -2280,7 +2280,6 @@ unsafe fn map_controls(
                             }
                         }
                         if let Some(stick) = cancel_stick {
-                            attack_cancel_applied = stick[0] != 0.0;
                             (*controller).right_stick_x = stick[0];
                             (*controller).right_stick_y = stick[1];
                         }
@@ -2450,11 +2449,6 @@ unsafe fn map_controls(
                     state
                         .calibration
                         .mapped(proposed, applied, mapped.buttons, gate);
-                }
-                if attack_cancel_applied {
-                    if let Some(trap) = state.ledge.as_mut() {
-                        trap.mapped_attack_cancel(mapped.buttons, mapped.right_x);
-                    }
                 }
             }
         }
@@ -4060,7 +4054,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 && !state
                     .ledge
                     .as_ref()
-                    .is_some_and(LedgeTrap::fighter_aerial_active)
+                    .is_some_and(LedgeTrap::file_timeline_active)
                 && !state
                     .ledge
                     .as_ref()
@@ -4242,7 +4236,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                             "target_position={:?}, target_vulnerable_in={:?}, ",
                             "target_previous_status={:?}, target_motion={:?}, target_actionable_in={:?}, ",
                             "target_observed_velocity={:?}, file_options={:?}, ",
-                            "locked_ledge={:?}, stance_distance={}, roll_interception={:?}"
+                            "locked_ledge={:?}, stance_distance={}"
                         ),
                         emission.periodic,
                         emission.coalesced_updates,
@@ -4279,7 +4273,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                         config.ledge.sequence_overrides.iter().any(Option::is_some),
                         state.ledge_position.as_ref().and_then(LedgePosition::spot),
                         config.ledge.stand_distance,
-                        state.ledge.as_ref().and_then(LedgeTrap::roll_interception),
                         tick = tick,
                         policy_tick = policy_tick,
                     ));

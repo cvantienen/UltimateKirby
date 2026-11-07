@@ -435,15 +435,11 @@ auto_tech = true
 | `tech_lookahead_frames` | Finite 1–5 |
 | `tech_cooldown_frames` | Integer 0–65535 |
 | `ledge_trap`, `ledge_drop_defense`, `ledge_distance_agnostic`, `ledge_manual_spacing`, `ledge_auto_position`, `ledge_throw_outward` | `true` / `false` |
-| `ledge_trap_range`, `ledge_trap_vertical_range`, `ledge_tilt_range`, `ledge_grab_range` | Finite 1–20 |
+| `ledge_trap_range`, `ledge_trap_vertical_range` | Finite 1–20 |
 | `ledge_follow_range`, `ledge_follow_vertical_range` | Finite 1–100 |
 | `ledge_walk_strength` | Finite 0.1–0.45 |
-| `ledge_roll_dash_range`, `ledge_roll_smash_range` | Finite 1–20; aliases |
 | `ledge_stand_distance` | Finite 2–15 |
-| `ledge_roll_distance` | `auto` or finite 2–100 |
 | `ledge_move_strength` | Finite 0.1–1 |
-| `ledge_anti_air_range` | Finite 1–20 |
-| `ledge_anti_air_height` | Finite 1–40 |
 | `ledge_grab_button` | `R`, `L`, `ZL` |
 | `r3_turbo`, `l3_turbo`, `dpad_turbo` | `true` / `false`; shared turbo enable value, not new button bindings |
 | `turbo_phase_frames` | Integer 1–10 |
@@ -457,7 +453,10 @@ Accepted **ignored** compatibility keys: `combo_enabled`, `combo_starter`,
 `ledge_drop_request_timeout_frames`, `ledge_roll_hit_window_frames`,
 `ledge_grab_buffer_frames`, `ledge_getup_attack`, `ledge_jump_response`,
 `ledge_fair_range`, `ledge_fair_vertical_range`, `ledge_fair_delay_frames`,
-`ledge_fair_lead_frames`, `ledge_fair_jump_squat_buffer`, `ledge_fair_buffer_frame`.
+`ledge_fair_lead_frames`, `ledge_fair_jump_squat_buffer`, `ledge_fair_buffer_frame`,
+`ledge_roll_dash_range`, `ledge_roll_smash_range`, `ledge_roll_distance`,
+`ledge_tilt_range`, `ledge_grab_range`, `ledge_anti_air_range`,
+`ledge_anti_air_height`.
 They do not configure a current automatic response. Unknown keys are rejected.
 
 ## Validate before uploading

@@ -147,20 +147,8 @@ impl LedgeTrap {
                         || is_hanging(e.previous_status)
                 }))
     }
-    pub fn drop_dair_active(&self) -> bool {
-        false
-    }
-    pub fn fighter_aerial_active(&self) -> bool {
-        self.file_timeline_active()
-    }
-    pub fn samus_zair_active(&self) -> bool {
-        false
-    }
     pub fn committed_input_pending(&self) -> bool {
         self.file_timeline_active()
-    }
-    pub fn attack_cancel_right_stick(&self) -> Option<[f32; 2]> {
-        self.requested_right_stick()
     }
     /// The selected walking step owns this analog input, not a movement/physics override.
     pub fn requested_walk_stick(&self) -> Option<[f32; 2]> {
@@ -175,7 +163,6 @@ impl LedgeTrap {
     pub fn requested_right_stick(&self) -> Option<[f32; 2]> {
         self.file_timeline.as_ref().map(|t| t.right_stick())
     }
-    pub fn mapped_attack_cancel(&mut self, _: u32, _: i8) {}
     pub fn owns_jump_state(&self, status: i32) -> bool {
         self.file_timeline_active() && !sequence_interrupted(status)
     }
@@ -187,9 +174,6 @@ impl LedgeTrap {
     }
     pub fn owns_roll_navigation(&self) -> bool {
         self.file_timeline_active() && self.slot == Some(PresetSlot::Roll)
-    }
-    pub fn roll_interception(&self) -> Option<[f32; 3]> {
-        None
     }
     pub fn observed_target_velocity(&self) -> [f32; 2] {
         self.observed_velocity
@@ -206,9 +190,6 @@ impl LedgeTrap {
         } else {
             "unarmed"
         }
-    }
-    pub fn requested_attack_status(&self) -> Option<i32> {
-        None
     }
     pub fn sample(
         &mut self,

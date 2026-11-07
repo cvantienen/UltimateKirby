@@ -11,18 +11,34 @@
 //! compatible upstream bindings first. A declaration that compiles can still
 //! describe the wrong native ABI. Keep new declarations narrow and read-only.
 use std::ffi::c_void;
+
+/// Run one native ground ray and account for it in enabled probes.
+///
+/// `ray_displacement` is the ray's travel from `ray_origin`, not a second
+/// endpoint.
+///
+/// # Safety
+/// `module_accessor` must point to a live game object for the duration of the
+/// call. `ray_origin` and `ray_displacement` must point to initialized,
+/// correctly laid-out `Vector2` values that remain valid until the game call
+/// returns. The running game must match the pinned ABI documented above.
 #[inline]
 pub unsafe fn ray_check(
-    object: *mut Object,
-    origin: *const Vector2,
-    delta: *const Vector2,
-    passable: bool,
+    module_accessor: *mut Object,
+    ray_origin: *const Vector2,
+    ray_displacement: *const Vector2,
+    check_passable_ground: bool,
 ) -> u64 {
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::ray();
     #[cfg(feature = "silent-probe")]
     crate::one_match_probe::event(crate::one_match_probe::Event::Ray);
-    native_ray_check(object, origin, delta, passable)
+    native_ray_check(
+        module_accessor,
+        ray_origin,
+        ray_displacement,
+        check_passable_ground,
+    )
 }
 // We treat game-owned objects as opaque pointers. Rust must not allocate/free
 // them or assume they remain valid across loading, respawn, or match changes.
@@ -46,16 +62,16 @@ pub struct Vector3 {
 }
 extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind35ControlModule__check_button_on_implEPNS_26BattleObjectModuleAccessorEi"]
-    pub fn button_on(object: *mut Object, button: i32) -> bool;
+    pub fn button_on(module_accessor: *mut Object, button_id: i32) -> bool;
     // Read-only terrain contact / animated ECB base accessors; pinned cpp.rs.
     #[link_name = "\u{1}_ZN3app8lua_bind27GroundModule__is_touch_implEPNS_26BattleObjectModuleAccessorEj"]
-    pub fn ground_touch(object: *mut Object, mask: u32) -> bool;
+    pub fn ground_touch(module_accessor: *mut Object, touch_mask: u32) -> bool;
     #[link_name = "\u{1}_ZN3app11FighterUtil23is_touch_passive_groundERNS_26BattleObjectModuleAccessorEj"]
-    pub fn passive_ground_touch(object: *mut Object, mask: u32) -> bool;
+    pub fn passive_ground_touch(module_accessor: *mut Object, touch_mask: u32) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind31GroundModule__get_offset_x_implEPNS_26BattleObjectModuleAccessorE"]
-    pub fn ground_offset_x(object: *mut Object) -> f32;
+    pub fn ground_offset_x(module_accessor: *mut Object) -> f32;
     #[link_name = "\u{1}_ZN3app8lua_bind31GroundModule__get_offset_y_implEPNS_26BattleObjectModuleAccessorE"]
-    pub fn ground_offset_y(object: *mut Object) -> f32;
+    pub fn ground_offset_y(module_accessor: *mut Object) -> f32;
     // Pinned GroundUtility binding and GROUND_DEAD_AREA_CHECK_RESULT enum.
     // Read-only point classification; no Lua state or module offsets required.
     #[link_name = "\u{1}_ZN3app13GroundUtility15check_dead_areaERKN3phx8Vector3fE"]
@@ -110,23 +126,25 @@ extern "C" {
     pub fn lua_object(lua_state: u64) -> *mut Object;
     #[link_name = "\u{1}_ZN3app8lua_bind30AttackModule__attack_data_implEPNS_26BattleObjectModuleAccessorEib"]
     pub fn attack_geometry(
-        object: *mut Object,
-        slot: i32,
-        secondary: bool,
+        module_accessor: *mut Object,
+        attack_slot: i32,
+        use_secondary_slot: bool,
     ) -> *const AttackGeometry;
     #[link_name = "\u{1}_ZN3app8lua_bind51ModelModule__joint_global_position_with_offset_implEPNS_26BattleObjectModuleAccessorEN3phx6Hash40ERKNS3_8Vector3fERS5_b"]
     pub fn joint_position(
-        object: *mut Object,
-        node: u64,
-        offset: *const Vector3,
-        result: *mut Vector3,
-        transformed: bool,
+        module_accessor: *mut Object,
+        joint_hash: u64,
+        local_offset: *const Vector3,
+        world_position: *mut Vector3,
+        apply_transform: bool,
     );
     #[link_name = "\u{1}_ZN3app8lua_bind25PostureModule__pos_z_implEPNS_26BattleObjectModuleAccessorE"]
-    pub fn pos_z(object: *mut Object) -> f32;
+    pub fn pos_z(module_accessor: *mut Object) -> f32;
 }
 const _: () = {
+    assert!(std::mem::size_of::<Vector2>() == 8);
     assert!(std::mem::size_of::<Vector3>() == 12);
+    assert!(std::mem::size_of::<AttackGeometry>() == 0x68);
 };
 // Calling these functions is unsafe: the caller must establish that the game
 // object is live and that the executable matches the assumed native interface.
@@ -143,12 +161,12 @@ extern "C" {
     // Capture-link queries, checked against the pinned cpp.rs bindings.
     // LINK_NO_CAPTURE = 0. Resolve IDs anew; never retain the returned accessor.
     #[link_name = "\u{1}_ZN3app8lua_bind24LinkModule__is_link_implEPNS_26BattleObjectModuleAccessorEi"]
-    pub fn is_link(module_accessor: *mut Object, link: i32) -> bool;
+    pub fn is_link(module_accessor: *mut Object, link_kind: i32) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind35LinkModule__get_node_object_id_implEPNS_26BattleObjectModuleAccessorEi"]
-    pub fn link_object_id(module_accessor: *mut Object, link: i32) -> u64;
+    pub fn link_object_id(module_accessor: *mut Object, link_kind: i32) -> u64;
     // Identity, state, and timers used to decide whether assistance applies.
     #[link_name = "\u{1}_ZN3app8lua_bind36ControlModule__get_clatter_time_implEPNS_26BattleObjectModuleAccessorEi"]
-    pub fn clatter_time(module_accessor: *mut Object, arg2: i32) -> f32;
+    pub fn clatter_time(module_accessor: *mut Object, clatter_kind: i32) -> f32;
     #[link_name = "\u{1}_ZN3app8lua_bind30StatusModule__status_kind_implEPNS_26BattleObjectModuleAccessorE"]
     pub fn status_kind(module_accessor: *mut Object) -> i32;
     #[link_name = "\u{1}_ZN3app8lua_bind33StatusModule__situation_kind_implEPNS_26BattleObjectModuleAccessorE"]
@@ -166,7 +184,7 @@ extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind40StopModule__get_hit_stop_real_frame_implEPNS_26BattleObjectModuleAccessorE"]
     pub fn hitstop_remaining(module_accessor: *mut Object) -> u64;
     #[link_name = "\u{1}_ZN3app16sv_battle_object4kindEj"]
-    pub fn fighter_kind(object_id: u32) -> i32;
+    pub fn fighter_kind(battle_object_id: u32) -> i32;
     // Read-only ledge observations, verified in the same pinned cpp.rs bindings.
     #[link_name = "\u{1}_ZN3app8lua_bind22PostureModule__lr_implEPNS_26BattleObjectModuleAccessorE"]
     pub fn facing(module_accessor: *mut Object) -> f32;
@@ -179,7 +197,7 @@ extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind24TeamModule__team_no_implEPNS_26BattleObjectModuleAccessorE"]
     pub fn team(module_accessor: *mut Object) -> u64;
     #[link_name = "\u{1}_ZN3app8lua_bind32HitModule__get_total_status_implEPNS_26BattleObjectModuleAccessorEi"]
-    pub fn hit_status(module_accessor: *mut Object, index: i32) -> u64;
+    pub fn hit_status(module_accessor: *mut Object, hit_status_index: i32) -> u64;
     // Status and motion are different: "ledge roll" is a status, while motion
     // identifies the character's animation and its current fractional frame.
     // Policy uses both so repeated input polls do not imply animation progress.
@@ -198,34 +216,43 @@ extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind39AttackModule__is_infliction_status_implEPNS_26BattleObjectModuleAccessorEj"]
     // Reserved for the unregistered whiff-punish prototype.
     #[allow(dead_code)]
-    pub fn attack_infliction(module_accessor: *mut Object, mask: i32) -> bool;
+    pub fn attack_infliction(module_accessor: *mut Object, collision_mask: i32) -> bool;
     // Fresh collision on this update; unlike is_infliction_status, this cannot
     // carry an earlier fair hit forward into a later hitbox interval.
     #[link_name = "\u{1}_ZN3app8lua_bind32AttackModule__is_infliction_implEPNS_26BattleObjectModuleAccessorEj"]
-    pub fn attack_infliction_now(module_accessor: *mut Object, mask: i32) -> bool;
+    pub fn attack_infliction_now(module_accessor: *mut Object, collision_mask: i32) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind28AttackModule__is_attack_implEPNS_26BattleObjectModuleAccessorEib"]
-    pub fn attack_active(module_accessor: *mut Object, index: i32, alternate: bool) -> bool;
+    pub fn attack_active(module_accessor: *mut Object, attack_slot: i32, alternate: bool) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind35StatusModule__prev_status_kind_implEPNS_26BattleObjectModuleAccessorEj"]
-    pub fn previous_status(module_accessor: *mut Object, index: u32) -> i32;
+    pub fn previous_status(module_accessor: *mut Object, history_index: u32) -> i32;
     #[link_name = "\u{1}_ZN3app8lua_bind24WorkModule__get_int_implEPNS_26BattleObjectModuleAccessorEi"]
-    pub fn work_int(module_accessor: *mut Object, key: i32) -> i32;
+    pub fn work_int(module_accessor: *mut Object, work_id: i32) -> i32;
     #[link_name = "\u{1}_ZN3app8lua_bind26WorkModule__get_float_implEPNS_26BattleObjectModuleAccessorEi"]
-    pub fn work_float(module_accessor: *mut Object, key: i32) -> f32;
+    pub fn work_float(module_accessor: *mut Object, work_id: i32) -> f32;
     #[link_name = "\u{1}_ZN3app8lua_bind42WorkModule__is_enable_transition_term_implEPNS_26BattleObjectModuleAccessorEi"]
-    pub fn transition_enabled(module_accessor: *mut Object, key: i32) -> bool;
+    pub fn transition_enabled(module_accessor: *mut Object, transition_term: i32) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind35CancelModule__is_enable_cancel_implEPNS_26BattleObjectModuleAccessorE"]
     #[allow(dead_code)] // Used by the parked offline whiff-observation prototype.
     pub fn cancel_enabled(module_accessor: *mut Object) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind36GroundModule__hang_cliff_pos_3f_implEPNS_26BattleObjectModuleAccessorE"]
     pub fn cliff_position(module_accessor: *mut Object) -> Vector3;
     #[link_name = "\u{1}_ZN3app8lua_bind50FighterMotionModuleImpl__get_hit_normal_frame_implEPNS_26BattleObjectModuleAccessorEN3phx6Hash40Eb"]
-    pub fn normal_hit_frame(module_accessor: *mut Object, motion: u64, alternate: bool) -> f32;
+    pub fn normal_hit_frame(module_accessor: *mut Object, motion_hash: u64, alternate: bool)
+        -> f32;
     #[link_name = "\u{1}_ZN3app8lua_bind46FighterMotionModuleImpl__get_cancel_frame_implEPNS_26BattleObjectModuleAccessorEN3phx6Hash40Eb"]
-    pub fn cancel_frame(module_accessor: *mut Object, motion: u64, alternate: bool) -> f32;
+    pub fn cancel_frame(module_accessor: *mut Object, motion_hash: u64, alternate: bool) -> f32;
     #[link_name = "\u{1}_ZN3app8lua_bind32WorkModule__get_param_float_implEPNS_26BattleObjectModuleAccessorEmm"]
-    pub fn param_float(module_accessor: *mut Object, parent: u64, child: u64) -> f32;
+    pub fn param_float(
+        module_accessor: *mut Object,
+        parameter_table_hash: u64,
+        parameter_hash: u64,
+    ) -> f32;
     #[link_name = "\u{1}_ZN3app8lua_bind30WorkModule__get_param_int_implEPNS_26BattleObjectModuleAccessorEmm"]
-    pub fn param_int(module_accessor: *mut Object, parent: u64, child: u64) -> i32;
+    pub fn param_int(
+        module_accessor: *mut Object,
+        parameter_table_hash: u64,
+        parameter_hash: u64,
+    ) -> i32;
     // WorkModule keys and transition-term IDs are version-specific constants
     // supplied by callers. They are not config values or offsets to invent.
     // Motion/position queries feed prediction; the mod never writes velocity.
@@ -242,34 +269,34 @@ extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind28GroundModule__ray_check_implEPNS_26BattleObjectModuleAccessorERKN3phx8Vector2fES6_b"]
     fn native_ray_check(
         module_accessor: *mut Object,
-        arg2: *const Vector2,
-        arg3: *const Vector2,
-        arg4: bool,
+        ray_origin: *const Vector2,
+        ray_displacement: *const Vector2,
+        check_passable_ground: bool,
     ) -> u64;
     // Re-resolve an accessor from a checked active object ID each update.
     // The resulting pointer is borrowed from the game, not owned by this plugin.
     #[link_name = "\u{1}_ZN3app16sv_battle_object15module_accessorEj"]
     pub fn module_accessor(object_id: u32) -> *mut Object;
     #[link_name = "\u{1}_ZN3app16sv_battle_object9is_activeEj"]
-    pub fn is_active(arg1: u32) -> bool;
+    pub fn is_active(battle_object_id: u32) -> bool;
     // Enumerate current fighters directly. Ledge opponents may not poll the
     // hooked command category while hanging, so callbacks alone are insufficient.
     #[link_name = "\u{1}_ZN3app8lua_bind32FighterManager__entry_count_implEPNS_14FighterManagerE"]
     pub fn entry_count(manager: *mut Object) -> i32;
     #[link_name = "\u{1}_ZN3app8lua_bind33FighterManager__get_entry_id_implEPNS_14FighterManagerEi"]
-    pub fn entry_id(manager: *mut Object, ordinal: i32) -> i32;
+    pub fn entry_id(manager: *mut Object, fighter_ordinal: i32) -> i32;
     #[link_name = "\u{1}_ZN3app8lua_bind38FighterManager__get_fighter_entry_implEPNS_14FighterManagerENS_14FighterEntryIDE"]
-    pub fn fighter_entry(manager: *mut Object, entry: i32) -> u64;
+    pub fn fighter_entry(manager: *mut Object, entry_id: i32) -> u64;
     #[link_name = "\u{1}_ZN3app8lua_bind37FighterEntry__current_fighter_id_implEPNS_12FighterEntryE"]
-    pub fn current_fighter_id(entry: *mut Object) -> u64;
+    pub fn current_fighter_id(fighter_entry: *mut Object) -> u64;
     // Manager queries exclude CPU-controlled actors and result-screen activity.
     #[link_name = "\u{1}_ZN3app8lua_bind44FighterManager__get_fighter_information_implEPNS_14FighterManagerENS_14FighterEntryIDE"]
-    pub fn fighter_information(arg1: *mut Object, arg2: i32) -> *mut Object;
+    pub fn fighter_information(manager: *mut Object, entry_id: i32) -> *mut Object;
     #[link_name = "\u{1}_ZN3app8lua_bind41FighterInformation__is_operation_cpu_implEPNS_18FighterInformationE"]
-    pub fn is_cpu(arg1: *mut Object) -> bool;
+    pub fn is_cpu(fighter_information: *mut Object) -> bool;
     #[link_name = "\u{1}_ZN3app8lua_bind35FighterManager__is_result_mode_implEPNS_14FighterManagerE"]
-    pub fn is_result(arg1: *mut Object) -> bool;
+    pub fn is_result(manager: *mut Object) -> bool;
     // Pinned cpp.rs: FighterManager::is_ready_go, read-only battle phase.
     #[link_name = "\u{1}_ZN3app8lua_bind32FighterManager__is_ready_go_implEPNS_14FighterManagerE"]
-    pub fn is_ready_go(arg1: *mut Object) -> bool;
+    pub fn is_ready_go(manager: *mut Object) -> bool;
 }

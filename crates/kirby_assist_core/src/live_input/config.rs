@@ -94,6 +94,14 @@ impl LiveConfig {
         // `.parse()` infers a type from the destination field (bool/u16/f32).
         // `?` propagates Err immediately: no partially parsed config is installed.
         let mut config = Self::default();
+        // These retired controls are still parsed and validated so older SD
+        // config files remain loadable, but they no longer affect live policy.
+        let mut legacy_roll_range = None;
+        let mut legacy_roll_distance = None;
+        let mut legacy_tilt_range = None;
+        let mut legacy_grab_range = None;
+        let mut legacy_anti_air_range = None;
+        let mut legacy_anti_air_height = None;
         for (number, line) in contents.lines().enumerate() {
             let line = line.split('#').next().unwrap_or("").trim();
             if line.is_empty() {
@@ -189,10 +197,10 @@ impl LiveConfig {
                 }
 
                 "ledge_tilt_range" => {
-                    config.ledge.tilt_range = value.parse().map_err(|_| invalid())?
+                    legacy_tilt_range = Some(value.parse::<f32>().map_err(|_| invalid())?)
                 }
                 "ledge_grab_range" => {
-                    config.ledge.grab_range = value.parse().map_err(|_| invalid())?
+                    legacy_grab_range = Some(value.parse::<f32>().map_err(|_| invalid())?)
                 }
                 "ledge_follow_range" => {
                     config.ledge.follow_range = value.parse().map_err(|_| invalid())?
@@ -210,7 +218,7 @@ impl LiveConfig {
                     config.ledge.walk_strength = value.parse().map_err(|_| invalid())?
                 }
                 "ledge_roll_dash_range" | "ledge_roll_smash_range" => {
-                    config.ledge.roll_dash_range = value.parse().map_err(|_| invalid())?
+                    legacy_roll_range = Some(value.parse::<f32>().map_err(|_| invalid())?)
                 }
 
                 "ledge_auto_position" => {
@@ -220,11 +228,11 @@ impl LiveConfig {
                     config.ledge.stand_distance = value.parse().map_err(|_| invalid())?
                 }
                 "ledge_roll_distance" => {
-                    config.ledge.roll_distance = if value.eq_ignore_ascii_case("auto") {
+                    legacy_roll_distance = Some(if value.eq_ignore_ascii_case("auto") {
                         None
                     } else {
-                        Some(value.parse().map_err(|_| invalid())?)
-                    };
+                        Some(value.parse::<f32>().map_err(|_| invalid())?)
+                    });
                 }
                 "ledge_move_strength" => {
                     config.ledge.move_strength = value.parse().map_err(|_| invalid())?
@@ -244,10 +252,10 @@ impl LiveConfig {
                 | "ledge_fair_jump_squat_buffer"
                 | "ledge_fair_buffer_frame" => {}
                 "ledge_anti_air_range" => {
-                    config.ledge.anti_air_range = value.parse().map_err(|_| invalid())?
+                    legacy_anti_air_range = Some(value.parse::<f32>().map_err(|_| invalid())?)
                 }
                 "ledge_anti_air_height" => {
-                    config.ledge.anti_air_height = value.parse().map_err(|_| invalid())?
+                    legacy_anti_air_height = Some(value.parse::<f32>().map_err(|_| invalid())?)
                 }
                 "ledge_grab_button" => {
                     config.ledge.grab_button = match value.to_ascii_uppercase().as_str() {
@@ -276,8 +284,8 @@ impl LiveConfig {
 
         if !config.ledge.walk_strength.is_finite()
             || !(0.1..=0.45).contains(&config.ledge.walk_strength)
-            || !config.ledge.roll_dash_range.is_finite()
-            || !(1.0..=20.0).contains(&config.ledge.roll_dash_range)
+            || legacy_roll_range
+                .is_some_and(|range| !range.is_finite() || !(1.0..=20.0).contains(&range))
         {
             return Err(
                 "ledge walk strength must be finite 0.1..0.45; roll smash range 1..20".into(),
@@ -293,8 +301,9 @@ impl LiveConfig {
         {
             return Err("ledge trap ranges must be finite and 1..20".into());
         }
-        if [config.ledge.tilt_range, config.ledge.grab_range]
+        if [legacy_tilt_range, legacy_grab_range]
             .iter()
+            .flatten()
             .any(|value| !value.is_finite() || !(1.0..=20.0).contains(value))
         {
             return Err("ledge attack ranges must be finite 1..20".into());
@@ -312,17 +321,16 @@ impl LiveConfig {
         {
             return Err("invalid ledge follow, position, or grab buffer settings".into());
         }
-        if config
-            .ledge
-            .roll_distance
-            .is_some_and(|distance| !distance.is_finite() || !(2.0..=100.0).contains(&distance))
-        {
+        if legacy_roll_distance.is_some_and(|distance| {
+            distance
+                .is_some_and(|distance| !distance.is_finite() || !(2.0..=100.0).contains(&distance))
+        }) {
             return Err("ledge_roll_distance must be auto or finite 2..100".into());
         }
-        if !config.ledge.anti_air_range.is_finite()
-            || !(1.0..=20.0).contains(&config.ledge.anti_air_range)
-            || !config.ledge.anti_air_height.is_finite()
-            || !(1.0..=40.0).contains(&config.ledge.anti_air_height)
+        if legacy_anti_air_range
+            .is_some_and(|range| !range.is_finite() || !(1.0..=20.0).contains(&range))
+            || legacy_anti_air_height
+                .is_some_and(|height| !height.is_finite() || !(1.0..=40.0).contains(&height))
         {
             return Err("anti-air range must be 1..20 and height 1..40".into());
         }

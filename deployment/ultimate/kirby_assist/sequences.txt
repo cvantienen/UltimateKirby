@@ -19,20 +19,14 @@ ledge_trap = true
 ledge_manual_spacing = true
 ledge_distance_agnostic = true
 ledge_walk_strength = 0.35
-ledge_roll_dash_range = 10.0
 ledge_drop_defense = true
 auto_ledge_trump = false
-ledge_anti_air_range = 12.0
-ledge_anti_air_height = 18.0
 ledge_trap_range = 20.0
 ledge_trap_vertical_range = 10.0
-ledge_tilt_range = 15.0
-ledge_grab_range = 9.0
 ledge_follow_range = 40.0
 ledge_follow_vertical_range = 48.0
 ledge_auto_position = false
 ledge_stand_distance = 10.0
-ledge_roll_distance = 25.0
 ledge_move_strength = 0.65
 ledge_grab_button = R
 ledge_throw_outward = false
@@ -76,4 +70,3 @@ actions = run_to_ledge:10:1:1:2:120
 # Down-smash branches choose front/rear at entry; position for the roll endpoint.
 # Auto-react is immediate; ordinary dodges do not use the ledge timings.
 # Automatic admission is grounded; aerial tapes may finish after takeoff.
-

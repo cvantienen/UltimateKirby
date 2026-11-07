@@ -773,13 +773,11 @@ impl LedgeMenu {
             if let Some(resolved) = self.resolved.as_ref() {
                 return LedgeSettings {
                     enabled: self.sequence_enabled(startup.enabled),
-                    two_frame: false,
-                    two_frame_down_tilt: false,
                     ..*resolved
                 };
             }
             let base=super::ledge_settings(kind,*startup);
-            return LedgeSettings {enabled:self.sequence_enabled(base.enabled),two_frame:false,two_frame_down_tilt:false,..base};
+            return LedgeSettings {enabled:self.sequence_enabled(base.enabled),..base};
         }
         super::ledge_settings(kind,*startup)
     }

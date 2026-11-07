@@ -20,7 +20,6 @@ pub const LEDGE_DATA: LedgeFighterData = LedgeFighterData {
         shield: 10,
         active_frames: 2,
     },
-    common_roll_distance: 25.0,
 };
 
 // Start Neutral get-up down smash this many frames earlier than midpoint alignment.

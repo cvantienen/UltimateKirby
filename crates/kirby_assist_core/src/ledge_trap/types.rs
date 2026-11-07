@@ -91,10 +91,6 @@ pub fn recovery_frames(frame: f32, end: f32, cancel: f32, rate: f32) -> Option<f
 /// Validated config values. Defaults and response timing are shared by both builds.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeSettings {
-    /// Retired recovery-policy compatibility field; live menus keep this false.
-    pub two_frame: bool,
-    /// Retired alongside recovery interception; no live dispatcher reads it.
-    pub two_frame_down_tilt: bool,
     /// Legacy identity tag; no executable fighter handler is dispatched.
     pub implementation: Option<super::ResponseImplementation>,
     /// Native fighter identity for startup-loaded file menus.
@@ -116,34 +112,23 @@ pub struct LedgeSettings {
     // Ranges/heights/stance distances are WORLD units, not stick percentages.
     // Increasing reach only makes the policy willing to attack from farther
     // away; it does not enlarge Kirby's real hitbox and can create more whiffs.
-    pub anti_air_range: f32,
-    pub anti_air_height: f32,
     /// Broad target acquisition limits in world units.
     pub horizontal_range: f32,
     pub vertical_range: f32,
-    /// Separate attack limits prevent treating acquisition range as hitbox reach.
-    pub tilt_range: f32,
-    pub grab_range: f32,
     // Follow limits keep the acquired opponent through its get-up travel;
     // acquisition limits above decide whether to acquire it in the first place.
     pub follow_range: f32,
     pub follow_vertical_range: f32,
-    /// Preserve player movement between punish inputs. The roll response still
-    /// navigates to its committed coverage point regardless of this setting.
+    /// Preserve player movement between response inputs.
     pub manual_spacing: bool,
     /// Player owns spacing; normal/jump/grab timing does not test reach.
     pub distance_agnostic: bool,
     /// Baseline horizontal walk strength: normal cap is -0.02, near-full
     /// horizontal cap is +0.03, both bounded to 0.1..0.45.
     pub walk_strength: f32,
-    /// Legacy reach setting retained for config compatibility; roll navigation
-    /// now uses the common roll_distance point instead of a reach forecast.
-    pub roll_dash_range: f32,
     pub auto_position: bool,
     /// Heuristic stage-side stance offset, not a universal optimal location.
     pub stand_distance: f32,
-    /// Common roll coverage distance inward from the ledge; auto uses 25 units.
-    pub roll_distance: Option<f32>,
     // Unlike distances, move_strength is normalized stick magnitude (0..1).
     pub move_strength: f32,
     /// Legacy parsed setting. Captures always return control to the player.
@@ -154,8 +139,6 @@ pub struct LedgeSettings {
 impl Default for LedgeSettings {
     fn default() -> Self {
         Self {
-            two_frame: false,
-            two_frame_down_tilt: false,
             implementation: Some(super::ResponseImplementation::Kirby),
             fighter_kind: 6,
             response_choices: [None; crate::fighter_profiles::presets::PresetSlot::COUNT],
@@ -164,21 +147,15 @@ impl Default for LedgeSettings {
             responses: LedgeResponses::default(),
             enabled: false,
             drop_defense: true,
-            anti_air_range: 12.0,
-            anti_air_height: 18.0,
             horizontal_range: 12.0,
             vertical_range: 10.0,
-            tilt_range: 10.0,
-            grab_range: 8.0,
             follow_range: 40.0,
             follow_vertical_range: 48.0,
             manual_spacing: true,
             distance_agnostic: true,
             walk_strength: 0.35,
-            roll_dash_range: 10.0,
             auto_position: true,
             stand_distance: 8.0,
-            roll_distance: None,
             move_strength: 1.0,
             throw_outward: false,
             grab_button: MAPPER_R,

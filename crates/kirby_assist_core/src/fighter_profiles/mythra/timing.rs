@@ -21,7 +21,6 @@ pub const LEDGE_DATA: LedgeFighterData = LedgeFighterData {
         shield: 10,
         active_frames: 2,
     },
-    common_roll_distance: 25.,
 };
 pub const UP_TILT: MoveFrames = MoveFrames { first: 7, last: 12 };
 pub const FORWARD_SMASH: MoveFrames = MoveFrames {

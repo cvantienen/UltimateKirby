@@ -2,8 +2,8 @@
 //!
 //! The adapter supplies read-only support probes. `nearest_ground_ledge` finds
 //! a candidate once; `LedgePosition` remembers it and proposes a damped approach.
-//! This prepares a stance. The roll response in ledge_trap/roll.rs has its own
-//! committed destination and is responsible for timing the down-smash punish.
+//! This prepares a stance for the selected response. Ordered response inputs
+//! are executed separately by `ledge_trap/file_timeline.rs`.
 use crate::ledge_trap::{LedgeContext, LedgeOutput, LedgeSettings, LEDGE_BUTTONS};
 use crate::ledge_trump::floor_edge_with_limit;
 

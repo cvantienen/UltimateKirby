@@ -114,3 +114,60 @@ fn rear_down_smash_and_shield_grab_use_distinct_verified_timings() {
         MoveFrames { first: 3, last: 6 }
     );
 }
+
+#[test]
+fn profile_grab_facts_follow_the_matching_reference_row() {
+    let profiles = FighterProfiles::default();
+
+    for profile in profiles.profiles.values() {
+        let grab_data = profile.ledge.grab;
+
+        if let Some(reference) = crate::opponent_data::ordinary_grab(profile.fighter_kind, 0x37) {
+            assert_eq!(grab_data.standing, reference.first, "{}", profile.name);
+            assert_eq!(
+                grab_data.active_frames,
+                reference.last - reference.first + 1,
+                "{}",
+                profile.name
+            );
+            assert_eq!(
+                grab_data.standing_range, reference.reach,
+                "{}",
+                profile.name
+            );
+        }
+
+        for (status, reference_frame, profile_frame) in [
+            (
+                0x39,
+                crate::opponent_data::ordinary_grab(profile.fighter_kind, 0x39),
+                grab_data.dash,
+            ),
+            (
+                0x3b,
+                crate::opponent_data::ordinary_grab(profile.fighter_kind, 0x3b),
+                grab_data.turn_or_shield,
+            ),
+        ] {
+            if let Some(reference) = reference_frame {
+                assert_eq!(
+                    profile_frame, reference.first,
+                    "{} status {status:#x}",
+                    profile.name
+                );
+            }
+        }
+
+        let reference_shield_grab = profile
+            .reference()
+            .and_then(|reference| reference.stat("outofshield.grabpostshieldstun"))
+            .and_then(|frame| frame.parse::<u8>().ok())
+            .filter(|frame| (1..=120).contains(frame));
+        if let Some(reference_frame) = reference_shield_grab {
+            assert_eq!(grab_data.shield, reference_frame, "{}", profile.name);
+        }
+    }
+
+    assert!(profiles.profile(-1).is_none());
+    assert!(profiles.profile(0x5e).is_none());
+}

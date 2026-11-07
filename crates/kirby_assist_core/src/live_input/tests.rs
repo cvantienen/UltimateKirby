@@ -93,19 +93,14 @@ fn bundled_config_keeps_analog_mash_and_extended_prediction() {
     assert!(config.ledge.enabled);
     assert_eq!(config.ledge.horizontal_range, 20.0);
     assert_eq!(config.ledge.vertical_range, 10.0);
-    assert_eq!(config.ledge.tilt_range, 15.0);
-    assert_eq!(config.ledge.grab_range, 9.0);
     assert_eq!(config.ledge.follow_range, 40.0);
     assert_eq!(config.ledge.follow_vertical_range, 48.0);
     assert!(!config.ledge.auto_position);
     assert!(config.ledge.manual_spacing);
     assert_eq!(config.ledge.walk_strength, 0.35);
-    assert_eq!(config.ledge.roll_dash_range, 10.0);
     assert_eq!(config.ledge.stand_distance, 10.0);
     assert_eq!(config.ledge.move_strength, 0.65);
     assert_eq!(config.ledge.grab_button, crate::native_input::MAPPER_R);
-    assert_eq!(config.ledge.anti_air_range, 12.0);
-    assert_eq!(config.ledge.anti_air_height, 18.0);
     assert!(config.turbo.enabled);
     assert!(!config.dpad_b_reverse); // D-pad now uses fighter-specific bindings.
     assert_eq!(config.turbo.phase_frames, 1);
@@ -190,10 +185,9 @@ fn legacy_throw_setting_stays_parseable_and_bundled_capture_is_manual() {
 
 #[test]
 fn removed_aerial_settings_do_not_disable_existing_sd_configs() {
-    let config = LiveConfig::parse("ledge_trap = true\nledge_grab_button = l\nledge_jump_response = fair\nledge_fair_range = 11.0\nledge_fair_vertical_range = 10.0\nledge_fair_delay_frames = 0.0\nledge_fair_lead_frames = 4.0\nledge_fair_jump_squat_buffer = true\nledge_fair_buffer_frame = 1.0").unwrap();
+    let config = LiveConfig::parse("ledge_trap = true\nledge_grab_button = l\nledge_jump_response = fair\nledge_fair_range = 11.0\nledge_fair_vertical_range = 10.0\nledge_fair_delay_frames = 0.0\nledge_fair_lead_frames = 4.0\nledge_fair_jump_squat_buffer = true\nledge_fair_buffer_frame = 1.0")    .unwrap();
     assert!(config.ledge.enabled);
     assert_eq!(config.ledge.grab_button, crate::native_input::MAPPER_L);
-    assert_eq!(config.ledge.anti_air_range, 12.0);
     assert!(!config.controls.auto_mash);
     assert!(config.controls.auto_tech);
 }
@@ -417,23 +411,39 @@ fn instruction_scan_requires_a_single_aligned_match() {
     assert_eq!(unique_instruction_offset(&[], &pattern), None);
 }
 #[test]
-fn roll_distance_accepts_auto_or_a_measured_finite_endpoint_distance() {
-    assert_eq!(
-        LiveConfig::parse("ledge_roll_distance = auto")
-            .unwrap()
-            .ledge
-            .roll_distance,
-        None
-    );
-    assert_eq!(
-        LiveConfig::parse("ledge_roll_distance = 25.0")
-            .unwrap()
-            .ledge
-            .roll_distance,
-        Some(25.0)
-    );
-    for value in ["NaN", "inf", "1", "101", "wrong"] {
-        assert!(LiveConfig::parse(&format!("ledge_roll_distance = {value}")).is_err());
+fn legacy_ledge_measurements_are_validated_but_ignored() {
+    let defaults = LiveConfig::default().ledge;
+    for source in [
+        "ledge_roll_dash_range = 10.0",
+        "ledge_roll_smash_range = 10.0",
+        "ledge_roll_distance = auto",
+        "ledge_roll_distance = 25.0",
+        "ledge_tilt_range = 10.0",
+        "ledge_grab_range = 8.0",
+        "ledge_anti_air_range = 12.0",
+        "ledge_anti_air_height = 18.0",
+    ] {
+        assert_eq!(
+            LiveConfig::parse(source).unwrap().ledge,
+            defaults,
+            "{source}"
+        );
+    }
+
+    for source in [
+        "ledge_roll_dash_range = NaN",
+        "ledge_roll_smash_range = inf",
+        "ledge_roll_smash_range = 0.0",
+        "ledge_roll_distance = NaN",
+        "ledge_roll_distance = 1",
+        "ledge_roll_distance = 101",
+        "ledge_roll_distance = wrong",
+        "ledge_tilt_range = NaN",
+        "ledge_grab_range = 21",
+        "ledge_anti_air_range = inf",
+        "ledge_anti_air_height = 41",
+    ] {
+        assert!(LiveConfig::parse(source).is_err(), "{source}");
     }
 }
 #[test]
@@ -443,7 +453,6 @@ fn manual_spacing_config_rejects_nonfinite_and_dash_strength_settings() {
         "ledge_walk_strength = 0.46",
         "ledge_walk_strength = 0.0",
         "ledge_roll_smash_range = inf",
-        "ledge_roll_smash_range = 0.0",
         "ledge_manual_spacing = maybe",
     ] {
         assert!(LiveConfig::parse(source).is_err(), "{source}");
@@ -454,7 +463,6 @@ fn manual_spacing_config_rejects_nonfinite_and_dash_strength_settings() {
     .unwrap();
     assert!(config.ledge.manual_spacing);
     assert_eq!(config.ledge.walk_strength, 0.4);
-    assert_eq!(config.ledge.roll_dash_range, 8.5);
 }
 #[test]
 fn player_slot_defaults_to_player_one_and_accepts_legacy_config_key() {

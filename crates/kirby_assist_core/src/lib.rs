@@ -12,60 +12,93 @@
 //! input translation, plus checks for transitions and cancellation.
 //! This crate can be tested on a computer without Skyline or a connected Switch.
 
-// Suggested learning order inside this crate:
+// Suggested learning order:
 // 1. state.rs / input.rs: the small values passed between components.
-// 2. config.rs / assist.rs: select a rule and compute one logical proposal.
+// 2. config.rs / assist.rs: choose a rule and compute one logical proposal.
 // 3. examples/walkthrough.rs: a complete, pretend frame loop on your computer.
-// 4. live_input.rs: real mash/tech scheduling; manual_controls.rs: D-pad tools.
+// 4. live_input.rs: mash/tech scheduling; manual_controls.rs: D-pad tools.
 // 5. ledge_trap.rs: the larger state machine, backed by ledge_trap/tests.rs.
 //    ledge_trap/types.rs defines its data; its response files contain recipes.
-// See docs/CODE_MAP.md for module roles and docs/FIGHTER_CONFIGS.md for compiled fighter catalogs.
-// `pub` is Rust's visibility keyword. Tests can exercise these public helpers
-// without loading the Switch plugin or depending on a native game allocation.
-// Common Rust syntax in these files: #[derive(...)] asks the compiler to
-// implement traits. Copy permits copying a small value, Debug supports {:?}
-// formatting, Default supplies initial values, and PartialEq supports == checks.
+// See docs/CODE_MAP.md for module responsibilities and docs/FIGHTER_CONFIGS.md
+// for compiled fighter catalogs.
+//
+// The declarations below are grouped by responsibility to make this crate
+// easier to navigate. They remain public at their existing paths so this
+// organization does not break callers that already use the crate.
+//
+// `pub` is Rust's visibility keyword. Tests can exercise these helpers without
+// loading the Switch plugin or depending on a native game allocation. Common
+// Rust syntax: #[derive(...)] asks the compiler to implement traits. Copy
+// permits copying a small value, Debug supports {:?} formatting, Default
+// supplies initial values, and PartialEq supports == checks.
+
+// Shared values and observations passed between policies.
 pub mod action_owner;
-pub mod projectile_reflect;
-pub mod grab_handoff;
+pub mod battle_objects;
+pub mod input;
+pub mod native_input;
+pub mod native_states;
+pub mod observation;
+pub mod opponent_data;
+pub mod state;
+pub mod timing;
+
+// Fighter-specific reference facts, move data, and startup catalogs.
+pub mod fighter_profiles;
+pub mod fighter_tuning;
+
+// Independent assistance policies and their decision helpers.
 pub mod assist;
 pub mod auto_di;
 pub mod autopilot_guard;
-pub mod button_modes;
 pub mod combat_assist;
-pub mod config;
-pub mod diagnostics;
+pub mod defense_response;
 pub mod finisher;
-pub mod ledge_menu;
-pub mod opponent_data;
-pub mod option_read;
-pub mod spot_punish;
-pub mod spot_dodge;
-pub mod whiff_punish;
-// Compiled fighter registrations, named responses, move data.
-pub mod fighter_profiles;
-pub mod input;
-
-pub mod live_input;
-pub mod observation;
-pub mod native_states;
-pub mod battle_objects;
+pub mod grab_handoff;
+pub mod jab_grab;
+pub mod jab_lock;
+pub mod kirby_posture;
+pub mod move_input;
+pub mod out_of_shield;
+pub mod projectile_reflect;
+pub mod reaction_rules;
 pub mod roll_read;
-pub mod runtime;
-pub mod sequence;
-pub mod sequence_config;
-pub mod session;
+pub mod shield_pressure;
 pub mod slide;
-pub mod state;
-pub mod timing;
+pub mod spot_dodge;
+pub mod spot_punish;
+pub mod tech_input;
+pub mod tech_prediction;
+pub mod whiff_punish;
+
+// User configuration, menu choices, and input bindings.
+pub mod button_bindings;
+pub mod button_modes;
+pub mod config;
+pub mod ledge_menu;
+pub mod manual_controls;
+pub mod option_read;
+pub mod sequence_config;
+
+// Stateful orchestration, diagnostics, and reusable examples/tools.
+pub mod diagnostics;
+pub mod live_input;
+#[cfg(feature = "probe-counters")]
+pub mod probe_counters;
+pub mod runtime;
+pub mod runtime_toggle;
+pub mod sequence;
+pub mod session;
 pub mod tools;
 pub mod training_test;
-pub use runtime::AssistRuntime;
-pub use sequence::{
-    ConfirmedSequence, ConfirmedStep, InputSequence, InputStep, SequenceObservation, SequenceState,
-};
-pub use tools::{AutoMash, AutoTech};
 
+// Related ledge behaviors share observations, but keep separate policies.
+// The recovery 2-frame policy remains available to core callers.
+pub mod ledge_position;
+pub mod ledge_trap;
+pub mod ledge_trump;
+
+// Convenient root-level re-exports; module-qualified paths remain supported.
 pub use assist::{AssistEngine, DecisionStatus, FrameDecision};
 pub use config::{
     AssistConfig, AssistScope, RecordingSlot, RuleTiming, ScenarioAction, ScenarioRule,
@@ -75,36 +108,12 @@ pub use input::{
     arbitrate, ArbitrationResult, ButtonSet, ControllerFrame, InputPermissions, InputRecipe,
     LeftStickIntent, StickPosition,
 };
+pub use runtime::AssistRuntime;
+pub use sequence::{
+    ConfirmedSequence, ConfirmedStep, InputSequence, InputStep, SequenceObservation, SequenceState,
+};
 pub use state::{
     FighterKind, FighterObservation, GameAdapter, GameObservationSource, InputBridge, RunContext,
     Scenario, ScenarioSample,
 };
-
-pub mod native_input;
-pub mod runtime_toggle;
-pub mod tech_input;
-pub mod tech_prediction;
-
-pub mod jab_grab;
-pub mod jab_lock;
-pub mod kirby_posture;
-pub mod manual_controls;
-pub mod move_input;
-pub mod out_of_shield;
-pub mod defense_response;
-
-// Held-L ledge autopilot; the recovery 2-frame policy remains available to core callers.
-pub mod ledge_position;
-pub mod ledge_trap;
-pub mod ledge_trump;
-
-pub mod button_bindings;
-
-#[cfg(feature = "probe-counters")]
-pub mod probe_counters;
-
-pub mod reaction_rules;
-
-pub mod fighter_tuning;
-
-pub mod shield_pressure;
+pub use tools::{AutoMash, AutoTech};

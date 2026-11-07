@@ -30,7 +30,6 @@ pub const LEDGE_DATA: LedgeFighterData = LedgeFighterData {
         shield: 10,
         active_frames: 2,
     },
-    common_roll_distance: 25.0,
 };
 
 // Native throw release or tilt hit frame, and the paired aerial first hit.

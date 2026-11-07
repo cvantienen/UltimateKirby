@@ -1148,12 +1148,11 @@ mod tests {
         assert!(!timeline("drift:inward:50%:4").needs_ground());
     }
     #[test]
-    fn fighter_range_uses_selected_fighter_reference_not_global_setting() {
+    fn fighter_range_uses_the_selected_fighter_profile() {
         let profiles = crate::fighter_profiles::FighterProfiles::default();
         for (kind, inside, outside) in [(5, 20.0, 27.0), (6, 10.0, 13.0)] {
             let mut settings = LedgeSettings::default();
             settings.fighter = profiles.profile(kind).unwrap().ledge;
-            settings.grab_range = 1.0;
             for (distance, expected) in [(inside, MAPPER_R), (outside, 0)] {
                 let opponent = Opponent {
                     position: [distance, 0.0],

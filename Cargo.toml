@@ -17,11 +17,15 @@ Adds explicit toward-opponent and away-rom-opponent file directions, retaining o
 
 Changes auto-mash startup to OFF in the Rust fallback and supplied deployment configuration, retaining the in-game Auto-mash toggle for opt-in use. Updates the release helper summary and maintained control notes accordingly.
 
+Groups core policy and Switch integration module declarations by responsibility while preserving existing public module paths and runtime behavior.
+
 Hardens the runtime master switch with an independent native match/intro lock that stays active during OFF passthrough, rather than relying on the expiring menu observation lease. Requires a 350ms Plus+Minus hold and 150ms complete release; rejects held chords crossing match boundaries and missing-controller samples. OFF clears pending overlays/requests and rejects in-flight observation publication; mapper rechecks passthrough before applying outputs. ON restores saved feature selections after cleanup. Adds portable gesture regressions; only minimal read-only battle/toggle checks remain while OFF.
 
 Adds tools/upload_sequences.py to send only deployment/ultimate/kirby_assist/sequences.txt to both saved Switch IPs using anonymous FTP port 5000, attempting both targets independently and verifying each by SHA-256 read-back. Includes dry-run preview and fake-FTP tests; never builds or uploads NROs.
 
 Reverts the recent stale-selection/cache changes at the user's request after the reported replay was identified as a different getup option. Restores prior recipe inheritance, observation publication and menu-change reset behavior; keeps silent test-option filtering and larger, more widely spaced menu text.
+
+Removes inactive ledge-policy compatibility fields and no-op methods while continuing to accept and validate legacy settings. Keeps grab reach centralized in fighter profiles, updates the architecture map/config guidance, and removes retired numeric settings from the bundled defaults.
 
 Hardens menu option changes against stale recipe publication: clears pending output/evaluation state, rejects observations from an older settings epoch and removes inherited file overrides before resolving selected IDs. Filters file choice IDs starting with test and labels containing [TEST] from silent startup catalogs only. Enlarges the top-menu font and gaps, keeping the selected setting in view with hidden horizontal scrolling when needed.
 
@@ -1573,6 +1577,8 @@ Adds stage-aware survival DI with native blast-zone queries and stable launch-re
 
 
 Improves roster-wide Auto Tech with read-only native floor/wall/ceiling contacts, animated ECB base offsets and current-scale forecasts, including frozen poses and the final victim-hitlag frame. Synchronizes shield releases and bounded delivery receipts with native Guard consumption, prioritizes imminent/committed tech edges ahead of DI without mixing modes, and cancels stale receipts while preserving lockout. Adds roster/contact/delivery/ownership host regressions; no documentation changes, native physics/status writes, mod build or upload.
+
+Clarifies the native FFI ray safety contract, names ABI parameters descriptively, and verifies native data layouts at compile time. Adds regression coverage that fighter grab timings and reach come from the matching shared fighter reference, never a universal fallback. Removes the unused universal roll-distance field repeated across 79 fighter timing profiles.
 """
 
 
