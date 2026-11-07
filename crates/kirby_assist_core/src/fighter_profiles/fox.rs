@@ -5,7 +5,7 @@ pub fn profile() -> FighterProfile {
     FighterProfile {
         name: "fox",
         fighter_kind: crate::fighter_kinds::FOX,
-        ledge: super::FighterGrabData::from_kind(7),
+        grab: super::FighterGrabData::from_kind(7),
 
         menu_options: crate::fighter_profiles::presets::MenuPresets::EMPTY,
     }

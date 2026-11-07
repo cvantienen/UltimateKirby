@@ -129,6 +129,3 @@ impl MenuPresets {
         &self.lists[slot as usize]
     }
 }
-
-#[cfg(test)]
-mod tests;

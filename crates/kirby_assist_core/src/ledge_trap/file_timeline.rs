@@ -2,7 +2,7 @@
 //! Simple inputs never query action readiness, hitboxes, or acceptance. Only
 //! explicitly spatial steps use already-copied opponent/ground observations.
 use super::{
-    attempt::NativeAttempt, ControllerOutput, GameplayContext, LedgeSettings, Opponent,
+    attempt::NativeAttempt, AssistSettings, ControllerOutput, GameplayContext, Opponent,
     SEQUENCE_BUTTONS,
 };
 use crate::sequence_config::{Action, Condition, Direction, RangeCheck, Sequence};
@@ -226,14 +226,15 @@ impl Timeline {
     #[inline(always)]
     pub fn sample(
         &mut self,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         ctx: GameplayContext,
         enemy: Option<Opponent>,
         anchor: Option<[f32; 2]>,
         inward: f32,
     ) -> ControllerOutput {
         if self.grounded_automatic_actions
-            && (ctx.situation != crate::native_states::situation::GROUND || ctx.status == crate::native_states::status::JUMP_SQUAT)
+            && (ctx.situation != crate::native_states::situation::GROUND
+                || ctx.status == crate::native_states::status::JUMP_SQUAT)
             && !crate::native_states::up_special_status(settings.fighter_kind, ctx.status)
             && self
                 .automatic_ground_steps
@@ -254,7 +255,8 @@ impl Timeline {
                 && out.stick.is_some_and(|s| s[1] > 0.5)
                 && !crate::native_states::up_special_status(settings.fighter_kind, ctx.status);
             if (grab || special)
-                && (ctx.situation != crate::native_states::situation::GROUND || ctx.status == crate::native_states::status::JUMP_SQUAT)
+                && (ctx.situation != crate::native_states::situation::GROUND
+                    || ctx.status == crate::native_states::status::JUMP_SQUAT)
             {
                 self.finish("automatic_ground_action_became_airborne");
                 self.output = ControllerOutput::default();
@@ -274,7 +276,7 @@ impl Timeline {
     }
     fn sample_inner(
         &mut self,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         ctx: GameplayContext,
         enemy: Option<Opponent>,
         anchor: Option<[f32; 2]>,
@@ -316,7 +318,9 @@ impl Timeline {
                 self.sequence.actions().get(self.cursor as usize),
                 Some(Action::ShieldUntilManual)
             ) || self.output.requested & crate::native_input::MAPPER_ZR != 0;
-            if shield && ctx.situation != crate::native_states::situation::GROUND || ctx.manual_input_epoch != self.manual_epoch {
+            if shield && ctx.situation != crate::native_states::situation::GROUND
+                || ctx.manual_input_epoch != self.manual_epoch
+            {
                 self.finish("manual_takeover_or_airborne");
                 self.output = ControllerOutput::default(); // Physical input owns this very sample.
                 return self.output;
@@ -719,7 +723,8 @@ impl Timeline {
                     }
                     if frames == 0 {
                         if buttons == 0
-                            || buttons & crate::native_input::MAPPER_ZR != 0 && ctx.situation != crate::native_states::situation::GROUND
+                            || buttons & crate::native_input::MAPPER_ZR != 0
+                                && ctx.situation != crate::native_states::situation::GROUND
                         {
                             self.finish("invalid_manual_hold_scope");
                             self.output = ControllerOutput::default();
@@ -963,7 +968,9 @@ impl Timeline {
                         continue;
                     }
                     let dx = self.enemy.position[0] - ctx.position[0];
-                    if ctx.situation != crate::native_states::situation::GROUND || !ctx.safe_ground[usize::from(dx > 0.)] {
+                    if ctx.situation != crate::native_states::situation::GROUND
+                        || !ctx.safe_ground[usize::from(dx > 0.)]
+                    {
                         return self.finish("unsafe_chase");
                     }
                     self.output = controls([dx.signum() * strength, 0.], 0);
@@ -986,7 +993,8 @@ impl Timeline {
                         self.output = controls([0.0; 2], 0);
                     } else {
                         if !airborne
-                            && (ctx.situation != crate::native_states::situation::GROUND || !ctx.safe_ground[usize::from(dx > 0.0)])
+                            && (ctx.situation != crate::native_states::situation::GROUND
+                                || !ctx.safe_ground[usize::from(dx > 0.0)])
                         {
                             return self.finish("unsafe_approach");
                         }

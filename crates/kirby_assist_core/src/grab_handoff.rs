@@ -88,7 +88,10 @@ impl GrabHandoff {
             return;
         };
         self.native_context = Some(c);
-        if c.situation != crate::native_states::situation::GROUND || native_grab_active(c.status) || sequence_interrupted(c.status) {
+        if c.situation != crate::native_states::situation::GROUND
+            || native_grab_active(c.status)
+            || sequence_interrupted(c.status)
+        {
             self.clear_receipt();
         } else if self.pending {
             self.native_clock.advance_pause(c, None, u16::MAX);

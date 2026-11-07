@@ -8,7 +8,7 @@ pub fn profile() -> FighterProfile {
     FighterProfile {
         name: "kirby",
         fighter_kind: FIGHTER_KIND,
-        ledge: super::FighterGrabData::from_kind(6),
+        grab: super::FighterGrabData::from_kind(6),
 
         menu_options: crate::fighter_profiles::presets::MenuPresets::EMPTY,
     }

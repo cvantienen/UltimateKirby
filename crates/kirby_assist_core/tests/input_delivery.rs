@@ -1,12 +1,13 @@
 //! Final controller delivery regressions shared by ledge/button/Auto react tapes.
 use kirby_assist_core::{
     gameplay::{GameplayContext, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
+    ledge_trap::{InputTimeline, SEQUENCE_BUTTONS},
     manual_controls::{
         ManualOverlay, ShortcutContext, Shortcuts, TurboOutput, LEFT_STICK_DIRECTIONS,
     },
     native_input::*,
     sequence_config::Catalog,
+    settings::AssistSettings,
 };
 fn tape(actions: &str) -> InputTimeline {
     let catalog = Catalog::parse(&format!(
@@ -43,7 +44,7 @@ fn full_drift_keeps_the_dash_edge_and_exact_strength_while_walk_suppresses_it() 
         "walk:opponent:10:50%",
     ] {
         let mut t = tape(actions);
-        let out = t.sample(LedgeSettings::default(), context(0.), None, None, 0.);
+        let out = t.sample(AssistSettings::default(), context(0.), None, None, 0.);
         let consumption = sequence_flick_consumption(out.owned, t.walking());
         let raw = ManualOverlay::default().apply_controls(
             ButtonTrace {
@@ -79,9 +80,9 @@ fn full_drift_keeps_the_dash_edge_and_exact_strength_while_walk_suppresses_it() 
 #[test]
 fn a_one_frame_dash_advances_directly_to_up_b_without_manual_guard_or_jump() {
     let mut t = tape("drift:opponent:1:1, up_b:4, drift:opponent:1:65");
-    let a = t.sample(LedgeSettings::default(), context(0.), None, None, 0.);
+    let a = t.sample(AssistSettings::default(), context(0.), None, None, 0.);
     assert_eq!(a.stick, Some([1., 0.]));
-    let b = t.sample(LedgeSettings::default(), context(1.), None, None, 0.);
+    let b = t.sample(AssistSettings::default(), context(1.), None, None, 0.);
     assert_eq!(b.requested, MAPPER_B);
     assert_eq!(b.stick, Some([0., 1.]));
     let raw = ManualOverlay::default().apply_controls(
@@ -105,7 +106,7 @@ fn a_one_frame_dash_advances_directly_to_up_b_without_manual_guard_or_jump() {
         0x2 | 0x800
     );
     assert_eq!(exclusive_sequence_stick(b.owned, b.stick), Some([0., 1.]));
-    let c = t.sample(LedgeSettings::default(), context(2.), None, None, 0.);
+    let c = t.sample(AssistSettings::default(), context(2.), None, None, 0.);
     assert_eq!(c.requested, MAPPER_B);
 }
 #[test]
@@ -231,26 +232,26 @@ fn auto_react_rebases_a_crossed_one_frame_step_without_shortening_the_next_input
     let mut t = tape("drift:opponent:1:1, up_b:4, drift:opponent:1:65");
     t.allow_continuous_progress();
     assert_eq!(
-        t.sample(LedgeSettings::default(), context(0.), None, None, 0.)
+        t.sample(AssistSettings::default(), context(0.), None, None, 0.)
             .stick,
         Some([1., 0.])
     );
     for frame in [2., 3., 4., 5.] {
-        let out = t.sample(LedgeSettings::default(), context(frame), None, None, 0.);
+        let out = t.sample(AssistSettings::default(), context(frame), None, None, 0.);
         assert_eq!(
             out.requested, MAPPER_B,
             "Up-B must retain four complete input frames"
         );
         assert_eq!(out.stick, Some([0., 1.]));
     }
-    let out = t.sample(LedgeSettings::default(), context(6.), None, None, 0.);
+    let out = t.sample(AssistSettings::default(), context(6.), None, None, 0.);
     assert_eq!(out.requested, 0);
     assert_eq!(out.stick, Some([1., 0.]));
     assert!(!t.finished());
     // Ledge/button tapes keep strict gap handling unless explicitly opted in.
     let mut strict = tape("drift:opponent:1:1, up_b:4");
-    strict.sample(LedgeSettings::default(), context(0.), None, None, 0.);
-    strict.sample(LedgeSettings::default(), context(2.), None, None, 0.);
+    strict.sample(AssistSettings::default(), context(0.), None, None, 0.);
+    strict.sample(AssistSettings::default(), context(2.), None, None, 0.);
     assert!(strict.finished());
 }
 
@@ -284,7 +285,7 @@ fn a_saved_y_dash_grab_uses_native_r_even_when_r_has_a_custom_binding() {
                 ..Default::default()
             };
             let mut t = InputTimeline::new(selected, e);
-            let dash = t.sample(LedgeSettings::default(), context(0.), Some(e), None, 0.);
+            let dash = t.sample(AssistSettings::default(), context(0.), Some(e), None, 0.);
             assert_eq!(dash.stick, Some([1., 0.]));
             assert_eq!(dash.requested, 0);
             let mut overlay = ManualOverlay::default();
@@ -304,7 +305,7 @@ fn a_saved_y_dash_grab_uses_native_r_even_when_r_has_a_custom_binding() {
                 layout.physical_buttons(dash.requested),
                 layout.physical_owned_buttons(dash.owned),
             );
-            let grab = t.sample(LedgeSettings::default(), context(1.), Some(e), None, 0.);
+            let grab = t.sample(AssistSettings::default(), context(1.), Some(e), None, 0.);
             assert_eq!(grab.requested, MAPPER_R);
             let out = overlay.apply_controls(
                 human,
@@ -480,7 +481,7 @@ fn a_recent_but_previous_update_packet_cannot_replay_a_dash_grab_or_special() {
     use kirby_assist_core::observation::input_update_current;
     for actions in ["up_b:4", "side_b:4", "grab:4", "drift:opponent:1:4"] {
         let mut timeline = tape(actions);
-        let proposed = timeline.sample(LedgeSettings::default(), context(0.), None, None, 0.);
+        let proposed = timeline.sample(AssistSettings::default(), context(0.), None, None, 0.);
         let mut overlay = ManualOverlay::default();
         let physical = ButtonTrace::default();
         let first = overlay.apply_controls(

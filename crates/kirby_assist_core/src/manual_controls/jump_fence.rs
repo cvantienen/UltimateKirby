@@ -35,7 +35,9 @@ impl ManualJumpFence {
         }
         self.held = held;
         if self.pending {
-            if c.status == crate::native_states::status::JUMP_SQUAT || c.situation == crate::native_states::situation::AIR {
+            if c.status == crate::native_states::status::JUMP_SQUAT
+                || c.situation == crate::native_states::situation::AIR
+            {
                 self.pending = false;
             } else {
                 // A lag pause/duplicate mapper poll cannot spend this fence.

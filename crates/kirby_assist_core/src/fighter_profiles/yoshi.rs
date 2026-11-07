@@ -7,7 +7,7 @@ pub fn profile() -> FighterProfile {
         fighter_kind: crate::fighter_kinds::YOSHI,
         // Up-air/fair keep adaptive hops. Jump-nair has its own immediate
         // short-hop sequence in ledge_trap/fighters/yoshi.rs.
-        ledge: super::FighterGrabData::from_kind(5),
+        grab: super::FighterGrabData::from_kind(5),
 
         menu_options: crate::fighter_profiles::presets::MenuPresets::EMPTY,
     }

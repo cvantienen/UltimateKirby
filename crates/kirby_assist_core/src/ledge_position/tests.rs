@@ -37,11 +37,11 @@ fn context() -> GameplayContext {
         safe_ground: [true, true],
     }
 }
-fn settings() -> LedgeSettings {
-    LedgeSettings {
+fn settings() -> AssistSettings {
+    AssistSettings {
         enabled: true,
         stand_distance: 10.0,
-        ..LedgeSettings::default()
+        ..AssistSettings::default()
     }
 }
 #[test]

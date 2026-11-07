@@ -81,6 +81,7 @@ pub mod config;
 pub mod manual_controls;
 pub mod option_read;
 pub mod sequence_config;
+pub mod settings;
 pub mod settings_menu;
 
 // Stateful orchestration, diagnostics, and reusable examples/tools.

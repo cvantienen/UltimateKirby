@@ -1,9 +1,10 @@
 //! Native-input scheduling, spatial ledge placement and zero-frame branches.
 use kirby_assist_core::{
     gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     native_input::{MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_ZR},
     sequence_config::{persist, Action, Catalog, Sequence},
+    settings::AssistSettings,
 };
 fn recipe(actions: &str) -> Sequence {
     Catalog::parse(&format!(
@@ -50,7 +51,7 @@ fn sample(
     inward: f32,
 ) -> ControllerOutput {
     t.sample(
-        LedgeSettings::default(),
+        AssistSettings::default(),
         c,
         Some(enemy(c.motion_frame, x)),
         anchor,
@@ -198,7 +199,7 @@ fn opponent_branches_require_current_target_and_preserve_ledge_snapshot_semantic
         enemy(0., 10.),
     );
     assert_eq!(
-        t.sample(LedgeSettings::default(), own(0., 0., 1.), None, None, 0.)
+        t.sample(AssistSettings::default(), own(0., 0., 1.), None, None, 0.)
             .requested,
         0
     );

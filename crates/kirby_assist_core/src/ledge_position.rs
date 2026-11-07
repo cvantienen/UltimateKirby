@@ -8,11 +8,11 @@ use crate::ledge_trump::floor_edge_with_limit;
 const MAX_GROUNDED_LEDGE_SCAN_DISTANCE: u16 = 400;
 use crate::{
     gameplay::{ControllerOutput, GameplayContext},
-    ledge_trap::LedgeSettings,
     native_input::ASSIST_BUTTONS,
+    settings::AssistSettings,
 };
 
-fn eligible_for_positioning(settings: LedgeSettings, ctx: GameplayContext) -> bool {
+fn eligible_for_positioning(settings: AssistSettings, ctx: GameplayContext) -> bool {
     settings.enabled
         && ctx.held
         && settings.auto_position
@@ -85,7 +85,7 @@ impl LedgePosition {
         &mut self,
         tick: i64,
         ctx: GameplayContext,
-        settings: LedgeSettings,
+        settings: AssistSettings,
     ) -> ControllerOutput {
         // Air always yields, even on a repeated mapper tick. Landing starts a
         // fresh floor selection rather than retaining a destination from flight.

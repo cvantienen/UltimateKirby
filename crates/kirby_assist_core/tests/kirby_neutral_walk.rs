@@ -2,10 +2,11 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
     gameplay::{GameplayContext, Opponent},
-    settings_menu::MenuSelection,
-    ledge_trap::{LedgeSettings, LedgeTrap, CLIFF_CLIMB},
+    ledge_trap::{LedgeTrap, CLIFF_CLIMB},
     native_input::{MAPPER_A, MAPPER_X},
     sequence_config::Catalog,
+    settings::AssistSettings,
+    settings_menu::MenuSelection,
 };
 fn ctx(frame: f32) -> GameplayContext {
     GameplayContext {
@@ -45,7 +46,7 @@ fn kirby_authored_nair_waits_exactly_five_frames_after_the_jump_input() {
         .unwrap();
     let s = menu.settings(
         &p.menu_options,
-        p.apply(LedgeSettings {
+        p.apply(AssistSettings {
             enabled: true,
             ..Default::default()
         }),
@@ -77,7 +78,7 @@ fn changing_only_the_file_changes_the_start_and_each_inter_action_delay() {
         let p = profiles.profile(6).unwrap();
         let s = MenuSelection::new(&p.menu_options).settings(
             &p.menu_options,
-            p.apply(LedgeSettings {
+            p.apply(AssistSettings {
                 enabled: true,
                 ..Default::default()
             }),

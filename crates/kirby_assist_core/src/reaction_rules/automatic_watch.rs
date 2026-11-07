@@ -109,7 +109,7 @@ pub fn sample_optional_simple(
     engine: &mut Option<Box<Engine>>,
     allowed: bool,
     rules: Option<&Resolved>,
-    settings: LedgeSettings,
+    settings: AssistSettings,
     c: GameplayContext,
     targets: [Option<Target>; 8],
     follow: Option<Opponent>,

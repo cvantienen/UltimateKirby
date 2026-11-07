@@ -262,7 +262,7 @@ impl SpotDodge {
         enabled: bool,
         can_act: bool,
         rules: Option<&crate::reaction_rules::Resolved>,
-        settings: crate::ledge_trap::LedgeSettings,
+        settings: crate::settings::AssistSettings,
         context: crate::gameplay::GameplayContext,
         follow: Option<crate::gameplay::Opponent>,
     ) -> ControllerOutput {
@@ -334,7 +334,7 @@ impl SpotDodge {
         &mut self,
         allowed: bool,
         sequence: Option<&crate::sequence_config::Sequence>,
-        settings: crate::ledge_trap::LedgeSettings,
+        settings: crate::settings::AssistSettings,
         context: crate::gameplay::GameplayContext,
         follow: Option<crate::gameplay::Opponent>,
     ) -> ControllerOutput {

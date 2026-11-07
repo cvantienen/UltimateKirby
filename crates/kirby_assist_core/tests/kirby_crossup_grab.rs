@@ -2,10 +2,11 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
     gameplay::{GameplayContext, Opponent},
-    settings_menu::MenuSelection,
-    ledge_trap::{LedgeSettings, LedgeTrap, CLIFF_CLIMB},
+    ledge_trap::{LedgeTrap, CLIFF_CLIMB},
     native_input::MAPPER_R,
     sequence_config::Catalog,
+    settings::AssistSettings,
+    settings_menu::MenuSelection,
 };
 fn context(frame: f32, x: f32, facing: f32) -> GameplayContext {
     GameplayContext {
@@ -34,7 +35,7 @@ fn file_crossup_uses_authored_distance_then_observed_turn_before_one_grab() {
         .unwrap();
     let settings = menu.settings(
         &p.menu_options,
-        p.apply(LedgeSettings {
+        p.apply(AssistSettings {
             enabled: true,
             ..Default::default()
         }),

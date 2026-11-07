@@ -15,8 +15,39 @@ fn direction(d: Direction) -> &'static str {
     }
 }
 
+const INPUT_BUTTONS: [(u32, &str); 8] = [
+    (crate::native_input::MAPPER_A, "a"),
+    (crate::native_input::MAPPER_B, "b"),
+    (crate::native_input::MAPPER_X, "x"),
+    (crate::native_input::MAPPER_Y, "y"),
+    (crate::native_input::MAPPER_L, "l"),
+    (crate::native_input::MAPPER_R, "r"),
+    (crate::native_input::MAPPER_ZL, "zl"),
+    (crate::native_input::MAPPER_ZR, "zr"),
+];
+
+fn button_names(buttons: u32) -> Result<String, String> {
+    let known = INPUT_BUTTONS
+        .iter()
+        .fold(0, |mask, (button, _)| mask | button);
+    if buttons & !known != 0 {
+        return Err("This input contains unsupported button bits".into());
+    }
+
+    let names = INPUT_BUTTONS
+        .iter()
+        .filter(|(button, _)| buttons & button != 0)
+        .map(|(_, name)| *name)
+        .collect::<Vec<_>>()
+        .join("+");
+    Ok(if names.is_empty() {
+        "none".into()
+    } else {
+        names
+    })
+}
+
 fn action(a: Action) -> Result<String, String> {
-    use crate::native_input::*;
     Ok(match a {
         Action::IfFacingLedge { away } => {
             if away {
@@ -64,16 +95,7 @@ fn action(a: Action) -> Result<String, String> {
             if frames == 0 {
                 return Err("Controller input requires a positive hold duration".into());
             }
-            let input = action(Action::Input {
-                buttons,
-                stick,
-                frames,
-                relative: false,
-            })?;
-            let names = input
-                .split(':')
-                .nth(1)
-                .ok_or("Invalid controller buttons")?;
+            let names = button_names(buttons)?;
             format!(
                 "controller_input:{names}:{}:{}:{}:{}:{frames}:{}:{}",
                 stick[0],
@@ -92,13 +114,8 @@ fn action(a: Action) -> Result<String, String> {
             if frames == 0 {
                 return Err("Opponent-relative input requires a positive duration".into());
             }
-            action(Action::Input {
-                buttons,
-                stick,
-                frames,
-                relative: false,
-            })?
-            .replacen("input:", "opponent_input:", 1)
+            let names = button_names(buttons)?;
+            format!("opponent_input:{names}:{}:{}:{frames}", stick[0], stick[1])
         }
         Action::Input {
             buttons,
@@ -106,25 +123,7 @@ fn action(a: Action) -> Result<String, String> {
             frames,
             relative,
         } => {
-            let known = [
-                (MAPPER_A, "a"),
-                (MAPPER_B, "b"),
-                (MAPPER_X, "x"),
-                (MAPPER_Y, "y"),
-                (MAPPER_L, "l"),
-                (MAPPER_R, "r"),
-                (MAPPER_ZL, "zl"),
-                (MAPPER_ZR, "zr"),
-            ];
-            if buttons & !known.iter().fold(0, |m, (b, _)| m | b) != 0 {
-                return Err("This input contains unsupported button bits".into());
-            }
-            let names = known
-                .iter()
-                .filter(|(b, _)| buttons & b != 0)
-                .map(|(_, n)| *n)
-                .collect::<Vec<_>>()
-                .join("+");
+            let names = button_names(buttons)?;
             if frames == 0 {
                 if buttons == 0 {
                     return Err("Until-manual hold requires a button".into());
@@ -144,7 +143,7 @@ fn action(a: Action) -> Result<String, String> {
             format!(
                 "{}:{}:{}:{}:{}",
                 if relative { "facing_input" } else { "input" },
-                if names.is_empty() { "none" } else { &names },
+                names,
                 stick[0],
                 stick[1],
                 frames
@@ -157,19 +156,13 @@ fn action(a: Action) -> Result<String, String> {
             gap,
             frames,
         } => {
-            let input = action(Action::Input {
-                buttons,
-                stick,
-                frames: hold,
-                relative: false,
-            })?;
-            let mut parts = input.split(':');
-            parts.next();
+            let names = button_names(buttons)?;
+            if hold == 0 && buttons == 0 {
+                return Err("Until-manual hold requires a button".into());
+            }
             format!(
-                "tap:{}:{}:{}:{hold}:{gap}:{frames}",
-                parts.next().unwrap(),
-                stick[0],
-                stick[1]
+                "tap:{names}:{}:{}:{hold}:{gap}:{frames}",
+                stick[0], stick[1]
             )
         }
         Action::CStick { stick, frames } => format!("cstick:{}:{}:{frames}", stick[0], stick[1]),
@@ -456,7 +449,6 @@ pub fn set_default(
 }
 
 /// Persist an explicit selected binding without enabling any other row.
-
 fn matches_section(clean: &str, fighter: &str, slot: PresetSlot, choice: &str) -> bool {
     if !clean.starts_with('[') || !clean.ends_with(']') {
         return false;
@@ -640,6 +632,15 @@ mod tests {
                 "{bad}"
             );
         }
+    }
+    #[test]
+    fn controller_and_opponent_inputs_roundtrip_without_rewriting_button_names() {
+        let original = sequence(
+            "controller_input:a+b:0.25:-0.5:0.75:-1:4:facing:opponent,opponent_input:b:1:0:8",
+        );
+        let text = update(SOURCE, 5, PresetSlot::Roll, "grab", original, false).unwrap();
+        let saved = Catalog::parse(&text).unwrap().entries()[0].sequence;
+        assert_eq!(saved.actions(), original.actions());
     }
     #[test]
     fn explicit_checks_serialize_and_validate() {

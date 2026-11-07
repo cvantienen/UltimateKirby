@@ -1,10 +1,10 @@
 use kirby_assist_core::{
     gameplay::GameplayContext,
-    ledge_trap::LedgeSettings,
     native_input::*,
     option_read::{Kind, Target},
     reaction_rules::{Candidate, Resolved, Trigger},
     sequence_config::Catalog,
+    settings::AssistSettings,
     spot_punish::Punisher,
 };
 fn rules() -> Resolved {
@@ -58,7 +58,7 @@ fn sample(
         true,
         1,
         Some(r),
-        LedgeSettings::default(),
+        AssistSettings::default(),
         ctx(frame),
         [Some(t), None, None, None, None, None, None, None],
         None,
@@ -197,7 +197,7 @@ fn ordinary_rolls_unknown_windows_and_safety_cancellation_do_not_fire_or_retry()
             false,
             1,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             ctx(4.),
             [None; 8],
             None
@@ -220,7 +220,7 @@ fn pending_automatic_ground_grab_cancels_on_takeoff_and_spatial_actions_require_
             true,
             1,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             air,
             [None; 8],
             None
@@ -247,7 +247,7 @@ fn pending_automatic_ground_grab_cancels_on_takeoff_and_spatial_actions_require_
         true,
         1,
         Some(&r),
-        LedgeSettings::default(),
+        AssistSettings::default(),
         ctx(1.),
         [None; 8],
         None,

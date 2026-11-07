@@ -1,11 +1,12 @@
 //! Conditional actions use copied facts and continue on the satisfying sample.
 use kirby_assist_core::{
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     native_input::*,
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
+    settings::AssistSettings,
 };
 fn context() -> GameplayContext {
     GameplayContext {
@@ -75,7 +76,7 @@ fn react(
     Engine::default().sample_simple(
         true,
         rules,
-        LedgeSettings::default(),
+        AssistSettings::default(),
         GameplayContext {
             status: own_status,
             ..context()
@@ -105,7 +106,7 @@ fn satisfied_self_enemy_and_distance_checks_add_no_input_frame() {
         };
         let mut t = timeline(&format!("check:{check},up_b:4"), other);
         let out = t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             GameplayContext {
                 situation: own_situation,
                 ..context()
@@ -138,7 +139,7 @@ fn satisfied_face_and_approach_keep_direct_out_of_shield_up_b_immediate() {
     let other = enemy(-10.);
     let mut t = timeline("face:opponent,up_b:4", other);
     let out = t.sample(
-        LedgeSettings::default(),
+        AssistSettings::default(),
         GameplayContext {
             status: kirby_assist_core::native_states::GUARD,
             ..context()
@@ -157,50 +158,50 @@ fn copied_conditions_refresh_during_a_duplicate_own_animation_sample() {
     let mut drift = timeline("drift:opponent:1:4,up_b:4", e);
     assert_eq!(
         drift
-            .sample(LedgeSettings::default(), c, Some(e), None, 0.)
+            .sample(AssistSettings::default(), c, Some(e), None, 0.)
             .stick,
         Some([1., 0.])
     );
     assert_eq!(
         drift
-            .sample(LedgeSettings::default(), c, Some(enemy(-10.)), None, 0.)
+            .sample(AssistSettings::default(), c, Some(enemy(-10.)), None, 0.)
             .stick,
         Some([-1., 0.])
     );
     let mut face = timeline("face:opponent,up_b:4", enemy(-10.));
     assert_eq!(
-        face.sample(LedgeSettings::default(), c, Some(enemy(-10.)), None, 0.)
+        face.sample(AssistSettings::default(), c, Some(enemy(-10.)), None, 0.)
             .requested,
         0
     );
     assert_eq!(
-        face.sample(LedgeSettings::default(), c, Some(e), None, 0.)
+        face.sample(AssistSettings::default(), c, Some(e), None, 0.)
             .requested,
         MAPPER_B
     );
     let mut approach = timeline("walk_to_opponent:50%:10:5,up_b:4", e);
     assert_eq!(
         approach
-            .sample(LedgeSettings::default(), c, Some(e), None, 0.)
+            .sample(AssistSettings::default(), c, Some(e), None, 0.)
             .stick,
         Some([0.5, 0.])
     );
     assert_eq!(
         approach
-            .sample(LedgeSettings::default(), c, Some(enemy(4.)), None, 0.)
+            .sample(AssistSettings::default(), c, Some(enemy(4.)), None, 0.)
             .requested,
         MAPPER_B
     );
     let mut check = timeline("check:enemy_within:5:10,up_b:4", e);
     assert_eq!(
         check
-            .sample(LedgeSettings::default(), c, Some(e), None, 0.)
+            .sample(AssistSettings::default(), c, Some(e), None, 0.)
             .requested,
         0
     );
     assert_eq!(
         check
-            .sample(LedgeSettings::default(), c, Some(enemy(4.)), None, 0.)
+            .sample(AssistSettings::default(), c, Some(enemy(4.)), None, 0.)
             .requested,
         MAPPER_B
     );

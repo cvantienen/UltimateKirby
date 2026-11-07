@@ -181,8 +181,7 @@ fn left_stick_trigger_and_attack_release_share_one_consistent_history() {
 }
 #[test]
 fn reserved_taunts_are_removed_from_mapped_result_without_affecting_other_actions() {
-    let attack_and_up =
-        crate::native_input::MAPPED_ATTACK | crate::native_input::MAPPED_TAUNT_UP;
+    let attack_and_up = crate::native_input::MAPPED_ATTACK | crate::native_input::MAPPED_TAUNT_UP;
     let all = attack_and_up
         | crate::native_input::MAPPED_TAUNT_SIDES
         | crate::native_input::MAPPED_TAUNT_DOWN;
@@ -266,7 +265,8 @@ fn turbo_starts_down_on_first_poll_and_in_grounded_running_states() {
         enabled: true,
         ..TurboSettings::default()
     };
-    for status in crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE {
+    for status in crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE
+    {
         assert!(turbo_movement_allowed(
             status,
             crate::native_states::status::WAIT,

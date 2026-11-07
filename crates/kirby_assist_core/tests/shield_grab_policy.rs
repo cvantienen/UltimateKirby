@@ -2,12 +2,12 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Owner},
     gameplay::{ControllerOutput, GameplayContext},
-    ledge_trap::LedgeSettings,
     native_input::{MAPPER_B, MAPPER_R, MAPPER_X, MAPPER_ZR},
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::{Catalog, Sequence},
+    settings::AssistSettings,
 };
 fn own(status: i32, frame: f32) -> Context {
     Context {
@@ -34,7 +34,11 @@ fn lc(c: Context) -> GameplayContext {
         held: true,
         can_act: true,
         status: c.status,
-        situation: if c.grounded {kirby_assist_core::native_states::situation::GROUND} else {kirby_assist_core::native_states::situation::AIR},
+        situation: if c.grounded {
+            kirby_assist_core::native_states::situation::GROUND
+        } else {
+            kirby_assist_core::native_states::situation::AIR
+        },
         stopped: c.stopped,
         motion_kind: c.motion,
         motion_frame: c.frame,
@@ -92,7 +96,7 @@ fn sample(
         10.,
         35.,
         Some(12.),
-        LedgeSettings {
+        AssistSettings {
             fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
             ..Default::default()
         },
@@ -454,7 +458,7 @@ fn an_edited_shield_backup_uses_its_own_recipe_without_preliminary_grab_or_speci
             10.,
             35.,
             Some(12.),
-            LedgeSettings {
+            AssistSettings {
                 fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                 ..Default::default()
             },

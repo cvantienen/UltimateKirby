@@ -1,8 +1,9 @@
 //! Event-triggered, file-authored defensive responses. No native calls or scans.
 use crate::{
     gameplay::{ControllerOutput, GameplayContext, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     reaction_rules::{Resolved, Side, Trigger},
+    settings::AssistSettings,
 };
 
 #[derive(Default)]
@@ -211,7 +212,7 @@ impl Response {
     pub fn sample(
         &mut self,
         allowed: bool,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         mut c: GameplayContext,
         enemy: Option<Opponent>,
     ) -> ControllerOutput {

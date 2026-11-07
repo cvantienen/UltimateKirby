@@ -1,5 +1,6 @@
 //! Host fixtures and regressions for file-only ledge recognition.
 use super::*;
+use crate::native_input::{MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_X, MAPPER_Y};
 pub(super) fn context() -> GameplayContext {
     GameplayContext {
         held: true,
@@ -55,16 +56,16 @@ pub(super) fn enemy(status: i32, vulnerable: bool) -> Opponent {
     }
 }
 
-fn input_settings() -> LedgeSettings {
+fn input_settings() -> AssistSettings {
     let catalog = crate::sequence_config::Catalog::parse("[kirby.neutral.n]\nstart_delay=0\nactions=a\n[kirby.jump.j]\nstart_delay=0\nactions=b\n[kirby.roll.r]\nstart_delay=0\nactions=x\n[kirby.attack.a]\nstart_delay=0\nactions=y\n[kirby.drop.d]\nstart_delay=0\nactions=r").unwrap();
     let mut profiles = crate::fighter_profiles::FighterProfiles::default();
     profiles.add_sequence_choices(&catalog).unwrap();
     let p = profiles.profile(6).unwrap();
     crate::settings_menu::MenuSelection::new(&p.menu_options).settings(
         &p.menu_options,
-        p.apply(LedgeSettings {
+        p.apply(AssistSettings {
             enabled: true,
-            ..LedgeSettings::default()
+            ..AssistSettings::default()
         }),
     )
 }
@@ -376,7 +377,7 @@ fn button_slots_execute_authored_delays_and_holds_without_a_ledge_or_move_readin
     let p = profiles.profile(6).unwrap();
     let s = crate::settings_menu::MenuSelection::new(&p.menu_options).settings(
         &p.menu_options,
-        LedgeSettings {
+        AssistSettings {
             enabled: true,
             ..Default::default()
         },
@@ -429,15 +430,15 @@ fn button_slots_execute_authored_delays_and_holds_without_a_ledge_or_move_readin
 fn ness_can_create_first_neutral_recipe_without_other_ledge_entries() {
     use crate::{
         fighter_profiles::FighterProfiles,
-        settings_menu::{MenuSelection, MENU_STICK_CLICK},
         native_input::*,
+        settings_menu::{MenuSelection, MENU_STICK_CLICK},
     };
     let profiles = FighterProfiles::default();
     let profile = profiles.profile(10).unwrap();
     let p = &profile.menu_options;
-    let base = profile.apply(LedgeSettings {
+    let base = profile.apply(AssistSettings {
         enabled: true,
-        ..LedgeSettings::default()
+        ..AssistSettings::default()
     });
     let mut menu = MenuSelection::new(p);
     menu.show();
@@ -467,7 +468,7 @@ fn ness_can_create_first_neutral_recipe_without_other_ledge_entries() {
     );
     assert!(
         !profile
-            .apply(LedgeSettings {
+            .apply(AssistSettings {
                 enabled: false,
                 ..base
             })

@@ -622,6 +622,174 @@ fn direction(v: &mut D, up: bool, onstage: bool) {
         }
     }
 }
+fn action_slot(field: Field) -> usize {
+    match field {
+        Field::TapButtons(i)
+        | Field::TapGap(i)
+        | Field::Duration(i)
+        | Field::X(i)
+        | Field::Y(i)
+        | Field::Strength(i)
+        | Field::Tolerance(i)
+        | Field::Brake(i)
+        | Field::PositionTimeout(i)
+        | Field::Distance(i)
+        | Field::Gap(i)
+        | Field::Direction(i) => i,
+        _ => unreachable!(),
+    }
+}
+fn adjust_action(action: &mut Action, field: Field, up: bool, delta: f32, onstage: bool) {
+    match (action, field) {
+        (Action::LedgePosition { offset, .. }, Field::Distance(_)) => {
+            *offset = step(*offset, delta, 0., 200.)
+        }
+        (Action::LedgePosition { strength, .. }, Field::Strength(_)) => {
+            *strength = step(*strength, delta * 0.01, 0.3, 1.)
+        }
+        (Action::LedgePosition { tolerance, .. }, Field::Tolerance(_)) => {
+            *tolerance = step(*tolerance, delta * 0.1, 0., 20.)
+        }
+        (Action::LedgePosition { brake, .. }, Field::Brake(_)) => {
+            *brake = step(*brake, delta * 0.5, 0., 100.)
+        }
+        (Action::LedgePosition { frames, .. }, Field::PositionTimeout(_)) => {
+            *frames = if up {
+                frames.saturating_add(1).min(3600)
+            } else {
+                frames.saturating_sub(1).max(1)
+            }
+        }
+        (Action::Chase { strength, .. }, Field::Strength(_)) => {
+            *strength = step(*strength, delta * 0.01, 0., 1.)
+        }
+        (
+            Action::Tap {
+                buttons,
+                stick,
+                hold,
+                ..
+            },
+            Field::TapButtons(_),
+        ) => {
+            let index = TAP_BUTTONS
+                .iter()
+                .position(|(button, axes, _)| button == buttons && axes == stick);
+            let index = match index {
+                Some(i) => {
+                    if up {
+                        (i + 1) % TAP_BUTTONS.len()
+                    } else {
+                        (i + TAP_BUTTONS.len() - 1) % TAP_BUTTONS.len()
+                    }
+                }
+                None => {
+                    if up {
+                        0
+                    } else {
+                        TAP_BUTTONS.len() - 1
+                    }
+                }
+            };
+            let (button, axes, _) = TAP_BUTTONS[index];
+            *buttons = button;
+            *stick = axes;
+            *hold = 1;
+        }
+        (Action::Tap { gap, .. }, Field::TapGap(_)) => byte(gap, up, 1),
+        (Action::Tap { frames, .. }, Field::Duration(_)) => {
+            *frames = if up {
+                frames.saturating_add(1).min(3600)
+            } else {
+                frames.saturating_sub(1).max(1)
+            }
+        }
+        (
+            Action::Input { frames, .. }
+            | Action::OpponentInput { frames, .. }
+            | Action::Controller { frames, .. }
+            | Action::CStick { frames, .. }
+            | Action::Chase { frames, .. }
+            | Action::Approach { frames, .. }
+            | Action::Drift { frames, .. },
+            Field::Duration(_),
+        ) => byte(frames, up, 1),
+        (Action::Wait(frames), Field::Duration(_)) => byte(frames, up, 0),
+        (Action::ShieldUntilBlock(frames), Field::Duration(_)) => byte(frames, up, 1),
+        (Action::Check { wait, .. }, Field::Duration(_)) => byte(wait, up, 0),
+        (Action::Check { value, .. }, Field::Distance(_)) => *value = step(*value, delta, 0., 100.),
+        (
+            Action::Input { stick, .. }
+            | Action::OpponentInput { stick, .. }
+            | Action::Controller { stick, .. }
+            | Action::Tap { stick, .. }
+            | Action::CStick { stick, .. },
+            Field::X(_),
+        ) => stick[0] = step(stick[0], delta * 0.01, -1., 1.),
+        (
+            Action::Input { stick, .. }
+            | Action::OpponentInput { stick, .. }
+            | Action::Controller { stick, .. }
+            | Action::Tap { stick, .. }
+            | Action::CStick { stick, .. },
+            Field::Y(_),
+        ) => stick[1] = step(stick[1], delta * 0.01, -1., 1.),
+        (
+            Action::Approach {
+                strength, airborne, ..
+            },
+            Field::Strength(_),
+        ) => {
+            *strength = step(
+                *strength,
+                delta * 0.01,
+                0.1,
+                if *airborne { 1. } else { 0.95 },
+            )
+        }
+        (Action::Walk { strength, .. }, Field::Strength(_)) => {
+            *strength = step(*strength, delta * 0.01, 0.1, 0.95)
+        }
+        (Action::Drift { strength, .. }, Field::Strength(_)) => {
+            *strength = step(*strength, delta * 0.01, 0., 1.)
+        }
+        (Action::Walk { units, .. } | Action::Run { units, .. }, Field::Distance(_)) => {
+            *units = step(*units, delta, 0., 100.)
+        }
+        (Action::Range(RangeCheck::Verify(value)), Field::Distance(_)) => {
+            *value = step(*value, delta, 0., 60.)
+        }
+        (Action::Chase { gap, .. } | Action::Approach { gap, .. }, Field::Gap(_)) => {
+            *gap = step(*gap, delta, 0., 60.)
+        }
+        (Action::Walk { min_gap, .. }, Field::Gap(_)) => {
+            let old = min_gap.unwrap_or(0.);
+            *min_gap = if !up && old == 0. {
+                None
+            } else {
+                Some(step(old, delta, 0., 60.))
+            };
+        }
+        (
+            Action::Walk {
+                direction: d,
+                min_gap,
+                ..
+            },
+            Field::Direction(_),
+        ) => {
+            direction(d, up, onstage);
+            if *d != D::Opponent {
+                *min_gap = None;
+            }
+        }
+        (
+            Action::Face(d) | Action::Run { direction: d, .. } | Action::Drift { direction: d, .. },
+            Field::Direction(_),
+        ) => direction(d, up, onstage),
+        _ => {}
+    }
+}
 pub(super) struct CopySource {
     pub slot: super::PresetSlot,
     pub index: usize,
@@ -865,176 +1033,8 @@ impl RecipeEditor {
                 _ => {}
             },
             other => {
-                let i = match other {
-                    Field::TapButtons(i)
-                    | Field::TapGap(i)
-                    | Field::Duration(i)
-                    | Field::X(i)
-                    | Field::Y(i)
-                    | Field::Strength(i)
-                    | Field::Tolerance(i)
-                    | Field::Brake(i)
-                    | Field::PositionTimeout(i)
-                    | Field::Distance(i)
-                    | Field::Gap(i)
-                    | Field::Direction(i) => i,
-                    _ => unreachable!(),
-                };
-                match (&mut next.sequence.actions[i], other) {
-                    (Action::LedgePosition { offset, .. }, Field::Distance(_)) => {
-                        *offset = step(*offset, delta, 0., 200.)
-                    }
-                    (Action::LedgePosition { strength, .. }, Field::Strength(_)) => {
-                        *strength = step(*strength, delta * 0.01, 0.3, 1.)
-                    }
-                    (Action::LedgePosition { tolerance, .. }, Field::Tolerance(_)) => {
-                        *tolerance = step(*tolerance, delta * 0.1, 0., 20.)
-                    }
-                    (Action::LedgePosition { brake, .. }, Field::Brake(_)) => {
-                        *brake = step(*brake, delta * 0.5, 0., 100.)
-                    }
-                    (Action::LedgePosition { frames, .. }, Field::PositionTimeout(_)) => {
-                        *frames = if up {
-                            frames.saturating_add(1).min(3600)
-                        } else {
-                            frames.saturating_sub(1).max(1)
-                        }
-                    }
-                    (Action::Chase { strength, .. }, Field::Strength(_)) => {
-                        *strength = step(*strength, delta * 0.01, 0., 1.)
-                    }
-                    (
-                        Action::Tap {
-                            buttons,
-                            stick,
-                            hold,
-                            ..
-                        },
-                        Field::TapButtons(_),
-                    ) => {
-                        let index = TAP_BUTTONS
-                            .iter()
-                            .position(|(b, axes, _)| b == buttons && axes == stick);
-                        let index = match index {
-                            Some(i) => {
-                                if up {
-                                    (i + 1) % TAP_BUTTONS.len()
-                                } else {
-                                    (i + TAP_BUTTONS.len() - 1) % TAP_BUTTONS.len()
-                                }
-                            }
-                            None => {
-                                if up {
-                                    0
-                                } else {
-                                    TAP_BUTTONS.len() - 1
-                                }
-                            }
-                        };
-                        let (button, axes, _) = TAP_BUTTONS[index];
-                        *buttons = button;
-                        *stick = axes;
-                        *hold = 1;
-                    }
-                    (Action::Tap { gap, .. }, Field::TapGap(_)) => byte(gap, up, 1),
-                    (Action::Tap { frames, .. }, Field::Duration(_)) => {
-                        *frames = if up {
-                            frames.saturating_add(1).min(3600)
-                        } else {
-                            frames.saturating_sub(1).max(1)
-                        }
-                    }
-
-                    (
-                        Action::Input { frames, .. }
-                        | Action::OpponentInput { frames, .. }
-                        | Action::Controller { frames, .. }
-                        | Action::CStick { frames, .. }
-                        | Action::Chase { frames, .. }
-                        | Action::Approach { frames, .. }
-                        | Action::Drift { frames, .. },
-                        Field::Duration(_),
-                    ) => byte(frames, up, 1),
-                    (Action::Wait(frames), Field::Duration(_)) => byte(frames, up, 0),
-                    (Action::ShieldUntilBlock(frames), Field::Duration(_)) => byte(frames, up, 1),
-                    (Action::Check { wait, .. }, Field::Duration(_)) => byte(wait, up, 0),
-                    (Action::Check { value, .. }, Field::Distance(_)) => {
-                        *value = step(*value, delta, 0., 100.)
-                    }
-                    (
-                        Action::Input { stick, .. }
-                        | Action::OpponentInput { stick, .. }
-                        | Action::Controller { stick, .. }
-                        | Action::Tap { stick, .. }
-                        | Action::CStick { stick, .. },
-                        Field::X(_),
-                    ) => stick[0] = step(stick[0], delta * 0.01, -1., 1.),
-                    (
-                        Action::Input { stick, .. }
-                        | Action::OpponentInput { stick, .. }
-                        | Action::Controller { stick, .. }
-                        | Action::Tap { stick, .. }
-                        | Action::CStick { stick, .. },
-                        Field::Y(_),
-                    ) => stick[1] = step(stick[1], delta * 0.01, -1., 1.),
-                    (
-                        Action::Approach {
-                            strength, airborne, ..
-                        },
-                        Field::Strength(_),
-                    ) => {
-                        *strength = step(
-                            *strength,
-                            delta * 0.01,
-                            0.1,
-                            if *airborne { 1. } else { 0.95 },
-                        )
-                    }
-                    (Action::Walk { strength, .. }, Field::Strength(_)) => {
-                        *strength = step(*strength, delta * 0.01, 0.1, 0.95)
-                    }
-                    (Action::Drift { strength, .. }, Field::Strength(_)) => {
-                        *strength = step(*strength, delta * 0.01, 0., 1.)
-                    }
-                    (
-                        Action::Walk { units, .. } | Action::Run { units, .. },
-                        Field::Distance(_),
-                    ) => *units = step(*units, delta, 0., 100.),
-                    (Action::Range(RangeCheck::Verify(v)), Field::Distance(_)) => {
-                        *v = step(*v, delta, 0., 60.)
-                    }
-                    (Action::Chase { gap, .. } | Action::Approach { gap, .. }, Field::Gap(_)) => {
-                        *gap = step(*gap, delta, 0., 60.)
-                    }
-                    (Action::Walk { min_gap, .. }, Field::Gap(_)) => {
-                        let old = min_gap.unwrap_or(0.);
-                        *min_gap = if !up && old == 0. {
-                            None
-                        } else {
-                            Some(step(old, delta, 0., 60.))
-                        };
-                    }
-                    (
-                        Action::Walk {
-                            direction: d,
-                            min_gap,
-                            ..
-                        },
-                        Field::Direction(_),
-                    ) => {
-                        direction(d, up, onstage);
-                        if *d != D::Opponent {
-                            *min_gap = None;
-                        }
-                    }
-                    (
-                        Action::Face(d)
-                        | Action::Run { direction: d, .. }
-                        | Action::Drift { direction: d, .. },
-                        Field::Direction(_),
-                    ) => direction(d, up, onstage),
-                    _ => {}
-                }
+                let i = action_slot(other);
+                adjust_action(&mut next.sequence.actions[i], other, up, delta, onstage);
             }
         }
         self.limited = next.compile().is_none();
@@ -1130,9 +1130,10 @@ mod tests {
     use super::*;
     use crate::{
         fighter_profiles::{presets::PresetSlot, FighterProfiles},
-        settings_menu::{MenuSelection, MENU_STICK_CLICK},
-        ledge_trap::{LedgeSettings, DPAD_DOWN},
+        ledge_trap::DPAD_DOWN,
         manual_controls::DPAD_RIGHT,
+        settings::AssistSettings,
+        settings_menu::{MenuSelection, MENU_STICK_CLICK},
     };
 
     #[test]
@@ -1738,7 +1739,7 @@ mod tests {
         menu.show();
         tap(&mut menu, &p, MENU_STICK_CLICK);
         let delay = |m: &MenuSelection| {
-            m.settings(&p, LedgeSettings::default()).sequence_overrides[0]
+            m.settings(&p, AssistSettings::default()).sequence_overrides[0]
                 .unwrap()
                 .start_delay
         };
@@ -1800,7 +1801,7 @@ mod tests {
         let mut menu = MenuSelection::new(&p);
         menu.show();
         let old = menu
-            .settings(&p, LedgeSettings::default())
+            .settings(&p, AssistSettings::default())
             .sequence_overrides[0]
             .unwrap();
         tap(&mut menu, &p, MENU_STICK_CLICK);
@@ -1809,7 +1810,7 @@ mod tests {
             tap(&mut menu, &p, DPAD_RIGHT);
         }
         let next = menu
-            .settings(&p, LedgeSettings::default())
+            .settings(&p, AssistSettings::default())
             .sequence_overrides[0]
             .unwrap();
         assert_eq!(next.start_delay, 4);
@@ -1854,7 +1855,7 @@ mod tests {
             tap(&mut menu, &p, DPAD_RIGHT);
         } // 2 frames before A
         let s = menu
-            .settings(&p, LedgeSettings::default())
+            .settings(&p, AssistSettings::default())
             .sequence_overrides[0]
             .unwrap();
         assert_eq!(
@@ -1914,8 +1915,10 @@ mod tests {
     fn menu_edited_a_hold_continues_after_jab_into_the_next_action() {
         use crate::{
             fighter_profiles::presets::PresetSlot,
-            ledge_trap::{GameplayContext, LedgeSettings, LedgeTrap, Opponent},
+            gameplay::{GameplayContext, Opponent},
+            ledge_trap::LedgeTrap,
             native_input::{ButtonTrace, MapperButtonOverlay},
+            settings::AssistSettings,
         };
         let mut source = Sequence::default();
         source.len = 2;
@@ -1931,7 +1934,7 @@ mod tests {
         for _ in 4..60 {
             assert!(editor.adjust(recipe, true));
         }
-        let mut settings = LedgeSettings::default();
+        let mut settings = AssistSettings::default();
         settings.enabled = true;
         settings.sequence_overrides[PresetSlot::X as usize] = editor.compiled(recipe);
         let mut trap = LedgeTrap::default();

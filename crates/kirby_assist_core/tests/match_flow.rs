@@ -2,11 +2,12 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
+    ledge_trap::{InputTimeline, SEQUENCE_BUTTONS},
     native_input::{MAPPER_B, MAPPER_R, MAPPER_ZR},
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
+    settings::AssistSettings,
 };
 fn context(frame: f32, status: i32) -> GameplayContext {
     GameplayContext {
@@ -79,7 +80,7 @@ fn finished_auto_react_keeps_its_neutral_release_owned_through_duplicate_mapper_
         let out = engine.sample_simple(
             true,
             &rules,
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(
                 frame,
                 if frame == 0. {
@@ -121,7 +122,7 @@ fn finished_auto_react_keeps_its_neutral_release_owned_through_duplicate_mapper_
     let idle = engine.sample_simple(
         true,
         &rules,
-        LedgeSettings::default(),
+        AssistSettings::default(),
         context(2., 0),
         [None; 8],
         Some(enemy(2.)),
@@ -198,7 +199,7 @@ fn knockdown_and_rebound_cancel_existing_inputs_but_getups_and_specials_do_not()
             let mut tape = InputTimeline::new(sequence(actions), enemy(0.));
             assert_ne!(
                 tape.sample(
-                    LedgeSettings::default(),
+                    AssistSettings::default(),
                     context(0., 0),
                     Some(enemy(0.)),
                     None,
@@ -208,7 +209,7 @@ fn knockdown_and_rebound_cancel_existing_inputs_but_getups_and_specials_do_not()
                 0
             );
             let out = tape.sample(
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 context(1., status),
                 Some(enemy(1.)),
                 None,
@@ -237,14 +238,14 @@ fn knockdown_and_rebound_cancel_existing_inputs_but_getups_and_specials_do_not()
     ] {
         let mut tape = InputTimeline::new(sequence("up_b:4"), enemy(0.));
         tape.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(0., 0),
             Some(enemy(0.)),
             None,
             0.,
         );
         let out = tape.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(1., status),
             Some(enemy(1.)),
             None,

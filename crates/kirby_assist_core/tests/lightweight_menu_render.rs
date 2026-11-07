@@ -10,9 +10,9 @@
 extern crate self as imgui_api;
 use kirby_assist_core::{
     fighter_profiles::{FighterProfile, FighterProfiles},
-    settings_menu::{MenuRow, MenuSelection, MENU_STICK_CLICK},
     native_input::*,
     sequence_config::Catalog,
+    settings_menu::{MenuRow, MenuSelection, MENU_STICK_CLICK},
 };
 use std::{
     cell::RefCell,

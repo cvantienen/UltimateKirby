@@ -3,12 +3,12 @@ use kirby_assist_core::{
     action_owner::{automatic_escape_request, Owner},
     defense_response::Response,
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::LedgeSettings,
     native_input::{automatic_escape, ControlLayout, MAPPER_B, MAPPER_R, MAPPER_ZL, MAPPER_ZR},
     observation::{Fact, Field, ObservationSnapshot},
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::{Catalog, Sequence},
+    settings::AssistSettings,
     spot_dodge::{Context as DodgeContext, SpotDodge, Target as GrabTarget},
 };
 fn own(frame: f32, status: i32) -> GameplayContext {
@@ -66,8 +66,8 @@ fn targets(frame: f32) -> [Option<Target>; 8] {
     });
     out
 }
-fn settings() -> LedgeSettings {
-    LedgeSettings {
+fn settings() -> AssistSettings {
+    AssistSettings {
         fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     }

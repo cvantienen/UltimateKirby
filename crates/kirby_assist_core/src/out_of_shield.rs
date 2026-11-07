@@ -305,7 +305,7 @@ impl OutOfShield {
             close,
             approach,
             startup,
-            crate::ledge_trap::LedgeSettings {
+            crate::settings::AssistSettings {
                 fighter_kind: c.kind,
                 ..Default::default()
             },
@@ -385,7 +385,7 @@ impl OutOfShield {
         &mut self,
         enabled: bool,
         rules: Option<&crate::reaction_rules::Resolved>,
-        settings: crate::ledge_trap::LedgeSettings,
+        settings: crate::settings::AssistSettings,
         c: Context,
         context: crate::gameplay::GameplayContext,
         target: Option<Target>,

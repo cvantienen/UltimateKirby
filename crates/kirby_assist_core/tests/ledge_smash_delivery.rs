@@ -2,11 +2,12 @@
 use kirby_assist_core::{
     autopilot_guard::{GuardClock, GuardHold},
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::*,
     observation::{Fact, Field, ObservationSnapshot},
     sequence_config::Catalog,
+    settings::AssistSettings,
 };
 fn own(frame: f32) -> GameplayContext {
     GameplayContext {
@@ -70,7 +71,13 @@ fn all_smash_axes_keep_attack_when_native_mapping_only_preserves_movement() {
             ("opponent_input:a:1:0:5", [1., 0.]),
         ] {
             let mut t = tape(action);
-            let out = t.sample(LedgeSettings::default(), own(0.), Some(enemy(0.)), None, 0.);
+            let out = t.sample(
+                AssistSettings::default(),
+                own(0.),
+                Some(enemy(0.)),
+                None,
+                0.,
+            );
             assert_eq!(out.stick, Some(stick));
             assert_eq!(out.requested, MAPPER_A);
             let raw = ManualOverlay::default().apply_controls(
@@ -104,7 +111,7 @@ fn charged_smash_preserves_every_requested_packet_and_its_release_without_turbo_
     let mut raw = ManualOverlay::default();
     for frame in 0..7 {
         let out = t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             own(frame as f32),
             Some(enemy(frame as f32)),
             None,
@@ -162,16 +169,22 @@ fn up_smash_uses_native_shield_cancel_while_side_smash_waits_for_legal_shield_dr
         status: kirby_assist_core::native_states::GUARD,
         ..own(0.)
     };
-    let out = up.sample(LedgeSettings::default(), shield, Some(enemy(0.)), None, 0.);
+    let out = up.sample(AssistSettings::default(), shield, Some(enemy(0.)), None, 0.);
     assert_eq!(out.requested, MAPPER_A | MAPPER_ZR);
     assert_eq!(
         mapped_literal_buttons(0, out.requested),
         0x201 | MAPPED_GUARD
     );
-    let out = side.sample(LedgeSettings::default(), shield, Some(enemy(0.)), None, 0.);
+    let out = side.sample(AssistSettings::default(), shield, Some(enemy(0.)), None, 0.);
     assert_eq!(out.requested, 0);
     assert_eq!(out.stick, Some([0.; 2]));
-    let out = side.sample(LedgeSettings::default(), own(1.), Some(enemy(1.)), None, 0.);
+    let out = side.sample(
+        AssistSettings::default(),
+        own(1.),
+        Some(enemy(1.)),
+        None,
+        0.,
+    );
     assert_eq!(out.requested, MAPPER_A);
     assert_eq!(out.stick, Some([1., 0.]));
 }
@@ -266,7 +279,7 @@ fn an_authored_shield_hold_keeps_its_duration_independently_of_passive_defense()
     for frame in 0..4 {
         assert_eq!(
             t.sample(
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 own(frame as f32),
                 Some(enemy(frame as f32)),
                 None,
@@ -276,7 +289,13 @@ fn an_authored_shield_hold_keeps_its_duration_independently_of_passive_defense()
             MAPPER_ZR
         );
     }
-    let out = t.sample(LedgeSettings::default(), own(4.), Some(enemy(4.)), None, 0.);
+    let out = t.sample(
+        AssistSettings::default(),
+        own(4.),
+        Some(enemy(4.)),
+        None,
+        0.,
+    );
     assert_eq!(out.requested, MAPPER_A);
 }
 #[test]
@@ -326,7 +345,7 @@ fn literal_release_and_smash_clear_stale_shield_and_catch_history_in_the_same_pa
 fn up_tilt_keeps_its_authored_strength_and_waits_for_shield_drop() {
     let mut t = tape("up_tilt:1");
     let out = t.sample(
-        LedgeSettings::default(),
+        AssistSettings::default(),
         GameplayContext {
             status: kirby_assist_core::native_states::GUARD,
             ..own(0.)
@@ -337,7 +356,13 @@ fn up_tilt_keeps_its_authored_strength_and_waits_for_shield_drop() {
     );
     assert_eq!(out.requested, 0);
     assert_eq!(out.stick, Some([0.; 2]));
-    let out = t.sample(LedgeSettings::default(), own(1.), Some(enemy(1.)), None, 0.);
+    let out = t.sample(
+        AssistSettings::default(),
+        own(1.),
+        Some(enemy(1.)),
+        None,
+        0.,
+    );
     assert_eq!(out.requested, MAPPER_A);
     assert_eq!(out.stick, Some([0., 0.6]));
     assert_eq!(

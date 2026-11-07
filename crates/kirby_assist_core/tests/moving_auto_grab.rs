@@ -1,12 +1,13 @@
 use kirby_assist_core::{
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::{LedgeSettings, SEQUENCE_BUTTONS},
+    ledge_trap::SEQUENCE_BUTTONS,
     manual_controls::{ManualOverlay, ManualTakeover, TurboOutput},
     native_input::*,
     out_of_shield::{automatic_grab_ready, Context, OutOfShield},
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
+    settings::AssistSettings,
 };
 fn c(status: i32) -> Context {
     Context {
@@ -324,7 +325,7 @@ fn ground_up_b_admission_keeps_tracking_after_native_takeoff_without_starting_ne
         let mut e = Engine::default();
         let mut ts = targets(20.);
         ts[0].as_mut().unwrap().status = kirby_assist_core::native_states::ESCAPE_F;
-        let out = e.sample_simple(true, &rules, LedgeSettings::default(), lc(start), ts, None);
+        let out = e.sample_simple(true, &rules, AssistSettings::default(), lc(start), ts, None);
         assert_ne!(out.requested & MAPPER_B, 0, "grounded status {start:#x}");
         for frame in 1..=5 {
             let own = GameplayContext {
@@ -348,7 +349,7 @@ fn ground_up_b_admission_keeps_tracking_after_native_takeoff_without_starting_ne
             let out = e.sample_simple(
                 true,
                 &rules,
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 own,
                 ts,
                 Some(follow),
@@ -367,7 +368,7 @@ fn ground_up_b_admission_keeps_tracking_after_native_takeoff_without_starting_ne
                 .sample_simple(
                     true,
                     &rules,
-                    LedgeSettings::default(),
+                    AssistSettings::default(),
                     GameplayContext {
                         situation: kirby_assist_core::native_states::situation::AIR,
                         ..lc(start)
@@ -618,7 +619,7 @@ fn tech_in_place_is_not_a_dodge_event_and_far_targets_do_not_own_grab_input() {
     let mut engine = Engine::default();
     assert_eq!(
         engine
-            .sample_simple(true, &rules, LedgeSettings::default(), lc(4), tech, None)
+            .sample_simple(true, &rules, AssistSettings::default(), lc(4), tech, None)
             .owned,
         0
     );

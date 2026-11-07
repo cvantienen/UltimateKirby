@@ -3,9 +3,9 @@ use kirby_assist_core::{
     autopilot_guard::duck_geometry::Hitbox,
     fighter_profiles::{presets::MenuPresets, FighterProfiles},
     fighter_tuning::{self, Tuning},
-    settings_menu::{MenuRow, MenuSelection},
     native_input::MAPPER_B,
     projectile_reflect::*,
+    settings_menu::{MenuRow, MenuSelection},
     timing::AnimationSample,
 };
 fn values() -> Tuning {

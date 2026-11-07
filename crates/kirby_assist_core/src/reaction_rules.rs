@@ -1,9 +1,10 @@
 //! Bounded, input-only roll reaction rules. No native queries or file access.
 use crate::{
     gameplay::{ControllerOutput, GameplayContext, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     roll_read::{Target, ESCAPE_B, ESCAPE_F},
     sequence_config::{Action, Sequence},
+    settings::AssistSettings,
 };
 pub fn starts_direct_up_b(sequence: &Sequence) -> bool {
     simple::starts_up_b(sequence)
@@ -266,8 +267,14 @@ impl SelfState {
             Self::Any => true,
             Self::Grounded => c.situation == crate::native_states::situation::GROUND,
             Self::Airborne => c.situation == crate::native_states::situation::AIR,
-            Self::Standing => c.situation == crate::native_states::situation::GROUND && c.status == crate::native_states::status::WAIT,
-            Self::Walking => c.situation == crate::native_states::situation::GROUND && c.status == crate::native_states::status::WALK,
+            Self::Standing => {
+                c.situation == crate::native_states::situation::GROUND
+                    && c.status == crate::native_states::status::WAIT
+            }
+            Self::Walking => {
+                c.situation == crate::native_states::situation::GROUND
+                    && c.status == crate::native_states::status::WALK
+            }
             Self::Running => {
                 c.situation == crate::native_states::situation::GROUND
                     && matches!(
@@ -913,7 +920,7 @@ impl Engine {
         &mut self,
         allowed: bool,
         rules: &Resolved,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         mut c: GameplayContext,
         targets: [Option<Target>; 8],
         mut follow: Option<Opponent>,
@@ -1120,7 +1127,7 @@ mod tests {
         e.sample(
             true,
             r,
-            LedgeSettings::default(),
+            AssistSettings::default(),
             c,
             [Some(t), None, None, None, None, None, None, None],
             None,
@@ -1156,13 +1163,14 @@ mod tests {
                 // Discovery does not yet have a locked follow ID. The target
                 // snapshot itself must seed this first frame's native clock.
                 let follow = (frame > 0).then_some(following);
-                let out = engine.sample(true, &rules, LedgeSettings::default(), c, targets, follow);
+                let out =
+                    engine.sample(true, &rules, AssistSettings::default(), c, targets, follow);
                 assert_eq!(out.requested, expected, "native frame {frame}");
                 for _ in 0..repeats {
                     let duplicate = engine.sample(
                         true,
                         &rules,
-                        LedgeSettings::default(),
+                        AssistSettings::default(),
                         c,
                         targets,
                         Some(following),
@@ -1355,7 +1363,7 @@ mod combined_trigger_test {
             let out = engine.sample(
                 true,
                 &rules,
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 ctx,
                 [Some(target), None, None, None, None, None, None, None],
                 None,
@@ -1433,21 +1441,21 @@ mod activation_tests {
         };
         let targets = [Some(t), None, None, None, None, None, None, None];
         assert_eq!(
-            e.sample(true, &rules, LedgeSettings::default(), c, targets, None)
+            e.sample(true, &rules, AssistSettings::default(), c, targets, None)
                 .requested,
             0
         );
         rules.enabled_controls = Control::ToggleX.bit();
         c.motion_frame = 2.;
         assert_ne!(
-            e.sample(true, &rules, LedgeSettings::default(), c, targets, None)
+            e.sample(true, &rules, AssistSettings::default(), c, targets, None)
                 .requested,
             0
         );
         rules.enabled_controls = 0;
         c.motion_frame = 3.;
         assert_eq!(
-            e.sample(true, &rules, LedgeSettings::default(), c, targets, None)
+            e.sample(true, &rules, AssistSettings::default(), c, targets, None)
                 .requested,
             0
         );

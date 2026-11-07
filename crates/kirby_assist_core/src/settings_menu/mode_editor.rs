@@ -481,7 +481,7 @@ mod tests {
         let p = profiles.profile(15).unwrap().menu_options;
         let mut m = MenuSelection::new(&p);
         assert_eq!(m.resolve_reactions(&p).unwrap().len, 24);
-        assert!(m.settings(&p, LedgeSettings::default()).sequence_overrides[2].is_none());
+        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[2].is_none());
         for row in [MenuRow::RollRules, MenuRow::OutOfShield, MenuRow::GrabDodge] {
             m.open_mode_list(&p, row);
             assert_eq!(m.mode_entries(&p, row).len(), 8);
@@ -507,7 +507,7 @@ mod tests {
             }
         }
         assert_eq!(m.resolve_reactions(&p).unwrap().len, 4);
-        assert!(m.settings(&p, LedgeSettings::default()).sequence_overrides
+        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides
             [PresetSlot::Attack as usize]
             .is_none());
         let original = m.choices;
@@ -529,11 +529,11 @@ mod tests {
             .unwrap()
             .reaction
             .active());
-        assert!(m.settings(&p, LedgeSettings::default()).sequence_overrides[3].is_none());
+        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[3].is_none());
         m.preview_slot = Some(PresetSlot::Attack);
-        assert!(m.settings(&p, LedgeSettings::default()).sequence_overrides[3].is_some());
+        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[3].is_some());
         m.preview_slot = None;
-        assert!(m.settings(&p, LedgeSettings::default()).sequence_overrides[3].is_none());
+        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[3].is_none());
         assert!(!m.recipe_panel(&p).header.join(" ").contains("roster avg"));
         tap(&mut m, &p, MENU_STICK_CLICK);
         assert!(m.mode_rule_list);
@@ -789,7 +789,7 @@ mod explicit_draft_tests {
                 let mut m = MenuSelection::new(&p);
                 m.simplified_reactions = true;
                 m.y_fighter_kind = kind;
-                m.tuning_values[1] = profiles.profile(kind).unwrap().ledge.grab.standing_range;
+                m.tuning_values[1] = profiles.profile(kind).unwrap().grab.grab.standing_range;
                 m.open_mode_list(&p, MenuRow::RollRules);
                 m.auto_add_event = event;
                 m.add_mode_rule(&p, MenuRow::RollRules);

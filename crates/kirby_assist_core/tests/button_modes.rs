@@ -1,9 +1,9 @@
 use kirby_assist_core::{
     button_modes::YMode,
     fighter_profiles::FighterProfiles,
-    settings_menu::{MenuRow, MenuSelection, TWO_FRAME_TRIGGER},
     manual_controls::DPAD_RIGHT,
     native_input::{MAPPER_L, MAPPER_Y},
+    settings_menu::{MenuRow, MenuSelection, TWO_FRAME_TRIGGER},
 };
 
 #[test]

@@ -5,10 +5,10 @@ use kirby_assist_core::{
         presets::{MenuPresets, PresetSlot},
         FighterProfiles,
     },
-    settings_menu::{MenuRow, MenuSelection, MENU_STICK_CLICK},
     manual_controls::TURBO_TRIGGER,
     native_input::*,
     sequence_config::{persist, Catalog, Sequence},
+    settings_menu::{MenuRow, MenuSelection, MENU_STICK_CLICK},
 };
 fn token(slot: PresetSlot) -> &'static str {
     match slot {
@@ -303,9 +303,13 @@ fn builtin_in_compact_selector_is_not_started_as_an_empty_test_tape() {
 #[test]
 fn every_button_slot_executes_its_saved_tape_on_ground_and_in_air() {
     use kirby_assist_core::gameplay::{GameplayContext, MotionTiming, Opponent};
-    use kirby_assist_core::ledge_trap::{LedgeSettings, LedgeTrap};
+    use kirby_assist_core::ledge_trap::LedgeTrap;
+    use kirby_assist_core::settings::AssistSettings;
     for slot in PresetSlot::BUTTONS {
-        for situation in [kirby_assist_core::native_states::situation::GROUND, kirby_assist_core::native_states::situation::AIR] {
+        for situation in [
+            kirby_assist_core::native_states::situation::GROUND,
+            kirby_assist_core::native_states::situation::AIR,
+        ] {
             let p = presets(&format!(
                 "[bowser.{}.saved]\nstart_delay=0\ndefault=true\nactions=b:4\n",
                 token(slot)
@@ -313,7 +317,7 @@ fn every_button_slot_executes_its_saved_tape_on_ground_and_in_air() {
             let m = MenuSelection::new(&p);
             let settings = m.settings(
                 &p,
-                LedgeSettings {
+                AssistSettings {
                     enabled: true,
                     ..Default::default()
                 },
@@ -828,8 +832,8 @@ fn turbo_binding_alternates_each_local_input_update_without_delayed_pose_confirm
 #[test]
 fn builtin_hop_survives_the_runtime_menu_consumption_filter_on_every_source() {
     use kirby_assist_core::{
-        settings_menu::observation_buttons,
         manual_controls::{ShortcutContext, Shortcuts},
+        settings_menu::observation_buttons,
     };
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
         for slot in PresetSlot::BUTTONS {

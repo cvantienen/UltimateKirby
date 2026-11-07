@@ -3,9 +3,9 @@
 use super::*;
 use kirby_assist_core::{
     fighter_profiles::{presets::PresetSlot, FighterProfiles},
-    settings_menu::{MenuRow, MENU_STICK_CLICK},
     native_input::MAPPER_Y,
     sequence_config::{Catalog, Sequence},
+    settings_menu::{MenuRow, MENU_STICK_CLICK},
 };
 
 fn tap(selection: &mut MenuSelection, profiles: &FighterProfiles, buttons: u32) {
@@ -90,7 +90,7 @@ fn maintenance_acknowledgement_commits_the_first_edit_and_invalidates_runtime_ca
     );
     assert_eq!(
         selection
-            .settings(presets, LedgeSettings::default())
+            .settings(presets, AssistSettings::default())
             .sequence_overrides[PresetSlot::Roll as usize],
         Some(sequence)
     );
@@ -255,7 +255,7 @@ fn every_training_editor_dispatches_y_save_without_gameplay_input_permission() {
             buttons,
             buttons,
             ControlLayout::Default,
-            &LedgeSettings::default(),
+            &AssistSettings::default(),
             true,
             true,
             true,

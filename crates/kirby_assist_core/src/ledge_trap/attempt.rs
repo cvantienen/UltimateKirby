@@ -162,7 +162,7 @@ mod tests {
             };
             let opponent = |frame| {
                 Some(Opponent {
-                    motion: Some(super::super::MotionTiming {
+                    motion: Some(crate::gameplay::MotionTiming {
                         kind: 456,
                         frame,
                         rate: 1.0,

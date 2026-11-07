@@ -2,10 +2,11 @@
 use kirby_assist_core::{
     defense_response::Response,
     gameplay::{GameplayContext, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     native_input::*,
     reaction_rules::{Candidate, Resolved, Trigger},
     sequence_config::Catalog,
+    settings::AssistSettings,
 };
 fn context(status: i32, frame: f32) -> GameplayContext {
     GameplayContext {
@@ -36,7 +37,7 @@ fn block_to_down_smash_releases_neutral_until_guard_off_ends_then_holds_full_dur
     );
     let sample = |t: &mut InputTimeline, status, frame| {
         t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(status, frame),
             None,
             None,
@@ -84,14 +85,14 @@ fn direct_oos_inputs_do_not_gain_an_extra_release_frame() {
             Opponent::default(),
         );
         t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(kirby_assist_core::native_states::GUARD_DAMAGE, 0.),
             None,
             None,
             0.,
         );
         let o = t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(kirby_assist_core::native_states::GUARD, 1.),
             None,
             None,
@@ -140,7 +141,7 @@ fn shared_response_and_movement_cannot_feed_directions_into_shield() {
         ] {
             let o = r.sample(
                 true,
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 context(status, frame),
                 Some(enemy),
             );

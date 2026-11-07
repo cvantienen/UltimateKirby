@@ -3,13 +3,14 @@ use kirby_assist_core::{
     action_owner::{native_grab_active, ActionOwnership, Intent, Owner},
     defense_response::Response,
     gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::{ButtonTrace, MAPPER_B, MAPPER_R, MAPPER_ZR},
     out_of_shield::{Context as GrabContext, OutOfShield},
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target as ReactionTarget,
     sequence_config::{Catalog, Sequence},
+    settings::AssistSettings,
     spot_dodge::{Context, SpotDodge, Target, ESCAPE},
 };
 fn own(frame: f32, status: i32) -> GameplayContext {
@@ -76,8 +77,8 @@ fn recipe() -> Sequence {
     Catalog::parse("[bowser.roll.auto_spot_dodge]\nstart_delay=0\ntimeout=180\nreaction=auto_spot_dodge:35:12\nactions=up_b:4,drift:opponent:1:69\n")
         .unwrap().entries()[0].sequence
 }
-fn settings() -> LedgeSettings {
-    LedgeSettings {
+fn settings() -> AssistSettings {
+    AssistSettings {
         fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     }

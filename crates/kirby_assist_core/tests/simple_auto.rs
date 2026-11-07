@@ -1,10 +1,10 @@
 use kirby_assist_core::{
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::LedgeSettings,
     native_input::*,
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
+    settings::AssistSettings,
 };
 fn c(n: f32) -> GameplayContext {
     GameplayContext {
@@ -84,7 +84,7 @@ fn sample(
     e.sample_simple(
         allowed,
         r,
-        LedgeSettings::default(),
+        AssistSettings::default(),
         own,
         ts,
         Some(follow(target)),
@@ -265,7 +265,7 @@ fn frozen_enemy_animation_does_not_delay_observed_dodge_response() {
         e.sample_simple(
             true,
             &r,
-            LedgeSettings::default(),
+            AssistSettings::default(),
             c(0.),
             ts,
             Some(follow(target))
@@ -401,7 +401,7 @@ fn regrabbing_ledge_stops_an_already_committed_auto_response() {
             .sample_simple(
                 true,
                 &r,
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 c(1.),
                 [None; 8],
                 Some(hanging)
@@ -550,7 +550,7 @@ fn exact_event_ranges_and_heights_have_no_far_approach() {
             let out = engine.sample_simple(
                 true,
                 &r,
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 c(0.),
                 targets,
                 Some(follow(target)),
@@ -943,7 +943,7 @@ fn wrong_native_moves_and_finished_up_b_return_control_without_extra_drift() {
         kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
     ] {
         let mut e = Engine::default();
-        let settings = LedgeSettings {
+        let settings = AssistSettings {
             fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
             ..Default::default()
         };
@@ -983,7 +983,7 @@ fn instant_roll_grab_cancels_outside_reach_and_never_queues_the_same_roll() {
             sequence: catalog.entries()[0].sequence,
         })
         .unwrap();
-    let settings = LedgeSettings::default();
+    let settings = AssistSettings::default();
     let reach = settings.fighter.grab.standing_range;
     let mut engine = Engine::default();
     let out = sample(

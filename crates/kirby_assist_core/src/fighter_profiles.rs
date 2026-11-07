@@ -82,7 +82,7 @@ pub mod young_link;
 pub mod zelda;
 pub mod zero_suit_samus;
 
-use crate::ledge_trap::LedgeSettings;
+use crate::settings::AssistSettings;
 use std::collections::BTreeMap;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -123,11 +123,8 @@ impl FighterGrabData {
         }
     }
 }
-/// Compatibility alias for callers using the previous ledge-specific name.
-pub type LedgeFighterData = FighterGrabData;
-
 /// Response switches. Move selection for normal get-up uses GetupAttack.
-/// Ledge-drop recipes are selected separately through LedgeSettings.
+/// Ledge-drop recipes are selected separately through AssistSettings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LedgeResponses {
     pub neutral_getup: bool,
@@ -152,7 +149,7 @@ impl Default for LedgeResponses {
 pub struct FighterProfile {
     pub name: &'static str,
     pub fighter_kind: i32,
-    pub ledge: FighterGrabData,
+    pub grab: FighterGrabData,
     pub menu_options: presets::MenuPresets,
 }
 impl FighterProfile {
@@ -160,7 +157,7 @@ impl FighterProfile {
     pub fn fighter_data(&self) -> Option<&'static crate::fighter_data::FighterData> {
         crate::fighter_data::fighter(self.fighter_kind)
     }
-    pub fn apply(&self, mut settings: LedgeSettings) -> LedgeSettings {
+    pub fn apply(&self, mut settings: AssistSettings) -> AssistSettings {
         settings.implementation =
             crate::ledge_trap::ResponseImplementation::for_kind(self.fighter_kind);
         settings.fighter_kind = self.fighter_kind;
@@ -169,7 +166,7 @@ impl FighterProfile {
         // tool available for known fighters; missing selected timelines still
         // produce no response and never fall back to compiled moves.
         settings.enabled &= settings.implementation.is_some();
-        settings.fighter = self.ledge;
+        settings.fighter = self.grab;
         // A fighter profile never enables a globally disabled ledge tool.
         settings
     }
@@ -369,7 +366,7 @@ impl FighterProfiles {
             if crate::ledge_trap::ResponseImplementation::for_kind(profile.fighter_kind).is_none() {
                 return Err(format!("unregistered compiled fighter {}", profile.name));
             }
-            let data = profile.ledge;
+            let data = profile.grab;
             if data.grab.standing_range != 0.0
                 && (!data.grab.standing_range.is_finite()
                     || !(1.0..=60.0).contains(&data.grab.standing_range))
@@ -437,11 +434,11 @@ impl FighterProfiles {
 
     /// Use only the requested fighter identity and its loaded file catalog.
     /// None still covers startup before a valid fighter is observed.
-    pub fn ledge_settings(
+    pub fn settings_for_fighter(
         &self,
         fighter_kind: Option<i32>,
-        mut base: LedgeSettings,
-    ) -> LedgeSettings {
+        mut base: AssistSettings,
+    ) -> AssistSettings {
         // A fallback may receive a previously resolved live snapshot. Selected
         // indices and tapes belong to that identity, never the incoming one.
         if fighter_kind != Some(base.fighter_kind) {
@@ -450,7 +447,7 @@ impl FighterProfiles {
         }
         match fighter_kind.and_then(|kind| self.profile(kind)) {
             Some(profile) => profile.apply(base),
-            None => LedgeSettings {
+            None => AssistSettings {
                 enabled: false,
                 implementation: None,
                 response_choices: [None; crate::fighter_profiles::presets::PresetSlot::COUNT],

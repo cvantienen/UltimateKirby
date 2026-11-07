@@ -1,8 +1,9 @@
 use kirby_assist_core::{
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     native_input::*,
     sequence_config::{persist, Action, Catalog},
+    settings::AssistSettings,
 };
 fn c(frame: f32, facing: f32) -> GameplayContext {
     GameplayContext {
@@ -42,7 +43,7 @@ fn buttons_and_both_sticks_are_sent_together_and_capture_their_own_reference() {
     let mut t = InputTimeline::new(s, enemy(0., 10.));
     assert!(!t.inputs_only());
     let out = t.sample(
-        LedgeSettings::default(),
+        AssistSettings::default(),
         c(0., -1.),
         Some(enemy(0., 10.)),
         None,
@@ -55,7 +56,7 @@ fn buttons_and_both_sticks_are_sent_together_and_capture_their_own_reference() {
         MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_RIGHT_STICK_LEFT | MAPPER_RIGHT_STICK_UP
     );
     let next = t.sample(
-        LedgeSettings::default(),
+        AssistSettings::default(),
         c(1., 1.),
         Some(enemy(1., -10.)),
         None,
@@ -64,7 +65,7 @@ fn buttons_and_both_sticks_are_sent_together_and_capture_their_own_reference() {
     assert_eq!(next.stick, out.stick);
     assert_eq!(t.right_stick(), [-0.75, 0.4]);
     assert_eq!(next.requested, out.requested); // Turning/crossing cannot invert a held step.
-    t.sample(LedgeSettings::default(), c(2., 1.), None, None, 0.);
+    t.sample(AssistSettings::default(), c(2., 1.), None, None, 0.);
     assert!(t.finished());
 }
 #[test]
@@ -73,7 +74,7 @@ fn screen_relative_controller_does_not_require_an_enemy_or_move_readiness() {
     let mut t = InputTimeline::new(s, enemy(0., 10.));
     assert!(t.inputs_only());
     let out = t.sample(
-        LedgeSettings::default(),
+        AssistSettings::default(),
         GameplayContext {
             situation: kirby_assist_core::native_states::situation::AIR,
             ..c(0., -1.)

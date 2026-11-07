@@ -146,5 +146,12 @@ fn unknown_or_rewound_clocks_do_not_leave_a_shield_latched() {
     assert!(hold.sample(true, true, c));
     assert!(!hold.sample(true, false, GuardClock { frame: 0., ..c }));
     assert!(hold.sample(true, true, c));
-    assert!(!hold.sample(true, false, GuardClock { motion: kirby_assist_core::timing::NO_MOTION_KIND, ..c }));
+    assert!(!hold.sample(
+        true,
+        false,
+        GuardClock {
+            motion: kirby_assist_core::timing::NO_MOTION_KIND,
+            ..c
+        }
+    ));
 }

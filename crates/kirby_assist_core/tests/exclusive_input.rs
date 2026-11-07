@@ -252,8 +252,8 @@ fn inactive_automation_and_passive_helpers_do_not_acquire_gameplay_inputs() {
 fn a_blocked_new_ledge_trigger_or_manual_attack_cannot_cancel_existing_playback() {
     use kirby_assist_core::{
         fighter_profiles::presets::{MenuPresets, PresetSlot},
-        settings_menu::MenuSelection,
         native_input::MAPPER_L,
+        settings_menu::MenuSelection,
     };
     let presets = MenuPresets::default();
     let mut menu = MenuSelection::new(&presets);
@@ -275,17 +275,15 @@ fn a_blocked_new_ledge_trigger_or_manual_attack_cannot_cancel_existing_playback(
 #[test]
 fn authored_timeline_survives_manual_churn_and_duplicate_polls_then_restores_manual_control() {
     use kirby_assist_core::{
-        fighter_profiles::presets::PresetSlot,
-        gameplay::Opponent,
-        ledge_trap::{LedgeSettings, LedgeTrap},
-        sequence_config::Catalog,
+        fighter_profiles::presets::PresetSlot, gameplay::Opponent, ledge_trap::LedgeTrap,
+        sequence_config::Catalog, settings::AssistSettings,
     };
     let catalog = Catalog::parse(
         "[bowser.neutral.exclusive]\nstart_delay=0\nactions=wait:2,input:a:0:0:2,wait:2\n",
     )
     .unwrap();
     let sequence = catalog.entries()[0].sequence;
-    let mut settings = LedgeSettings {
+    let mut settings = AssistSettings {
         enabled: true,
         fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()

@@ -9,13 +9,14 @@ use kirby_assist_core::{
     },
     gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
     grab_handoff::GrabHandoff,
-    settings_menu::MenuSelection,
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     manual_controls::ManualJumpFence,
     native_input::*,
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::{Catalog, Sequence},
+    settings::AssistSettings,
+    settings_menu::MenuSelection,
 };
 fn c(frame: f32) -> GameplayContext {
     GameplayContext {
@@ -55,8 +56,8 @@ fn sequence(actions: &str) -> Sequence {
     .entries()[0]
         .sequence
 }
-fn settings() -> LedgeSettings {
-    LedgeSettings {
+fn settings() -> AssistSettings {
+    AssistSettings {
         fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     }

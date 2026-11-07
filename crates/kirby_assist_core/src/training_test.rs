@@ -2,11 +2,11 @@
 //! complete controller back to Training for its own menus/save/record shortcuts.
 //! No Training-private state, virtual L press or reduced gameplay config.
 use crate::{
-    settings_menu::menu_toggle_pressed,
     ledge_trap::DPAD_DOWN,
     live_input::LiveConfig,
     manual_controls::DPAD_UP,
     native_input::{MAPPER_B, MAPPER_PLUS, MAPPER_ZL, MAPPER_ZR},
+    settings_menu::menu_toggle_pressed,
 };
 
 pub fn active(installed: bool, training: bool) -> bool {

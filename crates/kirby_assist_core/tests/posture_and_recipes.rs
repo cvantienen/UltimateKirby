@@ -1,8 +1,8 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
-    posture::Posture,
     manual_controls::ShortcutContext,
     native_input::{MAPPER_A, MAPPER_X},
+    posture::Posture,
 };
 fn context(frame: f32) -> ShortcutContext {
     ShortcutContext {
@@ -193,7 +193,10 @@ fn omitted_facing_scans_cannot_change_unusable_posture_states() {
         kirby_assist_core::native_states::status::ATTACK_LW4,
         kirby_assist_core::native_states::status::DAMAGE,
     ] {
-        for situation in [kirby_assist_core::native_states::situation::GROUND, kirby_assist_core::native_states::situation::AIR] {
+        for situation in [
+            kirby_assist_core::native_states::situation::GROUND,
+            kirby_assist_core::native_states::situation::AIR,
+        ] {
             for stopped in [false, true] {
                 let c = ShortcutContext {
                     status,

@@ -139,7 +139,11 @@ impl<const N: usize> ObservationSnapshotSized<N> {
             let Fact::Float(rate) = f.facts[Field::Rate as usize].get()? else {
                 return None;
             };
-            (motion != crate::timing::NO_MOTION_KIND && frame.is_finite() && frame >= 0. && rate.is_finite() && rate > 0.)
+            (motion != crate::timing::NO_MOTION_KIND
+                && frame.is_finite()
+                && frame >= 0.
+                && rate.is_finite()
+                && rate > 0.)
                 .then_some((id, status, motion, frame, rate))
         })
     }

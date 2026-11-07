@@ -1490,7 +1490,10 @@ mod menu_audit_tests {
         tap(&mut e, DST, MAPPER_B);
         assert!(matches!(e.modal, Some(Modal::Tools { item: 0, .. })));
         tap(&mut e, DST, MAPPER_A);
-        assert_eq!(tap(&mut e, DST, crate::settings_menu::MENU_STICK_CLICK), None);
+        assert_eq!(
+            tap(&mut e, DST, crate::settings_menu::MENU_STICK_CLICK),
+            None
+        );
         assert!(e.modal.is_none());
         assert!(e.return_modal.is_none());
         tap(&mut e, DST, MAPPER_ZL | MAPPER_ZR);

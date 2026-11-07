@@ -2,18 +2,19 @@
 use kirby_assist_core::{
     defense_response::Response,
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
+    ledge_trap::{InputTimeline, SEQUENCE_BUTTONS},
     manual_controls::ManualTakeover,
     native_input::*,
     out_of_shield::{AutomaticConfig, Context as ShieldContext, OutOfShield},
     reaction_rules::{Candidate, Engine, Resolved},
     sequence_config::{Catalog, Sequence},
+    settings::AssistSettings,
 };
 fn recipe(event: &str) -> Sequence {
     Catalog::parse(&format!("[bowser.roll.test]\nstart_delay=0\ntimeout=240\nground_only=true\nreaction={event}:30:12\nactions=up_b:4,drift:opponent:1:69\n")).unwrap().entries()[0].sequence
 }
-fn settings() -> LedgeSettings {
-    LedgeSettings {
+fn settings() -> AssistSettings {
+    AssistSettings {
         fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     }
@@ -36,7 +37,11 @@ fn context(frame: u32, h: &ManualTakeover) -> GameplayContext {
         } else {
             kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A
         },
-        situation: if frame < 20 {kirby_assist_core::native_states::situation::GROUND} else {kirby_assist_core::native_states::situation::AIR},
+        situation: if frame < 20 {
+            kirby_assist_core::native_states::situation::GROUND
+        } else {
+            kirby_assist_core::native_states::situation::AIR
+        },
         motion_kind: 1,
         motion_frame: frame as f32,
         motion_rate: 1.,
@@ -345,7 +350,7 @@ fn other_fighters_keep_movement_handback_and_literal_manual_actions_keep_the_ori
     for frame in 0..=4 {
         r.sample(
             true,
-            LedgeSettings {
+            AssistSettings {
                 fighter_kind: kirby_assist_core::fighter_kinds::KIRBY,
                 ..settings()
             },
@@ -368,7 +373,7 @@ fn other_fighters_keep_movement_handback_and_literal_manual_actions_keep_the_ori
     assert_eq!(
         r.sample(
             true,
-            LedgeSettings {
+            AssistSettings {
                 fighter_kind: kirby_assist_core::fighter_kinds::KIRBY,
                 ..settings()
             },

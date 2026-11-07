@@ -4,10 +4,11 @@ use kirby_assist_core::{
     fighter_profiles::presets::PresetSlot,
     gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
     grab_handoff::GrabHandoff,
-    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
+    ledge_trap::{InputTimeline, SEQUENCE_BUTTONS},
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::*,
     sequence_config::Catalog,
+    settings::AssistSettings,
     tech_input::{mapped_guard, TechContext, TechInput, TechOutput},
 };
 fn c(status: i32, frame: f32) -> GameplayContext {
@@ -78,7 +79,7 @@ fn exact_bowser_shield_getup_attack_grab_keeps_guard_through_range_then_grabs() 
         .unwrap()
         .sequence;
     let mut t = InputTimeline::new(seq, enemy(30., 0.));
-    let settings = LedgeSettings::default();
+    let settings = AssistSettings::default();
     let anchor = Some([50., 0.]);
     assert_eq!(
         t.sample(
@@ -153,14 +154,14 @@ fn all_direct_literal_grab_forms_preserve_shield_without_a_drop_frame() {
         let cat = Catalog::parse(&source).unwrap();
         let mut t = InputTimeline::new(cat.entries()[0].sequence, enemy(5., 0.));
         t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             c(kirby_assist_core::native_states::GUARD_DAMAGE, 0.),
             Some(enemy(5., 0.)),
             Some([50., 0.]),
             1.,
         );
         let out = t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             c(kirby_assist_core::native_states::GUARD, 1.),
             Some(enemy(5., 1.)),
             Some([50., 0.]),
@@ -394,7 +395,7 @@ fn delayed_native_grab_cannot_reach_a_ledge_side_b_or_up_b_after_the_r_pulse() {
                 0x1c
             };
             let out = tape.as_mut().unwrap().sample(
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 c(status, tick as f32),
                 Some(enemy(5., tick as f32)),
                 None,

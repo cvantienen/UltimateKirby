@@ -2,11 +2,11 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
     gameplay::GameplayContext,
-    ledge_trap::LedgeSettings,
     native_input::{MAPPER_A, MAPPER_B, MAPPER_ZR},
     reaction_rules::{sample_optional_simple, simple_readiness, Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
+    settings::AssistSettings,
 };
 
 fn rules(events: &[(&str, &str)]) -> Resolved {
@@ -71,7 +71,7 @@ fn custom_attacks_do_not_require_up_b_and_up_b_keeps_its_own_gate_for_every_figh
             continue;
         }
         checked += 1;
-        let settings = LedgeSettings {
+        let settings = AssistSettings {
             fighter_kind: kind,
             ..Default::default()
         };
@@ -160,7 +160,10 @@ fn shield_readiness_is_lazy_shared_and_never_queried_for_invalid_or_unconfigured
     }
     for c in [
         GameplayContext { stopped: true, ..c },
-        GameplayContext { situation: kirby_assist_core::native_states::situation::AIR, ..c },
+        GameplayContext {
+            situation: kirby_assist_core::native_states::situation::AIR,
+            ..c
+        },
         GameplayContext {
             gameplay: false,
             ..c
@@ -314,7 +317,7 @@ fn ordinary_shield_backup_does_not_emit_up_b_or_require_its_native_transition() 
                 10.,
                 20.,
                 None,
-                LedgeSettings {
+                AssistSettings {
                     fighter_kind: kind,
                     ..Default::default()
                 },
@@ -359,7 +362,7 @@ fn ordinary_shield_backup_does_not_emit_up_b_or_require_its_native_transition() 
                 10.,
                 20.,
                 None,
-                LedgeSettings {
+                AssistSettings {
                     fighter_kind: kind,
                     ..Default::default()
                 },
@@ -430,7 +433,7 @@ fn configured_boxed_engine_is_reused_between_polls() {
 #[test]
 fn profile_fallback_cannot_relabel_another_fighters_selected_tapes() {
     use kirby_assist_core::{
-        fighter_profiles::FighterProfiles, ledge_trap::LedgeSettings, sequence_config::Catalog,
+        fighter_profiles::FighterProfiles, sequence_config::Catalog, settings::AssistSettings,
     };
     let profiles = FighterProfiles::default();
     let recipe = Catalog::parse(
@@ -439,12 +442,14 @@ fn profile_fallback_cannot_relabel_another_fighters_selected_tapes() {
     .unwrap()
     .entries()[0]
         .sequence;
-    let mut bowser = profiles.ledge_settings(Some(15), LedgeSettings::default());
+    let mut bowser = profiles.settings_for_fighter(Some(15), AssistSettings::default());
     bowser.enabled = true;
     bowser.response_choices[2] = Some(1);
     bowser.sequence_overrides[2] = Some(recipe);
     assert_eq!(
-        profiles.ledge_settings(Some(15), bowser).sequence_overrides[2],
+        profiles
+            .settings_for_fighter(Some(15), bowser)
+            .sequence_overrides[2],
         Some(recipe)
     );
     for kind in [
@@ -456,7 +461,7 @@ fn profile_fallback_cannot_relabel_another_fighters_selected_tapes() {
         Some(90),
         Some(91),
     ] {
-        let incoming = profiles.ledge_settings(kind, bowser);
+        let incoming = profiles.settings_for_fighter(kind, bowser);
         assert!(incoming.response_choices.iter().all(Option::is_none));
         assert!(incoming.sequence_overrides.iter().all(Option::is_none));
         if profiles.profile(kind.unwrap_or(-1)).is_none() {

@@ -306,7 +306,7 @@ mod tests {
         tap(&mut m, &p, DPAD_DOWN);
         tap(&mut m, &p, DPAD_RIGHT);
         let first_new = m.choices[0];
-        let configured = m.settings(&p, LedgeSettings::default()).sequence_overrides[0].unwrap();
+        let configured = m.settings(&p, AssistSettings::default()).sequence_overrides[0].unwrap();
         assert!(matches!(
             configured.actions(),
             [crate::sequence_config::Action::Input {
@@ -320,7 +320,7 @@ mod tests {
         tap(&mut m, &p, A);
         assert_eq!(m.choices[0], 4);
         assert_eq!(
-            m.settings(&p, LedgeSettings::default()).sequence_overrides[0]
+            m.settings(&p, AssistSettings::default()).sequence_overrides[0]
                 .unwrap()
                 .actions(),
             configured.actions()
@@ -381,15 +381,18 @@ mod tests {
     }
     #[test]
     fn empty_ness_and_falcon_catalogs_can_create_edit_preview_and_queue_a_recipe() {
-        use crate::ledge_trap::{GameplayContext, LedgeTrap, Opponent};
+        use crate::{
+            gameplay::{GameplayContext, Opponent},
+            ledge_trap::LedgeTrap,
+        };
         for kind in [10, 11] {
             let profiles = crate::fighter_profiles::FighterProfiles::default();
             let profile = profiles.profile(kind).unwrap();
             let presets = &profile.menu_options;
             assert!(presets.list(PresetSlot::Neutral).options.is_empty());
-            let base = profile.apply(LedgeSettings {
+            let base = profile.apply(AssistSettings {
                 enabled: true,
-                ..LedgeSettings::default()
+                ..AssistSettings::default()
             });
             assert!(base.enabled);
             let mut m = menu(presets);
@@ -452,7 +455,7 @@ mod tests {
         tap(&mut m, &p, MENU_STICK_CLICK);
         tap(&mut m, &p, DPAD_DOWN);
         tap(&mut m, &p, DPAD_RIGHT); // Short hop
-        let sequence = m.settings(&p, LedgeSettings::default()).sequence_overrides[0].unwrap();
+        let sequence = m.settings(&p, AssistSettings::default()).sequence_overrides[0].unwrap();
         let added =
             persist::update_named(source, 5, slot, "menu_custom", sequence, true, None).unwrap();
         m.complete_file_save(&p, slot, index, false);
@@ -503,7 +506,7 @@ mod tests {
         let blank = m.choice(&p, slot, index).unwrap();
         assert!(blank.allow_new);
         assert_eq!(blank.id, "menu_custom");
-        assert!(m.settings(&p, LedgeSettings::default()).sequence_overrides[0].is_none());
+        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[0].is_none());
     }
 
     #[test]
@@ -533,13 +536,13 @@ mod tests {
         tap(&mut m, &p, MENU_STICK_CLICK);
         tap(&mut m, &p, DPAD_DOWN);
         tap(&mut m, &p, DPAD_RIGHT);
-        assert!(m.settings(&p, LedgeSettings::default()).sequence_overrides[0].is_some());
+        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[0].is_some());
         m.complete_file_save(&p, slot, 0, false);
         assert!(!m.choice(&p, slot, 0).unwrap().allow_new);
         m.complete_file_save(&p, slot, 0, true);
         assert_eq!(m.choices[0], 0);
         assert!(m.choice(&p, slot, 0).unwrap().allow_new);
-        assert!(m.settings(&p, LedgeSettings::default()).sequence_overrides[0].is_none());
+        assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[0].is_none());
         tap(&mut m, &p, MENU_STICK_CLICK);
         assert!(m.recipe_editing);
     }

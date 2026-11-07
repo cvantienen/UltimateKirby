@@ -5,7 +5,7 @@ pub fn profile() -> FighterProfile {
     FighterProfile {
         name: "incineroar",
         fighter_kind: crate::fighter_kinds::INCINEROAR,
-        ledge: super::FighterGrabData::from_kind(71),
+        grab: super::FighterGrabData::from_kind(71),
         menu_options: crate::fighter_profiles::presets::MenuPresets::EMPTY,
     }
 }

@@ -2,7 +2,7 @@
 //! acquisition, or combo reads; resolve response metadata only on edits.
 use super::PROFILES;
 use kirby_assist_core::button_bindings::Mode;
-use kirby_assist_core::{settings_menu::MenuSelection, ledge_trap::LedgeSettings};
+use kirby_assist_core::{settings::AssistSettings, settings_menu::MenuSelection};
 use std::collections::BTreeMap;
 
 #[cfg(feature = "imgui-menu")]
@@ -88,7 +88,7 @@ pub(super) struct SettingsMenu {
     pub duck_held: bool,
     scope: bool,
     roll_read_blocked: bool,
-    resolved: Option<LedgeSettings>,
+    resolved: Option<AssistSettings>,
     resolved_choices:
         Option<[usize; kirby_assist_core::fighter_profiles::presets::PresetSlot::COUNT]>,
     resolved_recipe_revision: Option<u64>,
@@ -505,7 +505,7 @@ impl SettingsMenu {
         buttons: u32,
         physical: u32,
         layout: kirby_assist_core::native_input::ControlLayout,
-        base: &LedgeSettings,
+        base: &AssistSettings,
         mash_default: bool,
         grab_default: bool,
         tech_default: bool,
@@ -539,7 +539,7 @@ impl SettingsMenu {
         buttons: u32,
         physical: u32,
         layout: kirby_assist_core::native_input::ControlLayout,
-        base: &LedgeSettings,
+        base: &AssistSettings,
         mash_default: bool,
         grab_default: bool,
         tech_default: bool,
@@ -892,21 +892,21 @@ impl SettingsMenu {
         }
         changed
     }
-    pub fn settings(&self, kind: Option<i32>, startup: &LedgeSettings) -> LedgeSettings {
+    pub fn settings(&self, kind: Option<i32>, startup: &AssistSettings) -> AssistSettings {
         if self.scope && self.kind == kind {
             if let Some(resolved) = self.resolved.as_ref() {
-                return LedgeSettings {
+                return AssistSettings {
                     enabled: self.sequence_enabled(startup.enabled),
                     ..*resolved
                 };
             }
-            let base = super::ledge_settings(kind, *startup);
-            return LedgeSettings {
+            let base = super::settings_for_fighter(kind, *startup);
+            return AssistSettings {
                 enabled: self.sequence_enabled(base.enabled),
                 ..base
             };
         }
-        super::ledge_settings(kind, *startup)
+        super::settings_for_fighter(kind, *startup)
     }
 }
 pub(super) fn install() {

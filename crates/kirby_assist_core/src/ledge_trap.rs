@@ -13,16 +13,14 @@ pub use file_timeline::Timeline as InputTimeline;
 mod identity;
 mod types;
 mod visits;
-pub use crate::gameplay::{
-    frames_until, recovery_frames, AirPhysics, ControllerOutput, GameplayContext, MotionTiming,
-    Opponent,
-};
+use crate::gameplay::{ControllerOutput, GameplayContext, Opponent};
+use crate::settings::AssistSettings;
 #[cfg(feature = "diagnostic-logging")]
 pub use diagnostics::{
     CalibrationFrame, CalibrationKind, CalibrationMove, NativeRule, RollGrabSnapshot,
 };
 pub use identity::ResponseImplementation;
-pub use types::{in_tracking_range, LedgeContext, LedgeOutput, LedgeSettings};
+pub use types::in_tracking_range;
 pub use visits::LedgeVisits;
 
 pub const DPAD_DOWN: u32 = crate::native_input::MAPPER_DPAD_DOWN;
@@ -46,13 +44,10 @@ pub fn needs_opponent_clock(status: i32, motion_rate: f32) -> bool {
                 | crate::native_states::status::OTTOTTO_WAIT
         )
 }
-/// Legacy alias; shared policies should use `ASSIST_BUTTONS`.
-pub const LEDGE_BUTTONS: u32 = ASSIST_BUTTONS;
 /// Exclusive literal-sequence ownership; pause/menu remain available.
-pub const SEQUENCE_BUTTONS: u32 =
-    ASSIST_BUTTONS
-        | crate::native_input::MAPPER_DPAD_BUTTONS
-        | crate::manual_controls::LEFT_STICK_DIRECTIONS;
+pub const SEQUENCE_BUTTONS: u32 = ASSIST_BUTTONS
+    | crate::native_input::MAPPER_DPAD_BUTTONS
+    | crate::manual_controls::LEFT_STICK_DIRECTIONS;
 /// Native incapacitation ends an input tape. Keep ordinary get-up, attack,
 /// shield, dodge and special recovery distinct from knockdown/damage.
 /// Verified against pinned skyline-smash d2ca90d9, src/lua_const.rs:
@@ -202,7 +197,7 @@ impl LedgeTrap {
     }
     pub fn sample(
         &mut self,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         tick: i64,
         ctx: GameplayContext,
         enemy: Option<Opponent>,
@@ -333,7 +328,7 @@ impl LedgeTrap {
     }
     fn continue_timeline(
         &mut self,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         ctx: GameplayContext,
         enemy: Option<Opponent>,
     ) -> ControllerOutput {

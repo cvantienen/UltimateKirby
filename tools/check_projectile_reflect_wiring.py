@@ -29,15 +29,15 @@ def main():
     fixture=r'''
 #![allow(dead_code)]
 use kirby_assist_core::{action_owner::{ActionOwnership,Owner},
-    ledge_trap::LedgeOutput,native_input::*,out_of_shield::OutOfShield,
+    gameplay::ControllerOutput,native_input::*,out_of_shield::OutOfShield,
     projectile_reflect::{Config,Context,Threat,Reflector},timing::AnimationSample,
     fighter_tuning::Tuning};
 #[derive(Default)]
 struct State {
-    reflector:Reflector,reflect_output:LedgeOutput,action_owner:ActionOwnership,
-    ledge_active:bool,oos:OutOfShield,oos_output:LedgeOutput,
-    roll_read_output:LedgeOutput,spot_output:LedgeOutput,trip_output:LedgeOutput,
-    fair_output:LedgeOutput,jab_lock_output:LedgeOutput,trump_output:LedgeOutput,
+    reflector:Reflector,reflect_output:ControllerOutput,action_owner:ActionOwnership,
+    ledge_active:bool,oos:OutOfShield,oos_output:ControllerOutput,
+    roll_read_output:ControllerOutput,spot_output:ControllerOutput,trip_output:ControllerOutput,
+    fair_output:ControllerOutput,jab_lock_output:ControllerOutput,trump_output:ControllerOutput,
     raw_tick:i64,
 }
 fn publish(state:&mut State,reflect_observation:Option<(Config,Context,Option<Threat>)>,clatter:bool,tech:bool) {
@@ -45,7 +45,7 @@ fn publish(state:&mut State,reflect_observation:Option<(Config,Context,Option<Th
 }
 fn cancel(state:&mut State,keep:Option<Owner>) {
     let State{reflector,reflect_output,..}=state;
-    struct Ref<'a>{reflector:&'a mut Reflector,reflect_output:&'a mut LedgeOutput}
+    struct Ref<'a>{reflector:&'a mut Reflector,reflect_output:&'a mut ControllerOutput}
     impl Ref<'_> {fn run(&mut self,keep:Option<Owner>){CANCEL}}
     Ref{reflector,reflect_output}.run(keep);
 }
@@ -102,7 +102,7 @@ fn observation(frame:f32,status:i32)->Option<(Config,Context,Option<Threat>)> {
 '''.replace('PUBLICATION',publication).replace('CANCEL',cancel).replace('RECEIPT',receipt).replace('POLL',poll)
     # The production cancellation block acts on ordinary fields; dereference
     # the tiny borrowed fixture's output slot when assigning its copied value.
-    fixture=fixture.replace('self.reflect_output=LedgeOutput::default();','*self.reflect_output=LedgeOutput::default();')
+    fixture=fixture.replace('self.reflect_output=ControllerOutput::default();','*self.reflect_output=ControllerOutput::default();')
     deps=ROOT/'crates/kirby_assist_core/target/debug/deps'
     libraries=list(deps.glob('libkirby_assist_core-*.rlib'))
     if not libraries:raise SystemExit('Run the core projectile_reflect test first.')

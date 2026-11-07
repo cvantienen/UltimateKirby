@@ -6,7 +6,10 @@ pub fn automatic_start_status(status: i32) -> bool {
     matches!(status,crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE|crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT|crate::native_states::GUARD_ON|crate::native_states::GUARD|crate::native_states::status::OTTOTTO|crate::native_states::status::OTTOTTO_WAIT)
 }
 pub fn automatic_start_allowed(status: i32, situation: i32, stopped: bool, linked: bool) -> bool {
-    situation == crate::native_states::situation::GROUND && !stopped && !linked && automatic_start_status(status)
+    situation == crate::native_states::situation::GROUND
+        && !stopped
+        && !linked
+        && automatic_start_status(status)
 }
 /// Grab attempts may be defended/punished. Pull/hold/pummel/throw and victims
 /// already in capture are not ordinary automatic-punish targets.
@@ -62,7 +65,9 @@ impl AutomaticObservationScope {
         Self {
             acquire: automatic_start_allowed(status, situation, stopped, false),
             follow: committed_up_b && native_up_b
-                || assisted_dodge && situation == crate::native_states::situation::GROUND && status == crate::native_states::ESCAPE
+                || assisted_dodge
+                    && situation == crate::native_states::situation::GROUND
+                    && status == crate::native_states::ESCAPE
                 || committed_sequence
                     && automatic_target_available(status)
                     && !crate::action_owner::native_grab_active(status)

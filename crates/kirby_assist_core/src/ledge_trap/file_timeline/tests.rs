@@ -22,7 +22,7 @@ fn ctx(frame: f32) -> GameplayContext {
     }
 }
 fn sample(timeline: &mut Timeline, context: GameplayContext) -> ControllerOutput {
-    timeline.sample(LedgeSettings::default(), context, None, None, 1.0)
+    timeline.sample(AssistSettings::default(), context, None, None, 1.0)
 }
 fn timeline(actions: &str) -> Timeline {
     Timeline::new(sequence(actions), enemy(CLIFF_CLIMB, false))
@@ -132,7 +132,7 @@ fn explicit_conditions_require_fresh_enemy_and_continue_without_extra_frames() {
     assert!(!t.inputs_only());
     assert!(!t.needs_ground());
     assert_eq!(
-        t.sample(LedgeSettings::default(), ctx(0.), Some(target), None, 1.)
+        t.sample(AssistSettings::default(), ctx(0.), Some(target), None, 1.)
             .requested,
         MAPPER_A
     );
@@ -146,7 +146,7 @@ fn explicit_conditions_require_fresh_enemy_and_continue_without_extra_frames() {
     ] {
         let mut t = Timeline::new(sequence("check:enemy_shielding,hold:a:4"), target);
         assert_eq!(
-            t.sample(LedgeSettings::default(), ctx(0.), observation, None, 1.)
+            t.sample(AssistSettings::default(), ctx(0.), observation, None, 1.)
                 .requested,
             0
         );
@@ -157,7 +157,7 @@ fn explicit_conditions_require_fresh_enemy_and_continue_without_extra_frames() {
     assert_eq!(sample(&mut t, ctx(1.)).requested, 0);
     // A new observation may satisfy a predicate in the same native frame.
     assert_eq!(
-        t.sample(LedgeSettings::default(), ctx(1.), Some(target), None, 1.)
+        t.sample(AssistSettings::default(), ctx(1.), Some(target), None, 1.)
             .requested,
         MAPPER_A
     );
@@ -237,8 +237,8 @@ fn condition_flags_distance_and_facing_use_only_copied_facts() {
 fn fighter_range_uses_the_selected_fighter_profile() {
     let profiles = crate::fighter_profiles::FighterProfiles::default();
     for (kind, inside, outside) in [(6, 10.0, 13.0)] {
-        let mut settings = LedgeSettings::default();
-        settings.fighter = profiles.profile(kind).unwrap().ledge;
+        let mut settings = AssistSettings::default();
+        settings.fighter = profiles.profile(kind).unwrap().grab;
         for (distance, expected) in [(inside, MAPPER_R), (outside, 0)] {
             let opponent = Opponent {
                 position: [distance, 0.0],
@@ -267,8 +267,8 @@ fn fighter_range_uses_the_selected_fighter_profile() {
 fn instant_grab_range_passes_now_or_cancels_without_a_late_grab() {
     let profiles = crate::fighter_profiles::FighterProfiles::default();
     for kind in [6] {
-        let mut settings = LedgeSettings::default();
-        settings.fighter = profiles.profile(kind).unwrap().ledge;
+        let mut settings = AssistSettings::default();
+        settings.fighter = profiles.profile(kind).unwrap().grab;
         let reach = settings.fighter.grab.standing_range;
         for actions in [
             "range:fighter_range_instant,grab",
@@ -340,8 +340,8 @@ fn instant_grab_range_passes_now_or_cancels_without_a_late_grab() {
 #[test]
 fn instant_grab_range_fails_when_fighter_reference_is_unavailable() {
     let profiles = crate::fighter_profiles::FighterProfiles::default();
-    let mut settings = LedgeSettings::default();
-    settings.fighter = profiles.profile(5).unwrap().ledge;
+    let mut settings = AssistSettings::default();
+    settings.fighter = profiles.profile(5).unwrap().grab;
     assert_eq!(settings.fighter.grab.standing_range, 0.0);
     for actions in [
         "range:fighter_range,grab",
@@ -388,7 +388,7 @@ fn movement_rate_changes_do_not_cancel_forward_or_reverse_walks_or_drift() {
                             motion_rate: rate,
                             ..ctx(tick as f32)
                         };
-                        let out = t.sample(LedgeSettings::default(), c, Some(opponent), None, 0.0);
+                        let out = t.sample(AssistSettings::default(), c, Some(opponent), None, 0.0);
                         if tick < 3 {
                             assert!(
                                 !t.finished(),
@@ -405,7 +405,7 @@ fn movement_rate_changes_do_not_cancel_forward_or_reverse_walks_or_drift() {
                         }
                         for _ in 0..5 {
                             assert_eq!(
-                                t.sample(LedgeSettings::default(), c, Some(opponent), None, 0.0),
+                                t.sample(AssistSettings::default(), c, Some(opponent), None, 0.0),
                                 out
                             );
                         }
@@ -417,7 +417,11 @@ fn movement_rate_changes_do_not_cancel_forward_or_reverse_walks_or_drift() {
 }
 #[test]
 fn locomotion_clock_still_rejects_real_gaps_and_does_not_change_attack_clock() {
-    for status in [crate::native_states::status::WALK, crate::native_states::status::RUN, crate::native_states::status::REBOUND_STOP] {
+    for status in [
+        crate::native_states::status::WALK,
+        crate::native_states::status::RUN,
+        crate::native_states::status::REBOUND_STOP,
+    ] {
         let mut t = timeline("drift:opponent:0.5:8,grab");
         sample(
             &mut t,
@@ -520,10 +524,10 @@ fn file_zero_rate_pose_uses_locked_native_actor_clock_without_counting_polls() {
             ..ctx(0.0)
         };
         let e = Some(moving_enemy(frame as f32));
-        let out = t.sample(LedgeSettings::default(), own, e, None, 1.0);
+        let out = t.sample(AssistSettings::default(), own, e, None, 1.0);
         assert_eq!(out.requested, expected, "frame {frame}");
         for _ in 0..30 {
-            assert_eq!(t.sample(LedgeSettings::default(), own, e, None, 1.0), out);
+            assert_eq!(t.sample(AssistSettings::default(), own, e, None, 1.0), out);
         }
     }
 }
@@ -532,7 +536,7 @@ fn file_native_clocks_are_not_added_and_missing_samples_are_not_backfilled() {
     let mut t = timeline("wait:3,up_b");
     for frame in 0..4 {
         let out = t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             ctx(frame as f32),
             Some(moving_enemy(frame as f32)),
             None,
@@ -546,20 +550,20 @@ fn file_native_clocks_are_not_added_and_missing_samples_are_not_backfilled() {
         ..ctx(0.0)
     };
     t.sample(
-        LedgeSettings::default(),
+        AssistSettings::default(),
         own,
         Some(moving_enemy(0.0)),
         None,
         1.0,
     );
     assert_eq!(
-        t.sample(LedgeSettings::default(), own, None, None, 1.0)
+        t.sample(AssistSettings::default(), own, None, None, 1.0)
             .requested,
         0
     );
     assert_eq!(
         t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             own,
             Some(moving_enemy(10.0)),
             None,
@@ -570,7 +574,7 @@ fn file_native_clocks_are_not_added_and_missing_samples_are_not_backfilled() {
     );
     assert_eq!(
         t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             own,
             Some(moving_enemy(11.0)),
             None,
@@ -686,7 +690,7 @@ fn blocked_getup_attack_cancels_shield_into_up_b_on_the_first_guard_frame() {
             opponent,
         );
         let call =
-            |t: &mut Timeline, c| t.sample(LedgeSettings::default(), c, Some(opponent), None, 1.);
+            |t: &mut Timeline, c| t.sample(AssistSettings::default(), c, Some(opponent), None, 1.);
         assert_eq!(call(&mut t, ctx(0.)).requested, MAPPER_ZR);
         let hit = GameplayContext {
             status: crate::native_states::GUARD_DAMAGE,
@@ -844,9 +848,9 @@ fn timeline_online_status_transitions_and_idle_wraps_preserve_schedule() {
 #[test]
 fn timeline_missing_file_recipe_never_dispatches_a_compiled_option() {
     let mut trap = LedgeTrap::default();
-    let settings = LedgeSettings {
+    let settings = AssistSettings {
         enabled: true,
-        ..LedgeSettings::default()
+        ..AssistSettings::default()
     };
     for frame in 0..5 {
         assert_eq!(
@@ -876,7 +880,10 @@ fn timeline_spatial_timeout_cancels_without_starting_a_late_attack() {
 #[test]
 fn backward_drift_keeps_entry_direction_through_turnaround_and_exact_duration() {
     for facing in [-1.0, 1.0] {
-        for situation in [crate::native_states::situation::GROUND, crate::native_states::situation::AIR] {
+        for situation in [
+            crate::native_states::situation::GROUND,
+            crate::native_states::situation::AIR,
+        ] {
             let mut t = timeline("drift:backward:0.5:3,grab");
             for frame in 0..3 {
                 let c = GameplayContext {
@@ -1166,10 +1173,10 @@ fn timeline_cstick_has_real_direction_bits_axes_and_duplicate_reuse() {
 #[test]
 fn timeline_dispatch_survives_takeoff_target_loss_and_hit_confirm_then_hands_back() {
     let mut trap = LedgeTrap::default();
-    let mut settings = LedgeSettings {
+    let mut settings = AssistSettings {
         enabled: true,
         manual_spacing: true,
-        ..LedgeSettings::default()
+        ..AssistSettings::default()
     };
     settings.sequence_overrides[0] = Some(sequence("short_hop, wait:2, up_special"));
     assert_eq!(
@@ -1294,11 +1301,11 @@ fn facing_blocks_pick_only_starting_direction_and_add_no_delay() {
             let mut own = ctx(0.0);
             own.position = [side * 10.0, 0.0];
             own.facing = if toward { -side } else { side };
-            let first = t.sample(LedgeSettings::default(), own, None, Some([0.0; 2]), side);
+            let first = t.sample(AssistSettings::default(), own, None, Some([0.0; 2]), side);
             assert_eq!(first.requested, if toward { MAPPER_A } else { MAPPER_B });
             own.motion_frame = 1.0;
             own.facing = -own.facing;
-            let second = t.sample(LedgeSettings::default(), own, None, Some([0.0; 2]), side);
+            let second = t.sample(AssistSettings::default(), own, None, Some([0.0; 2]), side);
             assert_eq!(
                 second.requested, 0,
                 "Turning must not enable the other block"
@@ -1315,7 +1322,7 @@ fn skipped_block_waits_do_not_consume_time_and_missing_anchor_stops() {
     own.position = [10.0, 0.0];
     own.facing = 1.0;
     assert_eq!(
-        t.sample(LedgeSettings::default(), own, None, Some([0.0; 2]), 1.0)
+        t.sample(AssistSettings::default(), own, None, Some([0.0; 2]), 1.0)
             .requested,
         MAPPER_B
     );
@@ -1341,13 +1348,13 @@ fn explicit_saved_ledge_directions_do_not_fall_back_to_opponent() {
     let mut toward = timeline("drift:saved_ledge:0.25:4");
     assert_eq!(
         toward
-            .sample(LedgeSettings::default(), own, None, Some([0.0; 2]), 1.0)
+            .sample(AssistSettings::default(), own, None, Some([0.0; 2]), 1.0)
             .stick,
         Some([-0.25, 0.0])
     );
     let mut away = timeline("drift:away_from_ledge:0.25:4");
     assert_eq!(
-        away.sample(LedgeSettings::default(), own, None, Some([0.0; 2]), 1.0)
+        away.sample(AssistSettings::default(), own, None, Some([0.0; 2]), 1.0)
             .stick,
         Some([0.25, 0.0])
     );

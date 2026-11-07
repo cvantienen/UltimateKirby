@@ -1,7 +1,7 @@
 use kirby_assist_core::{
     battle_objects::{append_fighter, insert_nearest, FighterRoster},
     gameplay::{GameplayContext, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     native_input::MAPPER_B,
     native_states,
     observation::RosterSnapshot,
@@ -9,6 +9,7 @@ use kirby_assist_core::{
         automatic_target_available, automatic_up_b_status, AutomaticObservationScope,
     },
     sequence_config::Catalog,
+    settings::AssistSettings,
 };
 fn ctx(status: i32, frame: f32) -> GameplayContext {
     GameplayContext {
@@ -40,21 +41,70 @@ fn shield_break_sleep_bind_bury_freeze_and_special_captures_abort_without_resumi
     // The remaining raw values are intentionally unmapped native status IDs;
     // this regression exercises the conservative fallback for unknown states.
     let states = [
-        native_states::status::REBOUND_STOP, native_states::status::SHIELD_BREAK_FLY, native_states::status::SHIELD_BREAK_FALL, native_states::status::SHIELD_BREAK_DOWN, native_states::status::FURAFURA_STAND, native_states::status::FURAFURA, native_states::status::FURAFURA_END, native_states::status::DAMAGE_SONG_START, native_states::status::DAMAGE_SONG_END, native_states::status::BIND, native_states::status::SLIP, native_states::status::SWIM_DIVE, 0xb3, native_states::status::TREAD_DAMAGE, native_states::status::CLUNG_GANON,
-        native_states::status::CATCHED_GANON, native_states::status::CATCHED_AIR_END_GANON, 0xc4, 0xc5, native_states::status::BURY, 0xc9, 0xcb, native_states::status::ICE_JUMP, 0xcd, 0xd6, native_states::status::SWALLOWED, 0xed, 0xf0, 0xf3, 0xf4,
-        native_states::status::CAPTURE_DAMAGE_YOSHI, native_states::status::CATCHED_REFLET, 0x108, 0x10e, 0x117, 0x146, native_states::status::SAVING_DAMAGE, 0x156, native_states::status::CATCHED_RIDLEY, native_states::status::SWING_GAOGAEN_CATCHED, 0x183, 0x18a, 0x19c,
-        native_states::status::DAMAGE_SLEEP_START, 0x1a8, native_states::status::CATCHED_PICKEL_TROLLEY, 0x1bf, 0x1ca, native_states::status::CAPTURE_TRAIL_KEYHOLE, native_states::status::STANDBY, native_states::status::ENTRY, 0x1da, native_states::status::FINAL,
+        native_states::status::REBOUND_STOP,
+        native_states::status::SHIELD_BREAK_FLY,
+        native_states::status::SHIELD_BREAK_FALL,
+        native_states::status::SHIELD_BREAK_DOWN,
+        native_states::status::FURAFURA_STAND,
+        native_states::status::FURAFURA,
+        native_states::status::FURAFURA_END,
+        native_states::status::DAMAGE_SONG_START,
+        native_states::status::DAMAGE_SONG_END,
+        native_states::status::BIND,
+        native_states::status::SLIP,
+        native_states::status::SWIM_DIVE,
+        0xb3,
+        native_states::status::TREAD_DAMAGE,
+        native_states::status::CLUNG_GANON,
+        native_states::status::CATCHED_GANON,
+        native_states::status::CATCHED_AIR_END_GANON,
+        0xc4,
+        0xc5,
+        native_states::status::BURY,
+        0xc9,
+        0xcb,
+        native_states::status::ICE_JUMP,
+        0xcd,
+        0xd6,
+        native_states::status::SWALLOWED,
+        0xed,
+        0xf0,
+        0xf3,
+        0xf4,
+        native_states::status::CAPTURE_DAMAGE_YOSHI,
+        native_states::status::CATCHED_REFLET,
+        0x108,
+        0x10e,
+        0x117,
+        0x146,
+        native_states::status::SAVING_DAMAGE,
+        0x156,
+        native_states::status::CATCHED_RIDLEY,
+        native_states::status::SWING_GAOGAEN_CATCHED,
+        0x183,
+        0x18a,
+        0x19c,
+        native_states::status::DAMAGE_SLEEP_START,
+        0x1a8,
+        native_states::status::CATCHED_PICKEL_TROLLEY,
+        0x1bf,
+        0x1ca,
+        native_states::status::CAPTURE_TRAIL_KEYHOLE,
+        native_states::status::STANDBY,
+        native_states::status::ENTRY,
+        0x1da,
+        native_states::status::FINAL,
     ];
     for status in states {
         for stopped in [false, true] {
             let mut t = tape();
             assert_eq!(
-                t.sample(LedgeSettings::default(), ctx(0, 0.), None, None, 0.)
+                t.sample(AssistSettings::default(), ctx(0, 0.), None, None, 0.)
                     .requested,
                 MAPPER_B
             );
             let out = t.sample(
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 GameplayContext {
                     stopped,
                     ..ctx(status, 1.)
@@ -68,7 +118,7 @@ fn shield_break_sleep_bind_bury_freeze_and_special_captures_abort_without_resumi
             assert_eq!(out.stick, None);
             assert!(t.finished());
             assert_eq!(
-                t.sample(LedgeSettings::default(), ctx(0, 2.), None, None, 0.)
+                t.sample(AssistSettings::default(), ctx(0, 2.), None, None, 0.)
                     .requested,
                 0
             );
@@ -167,7 +217,11 @@ fn stunned_opponents_remain_punishable_but_capture_and_scene_actors_are_not() {
 #[test]
 fn custom_status_numbers_cannot_borrow_another_fighters_up_b_identity() {
     for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
-        assert!(automatic_up_b_status(kind, native_states::status::SPECIAL_HI, 0));
+        assert!(automatic_up_b_status(
+            kind,
+            native_states::status::SPECIAL_HI,
+            0
+        ));
         for status in [
             kirby_assist_core::native_states::status::FINAL,
             0x3ff,
@@ -181,16 +235,46 @@ fn custom_status_numbers_cannot_borrow_another_fighters_up_b_identity() {
         }
     }
     for (kind, status) in [
-        (kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G),
-        (kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A),
-        (kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH, kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_HI_FALL),
-        (kirby_assist_core::fighter_kinds::KIRBY, kirby_assist_core::native_states::fighter_status::KIRBY_SPECIAL_HI2),
-        (kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO, kirby_assist_core::native_states::fighter_status::POPO_SPECIAL_HI_PARTNER),
-        (kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA, kirby_assist_core::native_states::fighter_status::POPO_SPECIAL_HI_PARTNER),
-        (kirby_assist_core::fighter_kinds::OLIMAR, kirby_assist_core::native_states::fighter_status::PIKMIN_SPECIAL_HI_WAIT),
-        (kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_HI_JUMP),
-        (kirby_assist_core::fighter_kinds::MYTHRA, kirby_assist_core::native_states::fighter_status::ELIGHT_SPECIAL_HI_ATTACK2),
-        (kirby_assist_core::fighter_kinds::STEVE, kirby_assist_core::native_states::fighter_status::PICKEL_SPECIAL_HI_GLIDING),
+        (
+            kirby_assist_core::fighter_kinds::BOWSER,
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::BOWSER,
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH,
+            kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_HI_FALL,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::KIRBY,
+            kirby_assist_core::native_states::fighter_status::KIRBY_SPECIAL_HI2,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO,
+            kirby_assist_core::native_states::fighter_status::POPO_SPECIAL_HI_PARTNER,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA,
+            kirby_assist_core::native_states::fighter_status::POPO_SPECIAL_HI_PARTNER,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::OLIMAR,
+            kirby_assist_core::native_states::fighter_status::PIKMIN_SPECIAL_HI_WAIT,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::PYRA,
+            kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_HI_JUMP,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::MYTHRA,
+            kirby_assist_core::native_states::fighter_status::ELIGHT_SPECIAL_HI_ATTACK2,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::STEVE,
+            kirby_assist_core::native_states::fighter_status::PICKEL_SPECIAL_HI_GLIDING,
+        ),
     ] {
         assert!(automatic_up_b_status(
             kind,
@@ -199,11 +283,26 @@ fn custom_status_numbers_cannot_borrow_another_fighters_up_b_identity() {
         ));
     }
     for (kind, status) in [
-        (kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_STANDBY),
-        (kirby_assist_core::fighter_kinds::MYTHRA, kirby_assist_core::native_states::fighter_status::ELIGHT_SPECIAL_LW_STANDBY),
-        (kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH, kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT_START),
-        (kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_LW_G),
-        (kirby_assist_core::fighter_kinds::OLIMAR, kirby_assist_core::native_states::fighter_status::PIKMIN_FINAL_FLY),
+        (
+            kirby_assist_core::fighter_kinds::PYRA,
+            kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_STANDBY,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::MYTHRA,
+            kirby_assist_core::native_states::fighter_status::ELIGHT_SPECIAL_LW_STANDBY,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH,
+            kirby_assist_core::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT_START,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::BOWSER,
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_LW_G,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::OLIMAR,
+            kirby_assist_core::native_states::fighter_status::PIKMIN_FINAL_FLY,
+        ),
     ] {
         assert!(!automatic_up_b_status(
             kind,
@@ -254,18 +353,45 @@ fn sixteen_actor_roster_is_deduplicated_and_policy_candidates_stay_bounded_and_n
 #[test]
 fn private_damage_and_swap_states_are_scoped_to_their_actual_native_fighter() {
     for (kind, status) in [
-        (kirby_assist_core::fighter_kinds::DIDDY_KONG, kirby_assist_core::native_states::fighter_status::DIDDY_SPECIAL_HI_CHARGE_DAMAGE),
-        (kirby_assist_core::fighter_kinds::DIDDY_KONG, kirby_assist_core::native_states::fighter_status::DIDDY_SPECIAL_HI_UPPER_DAMAGE),
-        (kirby_assist_core::fighter_kinds::GRENINJA, kirby_assist_core::native_states::fighter_status::GEKKOUGA_SPECIAL_HI_WALL_DAMAGE),
-        (kirby_assist_core::fighter_kinds::BOWSER_JR, kirby_assist_core::native_states::fighter_status::KOOPAJR_SPECIAL_HI_DAMAGE_END),
-        (kirby_assist_core::fighter_kinds::SQUIRTLE, kirby_assist_core::native_states::fighter_status::PZENIGAME_SPECIAL_LW_STANDBY),
-        (kirby_assist_core::fighter_kinds::IVYSAUR, kirby_assist_core::native_states::fighter_status::PFUSHIGISOU_SPECIAL_LW_STANDBY),
-        (kirby_assist_core::fighter_kinds::CHARIZARD, kirby_assist_core::native_states::fighter_status::PLIZARDON_SPECIAL_LW_STANDBY),
-        (kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_STANDBY),
-        (kirby_assist_core::fighter_kinds::MYTHRA, kirby_assist_core::native_states::fighter_status::ELIGHT_SPECIAL_LW_OUT),
+        (
+            kirby_assist_core::fighter_kinds::DIDDY_KONG,
+            kirby_assist_core::native_states::fighter_status::DIDDY_SPECIAL_HI_CHARGE_DAMAGE,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::DIDDY_KONG,
+            kirby_assist_core::native_states::fighter_status::DIDDY_SPECIAL_HI_UPPER_DAMAGE,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::GRENINJA,
+            kirby_assist_core::native_states::fighter_status::GEKKOUGA_SPECIAL_HI_WALL_DAMAGE,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::BOWSER_JR,
+            kirby_assist_core::native_states::fighter_status::KOOPAJR_SPECIAL_HI_DAMAGE_END,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::SQUIRTLE,
+            kirby_assist_core::native_states::fighter_status::PZENIGAME_SPECIAL_LW_STANDBY,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::IVYSAUR,
+            kirby_assist_core::native_states::fighter_status::PFUSHIGISOU_SPECIAL_LW_STANDBY,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::CHARIZARD,
+            kirby_assist_core::native_states::fighter_status::PLIZARDON_SPECIAL_LW_STANDBY,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::PYRA,
+            kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_STANDBY,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::MYTHRA,
+            kirby_assist_core::native_states::fighter_status::ELIGHT_SPECIAL_LW_OUT,
+        ),
     ] {
         let mut t = tape();
-        let settings = LedgeSettings {
+        let settings = AssistSettings {
             fighter_kind: kind,
             ..Default::default()
         };
@@ -279,8 +405,15 @@ fn private_damage_and_swap_states_are_scoped_to_their_actual_native_fighter() {
             kirby_assist_core::native_states::status::SPECIAL_HI
         ));
     }
-    assert!(!native_states::fighter_sequence_interrupted(kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G));
-    assert!(automatic_up_b_status(kirby_assist_core::fighter_kinds::BOWSER, native_states::fighter_status::KOOPA_SPECIAL_HI_G, 0));
+    assert!(!native_states::fighter_sequence_interrupted(
+        kirby_assist_core::fighter_kinds::BOWSER,
+        kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G
+    ));
+    assert!(automatic_up_b_status(
+        kirby_assist_core::fighter_kinds::BOWSER,
+        native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+        0
+    ));
 }
 
 #[test]
@@ -323,28 +456,61 @@ fn shared_climber_entry_never_invents_attacker_direction_from_iteration_order() 
 fn final_phases_and_inactive_forms_cannot_masquerade_as_ordinary_grab_targets() {
     use kirby_assist_core::reaction_rules::automatic_fighter_target_available;
     for (kind, status) in [
-        (kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_FINAL_END),
-        (kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH, kirby_assist_core::native_states::fighter_status::GAMEWATCH_FINAL_WAIT),
-        (kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO, kirby_assist_core::native_states::fighter_status::POPO_FINAL_PARTNER),
-        (kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA, kirby_assist_core::native_states::fighter_status::POPO_FINAL_PARTNER),
-        (kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_FINAL_READY),
-        (kirby_assist_core::fighter_kinds::MYTHRA, kirby_assist_core::native_states::fighter_status::ELIGHT_FINAL_SCENE03),
-        (kirby_assist_core::fighter_kinds::SQUIRTLE, kirby_assist_core::native_states::fighter_status::PZENIGAME_SPECIAL_LW_STANDBY),
-        (kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_STANDBY),
+        (
+            kirby_assist_core::fighter_kinds::BOWSER,
+            kirby_assist_core::native_states::fighter_status::KOOPA_FINAL_END,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH,
+            kirby_assist_core::native_states::fighter_status::GAMEWATCH_FINAL_WAIT,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO,
+            kirby_assist_core::native_states::fighter_status::POPO_FINAL_PARTNER,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA,
+            kirby_assist_core::native_states::fighter_status::POPO_FINAL_PARTNER,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::PYRA,
+            kirby_assist_core::native_states::fighter_status::EFLAME_FINAL_READY,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::MYTHRA,
+            kirby_assist_core::native_states::fighter_status::ELIGHT_FINAL_SCENE03,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::SQUIRTLE,
+            kirby_assist_core::native_states::fighter_status::PZENIGAME_SPECIAL_LW_STANDBY,
+        ),
+        (
+            kirby_assist_core::fighter_kinds::PYRA,
+            kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_STANDBY,
+        ),
     ] {
         assert!(!automatic_fighter_target_available(kind, status));
         assert!(native_states::fighter_sequence_interrupted(kind, status));
     }
     assert!(
-        automatic_fighter_target_available(kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_OUT),
+        automatic_fighter_target_available(
+            kirby_assist_core::fighter_kinds::PYRA,
+            kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_LW_OUT
+        ),
         "active swap-out recovery may be punished when native hit status is vulnerable"
     );
     assert!(
-        automatic_fighter_target_available(kirby_assist_core::fighter_kinds::BOWSER, kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G),
+        automatic_fighter_target_available(
+            kirby_assist_core::fighter_kinds::BOWSER,
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G
+        ),
         "Bowser spin shares a swap form's number"
     );
     assert!(
-        automatic_fighter_target_available(kirby_assist_core::fighter_kinds::PYRA, kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_HI_JUMP),
+        automatic_fighter_target_available(
+            kirby_assist_core::fighter_kinds::PYRA,
+            kirby_assist_core::native_states::fighter_status::EFLAME_SPECIAL_HI_JUMP
+        ),
         "Pyra Up-B is not another fighter's Final"
     );
 }
@@ -352,7 +518,7 @@ fn final_phases_and_inactive_forms_cannot_masquerade_as_ordinary_grab_targets() 
 #[test]
 fn consumed_rolls_for_all_sixteen_actors_survive_candidate_pool_changes() {
     use kirby_assist_core::{
-        ledge_trap::MotionTiming,
+        gameplay::MotionTiming,
         reaction_rules::{Candidate, Engine, Resolved},
         roll_read::Target,
     };
@@ -371,7 +537,7 @@ fn consumed_rolls_for_all_sixteen_actors_survive_candidate_pool_changes() {
         })
         .unwrap();
     let mut engine = Engine::default();
-    let settings = LedgeSettings {
+    let settings = AssistSettings {
         fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     };

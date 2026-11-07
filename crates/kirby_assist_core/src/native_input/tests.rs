@@ -26,8 +26,7 @@ fn brother_layout_translates_actions_without_turning_grab_or_special_into_trigge
         MAPPER_R | MAPPER_A,
         "Brother short-hop Nair must remain Jump+neutral Attack"
     );
-    let directions_and_menu =
-        MAPPER_DPAD_BUTTONS | MAPPER_PLUS | MAPPER_MINUS | MAPPER_Y;
+    let directions_and_menu = MAPPER_DPAD_BUTTONS | MAPPER_PLUS | MAPPER_MINUS | MAPPER_Y;
     assert_eq!(
         layout.policy_buttons(directions_and_menu),
         directions_and_menu

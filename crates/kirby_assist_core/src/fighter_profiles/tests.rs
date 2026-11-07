@@ -1,6 +1,6 @@
 //! File-only menu and reference-data invariants.
 use super::*;
-use crate::{settings_menu::MenuSelection, live_input::LiveConfig};
+use crate::{live_input::LiveConfig, settings_menu::MenuSelection};
 #[test]
 fn registered_fighters_have_no_embedded_options_or_scheduling_fallback() {
     let profiles = FighterProfiles::default();
@@ -14,9 +14,9 @@ fn registered_fighters_have_no_embedded_options_or_scheduling_fallback() {
             .all(|list| list.options.is_empty()));
         assert!(
             profile
-                .apply(LedgeSettings {
+                .apply(AssistSettings {
                     enabled: true,
-                    ..LedgeSettings::default()
+                    ..AssistSettings::default()
                 })
                 .enabled
         );
@@ -40,12 +40,12 @@ fn non_ledge_numeric_settings_cannot_override_selected_file_scheduling() {
     let profiles = FighterProfiles::from_test_file();
     let profile = profiles.profile(crate::fighter_kinds::KIRBY).unwrap();
     let menu = MenuSelection::new(&profile.menu_options);
-    let a = menu.settings(&profile.menu_options, profile.apply(config.ledge));
+    let a = menu.settings(&profile.menu_options, profile.apply(config.assist));
     let b = menu.settings(
         &profile.menu_options,
-        profile.apply(LedgeSettings {
+        profile.apply(AssistSettings {
             enabled: true,
-            ..LedgeSettings::default()
+            ..AssistSettings::default()
         }),
     );
     assert_eq!(a.sequence_overrides, b.sequence_overrides);
@@ -91,7 +91,7 @@ fn invalid_fighter_grab_data_fails_before_hooks_install() {
         .profiles
         .get_mut(&crate::fighter_kinds::KIRBY)
         .unwrap()
-        .ledge
+        .grab
         .grab
         .standing_range = f32::NAN;
     assert!(catalog.validate().is_err());
@@ -102,7 +102,7 @@ fn profile_grab_facts_follow_the_matching_reference_row() {
     let profiles = FighterProfiles::default();
 
     for profile in profiles.profiles.values() {
-        let grab_data = profile.ledge.grab;
+        let grab_data = profile.grab.grab;
 
         if let Some(reference) =
             crate::fighter_data::ordinary_grab(profile.fighter_kind, crate::native_states::CATCH)
@@ -168,9 +168,7 @@ fn profile_grab_facts_follow_the_matching_reference_row() {
     }
 
     assert!(profiles.profile(-1).is_none());
-    assert!(
-        profiles
-            .profile(crate::fighter_kinds::PLAYABLE_KIND_COUNT)
-            .is_none()
-    );
+    assert!(profiles
+        .profile(crate::fighter_kinds::PLAYABLE_KIND_COUNT)
+        .is_none());
 }

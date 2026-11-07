@@ -6,8 +6,8 @@ use imgui_api::bindings::*;
 use kirby_assist_core::{
     fighter_profiles::FighterProfile,
     native_input::HANDHELD_NPAD_ID,
-    settings_menu::{MenuRow, MenuSelection},
     session::MenuPresence,
+    settings_menu::{MenuRow, MenuSelection},
 };
 use std::{
     ffi::{CStr, CString},
@@ -61,7 +61,14 @@ unsafe fn selected_hid_buttons() -> Option<u64> {
 }
 unsafe fn selected_hid_buttons_inner() -> Option<u64> {
     let player = super::super::CONFIG.get()?.player_index;
-    let ids = [player, if player == 0 { HANDHELD_NPAD_ID } else { u32::MAX }];
+    let ids = [
+        player,
+        if player == 0 {
+            HANDHELD_NPAD_ID
+        } else {
+            u32::MAX
+        },
+    ];
     for id in ids {
         if id == u32::MAX {
             continue;

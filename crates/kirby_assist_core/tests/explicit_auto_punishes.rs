@@ -2,13 +2,13 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
     gameplay::GameplayContext,
-    settings_menu::MenuSelection,
-    ledge_trap::LedgeSettings,
     native_input::*,
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
     reaction_rules::{Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
+    settings::AssistSettings,
+    settings_menu::MenuSelection,
 };
 fn own(kind: i32, status: i32) -> Context {
     Context {
@@ -59,8 +59,8 @@ fn target(status: i32, x: f32) -> [Option<Target>; 8] {
     });
     t
 }
-fn settings(kind: i32) -> LedgeSettings {
-    LedgeSettings {
+fn settings(kind: i32) -> AssistSettings {
+    AssistSettings {
         fighter_kind: kind,
         ..Default::default()
     }
@@ -126,7 +126,7 @@ fn unconfigured_fighters_never_get_up_b_from_generic_grab_backup_even_with_empty
             continue;
         };
         let (close, far) = kirby_assist_core::fighter_tuning::Tuning::default()
-            .auto_grab_ranges(kind, p.ledge.grab.standing_range);
+            .auto_grab_ranges(kind, p.grab.grab.standing_range);
         for enemy in [
             0,
             kirby_assist_core::native_states::ESCAPE,
@@ -231,7 +231,7 @@ fn yoshi_and_lucina_keep_saved_grab_limits_and_only_their_explicit_backup_metada
         });
         assert_eq!(config.backup.copied(), authored.map(|e| e.sequence));
         let (close, far) = kirby_assist_core::fighter_tuning::Tuning::default()
-            .auto_grab_ranges(kind, p.ledge.grab.standing_range);
+            .auto_grab_ranges(kind, p.grab.grab.standing_range);
         for (distance, want_grab) in [(s.reaction.max * 0.5, true), (s.reaction.max + 0.1, false)] {
             let c = own(kind, kirby_assist_core::native_states::GUARD);
             let out = OutOfShield::new().sample_automatic_configured(

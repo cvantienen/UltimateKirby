@@ -153,7 +153,7 @@ fn all_recognized_universal_keys_including_compatibility_aliases_are_documented(
         .split("match key.trim() {")
         .nth(1)
         .unwrap()
-        .split("if !config.ledge.walk_strength")
+        .split("if !config.assist.walk_strength")
         .next()
         .unwrap();
     let mut checked = 0;

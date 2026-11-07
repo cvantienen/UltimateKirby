@@ -535,7 +535,14 @@ fn pending_shield_dodge_holds_through_hitstop_but_releases_on_air() {
         );
     }
     assert_eq!(
-        dodge.sample(true, Context { situation: kirby_assist_core::native_states::situation::AIR, ..c }, roster(target())),
+        dodge.sample(
+            true,
+            Context {
+                situation: kirby_assist_core::native_states::situation::AIR,
+                ..c
+            },
+            roster(target())
+        ),
         ControllerOutput::default()
     );
 }
@@ -741,7 +748,7 @@ fn one_delivered_dodge_releases_down_guard_and_waits_for_native_success_without_
 ) {
     use kirby_assist_core::{
         gameplay::{GameplayContext, Opponent},
-        ledge_trap::LedgeSettings,
+        settings::AssistSettings,
     };
     let mut tool = SpotDodge::default();
     let t = Target {
@@ -767,7 +774,7 @@ fn one_delivered_dodge_releases_down_guard_and_waits_for_native_success_without_
         let punish = tool.punish_automatic(
             true,
             None,
-            LedgeSettings::default(),
+            AssistSettings::default(),
             GameplayContext {
                 gameplay: true,
                 can_act: true,
@@ -818,8 +825,8 @@ fn delivered_dodge_wait_has_a_mapper_budget_even_with_frozen_poses_and_never_rep
 fn rejected_guard_packets_are_bounded_without_falsely_confirming_a_dodge_or_a_punish() {
     use kirby_assist_core::{
         gameplay::{GameplayContext, Opponent},
-        ledge_trap::LedgeSettings,
         sequence_config::Catalog,
+        settings::AssistSettings,
     };
     let mut tool = SpotDodge::default();
     let t = Target {
@@ -843,7 +850,7 @@ fn rejected_guard_packets_are_bounded_without_falsely_confirming_a_dodge_or_a_pu
     let p = tool.punish_automatic(
         true,
         Some(&s),
-        LedgeSettings::default(),
+        AssistSettings::default(),
         GameplayContext {
             gameplay: true,
             can_act: true,

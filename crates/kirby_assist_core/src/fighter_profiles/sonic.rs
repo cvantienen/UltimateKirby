@@ -9,7 +9,7 @@ pub fn profile() -> FighterProfile {
     FighterProfile {
         name: "sonic",
         fighter_kind: FIGHTER_KIND,
-        ledge: super::FighterGrabData::from_kind(41),
+        grab: super::FighterGrabData::from_kind(41),
         menu_options: crate::fighter_profiles::presets::MenuPresets::EMPTY,
     }
 }

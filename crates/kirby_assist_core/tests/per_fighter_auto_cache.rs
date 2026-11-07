@@ -1,7 +1,7 @@
 //! Exercise the production menu cache across real fighter changes on the host.
 #![allow(dead_code, unexpected_cfgs)]
 use kirby_assist_core::{
-    fighter_profiles::FighterProfiles, ledge_trap::LedgeSettings, native_input::ControlLayout,
+    fighter_profiles::FighterProfiles, native_input::ControlLayout, settings::AssistSettings,
 };
 use std::sync::{Mutex, OnceLock};
 static PROFILES: OnceLock<FighterProfiles> = OnceLock::new();
@@ -17,7 +17,7 @@ static STATE: Mutex<HostState> = Mutex::new(HostState {
     menu_battle_active: false,
     settings_menu: None,
 });
-fn ledge_settings(_: Option<i32>, base: LedgeSettings) -> LedgeSettings {
+fn settings_for_fighter(_: Option<i32>, base: AssistSettings) -> AssistSettings {
     base
 }
 #[cfg(feature = "diagnostic-logging")]
@@ -119,7 +119,7 @@ fn fighter_change_never_inherits_bowser_actions_and_grab_dodge_cannot_borrow_ano
             0,
             0,
             ControlLayout::Default,
-            &LedgeSettings::default(),
+            &AssistSettings::default(),
             true,
             true,
             true,
@@ -198,7 +198,7 @@ fn pyra_mythra_swaps_reload_only_the_active_forms_menu_and_saved_inputs() {
             .unwrap()
             .profile(kind)
             .unwrap()
-            .apply(LedgeSettings::default());
+            .apply(AssistSettings::default());
         menu.input(
             true,
             true,
@@ -271,7 +271,7 @@ fn production_reflector_configuration_tracks_only_the_current_fighter_and_live_s
             0,
             0,
             ControlLayout::Default,
-            &LedgeSettings::default(),
+            &AssistSettings::default(),
             true,
             true,
             true,
@@ -307,7 +307,7 @@ fn compact_runtime_idle_has_no_allocations_and_fighter_switches_do_not_retain_ol
             0,
             0,
             ControlLayout::Default,
-            &LedgeSettings::default(),
+            &AssistSettings::default(),
             true,
             true,
             true,

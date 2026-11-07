@@ -12,9 +12,8 @@ use kirby_assist_core::autopilot_guard::duck::DefenseThreat;
 use kirby_assist_core::combat_assist::TripTarget;
 use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
 use kirby_assist_core::ledge_position::LedgePosition;
-use kirby_assist_core::ledge_trap::{
-    in_tracking_range, LedgeSettings, LedgeTrap, CLIFF_CATCH_MOVE, CLIFF_JUMP3,
-};
+use kirby_assist_core::ledge_trap::{in_tracking_range, LedgeTrap, CLIFF_CATCH_MOVE, CLIFF_JUMP3};
+use kirby_assist_core::settings::AssistSettings;
 use std::sync::atomic::Ordering;
 
 /// L shield defense uses the cached roster and bounded remembered weapon/item
@@ -565,11 +564,7 @@ pub(super) unsafe fn rule_targets(
             remaining: None,
         };
         // Only current grab candidates need a velocity read for startup reach.
-        let velocity_x = if eligible_grab {
-            reads.speed_x(e)
-        } else {
-            0.
-        };
+        let velocity_x = if eligible_grab { reads.speed_x(e) } else { 0. };
         if follow == Some(id) {
             following = Some(Opponent {
                 id,
@@ -744,7 +739,7 @@ pub(super) unsafe fn nearest_ledge_opponent(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,
     own_id: u32,
-    settings: LedgeSettings,
+    settings: AssistSettings,
 ) -> Option<Opponent> {
     #[cfg(feature = "diagnostic-logging")]
     let _performance = crate::performance::Scope::new(crate::performance::Part::Ledge);

@@ -549,9 +549,9 @@ fn automatic_grab_finishes_with_no_controller_or_target_left_reserved() {
 #[test]
 fn close_roll_up_b_is_chosen_before_new_grab_in_front_across_or_behind_shield() {
     use kirby_assist_core::{
-        ledge_trap::LedgeSettings,
         reaction_rules::{Candidate, Engine, Resolved},
         sequence_config::Catalog,
+        settings::AssistSettings,
     };
     let cat=Catalog::parse("[bowser.roll.close]\nstart_delay=0\nreaction=auto_roll:40:12\nactions=up_b:4,drift:opponent:1:30\n").unwrap();
     let mut rules = Resolved::default();
@@ -578,7 +578,7 @@ fn close_roll_up_b_is_chosen_before_new_grab_in_front_across_or_behind_shield() 
                 let reaction = engine.sample_simple(
                     true,
                     &rules,
-                    LedgeSettings {
+                    AssistSettings {
                         fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                         ..Default::default()
                     },
@@ -610,7 +610,7 @@ fn close_roll_up_b_is_chosen_before_new_grab_in_front_across_or_behind_shield() 
         can_act: true,
         ..lc(0., kirby_assist_core::native_states::GUARD)
     };
-    let reaction = engine.sample_simple(true, &rules, LedgeSettings::default(), context, ts, None);
+    let reaction = engine.sample_simple(true, &rules, AssistSettings::default(), context, ts, None);
     assert_eq!(reaction.owned, 0);
     assert_eq!(
         grab.sample_simple(
@@ -631,9 +631,9 @@ fn close_roll_up_b_is_chosen_before_new_grab_in_front_across_or_behind_shield() 
 #[test]
 fn a_failed_pending_grab_releases_for_a_same_observation_roll_fallback() {
     use kirby_assist_core::{
-        ledge_trap::LedgeSettings,
         reaction_rules::{Candidate, Engine, Resolved},
         sequence_config::Catalog,
+        settings::AssistSettings,
     };
     let cat=Catalog::parse("[bowser.roll.fallback]\nstart_delay=0\nreaction=auto_roll:40:12\nactions=up_b:4,drift:opponent:1:30\n").unwrap();
     let mut rules = Resolved::default();
@@ -680,7 +680,7 @@ fn a_failed_pending_grab_releases_for_a_same_observation_roll_fallback() {
     let out = engine.sample_simple(
         owner.allows(Owner::RollRead),
         &rules,
-        LedgeSettings::default(),
+        AssistSettings::default(),
         context,
         rolled,
         None,
@@ -1055,9 +1055,9 @@ fn automatic_roll_rules(actions: &str) -> kirby_assist_core::reaction_rules::Res
 #[test]
 fn usable_up_b_wins_over_an_uncommitted_grab_proposal_without_mixed_input() {
     use kirby_assist_core::{
-        ledge_trap::LedgeSettings,
         manual_controls::{ManualOverlay, TurboOutput},
         reaction_rules::Engine,
+        settings::AssistSettings,
     };
     let rules = automatic_roll_rules("up_b:4,drift:opponent:1:30");
     for shielded in [false, true] {
@@ -1098,7 +1098,7 @@ fn usable_up_b_wins_over_an_uncommitted_grab_proposal_without_mixed_input() {
             assert!(grab.target().is_none());
             assert!(owner.allows(Owner::RollRead));
             let out =
-                engine.sample_simple(true, &rules, LedgeSettings::default(), context, ts, None);
+                engine.sample_simple(true, &rules, AssistSettings::default(), context, ts, None);
             assert_ne!(
                 out.requested & MAPPER_B,
                 0,
@@ -1156,7 +1156,7 @@ fn usable_up_b_wins_over_an_uncommitted_grab_proposal_without_mixed_input() {
 
 #[test]
 fn priority_handoff_never_cancels_native_grabs_or_bypasses_other_modes_and_readiness() {
-    use kirby_assist_core::{ledge_trap::LedgeSettings, reaction_rules::Engine};
+    use kirby_assist_core::{reaction_rules::Engine, settings::AssistSettings};
     for case in 0..14 {
         let rules = if case == 12 {
             use kirby_assist_core::{
@@ -1203,7 +1203,7 @@ fn priority_handoff_never_cancels_native_grabs_or_bypasses_other_modes_and_readi
             2 => context.status = kirby_assist_core::native_states::CATCH, // Native catch accepted: never replace it.
             3 => ts[0].as_mut().unwrap().position[0] = 41.,
             4 => {
-                engine.sample_simple(false, &rules, LedgeSettings::default(), context, ts, None);
+                engine.sample_simple(false, &rules, AssistSettings::default(), context, ts, None);
             }
             5 => {
                 owner.select(

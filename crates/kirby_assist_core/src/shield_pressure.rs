@@ -3,9 +3,9 @@
 use crate::{
     defense_response::Response,
     gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
-    ledge_trap::LedgeSettings,
     reaction_rules::{Resolved, Side, Trigger},
     roll_read::Target,
+    settings::AssistSettings,
 };
 #[derive(Clone, Copy)]
 struct Seen {
@@ -72,7 +72,7 @@ impl Pressure {
         allowed: bool,
         object: u32,
         rules: Option<&Resolved>,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         c: GameplayContext,
         targets: [Option<Target>; 8],
         follow: Option<Opponent>,

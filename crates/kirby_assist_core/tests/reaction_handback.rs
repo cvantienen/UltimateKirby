@@ -1,9 +1,10 @@
 use kirby_assist_core::{
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     manual_controls::{AssistGuardHandoff, ManualOverlay, TurboOutput},
     native_input::{ButtonTrace, MAPPER_B, MAPPER_ZR},
     sequence_config::{persist, Catalog},
+    settings::AssistSettings,
 };
 fn config(
     actions: &str,
@@ -53,8 +54,14 @@ fn fresh_manual_intent_cannot_cancel_or_mix_into_ordinary_reaction_tape() {
     let s = config("up_b:3", true, true);
     let mut t = InputTimeline::new(s, enemy(0.));
     assert_eq!(
-        t.sample(LedgeSettings::default(), ctx(0.), Some(enemy(0.)), None, 0.)
-            .requested
+        t.sample(
+            AssistSettings::default(),
+            ctx(0.),
+            Some(enemy(0.)),
+            None,
+            0.
+        )
+        .requested
             & MAPPER_B,
         MAPPER_B
     );
@@ -63,7 +70,7 @@ fn fresh_manual_intent_cannot_cancel_or_mix_into_ordinary_reaction_tape() {
         ..ctx(0.)
     };
     assert_eq!(
-        t.sample(LedgeSettings::default(), c, Some(enemy(0.)), None, 0.)
+        t.sample(AssistSettings::default(), c, Some(enemy(0.)), None, 0.)
             .owned,
         kirby_assist_core::ledge_trap::SEQUENCE_BUTTONS
     );
@@ -73,8 +80,14 @@ fn fresh_manual_intent_cannot_cancel_or_mix_into_ordinary_reaction_tape() {
 fn ground_only_prevents_aerial_up_b_after_leaving_floor() {
     let mut t = InputTimeline::new(config("run:opponent:6,up_b:3", true, true), enemy(0.));
     assert_eq!(
-        t.sample(LedgeSettings::default(), ctx(0.), Some(enemy(0.)), None, 0.)
-            .requested,
+        t.sample(
+            AssistSettings::default(),
+            ctx(0.),
+            Some(enemy(0.)),
+            None,
+            0.
+        )
+        .requested,
         0
     );
     let c = GameplayContext {
@@ -83,7 +96,7 @@ fn ground_only_prevents_aerial_up_b_after_leaving_floor() {
         ..ctx(1.)
     };
     assert_eq!(
-        t.sample(LedgeSettings::default(), c, Some(enemy(1.)), None, 0.)
+        t.sample(AssistSettings::default(), c, Some(enemy(1.)), None, 0.)
             .owned,
         0
     );
@@ -92,24 +105,36 @@ fn ground_only_prevents_aerial_up_b_after_leaving_floor() {
 #[test]
 fn existing_grounded_start_filters_do_not_cancel_aerial_sequences_without_opt_in() {
     let mut t = InputTimeline::new(config("short_hop:1,up_b:3", false, true), enemy(0.));
-    t.sample(LedgeSettings::default(), ctx(0.), Some(enemy(0.)), None, 0.);
+    t.sample(
+        AssistSettings::default(),
+        ctx(0.),
+        Some(enemy(0.)),
+        None,
+        0.,
+    );
     let c = GameplayContext {
         situation: kirby_assist_core::native_states::situation::AIR,
         ..ctx(1.)
     };
     assert_eq!(
-        t.sample(LedgeSettings::default(), c, Some(enemy(1.)), None, 0.)
+        t.sample(AssistSettings::default(), c, Some(enemy(1.)), None, 0.)
             .requested
             & MAPPER_B,
         MAPPER_B
     );
     assert!(!t.finished());
     let mut literal = InputTimeline::new(config("up_b:3", false, false), enemy(0.));
-    literal.sample(LedgeSettings::default(), ctx(0.), Some(enemy(0.)), None, 0.);
+    literal.sample(
+        AssistSettings::default(),
+        ctx(0.),
+        Some(enemy(0.)),
+        None,
+        0.,
+    );
     assert_ne!(
         literal
             .sample(
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 GameplayContext {
                     manual_input_epoch: 1,
                     ..ctx(1.)
@@ -228,7 +253,7 @@ fn exclusive_tape_masks_all_physical_gameplay_buttons_through_wait_and_drift() {
                 ..ctx(frame as f32)
             };
             let out = tape.sample(
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 c,
                 Some(enemy(frame as f32)),
                 None,
@@ -264,7 +289,13 @@ fn exclusive_tape_masks_all_physical_gameplay_buttons_through_wait_and_drift() {
             assert_eq!(out.owned & MAPPER_MENU, 0);
         }
         assert!(!tape.finished());
-        tape.sample(LedgeSettings::default(), ctx(7.), Some(enemy(7.)), None, 0.);
+        tape.sample(
+            AssistSettings::default(),
+            ctx(7.),
+            Some(enemy(7.)),
+            None,
+            0.,
+        );
         assert!(tape.finished());
         let handback = noisy.apply_controls(
             ButtonTrace {

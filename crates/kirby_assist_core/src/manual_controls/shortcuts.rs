@@ -120,7 +120,9 @@ impl Shortcuts {
             self.cancel();
             return self.output;
         }
-        if ctx.situation != crate::native_states::situation::GROUND && matches!(self.phase, Some(Phase::Hop | Phase::HopRelease)) {
+        if ctx.situation != crate::native_states::situation::GROUND
+            && matches!(self.phase, Some(Phase::Hop | Phase::HopRelease))
+        {
             self.cancel();
             return self.output; // A fresh airborne X press remains physical.
         }

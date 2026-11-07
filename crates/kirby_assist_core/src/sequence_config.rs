@@ -1,7 +1,7 @@
 //! Data model for named SD-card ledge choices and input recipes.
 //!
 //! Parsing may allocate, but live execution copies one fixed-size recipe into
-//! `LedgeSettings`; no strings, files, maps or allocations are touched in the
+//! `AssistSettings`; no strings, files, maps or allocations are touched in the
 //! frame path. File parsing and validation live in the child `parser` module.
 use crate::fighter_profiles::{presets::PresetSlot, FighterProfiles};
 pub mod layout;

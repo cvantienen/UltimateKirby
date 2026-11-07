@@ -1,8 +1,8 @@
 //! Match-owned ledge memory, independent of temporary input owners and L releases.
 //! Only already-observed opponents are inspected; no roster/geometry queries.
 use super::{
-    is_hanging, ControllerOutput, GameplayContext, LedgeSettings, LedgeTrap, Opponent, CLIFF_CLIMB,
-    CLIFF_JUMP3,
+    is_hanging, AssistSettings, ControllerOutput, GameplayContext, LedgeTrap, Opponent,
+    CLIFF_CLIMB, CLIFF_JUMP3,
 };
 use crate::ledge_position::LedgeSpot;
 
@@ -80,7 +80,10 @@ impl LedgeVisits {
             self.visit_epoch = self.visit_epoch.wrapping_add(1);
             // Keep the last real grabbed edge until a fresh cliff anchor is
             // available; a clock-only regrab observation supplies no new edge.
-        } else if old.is_none() && is_hanging(e.previous_status) && e.situation == crate::native_states::situation::AIR {
+        } else if old.is_none()
+            && is_hanging(e.previous_status)
+            && e.situation == crate::native_states::situation::AIR
+        {
             visit.armed = true; // First observation of an actual ledge release/drop.
         }
         if is_hanging(e.status) {
@@ -116,7 +119,7 @@ impl LedgeTrap {
     pub fn sample_with_visits(
         &mut self,
         visits: &mut LedgeVisits,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         tick: i64,
         ctx: GameplayContext,
         enemy: Option<Opponent>,
@@ -167,9 +170,9 @@ mod tests {
     use crate::{
         fighter_profiles::presets::PresetSlot, native_input::MAPPER_A, sequence_config::Catalog,
     };
-    fn settings() -> LedgeSettings {
+    fn settings() -> AssistSettings {
         let c = Catalog::parse("[kirby.neutral.test]\nstart_delay=0\nactions=a:1").unwrap();
-        let mut s = LedgeSettings {
+        let mut s = AssistSettings {
             enabled: true,
             ..Default::default()
         };
@@ -363,7 +366,7 @@ mod preview_tests {
     #[test]
     fn editor_previews_repeat_without_consuming_the_real_visit() {
         let c = Catalog::parse("[kirby.neutral.test]\nstart_delay=0\nactions=a:1").unwrap();
-        let mut s = LedgeSettings {
+        let mut s = AssistSettings {
             enabled: true,
             ..Default::default()
         };

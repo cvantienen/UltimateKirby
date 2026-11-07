@@ -1,5 +1,5 @@
 use kirby_assist_core::{
-    ledge_trap::GameplayContext,
+    gameplay::GameplayContext,
     native_input::MAPPER_R,
     out_of_shield::{Context, OutOfShield},
     roll_read::Target,
@@ -231,7 +231,7 @@ fn default_grab_calculations_use_each_fighters_references_and_saved_reach() {
         let Some(p) = profiles.profile(kind) else {
             continue;
         };
-        let range = p.ledge.grab.standing_range;
+        let range = p.grab.grab.standing_range;
         let known_reaches =
             fighter_data::ordinary_grab(kind, kirby_assist_core::native_states::CATCH)
                 .zip(fighter_data::ordinary_grab(

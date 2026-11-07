@@ -179,8 +179,8 @@ fn fighter_button_choices_and_edits_are_not_shared() {
     profiles.add_sequence_choices(&c).unwrap();
     let kirby = profiles.profile(6).unwrap().menu_options;
     let yoshi = profiles.profile(5).unwrap().menu_options;
-    let k = MenuSelection::new(&kirby).settings(&kirby, LedgeSettings::default());
-    let y = MenuSelection::new(&yoshi).settings(&yoshi, LedgeSettings::default());
+    let k = MenuSelection::new(&kirby).settings(&kirby, AssistSettings::default());
+    let y = MenuSelection::new(&yoshi).settings(&yoshi, AssistSettings::default());
     assert_eq!(k.sequence_overrides[5].unwrap().start_delay, 1);
     assert_eq!(y.sequence_overrides[5].unwrap().start_delay, 4);
     assert_ne!(k.sequence_overrides[5], y.sequence_overrides[5]);
@@ -312,13 +312,13 @@ fn fresh_session_loads_saved_changes_additions_deletions_and_defaults() {
     );
     assert_eq!(m.choice(&p, PresetSlot::X, m.choices[5]).unwrap().id, "new");
     assert!(m.editor.is_none());
-    let saved_actions = m.settings(&p, LedgeSettings::default()).sequence_overrides[0];
+    let saved_actions = m.settings(&p, AssistSettings::default()).sequence_overrides[0];
     m.choices[0] = 0; // Temporary match selection must not replace startup default.
     drop(m);
     let mut next = MenuSelection::new(&p);
     next.load_saved_recipes(&p, &latest, 6);
     assert_eq!(
-        next.settings(&p, LedgeSettings::default())
+        next.settings(&p, AssistSettings::default())
             .sequence_overrides[0],
         saved_actions
     );
@@ -501,7 +501,8 @@ fn match_choice_switches_match_actual_timeline_and_require_fresh_dpad_edges() {
             assert!(m.cancel_pending);
             assert!(m.content_revision > content);
             let chosen = m.choice(&p, slot, m.choices[slot as usize]).unwrap();
-            let actual = m.settings(&p, LedgeSettings::default()).sequence_overrides[slot as usize];
+            let actual =
+                m.settings(&p, AssistSettings::default()).sequence_overrides[slot as usize];
             if chosen.sequence.len == 0 {
                 assert!(actual.is_none());
             } else {
@@ -638,7 +639,7 @@ fn match_all_eleven_saved_slots_select_the_matching_payload() {
         let chosen = m.choice(&p, slot, m.choices[slot as usize]).unwrap();
         assert_eq!(chosen.id, "two");
         assert_eq!(
-            m.settings(&p, LedgeSettings::default()).sequence_overrides[slot as usize],
+            m.settings(&p, AssistSettings::default()).sequence_overrides[slot as usize],
             Some(chosen.sequence)
         );
         let (position, count) = m.choice_position(&p, slot);
@@ -750,7 +751,7 @@ fn saved_button_defaults_restore_by_identity_with_all_timings_and_loop_flags() {
             assert_eq!(c.name, "My edited default");
             assert_eq!(c.sequence, seq);
             assert_eq!(
-                m.settings(&p, LedgeSettings::default()).sequence_overrides[slot as usize],
+                m.settings(&p, AssistSettings::default()).sequence_overrides[slot as usize],
                 Some(seq)
             );
             m.input(0, &p);
@@ -776,7 +777,7 @@ fn reload_without_explicit_button_default_matches_cold_start_normal_button() {
             crate::button_bindings::Builtin::default_for(slot).choice_id()
         );
         assert!(next
-            .settings(&p, LedgeSettings::default())
+            .settings(&p, AssistSettings::default())
             .sequence_overrides[slot as usize]
             .is_none());
     }

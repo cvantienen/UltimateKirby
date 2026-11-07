@@ -1,9 +1,10 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings},
+    ledge_trap::InputTimeline,
     native_input::MAPPER_B,
     sequence_config::{persist, Catalog},
+    settings::AssistSettings,
 };
 fn context(frame: f32, facing: f32) -> GameplayContext {
     GameplayContext {
@@ -75,7 +76,7 @@ fn bowser_defaults_deliver_mirrored_input_edges_without_a_facing_wait() {
                     let frame = frame as f32;
                     let c = context(frame, facing);
                     let output = timeline.sample(
-                        LedgeSettings::default(),
+                        AssistSettings::default(),
                         c,
                         Some(enemy(side * 10., frame)),
                         None,
@@ -98,7 +99,7 @@ fn bowser_defaults_deliver_mirrored_input_edges_without_a_facing_wait() {
                     assert_eq!(output.requested, b);
                     assert_eq!(
                         timeline.sample(
-                            LedgeSettings::default(),
+                            AssistSettings::default(),
                             c,
                             Some(enemy(-side * 10., frame)),
                             None,
@@ -118,7 +119,7 @@ fn opponent_input_cancels_when_the_target_disappears_and_rejects_bad_values() {
     let mut timeline = InputTimeline::new(sequence, enemy(10., 0.));
     assert_eq!(
         timeline
-            .sample(LedgeSettings::default(), context(0., 1.), None, None, 0.)
+            .sample(AssistSettings::default(), context(0., 1.), None, None, 0.)
             .requested,
         0
     );

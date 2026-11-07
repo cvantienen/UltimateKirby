@@ -1,12 +1,12 @@
 use kirby_assist_core::{
     fighter_profiles::{presets::PresetSlot, FighterProfiles},
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    settings_menu::{MenuRow, MenuSelection},
-    ledge_trap::LedgeSettings,
     native_input::*,
     reaction_rules::{Candidate, Resolved, Trigger},
     roll_read::Target,
     sequence_config::{persist, Catalog},
+    settings::AssistSettings,
+    settings_menu::{MenuRow, MenuSelection},
     shield_pressure::Pressure,
 };
 fn rules(text: &str) -> Resolved {
@@ -62,7 +62,7 @@ fn sample(
         true,
         1,
         Some(r),
-        LedgeSettings::default(),
+        AssistSettings::default(),
         ctx(f),
         roster(t),
         Some(Opponent {
@@ -188,7 +188,7 @@ fn range_priority_side_native_readiness_and_disabled_scope_are_respected() {
         true,
         1,
         Some(&r),
-        LedgeSettings::default(),
+        AssistSettings::default(),
         GameplayContext {
             can_act: false,
             ..ctx(0.)
@@ -204,7 +204,7 @@ fn range_priority_side_native_readiness_and_disabled_scope_are_respected() {
             true,
             1,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             ctx(2.),
             roster(t),
             None
@@ -240,7 +240,7 @@ fn range_priority_side_native_readiness_and_disabled_scope_are_respected() {
             false,
             1,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             ctx(3.),
             roster(t),
             None
@@ -363,7 +363,7 @@ fn hit_on_our_shield_cancels_pressure_without_replaying_the_old_action() {
             true,
             1,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             blocked,
             roster(enemy(kirby_assist_core::native_states::GUARD, 6., 1.)),
             None
@@ -405,7 +405,7 @@ fn ordinary_roll_engine_does_not_steal_a_claimed_shield_roll() {
     let filtered = roster(shield_roll).map(|t| t.filter(|t| !p.claims_roll(t.id)));
     assert_eq!(
         generic
-            .sample(true, &r, LedgeSettings::default(), ctx(1.), filtered, None)
+            .sample(true, &r, AssistSettings::default(), ctx(1.), filtered, None)
             .owned,
         0
     );
@@ -417,7 +417,7 @@ fn ordinary_roll_engine_does_not_steal_a_claimed_shield_roll() {
     let filtered = roster(ordinary).map(|t| t.filter(|t| !p.claims_roll(t.id)));
     assert_ne!(
         generic
-            .sample(true, &r, LedgeSettings::default(), ctx(2.), filtered, None)
+            .sample(true, &r, AssistSettings::default(), ctx(2.), filtered, None)
             .requested
             & MAPPER_B,
         0

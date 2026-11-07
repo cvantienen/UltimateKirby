@@ -90,17 +90,17 @@ fn bundled_config_keeps_analog_mash_and_extended_prediction() {
         "../../../../deployment/ultimate/kirby_assist/config.txt"
     ))
     .unwrap();
-    assert!(config.ledge.enabled);
-    assert_eq!(config.ledge.horizontal_range, 20.0);
-    assert_eq!(config.ledge.vertical_range, 10.0);
-    assert_eq!(config.ledge.follow_range, 40.0);
-    assert_eq!(config.ledge.follow_vertical_range, 48.0);
-    assert!(!config.ledge.auto_position);
-    assert!(config.ledge.manual_spacing);
-    assert_eq!(config.ledge.walk_strength, 0.35);
-    assert_eq!(config.ledge.stand_distance, 10.0);
-    assert_eq!(config.ledge.move_strength, 0.65);
-    assert_eq!(config.ledge.grab_button, crate::native_input::MAPPER_R);
+    assert!(config.assist.enabled);
+    assert_eq!(config.assist.horizontal_range, 20.0);
+    assert_eq!(config.assist.vertical_range, 10.0);
+    assert_eq!(config.assist.follow_range, 40.0);
+    assert_eq!(config.assist.follow_vertical_range, 48.0);
+    assert!(!config.assist.auto_position);
+    assert!(config.assist.manual_spacing);
+    assert_eq!(config.assist.walk_strength, 0.35);
+    assert_eq!(config.assist.stand_distance, 10.0);
+    assert_eq!(config.assist.move_strength, 0.65);
+    assert_eq!(config.assist.grab_button, crate::native_input::MAPPER_R);
     assert!(config.turbo.enabled);
     assert!(!config.dpad_b_reverse); // D-pad now uses fighter-specific bindings.
     assert_eq!(config.turbo.phase_frames, 1);
@@ -163,16 +163,16 @@ fn config_cannot_select_a_ledge_move_or_override_file_timing() {
         "ledge_trap=true\nledge_getup_attack=FORWARD_TILT\nledge_grab_buffer_frames=99",
     )
     .unwrap();
-    assert_eq!(base.ledge, old.ledge);
+    assert_eq!(base.assist, old.assist);
 }
 
 #[test]
 fn legacy_throw_setting_stays_parseable_and_bundled_capture_is_manual() {
-    assert!(!LiveConfig::default().ledge.throw_outward);
+    assert!(!LiveConfig::default().assist.throw_outward);
     assert!(
         !LiveConfig::parse("ledge_throw_outward = false")
             .unwrap()
-            .ledge
+            .assist
             .throw_outward
     );
     assert!(LiveConfig::parse("ledge_throw_outward = maybe").is_err());
@@ -180,14 +180,14 @@ fn legacy_throw_setting_stays_parseable_and_bundled_capture_is_manual() {
         "../../../../deployment/ultimate/kirby_assist/config.txt"
     ))
     .unwrap();
-    assert!(!supplied.ledge.throw_outward);
+    assert!(!supplied.assist.throw_outward);
 }
 
 #[test]
 fn removed_aerial_settings_do_not_disable_existing_sd_configs() {
     let config = LiveConfig::parse("ledge_trap = true\nledge_grab_button = l\nledge_jump_response = fair\nledge_fair_range = 11.0\nledge_fair_vertical_range = 10.0\nledge_fair_delay_frames = 0.0\nledge_fair_lead_frames = 4.0\nledge_fair_jump_squat_buffer = true\nledge_fair_buffer_frame = 1.0")    .unwrap();
-    assert!(config.ledge.enabled);
-    assert_eq!(config.ledge.grab_button, crate::native_input::MAPPER_L);
+    assert!(config.assist.enabled);
+    assert_eq!(config.assist.grab_button, crate::native_input::MAPPER_L);
     assert!(!config.controls.auto_mash);
     assert!(config.controls.auto_tech);
 }
@@ -412,7 +412,7 @@ fn instruction_scan_requires_a_single_aligned_match() {
 }
 #[test]
 fn legacy_ledge_measurements_are_validated_but_ignored() {
-    let defaults = LiveConfig::default().ledge;
+    let defaults = LiveConfig::default().assist;
     for source in [
         "ledge_roll_dash_range = 10.0",
         "ledge_roll_smash_range = 10.0",
@@ -424,7 +424,7 @@ fn legacy_ledge_measurements_are_validated_but_ignored() {
         "ledge_anti_air_height = 18.0",
     ] {
         assert_eq!(
-            LiveConfig::parse(source).unwrap().ledge,
+            LiveConfig::parse(source).unwrap().assist,
             defaults,
             "{source}"
         );
@@ -461,8 +461,8 @@ fn manual_spacing_config_rejects_nonfinite_and_dash_strength_settings() {
         "ledge_manual_spacing = true\nledge_walk_strength = 0.4\nledge_roll_smash_range = 8.5",
     )
     .unwrap();
-    assert!(config.ledge.manual_spacing);
-    assert_eq!(config.ledge.walk_strength, 0.4);
+    assert!(config.assist.manual_spacing);
+    assert_eq!(config.assist.walk_strength, 0.4);
 }
 #[test]
 fn player_slot_defaults_to_player_one_and_accepts_legacy_config_key() {

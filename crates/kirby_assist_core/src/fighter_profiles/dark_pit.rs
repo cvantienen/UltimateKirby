@@ -5,7 +5,7 @@ pub fn profile() -> FighterProfile {
     FighterProfile {
         name: "dark_pit",
         fighter_kind: crate::fighter_kinds::DARK_PIT,
-        ledge: super::FighterGrabData::from_kind(31),
+        grab: super::FighterGrabData::from_kind(31),
         menu_options: crate::fighter_profiles::presets::MenuPresets::EMPTY,
     }
 }

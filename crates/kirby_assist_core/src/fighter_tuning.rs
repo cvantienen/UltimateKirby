@@ -1,7 +1,7 @@
 //! Input-policy overrides only. Never writes native fighter parameters.
 //! `schema.rs` owns the stable menu/file fields; `analysis.rs` groups the
 //! fighter-derived defaults and policy conversions.
-use crate::ledge_trap::LedgeSettings;
+use crate::settings::AssistSettings;
 mod analysis;
 mod schema;
 
@@ -58,7 +58,6 @@ impl Tuning {
                 | REFLECT_STARTUP
                 | REFLECT_MARGIN
                 | REFLECT_MAX_HOLD
-                | GRAB_DODGE_LOOKAHEAD
         )
     }
     pub fn visible_index(kind: i32, row: usize) -> usize {
@@ -175,7 +174,7 @@ impl Tuning {
         self.0[i] = Some(value);
         Ok(())
     }
-    pub fn values(s: LedgeSettings) -> Values {
+    pub fn values(s: AssistSettings) -> Values {
         let mut values = [0.0; COUNT];
         values[WALK_STRENGTH] = s.walk_strength;
         values[GRAB_RANGE] = s.fighter.grab.standing_range;
@@ -250,7 +249,7 @@ impl Tuning {
         values[REFLECT_HALF_DEPTH] = DEFAULT_REFLECT_HALF_DEPTH;
         Values(values)
     }
-    pub fn apply(self, mut s: LedgeSettings) -> LedgeSettings {
+    pub fn apply(self, mut s: AssistSettings) -> AssistSettings {
         let v = self.0;
         if let Some(x) = v[WALK_STRENGTH] {
             s.walk_strength = x;
@@ -352,7 +351,7 @@ mod tests {
     }
     #[test]
     fn applied_values_change_decisions_and_inputs_only() {
-        let base = LedgeSettings::default();
+        let base = AssistSettings::default();
         assert_eq!(
             Tuning::default().apply(base).walk_strength,
             base.walk_strength

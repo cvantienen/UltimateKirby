@@ -5,11 +5,11 @@ use kirby_assist_core::{
     fighter_profiles::presets::PresetSlot,
     fighter_tuning::Tuning,
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::LedgeSettings,
     native_input::*,
     out_of_shield::{Context, OutOfShield, Target},
     reaction_rules::{Candidate, Engine, Resolved, Trigger},
     sequence_config::{persist, Catalog},
+    settings::AssistSettings,
     spot_dodge,
 };
 fn rules(trigger: &str, max: f32, side: &str, actions: &str) -> Resolved {
@@ -82,7 +82,7 @@ fn sample(
     o.sample_configured(
         true,
         Some(r),
-        LedgeSettings::default(),
+        AssistSettings::default(),
         native(c, ready),
         c,
         Some(Target {
@@ -222,7 +222,7 @@ fn disabled_lost_attacker_and_ledge_preemption_cancel_pending_or_running_sequenc
         o.sample_configured(
             true,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             native(c, true),
             c,
             None,
@@ -270,7 +270,7 @@ fn disabled_lost_attacker_and_ledge_preemption_cancel_pending_or_running_sequenc
         o.sample_configured(
             false,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             native(c, true),
             c,
             None,
@@ -291,7 +291,7 @@ fn shared_sequence_supports_delays_holds_and_fresh_target_facing() {
             response
                 .sample(
                     true,
-                    LedgeSettings::default(),
+                    AssistSettings::default(),
                     context(0, frame as f32),
                     Some(enemy(-5., frame as f32))
                 )
@@ -301,7 +301,7 @@ fn shared_sequence_supports_delays_holds_and_fresh_target_facing() {
     }
     let out = response.sample(
         true,
-        LedgeSettings::default(),
+        AssistSettings::default(),
         context(0, 2.),
         Some(enemy(-5., 2.)),
     );
@@ -311,7 +311,12 @@ fn shared_sequence_supports_delays_holds_and_fresh_target_facing() {
     turned.facing = -1.;
     assert_eq!(
         response
-            .sample(true, LedgeSettings::default(), turned, Some(enemy(-5., 3.)))
+            .sample(
+                true,
+                AssistSettings::default(),
+                turned,
+                Some(enemy(-5., 3.))
+            )
             .requested
             & MAPPER_A,
         MAPPER_A
@@ -319,7 +324,7 @@ fn shared_sequence_supports_delays_holds_and_fresh_target_facing() {
     assert!(response.attack_hold());
     response.sample(
         true,
-        LedgeSettings::default(),
+        AssistSettings::default(),
         context(kirby_assist_core::native_states::THROWN, 4.),
         Some(enemy(-5., 4.)),
     );
@@ -395,7 +400,7 @@ fn punish_requires_an_accepted_dodge_and_waits_until_actionable_then_runs_once()
             true,
             true,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(0, 1.),
             Some(enemy(4., 1.))
         )
@@ -408,7 +413,7 @@ fn punish_requires_an_accepted_dodge_and_waits_until_actionable_then_runs_once()
             true,
             false,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(spot_dodge::ESCAPE, 1.),
             Some(enemy(4., 1.))
         )
@@ -420,7 +425,7 @@ fn punish_requires_an_accepted_dodge_and_waits_until_actionable_then_runs_once()
             true,
             true,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(0, 30.),
             Some(enemy(4., 30.))
         )
@@ -432,7 +437,7 @@ fn punish_requires_an_accepted_dodge_and_waits_until_actionable_then_runs_once()
         true,
         true,
         Some(&r),
-        LedgeSettings::default(),
+        AssistSettings::default(),
         context(0, 34.),
         Some(enemy(4., 34.)),
     );
@@ -441,7 +446,7 @@ fn punish_requires_an_accepted_dodge_and_waits_until_actionable_then_runs_once()
             true,
             true,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(0, 35.),
             Some(enemy(4., 35.))
         )
@@ -482,7 +487,7 @@ fn defensive_triggers_are_not_roll_rules_or_button_toggles() {
             .sample(
                 true,
                 &r,
-                LedgeSettings::default(),
+                AssistSettings::default(),
                 context(0, 1.),
                 [None; 8],
                 None
@@ -537,7 +542,7 @@ fn native_actionable_dodge_cancel_can_start_without_waiting_for_idle() {
             true,
             true,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             c,
             Some(enemy(4., 18.))
         )
@@ -560,7 +565,7 @@ fn new_grab_dodge_cancels_old_followup_instead_of_advancing_it_hidden() {
             true,
             true,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(0, 30.),
             Some(enemy(4., 30.))
         )
@@ -578,7 +583,7 @@ fn new_grab_dodge_cancels_old_followup_instead_of_advancing_it_hidden() {
         true,
         true,
         Some(&r),
-        LedgeSettings::default(),
+        AssistSettings::default(),
         context(0, 31.),
         Some(enemy(4., 31.)),
     );
@@ -591,7 +596,7 @@ fn new_grab_dodge_cancels_old_followup_instead_of_advancing_it_hidden() {
             true,
             true,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(0, 32.),
             Some(enemy(4., 32.))
         )
@@ -641,7 +646,7 @@ fn renewed_shield_hit_cancels_old_up_b_and_arms_the_current_attacker() {
         let interrupted = o.sample_configured(
             true,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             native(c, false),
             c,
             Some(attacker),
@@ -656,7 +661,7 @@ fn renewed_shield_hit_cancels_old_up_b_and_arms_the_current_attacker() {
         let ready = o.sample_configured(
             true,
             Some(&r),
-            LedgeSettings::default(),
+            AssistSettings::default(),
             native(c, true),
             c,
             Some(attacker),

@@ -3,12 +3,12 @@ use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
     fighter_profiles::FighterProfiles,
     gameplay::{GameplayContext, MotionTiming, Opponent},
-    ledge_trap::LedgeSettings,
     native_input::{MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_ZR},
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
     reaction_rules::{Candidate, Engine, Resolved, Trigger},
     roll_read::Target,
     sequence_config::{Catalog, Sequence},
+    settings::AssistSettings,
     spot_dodge::{Context as DodgeContext, SpotDodge, Target as GrabTarget},
 };
 fn recipe(event: &str, x: f32, y: f32, actions: &str) -> Sequence {
@@ -43,7 +43,11 @@ fn lc(c: Context) -> GameplayContext {
         motion_frame: c.frame,
         motion_rate: c.rate,
         stopped: c.stopped,
-        situation: if c.grounded {kirby_assist_core::native_states::situation::GROUND} else {kirby_assist_core::native_states::situation::AIR},
+        situation: if c.grounded {
+            kirby_assist_core::native_states::situation::GROUND
+        } else {
+            kirby_assist_core::native_states::situation::AIR
+        },
         position: c.position,
         facing: c.facing,
         safe_ground: [true; 2],
@@ -65,8 +69,8 @@ fn targets(status: i32, x: f32, y: f32) -> [Option<Target>; 8] {
     });
     out
 }
-fn settings(kind: i32) -> LedgeSettings {
-    LedgeSettings {
+fn settings(kind: i32) -> AssistSettings {
+    AssistSettings {
         fighter_kind: kind,
         ..Default::default()
     }
@@ -113,7 +117,7 @@ fn canonical_grab_recipes_preserve_generic_grab_outputs_for_every_fighter() {
             continue;
         };
         let (close, far) = kirby_assist_core::fighter_tuning::Tuning::default()
-            .auto_grab_ranges(kind, p.ledge.grab.standing_range);
+            .auto_grab_ranges(kind, p.grab.grab.standing_range);
         let g = recipe("auto_grab", far, 24., "input:r:0:0:4");
         let s = recipe("auto_shield_grab", close, 24., "input:r:0:0:4");
         for status in [

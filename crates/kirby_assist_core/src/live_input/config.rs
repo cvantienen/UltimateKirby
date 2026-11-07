@@ -6,8 +6,8 @@
 //!
 //! Fighter ledge actions, options and timing are loaded only from sequences.txt.
 //! This parser supplies shared settings and numeric adjustments, not sequences.
-use crate::ledge_trap::LedgeSettings;
 use crate::manual_controls::TurboSettings;
+use crate::settings::AssistSettings;
 
 pub const DEFAULT_TECH_COOLDOWN_FRAMES: u16 = 40;
 pub const DEFAULT_COLLISION_LOOKAHEAD_FRAMES: f32 = 3.0;
@@ -61,7 +61,7 @@ pub struct LiveConfig {
     pub controls: LiveSettings,
     pub control_layout: crate::native_input::ControlLayout,
     pub turbo: TurboSettings,
-    pub ledge: LedgeSettings,
+    pub assist: AssistSettings,
     /// Local physical controller number: 0 = Player 1. Its game mapper slot
     /// is discovered dynamically; battle participant position is irrelevant.
     pub player_index: u32,
@@ -83,7 +83,7 @@ impl Default for LiveConfig {
             controls: LiveSettings::default(),
             control_layout: crate::native_input::ControlLayout::Default,
             turbo: TurboSettings::default(),
-            ledge: LedgeSettings::default(),
+            assist: AssistSettings::default(),
             player_index: 0,
             lookahead: DEFAULT_COLLISION_LOOKAHEAD_FRAMES,
         }
@@ -187,16 +187,16 @@ impl LiveConfig {
                 | "ledge_roll_hit_window_frames"
                 | "ledge_grab_buffer_frames"
                 | "ledge_getup_attack" => {}
-                "ledge_trap" => config.ledge.enabled = value.parse().map_err(|_| invalid())?,
+                "ledge_trap" => config.assist.enabled = value.parse().map_err(|_| invalid())?,
 
                 "ledge_drop_defense" => {
-                    config.ledge.drop_defense = value.parse().map_err(|_| invalid())?
+                    config.assist.drop_defense = value.parse().map_err(|_| invalid())?
                 }
                 "ledge_trap_range" => {
-                    config.ledge.horizontal_range = value.parse().map_err(|_| invalid())?
+                    config.assist.horizontal_range = value.parse().map_err(|_| invalid())?
                 }
                 "ledge_trap_vertical_range" => {
-                    config.ledge.vertical_range = value.parse().map_err(|_| invalid())?
+                    config.assist.vertical_range = value.parse().map_err(|_| invalid())?
                 }
 
                 "ledge_tilt_range" => {
@@ -206,29 +206,29 @@ impl LiveConfig {
                     legacy_grab_range = Some(value.parse::<f32>().map_err(|_| invalid())?)
                 }
                 "ledge_follow_range" => {
-                    config.ledge.follow_range = value.parse().map_err(|_| invalid())?
+                    config.assist.follow_range = value.parse().map_err(|_| invalid())?
                 }
                 "ledge_follow_vertical_range" => {
-                    config.ledge.follow_vertical_range = value.parse().map_err(|_| invalid())?
+                    config.assist.follow_vertical_range = value.parse().map_err(|_| invalid())?
                 }
                 "ledge_distance_agnostic" => {
-                    config.ledge.distance_agnostic = value.parse().map_err(|_| invalid())?
+                    config.assist.distance_agnostic = value.parse().map_err(|_| invalid())?
                 }
                 "ledge_manual_spacing" => {
-                    config.ledge.manual_spacing = value.parse().map_err(|_| invalid())?
+                    config.assist.manual_spacing = value.parse().map_err(|_| invalid())?
                 }
                 "ledge_walk_strength" => {
-                    config.ledge.walk_strength = value.parse().map_err(|_| invalid())?
+                    config.assist.walk_strength = value.parse().map_err(|_| invalid())?
                 }
                 "ledge_roll_dash_range" | "ledge_roll_smash_range" => {
                     legacy_roll_range = Some(value.parse::<f32>().map_err(|_| invalid())?)
                 }
 
                 "ledge_auto_position" => {
-                    config.ledge.auto_position = value.parse().map_err(|_| invalid())?
+                    config.assist.auto_position = value.parse().map_err(|_| invalid())?
                 }
                 "ledge_stand_distance" => {
-                    config.ledge.stand_distance = value.parse().map_err(|_| invalid())?
+                    config.assist.stand_distance = value.parse().map_err(|_| invalid())?
                 }
                 "ledge_roll_distance" => {
                     legacy_roll_distance = Some(if value.eq_ignore_ascii_case("auto") {
@@ -238,11 +238,11 @@ impl LiveConfig {
                     });
                 }
                 "ledge_move_strength" => {
-                    config.ledge.move_strength = value.parse().map_err(|_| invalid())?
+                    config.assist.move_strength = value.parse().map_err(|_| invalid())?
                 }
 
                 "ledge_throw_outward" => {
-                    config.ledge.throw_outward = value.parse().map_err(|_| invalid())?
+                    config.assist.throw_outward = value.parse().map_err(|_| invalid())?
                 }
                 // Compatibility only: ignore removed aerial settings in old SD
                 // configs so their presence cannot disable mash/tech/ledge tools.
@@ -261,7 +261,7 @@ impl LiveConfig {
                     legacy_anti_air_height = Some(value.parse::<f32>().map_err(|_| invalid())?)
                 }
                 "ledge_grab_button" => {
-                    config.ledge.grab_button = match value.to_ascii_uppercase().as_str() {
+                    config.assist.grab_button = match value.to_ascii_uppercase().as_str() {
                         "R" => crate::native_input::MAPPER_R,
                         "L" => crate::native_input::MAPPER_L,
                         "ZL" => crate::native_input::MAPPER_ZL,
@@ -285,8 +285,8 @@ impl LiveConfig {
             }
         }
 
-        if !config.ledge.walk_strength.is_finite()
-            || !(0.1..=0.45).contains(&config.ledge.walk_strength)
+        if !config.assist.walk_strength.is_finite()
+            || !(0.1..=0.45).contains(&config.assist.walk_strength)
             || legacy_roll_range
                 .is_some_and(|range| !range.is_finite() || !(1.0..=20.0).contains(&range))
         {
@@ -297,10 +297,10 @@ impl LiveConfig {
         // Validate after parsing so all paths share the same bounds. Floating
         // point parsing accepts NaN/infinity, hence is_finite in addition to range
         // checks. To expose a wider range, verify the consuming policy first.
-        if !config.ledge.horizontal_range.is_finite()
-            || !(1.0..=20.0).contains(&config.ledge.horizontal_range)
-            || !config.ledge.vertical_range.is_finite()
-            || !(1.0..=20.0).contains(&config.ledge.vertical_range)
+        if !config.assist.horizontal_range.is_finite()
+            || !(1.0..=20.0).contains(&config.assist.horizontal_range)
+            || !config.assist.vertical_range.is_finite()
+            || !(1.0..=20.0).contains(&config.assist.vertical_range)
         {
             return Err("ledge trap ranges must be finite and 1..20".into());
         }
@@ -312,15 +312,15 @@ impl LiveConfig {
             return Err("ledge attack ranges must be finite 1..20".into());
         }
         if [
-            config.ledge.follow_range,
-            config.ledge.follow_vertical_range,
+            config.assist.follow_range,
+            config.assist.follow_vertical_range,
         ]
         .iter()
         .any(|v| !v.is_finite() || !(1.0..=100.0).contains(v))
-            || !config.ledge.stand_distance.is_finite()
-            || !(2.0..=15.0).contains(&config.ledge.stand_distance)
-            || !config.ledge.move_strength.is_finite()
-            || !(0.1..=1.0).contains(&config.ledge.move_strength)
+            || !config.assist.stand_distance.is_finite()
+            || !(2.0..=15.0).contains(&config.assist.stand_distance)
+            || !config.assist.move_strength.is_finite()
+            || !(0.1..=1.0).contains(&config.assist.move_strength)
         {
             return Err("invalid ledge follow, position, or grab buffer settings".into());
         }

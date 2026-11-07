@@ -38,9 +38,10 @@ mod bindings;
 mod catalog;
 use crate::button_modes::YMode;
 use crate::fighter_profiles::presets::{MenuPresets, PresetSlot};
-use crate::ledge_trap::{LedgeSettings, DPAD_DOWN};
+use crate::ledge_trap::DPAD_DOWN;
 use crate::manual_controls::{DPAD_RIGHT, DPAD_SIDES, DPAD_UP, SHORT_HOP_TRIGGER};
 use crate::native_input::{MAPPER_DPAD_BUTTONS, MAPPER_L, MAPPER_MINUS, MAPPER_X, MAPPER_Y};
+use crate::settings::AssistSettings;
 pub const MENU_STICK_CLICK: u32 = 1 << 17; // Physical right-stick click (R3).
 pub const TWO_FRAME_TRIGGER: u32 = 1 << 16; // L3: Training compact test; gameplay binding when hidden.
 pub const MENU_TOGGLE_CHORD: u32 = MAPPER_MINUS;
@@ -644,7 +645,7 @@ impl MenuSelection {
     pub fn sequence_enabled(&self, base: bool) -> bool {
         base || self.preview_slot.is_some() || self.ledge_mode()
     }
-    pub fn settings(&self, presets: &MenuPresets, base: LedgeSettings) -> LedgeSettings {
+    pub fn settings(&self, presets: &MenuPresets, base: AssistSettings) -> AssistSettings {
         // Cache selected file timelines. There is no fighter-function fallback.
         let mut s = self.tuning.apply(base);
         s.enabled = self.sequence_enabled(base.enabled);

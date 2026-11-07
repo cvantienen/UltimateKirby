@@ -102,7 +102,7 @@ fn fresh(state:&State)->bool {
 }
 mod manual_native_wiring {
  use kirby_assist_core::{action_owner::{ActionOwnership,Owner,Intent},
-  ledge_trap::{LedgeContext,LedgeOutput},grab_handoff::GrabHandoff,manual_controls::ManualJumpFence,
+  gameplay::{GameplayContext,ControllerOutput},grab_handoff::GrabHandoff,manual_controls::ManualJumpFence,
   out_of_shield::OutOfShield,spot_dodge::SpotDodge,
   native_input::{MAPPER_X,MAPPER_A}};
  struct Menu {actions:u32,reserved:bool}
@@ -125,7 +125,7 @@ mod manual_native_wiring {
    grab_handoff:GrabHandoff::new(),action_owner:ActionOwnership::new(),delivered_spin:false,ledge_active:false}}
   fn bowser_up_b_owner(&self)->Option<Owner>{self.delivered_spin.then_some(Owner::RollRead)}
  }
- fn blocked(state:&mut NativeState,context:LedgeContext)->bool {
+ fn blocked(state:&mut NativeState,context:GameplayContext)->bool {
   let object_id=1;let fighter_kind=15;
   let native_status=context.status;let native_auto_ground=context.situation;
   let native_auto_stopped=context.stopped;let own_motion_kind=context.motion_kind;
@@ -133,18 +133,18 @@ mod manual_native_wiring {
   MANUAL_GUARD
   manual_automatic_blocked
  }
- fn c()->LedgeContext{LedgeContext{gameplay:true,motion_kind:1,motion_rate:1.,..Default::default()}}
+ fn c()->GameplayContext{GameplayContext{gameplay:true,motion_kind:1,motion_rate:1.,..Default::default()}}
  #[test]fn actual_live_guard_respects_jump_release_and_confirmed_spin() {
   let mut s=NativeState::new();assert!(!blocked(&mut s,c()));
   s.ledge_menu.as_mut().unwrap().actions=MAPPER_X;
   assert!(blocked(&mut s,c()));
   s.ledge_menu.as_mut().unwrap().actions=0;
   for _ in 0..100 {assert!(blocked(&mut s,c()));}
-  assert!(!blocked(&mut s,LedgeContext{status:0xa,..c()}));
+  assert!(!blocked(&mut s,GameplayContext{status:0xa,..c()}));
   assert!(!blocked(&mut s,c()));
   s.delivered_spin=true;s.ledge_menu.as_mut().unwrap().actions=MAPPER_A;
   assert!(blocked(&mut s,c()),"a delivered packet is not native spin confirmation");
-  assert!(!blocked(&mut s,LedgeContext{status:0x1de,..c()}),"real Bowser spin keeps tracking");
+  assert!(!blocked(&mut s,GameplayContext{status:0x1de,..c()}),"real Bowser spin keeps tracking");
  }
  #[test]fn active_sequences_ignore_manual_binding_edges_without_priming_a_late_jump() {
   for owner in [Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Reflect,Owner::Ledge,Owner::Shortcut] {
@@ -170,7 +170,7 @@ mod manual_native_wiring {
  }
  fn reserve_ledge(state:&mut NativeState,ledge_inputs_reserved:bool) {LEDGE_RESERVATION}
  fn choose(state:&mut NativeState)->Option<Owner> {
-  let fresh=true;let manual_scope=true;let native_grab=false;let shortcut=LedgeOutput::default();
+  let fresh=true;let manual_scope=true;let native_grab=false;let shortcut=ControllerOutput::default();
   let mut intents=[Intent::input_sequence(Owner::Ledge,1),Intent::input_sequence(Owner::OutOfShield,1)];
   ARBITRATION
   winner
@@ -183,16 +183,16 @@ mod manual_native_wiring {
   let mut targets=[None;8];targets[0]=Some(kirby_assist_core::roll_read::Target {
    id:2,status:0x1c,motion:2,frame:0.,rate:1.,position:[10.,0.],velocity_x:0.,
    vulnerable_in:Some(0.),actionable_in:None});
-  s.oos.sample_automatic(true,context,LedgeContext{status:0x1c,held:true,..c()},targets,None,true,22.,35.,Some(8.));
+  s.oos.sample_automatic(true,context,GameplayContext{status:0x1c,held:true,..c()},targets,None,true,22.,35.,Some(8.));
   s.oos.mapped_grab(0,2);assert!(s.oos.grab_delivery_pending());
   s.grab_handoff.mapped(0,Some(Owner::OutOfShield),true,true,true);
   s.action_owner.set_automatic_suspended(true);reserve_ledge(&mut s,true);
   assert!(s.oos.grab_delivery_pending());assert!(s.grab_handoff.pending());
   assert_eq!(choose(&mut s),None);
-  for frame in 0..=24 {s.grab_handoff.observe_native(true,Some(LedgeContext{motion_frame:frame as f32,..c()}));}
+  for frame in 0..=24 {s.grab_handoff.observe_native(true,Some(GameplayContext{motion_frame:frame as f32,..c()}));}
   assert!(!s.grab_handoff.pending());
   assert_eq!(choose(&mut s),Some(Owner::Ledge));
-  assert!(s.grab_handoff.permits(Some(Owner::Ledge),LedgeOutput{requested:kirby_assist_core::native_input::MAPPER_ZR,
+  assert!(s.grab_handoff.permits(Some(Owner::Ledge),ControllerOutput{requested:kirby_assist_core::native_input::MAPPER_ZR,
    stick:Some([0.;2]),..Default::default()},None));
  }
  #[test]fn actual_ledge_reservation_preserves_its_own_grab_receipt() {
@@ -206,7 +206,7 @@ mod manual_native_wiring {
  }
  #[test]fn fresh_native_shield_readiness_does_not_keep_a_stale_raw_cancel_frame() {
   let mut s=NativeState::new();s.action_owner.set_automatic_suspended(true);
-  assert!(!blocked(&mut s,LedgeContext{status:0x1c,..c()}));
+  assert!(!blocked(&mut s,GameplayContext{status:0x1c,..c()}));
   assert!(!proposals_blocked(&mut s,false));assert!(!s.action_owner.automatic_suspended());
   assert!(proposals_blocked(&mut s,true));assert!(s.action_owner.automatic_suspended());
  }
@@ -222,7 +222,7 @@ mod manual_native_wiring {
   let mut s=NativeState::new();blocked(&mut s,c());
   s.grab_handoff.mapped(0,Some(Owner::OutOfShield),true,true,true);
   for _ in 0..100 {assert!(!blocked(&mut s,c()));assert!(proposals_blocked(&mut s,false));}
-  assert!(!blocked(&mut s,LedgeContext{status:0x37,..c()}));
+  assert!(!blocked(&mut s,GameplayContext{status:0x37,..c()}));
   assert!(!proposals_blocked(&mut s,false));
   let mut s=NativeState::new();blocked(&mut s,c());
   s.grab_handoff.mapped(0,Some(Owner::OutOfShield),true,true,true);
@@ -231,10 +231,10 @@ mod manual_native_wiring {
  }
 }
 mod exclusive_packet_wiring {
- use kirby_assist_core::{action_owner::{ActionOwnership,Owner,Intent},ledge_trap::{LedgeOutput,SEQUENCE_BUTTONS},
+ use kirby_assist_core::{action_owner::{ActionOwnership,Owner,Intent},gameplay::ControllerOutput,ledge_trap::SEQUENCE_BUTTONS,
   tech_input::TechOutput,native_input::{MAPPER_ZR,MAPPER_B}};
  struct State {action_owner:ActionOwnership,tech_output:TechOutput,tech_urgent:bool}
- fn packet(state:&mut State,winner:Option<Owner>,mut selected:LedgeOutput,mash_stick:Option<[f32;2]>,damage_stick:Option<[f32;2]>)->(LedgeOutput,Option<TechOutput>) {
+ fn packet(state:&mut State,winner:Option<Owner>,mut selected:ControllerOutput,mash_stick:Option<[f32;2]>,damage_stick:Option<[f32;2]>)->(ControllerOutput,Option<TechOutput>) {
   let di_stick=damage_stick;let sdi_stick=None;
   let mut mapped_tech_output=None;
   SELECTED_PACKET
@@ -244,28 +244,28 @@ mod exclusive_packet_wiring {
   for owner in [Owner::Ledge,Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Shortcut,Owner::Trump,Owner::Trip,Owner::Fair,Owner::JabLock,Owner::Reflect] {
    let mut s=State{action_owner:ActionOwnership::new(),tech_output:TechOutput{press:true,owns_guard:true},tech_urgent:false};
    s.action_owner.select(true,&[Intent::input_sequence(owner,1)]);
-   let (p,t)=packet(&mut s,Some(owner),LedgeOutput{requested:MAPPER_B,..Default::default()},Some([1.,0.]),Some([0.,1.]));
+   let (p,t)=packet(&mut s,Some(owner),ControllerOutput{requested:MAPPER_B,..Default::default()},Some([1.,0.]),Some([0.,1.]));
    assert_eq!(p.owned,SEQUENCE_BUTTONS);assert_eq!(p.requested,MAPPER_B);assert_eq!(p.stick,Some([0.;2]));assert!(t.is_none());
-   let (p,_)=packet(&mut s,Some(owner),LedgeOutput::default(),None,None);
+   let (p,_)=packet(&mut s,Some(owner),ControllerOutput::default(),None,None);
    assert_eq!(p.owned,SEQUENCE_BUTTONS);assert_eq!(p.requested,0);assert_eq!(p.stick,Some([0.;2]));
   }
   let mut s=State{action_owner:ActionOwnership::new(),tech_output:TechOutput{press:true,owns_guard:true},tech_urgent:false};
   s.action_owner.select(true,&[Intent::input_sequence(Owner::Safety,1)]);
-  let (p,t)=packet(&mut s,Some(Owner::Safety),LedgeOutput::default(),None,Some([0.,1.]));
+  let (p,t)=packet(&mut s,Some(Owner::Safety),ControllerOutput::default(),None,Some([0.,1.]));
   assert_eq!(p.requested,0);assert_eq!(p.stick,Some([0.,1.]));assert!(t.is_none());
   s.tech_urgent=true;
-  let (p,t)=packet(&mut s,Some(Owner::Safety),LedgeOutput::default(),None,Some([0.,1.]));
+  let (p,t)=packet(&mut s,Some(Owner::Safety),ControllerOutput::default(),None,Some([0.,1.]));
   assert_eq!(p.requested,MAPPER_ZR);assert_eq!(p.stick,Some([0.;2]));assert!(t.is_some());
-  let (p,t)=packet(&mut s,Some(Owner::Safety),LedgeOutput::default(),Some([1.,0.]),Some([0.,1.]));
+  let (p,t)=packet(&mut s,Some(Owner::Safety),ControllerOutput::default(),Some([1.,0.]),Some([0.,1.]));
   assert_eq!(p.requested,0);assert_eq!(p.stick,Some([1.,0.]));assert!(t.is_none());
  }
 }
 mod literal_delivery_wiring {
- use kirby_assist_core::{action_owner::Owner,ledge_trap::{LedgeOutput,SEQUENCE_BUTTONS},native_input::*};
+ use kirby_assist_core::{action_owner::Owner,gameplay::ControllerOutput,ledge_trap::SEQUENCE_BUTTONS,native_input::*};
  struct Config{control_layout:ControlLayout}struct Raw{buttons:ButtonTrace}
  fn request(winner:Option<Owner>,requested:u32,held:u32,owned:u32,
   layout:ControlLayout,fresh:bool,manual_scope:bool,exclusive_sequence:bool)->(bool,Option<u32>) {
-  let selected=LedgeOutput{requested,owned,..Default::default()};
+  let selected=ControllerOutput{requested,owned,..Default::default()};
   let canonical_requested=requested;let config=Config{control_layout:layout};
   let manual=Raw{buttons:ButtonTrace{held,..Default::default()}};
   let mut mapped_attack_hold=false;let mut mapped_literal_request=None;

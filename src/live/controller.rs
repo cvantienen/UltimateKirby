@@ -68,15 +68,9 @@ const _: () = {
         std::mem::offset_of!(Controller, previous_buttons)
             == CONTROLLER_PREVIOUS_BUTTONS_OFFSET_BYTES
     );
-    assert!(
-        std::mem::offset_of!(Controller, left_stick_x) == CONTROLLER_LEFT_STICK_X_OFFSET_BYTES
-    );
-    assert!(
-        std::mem::offset_of!(Controller, left_stick_y) == CONTROLLER_LEFT_STICK_Y_OFFSET_BYTES
-    );
-    assert!(
-        std::mem::offset_of!(Controller, left_trigger) == CONTROLLER_LEFT_TRIGGER_OFFSET_BYTES
-    );
+    assert!(std::mem::offset_of!(Controller, left_stick_x) == CONTROLLER_LEFT_STICK_X_OFFSET_BYTES);
+    assert!(std::mem::offset_of!(Controller, left_stick_y) == CONTROLLER_LEFT_STICK_Y_OFFSET_BYTES);
+    assert!(std::mem::offset_of!(Controller, left_trigger) == CONTROLLER_LEFT_TRIGGER_OFFSET_BYTES);
     assert!(
         std::mem::offset_of!(Controller, right_stick_x) == CONTROLLER_RIGHT_STICK_X_OFFSET_BYTES
     );
@@ -86,15 +80,9 @@ const _: () = {
     assert!(
         std::mem::offset_of!(Controller, right_trigger) == CONTROLLER_RIGHT_TRIGGER_OFFSET_BYTES
     );
-    assert!(
-        std::mem::offset_of!(Controller, just_down) == CONTROLLER_JUST_DOWN_OFFSET_BYTES
-    );
-    assert!(
-        std::mem::offset_of!(Controller, just_release) == CONTROLLER_JUST_RELEASE_OFFSET_BYTES
-    );
-    assert!(
-        std::mem::offset_of!(Controller, autorepeat) == CONTROLLER_AUTOREPEAT_OFFSET_BYTES
-    );
+    assert!(std::mem::offset_of!(Controller, just_down) == CONTROLLER_JUST_DOWN_OFFSET_BYTES);
+    assert!(std::mem::offset_of!(Controller, just_release) == CONTROLLER_JUST_RELEASE_OFFSET_BYTES);
+    assert!(std::mem::offset_of!(Controller, autorepeat) == CONTROLLER_AUTOREPEAT_OFFSET_BYTES);
     assert!(std::mem::offset_of!(Controller, style) == CONTROLLER_STYLE_OFFSET_BYTES);
     assert!(std::mem::offset_of!(Controller, connected) == CONTROLLER_CONNECTED_OFFSET_BYTES);
     assert!(std::mem::offset_of!(Controller, npad) == CONTROLLER_NPAD_OFFSET_BYTES);

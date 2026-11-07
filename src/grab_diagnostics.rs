@@ -1,9 +1,6 @@
 //! A small flight recorder for roll grabs. Hooks copy numbers into fixed storage;
 //! only the background logger formats the completed report. No gameplay decisions.
-use kirby_assist_core::{
-    ledge_trap::RollGrabSnapshot,
-    native_input::MAPPED_CATCH,
-};
+use kirby_assist_core::{ledge_trap::RollGrabSnapshot, native_input::MAPPED_CATCH};
 use std::{fmt::Write, time::Instant};
 
 const CHECKPOINTS: usize = 32;

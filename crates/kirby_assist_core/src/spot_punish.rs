@@ -2,9 +2,9 @@
 use crate::{
     defense_response::Response,
     gameplay::{ControllerOutput, GameplayContext, Opponent},
-    ledge_trap::LedgeSettings,
     option_read::{Kind, Target},
     reaction_rules::{Resolved, Trigger},
+    settings::AssistSettings,
 };
 #[derive(Clone, Copy)]
 struct Seen {
@@ -47,7 +47,7 @@ impl Punisher {
         enabled: bool,
         object: u32,
         rules: Option<&Resolved>,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         c: GameplayContext,
         targets: [Option<Target>; 8],
         follow: Option<Opponent>,

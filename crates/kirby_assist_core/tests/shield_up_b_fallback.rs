@@ -1,13 +1,14 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
     gameplay::GameplayContext,
-    ledge_trap::{LedgeSettings, SEQUENCE_BUTTONS},
+    ledge_trap::SEQUENCE_BUTTONS,
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::*,
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
     reaction_rules::{Candidate, Engine, Resolved},
     roll_read::Target,
     sequence_config::Catalog,
+    settings::AssistSettings,
 };
 fn c(frame: f32) -> Context {
     Context {
@@ -80,7 +81,7 @@ fn sample(
         22.,
         35.,
         Some(12.),
-        LedgeSettings {
+        AssistSettings {
             fighter_kind: c.kind,
             ..Default::default()
         },
@@ -354,7 +355,7 @@ fn roll_up_b_wins_before_new_shield_fallback_and_active_fallback_cannot_become_a
     ts[0].as_mut().unwrap().status = kirby_assist_core::native_states::ESCAPE_F;
     let mut e = Engine::default();
     let mut o = OutOfShield::new();
-    let reaction = e.sample_simple(true, &rules, LedgeSettings::default(), lc(0.), ts, None);
+    let reaction = e.sample_simple(true, &rules, AssistSettings::default(), lc(0.), ts, None);
     assert_ne!(reaction.requested & MAPPER_B, 0);
     assert_eq!(
         sample(&mut o, reaction.owned == 0, c(0.), lc(0.), ts).owned,
@@ -511,7 +512,7 @@ fn roll_priority_is_rechecked_when_a_cancelled_fallback_proposes_a_fresh_grab() 
     let out = engine.sample_simple(
         owner.allows(Owner::RollRead),
         &rules,
-        LedgeSettings::default(),
+        AssistSettings::default(),
         lc(1.),
         next,
         None,
@@ -548,7 +549,7 @@ fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames(
             22.,
             35.,
             Some(8.),
-            LedgeSettings {
+            AssistSettings {
                 fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                 ..Default::default()
             },
@@ -579,7 +580,7 @@ fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames(
         22.,
         35.,
         Some(8.),
-        LedgeSettings {
+        AssistSettings {
             fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
             ..Default::default()
         },
@@ -614,7 +615,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
                 22.,
                 35.,
                 Some(8.),
-                LedgeSettings {
+                AssistSettings {
                     fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                     ..Default::default()
                 },
@@ -647,7 +648,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
                 22.,
                 35.,
                 Some(8.),
-                LedgeSettings {
+                AssistSettings {
                     fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                     ..Default::default()
                 },
@@ -678,7 +679,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
                 22.,
                 35.,
                 Some(8.),
-                LedgeSettings {
+                AssistSettings {
                     fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                     ..Default::default()
                 },
@@ -708,7 +709,7 @@ fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellatio
                 22.,
                 35.,
                 Some(8.),
-                LedgeSettings {
+                AssistSettings {
                     fighter_kind: kirby_assist_core::fighter_kinds::KIRBY,
                     ..Default::default()
                 },
@@ -769,7 +770,7 @@ fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clo
             22.,
             35.,
             Some(8.),
-            LedgeSettings {
+            AssistSettings {
                 fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                 ..Default::default()
             },
@@ -796,7 +797,7 @@ fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clo
                 22.,
                 35.,
                 Some(8.),
-                LedgeSettings {
+                AssistSettings {
                     fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                     ..Default::default()
                 },
@@ -820,7 +821,7 @@ fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clo
             22.,
             35.,
             Some(8.),
-            LedgeSettings {
+            AssistSettings {
                 fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
                 ..Default::default()
             },

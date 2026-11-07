@@ -1,10 +1,11 @@
 //! Playable registrations are distinct from read-only DLC reference records.
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
-    settings_menu::MenuSelection,
-    ledge_trap::{LedgeSettings, ResponseImplementation},
+    ledge_trap::ResponseImplementation,
     projectile_reflect,
     sequence_config::{Action, Catalog, SequenceLibrary},
+    settings::AssistSettings,
+    settings_menu::MenuSelection,
 };
 
 #[test]
@@ -24,14 +25,14 @@ fn both_native_aegis_identities_enable_their_own_editable_menus_without_inherite
         let profile = profiles.profile(kind).expect("playable form must exist");
         assert_eq!(profile.name, name);
         assert_eq!(profile.fighter_data().unwrap().name, name);
-        let base = profile.apply(LedgeSettings {
+        let base = profile.apply(AssistSettings {
             enabled: true,
             ..Default::default()
         });
         assert!(base.enabled);
         assert_eq!(base.implementation, Some(implementation));
-        assert_eq!(profile.ledge.grab.standing_startup, startup);
-        assert_eq!(profile.ledge.grab.standing_range, 12.);
+        assert_eq!(profile.grab.grab.standing_startup, startup);
+        assert_eq!(profile.grab.grab.standing_range, 12.);
         let selected = library.for_fighter(kind);
         assert_eq!(selected.len(), 5);
         assert!(selected

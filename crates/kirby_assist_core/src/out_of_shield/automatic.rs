@@ -2,9 +2,9 @@
 use super::*;
 use crate::{
     gameplay::{GameplayContext, Opponent},
-    ledge_trap::LedgeSettings,
     native_input::{MAPPER_B, MAPPER_R},
     sequence_config::{Action, Direction, Sequence},
+    settings::AssistSettings,
 };
 
 #[derive(Clone, Copy, Default)]
@@ -148,7 +148,7 @@ impl OutOfShield {
         close: f32,
         approach: f32,
         startup: Option<f32>,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         config: AutomaticConfig<'_>,
     ) -> ControllerOutput {
         self.bind_actor(c);
@@ -393,7 +393,7 @@ impl OutOfShield {
         mut context: GameplayContext,
         targets: [Option<crate::roll_read::Target>; 8],
         follow: Option<Opponent>,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         backup: bool,
         shielded: bool,
     ) -> ControllerOutput {

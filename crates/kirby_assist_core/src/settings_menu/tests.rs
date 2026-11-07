@@ -260,13 +260,13 @@ fn mash_is_a_menu_row_and_pad_release_does_not_toggle_twice() {
     let presets = &profiles.profile(6).unwrap().menu_options;
     let mut menu = MenuSelection::new(presets);
     menu.show_modes();
-    let initial = menu.settings(presets, LedgeSettings::default());
+    let initial = menu.settings(presets, AssistSettings::default());
     menu.input(0, presets);
     menu.row = MenuRow::AutoMash;
     menu.input(DPAD_RIGHT, presets);
     assert!(menu.toggle_mash && menu.cancel_pending);
     assert_eq!(
-        menu.settings(presets, LedgeSettings::default())
+        menu.settings(presets, AssistSettings::default())
             .response_choices,
         initial.response_choices
     );
@@ -439,7 +439,7 @@ fn fighter_settings_edit_reset_save_and_training_gate() {
     let profile = crate::fighter_profiles::yoshi::profile();
     let mut m = MenuSelection::new(&profile.menu_options);
     m.tuning_values =
-        crate::fighter_tuning::Tuning::values(profile.apply(LedgeSettings::default()));
+        crate::fighter_tuning::Tuning::values(profile.apply(AssistSettings::default()));
     m.input(0, &profile.menu_options);
     m.open_page(MenuRow::FighterSettings);
     assert!(m.tuning_page && m.recipe_editing);
@@ -449,7 +449,7 @@ fn fighter_settings_edit_reset_save_and_training_gate() {
     assert_eq!(
         m.settings(
             &profile.menu_options,
-            profile.apply(LedgeSettings::default())
+            profile.apply(AssistSettings::default())
         )
         .walk_strength,
         m.tuning.0[0].unwrap()

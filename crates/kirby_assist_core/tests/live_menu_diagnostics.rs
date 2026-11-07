@@ -1,7 +1,7 @@
 #![cfg(feature = "diagnostic-logging")]
 #![allow(unexpected_cfgs, dead_code)]
 // Compile the production menu adapter without the Switch/ImGui runtime.
-use kirby_assist_core::{fighter_profiles::FighterProfiles, ledge_trap::LedgeSettings};
+use kirby_assist_core::{fighter_profiles::FighterProfiles, settings::AssistSettings};
 use std::sync::{Mutex, OnceLock};
 static PROFILES: OnceLock<FighterProfiles> = OnceLock::new();
 static SEQUENCES: OnceLock<Mutex<kirby_assist_core::sequence_config::SequenceLibrary>> =
@@ -16,7 +16,7 @@ static STATE: Mutex<HostState> = Mutex::new(HostState {
     menu_battle_active: false,
     settings_menu: None,
 });
-fn ledge_settings(_: Option<i32>, base: LedgeSettings) -> LedgeSettings {
+fn settings_for_fighter(_: Option<i32>, base: AssistSettings) -> AssistSettings {
     base
 }
 #[path = "../../../src/performance.rs"]
@@ -54,7 +54,7 @@ fn configuration_logs_once_on_entry_and_on_choice_edits_but_not_navigation_or_po
             buttons,
             buttons,
             kirby_assist_core::native_input::ControlLayout::Default,
-            &LedgeSettings::default(),
+            &AssistSettings::default(),
             true,
             true,
             true,

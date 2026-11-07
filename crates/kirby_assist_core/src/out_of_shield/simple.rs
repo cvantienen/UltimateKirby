@@ -254,7 +254,12 @@ impl Grab {
                 return ControllerOutput::default(); // Settling owns no buttons or movement.
             }
         }
-        if !allowed || !c.grounded || lc.situation != crate::native_states::situation::GROUND || !lc.gameplay || lc.stopped {
+        if !allowed
+            || !c.grounded
+            || lc.situation != crate::native_states::situation::GROUND
+            || !lc.gameplay
+            || lc.stopped
+        {
             self.cancel();
             return ControllerOutput::default();
         }

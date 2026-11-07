@@ -1,9 +1,9 @@
 use kirby_assist_core::{
     autopilot_guard::{self, duck_geometry::Hitbox},
     fighter_tuning::*,
-    ledge_trap::LedgeSettings,
     roll_read::{self, Choice},
     sequence_config::{persist, Catalog},
+    settings::AssistSettings,
     spot_dodge::{self, Context, Target},
     tech_prediction::{self, Body},
 };
@@ -176,7 +176,7 @@ fn grab_padding_and_height_are_independent_of_the_attackers_reach() {
 #[test]
 fn saved_values_round_trip_per_fighter_and_leave_recipe_inputs_unchanged() {
     let mut t = Tuning::default();
-    let base = LedgeSettings {
+    let base = AssistSettings {
         fighter_kind: kirby_assist_core::fighter_kinds::YOSHI,
         ..Default::default()
     };
@@ -250,8 +250,8 @@ fn zero_shield_tail_still_shields_an_actual_threat_and_specialist_rows_are_filte
 #[test]
 fn filtered_settings_navigation_and_focus_match_the_visible_rows() {
     use kirby_assist_core::{
-        fighter_profiles::presets::MenuPresets, settings_menu::MenuRow, settings_menu::MenuSelection,
-        ledge_trap::DPAD_DOWN,
+        fighter_profiles::presets::MenuPresets, ledge_trap::DPAD_DOWN, settings_menu::MenuRow,
+        settings_menu::MenuSelection,
     };
     let p = MenuPresets::default();
     let mut m = MenuSelection::new(&p);
@@ -260,7 +260,7 @@ fn filtered_settings_navigation_and_focus_match_the_visible_rows() {
     m.recipe_editing = true;
     m.tuning_page = true;
     m.row = MenuRow::FighterSettings;
-    m.tuning_values = Tuning::values(LedgeSettings {
+    m.tuning_values = Tuning::values(AssistSettings {
         fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     });
@@ -303,7 +303,7 @@ fn every_supported_fighter_uses_its_own_reference_grab_defaults_before_saved_ove
             let Some(g) = fighter_data::ordinary_grab(reference.kind, status) else {
                 continue;
             };
-            let actual = profile.ledge.grab;
+            let actual = profile.grab.grab;
             match status {
                 0x37 => {
                     assert_eq!(actual.standing_startup, g.first);
@@ -319,7 +319,7 @@ fn every_supported_fighter_uses_its_own_reference_grab_defaults_before_saved_ove
             .and_then(|s| s.parse::<u8>().ok())
             .filter(|f| (1..=120).contains(f))
         {
-            assert_eq!(profile.ledge.grab.shield_startup, frame);
+            assert_eq!(profile.grab.grab.shield_startup, frame);
         }
     }
     let mut t = Tuning::default();
@@ -328,10 +328,10 @@ fn every_supported_fighter_uses_its_own_reference_grab_defaults_before_saved_ove
         profiles
             .profile(15)
             .unwrap()
-            .apply(LedgeSettings::default()),
+            .apply(AssistSettings::default()),
     );
     assert_eq!(bowser.fighter.grab.standing_range, 15.0);
-    assert_eq!(profiles.profile(1).unwrap().ledge.grab.standing_range, 19.5);
+    assert_eq!(profiles.profile(1).unwrap().grab.grab.standing_range, 19.5);
 }
 
 #[test]
@@ -342,11 +342,11 @@ fn lightweight_automatic_grab_values_match_full_defaults_for_every_registered_fi
         let Some(profile) = profiles.profile(kind) else {
             continue;
         };
-        let base = profile.apply(LedgeSettings::default());
+        let base = profile.apply(AssistSettings::default());
         let values = Tuning::values(base);
         let default = Tuning::default();
         assert_eq!(
-            default.auto_grab_ranges(kind, profile.ledge.grab.standing_range),
+            default.auto_grab_ranges(kind, profile.grab.grab.standing_range),
             (values[AUTO_GRAB_CLOSE], values[AUTO_GRAB_FAR]),
             "fighter {kind}"
         );
@@ -357,7 +357,7 @@ fn lightweight_automatic_grab_values_match_full_defaults_for_every_registered_fi
             let old_close = t.value(AUTO_GRAB_CLOSE, values[AUTO_GRAB_CLOSE]);
             let old_far = t.value(AUTO_GRAB_FAR, values[AUTO_GRAB_FAR]).max(old_close);
             assert_eq!(
-                t.auto_grab_ranges(kind, profile.ledge.grab.standing_range),
+                t.auto_grab_ranges(kind, profile.grab.grab.standing_range),
                 (old_close, old_far)
             );
         }

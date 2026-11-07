@@ -1,9 +1,10 @@
 use kirby_assist_core::{
     gameplay::{GameplayContext, Opponent},
-    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
+    ledge_trap::{InputTimeline, SEQUENCE_BUTTONS},
     manual_controls::{ManualOverlay, TurboOutput, LEFT_STICK_DIRECTIONS},
     native_input::*,
     sequence_config::Catalog,
+    settings::AssistSettings,
 };
 fn context(status: i32, frame: f32) -> GameplayContext {
     GameplayContext {
@@ -117,7 +118,7 @@ fn shield_release_observation_gap_keeps_the_chase_and_its_entire_ten_frame_durat
         (kirby_assist_core::native_states::GUARD_OFF, 2.),
     ] {
         let out = t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(status, frame),
             None,
             None,
@@ -129,7 +130,7 @@ fn shield_release_observation_gap_keeps_the_chase_and_its_entire_ten_frame_durat
     }
     for frame in 0..10 {
         let out = t.sample(
-            LedgeSettings::default(),
+            AssistSettings::default(),
             context(0, frame as f32),
             None,
             None,
@@ -138,7 +139,7 @@ fn shield_release_observation_gap_keeps_the_chase_and_its_entire_ten_frame_durat
         assert_eq!(out.stick, Some([1., 0.]));
         assert_eq!(out.requested, 0, "chase frame {frame}");
     }
-    let out = t.sample(LedgeSettings::default(), context(0, 10.), None, None, 0.);
+    let out = t.sample(AssistSettings::default(), context(0, 10.), None, None, 0.);
     assert_eq!(out.requested, MAPPER_B);
     assert_eq!(out.stick, Some([0., 1.]));
 }
@@ -153,7 +154,7 @@ fn neutral_shield_release_still_suppresses_human_directions_before_chase_starts(
     let mut t = timeline();
     t.allow_continuous_progress();
     let waiting = t.sample(
-        LedgeSettings::default(),
+        AssistSettings::default(),
         context(kirby_assist_core::native_states::GUARD, 0.),
         None,
         None,
@@ -176,7 +177,7 @@ fn neutral_shield_release_still_suppresses_human_directions_before_chase_starts(
         out.buttons.held & (GAMEPLAY_BUTTONS | LEFT_STICK_DIRECTIONS),
         0
     );
-    let chase = t.sample(LedgeSettings::default(), context(0, 0.), None, None, 0.);
+    let chase = t.sample(AssistSettings::default(), context(0, 0.), None, None, 0.);
     let out = overlay.apply_reaction_controls(
         physical,
         [1., -1.],

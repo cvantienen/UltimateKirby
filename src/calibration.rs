@@ -887,7 +887,8 @@ mod tests {
     use kirby_assist_core::{
         fighter_profiles::presets::PresetSlot,
         gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
-        ledge_trap::{LedgeSettings, NativeRule},
+        ledge_trap::NativeRule,
+        settings::AssistSettings,
         timing::motion_hash,
     };
     use std::time::Duration;
@@ -977,7 +978,7 @@ mod tests {
             configured_range: Some(12.0),
             lead: None,
             distance_agnostic: true,
-            grab_button: LedgeSettings::default().grab_button,
+            grab_button: AssistSettings::default().grab_button,
         }
     }
 

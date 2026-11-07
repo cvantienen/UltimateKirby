@@ -4,11 +4,12 @@ use kirby_assist_core::{
     fighter_profiles::presets::PresetSlot,
     gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
     grab_handoff::GrabHandoff,
-    ledge_trap::{InputTimeline, LedgeSettings, SEQUENCE_BUTTONS},
+    ledge_trap::{InputTimeline, SEQUENCE_BUTTONS},
     native_input::{MAPPER_B, MAPPER_R, MAPPER_ZR},
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
     roll_read::Target,
     sequence_config::{Catalog, Sequence},
+    settings::AssistSettings,
 };
 fn c(status: i32, frame: f32) -> GameplayContext {
     GameplayContext {
@@ -73,8 +74,8 @@ fn enemy(status: i32, x: f32, frame: f32) -> Opponent {
         ..Default::default()
     }
 }
-fn settings() -> LedgeSettings {
-    LedgeSettings {
+fn settings() -> AssistSettings {
+    AssistSettings {
         fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
         ..Default::default()
     }

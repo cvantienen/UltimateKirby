@@ -1,10 +1,10 @@
 use kirby_assist_core::{
     fighter_profiles::FighterProfiles,
-    settings_menu::{MenuSelection, MENU_STICK_CLICK, MENU_TOGGLE_CHORD},
     ledge_trap::DPAD_DOWN,
     live_input::LiveConfig,
     manual_controls::DPAD_UP,
     native_input::{MAPPER_L, MAPPER_MINUS, MAPPER_PLUS, MAPPER_X, MAPPER_Y, MAPPER_ZL, MAPPER_ZR},
+    settings_menu::{MenuSelection, MENU_STICK_CLICK, MENU_TOGGLE_CHORD},
     training_test,
 };
 

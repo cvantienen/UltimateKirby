@@ -2,13 +2,13 @@ use kirby_assist_core::{
     fighter_profiles::presets::PresetSlot,
     gameplay::{ControllerOutput, GameplayContext, Opponent},
     ledge_trap::{
-        InputTimeline, LedgeSettings, LedgeTrap, LedgeVisits, CLIFF_CATCH_MOVE, CLIFF_CLIMB,
-        CLIFF_WAIT,
+        InputTimeline, LedgeTrap, LedgeVisits, CLIFF_CATCH_MOVE, CLIFF_CLIMB, CLIFF_WAIT,
     },
     manual_controls::ManualTakeover,
     native_input::*,
     reaction_rules::{Candidate, Resolved},
     sequence_config::{persist, Action, Catalog},
+    settings::AssistSettings,
 };
 fn sequence(actions: &str) -> kirby_assist_core::sequence_config::Sequence {
     Catalog::parse(&format!(
@@ -49,20 +49,20 @@ fn shield_until_manual_ignores_duplicates_and_timeout_then_hands_back_without_ne
     let mut c = ctx(0.);
     c.manual_input_epoch = 7;
     assert_eq!(
-        tape.sample(LedgeSettings::default(), c, None, None, 0.)
+        tape.sample(AssistSettings::default(), c, None, None, 0.)
             .requested,
         MAPPER_ZR
     );
     for _ in 0..20 {
         c.motion_frame += 100.;
         assert_eq!(
-            tape.sample(LedgeSettings::default(), c, None, None, 0.)
+            tape.sample(AssistSettings::default(), c, None, None, 0.)
                 .requested,
             MAPPER_ZR
         );
     }
     c.manual_input_epoch = 8;
-    let out = tape.sample(LedgeSettings::default(), c, None, None, 0.);
+    let out = tape.sample(AssistSettings::default(), c, None, None, 0.);
     assert_eq!(out.requested, 0);
     assert_eq!(out.owned, 0);
     assert!(tape.finished());
@@ -73,21 +73,21 @@ fn until_manual_cannot_create_an_air_dodge_and_timed_shield_stays_timed() {
     c.situation = kirby_assist_core::native_states::situation::AIR;
     let mut tape = InputTimeline::new(sequence("shield_until_manual"), enemy(CLIFF_WAIT));
     assert_eq!(
-        tape.sample(LedgeSettings::default(), c, None, None, 0.)
+        tape.sample(AssistSettings::default(), c, None, None, 0.)
             .requested,
         0
     );
     let mut timed = InputTimeline::new(sequence("shield:2"), enemy(CLIFF_WAIT));
     assert_eq!(
         timed
-            .sample(LedgeSettings::default(), ctx(0.), None, None, 0.)
+            .sample(AssistSettings::default(), ctx(0.), None, None, 0.)
             .requested,
         MAPPER_ZR
     );
-    timed.sample(LedgeSettings::default(), ctx(1.), None, None, 0.);
+    timed.sample(AssistSettings::default(), ctx(1.), None, None, 0.);
     assert_eq!(
         timed
-            .sample(LedgeSettings::default(), ctx(2.), None, None, 0.)
+            .sample(AssistSettings::default(), ctx(2.), None, None, 0.)
             .requested,
         0
     );
@@ -105,8 +105,8 @@ fn physical_shield_or_stick_change_takes_over_but_held_assist_and_analog_noise_d
     t.sample(MAPPER_L | MAPPER_ZR, [0.7, 0., 0., 0.]);
     assert_eq!(t.epoch(), 2);
 }
-fn settings() -> LedgeSettings {
-    let mut s = LedgeSettings {
+fn settings() -> AssistSettings {
+    let mut s = AssistSettings {
         enabled: true,
         ..Default::default()
     };
@@ -205,20 +205,20 @@ fn neutral_b_holds_across_animation_loops_until_physical_takeover_without_a_rele
     let mut c = ctx(0.);
     c.manual_input_epoch = 3;
     assert_eq!(
-        tape.sample(LedgeSettings::default(), c, None, None, 0.)
+        tape.sample(AssistSettings::default(), c, None, None, 0.)
             .requested,
         MAPPER_B
     );
     for n in 0..200 {
         c.motion_frame = (n % 20) as f32;
         assert_eq!(
-            tape.sample(LedgeSettings::default(), c, None, None, 0.)
+            tape.sample(AssistSettings::default(), c, None, None, 0.)
                 .requested,
             MAPPER_B
         );
     }
     c.manual_input_epoch = 4;
-    let out = tape.sample(LedgeSettings::default(), c, None, None, 0.);
+    let out = tape.sample(AssistSettings::default(), c, None, None, 0.);
     assert_eq!(out.requested, 0);
     assert_eq!(out.owned, 0);
     assert!(tape.finished());

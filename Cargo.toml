@@ -1603,6 +1603,8 @@ Renames the shared settings menu and grounded posture helper to reflect their us
 Names ledge positioning eligibility and movement phases, sequence frame validation, grab edges, and tech clocks to clarify compound decisions.
 Separates roster-refresh prerequisites from active observation consumers for easier review.
 Names tuning indexes, controller inputs, native work IDs, motion/parameter hashes, and ABI offsets to clarify Rust numeric literals.
+Splits recipe-editor adjustment and saved-input serialization into focused helpers, and repairs test fixtures without changing controller inputs.
+Moves shared assistance settings and fighter grab data out of ledge-specific naming and modules.
 """
 
 

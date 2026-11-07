@@ -1,5 +1,5 @@
 //! Read-only file-timeline telemetry. No inferred fighter scheduling constants.
-use super::{ControllerOutput, GameplayContext, LedgeSettings, LedgeTrap, Opponent};
+use super::{AssistSettings, ControllerOutput, GameplayContext, LedgeTrap, Opponent};
 use crate::fighter_profiles::presets::PresetSlot;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CalibrationKind {
@@ -136,7 +136,7 @@ impl LedgeTrap {
     }
     pub fn calibration_frame(
         &self,
-        settings: LedgeSettings,
+        settings: AssistSettings,
         context: GameplayContext,
         enemy: Option<Opponent>,
         _: &str,
