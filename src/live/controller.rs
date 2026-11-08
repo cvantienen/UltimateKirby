@@ -5,7 +5,7 @@
 //! structs: moving this code does not permit changing that layout.
 //! The mapper hook saves these fields, temporarily overlays them, and restores
 //! them after native mapping. This file does not decide which tool wins.
-use kirby_assist_core::native_input::ButtonTrace;
+use kirby_assist_core::native_input::{selected_controller_mapper, ButtonTrace, MAPPER_SLOT_COUNT};
 use std::ffi::c_void;
 
 const CONTROLLER_POINTER_OFFSET_BYTES: usize = 0x10;
@@ -98,6 +98,46 @@ pub(super) unsafe fn controller_from_wrapper(wrapper: *mut c_void) -> *mut Contr
         .add(CONTROLLER_POINTER_OFFSET_BYTES)
         .cast::<*mut Controller>()
         .read()
+}
+
+pub(super) unsafe fn selected_controller(
+    wrapper: *mut c_void,
+    index: i32,
+    player_index: u32,
+) -> Option<*mut Controller> {
+    if wrapper.is_null() || !(0..MAPPER_SLOT_COUNT).contains(&index) {
+        return None;
+    }
+    let controller = controller_from_wrapper(wrapper);
+    if controller.is_null()
+        || selected_controller_mapper(player_index, (*controller).npad, index) != Some(index)
+    {
+        return None;
+    }
+    Some(controller)
+}
+
+pub(super) struct ControllerRestore {
+    pub(super) controller: *mut Controller,
+    pub(super) physical: ButtonTrace,
+    pub(super) stick: [f32; 2],
+    pub(super) right_stick: [f32; 2],
+    pub(super) autorepeat: u32,
+    pub(super) triggers: [f32; 2],
+}
+
+impl ControllerRestore {
+    pub(super) unsafe fn restore(self) {
+        let controller = self.controller;
+        write_trace(controller, self.physical);
+        (*controller).left_stick_x = self.stick[0];
+        (*controller).left_stick_y = self.stick[1];
+        (*controller).right_stick_x = self.right_stick[0];
+        (*controller).right_stick_y = self.right_stick[1];
+        (*controller).autorepeat[0] = self.autorepeat;
+        (*controller).left_trigger = self.triggers[0];
+        (*controller).right_trigger = self.triggers[1];
+    }
 }
 
 // Pinned MappedInputs result (common/input.rs). The post-map filter clears

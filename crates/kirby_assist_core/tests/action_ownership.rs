@@ -1,6 +1,6 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
-    combat_assist::{TripContext, TripFollowup, TripTarget},
+    kirby::{TripContext, TripFollowup, TripTarget},
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::{ButtonTrace, MAPPER_A},
 };
@@ -46,7 +46,6 @@ fn committed_actions_keep_control_through_release_frames_and_passive_competitors
         Owner::Ledge,
         Owner::RollRead,
         Owner::JabLock,
-        Owner::Finisher,
         Owner::Fair,
         Owner::Trip,
     ] {
@@ -88,7 +87,7 @@ fn safety_interrupts_roll_but_trip_waits_and_scope_cancels() {
     assert_eq!(
         control.select(
             true,
-            &[intent(Owner::Trip, true), intent(Owner::Finisher, true)]
+            &[intent(Owner::Trip, true), intent(Owner::Fair, true)]
         ),
         Some(Owner::Trip)
     );
@@ -104,7 +103,7 @@ fn safety_interrupts_roll_but_trip_waits_and_scope_cancels() {
 }
 #[test]
 fn explicit_manual_tools_yield_to_roll_reads_and_confirmed_followups() {
-    for manual in [Owner::Finisher, Owner::Trump, Owner::Slide, Owner::Shortcut] {
+    for manual in [Owner::Trump, Owner::Shortcut] {
         let mut control = ActionOwnership::new();
         control.select(true, &[intent(Owner::RollRead, true)]);
         assert_eq!(
@@ -185,10 +184,8 @@ fn priority_chooses_new_work_but_never_interrupts_a_committed_sequence() {
         for other in [
             Owner::Trip,
             Owner::JabLock,
-            Owner::Finisher,
             Owner::Fair,
             Owner::Trump,
-            Owner::Slide,
             Owner::Shortcut,
             Owner::Defense,
             Owner::Turbo,
@@ -237,10 +234,8 @@ fn posture_is_last_even_while_other_modes_are_only_preparing() {
         Owner::OptionRead,
         Owner::Trip,
         Owner::JabLock,
-        Owner::Finisher,
         Owner::Fair,
         Owner::Trump,
-        Owner::Slide,
         Owner::Shortcut,
         Owner::Ledge,
         Owner::RollRead,
@@ -271,10 +266,8 @@ fn ledge_reservation_blocks_new_configured_actions_until_released() {
         Owner::OutOfShield,
         Owner::Trip,
         Owner::JabLock,
-        Owner::Finisher,
         Owner::Fair,
         Owner::Trump,
-        Owner::Slide,
         Owner::Shortcut,
     ] {
         let mut control = ActionOwnership::new();

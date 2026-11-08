@@ -60,22 +60,6 @@ impl Tuning {
         c.forward_reach = self.value(PUNISH_FORWARD_REACH, c.forward_reach);
         c
     }
-    pub fn legacy_roll(
-        &self,
-        mut c: crate::roll_read::FighterConfig,
-        choice: crate::roll_read::Choice,
-    ) -> crate::roll_read::FighterConfig {
-        if choice == crate::roll_read::Choice::Grab {
-            c.reach = self.value(1, c.reach);
-            c.height = self.value(ROLL_GRAB_HEIGHT, c.height);
-            c.watch_distance = self.value(ROLL_GRAB_WATCH, c.watch_distance);
-        } else {
-            c.reach = self.value(PUNISH_DOWN_REACH, c.reach);
-            c.height = self.value(ROLL_SMASH_HEIGHT, c.height);
-            c.watch_distance = self.value(ROLL_SMASH_WATCH, c.watch_distance);
-        }
-        c
-    }
     pub fn jab_lock(&self, kind: i32) -> Option<crate::jab_lock::Config> {
         let mut c = crate::jab_lock::config(kind)?;
         c.jab_reach = self.value(JAB_LOCK_REACH, c.jab_reach);

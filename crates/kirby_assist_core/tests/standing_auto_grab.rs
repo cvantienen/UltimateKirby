@@ -169,7 +169,6 @@ fn suspension_blocks_new_automatic_work_but_committed_owners_require_cancellatio
         Owner::Trip,
         Owner::JabLock,
         Owner::Fair,
-        Owner::Finisher,
     ];
     for current in automatic {
         let mut owner = ActionOwnership::new();

@@ -43,12 +43,11 @@ pub(super) struct State {
     pub(super) turbo: Option<TurboState>,
     pub(super) dash_pivot: Option<DashPivotAssist>,
     pub(super) shortcuts: Option<Shortcuts>,
-    pub(super) jab_grab: Option<kirby_assist_core::jab_grab::JabGrab>,
-    pub(super) jab_grab_ready: kirby_assist_core::jab_grab::Readiness,
     pub(super) shortcut_context: Option<ShortcutContext>,
     pub(super) posture: Option<kirby_assist_core::posture::Posture>,
     pub(super) posture_target: Option<f32>,
     pub(super) posture_down: bool,
+    pub(super) posture_side_aliases: kirby_assist_core::posture::TiltSideAliases,
     pub(super) posture_floor_safe: bool,
     pub(super) manual_overlay: Option<ManualOverlay>,
     // Observation-derived eligibility, not just whether a trigger is held.
@@ -299,9 +298,6 @@ impl State {
             self.trump_output = ControllerOutput::default();
         }
         if keep != Some(Owner::Shortcut) {
-            if let Some(tool) = self.jab_grab.as_mut() {
-                tool.cancel_pending();
-            }
             if let Some(tool) = self.shortcuts.as_mut() {
                 tool.cancel_pending();
             }
@@ -349,16 +345,11 @@ impl State {
             turbo: None,
             dash_pivot: None,
             shortcuts: None,
-            jab_grab: None,
-            jab_grab_ready: kirby_assist_core::jab_grab::Readiness {
-                can_grab: false,
-                can_walk: false,
-                cancel_jab: false,
-            },
             shortcut_context: None,
             posture: None,
             posture_target: None,
             posture_down: false,
+            posture_side_aliases: Default::default(),
             posture_floor_safe: false,
 
             manual_overlay: None,
@@ -520,11 +511,10 @@ impl State {
         }
         self.tech_output = TechOutput::default();
         self.tech_urgent = false;
-        self.jab_grab = None;
-        self.jab_grab_ready = kirby_assist_core::jab_grab::Readiness::default();
         self.posture = None;
         self.posture_target = None;
         self.posture_down = false;
+        self.posture_side_aliases = Default::default();
         self.posture_floor_safe = false;
         self.action_owner = ActionOwnership::new();
         #[cfg(feature = "silent-probe")]
@@ -647,11 +637,10 @@ impl State {
         self.dash_pivot = None;
         self.shortcuts = None;
         self.shortcut_context = None;
-        self.jab_grab = None;
-        self.jab_grab_ready = kirby_assist_core::jab_grab::Readiness::default();
         self.posture = None;
         self.posture_target = None;
         self.posture_down = false;
+        self.posture_side_aliases = Default::default();
         self.posture_floor_safe = false;
         self.manual_overlay = None;
         self.manual_jump_fence = kirby_assist_core::manual_controls::ManualJumpFence::new();

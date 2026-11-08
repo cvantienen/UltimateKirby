@@ -179,7 +179,6 @@ fn every_grab_owner_blocks_other_punishes_and_its_own_up_b_until_native_receipt(
         Owner::OutOfShield,
         Owner::Shortcut,
         Owner::Trump,
-        Owner::Slide,
     ] {
         let mut h = GrabHandoff::default();
         h.observe(true, 0, 0);

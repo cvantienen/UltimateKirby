@@ -200,7 +200,7 @@ mod duck_hits {
         })
     }
 }
-#[path = "../../../src/live/reflect.rs"]
+#[path = "../../../src/live/fighters/game_and_watch/reflect.rs"]
 mod reflect;
 use kirby_assist_core::{fighter_tuning::Tuning, projectile_reflect::Config};
 fn config() -> Config {

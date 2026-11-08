@@ -54,7 +54,7 @@ Implementation references:
 
 * `src/live.rs`: mapper admission and pre-map freshness checks.
 * `src/live/runtime.rs`: runtime disable and suspension.
-* `crates/kirby_assist_core/src/observation.rs`:
+* `crates/kirby_assist_core/src/shared/observations/observation.rs`:
   `input_update_current()` exact-tick check.
 * `crates/kirby_assist_core/src/session.rs`: watchdog lease and match session.
 

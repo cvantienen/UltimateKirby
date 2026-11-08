@@ -1,12 +1,30 @@
 use kirby_assist_core::{
     autopilot_guard::{self, duck_geometry::Hitbox},
     fighter_tuning::*,
-    roll_read::{self, Choice},
     sequence_config::{persist, Catalog},
     settings::AssistSettings,
     spot_dodge::{self, Context, Target},
     tech_prediction::{self, Body},
 };
+
+#[test]
+fn retired_roll_settings_remain_loadable_hidden_and_saveable() {
+    let source = "[kirby.settings]\n\
+        punish_down_reach = 14\n\
+        punish_forward_reach = 22\n\
+        punish_height = 8\n\
+        roll_smash_height = 6\n\
+        roll_smash_watch = 64\n\
+        roll_grab_height = 4\n\
+        roll_grab_watch = 32\n";
+    let original = Catalog::parse(source).unwrap().tuning[&6];
+    for i in PUNISH_DOWN_REACH..=ROLL_GRAB_WATCH {
+        assert!(original.0[i].is_some());
+        assert!(!Tuning::visible(6, i));
+    }
+    let saved = persist::update_tuning(source, 6, original).unwrap();
+    assert_eq!(Catalog::parse(&saved).unwrap().tuning[&6], original);
+}
 #[test]
 fn defaults_preserve_geometry_and_per_fighter_references() {
     let t = Tuning::default();
@@ -37,26 +55,6 @@ fn defaults_preserve_geometry_and_per_fighter_references() {
         ],
         [24., 28., 6., 18., 6., 5., 96., 96.]
     );
-    for kind in [
-        kirby_assist_core::fighter_kinds::YOSHI,
-        kirby_assist_core::fighter_kinds::KIRBY,
-    ] {
-        for choice in [Choice::DownSmash, Choice::Grab] {
-            let Some(base) = roll_read::config_for(kind, choice) else {
-                assert_eq!((kind, choice), (5, Choice::Grab));
-                continue;
-            };
-            let actual = t.legacy_roll(base, choice);
-            assert_eq!(
-                [actual.reach, actual.height, actual.watch_distance],
-                [base.reach, base.height, base.watch_distance]
-            );
-            assert_eq!(
-                (actual.first, actual.last, actual.active_windows),
-                (base.first, base.last, base.active_windows)
-            );
-        }
-    }
 }
 #[test]
 fn body_and_warning_overrides_change_predictions_without_altering_attack_geometry() {
@@ -206,15 +204,6 @@ fn saved_values_round_trip_per_fighter_and_leave_recipe_inputs_unchanged() {
     assert_eq!(
         (new.jab_start, new.smash_start, new.grab_start),
         (old.jab_start, old.smash_start, old.grab_start)
-    );
-    assert_eq!(
-        custom
-            .legacy_roll(
-                roll_read::config_for(6, Choice::Grab).unwrap(),
-                Choice::Grab
-            )
-            .reach,
-        30.
     );
     assert_eq!(
         custom.apply(base).sequence_overrides,

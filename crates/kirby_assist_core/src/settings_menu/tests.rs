@@ -138,17 +138,15 @@ fn yoshi_jab_lock_starts_off_and_is_a_separate_menu_toggle() {
     menu.y_fighter_kind = 5;
     menu.input(0, presets);
     assert!(!menu.jab_lock);
-    let roll = menu.roll_read;
     menu.row = MenuRow::JabLock;
     menu.input(DPAD_RIGHT, presets);
     assert!(menu.jab_lock && menu.cancel_pending);
-    assert_eq!(menu.roll_read, roll);
     menu.input(0, presets);
     menu.input(crate::manual_controls::DPAD_LEFT, presets);
     assert!(!menu.jab_lock);
     // Kirby navigation skips the Yoshi-only row.
     menu.y_fighter_kind = 6;
-    menu.row = MenuRow::JabGrab;
+    menu.row = MenuRow::TiltTurn;
     menu.input(0, presets);
     menu.input(DPAD_DOWN, presets);
     assert_ne!(menu.row, MenuRow::JabLock);
@@ -161,7 +159,7 @@ fn kirby_helpers_default_on_and_classic_monitor_chord_does_not_toggle() {
     let mut menu = MenuSelection::new(presets);
     menu.show_modes();
     menu.input(0, presets);
-    assert!(menu.idle_crouch && menu.tilt_turn && menu.jab_grab == crate::jab_grab::Followup::Grab);
+    assert!(menu.idle_crouch && menu.tilt_turn);
     menu.row = MenuRow::IdleCrouch;
     menu.input(DPAD_RIGHT, presets);
     assert!(!menu.idle_crouch && menu.cancel_pending);
@@ -170,12 +168,6 @@ fn kirby_helpers_default_on_and_classic_monitor_chord_does_not_toggle() {
     menu.input(crate::manual_controls::DPAD_LEFT, presets);
     assert!(!menu.tilt_turn);
     menu.input(0, presets);
-    menu.row = MenuRow::JabGrab;
-    menu.input(DPAD_RIGHT, presets);
-    assert_eq!(menu.jab_grab, crate::jab_grab::Followup::DownSmash);
-    menu.input(0, presets);
-    menu.input(DPAD_RIGHT, presets);
-    assert_eq!(menu.jab_grab, crate::jab_grab::Followup::Grab);
     let hidden = menu.menu_hidden;
     menu.input(0, presets);
     menu.input(MAPPER_L | DPAD_DOWN | MENU_STICK_CLICK, presets);
@@ -336,7 +328,6 @@ fn y_remains_available_to_its_mode_but_is_not_a_menu_or_ledge_trigger() {
     let presets = &profiles.profile(6).unwrap().menu_options;
     let mut menu = MenuSelection::new(presets);
     menu.show();
-    menu.auto_duck_available = true;
     menu.input(0, presets);
     let consumed = menu.input(MAPPER_Y | DPAD_DOWN, presets);
     assert_eq!(
@@ -346,9 +337,8 @@ fn y_remains_available_to_its_mode_but_is_not_a_menu_or_ledge_trigger() {
     assert!(!menu.ledge_held(MAPPER_Y));
     menu.input(0, presets);
     menu.input(MAPPER_Y, presets);
-    assert!(!menu.finisher_held(MAPPER_Y));
     assert!(!menu.auto_duck_held(MAPPER_Y));
-    assert_eq!(MenuRow::ALL.len(), 35);
+    assert_eq!(MenuRow::ALL.len(), 33);
     assert_eq!(
         observation_buttons(SHORT_HOP_TRIGGER, SHORT_HOP_TRIGGER),
         0 // A menu-owned X test must not also start the short-hop helper.
@@ -494,15 +484,14 @@ fn custom_roll_toggle_never_reactivates_a_retired_fixed_roll_helper() {
         let presets = &profiles.profile(kind).unwrap().menu_options;
         let mut menu = MenuSelection::new(presets);
         menu.y_fighter_kind = kind;
-        menu.roll_read_available = true;
-        assert_eq!(menu.roll_read, crate::roll_read::Choice::Off);
         assert!(!menu.row_visible(MenuRow::RollRead));
         menu.show_modes();
         menu.row = MenuRow::RollRules;
         menu.input(0, presets);
         menu.input(DPAD_LEFT, presets);
         assert!(!menu.roll_rules);
-        assert_eq!(menu.roll_read, crate::roll_read::Choice::Off);
+        menu.begin_match();
+        assert!(!menu.row_visible(MenuRow::RollRead));
         for i in crate::fighter_tuning::PUNISH_DOWN_REACH..=crate::fighter_tuning::ROLL_GRAB_WATCH {
             assert!(!crate::fighter_tuning::Tuning::visible(kind, i));
         }

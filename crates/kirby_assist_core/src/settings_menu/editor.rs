@@ -1680,7 +1680,6 @@ mod tests {
         assert_ne!(consumed & MAPPER_Y, 0);
         assert!(menu.preview_slot.is_none());
         assert!(menu.cancel_pending);
-        assert!(!menu.finisher_held(MAPPER_Y));
         menu.input(MAPPER_Y, &p);
         assert!(!menu.save_requested);
         menu.input(0, &p);

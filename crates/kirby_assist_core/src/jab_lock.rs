@@ -6,6 +6,9 @@ use crate::{
     timing::{motion_elapsed, motion_hash},
 };
 
+#[path = "fighters/yoshi/jab_lock.rs"]
+mod yoshi;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
     pub jab_start: f32,
@@ -17,28 +20,9 @@ pub struct Config {
     pub chase_distance: f32,
 }
 pub fn config(kind: i32) -> Option<Config> {
-    if kind != crate::fighter_kinds::YOSHI {
-        return None;
-    }
-    let active_start = |name| {
-        crate::fighter_data::named_move(kind, name)?
-            .active
-            .iter()
-            .map(|span| span.first)
-            .min()
-            .map(f32::from)
-    };
-    let fighter = crate::fighter_data::fighter(kind)?;
-    let grab = crate::fighter_data::ordinary_grab(kind, crate::native_states::CATCH)?;
-    Some(Config {
-        jab_start: active_start("Jab 1")?,
-        jab_reach: 7.0,
-        smash_start: active_start("Down Smash")?,
-        smash_reach: 12.0,
-        grab_start: f32::from(grab.first),
-        grab_reach: fighter.numeric_stat("grabs.grabrange"),
-        chase_distance: 60.0,
-    })
+    (kind == crate::fighter_kinds::YOSHI)
+        .then(yoshi::config)
+        .flatten()
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Target {

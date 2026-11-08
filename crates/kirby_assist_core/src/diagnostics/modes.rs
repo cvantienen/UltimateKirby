@@ -2,11 +2,11 @@
 use crate::{action_owner::Owner, native_input::*};
 use std::fmt::Write;
 
-const OWNER_COUNT: usize = 17;
+const OWNER_COUNT: usize = 15;
 const REPORT_TEXT_CAPACITY_BYTES: usize = 1200;
 const MIN_REPORT_INTERVAL_MS: u64 = 250;
 const LABEL_CAPACITY_BYTES: usize = 64;
-const CONFIGURATION_ROW_COUNT: usize = 26;
+const CONFIGURATION_ROW_COUNT: usize = 25;
 const RESULT_TOP_MARGIN: f32 = 14.0;
 const RESULT_BOTTOM_MARGIN: f32 = 8.0;
 const MIN_RESULT_HEIGHT: f32 = 40.0;
@@ -22,10 +22,8 @@ pub const OWNERS: [Owner; OWNER_COUNT] = [
     Owner::RollRead,
     Owner::Trip,
     Owner::JabLock,
-    Owner::Finisher,
     Owner::Fair,
     Owner::Trump,
-    Owner::Slide,
     Owner::Shortcut,
     Owner::Defense,
     Owner::Turbo,
@@ -47,10 +45,8 @@ pub fn name(owner: Owner) -> &'static str {
         Owner::RollRead => "Roll / shield-pressure rules",
         Owner::Trip => "Trip follow-up",
         Owner::JabLock => "Yoshi jab lock",
-        Owner::Finisher => "Combo starter / landing finisher",
         Owner::Fair => "Fair-hit follow-up",
         Owner::Trump => "Ledge trump",
-        Owner::Slide => "Slide",
         Owner::Shortcut => "Short hop / jab follow-up",
         Owner::Defense => "Defensive spot dodge / shield / duck",
         Owner::Turbo => "Turbo movement",
@@ -70,14 +66,12 @@ pub fn purpose(owner: Owner) -> &'static str {
         Owner::Ledge => "Uses the saved response for neutral/jump/roll/attack/drop; waits for protection, reach and native readiness.",
         Owner::Trip => "Requires an observed trip/hit before buffering its grounded follow-up.",
         Owner::JabLock => "Requires an attributed Yoshi down-tilt hit and a lockable knockdown; confirms native lock before finishing.",
-        Owner::Finisher => "Starts the selected aerial route; airborne Kirby needs a known landing surface and enough time. A real hit permits the landing smash.",
         Owner::Fair => "A fresh Kirby fair-one hit arms the landing smash; shield/stale flags do not arm it.",
         Owner::Trump => "Uses the held trump trigger, a known floor edge and native movement readiness.",
-        Owner::Slide => "Queues a directional hop, waits for native takeoff, then requests the early directional air dodge.",
-        Owner::Shortcut => "Handles short hop and the selected Jab-then-Grab follow-up route; native startup ends each request.",
+        Owner::Shortcut => "Handles short hop; native startup ends each request.",
         Owner::Defense => "Defensive shield/duck proposals yield to reads and ledge sequences; low hitboxes cannot safely be ducked.",
         Owner::Turbo => "Repeats the configured movement while its trigger and native movement scope permit it.",
-        Owner::Posture => "Crouches while grounded and idle within 45 horizontal / 20 vertical units of an enemy, or aims a physical down tilt; movement/buttons suspend idle crouch.",
+        Owner::Posture => "Crouches while grounded and idle near an enemy, or aims configured physical tilts; movement/buttons suspend idle crouch.",
     }
 }
 pub fn motion_name(status: i32, motion: u64) -> &'static str {
@@ -576,7 +570,6 @@ impl Configuration {
             "Auto mash",
             "Idle crouch",
             "Turnaround tilt",
-            "Jab-then-Grab follow-up",
             "Yoshi jab lock",
             "Spot-dodge punish",
             "Grab dodge",
@@ -605,7 +598,6 @@ impl Configuration {
                 "Auto mash" => "Acts only during supported capture/mash states, then returns physical control.",
                 "Idle crouch" => "Grounded idle within 45 horizontal / 20 vertical units of an enemy; movement, actions or held L suspend crouching.",
                 "Turnaround tilt" => "Aims a physical down tilt toward the enemy; does not generate an attack press.",
-                "Jab-then-Grab follow-up" => "Jab 1, release A, then press Grab: at recovery, use one gentle forward frame and retry the selected grab/down smash until startup.",
                 "Yoshi jab lock" => "Requires an attributed down-tilt hit, native knockdown and legal lock/recovery window.",
                 "Spot-dodge punish" => "Reads enemy spot-dodge recovery; selects near down smash or farther forward smash.",
                 _ => "Detects ordinary grab threats, requests spot dodge, then watches recovery for a smash punish.",
@@ -764,6 +756,26 @@ mod tests {
         let text = Configuration::new("yoshi", ["OFF"; CONFIGURATION_ROW_COUNT]).format();
         assert!(text.contains("Neutral getup: OFF"));
         assert!(text.contains("Yoshi jab lock: OFF"));
+    }
+    #[test]
+    fn configuration_rows_remain_aligned_after_removing_jab_grab() {
+        let rows = [
+            "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15",
+            "16", "17", "18", "19", "20", "21", "22", "23", "24",
+        ];
+        let text = Configuration::new("yoshi", rows).format();
+        for expected in [
+            "Turnaround tilt: 9",
+            "Yoshi jab lock: 10",
+            "Spot-dodge punish: 11",
+            "X button recipe: 16",
+            "D-pad Right binding: 21",
+            "Ledge trap mode: 22",
+            "Out of shield: 23",
+            "Shield pressure: 24",
+        ] {
+            assert!(text.contains(expected), "missing {expected}");
+        }
     }
     #[test]
     fn left_result_stacks_below_menu_or_hides_instead_of_overlapping() {

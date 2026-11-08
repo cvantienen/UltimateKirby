@@ -9,8 +9,8 @@ use crate::game_ffi as game;
 
 const ATTACK_GEOMETRY_SCAN_BUDGET: usize = 16;
 use kirby_assist_core::autopilot_guard::duck::DefenseThreat;
-use kirby_assist_core::combat_assist::TripTarget;
 use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
+use kirby_assist_core::kirby::TripTarget;
 use kirby_assist_core::ledge_position::LedgePosition;
 use kirby_assist_core::ledge_trap::{in_tracking_range, LedgeTrap, CLIFF_CATCH_MOVE, CLIFF_JUMP3};
 use kirby_assist_core::settings::AssistSettings;

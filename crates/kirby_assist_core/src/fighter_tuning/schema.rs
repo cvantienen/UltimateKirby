@@ -2,7 +2,7 @@
 //!
 //! The index order is shared by saved configuration, menu rendering, and
 //! runtime policy values. Keep each key, label, and hint at the same index.
-pub const COUNT: usize = 55;
+pub const COUNT: usize = 58;
 pub const KEYS: [&str; COUNT] = [
     "walk_strength",
     "grab_range",
@@ -59,6 +59,9 @@ pub const KEYS: [&str; COUNT] = [
     "reflect_half_width",
     "reflect_height",
     "reflect_half_depth",
+    "tilt_turn_down",
+    "tilt_turn_forward",
+    "tilt_turn_up",
 ];
 
 pub const LABELS: [&str; COUNT] = [
@@ -117,6 +120,9 @@ pub const LABELS: [&str; COUNT] = [
     "Reflect: body half-width",
     "Reflect: body height",
     "Reflect: body half-depth",
+    "Tilt face: down",
+    "Tilt face: forward",
+    "Tilt face: up",
 ];
 
 pub const HINTS: [&str; COUNT] = [
@@ -175,8 +181,14 @@ pub const HINTS: [&str; COUNT] = [
     "Estimated body half-width for incoming projectile prediction; does not change native geometry.",
     "Estimated body height above the root for incoming projectile prediction.",
     "Estimated depth allowance for incoming projectile prediction; off-plane attacks are ignored.",
+    "Prepare down tilt toward the opponent. Kirby and Yoshi default ON.",
+    "Aim physical forward C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.",
+    "Aim physical up C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.",
 ];
 
+pub const TILT_TURN_DOWN: usize = 55;
+pub const TILT_TURN_FORWARD: usize = 56;
+pub const TILT_TURN_UP: usize = 57;
 pub const REFLECT_DEFAULT: usize = 48;
 pub const REFLECT_STARTUP: usize = 49;
 pub const REFLECT_MARGIN: usize = 50;

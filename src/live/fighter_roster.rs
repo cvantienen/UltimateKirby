@@ -2,6 +2,10 @@
 //! of battle-object memory, native writes, allocations or retained pointers.
 use super::{active_fighter_manager, game, game_entry_id};
 use kirby_assist_core::battle_objects::{append_fighter, FighterRoster, FIGHTER_CAPACITY};
+
+#[path = "fighters/ice_climbers/partner.rs"]
+mod ice_climbers;
+
 pub(crate) unsafe fn fighter_ids() -> Option<FighterRoster> {
     let manager = active_fighter_manager()?;
     let count = game::entry_count(manager);
@@ -29,36 +33,7 @@ pub(crate) unsafe fn fighter_ids() -> Option<FighterRoster> {
             continue;
         }
         append_fighter(&mut ids, id);
-        let kind = game::fighter_kind(id);
-        if !matches!(
-            kind,
-            kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO
-                | kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA
-        ) {
-            continue;
-        }
-        // FIGHTER_POPO_INSTANCE_WORK_ID_INT_PARTNER_OBJECT_ID, pinned SDK.
-        let partner = game::work_int(object, kirby_assist_core::native_states::work_ids::FIGHTER_POPO_INSTANCE_WORK_ID_INT_PARTNER_OBJECT_ID) as u32;
-        if partner == id
-            || partner >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
-            || !game::is_active(partner)
-        {
-            continue;
-        }
-        let other = game::module_accessor(partner);
-        if other.is_null()
-            || game::battle_object_id(other) != partner
-            || game_entry_id(partner) != entry_id
-            || game::fighter_kind(partner)
-                != if kind == kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO {
-                    kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA
-                } else {
-                    kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO
-                }
-        {
-            continue;
-        }
-        append_fighter(&mut ids, partner);
+        ice_climbers::append_partner(&mut ids, id, object, entry_id);
     }
     Some(ids)
 }

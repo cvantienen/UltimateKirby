@@ -17,7 +17,7 @@ General roll rules do not replace a protected ledge response; incoming-grab
 defense and native safety retain their documented priority.
 
 The old Kirby/Yoshi fixed Roll read and far-roll smash fallback are removed from
-live execution. Their portable prototype fixtures remain for development, but
-cannot generate live inputs. Seven old `punish_*` / `roll_*` fighter-setting keys
+live execution, and their unused portable prototype has been removed. Seven old
+`punish_*` / `roll_*` fighter-setting keys
 remain readable for file compatibility and are hidden/inactive; configure the
 current rule's range, side, height, priority and actions instead.

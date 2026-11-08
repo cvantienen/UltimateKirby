@@ -8,7 +8,7 @@ down-tilt hits. Missed techs get a jab-lock attempt into down smash; techs get g
 attempts. It chases only while grounded and takes priority over background Roll
 read while active. See [setup, limits and calibration](../JAB_LOCK.md).
 
-**Dtilt face** starts ON, as on Kirby. It angles physical Down or down Tilt-stick
+**Tilt face** starts ON, with down tilt selected by default as on Kirby. It angles physical Down or down Tilt-stick
 toward the nearest enemy in the same input poll. It adds no attack delay and
 never creates A presses or forces native facing. Native acceptance can still
 use the old facing when turn and attack arrive together. Holding Down before A
@@ -236,11 +236,9 @@ Nair, Down tilt, Forward smash, Down smash and Dair.
 
 ## Onstage Roll read
 
-The separate Roll read row offers Off, Down smash and Grab, without holding L.
-Down smash checks its front 7–8 and rear 22–23 windows against native facing;
-tongue grab uses 14–21 with the 26-unit reach reference. Both share the bounded
-[onstage recognition policy](../ROLL_READ.md), separate from ledge Roll get-up.
-Reach estimates still need Switch calibration.
+The fixed roll-read selector is removed. Configure Yoshi's onstage responses
+using [roll reaction sequences](../ROLL_READ.md), separate from ledge Roll
+get-up responses.
 
 Jab-lock requests allow up to 24 advancing frames for native
 acceptance without delaying accepted actions. Shared ledge aerials also tolerate

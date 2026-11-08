@@ -46,20 +46,8 @@ fn dtilt_facing_is_available_for_yoshi_and_kirby_without_yoshi_idle_crouch() {
     for kind in [5, 6, 0] {
         let (_, mut m) = setup("", kind);
         m.modes_menu = true;
-        assert_eq!(
-            m.row_visible(MenuRow::TiltTurn),
-            matches!(
-                kind,
-                crate::fighter_kinds::YOSHI | crate::fighter_kinds::KIRBY
-            )
-        );
-        assert_eq!(
-            Mode::TiltTurn.supports(kind),
-            matches!(
-                kind,
-                crate::fighter_kinds::YOSHI | crate::fighter_kinds::KIRBY
-            )
-        );
+        assert!(m.row_visible(MenuRow::TiltTurn));
+        assert!(Mode::TiltTurn.supports(kind));
         assert_eq!(
             m.row_visible(MenuRow::IdleCrouch),
             kind == crate::fighter_kinds::KIRBY

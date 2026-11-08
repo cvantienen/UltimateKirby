@@ -83,9 +83,9 @@ for example `Nair`, `Dtilt` and `SH Zair`. The old spacing-hint helper remains
 available in source but is no longer called by the menu. This display change
 does not alter response timing, selection order or input behavior.
 
-The five ledge lists remain fighter-specific. Kirby also has the separate
-[Roll read](ROLL_READ.md) selector: Off / Down smash / Grab for ordinary onstage rolls.
-It defaults to Down smash and does not change the ledge Roll list. The old
+The five ledge lists remain fighter-specific. Onstage
+[roll reactions](ROLL_READ.md) use saved sequences and do not change the ledge
+Roll list. The old
 Y native combo/Finisher selector and binding remain removed. The compact selector
 and editor use directly linked pages: five ledge lists, fighter-specific X/Y/D-pad
 bindings, and available mode ON/OFF settings. Button bindings select only input sequences or Normal button; hard-coded D-pad B-reverse/Down-trump are removed.
@@ -118,19 +118,12 @@ choices filtered by build type. See [the action/timing guide](SEQUENCE_FILES.md)
 Silent builds filter test IDs and `[TEST]` labels at startup. Long editor recipes
 scroll vertically while the selected step remains identified in the pinned header.
 
-To add a future Y mode, add its enum/label and fighter availability to
-`crates/kirby_assist_core/src/button_modes.rs`, then route its held input to a
-dedicated core policy in `src/live.rs`. Keep release/edit cancellation and the
-single shared final input overlay. The menu reads the compiled list only on a
-saved-selection revision; it does not execute mode functions while drawing.
-
 The adapter caches labels until a menu revision and resolves response metadata
 only after fighter/choice changes. Drawing reads a cached snapshot, with no
 native fighter or opponent queries. Full ledge/movement observations, including
-ground-support rays, run only while ledge, slide or trump needs them. Held-Y
-defense uses its own small observation without ground-support rays. Enabled
-Roll read adds its own small status-filtered roster check without ground rays.
-A released trigger still permits an in-flight slide/trump to finish. Active
+ground-support rays, run only while ledge or trump needs them. Enabled
+Roll reactions use shared opponent observations without ground rays.
+A released trigger still permits an in-flight trump to finish. Active
 move timing is not throttled. Baseline mash, tech and SDI remain automatic.
 
 This caching limits repeated configuration work; device heat and frame time
@@ -150,10 +143,12 @@ are not measured hitboxes. Silent builds exclude this feature.
 
 Minus close requests update a separate visibility flag before attempting the cached-text lock, so the next draw skips the menu even if its previous snapshot is still in use. Closing preserves selections; release Minus before pressing it again to reopen.
 
-Kirby additionally has **Idle crouch** and **Dtilt face** toggle
-rows, initially ON. Holding L suspends idle crouch until release. The A+B
-jab-to-grab helper and its row are removed; A/B keep normal game behavior. Yoshi shares the **Roll read** Off/Down smash/Grab row with his own active
-windows. The [posture/input guide](INPUT_RECIPES.md) explains their priorities.
+Kirby additionally has **Idle crouch**; all fighters have a **Tilt face** mode
+and independently configurable move settings. Both modes start ON; down tilt
+is selected by default only for Kirby/Yoshi. Holding L suspends idle crouch
+until release. The A+B
+jab-to-grab helper and its row are removed; A/B keep normal game behavior. The
+[posture/input guide](INPUT_RECIPES.md) explains their priorities.
 
 Yoshi also has a separate **Jab lock** ON/OFF row, initially OFF. It chases only
 his own confirmed down-tilt hits and takes priority over background Roll read.

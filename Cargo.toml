@@ -1626,6 +1626,28 @@ Extends diagnostic Grab comparisons to bounded held-input samples following each
 Aligns mapped unshielded automatic Grab with the Catch and Guard combination observed during manual Grab, without adding a raw Shield press.
 
 Fences observation setup against concurrent settings or controller changes, clears dash-pivot history on controller cancellation, and lets ready Auto react Up-B replace a grab approach before Grab delivery.
+
+Separates live controller selection, overlay restoration, command-hook setup, fighter admission and observation planning into named helpers while preserving callback ordering and input behavior.
+
+Removes retired slide, Y-combo and disconnected whiff-punish implementations and their unused menu and ownership wiring, preserving active Fair follow-up and legacy configuration parsing.
+
+Removes the retired jab-to-grab shortcut, dormant live state and hidden menu and diagnostic wiring; preserves normal inputs and Yoshi jab lock.
+
+Separates Kirby trip and Fair follow-ups from shared SDI while preserving existing input behavior and compatibility exports.
+
+Groups shared controller, observation and survival policies and separates Kirby, Yoshi, Ganondorf, Game & Watch and Ice Climbers behavior and native status tables.
+
+Extracts Bowser Up-B receipt and drift rules, Kirby live follow-up lifecycle, fighter interruption and tuning rules, and legacy Falcon Punch observations from shared orchestration.
+
+Separates Ganondorf's Flame Choke tech-window selection from shared tech input scheduling.
+
+Moves native Flame Choke capture and release assessment into the Ganondorf adapter.
+
+Extracts Bowser's confirmed shield Up-B spin-tracking policy from the shared shield response.
+
+Removes the retired fixed roll-read prototype while retaining shared observations and legacy setting compatibility.
+
+Adds per-fighter configurable grounded tilt facing while preserving Kirby and Yoshi down-tilt defaults.
 """
 
 

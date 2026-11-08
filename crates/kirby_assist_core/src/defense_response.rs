@@ -234,11 +234,13 @@ impl Response {
             self.suspend();
             return ControllerOutput::default();
         }
-        let tracking = settings.fighter_kind == crate::fighter_kinds::BOWSER
-            && self.automatic_up_b
-            && (self.up_b_seen
-                || crate::reaction_rules::native_up_b_started(settings.fighter_kind, c)
-                || self.receipt.sent());
+        let tracking = crate::bowser_up_b_receipt::tracking(
+            settings.fighter_kind,
+            self.automatic_up_b,
+            self.up_b_seen,
+            || crate::reaction_rules::native_up_b_started(settings.fighter_kind, c),
+            self.receipt.sent(),
+        );
         if self.configured
             && enemy.is_none_or(|e| {
                 Some(e.id) != self.target
@@ -257,29 +259,30 @@ impl Response {
         }
         if self.automatic_up_b && self.plan.is_some() {
             let native = crate::reaction_rules::native_up_b_started(settings.fighter_kind, c);
-            if settings.fighter_kind == crate::fighter_kinds::BOWSER
-                && !self.up_b_seen
-                && self.receipt.sent()
-            {
-                if native && self.waiting_up_b {
+            match crate::bowser_up_b_receipt::evaluate(
+                settings.fighter_kind,
+                self.up_b_seen,
+                native,
+                self.waiting_up_b,
+                self.up_b_from_dodge,
+                c,
+                &self.receipt,
+                &self.delivery,
+            ) {
+                crate::bowser_up_b_receipt::ReceiptAction::Confirm => {
                     if let Some(enemy) = enemy.filter(|e| Some(e.id) == self.target) {
                         self.plan.as_mut().unwrap().confirm_initial_up_b(c, enemy);
                     }
-                } else if !native {
-                    if !crate::reaction_rules::automatic_up_b_receipt_status(
-                        c.status,
-                        c.situation,
-                        self.up_b_from_dodge,
-                    ) || self.receipt.expired()
-                    {
-                        self.cancel();
-                        return ControllerOutput::default();
-                    }
-                    if self.waiting_up_b || c.stopped || !c.can_act || self.delivery.exhausted() {
-                        self.waiting_up_b = true;
-                        return ControllerOutput::default();
-                    }
                 }
+                crate::bowser_up_b_receipt::ReceiptAction::Cancel => {
+                    self.cancel();
+                    return ControllerOutput::default();
+                }
+                crate::bowser_up_b_receipt::ReceiptAction::Wait => {
+                    self.waiting_up_b = true;
+                    return ControllerOutput::default();
+                }
+                crate::bowser_up_b_receipt::ReceiptAction::Continue => {}
             }
             self.up_b_seen |= native;
             let interrupted_by_status = matches!(
@@ -330,10 +333,13 @@ impl Response {
             self.cancel();
             return ControllerOutput::default();
         }
-        let manual = settings.fighter_kind != crate::fighter_kinds::BOWSER
-            && self.automatic_up_b
-            && self.up_b_seen
-            && c.automatic_up_b_epoch.unwrap_or(c.manual_input_epoch) != self.manual_epoch;
+        let manual = crate::bowser_up_b_receipt::manual_handback(
+            settings.fighter_kind,
+            self.automatic_up_b,
+            self.up_b_seen,
+            c,
+            self.manual_epoch,
+        );
         if manual && plan.drifting() {
             self.cancel();
             return ControllerOutput::default();
@@ -349,10 +355,11 @@ impl Response {
             && (manual && plan.drifting()
                 || !self.up_b_seen && output.requested & crate::native_input::MAPPER_B == 0)
         {
-            if settings.fighter_kind == crate::fighter_kinds::BOWSER
-                && !self.up_b_seen
-                && self.receipt.sent()
-            {
+            if crate::bowser_up_b_receipt::pending(
+                settings.fighter_kind,
+                self.up_b_seen,
+                self.receipt.sent(),
+            ) {
                 self.waiting_up_b = true;
                 return ControllerOutput::default();
             }

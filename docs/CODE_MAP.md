@@ -32,19 +32,16 @@ Paths below are relative to the project root. Core paths begin with
 | Core `settings_menu/editor.rs` | Recipe editing, action presets, field selection, and the editor's displayed schedule. |
 | Core `settings_menu/editor/commands.rs` | Input-driven copy, paste, reorder, undo, and delete commands for recipe editing. |
 | Core `settings_menu/editor/presentation.rs` | Maps each action to editable fields and renders recipe schedule details. |
-| Core `button_modes.rs` | Retained legacy mode definitions; the old Y Finisher selector/binding is removed. |
-| Core `finisher.rs` | Parked portable starter/follow-up implementation; no live binding or per-frame state. |
 | Core `fighter_data.rs` | Exact-kind stats and move-frame facts from the canonical roster JSON, plus native recovery validation. |
-| Core `whiff_punish.rs` and `src/live/whiff.rs` | Parked prototype, not wired into the live build/menu. |
-| Core `action_owner.rs` | One committed input owner, explicit interruption rules and losing-plan cancellation. |
+| Core `shared/controller/action_owner.rs` | One committed input owner, explicit interruption rules and losing-plan cancellation. |
 | `data/Ultimate_stats.json` | Sole source for roster-wide fighter stats and move-frame data; embedded and parsed once at startup. |
 | Core `autopilot_guard/duck.rs` | Held-Y crouch/shield ownership; legacy move fixtures remain separate from live geometry. |
 | Core `autopilot_guard/duck_geometry.rs` | Allocation-free swept hitbox/body-envelope tests and calibration bounds. |
 | `src/live/duck_hits.rs` | Disabled reference implementation; its native hitbox scans, source tracking and ATTACK hook are not enabled. |
 | `src/lib.rs` | Skyline entry point; calls installation once. |
-| `src/live.rs` | Hook orchestration, profile selection, shared session state and tool priority. |
+| `src/live.rs` | Hook orchestration, controller selection, fighter-observation admission and planning, shared session state and tool priority. |
 | `src/live/config.rs` | Startup-only master `sequences.txt` loading/validation; `config.txt` fallback for older files. |
-| `src/live/controller.rs` | Native controller layout, offset checks and button-history reads/writes. |
+| `src/live/controller.rs` | Native controller layout, selection, offset checks, button-history reads/writes and overlay restoration. |
 | `src/live/training.rs` | Mapper Training passthrough, handoff state and menu resume. |
 | Core `training_test.rs` | Diagnostic/Training Minus-menu handoff and isolated test settings. |
 | `src/live/observations.rs` | Read-only fighter, opponent, physics, roster and floor queries. |
@@ -55,30 +52,38 @@ Paths below are relative to the project root. Core paths begin with
 | `src/calibration.rs` | Diagnostic-only fixed observation recorder, completed result formatting and cached card publication. |
 | Core `ledge_trap/diagnostics.rs` | Read-only response metadata for all five rows and detailed roll-grab snapshots. |
 | Core `live_input.rs` | Mash/tech request policy and compatibility helpers. |
-| Core `gameplay.rs` | Shared `GameplayContext`, `ControllerOutput`, opponent observations, motion timing, and recovery-frame helpers. |
-| Core `roll_read.rs` / `roll_read/smash.rs` | Shared roll target facts/constants; fixed punish prototype is parked. Live roll responses use reaction_rules.rs. |
+| Core `shared/observations/gameplay.rs` | Shared `GameplayContext`, `ControllerOutput`, opponent observations, motion timing, and recovery-frame helpers. |
+| Core `roll_read.rs` | Shared roll target facts/constants. Live roll responses use reaction_rules.rs. |
 | Core `ledge_trap.rs` | Held-trigger visit history, response selection and native action confirmation. |
-| Core `ledge_trap/types.rs` | Ledge-specific settings and opponent range checks. Shared gameplay values live in `gameplay.rs`. |
+| Core `ledge_trap/types.rs` | Ledge-specific settings and opponent range checks. Shared gameplay values live in `shared/observations/gameplay.rs`. |
 | Core `fighter_profiles.rs` | Shared per-fighter profile declarations, generic grab references, and startup-only file menu construction; individual public module paths remain available. |
 | Core `fighter_tuning.rs`, `fighter_tuning/schema.rs`, and `fighter_tuning/analysis.rs` | Public tuning facade, stable saved-setting/menu schema, and fighter-derived policy defaults. |
 | Core `ledge_trap/attempt.rs` | Native-progress clock for ordered input timelines. |
 | Core `sequence_config.rs`, `sequence_config/parser.rs`, and `sequence_config/parser/actions.rs` | Keep fixed-size recipe data and the public catalog API in the parent module; parse catalog sections and action tokens in focused startup-only modules. |
 | Core `ledge_trap/file_timeline.rs` | File-ordered input holds/waits, native-progress clock, explicit spatial/block predicates. |
 | Core `ledge_position.rs` / `ledge_trump.rs` | Grounded stance preparation / run-off ledge trump. |
-| Core `manual_controls.rs` / `native_input.rs` | Trigger reservation, shared button-ownership masks, input overlays, and raw button conversion. |
-| Core `combat_assist.rs` | Either tilt trip to forward smash, and damage-hitstop SDI. |
-| Core `tech_prediction.rs` / `tech_input.rs` | Pure collision timing / shield request and acknowledgment scheduling. |
+| Core `manual_controls.rs` / `shared/controller/native_input.rs` | Trigger reservation, shared button-ownership masks, input overlays, and raw button conversion. |
+| Core `shared/survival/combat_assist.rs` / `auto_di.rs` | Shared damage-hitstop SDI and DI; SDI retains compatibility exports for Kirby follow-ups. |
+| Core `fighters/kirby/` | Kirby-specific tilt-trip and forward-air follow-up input policies. |
+| Core `fighters/yoshi/jab_lock.rs` / `jab_lock.rs` | Yoshi-specific defaults and shared jab-lock policy. |
+| Core `fighters/bowser/` | Bowser Up-B ownership, delayed native startup receipt handling, shield-backup drift recipes and confirmed-spin tracking. Shared response engines retain orchestration and call these policies. |
+| Core `fighters/captain_falcon/punch_duck.rs` | Legacy Falcon Punch duck candidate; live defense uses shared hitbox geometry. |
+| Core `fighters/tuning_defaults.rs` | Fighter-specific tuning visibility and legacy display defaults. |
+| Core `fighters/game_and_watch/projectile_reflect.rs` / `shared/observations/projectile_geometry.rs` | Game & Watch projectile defense and reusable swept geometry. |
+| Core `fighters/ganondorf/flame_choke.rs` | Grounded Flame Choke release detection, contact timing and tech-window selection. |
+| `src/live/fighters/` | Fighter-specific native adapters, including Bowser Up-B observation admission, Kirby follow-up lifecycle, Ganondorf capture timing, Game & Watch's reflector and Ice Climbers' partner. |
+| Core `native_states/fighter/` | Fighter-specific native status constants, interruption, and special/final-state classification. |
+| Core `shared/survival/tech_prediction.rs` / `tech_input.rs` | Pure collision timing / shield request and acknowledgment scheduling. |
 | Core `timing.rs` / `timing/progress.rs` | Share motion-progress classification, event deduplication, simulation-frame arithmetic and forecast overlap. No learned compensation. |
-| Core `observation.rs` / adapter `live/frame.rs` | Lazy fixed-size facts shared across policies for one observation; see [shared observations and timing](OBSERVATIONS_AND_TIMING.md). |
-| Core `slide.rs` | Parked portable slide prototype; no live state, observations or input binding. |
+| Core `shared/observations/observation.rs` / adapter `live/frame.rs` | Lazy fixed-size facts shared across policies for one observation; see [shared observations and timing](OBSERVATIONS_AND_TIMING.md). |
 | Core `session.rs` / `diagnostics.rs` | Invalidate stale requests between matches / limit diagnostic snapshots. |
-| Core `state.rs` / `input.rs` | Generic observation contracts / logical buttons, sticks and merging. |
+| Core `shared/observations/state.rs` / `shared/controller/input.rs` | Generic observation contracts / logical buttons, sticks and merging. |
 | Core `config.rs` / `assist.rs` / `tools.rs` | Generic scenario rules / stateless engine / mash and tech presets. |
 | Core `runtime.rs` / `sequence.rs` | Generic adapter loop used by examples / sequence helpers. |
 
 Large test modules live beside the corresponding implementation, for example
 `ledge_trap/tests.rs`, `ledge_trap/file_timeline/tests.rs`,
-`live_input/tests.rs` and `tech_input/tests.rs`.
+`live_input/tests.rs` and `shared/survival/tech_input/tests.rs`.
 `#[cfg(test)] mod tests;` includes those files only for test builds. Tiny
 existing test modules elsewhere may remain inline.
 

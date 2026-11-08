@@ -67,26 +67,26 @@ impl Tuning {
             .unwrap_or(WALK_STRENGTH)
     }
     pub fn visible(kind: i32, i: usize) -> bool {
-        if i >= COUNT {
-            return false;
-        }
-        if i >= REFLECT_DEFAULT {
-            return crate::projectile_reflect::supports(kind);
-        }
-        // Retired fixed punish helpers: accept old file keys, hide inert UI.
-        if (PUNISH_DOWN_REACH..=ROLL_GRAB_WATCH).contains(&i) {
-            return false;
-        }
-        if (JAB_LOCK_REACH..=JAB_LOCK_HEIGHT).contains(&i) {
-            return kind == crate::fighter_kinds::YOSHI;
-        }
-        if (CROUCH_RANGE..=CROUCH_HEIGHT).contains(&i) {
-            return kind == crate::fighter_kinds::KIRBY;
-        }
-        true
+        crate::fighter_tuning_defaults::visible(kind, i)
     }
     pub fn is_bool(i: usize) -> bool {
-        (MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT).contains(&i) || i == REFLECT_DEFAULT
+        (MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT).contains(&i)
+            || i == REFLECT_DEFAULT
+            || (TILT_TURN_DOWN..=TILT_TURN_UP).contains(&i)
+    }
+    pub fn tilt_turn(self, kind: i32) -> crate::posture::TiltSettings {
+        crate::posture::TiltSettings {
+            down: self.value(
+                TILT_TURN_DOWN,
+                if crate::fighter_tuning_defaults::tilt_turn_down(kind) {
+                    1.0
+                } else {
+                    0.0
+                },
+            ) == 1.0,
+            forward: self.value(TILT_TURN_FORWARD, 0.0) == 1.0,
+            up: self.value(TILT_TURN_UP, 0.0) == 1.0,
+        }
     }
     pub fn grab_dodge_default(self, base: bool) -> bool {
         self.0[GRAB_DODGE_DEFAULT].map_or(base, |x| x == 1.0)
@@ -99,7 +99,7 @@ impl Tuning {
     }
     pub fn bounds(i: usize) -> (f32, f32, f32) {
         match i {
-            REFLECT_DEFAULT => (0., 1., 1.),
+            REFLECT_DEFAULT | TILT_TURN_DOWN | TILT_TURN_FORWARD | TILT_TURN_UP => (0., 1., 1.),
             REFLECT_STARTUP => (6., 30., 1.),
             REFLECT_MARGIN => (0., 8., 1.),
             REFLECT_MAX_HOLD => (6., 120., 1.),
@@ -207,27 +207,11 @@ impl Tuning {
         values[TECH_CEILING_ORIGIN] = 5.0;
         values[TECH_FLOOR_PADDING] = 1.5;
         values[TECH_CEILING_PADDING] = 2.0;
-        values[PUNISH_DOWN_REACH] = if s.fighter_kind == crate::fighter_kinds::KIRBY {
-            14.0
-        } else if s.fighter_kind == crate::fighter_kinds::YOSHI {
-            13.0
-        } else {
-            12.0
-        };
-        values[PUNISH_FORWARD_REACH] = if s.fighter_kind == crate::fighter_kinds::KIRBY {
-            22.0
-        } else {
-            21.0
-        };
+        crate::fighter_tuning_defaults::legacy_ranges(s.fighter_kind, &mut values);
         values[PUNISH_HEIGHT] = 8.0;
         values[ROLL_SMASH_HEIGHT] = 6.0;
         values[ROLL_SMASH_WATCH] = 64.0;
         values[ROLL_GRAB_HEIGHT] = 4.0;
-        values[ROLL_GRAB_WATCH] = if s.fighter_kind == crate::fighter_kinds::KIRBY {
-            32.0
-        } else {
-            36.0
-        };
         values[JAB_LOCK_REACH] = 7.0;
         values[JAB_LOCK_SMASH_REACH] = 12.0;
         values[JAB_LOCK_CHASE_DISTANCE] = 60.0;
@@ -247,6 +231,11 @@ impl Tuning {
         values[REFLECT_HALF_WIDTH] = DEFAULT_REFLECT_HALF_WIDTH;
         values[REFLECT_HEIGHT] = DEFAULT_REFLECT_HEIGHT;
         values[REFLECT_HALF_DEPTH] = DEFAULT_REFLECT_HALF_DEPTH;
+        values[TILT_TURN_DOWN] = if crate::fighter_tuning_defaults::tilt_turn_down(s.fighter_kind) {
+            1.0
+        } else {
+            0.0
+        };
         Values(values)
     }
     pub fn apply(self, mut s: AssistSettings) -> AssistSettings {

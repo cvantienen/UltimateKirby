@@ -4,6 +4,10 @@ Both tools apply to the selected human player's controller without holding the l
 They respect the global `enabled` setting and existing controller/session checks.
 No parry feature or ZL/ZR chord was added.
 
+The Kirby-specific trip policy lives in [fighters/kirby/](../crates/kirby_assist_core/src/fighters/kirby/);
+shared SDI remains in [combat_assist.rs](../crates/kirby_assist_core/src/shared/survival/combat_assist.rs). Existing
+`combat_assist` imports of the Kirby follow-up types remain supported.
+
 ```text
 down_tilt_trip_smash = true
 auto_sdi = true

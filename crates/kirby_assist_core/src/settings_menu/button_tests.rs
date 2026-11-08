@@ -27,13 +27,25 @@ fn x_is_available_for_short_hop_and_y_passes_through_without_any_button_recipe()
 fn legacy_combo_binding_is_hidden_and_y_passes_through_without_a_recipe() {
     let p = presets("");
     let mut m = MenuSelection::new(&p);
-    m.auto_duck_available = true;
     m.input(0, &p);
     assert_eq!(m.input(MAPPER_Y, &p) & MAPPER_Y, 0);
-    assert!(!m.finisher_held(MAPPER_Y));
     m.modes_menu = true;
-    assert!(!m.row_visible(MenuRow::YMode));
-    assert!(!m.row_visible(MenuRow::JabGrab));
+    assert!(MenuRow::ALL
+        .iter()
+        .all(|row| row.label() != "Y native mode"));
+    assert!(MenuRow::ALL
+        .iter()
+        .all(|row| row.label() != "Jab+Grab followup"));
+}
+
+#[test]
+fn jab_then_grab_remains_physical_without_a_shortcut() {
+    let p = presets("");
+    let mut menu = MenuSelection::new(&p);
+    for buttons in [0, MAPPER_A, 0, MAPPER_R, MAPPER_R, 0] {
+        assert_eq!(menu.input(buttons, &p) & (MAPPER_A | MAPPER_R), 0);
+        assert!(menu.preview_slot.is_none());
+    }
 }
 
 #[test]

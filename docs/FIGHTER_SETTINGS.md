@@ -1,6 +1,6 @@
 # Fighter settings in simple terms
 
-This explains **all 48 recognized fighter-setting keys**, including seven retired keys
+These fighter-setting keys include seven retired keys
 and two legacy automatic-grab range keys retained for file compatibility. Some entries appear only for
 Kirby or Yoshi, or affect older helpers rather than your custom rule sequences.
 The text keys below belong under `[bowser.settings]`, `[kirby.settings]`, etc.
@@ -16,6 +16,23 @@ positions near their bodies, not the outer edges of their hands or hitboxes.
 Stick percentages mean simulated left-stick strength, not a change to walk speed.
 All settings affect input decisions only: they never change physics, hitboxes,
 grab length, move speed, or native invincibility.
+
+## Tilt facing
+
+The **Tilt face** mode must be ON. These saved options independently select
+which grounded moves it may aim toward the nearest opponent.
+
+| Menu name | Text key | Default and input |
+| --- | --- | --- |
+| Tilt face: down | `tilt_turn_down` | ON for Kirby/Yoshi, OFF for others. Prepares held Down or a physical down C-stick tilt. |
+| Tilt face: forward | `tilt_turn_forward` | OFF. Aims a physical side C-stick tilt. |
+| Tilt face: up | `tilt_turn_up` | OFF. Aims a physical up C-stick tilt. |
+
+Forward and up require a C-stick configured as **Tilt Attack** in the game;
+the assist cannot verify that mapping. With Smash Attack mapping, enabling them
+can redirect smashes. They leave left-stick+A attacks alone. See
+[input recipes](INPUT_RECIPES.md#grounded-posture-menu-rows) for priorities
+and limitations.
 
 ## Walking and getting into ledge position
 

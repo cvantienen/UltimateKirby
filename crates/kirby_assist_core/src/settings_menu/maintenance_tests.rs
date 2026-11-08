@@ -196,8 +196,6 @@ fn lightweight_production_pages_navigate_all_registered_fighters_without_editor_
             assert!(!visible.is_empty());
             for row in [
                 MenuRow::RollRead,
-                MenuRow::YMode,
-                MenuRow::JabGrab,
                 MenuRow::ShieldPressure,
                 MenuRow::SpotPunish,
             ] {

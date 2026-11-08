@@ -18,8 +18,8 @@ not a promise that individual native reads form an atomic engine snapshot.
 ## Coverage
 
 - All fighters' ledge responses, grab movement and recovery coverage.
-- Slides, ledge trump and onstage roll reads (whiff punishing is disconnected).
-- Autopilot shielding, shortcuts, finishers and fair/trip confirmations.
+- Ledge trump and onstage roll reads.
+- Autopilot shielding, shortcuts and fair/trip confirmations.
 - Tech/captor timing, SDI, and the currently disabled auto-duck reader.
 
 Readiness/transition terms, hit confirmations, active attacks, collision queries
@@ -77,10 +77,10 @@ initial/transition, hitstop, rewind and timeout policy. Tech cooldowns retain
 their stable-rate basis; ledge velocity estimates retain their current-rate
 basis. These policies are not silently recalibrated.
 
-Ledge attempts/grab delivery, finishers, fair confirms, shortcuts, guard holds,
-roll reads, the parked whiff prototype and recovery cover share this arithmetic. The
+Ledge attempts/grab delivery, fair confirms, shortcuts, guard holds,
+roll reads and recovery cover share this arithmetic. The
 `AnimationClock` uses it for event deduplication, retaining native clatter-timer
-and identity changes. Mash, slides, turbo and ledge trump receive that event
+and identity changes. Mash, turbo and ledge trump receive that event
 clock as before. Generic confirmed sequences supplied actual simulation frame
 numbers use `simulation_elapsed`. Direct attack-frame and native hitstop-timer
 checks remain direct checks, rather than being converted into a different clock.
@@ -140,8 +140,8 @@ and bulk-sort collection, and adds an optimized host 64 KiB-stack regression.
 No worker or gameplay timing change is involved; native restart still needs
 verification after installing the rebuilt binary.
 
-Yoshi/Kirby Dtilt face only requests opponent-facing reads while physical Down/
-down Tilt-stick intent or down-tilt recovery is present. Yoshi has no idle-crouch
+Tilt face requests opponent-facing reads while physical tilt intent or grounded
+tilt recovery is present, when at least one move is enabled. Yoshi has no idle-crouch
 reads. Enabled Yoshi Jab lock checks the bounded roster for nearby native
 tumble/down/tech states; full recovery facts require an eligible state within
 60 horizontal / 24 vertical units. Floor-support rays require a relevant target

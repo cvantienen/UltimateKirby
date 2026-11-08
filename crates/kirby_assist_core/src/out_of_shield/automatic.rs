@@ -97,26 +97,13 @@ fn backup_timing(s: &Sequence, kind: i32) -> Option<super::shield_up_b::Timing> 
     if s.actions().len() == 1 {
         return Some(timing);
     }
-    if kind == crate::fighter_kinds::BOWSER && s.actions().len() == 2 {
-        if let Action::Drift {
-            direction,
-            strength,
-            frames,
-        } = s.actions()[1]
-        {
-            if matches!(
-                direction,
-                Direction::Opponent
-                    | Direction::AwayFromOpponent
-                    | Direction::Facing
-                    | Direction::Backward
-            ) {
-                timing.tracking = frames;
-                timing.strength = strength;
-                timing.direction = direction;
-                return Some(timing);
-            }
-        }
+    if let Some((frames, strength, direction)) =
+        crate::bowser_shield_tracking::tracking(kind, s.actions())
+    {
+        timing.tracking = frames;
+        timing.strength = strength;
+        timing.direction = direction;
+        return Some(timing);
     }
     None
 }

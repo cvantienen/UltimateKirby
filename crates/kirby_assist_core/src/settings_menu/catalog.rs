@@ -346,7 +346,6 @@ mod tests {
         assert!(!m.save_requested);
         m.input(Y, &p);
         assert!(m.save_requested);
-        assert!(!m.finisher_held(Y));
     }
     #[test]
     fn diagnostic_delete_needs_confirmation_and_only_hides_after_successful_file_write() {

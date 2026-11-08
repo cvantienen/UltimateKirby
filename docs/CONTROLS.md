@@ -18,9 +18,9 @@ capped at **0.33** stick; nearly full horizontal input uses **0.50** with the
 default config. The fast cap requires at least 95% horizontal and no more than
 15% vertical input. Lighter stick inputs and vertical control remain available.
 
-Kirby's separate [Roll read](ROLL_READ.md) row defaults to Down smash. Select Off to disable it, or Grab
-to react to ordinary onstage rolls approaching/passing through Kirby, without
-holding fixed L or another assigned ledge binding. The existing Roll row still controls ledge roll get-up responses.
+Onstage [roll reactions](ROLL_READ.md) use saved reaction sequences; the old
+fixed grab/down-smash selector is removed. The separate ledge Roll row still
+controls responses to ledge roll get-ups.
 
 | Input | Action |
 | --- | --- |
@@ -227,7 +227,9 @@ See [the menu](LEDGE_MENU.md), [shortcuts](TURBO_CONTROLS.md),
 [ledge trump](LEDGE_TRUMP.md), [recovery cover](TWO_FRAME.md), and
 [fighters](FIGHTERS.md).
 
-Kirby has **Idle crouch** and Kirby/Yoshi have **Dtilt face** ON/OFF rows, initially ON.
+Kirby has **Idle crouch**. Every fighter has a **Tilt face** ON/OFF row,
+initially ON; its per-fighter move settings default to down tilt for Kirby/Yoshi
+and OFF otherwise.
 Idle crouch requires an enemy within 45 horizontal / 20 vertical units and starts
 immediately when Kirby is idle; passable platforms remain excluded.
 See [input recipes and posture](INPUT_RECIPES.md). For overlay shortcut conflicts

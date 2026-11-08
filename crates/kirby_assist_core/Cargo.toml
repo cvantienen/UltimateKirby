@@ -7,7 +7,7 @@
 name = "kirby_assist_core"
 version = "0.1.0"
 edition = "2021"
-description = "Platform-independent assist decision and input arbitration logic; consolidated fighter profiles and related native constants and tests"
+description = "Platform-independent assist decision and input arbitration logic; consolidated fighter profiles and related native constants and tests; removed retired slide, Y-combo and disconnected whiff-punish code while preserving active Fair follow-up; removed the retired jab-to-grab shortcut and menu wiring; separated Kirby follow-ups from shared SDI; grouped shared controller, observation and survival code and isolated fighter-specific policies and status tables; extracted Bowser receipt and drift rules, Kirby live follow-ups, fighter interruption and tuning rules, and Falcon Punch observations; separated Ganondorf tech-window selection; extracted Bowser shield-spin tracking; removed retired fixed roll-read prototype; added per-fighter configurable tilt facing"
 license = "MIT"
 
 # A crate is a Rust compilation unit. This library is imported by the plugin

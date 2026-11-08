@@ -33,8 +33,12 @@ Nothing promises frame-perfect arena execution despite stalls or packet delay.
 
 ## Grounded posture menu rows
 
-Idle crouch (Kirby) and Dtilt face (Kirby/Yoshi) start **ON**, save per fighter in memory, and can be changed with the
-normal menu controls. No new config-file keys or startup loads are needed.
+Idle crouch (Kirby) and **Tilt face** start **ON** and can be changed with the
+normal menu controls. Tilt face is available to every fighter, but only selected
+moves are assisted. In **Fighter settings**, independently configure
+`tilt_turn_down`, `tilt_turn_forward`, and `tilt_turn_up` and save with Y.
+Down defaults ON for Kirby and Yoshi; every other fighter/move combination
+defaults OFF. The mode toggle and saved move settings are independent.
 
 - **Idle crouch:** When grounded in ordinary movement and physical buttons/stick
   are neutral and an enemy is within **45 horizontal units and 20 vertical units**,
@@ -47,7 +51,7 @@ normal menu controls. No new config-file keys or startup loads are needed.
   Roll read, ledge responses, safety and every committed action have priority.
   Down stays held through native crouch entry/wait/turn/rise states (0x11–0x15)
   and crouch-animation loop resets; entering crouch must never release it.
-- **Dtilt face (Kirby/Yoshi):** While holding Down, prepare the angle before pressing A. A physical down C-stick also qualifies while standing with a neutral left stick; configure that stick as Tilt Attack in the game. The live helper reads the pre-map right-stick axes immediately instead of waiting for a digital Down alias. Keep Down fully held and
+- **Tilt face, down:** While holding Down, prepare the angle before pressing A. A physical down C-stick also qualifies while standing with a neutral left stick; configure that stick as Tilt Attack in the game. The live helper reads the pre-map right-stick axes immediately instead of waiting for a digital Down alias. Keep Down fully held and
   angle the stick 0.80 toward the nearest enemy if facing away. Already facing
   the enemy uses straight Down. Attack presses/releases remain physical, so
   mashed down tilts keep their original edges. For an actual down C-stick flick,
@@ -71,6 +75,15 @@ normal menu controls. No new config-file keys or startup loads are needed.
   Direction is proposed in the same poll with no added delay. Native input
   acceptance can still choose the old facing when turn and attack arrive
   together; input-only behavior cannot guarantee a reversal before every tilt.
+- **Tilt face, forward/up:** Opt in separately and map the C-stick to **Tilt
+  Attack** in the game's controller settings. The helper cannot detect that
+  mapping: enabling either option with Smash Attack mapping can redirect a smash.
+  Only a physical, dominant side/up C-stick movement with a neutral left stick
+  is adjusted; left-stick+A attacks are untouched. The helper aims the sticks
+  toward the nearest opponent without requesting an attack, and retains the
+  physical C-stick press and release. It yields to higher-priority owners, air,
+  unrelated inputs and unavailable targets. Native acceptance and in-game
+  facing still require device verification.
 
 The A+B jab-to-grab shortcut and its menu row are removed. A/B now follow
 normal game behavior. Use universal X/Y input recipes for your own named button

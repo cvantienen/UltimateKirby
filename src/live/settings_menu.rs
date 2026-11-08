@@ -87,7 +87,6 @@ pub(super) struct SettingsMenu {
     pub ledge_held: bool,
     pub duck_held: bool,
     scope: bool,
-    roll_read_blocked: bool,
     resolved: Option<AssistSettings>,
     resolved_choices:
         Option<[usize; kirby_assist_core::fighter_profiles::presets::PresetSlot::COUNT]>,
@@ -317,7 +316,7 @@ impl SettingsMenu {
         self.resume_saved_state = true;
     }
     pub fn posture_modes(&self) -> (bool, bool) {
-        if !self.scope || !self.kind.is_some_and(|k| matches!(k, 5 | 6)) {
+        if !self.scope {
             return (false, false);
         }
         self.kind
@@ -325,7 +324,8 @@ impl SettingsMenu {
             .map_or((false, false), |s| {
                 (
                     self.kind == Some(6) && s.effective_mode(Mode::IdleCrouch, s.idle_crouch),
-                    s.effective_mode(Mode::TiltTurn, s.tilt_turn),
+                    s.effective_mode(Mode::TiltTurn, s.tilt_turn)
+                        && self.kind.is_some_and(|kind| s.tuning.tilt_turn(kind).any()),
                 )
             })
     }
@@ -596,28 +596,8 @@ impl SettingsMenu {
         });
         let file_list_changed = self.poll_save_result();
         self.scope = gameplay;
-        self.roll_read_blocked = buttons
-            & (kirby_assist_core::manual_controls::DPAD_SIDES
-                | kirby_assist_core::manual_controls::DPAD_UP
-                | kirby_assist_core::ledge_trap::DPAD_DOWN
-                | kirby_assist_core::settings_menu::MENU_STICK_CLICK
-                | kirby_assist_core::settings_menu::TWO_FRAME_TRIGGER
-                | kirby_assist_core::manual_controls::SHORT_HOP_TRIGGER
-                | kirby_assist_core::native_input::MAPPER_Y
-                | kirby_assist_core::native_input::MAPPER_MINUS
-                | kirby_assist_core::native_input::MAPPER_PLUS)
-            != 0;
         let selection = self.selections.get_mut(&kind).unwrap();
-        selection.roll_read_available =
-            kirby_assist_core::roll_read::fighter_config(kind).is_some();
-        selection.auto_duck_available = matches!(
-            kind,
-            kirby_assist_core::fighter_kinds::YOSHI | kirby_assist_core::fighter_kinds::KIRBY
-        );
         selection.y_fighter_kind = kind;
-        if selection.auto_duck_available && !selection.y_mode.supports(kind) {
-            selection.y_mode = kirby_assist_core::button_modes::YMode::options_for_kind(kind)[0];
-        }
         // Apply after new-profile/reset_inputs, which deliberately disarms L.
         if let Some((buttons, layout)) = self.passthrough_buttons.take() {
             selection.observe_physical_passthrough(buttons, layout);
@@ -770,7 +750,7 @@ impl SettingsMenu {
             if self.diagnostic_stamp != Some(stamp) || self.diagnostic_config.is_none() {
                 use kirby_assist_core::diagnostics::modes::Configuration;
                 let on_off = |on| if on { "ON" } else { "OFF" };
-                let mut rows = ["unavailable for this fighter"; 26];
+                let mut rows = ["unavailable for this fighter"; 25];
                 for (i, slot) in kirby_assist_core::fighter_profiles::presets::PresetSlot::ALL
                     .into_iter()
                     .take(5)
@@ -780,9 +760,6 @@ impl SettingsMenu {
                         .choice_labels(&profile.menu_options, slot, selection.choices[i])
                         .map_or("unknown selection", |(_, name)| name);
                 }
-                if kirby_assist_core::roll_read::fighter_config(kind).is_some() {
-                    rows[5] = selection.roll_read.label();
-                }
                 if matches!(
                     kind,
                     kirby_assist_core::fighter_kinds::YOSHI
@@ -791,30 +768,28 @@ impl SettingsMenu {
                     rows[6] = "Removed (use Y sequence)";
                 }
                 rows[7] = on_off(*auto_mash);
+                rows[9] = on_off(selection.tilt_turn);
                 if kind == kirby_assist_core::fighter_kinds::KIRBY {
                     rows[8] = on_off(selection.idle_crouch);
-                    rows[9] = on_off(selection.tilt_turn);
-                    rows[10] = "Removed";
                 }
                 if kind == kirby_assist_core::fighter_kinds::YOSHI {
-                    rows[9] = on_off(selection.tilt_turn);
-                    rows[11] = on_off(selection.jab_lock);
+                    rows[10] = on_off(selection.jab_lock);
                 }
-                rows[12] = on_off(selection.spot_punish);
-                rows[13] = on_off(selection.grab_dodge);
-                rows[14] = on_off(selection.auto_tech);
-                rows[15] = on_off(selection.auto_trump);
-                rows[16] = on_off(selection.performance);
-                rows[24] =
+                rows[11] = on_off(selection.spot_punish);
+                rows[12] = on_off(selection.grab_dodge);
+                rows[13] = on_off(selection.auto_tech);
+                rows[14] = on_off(selection.auto_trump);
+                rows[15] = on_off(selection.performance);
+                rows[23] =
                     on_off(selection.effective_mode(Mode::OutOfShield, selection.out_of_shield));
-                rows[25] = on_off(selection.shield_pressure);
+                rows[24] = on_off(selection.shield_pressure);
                 for (row, slot) in [
                     (
-                        17,
+                        16,
                         kirby_assist_core::fighter_profiles::presets::PresetSlot::X,
                     ),
                     (
-                        18,
+                        17,
                         kirby_assist_core::fighter_profiles::presets::PresetSlot::Y,
                     ),
                 ] {
@@ -828,19 +803,19 @@ impl SettingsMenu {
                 }
                 for (row, slot) in [
                     (
-                        19,
+                        18,
                         kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadUp,
                     ),
                     (
-                        20,
+                        19,
                         kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadDown,
                     ),
                     (
-                        21,
+                        20,
                         kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadLeft,
                     ),
                     (
-                        22,
+                        21,
                         kirby_assist_core::fighter_profiles::presets::PresetSlot::DpadRight,
                     ),
                 ] {
@@ -852,7 +827,7 @@ impl SettingsMenu {
                         )
                         .map_or("Normal / custom / mode", |(_, name)| name);
                 }
-                rows[23] = on_off(selection.ledge_mode());
+                rows[22] = on_off(selection.ledge_mode());
                 let report =
                     Configuration::new(profile.name, rows).with_reflect(selection.auto_reflect);
                 if self.diagnostic_config != Some(report) {

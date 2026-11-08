@@ -2,13 +2,61 @@
 use crate::{
     gameplay::ControllerOutput,
     manual_controls::{ShortcutContext, LEFT_STICK_DIRECTIONS, RIGHT_STICK_DIRECTIONS},
-    native_input::{ButtonTrace, MAPPER_A, MAPPER_L, MAPPER_RIGHT_STICK_DOWN},
+    native_input::{
+        ButtonTrace, MAPPER_A, MAPPER_L, MAPPER_RIGHT_STICK_DOWN, MAPPER_RIGHT_STICK_LEFT,
+        MAPPER_RIGHT_STICK_RIGHT,
+    },
 };
 /// Physical A or down on a C-stick configured as Tilt Attack. The latter
 /// remains a physical input; this helper never creates a C-stick attack.
 pub const DTILT_INPUTS: u32 = MAPPER_A | MAPPER_RIGHT_STICK_DOWN;
 pub const AUTO_CROUCH_RANGE: f32 = 45.0;
 pub const AUTO_CROUCH_HEIGHT: f32 = 20.0;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TiltSettings {
+    pub down: bool,
+    pub forward: bool,
+    pub up: bool,
+}
+impl TiltSettings {
+    pub fn any(self) -> bool {
+        self.down || self.forward || self.up
+    }
+}
+
+/// Keep the digital side aliases consistent with an angled physical C-stick.
+/// Preserve physical attack edges; a target change does not invent a press.
+#[derive(Default)]
+pub struct TiltSideAliases {
+    previous: Option<u32>,
+}
+impl TiltSideAliases {
+    pub fn apply(&mut self, mut trace: ButtonTrace, direction: Option<f32>) -> ButtonTrace {
+        let current = direction.map(|x| {
+            if x < 0.0 {
+                MAPPER_RIGHT_STICK_LEFT
+            } else {
+                MAPPER_RIGHT_STICK_RIGHT
+            }
+        });
+        let previous = self.previous.or(current);
+        let map = |bits: u32, side: Option<u32>| {
+            let mask = MAPPER_RIGHT_STICK_LEFT | MAPPER_RIGHT_STICK_RIGHT;
+            match side {
+                Some(side) if bits & mask != 0 => (bits & !mask) | side,
+                _ => bits,
+            }
+        };
+        trace.held = map(trace.held, current);
+        trace.previous = map(trace.previous, previous);
+        trace.pressed = map(trace.pressed, current);
+        trace.released = map(trace.released, previous);
+        self.previous = current;
+        trace
+    }
+}
+
 #[derive(Default)]
 pub struct Posture;
 impl Posture {
@@ -32,6 +80,85 @@ impl Posture {
             && (matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV)
                 && !stopped
                 || status == crate::native_states::status::ATTACK_LW3)
+    }
+    pub fn needs_configured_target(status: i32, situation: i32, stopped: bool) -> bool {
+        Self::needs_target(status, situation, stopped)
+            || situation == crate::native_states::situation::GROUND
+                && matches!(
+                    status,
+                    crate::native_states::status::ATTACK_S3
+                        | crate::native_states::status::ATTACK_HI3
+                )
+    }
+    pub fn any_tilt_intent(buttons: u32, left: [f32; 2], right: [f32; 2]) -> bool {
+        Self::down_tilt_intent(buttons, left, right)
+            || right.iter().all(|v| v.is_finite()) && (right[0].abs() > 0.5 || right[1] > 0.5)
+    }
+    /// Up and forward are explicitly opted in for a C-stick mapped to Tilt Attack.
+    /// Require real analog input, not a stale digital direction alias.
+    pub fn configured_c_stick(
+        settings: TiltSettings,
+        buttons: u32,
+        left: [f32; 2],
+        right: [f32; 2],
+        target: Option<f32>,
+        c: ShortcutContext,
+    ) -> Option<([f32; 2], [f32; 2])> {
+        if !Self::needs_configured_target(c.status, c.situation, c.stopped)
+            || !left.iter().all(|v| v.is_finite() && v.abs() <= 0.2)
+            || !right.iter().all(|v| v.is_finite())
+            || !c.facing.is_finite()
+            || c.facing.abs() < 0.5
+            || buttons & !(MAPPER_L | RIGHT_STICK_DIRECTIONS | LEFT_STICK_DIRECTIONS) != 0
+        {
+            return None;
+        }
+        let toward = target.filter(|v| v.is_finite() && v.abs() > 0.5)?.signum();
+        let x = if c.facing * toward < 0.0 {
+            toward * 0.8
+        } else {
+            0.0
+        };
+        if settings.up && right[1] > 0.5 && right[1].abs() > right[0].abs() {
+            Some(([x, 0.0], [x, 1.0]))
+        } else if settings.forward && right[0].abs() > 0.5 && right[0].abs() > right[1].abs() {
+            Some(([x, 0.0], [toward, 0.0]))
+        } else {
+            None
+        }
+    }
+    pub fn sample_configured(
+        &mut self,
+        enabled: bool,
+        crouch: bool,
+        turn: bool,
+        settings: TiltSettings,
+        buttons: u32,
+        stick: [f32; 2],
+        right: [f32; 2],
+        target: Option<f32>,
+        c: ShortcutContext,
+    ) -> ControllerOutput {
+        if enabled && turn {
+            if let Some((left, _)) =
+                Self::configured_c_stick(settings, buttons, stick, right, target, c)
+            {
+                return ControllerOutput {
+                    stick: Some(left),
+                    ..ControllerOutput::default()
+                };
+            }
+        }
+        self.sample_controls(
+            enabled,
+            crouch,
+            turn && settings.down,
+            buttons,
+            stick,
+            right,
+            target,
+            c,
+        )
     }
     pub fn down_tilt_angle(buttons: u32, stick: [f32; 2]) -> bool {
         Self::down_tilt_intent(buttons, stick, [0.0; 2])
@@ -64,8 +191,6 @@ impl Posture {
             .filter(|s| s.iter().all(|v| v.is_finite()) && s[1] < -0.5)
             .map(|s| [s[0], -1.0])
     }
-    // No queued attack or captured facing: every input uses the latest target.
-    pub fn cancel_pending(&mut self) {}
     pub fn sample(
         &mut self,
         enabled: bool,

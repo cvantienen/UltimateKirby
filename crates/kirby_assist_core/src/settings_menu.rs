@@ -36,7 +36,6 @@ pub use choices::Choice;
 mod bindings;
 #[path = "settings_menu/catalog.rs"]
 mod catalog;
-use crate::button_modes::YMode;
 use crate::fighter_profiles::presets::{MenuPresets, PresetSlot};
 use crate::ledge_trap::DPAD_DOWN;
 use crate::manual_controls::{DPAD_RIGHT, DPAD_SIDES, DPAD_UP, SHORT_HOP_TRIGGER};
@@ -74,11 +73,9 @@ pub enum MenuRow {
     DpadLeft,
     DpadRight,
     RollRead,
-    YMode,
     AutoMash,
     IdleCrouch,
     TiltTurn,
-    JabGrab,
     JabLock,
     SpotPunish,
     GrabDodge,
@@ -99,7 +96,7 @@ pub enum MenuRow {
     AutoReflect,
 }
 impl MenuRow {
-    pub const ALL: [Self; 35] = [
+    pub const ALL: [Self; 33] = [
         Self::Neutral,
         Self::Jump,
         Self::Roll,
@@ -112,11 +109,9 @@ impl MenuRow {
         Self::DpadLeft,
         Self::DpadRight,
         Self::RollRead,
-        Self::YMode,
         Self::AutoMash,
         Self::IdleCrouch,
         Self::TiltTurn,
-        Self::JabGrab,
         Self::JabLock,
         Self::SpotPunish,
         Self::GrabDodge,
@@ -152,11 +147,9 @@ impl MenuRow {
             Self::L3Sequence => Some(PresetSlot::L3),
             Self::R3Sequence => Some(PresetSlot::R3),
             Self::RollRead
-            | Self::YMode
             | Self::AutoMash
             | Self::IdleCrouch
             | Self::TiltTurn
-            | Self::JabGrab
             | Self::JabLock
             | Self::SpotPunish
             | Self::GrabDodge
@@ -194,11 +187,9 @@ impl MenuRow {
             Self::RollRules => "Auto react",
             Self::ShieldPressure => "Shield pressure",
             Self::FighterSettings => "Fighter settings",
-            Self::YMode => "Y native mode",
             Self::AutoMash => "Auto-mash",
             Self::IdleCrouch => "Idle crouch",
-            Self::TiltTurn => "Dtilt face",
-            Self::JabGrab => "Jab+Grab followup",
+            Self::TiltTurn => "Tilt face",
             Self::JabLock => "Jab lock",
             Self::SpotPunish => "Spot punish",
             Self::GrabDodge => "Dodge incoming grabs",
@@ -260,7 +251,6 @@ pub struct MenuSelection {
     pub row: MenuRow,
     /// Stable indices into five ledge lists and two manual-button lists.
     pub choices: [usize; crate::fighter_profiles::presets::PresetSlot::COUNT],
-    pub roll_read: crate::roll_read::Choice,
     pub roll_rules: bool,
     /// Native runtime uses the simplified event controller; legacy readers stay loadable.
     pub simplified_reactions: bool,
@@ -270,9 +260,6 @@ pub struct MenuSelection {
     rule_binding_stamp: Option<u64>,
     pub rule_feedback: crate::reaction_rules::Feedback,
     pub rule_last_priority: Option<u8>,
-    pub roll_read_available: bool,
-    pub y_mode: YMode,
-    pub auto_duck_available: bool,
     pub y_fighter_kind: i32,
     pub revision: u64,
     /// Displayed values/page changed; cursor-only navigation leaves this stable.
@@ -324,7 +311,6 @@ pub struct MenuSelection {
     pub toggle_mash: bool,
     pub idle_crouch: bool,
     pub tilt_turn: bool,
-    pub jab_grab: crate::jab_grab::Followup,
     pub jab_lock: bool,
     pub spot_punish: bool,
     pub grab_dodge: bool,
@@ -413,7 +399,7 @@ impl MenuSelection {
         MenuRow::LedgePage,
         MenuRow::ModesPage,
     ];
-    pub const ASSIST_ROWS: [MenuRow; 22] = [
+    pub const ASSIST_ROWS: [MenuRow; 20] = [
         MenuRow::RollRules,
         MenuRow::ShieldPressure,
         MenuRow::SpotPunish,
@@ -428,8 +414,6 @@ impl MenuSelection {
         MenuRow::IdleCrouch,
         MenuRow::JabLock,
         MenuRow::RollRead,
-        MenuRow::YMode,
-        MenuRow::JabGrab,
         MenuRow::Performance,
         MenuRow::TestLatency,
         MenuRow::LedgePage,
@@ -437,8 +421,8 @@ impl MenuSelection {
         MenuRow::FighterSettings,
         MenuRow::ModesPage,
     ];
-    const LIGHTWEIGHT_ROWS: [MenuRow; 30] = {
-        let mut rows = [MenuRow::Neutral; 30];
+    const LIGHTWEIGHT_ROWS: [MenuRow; 28] = {
+        let mut rows = [MenuRow::Neutral; 28];
         let mut i = 0;
         while i < PresetSlot::BUTTONS.len() {
             rows[i] = Self::BUTTON_ROWS[i];
@@ -560,16 +544,9 @@ impl MenuSelection {
             && !(!cfg!(feature = "diagnostic-logging")
                 && matches!(row, MenuRow::Performance | MenuRow::TestLatency))
             && row != MenuRow::RollRead
-            && !matches!(row, MenuRow::YMode | MenuRow::JabGrab)
             && !(self.simplified_reactions
                 && matches!(row, MenuRow::ShieldPressure | MenuRow::SpotPunish))
-            && !(matches!(row, MenuRow::IdleCrouch | MenuRow::JabGrab)
-                && self.y_fighter_kind != crate::fighter_kinds::KIRBY)
-            && !(row == MenuRow::TiltTurn
-                && !matches!(
-                    self.y_fighter_kind,
-                    crate::fighter_kinds::YOSHI | crate::fighter_kinds::KIRBY
-                ))
+            && !(row == MenuRow::IdleCrouch && self.y_fighter_kind != crate::fighter_kinds::KIRBY)
             && !(row == MenuRow::AutoReflect
                 && crate::projectile_reflect::Config::for_fighter(self.y_fighter_kind, self.tuning)
                     .is_none())
@@ -584,13 +561,11 @@ impl MenuSelection {
                     list.selected
                 }
             }),
-            roll_read: crate::roll_read::Choice::Off,
             roll_rules: true,
             shield_pressure: true,
             y_fighter_kind: crate::fighter_kinds::KIRBY,
             idle_crouch: true,
             tilt_turn: true,
-            jab_grab: crate::jab_grab::Followup::Grab,
             spot_punish: true,
             auto_tech: true,
             grab_dodge: true,
@@ -605,12 +580,6 @@ impl MenuSelection {
             self.shield_pressure = !self.shield_pressure;
         } else if self.row == MenuRow::RollRules {
             self.roll_rules = !self.roll_rules;
-        } else if self.row == MenuRow::RollRead && self.roll_read_available {
-            self.roll_read = self.roll_read.cycle(forward);
-        } else if self.row == MenuRow::YMode && self.auto_duck_available {
-            self.y_mode = self.y_mode.cycle_for_kind(forward, self.y_fighter_kind);
-            // Changing a binding while Y is held must not start its new action.
-            self.trigger_ready &= !MAPPER_Y;
         } else if self.row == MenuRow::AutoMash {
             self.toggle_mash = true;
         } else if self.row == MenuRow::AutoTech {
@@ -637,8 +606,6 @@ impl MenuSelection {
             self.spot_punish = !self.spot_punish;
         } else if self.row == MenuRow::GrabDodge {
             self.grab_dodge = !self.grab_dodge;
-        } else if self.row == MenuRow::JabGrab {
-            self.jab_grab = self.jab_grab.cycle();
         }
     }
     /// Ledge autopilot stays OFF unless separately enabled by the user.
@@ -930,10 +897,7 @@ impl MenuSelection {
 
     pub fn auto_duck_held(&self, buttons: u32) -> bool {
         let _ = buttons;
-        false // Y is now the selected finisher; auto-duck has no binding.
-    }
-    pub fn finisher_held(&self, _buttons: u32) -> bool {
-        false // Y belongs exclusively to the selected input recipe.
+        false // Auto-duck has no binding.
     }
     /// Minus opens ledge home or closes. R3 edits; page rows navigate directly.
     /// In Training, visible D-pad belongs to navigation. The lightweight menu

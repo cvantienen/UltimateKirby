@@ -148,11 +148,13 @@ impl Engine {
         mut follow: Option<Opponent>,
         readiness: [bool; 3],
     ) -> ControllerOutput {
-        let tracking = settings.fighter_kind == crate::fighter_kinds::BOWSER
-            && self.simple_up_b
-            && (self.simple_up_b_seen
-                || up_b_status(settings.fighter_kind, c)
-                || self.simple_receipt.sent());
+        let tracking = crate::bowser_up_b_receipt::tracking(
+            settings.fighter_kind,
+            self.simple_up_b,
+            self.simple_up_b_seen,
+            || up_b_status(settings.fighter_kind, c),
+            self.simple_receipt.sent(),
+        );
         if follow.is_some_and(|enemy| {
             !automatic_target_available(enemy.status)
                 && !(tracking && automatic_tracking_target_available(enemy.status))
@@ -289,10 +291,11 @@ impl Engine {
         }
         if self.simple_up_b && self.plan.is_some() {
             let native = up_b_status(settings.fighter_kind, c);
-            if settings.fighter_kind == crate::fighter_kinds::BOWSER
-                && !self.simple_up_b_seen
-                && self.simple_receipt.sent()
-            {
+            if crate::bowser_up_b_receipt::pending(
+                settings.fighter_kind,
+                self.simple_up_b_seen,
+                self.simple_receipt.sent(),
+            ) {
                 if follow.is_none_or(|e| {
                     Some(e.id) != self.target
                         || !e
@@ -304,25 +307,30 @@ impl Engine {
                     self.cancel();
                     return ControllerOutput::default();
                 }
-                if native && self.simple_waiting {
-                    if let Some(enemy) = follow.filter(|e| Some(e.id) == self.target) {
-                        self.plan.as_mut().unwrap().confirm_initial_up_b(c, enemy);
+                match crate::bowser_up_b_receipt::evaluate(
+                    settings.fighter_kind,
+                    self.simple_up_b_seen,
+                    native,
+                    self.simple_waiting,
+                    false,
+                    c,
+                    &self.simple_receipt,
+                    &self.simple_delivery,
+                ) {
+                    crate::bowser_up_b_receipt::ReceiptAction::Confirm => {
+                        if let Some(enemy) = follow.filter(|e| Some(e.id) == self.target) {
+                            self.plan.as_mut().unwrap().confirm_initial_up_b(c, enemy);
+                        }
                     }
-                } else if !native {
-                    if !automatic_up_b_receipt_status(c.status, c.situation, false)
-                        || self.simple_receipt.expired()
-                    {
+                    crate::bowser_up_b_receipt::ReceiptAction::Cancel => {
                         self.cancel();
                         return ControllerOutput::default();
                     }
-                    if self.simple_waiting
-                        || c.stopped
-                        || !c.can_act
-                        || self.simple_delivery.exhausted()
-                    {
+                    crate::bowser_up_b_receipt::ReceiptAction::Wait => {
                         self.simple_waiting = true;
                         return ControllerOutput::default();
                     }
+                    crate::bowser_up_b_receipt::ReceiptAction::Continue => {}
                 }
             }
             self.simple_up_b_seen |= native;
@@ -358,11 +366,13 @@ impl Engine {
                 self.cancel();
                 return ControllerOutput::default();
             }
-            let manual_drift = settings.fighter_kind != crate::fighter_kinds::BOWSER
-                && self.simple_up_b
-                && self.simple_up_b_seen
-                && c.automatic_up_b_epoch.unwrap_or(c.manual_input_epoch)
-                    != self.simple_manual_epoch;
+            let manual_drift = crate::bowser_up_b_receipt::manual_handback(
+                settings.fighter_kind,
+                self.simple_up_b,
+                self.simple_up_b_seen,
+                c,
+                self.simple_manual_epoch,
+            );
             if manual_drift && plan.drifting() {
                 self.cancel();
                 return ControllerOutput::default();
@@ -387,9 +397,11 @@ impl Engine {
                 && !self.simple_up_b_seen
                 && output.requested & crate::native_input::MAPPER_B == 0
             {
-                if settings.fighter_kind == crate::fighter_kinds::BOWSER
-                    && self.simple_receipt.sent()
-                {
+                if crate::bowser_up_b_receipt::pending(
+                    settings.fighter_kind,
+                    self.simple_up_b_seen,
+                    self.simple_receipt.sent(),
+                ) {
                     self.simple_waiting = true;
                     return ControllerOutput::default();
                 }

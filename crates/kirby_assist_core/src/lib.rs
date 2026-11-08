@@ -7,13 +7,13 @@
 //! `pub mod` exposes a module; `pub use` re-exports selected names so callers can
 //! write `kirby_assist_core::AutoMash` instead of the full module path.
 //!
-//! Generic scenario tools use Scenario/ScenarioRule; the live ledge, slide and
+//! Generic scenario tools use Scenario/ScenarioRule; the live ledge and
 //! combat tools have dedicated state machines. Both need live detection and
 //! input translation, plus checks for transitions and cancellation.
 //! This crate can be tested on a computer without Skyline or a connected Switch.
 
 // Suggested learning order:
-// 1. state.rs / input.rs / gameplay.rs: values passed between components.
+// 1. shared/observations/ and shared/controller/: values passed between components.
 // 2. config.rs / assist.rs: choose a rule and compute one logical proposal.
 // 3. examples/walkthrough.rs: a complete, pretend frame loop on your computer.
 // 4. live_input.rs: mash/tech scheduling; manual_controls.rs: D-pad tools.
@@ -33,50 +33,73 @@
 // permits copying a small value, Debug supports {:?} formatting, Default
 // supplies initial values, and PartialEq supports == checks.
 
-// Shared values and observations passed between policies.
+// Shared controller and observation contracts passed between policies.
+#[path = "shared/controller/action_owner.rs"]
 pub mod action_owner;
+#[path = "shared/observations/battle_objects.rs"]
 pub mod battle_objects;
 pub mod fighter_data;
+#[path = "shared/observations/gameplay.rs"]
+pub mod gameplay;
+#[path = "shared/controller/input.rs"]
 pub mod input;
+#[path = "shared/controller/native_input.rs"]
 pub mod native_input;
 pub mod native_states;
+#[path = "shared/observations/observation.rs"]
 pub mod observation;
+#[path = "shared/observations/projectile_geometry.rs"]
+mod projectile_geometry;
+#[path = "shared/observations/state.rs"]
 pub mod state;
 pub mod timing;
 
 // Fighter-specific reference facts, move data, and startup catalogs.
+#[path = "fighters/bowser/ownership.rs"]
+mod bowser_ownership;
+#[path = "fighters/bowser/shield_tracking.rs"]
+mod bowser_shield_tracking;
+#[path = "fighters/bowser/up_b_receipt.rs"]
+mod bowser_up_b_receipt;
 pub mod fighter_kinds;
 pub mod fighter_profiles;
 pub mod fighter_tuning;
-pub mod gameplay;
+#[path = "fighters/tuning_defaults.rs"]
+mod fighter_tuning_defaults;
+#[path = "fighters/ganondorf/flame_choke.rs"]
+mod flame_choke;
+#[path = "fighters/kirby/mod.rs"]
+pub mod kirby;
 
 // Independent assistance policies and their decision helpers.
 pub mod assist;
-pub mod auto_di;
 pub mod autopilot_guard;
-pub mod combat_assist;
 pub mod defense_response;
-pub mod finisher;
 pub mod grab_handoff;
-pub mod jab_grab;
 pub mod jab_lock;
 pub mod move_input;
 pub mod out_of_shield;
 pub mod posture;
+#[path = "fighters/game_and_watch/projectile_reflect.rs"]
 pub mod projectile_reflect;
 pub mod reaction_rules;
 pub mod roll_read;
 pub mod shield_pressure;
-pub mod slide;
 pub mod spot_dodge;
 pub mod spot_punish;
+
+// Shared survival responses, independent of fighter-specific follow-ups.
+#[path = "shared/survival/auto_di.rs"]
+pub mod auto_di;
+#[path = "shared/survival/combat_assist.rs"]
+pub mod combat_assist;
+#[path = "shared/survival/tech_input.rs"]
 pub mod tech_input;
+#[path = "shared/survival/tech_prediction.rs"]
 pub mod tech_prediction;
-pub mod whiff_punish;
 
 // User configuration, menu choices, and input bindings.
 pub mod button_bindings;
-pub mod button_modes;
 pub mod config;
 pub mod manual_controls;
 pub mod option_read;

@@ -48,7 +48,7 @@ impl Mode {
             Self::AutoTech => "Auto-tech",
             Self::AutoMash => "Auto-mash",
             Self::IdleCrouch => "Idle crouch",
-            Self::TiltTurn => "Dtilt face",
+            Self::TiltTurn => "Tilt face",
             Self::SpotPunish => "Spot punish",
             Self::JabLock => "Jab lock",
             Self::OutOfShield => "Out of shield",
@@ -60,10 +60,7 @@ impl Mode {
     pub fn supports(self, kind: i32) -> bool {
         match self {
             Self::IdleCrouch => kind == crate::fighter_kinds::KIRBY,
-            Self::TiltTurn => matches!(
-                kind,
-                crate::fighter_kinds::YOSHI | crate::fighter_kinds::KIRBY
-            ),
+            Self::TiltTurn => true,
             Self::JabLock => kind == crate::fighter_kinds::YOSHI,
             Self::OutOfShield => true,
             _ => true,
@@ -116,8 +113,8 @@ impl ModeBinding {
             "Toggle: Auto-mash",
             "Hold: Idle crouch",
             "Toggle: Idle crouch",
-            "Hold: Dtilt face",
-            "Toggle: Dtilt face",
+            "Hold: Tilt face",
+            "Toggle: Tilt face",
             "Hold: Spot punish",
             "Toggle: Spot punish",
             "Hold: Jab lock",

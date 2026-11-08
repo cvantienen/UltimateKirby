@@ -408,6 +408,9 @@ out_of_shield_default = true
 | `reflect_half_width` | 1–30 | Estimated body half-width used by projectile contact prediction |
 | `reflect_height` | 1–60 | Estimated body height above the root used by prediction |
 | `reflect_half_depth` | 1–30 | Estimated depth allowance used by prediction |
+| `tilt_turn_down` | `true` / `false` | Aim down tilts; defaults ON for Kirby/Yoshi, OFF for others |
+| `tilt_turn_forward` | `true` / `false` | Aim side C-stick tilts; requires Tilt Attack mapping; defaults OFF |
+| `tilt_turn_up` | `true` / `false` | Aim up C-stick tilts; requires Tilt Attack mapping; defaults OFF |
 
 ## Universal startup keys
 

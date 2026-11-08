@@ -61,6 +61,72 @@ fn idle(frame: f32) -> Context {
     }
 }
 #[test]
+fn yoshi_defaults_use_reference_timings_and_reject_other_fighters() {
+    use kirby_assist_core::{fighter_data, fighter_kinds, native_states};
+
+    let kind = fighter_kinds::YOSHI;
+    let cfg = config(kind).unwrap();
+    let start = |name| {
+        f32::from(
+            fighter_data::named_move(kind, name)
+                .unwrap()
+                .active
+                .iter()
+                .map(|span| span.first)
+                .min()
+                .unwrap(),
+        )
+    };
+    assert_eq!(cfg.jab_start, start("Jab 1"));
+    assert_eq!(cfg.jab_reach, 7.0);
+    assert_eq!(cfg.smash_start, start("Down Smash"));
+    assert_eq!(cfg.smash_reach, 12.0);
+    assert_eq!(
+        cfg.grab_start,
+        f32::from(
+            fighter_data::ordinary_grab(kind, native_states::CATCH)
+                .unwrap()
+                .first
+        )
+    );
+    assert_eq!(
+        cfg.grab_reach,
+        fighter_data::fighter(kind)
+            .unwrap()
+            .numeric_stat("grabs.grabrange")
+    );
+    assert_eq!(cfg.chase_distance, 60.0);
+    assert!(config(-1).is_none());
+    assert!(config(kind + 1).is_none());
+}
+
+#[test]
+fn explicitly_configured_policy_supports_other_fighters() {
+    let cfg = Config {
+        jab_start: 3.0,
+        jab_reach: 10.0,
+        smash_start: 8.0,
+        smash_reach: 15.0,
+        grab_start: 6.0,
+        grab_reach: Some(12.0),
+        chase_distance: 40.0,
+    };
+    let c = Context {
+        kind: kirby_assist_core::fighter_kinds::YOSHI + 1,
+        ..idle(1.0)
+    };
+    assert!(config(c.kind).is_none());
+    let mut jab_lock = JabLock::default();
+    assert_eq!(
+        jab_lock
+            .sample_configured(true, c, targets(target(0x50, 9.0)), Some(cfg), 10.0)
+            .requested,
+        MAPPER_A
+    );
+    assert!(jab_lock.watching());
+}
+
+#[test]
 fn only_confirmed_attributed_down_tilts_arm_and_off_is_inert() {
     for (enabled, hit, attributed, kind) in [
         (false, true, true, 5),

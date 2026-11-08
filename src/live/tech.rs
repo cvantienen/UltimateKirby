@@ -9,10 +9,11 @@ use super::native_params::{
 };
 use crate::game_ffi as game;
 use kirby_assist_core::tech_prediction::{
-    first_contact_swept, grounded_ganon_contact_in, grounded_ganon_release,
-    late_damage_stop_prediction, tech_gate_with_floor, tech_press_allowed, FloorMotionHistory,
-    FloorMotionSample, TechGate, CATCHED_AIR_END_GANON, CATCHED_GANON,
+    first_contact_swept, late_damage_stop_prediction, tech_gate_with_floor, tech_press_allowed,
+    FloorMotionHistory, FloorMotionSample, TechGate,
 };
+#[path = "fighters/ganondorf/flame_choke.rs"]
+mod flame_choke;
 const MIN_NATIVE_TRIGGER_FRAME: u16 = 2;
 const MAX_NATIVE_TRIGGER_FRAME: u16 = 120;
 const FLOOR_CONTACT_UPWARD_SPEED_TOLERANCE: f32 = 0.0001;
@@ -62,41 +63,6 @@ pub(super) unsafe fn native_timing(object: *mut game::Object, fallback: u16) -> 
             kirby_assist_core::tech_input::DEFAULT_GANON_PASSIVE_TRIGGER_FRAME,
         ),
     ) // ganon_special_s_passive_trigger_frame
-}
-
-unsafe fn grounded_ganon_timing(
-    reads: &super::frame::FrameReads,
-    object: *mut game::Object,
-) -> Option<(f32, u64, f32, f32)> {
-    if !game::is_link(object, 0) {
-        return None;
-    }
-    let id = u32::try_from(game::link_object_id(object, 0)).ok()?;
-    let own_id = game::battle_object_id(object);
-    if id == own_id
-        || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
-        || !game::is_active(id)
-    {
-        return None;
-    }
-    let captor = game::module_accessor(id);
-    if captor.is_null() || game::battle_object_id(captor) != id {
-        return None;
-    }
-    let motion = reads.motion_kind(captor);
-    if motion == kirby_assist_core::timing::NO_MOTION_KIND {
-        return None;
-    }
-    let frame = reads.motion_frame(captor);
-    let rate = reads.motion_rate(captor);
-    let remaining = grounded_ganon_contact_in(
-        reads.status_kind(object),
-        reads.fighter_kind(captor),
-        reads.status_kind(captor),
-        frame,
-        rate,
-    )?;
-    Some((remaining, motion, frame, rate))
 }
 
 // Start with native status/eligibility gates, then test swept stage rays. Keep
@@ -239,38 +205,7 @@ pub(super) unsafe fn assess_tech(
             return assessment;
         }
     }
-    if status == CATCHED_GANON {
-        assessment.reason = "ganon_ground_capture_timing_unavailable";
-        if let Some((contact, motion, frame, rate)) = grounded_ganon_timing(reads, object) {
-            assessment.contact_in = Some(contact);
-            assessment.capture_clock = Some((motion, frame, rate));
-            assessment.prepare_guard = true;
-            assessment.reason = "collision_predicted";
-        }
-        return assessment;
-    }
-    if status == CATCHED_AIR_END_GANON
-        && grounded_ganon_release(
-            status,
-            game::previous_status(object, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX),
-        )
-    {
-        // Both types of Flame Choke use this status. Never infer its origin
-        // from proximity or situation; the native predecessor must be grounded.
-        // Contact is now immediate after any known damage stop. No extra rays.
-        assessment.reason = "ganon_ground_release_wait";
-        if !stopped || victim_stop {
-            assessment.contact_in = Some(assessment.remaining_stop as f32);
-            assessment.prepare_guard = true;
-            assessment.reason = "collision_predicted";
-        }
-        return assessment;
-    }
-    if (kirby_assist_core::native_states::status::CATCHED_AIR_GANON
-        ..=kirby_assist_core::native_states::status::CATCHED_AIR_END_GANON)
-        .contains(&status)
-    {
-        assessment.reason = "ganon_aerial_slam_untechable";
+    if flame_choke::assess_capture(reads, object, &mut assessment, stopped, victim_stop) {
         return assessment;
     }
     if gate == TechGate::OutsideTumble

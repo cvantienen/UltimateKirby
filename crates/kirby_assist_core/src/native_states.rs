@@ -1,8 +1,13 @@
 //! Shared read-only native state vocabulary (skyline-smash d2ca90d lua_const).
 //! Own incapacitation and opponent punishability are deliberately distinct.
+#[path = "native_states/fighter/fighter_status.rs"]
 pub mod fighter_status;
+#[path = "native_states/fighter/final_states.rs"]
 mod final_states;
+#[path = "native_states/fighter/interruption.rs"]
+mod interruption;
 pub mod status;
+#[path = "native_states/fighter/up_special.rs"]
 mod up_special;
 pub use up_special::up_special_status;
 
@@ -153,51 +158,11 @@ pub fn ordinary_grab_immune(status: i32) -> bool {
 /// Private status values overlap across fighters. Apply these forced-state
 /// meanings only to the native kind that owns them.
 pub fn fighter_sequence_interrupted(kind: i32, status: i32) -> bool {
-    sequence_interrupted(status)
-        || fighter_noncombat(kind, status)
-        || match kind {
-            crate::fighter_kinds::DIDDY_KONG => matches!(
-                status,
-                fighter_status::DIDDY_SPECIAL_S_DAMAGE_FALL
-                    | fighter_status::DIDDY_SPECIAL_HI_CHARGE_DAMAGE
-                    | fighter_status::DIDDY_SPECIAL_HI_UPPER_DAMAGE
-            ),
-            crate::fighter_kinds::GRENINJA => {
-                status == fighter_status::GEKKOUGA_SPECIAL_HI_WALL_DAMAGE
-            }
-            crate::fighter_kinds::BOWSER_JR => {
-                status == fighter_status::KOOPAJR_SPECIAL_HI_DAMAGE_END
-            }
-            crate::fighter_kinds::SQUIRTLE => status == fighter_status::PZENIGAME_SPECIAL_LW_OUT,
-            crate::fighter_kinds::IVYSAUR => status == fighter_status::PFUSHIGISOU_SPECIAL_LW_OUT,
-            crate::fighter_kinds::CHARIZARD => status == fighter_status::PLIZARDON_SPECIAL_LW_OUT,
-            crate::fighter_kinds::PYRA => status == fighter_status::EFLAME_SPECIAL_LW_OUT,
-            crate::fighter_kinds::MYTHRA => status == fighter_status::ELIGHT_SPECIAL_LW_OUT,
-            _ => false,
-        }
+    sequence_interrupted(status) || interruption::interrupted(kind, status)
 }
 
 /// Inactive swap forms and known Final Smash actors are not ordinary punish
 /// targets, even through a transient missing capture link.
 pub fn fighter_noncombat(kind: i32, status: i32) -> bool {
-    final_states::final_status(kind, status)
-        || matches!(
-            (kind, status),
-            (
-                crate::fighter_kinds::SQUIRTLE,
-                fighter_status::PZENIGAME_SPECIAL_LW_STANDBY
-            ) | (
-                crate::fighter_kinds::IVYSAUR,
-                fighter_status::PFUSHIGISOU_SPECIAL_LW_STANDBY
-            ) | (
-                crate::fighter_kinds::CHARIZARD,
-                fighter_status::PLIZARDON_SPECIAL_LW_STANDBY
-            ) | (
-                crate::fighter_kinds::PYRA,
-                fighter_status::EFLAME_SPECIAL_LW_STANDBY
-            ) | (
-                crate::fighter_kinds::MYTHRA,
-                fighter_status::ELIGHT_SPECIAL_LW_STANDBY
-            )
-        )
+    interruption::noncombat(kind, status)
 }

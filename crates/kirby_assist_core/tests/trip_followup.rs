@@ -1,7 +1,35 @@
 use kirby_assist_core::{
-    combat_assist::{TripContext, TripFollowup, TripTarget},
+    kirby::{TripContext, TripFollowup, TripTarget},
     native_input::MAPPER_A,
 };
+
+#[test]
+fn legacy_combat_assist_exports_are_the_same_kirby_types() {
+    use kirby_assist_core::{combat_assist, kirby};
+    use std::any::TypeId;
+
+    assert_eq!(
+        TypeId::of::<combat_assist::TripTarget>(),
+        TypeId::of::<kirby::TripTarget>()
+    );
+    assert_eq!(
+        TypeId::of::<combat_assist::TripContext>(),
+        TypeId::of::<kirby::TripContext>()
+    );
+    assert_eq!(
+        TypeId::of::<combat_assist::TripFollowup>(),
+        TypeId::of::<kirby::TripFollowup>()
+    );
+    assert_eq!(
+        TypeId::of::<combat_assist::FairContext>(),
+        TypeId::of::<kirby::FairContext>()
+    );
+    assert_eq!(
+        TypeId::of::<combat_assist::FairFollowup>(),
+        TypeId::of::<kirby::FairFollowup>()
+    );
+}
+
 fn context(tilt: i32, target: i32, previous: i32) -> TripContext {
     let mut targets = [None; 8];
     targets[0] = Some(TripTarget {

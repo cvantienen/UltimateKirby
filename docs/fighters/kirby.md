@@ -250,25 +250,11 @@ observed roll travel. Capture returns full control. Integrated held-L recovery c
 and fair-first-hit landing follow-up are separate tools; see [controls](../CONTROLS.md).
 These current movement edits still need device testing.
 
-## Separate onstage Roll read
+## Onstage roll reactions
 
-The additional **Roll read** row is independent of ledge Roll get-up. Choices
-are **Off** / **Down smash** (default) / **Grab**; once enabled it watches ordinary ground
-rolls without holding L. Down smash now accepts nearby rolls without a crossing
-requirement and takes over immediately when a valid timed roll is recognized.
-It may walk at 0.65 stick toward the short projected roll position while waiting,
-using native walking/braking data and floor support. The attack window takes
-priority over range or arrival: stop, prime, then Down+A. It uses the full
-configured 7–19 active window, including the final two frames previously reserved.
-`ROLL_READ_DOWN_SMASH` uses estimated reach 14, height tolerance 6 and observation
-distance 64 world units; reach is a reference, not an attack gate in this mode.
-It can therefore attempt a timed smash while still too far away to connect.
-No other fighter inherits this mode until explicitly registered. See
-[Roll read](../ROLL_READ.md) for priorities, testing limits and Training controls.
-`ROLL_READ_GRAB` uses standing grab frames 6–7 and an estimated 12.5-unit root
-reach. It can turn in place toward the projected contact side, but never chases;
-native grab acceptance returns control without a pummel or throw. Ledge Roll
-grab is a separate implementation using the fixed-inset experiment above.
+The fixed Kirby roll-grab/down-smash helper is removed. Configure onstage
+responses using [roll reaction sequences](../ROLL_READ.md); ledge Roll get-up
+responses remain separate.
 
 ## Manual X/Y controls
 
@@ -287,7 +273,7 @@ network or SD-card reads.
 
 ## Optional posture
 
-Idle crouch and Dtilt face menu toggles start ON. Holding L suspends idle crouch
+Idle crouch and Tilt face menu toggles start ON, with down tilt selected by default. Holding L suspends idle crouch
 until release. See [shared inputs and posture](../INPUT_RECIPES.md). These do not
 reactivate the disabled incoming-hitbox auto-duck.
 
@@ -301,8 +287,3 @@ and attack arrive together. Holding Down before A prepares the angle sooner.
 Input-delivery corrections: Dtilt face retains its angle during native down-tilt
 hitstop and preserves physical tilt-stick Down. Configured ledge timings are
 unchanged; arena testing is still required.
-
-Ordinary Roll read → Down smash can now release physical or automatic shield
-for a reachable roll, budgeting shield-drop recovery before attacking. It waits
-for native smash readiness and keeps ownership through shield release. Late
-rolls and shieldstun are skipped; see [Roll read](../ROLL_READ.md).

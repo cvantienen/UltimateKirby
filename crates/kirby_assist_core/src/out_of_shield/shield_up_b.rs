@@ -5,6 +5,8 @@ use crate::{
     native_input::{MAPPER_B, MAPPER_ZR},
     roll_read::Target,
 };
+#[path = "../fighters/bowser/shield_spin.rs"]
+mod shield_spin;
 
 #[derive(Clone, Copy)]
 pub(super) struct Timing {
@@ -18,11 +20,7 @@ impl Timing {
     pub fn legacy(kind: i32) -> Self {
         Self {
             delivery: 4,
-            tracking: if kind == crate::fighter_kinds::BOWSER {
-                69
-            } else {
-                0
-            },
+            tracking: crate::bowser_shield_tracking::legacy_tracking_frames(kind),
             strength: 1.,
             timeout: 120,
             direction: crate::sequence_config::Direction::Opponent,
@@ -103,76 +101,8 @@ impl ShieldUpB {
         height: f32,
         timing: Timing,
     ) -> ControllerOutput {
-        // Bowser only: after confirmed native startup, use the existing tracked
-        // identity for up to 69 progress frames of full opponent-directed drift.
-        // This never starts a special in air or carries drift past the spin.
-        let bowser_spin = c.kind == crate::fighter_kinds::BOWSER
-            && crate::native_states::up_special_status(c.kind, c.status);
-        if self.active() && (self.tracking || bowser_spin) {
-            if !allowed || !lc.gameplay || !bowser_spin {
-                self.cancel();
-                return ControllerOutput::default();
-            }
-            let enemy = follow.filter(|e| Some(e.id) == self.target).or_else(|| {
-                targets
-                    .iter()
-                    .flatten()
-                    .find(|t| Some(t.id) == self.target)
-                    .map(|t| Opponent {
-                        id: t.id,
-                        status: t.status,
-                        position: t.position,
-                        ..Default::default()
-                    })
-            });
-            let Some(enemy) = enemy.filter(|e| {
-                e.position
-                    .iter()
-                    .chain(c.position.iter())
-                    .all(|v| v.is_finite())
-                    && crate::reaction_rules::automatic_tracking_target_available(e.status)
-            }) else {
-                self.cancel();
-                return ControllerOutput::default();
-            };
-            let toward = || {
-                let dx = enemy.position[0] - c.position[0];
-                let x = if dx.abs() < 0.001 { 0. } else { dx.signum() };
-                use crate::sequence_config::Direction;
-                (match timing.direction {
-                    Direction::AwayFromOpponent => -x,
-                    Direction::Facing => c.facing.signum(),
-                    Direction::Backward => -c.facing.signum(),
-                    _ => x,
-                }) * timing.strength
-            };
-            if !self.tracking {
-                self.clock.advance_pause(lc, Some(enemy), timing.timeout);
-                self.spent_before_tracking = self.clock.elapsed();
-                if self.clock.expired {
-                    self.cancel();
-                    return ControllerOutput::default();
-                }
-                self.tracking = true;
-                self.clock = NativeAttempt::default();
-                self.direction = toward();
-            }
-            self.clock.advance_pause(lc, Some(enemy), timing.timeout);
-            if self.clock.expired
-                || self.clock.elapsed() >= f32::from(timing.tracking)
-                || self.spent_before_tracking + self.clock.elapsed() >= f32::from(timing.timeout)
-            {
-                self.cancel();
-                return ControllerOutput::default();
-            }
-            if !c.stopped && !lc.stopped {
-                self.direction = toward();
-            }
-            return ControllerOutput {
-                owned: SEQUENCE_BUTTONS,
-                stick: Some([self.direction, 0.]),
-                ..Default::default()
-            };
+        if let Some(output) = self.sample_spin(allowed, c, lc, targets, follow, timing) {
+            return output;
         }
         let ready = c.grounded
             && !c.stopped

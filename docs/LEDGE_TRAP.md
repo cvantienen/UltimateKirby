@@ -36,7 +36,7 @@ Shield input requires native guard availability or an existing guard/shieldstun
 state. Native guard availability is checked without an idle/walk-only status
 filter, so crouching and other legitimately shield-ready states qualify too.
 Committed punishes (including onstage Roll read), capture/manual handback,
-mash/tech, slide and trump
+mash/tech and trump
 retain priority. Defense overrides idle/preparation movement only; movement is
 neutral while shielding to avoid adding dodge direction. An existing defensive
 shield is held through native shield hitstop. A fixed-size hold bridges small

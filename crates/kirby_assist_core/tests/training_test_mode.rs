@@ -133,5 +133,5 @@ fn default_save_load_is_momentary_and_held_l_resumes_without_reopening_menu() {
     menu.input(MAPPER_L, presets);
     assert!(menu.ledge_held(MAPPER_L));
     assert!(menu.menu_hidden);
-    assert!(!menu.finisher_held(MAPPER_Y), "save/load cannot arm held Y");
+    assert_eq!(menu.input(MAPPER_Y, presets) & MAPPER_Y, 0);
 }
