@@ -1676,6 +1676,10 @@ Removes Bowser-only Up-B tracking and ownership; Up-B follow-through now comes o
 Updates the auto-tech guide to match current native eligibility, contact paths, and bounded motion-history prediction.
 
 Fixes constant initialization of tilt-side aliases and scopes the diagnostic-only Y-button import.
+
+Refactors mapper admission, training passthrough, and fighter observation policy snapshots into focused helpers.
+
+Separates mapper preparation, ownership, posture, damage-stick sampling and finalization, and extracts fighter roster, publication and tech observation phases without changing native input timing.
 """
 
 
