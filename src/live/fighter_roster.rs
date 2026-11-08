@@ -1,10 +1,7 @@
 //! Eight entries plus independently validated Ice Climber partners. No scans
 //! of battle-object memory, native writes, allocations or retained pointers.
-use super::{active_fighter_manager, game, game_entry_id};
+use super::{active_fighter_manager, fighter_manager_instance, game, game_entry_id};
 use kirby_assist_core::battle_objects::{append_fighter, FighterRoster, FIGHTER_CAPACITY};
-
-#[path = "fighters/ice_climbers/partner.rs"]
-mod ice_climbers;
 
 pub(crate) unsafe fn fighter_ids() -> Option<FighterRoster> {
     let manager = active_fighter_manager()?;
@@ -33,7 +30,89 @@ pub(crate) unsafe fn fighter_ids() -> Option<FighterRoster> {
             continue;
         }
         append_fighter(&mut ids, id);
-        ice_climbers::append_partner(&mut ids, id, object, entry_id);
+        append_partner(&mut ids, id, object, entry_id);
     }
     Some(ids)
+}
+
+unsafe fn append_partner(
+    ids: &mut FighterRoster,
+    id: u32,
+    object: *mut game::Object,
+    entry_id: i32,
+) {
+    let kind = game::fighter_kind(id);
+    if !matches!(
+        kind,
+        kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO
+            | kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA
+    ) {
+        return;
+    }
+    let partner = game::work_int(
+            object,
+            kirby_assist_core::native_states::work_ids::FIGHTER_POPO_INSTANCE_WORK_ID_INT_PARTNER_OBJECT_ID,
+        ) as u32;
+    if partner == id
+        || partner >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+        || !game::is_active(partner)
+    {
+        return;
+    }
+    let other = game::module_accessor(partner);
+    if other.is_null()
+        || game::battle_object_id(other) != partner
+        || game_entry_id(partner) != entry_id
+        || game::fighter_kind(partner)
+            != if kind == kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO {
+                kirby_assist_core::fighter_kinds::ICE_CLIMBERS_NANA
+            } else {
+                kirby_assist_core::fighter_kinds::ICE_CLIMBERS_POPO
+            }
+    {
+        return;
+    }
+    append_fighter(ids, partner);
+}
+
+/// Validate local fighter identity and its callback-discovered controller route.
+pub(crate) unsafe fn human_fighter(object: *mut game::Object) -> bool {
+    if object.is_null() {
+        return false;
+    }
+    let Some(manager) = fighter_manager_instance() else {
+        return false;
+    };
+    let id = game::battle_object_id(object);
+    if id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+        || !game::is_active(id)
+    {
+        return false;
+    }
+    let entry_id = game_entry_id(id);
+    if !(0..8).contains(&entry_id) {
+        return false;
+    }
+    let entry = game::fighter_entry(manager, entry_id) as *mut game::Object;
+    // An Ice Climber partner shares the leader's human entry and can share a
+    // mapper index. Only the entry's current actor may drive local assistance.
+    if entry.is_null() || game::current_fighter_id(entry) != u64::from(id) {
+        return false;
+    }
+    let information = game::fighter_information(manager, entry_id);
+    !information.is_null() && !game::is_cpu(information)
+}
+
+pub(crate) unsafe fn valid_local_route(id: u32, index: i32) -> bool {
+    if !(0..8).contains(&index)
+        || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+        || !game::is_active(id)
+    {
+        return false;
+    }
+    let object = game::module_accessor(id);
+    !object.is_null()
+        && game::battle_object_id(object) == id
+        && kirby_assist_core::native_input::controller_index(object.cast()) == Some(index)
+        && human_fighter(object)
 }

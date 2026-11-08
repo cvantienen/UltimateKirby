@@ -13,8 +13,8 @@ mod automatic_watch;
 mod scope;
 pub use automatic_watch::{sample_optional_simple, simple_readiness, SimpleStart};
 pub use scope::{
-    automatic_fighter_target_available, automatic_start_allowed, automatic_start_status,
-    automatic_target_available, automatic_tracking_target_available, automatic_up_b_receipt_status,
+    automatic_fighter_target_available, automatic_follow_target_available, automatic_start_allowed,
+    automatic_start_status, automatic_target_available, automatic_up_b_receipt_status,
     automatic_up_b_status, AutomaticObservationScope,
 };
 pub(crate) fn native_up_b_started(kind: i32, c: GameplayContext) -> bool {

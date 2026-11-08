@@ -97,7 +97,7 @@ fn sample(
     )
 }
 #[test]
-fn universal_response_requires_confirmed_hit_then_runs_bowser_up_b_once() {
+fn universal_response_requires_confirmed_hit_then_runs_configured_up_b_once() {
     let r = rules("shield_hit", 12., "any", "up_b:4");
     let mut o = OutOfShield::new();
     assert_eq!(

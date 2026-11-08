@@ -380,7 +380,7 @@ fn old_far_grab_range_never_drops_shield_or_drives_an_approach() {
 }
 
 #[test]
-fn regrabbing_ledge_stops_an_already_committed_auto_response() {
+fn committed_authored_response_keeps_its_target_through_ledge_wait() {
     let r = rules();
     let mut engine = Engine::default();
     sample(
@@ -396,20 +396,16 @@ fn regrabbing_ledge_stops_an_already_committed_auto_response() {
         status: kirby_assist_core::native_states::status::CLIFF_WAIT,
         ..follow(t(0x20, 20., 1.))
     };
-    assert_eq!(
-        engine
-            .sample_simple(
-                true,
-                &r,
-                AssistSettings::default(),
-                c(1.),
-                [None; 8],
-                Some(hanging)
-            )
-            .owned,
-        0
+    let out = engine.sample_simple(
+        true,
+        &r,
+        AssistSettings::default(),
+        c(1.),
+        [None; 8],
+        Some(hanging),
     );
-    assert!(!engine.committed());
+    assert_eq!(out.owned, kirby_assist_core::ledge_trap::SEQUENCE_BUTTONS);
+    assert!(engine.committed());
 }
 
 #[test]

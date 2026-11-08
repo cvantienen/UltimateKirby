@@ -1,6 +1,6 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
-    gameplay::GameplayContext,
+    gameplay::{GameplayContext, MotionTiming, Opponent},
     ledge_trap::SEQUENCE_BUTTONS,
     manual_controls::{ManualOverlay, TurboOutput},
     native_input::*,
@@ -64,6 +64,22 @@ fn targets(x: f32) -> [Option<Target>; 8] {
         None,
     ]
 }
+fn follow(target: Target) -> Opponent {
+    Opponent {
+        id: target.id,
+        status: target.status,
+        position: target.position,
+        velocity: [target.velocity_x, 0.],
+        vulnerable: target.vulnerable_in == Some(0.),
+        motion: Some(MotionTiming {
+            kind: target.motion,
+            frame: target.frame,
+            rate: target.rate,
+            remaining: None,
+        }),
+        ..Default::default()
+    }
+}
 fn sample(
     o: &mut OutOfShield,
     allowed: bool,
@@ -71,12 +87,19 @@ fn sample(
     lc: GameplayContext,
     t: [Option<Target>; 8],
 ) -> kirby_assist_core::gameplay::ControllerOutput {
+    let locked_follow = o.target().and_then(|id| {
+        t.iter()
+            .flatten()
+            .find(|target| target.id == id)
+            .copied()
+            .map(follow)
+    });
     o.sample_automatic_configured(
         allowed,
         c,
         lc,
         t,
-        None,
+        locked_follow,
         true,
         22.,
         35.,
@@ -102,8 +125,7 @@ fn explicit_backup_for(kind: i32) -> AutomaticConfig<'static> {
         &OTHER
     };
     AutomaticConfig{backup:Some(cell.get_or_init(||{
-        let actions=if kind==15{"up_b:4,drift:opponent:1:69"}else{"up_b:4"};
-        Catalog::parse(&format!("[bowser.roll.backup]\nstart_delay=0\nreaction=auto_shield_backup:22:24\nactions={actions}\n")).unwrap().entries()[0].sequence
+        Catalog::parse("[bowser.roll.backup]\nstart_delay=0\nreaction=auto_shield_backup:22:24\nactions=up_b:4\n").unwrap().entries()[0].sequence
     })),..Default::default()}
 }
 #[test]
@@ -521,61 +543,29 @@ fn roll_priority_is_rechecked_when_a_cancelled_fallback_proposes_a_fresh_grab() 
 }
 
 #[test]
-fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames() {
+fn shielded_up_b_fallback_does_not_create_implicit_follow_through() {
     let mut o = OutOfShield::new();
-    sample(&mut o, true, c(0.), lc(0.), targets(-10.));
-    for frame in 0..69 {
-        let side = if frame < 35 { -1. } else { 1. };
-        let own = Context {
-            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
-            grounded: false,
-            can_up_special: false,
-            shield_ready: false,
-            ..c(frame as f32)
-        };
-        let context = GameplayContext {
-            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
-            situation: kirby_assist_core::native_states::situation::AIR,
-            ..lc(frame as f32)
-        };
-        let out = o.sample_automatic_configured(
-            true,
-            own,
-            context,
-            targets(side * 50.),
-            None,
-            false,
-            22.,
-            35.,
-            Some(8.),
-            AssistSettings {
-                fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
-                ..Default::default()
-            },
-            explicit_backup(),
-        );
-        assert_eq!(out.requested, 0);
-        assert_eq!(out.stick, Some([side, 0.]));
-        assert_eq!(
-            out.owned, SEQUENCE_BUTTONS,
-            "tracking stays active at frame {frame}"
-        );
-    }
+    assert_eq!(
+        sample(&mut o, true, c(0.), lc(0.), targets(-10.)).requested,
+        MAPPER_B | MAPPER_ZR
+    );
+    o.mapped_up_special(0, 2);
+    let c = Context {
+        status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+        frame: 1.,
+        ..c(1.)
+    };
     let ended = o.sample_automatic_configured(
         true,
-        Context {
-            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
-            grounded: false,
-            ..c(69.)
-        },
+        c,
         GameplayContext {
-            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
-            situation: kirby_assist_core::native_states::situation::AIR,
-            ..lc(69.)
+            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+            motion_frame: 1.,
+            ..lc(1.)
         },
-        targets(50.),
+        targets(-10.),
         None,
-        false,
+        true,
         22.,
         35.,
         Some(8.),
@@ -586,138 +576,8 @@ fn confirmed_bowser_shield_up_b_tracks_crossings_at_full_strength_for_69_frames(
         explicit_backup(),
     );
     assert_eq!(ended.owned, 0);
+    assert_eq!(ended.stick, None);
     assert!(o.target().is_none());
-}
-
-#[test]
-fn bowser_shield_tracking_ends_on_native_finish_target_loss_or_ledge_cancellation_and_never_starts_in_air(
-) {
-    for case in 0..3 {
-        let mut o = OutOfShield::new();
-        sample(&mut o, true, c(0.), lc(0.), targets(-10.));
-        let own = Context {
-            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
-            ..c(0.)
-        };
-        let context = GameplayContext {
-            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
-            ..lc(0.)
-        };
-        assert_eq!(
-            o.sample_automatic_configured(
-                true,
-                own,
-                context,
-                targets(-10.),
-                None,
-                false,
-                22.,
-                35.,
-                Some(8.),
-                AssistSettings {
-                    fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
-                    ..Default::default()
-                },
-                explicit_backup()
-            )
-            .stick,
-            Some([-1., 0.])
-        );
-        let mut next = Context { frame: 1., ..own };
-        let ctx = GameplayContext {
-            motion_frame: 1.,
-            manual_input_epoch: 1,
-            automatic_up_b_epoch: Some(1),
-            ..context
-        };
-        let mut ts = targets(-10.);
-        match case {
-            0 => next.status = kirby_assist_core::native_states::status::FALL_SPECIAL,
-            1 => ts = [None; 8],
-            _ => {}
-        }
-        assert_eq!(
-            o.sample_automatic_configured(
-                case != 2,
-                next,
-                ctx,
-                ts,
-                None,
-                false,
-                22.,
-                35.,
-                Some(8.),
-                AssistSettings {
-                    fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
-                    ..Default::default()
-                },
-                explicit_backup()
-            )
-            .owned,
-            0
-        );
-    }
-    let mut fresh = OutOfShield::new();
-    assert_eq!(
-        fresh
-            .sample_automatic_configured(
-                true,
-                Context {
-                    status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
-                    grounded: false,
-                    ..c(0.)
-                },
-                GameplayContext {
-                    status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
-                    situation: kirby_assist_core::native_states::situation::AIR,
-                    ..lc(0.)
-                },
-                targets(-10.),
-                None,
-                false,
-                22.,
-                35.,
-                Some(8.),
-                AssistSettings {
-                    fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
-                    ..Default::default()
-                },
-                explicit_backup()
-            )
-            .owned,
-        0
-    );
-    let mut other = OutOfShield::new();
-    let other_ctx = Context {
-        kind: kirby_assist_core::fighter_kinds::KIRBY,
-        ..c(0.)
-    };
-    sample(&mut other, true, other_ctx, lc(0.), targets(-10.));
-    assert_eq!(
-        other
-            .sample_automatic_configured(
-                true,
-                Context {
-                    status: kirby_assist_core::native_states::status::SPECIAL_HI,
-                    ..other_ctx
-                },
-                lc(1.),
-                targets(-10.),
-                None,
-                false,
-                22.,
-                35.,
-                Some(8.),
-                AssistSettings {
-                    fighter_kind: kirby_assist_core::fighter_kinds::KIRBY,
-                    ..Default::default()
-                },
-                explicit_backup_for(6)
-            )
-            .owned,
-        0,
-        "other fighters retain their previous release-on-startup behavior"
-    );
 }
 
 #[test]
@@ -744,89 +604,4 @@ fn supplied_bowser_dodge_sequences_have_only_the_requested_69_frame_drift_change
             }
         );
     }
-}
-
-#[test]
-fn bowser_spin_tracking_holds_direction_through_hitstop_without_spending_the_clock() {
-    let mut o = OutOfShield::new();
-    sample(&mut o, true, c(0.), lc(0.), targets(-10.));
-    let own = Context {
-        status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
-        ..c(0.)
-    };
-    let context = GameplayContext {
-        status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
-        ..lc(0.)
-    };
-    assert_eq!(
-        o.sample_automatic_configured(
-            true,
-            own,
-            context,
-            targets(-10.),
-            None,
-            false,
-            22.,
-            35.,
-            Some(8.),
-            AssistSettings {
-                fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
-                ..Default::default()
-            },
-            explicit_backup()
-        )
-        .stick,
-        Some([-1., 0.])
-    );
-    for _ in 0..100 {
-        assert_eq!(
-            o.sample_automatic_configured(
-                true,
-                Context {
-                    stopped: true,
-                    ..own
-                },
-                GameplayContext {
-                    stopped: true,
-                    ..context
-                },
-                targets(50.),
-                None,
-                false,
-                22.,
-                35.,
-                Some(8.),
-                AssistSettings {
-                    fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
-                    ..Default::default()
-                },
-                explicit_backup()
-            )
-            .stick,
-            Some([-1., 0.])
-        );
-    }
-    assert_eq!(
-        o.sample_automatic_configured(
-            true,
-            Context { frame: 1., ..own },
-            GameplayContext {
-                motion_frame: 1.,
-                ..context
-            },
-            targets(50.),
-            None,
-            false,
-            22.,
-            35.,
-            Some(8.),
-            AssistSettings {
-                fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
-                ..Default::default()
-            },
-            explicit_backup()
-        )
-        .stick,
-        Some([1., 0.])
-    );
 }

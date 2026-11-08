@@ -334,7 +334,7 @@ fn ordinary_shield_backup_does_not_emit_up_b_or_require_its_native_transition() 
             );
             assert!(
                 !engine.shield_up_b_pending(),
-                "ordinary responses never acquire Bowser's spin tracking"
+                "ordinary responses have no implicit Up-B drift"
             );
         }
         for blocked in [

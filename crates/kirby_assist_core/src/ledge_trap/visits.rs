@@ -113,9 +113,12 @@ impl LedgeVisits {
         }
     }
 }
+
+// used to track ledge visits and manage responses per visit
+/// Preserve one response per visit even when this engine is recreated.
+/// Explicit editor previews remain independently repeatable.
 impl LedgeTrap {
-    /// Preserve one response per visit even when this engine is recreated.
-    /// Explicit editor previews remain independently repeatable.
+
     pub fn sample_with_visits(
         &mut self,
         visits: &mut LedgeVisits,

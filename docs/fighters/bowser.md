@@ -5,16 +5,14 @@
 Bowser has one direct sequence for each event: roll within **30 X / 12 Y**,
 spot dodge within **25 / 10**, and air dodge within **35 / 19**. Each runs
 `up_b:4, drift:opponent:1:69`. Starts require grounded Bowser, including held
-shield; the following drift uses full horizontal input toward the tracked
-opponent. The close-range shield Up-B backup also tracks for up to 69
-native-progress frames after confirmed native startup, including air spinning.
-Physical buttons and both sticks cannot cancel an already committed automatic
-Up-B or its tracking. Ledge-trap L still stops it immediately. Native move end,
-target loss and safety still release it early. This changes controller input only, not Up-B's hitboxes or animation.
-A verified Up+Special packet retains a bounded, input-free native receipt through
-shield hitstop/readiness loss. Late confirmation resumes tracking without
-replaying B or spending its 69-frame tail while waiting. It reserves punish
-priority only, expires within 24 mapper updates, and still obeys L/safety/target loss.
+shield; the following drift is an ordinary authored sequence action. The close-
+range shield Up-B backup has no implicit drift: add one to its edited sequence
+if desired. Up-B startup confirmation advances a sequence after its delivered
+B action; it does not activate Bowser-specific tracking. A verified Up+Special
+packet retains a bounded, input-free native receipt through shield
+hitstop/readiness loss. Late confirmation advances to the next authored action
+without replaying B. The receipt reserves punish priority only, expires within
+24 mapper updates, and still obeys L/safety/target loss.
 Active ledge-trap mode disables all automatic punish searches and responses,
 even before an opponent reaches the ledge. Hanging/captured opponents are
 excluded from ordinary punish targets.
@@ -31,7 +29,7 @@ front opponent within its separate X/Y limits; enemy shield is not required.
 If no legal grab wins, the shield backup uses its own range and native readiness. The
 incoming-grab defense sends one Down+Guard request, then uses its separate **25 / 10**
 `auto_grab_dodged` Up-B recipe only after native dodge startup and native readiness.
-Its confirmed Up-B tracks for 69 drift frames. A delivered R cannot be replaced
+Its configured Up-B follow-through is also defined by the sequence actions. A delivered R cannot be replaced
 by Up-B while awaiting receipt. Native grab/catch/hold/pummel/throw releases all
 punish and ledge tapes so throws remain manual.
 
@@ -39,7 +37,7 @@ Bowser's complete Auto react list also includes `auto_grab:35:24`,
 `auto_shield_grab:25:15`, and `auto_shield_backup:25:15`. Their actions and X/Y
 limits are editable alongside the three enemy-dodge responses and the separate
 grab-dodge follow-up. The default recipes retain existing native delivery,
-movement, shield safety, priorities and 69-frame tracking. The current supplied
+movement, shield safety, priorities and authored sequence actions. The current supplied
 roll/spot/air values above were preserved, not retuned by this refactor.
 
 ## Default D-pad reversals

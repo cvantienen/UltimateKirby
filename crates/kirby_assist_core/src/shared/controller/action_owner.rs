@@ -1,8 +1,6 @@
 //! One committed action owner, independent of controller polling frequency.
 //! Priority admits new work; only native safety interrupts a committed tape.
 //! Explicit cancellation and completion release both input and decision locks.
-pub use crate::bowser_ownership::bowser_up_b_owner;
-
 /// Native grab startup, pull, hold, pummel, release and throw belong to the
 /// player's grab interaction. No automated punish may inject a throw here.
 pub fn native_grab_active(status: i32) -> bool {
@@ -28,9 +26,9 @@ pub enum Owner {
     OutOfShield,
     Reflect,
 }
+
 /// Select the base physical escape request for automatic special owners.
-/// Committed Bowser Up-B bypasses this policy via bowser_up_b_owner; shield
-/// grabs and authored ledge/button tapes retain their own controls.
+/// Shield grabs and authored ledge/button tapes retain their own controls.
 pub fn automatic_escape_request(
     owner: Option<Owner>,
     roll: u32,

@@ -2,11 +2,45 @@
 mod followups;
 
 use kirby_assist_core::{
+    fighter_kinds,
     gameplay::ControllerOutput,
     kirby::{FairContext, TripContext, TripTarget},
-    native_states::status,
+    native_states::{situation, status},
     timing::{motion_hash, MOTION_ATTACK_AIR_F},
 };
+
+#[test]
+fn contexts_preserve_fighter_gates_and_only_query_hits_in_the_fair_window() {
+    let observation = followups::Observation {
+        object: 1,
+        kind: fighter_kinds::KIRBY,
+        status: status::ATTACK_LW3,
+        situation: situation::GROUND,
+        motion: 7,
+        frame: 2.0,
+        rate: 1.0,
+        stopped: false,
+        facing: -1.0,
+    };
+    assert!(followups::is_kirby(observation.kind));
+    assert!(followups::trip_enabled(false, true, observation.kind));
+    assert!(!followups::trip_enabled(true, true, observation.kind));
+    assert!(!followups::trip_enabled(false, true, fighter_kinds::YOSHI));
+    assert!(followups::trip_watch(true, status::ATTACK_LW3, false));
+    assert!(followups::trip_watch(true, status::WAIT, true));
+    assert!(!followups::trip_watch(false, status::ATTACK_LW3, true));
+    assert!(!followups::watching(&None));
+    assert!(!followups::fair_active(&None));
+    let trip = followups::trip_context(&observation, true, [None; 8]);
+    assert!(trip.kirby && trip.grounded);
+    assert_eq!(
+        (trip.object, trip.status, trip.motion, trip.facing),
+        (1, status::ATTACK_LW3, 7, -1.0)
+    );
+    let fair = followups::fair_context(&observation, false, || panic!("hit read outside window"));
+    assert!(fair.kirby && fair.grounded && !fair.hit_now);
+    assert!(followups::fair_context(&observation, true, || true).hit_now);
+}
 
 #[test]
 fn fair_hit_window_requires_kirby_enabled_and_matching_motion() {

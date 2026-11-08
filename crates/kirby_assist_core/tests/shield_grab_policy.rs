@@ -1,7 +1,7 @@
 //! Distinct shielded/unshielded grab policies and exclusive shield fallback.
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Owner},
-    gameplay::{ControllerOutput, GameplayContext},
+    gameplay::{ControllerOutput, GameplayContext, MotionTiming, Opponent},
     native_input::{MAPPER_B, MAPPER_R, MAPPER_X, MAPPER_ZR},
     out_of_shield::{AutomaticConfig, Context, OutOfShield},
     reaction_rules::{Candidate, Engine, Resolved},
@@ -63,6 +63,21 @@ fn target(status: i32, x: f32, y: f32) -> [Option<Target>; 8] {
         actionable_in: None,
     });
     ts
+}
+fn follow(frame: f32, x: f32) -> Opponent {
+    Opponent {
+        id: 2,
+        status: 0x36,
+        position: [x, 0.],
+        vulnerable: true,
+        motion: Some(MotionTiming {
+            kind: 2,
+            frame,
+            rate: 1.,
+            remaining: None,
+        }),
+        ..Default::default()
+    }
 }
 fn recipe(event: &str, x: f32, y: f32, actions: &str) -> Sequence {
     Catalog::parse(&format!("[bowser.roll.test]\nstart_delay=0\ntimeout=240\nreaction={event}:{x}:{y}\nactions={actions}\n")).unwrap().entries()[0].sequence
@@ -371,28 +386,55 @@ fn delivered_nonshield_target_grab_cannot_turn_into_up_b_or_a_second_punish() {
     assert!(owner.allows(Owner::OutOfShield));
 }
 #[test]
-fn committed_shield_up_b_cannot_switch_to_a_front_grab_mid_pulse() {
+fn committed_shield_backup_receipt_cannot_switch_to_a_front_grab() {
     let mut tool = OutOfShield::new();
+    let grab = recipe("auto_grab", 35., 24., "input:r:0:0:4");
+    let shield = recipe("auto_shield_grab", 10., 4., "input:r:0:0:4");
+    let backup = recipe("auto_shield_backup", 20., 12., "up_b:4,drift:opponent:1:69");
+    let config = AutomaticConfig {
+        grab: Some(&grab),
+        shield_grab: Some(&shield),
+        backup: Some(&backup),
+    };
+    let settings = AssistSettings {
+        fighter_kind: kirby_assist_core::fighter_kinds::BOWSER,
+        ..Default::default()
+    };
+    let c = own(kirby_assist_core::native_states::GUARD, 0.);
     assert_eq!(
-        sample(
-            &mut tool,
-            own(kirby_assist_core::native_states::GUARD, 0.),
-            target(0x36, -5., 0.),
+        tool.sample_automatic_configured(
             true,
-            false
+            c,
+            lc(c),
+            target(0x36, -5., 0.),
+            Some(follow(0., -5.)),
+            true,
+            10.,
+            35.,
+            Some(12.),
+            settings,
+            config,
         )
         .requested,
         MAPPER_B | MAPPER_ZR
     );
     tool.mapped_up_special(0, 2);
-    let out = sample(
-        &mut tool,
-        own(kirby_assist_core::native_states::GUARD, 1.),
-        target(0x36, 5., 0.),
+    let c = own(kirby_assist_core::native_states::GUARD, 1.);
+    let out = tool.sample_automatic_configured(
         true,
-        false,
+        c,
+        lc(c),
+        target(0x36, 5., 0.),
+        Some(follow(1., 5.)),
+        true,
+        10.,
+        35.,
+        Some(12.),
+        settings,
+        config,
     );
     assert_eq!(out.requested, MAPPER_B | MAPPER_ZR);
+    assert!(tool.up_b_receipt_pending());
     assert!(!tool.automatic_grab_pending());
 }
 

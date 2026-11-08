@@ -1,4 +1,4 @@
-//! Real movement-intent history drives every automatic Bowser Up-B owner.
+//! Authored Up-B sequences control follow-through without fighter-specific tracking.
 use kirby_assist_core::{
     defense_response::Response,
     gameplay::{GameplayContext, MotionTiming, Opponent},
@@ -47,7 +47,6 @@ fn context(frame: u32, h: &ManualTakeover) -> GameplayContext {
         motion_rate: 1.,
         facing: 1.,
         manual_input_epoch: h.epoch(),
-        automatic_up_b_epoch: Some(h.action_epoch()),
         ..Default::default()
     }
 }
@@ -138,8 +137,7 @@ fn target(e: Opponent) -> [Option<kirby_assist_core::roll_read::Target>; 8] {
     ts
 }
 #[test]
-fn every_option_read_keeps_69_frames_of_live_full_drift_despite_movement_release_hits_and_enemy_ledge_grab(
-) {
+fn authored_option_sequences_drive_their_own_full_drift_through_enemy_ledge_grab() {
     for (event, status) in [
         ("auto_roll", 0x20),
         ("auto_spot_dodge", 0x1f),
@@ -147,7 +145,7 @@ fn every_option_read_keeps_69_frames_of_live_full_drift_despite_movement_release
     ] {
         let r = rules(event);
         let mut engine = Engine::default();
-        let mut h = history();
+        let h = history();
         let mut start = enemy(0);
         start.status = status;
         assert_ne!(
@@ -165,7 +163,6 @@ fn every_option_read_keeps_69_frames_of_live_full_drift_despite_movement_release
             0
         );
         for frame in 1..73 {
-            fight_controls(&mut h, frame);
             let e = enemy(frame);
             let out =
                 engine.sample_simple(true, &r, settings(), context(frame, &h), [None; 8], Some(e));
@@ -206,18 +203,15 @@ fn every_option_read_keeps_69_frames_of_live_full_drift_despite_movement_release
     }
 }
 #[test]
-fn dodge_grab_followup_keeps_its_configured_69_frame_chase_and_target_lock() {
+fn authored_dodge_followup_runs_its_configured_drift() {
     let mut r = Response::default();
-    let mut h = history();
+    let h = history();
     let start = GameplayContext {
         status: kirby_assist_core::native_states::ESCAPE,
         ..context(0, &h)
     };
     assert!(r.start_sequence(recipe("auto_grab_dodged"), start, enemy(0)));
-    for frame in 0..73 {
-        if frame > 0 {
-            fight_controls(&mut h, frame);
-        }
+    for frame in 0..60 {
         let c = if frame == 0 {
             start
         } else {
@@ -231,14 +225,13 @@ fn dodge_grab_followup_keeps_its_configured_69_frame_chase_and_target_lock() {
             assert_eq!(out.stick, Some([e.position[0].signum(), 0.]));
         }
     }
-    let release = r.sample(true, settings(), context(73, &h), Some(enemy(73)));
-    assert_eq!(release.requested, 0);
-    assert_eq!(release.stick, Some([0.; 2]));
-    assert_eq!(
-        r.sample(true, settings(), context(74, &h), Some(enemy(74)))
-            .owned,
-        0
-    );
+    let mut owned = SEQUENCE_BUTTONS;
+    for frame in 60..=81 {
+        owned = r
+            .sample(true, settings(), context(frame, &h), Some(enemy(frame)))
+            .owned;
+    }
+    assert_eq!(owned, 0);
     assert!(r.target().is_none());
 }
 fn shield(c: GameplayContext) -> ShieldContext {
@@ -261,15 +254,14 @@ fn shield(c: GameplayContext) -> ShieldContext {
     }
 }
 #[test]
-fn configured_shield_backup_tracks_for_69_confirmed_frames_without_rechecking_start_range_or_vulnerability(
-) {
+fn authored_shield_backup_runs_its_configured_drift() {
     let b = recipe("auto_shield_backup");
     let config = AutomaticConfig {
         backup: Some(&b),
         ..Default::default()
     };
     let mut o = OutOfShield::new();
-    let mut h = history();
+    let h = history();
     let c = context(0, &h);
     let mut e = enemy(0);
     e.status = kirby_assist_core::native_states::status::WAIT;
@@ -292,8 +284,7 @@ fn configured_shield_backup_tracks_for_69_confirmed_frames_without_rechecking_st
             & MAPPER_B,
         0
     );
-    for frame in 1..70 {
-        fight_controls(&mut h, frame);
+    for frame in 1..60 {
         let c = context(frame, &h);
         let e = enemy(frame);
         let out = o.sample_automatic_configured(
@@ -310,17 +301,33 @@ fn configured_shield_backup_tracks_for_69_confirmed_frames_without_rechecking_st
             config,
         );
         assert_eq!(out.owned, SEQUENCE_BUTTONS, "frame {frame}");
-        assert_eq!(out.requested, 0);
+        assert_eq!(out.requested & MAPPER_B, 0);
         assert_eq!(out.stick, Some([e.position[0].signum(), 0.]));
     }
-    let c = context(70, &h);
+    for frame in 60..=81 {
+        let c = context(frame, &h);
+        o.sample_automatic_configured(
+            true,
+            shield(c),
+            c,
+            [None; 8],
+            Some(enemy(frame)),
+            false,
+            22.,
+            35.,
+            Some(8.),
+            settings(),
+            config,
+        );
+    }
+    let c = context(81, &h);
     assert_eq!(
         o.sample_automatic_configured(
             true,
             shield(c),
             c,
             [None; 8],
-            Some(enemy(70)),
+            Some(enemy(81)),
             false,
             22.,
             35.,
@@ -342,10 +349,7 @@ fn other_fighters_keep_movement_handback_and_literal_manual_actions_keep_the_ori
     assert_ne!(h.action_epoch(), start);
     let mut r = Response::default();
     let mut h = history();
-    let c = GameplayContext {
-        automatic_up_b_epoch: None,
-        ..context(0, &h)
-    };
+    let c = GameplayContext { ..context(0, &h) };
     assert!(r.start_up_b(recipe("auto_grab_dodged"), c, enemy(0)));
     for frame in 0..=4 {
         r.sample(
@@ -355,7 +359,6 @@ fn other_fighters_keep_movement_handback_and_literal_manual_actions_keep_the_ori
                 ..settings()
             },
             GameplayContext {
-                automatic_up_b_epoch: None,
                 status: if frame == 0 {
                     kirby_assist_core::native_states::GUARD
                 } else {
@@ -379,7 +382,6 @@ fn other_fighters_keep_movement_handback_and_literal_manual_actions_keep_the_ori
             },
             GameplayContext {
                 status: kirby_assist_core::native_states::status::SPECIAL_HI,
-                automatic_up_b_epoch: None,
                 ..context(5, &h)
             },
             Some(enemy(1))
@@ -438,52 +440,7 @@ fn chasing_never_survives_target_loss_capture_death_damage_ledge_mode_or_native_
 }
 
 #[test]
-fn bowser_up_b_protection_is_owner_specific_and_never_admits_a_new_reaction() {
-    use kirby_assist_core::action_owner::{bowser_up_b_owner, ActionOwnership, Owner};
-    for owner in [Owner::RollRead, Owner::OptionRead, Owner::OutOfShield] {
-        let flags = (
-            owner == Owner::RollRead,
-            owner == Owner::OptionRead,
-            owner == Owner::OutOfShield,
-        );
-        for current in [None, Some(owner)] {
-            assert_eq!(
-                bowser_up_b_owner(Some(15), current, flags.0, flags.1, flags.2),
-                Some(owner)
-            );
-        }
-        assert_eq!(
-            bowser_up_b_owner(Some(15), Some(Owner::Safety), flags.0, flags.1, flags.2),
-            None
-        );
-        for kind in [None, Some(5), Some(6), Some(22)] {
-            assert_eq!(
-                bowser_up_b_owner(kind, Some(owner), flags.0, flags.1, flags.2),
-                None
-            );
-        }
-        // L suspension is unconditional even when physical escape is bypassed.
-        let mut arbiter = ActionOwnership::new();
-        arbiter.set_automatic_suspended(true);
-        assert!(!arbiter.allows(owner));
-    }
-    assert_eq!(bowser_up_b_owner(Some(15), None, false, false, false), None);
-    for flags in [
-        (true, true, false),
-        (false, true, true),
-        (true, false, true),
-        (true, true, true),
-    ] {
-        assert_eq!(
-            bowser_up_b_owner(Some(15), None, flags.0, flags.1, flags.2),
-            None
-        );
-    }
-}
-
-#[test]
-fn noncanonical_configured_shield_backup_keeps_chasing_with_buttons_and_cstick() {
-    // This path runs the shared Response instead of the optimized ShieldUpB tracker.
+fn noncanonical_configured_shield_backup_runs_its_authored_drift() {
     let catalog=Catalog::parse("[bowser.roll.backup]\nstart_delay=0\ntimeout=240\nreaction=auto_shield_backup:30:12\nactions=facing_input:b:0:1:4,drift:opponent:1:30,drift:opponent:1:39\n").unwrap();
     let b = catalog.entries()[0].sequence;
     let config = AutomaticConfig {
@@ -491,7 +448,7 @@ fn noncanonical_configured_shield_backup_keeps_chasing_with_buttons_and_cstick()
         ..Default::default()
     };
     let mut o = OutOfShield::new();
-    let mut h = history();
+    let h = history();
     let c = context(0, &h);
     let mut e = enemy(0);
     e.status = kirby_assist_core::native_states::status::WAIT;
@@ -514,8 +471,7 @@ fn noncanonical_configured_shield_backup_keeps_chasing_with_buttons_and_cstick()
             & MAPPER_B,
         0
     );
-    for frame in 1..73 {
-        fight_controls(&mut h, frame);
+    for frame in 1..60 {
         let c = context(frame, &h);
         let e = enemy(frame);
         let out = o.sample_automatic_configured(
@@ -533,14 +489,14 @@ fn noncanonical_configured_shield_backup_keeps_chasing_with_buttons_and_cstick()
         );
         assert_eq!(out.owned, SEQUENCE_BUTTONS, "frame {frame}");
         if frame >= 4 {
-            assert_eq!(out.requested, 0);
+            assert_eq!(out.requested & MAPPER_B, 0);
             assert_eq!(out.stick, Some([e.position[0].signum(), 0.]));
         }
     }
 }
 
 #[test]
-fn tracking_packets_override_physical_buttons_and_sticks_in_both_layouts() {
+fn authored_drift_owns_physical_buttons_and_sticks_in_both_layouts() {
     use kirby_assist_core::{
         manual_controls::{ManualOverlay, TurboOutput},
         native_input::ButtonTrace,
@@ -548,12 +504,9 @@ fn tracking_packets_override_physical_buttons_and_sticks_in_both_layouts() {
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
         let mut overlay = ManualOverlay::default();
         let mut r = Response::default();
-        let mut h = history();
+        let h = history();
         assert!(r.start_up_b(recipe("auto_grab_dodged"), context(0, &h), enemy(0)));
-        for frame in 0..73 {
-            if frame > 0 {
-                fight_controls(&mut h, frame);
-            }
+        for frame in 0..60 {
             let out = r.sample(true, settings(), context(frame, &h), Some(enemy(frame)));
             let raw = overlay.apply_controls(
                 ButtonTrace {
@@ -585,7 +538,7 @@ fn tracking_packets_override_physical_buttons_and_sticks_in_both_layouts() {
 }
 
 #[test]
-fn button_changes_during_grounded_startup_do_not_detach_tracking_from_the_special() {
+fn fresh_startup_input_prevents_unrequested_follow_through() {
     let mut h = history();
     let rules = rules("auto_roll");
     let mut engine = Engine::default();
@@ -639,7 +592,6 @@ fn button_changes_during_grounded_startup_do_not_detach_tracking_from_the_specia
             assert_ne!(out.requested & MAPPER_B, 0, "startup frame {frame}");
         }
     }
-    fight_controls(&mut h, 4);
     let c = context(4, &h);
     let e = enemy(4);
     for out in [
@@ -659,9 +611,8 @@ fn button_changes_during_grounded_startup_do_not_detach_tracking_from_the_specia
             config,
         ),
     ] {
-        assert_eq!(out.owned, SEQUENCE_BUTTONS);
-        assert_eq!(out.requested, 0);
-        assert_eq!(out.stick, Some([-1., 0.]));
+        assert_eq!(out.owned, 0);
+        assert_eq!(out.stick, None);
     }
 }
 
@@ -797,8 +748,13 @@ fn delivered_roll_and_grab_dodge_receipts_survive_hitstop_without_resending_b() 
 }
 
 #[test]
-fn shield_receipt_after_the_four_frame_pulse_gets_all_69_drift_frames_and_no_extra_b() {
-    let b = recipe("auto_shield_backup");
+fn shielded_up_b_does_not_add_drift_when_the_recipe_has_no_drift_action() {
+    let b = Catalog::parse(
+        "[bowser.roll.backup]\nstart_delay=0\ntimeout=120\nreaction=auto_shield_backup:22:35\nactions=up_b:4\n",
+    )
+    .unwrap()
+    .entries()[0]
+        .sequence;
     let cfg = AutomaticConfig {
         backup: Some(&b),
         ..Default::default()
@@ -834,69 +790,28 @@ fn shield_receipt_after_the_four_frame_pulse_gets_all_69_drift_frames_and_no_ext
         );
         o.mapped_up_special(frame as i64, 2);
     }
-    for frame in 4..9 {
-        o.delivery_tick(frame as i64);
-        let c = GameplayContext {
-            status: kirby_assist_core::native_states::GUARD,
-            can_act: true,
-            ..context(frame, &h)
-        };
-        let out = o.sample_automatic_configured(
-            true,
-            shield(c),
-            c,
-            target(e),
-            Some(e),
-            true,
-            22.,
-            35.,
-            Some(8.),
-            settings(),
-            cfg,
-        );
-        assert_eq!(out.owned, 0);
-        assert_eq!(out.requested, 0);
-        assert!(o.up_b_receipt_pending());
-    }
-    for frame in 9..78 {
-        o.delivery_tick(frame as i64);
-        let c = context(frame, &h);
-        let e = enemy(frame);
-        let out = o.sample_automatic_configured(
-            true,
-            shield(c),
-            c,
-            [None; 8],
-            Some(e),
-            false,
-            22.,
-            35.,
-            Some(8.),
-            settings(),
-            cfg,
-        );
-        assert_eq!(out.owned, SEQUENCE_BUTTONS, "drift frame {}", frame - 9);
-        assert_eq!(out.requested, 0);
-        assert_eq!(out.stick, Some([e.position[0].signum(), 0.]));
-    }
-    let c = context(78, &h);
-    assert_eq!(
-        o.sample_automatic_configured(
-            true,
-            shield(c),
-            c,
-            [None; 8],
-            Some(enemy(78)),
-            false,
-            22.,
-            35.,
-            Some(8.),
-            settings(),
-            cfg
-        )
-        .owned,
-        0
+    let c = GameplayContext {
+        status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+        can_act: false,
+        ..context(4, &h)
+    };
+    let out = o.sample_automatic_configured(
+        true,
+        shield(c),
+        c,
+        target(e),
+        Some(e),
+        false,
+        22.,
+        35.,
+        Some(8.),
+        settings(),
+        cfg,
     );
+    assert_eq!(out.owned, 0);
+    assert_eq!(out.requested, 0);
+    assert_eq!(out.stick, None);
+    assert!(!o.shield_up_b_pending());
 }
 #[test]
 fn all_late_confirmed_sequence_tails_keep_their_full_budget_after_hitstop() {
@@ -1058,8 +973,6 @@ fn passive_receipt_scope_does_not_acquire_and_reserves_priority_without_owning_i
             kirby_assist_core::native_states::status::WAIT,
             true,
             false,
-            true,
-            false,
             false,
             false,
         )
@@ -1083,7 +996,7 @@ fn passive_receipt_scope_does_not_acquire_and_reserves_priority_without_owning_i
         (false, false, 0x1e, 0, false),
     ] {
         let scope = AutomaticObservationScope::new(
-            suspended, status, situation, true, linked, true, false, false, false,
+            suspended, status, situation, true, linked, false, false,
         )
         .with_up_b_receipt(suspended, linked, receipt, status, situation, false);
         assert!(!scope.acquire && !scope.follow);

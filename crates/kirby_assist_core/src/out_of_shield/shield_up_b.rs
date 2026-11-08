@@ -5,25 +5,17 @@ use crate::{
     native_input::{MAPPER_B, MAPPER_ZR},
     roll_read::Target,
 };
-#[path = "../fighters/bowser/shield_spin.rs"]
-mod shield_spin;
 
 #[derive(Clone, Copy)]
 pub(super) struct Timing {
     pub delivery: u8,
-    pub tracking: u8,
-    pub strength: f32,
     pub timeout: u16,
-    pub direction: crate::sequence_config::Direction,
 }
 impl Timing {
-    pub fn legacy(kind: i32) -> Self {
+    pub fn legacy() -> Self {
         Self {
             delivery: 4,
-            tracking: crate::bowser_shield_tracking::legacy_tracking_frames(kind),
-            strength: 1.,
             timeout: 120,
-            direction: crate::sequence_config::Direction::Opponent,
         }
     }
 }
@@ -33,10 +25,6 @@ pub(super) struct ShieldUpB {
     clock: NativeAttempt,
     mapped: u8,
     last_mapped: Option<i64>,
-    tracking: bool,
-    direction: f32,
-    spent_before_tracking: f32,
-    bowser: bool,
     receipt: crate::move_input::UpBReceipt,
     waiting: bool,
 }
@@ -47,10 +35,6 @@ impl ShieldUpB {
             clock: NativeAttempt::new(),
             mapped: 0,
             last_mapped: None,
-            tracking: false,
-            direction: 0.,
-            spent_before_tracking: 0.,
-            bowser: false,
             receipt: crate::move_input::UpBReceipt::new(),
             waiting: false,
         }
@@ -72,15 +56,15 @@ impl ShieldUpB {
     }
     pub fn mapped(&mut self, tick: i64, target: u32) {
         self.attempted(tick, target);
-        if self.target == Some(target) && self.bowser && !self.tracking {
+        if self.target == Some(target) {
             self.receipt.mapped(tick);
         }
     }
     pub fn delivery_started(&self) -> bool {
-        self.active() && (self.tracking || self.receipt.sent())
+        self.active() && self.receipt.sent()
     }
     pub fn receipt_pending(&self) -> bool {
-        self.active() && self.bowser && !self.tracking && self.receipt.sent()
+        self.active() && self.receipt.sent()
     }
     pub fn awaiting(&self) -> bool {
         self.receipt_pending() && self.waiting
@@ -101,9 +85,6 @@ impl ShieldUpB {
         height: f32,
         timing: Timing,
     ) -> ControllerOutput {
-        if let Some(output) = self.sample_spin(allowed, c, lc, targets, follow, timing) {
-            return output;
-        }
         let ready = c.grounded
             && !c.stopped
             && !lc.stopped
@@ -165,7 +146,6 @@ impl ShieldUpB {
                             .iter()
                             .chain(c.position.iter())
                             .all(|v| v.is_finite())
-                            && crate::reaction_rules::automatic_tracking_target_available(e.status)
                     } else {
                         valid(*e)
                     }
@@ -196,10 +176,9 @@ impl ShieldUpB {
         {
             self.waiting = true;
             return ControllerOutput::default();
-        }
+        };
         if self.target.is_none() {
             self.target = Some(enemy.id);
-            self.bowser = c.kind == crate::fighter_kinds::BOWSER;
         }
         self.clock.advance_pause(lc, Some(enemy), timing.timeout);
         if self.mapped >= timing.delivery

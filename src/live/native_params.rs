@@ -1,9 +1,0 @@
-pub(super) const PARAM_COMMON: u64 = 0x6e5ec7051;
-pub(super) const PARAM_GROUND_BRAKE: u64 = 0x0c8cc9db76;
-pub(super) const PARAM_AIR_ACCEL_Y: u64 = 0xba18057d9;
-pub(super) const PARAM_AIR_SPEED_Y_STABLE: u64 = 0x12ec5626fe;
-pub(super) const PARAM_DAMAGE_FLY_TOP_GRAVITY: u64 = 0x1a58828323;
-pub(super) const PARAM_DAMAGE_FLY_TOP_TERMINAL_SPEED: u64 = 0x1d71e21b0b;
-pub(super) const PARAM_NO_RAPID_FRAME_VALUE: u64 = 0x14459066dd;
-pub(super) const PARAM_PASSIVE_TRIGGER_FRAME: u64 = 0x15ba3cdb02;
-pub(super) const PARAM_GANON_SPECIAL_S_PASSIVE_TRIGGER_FRAME: u64 = 0x2535742c20;

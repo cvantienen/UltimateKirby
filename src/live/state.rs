@@ -1,5 +1,6 @@
 //! Shared callback state and its session-reset/cancellation rules.
 use super::*;
+use kirby_assist_core::kirby::{FairFollowup, TripFollowup};
 
 // One session for the configured controller, rather than one global session per
 // fighter. `cancel` clears assistance without changing the game's native state.
@@ -146,23 +147,6 @@ pub(super) struct State {
     pub(super) calibration: crate::calibration::Recorder,
 }
 impl State {
-    /// Protect only a committed, correctly routed Bowser automatic Up-B.
-    pub(super) fn bowser_up_b_owner(&self) -> Option<Owner> {
-        if self.fighter_kind != self.menu_fighter_kind {
-            return None;
-        }
-        kirby_assist_core::action_owner::bowser_up_b_owner(
-            self.fighter_kind,
-            self.action_owner.current_owner(),
-            self.rule_engine
-                .as_ref()
-                .is_some_and(|r| r.up_b_delivery_started()),
-            self.spot_dodge
-                .as_ref()
-                .is_some_and(|s| s.up_b_delivery_started()),
-            self.oos.up_b_delivery_started(),
-        )
-    }
     /// Keep edge histories while discarding automatic plans under ledge priority.
     pub(super) fn suspend_automatic_punishes(&mut self) {
         self.reflector.cancel();

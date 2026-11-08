@@ -11,7 +11,6 @@ mod diagnostics;
 mod file_timeline;
 pub use file_timeline::Timeline as InputTimeline;
 mod identity;
-mod types;
 mod visits;
 use crate::gameplay::{ControllerOutput, GameplayContext, Opponent};
 use crate::settings::AssistSettings;
@@ -20,7 +19,6 @@ pub use diagnostics::{
     CalibrationFrame, CalibrationKind, CalibrationMove, NativeRule, RollGrabSnapshot,
 };
 pub use identity::ResponseImplementation;
-pub use types::in_tracking_range;
 pub use visits::LedgeVisits;
 
 pub const DPAD_DOWN: u32 = crate::native_input::MAPPER_DPAD_DOWN;
@@ -58,6 +56,35 @@ pub fn sequence_interrupted(status: i32) -> bool {
 }
 fn is_hanging(status: i32) -> bool {
     (CLIFF_CATCH_MOVE..=CLIFF_WAIT).contains(&status)
+}
+
+/// Acquisition can use the actual cliff anchor instead of a hanging fighter's
+/// much lower root. Tracked opponents get a separate, bounded follow-up box.
+pub fn in_tracking_range(
+    settings: AssistSettings,
+    position: [f32; 2],
+    enemy: Opponent,
+    tracked: bool,
+) -> bool {
+    if settings.distance_agnostic {
+        return position
+            .iter()
+            .chain(enemy.position.iter())
+            .all(|value| value.is_finite());
+    }
+    let reference = if !tracked && is_hanging(enemy.status) {
+        enemy.cliff_position.unwrap_or(enemy.position)
+    } else {
+        enemy.position
+    };
+    let dx = reference[0] - position[0];
+    let dy = reference[1] - position[1];
+    let limits = if tracked {
+        [settings.follow_range, settings.follow_vertical_range]
+    } else {
+        [settings.horizontal_range, settings.vertical_range]
+    };
+    dx.is_finite() && dy.is_finite() && dx.abs() <= limits[0] && dy.abs() <= limits[1]
 }
 
 // Shared grab readiness is still used by independent helpers, not by raw

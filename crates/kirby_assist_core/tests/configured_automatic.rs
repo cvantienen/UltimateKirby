@@ -69,6 +69,21 @@ fn targets(status: i32, x: f32, y: f32) -> [Option<Target>; 8] {
     });
     out
 }
+fn opponent(status: i32, x: f32, y: f32, frame: f32) -> Opponent {
+    Opponent {
+        id: 2,
+        status,
+        position: [x, y],
+        vulnerable: true,
+        motion: Some(MotionTiming {
+            kind: 2,
+            frame,
+            rate: 1.,
+            remaining: None,
+        }),
+        ..Default::default()
+    }
+}
 fn settings(kind: i32) -> AssistSettings {
     AssistSettings {
         fighter_kind: kind,
@@ -602,7 +617,7 @@ fn editing_backup_drift_keeps_native_startup_handoff_and_uses_the_new_duration_a
             c,
             lc(c),
             targets(0, -10., 0.),
-            None,
+            Some(opponent(0, -10., 0., 0.)),
             true,
             20.,
             35.,
@@ -613,9 +628,10 @@ fn editing_backup_drift_keeps_native_startup_handoff_and_uses_the_new_duration_a
         .requested,
         MAPPER_B | MAPPER_ZR
     );
+    o.mapped_up_special(0, 2);
     for frame in 1..6 {
         let c = Context {
-            status: kirby_assist_core::native_states::status::SPECIAL_HI,
+            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
             frame: frame as f32,
             ..c
         };
@@ -625,7 +641,7 @@ fn editing_backup_drift_keeps_native_startup_handoff_and_uses_the_new_duration_a
             c,
             lc(c),
             targets(0, x, 0.),
-            None,
+            Some(opponent(0, x, 0., frame as f32)),
             true,
             20.,
             35.,
@@ -636,32 +652,43 @@ fn editing_backup_drift_keeps_native_startup_handoff_and_uses_the_new_duration_a
         assert_eq!(out.requested, 0, "native startup releases B immediately");
         assert_eq!(out.stick, Some([x.signum() * 0.5, 0.]), "frame {frame}");
     }
-    let c = Context {
-        status: kirby_assist_core::native_states::status::SPECIAL_HI,
-        frame: 6.,
-        ..c
-    };
-    assert_eq!(
-        o.sample_automatic_configured(
+    let mut owned = u32::MAX;
+    for frame in 6..=12 {
+        let c = Context {
+            status: kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+            frame: frame as f32,
+            ..c
+        };
+        let out = o.sample_automatic_configured(
             true,
             c,
             lc(c),
             targets(0, 10., 0.),
-            None,
+            Some(opponent(0, 10., 0., frame as f32)),
             true,
             20.,
             35.,
             Some(12.),
             settings(15),
-            cfg
-        )
-        .owned,
-        0
-    );
+            cfg,
+        );
+        if frame == 6 {
+            assert_eq!(
+                out.stick,
+                Some([0., 0.]),
+                "configured drift ends after five frames"
+            );
+        }
+        owned = out.owned;
+        if owned == 0 {
+            break;
+        }
+    }
+    assert_eq!(owned, 0);
 }
 
 #[test]
-fn editing_only_backup_timeout_still_bounds_the_native_tracking_path() {
+fn editing_only_backup_timeout_still_bounds_the_authored_sequence_path() {
     let mut b = recipe("auto_shield_backup", 20., 24., "up_b:4,drift:opponent:1:69");
     b.timeout = 30;
     let cfg = AutomaticConfig {
@@ -675,50 +702,55 @@ fn editing_only_backup_timeout_still_bounds_the_native_tracking_path() {
             if frame == 0 {
                 kirby_assist_core::native_states::GUARD
             } else {
-                kirby_assist_core::native_states::status::SPECIAL_HI
+                kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G
             },
             frame as f32,
         );
-        assert_ne!(
-            o.sample_automatic_configured(
-                true,
-                c,
-                lc(c),
-                targets(0, -10., 0.),
-                None,
-                true,
-                20.,
-                35.,
-                Some(12.),
-                settings(15),
-                cfg
-            )
-            .owned,
-            0
-        );
-    }
-    let c = own(
-        15,
-        kirby_assist_core::native_states::status::SPECIAL_HI,
-        30.,
-    );
-    assert_eq!(
-        o.sample_automatic_configured(
+        let out = o.sample_automatic_configured(
             true,
             c,
             lc(c),
             targets(0, -10., 0.),
-            None,
+            Some(opponent(0, -10., 0., frame as f32)),
             true,
             20.,
             35.,
             Some(12.),
             settings(15),
-            cfg
-        )
-        .owned,
-        0
-    );
+            cfg,
+        );
+        assert_ne!(out.owned, 0);
+        if frame == 0 {
+            o.mapped_up_special(0, 2);
+        }
+    }
+    let mut owned = u32::MAX;
+    for frame in 30..=35 {
+        let c = own(
+            15,
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+            frame as f32,
+        );
+        owned = o
+            .sample_automatic_configured(
+                true,
+                c,
+                lc(c),
+                targets(0, -10., 0.),
+                Some(opponent(0, -10., 0., frame as f32)),
+                true,
+                20.,
+                35.,
+                Some(12.),
+                settings(15),
+                cfg,
+            )
+            .owned;
+        if owned == 0 {
+            break;
+        }
+    }
+    assert_eq!(owned, 0);
 }
 
 #[test]

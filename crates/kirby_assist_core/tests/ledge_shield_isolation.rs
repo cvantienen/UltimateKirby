@@ -185,7 +185,7 @@ fn saved_bowser_chase_first_grab_uses_immediate_native_grab_instead_of_69_frame_
     );
     assert_eq!(
         out.requested, MAPPER_R,
-        "native dash needs no 69-frame chase"
+        "native dash needs no hidden Up-B tracking"
     );
 }
 #[test]

@@ -6,7 +6,6 @@
 //! They do not automatically read game memory or install native callbacks.
 use crate::input::ControllerFrame;
 
-/// The targeted fighter. A platform adapter must prove this from game state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FighterKind {
     Kirby,

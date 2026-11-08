@@ -44,7 +44,7 @@ Paths below are relative to the project root. Core paths begin with
 | `src/live/controller.rs` | Native controller layout, selection, offset checks, button-history reads/writes and overlay restoration. |
 | `src/live/training.rs` | Mapper Training passthrough, handoff state and menu resume. |
 | Core `training_test.rs` | Diagnostic/Training Minus-menu handoff and isolated test settings. |
-| `src/live/observations.rs` | Read-only fighter, opponent, physics, roster and floor queries. |
+| `src/live/observations.rs` / `src/live/fighter_roster.rs` | Read-only fighter, opponent, physics, roster, local-route and floor queries. |
 | `src/live/tech.rs` | Native tech eligibility and predicted contact/capture timing. |
 | `src/game_ffi.rs` | Declarations of functions supplied by Smash; their memory/calling contract. |
 | `src/logging.rs` / `src/grab_diagnostics.rs` | Diagnostic-only queued writer / bounded roll-grab recorder. |
@@ -55,7 +55,7 @@ Paths below are relative to the project root. Core paths begin with
 | Core `shared/observations/gameplay.rs` | Shared `GameplayContext`, `ControllerOutput`, opponent observations, motion timing, and recovery-frame helpers. |
 | Core `roll_read.rs` | Shared roll target facts/constants. Live roll responses use reaction_rules.rs. |
 | Core `ledge_trap.rs` | Held-trigger visit history, response selection and native action confirmation. |
-| Core `ledge_trap/types.rs` | Ledge-specific settings and opponent range checks. Shared gameplay values live in `shared/observations/gameplay.rs`. |
+| Core `ledge_trap.rs` | Ledge opponent range checks. Shared gameplay values live in `shared/observations/gameplay.rs`. |
 | Core `fighter_profiles.rs` | Shared per-fighter profile declarations, generic grab references, and startup-only file menu construction; individual public module paths remain available. |
 | Core `fighter_tuning.rs`, `fighter_tuning/schema.rs`, and `fighter_tuning/analysis.rs` | Public tuning facade, stable saved-setting/menu schema, and fighter-derived policy defaults. |
 | Core `ledge_trap/attempt.rs` | Native-progress clock for ordered input timelines. |
@@ -66,12 +66,12 @@ Paths below are relative to the project root. Core paths begin with
 | Core `shared/survival/combat_assist.rs` / `auto_di.rs` | Shared damage-hitstop SDI and DI; SDI retains compatibility exports for Kirby follow-ups. |
 | Core `fighters/kirby/` | Kirby-specific tilt-trip and forward-air follow-up input policies. |
 | Core `fighters/yoshi/jab_lock.rs` / `jab_lock.rs` | Yoshi-specific defaults and shared jab-lock policy. |
-| Core `fighters/bowser/` | Bowser Up-B ownership, delayed native startup receipt handling, shield-backup drift recipes and confirmed-spin tracking. Shared response engines retain orchestration and call these policies. |
+| Core `shared/controller/up_b_receipt.rs` | Shared bounded native-start receipt for direct automatic Up-B sequences. |
 | Core `fighters/captain_falcon/punch_duck.rs` | Legacy Falcon Punch duck candidate; live defense uses shared hitbox geometry. |
 | Core `fighters/tuning_defaults.rs` | Fighter-specific tuning visibility and legacy display defaults. |
 | Core `fighters/game_and_watch/projectile_reflect.rs` / `shared/observations/projectile_geometry.rs` | Game & Watch projectile defense and reusable swept geometry. |
 | Core `fighters/ganondorf/flame_choke.rs` | Grounded Flame Choke release detection, contact timing and tech-window selection. |
-| `src/live/fighters/` | Fighter-specific native adapters, including Bowser Up-B observation admission, Kirby follow-up lifecycle, Ganondorf capture timing, Game & Watch's reflector and Ice Climbers' partner. |
+| `src/live/fighters/` | Fighter-specific native adapters, including Kirby follow-up and duck-defense observations, Yoshi jab-lock observations and lifecycle, Ganondorf capture timing, and Game & Watch's reflector. Ice Climbers partner validation lives with the shared roster adapter. |
 | Core `native_states.rs` / `native_states/fighter/` | Shared native status rules and fighter-specific constants, interruption, and special/final-state classification. |
 | Core `shared/survival/tech_prediction.rs` / `tech_input.rs` | Pure collision timing / shield request and acknowledgment scheduling. |
 | Core `timing.rs` | Shared motion-progress classification, event deduplication, simulation-frame arithmetic and forecast overlap. No learned compensation. |

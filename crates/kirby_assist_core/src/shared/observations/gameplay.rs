@@ -113,10 +113,6 @@ pub struct GameplayContext {
     pub gameplay: bool,
     /// Changes only on fresh physical gameplay input, never simulated output.
     pub manual_input_epoch: u64,
-    /// Optional handback clock for direct automatic Up-B consumers. Bowser's
-    /// committed automatic Up-B ignores manual clocks through its drift tail;
-    /// literal ledge/button tapes still use manual_input_epoch for movement.
-    pub automatic_up_b_epoch: Option<u64>,
     /// Native readiness for this consumer's intended grounded action.
     pub can_act: bool,
     /// The assist may own inputs, including during its guard/grab/tilt animation.

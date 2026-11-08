@@ -38,24 +38,16 @@ automatic group and its searches. Safety, committed-owner and roll priority stil
 
 The unaccepted B request ends after four delivered mapper attempts or four
 native-progress frames; duplicate mapper acknowledgments do not extend it.
-It does not press a new Up-B through shieldstun or hitstop. For Bowser, an actual
-final mapped **Special + Up** packet also arms a passive native-receipt record.
-If shield hitstop/readiness changes or the four-frame pulse ends before native
-Up-B is visible, it sends no further B, owns no buttons/sticks and retains only
-punish priority and the locked target for at most 24 distinct mapper updates
-(including delivery). Native confirmation begins the configured drift without
-replaying B; the whole 69-frame drift budget remains available. Failed mapping
-cannot arm this record. Ledge L, capture/damage, target loss, an unconfirmed
-airborne transition, another native move or receipt expiry clears it.
-
-For Bowser only, confirmed native Up-B startup replaces B/Shield with up to
-**69 native-progress frames of full horizontal drift toward the tracked opponent**.
-This includes air spinning after a grounded start, follows target crossings and
-does not recheck the initial proximity or vulnerability after a hit. Native spin
-end, ledge-trap L, safety/scope changes or target loss release tracking early.
-Physical gameplay buttons and both sticks do not cancel committed Bowser Up-B
-startup or tracking; mode switches apply after that punish ends.
-No fresh airborne Up-B is started. Other fighters retain release on native startup.
+It does not press a new Up-B through shieldstun or hitstop. A mapped
+**Special + Up** packet arms a bounded, input-free native-receipt record. If
+shield hitstop/readiness changes or the four-frame pulse ends before native
+Up-B is visible, it sends no further B and retains only punish priority and the
+locked target for at most 24 distinct mapper updates (including delivery).
+Native confirmation ends the plain Up-B fallback. If the edited backup is a
+multi-action sequence, its next authored action runs after confirmation; any
+drift and its duration come from that sequence, not an automatic Bowser tail.
+Failed mapping cannot arm the receipt. Ledge L, capture/damage, target loss, an
+unconfirmed airborne transition, another native move or receipt expiry clears it.
 
 ## Current automatic grabs
 
@@ -140,9 +132,9 @@ competing scripts cannot add Up/B while that receipt is unresolved.
 
 New reactions are observed only during controllable grounded movement, ordinary
 landing or ready shield. Attack recovery, dodge/roll, shieldstun, tumble and
-capture do not admit fresh checks. A confirmed response may follow its locked
-opponent through its own configured action; confirmed Bowser Up-B keeps its air
-tracking. Capture links exclude both actors from ordinary automatic acquisition.
+capture do not admit fresh checks. A confirmed response may follow its locked opponent through its own configured
+sequence. Up-B has no fighter-specific tracking tail; add follow-through to the
+sequence file if desired. Capture links exclude both actors from ordinary automatic acquisition.
 
 A nonshielding aerial can qualify for your shield grab when the front-side,
 grabbability, X/Y and startup-reach checks pass. If no legal grab wins, a

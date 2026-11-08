@@ -39,7 +39,6 @@ use kirby_assist_core::{
  out_of_shield::OutOfShield,projectile_reflect::Reflector,
  grab_handoff::GrabHandoff,tech_input::TechOutput,
 };
-mod bowser_up_b {pub fn reserve_receipt(kind:Option<i32>,waiting:bool)->bool{kind==Some(kirby_assist_core::fighter_kinds::BOWSER)&&waiting}}
 #[derive(Default)]struct Menu {builtin_consumed:u32,preview:Option<PresetSlot>,rules:Option<Box<kirby_assist_core::reaction_rules::Resolved>>}
 impl Menu {fn rule_config(&self)->Option<&kirby_assist_core::reaction_rules::Resolved>{self.rules.as_deref()}fn preview_slot(&self)->Option<PresetSlot>{self.preview}fn finish_preview(&mut self){self.preview=None;}}
 #[derive(Default)]struct State {

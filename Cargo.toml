@@ -1666,6 +1666,12 @@ Removes the temporary one-match probe and its build/upload plumbing; removes led
 Removes the retired ledge-trump mode, global config key and scenario identity, leaving the assignable built-in as the only trigger. Renames the unrelated L3 menu control so it is distinct from gameplay button bindings.
 
 Moves separate test-only source files into package test directories while preserving unit-test access and runtime behavior.
+
+Consolidates related roster observations, manual input handoffs, ledge range checks and Bowser shield helpers without changing behavior.
+
+Moves Kirby follow-up and defense observations, Yoshi jab-lock observation and lifecycle, and Bowser admission gates into fighter-specific live adapters.
+
+Removes Bowser-only Up-B tracking and ownership; Up-B follow-through now comes only from authored sequence actions.
 """
 
 

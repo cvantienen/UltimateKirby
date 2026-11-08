@@ -9,10 +9,8 @@
 //! names several buttons at once; `owned` includes intentional releases.
 use crate::native_input::{ButtonTrace, MapperButtonOverlay};
 
-mod jump_fence;
-pub use jump_fence::ManualJumpFence;
 mod assist_handoff;
-pub use assist_handoff::AssistGuardHandoff;
+pub use assist_handoff::{AssistGuardHandoff, ManualJumpFence};
 pub const TURBO_TRIGGER: u32 = 1 << 16; // Canonical turbo role; physical source comes from button bindings.
 pub const DPAD_UP: u32 = crate::native_input::MAPPER_DPAD_UP;
 pub const DPAD_RIGHT: u32 = crate::native_input::MAPPER_DPAD_RIGHT;

@@ -326,23 +326,11 @@ fn duplicate_observations_do_not_exhaust_neutral_acceptance_wait_but_real_mapper
 }
 
 #[test]
-fn confirmed_up_b_tracks_for_69_native_frames_and_can_follow_air_spin() {
+fn authored_up_b_drift_runs_for_its_configured_native_frames() {
     let mut dodge = accepted();
     assert_eq!(punish(&mut dodge, own(0., 0)).requested, MAPPER_B);
-    for frame in 1..4 {
-        assert_eq!(
-            punish(
-                &mut dodge,
-                own(
-                    frame as f32,
-                    kirby_assist_core::native_states::status::SPECIAL_HI,
-                ),
-            )
-            .requested,
-            MAPPER_B
-        );
-    }
-    for frame in 4..73 {
+    dodge.mapped_up_special(0, 2);
+    for frame in 1..=69 {
         let x = if frame % 2 == 0 { 10. } else { -10. };
         let e = Opponent {
             position: [x, 0.],
@@ -353,10 +341,18 @@ fn confirmed_up_b_tracks_for_69_native_frames_and_can_follow_air_spin() {
             Some(&recipe()),
             settings(),
             GameplayContext {
-                situation: kirby_assist_core::native_states::situation::AIR,
+                situation: if frame < 20 {
+                    kirby_assist_core::native_states::situation::GROUND
+                } else {
+                    kirby_assist_core::native_states::situation::AIR
+                },
                 ..own(
                     frame as f32,
-                    kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+                    if frame < 20 {
+                        kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G
+                    } else {
+                        kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A
+                    },
                 )
             },
             Some(e),
@@ -364,12 +360,33 @@ fn confirmed_up_b_tracks_for_69_native_frames_and_can_follow_air_spin() {
         assert_eq!(out.requested, 0, "frame {frame}");
         assert_eq!(out.stick, Some([x.signum(), 0.]), "frame {frame}");
     }
+    let tail = dodge.punish_automatic(
+        true,
+        Some(&recipe()),
+        settings(),
+        GameplayContext {
+            situation: kirby_assist_core::native_states::situation::AIR,
+            ..own(
+                70.,
+                kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
+            )
+        },
+        Some(enemy(70., 0)),
+    );
+    assert_eq!(tail.stick, Some([0., 0.]));
     assert_eq!(
-        punish(
-            &mut dodge,
-            own(73., kirby_assist_core::native_states::status::SPECIAL_HI)
-        )
-        .requested,
+        dodge
+            .punish_automatic(
+                true,
+                Some(&recipe()),
+                settings(),
+                own(
+                    71.,
+                    kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
+                ),
+                Some(enemy(71., 0)),
+            )
+            .requested,
         0
     );
     assert!(!dodge.direct_up_b());

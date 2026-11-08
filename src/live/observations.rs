@@ -452,7 +452,7 @@ pub(super) unsafe fn rule_targets(
     grab_range: Option<[f32; 2]>,
     shield_fallback: bool,
     watch_events: bool,
-    spin_follow: bool,
+    sequence_follow: bool,
 ) -> (
     [Option<kirby_assist_core::roll_read::Target>; 8],
     Option<Opponent>,
@@ -466,7 +466,7 @@ pub(super) unsafe fn rule_targets(
     if !watch_events && grab_range.is_none() {
         return (
             targets,
-            follow.and_then(|id| rule_follow(reads, own, own_id, id, spin_follow)),
+            follow.and_then(|id| rule_follow(reads, own, own_id, id, sequence_follow)),
         );
     }
 
@@ -498,9 +498,9 @@ pub(super) unsafe fn rule_targets(
         }
         let available = kirby_assist_core::reaction_rules::automatic_target_available(status);
         if !available
-            && !(spin_follow
+            && !(sequence_follow
                 && follow == Some(id)
-                && kirby_assist_core::reaction_rules::automatic_tracking_target_available(status))
+                && kirby_assist_core::reaction_rules::automatic_follow_target_available(status))
         {
             continue;
         }
@@ -606,7 +606,7 @@ unsafe fn rule_follow(
     own: *mut game::Object,
     own_id: u32,
     id: u32,
-    spin: bool,
+    sequence_follow: bool,
 ) -> Option<Opponent> {
     if id == own_id
         || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
@@ -624,11 +624,10 @@ unsafe fn rule_follow(
     {
         return None;
     }
-    if !(if spin {
-        kirby_assist_core::reaction_rules::automatic_tracking_target_available(status)
-    } else {
-        kirby_assist_core::reaction_rules::automatic_target_available(status)
-    }) || reads.capture_link(e)
+    if !(kirby_assist_core::reaction_rules::automatic_target_available(status)
+        || sequence_follow
+            && kirby_assist_core::reaction_rules::automatic_follow_target_available(status))
+        || reads.capture_link(e)
     {
         return None;
     }
@@ -679,7 +678,7 @@ pub(super) unsafe fn battle_menu_ready_go() -> Option<bool> {
 }
 #[path = "fighter_roster.rs"]
 mod fighter_roster;
-pub(super) use fighter_roster::fighter_ids;
+pub(super) use fighter_roster::{fighter_ids, human_fighter, valid_local_route};
 
 // Prefer the tracked opponent through its get-up; selection uses the existing
 // bounded follow box. All stage preparation queries are ground-only.
@@ -915,10 +914,6 @@ pub(super) unsafe fn nearest_ledge_opponent(
     nearest.map(|(_, opponent)| opponent)
 }
 
-// Entry membership alone does not prove that this actor owns local input.
-#[path = "local_fighter.rs"]
-mod local_fighter;
-pub(super) use local_fighter::{human_fighter, valid_local_route};
 extern "C" {
     #[link_name = "\u{1}_ZN3app7fighter20get_fighter_entry_idEj"]
     fn game_entry_id(object_id: u32) -> i32;

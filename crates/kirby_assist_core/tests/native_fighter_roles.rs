@@ -138,10 +138,9 @@ unsafe fn game_entry_id(id: u32) -> i32 {
             .map_or(-1, |a| a.entry)
     })
 }
-#[path = "../../../src/live/local_fighter.rs"]
-mod local_fighter;
 #[path = "../../../src/live/fighter_roster.rs"]
 mod roster;
+use roster as local_fighter;
 fn reset() {
     WORLD.with(|w| *w.borrow_mut() = World::new());
 }

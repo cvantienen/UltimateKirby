@@ -18,7 +18,7 @@
 // 3. examples/walkthrough.rs: a complete, pretend frame loop on your computer.
 // 4. live_input.rs: mash/tech scheduling; manual_controls.rs: D-pad tools.
 // 5. ledge_trap.rs: the larger state machine, backed by ledge_trap/tests.rs.
-//    ledge_trap/types.rs defines its data; its response files contain recipes.
+//    ledge_trap.rs contains its range checks and response routing.
 //    sequence_config/parser.rs loads and validates the startup recipe file.
 // See docs/CODE_MAP.md for module responsibilities and docs/FIGHTER_CONFIGS.md
 // for compiled fighter catalogs.
@@ -55,12 +55,8 @@ pub mod state;
 pub mod timing;
 
 // Fighter-specific reference facts, move data, and startup catalogs.
-#[path = "fighters/bowser/ownership.rs"]
-mod bowser_ownership;
-#[path = "fighters/bowser/shield_tracking.rs"]
-mod bowser_shield_tracking;
-#[path = "fighters/bowser/up_b_receipt.rs"]
-mod bowser_up_b_receipt;
+#[path = "shared/controller/up_b_receipt.rs"]
+mod up_b_receipt;
 pub mod fighter_kinds;
 pub mod fighter_profiles;
 pub mod fighter_tuning;

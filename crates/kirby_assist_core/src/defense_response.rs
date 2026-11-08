@@ -155,7 +155,7 @@ impl Response {
         self.automatic_up_b = true;
         self.configured = true;
         self.up_b_from_dodge = c.status == crate::native_states::ESCAPE;
-        self.manual_epoch = c.automatic_up_b_epoch.unwrap_or(c.manual_input_epoch);
+        self.manual_epoch = c.manual_input_epoch;
         true
     }
     /// Commit an explicitly configured automatic response. Native Up-B keeps
@@ -234,13 +234,6 @@ impl Response {
             self.suspend();
             return ControllerOutput::default();
         }
-        let tracking = crate::bowser_up_b_receipt::tracking(
-            settings.fighter_kind,
-            self.automatic_up_b,
-            self.up_b_seen,
-            || crate::reaction_rules::native_up_b_started(settings.fighter_kind, c),
-            self.receipt.sent(),
-        );
         if self.configured
             && enemy.is_none_or(|e| {
                 Some(e.id) != self.target
@@ -250,8 +243,8 @@ impl Response {
                         .chain(c.position.iter())
                         .all(|v| v.is_finite())
                     || !(crate::reaction_rules::automatic_target_available(e.status)
-                        || tracking
-                            && crate::reaction_rules::automatic_tracking_target_available(e.status))
+                        || self.plan.is_some()
+                            && crate::reaction_rules::automatic_follow_target_available(e.status))
             })
         {
             self.suspend();
@@ -259,8 +252,7 @@ impl Response {
         }
         if self.automatic_up_b && self.plan.is_some() {
             let native = crate::reaction_rules::native_up_b_started(settings.fighter_kind, c);
-            match crate::bowser_up_b_receipt::evaluate(
-                settings.fighter_kind,
+            match crate::up_b_receipt::evaluate(
                 self.up_b_seen,
                 native,
                 self.waiting_up_b,
@@ -269,20 +261,20 @@ impl Response {
                 &self.receipt,
                 &self.delivery,
             ) {
-                crate::bowser_up_b_receipt::ReceiptAction::Confirm => {
+                crate::up_b_receipt::ReceiptAction::Confirm => {
                     if let Some(enemy) = enemy.filter(|e| Some(e.id) == self.target) {
                         self.plan.as_mut().unwrap().confirm_initial_up_b(c, enemy);
                     }
                 }
-                crate::bowser_up_b_receipt::ReceiptAction::Cancel => {
+                crate::up_b_receipt::ReceiptAction::Cancel => {
                     self.cancel();
                     return ControllerOutput::default();
                 }
-                crate::bowser_up_b_receipt::ReceiptAction::Wait => {
+                crate::up_b_receipt::ReceiptAction::Wait => {
                     self.waiting_up_b = true;
                     return ControllerOutput::default();
                 }
-                crate::bowser_up_b_receipt::ReceiptAction::Continue => {}
+                crate::up_b_receipt::ReceiptAction::Continue => {}
             }
             self.up_b_seen |= native;
             let interrupted_by_status = matches!(
@@ -333,8 +325,7 @@ impl Response {
             self.cancel();
             return ControllerOutput::default();
         }
-        let manual = crate::bowser_up_b_receipt::manual_handback(
-            settings.fighter_kind,
+        let manual = crate::up_b_receipt::manual_handback(
             self.automatic_up_b,
             self.up_b_seen,
             c,
@@ -355,11 +346,7 @@ impl Response {
             && (manual && plan.drifting()
                 || !self.up_b_seen && output.requested & crate::native_input::MAPPER_B == 0)
         {
-            if crate::bowser_up_b_receipt::pending(
-                settings.fighter_kind,
-                self.up_b_seen,
-                self.receipt.sent(),
-            ) {
+            if crate::up_b_receipt::pending(self.up_b_seen, self.receipt.sent()) {
                 self.waiting_up_b = true;
                 return ControllerOutput::default();
             }

@@ -115,13 +115,12 @@ mod manual_native_wiring {
   settings_menu:Option<Menu>,manual_jump_fence:ManualJumpFence,
   ledge:Option<kirby_assist_core::ledge_trap::LedgeTrap>,oos:OutOfShield,spot_dodge:Option<SpotDodge>,
   tech_output:kirby_assist_core::tech_input::TechOutput,mash_stick:Option<[f32;2]>,
-  grab_handoff:GrabHandoff,action_owner:ActionOwnership,delivered_spin:bool,ledge_active:bool,
+  grab_handoff:GrabHandoff,action_owner:ActionOwnership,ledge_active:bool,
  }
  impl NativeState {
   fn new()->Self {Self {settings_menu:Some(Menu{actions:0,reserved:false}),manual_jump_fence:ManualJumpFence::new(),
    ledge:None,oos:OutOfShield::new(),spot_dodge:None,tech_output:Default::default(),mash_stick:None,
-   grab_handoff:GrabHandoff::new(),action_owner:ActionOwnership::new(),delivered_spin:false,ledge_active:false}}
-  fn bowser_up_b_owner(&self)->Option<Owner>{self.delivered_spin.then_some(Owner::RollRead)}
+   grab_handoff:GrabHandoff::new(),action_owner:ActionOwnership::new(),ledge_active:false}}
  }
  fn blocked(state:&mut NativeState,context:GameplayContext)->bool {
   let object_id=1;let fighter_kind=15;
@@ -132,7 +131,7 @@ mod manual_native_wiring {
   manual_automatic_blocked
  }
  fn c()->GameplayContext{GameplayContext{gameplay:true,motion_kind:1,motion_rate:1.,..Default::default()}}
- #[test]fn actual_live_guard_respects_jump_release_and_confirmed_spin() {
+ #[test]fn actual_live_guard_respects_manual_jump_fence() {
   let mut s=NativeState::new();assert!(!blocked(&mut s,c()));
   s.settings_menu.as_mut().unwrap().actions=MAPPER_X;
   assert!(blocked(&mut s,c()));
@@ -140,9 +139,6 @@ mod manual_native_wiring {
   for _ in 0..100 {assert!(blocked(&mut s,c()));}
   assert!(!blocked(&mut s,GameplayContext{status:0xa,..c()}));
   assert!(!blocked(&mut s,c()));
-  s.delivered_spin=true;s.settings_menu.as_mut().unwrap().actions=MAPPER_A;
-  assert!(blocked(&mut s,c()),"a delivered packet is not native spin confirmation");
-  assert!(!blocked(&mut s,GameplayContext{status:0x1de,..c()}),"real Bowser spin keeps tracking");
  }
  #[test]fn active_sequences_ignore_manual_binding_edges_without_priming_a_late_jump() {
   for owner in [Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Reflect,Owner::Ledge] {

@@ -74,7 +74,7 @@ fn native_grab_recipe(s: &Sequence) -> bool {
         && s.timeout >= 24
         && grab.is_some_and(|a| literal_input(a, MAPPER_R, [0.; 2], 4))
 }
-fn backup_timing(s: &Sequence, kind: i32) -> Option<super::shield_up_b::Timing> {
+fn backup_timing(s: &Sequence) -> Option<super::shield_up_b::Timing> {
     if s.start_delay != 0 || s.timeout < 24 {
         return None;
     }
@@ -87,25 +87,13 @@ fn backup_timing(s: &Sequence, kind: i32) -> Option<super::shield_up_b::Timing> 
     if frames == 0 || !literal_input(&s.actions()[0], MAPPER_B, [0., 1.], frames) {
         return None;
     }
-    let mut timing = super::shield_up_b::Timing {
+    if s.actions().len() != 1 {
+        return None;
+    }
+    Some(super::shield_up_b::Timing {
         delivery: frames,
-        tracking: 0,
-        strength: 1.,
         timeout: s.timeout,
-        direction: Direction::Opponent,
-    };
-    if s.actions().len() == 1 {
-        return Some(timing);
-    }
-    if let Some((frames, strength, direction)) =
-        crate::bowser_shield_tracking::tracking(kind, s.actions())
-    {
-        timing.tracking = frames;
-        timing.strength = strength;
-        timing.direction = direction;
-        return Some(timing);
-    }
-    None
+    })
 }
 fn copied(t: crate::roll_read::Target) -> Opponent {
     Opponent {
@@ -154,9 +142,8 @@ impl OutOfShield {
                 c.status,
                 crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
             );
-        let backup_timing = config.backup.and_then(|s| backup_timing(s, c.kind));
-        let native_timing =
-            backup_timing.unwrap_or_else(|| super::shield_up_b::Timing::legacy(c.kind));
+        let backup_timing = config.backup.and_then(backup_timing);
+        let native_timing = backup_timing.unwrap_or_else(super::shield_up_b::Timing::legacy);
         if self.configured_response
             && !self.configured_backup
             && self.configured_grab_wait

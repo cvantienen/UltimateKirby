@@ -18,9 +18,9 @@ pub fn automatic_target_available(status: i32) -> bool {
         && !crate::native_states::captured_or_scripted(status)
         && !matches!(status,crate::native_states::status::CATCH_PULL|crate::native_states::status::CATCH_DASH_PULL|crate::native_states::status::CATCH_WAIT..=crate::native_states::status::THROW|crate::native_states::status::CLIFF_CATCH_MOVE..=crate::native_states::status::CLIFF_JUMP3|crate::native_states::status::DEAD|crate::native_states::status::REBIRTH)
 }
-/// Position-only following of an already confirmed spin may continue through
-/// a target's ledge grab/invulnerability. This never admits a new attack/grab.
-pub fn automatic_tracking_target_available(status: i32) -> bool {
+/// An existing authored sequence may keep reading its locked target through
+/// ledge invulnerability; it cannot acquire or retarget an attack there.
+pub fn automatic_follow_target_available(status: i32) -> bool {
     automatic_target_available(status)
         || (crate::native_states::status::CLIFF_CATCH_MOVE
             ..=crate::native_states::status::CLIFF_JUMP3)
@@ -54,8 +54,6 @@ impl AutomaticObservationScope {
         situation: i32,
         stopped: bool,
         linked: bool,
-        committed_up_b: bool,
-        native_up_b: bool,
         assisted_dodge: bool,
         committed_sequence: bool,
     ) -> Self {
@@ -64,10 +62,9 @@ impl AutomaticObservationScope {
         }
         Self {
             acquire: automatic_start_allowed(status, situation, stopped, false),
-            follow: committed_up_b && native_up_b
-                || assisted_dodge
-                    && situation == crate::native_states::situation::GROUND
-                    && status == crate::native_states::ESCAPE
+            follow: assisted_dodge
+                && situation == crate::native_states::situation::GROUND
+                && status == crate::native_states::ESCAPE
                 || committed_sequence
                     && automatic_target_available(status)
                     && !crate::action_owner::native_grab_active(status)

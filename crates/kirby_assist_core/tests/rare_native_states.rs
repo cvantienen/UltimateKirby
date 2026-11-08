@@ -129,8 +129,6 @@ fn shield_break_sleep_bind_bury_freeze_and_special_captures_abort_without_resumi
                 stopped,
                 false,
                 false,
-                false,
-                false,
                 true,
             );
             assert!(!scope.acquire && !scope.follow, "status {status:#x}");

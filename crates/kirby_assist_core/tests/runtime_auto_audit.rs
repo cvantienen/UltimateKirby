@@ -165,36 +165,30 @@ fn native_confirmation_wins_at_delivery_limit_and_preserves_all_69_drift_frames(
     for frame in 1..4 {
         let c = own(
             frame as f32,
-            kirby_assist_core::native_states::status::SPECIAL_HI,
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
         );
-        assert_eq!(
-            engine
-                .sample_simple(
-                    true,
-                    &rules,
-                    settings(),
-                    c,
-                    [None; 8],
-                    Some(enemy(frame as f32))
-                )
-                .requested,
-            MAPPER_B
+        let started = engine.sample_simple(
+            true,
+            &rules,
+            settings(),
+            c,
+            [None; 8],
+            Some(enemy(frame as f32)),
         );
-        assert_eq!(
-            response
-                .sample(true, settings(), c, Some(enemy(frame as f32)))
-                .requested,
-            MAPPER_B
-        );
+        assert_eq!(started.requested, 0);
+        assert_eq!(started.stick, Some([1., 0.]));
+        let confirmed = response.sample(true, settings(), c, Some(enemy(frame as f32)));
+        assert_eq!(confirmed.requested, 0);
+        assert_eq!(confirmed.stick, Some([1., 0.]));
         engine.mapped_up_special(frame, 2);
         response.mapped_up_special(frame, 2);
     }
-    for frame in 4..73 {
+    for frame in 4..70 {
         let c = GameplayContext {
             situation: kirby_assist_core::native_states::situation::AIR,
             ..own(
                 frame as f32,
-                kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_G,
+                kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
             )
         };
         let a = engine.sample_simple(
@@ -211,18 +205,54 @@ fn native_confirmation_wins_at_delivery_limit_and_preserves_all_69_drift_frames(
         assert_eq!(a.requested, 0);
         assert_eq!(b.requested, 0);
     }
+    let tail = response.sample(
+        true,
+        settings(),
+        GameplayContext {
+            situation: kirby_assist_core::native_states::situation::AIR,
+            ..own(
+                70.,
+                kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
+            )
+        },
+        Some(enemy(70.)),
+    );
+    assert_eq!(tail.stick, Some([0., 0.]));
+    assert_eq!(
+        response
+            .sample(
+                true,
+                settings(),
+                GameplayContext {
+                    situation: kirby_assist_core::native_states::situation::AIR,
+                    ..own(
+                        71.,
+                        kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
+                    )
+                },
+                Some(enemy(71.)),
+            )
+            .owned,
+        0
+    );
     engine.sample_simple(
         true,
         &rules,
         settings(),
-        own(73., kirby_assist_core::native_states::status::SPECIAL_HI),
+        own(
+            73.,
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
+        ),
         [None; 8],
         Some(enemy(73.)),
     );
     response.sample(
         true,
         settings(),
-        own(73., kirby_assist_core::native_states::status::SPECIAL_HI),
+        own(
+            73.,
+            kirby_assist_core::native_states::fighter_status::KOOPA_SPECIAL_HI_A,
+        ),
         Some(enemy(73.)),
     );
     assert!(!engine.committed());

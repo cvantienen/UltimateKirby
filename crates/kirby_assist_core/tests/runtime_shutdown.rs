@@ -218,6 +218,18 @@ fn startup_and_reconnect_require_fresh_matching_ownership_without_allocating_a_m
 
 mod game {
     pub type Object = u8;
+    pub unsafe fn entry_count(_: *mut Object) -> i32 {
+        unreachable!("roster enumeration is outside this test")
+    }
+    pub unsafe fn entry_id(_: *mut Object, _: i32) -> i32 {
+        unreachable!("roster enumeration is outside this test")
+    }
+    pub unsafe fn fighter_kind(_: u32) -> i32 {
+        unreachable!("partner enumeration is outside this test")
+    }
+    pub unsafe fn work_int(_: *mut Object, _: i32) -> i32 {
+        unreachable!("partner enumeration is outside this test")
+    }
     pub unsafe fn battle_object_id(object: *mut Object) -> u32 {
         object.add(8).cast::<u32>().read()
     }
@@ -246,6 +258,9 @@ static HUMAN: AtomicBool = AtomicBool::new(true);
 unsafe fn fighter_manager_instance() -> Option<*mut game::Object> {
     Some(std::ptr::NonNull::dangling().as_ptr())
 }
+unsafe fn active_fighter_manager() -> Option<*mut game::Object> {
+    unreachable!("roster enumeration is outside this test")
+}
 unsafe fn game_entry_id(id: u32) -> i32 {
     if id == 7 {
         0
@@ -253,7 +268,7 @@ unsafe fn game_entry_id(id: u32) -> i32 {
         -1
     }
 }
-#[path = "../../../src/live/local_fighter.rs"]
+#[path = "../../../src/live/fighter_roster.rs"]
 mod local_fighter;
 
 #[test]

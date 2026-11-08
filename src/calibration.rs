@@ -899,7 +899,6 @@ mod tests {
             held: true,
             gameplay: true,
             manual_input_epoch: 0,
-            automatic_up_b_epoch: None,
             can_act: true,
             can_control: true,
             stopped: false,

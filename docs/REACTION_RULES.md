@@ -22,8 +22,9 @@ The first three and grab-dodge follow-up currently send Up-B for four frames,
 then up to 69 drift frames toward the opponent. The two grab recipes send
 `input:r:0:0:4`; unshielded grabs retain their existing movement preparation but
 send neutral stick during the Grab request. Shield backup retains immediate native-startup
-handoff to Bowser's 69-frame tracking. These are the exact current file values;
-the configuration migration did not retune them.
+handoff to the next authored action. These are the exact current file values;
+the configuration migration did not retune them. Any drift after Up-B comes
+from the recipe's configured actions.
 
 Training: **Assist modes → Auto react → L3/R3** shows the whole group. The
 Automatic grabs and Grab avoidance rows also open their relevant subsets. On
@@ -100,18 +101,17 @@ changes are made.
 Unconfirmed automatic Up-B also has a 24-distinct-mapper-attempt fallback
 limit, so frozen native clocks cannot hold B/Up forever. Duplicate observations
 and duplicate/wrong-target receipts do not spend it. Native startup confirmation
-disables this watchdog; ordinary input duration and tracking timing are unchanged.
-There is no wait before the first request. Leaving the ground before native
-startup is confirmed cancels B/Up rather than allowing a stray airborne Up-B;
-confirmed startup still permits its configured air-spin tracking.
+disables this watchdog and advances to the next authored sequence action. There
+is no wait before the first request. Leaving the ground before native startup
+is confirmed cancels B/Up rather than allowing a stray airborne Up-B.
 
 For a direct Up-B Auto react recipe, follow-through movement requires observed
 native Up-B startup. If startup is not recognized before horizontal follow-through,
 the response cancels instead of becoming a walking chase; it does not add a retry
-or waiting phase. Generic Up-B entry and Bowser's ground/air spinning states are
+or waiting phase. Generic Up-B entry and fighter-specific native continuations are
 recognized. An observed roll/jump/wrong special cancels that response, and its
-drift ends once ordinary movement/shield/fall control resumes. Fresh physical
-input also releases the optional drift tail once native Up-B is confirmed,
+authored drift ends once ordinary movement/shield/fall control resumes. Fresh
+physical input also releases the optional drift tail after native Up-B is confirmed,
 including on the first drift observation; the critical initial B pulse stays
 protected. The consumed dodge is not replayed. All ledge/button tapes also release immediately in native grab/catch/hold/
 pummel/throw states, so they cannot select a throw or resume an old punish. Other custom
@@ -122,14 +122,7 @@ R-grab's native Guard/Attack components, and explicit OOS shield remain intact.
 Authored ledge/button inputs retain their normal behavior outside native grab
 interactions.
 
-A committed automatic Bowser Up-B ignores physical buttons and both sticks
-through its configured tracking tail, including during grounded startup. This
-covers enemy rolls/dodges, the grab-dodge follow-up and shield backup. Ledge-trap L
-still stops it immediately; native move end, damage, invalid targets and scene
-safety still release ownership. Opening/closing the menu or switching a mode off
-cannot cut this tracking; OFF prevents the next punish.
-
-Outside that Bowser exception, holding a fixed native jump trigger suspends automatic punish modes and cancels
+Holding a fixed native jump trigger suspends automatic punish modes and cancels
 their input ownership: ZL on Default, R/ZR on Brother. A fresh native shield press
 also cancels an active automatic Up-B response (Auto react, grab-dodge follow-up
 or shield backup), except during its initial grounded
@@ -459,13 +452,13 @@ ledge/button input histories are unchanged.
 
 ### Late native Up-B confirmation
 
-Bowser's automatic Up-B paths retain an input-free receipt after a verified final
+Automatic Up-B responses retain an input-free receipt after a verified final
 mapped Special+Up packet. Shield hitstop, readiness loss and a late native status
-change can then hand into the configured tracking instead of discarding it.
+change can then continue the already-started sequence instead of discarding it.
 Only the locked opponent is followed during unactable shield recovery; no new
 reaction is admitted there. The receipt reserves automatic-punish priority but
 owns no gameplay inputs, expires after 24 distinct mapper updates, and never
-retries B. Native confirmation resumes after the already delivered B step with
-the next authored step's full duration. Target loss/capture, damage, other moves,
-an unconfirmed airborne transition and ledge-trap L still cancel it. Failed
+retries B. Native confirmation advances past the delivered B step to the next
+authored action. Target loss/capture, damage, other moves, an unconfirmed
+airborne transition and ledge-trap L still cancel it. Failed
 mapper attempts retain their old delivery bound and cannot arm a receipt.

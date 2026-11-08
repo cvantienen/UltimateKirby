@@ -57,13 +57,12 @@ to end. The first actionable observation must still have the original grabber
 within the saved X/Y range; a miss is discarded rather than queued for later.
 Airborne starts, target loss/capture, damage and higher-priority safety ownership
 cancel it. Before a punish commits, manual takeover and mode OFF also cancel it.
-Committed automatic Bowser Up-B ignores physical buttons and both sticks through
-its tracking tail; ledge-trap L still cancels immediately. Mode OFF prevents the
-next punish. Once native Up-B is confirmed, its drift can follow Bowser's air spin. A new grab warning cannot interrupt that committed punish.
-Native grab/catch/hold/pummel/throw states release the entire plan so throwing
-remains manual. If clocks freeze before native Up-B starts, 24 distinct delivered
-mapper attempts bound its input; duplicate/wrong-target receipts do not count.
-Native confirmation disables that watchdog, preserving the full tracking tail.
+After Up-B starts, only actions authored in the response sequence run; there is no
+Bowser-specific air-spin tracking. A new grab warning cannot interrupt that
+committed sequence. Native grab/catch/hold/pummel/throw states release the entire
+plan so throwing remains manual. If clocks freeze before native Up-B starts, 24
+distinct delivered mapper attempts bound its input; duplicate/wrong-target
+receipts do not count. Native confirmation advances to the next authored action.
 Leaving the floor before native startup is confirmed cancels B/Up; a prior
 grounded request alone never authorizes a fresh airborne special.
 
