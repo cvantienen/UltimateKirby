@@ -55,7 +55,7 @@ pub(super) struct State {
     pub(super) action_owner: ActionOwnership,
     #[cfg(feature = "diagnostic-logging")]
     pub(super) last_movement_blocker: Option<Owner>,
-    #[cfg(any(feature = "diagnostic-logging", feature = "silent-probe"))]
+    #[cfg(feature = "diagnostic-logging")]
     pub(super) last_input_expired: bool,
     pub(super) fair_followup: Option<FairFollowup>,
     pub(super) fair_output: ControllerOutput,
@@ -350,7 +350,7 @@ impl State {
             action_owner: ActionOwnership::new(),
             #[cfg(feature = "diagnostic-logging")]
             last_movement_blocker: None,
-            #[cfg(any(feature = "diagnostic-logging", feature = "silent-probe"))]
+            #[cfg(feature = "diagnostic-logging")]
             last_input_expired: false,
             fair_followup: None,
             fair_output: ControllerOutput {
@@ -510,10 +510,6 @@ impl State {
         self.posture_side_aliases = Default::default();
         self.posture_floor_safe = false;
         self.action_owner = ActionOwnership::new();
-        #[cfg(feature = "silent-probe")]
-        {
-            self.last_input_expired = false;
-        }
         #[cfg(feature = "diagnostic-logging")]
         {
             self.last_movement_blocker = None;
@@ -580,10 +576,6 @@ impl State {
         self.reflector = kirby_assist_core::projectile_reflect::Reflector::new();
         self.reflect_output = ControllerOutput::default();
         self.action_owner = ActionOwnership::new();
-        #[cfg(feature = "silent-probe")]
-        {
-            self.last_input_expired = false;
-        }
         #[cfg(feature = "diagnostic-logging")]
         {
             self.last_movement_blocker = None;

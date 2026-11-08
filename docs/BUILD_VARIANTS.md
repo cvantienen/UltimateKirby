@@ -20,45 +20,6 @@ Keep the maintained docs aligned with changes. Append a short change summary to
 packager reads the accumulated description verbatim; it does not replace it
 with a newly written summary.
 
-## Temporary one-match silent probe
-
-Explicit exception to normal silent logging: build with
-`python3 tools/build_variants.py -v silent --silent-probe`. This only builds and
-packages; upload separately using the usual silent route. The release summary,
-config header and validation manifest identify this temporary build. The uploader
-requires the matching temporary summary when the probe marker is present.
-
-On successful plugin setup, a separate 64KiB-stack worker exclusively creates
-`sd:/ultimate/kirby_assist/silent_probe_once.log`. An existing file prevents
-recording, including after restarting. It never truncates the file. Both creation
-flags are required by the Switch runtime: `create(true)` permits creation and
-`create_new(true)` rejects existing files. Start the
-next match promptly: collection ends at its first observed ready-go-to-ended
-transition, or ten minutes from probe startup. Leave the game open ten seconds
-after the match for the final flush. Retrieve this file over FTP afterward.
-
-Every ten seconds it writes aggregate mapper calls, full evaluations, duplicate
-observation skips, floor rays, menu rebuilds, fighter changes, freshness-expiry
-episodes and sequence clock cancellations, plus pending-save/active-worker
-gauges. One in 64 local observation passes measures average/peak elapsed time;
-these samples include scheduling/preemption and are not system CPU usage, FPS,
-temperature or measured network delay. They cannot prove a memory leak. Counts
-are approximate concurrent interval snapshots; first/final intervals may be
-shorter. The total file is capped at 32KiB. There is no per-frame text formatting,
-console/network output, button history, coordinates or opponent detail.
-
-All instrumentation reuses existing execution points and the existing battle
-flag. It adds no game hooks or native queries and changes no input decisions,
-move timings, physics or hitboxes. The worker and counters add some overhead;
-this is not an undetectability guarantee. SD/thread errors silently stop probing
-without retrying. Normal silent and diagnostic builds exclude this probe.
-
-After collecting the one match, rebuild normally with
-`python3 tools/build_variants.py -v silent` and upload that normal build to remove
-the instrumentation. Keep the log for review. Another explicitly requested test
-would require manually removing the old log first; a normal restart never rearms
-it. No configuration or sequence file is modified by the recorder.
-
 ## Build commands
 
 Before compilation, the builder combines universal `deployment/ultimate/kirby_assist/sequences.txt`
@@ -259,8 +220,9 @@ python3 -m unittest discover -s tools -p 'test_*.py' -v
 Both variants support held-L ledge autopilot, fighter-specific X/Y/D-pad sequences
 or Normal button, and battle-only menu pages for ledge traps,
 button configs and mode settings. Normal button keeps X short hop or ordinary
-Y/D-pad input. Hard-coded D-pad B-reverse/Down-trump bindings are removed; Ledge
-trump has an ON/OFF menu row in both builds. Grab dodge is also available in
+Y/D-pad input. Hard-coded D-pad B-reverse/Down-trump triggers are removed;
+ledge trump is available as a button built-in and is unassigned by default.
+Grab dodge is also available in
 both builds and starts ON with the supplied defaults. Both universal defensive
 modes run file-authored responses and have per-fighter saved startup switches. Diagnostic-only tools/logging
 remain excluded from silent. See [current controls](CONTROLS.md). Logging and

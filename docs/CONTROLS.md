@@ -4,9 +4,9 @@ Spot punish (reads an opponent's spot dodge) and Auto-tech are available in both
 silent and diagnostic builds and start ON. Both retain independent ON/OFF rows.
 Spot punish needs a saved rule; it no longer has a compiled smash fallback.
 **Grab dodge + punish** and **Out of shield** are available in both builds, initially ON with the supplied defaults; only diagnostics expose **Perf**.
-Ledge trump is available on the Modes ON/OFF page in both builds and starts OFF.
-There are no mode choices on the Button configs page. Regular Roll read and ledge-trap
-responses remain available. Auto-tech starts ON with the supplied config; an
+Ledge trump is a **Built-in: Ledge trump** choice in Button configs, unassigned
+by default. It runs only when assigned to a button and that button is pressed.
+Regular Roll read and ledge-trap responses remain available. Auto-tech starts ON with the supplied config; an
 explicit `auto_tech = false` still starts it OFF. Use
 Up/Down to select it and Left/Right to toggle it. OFF skips its collision rays.
 

@@ -9,7 +9,8 @@ Spot punish is available and defaults ON in silent and diagnostic builds.
 start ON with the supplied defaults. Configure their `grab_dodged` / `shield_hit`
 responses in the Training reaction editor, and save per-fighter startup switches
 in Fighter settings. No matching response means no automatic follow-up. Diagnostics also
-expose **Perf**. **Trump** is available in both builds through the Modes ON/OFF page and starts OFF.
+expose **Perf**. Ledge trump is available in both builds as **Built-in: Ledge
+trump** in Button configs; it is not an ON/OFF mode and is unassigned by default.
 Temporary choices/mode toggles last only for this match. Each new match starts
 from saved recipe defaults and normal mode startup settings. **Perf** samples local observation
 work and shows a compact timing card below the menu after about five seconds;
@@ -549,7 +550,7 @@ defaults and ordinary input playback. Existing saved sections and their IDs are
 preserved and routed by their reaction tag. The text organizer gives each assist
 its own group. Explicit Training preview is still available, without publishing
 that rule as a normal ledge response afterward. Standalone helpers such as
-tech/mash/trump and facing retain their existing ON/OFF behavior.
+tech/mash and facing retain their existing ON/OFF behavior.
 
 Assist rows are grouped with sequence-driven reactions first, followed by ledge
 activation, safety helpers, fighter helpers and diagnostics.

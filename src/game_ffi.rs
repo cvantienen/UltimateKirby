@@ -31,8 +31,6 @@ pub unsafe fn ray_check(
 ) -> u64 {
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::ray();
-    #[cfg(feature = "silent-probe")]
-    crate::one_match_probe::event(crate::one_match_probe::Event::Ray);
     native_ray_check(
         module_accessor,
         ray_origin,

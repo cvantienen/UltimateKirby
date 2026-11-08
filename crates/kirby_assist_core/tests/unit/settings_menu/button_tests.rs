@@ -88,18 +88,18 @@ fn compact_l3_tests_highlighted_recipe_once_and_manual_attack_cancels_without_sw
     let mut m = MenuSelection::new(&p);
     m.show_quick();
     m.input(0, &p);
-    assert_ne!(m.input(TWO_FRAME_TRIGGER, &p) & TWO_FRAME_TRIGGER, 0);
+    assert_ne!(m.input(MENU_L3, &p) & MENU_L3, 0);
     assert_eq!(m.preview_slot, Some(PresetSlot::Neutral));
     let revision = m.revision;
     for _ in 0..20 {
-        m.input(TWO_FRAME_TRIGGER, &p);
+        m.input(MENU_L3, &p);
     }
     assert_eq!(m.revision, revision);
     m.input(0, &p);
-    m.input(TWO_FRAME_TRIGGER, &p);
+    m.input(MENU_L3, &p);
     assert!(m.preview_slot.is_none()); // Second press stops the test.
     m.input(0, &p);
-    m.input(TWO_FRAME_TRIGGER, &p);
+    m.input(MENU_L3, &p);
     let consumed = m.input(MAPPER_A, &p);
     assert!(m.preview_slot.is_none() && m.cancel_pending);
     assert_eq!(consumed & MAPPER_A, 0);
@@ -123,13 +123,13 @@ fn compact_assigned_l_autopilot_resumes_after_navigation_and_cancels_l3_preview(
     assert!(!m.ledge_held(MAPPER_L | DPAD_DOWN));
     m.input(MAPPER_L, &p);
     assert!(m.ledge_held(MAPPER_L)); // No L release required after navigation.
-    m.input(MAPPER_L | TWO_FRAME_TRIGGER, &p);
+    m.input(MAPPER_L | MENU_L3, &p);
     assert!(m.preview_slot.is_none()); // L3 cannot start a competing test with L held.
     m.input(MAPPER_L, &p);
     assert!(m.ledge_held(MAPPER_L));
     m.input(0, &p);
     m.row = MenuRow::Neutral;
-    m.input(TWO_FRAME_TRIGGER, &p);
+    m.input(MENU_L3, &p);
     assert_eq!(m.preview_slot, Some(PresetSlot::Neutral));
     m.input(MAPPER_L, &p);
     assert!(m.preview_slot.is_none());
@@ -539,7 +539,7 @@ fn match_choice_switches_match_actual_timeline_and_require_fresh_dpad_edges() {
 }
 #[test]
 fn match_assist_switches_toggle_exactly_one_mode_once_per_press() {
-    fn flags(m: &MenuSelection) -> [bool; 8] {
+    fn flags(m: &MenuSelection) -> [bool; 7] {
         [
             m.roll_rules,
             m.shield_pressure,
@@ -548,7 +548,6 @@ fn match_assist_switches_toggle_exactly_one_mode_once_per_press() {
             m.grab_dodge,
             m.auto_ledge,
             m.auto_tech,
-            m.auto_trump,
         ]
     }
     let rows = [
@@ -559,7 +558,6 @@ fn match_assist_switches_toggle_exactly_one_mode_once_per_press() {
         MenuRow::GrabDodge,
         MenuRow::AutoLedge,
         MenuRow::AutoTech,
-        MenuRow::AutoTrump,
     ];
     let p = configured();
     let mut m = MenuSelection::new(&p);
@@ -662,7 +660,7 @@ fn match_all_eleven_saved_slots_select_the_matching_payload() {
         );
         let (position, count) = m.choice_position(&p, slot);
         assert_eq!(position, 1);
-        assert_eq!(count, if slot.is_button() { 5 } else { 2 });
+        assert_eq!(count, if slot.is_button() { 6 } else { 2 });
     }
     assert!(m.editor.is_none() && m.catalog.is_none());
 }

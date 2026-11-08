@@ -1660,6 +1660,12 @@ Moves the shared copied Hitbox shape into autopilot_guard for use by ledge threa
 Clarifies that generic input arbitration adds explicitly requested buttons while default permissions block left-stick overrides; saved-sequence playback uses separate ownership logic.
 
 Removes the hard-coded short-hop and D-pad B-reverse shortcuts while preserving configured short-hop recipes and defaulting X to Normal.
+
+Removes the temporary one-match probe and its build/upload plumbing; removes ledge trump's global toggle/default trigger and exposes it as an unassigned button built-in.
+
+Removes the retired ledge-trump mode, global config key and scenario identity, leaving the assignable built-in as the only trigger. Renames the unrelated L3 menu control so it is distinct from gameplay button bindings.
+
+Moves separate test-only source files into package test directories while preserving unit-test access and runtime behavior.
 """
 
 
@@ -1686,8 +1692,6 @@ kirby_assist_core = { path = "crates/kirby_assist_core" }
 [features]
 default = ["imgui-menu"]
 diagnostic-logging = ["kirby_assist_core/diagnostic-logging"]
-# Temporary one-match file-only aggregate probe; not enabled by normal builds.
-silent-probe = ["kirby_assist_core/probe-counters"]
 # The battle combo engine is always available; only rendering is optional.
 # Disable default features for a headless build without the external ImGui host.
 imgui-menu = ["dep:imgui-api"]

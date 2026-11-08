@@ -32,8 +32,9 @@ logging or diagnostic collection. Other battle modes keep their normal controls.
    tests; an enabled reaction reader may legitimately keep cheap status checks.
 4. Compare **All local observation work** average/peak and the relevant row's
    sampled calls/rays. Tech should have no prediction calls/rays outside eligible
-   tumble; disabled grab and trump modes should have none. Floor rays can still
-   belong to other enabled positioning or movement helpers. OFF-by-default modes
+   tumble; disabled grab mode and an unassigned ledge-trump built-in should have
+   none. Floor rays can still belong to other enabled positioning or movement
+   helpers. OFF-by-default modes
    do not silently re-enable through old SD settings.
 5. Hide the menu with Minus to compare actual gameplay, then turn **Perf** OFF
    to compare instrumentation overhead. Test silent separately: it excludes the
@@ -62,8 +63,6 @@ Diagnostic builds keep two files under `sd:/ultimate/kirby_assist/`:
 Both files reset at plugin startup, so copy them before restarting. One existing
 background worker handles both buffered files; gameplay hooks never write logs.
 Normal silent builds exclude all these counters, timers, files and the logger worker.
-The explicitly enabled temporary [one-match silent probe](BUILD_VARIANTS.md#temporary-one-match-silent-probe)
-is a separate bounded aggregate recorder; it does not enable this diagnostic system.
 
 With Perf ON, the health report appears roughly every five seconds even if no
 observation gauge was produced. It includes:

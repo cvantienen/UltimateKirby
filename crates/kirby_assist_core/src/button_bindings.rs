@@ -1,10 +1,9 @@
 //! Mode identities for On/Off settings and legacy file compatibility.
-//! These legacy automatic-helper identities stay menu-only. Reaction rules use
-//! their own explicit Control whitelist; Builtin below exposes only native button helpers.
+//! Reaction rules use their own explicit Control whitelist; Builtin below
+//! exposes native button helpers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
     LedgeTrap,
-    LedgeTrump,
     AutoTech,
     AutoMash,
     IdleCrouch,
@@ -14,9 +13,8 @@ pub enum Mode {
     OutOfShield,
 }
 impl Mode {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 8] = [
         Self::LedgeTrap,
-        Self::LedgeTrump,
         Self::AutoTech,
         Self::AutoMash,
         Self::IdleCrouch,
@@ -31,7 +29,6 @@ impl Mode {
     pub fn id(self) -> &'static str {
         match self {
             Self::LedgeTrap => "ledge_trap",
-            Self::LedgeTrump => "ledge_trump",
             Self::AutoTech => "auto_tech",
             Self::AutoMash => "auto_mash",
             Self::IdleCrouch => "idle_crouch",
@@ -44,7 +41,6 @@ impl Mode {
     pub fn label(self) -> &'static str {
         match self {
             Self::LedgeTrap => "Ledge trap",
-            Self::LedgeTrump => "Ledge trump",
             Self::AutoTech => "Auto-tech",
             Self::AutoMash => "Auto-mash",
             Self::IdleCrouch => "Idle crouch",
@@ -105,8 +101,6 @@ impl ModeBinding {
         const LABELS: [&str; ModeBinding::COUNT] = [
             "Hold: Ledge trap",
             "Toggle: Ledge trap",
-            "Hold: Ledge trump",
-            "Toggle: Ledge trump",
             "Hold: Auto-tech",
             "Toggle: Auto-tech",
             "Hold: Auto-mash",
@@ -128,8 +122,6 @@ impl ModeBinding {
         const IDS: [&str; ModeBinding::COUNT] = [
             "__mode_ledge_trap_hold",
             "__mode_ledge_trap_toggle",
-            "__mode_ledge_trump_hold",
-            "__mode_ledge_trump_toggle",
             "__mode_auto_tech_hold",
             "__mode_auto_tech_toggle",
             "__mode_auto_mash_hold",
@@ -155,14 +147,21 @@ pub enum Builtin {
     Normal,
     LedgeAssist,
     TurboTeabag,
+    LedgeTrump,
 }
 impl Builtin {
-    pub const ALL: [Self; 3] = [Self::Normal, Self::LedgeAssist, Self::TurboTeabag];
+    pub const ALL: [Self; 4] = [
+        Self::Normal,
+        Self::LedgeAssist,
+        Self::TurboTeabag,
+        Self::LedgeTrump,
+    ];
     pub fn token(self) -> &'static str {
         match self {
             Self::Normal => "normal",
             Self::LedgeAssist => "ledge_assist",
             Self::TurboTeabag => "turbo_teabag",
+            Self::LedgeTrump => "ledge_trump",
         }
     }
     pub fn label(self) -> &'static str {
@@ -170,6 +169,7 @@ impl Builtin {
             Self::Normal => "Normal button",
             Self::LedgeAssist => "Built-in: Ledge assist / walk",
             Self::TurboTeabag => "Built-in: Turbo t-bag",
+            Self::LedgeTrump => "Built-in: Ledge trump",
         }
     }
     pub fn choice_id(self) -> &'static str {
@@ -177,6 +177,7 @@ impl Builtin {
             Self::Normal => "__normal_button",
             Self::LedgeAssist => "__builtin_ledge_assist",
             Self::TurboTeabag => "__builtin_turbo_teabag",
+            Self::LedgeTrump => "__builtin_ledge_trump",
         }
     }
     pub fn parse(value: &str) -> Option<Self> {
@@ -197,6 +198,7 @@ impl Builtin {
             Self::Normal => 0,
             Self::LedgeAssist => 2,
             Self::TurboTeabag => 3,
+            Self::LedgeTrump => 4,
         }
     }
 }

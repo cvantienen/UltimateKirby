@@ -111,8 +111,6 @@ pub mod settings_menu;
 // Stateful orchestration, diagnostics, and reusable examples/tools.
 pub mod diagnostics;
 pub mod live_input;
-#[cfg(feature = "probe-counters")]
-pub mod probe_counters;
 pub mod runtime;
 pub mod runtime_toggle;
 pub mod sequence;
@@ -121,7 +119,6 @@ pub mod tools;
 pub mod training_test;
 
 // Related ledge behaviors share observations, but keep separate policies.
-// The recovery 2-frame policy remains available to core callers.
 pub mod ledge_position;
 pub mod ledge_trap;
 pub mod ledge_trump;

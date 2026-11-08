@@ -26,7 +26,6 @@ pub enum Scenario {
     Hitstun,
     Parry,
     Footstool,
-    LedgeTrump,
     Landing,
     Ledge,
     Grounded,
@@ -46,11 +45,10 @@ impl Scenario {
             Self::Hitstun => 3,
             Self::Parry => 4,
             Self::Footstool => 5,
-            Self::LedgeTrump => 6,
-            Self::Landing => 7,
-            Self::Ledge => 8,
-            Self::Grounded => 9,
-            Self::Airborne => 10,
+            Self::Landing => 6,
+            Self::Ledge => 7,
+            Self::Grounded => 8,
+            Self::Airborne => 9,
             Self::None => u8::MAX,
         }
     }

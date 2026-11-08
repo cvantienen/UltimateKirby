@@ -236,12 +236,8 @@ pub(super) fn build(
                 selection.test_latency as usize,
                 32,
             )
-        } else if matches!(row, MenuRow::AutoTrump | MenuRow::Performance) {
-            let enabled = if row == MenuRow::AutoTrump {
-                selection.trump_mode()
-            } else {
-                selection.performance
-            };
+        } else if row == MenuRow::Performance {
+            let enabled = selection.performance;
             (
                 if enabled { "ON" } else { "OFF" }.to_owned(),
                 usize::from(enabled),

@@ -126,7 +126,7 @@ fn all_legacy_mode_bindings_load_as_normal_buttons_without_changing_modes() {
                         != crate::button_bindings::Builtin::Normal
                 );
                 assert!(m.preview_slot.is_none());
-                assert!(!m.trump_mode());
+                assert!(!m.ledge_trump_held());
                 assert!(m.out_of_shield);
                 assert!(m.auto_tech);
                 for base in [false, true] {
@@ -162,7 +162,7 @@ fn mode_and_sequence_save_round_trip_and_nondefault_restart_are_valid() {
     for slot in PresetSlot::BUTTONS {
         let sequence = crate::sequence_config::Sequence {
             mode: Some(crate::button_bindings::ModeBinding {
-                mode: Mode::LedgeTrump,
+                mode: Mode::AutoTech,
                 activation: Activation::Toggle,
             }),
             ..Default::default()
@@ -218,7 +218,7 @@ fn button_pages_expose_only_normal_and_input_sequence_editing() {
     assert!(MenuSelection::BUTTON_ROWS.iter().all(|r| m.row_visible(*r)));
     assert!(!m.row_visible(MenuRow::Neutral));
     m.row = MenuRow::DpadDown;
-    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 3);
+    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 4);
     tap(&mut m, &p, MENU_STICK_CLICK);
     assert!(m.recipe_editing);
     assert!(m
@@ -251,7 +251,7 @@ fn unassigned_dpad_has_no_builtin_mode_or_shortcut_reservation() {
         m.input(0, &p);
         assert_eq!(m.input(slot.button(), &p) & slot.button(), 0);
         assert!(m.preview_slot.is_none());
-        assert!(!m.trump_mode());
+        assert!(!m.ledge_trump_held());
     }
     assert_eq!(
         observation_buttons(
@@ -260,6 +260,22 @@ fn unassigned_dpad_has_no_builtin_mode_or_shortcut_reservation() {
         ),
         0
     );
+}
+#[test]
+fn ledge_trump_runs_only_when_selected_for_a_button() {
+    let (p, mut default) = setup("", 6);
+    default.menu_hidden = true;
+    default.input(DPAD_DOWN, &p);
+    assert!(!default.ledge_trump_held());
+
+    let (p, mut mapped) = setup("[kirby.l3.trump]\ndefault=true\nbuiltin=ledge_trump\n", 6);
+    mapped.menu_hidden = true;
+    mapped.input(0, &p);
+    let consumed = mapped.input(PresetSlot::L3.button(), &p);
+    assert_ne!(consumed & PresetSlot::L3.button(), 0);
+    assert!(mapped.ledge_trump_held());
+    mapped.input(0, &p);
+    assert!(!mapped.ledge_trump_held());
 }
 
 #[test]

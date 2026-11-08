@@ -307,14 +307,6 @@ class UploadTests(unittest.TestCase):
                     builder.upload_files(self.source, "192.0.2.10")
                 ftp.assert_not_called()
 
-    def test_one_match_probe_requires_its_temporary_summary(self):
-        binary = self.binary + b"ONE_MATCH_PROBE_V1"
-        with self.assertRaisesRegex(RuntimeError, "matching temporary"):
-            builder.verify_build_variant(binary, b"Build: SILENT")
-        with contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(builder.verify_build_variant(
-                binary, b"Build: SILENT\nTEMPORARY: one-match SD aggregate probe enabled (silent-probe).\n"), "silent")
-
     def test_versioned_summary_is_accepted_but_multiple_summaries_are_rejected(self):
         (self.source / "RELEASE_SUMMARY.txt").rename(self.source / "RELEASE_SUMMARY-9.0.0.txt")
         self.assertEqual(builder.upload_payloads(self.source)[1], (builder.SUMMARY, b"Prepared update"))

@@ -6,7 +6,7 @@ fn constructor_and_saved_binding_validation_fit_a_small_loader_stack() {
     std::thread::Builder::new().stack_size(64*1024).spawn(|| {
         let mut profiles=FighterProfiles::default();
         profiles.validate().unwrap();
-        let saved="[kirby.y.saved]\nstart_delay=0\ndefault=false\nactions=short_hop,wait:12,nair\n[yoshi.dpad_up.mode]\nmode=ledge_trump\nactivation=toggle\n";
+        let saved="[kirby.y.saved]\nstart_delay=0\ndefault=false\nactions=short_hop,wait:12,nair\n[yoshi.dpad_up.mode]\nmode=auto_tech\nactivation=toggle\n";
         let catalog=Catalog::parse(saved).unwrap();
         profiles.add_sequence_choices(&catalog).unwrap();
         profiles.validate().unwrap();

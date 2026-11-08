@@ -58,8 +58,7 @@ fn load_on_worker() -> Result<LoadedConfig, String> {
     prepare_runtime(config, sequences)
 }
 
-fn prepare_runtime(mut config: LiveConfig, sequences: Catalog) -> Result<LoadedConfig, String> {
-    config.auto_ledge_trump = false;
+fn prepare_runtime(config: LiveConfig, sequences: Catalog) -> Result<LoadedConfig, String> {
     let mut profiles = FighterProfiles::default();
     profiles.validate()?;
     let sequences = sequences.for_build(cfg!(feature = "diagnostic-logging"));

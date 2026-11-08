@@ -46,8 +46,6 @@ pub(super) fn suspend_participation() {
     if let Ok(mut state) = STATE.lock() {
         if was_active || state.associated_object.is_some() || state.menu_battle_active {
             duck_hits::clear();
-            #[cfg(feature = "silent-probe")]
-            crate::one_match_probe::battle(Some(false));
             reset_state(&mut state);
             TRAINING_PASSTHROUGH.store(false, Ordering::Relaxed);
             TRAINING_MODAL_HANDOFF.store(false, Ordering::Relaxed);
@@ -69,8 +67,6 @@ pub(super) fn set_runtime_enabled(enabled: bool) {
     RUNTIME_ENABLED.store(false, Ordering::Release);
     LOCAL_PARTICIPANT.store(false, Ordering::Release);
     duck_hits::clear();
-    #[cfg(feature = "silent-probe")]
-    crate::one_match_probe::battle(Some(false));
     if let Ok(mut state) = STATE.lock() {
         reset_state(&mut state);
     } else {

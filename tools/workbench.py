@@ -144,34 +144,24 @@ class Workbench:
             cache = ""
         self.preferences["cargo_home"] = cache
         self.save_preferences()
-        probe = False
-        if variant != "diagnostic":
-            selected_probe = choose("Silent build type", ["Normal silent (no probe)", "Temporary one-match silent probe"])
-            if selected_probe is None:
-                return False
-            probe = selected_probe == 1
         argv = helper("build_variants.py", "--variant", variant)
         if cache:
             argv += ["--cargo-home", str(Path(cache).expanduser())]
-        if probe:
-            argv += ["--silent-probe"]
         print("\n", shlex.join(argv))
         if not confirm("Build only; this will NOT upload.", "BUILD"):
             return False
-        return self.build_release(variant, cache, probe=probe)
+        return self.build_release(variant, cache)
 
-    def build_release(self, variant, cache, *, probe=False):
+    def build_release(self, variant, cache):
         """Prompt-free build shared by GUI and CLI; archive only successful outputs."""
-        if variant not in ("all", "silent", "diagnostic") or probe and variant == "diagnostic":
-            raise ValueError("Invalid build variant/probe selection")
+        if variant not in ("all", "silent", "diagnostic"):
+            raise ValueError("Invalid build variant selection")
         argv = helper("build_variants.py", "--variant", variant)
         if cache:
             argv += ["--cargo-home", str(Path(cache).expanduser())]
-        if probe:
-            argv += ["--silent-probe"]
         built_version = version()
         variants = ["silent", "diagnostic"] if variant == "all" else [variant]
-        details = {"command": argv, "version": built_version, "variants": variants, "silent_probe": probe}
+        details = {"command": argv, "version": built_version, "variants": variants}
         def operation():
             result = self.execute(argv)
             artifacts = []

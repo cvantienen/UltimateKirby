@@ -18,7 +18,6 @@ ledge_manual_spacing = true
 ledge_distance_agnostic = true
 ledge_walk_strength = 0.35
 ledge_drop_defense = true
-auto_ledge_trump = false
 ledge_trap_range = 20.0
 ledge_trap_vertical_range = 10.0
 ledge_follow_range = 40.0

@@ -2,25 +2,10 @@
 use super::*;
 
 #[test]
-fn configuration_is_explicit_and_rejects_invalid_values() {
+fn retired_global_setting_is_rejected() {
     use crate::live_input::LiveConfig;
-    assert!(LiveConfig::default().auto_ledge_trump);
-    assert!(
-        LiveConfig::parse("ledge_trap = true")
-            .unwrap()
-            .auto_ledge_trump
-    );
-    assert!(
-        !LiveConfig::parse("auto_ledge_trump = false")
-            .unwrap()
-            .auto_ledge_trump
-    );
-    assert!(
-        LiveConfig::parse("auto_ledge_trump = true")
-            .unwrap()
-            .auto_ledge_trump
-    );
-    assert!(LiveConfig::parse("auto_ledge_trump = yes").is_err());
+    assert!(LiveConfig::parse("auto_ledge_trump = false").is_err());
+    assert!(LiveConfig::parse("auto_ledge_trump = true").is_err());
 }
 
 fn context() -> GameplayContext {
@@ -307,61 +292,6 @@ fn empty_edge_approach_continues_without_a_target_or_repeated_edge_query() {
     assert_eq!(state.action_name(), "run_to_edge");
 }
 
-#[test]
-fn old_config_down_press_is_consumed_before_mapping_even_without_an_edge() {
-    use crate::ledge_trap::DPAD_DOWN;
-    use crate::live_input::LiveConfig;
-    use crate::manual_controls::{
-        suppress_reserved_taunts, DpadReservation, ManualOverlay, TurboOutput,
-    };
-    use crate::native_input::ButtonTrace;
-    let config = LiveConfig::parse("enabled = true\nledge_trap = true").unwrap();
-    let mut reservation = DpadReservation::default();
-    let mut overlay = ManualOverlay::default();
-    let mut policy = LedgeTrump::default();
-    for (tick, held) in [(0, DPAD_DOWN), (1, 0)] {
-        let consumed = reservation.sample(
-            if config.auto_ledge_trump {
-                DPAD_DOWN
-            } else {
-                0
-            },
-            held,
-            true,
-        );
-        let output = policy.sample(config.auto_ledge_trump, tick, held != 0, context(), None);
-        let mapped = overlay.apply_controls(
-            ButtonTrace {
-                held,
-                previous: DPAD_DOWN,
-                pressed: DPAD_DOWN,
-                released: DPAD_DOWN,
-            },
-            [0.25, 0.0],
-            TurboOutput::default(),
-            consumed,
-            output.requested,
-            output.owned,
-        );
-        for word in [
-            mapped.buttons.held,
-            mapped.buttons.previous,
-            mapped.buttons.pressed,
-            mapped.buttons.released,
-        ] {
-            assert_eq!(word & DPAD_DOWN, 0);
-        }
-        assert_eq!(mapped.stick, [0.25, 0.0]);
-        // Native history must not reintroduce the down-taunt action.
-        assert_eq!(
-            suppress_reserved_taunts(
-                crate::native_input::MAPPED_TAUNT_DOWN | crate::native_input::MAPPER_DPAD_UP,
-                consumed
-            ),
-            crate::native_input::MAPPER_DPAD_UP
-        );
-    }
-}
 #[test]
 fn hitstop_preserves_a_run_but_same_tick_damage_cancels_cached_movement() {
     let mut state = LedgeTrump::default();

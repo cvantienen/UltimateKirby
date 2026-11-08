@@ -74,7 +74,7 @@ impl PresetSlot {
     }
     pub fn templates(self) -> usize {
         if self.is_button() {
-            4 // Normal + custom recipe + two native helpers.
+            5 // Normal + custom recipe + three native helpers.
         } else {
             1
         }

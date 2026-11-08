@@ -81,11 +81,12 @@ Paths below are relative to the project root. Core paths begin with
 | Core `config.rs` / `assist.rs` / `tools.rs` | Generic scenario rules / stateless engine / mash and tech presets. |
 | Core `runtime.rs` / `sequence.rs` | Generic adapter loop used by examples / sequence helpers. |
 
-Large test modules live beside the corresponding implementation, for example
-`ledge_trap/tests.rs`, `ledge_trap/file_timeline/tests.rs`,
-`live_input/tests.rs` and `shared/survival/tech_input/tests.rs`.
-`#[cfg(test)] mod tests;` includes those files only for test builds. Tiny
-existing test modules elsewhere may remain inline.
+Separate test-named modules live under each package's `tests/unit/` directory,
+with subdirectories mirroring their implementations. The implementations
+include them with `#[cfg(test)]` and `#[path = "..."]`, preserving access to
+private items without compiling them into the runtime. Existing inline tests
+and other regression modules may remain in source; integration tests remain
+directly under `tests/`.
 
 The generic `AssistRuntime` example is useful for learning the Rust concepts.
 The live plugin uses separate callbacks and retained tool state; it does not

@@ -541,6 +541,7 @@ pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
 }
 
 #[cfg(test)]
+#[path = "../tests/unit/manual_controls/tests.rs"]
 mod tests;
 
 /// Constant-size physical-input history for explicit sequence handback.

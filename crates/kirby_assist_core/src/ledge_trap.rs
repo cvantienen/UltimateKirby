@@ -354,4 +354,5 @@ impl LedgeTrap {
     }
 }
 #[cfg(test)]
+#[path = "../tests/unit/ledge_trap/tests.rs"]
 mod tests;

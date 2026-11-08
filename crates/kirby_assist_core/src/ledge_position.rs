@@ -145,4 +145,5 @@ impl LedgePosition {
 }
 
 #[cfg(test)]
+#[path = "../tests/unit/ledge_position/tests.rs"]
 mod tests;

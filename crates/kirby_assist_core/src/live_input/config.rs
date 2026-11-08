@@ -56,7 +56,6 @@ pub struct LiveConfig {
     pub auto_sdi: bool,
     pub auto_di: crate::auto_di::Settings,
     pub auto_spot_dodge: bool,
-    pub auto_ledge_trump: bool,
     pub controls: LiveSettings,
     pub control_layout: crate::native_input::ControlLayout,
     /// Facing-direction creep strength for the selected Turbo t-bag binding.
@@ -78,7 +77,6 @@ impl Default for LiveConfig {
             auto_sdi: true,
             auto_di: crate::auto_di::Settings::default(),
             auto_spot_dodge: true,
-            auto_ledge_trump: true,
             controls: LiveSettings::default(),
             control_layout: crate::native_input::ControlLayout::Default,
             turbo: TurboSettings::default(),
@@ -150,9 +148,6 @@ impl LiveConfig {
                 | "combo_max_start_percent"
                 | "combo_grab_range"
                 | "combo_fair_range" => {}
-                "auto_ledge_trump" => {
-                    config.auto_ledge_trump = value.parse().map_err(|_| invalid())?
-                }
                 "enabled" => config.controls.enabled = value.parse().map_err(|_| invalid())?,
                 "control_layout" => {
                     config.control_layout = match value.to_ascii_lowercase().as_str() {

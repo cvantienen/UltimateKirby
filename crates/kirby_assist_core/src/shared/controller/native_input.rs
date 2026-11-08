@@ -543,5 +543,5 @@ fn native_pointer_address(pointer: *const u8) -> bool {
 // Compiled only by cargo test on the host; these assertions are not live
 // Switch logging or gameplay callbacks. Add regressions here for new behavior.
 #[cfg(test)]
-#[path = "native_input/tests.rs"]
+#[path = "../../../tests/unit/shared/controller/native_input/tests.rs"]
 mod tests;

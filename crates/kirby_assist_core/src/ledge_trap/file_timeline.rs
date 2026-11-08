@@ -208,10 +208,6 @@ impl Timeline {
         {
             self.end_reason.get_or_insert(_reason);
         }
-        #[cfg(feature = "probe-counters")]
-        if matches!(_reason, "native_clock_gap" | "clock_invalid_or_timeout") {
-            crate::probe_counters::record_clock_abort();
-        }
         self.done = true;
         self.right_stick = [0.0; 2];
         self.output = controls([0.0; 2], 0);
@@ -1291,5 +1287,5 @@ fn direction(
 }
 
 #[cfg(test)]
-#[path = "file_timeline/tests.rs"]
+#[path = "../../tests/unit/ledge_trap/file_timeline/tests.rs"]
 mod tests;

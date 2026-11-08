@@ -84,7 +84,7 @@ fn diagnostic_only_rows_are_available_only_in_diagnostics() {
         cfg!(feature = "diagnostic-logging")
     );
     assert!(menu.row_visible(MenuRow::GrabDodge));
-    assert!(!menu.auto_trump && !menu.performance && menu.grab_dodge && menu.out_of_shield);
+    assert!(!menu.performance && menu.grab_dodge && menu.out_of_shield);
     assert!(menu.spot_punish && menu.auto_tech);
 }
 
@@ -181,7 +181,7 @@ fn kirby_helpers_default_on_and_classic_monitor_chord_does_not_toggle() {
 fn minus_alone_toggles_once_and_l3_alone_does_not() {
     let profiles = file_profiles();
     let presets = &profiles.profile(5).unwrap().menu_options;
-    for first in [0, TWO_FRAME_TRIGGER] {
+    for first in [0, MENU_L3] {
         let mut menu = MenuSelection::new(presets);
         menu.input(0, presets);
         menu.input(first, presets);
@@ -338,7 +338,7 @@ fn y_remains_available_to_its_mode_but_is_not_a_menu_or_ledge_trigger() {
     menu.input(0, presets);
     menu.input(MAPPER_Y, presets);
     assert!(!menu.auto_duck_held(MAPPER_Y));
-    assert_eq!(MenuRow::ALL.len(), 33);
+    assert_eq!(MenuRow::ALL.len(), 32);
 }
 
 #[test]

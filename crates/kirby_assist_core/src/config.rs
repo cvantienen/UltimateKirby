@@ -11,7 +11,7 @@ use crate::{
 };
 
 /// Maximum number of scenarios that can be configured without a heap allocator.
-pub const MAX_SCENARIO_RULES: usize = 11;
+pub const MAX_SCENARIO_RULES: usize = 10;
 
 /// Top-level configuration. Rules are disabled by default.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -252,7 +252,6 @@ mod tests {
             Scenario::Hitstun,
             Scenario::Parry,
             Scenario::Footstool,
-            Scenario::LedgeTrump,
             Scenario::Landing,
             Scenario::Ledge,
             Scenario::Grounded,

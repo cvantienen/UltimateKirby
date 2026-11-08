@@ -327,17 +327,18 @@ actions = short_hop:1
 default = true
 ```
 
-Builtins: `normal`, `ledge_assist`, `turbo_teabag`. Use a recipe action such as
-`short_hop:1` for short-hop input.
+Builtins: `normal`, `ledge_assist`, `turbo_teabag`, `ledge_trump`. Use a recipe
+action such as `short_hop:1` for short-hop input. Ledge trump starts only when
+assigned to and pressed from a button slot.
 Use only button slots X/Y/D-pad/L3/R3. Do not combine builtin with actions.
 
-Compatibility-only mode values: `ledge_trap`, `ledge_trump`, `auto_tech`,
+Compatibility-only mode values: `ledge_trap`, `auto_tech`,
 `auto_mash`, `idle_crouch`, `tilt_turn`, `spot_punish`, `jab_lock`, `out_of_shield`.
 The parser accepts `mode = VALUE` followed by `activation = hold` or
 `activation = toggle`, with no actions/nonzero delay, only on supported fighter
 button rows. Idle crouch is Kirby-only; tilt turn Kirby/Yoshi; jab lock Yoshi.
-These legacy bindings are not the current assist ON/OFF controls or a supported
-way to add automatic gameplay button shortcuts.
+These legacy bindings are not the current assist ON/OFF controls. Use the
+`builtin = ledge_trump` button action for a button-mapped ledge trump.
 
 ## Fighter-setting keys
 
@@ -432,7 +433,7 @@ auto_tech = true
 | --- | --- |
 | `enabled`, `auto_mash`, `auto_tech`, `takeover`, `tech_debug` | `true` / `false` |
 | `autopilot_shield`, `kirby_auto_duck`, `down_tilt_trip_smash`, `kirby_fair1_smash` | `true` / `false`; helpers retain their fighter/scope restrictions |
-| `auto_sdi`, `auto_spot_dodge`, `auto_di`, `auto_ledge_trump` | `true` / `false` |
+| `auto_sdi`, `auto_spot_dodge`, `auto_di` | `true` / `false` |
 | `control_layout` | `default` / `brother` |
 | `auto_di_mode` | `survival`, `adaptive`, `escape`; current adaptive shares survival behavior |
 | `auto_di_survival_speed` | Finite 0.1–30; retained legacy threshold, no longer switches adaptive modes |
@@ -448,7 +449,6 @@ auto_tech = true
 | `ledge_grab_button` | `R`, `L`, `ZL` |
 | `turbo_walk_strength` | Finite 0.05–0.6; horizontal creep amount for the selected Turbo t-bag built-in |
 | `dpad_b_reverse`, `dpad_slide` | `true` / `false`; accepted for old-file compatibility but have no effect |
-
 Accepted legacy no-effect Turbo keys: `r3_turbo`, `l3_turbo`, `dpad_turbo` and
 `turbo_phase_frames`. Boolean values are validated but cannot activate the
 helper; `turbo_phase_frames` is range-checked to 1–10 but no longer changes its

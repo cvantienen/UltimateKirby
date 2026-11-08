@@ -40,15 +40,6 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(builder.variant_features(False), ["imgui-menu"])
         self.assertEqual(builder.variant_features(True), ["imgui-menu", "diagnostic-logging"])
 
-    def test_probe_is_explicit_and_silent_only(self):
-        self.assertFalse(builder.parse_options([]).silent_probe)
-        self.assertTrue(builder.parse_options(["-v", "silent", "--silent-probe"]).silent_probe)
-        self.assertEqual(builder.variant_features(False, True), ["imgui-menu", "silent-probe"])
-        with self.assertRaises(ValueError):
-            builder.variant_features(True, True)
-        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
-            builder.parse_options(["-v", "diagnostic", "--silent-probe"])
-
     def test_upload_flag_runs_the_fixed_versioned_uploader_command(self):
         with patch.object(builder.subprocess, "run") as run:
             builder.upload_built_release()

@@ -102,11 +102,8 @@ ledge_walk_strength = 0.35
 # Previous roll hit-window timing is retired; author the active response in sequences.txt.
 # Unrecognized ledge drops hold shield; recognized get-up attacks retain a grab after a confirmed block, regardless of distance.
 ledge_drop_defense = true
-# Tap D-pad Down: find the nearest floor edge, run off, Down, then inward to catch.
-# Only while the menu is closed. No opponent is required.
-# The sequence ends at ledge catch; choose your own follow-up. Held-L assist is separate.
-# Silent: disabled. Diagnostic: enable the OFF-by-default Trump menu toggle.
-auto_ledge_trump = false
+# Assign Built-in: Ledge trump to a button in Button configs to run the input-only sequence.
+# No button is assigned by default; D-pad Down remains ordinary input unless mapped.
 # The old ledge_getup_attack selector is ignored; the menu selects the saved response.
 
 # Initial opponent acquisition limits (world units, finite 1..20).

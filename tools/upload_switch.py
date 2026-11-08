@@ -81,10 +81,6 @@ def verify_build_variant(binary: bytes, summary: bytes) -> str:
         raise RuntimeError(f"Build mismatch: summary says {expected.upper()}, NRO markers indicate {actual.upper()}")
     if actual == "diagnostic" and expected is None:
         raise RuntimeError("Diagnostic NRO requires a matching summary with Build: DIAGNOSTIC; copy both from the diagnostic folder")
-    if b"ONE_MATCH_PROBE_V1" in binary:
-        if actual != "silent" or "TEMPORARY: one-match SD aggregate probe enabled" not in text:
-            raise RuntimeError("One-match probe requires its matching temporary silent release summary")
-        print("TEMPORARY SILENT PROBE: one-match SD aggregate recording enabled.", flush=True)
     print(f"Local build check passed: {actual.upper()} NRO "
           f"({'all diagnostic markers present' if actual == 'diagnostic' else 'diagnostic markers absent'}).", flush=True)
     return actual

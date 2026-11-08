@@ -193,8 +193,6 @@ fn spawn_worker(
             // the input/render callbacks never wait or discard the snapshot.
             let ui_gate = UI_SAVE_GATE.lock().unwrap_or_else(|e| e.into_inner());
             drop(ui_gate);
-            #[cfg(feature = "silent-probe")]
-            let _probe_save_worker = crate::one_match_probe::save_worker();
             #[cfg(feature = "diagnostic-logging")]
             let _worker = crate::performance::health::Worker::start();
             #[cfg(feature = "diagnostic-logging")]
@@ -949,45 +947,6 @@ mod tests {
                 .unwrap();
             profiles.validate().unwrap();
         }
-        assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
-    }
-    #[test]
-    fn saving_a_dpad_mode_keeps_binding_type_activation_and_startup_validity() {
-        let directory = Directory::new();
-        let path = directory.0.join("sequences.txt");
-        let temp = directory.0.join("temp");
-        let backup = directory.0.join("backup");
-        fs::write(&path, SOURCE).unwrap();
-        let mut mode = job();
-        mode.kind = 5;
-        mode.slot = PresetSlot::DpadUp;
-        mode.choice = "__mode_ledge_trump_toggle".into();
-        mode.allow_new = true;
-        mode.name = Some("Toggle: Ledge trump".into());
-        mode.sequence = Sequence {
-            mode: Some(kirby_assist_core::button_bindings::ModeBinding {
-                mode: kirby_assist_core::button_bindings::Mode::LedgeTrump,
-                activation: kirby_assist_core::button_bindings::Activation::Toggle,
-            }),
-            ..Default::default()
-        };
-        write_paths(&mode, &path, &temp, &backup).unwrap();
-        let saved = fs::read_to_string(&path).unwrap();
-        assert!(saved.contains("[yoshi.dpad_up.__mode_ledge_trump_toggle]"));
-        assert!(saved.contains("mode = ledge_trump\nactivation = toggle"));
-        let catalog = Catalog::parse(&saved).unwrap();
-        assert_eq!(
-            catalog
-                .entries()
-                .iter()
-                .find(|e| e.slot == PresetSlot::DpadUp)
-                .unwrap()
-                .sequence,
-            mode.sequence
-        );
-        let mut profiles = kirby_assist_core::fighter_profiles::FighterProfiles::default();
-        profiles.add_sequence_choices(&catalog).unwrap();
-        profiles.validate().unwrap();
         assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
     }
     #[test]

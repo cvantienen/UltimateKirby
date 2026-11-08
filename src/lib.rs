@@ -13,8 +13,7 @@
 mod game_ffi;
 mod live;
 // The diagnostic logger is absent from silent builds, not just disabled
-// by a setting. The separate opt-in silent-probe is bounded aggregate SD output.
-// Config cannot enable either feature without rebuilding.
+// by a setting. Config cannot enable it without rebuilding.
 #[cfg(feature = "diagnostic-logging")]
 mod calibration;
 #[cfg(feature = "diagnostic-logging")]
@@ -23,11 +22,6 @@ mod grab_diagnostics;
 mod logging;
 #[cfg(feature = "diagnostic-logging")]
 mod performance;
-
-#[cfg(all(feature = "silent-probe", feature = "diagnostic-logging"))]
-compile_error!("silent-probe is a separate temporary build, not diagnostic logging");
-#[cfg(feature = "silent-probe")]
-mod one_match_probe;
 
 // This attribute generates the native entry point/module metadata Skyline needs.
 // Adding a tool does not require another main function; extend the core policy

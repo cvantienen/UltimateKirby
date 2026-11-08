@@ -195,7 +195,7 @@ class HistoryAndLauncherTests(unittest.TestCase):
     def test_build_back_cancels_and_build_failure_cannot_upload(self):
         with tempfile.TemporaryDirectory() as folder:
             app = workbench.Workbench(History(Path(folder)))
-            with patch.object(workbench, "choose", side_effect=[0, None]), patch.object(workbench, "ask", return_value=""), patch.object(workbench, "command") as run:
+            with patch.object(workbench, "choose", return_value=0), patch.object(workbench, "ask", return_value=""), patch.object(workbench, "confirm", return_value=False), patch.object(workbench, "command") as run:
                 self.assertFalse(app.build())
                 run.assert_not_called()
 

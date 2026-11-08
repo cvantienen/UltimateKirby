@@ -403,4 +403,5 @@ impl FighterProfiles {
 }
 
 #[cfg(test)]
+#[path = "../tests/unit/fighter_profiles/tests.rs"]
 mod tests;

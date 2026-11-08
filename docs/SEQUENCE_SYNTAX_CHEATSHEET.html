@@ -817,15 +817,15 @@ start_delay = 0
 actions = short_hop:1
 default = true
 </code></pre>
-<p>Builtins: <code>normal</code>, <code>ledge_assist</code>, <code>turbo_teabag</code>.
-Use a recipe action such as <code>short_hop:1</code> for short-hop input. Use only button slots X/Y/D-pad/L3/R3. Do not combine builtin with actions.</p>
-<p>Compatibility-only mode values: <code>ledge_trap</code>, <code>ledge_trump</code>, <code>auto_tech</code>,
+<p>Builtins: <code>normal</code>, <code>ledge_assist</code>, <code>turbo_teabag</code>, <code>ledge_trump</code>.
+Use a recipe action such as <code>short_hop:1</code> for short-hop input. Ledge trump starts only when assigned to and pressed from a button slot. Use only button slots X/Y/D-pad/L3/R3. Do not combine builtin with actions.</p>
+<p>Compatibility-only mode values: <code>ledge_trap</code>, <code>auto_tech</code>,
 <code>auto_mash</code>, <code>idle_crouch</code>, <code>tilt_turn</code>, <code>spot_punish</code>, <code>jab_lock</code>, <code>out_of_shield</code>.
 The parser accepts <code>mode = VALUE</code> followed by <code>activation = hold</code> or
 <code>activation = toggle</code>, with no actions/nonzero delay, only on supported fighter
 button rows. Idle crouch is Kirby-only; tilt turn Kirby/Yoshi; jab lock Yoshi.
-These legacy bindings are not the current assist ON/OFF controls or a supported
-way to add automatic gameplay button shortcuts.</p>
+These legacy bindings are not the current assist ON/OFF controls. Use the
+<code>builtin = ledge_trump</code> button action for a button-mapped ledge trump.</p>
 <h2>Fighter-setting keys</h2>
 <p>Place under <code>[FIGHTER.settings]</code>; omit a key to retain its default. Numbers here
 are ordinary decimal numbers, <strong>not percentage strings</strong>. Booleans use true/false.
@@ -1164,7 +1164,7 @@ auto_tech = true
 <td><code>true</code> / <code>false</code>; helpers retain their fighter/scope restrictions</td>
 </tr>
 <tr>
-<td><code>auto_sdi</code>, <code>auto_spot_dodge</code>, <code>auto_di</code>, <code>auto_ledge_trump</code></td>
+<td><code>auto_sdi</code>, <code>auto_spot_dodge</code>, <code>auto_di</code></td>
 <td><code>true</code> / <code>false</code></td>
 </tr>
 <tr>

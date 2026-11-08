@@ -314,4 +314,5 @@ pub mod mapper_hook;
 // Compiled only by cargo test on the host; these assertions are not live
 // Switch logging or gameplay callbacks. Add regressions here for new behavior.
 #[cfg(test)]
+#[path = "../tests/unit/live_input/tests.rs"]
 mod tests;

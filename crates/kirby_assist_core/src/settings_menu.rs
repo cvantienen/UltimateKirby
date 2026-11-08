@@ -17,10 +17,10 @@ fn menu_repeat_due(ticks: u16) -> bool {
 }
 
 #[cfg(test)]
-#[path = "settings_menu/binding_tests.rs"]
+#[path = "../tests/unit/settings_menu/binding_tests.rs"]
 mod binding_tests;
 #[cfg(test)]
-#[path = "settings_menu/button_tests.rs"]
+#[path = "../tests/unit/settings_menu/button_tests.rs"]
 mod button_tests;
 #[path = "settings_menu/choices.rs"]
 mod choices;
@@ -42,7 +42,7 @@ use crate::manual_controls::{DPAD_RIGHT, DPAD_SIDES, DPAD_UP};
 use crate::native_input::{MAPPER_DPAD_BUTTONS, MAPPER_L, MAPPER_MINUS, MAPPER_X, MAPPER_Y};
 use crate::settings::AssistSettings;
 pub const MENU_STICK_CLICK: u32 = 1 << 17; // Physical right-stick click (R3).
-pub const TWO_FRAME_TRIGGER: u32 = 1 << 16; // L3: Training compact test; gameplay binding when hidden.
+pub const MENU_L3: u32 = 1 << 16; // L3 is a menu control only while the menu is visible.
 pub const MENU_TOGGLE_CHORD: u32 = MAPPER_MINUS;
 pub fn monitor_chord(buttons: u32) -> bool {
     let mask = MAPPER_L | DPAD_DOWN | MENU_STICK_CLICK;
@@ -80,7 +80,6 @@ pub enum MenuRow {
     SpotPunish,
     GrabDodge,
     AutoTech,
-    AutoTrump,
     Performance,
     AutoLedge,
     OutOfShield,
@@ -96,7 +95,7 @@ pub enum MenuRow {
     AutoReflect,
 }
 impl MenuRow {
-    pub const ALL: [Self; 33] = [
+    pub const ALL: [Self; 32] = [
         Self::Neutral,
         Self::Jump,
         Self::Roll,
@@ -116,7 +115,6 @@ impl MenuRow {
         Self::SpotPunish,
         Self::GrabDodge,
         Self::AutoTech,
-        Self::AutoTrump,
         Self::Performance,
         Self::AutoLedge,
         Self::OutOfShield,
@@ -154,7 +152,6 @@ impl MenuRow {
             | Self::SpotPunish
             | Self::GrabDodge
             | Self::AutoTech
-            | Self::AutoTrump
             | Self::Performance
             | Self::AutoLedge
             | Self::OutOfShield
@@ -194,7 +191,6 @@ impl MenuRow {
             Self::SpotPunish => "Spot punish",
             Self::GrabDodge => "Dodge incoming grabs",
             Self::AutoTech => "Auto-tech",
-            Self::AutoTrump => "Ledge trump",
             Self::Performance => "Performance gauge",
             Self::AutoLedge => "Ledge trap mode",
             Self::OutOfShield => "Automatic grabs",
@@ -244,7 +240,7 @@ pub struct MenuSelection {
     #[cfg(test)]
     binding_roles_rebuilds: usize,
     single_jump_sources: u32,
-    builtin_sources: [u32; 3],
+    builtin_sources: [u32; 4],
     pub builtin_consumed: u32,
     binding_sources: u32,
     pub row: MenuRow,
@@ -315,7 +311,6 @@ pub struct MenuSelection {
     pub grab_dodge: bool,
     pub auto_tech: bool,
     pub auto_reflect: bool,
-    pub auto_trump: bool,
     pub performance: bool,
     /// Diagnostic annotation only: 0=unset, 1..=31 label external delay 0..=30f.
     pub test_latency: u8,
@@ -398,7 +393,7 @@ impl MenuSelection {
         MenuRow::LedgePage,
         MenuRow::ModesPage,
     ];
-    pub const ASSIST_ROWS: [MenuRow; 20] = [
+    pub const ASSIST_ROWS: [MenuRow; 19] = [
         MenuRow::RollRules,
         MenuRow::ShieldPressure,
         MenuRow::SpotPunish,
@@ -408,7 +403,6 @@ impl MenuSelection {
         MenuRow::AutoLedge,
         MenuRow::AutoTech,
         MenuRow::AutoMash,
-        MenuRow::AutoTrump,
         MenuRow::TiltTurn,
         MenuRow::IdleCrouch,
         MenuRow::JabLock,
@@ -420,8 +414,8 @@ impl MenuSelection {
         MenuRow::FighterSettings,
         MenuRow::ModesPage,
     ];
-    const LIGHTWEIGHT_ROWS: [MenuRow; 28] = {
-        let mut rows = [MenuRow::Neutral; 28];
+    const LIGHTWEIGHT_ROWS: [MenuRow; 27] = {
+        let mut rows = [MenuRow::Neutral; 27];
         let mut i = 0;
         while i < PresetSlot::BUTTONS.len() {
             rows[i] = Self::BUTTON_ROWS[i];
@@ -587,8 +581,6 @@ impl MenuSelection {
             self.auto_reflect = !self.auto_reflect;
         } else if self.row == MenuRow::AutoLedge {
             self.auto_ledge = !self.auto_ledge;
-        } else if self.row == MenuRow::AutoTrump {
-            self.auto_trump = !self.auto_trump;
         } else if self.row == MenuRow::TestLatency {
             self.test_latency = cycle(self.test_latency as usize, 32, forward) as u8;
         } else if self.row == MenuRow::Performance {
@@ -1048,10 +1040,10 @@ impl MenuSelection {
         }
         let editing = !self.menu_hidden;
         if editing && allow_editing && !toggled && self.mode_list_input(presets, buttons, pressed) {
-            return buttons | directions | MAPPER_MINUS | MENU_STICK_CLICK | TWO_FRAME_TRIGGER;
+            return buttons | directions | MAPPER_MINUS | MENU_STICK_CLICK | MENU_L3;
         }
         if editing && allow_editing && !toggled {
-            if pressed & (MENU_STICK_CLICK | TWO_FRAME_TRIGGER) != 0
+            if pressed & (MENU_STICK_CLICK | MENU_L3) != 0
                 && self.modes_menu
                 && !self.tuning_page
                 && Self::mode_trigger(self.row).is_some()
@@ -1269,7 +1261,7 @@ impl MenuSelection {
                 self.changed();
             }
             if !toggled
-                && self.binding_pressed & TWO_FRAME_TRIGGER != 0
+                && self.binding_pressed & MENU_L3 != 0
                 && pad == 0
                 && buttons & (manual | MENU_STICK_CLICK) == 0
             {
@@ -1294,11 +1286,11 @@ impl MenuSelection {
             self.trigger_ready &= !MAPPER_Y;
             self.pad_quarantine |= self
                 .binding_layout
-                .binding_ownership(self.binding_physical & TWO_FRAME_TRIGGER);
+                .binding_ownership(self.binding_physical & MENU_L3);
             return self.button_latch
                 | directions
                 | MAPPER_MINUS
-                | TWO_FRAME_TRIGGER
+                | MENU_L3
                 | MENU_STICK_CLICK
                 | bound_buttons
                 | ((quarantined | self.pad_quarantine)
@@ -1850,9 +1842,9 @@ fn cycle(index: usize, count: usize, forward: bool) -> usize {
 }
 
 #[cfg(test)]
-#[path = "settings_menu/tests.rs"]
+#[path = "../tests/unit/settings_menu/tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "settings_menu/maintenance_tests.rs"]
+#[path = "../tests/unit/settings_menu/maintenance_tests.rs"]
 mod maintenance_tests;

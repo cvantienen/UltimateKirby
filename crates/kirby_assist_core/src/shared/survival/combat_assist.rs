@@ -150,5 +150,5 @@ impl SdiState {
 }
 
 #[cfg(test)]
-#[path = "combat_assist/tests.rs"]
+#[path = "../../../tests/unit/shared/survival/combat_assist/tests.rs"]
 mod tests;

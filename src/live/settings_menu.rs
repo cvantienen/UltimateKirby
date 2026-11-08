@@ -269,12 +269,12 @@ impl SettingsMenu {
             }
         }
     }
-    pub fn trump_mode(&self) -> bool {
+    pub fn ledge_trump_held(&self) -> bool {
         self.scope
             && self
                 .kind
                 .and_then(|k| self.selections.get(&k))
-                .is_some_and(|s| s.menu_hidden && s.trump_mode())
+                .is_some_and(MenuSelection::ledge_trump_held)
     }
     pub fn auto_tech(&self, startup_default: bool) -> bool {
         self.kind
@@ -291,10 +291,10 @@ impl SettingsMenu {
                 .is_some_and(|s| s.grab_dodge)
     }
     #[cfg(feature = "diagnostic-logging")]
-    pub fn diagnostic_options(&self) -> (bool, bool) {
+    pub fn diagnostic_options(&self) -> bool {
         self.kind
             .and_then(|kind| self.selections.get(&kind))
-            .map_or((false, false), |s| (s.auto_trump, s.performance))
+            .is_some_and(|s| s.performance)
     }
     pub fn out_of_shield_enabled(&self) -> bool {
         self.scope
@@ -555,8 +555,6 @@ impl SettingsMenu {
         if fighter_changed {
             #[cfg(feature = "diagnostic-logging")]
             crate::performance::health::event(crate::performance::health::Event::FighterChange);
-            #[cfg(feature = "silent-probe")]
-            crate::one_match_probe::event(crate::one_match_probe::Event::FighterChange);
             #[cfg(feature = "diagnostic-logging")]
             crate::calibration::clear();
             self.invalidate();
@@ -774,7 +772,6 @@ impl SettingsMenu {
                 rows[11] = on_off(selection.spot_punish);
                 rows[12] = on_off(selection.grab_dodge);
                 rows[13] = on_off(selection.auto_tech);
-                rows[14] = on_off(selection.auto_trump);
                 rows[15] = on_off(selection.performance);
                 rows[23] =
                     on_off(selection.effective_mode(Mode::OutOfShield, selection.out_of_shield));
@@ -886,5 +883,5 @@ pub(super) fn install() {
 }
 
 #[cfg(test)]
-#[path = "settings_menu/save_completion_tests.rs"]
+#[path = "../../tests/unit/live/settings_menu/save_completion_tests.rs"]
 mod save_completion_tests;

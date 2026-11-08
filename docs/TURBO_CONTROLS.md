@@ -25,10 +25,11 @@ short-hop assistance. Configure a recipe such as `short_hop:1` when you want
 short-hop behavior. Recipes can run once per press or loop while held;
 tap/hold actions are configured in their recipe editor.
 
-The old Y native Finisher selector, A+B jab-to-grab and hard-coded D-pad
-slide/B-reverse/trump bindings are removed. Assist modes use their ON/OFF menu
-rows. Existing reaction-rule toggle groups are separate metadata and remain
-compatible; they are not generic button-to-mode bindings.
+The old Y native Finisher selector, A+B jab-to-grab, and hard-coded D-pad
+slide/B-reverse/trump triggers are removed. Ledge trump is available as a
+button built-in and is unassigned by default. Other assist modes use their
+ON/OFF menu rows. Existing reaction-rule toggle groups are separate metadata
+and remain compatible; they are not generic button-to-mode bindings.
 
 See [controls](CONTROLS.md), [input recipes](SEQUENCE_FILES.md),
 [assist rules](REACTION_RULES.md) and [posture helpers](INPUT_RECIPES.md).

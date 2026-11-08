@@ -101,14 +101,12 @@ def documentation_files() -> dict[str, bytes]:
     return files
 
 
-def variant_features(diagnostic: bool, silent_probe: bool = False) -> list[str]:
-    """Normal releases stay unchanged; the one-match probe is explicitly opt-in."""
-    if diagnostic and silent_probe:
-        raise ValueError("silent-probe cannot be combined with diagnostic logging")
-    return ["imgui-menu"] + (["diagnostic-logging"] if diagnostic else []) + (["silent-probe"] if silent_probe else [])
+def variant_features(diagnostic: bool) -> list[str]:
+    """Return compile-time features for one release variant."""
+    return ["imgui-menu"] + (["diagnostic-logging"] if diagnostic else [])
 
 
-def build_variant(name: str, env: dict[str, str], *, silent_probe: bool = False) -> Path:
+def build_variant(name: str, env: dict[str, str]) -> Path:
     """Compile once, then snapshot the result before the next build overwrites it."""
     # Assemble current editable sources before compiling or packaging either variant.
     sequences = assemble(ROOT / "deployment" / SEQUENCES)
@@ -117,10 +115,8 @@ def build_variant(name: str, env: dict[str, str], *, silent_probe: bool = False)
     write_generated(sequences, ROOT / "deployment" / SEQUENCES.parent / "assembled/sequences.txt")
     diagnostic = name == "diagnostic"
     summary = variant_release_summary(name)
-    if silent_probe:
-        summary += b"\nTEMPORARY: one-match SD aggregate probe enabled (silent-probe).\n"
     command = ["cargo", "skyline", "build", "--release", "--no-default-features"]
-    command += ["--features", ",".join(variant_features(diagnostic, silent_probe))]
+    command += ["--features", ",".join(variant_features(diagnostic))]
     # Stage 1: Cargo/Skyline compiles Rust and produces the NRO. check=True
     # stops this script on any build failure; it does not package an older NRO
     # as if the current build succeeded. Cargo itself does not create our ZIP.
@@ -134,9 +130,6 @@ def build_variant(name: str, env: dict[str, str], *, silent_probe: bool = False)
     if any(present != diagnostic for present in markers.values()):
         raise RuntimeError(f"Unexpected {name} logging marker results: {markers}")
 
-    if (b"ONE_MATCH_PROBE_V1" in binary) != silent_probe:
-        raise RuntimeError("Unexpected one-match probe marker; refusing to package")
-
     # Both variants share all gameplay settings. Only tech_debug differs, and a
     # silent binary ignores it regardless because its logging code is absent.
     config = (ROOT / "deployment" / CONFIG).read_text()
@@ -146,8 +139,6 @@ def build_variant(name: str, env: dict[str, str], *, silent_probe: bool = False)
         if not diagnostic else
         "# DIAGNOSTIC: file/console logging is compiled in; tech_debug enables tech details.\n"
     )
-    if silent_probe:
-        heading = "# TEMPORARY SILENT PROBE: one-match aggregate SD log; no console/network output.\n"
     config = (heading + config).encode()
     install = f"""Kirby Assist {RELEASE_VERSION} - {name.upper()} BUILD
 
@@ -168,8 +159,8 @@ Auto-tech and Spot punish are available and start ON in both variants; each has 
 Hold the button assigned to Built-in: Turbo t-bag (L3 by default) for fast crouching; press X for paired X+ZL short hop (both mapped to Jump).
 Hold L and click R3 to show/hide the bottom-left menu, which shows mash ON/OFF.
 While open, D-pad Up/Down
-selects a row and Left/Right cycles its saved options. While closed, sides
-slide, Down starts ledge trump, and Up keeps normal input.
+selects a row and Left/Right cycles its saved options. Assign Built-in: Ledge
+trump to a button in Button configs to run the ledge-trump input sequence.
 Both builds include the imgui-smash battle menu.
 Reuse ONE matching libimgui_smash.nro host (the same library as Online Deluxe).
 The host is not bundled or installed by this packager. See docs/LEDGE_MENU.md.
@@ -202,22 +193,15 @@ but does not disable startup/basic logging in this variant.
 Neither variant hides the plugin or guarantees indistinguishability/ban protection.
 Read docs/BUILD_VARIANTS.md for scope, build commands, and hardware verification steps.
 """
-    if silent_probe:
-        install = install.replace(
-            "Silent: no explicit plugin file/console logger, startup log creation, or detailed\nmessage collection.",
-            "TEMPORARY SILENT PROBE: creates silent_probe_once.log for one match only;\n10-second summaries, 32KiB/10-minute cap. No console/network output. Existing file\nprevents another run. Rebuild without --silent-probe after the test."
-        )
     # Stage 2: describe what this script actually checked. SHA-256 identifies
     # bytes for later comparison; it says nothing about in-game input timing.
     validation = {
         "build_id": RELEASE_VERSION,
         "variant": name,
         "release_optimized": True,
-        "cargo_features": variant_features(diagnostic, silent_probe),
+        "cargo_features": variant_features(diagnostic),
         "requires_imgui_smash_host": True,
-        "explicit_plugin_logging": diagnostic or silent_probe,
-        "temporary_silent_probe": silent_probe,
-        "probe_marker_present": b"ONE_MATCH_PROBE_V1" in binary,
+        "explicit_plugin_logging": diagnostic,
         "logging_marker_checks": markers,
         "plugin_sha256": hashlib.sha256(binary).hexdigest(),
         "config_sha256": hashlib.sha256(config).hexdigest(),
@@ -262,7 +246,7 @@ Read docs/BUILD_VARIANTS.md for scope, build commands, and hardware verification
         for relative, data in files.items():
             if archive.read(relative) != data:
                 raise RuntimeError(f"Packaged bytes differ: {relative}")
-    print(f"Verified {output.name}: {len(binary):,}-byte NRO; explicit logging={diagnostic or silent_probe}; temporary probe={silent_probe}", flush=True)
+    print(f"Verified {output.name}: {len(binary):,}-byte NRO; explicit logging={diagnostic}", flush=True)
     return output
 
 def copy_release_output(source: Path, destination: Path) -> None:
@@ -323,11 +307,7 @@ def parse_options(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--cargo-home", type=Path, help="Optional isolated Cargo cache")
     parser.add_argument("-upload", "--upload", action="store_true",
                         help="After a successful all-variant build, upload using the saved Switch routes")
-    parser.add_argument("--silent-probe", action="store_true",
-                        help="Temporary one-match aggregate SD logging in silent only (no upload by default)")
     options = parser.parse_args(argv)
-    if options.silent_probe and options.variant == "diagnostic":
-        parser.error("--silent-probe requires -v silent or -v all")
     if options.upload and options.variant != "all":
         parser.error("-upload requires -v all so neither Switch receives a stale variant")
     return options
@@ -367,10 +347,7 @@ def main() -> None:
     variants = ("silent", "diagnostic") if options.variant == "all" else (options.variant,)
     latest_build = ROOT.parent / f"Latestbuild-{RELEASE_VERSION}"
     for variant in variants:  # Sequential: Cargo output path is shared.
-        if options.silent_probe and variant == "silent":
-            build_variant(variant, env, silent_probe=True)
-        else:
-            build_variant(variant, env)
+        build_variant(variant, env)
     # Publish each selected variant separately. A single-variant build never
     # refreshes the other variant or copies its NRO from a shared target path.
     for variant in variants:

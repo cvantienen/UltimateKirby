@@ -70,7 +70,7 @@ use kirby_assist_core::fighter_profiles::{kirby, FighterProfiles};
 use kirby_assist_core::gameplay::{ControllerOutput, GameplayContext};
 use kirby_assist_core::kirby::{FairContext, FairFollowup, TripContext, TripFollowup};
 use kirby_assist_core::ledge_position::{nearest_ground_ledge, LedgePosition};
-use kirby_assist_core::ledge_trap::{LedgeTrap, CLIFF_CATCH_MOVE, DPAD_DOWN};
+use kirby_assist_core::ledge_trap::{LedgeTrap, CLIFF_CATCH_MOVE};
 use kirby_assist_core::ledge_trump::{nearest_floor_edge, LedgeTrump};
 use kirby_assist_core::live_input::{
     mapper_hook::mapper_offset, LiveConfig as Config, RawAutoControls, HID_ZR,
@@ -80,8 +80,8 @@ use kirby_assist_core::manual_controls::{
     ManualContext, ManualOverlay, TurboState, DPAD_SIDES, DPAD_UP, TURBO_TRIGGER,
 };
 use kirby_assist_core::native_input::{
-    controller_index, selected_controller_mapper, MAPPER_L, MAPPER_MINUS, MAPPER_PLUS, MAPPER_Y,
-    MAPPER_ZR,
+    controller_index, selected_controller_mapper, MAPPER_DPAD_DOWN, MAPPER_L, MAPPER_MINUS,
+    MAPPER_PLUS, MAPPER_Y, MAPPER_ZR,
 };
 #[cfg(feature = "diagnostic-logging")]
 use kirby_assist_core::native_input::{MAPPER_A, MAPPER_X};
@@ -155,27 +155,18 @@ static SEQUENCES_UPDATED: AtomicBool = AtomicBool::new(false);
 // the game, then lock again to publish results. `if let Ok` skips poisoned locks
 // instead of panicking inside a native callback.
 static STATE: Mutex<State> = Mutex::new(State::new());
-fn diagnostic_config(mut config: Config) -> Config {
+fn diagnostic_config(config: Config) -> Config {
     #[cfg(feature = "diagnostic-logging")]
-    let (trump, perf) = STATE
+    let perf = STATE
         .lock()
         .ok()
         .and_then(|state| {
-            state.settings_menu.as_ref().map(|menu| {
-                let (_, perf) = menu.diagnostic_options();
-                (menu.trump_mode(), perf)
-            })
+            state
+                .settings_menu
+                .as_ref()
+                .map(|menu| menu.diagnostic_options())
         })
         .unwrap_or_default();
-    #[cfg(not(feature = "diagnostic-logging"))]
-    let trump = STATE.lock().ok().is_some_and(|state| {
-        state
-            .settings_menu
-            .as_ref()
-            .is_some_and(|menu| menu.trump_mode())
-    });
-
-    config.auto_ledge_trump = trump;
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::set_enabled(perf);
     config
@@ -267,7 +258,10 @@ struct ObservationNeeds {
 }
 
 fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
-    let trump_held = state.settings_menu.as_ref().is_some_and(|m| m.trump_mode());
+    let trump_held = state
+        .settings_menu
+        .as_ref()
+        .is_some_and(|menu| menu.ledge_trump_held());
     let preview_selected = state
         .settings_menu
         .as_ref()
@@ -278,11 +272,10 @@ fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
         .is_some_and(LedgeTrap::file_timeline_active);
 
     ObservationNeeds {
-        find_trump_edge: config.auto_ledge_trump
-            && state
-                .trump
-                .as_ref()
-                .is_none_or(|trump| trump.needs_edge(trump_held))
+        find_trump_edge: state
+            .trump
+            .as_ref()
+            .is_none_or(|trump| trump.needs_edge(trump_held))
             && state
                 .trump_seek_tick
                 .is_none_or(|last| state.raw_tick.wrapping_sub(last) >= 30)
@@ -315,8 +308,7 @@ fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
             .ledge
             .as_ref()
             .is_some_and(LedgeTrap::file_needs_ground),
-        observe_trump: config.auto_ledge_trump
-            && (trump_held || state.trump.as_ref().is_some_and(LedgeTrump::active)),
+        observe_trump: trump_held || state.trump.as_ref().is_some_and(LedgeTrump::active),
         observe_duck: state.duck_active,
     }
 }
@@ -328,10 +320,6 @@ unsafe fn refresh_master_for_controller(
 ) -> Option<Option<bool>> {
     selected_controller(wrapper, index, config.player_index)?;
     let ready = observations::battle_menu_ready_go();
-    #[cfg(feature = "silent-probe")]
-    if feature_activity_allowed() {
-        crate::one_match_probe::battle(ready);
-    }
     refresh_master_match_lock(ready);
     Some(ready)
 }
@@ -391,8 +379,6 @@ unsafe fn map_controls(
     #[cfg(feature = "diagnostic-logging")]
     let _mapping_time =
         crate::performance::health::Trace::new(crate::performance::health::Lane::Mapping);
-    #[cfg(feature = "silent-probe")]
-    crate::one_match_probe::event(crate::one_match_probe::Event::Mapper);
     // Installed Training Modpack + actual Training Mode, in both builds.
     // Standalone Switches and other battle modes retain the normal path.
     // Copy this native scene fact before acquiring STATE. The menu and
@@ -725,10 +711,13 @@ unsafe fn map_controls(
                                         | kirby_assist_core::native_input::MAPPER_X
                                         | MAPPER_Y)
                                     != 0
-                                    && state.settings_menu.as_ref().is_some_and(|m| m.trump_mode());
+                                    && state
+                                        .settings_menu
+                                        .as_ref()
+                                        .is_some_and(|m| m.ledge_trump_held());
                             }
                             if consumed & DPAD_SIDES != 0
-                                || physical.held & (DPAD_UP | DPAD_DOWN | MAPPER_MINUS) != 0
+                                || physical.held & (DPAD_UP | MAPPER_DPAD_DOWN | MAPPER_MINUS) != 0
                             {
                                 // Menu takeover cancels before a native refresh
                                 // could replay a cached jump/dodge request.
@@ -840,18 +829,13 @@ unsafe fn map_controls(
                             && state.associated_object.is_some()
                             && state.associated_object == state.observed_object
                             && physical.held & MAPPER_PLUS == 0;
-                        #[cfg(any(feature = "diagnostic-logging", feature = "silent-probe"))]
+                        #[cfg(feature = "diagnostic-logging")]
                         {
                             let expired = manual_scope
                                 && state.menu_battle_active
                                 && !fresh
                                 && state.request_seen.is_some();
                             if expired && !state.last_input_expired {
-                                #[cfg(feature = "silent-probe")]
-                                crate::one_match_probe::event(
-                                    crate::one_match_probe::Event::InputExpiry,
-                                );
-                                #[cfg(feature = "diagnostic-logging")]
                                 crate::performance::health::event(
                                     crate::performance::health::Event::InputExpired,
                                 );
@@ -988,8 +972,8 @@ unsafe fn map_controls(
                         #[cfg(feature = "diagnostic-logging")]
                         if trump_pressed {
                             messages.push(format!(
-                                "trump input: enabled={}, scope={}, fresh={}, action={}, stick={:?}, reserved={reserved_dpad:#x}",
-                                config.auto_ledge_trump, manual_scope, fresh,
+                                "trump input: scope={}, fresh={}, action={}, stick={:?}, reserved={reserved_dpad:#x}",
+                                manual_scope, fresh,
                                 state.trump.as_ref().map_or("unobserved", LedgeTrump::action_name),
                                 state.trump_output.stick,
                             ));
@@ -2401,8 +2385,6 @@ unsafe fn admit_fighter_observation(
         {
             #[cfg(feature = "diagnostic-logging")]
             crate::performance::health::event(crate::performance::health::Event::ObservationReuse);
-            #[cfg(feature = "silent-probe")]
-            crate::one_match_probe::event(crate::one_match_probe::Event::Duplicate);
             return None;
         }
         (tick, state.mapping_index)
@@ -2451,8 +2433,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let Some(_observation_guard) = FighterObservationGuard::acquire() else {
         return;
     };
-    #[cfg(feature = "silent-probe")]
-    let _probe_observation = crate::one_match_probe::observation();
     // Only an accepted local observation needs profile/menu resolution and
     // policy setup. Duplicate command hooks still refresh human routing and
     // presence above, including the existing roster-discovery exception.
@@ -2897,8 +2877,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     }
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::FullObservation);
-    #[cfg(feature = "silent-probe")]
-    crate::one_match_probe::event(crate::one_match_probe::Event::Evaluation);
     // Hitstop freezes native action progress. It differs from cancellation:
     // keep remembered cooldowns/plans while withholding new mash/tech requests.
     let stopped = reads.is_stop(object);
@@ -4342,8 +4320,11 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 .is_some_and(|m| m.preview_slot().is_some());
             context.input_delay = 0.0;
             context.can_act = state.turbo_ready;
-            let trump_held = state.settings_menu.as_ref().is_some_and(|m| m.trump_mode());
-            if !trump_held || !config.auto_ledge_trump {
+            let trump_held = state
+                .settings_menu
+                .as_ref()
+                .is_some_and(|menu| menu.ledge_trump_held());
+            if !trump_held {
                 state.trump_seek_tick = None;
             } else if find_trump_edge
                 && turbo_movement_allowed(context.status, context.situation, stopped)
@@ -4356,7 +4337,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             }
             let trump_allowed = state.action_owner.allows(Owner::Trump);
             state.trump_output = state.trump.get_or_insert_with(LedgeTrump::default).sample(
-                config.auto_ledge_trump && trump_allowed,
+                trump_allowed,
                 tick,
                 trump_held,
                 GameplayContext {
@@ -4820,7 +4801,7 @@ pub fn install() {
         }
     };
     #[cfg(feature = "diagnostic-logging")]
-    log!(&format!("GLOBAL MODES: assistance={}, auto-tech={}, auto-SDI={}, ledge-trump={}, automatic fair-hit follow-up={}, defensive ledge shield={}. Saved fighter choices are listed separately when selected. Detailed snapshots are batched at most 4 times/second; input requests, native move starts and hit evidence are reported separately.", config.controls.enabled, config.controls.auto_tech, config.auto_sdi, config.auto_ledge_trump, config.kirby_fair1_smash, config.autopilot_shield));
+    log!(&format!("GLOBAL MODES: assistance={}, auto-tech={}, auto-SDI={}, automatic fair-hit follow-up={}, defensive ledge shield={}. Saved fighter choices are listed separately when selected. Detailed snapshots are batched at most 4 times/second; input requests, native move starts and hit evidence are reported separately.", config.controls.enabled, config.controls.auto_tech, config.auto_sdi, config.kirby_fair1_smash, config.autopilot_shield));
     #[cfg(feature = "diagnostic-logging")]
     log!(&format!("AUTO DI CONFIG: enabled={}, mode={:?}, legacy threshold={:.2}. Adaptive uses survival; Escape requires explicit selection. DI owns the final 3 victim-hitstop frames; SDI never falls back there. DI and SDI share exclusive stick ownership through hitstop.", config.auto_di.enabled, config.auto_di.mode, config.auto_di.survival_speed));
     log!(&format!("AUTO SPOT DODGE: enabled={}; ordinary standing/dash/pivot grabs only, bounded per-fighter proximity forecast, one accepted request per grab with optional configured follow-up; incoming-grab defense waits for committed sequences and yields to native safety.", config.auto_spot_dodge));
@@ -4878,8 +4859,6 @@ pub fn install() {
         if TRAINING_MODPACK_PRESENT.load(Ordering::Relaxed) {
             log!("Stock Training Modpack detected: Minus toggles Kirby Assist menu; full gameplay tools enabled. Training shortcuts hand off until the next Minus press");
         }
-        #[cfg(feature = "silent-probe")]
-        crate::one_match_probe::start();
         skyline::install_hook!(observe_commands);
         settings_menu::install();
         log!(&format!("observer installed; mapper={offset:#x} deferred until fighter callback; training_modpack_present={}; config={config:?}; physical-controller routing; pre-map fighter refresh; callback-only fighter discovery", TRAINING_MODPACK_PRESENT.load(Ordering::Relaxed)));

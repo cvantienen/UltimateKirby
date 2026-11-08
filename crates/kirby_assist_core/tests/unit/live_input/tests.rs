@@ -13,7 +13,7 @@ fn active_settings() -> LiveSettings {
 #[test]
 fn direct_config_selects_one_controller_and_takeover_tools() {
     let config = LiveConfig::parse(include_str!(
-        "../../../../deployment/ultimate/kirby_assist/config.txt"
+        "../../../../../deployment/ultimate/kirby_assist/config.txt"
     ))
     .unwrap();
     assert_eq!(config.player_index, 0);
@@ -84,7 +84,7 @@ fn analog_mash_composes_with_button_takeover_and_restores_fresh_physical_input()
 #[test]
 fn bundled_config_keeps_analog_mash_and_extended_prediction() {
     let config = LiveConfig::parse(include_str!(
-        "../../../../deployment/ultimate/kirby_assist/config.txt"
+        "../../../../../deployment/ultimate/kirby_assist/config.txt"
     ))
     .unwrap();
     assert!(config.assist.enabled);
@@ -176,7 +176,7 @@ fn legacy_throw_setting_stays_parseable_and_bundled_capture_is_manual() {
     );
     assert!(LiveConfig::parse("ledge_throw_outward = maybe").is_err());
     let supplied = LiveConfig::parse(include_str!(
-        "../../../../deployment/ultimate/kirby_assist/config.txt"
+        "../../../../../deployment/ultimate/kirby_assist/config.txt"
     ))
     .unwrap();
     assert!(!supplied.assist.throw_outward);

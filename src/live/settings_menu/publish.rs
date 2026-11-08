@@ -54,8 +54,6 @@ pub(super) fn publish(
         crate::performance::health::Trace::new(crate::performance::health::Lane::MenuBuild);
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::MenuBuild);
-    #[cfg(feature = "silent-probe")]
-    crate::one_match_probe::event(crate::one_match_probe::Event::MenuBuild);
     let Ok(next) = view::build(profile, selection, auto_mash, generation) else {
         return false;
     };

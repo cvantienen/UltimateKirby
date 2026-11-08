@@ -9,8 +9,19 @@ impl MenuSelection {
     pub fn ledge_mode(&self) -> bool {
         self.auto_ledge
     }
-    pub fn trump_mode(&self) -> bool {
-        self.auto_trump
+    pub fn ledge_trump_held(&self) -> bool {
+        !self.cancel_pending
+            && !self.binding_starts_blocked
+            && self.menu_hidden
+            && !self.recipe_editing
+            && !self.managing()
+            && !self.tuning_page
+            && (self.binding_physical
+                & self.builtin_sources[3]
+                & !self
+                    .binding_layout
+                    .physical_buttons(self.button_latch | self.pad_quarantine))
+                != 0
     }
     pub(super) fn process_bindings(
         &mut self,
@@ -238,7 +249,7 @@ impl MenuSelection {
         {
             self.binding_roles_rebuilds += 1;
         }
-        self.builtin_sources = [0; 3];
+        self.builtin_sources = [0; 4];
         self.builtin_consumed = 0;
         self.binding_sources = 0;
         self.single_jump_sources = 0;
@@ -262,6 +273,7 @@ impl MenuSelection {
                     let index = match builtin {
                         crate::button_bindings::Builtin::LedgeAssist => 1,
                         crate::button_bindings::Builtin::TurboTeabag => 2,
+                        crate::button_bindings::Builtin::LedgeTrump => 3,
                         crate::button_bindings::Builtin::Normal => continue,
                     };
                     self.builtin_sources[index] |= slot.button();
@@ -324,7 +336,7 @@ impl MenuSelection {
                             0
                         }
                     } else {
-                        TWO_FRAME_TRIGGER | MAPPER_DPAD_BUTTONS
+                        MENU_L3 | MAPPER_DPAD_BUTTONS
                     }
             };
             for (index, dest) in [MAPPER_X, MAPPER_L, TURBO_TRIGGER].into_iter().enumerate() {

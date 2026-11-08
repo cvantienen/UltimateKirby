@@ -262,4 +262,5 @@ impl LedgeTrump {
 }
 
 #[cfg(test)]
+#[path = "../tests/unit/ledge_trump/tests.rs"]
 mod tests;

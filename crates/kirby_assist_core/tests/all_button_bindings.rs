@@ -71,6 +71,7 @@ fn each_native_helper_can_be_assigned_to_every_physical_button() {
             for (builtin, expected) in [
                 (Builtin::LedgeAssist, MAPPER_L),
                 (Builtin::TurboTeabag, TURBO_TRIGGER),
+                (Builtin::LedgeTrump, 0),
             ] {
                 let p = presets(&format!(
                     "[bowser.{}.native]\nbuiltin={}\ndefault=true\n",
@@ -78,6 +79,7 @@ fn each_native_helper_can_be_assigned_to_every_physical_button() {
                     builtin.token()
                 ));
                 let mut m = MenuSelection::new(&p);
+                m.menu_hidden = true;
                 input(&mut m, &p, 0, layout);
                 let consumed = input(&mut m, &p, slot.button(), layout);
                 assert!(
@@ -91,6 +93,11 @@ fn each_native_helper_can_be_assigned_to_every_physical_button() {
                     "{layout:?} {slot:?} {builtin:?}"
                 );
                 assert_ne!(layout.physical_buttons(consumed) & slot.button(), 0);
+                assert_eq!(
+                    m.ledge_trump_held(),
+                    builtin == Builtin::LedgeTrump,
+                    "{layout:?} {slot:?} {builtin:?}"
+                );
             }
         }
     }

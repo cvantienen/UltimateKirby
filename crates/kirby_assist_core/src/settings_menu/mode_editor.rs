@@ -348,7 +348,7 @@ impl MenuSelection {
         if self.recipe_editing
             && !self.managing()
             && !self.editor.as_ref().is_some_and(|e| e.command_active())
-            && pressed & TWO_FRAME_TRIGGER != 0
+            && pressed & MENU_L3 != 0
         {
             self.mode_cursor_to_current(presets);
             self.show_quick();
@@ -362,7 +362,7 @@ impl MenuSelection {
                 | MAPPER_X
                 | MAPPER_Y
                 | MENU_STICK_CLICK
-                | TWO_FRAME_TRIGGER
+                | MENU_L3
                 | DPAD_UP
                 | DPAD_DOWN
                 | DPAD_LEFT
@@ -389,7 +389,7 @@ impl MenuSelection {
                     pressed & DPAD_RIGHT != 0,
                 );
             }
-        } else if pressed & (B | TWO_FRAME_TRIGGER) != 0 {
+        } else if pressed & (B | MENU_L3) != 0 {
             self.restore_mode_choices();
             self.modes_menu = true;
             self.row = row;
@@ -513,7 +513,7 @@ mod tests {
         let original = m.choices;
         m.show_modes();
         m.row = MenuRow::RollRules;
-        tap(&mut m, &p, TWO_FRAME_TRIGGER);
+        tap(&mut m, &p, MENU_L3);
         let panel = m.recipe_panel(&p);
         assert!(panel.body[0].starts_with("P1"));
         assert!(panel.body[1].starts_with("P4"));
@@ -537,7 +537,7 @@ mod tests {
         assert!(!m.recipe_panel(&p).header.join(" ").contains("roster avg"));
         tap(&mut m, &p, MENU_STICK_CLICK);
         assert!(m.mode_rule_list);
-        tap(&mut m, &p, TWO_FRAME_TRIGGER);
+        tap(&mut m, &p, MENU_L3);
         assert_eq!(m.choices, original);
         assert!(m.modes_menu);
     }
@@ -547,7 +547,7 @@ mod tests {
         let mut m = MenuSelection::new(&p);
         m.show_modes();
         m.row = MenuRow::OutOfShield;
-        tap(&mut m, &p, TWO_FRAME_TRIGGER);
+        tap(&mut m, &p, MENU_L3);
         tap(&mut m, &p, MAPPER_X);
         let i = m.choices[PresetSlot::Attack as usize];
         assert_eq!(
@@ -597,7 +597,7 @@ mod tests {
         assert_eq!(m.row, MenuRow::Attack);
         tap(&mut m, &p, MENU_STICK_CLICK);
         assert!(m.mode_rule_list);
-        tap(&mut m, &p, TWO_FRAME_TRIGGER);
+        tap(&mut m, &p, MENU_L3);
         assert!(m.modes_menu);
         assert_eq!(m.row, MenuRow::RollRules);
         assert_eq!(m.choices, original);
