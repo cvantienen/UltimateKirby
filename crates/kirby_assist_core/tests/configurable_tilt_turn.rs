@@ -227,6 +227,36 @@ fn configured_tilts_yield_to_other_inputs_and_invalid_observations() {
 }
 
 #[test]
+fn side_aliases_const_constructor_matches_default() {
+    const INITIAL: TiltSideAliases = TiltSideAliases::new();
+    let mut from_const = INITIAL;
+    let mut from_default = TiltSideAliases::default();
+    for (trace, direction) in [
+        (
+            ButtonTrace {
+                held: MAPPER_RIGHT_STICK_RIGHT,
+                pressed: MAPPER_RIGHT_STICK_RIGHT,
+                ..Default::default()
+            },
+            Some(-1.0),
+        ),
+        (
+            ButtonTrace {
+                previous: MAPPER_RIGHT_STICK_RIGHT,
+                released: MAPPER_RIGHT_STICK_RIGHT,
+                ..Default::default()
+            },
+            None,
+        ),
+    ] {
+        assert_eq!(
+            from_const.apply(trace, direction),
+            from_default.apply(trace, direction)
+        );
+    }
+}
+
+#[test]
 fn side_aliases_keep_physical_press_and_release_without_extra_attack_edges() {
     let mut aliases = TiltSideAliases::default();
     let physical = ButtonTrace {

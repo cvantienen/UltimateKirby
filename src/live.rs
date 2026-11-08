@@ -92,10 +92,10 @@ use kirby_assist_core::manual_controls::{
 };
 use kirby_assist_core::native_input::{
     controller_index, selected_controller_mapper, MAPPER_DPAD_DOWN, MAPPER_L, MAPPER_MINUS,
-    MAPPER_PLUS, MAPPER_Y, MAPPER_ZR,
+    MAPPER_PLUS, MAPPER_ZR,
 };
 #[cfg(feature = "diagnostic-logging")]
-use kirby_assist_core::native_input::{MAPPER_A, MAPPER_X};
+use kirby_assist_core::native_input::{MAPPER_A, MAPPER_X, MAPPER_Y};
 use kirby_assist_core::session::{MatchSession, SessionTicket};
 use kirby_assist_core::settings::AssistSettings;
 use kirby_assist_core::tech_input::{TechContext, TechInput, TechOutput};

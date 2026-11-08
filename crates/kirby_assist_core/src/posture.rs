@@ -27,11 +27,19 @@ impl TiltSettings {
 
 /// Keep the digital side aliases consistent with an angled physical C-stick.
 /// Preserve physical attack edges; a target change does not invent a press.
-#[derive(Default)]
 pub struct TiltSideAliases {
     previous: Option<u32>,
 }
+impl Default for TiltSideAliases {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl TiltSideAliases {
+    pub const fn new() -> Self {
+        Self { previous: None }
+    }
+
     pub fn apply(&mut self, mut trace: ButtonTrace, direction: Option<f32>) -> ButtonTrace {
         let current = direction.map(|x| {
             if x < 0.0 {

@@ -326,7 +326,7 @@ impl State {
             posture: None,
             posture_target: None,
             posture_down: false,
-            posture_side_aliases: Default::default(),
+            posture_side_aliases: kirby_assist_core::posture::TiltSideAliases::new(),
             posture_floor_safe: false,
 
             manual_overlay: None,

@@ -6,13 +6,19 @@ with the supplied config. On the Modes page, Up/Down selects the row and
 Left/Right toggles it.
 Selections last for the current match; `auto_tech` supplies
 the initial value (an explicit false is respected). OFF skips collision prediction entirely. ON only predicts
-in eligible damage/tumble states, and stops probing once it finds minimum-time
-contact. Linear refinement rebuilds only the ray being shortened. Descending
-floor prediction can use the bounded acceleration adjustment described below;
-wall/ceiling rays and linear fallback retain their existing geometry.
-No cross-frame cache or reduced prediction frequency is introduced. These
-shortcuts preserve the existing prediction result; they do not establish the
-cause of a reported whole-match FPS drop.
+after native eligibility checks. Its paths include swept probes for eligible
+damage/tumble, native transition/contact checks for grounded floor tech and
+wall/ceiling contacts, and the grounded Ganondorf capture/release handling
+described below. The ray predictor checks the one-frame contact case before a
+longer sweep and refines only the ray being shortened.
+
+Descending-floor prediction may retain one bounded native-motion sample across
+observations to estimate acceleration; the adjustment is described below. This
+is not mapper-poll timing, learned input delay, or reduced-frequency prediction.
+The bounded ray work and early exits limit unnecessary queries, but do not
+preserve the old linear forecast in cases where the acceleration estimate
+predicts an earlier floor contact. These implementation details do not establish
+the cause of a reported whole-match FPS drop.
 
 `auto_tech = true` applies to the selected human controller in every supported
 battle mode. The configured layout's simulated guard button must map to Shield
