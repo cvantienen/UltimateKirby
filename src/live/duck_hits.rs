@@ -2,9 +2,9 @@
 //! One ATTACK-command observer remembers IDs only; it never edits Lua arguments,
 //! attacks or statuses. Native geometry is read only while defense is enabled.
 use crate::game_ffi as game;
-use kirby_assist_core::autopilot_guard::{
-    duck::{self, DefenseThreat},
-    duck_geometry::{self, Contact, Hitbox},
+use kirby_assist_core::{
+    auto_duck::{self, Contact, DefenseThreat},
+    autopilot_guard::Hitbox,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
 #[path = "projectile_sources.rs"]
@@ -158,7 +158,7 @@ pub(super) unsafe fn observe(
                 };
                 game::joint_position(object, data.node, &offset, &mut end, true);
             }
-            match duck_geometry::contact(
+            match auto_duck::contact(
                 origin,
                 velocity,
                 Hitbox {
@@ -169,9 +169,11 @@ pub(super) unsafe fn observe(
                 },
             ) {
                 Contact::None => {}
-                Contact::Duck(lead) => {
-                    threats.add_duck(duck::geometry_threat(id, reads.motion_frame(object), lead))
-                }
+                Contact::Duck(lead) => threats.add_duck(auto_duck::geometry_threat(
+                    id,
+                    reads.motion_frame(object),
+                    lead,
+                )),
                 Contact::Shield => {
                     threats.shield = true;
                     return threats;

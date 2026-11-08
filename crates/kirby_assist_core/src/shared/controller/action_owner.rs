@@ -20,7 +20,6 @@ pub enum Owner {
     JabLock,
     Fair,
     Trump,
-    Shortcut,
     Ledge,
     RollRead,
     Defense,
@@ -55,7 +54,6 @@ impl Owner {
             Self::JabLock => 75,
             Self::Fair => 80,
             Self::Trump => 70,
-            Self::Shortcut => 60,
             Self::Ledge => 95,
             Self::RollRead => 97,
             Self::Defense => 30,
@@ -241,9 +239,6 @@ impl ActionOwnership {
     pub fn policy_inputs(&self) -> &crate::manual_controls::ManualTakeover {
         self.locked_manual.as_ref().unwrap_or(&self.manual)
     }
-    pub fn manual_jump_preempts(&self, _confirmed_spin: bool) -> bool {
-        false
-    }
     /// Suspension prevents new automatic work. Cancellation of an active tape
     /// is explicit (disable, scene loss, native interruption or recipe handback).
     pub fn set_automatic_suspended(&mut self, active: bool) {
@@ -294,15 +289,5 @@ impl ActionOwnership {
         }
         self.locked = next;
         winner.map(|i| i.owner)
-    }
-}
-
-/// Built-in manual jump handback is available only without an active input
-/// owner. A passive watch/posture/turbo may yield; safety and punish tapes do not.
-pub fn permits_builtin_jump(owner: Option<Owner>, ledge_reserved: bool) -> bool {
-    match owner {
-        None | Some(Owner::Posture | Owner::Turbo) => true,
-        Some(Owner::Ledge) => !ledge_reserved,
-        _ => false,
     }
 }

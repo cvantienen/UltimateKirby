@@ -138,8 +138,8 @@ unsafe fn game_entry_id(id: u32) -> i32 {
             .map_or(-1, |a| a.entry)
     })
 }
-#[path = "../../../src/live/local_actor.rs"]
-mod local_actor;
+#[path = "../../../src/live/local_fighter.rs"]
+mod local_fighter;
 #[path = "../../../src/live/fighter_roster.rs"]
 mod roster;
 fn reset() {
@@ -156,15 +156,15 @@ fn a_human_entrys_partner_or_standby_form_cannot_take_over_the_local_controller(
         w.actor(3, 90, e, u32::MAX);
     });
     unsafe {
-        assert!(local_actor::human_fighter(game::module_accessor(1)));
-        assert!(!local_actor::human_fighter(game::module_accessor(2)));
-        assert!(!local_actor::human_fighter(game::module_accessor(3)));
+        assert!(local_fighter::human_fighter(game::module_accessor(1)));
+        assert!(!local_fighter::human_fighter(game::module_accessor(2)));
+        assert!(!local_fighter::human_fighter(game::module_accessor(3)));
         WORLD.with(|w| w.borrow_mut().current[0] = 3);
-        assert!(local_actor::human_fighter(game::module_accessor(3)));
-        assert!(!local_actor::human_fighter(game::module_accessor(1)));
+        assert!(local_fighter::human_fighter(game::module_accessor(3)));
+        assert!(!local_fighter::human_fighter(game::module_accessor(1)));
         WORLD.with(|w| w.borrow_mut().cpu[0] = true);
-        assert!(!local_actor::human_fighter(game::module_accessor(3)));
-        assert!(!local_actor::human_fighter(ptr::null_mut()));
+        assert!(!local_fighter::human_fighter(game::module_accessor(3)));
+        assert!(!local_fighter::human_fighter(ptr::null_mut()));
     }
 }
 #[test]
@@ -185,7 +185,7 @@ fn eight_ice_climber_entries_include_sixteen_distinct_fighters_without_changing_
     assert_eq!(ids, std::array::from_fn(|i| Some(i as u32 + 1)));
     for id in ids.into_iter().flatten() {
         assert_eq!(
-            unsafe { local_actor::human_fighter(game::module_accessor(id)) },
+            unsafe { local_fighter::human_fighter(game::module_accessor(id)) },
             id == 1
         );
     }
@@ -241,6 +241,6 @@ fn olimars_pikmin_and_rosalinas_luma_are_not_fighter_roster_or_control_candidate
     let ids = unsafe { roster::fighter_ids().unwrap() };
     assert_eq!(ids.into_iter().flatten().collect::<Vec<_>>(), vec![1, 3]);
     for id in [0x10000002, 0x10000004] {
-        assert!(!unsafe { local_actor::human_fighter(game::module_accessor(id)) });
+        assert!(!unsafe { local_fighter::human_fighter(game::module_accessor(id)) });
     }
 }

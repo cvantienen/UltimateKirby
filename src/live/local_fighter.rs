@@ -1,5 +1,6 @@
-//! Positive local actor ownership, distinct from an entry's CPU/human setting.
+//! Validate local fighter identity and its callback-discovered controller route.
 use super::{fighter_manager_instance, game, game_entry_id};
+
 pub(crate) unsafe fn human_fighter(object: *mut game::Object) -> bool {
     if object.is_null() {
         return false;
@@ -25,4 +26,18 @@ pub(crate) unsafe fn human_fighter(object: *mut game::Object) -> bool {
     }
     let information = game::fighter_information(manager, entry_id);
     !information.is_null() && !game::is_cpu(information)
+}
+
+pub(crate) unsafe fn valid_local_route(id: u32, index: i32) -> bool {
+    if !(0..8).contains(&index)
+        || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+        || !game::is_active(id)
+    {
+        return false;
+    }
+    let object = game::module_accessor(id);
+    !object.is_null()
+        && game::battle_object_id(object) == id
+        && kirby_assist_core::native_input::controller_index(object.cast()) == Some(index)
+        && human_fighter(object)
 }

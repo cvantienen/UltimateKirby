@@ -195,7 +195,6 @@ fn suspension_blocks_new_automatic_work_but_committed_owners_require_cancellatio
         for candidate in [
             Owner::Ledge,
             Owner::Safety,
-            Owner::Shortcut,
             Owner::Turbo,
             Owner::Posture,
         ] {

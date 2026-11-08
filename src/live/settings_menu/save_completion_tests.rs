@@ -250,7 +250,6 @@ fn every_training_editor_dispatches_y_save_without_gameplay_input_permission() {
             false,
             true,
             false,
-            false,
             Some(15),
             buttons,
             buttons,

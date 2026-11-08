@@ -499,7 +499,6 @@ impl SettingsMenu {
         available: bool,
         gameplay: bool,
         bindings_blocked: bool,
-        short_hop_running: bool,
         safety_jump: bool,
         kind: Option<i32>,
         buttons: u32,
@@ -515,7 +514,6 @@ impl SettingsMenu {
             available,
             gameplay,
             bindings_blocked,
-            short_hop_running,
             safety_jump,
             kind,
             buttons,
@@ -533,7 +531,6 @@ impl SettingsMenu {
         available: bool,
         gameplay: bool,
         bindings_blocked: bool,
-        short_hop_running: bool,
         safety_jump: bool,
         kind: Option<i32>,
         buttons: u32,
@@ -609,7 +606,6 @@ impl SettingsMenu {
         // Scene permission was copied before the caller acquired STATE. Do
         // not call native game functions from this locked menu adapter.
         selection.block_binding_starts(bindings_blocked);
-        selection.continue_short_hop_binding(short_hop_running);
         selection.preserve_safety_jump(safety_jump);
         selection.set_binding_input(physical, layout);
         let binding_choices_before = (selection.choices, selection.recipe_revision);

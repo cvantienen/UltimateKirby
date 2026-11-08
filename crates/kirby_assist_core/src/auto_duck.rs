@@ -1,32 +1,90 @@
-//! Held-Y Kirby duck/shield ownership. Live observations use duck_geometry.
-//! The Falcon-only candidate below is retained for legacy policy regressions,
-//! not as a restriction on the current live reader.
+//! Geometry, threat aggregation, timing and input policy for automatic ducking.
+//! Body bounds are calibration estimates, not native Kirby hurtboxes.
 //!
 //! Prima's Ultimate Kirby overview explicitly names Falcon Punch as duckable:
 //! https://primagames.com/eguides/prima-games-8-eguide/kirby/overview
 //! Normal grounded Punch is active 53–57 (Ultimate Frame Data). Reverse, aerial,
-//! copied and modified moves are deliberately not inferred from this entry.
+//! copied and modified moves are deliberately not inferred from that entry.
 
-#[path = "../fighters/captain_falcon/punch_duck.rs"]
+use crate::autopilot_guard::{GuardClock, GuardHold, Hitbox};
+
+#[path = "fighters/captain_falcon/punch_duck.rs"]
 mod falcon_punch;
 pub use falcon_punch::{candidate, FALCON_PUNCH_MOTION};
 
 const MIN_START_LEAD: f32 = 8.0;
 const CONFIRM_LEAD: f32 = 3.0;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Contact {
+    None,
+    Duck(f32),
+    Shield,
+}
+
+pub const CROUCH_TOP: f32 = 4.5;
+pub const STAND_TOP: f32 = 12.0;
+pub const BODY_HALF_WIDTH: f32 = 4.0;
+pub const LOOKAHEAD: usize = 6;
+
+/// Swept capsule contact against estimated standing and crouching bounds.
+pub fn contact(position: [f32; 3], velocity: [f32; 2], hit: Hitbox) -> Contact {
+    if !position
+        .iter()
+        .chain(velocity.iter())
+        .chain(hit.start.iter())
+        .chain(hit.end.iter())
+        .chain(hit.velocity.iter())
+        .chain([&hit.radius])
+        .all(|v| v.is_finite())
+        || !(0.0..=100.0).contains(&hit.radius)
+        || hit.radius == 0.0
+    {
+        return Contact::None;
+    }
+    let lo = std::array::from_fn::<_, 3, _>(|i| hit.start[i].min(hit.end[i]) - hit.radius);
+    let hi = std::array::from_fn::<_, 3, _>(|i| hit.start[i].max(hit.end[i]) + hit.radius);
+    if hi[2] < position[2] - BODY_HALF_WIDTH || lo[2] > position[2] + BODY_HALF_WIDTH {
+        return Contact::None;
+    }
+    let mut duck_at: Option<f32> = None;
+    for frame in 0..=LOOKAHEAD {
+        let t = frame as f32;
+        let next = (frame + 1).min(LOOKAHEAD) as f32;
+        let dx = hit.velocity[0] - velocity[0];
+        let dy = hit.velocity[1] - velocity[1];
+        let min_x = lo[0] + (dx * t).min(dx * next);
+        let max_x = hi[0] + (dx * t).max(dx * next);
+        let min_y = lo[1] + (dy * t).min(dy * next);
+        let max_y = hi[1] + (dy * t).max(dy * next);
+        if max_x < position[0] - BODY_HALF_WIDTH
+            || min_x > position[0] + BODY_HALF_WIDTH
+            || max_y < position[1]
+            || min_y > position[1] + STAND_TOP
+        {
+            continue;
+        }
+        if min_y <= position[1] + CROUCH_TOP {
+            return Contact::Shield;
+        }
+        duck_at.get_or_insert(t);
+    }
+    duck_at.map_or(Contact::None, Contact::Duck)
+}
+
 #[derive(Clone, Copy)]
 pub struct DuckContext {
-    pub clock: super::GuardClock,
+    pub clock: GuardClock,
     pub can_crouch: bool,
     pub crouched: bool,
     pub can_shield: bool,
 }
 
-/// Independent held-Y defense. L's shield safeguard uses separate state.
+/// Automatic crouch/shield ownership, separate from ledge autopilot guarding.
 #[derive(Default)]
 pub struct DuckDefense {
     hold: DuckHold,
-    shield: super::GuardHold,
+    shield: GuardHold,
     shielding: bool,
 }
 impl DuckDefense {
@@ -97,6 +155,7 @@ pub struct DuckThreat {
     lead: f32,
     geometry: bool,
 }
+
 /// Live active-hitbox geometry, rather than a move-name allowlist.
 pub fn geometry_threat(id: u32, frame: f32, lead: f32) -> DuckThreat {
     DuckThreat {
@@ -107,8 +166,7 @@ pub fn geometry_threat(id: u32, frame: f32, lead: f32) -> DuckThreat {
     }
 }
 
-/// One fixed-size result for the existing roster pass. Any other warning (even
-/// a second duckable attacker) wins over ducking; roster order cannot hide it.
+/// Fixed-size threat summary; any non-duckable warning makes shielding win.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DefenseThreat {
     pub shield: bool,
@@ -145,9 +203,7 @@ pub struct DuckHold {
     previous: Option<DuckThreat>,
 }
 impl DuckHold {
-    /// Start at least eight native game frames early. Require actual SQUAT_WAIT
-    /// three frames before impact; rejected/late crouches fall back to shield.
-    /// Repeated polls/hitstop hold the same proposal, without consuming a timer.
+    /// Start early, confirm crouch close to impact, and fall back when too late.
     pub fn sample(
         &mut self,
         eligible: bool,
@@ -160,8 +216,6 @@ impl DuckHold {
             return false;
         };
         if threat.geometry {
-            // Attempt down immediately for every detected high hitbox; a late
-            // first observation may still lose to crouch startup/input delay.
             if !can_start && self.previous.is_none() {
                 return false;
             }

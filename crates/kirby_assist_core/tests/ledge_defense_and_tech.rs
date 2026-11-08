@@ -186,7 +186,7 @@ fn rising_up_b_warning_covers_startup_and_first_character_continuation_without_r
 }
 #[test]
 fn rising_below_stage_and_crossing_weapon_geometry_requests_defense() {
-    use kirby_assist_core::autopilot_guard::{active_hitbox_threat, duck_geometry::Hitbox};
+    use kirby_assist_core::autopilot_guard::{active_hitbox_threat, Hitbox};
     assert!(active_hitbox_threat(
         [0.; 3],
         [0.; 2],

@@ -4,7 +4,7 @@ use crate::{
     action_owner::{native_grab_active, Intent, Owner},
     gameplay::{ControllerOutput, GameplayContext, Opponent},
     ledge_trap::{sequence_interrupted, NativeAttempt},
-    native_input::{MAPPER_R, MAPPER_ZR, SEQUENCE_JUMP_BUTTONS},
+    native_input::{MAPPER_R, MAPPER_ZR},
 };
 #[derive(Default)]
 pub struct GrabHandoff {
@@ -134,27 +134,17 @@ impl GrabHandoff {
             self.clear_receipt();
         }
     }
-    pub fn manual_jump_packet(out: ControllerOutput, right: Option<[f32; 2]>) -> bool {
-        out.requested & SEQUENCE_JUMP_BUTTONS != 0
-            && out.requested & !SEQUENCE_JUMP_BUTTONS == 0
-            && out.stick.is_none_or(|s| s[1] == 0.)
-            && right.is_none_or(|s| s == [0.; 2])
-    }
     pub fn shield_packet(out: ControllerOutput, right: Option<[f32; 2]>) -> bool {
         out.requested == MAPPER_ZR
             && out.stick.is_none_or(|s| s == [0.; 2])
             && right.is_none_or(|s| s == [0.; 2])
     }
     pub fn restrict(&self, intents: &mut [Intent]) {
-        self.restrict_with_manual_jump(intents, false);
-    }
-    pub fn restrict_with_manual_jump(&self, intents: &mut [Intent], manual_jump: bool) {
         if self.pending {
             for i in intents {
                 if i.owner != Owner::Safety
                     && i.owner != Owner::Defense
                     && Some(i.owner) != self.owner
-                    && !(manual_jump && i.owner == Owner::Shortcut)
                 {
                     i.present = false;
                 }
@@ -177,7 +167,6 @@ impl GrabHandoff {
                 && out.stick.is_none_or(|s| s == [0.; 2])
                 && right.is_none_or(|s| s == [0.; 2])
             || Self::shield_packet(out, right)
-            || owner == Some(Owner::Shortcut) && Self::manual_jump_packet(out, right)
             || owner.is_some()
                 && owner == self.owner
                 && self.packets < 4

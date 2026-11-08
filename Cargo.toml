@@ -1648,6 +1648,18 @@ Extracts Bowser's confirmed shield Up-B spin-tracking policy from the shared shi
 Removes the retired fixed roll-read prototype while retaining shared observations and legacy setting compatibility.
 
 Adds per-fighter configurable grounded tilt facing while preserving Kirby and Yoshi down-tilt defaults.
+
+Consolidates local fighter ownership and controller-route validation into one observation helper module.
+
+Separates Turbo t-bag from ledge assist in both control layouts and makes it an independently assignable button built-in, defaulting to L3. Removes D-pad and global Turbo activation settings, keeps legacy config keys inert for compatibility, and limits Turbo tuning to crouch/creep strength.
+
+Consolidates automatic duck geometry, threat aggregation, timing and crouch/shield policy into the core auto_duck module, separate from ledge autopilot guarding.
+
+Moves the shared copied Hitbox shape into autopilot_guard for use by ledge threat checks, auto-duck geometry and projectile reflection.
+
+Clarifies that generic input arbitration adds explicitly requested buttons while default permissions block left-stick overrides; saved-sequence playback uses separate ownership logic.
+
+Removes the hard-coded short-hop and D-pad B-reverse shortcuts while preserving configured short-hop recipes and defaulting X to Normal.
 """
 
 

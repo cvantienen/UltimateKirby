@@ -1,5 +1,5 @@
 //! Continuous swept capsule bounds against an observed body envelope.
-use crate::autopilot_guard::duck_geometry::Hitbox;
+use crate::autopilot_guard::Hitbox;
 
 pub(crate) fn swept_capsule_aabb(
     hit: Hitbox,

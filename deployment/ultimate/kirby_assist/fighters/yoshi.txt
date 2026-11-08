@@ -165,12 +165,6 @@ spatial_timeout = 60
 actions = drift:away_from_opponent:1:1, facing_input:b:1:0:1, drift:opponent:1:1
 name = B-Reverse 
 
-# ---- Built-in: Short hop | yoshi.y.__builtin_short_hop ----
-[yoshi.x.__builtin_short_hop]
-default = true
-name = Built-in: Short hop
-builtin = short_hop
-
 # ---- ASSIST RULES: OUT OF SHIELD ----
 # ---- AUTO OOS Front grab | yoshi.attack.auto_oos_grab ----
 [yoshi.attack.auto_oos_grab]
@@ -231,4 +225,3 @@ actions = short_hop_nair:4
 # Down-smash branches choose front/rear at entry; position for the roll endpoint.
 # Auto-react is immediate; ordinary dodges do not use the ledge timings.
 # Automatic admission is grounded; aerial tapes may finish after takeoff.
-

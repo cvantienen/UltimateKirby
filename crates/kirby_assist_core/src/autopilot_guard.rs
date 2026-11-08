@@ -1,7 +1,14 @@
 //! Small geometric warning envelope, not native hitbox/hurtbox collision data.
 //! Only use this for a fighter with an active or verified imminent attack.
-pub mod duck;
-pub mod duck_geometry;
+
+/// Copied attack geometry shared by guard and auto-duck threat checks.
+#[derive(Clone, Copy, Debug)]
+pub struct Hitbox {
+    pub start: [f32; 3],
+    pub end: [f32; 3],
+    pub radius: f32,
+    pub velocity: [f32; 2],
+}
 
 pub const LOOKAHEAD_FRAMES: f32 = 5.0;
 pub const HOLD_FRAMES: f32 = 4.0;
@@ -144,17 +151,14 @@ pub fn referenced_imminent_attack_with(
 }
 /// Conservative swept hitbox AABB versus a standing defensive envelope.
 /// Bounds are estimates, not live hurtboxes; reads never alter attack geometry.
-pub fn active_hitbox_threat(
-    position: [f32; 3],
-    velocity: [f32; 2],
-    h: duck_geometry::Hitbox,
-) -> bool {
+pub fn active_hitbox_threat(position: [f32; 3], velocity: [f32; 2], h: Hitbox) -> bool {
     active_hitbox_threat_with(position, velocity, h, Envelope::default())
 }
+/// Conservative swept hitbox AABB versus a standing defensive envelope, with custom envelope.
 pub fn active_hitbox_threat_with(
     position: [f32; 3],
     velocity: [f32; 2],
-    h: duck_geometry::Hitbox,
+    h: Hitbox,
     e: Envelope,
 ) -> bool {
     if !position
@@ -397,14 +401,14 @@ mod approach_regressions {
     }
     #[test]
     fn extended_and_descending_hitboxes_are_seen_without_close_roots() {
-        let long = duck_geometry::Hitbox {
+        let long = Hitbox {
             start: [8.0, 10.0, 0.0],
             end: [35.0, 10.0, 0.0],
             radius: 3.0,
             velocity: [-1.0, 0.0],
         };
         assert!(active_hitbox_threat([0.0; 3], [0.0; 2], long));
-        let falling = duck_geometry::Hitbox {
+        let falling = Hitbox {
             start: [0.0, 40.0, 0.0],
             end: [0.0, 40.0, 0.0],
             radius: 3.0,
@@ -414,7 +418,7 @@ mod approach_regressions {
         assert!(!active_hitbox_threat(
             [0.0; 3],
             [0.0; 2],
-            duck_geometry::Hitbox {
+            Hitbox {
                 velocity: [0.0, 5.0],
                 ..falling
             }
@@ -422,7 +426,7 @@ mod approach_regressions {
         assert!(!active_hitbox_threat(
             [0.0; 3],
             [0.0; 2],
-            duck_geometry::Hitbox {
+            Hitbox {
                 start: [0.0, 10.0, 40.0],
                 end: [0.0, 10.0, 40.0],
                 ..long

@@ -1,6 +1,6 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
-    autopilot_guard::duck_geometry::Hitbox,
+    autopilot_guard::Hitbox,
     fighter_profiles::{presets::MenuPresets, FighterProfiles},
     fighter_tuning::{self, Tuning},
     native_input::MAPPER_B,
@@ -522,7 +522,6 @@ fn reflector_and_punishes_cannot_own_input_together_and_ledge_off_safety_win() {
         Owner::GrabDodge,
         Owner::Trip,
         Owner::JabLock,
-        Owner::Shortcut,
         Owner::Ledge,
         Owner::Safety,
     ] {

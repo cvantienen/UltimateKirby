@@ -57,9 +57,9 @@ pub struct LiveConfig {
     pub auto_di: crate::auto_di::Settings,
     pub auto_spot_dodge: bool,
     pub auto_ledge_trump: bool,
-    pub dpad_b_reverse: bool,
     pub controls: LiveSettings,
     pub control_layout: crate::native_input::ControlLayout,
+    /// Facing-direction creep strength for the selected Turbo t-bag binding.
     pub turbo: TurboSettings,
     pub assist: AssistSettings,
     /// Local physical controller number: 0 = Player 1. Its game mapper slot
@@ -79,7 +79,6 @@ impl Default for LiveConfig {
             auto_di: crate::auto_di::Settings::default(),
             auto_spot_dodge: true,
             auto_ledge_trump: true,
-            dpad_b_reverse: false,
             controls: LiveSettings::default(),
             control_layout: crate::native_input::ControlLayout::Default,
             turbo: TurboSettings::default(),
@@ -105,6 +104,7 @@ impl LiveConfig {
         let mut legacy_grab_range = None;
         let mut legacy_anti_air_range = None;
         let mut legacy_anti_air_height = None;
+        let mut legacy_turbo_phase_frames = None;
         for (number, line) in contents.lines().enumerate() {
             let line = line.split('#').next().unwrap_or("").trim();
             if line.is_empty() {
@@ -173,11 +173,13 @@ impl LiveConfig {
                 // config still loads. Analog mashing advances every update.
                 "mash_interval_frames" | "alternate_mash" | "mash_buttons_per_frame" => {}
                 "takeover" => config.controls.takeover = value.parse().map_err(|_| invalid())?,
+                // Legacy hard-coded D-pad shortcuts are accepted but never enabled.
                 "dpad_b_reverse" | "dpad_slide" => {
-                    config.dpad_b_reverse = value.parse().map_err(|_| invalid())?
+                    value.parse::<bool>().map_err(|_| invalid())?;
                 }
-                "r3_turbo" | "l3_turbo" => {
-                    config.turbo.enabled = value.parse().map_err(|_| invalid())?
+                // Validate legacy switches, but only the selected button built-in activates Turbo.
+                "r3_turbo" | "l3_turbo" | "dpad_turbo" => {
+                    value.parse::<bool>().map_err(|_| invalid())?;
                 }
                 // Compatibility only: all ledge move selection/timing lives in sequences.txt.
                 "ledge_nair_hit_lead_frames"
@@ -268,9 +270,8 @@ impl LiveConfig {
                         _ => return Err(invalid()),
                     }
                 }
-                "dpad_turbo" => config.turbo.enabled = value.parse().map_err(|_| invalid())?,
                 "turbo_phase_frames" => {
-                    config.turbo.phase_frames = value.parse().map_err(|_| invalid())?
+                    legacy_turbo_phase_frames = Some(value.parse::<u16>().map_err(|_| invalid())?)
                 }
                 "turbo_walk_strength" => {
                     config.turbo.walk_strength = value.parse().map_err(|_| invalid())?
@@ -337,13 +338,13 @@ impl LiveConfig {
         {
             return Err("anti-air range must be 1..20 and height 1..40".into());
         }
-        if !(1..=10).contains(&config.turbo.phase_frames)
-            || !config.turbo.walk_strength.is_finite()
+        if legacy_turbo_phase_frames.is_some_and(|frames| !(1..=10).contains(&frames)) {
+            return Err("turbo_phase_frames must be 1..10".into());
+        }
+        if !config.turbo.walk_strength.is_finite()
             || !(0.05..=0.6).contains(&config.turbo.walk_strength)
         {
-            return Err(
-                "turbo_phase_frames must be 1..10; turbo_walk_strength must be 0.05..0.6".into(),
-            );
+            return Err("turbo_walk_strength must be 0.05..0.6".into());
         }
         if config.player_index > 7
             || !config.lookahead.is_finite()

@@ -1,7 +1,7 @@
 //! Game & Watch's bounded, input-only projectile defense.
 //! No native writes or queued attacks.
 use crate::{
-    autopilot_guard::duck_geometry::Hitbox,
+    autopilot_guard::Hitbox,
     fighter_tuning::{self as tuning, Tuning},
     gameplay::ControllerOutput,
     ledge_trap::SEQUENCE_BUTTONS,

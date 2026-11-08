@@ -155,20 +155,23 @@ Button section rows are `x`, `y`, `dpad_up`, `dpad_down`, `dpad_left`,
 `dpad_right`, `l3`, and `r3`. Trigger rows `l`/`r`/`zl`/`zr` (including
 `lz`/`rz`) are retired and ignored, so old files remain loadable but cannot remap
 triggers. Literal trigger inputs inside an action remain supported normally.
-The eight customizable rows use the same recipe syntax as other input sequences. Existing saved entries
-and defaults are retained; no migration or replacement of ledge recipes is needed.
+The eight customizable rows use the same recipe syntax as other input sequences.
+Existing saved recipes remain valid. Legacy `builtin = short_hop` entries now
+behave as `builtin = normal`; create a `short_hop` recipe when you want an
+automated short-hop press.
 
-A native helper is selected with `builtin = normal`, `short_hop`, `ledge_assist`
-or `turbo_teabag`. These choices call the existing helper, not a sequence of
+A native helper is selected with `builtin = normal`, `ledge_assist` or
+`turbo_teabag`. These choices call the existing helper, not a sequence of
 attacks. They cannot contain `actions`, reaction conditions, startup delays,
 `while_held` or `ground_only`. `start_delay` is not required for a built-in.
 
-Example: move short-hop assistance from physical X to R3 for Bowser:
+Use an ordinary recipe when you want a short-hop input on a button:
 
 ```ini
 [bowser.r3.short_hop]
 name = Short hop
-builtin = short_hop
+start_delay = 0
+actions = short_hop:1
 default = true
 
 [bowser.x.normal]

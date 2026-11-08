@@ -126,20 +126,22 @@ pub struct ArbitrationResult {
     pub blocked_left_stick_request: bool,
 }
 
-/// Merges a single assist recipe into player input.
+/// Applies one assist recipe to the player's input for this frame.
 ///
-/// Buttons are always additive. Stick requests are ignored unless explicitly
-/// allowed in `InputPermissions`; triggers and the right stick are always the
-/// player's values.
-// Adding a new recipe field requires deciding how it merges here; never assume
-// it should override the human input merely because a tool requested it.
+/// Requested buttons are added to held player buttons; an empty request adds
+/// nothing. The left stick stays with the player unless an override is allowed.
+/// The right stick and both triggers always stay with the player.
+///
+/// This generic helper always adds requested buttons, even with default
+/// permissions. It does not implement exclusive ownership or saved-sequence
+/// playback.
 pub const fn arbitrate(
     user: ControllerFrame,
     recipe: InputRecipe,
     permissions: InputPermissions,
 ) -> ArbitrationResult {
-    // The tuple gives two names to one match result: the chosen stick and a
-    // diagnostic flag. Pattern guards (`if ...`) select the permitted Request.
+    // Keep the player's stick, or use the requested position only when permitted.
+    // Report a blocked request so callers can distinguish it from no request.
     let (left_stick, blocked_left_stick_request) = match recipe.left_stick {
         LeftStickIntent::PreservePlayer => (user.left_stick, false),
         LeftStickIntent::Request(position) if permissions.allow_left_stick_override => {
@@ -148,6 +150,7 @@ pub const fn arbitrate(
         LeftStickIntent::Request(_) => (user.left_stick, true),
     };
 
+    // Union preserves every held button and adds the recipe's requested buttons.
     ArbitrationResult {
         frame: ControllerFrame {
             buttons: user.buttons.union(recipe.buttons_to_add),
@@ -156,6 +159,7 @@ pub const fn arbitrate(
             left_trigger: user.left_trigger,
             right_trigger: user.right_trigger,
         },
+        // Distinguish newly added buttons from ones the player already held.
         added_buttons: recipe.buttons_to_add.difference(user.buttons),
         blocked_left_stick_request,
     }

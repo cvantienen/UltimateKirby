@@ -68,17 +68,7 @@ fn sdi_uses_shared_stick_overlay_without_changing_buttons_and_restores_physical_
         input_delay: 0.0,
     };
     let stick = sdi.sample(true, context, [0.0; 2]);
-    let mapped = overlay.apply_controls(
-        human,
-        [0.0; 2],
-        TurboOutput {
-            consume_dpad: false,
-            stick,
-        },
-        0,
-        0,
-        0,
-    );
+    let mapped = overlay.apply_controls(human, [0.0; 2], TurboOutput { stick }, 0, 0, 0);
     assert_eq!(mapped.stick, [-1.0, 0.0]);
     assert_eq!(mapped.buttons.held & MAPPER_ZR, MAPPER_ZR);
     let physical = [0.3, -0.4];
@@ -90,17 +80,7 @@ fn sdi_uses_shared_stick_overlay_without_changing_buttons_and_restores_physical_
         },
         physical,
     );
-    let restored = overlay.apply_controls(
-        human,
-        physical,
-        TurboOutput {
-            consume_dpad: false,
-            stick,
-        },
-        0,
-        0,
-        0,
-    );
+    let restored = overlay.apply_controls(human, physical, TurboOutput { stick }, 0, 0, 0);
     assert_eq!(restored.stick, physical);
     assert_eq!(restored.buttons.held & MAPPER_ZR, MAPPER_ZR);
 }

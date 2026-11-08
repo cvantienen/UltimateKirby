@@ -133,18 +133,12 @@ impl MenuSelection {
     /// Still observe releases and menu controls; never queue a held button.
     pub fn block_binding_starts(&mut self, blocked: bool) {
         self.binding_starts_blocked = blocked;
-        self.binding_short_hop_running = false;
         self.binding_safety_jump = false;
     }
     /// Ordinary jump inputs must remain bufferable during damage/tech safety.
     /// Other custom tapes remain blocked and cannot replace that safety owner.
     pub fn preserve_safety_jump(&mut self, enabled: bool) {
         self.binding_safety_jump = enabled;
-    }
-    /// Short hop's own one-button owner is not a competing input tape. Keep its
-    /// held source routed; other sources pressed during it still require release.
-    pub fn continue_short_hop_binding(&mut self, running: bool) {
-        self.binding_short_hop_running = running;
     }
     /// Physical binding keys remain physical even with the alternate layout.
     pub fn set_binding_input(&mut self, physical: u32, layout: crate::native_input::ControlLayout) {
@@ -216,9 +210,7 @@ impl MenuSelection {
             // Only legacy rule-button starts use this extra rearm mask.
             self.trigger_ready &= !(layout.binding_ownership(physical) & self.rule_button_mask);
             let continuing_hop = if self.binding_safety_jump {
-                self.builtin_sources[0] | self.single_jump_sources
-            } else if self.binding_short_hop_running {
-                self.builtin_sources[0] & !self.binding_pressed
+                self.single_jump_sources
             } else {
                 0
             };
@@ -268,9 +260,9 @@ impl MenuSelection {
                     self.binding_sources |= slot.button();
                     self.builtin_consumed |= layout.binding_ownership(slot.button());
                     let index = match builtin {
-                        crate::button_bindings::Builtin::ShortHop => 0,
                         crate::button_bindings::Builtin::LedgeAssist => 1,
-                        _ => 2,
+                        crate::button_bindings::Builtin::TurboTeabag => 2,
+                        crate::button_bindings::Builtin::Normal => continue,
                     };
                     self.builtin_sources[index] |= slot.button();
                 }

@@ -19,10 +19,11 @@ def block(source, marker):
 
 def main():
     source = (ROOT / 'src/live.rs').read_text()
-    cancel = block(source, 'fn cancel_non_owner(')
+    state_source = (ROOT / 'src/live/state.rs').read_text()
+    cancel = block(state_source, 'fn cancel_non_owner(')
     handoff = block(source, 'if spot.target().is_none() {')
     preempt = block(source, 'let preempt_grab = |state: &mut State| {')
-    phase_change = block(source, 'if shield_fallback_pending && !state.oos.shield_up_b_pending()')
+    phase_change = block(source, 'if shield_fallback_pending\n            && !state.oos.shield_up_b_pending()')
     start = source.index('let ledge_committed =')
     end = source.index('state.cancel_non_owner(winner);', start) + len('state.cancel_non_owner(winner);')
     selection = source[start:end]
@@ -33,11 +34,12 @@ use kirby_assist_core::{
  combat_assist::{TripFollowup,FairFollowup},
  gameplay::{ControllerOutput,GameplayContext},ledge_trap::{LedgeTrap,SEQUENCE_BUTTONS},
  fighter_profiles::presets::PresetSlot,
- manual_controls::{Shortcuts,TurboState,DashPivotAssist,TurboOutput,ShortcutContext,SHORT_HOP_TRIGGER},
+ manual_controls::{ManualContext,TurboState,DashPivotAssist,TurboOutput},
  native_input::{MAPPER_A,MAPPER_B,MAPPER_R,MAPPER_ZR},
  out_of_shield::OutOfShield,projectile_reflect::Reflector,
  grab_handoff::GrabHandoff,tech_input::TechOutput,
 };
+mod bowser_up_b {pub fn reserve_receipt(kind:Option<i32>,waiting:bool)->bool{kind==Some(kirby_assist_core::fighter_kinds::BOWSER)&&waiting}}
 #[derive(Default)]struct Menu {builtin_consumed:u32,preview:Option<PresetSlot>,rules:Option<Box<kirby_assist_core::reaction_rules::Resolved>>}
 impl Menu {fn rule_config(&self)->Option<&kirby_assist_core::reaction_rules::Resolved>{self.rules.as_deref()}fn preview_slot(&self)->Option<PresetSlot>{self.preview}fn finish_preview(&mut self){self.preview=None;}}
 #[derive(Default)]struct State {
@@ -47,42 +49,43 @@ impl Menu {fn rule_config(&self)->Option<&kirby_assist_core::reaction_rules::Res
  trip_followup:Option<TripFollowup>,trip_output:ControllerOutput,
  fair_followup:Option<FairFollowup>,fair_output:ControllerOutput,
  rule_engine:Option<Box<kirby_assist_core::reaction_rules::Engine>>,roll_read_output:ControllerOutput,
- ledge:Option<LedgeTrap>,ledge_output:ControllerOutput,ledge_active:bool,ledge_menu:Option<Menu>,
+ ledge:Option<LedgeTrap>,ledge_output:ControllerOutput,ledge_active:bool,
  oos:OutOfShield,oos_output:ControllerOutput,
  autopilot_guarding:bool,guard_hold:Option<kirby_assist_core::autopilot_guard::GuardHold>,
- duck_defense:Option<kirby_assist_core::autopilot_guard::duck::DuckDefense>,duck_output:ControllerOutput,
+ duck_defense:Option<kirby_assist_core::auto_duck::DuckDefense>,duck_output:ControllerOutput,
  spot_dodge:Option<kirby_assist_core::spot_dodge::SpotDodge>,spot_output:ControllerOutput,
  trump:Option<kirby_assist_core::ledge_trump::LedgeTrump>,trump_output:ControllerOutput,
- shortcuts:Option<Shortcuts>,jab_grab:Option<kirby_assist_core::jab_grab::JabGrab>,
  tech_output:TechOutput,tech_urgent:bool,tech_input:Option<kirby_assist_core::tech_input::TechInput>,fighter_kind:Option<i32>,grab_handoff:GrabHandoff,
- shortcut_context:Option<ShortcutContext>,raw_tick:i64,
+ settings_menu:Option<Menu>,raw_tick:i64,
 }
 impl State {__CANCEL__}
-fn select(state:&mut State,fresh:bool,manual_scope:bool,shortcut:ControllerOutput,mash_stick:Option<[f32;2]>,damage_stick:Option<[f32;2]>)->(Option<Owner>,ControllerOutput,Option<[f32;2]>) {
- select_phases(state,fresh,manual_scope,shortcut,mash_stick,damage_stick,None)
+fn select(state:&mut State,fresh:bool,manual_scope:bool,mash_stick:Option<[f32;2]>,damage_stick:Option<[f32;2]>)->(Option<Owner>,ControllerOutput,Option<[f32;2]>) {
+ select_phases(state,fresh,manual_scope,mash_stick,damage_stick,None)
 }
-fn select_phases(state:&mut State,fresh:bool,manual_scope:bool,shortcut:ControllerOutput,mash_stick:Option<[f32;2]>,di_stick:Option<[f32;2]>,sdi_stick:Option<[f32;2]>)->(Option<Owner>,ControllerOutput,Option<[f32;2]>) {
+fn select_phases(state:&mut State,fresh:bool,manual_scope:bool,mash_stick:Option<[f32;2]>,di_stick:Option<[f32;2]>,sdi_stick:Option<[f32;2]>)->(Option<Owner>,ControllerOutput,Option<[f32;2]>) {
  let damage_stick=di_stick.or(sdi_stick);
  let ledge_priority=state.action_owner.ledge_priority();let native_grab=false;
  let posture=ControllerOutput::default();let turbo_stick=None;let pivot_stick=None;
- let manual_walk_stick=None;let physical_stick=[-1.,1.];let policy_buttons=MAPPER_A|SHORT_HOP_TRIGGER;
- let shortcut_consumed=0;let menu_consumed=0;let shortcut_context=state.shortcut_context;
+ let manual_walk_stick=None;let physical_stick=[-1.,1.];let policy_buttons=MAPPER_A;
+ let menu_consumed=0;
+ let manual_context=Some(ManualContext{status:0x1c,situation:0,motion:1,frame:0.,rate:1.,stopped:false,facing:1.});
+ let mut sequence_short_hop=false;
  let mut ledge=ControllerOutput::default();let mut turbo_output=TurboOutput::default();
- let mut short_hop_requested=false;let mut mapped_tech_output=None;let mut mapped_grab_handoff=None;
+ let mut mapped_tech_output=None;let mut mapped_grab_handoff=None;
  __SELECT__
  (winner,ledge,turbo_output.stick)
 }
 fn packet(requested:u32)->ControllerOutput{ControllerOutput{requested,owned:MAPPER_A,..Default::default()}}
-fn choose(s:&mut State)->(Option<Owner>,ControllerOutput,Option<[f32;2]>){select(s,true,true,ControllerOutput::default(),None,None)}
+fn choose(s:&mut State)->(Option<Owner>,ControllerOutput,Option<[f32;2]>){select(s,true,true,None,None)}
 #[test]fn committed_sequences_reject_every_competing_live_proposal_and_cancel_losers() {
- for current in [Owner::RollRead,Owner::OutOfShield,Owner::Ledge,Owner::Trip,Owner::Fair,Owner::JabLock,Owner::Trump,Owner::Shortcut,Owner::Reflect] {
+ for current in [Owner::RollRead,Owner::OutOfShield,Owner::Ledge,Owner::Trip,Owner::Fair,Owner::JabLock,Owner::Trump,Owner::Reflect] {
   let mut s=State::default();
   s.action_owner.select(true,&[Intent::input_sequence(current,1)]);
   s.roll_read_output=packet(MAPPER_A);s.oos_output=packet(MAPPER_A);
   s.ledge_active=true;s.ledge_output=packet(MAPPER_A);s.trip_output=packet(MAPPER_A);
   s.fair_output=packet(MAPPER_A);s.jab_lock_output=packet(MAPPER_A);
   s.trump_output=packet(MAPPER_A);s.reflect_output=packet(MAPPER_A);
-  let (owner,out,stick)=select(&mut s,true,true,packet(MAPPER_A),None,None);
+  let (owner,out,stick)=select(&mut s,true,true,None,None);
   assert_eq!(owner,Some(current));assert_eq!(out.requested,MAPPER_A);
   assert_eq!(out.owned,SEQUENCE_BUTTONS);assert_eq!(stick,Some([0.;2]));
   for (o,p) in [(Owner::RollRead,s.roll_read_output),(Owner::OutOfShield,s.oos_output),
@@ -96,7 +99,7 @@ fn choose(s:&mut State)->(Option<Owner>,ControllerOutput,Option<[f32;2]>){select
  let mut s=State::default();s.ledge_active=true;s.ledge_output=packet(MAPPER_A);
  s.action_owner.select(true,&[Intent::input_sequence(Owner::Ledge,1)]);
  s.tech_output=TechOutput{press:true,owns_guard:true};
- let (owner,out,stick)=select(&mut s,true,true,ControllerOutput::default(),None,Some([-1.,0.]));
+ let (owner,out,stick)=select(&mut s,true,true,None,Some([-1.,0.]));
  assert_eq!(owner,Some(Owner::Safety));assert_eq!(out.requested,0);
  assert_eq!(stick,Some([-1.,0.]));assert_eq!(s.ledge_output.owned,0);
  s.tech_output=TechOutput::default();let (_,out,_)=choose(&mut s);
@@ -112,7 +115,7 @@ fn choose(s:&mut State)->(Option<Owner>,ControllerOutput,Option<[f32;2]>){select
  for (fresh,scope) in [(false,true),(true,false),(false,false)] {
   let mut s=State::default();s.roll_read_output=packet(MAPPER_B);s.oos_output=packet(MAPPER_R);
   s.action_owner.select(true,&[Intent::input_sequence(Owner::RollRead,1)]);
-  let (o,p,stick)=select(&mut s,fresh,scope,ControllerOutput::default(),None,None);
+  let (o,p,stick)=select(&mut s,fresh,scope,None,None);
   assert_eq!(o,None);assert_eq!(p,ControllerOutput::default());assert_eq!(stick,None);
   assert_eq!(s.action_owner.current_owner(),None);assert_eq!(s.roll_read_output.owned,0);assert_eq!(s.oos_output.owned,0);
  }
@@ -132,7 +135,7 @@ fn choose(s:&mut State)->(Option<Owner>,ControllerOutput,Option<[f32;2]>){select
  assert!(engine.awaiting_up_b());
  let mut s=State::default();s.fighter_kind=Some(15);s.rule_engine=Some(Box::new(engine));
  s.action_owner.select(true,&[Intent::sequence_receipt(Owner::RollRead,0,true)]);
- assert_eq!(select(&mut s,false,true,ControllerOutput::default(),None,None).0,None);
+ assert_eq!(select(&mut s,false,true,None,None).0,None);
  assert!(!s.rule_engine.as_ref().unwrap().awaiting_up_b());assert!(!s.rule_engine.as_ref().unwrap().committed());
 }
 #[test]fn native_dodge_confirmation_transfers_the_same_response_owner_before_competing_ledge_admission() {
@@ -179,23 +182,23 @@ fn reconsider_canceled_fallback(mut state:&mut State,c:GameplayContext,targets:[
  targets[1]=targets[0].map(|t|Target{id:4,status:0x20,position:[-15.,0.],..t});
  s.oos_output=s.oos.sample_automatic_configured(true,native,c,targets,None,true,22.,35.,Some(8.),settings,config);
  assert_ne!(s.oos_output.requested & MAPPER_R,0);assert!(!s.oos.shield_up_b_pending());
- s.ledge_menu=Some(Menu{rules:Some(Box::new(rules)),..Default::default()});
+ s.settings_menu=Some(Menu{rules:Some(Box::new(rules)),..Default::default()});
  reconsider_canceled_fallback(&mut s,c,targets);
  assert!(s.oos.target().is_none());assert_eq!(s.oos_output.owned,0);assert!(s.action_owner.allows(Owner::RollRead));
 }
 #[test]fn actual_selector_never_mixes_tech_with_di_or_sdi() {
  let mut s=State::default();s.tech_output=TechOutput{press:true,owns_guard:true};
- let (o,p,stick)=select_phases(&mut s,true,true,ControllerOutput::default(),None,Some([0.,1.]),Some([1.,0.]));
+ let (o,p,stick)=select_phases(&mut s,true,true,None,Some([0.,1.]),Some([1.,0.]));
  assert_eq!(o,Some(Owner::Safety));assert_eq!(p.requested,0);assert_eq!(stick,Some([0.,1.]));
- let (_,p,stick)=select_phases(&mut s,true,true,ControllerOutput::default(),None,None,Some([1.,0.]));
+ let (_,p,stick)=select_phases(&mut s,true,true,None,None,Some([1.,0.]));
  assert_eq!(p.requested,MAPPER_ZR);assert_eq!(stick,Some([0.;2]));
 }
 #[test]fn actual_selector_preserves_a_tech_deadline_and_hands_its_release_to_di() {
  let mut s=State::default();s.tech_output=TechOutput{press:true,owns_guard:true};s.tech_urgent=true;
- let (o,p,stick)=select_phases(&mut s,true,true,ControllerOutput::default(),None,Some([-1.,0.]),Some([1.,0.]));
+ let (o,p,stick)=select_phases(&mut s,true,true,None,Some([-1.,0.]),Some([1.,0.]));
  assert_eq!(o,Some(Owner::Safety));assert_eq!(p.requested,MAPPER_ZR);assert_eq!(stick,Some([0.;2]));
  s.tech_output=TechOutput{press:false,owns_guard:true};s.tech_urgent=false;
- let (o,p,stick)=select_phases(&mut s,true,true,ControllerOutput::default(),None,Some([-1.,0.]),Some([1.,0.]));
+ let (o,p,stick)=select_phases(&mut s,true,true,None,Some([-1.,0.]),Some([1.,0.]));
  assert_eq!(o,Some(Owner::Safety));assert_eq!(p.requested,0);assert_eq!(stick,Some([-1.,0.]));
 }
 #[test]fn stale_scope_cancels_an_unconsumed_tech_delivery_without_erasing_lockout() {
@@ -205,7 +208,7 @@ fn reconsider_canceled_fallback(mut state:&mut State,c:GameplayContext,targets:[
   contact_in:Some(1.),input_delay:0.,previous_guard:false,prepare_guard:true};
  s.tech_output=t.sample_with_native_delivery(true,true,28,c,None,12,7,false);t.mapped_press();
  s.tech_input=Some(t);s.tech_urgent=true;
- assert_eq!(select(&mut s,false,true,ControllerOutput::default(),None,None).0,None);
+ assert_eq!(select(&mut s,false,true,None,None).0,None);
  assert_eq!(s.tech_output,TechOutput::default());assert!(!s.tech_urgent);
  let t=s.tech_input.as_mut().unwrap();assert_eq!(t.cooldown_remaining(),28.);
  assert!(!t.sample_with_native_delivery(true,true,28,c,None,12,7,false).press);

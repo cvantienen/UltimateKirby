@@ -2,7 +2,7 @@
 use crate::{action_owner::Owner, native_input::*};
 use std::fmt::Write;
 
-const OWNER_COUNT: usize = 15;
+const OWNER_COUNT: usize = 14;
 const REPORT_TEXT_CAPACITY_BYTES: usize = 1200;
 const MIN_REPORT_INTERVAL_MS: u64 = 250;
 const LABEL_CAPACITY_BYTES: usize = 64;
@@ -24,7 +24,6 @@ pub const OWNERS: [Owner; OWNER_COUNT] = [
     Owner::JabLock,
     Owner::Fair,
     Owner::Trump,
-    Owner::Shortcut,
     Owner::Defense,
     Owner::Turbo,
     Owner::Posture,
@@ -47,7 +46,6 @@ pub fn name(owner: Owner) -> &'static str {
         Owner::JabLock => "Yoshi jab lock",
         Owner::Fair => "Fair-hit follow-up",
         Owner::Trump => "Ledge trump",
-        Owner::Shortcut => "Short hop / jab follow-up",
         Owner::Defense => "Defensive spot dodge / shield / duck",
         Owner::Turbo => "Turbo movement",
         Owner::Posture => "Idle crouch / turnaround tilt",
@@ -68,7 +66,6 @@ pub fn purpose(owner: Owner) -> &'static str {
         Owner::JabLock => "Requires an attributed Yoshi down-tilt hit and a lockable knockdown; confirms native lock before finishing.",
         Owner::Fair => "A fresh Kirby fair-one hit arms the landing smash; shield/stale flags do not arm it.",
         Owner::Trump => "Uses the held trump trigger, a known floor edge and native movement readiness.",
-        Owner::Shortcut => "Handles short hop; native startup ends each request.",
         Owner::Defense => "Defensive shield/duck proposals yield to reads and ledge sequences; low hitboxes cannot safely be ducked.",
         Owner::Turbo => "Repeats the configured movement while its trigger and native movement scope permit it.",
         Owner::Posture => "Crouches while grounded and idle near an enemy, or aims configured physical tilts; movement/buttons suspend idle crouch.",

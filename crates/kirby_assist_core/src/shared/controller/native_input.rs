@@ -177,18 +177,6 @@ pub fn selected_requests(owned: u32, selected: u32, other: u32) -> u32 {
     }
 }
 
-/// A native jump can pass through only when neither a sequence nor the short
-/// hop helper owns/consumes it. The consumed held tail must not become a second
-/// aerial jump after the helper releases ownership.
-pub fn jump_passthrough(
-    buttons: u32,
-    sequence_owned: u32,
-    shortcut_owned: u32,
-    shortcut_consumed: u32,
-) -> bool {
-    buttons & MAPPER_X != 0 && (sequence_owned | shortcut_owned | shortcut_consumed) & MAPPER_X == 0
-}
-
 /// Fixed native jump triggers are never custom-binding sources. Manual escape
 /// suspends automatic modes rather than mixing human input into their tapes.
 pub fn automatic_escape(
@@ -239,7 +227,7 @@ pub enum ControlLayout {
     #[default]
     Default,
     /// A=Attack, L=Special, R/ZR=Jump, ZL=Shield, X=Grab.
-    /// L3 replaces physical L as the held ledge-assist trigger.
+    /// Turbo t-bag remains an independent, configurable button role.
     Brother,
 }
 impl ControlLayout {
@@ -250,20 +238,13 @@ impl ControlLayout {
         if self == Self::Default {
             return physical;
         }
-        let action_buttons = MAPPER_A
-            | MAPPER_B
-            | MAPPER_X
-            | MAPPER_L
-            | MAPPER_R
-            | MAPPER_ZL
-            | MAPPER_ZR
-            | crate::manual_controls::TURBO_TRIGGER;
+        let action_buttons =
+            MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_L | MAPPER_R | MAPPER_ZL | MAPPER_ZR;
         (physical & !action_buttons)
             | (physical & MAPPER_A)
             | map_button_bit(physical, MAPPER_B | MAPPER_L, MAPPER_B)
             | map_button_bit(physical, MAPPER_X, MAPPER_R)
             | map_button_bit(physical, MAPPER_ZL, MAPPER_ZR)
-            | map_button_bit(physical, crate::manual_controls::TURBO_TRIGGER, MAPPER_L)
     }
 
     /// One-to-one ownership conversion for physical custom binding sources.
@@ -272,19 +253,13 @@ impl ControlLayout {
         if self == Self::Default {
             return physical;
         }
-        let mask = MAPPER_X
-            | MAPPER_R
-            | MAPPER_L
-            | MAPPER_ZL
-            | MAPPER_ZR
-            | crate::manual_controls::TURBO_TRIGGER;
+        let mask = MAPPER_X | MAPPER_R | MAPPER_L | MAPPER_ZL | MAPPER_ZR;
         (physical & !mask)
             | map_button_bit(physical, MAPPER_X, MAPPER_R)
             | map_button_bit(physical, MAPPER_R, MAPPER_X)
             | map_button_bit(physical, MAPPER_L, MAPPER_B)
             | map_button_bit(physical, MAPPER_ZL, MAPPER_ZR)
             | map_button_bit(physical, MAPPER_ZR, MAPPER_ZL)
-            | map_button_bit(physical, crate::manual_controls::TURBO_TRIGGER, MAPPER_L)
     }
 
     /// Manual intent includes jump buttons hidden from shortcut policy.
@@ -316,31 +291,15 @@ impl ControlLayout {
             return canonical;
         }
         let action_buttons =
-            MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_Y | MAPPER_L | MAPPER_R | MAPPER_ZL | MAPPER_ZR;
+            MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_Y | MAPPER_R | MAPPER_ZL | MAPPER_ZR;
         (canonical & !action_buttons)
             | (canonical & MAPPER_A)
             | map_button_bit(canonical, MAPPER_B, MAPPER_L)
             | map_button_bit(canonical, MAPPER_X, MAPPER_R)
             | map_button_bit(canonical, MAPPER_ZL, MAPPER_ZR)
             | (canonical & MAPPER_Y)
-            | map_button_bit(canonical, MAPPER_L, crate::manual_controls::TURBO_TRIGGER)
             | map_button_bit(canonical, MAPPER_R, MAPPER_X)
             | map_button_bit(canonical, MAPPER_ZR, MAPPER_ZL)
-    }
-}
-
-/// Final mapped jump command for the BUILT-IN jump helper only. None leaves
-/// ordinary sequence/manual inputs unchanged. Supplement the native jump pulse
-/// after consuming its physical helper source; no menu binding is rerun here.
-pub fn mapped_builtin_jump(buttons: u32, owned: Option<bool>, short: bool) -> u32 {
-    match owned {
-        None => buttons,
-        Some(false) => buttons & !(MAPPED_JUMP | MAPPED_JUMP_MINI),
-        Some(true) => {
-            (buttons & !(MAPPED_JUMP | MAPPED_JUMP_MINI))
-                | MAPPED_JUMP
-                | if short { MAPPED_JUMP_MINI } else { 0 }
-        }
     }
 }
 

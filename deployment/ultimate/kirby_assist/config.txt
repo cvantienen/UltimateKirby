@@ -21,7 +21,7 @@ enabled = true
 # for 1.8 seconds rather than remaining on unrelated screens. enabled=false stays
 # off until restart/config edit.
 # Physical control preset. Use brother for: R/ZR Jump, ZL Shield, L Special,
-# X Grab, A Attack. In that preset L3 holds ledge assist; Y and Minus stay unchanged.
+# X Grab, A Attack. Turbo t-bag remains an independent configurable button role.
 control_layout = default
 # Initial mash state; change ON/OFF from the Auto-mash menu row mid-match.
 auto_mash = false
@@ -76,17 +76,14 @@ tech_cooldown_frames = 40
 # Action editing: Up/Down selects a field; Left/Right adjusts it.
 # Hidden X/Y/D-pad use fighter-specific sequences or Hold/Toggle modes.
 # Minus pages: ledge traps, button configs, modes, closed. L runs autopilot.
-# Legacy hard-coded D-pad B-reverse is removed; this old key is ignored.
+# Legacy hard-coded D-pad B-reverse key is accepted for compatibility and has no effect.
 # Directions held while closing must be released before starting a tool.
 dpad_b_reverse = false
-# Hold L3 without L: turbo teabag with slight forward creep. Minus toggles the menu.
+# Hold the assigned Turbo t-bag button (L3 by default): alternate crouch/creep.
 # Auto-mash has an ON/OFF menu row.
 # Press X: X short-hop tap on the ground (both mapped to Jump).
 # Hold L as Kirby: includes in-range down-tilt recovery cover, with no R3 binding.
-r3_turbo = true
-# Legacy oscillator phase length (1 to 10); L3 turbo always uses one native update per phase.
-turbo_phase_frames = 1
-# Gentle forward creep used by the L3 crouch/walk cancel (capped to 0.45).
+# Gentle facing-direction creep used by the Turbo t-bag button helper.
 turbo_walk_strength = 0.35
 
 # Hold L for timed responses; you space normal/jump/grab. Roll approaches automatically.

@@ -339,10 +339,6 @@ fn y_remains_available_to_its_mode_but_is_not_a_menu_or_ledge_trigger() {
     menu.input(MAPPER_Y, presets);
     assert!(!menu.auto_duck_held(MAPPER_Y));
     assert_eq!(MenuRow::ALL.len(), 33);
-    assert_eq!(
-        observation_buttons(SHORT_HOP_TRIGGER, SHORT_HOP_TRIGGER),
-        0 // A menu-owned X test must not also start the short-hop helper.
-    );
 }
 
 #[test]

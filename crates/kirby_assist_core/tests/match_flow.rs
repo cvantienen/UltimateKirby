@@ -110,7 +110,7 @@ fn finished_auto_react_keeps_its_neutral_release_owned_through_duplicate_mapper_
                         committed: true,
                     },
                     Intent {
-                        owner: Owner::Shortcut,
+                        owner: Owner::Trump,
                         present: true,
                         committed: true,
                     },
@@ -139,13 +139,13 @@ fn finished_auto_react_keeps_its_neutral_release_owned_through_duplicate_mapper_
             &[
                 Intent::input_sequence(Owner::RollRead, idle.owned),
                 Intent {
-                    owner: Owner::Shortcut,
+                    owner: Owner::Trump,
                     present: true,
                     committed: true
                 }
             ]
         ),
-        Some(Owner::Shortcut)
+        Some(Owner::Trump)
     );
 }
 #[test]

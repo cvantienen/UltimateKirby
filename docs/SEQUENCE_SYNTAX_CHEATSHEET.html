@@ -813,11 +813,12 @@ mode, builtin or <code>while_held=true</code>. They appear in the Training edito
 template picker; choosing one copies its recipe into your fighter's sequence.</p>
 <pre><code class="language-ini">[yoshi.x.short_hop_button]
 name = Short hop button
-builtin = short_hop
+start_delay = 0
+actions = short_hop:1
 default = true
 </code></pre>
-<p>Builtins: <code>normal</code>, <code>short_hop</code>, <code>ledge_assist</code>, <code>turbo_teabag</code>.
-Use only button slots X/Y/D-pad/L3/R3. Do not combine builtin with actions.</p>
+<p>Builtins: <code>normal</code>, <code>ledge_assist</code>, <code>turbo_teabag</code>.
+Use a recipe action such as <code>short_hop:1</code> for short-hop input. Use only button slots X/Y/D-pad/L3/R3. Do not combine builtin with actions.</p>
 <p>Compatibility-only mode values: <code>ledge_trap</code>, <code>ledge_trump</code>, <code>auto_tech</code>,
 <code>auto_mash</code>, <code>idle_crouch</code>, <code>tilt_turn</code>, <code>spot_punish</code>, <code>jab_lock</code>, <code>out_of_shield</code>.
 The parser accepts <code>mode = VALUE</code> followed by <code>activation = hold</code> or
@@ -1219,24 +1220,20 @@ auto_tech = true
 <td><code>R</code>, <code>L</code>, <code>ZL</code></td>
 </tr>
 <tr>
-<td><code>r3_turbo</code>, <code>l3_turbo</code>, <code>dpad_turbo</code></td>
-<td><code>true</code> / <code>false</code>; shared turbo enable value, not new button bindings</td>
-</tr>
-<tr>
-<td><code>turbo_phase_frames</code></td>
-<td>Integer 1–10</td>
-</tr>
-<tr>
 <td><code>turbo_walk_strength</code></td>
-<td>Finite 0.05–0.6</td>
+<td>Finite 0.05–0.6; horizontal creep amount for the selected Turbo t-bag built-in</td>
 </tr>
 <tr>
 <td><code>dpad_b_reverse</code>, <code>dpad_slide</code></td>
-<td><code>true</code> / <code>false</code>; retained setting, removed fixed D-pad bindings are not restored</td>
+<td><code>true</code> / <code>false</code>; accepted for old-file compatibility but has no effect</td>
 </tr>
 </tbody>
 </table>
-<p>Accepted <strong>ignored</strong> compatibility keys: <code>combo_enabled</code>, <code>combo_starter</code>,
+<p>Accepted legacy no-effect Turbo keys: <code>r3_turbo</code>, <code>l3_turbo</code>, <code>dpad_turbo</code> and
+<code>turbo_phase_frames</code>. Boolean values are validated but cannot activate the
+helper; <code>turbo_phase_frames</code> is range-checked to 1–10 but no longer changes its
+cadence.</p>
+<p>Other accepted <strong>ignored</strong> compatibility keys: <code>combo_enabled</code>, <code>combo_starter</code>,
 <code>combo_max_start_percent</code>, <code>combo_grab_range</code>, <code>combo_fair_range</code>, <code>mash_interval_frames</code>, <code>alternate_mash</code>,
 <code>mash_buttons_per_frame</code>, <code>ledge_nair_hit_lead_frames</code>,
 <code>ledge_stone_hit_lead_frames</code>, <code>ledge_stone_startup_frames</code>,

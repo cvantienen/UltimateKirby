@@ -35,8 +35,8 @@ Paths below are relative to the project root. Core paths begin with
 | Core `fighter_data.rs` | Exact-kind stats and move-frame facts from the canonical roster JSON, plus native recovery validation. |
 | Core `shared/controller/action_owner.rs` | One committed input owner, explicit interruption rules and losing-plan cancellation. |
 | `data/Ultimate_stats.json` | Sole source for roster-wide fighter stats and move-frame data; embedded and parsed once at startup. |
-| Core `autopilot_guard/duck.rs` | Held-Y crouch/shield ownership; legacy move fixtures remain separate from live geometry. |
-| Core `autopilot_guard/duck_geometry.rs` | Allocation-free swept hitbox/body-envelope tests and calibration bounds. |
+| Core `autopilot_guard.rs` | Shared copied hitbox shape, incoming-attack warning envelope and held shield timing for ledge autopilot. |
+| Core `auto_duck.rs` | Auto-duck geometry, threat aggregation, timing and crouch/shield input policy; reuses `autopilot_guard::Hitbox`. |
 | `src/live/duck_hits.rs` | Disabled reference implementation; its native hitbox scans, source tracking and ATTACK hook are not enabled. |
 | `src/lib.rs` | Skyline entry point; calls installation once. |
 | `src/live.rs` | Hook orchestration, controller selection, fighter-observation admission and planning, shared session state and tool priority. |
@@ -72,9 +72,9 @@ Paths below are relative to the project root. Core paths begin with
 | Core `fighters/game_and_watch/projectile_reflect.rs` / `shared/observations/projectile_geometry.rs` | Game & Watch projectile defense and reusable swept geometry. |
 | Core `fighters/ganondorf/flame_choke.rs` | Grounded Flame Choke release detection, contact timing and tech-window selection. |
 | `src/live/fighters/` | Fighter-specific native adapters, including Bowser Up-B observation admission, Kirby follow-up lifecycle, Ganondorf capture timing, Game & Watch's reflector and Ice Climbers' partner. |
-| Core `native_states/fighter/` | Fighter-specific native status constants, interruption, and special/final-state classification. |
+| Core `native_states.rs` / `native_states/fighter/` | Shared native status rules and fighter-specific constants, interruption, and special/final-state classification. |
 | Core `shared/survival/tech_prediction.rs` / `tech_input.rs` | Pure collision timing / shield request and acknowledgment scheduling. |
-| Core `timing.rs` / `timing/progress.rs` | Share motion-progress classification, event deduplication, simulation-frame arithmetic and forecast overlap. No learned compensation. |
+| Core `timing.rs` | Shared motion-progress classification, event deduplication, simulation-frame arithmetic and forecast overlap. No learned compensation. |
 | Core `shared/observations/observation.rs` / adapter `live/frame.rs` | Lazy fixed-size facts shared across policies for one observation; see [shared observations and timing](OBSERVATIONS_AND_TIMING.md). |
 | Core `session.rs` / `diagnostics.rs` | Invalidate stale requests between matches / limit diagnostic snapshots. |
 | Core `shared/observations/state.rs` / `shared/controller/input.rs` | Generic observation contracts / logical buttons, sticks and merging. |

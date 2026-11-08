@@ -12,15 +12,21 @@ fn configured() -> MenuPresets {
     presets("[kirby.neutral.n]\nstart_delay=0\nactions=grab\n")
 }
 #[test]
-fn x_is_available_for_short_hop_and_y_passes_through_without_any_button_recipe() {
+fn unconfigured_x_passes_through_and_short_hop_recipes_remain_available() {
     let p = configured();
     let mut m = MenuSelection::new(&p);
     m.input(0, &p);
-    assert_ne!(m.input(MAPPER_X, &p) & MAPPER_X, 0);
+    assert_eq!(m.input(MAPPER_X, &p) & MAPPER_X, 0);
     assert!(m.preview_slot.is_none());
     m.input(0, &p);
     assert_eq!(m.input(MAPPER_Y, &p) & MAPPER_Y, 0);
     assert!(m.preview_slot.is_none());
+
+    let p = presets("[kirby.x.hop]\nstart_delay=0\nactions=short_hop:1\ndefault=true\n");
+    let mut m = MenuSelection::new(&p);
+    m.input(0, &p);
+    assert_ne!(m.input(MAPPER_X, &p) & MAPPER_X, 0);
+    assert_eq!(m.preview_slot, Some(PresetSlot::X));
     assert_eq!(MenuSelection::QUICK_ROWS.len(), PresetSlot::COUNT);
 }
 #[test]
@@ -656,7 +662,7 @@ fn match_all_eleven_saved_slots_select_the_matching_payload() {
         );
         let (position, count) = m.choice_position(&p, slot);
         assert_eq!(position, 1);
-        assert_eq!(count, if slot.is_button() { 6 } else { 2 });
+        assert_eq!(count, if slot.is_button() { 5 } else { 2 });
     }
     assert!(m.editor.is_none() && m.catalog.is_none());
 }

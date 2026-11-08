@@ -103,7 +103,7 @@ fn safety_interrupts_roll_but_trip_waits_and_scope_cancels() {
 }
 #[test]
 fn explicit_manual_tools_yield_to_roll_reads_and_confirmed_followups() {
-    for manual in [Owner::Trump, Owner::Shortcut] {
+    for manual in [Owner::Trump] {
         let mut control = ActionOwnership::new();
         control.select(true, &[intent(Owner::RollRead, true)]);
         assert_eq!(
@@ -159,10 +159,7 @@ fn trip_fsmash_stick_and_a_remain_paired_when_no_timed_punish_is_present() {
             let raw = overlay.apply_controls(
                 ButtonTrace::default(),
                 [0.0, -1.0],
-                TurboOutput {
-                    consume_dpad: false,
-                    stick: out.stick,
-                },
+                TurboOutput { stick: out.stick },
                 0,
                 out.requested,
                 out.owned,
@@ -186,7 +183,6 @@ fn priority_chooses_new_work_but_never_interrupts_a_committed_sequence() {
             Owner::JabLock,
             Owner::Fair,
             Owner::Trump,
-            Owner::Shortcut,
             Owner::Defense,
             Owner::Turbo,
             Owner::Posture,
@@ -236,7 +232,6 @@ fn posture_is_last_even_while_other_modes_are_only_preparing() {
         Owner::JabLock,
         Owner::Fair,
         Owner::Trump,
-        Owner::Shortcut,
         Owner::Ledge,
         Owner::RollRead,
         Owner::Defense,
@@ -268,7 +263,6 @@ fn ledge_reservation_blocks_new_configured_actions_until_released() {
         Owner::JabLock,
         Owner::Fair,
         Owner::Trump,
-        Owner::Shortcut,
     ] {
         let mut control = ActionOwnership::new();
         control.set_ledge_priority(true);
@@ -291,7 +285,7 @@ fn ledge_reservation_blocks_new_configured_actions_until_released() {
 
 #[test]
 fn incoming_grab_defense_waits_for_committed_work_and_yields_to_native_safety() {
-    for current in [Owner::Trip, Owner::Shortcut] {
+    for current in [Owner::Trip] {
         let mut control = ActionOwnership::new();
         control.select(true, &[intent(current, true)]);
         assert!(!control.allows(Owner::GrabDodge));
@@ -328,7 +322,6 @@ fn committed_automatic_tapes_reject_competing_grab_and_punish_requests() {
             Owner::RollRead,
             Owner::OptionRead,
             Owner::OutOfShield,
-            Owner::Shortcut,
         ] {
             if other == current {
                 continue;

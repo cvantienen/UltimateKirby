@@ -77,8 +77,7 @@ use kirby_assist_core::live_input::{
 };
 use kirby_assist_core::manual_controls::{
     ledge_walk_stick, suppress_reserved_taunts, turbo_movement_allowed, DashPivotAssist,
-    ManualOverlay, ShortcutContext, Shortcuts, TurboState, DPAD_SIDES, DPAD_UP, SHORT_HOP_TRIGGER,
-    TURBO_TRIGGER,
+    ManualContext, ManualOverlay, TurboState, DPAD_SIDES, DPAD_UP, TURBO_TRIGGER,
 };
 use kirby_assist_core::native_input::{
     controller_index, selected_controller_mapper, MAPPER_L, MAPPER_MINUS, MAPPER_PLUS, MAPPER_Y,
@@ -264,7 +263,6 @@ struct ObservationNeeds {
     file_ledge_timeline: bool,
     ground_ledge_timeline: bool,
     observe_trump: bool,
-    observe_shortcuts: bool,
     observe_duck: bool,
 }
 
@@ -319,8 +317,6 @@ fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
             .is_some_and(LedgeTrap::file_needs_ground),
         observe_trump: config.auto_ledge_trump
             && (trump_held || state.trump.as_ref().is_some_and(LedgeTrump::active)),
-        observe_shortcuts: state.raw_buttons & SHORT_HOP_TRIGGER != 0
-            || state.shortcuts.as_ref().is_some_and(Shortcuts::active),
         observe_duck: state.duck_active,
     }
 }
@@ -440,13 +436,12 @@ unsafe fn map_controls(
     let mut mapped_attack_hold = false;
     let mut mapped_literal_request = None;
     let mut mapped_unshielded_auto_grab = false;
-    let mut builtin_jump = None;
     let mut mapped_sequence_right = None;
     let mut reserved_dpad = 0;
     let mut tech_applied = false;
     let mut mapped_tech_output = None;
     let mut mapped_grab_handoff = None;
-    let mut short_hop_requested = false;
+    let mut sequence_short_hop = false;
     let mut mapped_manual_jump = false;
     #[cfg(feature = "diagnostic-logging")]
     let mut trump_pressed = false;
@@ -608,7 +603,7 @@ unsafe fn map_controls(
                             let gameplay = menu_available && state.fighter_kind.is_some();
                             // Raw button/menu observations still run, but a committed
                             // input owner cannot be replaced by a queued button tape.
-                            let damage_recovery = state.shortcut_context.is_some_and(|c| {
+                            let damage_recovery = state.manual_context.is_some_and(|c| {
                                 kirby_assist_core::ledge_trap::sequence_interrupted(c.status)
                             });
                             let committed_inputs = state.action_owner.current_owner().is_some()
@@ -618,11 +613,6 @@ unsafe fn map_controls(
                                 || state.mash_stick.is_some();
                             let bindings_blocked = committed_inputs || damage_recovery;
                             let safety_jump = !committed_inputs && damage_recovery;
-                            let short_hop_running = state.action_owner.current_owner()
-                                == Some(Owner::Shortcut)
-                                && state.shortcuts.as_ref().is_some_and(|s| {
-                                    s.active() && s.consumed_buttons() & SHORT_HOP_TRIGGER != 0
-                                });
                             let changed = state
                                 .settings_menu
                                 .get_or_insert_with(settings_menu::SettingsMenu::default)
@@ -630,7 +620,6 @@ unsafe fn map_controls(
                                     menu_available,
                                     gameplay,
                                     bindings_blocked,
-                                    short_hop_running,
                                     safety_jump,
                                     kind,
                                     policy_buttons,
@@ -711,7 +700,7 @@ unsafe fn map_controls(
                                         physical.held,
                                         physical.pressed,
                                         false,
-                                        state.shortcut_context.is_some_and(|c| c.situation == kirby_assist_core::native_states::situation::GROUND),
+                                        state.manual_context.is_some_and(|c| c.situation == kirby_assist_core::native_states::situation::GROUND),
                                         0,
                                     ));
                             state.action_owner.set_automatic_suspended(suspend_auto);
@@ -871,7 +860,7 @@ unsafe fn map_controls(
                         }
                         // Expired requests become neutral. The overlay still
                         // knows the previous assisted output, allowing a release.
-                        let native_grab = state.shortcut_context.is_some_and(|c| {
+                        let native_grab = state.manual_context.is_some_and(|c| {
                             kirby_assist_core::action_owner::native_grab_active(c.status)
                         });
                         let auto_mash = state
@@ -894,20 +883,16 @@ unsafe fn map_controls(
                         // stick immediately, rather than forcing neutral.
                         let tick = state.policy_tick.unwrap_or(state.raw_tick);
                         let can_move = fresh && state.policy_tick.is_some() && state.turbo_ready;
-                        // L3 restores turbo teabag; Minus remains menu-only.
-                        // L autopilot keeps its existing movement policy.
-                        let turbo_held =
-                            policy_buttons & TURBO_TRIGGER != 0 && policy_buttons & MAPPER_L == 0;
-                        let turbo_facing = state.shortcut_context.map_or(1.0, |ctx| ctx.facing);
+                        // The selected button binding alone activates Turbo t-bag.
+                        // L3 is not remapped to the L ledge-assist role.
+                        let turbo_held = policy_buttons & TURBO_TRIGGER != 0;
+                        let turbo_facing = state.manual_context.map_or(1.0, |ctx| ctx.facing);
                         let turbo_input_tick = state.raw_tick;
                         let mut turbo_output = state
                             .turbo
                             .get_or_insert_with(TurboState::default)
                             .sample_teabag(
-                                kirby_assist_core::manual_controls::TurboSettings {
-                                    enabled: config.turbo.enabled || turbo_held,
-                                    ..config.turbo
-                                },
+                                config.turbo,
                                 // Generate the next local input packet now;
                                 // never wait for delayed crouch acknowledgment.
                                 turbo_input_tick,
@@ -922,7 +907,7 @@ unsafe fn map_controls(
                         // Changing tools releases the previous policy.
                         // Stale observations still release automation ownership.
                         let turbo_stick = turbo_output.stick;
-                        let pivot_context = state.shortcut_context.filter(|_| {
+                        let pivot_context = state.manual_context.filter(|_| {
                             fresh
                                 && manual_scope
                                 && state.policy_tick.is_some()
@@ -1009,38 +994,7 @@ unsafe fn map_controls(
                                 state.trump_output.stick,
                             ));
                         }
-                        let shortcut_context = state.shortcut_context;
-                        let shortcuts_allowed = manual_scope
-                            && fresh
-                            && state.action_owner.allows(Owner::Shortcut)
-                            && (state.action_owner.current_owner() == Some(Owner::Shortcut)
-                                || (state.settings_menu.as_ref().is_none_or(|menu| {
-                                    (menu.consumed & !menu.builtin_consumed)
-                                        & kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS
-                                        == 0
-                                }) && mash_stick.is_none()
-                                    && !state.tech_output.owns_guard
-                                    && policy_buttons
-                                        & ((kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS
-                                            & !DPAD_SIDES)
-                                            | MAPPER_MINUS)
-                                        == 0));
-                        let shortcut_buttons = policy_buttons
-                            & !MAPPER_Y
-                            & !state.settings_menu.as_ref().map_or(0, |menu| {
-                                (menu.consumed & !menu.builtin_consumed)
-                                    & (kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS
-                                        | SHORT_HOP_TRIGGER)
-                            })
-                            & !DPAD_SIDES;
-                        let shortcut = state
-                            .shortcuts
-                            .get_or_insert_with(Shortcuts::default)
-                            .sample(shortcut_buttons, shortcuts_allowed, shortcut_context);
-                        let shortcut_consumed = state
-                            .shortcuts
-                            .as_ref()
-                            .map_or(0, Shortcuts::consumed_buttons);
+                        let manual_context = state.manual_context;
                         let (idle_crouch, tilt_turn) = state
                             .settings_menu
                             .as_ref()
@@ -1055,7 +1009,7 @@ unsafe fn map_controls(
                         });
                         let posture_target = state.posture_target;
                         let posture_floor_safe = state.posture_floor_safe;
-                        let configured_c_stick = shortcut_context.and_then(|context| {
+                        let configured_c_stick = manual_context.and_then(|context| {
                             (manual_scope && fresh && tilt_turn)
                                 .then(|| {
                                     kirby_assist_core::posture::Posture::configured_c_stick(
@@ -1070,7 +1024,7 @@ unsafe fn map_controls(
                                 .flatten()
                         });
                         let posture =
-                            shortcut_context.map_or_else(ControllerOutput::default, |context| {
+                            manual_context.map_or_else(ControllerOutput::default, |context| {
                                 state.posture.get_or_insert_with(Default::default).sample_configured(
                                     manual_scope && fresh,
                                     idle_crouch
@@ -1238,19 +1192,13 @@ unsafe fn map_controls(
                                 committed: true,
                             },
                             Intent {
-                                owner: Owner::Shortcut,
-                                present: shortcut.owned != 0,
-                                committed: true,
-                            },
-                            Intent {
                                 owner: Owner::Ledge,
                                 present: state.ledge_active
                                     && (state.action_owner.current_owner() == Some(Owner::Ledge)
                                         || !state.autopilot_guarding
                                     // An idle always-on watch must not swallow
-                                    // the selected hop/turbo helper. Actual
-                                    // acquired ledge visits/tapes keep priority.
-                                    && (shortcut.owned & SHORT_HOP_TRIGGER == 0 && turbo_stick.is_none()
+                                    // Turbo movement. Acquired ledge visits/tapes keep priority.
+                                    && (turbo_stick.is_none()
                                         || ledge_priority || ledge_committed)
                                     && (state.oos_output.owned == 0 || ledge_priority || ledge_committed))
                                     && (state.ledge_output.owned != 0
@@ -1311,42 +1259,31 @@ unsafe fn map_controls(
                                 committed: false,
                             },
                         ];
-                        let safe_manual_jump =
-                            kirby_assist_core::grab_handoff::GrabHandoff::manual_jump_packet(
-                                shortcut, None,
-                            );
-                        let handoff_status = state.shortcut_context.map_or(-1, |c| c.status);
-                        let handoff_situation = state.shortcut_context.map_or(
+                        let handoff_status = manual_context.map_or(-1, |c| c.status);
+                        let handoff_situation = manual_context.map_or(
                             kirby_assist_core::native_states::situation::UNAVAILABLE,
                             |c| c.situation,
                         );
                         let handoff_context =
-                            state
-                                .shortcut_context
-                                .filter(|_| fresh)
-                                .map(|c| GameplayContext {
-                                    gameplay: manual_scope,
-                                    status: c.status,
-                                    situation: c.situation,
-                                    motion_kind: c.motion,
-                                    motion_frame: c.frame,
-                                    motion_rate: c.rate,
-                                    stopped: c.stopped,
-                                    ..GameplayContext::default()
-                                });
+                            manual_context.filter(|_| fresh).map(|c| GameplayContext {
+                                gameplay: manual_scope,
+                                status: c.status,
+                                situation: c.situation,
+                                motion_kind: c.motion,
+                                motion_frame: c.frame,
+                                motion_rate: c.rate,
+                                stopped: c.stopped,
+                                ..GameplayContext::default()
+                            });
                         state
                             .grab_handoff
                             .observe_native(manual_scope, handoff_context);
-                        state
-                            .grab_handoff
-                            .restrict_with_manual_jump(&mut intents, safe_manual_jump);
+                        state.grab_handoff.restrict(&mut intents);
                         let mut winner = state
                             .action_owner
                             .select(fresh && manual_scope && !native_grab, &intents);
-                        short_hop_requested = (winner == Some(Owner::Shortcut)
-                            && shortcut_consumed & SHORT_HOP_TRIGGER != 0
-                            && shortcut.requested & SHORT_HOP_TRIGGER != 0)
-                            || winner == Some(Owner::Ledge) && state.ledge_output.native_short_hop
+                        sequence_short_hop = winner == Some(Owner::Ledge)
+                            && state.ledge_output.native_short_hop
                             || winner == Some(Owner::OutOfShield)
                                 && state.oos_output.native_short_hop
                             || winner == Some(Owner::OptionRead)
@@ -1358,7 +1295,6 @@ unsafe fn map_controls(
                             Some(Owner::Fair) => state.fair_output,
                             Some(Owner::Trump) => state.trump_output,
                             Some(Owner::OutOfShield) => state.oos_output,
-                            Some(Owner::Shortcut) => shortcut,
                             Some(Owner::Posture) => posture,
                             Some(Owner::Ledge) => state.ledge_output,
                             Some(Owner::RollRead) => state.roll_read_output,
@@ -1381,11 +1317,6 @@ unsafe fn map_controls(
                         {
                             selected =
                                 kirby_assist_core::grab_handoff::GrabHandoff::grab_packet(selected);
-                        }
-                        if handoff_situation == kirby_assist_core::native_states::situation::GROUND
-                            && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
-                        {
-                            short_hop_requested = false;
                         }
                         let selected_right = if handoff_situation
                             == kirby_assist_core::native_states::situation::GROUND
@@ -1416,7 +1347,6 @@ unsafe fn map_controls(
                             }
                             winner = None;
                             selected = ControllerOutput::default();
-                            short_hop_requested = false;
                         }
                         if winner == Some(Owner::Safety) {
                             (selected, mapped_tech_output) =
@@ -1449,23 +1379,6 @@ unsafe fn map_controls(
                                     handoff_status,
                                 ),
                         ));
-                        // Physical X may annotate a manual jump, never a sequence/tech takeover.
-                        short_hop_requested |= manual_scope
-                            && !tech_takeover
-                            && shortcut_consumed & SHORT_HOP_TRIGGER == 0
-                            && selected.owned & kirby_assist_core::native_input::GAMEPLAY_BUTTONS
-                                != kirby_assist_core::native_input::GAMEPLAY_BUTTONS
-                            && (menu_consumed
-                                & !state
-                                    .settings_menu
-                                    .as_ref()
-                                    .map_or(0, |m| m.builtin_consumed))
-                                & SHORT_HOP_TRIGGER
-                                == 0
-                            && shortcut_context.is_some_and(|ctx| {
-                                ctx.situation == kirby_assist_core::native_states::situation::GROUND
-                            })
-                            && policy_buttons & SHORT_HOP_TRIGGER != 0;
                         ledge = selected;
                         turbo_output.stick = match winner {
                             Some(Owner::Safety) => selected.stick,
@@ -1481,12 +1394,11 @@ unsafe fn map_controls(
                             None => manual_walk_stick,
                             _ => selected.stick,
                         };
-                        turbo_output.consume_dpad &= winner == Some(Owner::Turbo);
                         state.cancel_non_owner(winner);
                         #[cfg(feature = "diagnostic-logging")]
                         {
                             use kirby_assist_core::diagnostics::modes::{bit, Snapshot};
-                            let status = shortcut_context.map_or(-1, |c| c.status);
+                            let status = manual_context.map_or(-1, |c| c.status);
                             // Log only a change into a real assist override, not
                             // every poll or native animation stop. No game reads.
                             let blocker = if manual_scope
@@ -1529,10 +1441,10 @@ unsafe fn map_controls(
                                     })
                                 }),
                                 status,
-                                motion: shortcut_context.map_or(0, |c| c.motion),
-                                native_frame: shortcut_context
+                                motion: manual_context.map_or(0, |c| c.motion),
+                                native_frame: manual_context
                                     .map_or(0, |c| c.frame.clamp(0.0, 65535.0) as u16),
-                                stopped: shortcut_context.is_some_and(|c| c.stopped),
+                                stopped: manual_context.is_some_and(|c| c.stopped),
                                 can_act: state.turbo_ready,
                                 hit: state.mode_hit,
                                 valid: fresh && manual_scope,
@@ -1634,8 +1546,7 @@ unsafe fn map_controls(
                                         != 0
                                     && !mash_takeover
                                     && !matches!(winner, Some(Owner::Trip | Owner::Fair))
-                                    && !(matches!(winner, Some(Owner::Shortcut | Owner::Posture))
-                                        && tilt_aiming)
+                                    && !(matches!(winner, Some(Owner::Posture)) && tilt_aiming)
                                 {
                                     (1 << 21) | (1 << 23)
                                 } else {
@@ -1657,63 +1568,24 @@ unsafe fn map_controls(
                                     (1 << 21) | (1 << 23)
                                 } else {
                                     0
-                                }
-                                | if manual_scope && !exclusive_sequence {
-                                    shortcut_consumed
-                                } else {
-                                    0
                                 };
-                        // Preserve the old X behavior outside the grounded short-hop
-                        // helper (air jumps/native jump buffering), for any source.
-                        let jump_passthrough = manual_scope
-                            && !tech_takeover
-                            && kirby_assist_core::action_owner::permits_builtin_jump(
-                                winner,
-                                ledge_priority || ledge_committed,
-                            )
-                            && kirby_assist_core::native_input::jump_passthrough(
-                                policy_buttons,
+                        let canonical_requested =
+                            kirby_assist_core::native_input::selected_requests(
                                 ledge.owned,
-                                shortcut.owned,
-                                shortcut_consumed,
+                                ledge.requested,
+                                0,
                             );
-                        // Built-in jump has its own mapped-input command. Never
-                        // run it back through a physical button's custom role.
-                        builtin_jump = if manual_scope
-                            && winner == Some(Owner::Shortcut)
-                            && shortcut_consumed & SHORT_HOP_TRIGGER != 0
-                        {
-                            Some(shortcut.requested & SHORT_HOP_TRIGGER != 0)
-                        } else if jump_passthrough {
-                            Some(true)
-                        } else {
-                            None
-                        };
-                        let canonical_requested = kirby_assist_core::native_input::selected_requests(
-                            ledge.owned,
-                            ledge.requested,
-                            0,
-                        ) | if jump_passthrough {
-                            SHORT_HOP_TRIGGER
-                        } else {
-                            0
-                        };
                         // Deliver the native jump pulse through the same raw
                         // history as every other simulated input. The final
                         // mapped flag supplements this path; it does not replace it.
                         if exclusive_sequence {
                             mapped_automatic_request = Some(canonical_requested);
                         }
-                        mapped_manual_jump = matches!(winner, Some(Owner::Shortcut | Owner::Ledge))
+                        mapped_manual_jump = winner == Some(Owner::Ledge)
                             && canonical_requested
                                 & kirby_assist_core::native_input::SEQUENCE_JUMP_BUTTONS
                                 != 0;
                         let canonical_owned = ledge.owned
-                            | if builtin_jump.is_some() {
-                                SHORT_HOP_TRIGGER
-                            } else {
-                                0
-                            }
                             | if tech_takeover {
                                 state.tech_output.owned_buttons()
                             } else {
@@ -1963,8 +1835,6 @@ unsafe fn map_controls(
                                     "fair_priority"
                                 } else if state.trump_output.owned != 0 {
                                     "trump_priority"
-                                } else if shortcut.owned != 0 {
-                                    "shortcut_priority"
                                 } else {
                                     "ledge"
                                 },
@@ -2146,12 +2016,11 @@ unsafe fn map_controls(
         }
         (*mapped).buttons = kirby_assist_core::native_input::mapped_short_hop(
             (*mapped).buttons,
-            short_hop_requested,
+            sequence_short_hop,
         );
-        (*mapped).buttons = kirby_assist_core::native_input::mapped_builtin_jump(
+        (*mapped).buttons = kirby_assist_core::native_input::mapped_short_hop(
             (*mapped).buttons,
-            builtin_jump,
-            short_hop_requested,
+            sequence_short_hop,
         );
         // Raw trigger history can lose A even while retaining the stick.
         // Retain only the selected explicit Attack input; the
@@ -2190,7 +2059,7 @@ unsafe fn map_controls(
                     if let (Some(object), Some(kind), Some(context)) = (
                         state.associated_object,
                         state.fighter_kind,
-                        state.shortcut_context,
+                        state.manual_context,
                     ) {
                         state.manual_jump_fence.sample(
                             object,
@@ -2615,7 +2484,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         file_ledge_timeline,
         ground_ledge_timeline,
         observe_trump,
-        observe_shortcuts,
         observe_duck,
     } = {
         let Ok(state) = STATE.lock() else {
@@ -3386,10 +3254,10 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 analysis_settings.shield(),
             )
         } else {
-            kirby_assist_core::autopilot_guard::duck::DefenseThreat::default()
+            kirby_assist_core::auto_duck::DefenseThreat::default()
         };
         Some((
-            kirby_assist_core::autopilot_guard::duck::DuckContext {
+            kirby_assist_core::auto_duck::DuckContext {
                 clock: kirby_assist_core::autopilot_guard::GuardClock {
                     status: assessment.status,
                     motion: own_motion_kind,
@@ -3411,7 +3279,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     // make an input legal. The core uses these values to decide what to request.
     // Full movement/ledge queries (including ground rays) are demand-driven.
     // Stick-click/Y shortcuts use the existing motion sample, without ground rays.
-    let mut guard_threat = kirby_assist_core::autopilot_guard::duck::DefenseThreat::default();
+    let mut guard_threat = kirby_assist_core::auto_duck::DefenseThreat::default();
     let mut guard_ready = false;
     // Status-gated opponent acquisition comes first. Unrelated enemies stop at
     // their status checks; a ledge grab/getup gets full facts in this same pass.
@@ -3649,7 +3517,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             analysis_settings.value(kirby_assist_core::fighter_tuning::CROUCH_HEIGHT, 20.),
         )
         && !game::passable_ground(object);
-    let shortcut_context = ShortcutContext {
+    let manual_context = ManualContext {
         status: assessment.status,
         situation: assessment.situation,
         motion: own_motion_kind,
@@ -3657,22 +3525,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         rate: timing_rate,
         stopped: stopped || clatter || tech,
         facing: trip_context.facing,
-        can_short_hop: observe_shortcuts
-            && assessment.situation == kirby_assist_core::native_states::situation::GROUND
-            && (game::transition_enabled(
-                object,
-                kirby_assist_core::native_states::transition_terms::CONT_JUMP_SQUAT_BUTTON,
-            ) || game::transition_enabled(
-                object,
-                kirby_assist_core::native_states::transition_terms::CONT_JUMP_SQUAT,
-            )), // Jump button / stick terms
-        input_delay: 0.0,
-        can_neutral_special: observe_shortcuts
-            && !stopped
-            && game::transition_enabled(
-                object,
-                kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_N,
-            ), // CONT_SPECIAL_N
     };
     let combo_velocity_y = if fair_hit_window || fair_pending {
         reads.speed_y(object)
@@ -4473,7 +4325,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 .as_ref()
                 .map(|(context, _, _, _)| context.hit_confirmed);
         }
-        state.shortcut_context = Some(shortcut_context);
+        state.manual_context = Some(manual_context);
         state.posture_target = posture_target;
         state.posture_floor_safe = posture_floor_safe;
         state.turbo_ready = !clatter
@@ -4882,7 +4734,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                     .is_some_and(LedgeTrap::committed_input_pending);
             state
                 .duck_defense
-                .get_or_insert_with(kirby_assist_core::autopilot_guard::duck::DuckDefense::default)
+                .get_or_insert_with(kirby_assist_core::auto_duck::DuckDefense::default)
                 .sample(allowed, context, threats)
         } else {
             state.duck_defense = None;
@@ -4968,7 +4820,7 @@ pub fn install() {
         }
     };
     #[cfg(feature = "diagnostic-logging")]
-    log!(&format!("GLOBAL MODES: assistance={}, auto-tech={}, auto-SDI={}, ledge-trump={}, turbo movement={}, automatic fair-hit follow-up={}, defensive ledge shield={}. Saved fighter choices are listed separately when selected. Detailed snapshots are batched at most 4 times/second; input requests, native move starts and hit evidence are reported separately.", config.controls.enabled, config.controls.auto_tech, config.auto_sdi, config.auto_ledge_trump, config.turbo.enabled, config.kirby_fair1_smash, config.autopilot_shield));
+    log!(&format!("GLOBAL MODES: assistance={}, auto-tech={}, auto-SDI={}, ledge-trump={}, automatic fair-hit follow-up={}, defensive ledge shield={}. Saved fighter choices are listed separately when selected. Detailed snapshots are batched at most 4 times/second; input requests, native move starts and hit evidence are reported separately.", config.controls.enabled, config.controls.auto_tech, config.auto_sdi, config.auto_ledge_trump, config.kirby_fair1_smash, config.autopilot_shield));
     #[cfg(feature = "diagnostic-logging")]
     log!(&format!("AUTO DI CONFIG: enabled={}, mode={:?}, legacy threshold={:.2}. Adaptive uses survival; Escape requires explicit selection. DI owns the final 3 victim-hitstop frames; SDI never falls back there. DI and SDI share exclusive stick ownership through hitstop.", config.auto_di.enabled, config.auto_di.mode, config.auto_di.survival_speed));
     log!(&format!("AUTO SPOT DODGE: enabled={}; ordinary standing/dash/pivot grabs only, bounded per-fighter proximity forecast, one accepted request per grab with optional configured follow-up; incoming-grab defense waits for committed sequences and yields to native safety.", config.auto_spot_dodge));

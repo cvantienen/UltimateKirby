@@ -52,8 +52,8 @@ change mash. Disabling mash releases its cached input without disabling tech.
 Hold the assigned ledge binding (**X** by default) for ledge autopilot (including Kirby in-range recovery cover),
 use the selected fighter-specific **X/Y/D-pad** bindings with the menu hidden.
 **Normal button** restores the physical button's ordinary game input. Built-in
-L is fixed walk/ledge assistance; customizable defaults are X short hop and L3 turbo. Directions held while closing must be released before gameplay
-uses them. Minus is reserved for the menu. Hold L3 without the ledge binding for turbo teabag.
+L is fixed walk/ledge assistance; customizable defaults are X short hop and L3 turbo. The Turbo t-bag built-in can be assigned to any button slot, and L3 is never remapped to the ledge-assist role. Directions held while closing must be released before gameplay
+uses them. Minus is reserved for the menu. Hold the assigned Turbo t-bag button for fast crouching.
 
 The menu uses a fixed-width dark rounded card, with a teal highlight and a
 separate navigation area. Silent stays at the **top left**; diagnostic stays at

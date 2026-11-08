@@ -62,9 +62,13 @@ fn every_physical_button_runs_only_its_custom_recipe_in_both_layouts() {
 #[test]
 fn each_native_helper_can_be_assigned_to_every_physical_button() {
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
+        assert_eq!(
+            layout.policy_buttons(TURBO_TRIGGER) & MAPPER_L,
+            0,
+            "a Turbo t-bag source must never become the ledge-assist trigger: {layout:?}"
+        );
         for slot in PresetSlot::BUTTONS {
             for (builtin, expected) in [
-                (Builtin::ShortHop, MAPPER_X),
                 (Builtin::LedgeAssist, MAPPER_L),
                 (Builtin::TurboTeabag, TURBO_TRIGGER),
             ] {
@@ -128,7 +132,7 @@ fn fresh_profiles_use_requested_physical_defaults_in_both_layouts() {
                     0
                 },
             ),
-            (MAPPER_X, MAPPER_X),
+            (MAPPER_X, 0),
             (4, 0),
             (TURBO_TRIGGER, TURBO_TRIGGER),
             (MAPPER_Y, 0),
@@ -219,11 +223,14 @@ fn builtins_cannot_be_configured_as_conditioned_or_timed_attack_recipes() {
         "mode=ledge_trump",
     ] {
         assert!(
-            Catalog::parse(&format!("[bowser.r3.native]\nbuiltin=short_hop\n{extra}\n")).is_err(),
+            Catalog::parse(&format!(
+                "[bowser.r3.native]\nbuiltin=ledge_assist\n{extra}\n"
+            ))
+            .is_err(),
             "{extra}"
         );
     }
-    assert!(Catalog::parse("[bowser.neutral.native]\nbuiltin=short_hop\n").is_err());
+    assert!(Catalog::parse("[bowser.neutral.native]\nbuiltin=ledge_assist\n").is_err());
 }
 #[test]
 fn builtins_can_be_selected_and_saved_as_default_from_editor() {
@@ -233,7 +240,7 @@ fn builtins_can_be_selected_and_saved_as_default_from_editor() {
     m.button_menu = true;
     m.row = MenuRow::R3Sequence;
     m.choices[PresetSlot::R3 as usize] =
-        p.list(PresetSlot::R3).options.len() + Builtin::ShortHop.template_offset();
+        p.list(PresetSlot::R3).options.len() + Builtin::LedgeAssist.template_offset();
     m.input(0, &p);
     m.input(MENU_STICK_CLICK, &p);
     assert!(m.recipe_editing);
@@ -244,17 +251,17 @@ fn builtins_can_be_selected_and_saved_as_default_from_editor() {
         .recipe_panel(&p)
         .header
         .iter()
-        .any(|s| s.contains("Short hop")));
+        .any(|s| s.contains("Ledge assist")));
 }
 
 #[test]
 fn compact_helpers_keep_their_bindings_and_training_l3_tests_the_hovered_recipe() {
-    let p=presets("[bowser.neutral.test]\nstart_delay=0\nactions=grab:4\n[bowser.x.hop]\nbuiltin=short_hop\ndefault=true\n");
+    let p=presets("[bowser.neutral.test]\nstart_delay=0\nactions=grab:4\n[bowser.x.hop]\nbuiltin=normal\ndefault=true\n");
     let mut training = MenuSelection::new(&p);
     training.show_quick();
     input(&mut training, &p, 0, ControlLayout::Default);
     input(&mut training, &p, MAPPER_X, ControlLayout::Default);
-    assert_ne!(training.native_buttons(MAPPER_X) & MAPPER_X, 0);
+    assert_eq!(training.native_buttons(MAPPER_X) & MAPPER_X, 0);
     assert!(training.preview_slot.is_none());
     input(&mut training, &p, 0, ControlLayout::Default);
     input(&mut training, &p, 1 << 16, ControlLayout::Default);
@@ -263,7 +270,7 @@ fn compact_helpers_keep_their_bindings_and_training_l3_tests_the_hovered_recipe(
     battle.input_with_editing(0, &p, false);
     battle.show_quick();
     battle.input_with_editing(MAPPER_X, &p, false);
-    assert_ne!(battle.native_buttons(MAPPER_X) & MAPPER_X, 0);
+    assert_eq!(battle.native_buttons(MAPPER_X) & MAPPER_X, 0);
 }
 #[test]
 fn new_trigger_loops_stop_on_release_and_do_not_replay_passthrough_holds() {
@@ -383,7 +390,7 @@ fn busy_owner_does_not_queue_custom_buttons_or_resurrect_held_helpers() {
                 "fresh release rearms {layout:?} {slot:?}"
             );
         }
-        for builtin in [Builtin::ShortHop, Builtin::TurboTeabag] {
+        for builtin in [Builtin::TurboTeabag] {
             let p = presets(&format!(
                 "[bowser.y.helper]\nbuiltin={}\ndefault=true\n",
                 builtin.token()
@@ -394,11 +401,7 @@ fn busy_owner_does_not_queue_custom_buttons_or_resurrect_held_helpers() {
             input(&mut m, &p, MAPPER_Y, layout);
             m.block_binding_starts(false);
             input(&mut m, &p, MAPPER_Y, layout);
-            let dest = if builtin == Builtin::ShortHop {
-                MAPPER_X
-            } else {
-                TURBO_TRIGGER
-            };
+            let dest = TURBO_TRIGGER;
             assert_eq!(m.native_buttons(layout.policy_buttons(MAPPER_Y)) & dest, 0);
             input(&mut m, &p, 0, layout);
             input(&mut m, &p, MAPPER_Y, layout);
@@ -457,17 +460,17 @@ fn held_ledge_binding_survives_its_own_committed_sequence_on_every_source() {
 }
 #[test]
 fn logical_helper_routing_does_not_apply_a_swapped_mapping_twice() {
-    let p=presets("[bowser.x.ledge]\nbuiltin=ledge_assist\ndefault=true\n[bowser.r3.hop]\nbuiltin=short_hop\ndefault=true\n");
+    let p=presets("[bowser.x.ledge]\nbuiltin=ledge_assist\ndefault=true\n[bowser.r3.hop]\nbuiltin=turbo_teabag\ndefault=true\n");
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
         let mut m = MenuSelection::new(&p);
         input(&mut m, &p, 0, layout);
-        for (physical, expected) in [(MAPPER_X, MAPPER_L), (1 << 17, MAPPER_X)] {
+        for (physical, expected) in [(MAPPER_X, MAPPER_L), (1 << 17, TURBO_TRIGGER)] {
             input(&mut m, &p, 0, layout);
             input(&mut m, &p, physical, layout);
             let logical = m.native_buttons(layout.policy_buttons(physical));
-            assert_eq!(logical & (MAPPER_X | MAPPER_L), expected);
+            assert_eq!(logical & (MAPPER_X | MAPPER_L | TURBO_TRIGGER), expected);
             assert_eq!(
-                m.native_buttons(logical) & (MAPPER_X | MAPPER_L),
+                m.native_buttons(logical) & (MAPPER_X | MAPPER_L | TURBO_TRIGGER),
                 expected,
                 "second routing {layout:?}"
             );
@@ -498,69 +501,6 @@ fn remapped_held_source_requires_actual_release_after_quarantine() {
     }
 }
 #[test]
-fn short_hop_works_on_every_source_without_becoming_an_extra_air_jump() {
-    use kirby_assist_core::manual_controls::{ShortcutContext, Shortcuts};
-    let context = |frame, status, situation| ShortcutContext {
-        status,
-        situation,
-        motion: status as u64 + 1,
-        frame,
-        rate: 1.,
-        stopped: false,
-        facing: 1.,
-        can_short_hop: situation == kirby_assist_core::native_states::situation::GROUND,
-        input_delay: 0.,
-        can_neutral_special: false,
-    };
-    for layout in [ControlLayout::Default, ControlLayout::Brother] {
-        for slot in PresetSlot::BUTTONS {
-            let p = presets(&format!(
-                "[bowser.{}.hop]\nbuiltin=short_hop\ndefault=true\n",
-                token(slot)
-            ));
-            let mut m = MenuSelection::new(&p);
-            let mut hops = Shortcuts::default();
-            input(&mut m, &p, 0, layout);
-            hops.sample(0, true, Some(context(0., 0, 0)));
-            input(&mut m, &p, slot.button(), layout);
-            let mut logical = m.native_buttons(layout.policy_buttons(slot.button()));
-            assert_eq!(
-                hops.sample(logical, true, Some(context(1., 0, 0)))
-                    .requested,
-                MAPPER_X,
-                "initial hop {layout:?} {slot:?}"
-            );
-            m.block_binding_starts(true);
-            m.continue_short_hop_binding(true);
-            input(&mut m, &p, slot.button(), layout);
-            logical = m.native_buttons(layout.policy_buttons(slot.button()));
-            assert_ne!(logical & MAPPER_X, 0);
-            let release = hops.sample(logical, true, Some(context(0., 0xa, 0)));
-            assert_eq!(release.requested, 0);
-            assert_ne!(release.owned & MAPPER_X, 0);
-            m.block_binding_starts(true);
-            m.continue_short_hop_binding(true);
-            input(&mut m, &p, slot.button(), layout);
-            logical = m.native_buttons(layout.policy_buttons(slot.button()));
-            let air = hops.sample(logical, true, Some(context(0., 0xb, 2)));
-            assert!(
-                !jump_passthrough(logical, 0, air.owned, hops.consumed_buttons()),
-                "held tail {layout:?} {slot:?}"
-            );
-            m.block_binding_starts(false);
-            input(&mut m, &p, 0, layout);
-            hops.sample(0, true, Some(context(1., 0xb, 2)));
-            input(&mut m, &p, slot.button(), layout);
-            logical = m.native_buttons(layout.policy_buttons(slot.button()));
-            let fresh = hops.sample(logical, true, Some(context(2., 0xb, 2)));
-            assert!(
-                jump_passthrough(logical, 0, fresh.owned, hops.consumed_buttons()),
-                "fresh aerial jump {layout:?} {slot:?}"
-            );
-        }
-    }
-}
-#[test]
 fn visible_lightweight_dpad_remaps_work_without_the_menu_modifier() {
     for slot in [
         PresetSlot::DpadUp,
@@ -587,7 +527,7 @@ fn assigned_l_remains_active_while_browsing_the_compact_selector() {
     let mut m = MenuSelection::new(&p);
     let poll = |m: &mut MenuSelection, raw| {
         m.set_binding_input(raw, layout);
-        m.input_with_editing(raw, &p, false);
+        m.input_with_editing(raw, &p, false)
     };
     poll(&mut m, 0);
     m.show_quick();
@@ -604,69 +544,12 @@ fn assigned_l_remains_active_while_browsing_the_compact_selector() {
     }
 }
 #[test]
-fn builtin_jump_is_delivered_after_source_consumption_without_a_fabricated_physical_jump() {
-    use kirby_assist_core::manual_controls::{
-        ManualOverlay, ShortcutContext, Shortcuts, TurboOutput,
-    };
-    for layout in [ControlLayout::Default, ControlLayout::Brother] {
-        for slot in PresetSlot::BUTTONS {
-            let p = presets(&format!(
-                "[bowser.{}.hop]\nbuiltin=short_hop\ndefault=true\n",
-                token(slot)
-            ));
-            let mut m = MenuSelection::new(&p);
-            input(&mut m, &p, 0, layout);
-            let consumed = input(&mut m, &p, slot.button(), layout);
-            let mut hop = Shortcuts::default();
-            let proposal = hop.sample(
-                m.native_buttons(layout.policy_buttons(slot.button())),
-                true,
-                Some(ShortcutContext {
-                    status: kirby_assist_core::native_states::status::WAIT,
-                    situation: kirby_assist_core::native_states::situation::GROUND,
-                    motion: 1,
-                    frame: 1.,
-                    rate: 1.,
-                    stopped: false,
-                    facing: 1.,
-                    can_short_hop: true,
-                    input_delay: 0.,
-                    can_neutral_special: false,
-                }),
-            );
-            assert_ne!(proposal.requested & MAPPER_X, 0);
-            let raw = ManualOverlay::default().apply_controls(
-                ButtonTrace {
-                    held: slot.button(),
-                    pressed: slot.button(),
-                    ..Default::default()
-                },
-                [0.; 2],
-                TurboOutput::default(),
-                layout.physical_buttons(consumed),
-                layout.physical_buttons(proposal.requested & !MAPPER_X),
-                layout.physical_owned_buttons(proposal.owned | MAPPER_X),
-            );
-            assert_eq!(
-                raw.buttons.held, 0,
-                "no source action or invented physical jump: {layout:?} {slot:?}"
-            );
-            assert_eq!(mapped_builtin_jump(0, Some(true), true), 0x44);
-            assert_eq!(
-                mapped_builtin_jump(0x45, Some(false), true),
-                0x1,
-                "release Jump/Mini without clearing Attack"
-            );
-        }
-    }
-}
-#[test]
 fn simulated_sequences_use_default_button_meanings_without_running_custom_bindings() {
     use kirby_assist_core::{
         ledge_trap::SEQUENCE_BUTTONS,
         manual_controls::{ManualOverlay, TurboOutput},
     };
-    let p=presets("[bowser.l.jump]\nbuiltin=short_hop\ndefault=true\n[bowser.x.ledge]\nbuiltin=ledge_assist\ndefault=true\n[bowser.dpad_down.turbo]\nbuiltin=turbo_teabag\ndefault=true\n");
+    let p=presets("[bowser.l.jump]\nbuiltin=normal\ndefault=true\n[bowser.x.ledge]\nbuiltin=ledge_assist\ndefault=true\n[bowser.dpad_down.turbo]\nbuiltin=turbo_teabag\ndefault=true\n");
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
         let mut m = MenuSelection::new(&p);
         let consumed = input(&mut m, &p, 0, layout);
@@ -683,40 +566,8 @@ fn simulated_sequences_use_default_button_meanings_without_running_custom_bindin
             assert_eq!(frame.buttons.held, layout.physical_buttons(requested));
             assert!(m.preview_slot.is_none());
             assert_eq!(m.native_buttons(0), before);
-            assert!(!jump_passthrough(MAPPER_X, SEQUENCE_BUTTONS, 0, 0));
-            assert_eq!(
-                mapped_builtin_jump(0x123, None, true),
-                0x123,
-                "ordinary mapped sequence is untouched"
-            );
         }
     }
-}
-#[test]
-fn mapped_builtin_jump_never_overrides_a_sequence_or_safety_owner() {
-    use kirby_assist_core::action_owner::{permits_builtin_jump, Owner};
-    for owner in [
-        Owner::Safety,
-        Owner::GrabDodge,
-        Owner::OptionRead,
-        Owner::Trip,
-        Owner::JabLock,
-        Owner::Fair,
-        Owner::Trump,
-        Owner::Shortcut,
-        Owner::RollRead,
-        Owner::Defense,
-        Owner::OutOfShield,
-    ] {
-        assert!(
-            !permits_builtin_jump(Some(owner), false),
-            "must not inject mapped jump into {owner:?}"
-        );
-    }
-    assert!(permits_builtin_jump(None, false));
-    assert!(permits_builtin_jump(Some(Owner::Posture), false));
-    assert!(permits_builtin_jump(Some(Owner::Ledge), false));
-    assert!(!permits_builtin_jump(Some(Owner::Ledge), true));
 }
 
 #[test]
@@ -738,13 +589,13 @@ fn explicit_sequence_dpad_is_not_suppressed_as_a_custom_physical_binding() {
 }
 
 #[test]
-fn compact_menu_preserves_fixed_l_and_the_retained_x_short_hop_default() {
+fn compact_menu_preserves_fixed_l_and_defaults_x_to_normal() {
     let p = presets("");
     let mut m = MenuSelection::new(&p);
     let layout = ControlLayout::Default;
     let poll = |m: &mut MenuSelection, raw| {
         m.set_binding_input(raw, layout);
-        m.input_with_editing(raw, &p, false);
+        m.input_with_editing(raw, &p, false)
     };
     poll(&mut m, 0);
     m.show_quick();
@@ -757,11 +608,11 @@ fn compact_menu_preserves_fixed_l_and_the_retained_x_short_hop_default() {
     poll(&mut m, MAPPER_L);
     assert!(m.ledge_held(MAPPER_L));
     poll(&mut m, 0);
-    poll(&mut m, MAPPER_X);
-    assert_ne!(
-        m.native_buttons(MAPPER_X) & MAPPER_X,
+    let consumed = poll(&mut m, MAPPER_X);
+    assert_eq!(
+        layout.physical_buttons(consumed) & MAPPER_X,
         0,
-        "unconfigured X defaults to short hop"
+        "unconfigured X passes through as a normal button"
     );
 }
 
@@ -780,11 +631,7 @@ fn turbo_binding_alternates_each_local_input_update_without_delayed_pose_confirm
             let mut m = MenuSelection::new(&p);
             input(&mut m, &p, 0, layout);
             let mut turbo = TurboState::default();
-            let settings = TurboSettings {
-                enabled: true,
-                phase_frames: 99,
-                ..Default::default()
-            };
+            let settings = TurboSettings::default();
             let mut animation = AnimationClock::default();
             let frozen = AnimationSample {
                 object: 1,
@@ -823,56 +670,6 @@ fn turbo_binding_alternates_each_local_input_update_without_delayed_pose_confirm
                 .sample_teabag(settings, 21, true, 1., true, false)
                 .stick
                 .is_none());
-        }
-    }
-}
-
-#[test]
-fn builtin_hop_survives_the_runtime_menu_consumption_filter_on_every_source() {
-    use kirby_assist_core::{
-        manual_controls::{ShortcutContext, Shortcuts},
-        settings_menu::observation_buttons,
-    };
-    for layout in [ControlLayout::Default, ControlLayout::Brother] {
-        for slot in PresetSlot::BUTTONS {
-            let p = presets(&format!(
-                "[bowser.{}.native]\nbuiltin=short_hop\ndefault=true\n",
-                token(slot)
-            ));
-            let mut m = MenuSelection::new(&p);
-            input(&mut m, &p, 0, layout);
-            let consumed = input(&mut m, &p, slot.button(), layout);
-            let policy = m.native_buttons(layout.policy_buttons(slot.button()));
-            let ui_consumed = consumed & !m.builtin_consumed;
-            let observed = observation_buttons(policy, ui_consumed);
-            let buttons = policy & !MAPPER_Y & !(ui_consumed & (0xf | MAPPER_X)) & !0xa;
-            assert_ne!(
-                observed & MAPPER_X,
-                0,
-                "observation: {layout:?} {slot:?} consumed={consumed:#x}"
-            );
-            let mut tool = Shortcuts::default();
-            let out = tool.sample(
-                buttons,
-                policy & (5 | MAPPER_MINUS) == 0,
-                Some(ShortcutContext {
-                    status: kirby_assist_core::native_states::status::WAIT,
-                    situation: kirby_assist_core::native_states::situation::GROUND,
-                    motion: 1,
-                    frame: 10.,
-                    rate: 1.,
-                    stopped: false,
-                    facing: 1.,
-                    can_short_hop: true,
-                    input_delay: 0.,
-                    can_neutral_special: false,
-                }),
-            );
-            assert_ne!(
-                out.requested & MAPPER_X,
-                0,
-                "delivery: {layout:?} {slot:?} policy={policy:#x} consumed={consumed:#x}"
-            );
         }
     }
 }
@@ -953,44 +750,31 @@ fn every_held_ledge_binding_and_toggle_suspend_autopunish_before_acquisition() {
 }
 
 #[test]
-fn safety_preserves_builtin_and_literal_one_frame_jump_on_every_physical_binding() {
+fn safety_preserves_configured_one_frame_jump_recipes_on_every_button_binding() {
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
         for slot in PresetSlot::BUTTONS {
-            for recipe in [
-                "builtin=short_hop",
-                "start_delay=0\nactions=facing_input:x:0:0:1",
-            ] {
-                let p = presets(&format!(
-                    "[bowser.{}.jump]\ndefault=true\n{recipe}\n",
-                    token(slot)
-                ));
-                let mut m = MenuSelection::new(&p);
-                input(&mut m, &p, 0, layout);
-                // The previous action had quarantined this held source. Damage safety
-                // returns it as ordinary jump input, without running a custom tape.
-                m.block_binding_starts(true);
-                input(&mut m, &p, slot.button(), layout);
-                m.block_binding_starts(true);
-                m.preserve_safety_jump(true);
-                let consumed = input(&mut m, &p, slot.button(), layout);
-                let routed = m.native_buttons(layout.policy_buttons(slot.button()));
-                assert_ne!(routed & MAPPER_X, 0, "{layout:?} {slot:?} {recipe}");
-                assert_ne!(
-                    kirby_assist_core::settings_menu::observation_buttons(
-                        routed,
-                        consumed & !m.builtin_consumed
-                    ) & MAPPER_X,
-                    0
-                );
-                assert!(m.preview_slot.is_none(), "safety must not start a new tape");
-                // Deliberate normal use keeps the saved recipe/helper behavior.
-                m.block_binding_starts(false);
-                input(&mut m, &p, 0, layout);
-                input(&mut m, &p, slot.button(), layout);
-                if recipe.starts_with("start_delay") {
-                    assert_eq!(m.preview_slot, Some(slot));
-                }
-            }
+            let p = presets(&format!(
+                "[bowser.{}.jump]\ndefault=true\nstart_delay=0\nactions=facing_input:x:0:0:1\n",
+                token(slot)
+            ));
+            let mut m = MenuSelection::new(&p);
+            input(&mut m, &p, 0, layout);
+            // Damage safety delivers a literal one-frame jump without starting its tape.
+            m.block_binding_starts(true);
+            input(&mut m, &p, slot.button(), layout);
+            m.block_binding_starts(true);
+            m.preserve_safety_jump(true);
+            input(&mut m, &p, slot.button(), layout);
+            assert_ne!(
+                m.manual_native_actions(&p) & SEQUENCE_JUMP_BUTTONS,
+                0,
+                "{layout:?} {slot:?}"
+            );
+            assert!(m.preview_slot.is_none(), "safety must not start a new tape");
+            m.block_binding_starts(false);
+            input(&mut m, &p, 0, layout);
+            input(&mut m, &p, slot.button(), layout);
+            assert_eq!(m.preview_slot, Some(slot));
         }
     }
 }
@@ -1151,7 +935,7 @@ fn visible_lightweight_custom_dpad_works_without_modifier_in_both_layouts() {
 #[test]
 fn lightweight_navigation_dpad_requires_release_before_returning_to_its_custom_action() {
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
-        let p=presets("[bowser.dpad_down.saved]\ndefault=true\nstart_delay=0\nactions=grab:4\n[bowser.l3.ledge]\nbuiltin=ledge_assist\ndefault=true\n");
+        let p=presets("[bowser.dpad_down.saved]\ndefault=true\nstart_delay=0\nactions=grab:4\n[bowser.l3.turbo]\nbuiltin=turbo_teabag\ndefault=true\n");
         let mut m = MenuSelection::new(&p);
         let modifier = layout.physical_buttons(MAPPER_L);
         let down = kirby_assist_core::ledge_trap::DPAD_DOWN;
@@ -1170,11 +954,16 @@ fn lightweight_navigation_dpad_requires_release_before_returning_to_its_custom_a
         light_input(&mut m, &p, 0, layout);
         light_input(&mut m, &p, down, layout);
         assert_eq!(m.preview_slot, Some(PresetSlot::DpadDown));
-        // Re-entering L navigation cancels the custom tape before ledge input resumes.
+        // L3 Turbo must not turn into the L ledge-assist role.
         light_input(&mut m, &p, modifier, layout);
         assert!(m.preview_slot.is_none());
         light_input(&mut m, &p, modifier, layout);
-        assert!(m.ledge_held(layout.policy_buttons(modifier)));
+        assert_eq!(
+            m.ledge_held(layout.policy_buttons(modifier)),
+            layout == ControlLayout::Default
+        );
+        light_input(&mut m, &p, TURBO_TRIGGER, layout);
+        assert!(!m.ledge_held(layout.policy_buttons(TURBO_TRIGGER)));
     }
 }
 #[test]

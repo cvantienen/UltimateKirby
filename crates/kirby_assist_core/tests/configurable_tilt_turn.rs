@@ -1,7 +1,7 @@
 use kirby_assist_core::{
     action_owner::{ActionOwnership, Intent, Owner},
     fighter_tuning::{Tuning, TILT_TURN_DOWN, TILT_TURN_FORWARD, TILT_TURN_UP},
-    manual_controls::ShortcutContext,
+    manual_controls::ManualContext,
     native_input::{
         ButtonTrace, MAPPER_A, MAPPER_B, MAPPER_RIGHT_STICK_LEFT, MAPPER_RIGHT_STICK_RIGHT,
     },
@@ -11,8 +11,8 @@ use kirby_assist_core::{
     settings::AssistSettings,
 };
 
-fn context() -> ShortcutContext {
-    ShortcutContext {
+fn context() -> ManualContext {
+    ManualContext {
         status: status::WAIT,
         situation: situation::GROUND,
         motion: 1,
@@ -20,9 +20,6 @@ fn context() -> ShortcutContext {
         rate: 1.0,
         stopped: false,
         facing: 1.0,
-        can_short_hop: false,
-        input_delay: 0.0,
-        can_neutral_special: false,
     }
 }
 
@@ -61,7 +58,7 @@ fn defaults_and_settings_round_trip_for_each_fighter() {
 #[test]
 fn selected_c_stick_tilts_aim_without_creating_attack_buttons() {
     for facing in [-1.0, 1.0] {
-        let c = ShortcutContext {
+        let c = ManualContext {
             facing,
             ..context()
         };
@@ -181,7 +178,7 @@ fn configured_tilts_yield_to_other_inputs_and_invalid_observations() {
             [0.0, 0.0],
             [1.0, 0.0],
             Some(-1.0),
-            ShortcutContext {
+            ManualContext {
                 situation: situation::AIR,
                 ..context()
             },
@@ -191,7 +188,7 @@ fn configured_tilts_yield_to_other_inputs_and_invalid_observations() {
             [0.0, 0.0],
             [1.0, 0.0],
             Some(-1.0),
-            ShortcutContext {
+            ManualContext {
                 stopped: true,
                 ..context()
             },
@@ -201,7 +198,7 @@ fn configured_tilts_yield_to_other_inputs_and_invalid_observations() {
             [0.0, 0.0],
             [1.0, 0.0],
             Some(-1.0),
-            ShortcutContext {
+            ManualContext {
                 status: status::DAMAGE,
                 ..context()
             },
@@ -213,7 +210,7 @@ fn configured_tilts_yield_to_other_inputs_and_invalid_observations() {
         );
     }
     for status in [status::ATTACK_HI3, status::ATTACK_S3] {
-        let c = ShortcutContext {
+        let c = ManualContext {
             status,
             stopped: true,
             ..context()

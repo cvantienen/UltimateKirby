@@ -59,7 +59,6 @@ fn load_on_worker() -> Result<LoadedConfig, String> {
 }
 
 fn prepare_runtime(mut config: LiveConfig, sequences: Catalog) -> Result<LoadedConfig, String> {
-    config.dpad_b_reverse = false;
     config.auto_ledge_trump = false;
     let mut profiles = FighterProfiles::default();
     profiles.validate()?;

@@ -73,6 +73,7 @@ pub mod kirby;
 
 // Independent assistance policies and their decision helpers.
 pub mod assist;
+pub mod auto_duck;
 pub mod autopilot_guard;
 pub mod defense_response;
 pub mod grab_handoff;

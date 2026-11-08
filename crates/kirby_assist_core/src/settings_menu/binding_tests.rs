@@ -218,7 +218,7 @@ fn button_pages_expose_only_normal_and_input_sequence_editing() {
     assert!(MenuSelection::BUTTON_ROWS.iter().all(|r| m.row_visible(*r)));
     assert!(!m.row_visible(MenuRow::Neutral));
     m.row = MenuRow::DpadDown;
-    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 4);
+    assert_eq!(m.choice_position(&p, PresetSlot::DpadDown).1, 3);
     tap(&mut m, &p, MENU_STICK_CLICK);
     assert!(m.recipe_editing);
     assert!(m
@@ -342,17 +342,17 @@ fn shared_toggle_groups_do_not_double_toggle_and_other_buttons_still_run_sequenc
 }
 
 #[test]
-fn removing_a_reaction_binding_clears_its_toggle_and_keeps_a_held_button_latched() {
+fn removing_a_reaction_binding_clears_its_toggle_and_restores_normal_x_passthrough() {
     use crate::{native_input::MAPPER_X, reaction_rules::Control};
     let (p,mut m)=setup("[yoshi.roll.rule]\nstart_delay=0\nreaction=roll:any:0:20:12:any:1:toggle_x\nactions=jab:4\n",5);
     tap(&mut m, &p, MAPPER_X);
     assert_eq!(m.rule_toggles, Control::ToggleX.bit());
     // Reload an empty saved catalog as a fresh profile edit: the active binding
-    // disappears, but held X must not leak through as an unexpected jump.
+    // disappears and X returns to its normal physical-button behavior.
     m.load_saved_recipes(&p, &Catalog::default(), 5);
     assert_ne!(m.input(MAPPER_X, &p) & MAPPER_X, 0);
     assert_eq!(m.rule_toggles, 0);
     assert_eq!(m.rule_button_mask, 0);
     m.input(0, &p);
-    assert_ne!(m.input(MAPPER_X, &p) & MAPPER_X, 0);
+    assert_eq!(m.input(MAPPER_X, &p) & MAPPER_X, 0);
 }

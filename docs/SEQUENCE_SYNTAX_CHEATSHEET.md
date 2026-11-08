@@ -322,11 +322,13 @@ template picker; choosing one copies its recipe into your fighter's sequence.
 ```ini
 [yoshi.x.short_hop_button]
 name = Short hop button
-builtin = short_hop
+start_delay = 0
+actions = short_hop:1
 default = true
 ```
 
-Builtins: `normal`, `short_hop`, `ledge_assist`, `turbo_teabag`.
+Builtins: `normal`, `ledge_assist`, `turbo_teabag`. Use a recipe action such as
+`short_hop:1` for short-hop input.
 Use only button slots X/Y/D-pad/L3/R3. Do not combine builtin with actions.
 
 Compatibility-only mode values: `ledge_trap`, `ledge_trump`, `auto_tech`,
@@ -444,12 +446,15 @@ auto_tech = true
 | `ledge_stand_distance` | Finite 2–15 |
 | `ledge_move_strength` | Finite 0.1–1 |
 | `ledge_grab_button` | `R`, `L`, `ZL` |
-| `r3_turbo`, `l3_turbo`, `dpad_turbo` | `true` / `false`; shared turbo enable value, not new button bindings |
-| `turbo_phase_frames` | Integer 1–10 |
-| `turbo_walk_strength` | Finite 0.05–0.6 |
-| `dpad_b_reverse`, `dpad_slide` | `true` / `false`; retained setting, removed fixed D-pad bindings are not restored |
+| `turbo_walk_strength` | Finite 0.05–0.6; horizontal creep amount for the selected Turbo t-bag built-in |
+| `dpad_b_reverse`, `dpad_slide` | `true` / `false`; accepted for old-file compatibility but have no effect |
 
-Accepted **ignored** compatibility keys: `combo_enabled`, `combo_starter`,
+Accepted legacy no-effect Turbo keys: `r3_turbo`, `l3_turbo`, `dpad_turbo` and
+`turbo_phase_frames`. Boolean values are validated but cannot activate the
+helper; `turbo_phase_frames` is range-checked to 1–10 but no longer changes its
+cadence.
+
+Other accepted **ignored** compatibility keys: `combo_enabled`, `combo_starter`,
 `combo_max_start_percent`, `combo_grab_range`, `combo_fair_range`, `mash_interval_frames`, `alternate_mash`,
 `mash_buttons_per_frame`, `ledge_nair_hit_lead_frames`,
 `ledge_stone_hit_lead_frames`, `ledge_stone_startup_frames`,

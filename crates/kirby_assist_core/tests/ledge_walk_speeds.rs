@@ -57,7 +57,6 @@ fn faster_walk_still_clears_dash_flick_bits_and_restores_physical_input_on_exit(
         human,
         physical,
         TurboOutput {
-            consume_dpad: false,
             stick: Some(ledge_walk_stick(physical, 0.35)),
         },
         (1 << 21) | (1 << 23), // Manual walk suppresses horizontal flick aliases.

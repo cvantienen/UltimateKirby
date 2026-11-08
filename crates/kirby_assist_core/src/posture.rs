@@ -1,7 +1,7 @@
 //! Optional grounded stick helpers. Attack buttons always remain physical.
 use crate::{
     gameplay::ControllerOutput,
-    manual_controls::{ShortcutContext, LEFT_STICK_DIRECTIONS, RIGHT_STICK_DIRECTIONS},
+    manual_controls::{ManualContext, LEFT_STICK_DIRECTIONS, RIGHT_STICK_DIRECTIONS},
     native_input::{
         ButtonTrace, MAPPER_A, MAPPER_L, MAPPER_RIGHT_STICK_DOWN, MAPPER_RIGHT_STICK_LEFT,
         MAPPER_RIGHT_STICK_RIGHT,
@@ -102,7 +102,7 @@ impl Posture {
         left: [f32; 2],
         right: [f32; 2],
         target: Option<f32>,
-        c: ShortcutContext,
+        c: ManualContext,
     ) -> Option<([f32; 2], [f32; 2])> {
         if !Self::needs_configured_target(c.status, c.situation, c.stopped)
             || !left.iter().all(|v| v.is_finite() && v.abs() <= 0.2)
@@ -137,7 +137,7 @@ impl Posture {
         stick: [f32; 2],
         right: [f32; 2],
         target: Option<f32>,
-        c: ShortcutContext,
+        c: ManualContext,
     ) -> ControllerOutput {
         if enabled && turn {
             if let Some((left, _)) =
@@ -199,7 +199,7 @@ impl Posture {
         buttons: u32,
         stick: [f32; 2],
         target: Option<f32>,
-        c: ShortcutContext,
+        c: ManualContext,
     ) -> ControllerOutput {
         self.sample_controls(enabled, crouch, turn, buttons, stick, [0.0; 2], target, c)
     }
@@ -212,7 +212,7 @@ impl Posture {
         stick: [f32; 2],
         right: [f32; 2],
         target: Option<f32>,
-        c: ShortcutContext,
+        c: ManualContext,
     ) -> ControllerOutput {
         let c_down = Self::down_c_stick(buttons, right);
         let locomotion = matches!(c.status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV);

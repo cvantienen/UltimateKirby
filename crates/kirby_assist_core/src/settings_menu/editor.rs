@@ -1729,7 +1729,7 @@ mod tests {
             0
         );
         menu.input(0, &p);
-        assert_ne!(menu.input(MAPPER_X, &p) & MAPPER_X, 0);
+        assert_eq!(menu.input(MAPPER_X, &p) & MAPPER_X, 0);
     }
     #[test]
     fn recipe_editor_numeric_hold_accelerates_and_release_resets() {

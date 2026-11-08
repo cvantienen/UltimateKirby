@@ -3,7 +3,7 @@
 **Minus** opens the ledge home or closes any menu in every build. D-pad Up/Down
 chooses a row; Left/Right changes its value or opens a page link. L still holds ledge autopilot; hidden-menu X/Y use the
 current fighter’s recipes, or Normal button for X short hop / ordinary Y. Minus does not run turbo teabag.
-Hold L3 without L for turbo teabag. Keep Minus unassigned in Training's custom shortcut settings.
+Hold the button assigned to Built-in: Turbo t-bag (L3 by default) for fast crouching. Keep Minus unassigned in Training's custom shortcut settings.
 
 In Training compatibility (silent and diagnostic), default **ZL+Up load / ZL+Down save**
 passes the shortcut through only while held, keeps our panel visible, and resumes

@@ -12,15 +12,15 @@ def main():
     fresh = source[start:source.index('                        let ledge_fresh', start)]
     start = source.index('        // Queries belong to the controller sample')
     guard = source[start:source.index('        state.tech_floor_motion =', start)]
-    start = source.index('    let manual_automatic_blocked=')
+    start = source.index('    let manual_automatic_blocked =')
     manual_guard = source[start:source.index('    let damage_stop =', start)]
-    manual_guard = manual_guard.replace('STATE.lock().ok().map_or(true,|mut state| {',
-                                        'Some(state).map_or(true,|state| {')
-    start = source.index('        let admission_suspended=', source.index('        // Keep watches fresh'))
+    manual_guard = manual_guard.replace('STATE.lock().ok().map_or(true, |mut state| {',
+                                        'Some(state).map_or(true, |state| {')
+    start = source.index('        let admission_suspended =', source.index('        // Keep watches fresh'))
     receipt_guard = source[start:source.index('        let ledge_priority =', start)]
-    start = source.index('                        let safe_manual_jump=')
-    arbitration = source[start:source.index('                        short_hop_requested =', start)]
-    start = source.index('                            if ledge_inputs_reserved && state.action_owner.current_owner().is_none()')
+    start = source.index('                        state.grab_handoff.restrict(&mut intents);')
+    arbitration = source[start:source.index('                        sequence_short_hop =', start)]
+    start = source.index('                            if ledge_inputs_reserved\n                                && state.action_owner.current_owner().is_none()')
     brace = source.index('{', start)
     depth, end = 1, brace + 1
     while depth:
@@ -37,9 +37,9 @@ def main():
         end += 1
     literal_delivery = source[start:end]
     start = source.index('                            let committed_inputs =')
-    binding_guard = source[start:source.index('                            let short_hop_running', start)]
-    start = source.index('                        if winner==Some(Owner::Safety) {\n                            (selected, mapped_tech_output)')
-    selected_packet = source[start:source.index('                        mapped_grab_handoff=', start)]
+    binding_guard = source[start:source.index('                            let changed =', start)]
+    start = source.index('                        if winner == Some(Owner::Safety) {\n                            (selected, mapped_tech_output)')
+    selected_packet = source[start:source.index('                        mapped_grab_handoff =', start)]
     fixture = r'''
 #![allow(dead_code,unused_mut,unused_variables)]
 use kirby_assist_core::session::{MatchSession,SessionTicket};
@@ -111,17 +111,15 @@ mod manual_native_wiring {
   fn for_fighter(&self,_kind:i32)->Option<&Self>{Some(self)}
   fn manual_native_actions(&self)->u32{self.actions}
  }
- #[derive(Clone,Copy)]struct ShortcutCtx {status:i32,situation:i32,motion:u64,frame:f32,rate:f32,stopped:bool}
  struct NativeState {
-  ledge_menu:Option<Menu>,manual_jump_fence:ManualJumpFence,
-  shortcut_context:Option<ShortcutCtx>,oos:OutOfShield,spot_dodge:Option<SpotDodge>,
+  settings_menu:Option<Menu>,manual_jump_fence:ManualJumpFence,
+  ledge:Option<kirby_assist_core::ledge_trap::LedgeTrap>,oos:OutOfShield,spot_dodge:Option<SpotDodge>,
   tech_output:kirby_assist_core::tech_input::TechOutput,mash_stick:Option<[f32;2]>,
   grab_handoff:GrabHandoff,action_owner:ActionOwnership,delivered_spin:bool,ledge_active:bool,
  }
  impl NativeState {
-  fn new()->Self {Self {ledge_menu:Some(Menu{actions:0,reserved:false}),manual_jump_fence:ManualJumpFence::new(),
-   shortcut_context:Some(ShortcutCtx{status:0x1c,situation:0,motion:1,frame:0.,rate:1.,stopped:false}),
-   oos:OutOfShield::new(),spot_dodge:None,tech_output:Default::default(),mash_stick:None,
+  fn new()->Self {Self {settings_menu:Some(Menu{actions:0,reserved:false}),manual_jump_fence:ManualJumpFence::new(),
+   ledge:None,oos:OutOfShield::new(),spot_dodge:None,tech_output:Default::default(),mash_stick:None,
    grab_handoff:GrabHandoff::new(),action_owner:ActionOwnership::new(),delivered_spin:false,ledge_active:false}}
   fn bowser_up_b_owner(&self)->Option<Owner>{self.delivered_spin.then_some(Owner::RollRead)}
  }
@@ -136,22 +134,22 @@ mod manual_native_wiring {
  fn c()->GameplayContext{GameplayContext{gameplay:true,motion_kind:1,motion_rate:1.,..Default::default()}}
  #[test]fn actual_live_guard_respects_jump_release_and_confirmed_spin() {
   let mut s=NativeState::new();assert!(!blocked(&mut s,c()));
-  s.ledge_menu.as_mut().unwrap().actions=MAPPER_X;
+  s.settings_menu.as_mut().unwrap().actions=MAPPER_X;
   assert!(blocked(&mut s,c()));
-  s.ledge_menu.as_mut().unwrap().actions=0;
+  s.settings_menu.as_mut().unwrap().actions=0;
   for _ in 0..100 {assert!(blocked(&mut s,c()));}
   assert!(!blocked(&mut s,GameplayContext{status:0xa,..c()}));
   assert!(!blocked(&mut s,c()));
-  s.delivered_spin=true;s.ledge_menu.as_mut().unwrap().actions=MAPPER_A;
+  s.delivered_spin=true;s.settings_menu.as_mut().unwrap().actions=MAPPER_A;
   assert!(blocked(&mut s,c()),"a delivered packet is not native spin confirmation");
   assert!(!blocked(&mut s,GameplayContext{status:0x1de,..c()}),"real Bowser spin keeps tracking");
  }
  #[test]fn active_sequences_ignore_manual_binding_edges_without_priming_a_late_jump() {
-  for owner in [Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Reflect,Owner::Ledge,Owner::Shortcut] {
+  for owner in [Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Reflect,Owner::Ledge] {
    let mut s=NativeState::new();s.action_owner.select(true,&[Intent::input_sequence(owner,1)]);
-   s.ledge_menu.as_mut().unwrap().actions=MAPPER_X|MAPPER_A;
+   s.settings_menu.as_mut().unwrap().actions=MAPPER_X|MAPPER_A;
    assert!(!blocked(&mut s,c()));
-   s.ledge_menu.as_mut().unwrap().actions=0;s.action_owner.release(owner);
+   s.settings_menu.as_mut().unwrap().actions=0;s.action_owner.release(owner);
    assert!(!blocked(&mut s,c()),"ignored jump must not become a deferred manual fence");
   }
  }
@@ -162,7 +160,7 @@ mod manual_native_wiring {
  #[test]fn inactive_recovery_keeps_manual_jump_but_no_committed_owner_accepts_a_jump_override() {
   let mut s=NativeState::new();assert_eq!(binding_guard(&s,false),(false,false));
   assert_eq!(binding_guard(&s,true),(true,true));
-  for owner in [Owner::Safety,Owner::RollRead,Owner::OutOfShield,Owner::Ledge,Owner::Shortcut,Owner::OptionRead,Owner::Reflect] {
+  for owner in [Owner::Safety,Owner::RollRead,Owner::OutOfShield,Owner::Ledge,Owner::OptionRead,Owner::Reflect] {
    s.action_owner.select(true,&[Intent::input_sequence(owner,1)]);
    assert_eq!(binding_guard(&s,true),(true,false));s.action_owner.release(owner);
   }
@@ -170,7 +168,7 @@ mod manual_native_wiring {
  }
  fn reserve_ledge(state:&mut NativeState,ledge_inputs_reserved:bool) {LEDGE_RESERVATION}
  fn choose(state:&mut NativeState)->Option<Owner> {
-  let fresh=true;let manual_scope=true;let native_grab=false;let shortcut=ControllerOutput::default();
+  let fresh=true;let manual_scope=true;let native_grab=false;
   let mut intents=[Intent::input_sequence(Owner::Ledge,1),Intent::input_sequence(Owner::OutOfShield,1)];
   ARBITRATION
   winner
@@ -201,6 +199,7 @@ mod manual_native_wiring {
   assert!(s.grab_handoff.pending());assert_eq!(choose(&mut s),Some(Owner::Ledge));
  }
  fn proposals_blocked(state:&mut NativeState,automatic_suspended:bool)->bool {
+  let observe_ledge=true;let ledge_opponent:Option<kirby_assist_core::gameplay::Opponent>=None;
   RECEIPT_GUARD
   automatic_suspended
  }
@@ -241,7 +240,7 @@ mod exclusive_packet_wiring {
   (selected,mapped_tech_output)
  }
  #[test]fn actual_live_packet_has_one_exclusive_winner_including_wait_and_safety_phases() {
-  for owner in [Owner::Ledge,Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Shortcut,Owner::Trump,Owner::Trip,Owner::Fair,Owner::JabLock,Owner::Reflect] {
+  for owner in [Owner::Ledge,Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Trump,Owner::Trip,Owner::Fair,Owner::JabLock,Owner::Reflect] {
    let mut s=State{action_owner:ActionOwnership::new(),tech_output:TechOutput{press:true,owns_guard:true},tech_urgent:false};
    s.action_owner.select(true,&[Intent::input_sequence(owner,1)]);
    let (p,t)=packet(&mut s,Some(owner),ControllerOutput{requested:MAPPER_B,..Default::default()},Some([1.,0.]),Some([0.,1.]));
@@ -262,20 +261,23 @@ mod exclusive_packet_wiring {
 }
 mod literal_delivery_wiring {
  use kirby_assist_core::{action_owner::Owner,gameplay::ControllerOutput,ledge_trap::SEQUENCE_BUTTONS,native_input::*};
+ use kirby_assist_core::out_of_shield::OutOfShield;
  struct Config{control_layout:ControlLayout}struct Raw{buttons:ButtonTrace}
+ struct State{oos:OutOfShield}
  fn request(winner:Option<Owner>,requested:u32,held:u32,owned:u32,
   layout:ControlLayout,fresh:bool,manual_scope:bool,exclusive_sequence:bool)->(bool,Option<u32>) {
   let selected=ControllerOutput{requested,owned,..Default::default()};
   let canonical_requested=requested;let config=Config{control_layout:layout};
   let manual=Raw{buttons:ButtonTrace{held,..Default::default()}};
-  let mut mapped_attack_hold=false;let mut mapped_literal_request=None;
+  let state=State{oos:OutOfShield::new()};
+  let mut mapped_attack_hold=false;let mut mapped_literal_request=None;let mut mapped_unshielded_auto_grab=false;
   ATTACK_DELIVERY
   LITERAL_DELIVERY
   (mapped_attack_hold,mapped_literal_request)
  }
  #[test]fn actual_selected_ledge_smash_keeps_attack_for_both_control_layouts() {
   for layout in [ControlLayout::Default,ControlLayout::Brother] {
-   for owner in [Owner::Ledge,Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Safety,Owner::Shortcut,Owner::Trump,Owner::Fair,Owner::Trip,Owner::JabLock,Owner::Reflect] {
+   for owner in [Owner::Ledge,Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Safety,Owner::Trump,Owner::Fair,Owner::Trip,Owner::JabLock,Owner::Reflect] {
     let (attack,packet)=request(Some(owner),MAPPER_A,layout.physical_buttons(MAPPER_A),SEQUENCE_BUTTONS,layout,true,true,true);
     assert_eq!(attack,matches!(owner,Owner::Ledge|Owner::RollRead|Owner::OutOfShield|Owner::OptionRead));assert_eq!(packet,Some(MAPPER_A));
     assert_eq!(mapped_literal_buttons(0,packet.unwrap()),0x201);

@@ -165,7 +165,7 @@ existing choice's actions at startup; config.txt supplies shared settings.
 Hold L for ledge autopilot; tap Y for neutral-B reverse. No combo or mode selection.
 Automatic mash starts OFF in the supplied config; enable it from the Auto-mash menu row.
 Auto-tech and Spot punish are available and start ON in both variants; each has an ON/OFF menu row.
-Hold R3 alone for fast crouch/walk-cancel turbo teabag; press X for paired X+ZL short hop (both mapped to Jump).
+Hold the button assigned to Built-in: Turbo t-bag (L3 by default) for fast crouching; press X for paired X+ZL short hop (both mapped to Jump).
 Hold L and click R3 to show/hide the bottom-left menu, which shows mash ON/OFF.
 While open, D-pad Up/Down
 selects a row and Left/Right cycles its saved options. While closed, sides

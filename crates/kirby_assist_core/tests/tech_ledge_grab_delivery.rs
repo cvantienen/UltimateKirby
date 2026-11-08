@@ -177,7 +177,6 @@ fn every_grab_owner_blocks_other_punishes_and_its_own_up_b_until_native_receipt(
         Owner::RollRead,
         Owner::OptionRead,
         Owner::OutOfShield,
-        Owner::Shortcut,
         Owner::Trump,
     ] {
         let mut h = GrabHandoff::default();
@@ -268,7 +267,6 @@ fn a_tech_preempts_every_committed_mode_and_overrides_stale_mapped_guard() {
         Owner::RollRead,
         Owner::OptionRead,
         Owner::GrabDodge,
-        Owner::Shortcut,
     ] {
         let mut owners = ActionOwnership::new();
         owners.select(true, &[Intent::input_sequence(old, 1)]);
@@ -316,10 +314,7 @@ fn fresh_tech_rearms_raw_guard_after_an_automatic_mode_filtered_its_native_guard
         let still = overlay.apply_reaction_controls(
             physical,
             [0.; 2],
-            TurboOutput {
-                consume_dpad: false,
-                stick: None,
-            },
+            TurboOutput { stick: None },
             0,
             guard,
             guard,
@@ -333,10 +328,7 @@ fn fresh_tech_rearms_raw_guard_after_an_automatic_mode_filtered_its_native_guard
         let fresh = overlay.apply_reaction_controls(
             physical,
             [0.; 2],
-            TurboOutput {
-                consume_dpad: false,
-                stick: None,
-            },
+            TurboOutput { stick: None },
             0,
             guard,
             guard,

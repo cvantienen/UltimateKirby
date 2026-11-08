@@ -1,7 +1,8 @@
-use kirby_assist_core::autopilot_guard::{
-    duck::{geometry_threat, DefenseThreat, DuckContext, DuckDefense},
-    duck_geometry::{contact, Contact, Hitbox, CROUCH_TOP},
-    GuardClock,
+use kirby_assist_core::{
+    auto_duck::{
+        contact, geometry_threat, Contact, DefenseThreat, DuckContext, DuckDefense, CROUCH_TOP,
+    },
+    autopilot_guard::{GuardClock, Hitbox},
 };
 fn shot(x: f32, y: f32, vx: f32) -> Hitbox {
     Hitbox {

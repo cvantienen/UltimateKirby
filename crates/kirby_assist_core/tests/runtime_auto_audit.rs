@@ -397,7 +397,6 @@ fn all_automatic_up_b_owners_use_the_same_manual_shield_and_jump_escape() {
     }
     for owner in [
         Owner::Ledge,
-        Owner::Shortcut,
         Owner::Safety,
         Owner::GrabDodge,
         Owner::Trip,

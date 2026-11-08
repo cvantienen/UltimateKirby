@@ -1092,7 +1092,6 @@ fn passive_receipt_scope_does_not_acquire_and_reserves_priority_without_owning_i
         let mut arbiter = ActionOwnership::new();
         let receipt = Intent::sequence_receipt(owner, 0, true);
         assert_eq!(arbiter.select(true, &[receipt]), Some(owner));
-        assert!(!arbiter.allows(Owner::Shortcut));
         assert!(!arbiter.allows(Owner::GrabDodge));
         assert_eq!(
             arbiter.select(

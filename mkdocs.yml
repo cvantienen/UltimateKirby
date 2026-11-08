@@ -17,7 +17,7 @@ nav:
       - Sequence configuration: SEQUENCE_FILES.md
       - Sequence text syntax cheat sheet: SEQUENCE_SYNTAX_CHEATSHEET.md
       - Editor action cheat sheet: EDITOR_ACTION_CHEATSHEET.md
-      - Shortcuts and turbo controls: TURBO_CONTROLS.md
+      - Button recipes and turbo controls: TURBO_CONTROLS.md
   - Assist features:
       - Configurable reaction rules: REACTION_RULES.md
       - Reaction-rule cheat sheet: REACTION_RULE_CHEATSHEET.md

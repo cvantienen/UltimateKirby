@@ -38,7 +38,7 @@ mod bindings;
 mod catalog;
 use crate::fighter_profiles::presets::{MenuPresets, PresetSlot};
 use crate::ledge_trap::DPAD_DOWN;
-use crate::manual_controls::{DPAD_RIGHT, DPAD_SIDES, DPAD_UP, SHORT_HOP_TRIGGER};
+use crate::manual_controls::{DPAD_RIGHT, DPAD_SIDES, DPAD_UP};
 use crate::native_input::{MAPPER_DPAD_BUTTONS, MAPPER_L, MAPPER_MINUS, MAPPER_X, MAPPER_Y};
 use crate::settings::AssistSettings;
 pub const MENU_STICK_CLICK: u32 = 1 << 17; // Physical right-stick click (R3).
@@ -233,7 +233,6 @@ pub struct MenuSelection {
     binding_ledge_previous: Option<bool>,
     binding_ready: u32,
     binding_starts_blocked: bool,
-    binding_short_hop_running: bool,
     binding_safety_jump: bool,
     binding_roles_stamp: Option<(
         crate::native_input::ControlLayout,
@@ -867,9 +866,9 @@ impl MenuSelection {
         let directions = DPAD_SIDES | DPAD_UP | DPAD_DOWN;
         let blocked = if self.lightweight {
             // Minus is always a selector control; visible-menu D-pad is too.
-            (if self.menu_hidden { directions } else { 0 }) | MAPPER_Y | SHORT_HOP_TRIGGER
+            (if self.menu_hidden { directions } else { 0 }) | MAPPER_Y
         } else {
-            directions | MAPPER_MINUS | MAPPER_Y | SHORT_HOP_TRIGGER
+            directions | MAPPER_MINUS | MAPPER_Y
         };
         !self.cancel_pending
             && !self.managing()
@@ -1698,7 +1697,6 @@ impl MenuSelection {
         self.binding_input = None;
         self.binding_safety_jump = false;
         self.binding_starts_blocked = false;
-        self.binding_short_hop_running = false;
         self.pad_quarantine = self
             .binding_layout
             .binding_ownership(DPAD_SIDES | DPAD_UP | DPAD_DOWN | MAPPER_X);

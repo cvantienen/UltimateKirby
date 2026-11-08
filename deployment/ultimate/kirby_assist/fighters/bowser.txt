@@ -222,12 +222,6 @@ default = false
 name = Built-in: Ledge assist / walk
 builtin = ledge_assist
 
-# ---- Built-in: Short hop | bowser.x.__builtin_short_hop ----
-[bowser.x.__builtin_short_hop]
-default = true
-name = Built-in: Short hop
-builtin = short_hop
-
 # ---- BUTTON SEQUENCES: Y ----
 # ---- Grab | bowser.y.airdodge ----
 [bowser.y.airdodge]
@@ -282,31 +276,31 @@ name = Flying Slam reverse toward enemy
 default = true
 
 # ---- BUTTON SEQUENCES: L ----
-# ---- Built-in: Short hop | bowser.l.__builtin_short_hop ----
-[bowser.l.__builtin_short_hop]
-default = false
-name = Built-in: Short hop
-builtin = short_hop
-
 # ---- BUTTON SEQUENCES: L3 ----
 # ---- Built-in: Turbo t-bag | bowser.l3.__builtin_turbo_teabag ----
 [bowser.l3.__builtin_turbo_teabag]
-default = false
+default = true
 name = Built-in: Turbo t-bag
 builtin = turbo_teabag
 
 # ---- Normal button | bowser.l3.__normal_button ----
 [bowser.l3.__normal_button]
-default = true
+default = false
 name = Normal button
 builtin = normal
 
 # ---- BUTTON SEQUENCES: R3 ----
 # ---- Built-in: Turbo t-bag | bowser.r3.__builtin_turbo_teabag ----
 [bowser.r3.__builtin_turbo_teabag]
-default = true
+default = false
 name = Built-in: Turbo t-bag
 builtin = turbo_teabag
+
+# ---- Normal button | bowser.r3.__normal_button ----
+[bowser.r3.__normal_button]
+default = true
+name = Normal button
+builtin = normal
 
 # ---- ASSIST RULES: AUTO REACT ----
 # ---- Roll - Up-B chase | bowser.roll.auto_roll ----
@@ -391,4 +385,3 @@ actions = up_b:4, drift:opponent:1:69
 # Down-smash branches choose front/rear at entry; position for the roll endpoint.
 # Auto-react is immediate; ordinary dodges do not use the ledge timings.
 # Automatic admission is grounded; aerial tapes may finish after takeoff.
-

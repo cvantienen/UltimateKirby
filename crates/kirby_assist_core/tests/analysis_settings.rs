@@ -1,5 +1,5 @@
 use kirby_assist_core::{
-    autopilot_guard::{self, duck_geometry::Hitbox},
+    autopilot_guard::{self, Hitbox},
     fighter_tuning::*,
     sequence_config::{persist, Catalog},
     settings::AssistSettings,

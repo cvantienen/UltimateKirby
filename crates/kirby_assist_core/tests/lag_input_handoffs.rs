@@ -1,7 +1,6 @@
 //! Released manual jumps and queued grabs under delayed native feedback.
 use kirby_assist_core::{
     action_owner::{Intent, Owner},
-    button_bindings::Builtin,
     defense_response::Response,
     fighter_profiles::{
         presets::{MenuPresets, PresetSlot},
@@ -73,33 +72,8 @@ fn button(m: &mut MenuSelection, p: &MenuPresets, raw: u32, layout: ControlLayou
     m.input(layout.policy_buttons(raw), p);
 }
 #[test]
-fn manual_jump_roles_follow_every_short_hop_binding_and_fixed_layout_jump() {
+fn manual_jump_roles_follow_fixed_layout_jump() {
     for layout in [ControlLayout::Default, ControlLayout::Brother] {
-        for (slot, token) in [
-            (PresetSlot::X, "x"),
-            (PresetSlot::Y, "y"),
-            (PresetSlot::DpadUp, "dpad_up"),
-            (PresetSlot::DpadDown, "dpad_down"),
-            (PresetSlot::DpadLeft, "dpad_left"),
-            (PresetSlot::DpadRight, "dpad_right"),
-            (PresetSlot::L3, "l3"),
-            (PresetSlot::R3, "r3"),
-        ] {
-            let p = presets(&format!(
-                "[bowser.{token}.hop]\nbuiltin={}\ndefault=true\n",
-                Builtin::ShortHop.token()
-            ));
-            let mut m = MenuSelection::new(&p);
-            button(&mut m, &p, 0, layout);
-            button(&mut m, &p, slot.button(), layout);
-            assert_ne!(
-                m.manual_native_actions(&p) & SEQUENCE_JUMP_BUTTONS,
-                0,
-                "{layout:?} {slot:?}"
-            );
-            button(&mut m, &p, 0, layout);
-            assert_eq!(m.manual_native_actions(&p), 0);
-        }
         let p = presets("");
         for raw in if layout == ControlLayout::Default {
             vec![MAPPER_Y, MAPPER_ZL]
@@ -384,38 +358,6 @@ fn native_grab_receipt_expires_only_after_actual_progress_or_scope_loss() {
     assert!(!h.pending());
 }
 #[test]
-fn queued_grab_allows_manual_jump_without_clearing_receipt_or_allowing_special() {
-    let mut h = GrabHandoff::new();
-    h.observe_native(true, Some(c(0.)));
-    h.mapped(0, Some(Owner::OutOfShield), true, true, true);
-    let jump = ControllerOutput {
-        requested: MAPPER_X,
-        ..Default::default()
-    };
-    let mut intents = [
-        Intent::input_sequence(Owner::Shortcut, 1),
-        Intent::input_sequence(Owner::RollRead, 1),
-    ];
-    h.restrict_with_manual_jump(&mut intents, GrabHandoff::manual_jump_packet(jump, None));
-    assert!(intents[0].present);
-    assert!(!intents[1].present);
-    assert!(h.permits(Some(Owner::Shortcut), jump, None));
-    assert!(h.pending());
-    for out in [
-        ControllerOutput {
-            requested: MAPPER_X | MAPPER_B,
-            ..jump
-        },
-        ControllerOutput {
-            stick: Some([0., 1.]),
-            ..jump
-        },
-    ] {
-        assert!(!h.permits(Some(Owner::Shortcut), out, None));
-    }
-}
-
-#[test]
 fn explicit_rule_control_is_not_treated_as_a_manual_jump() {
     let p = presets("[bowser.roll.rule]\nstart_delay=0\nreaction=roll:any:0:20:12:any:1:toggle_x\nactions=jab:4\n");
     let mut m = MenuSelection::new(&p);
@@ -437,7 +379,7 @@ fn duplicate_receipts_cannot_spend_the_four_packet_grab_budget() {
 }
 
 #[test]
-fn committed_automatic_binding_locks_block_manual_short_hop_starts() {
+fn committed_automatic_binding_locks_block_configured_short_hop_starts() {
     use kirby_assist_core::action_owner::ActionOwnership;
     for owner in [
         Owner::RollRead,
@@ -451,16 +393,14 @@ fn committed_automatic_binding_locks_block_manual_short_hop_starts() {
     ] {
         let mut ownership = ActionOwnership::new();
         ownership.select(true, &[Intent::input_sequence(owner, 1)]);
-        assert!(!ownership.manual_jump_preempts(false));
-        assert!(!ownership.manual_jump_preempts(true));
         for (source, slot) in [(MAPPER_X, "x"), (PresetSlot::DpadUp.button(), "dpad_up")] {
             let p = presets(&format!(
-                "[bowser.{slot}.hop]\nbuiltin=short_hop\ndefault=true\n"
+                "[bowser.{slot}.hop]\nstart_delay=0\nactions=short_hop:1\ndefault=true\n"
             ));
             let mut m = MenuSelection::new(&p);
             button(&mut m, &p, 0, ControlLayout::Default);
             m.block_binding_starts(true);
-            m.preserve_safety_jump(ownership.manual_jump_preempts(false));
+            m.preserve_safety_jump(false);
             button(&mut m, &p, source, ControlLayout::Default);
             assert_eq!(
                 m.manual_native_actions(&p) & SEQUENCE_JUMP_BUTTONS,
@@ -473,10 +413,5 @@ fn committed_automatic_binding_locks_block_manual_short_hop_starts() {
                 "an unrelated jump cannot enter the active tape"
             );
         }
-    }
-    for owner in [Owner::Ledge, Owner::Shortcut, Owner::Safety, Owner::Trump] {
-        let mut ownership = ActionOwnership::new();
-        ownership.select(true, &[Intent::input_sequence(owner, 1)]);
-        assert!(!ownership.manual_jump_preempts(false));
     }
 }

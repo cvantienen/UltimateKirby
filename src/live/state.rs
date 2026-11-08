@@ -42,8 +42,7 @@ pub(super) struct State {
     // Separate state for side-D-pad consumption and temporary left-stick control.
     pub(super) turbo: Option<TurboState>,
     pub(super) dash_pivot: Option<DashPivotAssist>,
-    pub(super) shortcuts: Option<Shortcuts>,
-    pub(super) shortcut_context: Option<ShortcutContext>,
+    pub(super) manual_context: Option<ManualContext>,
     pub(super) posture: Option<kirby_assist_core::posture::Posture>,
     pub(super) posture_target: Option<f32>,
     pub(super) posture_down: bool,
@@ -83,7 +82,7 @@ pub(super) struct State {
     pub(super) oos_output: ControllerOutput,
     pub(super) autopilot_guarding: bool,
     pub(super) guard_hold: Option<kirby_assist_core::autopilot_guard::GuardHold>,
-    pub(super) duck_defense: Option<kirby_assist_core::autopilot_guard::duck::DuckDefense>,
+    pub(super) duck_defense: Option<kirby_assist_core::auto_duck::DuckDefense>,
     pub(super) duck_active: bool,
     pub(super) duck_output: ControllerOutput,
     pub(super) reflector: kirby_assist_core::projectile_reflect::Reflector,
@@ -297,11 +296,6 @@ impl State {
             }
             self.trump_output = ControllerOutput::default();
         }
-        if keep != Some(Owner::Shortcut) {
-            if let Some(tool) = self.shortcuts.as_mut() {
-                tool.cancel_pending();
-            }
-        }
     }
     // `const fn` allows the global Mutex to be initialized before startup.
     // Options begin as None; get_or_insert_with in the callbacks constructs
@@ -344,8 +338,7 @@ impl State {
             policy_tick: None,
             turbo: None,
             dash_pivot: None,
-            shortcuts: None,
-            shortcut_context: None,
+            manual_context: None,
             posture: None,
             posture_target: None,
             posture_down: false,
@@ -532,7 +525,6 @@ impl State {
         self.duck_output = ControllerOutput::default();
         self.spot_dodge = None;
         self.spot_output = ControllerOutput::default();
-        self.shortcuts = None;
         self.rule_engine = None;
         self.roll_read_output = ControllerOutput::default();
 
@@ -635,8 +627,7 @@ impl State {
         self.policy_tick = None;
         self.turbo = None;
         self.dash_pivot = None;
-        self.shortcuts = None;
-        self.shortcut_context = None;
+        self.manual_context = None;
         self.posture = None;
         self.posture_target = None;
         self.posture_down = false;

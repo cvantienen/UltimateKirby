@@ -75,7 +75,7 @@ required; an already raised shield is not replaced with down+shield. Damage,
 committed punishes and other higher-priority tools still take precedence.
 Down is not requested on passable platforms or for nonstandard Kirby sizes.
 
-The calibration model in `autopilot_guard/duck_geometry.rs` uses standing height
+The calibration model in `auto_duck.rs` uses standing height
 12, crouching top 4.5 and horizontal/depth half-width 4 world units. **These are
 estimates, not live native hurtboxes or universal clearance guarantees.** Capsule
 bounds are deliberately conservative. Native crouch startup, changing joint
@@ -170,8 +170,9 @@ spacing only, not recipe-controlled roll approaches, ledge-walk preparation,
 punish drift or attack input timing.
 Only roll approaches automatically; normal-getup turning is a bounded facing
 correction. No automatic return to a standing spot occurs. Actual punish recipes
-briefly own their necessary inputs, then restore player spacing. R3 teabag
-remains independent, with automatic punish inputs taking priority.
+briefly own their necessary inputs, then restore player spacing. The assigned
+Turbo t-bag button remains independent, with automatic punish inputs taking
+priority.
 
 A confirmed get-up-attack grab returns all buttons and uncapped stick input on
 the first capture observation, including catch-pull. No automatic pummel, throw,

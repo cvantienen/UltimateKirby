@@ -227,15 +227,34 @@ mod game {
     pub unsafe fn module_accessor(_: u32) -> *mut Object {
         super::ACCESSOR.load(super::Ordering::Relaxed)
     }
+    pub unsafe fn fighter_entry(_: *mut Object, _: i32) -> u64 {
+        super::ACCESSOR.load(super::Ordering::Relaxed) as u64
+    }
+    pub unsafe fn current_fighter_id(entry: *mut Object) -> u64 {
+        u64::from(battle_object_id(entry))
+    }
+    pub unsafe fn fighter_information(_: *mut Object, entry: i32) -> *mut Object {
+        fighter_entry(std::ptr::null_mut(), entry) as *mut Object
+    }
+    pub unsafe fn is_cpu(_: *mut Object) -> bool {
+        !super::HUMAN.load(super::Ordering::Relaxed)
+    }
 }
 static ACTIVE_ID: AtomicU32 = AtomicU32::new(7);
 static ACCESSOR: AtomicPtr<u8> = AtomicPtr::new(std::ptr::null_mut());
 static HUMAN: AtomicBool = AtomicBool::new(true);
-unsafe fn human_fighter(_: *mut game::Object) -> bool {
-    HUMAN.load(Ordering::Relaxed)
+unsafe fn fighter_manager_instance() -> Option<*mut game::Object> {
+    Some(std::ptr::NonNull::dangling().as_ptr())
 }
-#[path = "../../../src/live/local_route.rs"]
-mod local_route;
+unsafe fn game_entry_id(id: u32) -> i32 {
+    if id == 7 {
+        0
+    } else {
+        -1
+    }
+}
+#[path = "../../../src/live/local_fighter.rs"]
+mod local_fighter;
 
 #[test]
 fn route_checks_reject_missing_inactive_recycled_cpu_and_other_controller_fighters() {
@@ -255,22 +274,22 @@ fn route_checks_reject_missing_inactive_recycled_cpu_and_other_controller_fighte
     HUMAN.store(true, Ordering::Relaxed);
     ACCESSOR.store(accessor.as_mut_ptr().cast(), Ordering::Relaxed);
     unsafe {
-        assert!(local_route::valid_local_route(7, 0));
-        assert!(!local_route::valid_local_route(7, 1));
-        assert!(!local_route::valid_local_route(7, -1));
-        assert!(!local_route::valid_local_route(8, 0));
+        assert!(local_fighter::valid_local_route(7, 0));
+        assert!(!local_fighter::valid_local_route(7, 1));
+        assert!(!local_fighter::valid_local_route(7, -1));
+        assert!(!local_fighter::valid_local_route(8, 0));
         HUMAN.store(false, Ordering::Relaxed);
-        assert!(!local_route::valid_local_route(7, 0));
+        assert!(!local_fighter::valid_local_route(7, 0));
         HUMAN.store(true, Ordering::Relaxed);
         accessor[1] = 8;
-        assert!(!local_route::valid_local_route(7, 0));
+        assert!(!local_fighter::valid_local_route(7, 0));
         accessor[1] = 7;
         second[1] = 0;
         assert!(
-            !local_route::valid_local_route(7, 0),
+            !local_fighter::valid_local_route(7, 0),
             "human metadata without a local input chain is insufficient"
         );
         ACCESSOR.store(std::ptr::null_mut(), Ordering::Relaxed);
-        assert!(!local_route::valid_local_route(7, 0));
+        assert!(!local_fighter::valid_local_route(7, 0));
     }
 }

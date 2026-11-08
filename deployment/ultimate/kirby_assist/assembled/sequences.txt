@@ -12,8 +12,6 @@ takeover = true
 tech_lookahead_frames = 5
 tech_cooldown_frames = 40
 dpad_b_reverse = false
-r3_turbo = true
-turbo_phase_frames = 1
 turbo_walk_strength = 0.35
 ledge_trap = true
 ledge_manual_spacing = true
@@ -540,12 +538,6 @@ default = false
 name = Built-in: Ledge assist / walk
 builtin = ledge_assist
 
-# ---- Built-in: Short hop | bowser.x.__builtin_short_hop ----
-[bowser.x.__builtin_short_hop]
-default = true
-name = Built-in: Short hop
-builtin = short_hop
-
 # ---- BUTTON SEQUENCES: Y ----
 # ---- Grab | bowser.y.airdodge ----
 [bowser.y.airdodge]
@@ -600,31 +592,31 @@ name = Flying Slam reverse toward enemy
 default = true
 
 # ---- BUTTON SEQUENCES: L ----
-# ---- Built-in: Short hop | bowser.l.__builtin_short_hop ----
-[bowser.l.__builtin_short_hop]
-default = false
-name = Built-in: Short hop
-builtin = short_hop
-
 # ---- BUTTON SEQUENCES: L3 ----
 # ---- Built-in: Turbo t-bag | bowser.l3.__builtin_turbo_teabag ----
 [bowser.l3.__builtin_turbo_teabag]
-default = false
+default = true
 name = Built-in: Turbo t-bag
 builtin = turbo_teabag
 
 # ---- Normal button | bowser.l3.__normal_button ----
 [bowser.l3.__normal_button]
-default = true
+default = false
 name = Normal button
 builtin = normal
 
 # ---- BUTTON SEQUENCES: R3 ----
 # ---- Built-in: Turbo t-bag | bowser.r3.__builtin_turbo_teabag ----
 [bowser.r3.__builtin_turbo_teabag]
-default = true
+default = false
 name = Built-in: Turbo t-bag
 builtin = turbo_teabag
+
+# ---- Normal button | bowser.r3.__normal_button ----
+[bowser.r3.__normal_button]
+default = true
+name = Normal button
+builtin = normal
 
 # ---- ASSIST RULES: AUTO REACT ----
 # ---- Roll - Up-B chase | bowser.roll.auto_roll ----
@@ -18593,12 +18585,6 @@ timeout = 3600
 spatial_timeout = 60
 actions = drift:away_from_opponent:1:1, facing_input:b:1:0:1, drift:opponent:1:1
 name = B-Reverse 
-
-# ---- Built-in: Short hop | yoshi.y.__builtin_short_hop ----
-[yoshi.x.__builtin_short_hop]
-default = true
-name = Built-in: Short hop
-builtin = short_hop
 
 # ---- ASSIST RULES: OUT OF SHIELD ----
 # ---- AUTO OOS Front grab | yoshi.attack.auto_oos_grab ----

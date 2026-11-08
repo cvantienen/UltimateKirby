@@ -12,7 +12,6 @@ fn stick_only_override_works_without_dpad_or_button_ownership_and_restores_input
     };
     let physical = [0.1, -0.8];
     let mash = TurboOutput {
-        consume_dpad: false,
         stick: Some([1.0, 0.0]),
     };
     let frame = overlay.apply_controls(human, physical, mash, 0, 0, 0);
@@ -25,54 +24,7 @@ fn stick_only_override_works_without_dpad_or_button_ownership_and_restores_input
     assert_eq!(restored.buttons.held, human.held);
 }
 #[test]
-fn left_right_repeat_and_direction_switch_starts_with_crouch() {
-    let settings = TurboSettings {
-        enabled: true,
-        // This test exercises one-update phases at this explicit strength,
-        // independently of the player's editable default tuning.
-        phase_frames: 1,
-        walk_strength: 0.25,
-    };
-    let mut state = TurboState::default();
-    for tick in 0..6 {
-        let output = state.sample(settings, tick, DPAD_LEFT, true, true);
-        assert_eq!(
-            output.stick,
-            Some(if tick % 2 == 0 {
-                [0.0, -1.0]
-            } else {
-                [-0.25, 0.0]
-            })
-        );
-        assert_eq!(state.sample(settings, tick, DPAD_LEFT, true, true), output);
-    }
-    assert_eq!(
-        state.sample(settings, 6, DPAD_RIGHT, true, true).stick,
-        Some([0.0, -1.0])
-    );
-    assert_eq!(
-        state.sample(settings, 7, DPAD_RIGHT, true, true).stick,
-        Some([0.25, 0.0])
-    );
-}
-#[test]
-fn release_conflict_pause_and_unsupported_movement_cancel_immediately() {
-    let settings = TurboSettings {
-        enabled: true,
-        ..TurboSettings::default()
-    };
-    let mut state = TurboState::default();
-    for (buttons, gameplay, allowed) in [
-        (0, true, true),
-        (DPAD_SIDES, true, true),
-        (DPAD_LEFT, true, false),
-        (DPAD_LEFT, false, true),
-    ] {
-        state.sample(settings, 1, DPAD_LEFT, true, true);
-        let output = state.sample(settings, 1, buttons, gameplay, allowed);
-        assert!(output.stick.is_none());
-        assert_eq!(output.consume_dpad, gameplay);
-    }
+fn turbo_movement_requires_grounded_active_movement() {
     assert!(!turbo_movement_allowed(0, 2, false));
     assert!(!turbo_movement_allowed(
         crate::native_states::status::DAMAGE_FLY,
@@ -97,59 +49,6 @@ fn release_conflict_pause_and_unsupported_movement_cancel_immediately() {
             false
         ));
     }
-}
-#[test]
-fn suppresses_all_taunt_edges_preserves_attack_and_restores_physical_stick() {
-    let attack = 1 << 5;
-    let human = ButtonTrace {
-        held: DPAD_LEFT | attack,
-        previous: DPAD_LEFT,
-        pressed: DPAD_LEFT | attack,
-        released: DPAD_RIGHT,
-    };
-    let mut overlay = ManualOverlay::default();
-    let crouch = overlay.apply(
-        human,
-        [0.4, 0.7],
-        TurboOutput {
-            consume_dpad: true,
-            stick: Some([0.0, -1.0]),
-        },
-    );
-    assert_eq!(crouch.buttons.held & DPAD_SIDES, 0);
-    assert_eq!(crouch.buttons.previous & DPAD_SIDES, 0);
-    assert_eq!(crouch.buttons.pressed & DPAD_SIDES, 0);
-    assert_eq!(crouch.buttons.released & DPAD_SIDES, 0);
-    assert_ne!(crouch.buttons.held & attack, 0);
-    assert_ne!(crouch.buttons.pressed & (1 << 22), 0);
-    let release = overlay.apply(
-        ButtonTrace {
-            held: attack,
-            ..ButtonTrace::default()
-        },
-        [0.4, 0.7],
-        TurboOutput {
-            consume_dpad: true,
-            stick: None,
-        },
-    );
-    assert_eq!(release.stick, [0.4, 0.7]);
-    assert_ne!(release.buttons.released & (1 << 22), 0);
-    // Ownership hand-back may reconstruct one final edge; the following
-    // sample must then be exactly the fresh physical trace.
-    assert_eq!(
-        overlay
-            .apply(human, [0.4, 0.7], TurboOutput::default())
-            .buttons
-            .held,
-        human.held
-    );
-    assert_eq!(
-        overlay
-            .apply(human, [0.4, 0.7], TurboOutput::default())
-            .buttons,
-        human
-    );
 }
 #[test]
 fn left_stick_trigger_and_attack_release_share_one_consistent_history() {
@@ -260,11 +159,8 @@ fn diagonal_up_is_quarantined_until_its_release_without_disabling_normal_up_taun
     assert_eq!(reservation.sample(DPAD_SIDES, DPAD_LEFT, false), 0);
 }
 #[test]
-fn turbo_starts_down_on_first_poll_and_in_grounded_running_states() {
-    let settings = TurboSettings {
-        enabled: true,
-        ..TurboSettings::default()
-    };
+fn turbo_starts_crouch_and_creep_on_first_eligible_input_update() {
+    let settings = TurboSettings::default();
     for status in crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE
     {
         assert!(turbo_movement_allowed(
@@ -274,8 +170,10 @@ fn turbo_starts_down_on_first_poll_and_in_grounded_running_states() {
         ));
         let mut state = TurboState::default();
         assert_eq!(
-            state.sample(settings, 12345, DPAD_RIGHT, true, true).stick,
-            Some([0.0, -1.0])
+            state
+                .sample_teabag(settings, 12345, true, 1.0, true, true)
+                .stick,
+            Some([0.45, -1.0])
         );
     }
 }
@@ -418,30 +316,6 @@ fn full_dash_then_same_direction_ease_becomes_max_walk_without_blocking_run() {
     assert_eq!(running.sample(2, 6, 0, false, [1.0, 0.0]).stick, None);
 }
 #[test]
-fn phase_length_and_reentry_do_not_keep_old_direction_or_clock() {
-    let settings = TurboSettings {
-        enabled: true,
-        phase_frames: 2,
-        walk_strength: 0.3,
-    };
-    let mut state = TurboState::default();
-    for tick in 0..4 {
-        assert_eq!(
-            state.sample(settings, tick, DPAD_RIGHT, true, true).stick,
-            Some(if tick < 2 { [0.0, -1.0] } else { [0.3, 0.0] })
-        );
-    }
-    state.sample(settings, 4, 0, true, true);
-    assert_eq!(
-        state.sample(settings, 5, DPAD_RIGHT, true, true).stick,
-        Some([0.0, -1.0])
-    );
-    assert_eq!(
-        state.sample(settings, 0, DPAD_RIGHT, true, true).stick,
-        Some([0.0, -1.0])
-    );
-}
-#[test]
 fn manual_ledge_walk_caps_both_sides_preserves_fine_input_and_vertical_control() {
     for (input, expected) in [
         ([1.0, 0.0], [0.5, 0.0]),
@@ -469,7 +343,6 @@ fn walk_cap_clears_full_stick_direction_bits_and_returns_physical_input_on_exit(
         };
         let physical = [direction, 0.0];
         let output = TurboOutput {
-            consume_dpad: false,
             stick: Some(ledge_walk_stick(physical, 0.35)),
         };
         let frame = overlay.apply_controls(human, physical, output, (1 << 21) | (1 << 23), 0, 0);
@@ -483,43 +356,40 @@ fn walk_cap_clears_full_stick_direction_bits_and_returns_physical_input_on_exit(
     }
 }
 #[test]
-fn held_l3_turbo_creeps_in_facing_immediately_and_stops_on_release() {
+fn turbo_binding_creeps_in_facing_immediately_and_stops_on_release() {
     let settings = TurboSettings {
-        enabled: true,
         walk_strength: 0.35,
-        phase_frames: 1,
     };
     for facing in [-1.0, 1.0] {
         let mut state = TurboState::default();
-        let first = state.sample_facing(settings, 0, true, facing, true, true);
+        let first = state.sample_teabag(settings, 0, true, facing, true, true);
         assert_eq!(first.stick, Some([facing * 0.35, -1.0]));
-        assert!(!first.consume_dpad);
         assert_eq!(
             state
-                .sample_facing(settings, 1, true, facing, true, true)
+                .sample_teabag(settings, 1, true, facing, true, true)
                 .stick,
             Some([facing * 0.35, 0.0])
         );
         assert_eq!(
-            state.sample_facing(settings, 1, false, facing, true, true),
+            state.sample_teabag(settings, 1, false, facing, true, true),
             TurboOutput::default()
         );
         assert_eq!(
             state
-                .sample_facing(settings, 2, true, -facing, true, true)
+                .sample_teabag(settings, 2, true, -facing, true, true)
                 .stick,
             Some([-facing * 0.35, -1.0])
         );
         assert_eq!(
             state
-                .sample_facing(settings, 3, true, facing, true, false)
+                .sample_teabag(settings, 3, true, facing, true, false)
                 .stick,
             None
         );
     }
 }
 #[test]
-fn l_assist_and_l3_turbo_have_independent_consumed_bindings() {
+fn l_assist_and_turbo_binding_have_independent_consumed_bits() {
     use crate::ledge_trap::LEDGE_TRIGGER;
     use crate::native_input::{MAPPER_L, MAPPER_X};
     assert_eq!(LEDGE_TRIGGER, MAPPER_L);
@@ -555,20 +425,16 @@ fn l_assist_and_l3_turbo_have_independent_consumed_bindings() {
 }
 
 #[test]
-fn l3_turbo_restores_facing_walk_cancel_at_one_update_per_phase() {
+fn turbo_binding_restores_facing_walk_cancel_at_one_update_per_phase() {
     assert_eq!(TURBO_TRIGGER, 1 << 16);
     assert_eq!(TURBO_TRIGGER & crate::settings_menu::MENU_STICK_CLICK, 0);
-    assert_eq!(SHORT_HOP_TRIGGER, crate::native_input::MAPPER_X);
     for facing in [-1.0, 1.0] {
         let mut tool = TurboState::default();
         let settings = TurboSettings {
-            enabled: true,
-            phase_frames: 10,
             walk_strength: 0.35,
         };
         let crouch = tool.sample_teabag(settings, 0, true, facing, true, true);
         assert_eq!(crouch.stick, Some([facing * 0.35, -1.0]));
-        assert!(!crouch.consume_dpad);
         assert_eq!(
             tool.sample_teabag(settings, 0, true, facing, true, true),
             crouch

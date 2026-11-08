@@ -153,21 +153,14 @@ impl ModeBinding {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Builtin {
     Normal,
-    ShortHop,
     LedgeAssist,
     TurboTeabag,
 }
 impl Builtin {
-    pub const ALL: [Self; 4] = [
-        Self::Normal,
-        Self::ShortHop,
-        Self::LedgeAssist,
-        Self::TurboTeabag,
-    ];
+    pub const ALL: [Self; 3] = [Self::Normal, Self::LedgeAssist, Self::TurboTeabag];
     pub fn token(self) -> &'static str {
         match self {
             Self::Normal => "normal",
-            Self::ShortHop => "short_hop",
             Self::LedgeAssist => "ledge_assist",
             Self::TurboTeabag => "turbo_teabag",
         }
@@ -175,7 +168,6 @@ impl Builtin {
     pub fn label(self) -> &'static str {
         match self {
             Self::Normal => "Normal button",
-            Self::ShortHop => "Built-in: Short hop",
             Self::LedgeAssist => "Built-in: Ledge assist / walk",
             Self::TurboTeabag => "Built-in: Turbo t-bag",
         }
@@ -183,18 +175,19 @@ impl Builtin {
     pub fn choice_id(self) -> &'static str {
         match self {
             Self::Normal => "__normal_button",
-            Self::ShortHop => "__builtin_short_hop",
             Self::LedgeAssist => "__builtin_ledge_assist",
             Self::TurboTeabag => "__builtin_turbo_teabag",
         }
     }
     pub fn parse(value: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|b| b.token() == value)
+        match value {
+            "short_hop" => Some(Self::Normal),
+            _ => Self::ALL.into_iter().find(|b| b.token() == value),
+        }
     }
     pub fn default_for(slot: crate::fighter_profiles::presets::PresetSlot) -> Self {
         use crate::fighter_profiles::presets::PresetSlot;
         match slot {
-            PresetSlot::X => Self::ShortHop,
             PresetSlot::L3 => Self::TurboTeabag,
             _ => Self::Normal,
         }
@@ -202,9 +195,8 @@ impl Builtin {
     pub fn template_offset(self) -> usize {
         match self {
             Self::Normal => 0,
-            Self::ShortHop => 2,
-            Self::LedgeAssist => 3,
-            Self::TurboTeabag => 4,
+            Self::LedgeAssist => 2,
+            Self::TurboTeabag => 3,
         }
     }
 }

@@ -31,9 +31,9 @@ controls responses to ledge roll get-ups.
 | D-pad, menu hidden | Current fighter’s configured input sequence; Normal button passes through |
 | Minus | Open the ledge home from hidden; close from any page |
 | Hold Plus+Minus outside battle (~0.35 seconds) | Toggle the entire mod ON/OFF; works on Arena character select/results |
-| Hold L3 without the ledge-assist binding | Turbo teabag; release to stop |
+| Hold the button assigned to Built-in: Turbo t-bag (L3 by default) | Fast crouch/creep; release to stop |
 | Auto-mash row, Left/Right | Toggle mash ON/OFF |
-| Press X | Saved X binding; defaults to Built-in: Short hop when unconfigured |
+| Press X | Saved X binding; defaults to Normal button when unconfigured |
 | Press Y | Current fighter’s Y recipe; Normal button passes through |
 | L3/R3 on a sequence-driven assist in Training | Open its separate priority-ordered rule list |
 
@@ -42,8 +42,10 @@ and L3/R3 bindings are fighter specific. L/R/ZL/ZR are not custom binding slots.
 L retains its legacy fixed walk/ledge role on the default layout; R/ZL/ZR retain
 the game's normal configured actions. Old saved trigger-binding sections are
 ignored at startup and cannot consume or remap triggers. **Normal button** passes the
-physical button through to the game; it does not apply short-hop assistance. Recipes run once per fresh press or loop while held,
-according to the recipe setting. Generic button-to-mode assignments are removed;
+physical button through to the game; it does not apply short-hop assistance.
+Configure a `short_hop` recipe when you want a short-hop input. Recipes run
+once per fresh press or loop while held, according to the recipe setting.
+Generic button-to-mode assignments are removed;
 legacy reaction-rule toggle groups remain supported separately. Hard-coded
 D-pad slide, B-reverse and Down-trump bindings are removed.
 
@@ -137,10 +139,10 @@ Alongside saved recipes and **Normal button**, every button offers:
 | --- | --- |
 | Short hop | One jump pulse then release; fresh airborne presses still jump normally |
 | Ledge assist / walk | Hold to slow walking, apply the saved ledge-distance limit and activate ledge trapping; the ON toggle still keeps trapping active independently |
-| Turbo t-bag | Hold to run the existing turbo teabag helper; release to stop |
+| Turbo t-bag | Hold its assigned button to alternate fast crouch and slight facing creep; release to stop |
 
 On the default layout, **L is fixed Ledge assist / walk**. Customizable defaults
-are **X = Short hop** and **L3 = Turbo t-bag**. Y and D-pad Left/Right/Up retain their
+are **X = Short hop** and **L3 = Turbo t-bag**. The Turbo t-bag built-in can be assigned to any button slot; it never becomes the L ledge-assist role. Y and D-pad Left/Right/Up retain their
 saved choices; unassigned D-pad Down and other buttons are
 Normal. Explicit saved defaults win.
 Select a built-in on any other button to move it, and select Normal on the old

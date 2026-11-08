@@ -11,7 +11,8 @@ fn brother_layout_translates_actions_without_turning_grab_or_special_into_trigge
     assert_eq!(layout.policy_buttons(MAPPER_ZL), MAPPER_ZR); // physical ZL = Shield
     assert_eq!(layout.policy_buttons(MAPPER_R), 0); // native Jump, not X shortcut
     assert_eq!(layout.policy_buttons(MAPPER_ZR), 0); // native Jump, not X shortcut
-    assert_eq!(layout.policy_buttons(TURBO_TRIGGER), MAPPER_L); // L3 = ledge assist
+    assert_eq!(layout.policy_buttons(TURBO_TRIGGER), TURBO_TRIGGER);
+    assert_eq!(layout.binding_ownership(TURBO_TRIGGER), TURBO_TRIGGER);
     assert_eq!(layout.physical_buttons(MAPPER_R), MAPPER_X);
     assert_eq!(layout.physical_buttons(MAPPER_B), MAPPER_L);
     assert_eq!(layout.physical_buttons(MAPPER_ZR), MAPPER_ZL);
@@ -19,7 +20,7 @@ fn brother_layout_translates_actions_without_turning_grab_or_special_into_trigge
         layout.physical_buttons(MAPPER_X | MAPPER_ZL),
         MAPPER_R | MAPPER_ZR
     );
-    assert_eq!(layout.physical_buttons(MAPPER_L), TURBO_TRIGGER);
+    assert_eq!(layout.physical_buttons(MAPPER_L), MAPPER_L);
     assert_eq!(layout.physical_buttons(MAPPER_A), MAPPER_A);
     assert_eq!(
         layout.physical_buttons(crate::move_input::SHORT_HOP_ATTACK),

@@ -1,5 +1,5 @@
 use kirby_assist_core::{
-    autopilot_guard::duck::{
+    auto_duck::{
         candidate, environment_allows_duck, DefenseThreat, DuckEnemy, DuckHold, FALCON_PUNCH_MOTION,
     },
     live_input::LiveConfig,
@@ -208,10 +208,8 @@ fn lead_uses_animation_rate_and_config_can_disable_the_exception() {
 #[test]
 fn independent_held_mode_outputs_down_or_shield_and_release_clears_both() {
     use kirby_assist_core::{
-        autopilot_guard::{
-            duck::{DuckContext, DuckDefense},
-            GuardClock,
-        },
+        auto_duck::{DuckContext, DuckDefense},
+        autopilot_guard::GuardClock,
         native_input::MAPPER_ZR,
     };
     let mut defense = DuckDefense::default();

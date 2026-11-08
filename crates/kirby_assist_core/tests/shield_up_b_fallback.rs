@@ -318,7 +318,6 @@ fn native_grab_acceptance_and_other_input_owners_are_never_replaced_by_the_fallb
         Owner::Ledge,
         Owner::RollRead,
         Owner::GrabDodge,
-        Owner::Shortcut,
     ] {
         let mut arbiter = ActionOwnership::new();
         arbiter.select(true, &[Intent::input_sequence(owner, SEQUENCE_BUTTONS)]);

@@ -2,9 +2,7 @@
 use kirby_assist_core::{
     gameplay::{GameplayContext, Opponent},
     ledge_trap::{InputTimeline, SEQUENCE_BUTTONS},
-    manual_controls::{
-        ManualOverlay, ShortcutContext, Shortcuts, TurboOutput, LEFT_STICK_DIRECTIONS,
-    },
+    manual_controls::{ManualOverlay, TurboOutput, LEFT_STICK_DIRECTIONS},
     native_input::*,
     sequence_config::Catalog,
     settings::AssistSettings,
@@ -154,65 +152,6 @@ fn trigger_click_aliases_and_axes_cannot_leak_through_full_or_partial_takeovers(
     );
     assert_eq!(owned_trigger_axes([0.9, 0.8], 0), [0.9, 0.8]);
     assert_eq!(exclusive_sequence_stick(MAPPER_X, Some([1., 0.])), None);
-}
-#[test]
-fn native_jump_pulse_survives_consumption_of_its_remapped_physical_source() {
-    for layout in [ControlLayout::Default, ControlLayout::Brother] {
-        for source in [
-            MAPPER_L,
-            MAPPER_R,
-            MAPPER_ZL,
-            MAPPER_ZR,
-            MAPPER_X,
-            MAPPER_Y,
-            1,
-            2,
-            4,
-            8,
-            1 << 16,
-            1 << 17,
-        ] {
-            let mut hop = Shortcuts::default();
-            let out = hop.sample(
-                MAPPER_X,
-                true,
-                Some(ShortcutContext {
-                    status: kirby_assist_core::native_states::status::WAIT,
-                    situation: kirby_assist_core::native_states::situation::GROUND,
-                    motion: 1,
-                    frame: 10.,
-                    rate: 1.,
-                    stopped: false,
-                    facing: 1.,
-                    can_short_hop: true,
-                    input_delay: 0.,
-                    can_neutral_special: false,
-                }),
-            );
-            let physical = source | physical_button_aliases(source);
-            let requested = layout.physical_buttons(out.requested);
-            let raw = ManualOverlay::default().apply_controls(
-                ButtonTrace {
-                    held: physical,
-                    pressed: physical,
-                    ..Default::default()
-                },
-                [0.; 2],
-                TurboOutput::default(),
-                layout.physical_buttons(layout.binding_ownership(source)),
-                requested,
-                layout.physical_owned_buttons(out.owned),
-            );
-            assert_eq!(
-                raw.buttons.held & requested,
-                requested,
-                "{layout:?} {source:#x}"
-            );
-            assert_eq!(raw.buttons.pressed & requested, requested);
-            assert_eq!(raw.buttons.held & (MAPPER_DIGITAL_L | MAPPER_DIGITAL_R), 0);
-            assert_eq!(mapped_builtin_jump(0, Some(true), true), 0x44);
-        }
-    }
 }
 #[test]
 fn explicit_shield_jump_and_cstick_commands_survive_the_final_exclusive_filter() {

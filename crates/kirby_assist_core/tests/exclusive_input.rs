@@ -10,7 +10,7 @@ use kirby_assist_core::{
     tech_input::TechOutput,
 };
 
-const SEQUENCES: [Owner; 12] = [
+const SEQUENCES: [Owner; 11] = [
     Owner::Safety,
     Owner::GrabDodge,
     Owner::OptionRead,
@@ -18,7 +18,6 @@ const SEQUENCES: [Owner; 12] = [
     Owner::JabLock,
     Owner::Fair,
     Owner::Trump,
-    Owner::Shortcut,
     Owner::Ledge,
     Owner::RollRead,
     Owner::OutOfShield,
@@ -214,7 +213,6 @@ fn neutral_native_receipts_retain_their_owner_without_allowing_a_late_special() 
                 true,
                 &[
                     Intent::sequence_receipt(owner, 0, handoff.pending()),
-                    intent(Owner::Shortcut),
                 ],
             );
             assert_eq!(winner, Some(owner));

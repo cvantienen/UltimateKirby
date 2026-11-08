@@ -340,10 +340,7 @@ fn real_overlay_uses_down_guard_and_never_turns_physical_horizontal_into_a_roll(
             ..Default::default()
         },
         [1.0, 0.0],
-        TurboOutput {
-            consume_dpad: false,
-            stick: out.stick,
-        },
+        TurboOutput { stick: out.stick },
         0,
         out.requested,
         out.owned,

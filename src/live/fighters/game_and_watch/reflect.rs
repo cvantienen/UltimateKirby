@@ -2,7 +2,7 @@
 //! no roster enumeration, heap allocation, native writes or cross-frame pointers.
 use crate::game_ffi as game;
 use kirby_assist_core::{
-    autopilot_guard::duck_geometry::Hitbox,
+    autopilot_guard::Hitbox,
     projectile_reflect::{self as policy, Config, Context, Threat},
     timing::AnimationSample,
 };

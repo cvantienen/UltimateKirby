@@ -316,10 +316,7 @@ mod tests {
             let mapped = overlay.apply_controls(
                 human,
                 [-1.0, -1.0],
-                TurboOutput {
-                    consume_dpad: false,
-                    stick: out.stick,
-                },
+                TurboOutput { stick: out.stick },
                 0,
                 out.requested,
                 out.owned,
@@ -338,10 +335,7 @@ mod tests {
         let restored = overlay.apply_controls(
             human,
             [-1.0, -1.0],
-            TurboOutput {
-                consume_dpad: false,
-                stick: off.stick,
-            },
+            TurboOutput { stick: off.stick },
             0,
             off.requested,
             off.owned,

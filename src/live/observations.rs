@@ -8,7 +8,7 @@ use super::{MANAGER_SLOT, STATE};
 use crate::game_ffi as game;
 
 const ATTACK_GEOMETRY_SCAN_BUDGET: usize = 16;
-use kirby_assist_core::autopilot_guard::duck::DefenseThreat;
+use kirby_assist_core::auto_duck::DefenseThreat;
 use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
 use kirby_assist_core::kirby::TripTarget;
 use kirby_assist_core::ledge_position::LedgePosition;
@@ -164,7 +164,7 @@ pub(super) unsafe fn incoming_fighter_attack(
             if kirby_assist_core::autopilot_guard::active_hitbox_threat_with(
                 [position[0], position[1], z],
                 velocity,
-                kirby_assist_core::autopilot_guard::duck_geometry::Hitbox {
+                kirby_assist_core::autopilot_guard::Hitbox {
                     start: [from.x, from.y, from.z],
                     end: [to.x, to.y, to.z],
                     radius: data.size * scale,
@@ -916,12 +916,9 @@ pub(super) unsafe fn nearest_ledge_opponent(
 }
 
 // Entry membership alone does not prove that this actor owns local input.
-#[path = "local_actor.rs"]
-mod local_actor;
-pub(super) use local_actor::human_fighter;
-#[path = "local_route.rs"]
-mod local_route;
-pub(super) use local_route::valid_local_route;
+#[path = "local_fighter.rs"]
+mod local_fighter;
+pub(super) use local_fighter::{human_fighter, valid_local_route};
 extern "C" {
     #[link_name = "\u{1}_ZN3app7fighter20get_fighter_entry_idEj"]
     fn game_entry_id(object_id: u32) -> i32;

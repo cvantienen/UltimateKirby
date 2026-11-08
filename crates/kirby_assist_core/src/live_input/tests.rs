@@ -54,10 +54,7 @@ fn analog_mash_composes_with_button_takeover_and_restores_fresh_physical_input()
         let frame = manual.apply_controls(
             assisted,
             physical_stick,
-            TurboOutput {
-                consume_dpad: false,
-                stick: Some(stick),
-            },
+            TurboOutput { stick: Some(stick) },
             0,
             0,
             blocked,
@@ -101,11 +98,13 @@ fn bundled_config_keeps_analog_mash_and_extended_prediction() {
     assert_eq!(config.assist.stand_distance, 10.0);
     assert_eq!(config.assist.move_strength, 0.65);
     assert_eq!(config.assist.grab_button, crate::native_input::MAPPER_R);
-    assert!(config.turbo.enabled);
-    assert!(!config.dpad_b_reverse); // D-pad now uses fighter-specific bindings.
-    assert_eq!(config.turbo.phase_frames, 1);
     assert_eq!(config.turbo.walk_strength, 0.35);
     assert_eq!(config.lookahead, 5.0);
+}
+
+#[test]
+fn legacy_dpad_shortcut_flags_are_accepted_but_never_configure_a_shortcut() {
+    LiveConfig::parse("dpad_b_reverse = true\ndpad_slide = true\n").unwrap();
 }
 
 #[test]
@@ -482,20 +481,14 @@ fn player_slot_defaults_to_player_one_and_accepts_legacy_config_key() {
 }
 
 #[test]
-fn r3_turbo_key_and_legacy_l3_key_enable_the_same_tool() {
-    for key in ["r3_turbo", "l3_turbo"] {
-        assert!(
-            LiveConfig::parse(&format!("{key} = true"))
-                .unwrap()
-                .turbo
-                .enabled
-        );
-        assert!(
-            !LiveConfig::parse(&format!("{key} = false"))
-                .unwrap()
-                .turbo
-                .enabled
-        );
+fn legacy_turbo_switches_are_accepted_but_do_not_override_button_bindings() {
+    let base = LiveConfig::default();
+    for key in ["r3_turbo", "l3_turbo", "dpad_turbo"] {
+        for value in ["true", "false"] {
+            let parsed = LiveConfig::parse(&format!("{key} = {value}")).unwrap();
+            assert_eq!(parsed.turbo.walk_strength, base.turbo.walk_strength);
+        }
+        assert!(LiveConfig::parse(&format!("{key} = maybe")).is_err());
     }
 }
 

@@ -297,7 +297,6 @@ fn sequence_walk_input_preserves_sub_eighty_percent_strength_in_both_facing_dire
                 [0.0; 2],
                 TurboOutput {
                     stick: output.stick,
-                    consume_dpad: false,
                 },
                 (1 << 21) | (1 << 23),
                 0,

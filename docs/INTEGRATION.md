@@ -151,7 +151,7 @@ separate from move data and input timings.
 
 ## Directional turbo control
 
-Hold R3 alone for rapid crouch/walk cancel with slight forward creep. Press X for a X short-hop tap (X mapped to Jump). Releasing returns current physical stick input. It runs only during normal grounded movement for the selected fighter. See [settings, implementation, and device checks](TURBO_CONTROLS.md). Both logging variants include it.
+Hold the button assigned to Built-in: Turbo t-bag (L3 by default) for fast crouching with slight facing-direction creep. Press X for a X short-hop tap (X mapped to Jump). Releasing the assigned button stops Turbo t-bag. It runs only during normal grounded movement for the selected fighter. See [settings, implementation, and device checks](TURBO_CONTROLS.md). Both logging variants include it.
 
 ## What each tool does
 

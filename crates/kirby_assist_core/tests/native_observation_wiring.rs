@@ -61,7 +61,7 @@ mod duck_hits {
         _: u32,
         _: [f32; 2],
         _: [f32; 2],
-    ) -> kirby_assist_core::autopilot_guard::duck::DefenseThreat {
+    ) -> kirby_assist_core::auto_duck::DefenseThreat {
         Default::default()
     }
 }
