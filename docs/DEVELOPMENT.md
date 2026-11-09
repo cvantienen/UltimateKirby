@@ -57,7 +57,7 @@ Use this sequence for a new assist or a substantial extension:
 
 The integration points are visible in `src/live.rs`, live feature state in
 `src/live/state.rs`, reset semantics in `src/live/runtime.rs`, and portable
-evaluation in `crates/kirby_assist_core/src/assist.rs` and `runtime.rs`.
+evaluation in `crates/kirby_assist_core/src/policies/assist.rs` and `runtime.rs`.
 See [action ownership](ACTION_OWNERSHIP.md) and
 [observations and timing](OBSERVATIONS_AND_TIMING.md) before introducing new
 arbitration or clock behavior.

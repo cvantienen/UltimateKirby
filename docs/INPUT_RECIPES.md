@@ -5,7 +5,7 @@ are literal input timelines and do not inherit these helper acceptance checks or
 hidden waits. Use the [editor action reference](EDITOR_ACTION_CHEATSHEET.md) for
 current sequence behavior and [controls](CONTROLS.md) for active bindings.
 
-`crates/kirby_assist_core/src/move_input.rs` names physical input recipes.
+`crates/kirby_assist_core/src/policies/move_input.rs` names physical input recipes.
 They pass through the existing single mapper overlay and action owner. They
 do not force moves, change animation speed or add an input-delay estimate.
 

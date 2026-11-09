@@ -125,10 +125,10 @@ before treating an option as reliable in a particular setup.
 
 Paths are relative to the repository root:
 
-- Registration: `crates/kirby_assist_core/src/fighter_profiles.rs`.
+- Registration: `crates/kirby_assist_core/src/fighters/fighter_profiles.rs`.
 - Stats and move frames: `data/Ultimate_stats.json`.
 - Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
-- Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.
+- Shared input runner: `crates/kirby_assist_core/src/policies/ledge_trap.rs`.
 
 [Adding a response](../FIGHTER_CONFIGS.md) explains registration and shared helpers.
 Recipes are saved file configuration. External file edits need a Smash restart;

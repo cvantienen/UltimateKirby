@@ -7,6 +7,40 @@ mod actions;
 use actions::parse_actions;
 pub use actions::validate_facing_blocks;
 
+#[derive(Clone, Copy)]
+enum SectionHeader<'a> {
+    UniversalSettings,
+    Template { id: &'a str, countable: bool },
+    RetiredButtons,
+    Settings,
+    Entry,
+}
+
+fn classify_section_header(line: &str) -> Option<SectionHeader<'_>> {
+    if !line.starts_with('[') || !line.ends_with(']') {
+        return None;
+    }
+    if line == "[universal.settings]" {
+        return Some(SectionHeader::UniversalSettings);
+    }
+    if let Some(id) = line
+        .strip_prefix("[template.")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(SectionHeader::Template {
+            id,
+            countable: !retired_button_header(line) && !settings_header(line),
+        });
+    }
+    if retired_button_header(line) {
+        return Some(SectionHeader::RetiredButtons);
+    }
+    if settings_header(line) {
+        return Some(SectionHeader::Settings);
+    }
+    Some(SectionHeader::Entry)
+}
+
 impl Catalog {
     pub fn parse(source: &str) -> Result<Self, String> {
         if source.len() as u64 > MAX_FILE_BYTES {
@@ -20,10 +54,15 @@ impl Catalog {
             .lines()
             .filter(|line| {
                 let line = line.split('#').next().unwrap_or("").trim();
-                line.starts_with('[')
-                    && line.ends_with(']')
-                    && !retired_button_header(line)
-                    && !settings_header(line)
+                matches!(
+                    classify_section_header(line),
+                    Some(
+                        SectionHeader::Template {
+                            countable: true,
+                            ..
+                        } | SectionHeader::Entry
+                    )
+                )
             })
             .take(MAX_ENTRIES + 1)
             .count();
@@ -51,11 +90,11 @@ impl Catalog {
             if line.is_empty() {
                 continue;
             }
-            if line.starts_with('[') && line.ends_with(']') {
+            if let Some(header_kind) = classify_section_header(line) {
                 finish_entry(&mut current, &mut entries)?;
                 tuning_kind = None;
                 retired_buttons = false;
-                universal_section = line == "[universal.settings]";
+                universal_section = matches!(header_kind, SectionHeader::UniversalSettings);
                 if universal_section {
                     if universal.is_some() {
                         return Err(format!("line {line_number}: duplicate universal settings"));
@@ -63,10 +102,7 @@ impl Catalog {
                     universal = Some(String::new());
                     continue;
                 }
-                if let Some(id) = line
-                    .strip_prefix("[template.")
-                    .and_then(|v| v.strip_suffix(']'))
-                {
+                if let SectionHeader::Template { id, .. } = header_kind {
                     if !valid_id(id)
                         || entries
                             .iter()
@@ -92,7 +128,7 @@ impl Catalog {
                     ));
                     continue;
                 }
-                retired_buttons = retired_button_header(line);
+                retired_buttons = matches!(header_kind, SectionHeader::RetiredButtons);
                 if retired_buttons {
                     continue;
                 }

@@ -17,13 +17,20 @@ in your editor (the documentation site does not publish Rust source files).
 1. `sequence_config.rs` defines the fixed-size recipe data; `sequence_config/parser.rs` reads and validates file sections at startup.
 2. `fighter_profiles.rs` freezes file entries into menu lists; `settings_menu.rs` caches selected timelines.
 3. `ledge_trap.rs` recognizes the opponent's option and starts only that row's file timeline.
-4. `ledge_trap/file_timeline.rs` executes ordered inputs/waits and explicit spatial/block gates.
+4. `policies/ledge_trap/file_timeline.rs` executes ordered inputs/waits and explicit spatial/block gates.
 5. `src/live.rs` publishes requests through the existing input owner/overlay; it does not force moves.
 
 ## Where each part lives
 
 Paths below are relative to the project root. Core paths begin with
 `crates/kirby_assist_core/src/`.
+
+Core layout: `shared/` (controller, observation, native-input, timing and survival
+contracts), `fighters/` (reference data, profiles, native states, fighter-specific
+rules), `policies/` (ledge, out-of-shield, reaction and other assistance policies),
+plus `config.rs`, `sequence_config.rs`, `settings_menu.rs`, `manual_controls.rs`,
+`runtime.rs`, `live_input.rs` and `diagnostics.rs`. Small helper modules are inline
+in their parent file; `lib.rs` re-exports every module at its original crate-root path.
 
 | File | Responsibility |
 | --- | --- |
@@ -33,7 +40,7 @@ Paths below are relative to the project root. Core paths begin with
 | Core `settings_menu/editor/commands.rs` | Input-driven copy, paste, reorder, undo, and delete commands for recipe editing. |
 | Core `settings_menu/editor/presentation.rs` | Maps each action to editable fields and renders recipe schedule details. |
 | Core `fighter_data.rs` | Exact-kind stats and move-frame facts from the canonical roster JSON, plus native recovery validation. |
-| Core `shared/controller/action_owner.rs` | One committed input owner, explicit interruption rules and losing-plan cancellation. |
+| Core `shared/controller.rs` (`action_owner`) | One committed input owner, explicit interruption rules and losing-plan cancellation. |
 | `data/Ultimate_stats.json` | Sole source for roster-wide fighter stats and move-frame data; embedded and parsed once at startup. |
 | Core `autopilot_guard.rs` | Shared copied hitbox shape, incoming-attack warning envelope and held shield timing for ledge autopilot. |
 | `src/live/attack_sources.rs` / `src/live/projectile_sources.rs` | Bounded read-only ATTACK-source tracking shared by ledge shield and projectile reflection. |
@@ -47,9 +54,9 @@ Paths below are relative to the project root. Core paths begin with
 | `src/live/tech.rs` | Native tech eligibility and predicted contact/capture timing. |
 | `src/game_ffi.rs` | Declarations of functions supplied by Smash; their memory/calling contract. |
 | `src/logging.rs` / `src/grab_diagnostics.rs` | Diagnostic-only queued writer / bounded roll-grab recorder. |
-| Core `live_input/config.rs` | Startup settings, defaults, text parsing and validation. |
+| Core `live_input.rs` (`config` module) | Startup settings, defaults, text parsing and validation. |
 | `src/calibration.rs` | Diagnostic-only fixed observation recorder, completed result formatting and cached card publication. |
-| Core `ledge_trap/diagnostics.rs` | Read-only response metadata for all five rows and detailed roll-grab snapshots. |
+| Core `policies/ledge_trap.rs` (`diagnostics` module) | Read-only response metadata for all five rows and detailed roll-grab snapshots. |
 | Core `live_input.rs` | Mash/tech request policy and compatibility helpers. |
 | Core `shared/observations/gameplay.rs` | Shared `GameplayContext`, `ControllerOutput`, opponent observations, motion timing, and recovery-frame helpers. |
 | Core `roll_read.rs` | Shared roll target facts/constants. Live roll responses use reaction_rules.rs. |
@@ -57,14 +64,14 @@ Paths below are relative to the project root. Core paths begin with
 | Core `ledge_trap.rs` | Ledge opponent range checks. Shared gameplay values live in `shared/observations/gameplay.rs`. |
 | Core `fighter_profiles.rs` | Shared per-fighter profile declarations, generic grab references, and startup-only file menu construction; individual public module paths remain available. |
 | Core `fighter_tuning.rs`, `fighter_tuning/schema.rs`, and `fighter_tuning/analysis.rs` | Public tuning facade, stable saved-setting/menu schema, and fighter-derived policy defaults. |
-| Core `ledge_trap/attempt.rs` | Native-progress clock for ordered input timelines. |
+| Core `policies/ledge_trap.rs` (`attempt` module) | Native-progress clock for ordered input timelines. |
 | Core `sequence_config.rs`, `sequence_config/parser.rs`, and `sequence_config/parser/actions.rs` | Keep fixed-size recipe data and the public catalog API in the parent module; parse catalog sections and action tokens in focused startup-only modules. |
-| Core `ledge_trap/file_timeline.rs` | File-ordered input holds/waits, native-progress clock, explicit spatial/block predicates. |
+| Core `policies/ledge_trap/file_timeline.rs` | File-ordered input holds/waits, native-progress clock, explicit spatial/block predicates. |
 | Core `ledge_position.rs` / `ledge_trump.rs` | Grounded stance preparation / run-off ledge trump. |
 | Core `manual_controls.rs` / `shared/controller/native_input.rs` | Trigger reservation, shared button-ownership masks, input overlays, and raw button conversion. |
 | Core `shared/survival/combat_assist.rs` / `auto_di.rs` | Shared damage-hitstop SDI and DI; SDI retains compatibility exports for Kirby follow-ups. |
 | Core `fighters/kirby/` | Kirby-specific tilt-trip and forward-air follow-up input policies. |
-| Core `shared/controller/up_b_receipt.rs` | Shared bounded native-start receipt for direct automatic Up-B sequences. |
+| Core `shared/controller.rs` (`up_b_receipt`) | Shared bounded native-start receipt for direct automatic Up-B sequences. |
 | Core `fighters/tuning_defaults.rs` | Fighter-specific tuning visibility and legacy display defaults. |
 | Core `fighters/game_and_watch/projectile_reflect.rs` / `shared/observations/projectile_geometry.rs` | Game & Watch projectile defense and reusable swept geometry. |
 | Core `fighters/ganondorf/flame_choke.rs` | Grounded Flame Choke release detection, contact timing and tech-window selection. |
@@ -73,7 +80,7 @@ Paths below are relative to the project root. Core paths begin with
 | Core `timing.rs` | Shared motion-progress classification, event deduplication, simulation-frame arithmetic and forecast overlap. No learned compensation. |
 | Core `shared/observations/observation.rs` / adapter `live/frame.rs` | Lazy fixed-size facts shared across policies for one observation; see [shared observations and timing](OBSERVATIONS_AND_TIMING.md). |
 | Core `session.rs` / `diagnostics.rs` | Invalidate stale requests between matches / limit diagnostic snapshots. |
-| Core `shared/observations/state.rs` / `shared/controller/input.rs` | Generic observation contracts / logical buttons, sticks and merging. |
+| Core `shared/observations.rs` (`state`) / `shared/controller.rs` (`input`) | Generic observation contracts / logical buttons, sticks and merging. |
 | Core `config.rs` / `assist.rs` / `tools.rs` | Generic scenario rules / stateless engine / mash and tech presets. |
 | Core `runtime.rs` / `sequence.rs` | Generic adapter loop used by examples / sequence helpers. |
 
@@ -166,7 +173,7 @@ The live adapter follows one confirmed identity without adding a global object
 scan, hook or live file read. See [OOS](OUT_OF_SHIELD.md) and
 [Grab dodge](GRAB_DODGE.md).
 
-`crates/kirby_assist_core/src/spot_punish.rs` owns configured spot-dodge responses; it reuses the recovery targets and shared input timeline. [Spot punish](SPOT_PUNISH.md) documents its separate list.
+`crates/kirby_assist_core/src/policies/spot_punish.rs` owns configured spot-dodge responses; it reuses the recovery targets and shared input timeline. [Spot punish](SPOT_PUNISH.md) documents its separate list.
 
 ### Loader stack headroom
 

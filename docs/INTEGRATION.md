@@ -336,7 +336,7 @@ These describe the ABI inputs used to write this integration; they are not proof
 
 Native layout reads are isolated in the `src/live.rs` adapter, its
 `src/live/controller.rs` and `observations.rs` helpers, and
-`crates/kirby_assist_core/src/shared/controller/native_input.rs`. The mapper is installed only
+`crates/kirby_assist_core/src/shared/native_input.rs`. The mapper is installed only
 after one aligned instruction-signature match is found. There is no
 hard-coded-address fallback. Other internal layouts are sourced as described
 above and remain a compatibility risk until checked on the target executable.

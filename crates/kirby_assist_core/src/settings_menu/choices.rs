@@ -444,11 +444,7 @@ impl MenuSelection {
         forward: bool,
     ) -> usize {
         let visible = self.visible_choices(presets, slot);
-        let i = visible
-            .iter()
-            .position(|i| *i == self.choices[slot as usize])
-            .unwrap_or(0);
-        visible[cycle(i, visible.len(), forward)]
+        Self::cycle_visible_choices(&visible, self.choices[slot as usize], forward, 0)
     }
     pub(super) fn cycle_quick_choice(
         &self,
@@ -456,24 +452,30 @@ impl MenuSelection {
         slot: PresetSlot,
         forward: bool,
     ) -> usize {
-        let visible: Vec<_> = self
-            .visible_choices(presets, slot)
-            .into_iter()
-            .filter(|i| self.quick_choice(presets, slot, *i))
-            .collect();
+        let mut visible = self.visible_choices(presets, slot);
+        visible.retain(|i| self.quick_choice(presets, slot, *i));
         if visible.is_empty() {
             return self.choices[slot as usize];
         }
-        let Some(index) = visible
+        let missing_index = if forward { visible.len() - 1 } else { 0 };
+        Self::cycle_visible_choices(
+            &visible,
+            self.choices[slot as usize],
+            forward,
+            missing_index,
+        )
+    }
+
+    fn cycle_visible_choices(
+        visible: &[usize],
+        current: usize,
+        forward: bool,
+        missing_index: usize,
+    ) -> usize {
+        let index = visible
             .iter()
-            .position(|i| *i == self.choices[slot as usize])
-        else {
-            return if forward {
-                visible[0]
-            } else {
-                visible[visible.len() - 1]
-            };
-        };
+            .position(|choice| *choice == current)
+            .unwrap_or(missing_index);
         visible[cycle(index, visible.len(), forward)]
     }
     pub fn name_override(&self, slot: PresetSlot, index: usize) -> Option<&str> {

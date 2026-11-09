@@ -19,7 +19,7 @@ details see [action ownership](ACTION_OWNERSHIP.md).
 | --- | --- | --- |
 | Switch plugin | Startup, Skyline hooks, native observations, runtime coordination, and controller mapping | `src/live.rs` and `src/live/` |
 | Portable core | Platform-independent observations, configuration, policy/state machines, and controller decisions | `crates/kirby_assist_core/src/` |
-| Fighter data | Native fighter identifiers, profile tuning, and roster facts | `crates/kirby_assist_core/src/fighter_profiles/`, `fighter_kinds.rs`, and `data/Ultimate_stats.json` |
+| Fighter data | Native fighter identifiers, profile tuning, and roster facts | `crates/kirby_assist_core/src/fighters/fighter_profiles/`, `fighter_kinds.rs`, and `data/Ultimate_stats.json` |
 | Recipe configuration | Startup settings and user-authored sequence/action definitions | `deployment/ultimate/kirby_assist/sequences.txt` |
 | Documentation generation | Fighter references and standalone HTML cheat sheets derived from maintained sources | `tools/update_fighter_docs.py` and `tools/update_cheatsheets.py` |
 
@@ -94,7 +94,7 @@ context, attack geometry, and damage trajectory.
 
 `src/live/frame.rs` provides `FrameReads`, a callback-scoped cache for native
 facts and shared queries. Portable observation types are in
-`crates/kirby_assist_core/src/shared/observations/observation.rs`. Native pointers are not retained
+`crates/kirby_assist_core/src/shared/observations.rs`. Native pointers are not retained
 as cross-frame state: the callback publishes copied observations and requests.
 This keeps repeated feature reads consistent within a frame and avoids carrying
 stale native references into later callbacks.
@@ -153,7 +153,7 @@ selects the highest-priority applicable scenario, checks its rule and timing,
 then arbitrates its controller recipe against current human input. A missing
 prerequisite leaves human input intact. Rule storage is fixed-size
 (`MAX_SCENARIO_RULES = 11`); a defined scenario or future playback slot is not
-by itself a wired gameplay feature. See `crates/kirby_assist_core/src/shared/observations/state.rs`,
+by itself a wired gameplay feature. See `crates/kirby_assist_core/src/shared/observations.rs`,
 `assist.rs`, and `config.rs`.
 
 The live plugin also coordinates stateful features that produce their own
@@ -233,8 +233,8 @@ native callback semantics.
 | Reset and runtime gates | `src/live/runtime.rs` |
 | Controller ABI and history | `src/live/controller.rs` |
 | Portable policy/configuration modules | `crates/kirby_assist_core/src/lib.rs` |
-| Core observations and scenario priority | `crates/kirby_assist_core/src/shared/observations/observation.rs`, `shared/observations/state.rs` |
-| Assist evaluation and rule timing | `crates/kirby_assist_core/src/assist.rs`, `config.rs` |
+| Core observations and scenario priority | `crates/kirby_assist_core/src/shared/observations.rs`, `shared/observations/state.rs` |
+| Assist evaluation and rule timing | `crates/kirby_assist_core/src/policies/assist.rs`, `config.rs` |
 | Portable runtime adapter contract | `crates/kirby_assist_core/src/runtime.rs` |
 
 For a task-specific module map use [CODE_MAP.md](CODE_MAP.md). For the safe

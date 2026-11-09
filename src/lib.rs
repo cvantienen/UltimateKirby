@@ -3,7 +3,7 @@
 //! loads shared settings and optional fighter sequence overrides, validates the
 //! compiled fighter catalog, checks the executable signature, and registers callbacks.
 //!
-//! Reading order: `live.rs` for integration, core `live_input/config.rs` for
+//! Reading order: `live.rs` for integration, core `live_input.rs` for
 //! settings, `ledge_trap.rs` for response dispatch, and `native_input.rs` for
 //! raw button conversion. docs/CODE_MAP.md connects those pieces step by step.
 // Beginner map: this package connects to Smash; crates/kirby_assist_core holds

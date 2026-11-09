@@ -300,10 +300,11 @@ fn write_tuning_paths(
     backup: &Path,
 ) -> Result<(), String> {
     recover_paths(path, temp)?;
-    let original = String::from_utf8(read_bounded(path)?).map_err(|e| e.to_string())?;
     // Full-file validation still runs, but its temporary catalogs are dropped
     // before disk replacement. No recipe snapshot survives/publishes this save.
-    let updated = persist::update_tuning(&original, kind, tuning)?;
+    let (original, updated) = read_and_update(path, |original| {
+        persist::update_tuning(original, kind, tuning)
+    })?;
     commit_paths(path, temp, backup, &original, &updated)
 }
 fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
@@ -318,6 +319,14 @@ fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
         return Err(format!("{} exceeds the 512 KiB save limit", path.display()));
     }
     Ok(data)
+}
+fn read_and_update(
+    path: &Path,
+    update: impl FnOnce(&str) -> Result<String, String>,
+) -> Result<(String, String), String> {
+    let original = String::from_utf8(read_bounded(path)?).map_err(|e| e.to_string())?;
+    let updated = update(&original)?;
+    Ok((original, updated))
 }
 #[cfg(test)]
 fn write_paths(
@@ -342,26 +351,26 @@ fn write_recipe_paths(
     if metadata.len() > MAX_FILE_BYTES {
         return Err("Existing sequences.txt is too large".into());
     }
-    let original = String::from_utf8(read_bounded(path)?).map_err(|e| e.to_string())?;
-    let updated = if job.delete {
-        persist::delete(&original, job.kind, job.slot, &job.choice, job.allow_new)?
-    } else {
-        persist::update_named(
-            &original,
-            job.kind,
-            job.slot,
-            &job.choice,
-            job.sequence,
-            job.allow_new,
-            job.name.as_deref(),
-        )?
-    };
-
-    let updated = if job.make_default && !job.delete {
-        persist::set_default(&updated, job.kind, job.slot, &job.choice)?
-    } else {
-        updated
-    };
+    let (original, updated) = read_and_update(path, |original| {
+        let updated = if job.delete {
+            persist::delete(original, job.kind, job.slot, &job.choice, job.allow_new)?
+        } else {
+            persist::update_named(
+                original,
+                job.kind,
+                job.slot,
+                &job.choice,
+                job.sequence,
+                job.allow_new,
+                job.name.as_deref(),
+            )?
+        };
+        if job.make_default && !job.delete {
+            persist::set_default(&updated, job.kind, job.slot, &job.choice)
+        } else {
+            Ok(updated)
+        }
+    })?;
     let saved_catalog = kirby_assist_core::sequence_config::Catalog::parse(&updated)?
         .for_build(cfg!(feature = "diagnostic-logging"));
 

@@ -5,7 +5,7 @@ They respect the global `enabled` setting and existing controller/session checks
 No parry feature or ZL/ZR chord was added.
 
 The Kirby-specific trip policy lives in
-[trip_followup.rs](https://github.com/cvantienen/UltimateKirby/blob/main/crates/kirby_assist_core/src/fighters/kirby/trip_followup.rs);
+[trip_followup.rs](https://github.com/cvantienen/UltimateKirby/blob/main/crates/kirby_assist_core/src/fighters/kirby.rs);
 shared SDI remains in
 [combat_assist.rs](https://github.com/cvantienen/UltimateKirby/blob/main/crates/kirby_assist_core/src/shared/survival/combat_assist.rs).
 Existing `combat_assist` imports of the Kirby follow-up types remain supported.

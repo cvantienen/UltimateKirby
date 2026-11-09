@@ -28,7 +28,7 @@ Relevant implementation:
 * `src/live.rs`: `observe_fighter()` actor/controller checks and
   `map_controls()` routing checks.
 * `src/live/state.rs`: stored route IDs and timestamps.
-* `crates/kirby_assist_core/src/session.rs`: match epoch and ticket validation.
+* `crates/kirby_assist_core/src/runtime.rs`: match epoch and ticket validation.
 * `src/live/runtime.rs`: reset fencing and runtime suspension.
 
 ## Request freshness and cancellation
@@ -54,9 +54,9 @@ Implementation references:
 
 * `src/live.rs`: mapper admission and pre-map freshness checks.
 * `src/live/runtime.rs`: runtime disable and suspension.
-* `crates/kirby_assist_core/src/shared/observations/observation.rs`:
+* `crates/kirby_assist_core/src/shared/observations.rs`:
   `input_update_current()` exact-tick check.
-* `crates/kirby_assist_core/src/session.rs`: watchdog lease and match session.
+* `crates/kirby_assist_core/src/runtime.rs`: watchdog lease and match session.
 
 ## Native grab handoff
 
@@ -77,7 +77,7 @@ or delivery is exhausted.
 
 This is an input handoff: the code observes Catch/grab progression and emits
 controller input. It does not write native throw or fighter status.
-Implementation: `crates/kirby_assist_core/src/grab_handoff.rs`.
+Implementation: `crates/kirby_assist_core/src/policies/grab_handoff.rs`.
 
 ## Distinguish recipes from generic playback
 
@@ -98,7 +98,7 @@ there is a universal combo-player service:
   trajectory/blast-zone facts. There is no general damage-event attribution or
   combo playback ledger.
 
-Current code references are `crates/kirby_assist_core/src/sequence.rs`,
+Current code references are `crates/kirby_assist_core/src/sequence_config.rs`,
 `assist.rs`, and `config.rs`; live damage facts are read in `src/live/damage.rs`.
 When adding a new automated sequence, wire its trigger, state, cancellation,
 ownership, and mapper output explicitly, and test that the live path actually

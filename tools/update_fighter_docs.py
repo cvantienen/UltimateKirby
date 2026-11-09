@@ -15,7 +15,7 @@ from sequence_sources import assemble
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT / "crates/kirby_assist_core/src"
-PROFILES = CORE / "fighter_profiles"
+FIGHTERS = CORE / "fighters"
 BEGIN = "<!-- BEGIN GENERATED FIGHTER REFERENCE -->"
 END = "<!-- END GENERATED FIGHTER REFERENCE -->"
 NAMES = {
@@ -68,8 +68,8 @@ def parse_profile_catalog(profile_source, kind_source):
 
 @lru_cache(maxsize=1)
 def profile_catalog():
-    return parse_profile_catalog(source(CORE / "fighter_profiles.rs"),
-                                 source(CORE / "fighter_kinds.rs"))
+    return parse_profile_catalog(source(FIGHTERS / "fighter_profiles.rs"),
+                                 source(FIGHTERS / "fighter_kinds.rs"))
 
 
 @lru_cache(maxsize=1)
@@ -121,7 +121,7 @@ def title(module):
 
 @lru_cache(None)
 def menu_names():
-    text = source(PROFILES / "spacing.rs")
+    text = source(FIGHTERS / "fighter_profiles.rs")
     body = text[text.index("pub fn menu_name"):text.index("pub fn hint")]
     strings = r'"(?:\\.|[^"\\])*"'
     return {json.loads(left): json.loads(right) for left, right in
@@ -250,10 +250,10 @@ def render(module):
               "before treating an option as reliable in a particular setup.", "",
               "## Source and edits", "",
               "Paths are relative to the repository root:", "",
-              "- Registration: `crates/kirby_assist_core/src/fighter_profiles.rs`.",
+              "- Registration: `crates/kirby_assist_core/src/fighters/fighter_profiles.rs`.",
               "- Stats and move frames: `data/Ultimate_stats.json`.",
               "- Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.",
-              "- Shared input runner: `crates/kirby_assist_core/src/ledge_trap.rs`.",
+              "- Shared input runner: `crates/kirby_assist_core/src/policies/ledge_trap.rs`.",
               "", "[Adding a response](../FIGHTER_CONFIGS.md) explains registration and shared helpers.",
               "Recipes are saved file configuration. External file edits need a Smash restart;",
               "Rust/reference-data changes need a separately authorized build/install.",

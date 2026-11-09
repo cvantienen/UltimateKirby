@@ -452,7 +452,7 @@ impl TechInput {
     }
 }
 #[cfg(test)]
-#[path = "../../../tests/unit/shared/survival/tech_input/tests.rs"]
+#[path = "../../../tests/unit/tech_input.rs"]
 mod tests;
 
 #[cfg(test)]

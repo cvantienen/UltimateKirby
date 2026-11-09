@@ -69,5 +69,5 @@ progress and keeps inward input. This reduces outward carry during the former
 Down-only phase. It cannot make an ungrabbable platform edge catchable, erase
 native ledge lockouts, or guarantee a trump; verify both sides on Switch.
 
-Policy: `crates/kirby_assist_core/src/ledge_trump.rs`. The live adapter composes
+Policy: `crates/kirby_assist_core/src/policies/ledge_trump.rs`. The live adapter composes
 its output through the existing shared stick/button overlay.

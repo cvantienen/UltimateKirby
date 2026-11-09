@@ -494,9 +494,9 @@ pub fn first_contact_swept(
 // Compiled only by cargo test on the host; these assertions are not live
 // Switch logging or gameplay callbacks. Add regressions here for new behavior.
 #[cfg(test)]
-#[path = "../../../tests/unit/shared/survival/tech_prediction/tests.rs"]
+#[path = "../../../tests/unit/tech_prediction.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "../../../tests/unit/shared/survival/tech_prediction/grounded_ganon_tests.rs"]
+#[path = "../../../tests/unit/tech_prediction_grounded_ganon.rs"]
 mod grounded_ganon_tests;

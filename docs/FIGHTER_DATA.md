@@ -51,7 +51,7 @@ Values unavailable in the JSON are intentionally not supplied by defaults.
 | File/API | Responsibility |
 | --- | --- |
 | `data/Ultimate_stats.json` | Canonical roster stats and move-frame facts |
-| `crates/kirby_assist_core/src/fighter_data.rs` | Parse, validate, and expose exact-kind data |
+| `crates/kirby_assist_core/src/fighters/fighter_data.rs` | Parse, validate, and expose exact-kind data |
 | `tools/validate_fighter_data.py` | Offline schema and roster validation |
 | `FighterProfile::fighter_data()` | Resolve the canonical row for an initialized profile |
 | `MoveData::recovery()` | Validate a recovery observation against that fighter's move data |

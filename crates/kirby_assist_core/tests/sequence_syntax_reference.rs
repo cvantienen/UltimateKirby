@@ -148,7 +148,7 @@ fn all_fighter_keys_and_their_exact_parser_bounds_are_documented() {
 
 #[test]
 fn all_recognized_universal_keys_including_compatibility_aliases_are_documented() {
-    let source = include_str!("../src/live_input/config.rs");
+    let source = include_str!("../src/live_input.rs");
     let source = source
         .split("match key.trim() {")
         .nth(1)
@@ -158,7 +158,7 @@ fn all_recognized_universal_keys_including_compatibility_aliases_are_documented(
         .unwrap();
     let mut checked = 0;
     for line in source.lines().filter(|line| {
-        line.starts_with("                \"") || line.starts_with("                | \"")
+        line.starts_with("                    \"") || line.starts_with("                    | \"")
     }) {
         for key in line
             .split("=>")

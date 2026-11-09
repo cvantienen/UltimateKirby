@@ -17,10 +17,10 @@ fn menu_repeat_due(ticks: u16) -> bool {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/settings_menu/binding_tests.rs"]
+#[path = "../tests/unit/settings_menu_bindings.rs"]
 mod binding_tests;
 #[cfg(test)]
-#[path = "../tests/unit/settings_menu/button_tests.rs"]
+#[path = "../tests/unit/settings_menu_buttons.rs"]
 mod button_tests;
 #[path = "settings_menu/choices.rs"]
 mod choices;
@@ -1830,9 +1830,9 @@ fn cycle(index: usize, count: usize, forward: bool) -> usize {
 }
 
 #[cfg(test)]
-#[path = "../tests/unit/settings_menu/tests.rs"]
+#[path = "../tests/unit/settings_menu.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "../tests/unit/settings_menu/maintenance_tests.rs"]
+#[path = "../tests/unit/settings_menu_maintenance.rs"]
 mod maintenance_tests;

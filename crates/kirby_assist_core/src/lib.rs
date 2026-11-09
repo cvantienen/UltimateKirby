@@ -12,110 +12,49 @@
 //! input translation, plus checks for transitions and cancellation.
 //! This crate can be tested on a computer without Skyline or a connected Switch.
 
-// Suggested learning order:
-// 1. shared/observations/ and shared/controller/: values passed between components.
-// 2. config.rs / assist.rs: choose a rule and compute one logical proposal.
-// 3. examples/walkthrough.rs: a complete, pretend frame loop on your computer.
-// 4. live_input.rs: mash/tech scheduling; manual_controls.rs: D-pad tools.
-// 5. ledge_trap.rs: the larger state machine, backed by ledge_trap/tests.rs.
-//    ledge_trap.rs contains its range checks and response routing.
-//    sequence_config/parser.rs loads and validates the startup recipe file.
-// See docs/CODE_MAP.md for module responsibilities and docs/FIGHTER_CONFIGS.md
-// for compiled fighter catalogs.
+// Source layout (see docs/CODE_MAP.md):
+// - shared/: controller, observation, native-input, timing and survival contracts.
+// - fighters/: reference data, profiles, native state tables, fighter-specific rules.
+// - policies/: independent assistance policies (ledge, out-of-shield, reactions, ...).
+// - config.rs, sequence_config.rs, settings_menu.rs, manual_controls.rs: user configuration.
+// - runtime.rs, live_input.rs, diagnostics.rs: stateful orchestration and logging.
+// examples/walkthrough.rs is a complete, pretend frame loop on your computer.
 //
-// The declarations below are grouped by responsibility to make this crate
-// easier to navigate. They remain public at their existing paths so this
-// organization does not break callers that already use the crate.
-//
-// `pub` is Rust's visibility keyword. Tests can exercise these helpers without
-// loading the Switch plugin or depending on a native game allocation. Common
-// Rust syntax: #[derive(...)] asks the compiler to implement traits. Copy
-// permits copying a small value, Debug supports {:?} formatting, Default
-// supplies initial values, and PartialEq supports == checks.
+// Every module keeps its original crate-root path through the re-exports below,
+// so `kirby_assist_core::native_input` and similar callers are unaffected.
 
-// Shared controller and observation contracts passed between policies.
-#[path = "shared/controller/action_owner.rs"]
-pub mod action_owner;
-#[path = "shared/observations/battle_objects.rs"]
-pub mod battle_objects;
-pub mod fighter_data;
-#[path = "shared/observations/gameplay.rs"]
-pub mod gameplay;
-#[path = "shared/controller/input.rs"]
-pub mod input;
-#[path = "shared/controller/native_input.rs"]
-pub mod native_input;
-pub mod native_states;
-#[path = "shared/observations/observation.rs"]
-pub mod observation;
-#[path = "shared/observations/projectile_geometry.rs"]
-mod projectile_geometry;
-#[path = "shared/observations/state.rs"]
-pub mod state;
-pub mod timing;
-
-// Fighter-specific reference facts, move data, and startup catalogs.
-pub mod fighter_kinds;
-pub mod fighter_profiles;
-pub mod fighter_tuning;
-#[path = "fighters/tuning_defaults.rs"]
-mod fighter_tuning_defaults;
-#[path = "fighters/ganondorf/flame_choke.rs"]
-mod flame_choke;
-#[path = "fighters/kirby/mod.rs"]
-pub mod kirby;
-#[path = "shared/controller/up_b_receipt.rs"]
-mod up_b_receipt;
-
-// Independent assistance policies and their decision helpers.
-pub mod assist;
-pub mod autopilot_guard;
-pub mod defense_response;
-pub mod grab_handoff;
-pub mod move_input;
-pub mod out_of_shield;
-pub mod posture;
-#[path = "fighters/game_and_watch/projectile_reflect.rs"]
-pub mod projectile_reflect;
-pub mod reaction_rules;
-pub mod roll_read;
-pub mod shield_pressure;
-pub mod spot_dodge;
-pub mod spot_punish;
-
-// Shared survival responses, independent of fighter-specific follow-ups.
-#[path = "shared/survival/auto_di.rs"]
-pub mod auto_di;
-#[path = "shared/survival/combat_assist.rs"]
-pub mod combat_assist;
-#[path = "shared/survival/tech_input.rs"]
-pub mod tech_input;
-#[path = "shared/survival/tech_prediction.rs"]
-pub mod tech_prediction;
-
-// User configuration, menu choices, and input bindings.
-pub mod button_bindings;
 pub mod config;
-pub mod manual_controls;
-pub mod option_read;
-pub mod sequence_config;
-pub mod settings;
-pub mod settings_menu;
-
-// Stateful orchestration, diagnostics, and reusable examples/tools.
 pub mod diagnostics;
+pub mod fighters;
 pub mod live_input;
+pub mod manual_controls;
+pub mod policies;
 pub mod runtime;
-pub mod runtime_toggle;
-pub mod sequence;
-pub mod session;
-pub mod tools;
-pub mod training_test;
+pub mod sequence_config;
+pub mod settings_menu;
+pub mod shared;
 
-// Related ledge behaviors share observations, but keep separate policies.
-pub mod ledge_position;
-pub mod ledge_trap;
-pub mod ledge_trump;
+pub use config::{button_bindings, option_read, settings};
+pub use fighters::{
+    fighter_data, fighter_kinds, fighter_profiles, fighter_tuning, kirby, native_states,
+};
+pub use fighters::game_and_watch as projectile_reflect;
+pub(crate) use fighters::ganondorf as flame_choke;
+pub(crate) use fighters::tuning_defaults as fighter_tuning_defaults;
+pub use policies::{
+    assist, autopilot_guard, defense_response, grab_handoff, ledge_position, ledge_trap,
+    ledge_trump, move_input, out_of_shield, posture, reaction_rules, shield_pressure, spot_dodge,
+    spot_punish, tools,
+};
+pub use policies::spot_dodge::roll_read;
+pub use runtime::{runtime_toggle, session, training_test};
+pub use sequence_config::sequence;
+pub use shared::controller::{action_owner, input};
+pub(crate) use shared::controller::up_b_receipt;
+pub use shared::observations::{battle_objects, gameplay, observation, state};
+pub(crate) use shared::observations::projectile_geometry;
+pub use shared::survival::{auto_di, combat_assist, tech_input, tech_prediction};
+pub use shared::{native_input, timing};
 
 // Convenient root-level re-exports; module-qualified paths remain supported.
 pub use assist::{AssistEngine, DecisionStatus, FrameDecision};
