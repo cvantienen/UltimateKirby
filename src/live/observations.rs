@@ -8,13 +8,21 @@ use super::{MANAGER_SLOT, STATE};
 use crate::game_ffi as game;
 /// Budget for scanning attack geometry per frame.
 const ATTACK_GEOMETRY_SCAN_BUDGET: usize = 16;
-use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
 use kirby_assist_core::battle_objects::ObjectCategory;
+use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
 use kirby_assist_core::kirby::TripTarget;
 use kirby_assist_core::ledge_position::LedgePosition;
 use kirby_assist_core::ledge_trap::{in_tracking_range, LedgeTrap, CLIFF_CATCH_MOVE, CLIFF_JUMP3};
 use kirby_assist_core::settings::AssistSettings;
 use std::sync::atomic::Ordering;
+
+pub(super) fn within_observation_range(
+    origin: [f32; 2],
+    target: [f32; 2],
+    limits: [f32; 2],
+) -> bool {
+    (target[0] - origin[0]).abs() <= limits[0] && (target[1] - origin[1]).abs() <= limits[1]
+}
 
 /// L shield defense uses the cached roster and bounded remembered weapon/item sources.
 pub(super) unsafe fn incoming_fighter_attack(
@@ -268,8 +276,6 @@ pub(super) unsafe fn posture_opponent(
     nearest.map(|(_, offset)| offset)
 }
 
-
-
 pub(super) unsafe fn combat_targets(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
@@ -443,8 +449,7 @@ pub(super) unsafe fn rule_targets(
                 facing.is_finite()
                     && facing.abs() >= 0.5
                     && (shield_fallback || (position[0] - from[0]) * facing > 0.)
-                    && (position[0] - from[0]).abs() <= range[0]
-                    && (position[1] - from[1]).abs() <= range[1]
+                    && within_observation_range(from, position, range)
             }) && game::hit_status(e, 0) == 0
                 && !(event
                     && (kirby_assist_core::native_states::status::CLIFF_CATCH_MOVE

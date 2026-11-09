@@ -19,7 +19,7 @@ details see [action ownership](ACTION_OWNERSHIP.md).
 | --- | --- | --- |
 | Switch plugin | Startup, Skyline hooks, native observations, runtime coordination, and controller mapping | `src/live.rs` and `src/live/` |
 | Portable core | Platform-independent observations, configuration, policy/state machines, and controller decisions | `crates/kirby_assist_core/src/` |
-| Fighter data | Native fighter identifiers, profile tuning, and roster facts | `crates/kirby_assist_core/src/fighters/fighter_profiles/`, `fighter_kinds.rs`, and `data/Ultimate_stats.json` |
+| Fighter data | Native fighter identifiers, profile tuning, and roster facts | `crates/kirby_assist_core/src/fighters/fighter_profiles.rs`, `fighter_kinds.rs`, `fighter_data.rs`, and `data/Ultimate_stats.json` |
 | Recipe configuration | Startup settings and user-authored sequence/action definitions | `deployment/ultimate/kirby_assist/sequences.txt` |
 | Documentation generation | Fighter references and standalone HTML cheat sheets derived from maintained sources | `tools/update_fighter_docs.py` and `tools/update_cheatsheets.py` |
 
@@ -78,14 +78,15 @@ temporary controller overlay -> native mapper -> restore physical memory
 
 ### 1. Prepare the live hooks
 
-`observe_commands()` in `src/live.rs` tracks whether the game is ready for
-assistance and lazily installs the mapper hook. The mapper hook is not treated as
-an always-valid source of game state; match and runtime gates determine when
-assistance may be evaluated.
+`observe_commands()` in `src/live.rs` returns the game's command flags
+unchanged, updates match presence, lazily installs the mapper hook when
+assistance is enabled, and calls `observation::observe_fighter()`. The latter
+is implemented in `src/live/observation.rs`; match, runtime, route, and session
+gates determine when assistance may be evaluated.
 
 ### 2. Capture a valid fighter observation
 
-`observe_fighter()` verifies object identity and activity, local controller
+`observation::observe_fighter()` verifies object identity and activity, local controller
 ownership, human participation, and the current session ticket before reading
 facts. The observation layer reads only what is needed for that callback:
 status, situation, motion and motion frame/rate, position and velocity, facing,
@@ -93,11 +94,13 @@ team/stop state, capture links, floor support, roster and opponent facts, ledge
 context, attack geometry, and damage trajectory.
 
 `src/live/frame.rs` provides `FrameReads`, a callback-scoped cache for native
-facts and shared queries. Portable observation types are in
-`crates/kirby_assist_core/src/shared/observations.rs`. Native pointers are not retained
-as cross-frame state: the callback publishes copied observations and requests.
-This keeps repeated feature reads consistent within a frame and avoids carrying
-stale native references into later callbacks.
+facts and shared queries. Native read helpers are in
+`src/live/observations.rs` and `src/live/fighter_roster.rs`; portable
+observation types are in
+`crates/kirby_assist_core/src/shared/observations.rs`. Native pointers are not
+retained as cross-frame state: the callback publishes copied observations and
+requests. This keeps repeated feature reads consistent within a frame and
+avoids carrying stale native references into later callbacks.
 
 ### 3. Publish through the shared-state boundary
 
@@ -122,9 +125,10 @@ If settings or the mapper update change while native facts or the roster are
 being read, the callback discards that setup rather than publishing its results.
 Controller cancellation also clears pending dash-pivot history.
 
-The current declarations and state fields are in `src/live.rs` and
-`src/live/state.rs`; reset and enable/disable behavior are in
-`src/live/runtime.rs`.
+Hook declarations and startup configuration are in `src/live.rs`; observation
+and mapping orchestration are in `src/live/observation.rs` and
+`src/live/mapper.rs`. Shared state is in `src/live/state.rs`; reset and
+enable/disable behavior are in `src/live/runtime.rs`.
 
 ### 4. Evaluate feature policy
 
@@ -169,7 +173,7 @@ the native controller mapper runs. This is the boundary to use when adding a
 feature: produce a logical output and register its ownership rather than
 mutating the controller directly.
 
-See `src/live/state.rs`, `src/live.rs`, and the detailed
+See `src/live/state.rs`, `src/live/mapper.rs`, and the detailed
 [action ownership guide](ACTION_OWNERSHIP.md).
 
 ### 6. Apply and restore the controller overlay
@@ -183,8 +187,9 @@ controller's stored history.
 `src/live/controller.rs` pins the controller ABI with `repr(C)`, field offsets,
 and compile-time layout assertions. It updates the four button-history words
 (`held`, `previous`, `pressed`, `released`) consistently so native edge
-detection sees a coherent frame. The mapper transaction is implemented in
-`src/live.rs` and the controller helpers.
+detection sees a coherent frame. `map_controls()` in `src/live.rs` coordinates
+the mapper transaction, `src/live/mapper.rs` prepares and finishes the overlay,
+and the controller module performs native access and restoration.
 
 ## Feature families and their boundaries
 
@@ -227,18 +232,20 @@ native callback semantics.
 
 | Concern | Source location |
 | --- | --- |
-| Hook installation and live callback orchestration | `src/live.rs` |
-| Per-callback observation reads and caching | `src/live/frame.rs`, `src/live/observations.rs` |
+| Hook installation, startup, and top-level callback entry points | `src/live.rs` |
+| Per-callback observation admission, policy evaluation, and publication | `src/live/observation.rs` |
+| Per-callback read cache and native observation helpers | `src/live/frame.rs`, `src/live/observations.rs`, `src/live/fighter_roster.rs` |
+| Mapper admission, intent arbitration, and overlay preparation | `src/live/mapper.rs` |
 | Shared live state and feature instances | `src/live/state.rs` |
 | Reset and runtime gates | `src/live/runtime.rs` |
 | Controller ABI and history | `src/live/controller.rs` |
 | Portable policy/configuration modules | `crates/kirby_assist_core/src/lib.rs` |
-| Core observations and scenario priority | `crates/kirby_assist_core/src/shared/observations.rs`, `shared/observations/state.rs` |
+| Core observations and scenario priority | `crates/kirby_assist_core/src/shared/observations.rs` |
 | Assist evaluation and rule timing | `crates/kirby_assist_core/src/policies/assist.rs`, `config.rs` |
 | Portable runtime adapter contract | `crates/kirby_assist_core/src/runtime.rs` |
 
 For a task-specific module map use [CODE_MAP.md](CODE_MAP.md). For the safe
-workflow to add a capability, continue to
-[extending the project](DEVELOPMENT.md). For actor/session checks, bounded
+workflow to add a capability, continue to the
+[beginner and extending guide](DEVELOPMENT.md). For actor/session checks, bounded
 receipts, cancellation, and the distinction between recipes and generic
 playback, see [runtime safety and feature limits](RUNTIME_SAFETY.md).

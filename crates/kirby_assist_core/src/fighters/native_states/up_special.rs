@@ -46,18 +46,12 @@ pub fn up_special_status(kind: i32, status: i32) -> bool {
             super::fighter_status::CAPTAIN_SPECIAL_HI_CLING
                 | super::fighter_status::CAPTAIN_SPECIAL_HI_THROW
         ), // CAPTAIN
-        crate::fighter_kinds::PEACH => matches!(
+        crate::fighter_kinds::PEACH | crate::fighter_kinds::DAISY => matches!(
             status,
             super::fighter_status::PEACH_SPECIAL_HI_FALL
                 | super::fighter_status::PEACH_SPECIAL_HI_AIR_END
                 | super::fighter_status::PEACH_SPECIAL_HI_LANDING
-        ), // PEACH
-        crate::fighter_kinds::DAISY => matches!(
-            status,
-            super::fighter_status::PEACH_SPECIAL_HI_FALL
-                | super::fighter_status::PEACH_SPECIAL_HI_AIR_END
-                | super::fighter_status::PEACH_SPECIAL_HI_LANDING
-        ), // PEACH
+        ), // PEACH / DAISY
         crate::fighter_kinds::BOWSER => matches!(
             status,
             super::fighter_status::KOOPA_SPECIAL_HI_G | super::fighter_status::KOOPA_SPECIAL_HI_A
@@ -86,18 +80,12 @@ pub fn up_special_status(kind: i32, status: i32) -> bool {
             status,
             super::fighter_status::MEWTWO_SPECIAL_HI_2 | super::fighter_status::MEWTWO_SPECIAL_HI_3
         ), // MEWTWO
-        crate::fighter_kinds::ROY => matches!(
+        crate::fighter_kinds::ROY | crate::fighter_kinds::CHROM => matches!(
             status,
             super::fighter_status::ROY_SPECIAL_HI_2
                 | super::fighter_status::ROY_SPECIAL_HI_3
                 | super::fighter_status::ROY_SPECIAL_HI_4
-        ), // ROY
-        crate::fighter_kinds::CHROM => matches!(
-            status,
-            super::fighter_status::ROY_SPECIAL_HI_2
-                | super::fighter_status::ROY_SPECIAL_HI_3
-                | super::fighter_status::ROY_SPECIAL_HI_4
-        ), // ROY
+        ), // ROY / CHROM
         crate::fighter_kinds::MR_GAME_AND_WATCH => matches!(
             status,
             super::fighter_status::GAMEWATCH_SPECIAL_HI_FALL
@@ -106,16 +94,11 @@ pub fn up_special_status(kind: i32, status: i32) -> bool {
         crate::fighter_kinds::META_KNIGHT => {
             matches!(status, super::fighter_status::METAKNIGHT_SPECIAL_HI_LOOP)
         } // METAKNIGHT
-        crate::fighter_kinds::PIT => matches!(
+        crate::fighter_kinds::PIT | crate::fighter_kinds::DARK_PIT => matches!(
             status,
             super::fighter_status::PIT_SPECIAL_HI_RUSH
                 | super::fighter_status::PIT_SPECIAL_HI_RUSH_END
-        ), // PIT
-        crate::fighter_kinds::DARK_PIT => matches!(
-            status,
-            super::fighter_status::PIT_SPECIAL_HI_RUSH
-                | super::fighter_status::PIT_SPECIAL_HI_RUSH_END
-        ), // PIT
+        ), // PIT / DARK PIT
         crate::fighter_kinds::WARIO => {
             matches!(status, super::fighter_status::WARIO_SPECIAL_HI_JUMP)
         } // WARIO
@@ -245,20 +228,13 @@ pub fn up_special_status(kind: i32, status: i32) -> bool {
             super::fighter_status::DUCKHUNT_SPECIAL_HI_FLY
                 | super::fighter_status::DUCKHUNT_SPECIAL_HI_END
         ), // DUCKHUNT
-        crate::fighter_kinds::RYU => matches!(
+        crate::fighter_kinds::RYU | crate::fighter_kinds::KEN => matches!(
             status,
             super::fighter_status::RYU_SPECIAL_HI_JUMP
                 | super::fighter_status::RYU_SPECIAL_HI_FALL
                 | super::fighter_status::RYU_SPECIAL_HI_LANDING
                 | super::fighter_status::RYU_SPECIAL_HI_COMMAND
-        ), // RYU
-        crate::fighter_kinds::KEN => matches!(
-            status,
-            super::fighter_status::RYU_SPECIAL_HI_JUMP
-                | super::fighter_status::RYU_SPECIAL_HI_FALL
-                | super::fighter_status::RYU_SPECIAL_HI_LANDING
-                | super::fighter_status::RYU_SPECIAL_HI_COMMAND
-        ), // RYU
+        ), // RYU / KEN
         crate::fighter_kinds::CLOUD => matches!(
             status,
             super::fighter_status::CLOUD_SPECIAL_HI2

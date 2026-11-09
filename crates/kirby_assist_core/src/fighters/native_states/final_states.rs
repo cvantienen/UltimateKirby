@@ -109,20 +109,13 @@ pub(super) fn final_status(kind: i32, status: i32) -> bool {
             super::fighter_status::GANON_FINAL_ATTACK | super::fighter_status::GANON_FINAL_END
         ), // GANON
         crate::fighter_kinds::MEWTWO => matches!(status, super::fighter_status::MEWTWO_FINAL_END), // MEWTWO
-        crate::fighter_kinds::ROY => matches!(
+        crate::fighter_kinds::ROY | crate::fighter_kinds::CHROM => matches!(
             status,
             super::fighter_status::ROY_FINAL_END
                 | super::fighter_status::ROY_FINAL_DASH
                 | super::fighter_status::ROY_FINAL_DASH_END
                 | super::fighter_status::ROY_FINAL_ATTACK
-        ), // ROY
-        crate::fighter_kinds::CHROM => matches!(
-            status,
-            super::fighter_status::ROY_FINAL_END
-                | super::fighter_status::ROY_FINAL_DASH
-                | super::fighter_status::ROY_FINAL_DASH_END
-                | super::fighter_status::ROY_FINAL_ATTACK
-        ), // ROY
+        ), // ROY / CHROM
         crate::fighter_kinds::MR_GAME_AND_WATCH => matches!(
             status,
             super::fighter_status::GAMEWATCH_FINAL_WAIT
@@ -162,18 +155,12 @@ pub(super) fn final_status(kind: i32, status: i32) -> bool {
                 | super::fighter_status::METAKNIGHT_FINAL_ATTACK
                 | super::fighter_status::METAKNIGHT_FINAL_END
         ), // METAKNIGHT
-        crate::fighter_kinds::PIT => matches!(
+        crate::fighter_kinds::PIT | crate::fighter_kinds::DARK_PIT => matches!(
             status,
             super::fighter_status::PIT_FINAL_WAIT
                 | super::fighter_status::PIT_FINAL_ATTACK
                 | super::fighter_status::PIT_FINAL_END
-        ), // PIT
-        crate::fighter_kinds::DARK_PIT => matches!(
-            status,
-            super::fighter_status::PIT_FINAL_WAIT
-                | super::fighter_status::PIT_FINAL_ATTACK
-                | super::fighter_status::PIT_FINAL_END
-        ), // PIT
+        ), // PIT / DARK PIT
         crate::fighter_kinds::ZERO_SUIT_SAMUS => matches!(
             status,
             super::fighter_status::SZEROSUIT_FINAL_LOCK_ON

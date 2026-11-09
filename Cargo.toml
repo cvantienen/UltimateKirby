@@ -1696,6 +1696,10 @@ Separates live callback coordination from mapper and fighter-observation impleme
 Consolidates Switch plugin fighter adapters, tech capture, menu text caching and performance diagnostics, and restores diagnostic build and host-test compatibility while preserving native input behavior.
 
 Extracts native tech prediction and consolidates menu row formatting without changing input behavior.
+
+Consolidates target range checks across live observations and simplifies fighter observation predicates without changing input behavior.
+
+Refreshes architecture and source-map references to current live modules and adds a beginner workflow for tracing features, reproducing issues, and validating fixes.
 """
 
 

@@ -32,16 +32,17 @@ and timing.
 
 Read the [runtime architecture](ARCHITECTURE.md) for the observation-to-input
 flow and shared-state boundaries, and [runtime safety](RUNTIME_SAFETY.md) for
-freshness, cancellation, and live feature limits. Then use
-[extending the project](DEVELOPMENT.md) for implementation, tests, configuration
-changes, fighter references, and documentation maintenance.
+freshness, cancellation, and live feature limits. Then use the
+[beginner and extending guide](DEVELOPMENT.md) to trace a feature, reproduce and
+correct issues, implement changes, run tests, and maintain configuration,
+fighter references, and documentation.
 
 ## Project map
 
 ```text
 src/                         Switch plugin and native integration
-  live.rs                    Hook installation, observation, runtime, mapping
-  live/                      Callback observations, state, controller helpers
+  live.rs                    Startup and top-level hook/mapper callbacks
+  live/                      Observation, mapper, state, and native adapters
 crates/kirby_assist_core/    Portable policy, configuration, and tests
 deployment/ultimate/...      Canonical startup sequence configuration
 data/                        Canonical roster/fighter facts

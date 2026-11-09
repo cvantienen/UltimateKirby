@@ -778,6 +778,119 @@ pub(super) struct CopySource {
     pub index: usize,
     pub name: String,
 }
+
+fn adjust_reaction(recipe: &mut Recipe, field: Field, up: bool) {
+    match field {
+        Field::Reaction(0) => {
+            let trigger = recipe.sequence.reaction.trigger;
+            let options = trigger.events();
+            let index = options
+                .iter()
+                .position(|value| *value == trigger)
+                .unwrap_or(0);
+            recipe.sequence.reaction.trigger = options[super::cycle(index, options.len(), up)];
+        }
+        Field::Reaction(index) => recipe.sequence.reaction.adjust(index, up),
+        _ => unreachable!("reaction adjustment requires a reaction field"),
+    }
+}
+
+fn adjust_reference(recipe: &mut Recipe, index: usize, right: bool, up: bool) {
+    let old = input_reference(recipe.sequence.actions[index], right);
+    let current = IR::ALL.iter().position(|value| *value == old).unwrap_or(0);
+    let next = super::cycle(current, IR::ALL.len(), up);
+    set_input_reference(&mut recipe.sequence.actions[index], IR::ALL[next], right);
+}
+
+fn adjust_action_kind(recipe: &mut Recipe, index: usize, up: bool) {
+    let count = PRESETS.len() + recipe.imported.len();
+    let current = recipe.kinds[index];
+    recipe.kinds[index] = if current >= count {
+        if up {
+            0
+        } else {
+            count - 1
+        }
+    } else {
+        super::cycle(current, count, up)
+    };
+    recipe.sequence.actions[index] = if recipe.kinds[index] < PRESETS.len() {
+        PRESETS[recipe.kinds[index]].1
+    } else {
+        recipe.imported[recipe.kinds[index] - PRESETS.len()]
+    };
+}
+
+fn toggle_shield_hold(recipe: &mut Recipe, index: usize) {
+    match &mut recipe.sequence.actions[index] {
+        Action::Input { frames, .. } => *frames = if *frames == 0 { 4 } else { 0 },
+        Action::ShieldUntilManual => {
+            recipe.sequence.actions[index] = Action::Input {
+                buttons: MAPPER_ZR,
+                stick: [0.; 2],
+                frames: 4,
+                relative: true,
+            };
+            recipe.kinds[index] = PRESETS
+                .iter()
+                .position(|(_, action)| *action == recipe.sequence.actions[index])
+                .unwrap_or(0);
+        }
+        _ => {}
+    }
+}
+
+fn adjust_field(recipe: &mut Recipe, field: Field, up: bool, delta: f32, onstage: bool) -> bool {
+    match field {
+        Field::Reaction(_) => adjust_reaction(recipe, field, up),
+        Field::WhileHeld => recipe.sequence.while_held = !recipe.sequence.while_held,
+        Field::GroundOnly => recipe.sequence.ground_only = !recipe.sequence.ground_only,
+        Field::Buttons(_) => return false,
+        Field::Reference(index) | Field::CReference(index) => {
+            adjust_reference(recipe, index, matches!(field, Field::CReference(_)), up);
+        }
+        Field::CX(index) | Field::CY(index) => {
+            if let Action::Controller { cstick, .. } = &mut recipe.sequence.actions[index] {
+                let axis = usize::from(matches!(field, Field::CY(_)));
+                cstick[axis] = step(cstick[axis], delta * 0.01, -1., 1.);
+            }
+        }
+        Field::Start => {
+            recipe.sequence.start_delay = if up {
+                recipe.sequence.start_delay.saturating_add(1).min(3600)
+            } else {
+                recipe.sequence.start_delay.saturating_sub(1)
+            }
+        }
+        Field::Slots => {
+            let len = usize::from(recipe.sequence.len);
+            if up && len < MAX_ACTIONS {
+                recipe.sequence.len += 1;
+            } else if !up
+                && len > 1
+                && recipe.sequence.actions[len - 1] == Action::Empty
+                && recipe.before[len - 1] == 0
+            {
+                recipe.sequence.len -= 1;
+            }
+        }
+        Field::Before(index) => byte(&mut recipe.before[index], up, 0),
+        Field::Kind(index) => adjust_action_kind(recipe, index, up),
+        Field::ShieldHold(index) => toggle_shield_hold(recipe, index),
+        other => {
+            let index = field_slot(other).expect("action field must have a slot");
+            adjust_action(
+                &mut recipe.sequence.actions[index],
+                other,
+                up,
+                delta,
+                onstage,
+            );
+        }
+    }
+    true
+}
+
 #[derive(Default)]
 pub(super) struct RecipeEditor {
     modal: Option<commands::Modal>,
@@ -928,97 +1041,8 @@ impl RecipeEditor {
         let f = fs[self.cursor.min(fs.len() - 1)];
         let onstage = next.sequence.reaction.active();
         let delta = if up { 1. } else { -1. };
-        match f {
-            Field::Reaction(0) => {
-                let trigger = next.sequence.reaction.trigger;
-                let options = trigger.events();
-                let i = options.iter().position(|v| *v == trigger).unwrap_or(0);
-                next.sequence.reaction.trigger = options[if up {
-                    (i + 1) % options.len()
-                } else {
-                    (i + options.len() - 1) % options.len()
-                }];
-            }
-            Field::Reaction(n) => next.sequence.reaction.adjust(n, up),
-            Field::WhileHeld => next.sequence.while_held = !next.sequence.while_held,
-            Field::GroundOnly => next.sequence.ground_only = !next.sequence.ground_only,
-            Field::Buttons(_) => return false,
-            Field::Reference(i) | Field::CReference(i) => {
-                let right = matches!(f, Field::CReference(_));
-                let old = input_reference(next.sequence.actions[i], right);
-                let k = IR::ALL.iter().position(|x| *x == old).unwrap_or(0);
-                set_input_reference(
-                    &mut next.sequence.actions[i],
-                    IR::ALL[(k + if up { 1 } else { 2 }) % 3],
-                    right,
-                );
-            }
-            Field::CX(i) | Field::CY(i) => {
-                if let Action::Controller { cstick, .. } = &mut next.sequence.actions[i] {
-                    let axis = usize::from(matches!(f, Field::CY(_)));
-                    cstick[axis] = step(cstick[axis], delta * 0.01, -1., 1.);
-                }
-            }
-            Field::Start => {
-                next.sequence.start_delay = if up {
-                    next.sequence.start_delay.saturating_add(1).min(3600)
-                } else {
-                    next.sequence.start_delay.saturating_sub(1)
-                }
-            }
-            Field::Slots => {
-                let len = usize::from(next.sequence.len);
-                if up && len < MAX_ACTIONS {
-                    next.sequence.len += 1;
-                } else if !up
-                    && len > 1
-                    && next.sequence.actions[len - 1] == Action::Empty
-                    && next.before[len - 1] == 0
-                {
-                    next.sequence.len -= 1;
-                }
-            }
-            Field::Before(i) => byte(&mut next.before[i], up, 0),
-            Field::Kind(i) => {
-                let n = PRESETS.len() + next.imported.len();
-                let k = next.kinds[i];
-                next.kinds[i] = if k >= n {
-                    if up {
-                        0
-                    } else {
-                        n - 1
-                    }
-                } else if up {
-                    (k + 1) % n
-                } else {
-                    (k + n - 1) % n
-                };
-                next.sequence.actions[i] = if next.kinds[i] < PRESETS.len() {
-                    PRESETS[next.kinds[i]].1
-                } else {
-                    next.imported[next.kinds[i] - PRESETS.len()]
-                };
-            }
-            Field::ShieldHold(i) => match &mut next.sequence.actions[i] {
-                Action::Input { frames, .. } => *frames = if *frames == 0 { 4 } else { 0 },
-                Action::ShieldUntilManual => {
-                    next.sequence.actions[i] = Action::Input {
-                        buttons: MAPPER_ZR,
-                        stick: [0.; 2],
-                        frames: 4,
-                        relative: true,
-                    };
-                    next.kinds[i] = PRESETS
-                        .iter()
-                        .position(|(_, a)| *a == next.sequence.actions[i])
-                        .unwrap_or(0);
-                }
-                _ => {}
-            },
-            other => {
-                let i = field_slot(other).expect("action field must have a slot");
-                adjust_action(&mut next.sequence.actions[i], other, up, delta, onstage);
-            }
+        if !adjust_field(&mut next, f, up, delta, onstage) {
+            return false;
         }
         self.limited = next.compile().is_none();
         if self.limited {

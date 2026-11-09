@@ -96,6 +96,40 @@ fn backup_timing(s: &Sequence) -> Option<super::shield_up_b::Timing> {
     })
 }
 impl OutOfShield {
+    fn sample_configured_grab(
+        &mut self,
+        allowed: bool,
+        c: Context,
+        context: GameplayContext,
+        targets: [Option<crate::roll_read::Target>; 8],
+        follow: Option<Opponent>,
+        shielded: bool,
+        limits: AutomaticLimits,
+        startup: Option<f32>,
+    ) -> ControllerOutput {
+        self.simple.sample(
+            allowed,
+            c,
+            context,
+            targets,
+            follow,
+            if shielded {
+                limits.close
+            } else {
+                limits.approach
+            },
+            if shielded {
+                limits.shield_height
+            } else {
+                limits.grab_height
+            },
+            startup,
+            limits.close,
+            !shielded,
+            shielded,
+        )
+    }
+
     pub fn sample_automatic_configured(
         &mut self,
         allowed: bool,
@@ -177,26 +211,8 @@ impl OutOfShield {
         if self.configured_settling {
             let _ = self.response.sample(false, settings, context, follow);
             self.configured_response = self.response.grab_delivery_pending();
-            let _ = self.simple.sample(
-                allowed,
-                c,
-                context,
-                targets,
-                follow,
-                if shielded {
-                    limits.close
-                } else {
-                    limits.approach
-                },
-                if shielded {
-                    limits.shield_height
-                } else {
-                    limits.grab_height
-                },
-                startup,
-                limits.close,
-                !shielded,
-                shielded,
+            let _ = self.sample_configured_grab(
+                allowed, c, context, targets, follow, shielded, limits, startup,
             );
             if !self.simple.delivery_pending() {
                 self.configured_settling = false;
@@ -207,26 +223,8 @@ impl OutOfShield {
         if self.configured_response {
             let delivered = self.simple.delivery_pending();
             if delivered {
-                let receipt = self.simple.sample(
-                    allowed,
-                    c,
-                    context,
-                    targets,
-                    follow,
-                    if shielded {
-                        limits.close
-                    } else {
-                        limits.approach
-                    },
-                    if shielded {
-                        limits.shield_height
-                    } else {
-                        limits.grab_height
-                    },
-                    startup,
-                    limits.close,
-                    !shielded,
-                    shielded,
+                let receipt = self.sample_configured_grab(
+                    allowed, c, context, targets, follow, shielded, limits, startup,
                 );
                 if receipt.owned == 0 {
                     self.response.cancel();
@@ -275,26 +273,8 @@ impl OutOfShield {
             false
         };
         let delivered = self.simple.delivery_pending();
-        let grab = self.simple.sample(
-            allowed,
-            c,
-            context,
-            targets,
-            follow,
-            if shielded {
-                limits.close
-            } else {
-                limits.approach
-            },
-            if shielded {
-                limits.shield_height
-            } else {
-                limits.grab_height
-            },
-            startup,
-            limits.close,
-            !shielded,
-            shielded,
+        let grab = self.sample_configured_grab(
+            allowed, c, context, targets, follow, shielded, limits, startup,
         );
         if grab.owned != 0 || fallback_ended || delivered || self.simple.delivery_pending() {
             let sequence = if shielded {

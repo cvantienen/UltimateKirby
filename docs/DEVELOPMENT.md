@@ -20,15 +20,95 @@ Keep automation input-only. Read native state to detect a situation, but express
 the response as controller input. Do not alter native fighter status, physics,
 hitboxes, move definitions, or animation rates.
 
+## Beginner guide: follow the code before changing it
+
+The safest way to understand a feature is to follow one input from its trigger
+to the final controller packet. The project is split between portable policy
+and Switch integration; a feature is not complete just because its policy
+function exists.
+
+### Read the execution path
+
+1. **Start at `src/lib.rs`.** Skyline calls `live::install()` from the plugin
+   entry point.
+2. **Read `src/live.rs` for hook setup.** `install()` loads and validates
+   configuration, checks executable and manager prerequisites, and registers
+   hooks. `observe_commands()` forwards command flags unchanged and asks the
+   observation adapter to run only when assistance is enabled.
+3. **Follow the observation callback.** `src/live/observation.rs` admits a
+   fighter callback, snapshots policy/configuration, collects copied facts,
+   evaluates live feature state, and publishes only if the session and input
+   sample are still current. `src/live/frame.rs` caches reads for that callback;
+   `src/live/observations.rs` and `src/live/fighter_roster.rs` hold native
+   read-only queries.
+4. **Find the policy owner.** Portable decisions belong in
+   `crates/kirby_assist_core/src/` wherever possible. For example, feature
+   policies live in `policies/`, shared controller contracts live in
+   `shared/`, and fighter-specific decisions live in `fighters/`.
+5. **Follow ownership and delivery.** `src/live/state.rs` retains runtime state.
+   `src/live/mapper.rs` refreshes and admits the selected controller, arbitrates
+   and applies requests. `src/live/controller.rs` owns native controller
+   access. `map_controls()` in `src/live.rs` brackets the original mapper call
+   with temporary overlay and physical-input restoration.
+6. **Check cancellation and configuration.** Match/session resets are in
+   `src/live/runtime.rs` and `src/live/state.rs`; menu/save behavior is in
+   `src/live/settings_menu.rs` and its children. Startup parsing is in
+   `src/live/config.rs` and the core `live_input.rs`/`sequence_config.rs`.
+
+The complete callback lifecycle, data fences, and ownership boundaries are in
+[runtime architecture](ARCHITECTURE.md). Use the [source map](CODE_MAP.md) to
+jump to the current module owner.
+
+### Change a feature or fix a behavior
+
+1. **Reproduce and classify the issue.** Record the selected fighter/controller,
+   match mode, relevant setting or recipe, expected result, actual result, and
+   whether it happens consistently. Separate “trigger not detected,” “policy
+   rejected,” “lost ownership,” “stale/cancelled request,” and “native game did
+   not accept the input”; these are different failure points.
+2. **Trace the path in order.** Search from the UI/config entry to the live
+   observation, portable decision, ownership result, and mapper application.
+   Follow existing tests and documentation before adding a new abstraction.
+3. **Fix the owning layer.** Put general logic over copied Rust values in the
+   core. Keep native reads, pointers, ABI details, and callback/session
+   integration in the plugin. Avoid parallel implementations of range checks,
+   clocks, parser behavior, or ownership.
+4. **Preserve the boundaries.** Native reads are observations, not permission
+   to write game state. Emit controller intent through the existing output and
+   ownership path. Honor physical input, feature toggles, selected-controller
+   routing, session/settings fences, and cancel/reset behavior.
+5. **Add a regression test at the narrowest boundary.** Test portable policy
+   decisions in the core crate's unit/integration tests. Test file parsing and
+   configuration with the parser tests. For plugin wiring, native query
+   constraints, or input publication, use a matching source-contract guard
+   under `tools/` when one exists; these guards target specific code patterns,
+   so verify its assumptions before relying on it. Do not assume the Skyline
+   plugin can be host-built. Include the negative case that previously failed
+   and the adjacent no-trigger/stale-input case.
+6. **Update documentation at the source of truth.** Settings, defaults, and
+   units belong in the configuration/feature guides. Update generated fighter
+   pages through their generator, never by editing generated sections directly.
+7. **Run targeted checks, then broader relevant checks.** Start with the core
+   crate tests or specific existing test target, validate changed configuration,
+   and run strict documentation checks for doc changes. Host success does not
+   prove Switch timing; do not claim hardware behavior without device evidence.
+
+When stuck, use the test harness and diagnostic build to observe each boundary
+in order. Do not start by adding logs or native reads to a hot callback:
+diagnostic sampling is conditional and rate-limited, and repeated native scans
+can change performance or callback behavior. Check [runtime safety](RUNTIME_SAFETY.md),
+[observations and timing](OBSERVATIONS_AND_TIMING.md), and
+[action ownership](ACTION_OWNERSHIP.md) before changing these contracts.
+
 ## Add a gameplay capability
 
 Use this sequence for a new assist or a substantial extension:
 
 1. **Define the observable trigger.** Identify the native facts required and
-   where they are read in `src/live/frame.rs` or
-   `src/live/observations.rs`. Read them once through the callback-scoped
-   observation layer; do not retain native pointers or add repeated scans
-   without a measured need.
+   where they are read in `src/live/frame.rs`,
+   `src/live/observations.rs`, or `src/live/fighter_roster.rs`. Read them once
+   through the callback-scoped observation layer; do not retain native pointers
+   or add repeated scans without a measured need.
 2. **Choose the policy boundary.** If the decision can be expressed from copied
    observations and logical input, implement it in the core crate. Use a
    live-only feature state machine only when the policy depends on a
@@ -56,8 +136,9 @@ Use this sequence for a new assist or a substantial extension:
    the feature hub or navigation if it is a major feature.
 
 The integration points are visible in `src/live.rs`, live feature state in
-`src/live/state.rs`, reset semantics in `src/live/runtime.rs`, and portable
-evaluation in `crates/kirby_assist_core/src/policies/assist.rs` and `runtime.rs`.
+`src/live/observation.rs`, `src/live/mapper.rs`, and `src/live/state.rs`, reset
+semantics in `src/live/runtime.rs`, and portable evaluation in
+`crates/kirby_assist_core/src/policies/assist.rs` and `runtime.rs`.
 See [action ownership](ACTION_OWNERSHIP.md) and
 [observations and timing](OBSERVATIONS_AND_TIMING.md) before introducing new
 arbitration or clock behavior.

@@ -79,6 +79,36 @@ struct ObservationPolicySnapshot {
     self_shielded: bool,
     grab_dash_pending: bool,
 }
+
+fn rule_needs_ground_observation(
+    ground_watch: Option<(f32, f32, bool)>,
+    target_is_locked: bool,
+    targets: &[Option<kirby_assist_core::roll_read::Target>; 8],
+    position: [f32; 2],
+    follow_requested: bool,
+    follow: Option<&kirby_assist_core::gameplay::Opponent>,
+) -> bool {
+    let Some((distance, height, active)) = ground_watch else {
+        return false;
+    };
+    if target_is_locked {
+        return active;
+    }
+
+    let limits = [distance, height];
+    targets.iter().flatten().any(|target| {
+        (matches!(
+            target.status,
+            kirby_assist_core::native_states::ESCAPE
+                ..=kirby_assist_core::native_states::ESCAPE_AIR_SLIDE
+        ) || target.vulnerable_in == Some(0.))
+            && observations::within_observation_range(position, target.position, limits)
+    }) || follow_requested
+        && follow.is_some_and(|enemy| {
+            observations::within_observation_range(position, enemy.position, limits)
+        })
+}
+
 /// Determines the observation needs based on the current state and configuration.
 fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
     let trump_held = state
@@ -134,6 +164,7 @@ fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
         observe_trump: trump_held || state.trump.as_ref().is_some_and(LedgeTrump::active),
     }
 }
+
 /// Resolves the observation setup for the given fighter and session,
 ///  returning the configuration, setup sequence, and observation needs if available.
 fn resolve_observation_setup(
@@ -912,25 +943,14 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
         };
         let position = [reads.pos_x(object), reads.pos_y(object)];
         let velocity = [reads.speed_x(object), reads.speed_y(object)];
-        let rule_needs_ground = rules_ground.is_some_and(|(distance, height, active)| {
-            if rule_target.is_some() || oos_target.is_some() {
-                active
-            } else {
-                targets.iter().flatten().any(|t| {
-                    (matches!(
-                        t.status,
-                        kirby_assist_core::native_states::ESCAPE
-                            ..=kirby_assist_core::native_states::ESCAPE_AIR_SLIDE
-                    ) || t.vulnerable_in == Some(0.))
-                        && (t.position[0] - position[0]).abs() <= distance
-                        && (t.position[1] - position[1]).abs() <= height
-                }) || dodge_follow.is_some()
-                    && follow.is_some_and(|e| {
-                        (e.position[0] - position[0]).abs() <= distance
-                            && (e.position[1] - position[1]).abs() <= height
-                    })
-            }
-        });
+        let rule_needs_ground = rule_needs_ground_observation(
+            rules_ground,
+            rule_target.is_some() || oos_target.is_some(),
+            &targets,
+            position,
+            dodge_follow.is_some(),
+            follow.as_ref(),
+        );
         let grab_ground = oos_enabled
             && !self_shielded
             && grab_intent

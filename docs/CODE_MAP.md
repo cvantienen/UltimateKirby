@@ -18,7 +18,7 @@ in your editor (the documentation site does not publish Rust source files).
 2. `fighter_profiles.rs` freezes file entries into menu lists; `settings_menu.rs` caches selected timelines.
 3. `ledge_trap.rs` recognizes the opponent's option and starts only that row's file timeline.
 4. `policies/ledge_trap/file_timeline.rs` executes ordered inputs/waits and explicit spatial/block gates.
-5. `src/live.rs` publishes requests through the existing input owner/overlay; it does not force moves.
+5. `src/live/observation.rs` publishes current, copied observations to feature state; `src/live/mapper.rs` resolves ownership and prepares controller requests for the overlay. Neither path forces moves.
 
 ## Where each part lives
 
@@ -39,56 +39,37 @@ timing, menu text caching and health counters are grouped with their parents.
 
 | File | Responsibility |
 | --- | --- |
-| `docs/FIGHTER_ADDITIONS.md` | Luigi/Falcon source, timing, performance and validation notes. |
-| Core `settings_menu.rs` | Shared per-fighter menu selections, ledge choices, feature-mode rows, bindings, recipe editing and trigger reservation. |
-| Core `settings_menu/editor.rs` | Recipe editing, action presets, field selection, and the editor's displayed schedule. |
-| Core `settings_menu/editor/commands.rs` | Input-driven copy, paste, reorder, undo, and delete commands for recipe editing. |
-| Core `settings_menu/editor/presentation.rs` | Maps each action to editable fields and renders recipe schedule details. |
-| Core `fighter_data.rs` | Exact-kind stats and move-frame facts from the canonical roster JSON, plus native recovery validation. |
-| Core `shared/controller.rs` (`action_owner`) | One committed input owner, explicit interruption rules and losing-plan cancellation. |
-| `data/Ultimate_stats.json` | Sole source for roster-wide fighter stats and move-frame data; embedded and parsed once at startup. |
-| Core `autopilot_guard.rs` | Shared copied hitbox shape, incoming-attack warning envelope and held shield timing for ledge autopilot. |
-| `src/live/attack_sources.rs` / `src/live/projectile_sources.rs` | Bounded read-only ATTACK-source tracking shared by ledge shield and projectile reflection. |
-| `src/lib.rs` | Skyline entry point; calls installation once. |
-| `src/live.rs` | Hook orchestration, controller selection, fighter-observation admission and planning, shared session state and tool priority. |
-| `src/live/config.rs` | Startup-only master `sequences.txt` loading/validation; `config.txt` fallback for older files. |
-| `src/live/controller.rs` | Native controller layout, selection, offset checks, button-history reads/writes and overlay restoration. |
-| `src/live/training.rs` | Mapper Training passthrough, handoff state and menu resume. |
-| Core `training_test.rs` | Diagnostic/Training Minus-menu handoff and isolated test settings. |
-| `src/live/observations.rs` / `src/live/fighter_roster.rs` | Read-only fighter, opponent, physics, roster, local-route and floor queries. |
-| `src/live/tech.rs` | Native tech eligibility and predicted contact/capture timing, including Ganondorf capture observation. |
-| `src/live/kirby_followups.rs` / `src/live/reflect.rs` | Fighter-specific native adapters for Kirby follow-ups and Game & Watch reflection. |
-| `src/game_ffi.rs` | Declarations of functions supplied by Smash; their memory/calling contract. |
-| `src/diagnostics/logging.rs` / `src/diagnostics/grab_diagnostics.rs` | Diagnostic-only queued writer / bounded roll-grab recorder. |
-| Core `live_input.rs` (`config` module) | Startup settings, defaults, text parsing and validation. |
-| `src/diagnostics/calibration.rs` / `src/diagnostics/performance.rs` | Diagnostic-only calibration recording, sampled timing and health counters. |
-| Core `policies/ledge_trap.rs` (`diagnostics` module) | Read-only response metadata for all five rows and detailed roll-grab snapshots. |
-| Core `live_input.rs` | Mash/tech request policy and compatibility helpers. |
-| Core `shared/observations/gameplay.rs` | Shared `GameplayContext`, `ControllerOutput`, opponent observations, motion timing, and recovery-frame helpers. |
-| Core `roll_read.rs` | Shared roll target facts/constants. Live roll responses use reaction_rules.rs. |
-| Core `ledge_trap.rs` | Held-trigger visit history, response selection and native action confirmation. |
-| Core `ledge_trap.rs` | Ledge opponent range checks. Shared gameplay values live in `shared/observations/gameplay.rs`. |
-| Core `fighter_profiles.rs` | Shared per-fighter profile declarations, generic grab references, and startup-only file menu construction; individual public module paths remain available. |
-| Core `fighter_tuning.rs`, `fighter_tuning/schema.rs`, and `fighter_tuning/analysis.rs` | Public tuning facade, stable saved-setting/menu schema, and fighter-derived policy defaults. |
-| Core `policies/ledge_trap.rs` (`attempt` module) | Native-progress clock for ordered input timelines. |
-| Core `sequence_config.rs`, `sequence_config/parser.rs`, and `sequence_config/parser/actions.rs` | Keep fixed-size recipe data and the public catalog API in the parent module; parse catalog sections and action tokens in focused startup-only modules. |
-| Core `policies/ledge_trap/file_timeline.rs` | File-ordered input holds/waits, native-progress clock, explicit spatial/block predicates. |
-| Core `ledge_position.rs` / `ledge_trump.rs` | Grounded stance preparation / run-off ledge trump. |
-| Core `manual_controls.rs` / `shared/controller/native_input.rs` | Trigger reservation, shared button-ownership masks, input overlays, and raw button conversion. |
-| Core `shared/survival/combat_assist.rs` / `auto_di.rs` | Shared damage-hitstop SDI and DI; SDI retains compatibility exports for Kirby follow-ups. |
-| Core `fighters/kirby/` | Kirby-specific tilt-trip and forward-air follow-up input policies. |
-| Core `shared/controller.rs` (`up_b_receipt`) | Shared bounded native-start receipt for direct automatic Up-B sequences. |
-| Core `fighters/tuning_defaults.rs` | Fighter-specific tuning visibility and legacy display defaults. |
-| Core `fighters/game_and_watch/projectile_reflect.rs` / `shared/observations/projectile_geometry.rs` | Game & Watch projectile defense and reusable swept geometry. |
-| Core `fighters/ganondorf/flame_choke.rs` | Grounded Flame Choke release detection, contact timing and tech-window selection. |
-| Core `native_states.rs` / `native_states/fighter/` | Shared native status rules and fighter-specific constants, interruption, and special/final-state classification. |
-| Core `shared/survival/tech_prediction.rs` / `tech_input.rs` | Pure collision timing / shield request and acknowledgment scheduling. |
-| Core `timing.rs` | Shared motion-progress classification, event deduplication, simulation-frame arithmetic and forecast overlap. No learned compensation. |
-| Core `shared/observations/observation.rs` / adapter `live/frame.rs` | Lazy fixed-size facts shared across policies for one observation; see [shared observations and timing](OBSERVATIONS_AND_TIMING.md). |
-| Core `session.rs` / `diagnostics.rs` | Invalidate stale requests between matches / limit diagnostic snapshots. |
-| Core `shared/observations.rs` (`state`) / `shared/controller.rs` (`input`) | Generic observation contracts / logical buttons, sticks and merging. |
-| Core `config.rs` / `assist.rs` / `tools.rs` | Generic scenario rules / stateless engine / mash and tech presets. |
-| Core `runtime.rs` / `sequence.rs` | Generic adapter loop used by examples / sequence helpers. |
+| `src/lib.rs` | Skyline plugin entry point; calls `live::install()`. |
+| `src/live.rs` | Hook declarations, startup setup, top-level hook callbacks, and the original mapper transaction. |
+| `src/live/config.rs` | Startup-only configuration and sequence loading; compatibility fallback handling. |
+| `src/live/observation.rs` | Fighter observation admission, policy snapshot, callback orchestration, and publication fencing. |
+| `src/live/frame.rs` | Callback-scoped `FrameReads` cache; avoids repeating native reads within one observation. |
+| `src/live/observations.rs` / `src/live/fighter_roster.rs` | Read-only native fighter/opponent, roster, movement, floor, and route observations. |
+| `src/live/mapper.rs` | Controller callback admission, menu/input updates, assist proposals, ownership arbitration, and overlay preparation/finalization. |
+| `src/live/state.rs` / `src/live/runtime.rs` | Retained feature/session state and cancellation, reset, and runtime participation rules. |
+| `src/live/controller.rs` | Native controller layout, selection, button-history access, and overlay restoration. |
+| `src/live/settings_menu.rs` and `src/live/settings_menu/` | Live menu settings, rendering, and serialized save-result handling. |
+| `src/live/training.rs` / Core `runtime.rs` | Training passthrough lifecycle / generic portable adapter loop. |
+| `src/live/tech.rs` / `src/live/kirby_followups.rs` / `src/live/reflect.rs` | Native observations and adapters for tech, Kirby follow-ups, and reflection. |
+| `src/live/attack_sources.rs` / `src/live/projectile_sources.rs` | Bounded read-only attack-source tracking for ledge defense and projectile reflection. |
+| `src/game_ffi.rs` | Native Smash function declarations and ABI boundary. |
+| `src/diagnostics.rs` and `src/diagnostics/` | Diagnostic-build-only logging, calibration, grab recording, and performance tools. |
+| `crates/kirby_assist_core/src/lib.rs` | Portable core modules and compatibility re-exports. |
+| Core `config.rs`, `live_input.rs`, and `sequence_config.rs` | Settings and recipe data models, startup parsing, validation, and persistence. |
+| Core `settings_menu.rs` and `settings_menu/` | Portable menu state, choice navigation, recipe editor, commands, and presentation. |
+| Core `shared/controller.rs` / `shared/native_input.rs` | Logical controller actions, ownership, arbitration, and native-independent button translations. |
+| Core `shared/observations.rs` / `shared/timing.rs` / `shared/survival/` | Copied gameplay facts, timing contracts, and reusable survival policies. |
+| Core `fighters.rs` and `fighters/` | Fighter catalog, profile/tuning data, native status tables, and fighter-specific policies. |
+| Core `fighters/native_states/fighter_status.rs` | Fighter-specific native status IDs; classification uses the verified tables in `native_states/final_states.rs` and `up_special.rs`. |
+| Core `policies.rs` and `policies/` | Assist policies, including ledge, reaction, out-of-shield, posture, dodge, and defense. |
+| Core `policies/ledge_trap.rs` / `policies/ledge_trap/` | Ledge response selection, visit ownership, native-progress clocks, and file-authored timeline execution. |
+| Core `policies/out_of_shield.rs` / `policies/out_of_shield/` | Out-of-shield target validation, grab response, and shield Up-B fallback. |
+| Core `policies/autopilot_guard.rs` | Shared hitbox shape, incoming-attack envelope, and held-shield timing. |
+| Core `manual_controls.rs` / `training_test.rs` / `runtime.rs` | Manual input behavior, training test policy, and portable runtime coordination. |
+| Core `fighter_data.rs` / `fighters/fighter_profiles.rs` / `fighters/fighter_kinds.rs` | Canonical roster facts, fighter profiles, and native fighter identifiers. |
+| `data/Ultimate_stats.json` | Canonical roster-wide fighter stats and move-frame facts, parsed at startup. |
+| `deployment/ultimate/kirby_assist/sequences.txt` | Canonical user-authored sequence and settings configuration. |
+| `docs/DEVELOPMENT.md` / `docs/ARCHITECTURE.md` | Beginner change/debug workflow / runtime data flow and synchronization boundaries. |
 
 Separate test-named modules live under each package's `tests/unit/` directory,
 with subdirectories mirroring their implementations. The implementations
@@ -157,24 +138,25 @@ compatibility. Follow the relevant feature guide for device-validation details.
 
 1. `settings_menu.rs` maps fresh menu D-pad presses to row/choice indices.
 2. `src/live/settings_menu.rs` resolves cached response settings only on changes.
-3. `src/live.rs` reads native context only when a tool needs it, then composes
-   requests with the existing higher-priority mash/tech/SDI inputs.
+3. `src/live/observation.rs` reads native context only when a tool needs it;
+   `src/live/mapper.rs` composes requests with current ownership and mapper input.
 4. `src/live/settings_menu/menu.rs` draws cached labels without game queries.
 
-Live combo playback and fighter combo libraries have been removed. See
+Compiled fighter combo libraries have been removed. Configured input timelines
+remain available for supported ledge and button responses. See
 [the current controls](LEDGE_MENU.md).
 
 ## File-authored defensive responses
 
-`defense_response.rs` in the core crate reuses `InputTimeline` for `shield_hit`
-and `grab_dodged` recipes. `out_of_shield.rs` gates a confirmed shield-contact
-response; `spot_dodge.rs` records native dodge acceptance before an optional
-follow-up. `reaction_rules.rs` caches trigger/range metadata on recipe edits.
+`policies/defense_response.rs` in the core crate reuses `InputTimeline` for
+`shield_hit` and `grab_dodged` recipes. `policies/out_of_shield.rs` gates a
+confirmed shield-contact response; `policies/spot_dodge.rs` records native dodge
+acceptance before an optional follow-up. `policies/reaction_rules.rs` caches
+trigger/range metadata on recipe edits.
 These events use their own mode rows, not the roll engine's Menu/button groups.
-`fighter_tuning.rs` preserves the tuning API; `fighter_tuning/schema.rs` owns
-the stable setting keys, labels, hints, and indices, while
-`fighter_tuning/analysis.rs` owns fighter-derived defaults and policy
-conversions. Existing `fighter_tuning::*` imports continue to work.
+`fighters/fighter_tuning.rs` contains the public tuning API, stable setting
+schema, and fighter-derived defaults and policy conversions. Existing
+`fighter_tuning::*` imports continue to work.
 The live adapter follows one confirmed identity without adding a global object
 scan, hook or live file read. See [OOS](OUT_OF_SHIELD.md) and
 [Grab dodge](GRAB_DODGE.md).
