@@ -316,6 +316,7 @@ extern "C" {
     #[link_name = "\u{1}_ZN3app16sv_battle_object15module_accessorEj"]
     pub fn module_accessor(object_id: u32) -> *mut Object;
     #[link_name = "\u{1}_ZN3app16sv_battle_object9is_activeEj"]
+    /// Returns whether the specified battle object ID corresponds to an active object.
     pub fn is_active(battle_object_id: u32) -> bool;
     // Enumerate current fighters directly. Ledge opponents may not poll the
     // hooked command category while hanging, so callbacks alone are insufficient.

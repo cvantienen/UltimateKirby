@@ -7,6 +7,8 @@ use crate::{ButtonSet, InputRecipe, RuleTiming, Scenario, ScenarioRule};
 
 /// Press shield when the adapter reports a tech opportunity.
 /// The adapter must report the actionable window, not just general tumble.
+/// # Fields
+/// * `timing` - The timing rule for when to press shield.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AutoTech {
     pub timing: RuleTiming,
@@ -23,6 +25,9 @@ impl Default for AutoTech {
 // Preset constructors only describe a rule. Native collision detection lives
 // in src/live.rs + tech_prediction.rs; the live scheduler maps SHIELD to ZR.
 impl AutoTech {
+    /// Constructs a `ScenarioRule` for the auto-tech preset based on the current timing.
+    /// # Returns
+    /// A `ScenarioRule` configured for the auto-tech preset.
     pub const fn rule(self) -> ScenarioRule {
         ScenarioRule::controller(
             Scenario::Tech,
@@ -34,9 +39,11 @@ impl AutoTech {
 
 /// Repeated button pulses while trapped in a mashable/clatter state.
 /// A pulse interval of at least two frames leaves an assist-release gap.
-/// Generic arbitration preserves player-held buttons. This remains a teaching
 /// preset: live_input.rs translates its selected Clatter decision into a
 /// left-stick cycle instead of sending these buttons on the Switch.
+/// # Fields
+/// * `buttons` - The set of buttons to pulse.
+/// * `interval_frames` - The interval in frames between pulses.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AutoMash {
     pub buttons: ButtonSet,
@@ -44,6 +51,7 @@ pub struct AutoMash {
 }
 
 impl Default for AutoMash {
+    /// Constructs the default auto-mash preset with standard buttons(attack) and interval(3).
     fn default() -> Self {
         Self {
             buttons: ButtonSet::ATTACK,
@@ -53,6 +61,9 @@ impl Default for AutoMash {
 }
 
 impl AutoMash {
+    /// Constructs a `ScenarioRule` for the auto-mash preset based on the current buttons and interval.
+    /// # Returns
+    /// A `ScenarioRule` configured for the auto-mash preset.
     pub fn rule(self) -> ScenarioRule {
         ScenarioRule::controller(
             Scenario::Clatter,

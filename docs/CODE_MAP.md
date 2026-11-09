@@ -36,8 +36,7 @@ Paths below are relative to the project root. Core paths begin with
 | Core `shared/controller/action_owner.rs` | One committed input owner, explicit interruption rules and losing-plan cancellation. |
 | `data/Ultimate_stats.json` | Sole source for roster-wide fighter stats and move-frame data; embedded and parsed once at startup. |
 | Core `autopilot_guard.rs` | Shared copied hitbox shape, incoming-attack warning envelope and held shield timing for ledge autopilot. |
-| Core `auto_duck.rs` | Auto-duck geometry, threat aggregation, timing and crouch/shield input policy; reuses `autopilot_guard::Hitbox`. |
-| `src/live/duck_hits.rs` | Disabled reference implementation; its native hitbox scans, source tracking and ATTACK hook are not enabled. |
+| `src/live/attack_sources.rs` / `src/live/projectile_sources.rs` | Bounded read-only ATTACK-source tracking shared by ledge shield and projectile reflection. |
 | `src/lib.rs` | Skyline entry point; calls installation once. |
 | `src/live.rs` | Hook orchestration, controller selection, fighter-observation admission and planning, shared session state and tool priority. |
 | `src/live/config.rs` | Startup-only master `sequences.txt` loading/validation; `config.txt` fallback for older files. |
@@ -67,11 +66,10 @@ Paths below are relative to the project root. Core paths begin with
 | Core `fighters/kirby/` | Kirby-specific tilt-trip and forward-air follow-up input policies. |
 | Core `fighters/yoshi/jab_lock.rs` / `jab_lock.rs` | Yoshi-specific defaults and shared jab-lock policy. |
 | Core `shared/controller/up_b_receipt.rs` | Shared bounded native-start receipt for direct automatic Up-B sequences. |
-| Core `fighters/captain_falcon/punch_duck.rs` | Legacy Falcon Punch duck candidate; live defense uses shared hitbox geometry. |
 | Core `fighters/tuning_defaults.rs` | Fighter-specific tuning visibility and legacy display defaults. |
 | Core `fighters/game_and_watch/projectile_reflect.rs` / `shared/observations/projectile_geometry.rs` | Game & Watch projectile defense and reusable swept geometry. |
 | Core `fighters/ganondorf/flame_choke.rs` | Grounded Flame Choke release detection, contact timing and tech-window selection. |
-| `src/live/fighters/` | Fighter-specific native adapters, including Kirby follow-up and duck-defense observations, Yoshi jab-lock observations and lifecycle, Ganondorf capture timing, and Game & Watch's reflector. Ice Climbers partner validation lives with the shared roster adapter. |
+| `src/live/fighters/` | Fighter-specific native adapters, including Kirby follow-ups, Yoshi jab-lock observations and lifecycle, Ganondorf capture timing, and Game & Watch's reflector. Ice Climbers partner validation lives with the shared roster adapter. |
 | Core `native_states.rs` / `native_states/fighter/` | Shared native status rules and fighter-specific constants, interruption, and special/final-state classification. |
 | Core `shared/survival/tech_prediction.rs` / `tech_input.rs` | Pure collision timing / shield request and acknowledgment scheduling. |
 | Core `timing.rs` | Shared motion-progress classification, event deduplication, simulation-frame arithmetic and forecast overlap. No learned compensation. |

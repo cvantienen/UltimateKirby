@@ -49,8 +49,6 @@ impl Default for LiveSettings {
 pub struct LiveConfig {
     /// L-held approximate defense against nearby active fighter attacks.
     pub autopilot_shield: bool,
-    /// Legacy setting; Auto-duck is disabled in the live adapter for now.
-    pub kirby_auto_duck: bool,
     pub down_tilt_trip_smash: bool,
     pub kirby_fair1_smash: bool,
     pub auto_sdi: bool,
@@ -71,7 +69,6 @@ impl Default for LiveConfig {
     fn default() -> Self {
         Self {
             autopilot_shield: true,
-            kirby_auto_duck: false,
             down_tilt_trip_smash: true,
             kirby_fair1_smash: true,
             auto_sdi: true,
@@ -117,8 +114,9 @@ impl LiveConfig {
                 "autopilot_shield" => {
                     config.autopilot_shield = value.parse().map_err(|_| invalid())?
                 }
+                // Accept and validate retired settings in older SD files.
                 "kirby_auto_duck" => {
-                    config.kirby_auto_duck = value.parse().map_err(|_| invalid())?
+                    let _: bool = value.parse().map_err(|_| invalid())?;
                 }
                 "down_tilt_trip_smash" => {
                     config.down_tilt_trip_smash = value.parse().map_err(|_| invalid())?

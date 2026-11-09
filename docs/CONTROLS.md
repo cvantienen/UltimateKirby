@@ -67,9 +67,9 @@ Command grabs are not modeled. See [Grab dodge](GRAB_DODGE.md).
 Effective ledge autopilot activation (fixed L or another assigned ledge binding, or its ON toggle) also enables the [grounded defensive shield](LEDGE_TRAP.md#held-l-defensive-shield)
 when nearby active or known imminent fighter attacks enter an approximate danger envelope. This
 works without a ledge grab. Releasing the ledge binding disengages it when the toggle is OFF; committed punishes retain
-priority. Projectiles and grabs are not detected by this check.
-Auto-duck and its hitbox-reader hook are disabled, even with an older config
-that sets `kirby_auto_duck = true`. The old Y Finisher binding is retired; Y
+priority. Tracked weapon/item hitboxes may also be checked; grabs are not detected.
+Auto-duck has been removed; an older `kirby_auto_duck` setting has no effect.
+The old Y Finisher binding is retired; Y
 uses the selected recipe or Normal button. See [sequence files](SEQUENCE_FILES.md).
 
 Menus appear in the **top-left in silent builds** and **top-right in diagnostic
@@ -223,7 +223,10 @@ protected from competing configured actions until its response finishes.
 
 Temporary mode toggles survive stocks but reset with the match menu session. It does
 not disable tech. Automatic tech and SDI otherwise follow their startup settings;
-DI/SDI respect a stick already held or moved outside 20% during hitstop, retaining manual control for that hit. SDI stops for the final three launch-input frames; automatic DI defaults to Survival. Legacy Adaptive also uses survival behavior. Explicit Escape remains available but can worsen survival. See [DI/SDI behavior](DI_SDI.md).
+selected DI/SDI responses own gameplay input rather than yielding to physical
+stick movement. SDI stops for the final three launch-input frames; automatic DI
+defaults to Survival. Legacy Adaptive also uses survival behavior. Explicit
+Escape remains available but can worsen survival. See [DI/SDI behavior](DI_SDI.md).
 
 See [the menu](LEDGE_MENU.md), [shortcuts](TURBO_CONTROLS.md),
 [ledge trump](LEDGE_TRUMP.md), [recovery cover](TWO_FRAME.md), and

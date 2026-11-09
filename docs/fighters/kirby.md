@@ -274,8 +274,8 @@ network or SD-card reads.
 ## Optional posture
 
 Idle crouch and Tilt face menu toggles start ON, with down tilt selected by default. Holding L suspends idle crouch
-until release. See [shared inputs and posture](../INPUT_RECIPES.md). These do not
-reactivate the disabled incoming-hitbox auto-duck.
+until release. See [shared inputs and posture](../INPUT_RECIPES.md). These are
+independent of the removed incoming-hitbox auto-duck feature.
 
 Dtilt face now prepares its directional Down angle before A, while Down is held,
 and retains manual-tool priority through native down-tilt recovery between taps.

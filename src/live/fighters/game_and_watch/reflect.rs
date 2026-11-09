@@ -6,7 +6,7 @@ use kirby_assist_core::{
     projectile_reflect::{self as policy, Config, Context, Threat},
     timing::AnimationSample,
 };
-
+use kirby_assist_core::battle_objects::ObjectCategory;
 pub(super) unsafe fn observe(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
@@ -17,7 +17,7 @@ pub(super) unsafe fn observe(
     allowed: bool,
 ) -> Option<(Config, Context, Option<Threat>)> {
     let config = config.filter(|_| allowed && policy::supports(kind))?;
-    let sources = super::duck_hits::projectiles();
+    let sources = super::attack_sources::projectiles();
     if tracked.is_none() && sources.iter().all(Option::is_none) {
         return None;
     }
@@ -101,7 +101,7 @@ pub(super) unsafe fn observe(
             continue;
         }
         if !game::is_active(id) {
-            super::duck_hits::forget(id);
+            super::attack_sources::forget(id);
             continue;
         }
         let object = game::module_accessor(id);
@@ -120,15 +120,25 @@ pub(super) unsafe fn observe(
         {
             continue;
         }
-        if id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON {
+        let Some(category) = ObjectCategory::from_id(id) else {
+            continue;
+        };
+        if category == ObjectCategory::Weapon {
+            // Only consider weapons that are projectiles.
             let source_kind = reads.fighter_kind(object);
+            // Determine the status of the source based on its kind.
+            // Pikmin have a special status that needs to be checked to determine if they are projectiles.
             let source_status =
                 if source_kind == kirby_assist_core::battle_objects::WEAPON_KIND_PIKMIN_PIKMIN {
-                    reads.status_kind(object)
+                    reads.status_kind(object)    
                 } else {
+                    /// For non-Pikmin weapons, the source status is set to 0.
+                    /// Non-Pikmin weapons do not have a special status for projectile determination.
+                    /// so using 0 makes sense for non-Pikmin weapons, since they do not have a special status for projectile determination.
+                    /// the special status is only relevant for Pikmin weapons due to their unique projectile behavior, 
                     0
                 };
-            if !kirby_assist_core::battle_objects::projectile_actor(id, source_kind, source_status)
+            if !ObjectCategory::is_projectile(id, source_kind, source_status)
             {
                 continue;
             }

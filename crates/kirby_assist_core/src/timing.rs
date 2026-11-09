@@ -19,6 +19,14 @@ pub struct MotionStamp {
 }
 
 impl MotionStamp {
+    /// Constructs a new `MotionStamp` with the given status, motion, frame, and rate.
+    /// # Parameters
+    /// * `status` - The status code of the motion.
+    /// * `motion` - The identifier of the motion.
+    /// * `frame` - The current frame of the motion.
+    /// * `rate` - The playback rate of the motion.
+    /// # Returns
+    /// A `MotionStamp` initialized with the provided values.
     pub fn new(status: i32, motion: u64, frame: f32, rate: f32) -> Self {
         Self {
             status,
@@ -28,11 +36,23 @@ impl MotionStamp {
         }
     }
 
+    /// Checks if the motion stamp represents a valid and positive playback state.
+    /// # Returns
+    /// `true` if the frame and rate are finite and the rate is positive, `false` otherwise.
     pub fn valid(self) -> bool {
         self.frame.is_finite() && self.frame >= 0.0 && self.rate.is_finite() && self.rate > 0.0
     }
 }
 
+/// Represents the progress of a motion relative to its previous state.
+/// This enum helps track whether a motion has just started, repeated, advanced, transitioned, rewound, or become invalid.
+/// # Variants
+/// * `Initial` - The motion has just started.
+/// * `Duplicate` - The motion has not advanced since the last observation.
+/// * `Advanced(f32)` - The motion has progressed by the given number of frames.
+/// * `Transition` - The motion has changed to a different status or motion.
+/// * `Rewind` - The motion has moved backward in time.
+/// * `Invalid` - The motion is in an invalid state.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MotionProgress {
     Initial,
@@ -57,6 +77,12 @@ impl MotionProgress {
     }
 }
 
+/// Computes the progress of a motion given its previous and current stamps.
+/// # Parameters
+/// * `previous` - The previous motion stamp, if available.
+/// * `current` - The current motion stamp.
+/// # Returns
+/// A `MotionProgress` value representing how the motion has progressed.
 pub fn motion_progress(previous: Option<MotionStamp>, current: MotionStamp) -> MotionProgress {
     if !current.valid() {
         return MotionProgress::Invalid;
@@ -101,12 +127,22 @@ pub fn simulation_elapsed(previous: Option<u64>, current: u64) -> Option<u64> {
     previous.map_or(Some(0), |old| current.checked_sub(old))
 }
 
+/// Computes the elapsed simulation frames between two timestamps.
+/// # Parameters
+/// * `first` - The first frame of the active window.
+/// * `last` - The last frame of the active window.
+/// # Returns
+/// An `Option<u64>` representing the number of frames elapsed, or `None` if the subtraction would overflow.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActiveWindow {
     pub first: u16,
     pub last: u16,
 }
 
+/// Represents a window of active frames during which an action can occur.
+/// # Fields
+/// * `vulnerable_in` - The frame at which the target becomes vulnerable.
+/// * `actionable_in` - The frame at which the target can take an action.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RecoveryWindow {
     /// Some(0) means vulnerable now; None means unknown.
@@ -114,7 +150,7 @@ pub struct RecoveryWindow {
     /// Exclusive deadline: at this time the target may choose a defense.
     pub actionable_in: Option<f32>,
 }
-
+/// Represents a predicted contact with the target.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PredictedContact {
     pub in_frames: f32,
@@ -169,6 +205,10 @@ pub struct AnimationSample {
     pub auxiliary: f32,
 }
 
+/// Tracks the progression of animation samples and assigns a tick count to each unique state.
+/// # Fields
+/// * `previous` - The previous observed animation sample, if any.
+/// * `tick` - The current tick count representing the number of unique states observed.
 #[derive(Default)]
 pub struct AnimationClock {
     previous: Option<AnimationSample>,
@@ -176,12 +216,19 @@ pub struct AnimationClock {
 }
 
 impl AnimationClock {
+    /// Constructs a new `AnimationClock` with no previous sample and a tick count of zero.
     pub const fn new() -> Self {
         Self {
             previous: None,
             tick: 0,
         }
     }
+    /// Observes a new animation sample and updates the tick count if the state has changed.
+    /// # Parameters
+    /// * `sample` - The current animation sample to observe.
+    /// * `stopped` - Indicates whether the animation has stopped.
+    /// # Returns
+    /// An `Option<i64>` representing the current tick count if the state has changed, or `None` if the observation is ignored.
     pub fn observe(&mut self, sample: AnimationSample, stopped: bool) -> Option<i64> {
         if stopped
             || sample.kind == NO_MOTION_KIND

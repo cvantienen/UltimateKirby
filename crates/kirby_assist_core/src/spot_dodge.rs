@@ -58,6 +58,93 @@ struct Track {
     used: bool,
 }
 
+type Tracks = [Option<Track>; crate::battle_objects::FIGHTER_CAPACITY];
+
+#[derive(Clone, Copy)]
+struct ThreatWindow {
+    lookahead: f32,
+    padding: f32,
+    height: f32,
+}
+
+fn is_grab_target(target: Target) -> bool {
+    matches!(
+        target.status,
+        crate::native_states::CATCH
+            | crate::native_states::CATCH_DASH
+            | crate::native_states::CATCH_TURN
+    ) && target.motion != crate::timing::NO_MOTION_KIND
+        && target.frame.is_finite()
+        && target.frame >= 0.0
+}
+
+fn track_grabs(
+    old: Tracks,
+    selected_target: Option<u32>,
+    targets: &[Option<Target>; 8],
+    context: Context,
+    request_ready: bool,
+    window: ThreatWindow,
+) -> (Tracks, Option<(u32, f32)>) {
+    let mut tracks = [None; crate::battle_objects::FIGHTER_CAPACITY];
+    let mut threat: Option<(u32, f32)> = None;
+    for (slot, entry) in targets.iter().enumerate() {
+        let Some(target) = *entry else {
+            continue;
+        };
+        if !is_grab_target(target) {
+            continue;
+        }
+        let used = old.iter().flatten().any(|previous| {
+            previous.id == target.id
+                && previous.status == target.status
+                && previous.motion == target.motion
+                && previous.used
+        });
+        tracks[slot] = Some(Track {
+            id: target.id,
+            status: target.status,
+            motion: target.motion,
+            frame: target.frame,
+            rate: target.rate,
+            used,
+        });
+        if !used && request_ready {
+            if let Some(contact) = contact_with_shape(
+                context,
+                target,
+                window.lookahead,
+                window.padding,
+                window.height,
+            ) {
+                if threat.is_none_or(|(_, earliest)| contact < earliest) {
+                    threat = Some((target.id, contact));
+                }
+            }
+        }
+    }
+
+    for previous in old
+        .into_iter()
+        .flatten()
+        .filter(|previous| previous.used || Some(previous.id) == selected_target)
+    {
+        let still_tracked = tracks.iter().flatten().any(|track| track.id == previous.id);
+        let status_changed = targets
+            .iter()
+            .flatten()
+            .any(|target| target.id == previous.id && target.status != previous.status);
+        if still_tracked || status_changed {
+            continue;
+        }
+        if let Some(empty) = tracks.iter_mut().find(|track| track.is_none()) {
+            *empty = Some(previous);
+        }
+    }
+
+    (tracks, threat)
+}
+
 pub fn contact(c: Context, t: Target) -> Option<f32> {
     contact_with_lookahead(c, t, LOOKAHEAD)
 }
@@ -474,60 +561,19 @@ impl SpotDodge {
             && c.can_spot_dodge
             && self.punish_target.is_none()
             && !self.response.configured_committed();
-        let mut threat: Option<(u32, f32)> = None;
-        self.tracks = [None; crate::battle_objects::FIGHTER_CAPACITY];
-        for (slot, entry) in targets.iter().enumerate() {
-            let Some(t) = entry else {
-                continue;
-            };
-            if !matches!(
-                t.status,
-                crate::native_states::CATCH
-                    | crate::native_states::CATCH_DASH
-                    | crate::native_states::CATCH_TURN
-            ) || t.motion == crate::timing::NO_MOTION_KIND
-                || !t.frame.is_finite()
-                || t.frame < 0.0
-            {
-                continue;
-            }
-            let used = old
-                .iter()
-                .flatten()
-                .any(|p| p.id == t.id && p.status == t.status && p.motion == t.motion && p.used);
-            self.tracks[slot] = Some(Track {
-                id: t.id,
-                status: t.status,
-                motion: t.motion,
-                frame: t.frame,
-                rate: t.rate,
-                used,
-            });
-            if !used && request_ready {
-                if let Some(at) = contact_with_shape(c, *t, lookahead, padding, height) {
-                    if threat.is_none_or(|(_, best)| at < best) {
-                        threat = Some((t.id, at));
-                    }
-                }
-            }
-        }
-        for previous in old
-            .into_iter()
-            .flatten()
-            .filter(|p| p.used || Some(p.id) == self.target)
-        {
-            if self.tracks.iter().flatten().any(|t| t.id == previous.id)
-                || targets
-                    .iter()
-                    .flatten()
-                    .any(|t| t.id == previous.id && t.status != previous.status)
-            {
-                continue;
-            }
-            if let Some(empty) = self.tracks.iter_mut().find(|t| t.is_none()) {
-                *empty = Some(previous);
-            }
-        }
+        let (tracks, threat) = track_grabs(
+            old,
+            self.target,
+            &targets,
+            c,
+            request_ready,
+            ThreatWindow {
+                lookahead,
+                padding,
+                height,
+            },
+        );
+        self.tracks = tracks;
         if c.status == ESCAPE {
             if let Some(id) = self.target {
                 if enabled {

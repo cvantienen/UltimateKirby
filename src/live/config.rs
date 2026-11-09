@@ -8,12 +8,14 @@ use kirby_assist_core::{
 
 const CONFIG_PATH: &str = "sd:/ultimate/kirby_assist/config.txt";
 const SEQUENCES_PATH: &str = "sd:/ultimate/kirby_assist/sequences.txt";
-
+/// Type alias for the loaded configuration, including the live config, fighter profiles, and sequence library.
 type LoadedConfig = (Box<LiveConfig>, FighterProfiles, SequenceLibrary);
 
 // Full saved catalogs can exceed the native loader's 64 KiB stack when nested
 // config/parser/allocator frames overlap. Join this startup-only worker before
 // installing any hooks. Its stack and thread are released after loading.
+/// Loads the configuration from the SD card, including the live config, fighter profiles, and sequence library.
+/// Returns an error if the configuration cannot be loaded.
 #[inline(never)]
 pub(super) fn load_config() -> Result<LoadedConfig, String> {
     std::thread::Builder::new()
@@ -25,8 +27,8 @@ pub(super) fn load_config() -> Result<LoadedConfig, String> {
         .map_err(|_| "Config loader failed; no hooks installed".to_owned())?
 }
 
-// Returning the large Copy config inline would retain config-sized slots on
-// the caller's small loader stack. This box is freed after publication.
+/// Returning the large Copy config inline would retain config-sized slots on
+/// the caller's small loader stack. This box is freed after publication.
 #[inline(never)]
 fn load_on_worker() -> Result<LoadedConfig, String> {
     super::settings_menu::recover_saved_file()?;
@@ -58,6 +60,8 @@ fn load_on_worker() -> Result<LoadedConfig, String> {
     prepare_runtime(config, sequences)
 }
 
+/// Prepares the runtime configuration, including fighter profiles and sequence library.
+/// Returns the loaded configuration or an error if preparation fails.
 fn prepare_runtime(config: LiveConfig, sequences: Catalog) -> Result<LoadedConfig, String> {
     let mut profiles = FighterProfiles::default();
     profiles.validate()?;

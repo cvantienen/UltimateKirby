@@ -22,7 +22,7 @@ pub(super) struct State {
     pub(super) human_routes: [Option<(u32, Instant)>; 8],
     // Roster IDs are discovered only by native callbacks; synchronous mapper
     // refreshes revalidate these IDs instead of enumerating a loading roster.
-    pub(super) ledge_roster: Option<(kirby_assist_core::battle_objects::FighterRoster, i64)>,
+    pub(super) ledge_roster: Option<(kirby_assist_core::battle_objects::FightersInGame, i64)>,
     // Our mapper-call counter, NOT a verified simulation-frame or HID clock.
     pub(super) raw_tick: i64,
     pub(super) raw_seen: Option<Instant>,
@@ -83,9 +83,6 @@ pub(super) struct State {
     pub(super) oos_output: ControllerOutput,
     pub(super) autopilot_guarding: bool,
     pub(super) guard_hold: Option<kirby_assist_core::autopilot_guard::GuardHold>,
-    pub(super) duck_defense: Option<kirby_assist_core::auto_duck::DuckDefense>,
-    pub(super) duck_active: bool,
-    pub(super) duck_output: ControllerOutput,
     pub(super) reflector: kirby_assist_core::projectile_reflect::Reflector,
     pub(super) reflect_output: ControllerOutput,
     pub(super) spot_dodge: Option<kirby_assist_core::spot_dodge::SpotDodge>,
@@ -258,8 +255,6 @@ impl State {
         if keep != Some(Owner::Defense) {
             self.autopilot_guarding = false;
             self.guard_hold = None;
-            self.duck_defense = None;
-            self.duck_output = ControllerOutput::default();
         }
         if keep != Some(Owner::OptionRead) {
             if let Some(spot) = self.spot_dodge.as_mut() {
@@ -392,17 +387,8 @@ impl State {
             },
             autopilot_guarding: false,
             guard_hold: None,
-            duck_defense: None,
-            duck_active: false,
             spot_dodge: None,
             spot_output: ControllerOutput {
-                consume_trigger: false,
-                stick: None,
-                requested: 0,
-                owned: 0,
-                native_short_hop: false,
-            },
-            duck_output: ControllerOutput {
                 consume_trigger: false,
                 stick: None,
                 requested: 0,
@@ -500,9 +486,6 @@ impl State {
             self.last_input_expired = false;
         }
         self.guard_hold = None;
-        self.duck_defense = None;
-        self.duck_active = false;
-        self.duck_output = ControllerOutput::default();
         self.spot_dodge = None;
         self.spot_output = ControllerOutput::default();
         self.rule_engine = None;
@@ -566,9 +549,6 @@ impl State {
             self.last_input_expired = false;
         }
         self.guard_hold = None;
-        self.duck_defense = None;
-        self.duck_active = false;
-        self.duck_output = ControllerOutput::default();
         self.spot_dodge = None;
         self.spot_output = ControllerOutput::default();
         self.rule_engine = None;

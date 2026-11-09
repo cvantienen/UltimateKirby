@@ -9,6 +9,9 @@ pub fn native_grab_active(status: i32) -> bool {
         crate::native_states::CATCH..=crate::native_states::THROW
     )
 }
+
+/// The owner of a committed action,
+/// determining which gameplay source controls the input.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Owner {
     Safety,
@@ -127,6 +130,8 @@ pub fn safety_output_with_deadline(
     };
     (output, tech)
 }
+
+/// Represents the intent of an action owner, including whether it is present and committed.
 #[derive(Clone, Copy)]
 pub struct Intent {
     pub owner: Owner,
@@ -154,6 +159,8 @@ impl Intent {
         }
     }
 }
+
+/// Tracks the ownership status of various action sources, including ledge priority and manual takeover.
 #[derive(Default)]
 pub struct ActionOwnership {
     locked: Option<Owner>,

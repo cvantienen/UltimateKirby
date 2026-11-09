@@ -85,7 +85,6 @@ pub(super) struct SettingsMenu {
     pub native_buttons: u32,
     pub builtin_consumed: u32,
     pub ledge_held: bool,
-    pub duck_held: bool,
     scope: bool,
     resolved: Option<AssistSettings>,
     resolved_choices:
@@ -422,7 +421,6 @@ impl SettingsMenu {
     }
     pub fn invalidate(&mut self) {
         self.ledge_held = false;
-        self.duck_held = false;
         self.scope = false;
         if let Some(selection) = self.kind.and_then(|kind| self.selections.get_mut(&kind)) {
             if selection.preview_slot.take().is_some() {
@@ -658,7 +656,6 @@ impl SettingsMenu {
             && (selection.preview_slot.is_some()
                 || selection.ledge_held(buttons)
                 || selection.autopilot_held(buttons));
-        self.duck_held = gameplay && selection.auto_duck_held(buttons);
         if self.resolved_choices != Some(selection.choices)
             || self.resolved_recipe_revision != Some(selection.recipe_revision)
             || self.resolved_preview != selection.preview_slot

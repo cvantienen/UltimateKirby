@@ -1,7 +1,7 @@
 //! Small geometric warning envelope, not native hitbox/hurtbox collision data.
 //! Only use this for a fighter with an active or verified imminent attack.
 
-/// Copied attack geometry shared by guard and auto-duck threat checks.
+/// Copied attack geometry shared by guard and projectile threat checks.
 #[derive(Clone, Copy, Debug)]
 pub struct Hitbox {
     pub start: [f32; 3],
@@ -10,7 +10,7 @@ pub struct Hitbox {
     pub velocity: [f32; 2],
 }
 
-pub const LOOKAHEAD_FRAMES: f32 = 5.0;
+pub const LOOKAHEAD_FRAMES: f32 = 10.0;
 pub const HOLD_FRAMES: f32 = 4.0;
 #[derive(Clone, Copy)]
 pub struct Envelope {
@@ -129,6 +129,8 @@ pub fn recovery_warning(
 pub fn referenced_imminent_attack(kind: i32, motion: u64, frame: f32, rate: f32) -> bool {
     referenced_imminent_attack_with(kind, motion, frame, rate, LOOKAHEAD_FRAMES)
 }
+
+/// Predict whether an opponent's attack will become active within the forecast window.
 pub fn referenced_imminent_attack_with(
     kind: i32,
     motion: u64,

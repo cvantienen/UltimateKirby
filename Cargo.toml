@@ -1680,6 +1680,14 @@ Fixes constant initialization of tilt-side aliases and scopes the diagnostic-onl
 Refactors mapper admission, training passthrough, and fighter observation policy snapshots into focused helpers.
 
 Separates mapper preparation, ownership, posture, damage-stick sampling and finalization, and extracts fighter roster, publication and tech observation phases without changing native input timing.
+
+Separates mapped-delivery bookkeeping into focused input-feedback helpers and isolates spot-dodge target tracking from its response state machine without changing delivery order or policy behavior.
+
+Fixes manual ledge walking to accept the actual turbo output type while preserving stick priority.
+
+Fixes strict documentation links and updates DI/SDI guidance to match current input ownership, flick timing and survival forecasts.
+
+Removes auto-duck while retaining shared projectile source tracking for ledge shielding and reflection, and validates legacy settings without enabling the removed feature.
 """
 
 

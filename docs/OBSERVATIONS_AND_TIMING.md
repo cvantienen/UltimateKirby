@@ -20,7 +20,7 @@ not a promise that individual native reads form an atomic engine snapshot.
 - All fighters' ledge responses, grab movement and recovery coverage.
 - Ledge trump and onstage roll reads.
 - Autopilot shielding, shortcuts and fair/trip confirmations.
-- Tech/captor timing, SDI, and the currently disabled auto-duck reader.
+- Tech/captor timing and SDI.
 
 Readiness/transition terms, hit confirmations, active attacks, collision queries
 and protection metadata remain live, demand-driven reads. The snapshot never
@@ -58,8 +58,8 @@ or measure the shared ImGui host's own frame/GPU work or Deluxe's renderer.
 
 Ledge shield geometry reads an opponent's scale only when an active hitbox needs
 a geometry test, once per opponent in that pass. Near-hitbox early returns, native
-attack checks and detection ranges are unchanged. The optional auto-duck ATTACK
-observer hook remains uninstalled; these changes add no projectile scanning.
+attack checks and detection ranges are unchanged. The shared ATTACK observer
+tracks bounded projectile sources for ledge shielding and projectile reflection.
 D-pad sequence bindings remain fixed numeric checks over six button slots,
 with recipes resolved on selection/edit changes rather than every button poll.
 Removing those bindings is not expected to remove substantial ongoing work.

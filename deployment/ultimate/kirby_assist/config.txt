@@ -29,12 +29,9 @@ auto_mash = false
 auto_tech = true
 # Hold L: approximate grounded defense against nearby active fighter attacks.
 # Uses a short root-position/velocity envelope, not exact hitbox collision.
-# Does not track projectiles or shield grabs; restart after changing this value.
+# Tracked weapon/item hitboxes may also warn; grabs are not detected.
+# Restart after changing this value.
 autopilot_shield = true
-# Auto-duck is temporarily disabled in code, including its hitbox-reader hook.
-# Retained legacy setting; true cannot restore it in this build.
-# Kirby Y now attempts the selected Finisher menu route, once per press.
-kirby_auto_duck = false
 # Diagnostic: extra tech details plus ledge wait snapshots at most twice/second.
 # Action changes and attack edges remain logged when false. Background I/O is buffered.
 # Silent compiles the logger out regardless of this setting.

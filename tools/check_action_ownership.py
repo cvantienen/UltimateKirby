@@ -24,7 +24,11 @@ def main():
     handoff = block(source, 'if spot.target().is_none() {')
     preempt = block(source, 'let preempt_grab = |state: &mut State| {')
     phase_change = block(source, 'if shield_fallback_pending\n            && !state.oos.shield_up_b_pending()')
-    start = source.index('let ledge_committed =')
+    intent_inputs = block(source, 'struct MapperIntentInputs')
+    intent_selection = block(source, 'fn mapper_action_intents(')
+    owner_output = block(source, 'fn selected_owner_output(')
+    owner_right_stick = block(source, 'fn selected_owner_right_stick(')
+    start = source.index('let mut intents = mapper_action_intents(')
     end = source.index('state.cancel_non_owner(winner);', start) + len('state.cancel_non_owner(winner);')
     selection = source[start:end]
     fixture = r'''
@@ -51,17 +55,20 @@ impl Menu {fn rule_config(&self)->Option<&kirby_assist_core::reaction_rules::Res
  ledge:Option<LedgeTrap>,ledge_output:ControllerOutput,ledge_active:bool,
  oos:OutOfShield,oos_output:ControllerOutput,
  autopilot_guarding:bool,guard_hold:Option<kirby_assist_core::autopilot_guard::GuardHold>,
- duck_defense:Option<kirby_assist_core::auto_duck::DuckDefense>,duck_output:ControllerOutput,
  spot_dodge:Option<kirby_assist_core::spot_dodge::SpotDodge>,spot_output:ControllerOutput,
  trump:Option<kirby_assist_core::ledge_trump::LedgeTrump>,trump_output:ControllerOutput,
  tech_output:TechOutput,tech_urgent:bool,tech_input:Option<kirby_assist_core::tech_input::TechInput>,fighter_kind:Option<i32>,grab_handoff:GrabHandoff,
  settings_menu:Option<Menu>,raw_tick:i64,
 }
 impl State {__CANCEL__}
+__INTENT_INPUTS__
+__INTENT_SELECTION__
+__OWNER_OUTPUT__
+__OWNER_RIGHT_STICK__
 fn select(state:&mut State,fresh:bool,manual_scope:bool,mash_stick:Option<[f32;2]>,damage_stick:Option<[f32;2]>)->(Option<Owner>,ControllerOutput,Option<[f32;2]>) {
  select_phases(state,fresh,manual_scope,mash_stick,damage_stick,None)
 }
-fn select_phases(state:&mut State,fresh:bool,manual_scope:bool,mash_stick:Option<[f32;2]>,di_stick:Option<[f32;2]>,sdi_stick:Option<[f32;2]>)->(Option<Owner>,ControllerOutput,Option<[f32;2]>) {
+fn select_phases(mut state:&mut State,fresh:bool,manual_scope:bool,mash_stick:Option<[f32;2]>,di_stick:Option<[f32;2]>,sdi_stick:Option<[f32;2]>)->(Option<Owner>,ControllerOutput,Option<[f32;2]>) {
  let damage_stick=di_stick.or(sdi_stick);
  let ledge_priority=state.action_owner.ledge_priority();let native_grab=false;
  let posture=ControllerOutput::default();let turbo_stick=None;let pivot_stick=None;
@@ -216,7 +223,15 @@ fn reconsider_canceled_fallback(mut state:&mut State,c:GameplayContext,targets:[
  let mut s=State::default();assert_eq!(choose(&mut s),(None,ControllerOutput::default(),None));
  assert!(s.action_owner.allows(Owner::RollRead));
 }
-'''.replace('__CANCEL__', cancel).replace('__SELECT__', selection).replace('__HANDOFF__', handoff).replace('__PREEMPT__', preempt).replace('__PHASE_CHANGE__', phase_change)
+#[test]fn ledge_shield_keeps_defense_ownership_without_duck_output() {
+ let mut s=State::default();s.ledge_active=true;s.autopilot_guarding=true;
+ s.ledge_output=ControllerOutput{requested:MAPPER_ZR,owned:MAPPER_ZR,..Default::default()};
+ let (owner,out,_)=choose(&mut s);
+ assert_eq!(owner,Some(Owner::Defense));assert_eq!(out.requested,MAPPER_ZR);
+ s.autopilot_guarding=false;s.ledge_active=false;s.ledge_output=ControllerOutput::default();
+ assert_eq!(choose(&mut s).0,None);
+}
+'''.replace('__CANCEL__', cancel).replace('__INTENT_INPUTS__', intent_inputs).replace('__INTENT_SELECTION__', intent_selection).replace('__OWNER_OUTPUT__', owner_output).replace('__OWNER_RIGHT_STICK__', owner_right_stick).replace('__SELECT__', selection).replace('__HANDOFF__', handoff).replace('__PREEMPT__', preempt).replace('__PHASE_CHANGE__', phase_change)
     deps = ROOT / 'crates/kirby_assist_core/target/debug/deps'
     libs = list(deps.glob('libkirby_assist_core-*.rlib'))
     if not libs:

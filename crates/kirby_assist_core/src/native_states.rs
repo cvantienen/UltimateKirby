@@ -26,7 +26,9 @@ pub mod situation {
     pub const UNAVAILABLE: i32 = -1;
 
     // AttackData.situation is a bitmask, not a SITUATION_KIND value.
+    /// it represents the bitmask for ground-based attacks.
     pub const ATTACK_GROUND_MASK: u16 = 1;
+    
     pub const ATTACK_AIR_MASK: u16 = 2;
 }
 

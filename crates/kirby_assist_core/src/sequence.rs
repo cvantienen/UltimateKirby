@@ -16,7 +16,7 @@ impl InputStep {
     pub const fn hold(frames: u16, recipe: InputRecipe) -> Self {
         Self { frames, recipe }
     }
-
+    
     pub const fn wait(frames: u16) -> Self {
         Self::hold(frames, InputRecipe::NONE)
     }

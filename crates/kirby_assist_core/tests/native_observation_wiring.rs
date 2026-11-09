@@ -2,7 +2,7 @@
 //! Execute only copied-ID snapshots; no native FFI calls or installed hooks.
 #![allow(dead_code, unexpected_cfgs, unused_imports)]
 use kirby_assist_core::{
-    battle_objects::FighterRoster, fighter_profiles::FighterProfiles,
+    battle_objects::FightersInGame, fighter_profiles::FighterProfiles,
     ledge_position::LedgePosition, ledge_trap::LedgeTrap, sequence_config::SequenceLibrary,
 };
 use std::sync::{atomic::AtomicUsize, Mutex, OnceLock};
@@ -38,7 +38,7 @@ impl Menu {
 struct State {
     ledge: Option<LedgeTrap>,
     ledge_position: Option<LedgePosition>,
-    ledge_roster: Option<(FighterRoster, i64)>,
+    ledge_roster: Option<(FightersInGame, i64)>,
     settings_menu: Option<Menu>,
 }
 static STATE: Mutex<State> = Mutex::new(State {
@@ -50,19 +50,10 @@ static STATE: Mutex<State> = Mutex::new(State {
 static PROFILES: OnceLock<FighterProfiles> = OnceLock::new();
 static SEQUENCES: OnceLock<Mutex<SequenceLibrary>> = OnceLock::new();
 static MANAGER_SLOT: AtomicUsize = AtomicUsize::new(0);
-mod duck_hits {
+mod attack_sources {
     use super::*;
     pub fn sources() -> [Option<u32>; 32] {
         [None; 32]
-    }
-    pub unsafe fn observe(
-        _: &frame::FrameReads,
-        _: *mut game::Object,
-        _: u32,
-        _: [f32; 2],
-        _: [f32; 2],
-    ) -> kirby_assist_core::auto_duck::DefenseThreat {
-        Default::default()
     }
 }
 #[path = "../../../src/live/frame.rs"]

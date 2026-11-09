@@ -67,7 +67,7 @@ impl GroundSupportSnapshot {
         supported
     }
 }
-
+/// Field identifiers for fighter facts. Used as indices into the `facts` array of a `Fighter`.
 #[derive(Clone, Copy)]
 #[repr(usize)]
 pub enum Field {
@@ -96,6 +96,7 @@ pub enum Fact {
     Float(f32),
     Bool(bool),
 }
+/// A fighter in the observation snapshot, storing its identity and copied facts.
 struct Fighter {
     id: Cell<Option<u32>>,
     facts: [Cell<Option<Fact>>; FIELDS],
@@ -103,11 +104,13 @@ struct Fighter {
 /// At most eight fighter identities; an unexpected extra identity reads through.
 /// Construction allocates no heap memory and does not read the game eagerly.
 pub type ObservationSnapshot = ObservationSnapshotSized<8>;
+/// Observation snapshot for a fixed number of fighters. Stores copied facts and identities for passive analysis.
 pub struct ObservationSnapshotSized<const N: usize> {
     fighters: [Fighter; N],
     last: Cell<Option<usize>>,
 }
 impl<const N: usize> Default for ObservationSnapshotSized<N> {
+    /// Observation snapshot for a fixed number of fighters. Stores copied facts and identities for passive analysis.
     fn default() -> Self {
         Self {
             last: Cell::new(None),
@@ -169,9 +172,9 @@ impl<const N: usize> ObservationSnapshotSized<N> {
             }
         })
     }
+    /// Most consumers read several fields from the same fighter in a row.
+    /// This cursor only speeds slot lookup; fact lifetime/overflow stay exact.
     pub fn read(&self, id: u32, field: Field, read: impl FnOnce() -> Fact) -> Fact {
-        // Most consumers read several fields from the same fighter in a row.
-        // This cursor only speeds slot lookup; fact lifetime/overflow stay exact.
         let index = self
             .last
             .get()

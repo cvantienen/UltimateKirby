@@ -6,41 +6,37 @@
 //! these are separate from our fighter's attack startup and input recipes.
 use super::{MANAGER_SLOT, STATE};
 use crate::game_ffi as game;
-
+/// Budget for scanning attack geometry per frame.
 const ATTACK_GEOMETRY_SCAN_BUDGET: usize = 16;
-use kirby_assist_core::auto_duck::DefenseThreat;
 use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
+use kirby_assist_core::battle_objects::ObjectCategory;
 use kirby_assist_core::kirby::TripTarget;
 use kirby_assist_core::ledge_position::LedgePosition;
 use kirby_assist_core::ledge_trap::{in_tracking_range, LedgeTrap, CLIFF_CATCH_MOVE, CLIFF_JUMP3};
 use kirby_assist_core::settings::AssistSettings;
 use std::sync::atomic::Ordering;
 
-/// L shield defense uses the cached roster and bounded remembered weapon/item
-/// sources. Held-Y duck defense uses its separately calibrated body geometry.
+/// L shield defense uses the cached roster and bounded remembered weapon/item sources.
 pub(super) unsafe fn incoming_fighter_attack(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
     own_id: u32,
     position: [f32; 2],
     velocity: [f32; 2],
-    allow_duck: bool,
     envelope: kirby_assist_core::autopilot_guard::Envelope,
-) -> DefenseThreat {
+) -> bool {
     #[cfg(feature = "diagnostic-logging")]
     let _performance = crate::performance::Scope::new(crate::performance::Part::Shield);
-    if allow_duck {
-        return super::duck_hits::observe(reads, own, own_id, position, velocity);
-    }
-    let mut threats = DefenseThreat::default();
     let roster = reads.roster();
     let roster = roster.unwrap_or([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
     let team = reads.team(own);
     let mut geometry_budget = ATTACK_GEOMETRY_SCAN_BUDGET;
     let mut own_z = None;
+
+    // Iterate over all potential attack sources.
     for id in roster
         .into_iter()
-        .chain(super::duck_hits::sources())
+        .chain(super::attack_sources::sources())
         .flatten()
     {
         if id == own_id
@@ -54,6 +50,7 @@ pub(super) unsafe fn incoming_fighter_attack(
         {
             continue;
         }
+
         let enemy = game::module_accessor(id);
         if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == team {
             continue;
@@ -80,7 +77,7 @@ pub(super) unsafe fn incoming_fighter_attack(
             target_velocity,
             envelope,
         );
-        if id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER {
+        if ObjectCategory::from_id(id) == Some(ObjectCategory::Fighter) {
             let status = reads.status_kind(enemy);
             if status >= kirby_assist_core::native_states::status::SPECIAL_HI {
                 let previous = if status >= kirby_assist_core::native_states::status::FINAL {
@@ -98,8 +95,7 @@ pub(super) unsafe fn incoming_fighter_attack(
                     target_velocity,
                     envelope,
                 ) {
-                    threats.shield = true;
-                    return threats;
+                    return true;
                 }
             }
         }
@@ -111,12 +107,10 @@ pub(super) unsafe fn incoming_fighter_attack(
                 continue;
             }
             if near {
-                threats.shield = true;
-                return threats;
+                return true;
             }
             if geometry_budget == 0 {
-                threats.shield = true;
-                return threats;
+                return true;
             }
             geometry_budget -= 1;
             let data = game::attack_geometry(enemy, slot, false);
@@ -172,8 +166,7 @@ pub(super) unsafe fn incoming_fighter_attack(
                 },
                 envelope,
             ) {
-                threats.shield = true;
-                return threats;
+                return true;
             }
         }
         if !near || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER {
@@ -191,11 +184,10 @@ pub(super) unsafe fn incoming_fighter_attack(
             envelope.forecast,
         );
         if imminent {
-            threats.shield = true;
-            return threats;
+            return true;
         }
     }
-    threats
+    false
 }
 
 // Fighter instance parameters are read only while ledge assist is observing.
@@ -648,7 +640,7 @@ unsafe fn rule_follow(
 
 // Read the roster from the manager instead of waiting for opponents to query
 // command flags. IDs are resolved each call; no native pointer is retained.
-// `Option<FighterRoster>` has two levels: None means no usable roster;
+// `Option<FightersInGame>` has two levels: None means no usable roster;
 // Some(array) can still contain empty slots. Callers use flatten() to visit
 // only present fighter IDs. IDs must be resolved to fresh accessors each time.
 unsafe fn fighter_manager_instance() -> Option<*mut game::Object> {

@@ -3,8 +3,6 @@
 use std::cell::RefCell;
 
 use kirby_assist_core::{
-    auto_duck::DefenseThreat,
-    autopilot_guard::Envelope,
     fighter_kinds::{KIRBY, YOSHI},
     fighter_tuning::Tuning,
     gameplay::ControllerOutput,
@@ -18,7 +16,6 @@ struct Calls {
     transitions: usize,
     targets: usize,
     ground: usize,
-    threats: usize,
     include_damage: bool,
     transitions_enabled: bool,
     hit_result: bool,
@@ -89,22 +86,8 @@ mod observations {
         });
         [None; 8]
     }
-    pub unsafe fn incoming_fighter_attack(
-        _: &frame::FrameReads,
-        _: *mut u8,
-        _: u32,
-        _: [f32; 2],
-        _: [f32; 2],
-        _: bool,
-        _: Envelope,
-    ) -> DefenseThreat {
-        CALLS.with(|calls| calls.borrow_mut().threats += 1);
-        DefenseThreat::default()
-    }
 }
 
-#[path = "../../../src/live/fighters/kirby/defense.rs"]
-mod kirby;
 #[path = "../../../src/live/fighters/yoshi/jab_lock.rs"]
 mod yoshi;
 
@@ -112,22 +95,6 @@ fn yoshi_observation() -> yoshi::Observation {
     yoshi::Observation {
         object: 1,
         kind: YOSHI,
-        status: status::WAIT,
-        situation: situation::GROUND,
-        motion: 7,
-        frame: 2.0,
-        rate: 1.0,
-        stopped: false,
-        clatter: false,
-        tech: false,
-    }
-}
-
-fn kirby_observation() -> kirby::Observation {
-    kirby::Observation {
-        enabled: true,
-        kind: KIRBY,
-        object: 1,
         status: status::WAIT,
         situation: situation::GROUND,
         motion: 7,
@@ -209,44 +176,4 @@ fn yoshi_admission_and_observation_preserve_lazy_native_read_gates() {
         ControllerOutput::default()
     );
     assert!(state.is_none());
-}
-
-#[test]
-fn kirby_defense_gates_fighter_ground_and_expensive_observations() {
-    let reads = frame::FrameReads;
-    let object = std::ptr::null_mut();
-    let tuning = Tuning::default();
-    CALLS.with(|calls| *calls.borrow_mut() = Calls::default());
-    let mut observation = kirby_observation();
-    observation.kind = YOSHI;
-    assert!(
-        unsafe { kirby::observe(&reads, object, &observation, || panic!("no envelope")) }.is_none()
-    );
-    observation.kind = KIRBY;
-    observation.situation = situation::AIR;
-    assert!(
-        unsafe { kirby::observe(&reads, object, &observation, || panic!("no envelope")) }.is_none()
-    );
-    observation.situation = situation::GROUND;
-    observation.clatter = true;
-    assert!(
-        unsafe { kirby::observe(&reads, object, &observation, || panic!("no envelope")) }.is_none()
-    );
-    observation.clatter = false;
-    observation.tech = true;
-    assert!(
-        unsafe { kirby::observe(&reads, object, &observation, || panic!("no envelope")) }.is_none()
-    );
-    observation.tech = false;
-    observation.stopped = true;
-    assert!(
-        unsafe { kirby::observe(&reads, object, &observation, || panic!("no envelope")) }.is_some()
-    );
-    CALLS.with(|calls| assert_eq!((calls.borrow().transitions, calls.borrow().threats), (0, 0)));
-    observation.stopped = false;
-    CALLS.with(|calls| calls.borrow_mut().transitions_enabled = true);
-    let (context, _) =
-        unsafe { kirby::observe(&reads, object, &observation, || tuning.shield()).unwrap() };
-    assert!(context.can_shield && context.can_crouch);
-    CALLS.with(|calls| assert_eq!((calls.borrow().transitions, calls.borrow().threats), (2, 1)));
 }

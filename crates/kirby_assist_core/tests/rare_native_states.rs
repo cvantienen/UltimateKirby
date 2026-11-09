@@ -1,5 +1,5 @@
 use kirby_assist_core::{
-    battle_objects::{append_fighter, insert_nearest, FighterRoster},
+    battle_objects::{append_fighter, insert_nearest, FightersInGame},
     gameplay::{GameplayContext, Opponent},
     ledge_trap::InputTimeline,
     native_input::MAPPER_B,
@@ -311,7 +311,7 @@ fn custom_status_numbers_cannot_borrow_another_fighters_up_b_identity() {
 }
 #[test]
 fn sixteen_actor_roster_is_deduplicated_and_policy_candidates_stay_bounded_and_nearby() {
-    let mut roster: FighterRoster = [None; 16];
+    let mut roster: FightersInGame = [None; 16];
     for id in 0..16 {
         append_fighter(&mut roster, id);
         append_fighter(&mut roster, id);

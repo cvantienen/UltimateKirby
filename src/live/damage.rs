@@ -2,8 +2,9 @@
 //! refresh at launch-input handoff after SDI, and never retain game pointers.
 use crate::game_ffi as game;
 use kirby_assist_core::auto_di::{BlastZone, Trajectory};
-
+/// Observes the damage environment for a given object, caching geometry and computing trajectory if applicable.
 pub(super) type GeometryCache = (u32, u64, Option<BlastZone>);
+/// Cached geometry and blast zone information for a specific object at a given frame.
 pub(super) unsafe fn observe(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,

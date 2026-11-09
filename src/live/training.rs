@@ -6,6 +6,14 @@ use kirby_assist_core::{
 };
 use std::{sync::atomic::Ordering, time::Instant};
 
+/// Enters the training passthrough mode if the appropriate conditions are met.
+/// # Parameters
+/// * `physical` - The current button trace.
+/// * `index` - The mapping index of the controller.
+/// * `layout` - The control layout of the controller.
+/// # Returns
+/// * `true` if passthrough mode was successfully entered.
+/// * `false` otherwise.
 pub(super) fn enter_passthrough(physical: ButtonTrace, index: i32, layout: ControlLayout) -> bool {
     if !training_test::passthrough(
         physical.held,
@@ -45,6 +53,9 @@ pub(super) fn enter_passthrough(physical: ButtonTrace, index: i32, layout: Contr
     true
 }
 
+/// Finishes the training passthrough mode, restoring the appropriate state based on the training test mode.
+/// # Parameters
+/// * `training_test_mode` - Indicates whether the training test mode is active.
 pub(super) fn finish_passthrough(training_test_mode: bool) {
     if TRAINING_PASSTHROUGH.swap(false, Ordering::Relaxed) {
         let was_modal = TRAINING_MODAL_HANDOFF.swap(false, Ordering::Relaxed);

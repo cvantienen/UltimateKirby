@@ -11,15 +11,18 @@ pub mod persist;
 pub use library::SequenceLibrary;
 pub use parser::validate_facing_blocks;
 use parser::{parse_slot, slot_name, valid_id, words_id};
-
+/// Maximum number of actions in a sequence.
 pub const MAX_ACTIONS: usize = 32;
+/// Maximum size of a sequence file in bytes.
 pub const MAX_FILE_BYTES: u64 = 512 * 1024;
+/// Maximum number of frames in a sequence.
 pub const MAX_SEQUENCE_FRAME_COUNT: u16 = 3600;
 // Admission bound only: parser allocation uses the actual header count, and
-// live menus expand only the selected fighter. Leaves room for Pyra/Mythra
 // without removing any saved choices; the 512 KiB file limit remains unchanged.
+/// Maximum number of entries in the sequence library.
 pub const MAX_ENTRIES: usize = 2112;
 
+/// Specifies the possible directions relative to the fighter or the stage.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Direction {
     #[default]
@@ -49,7 +52,7 @@ impl Direction {
         }
     }
 }
-
+/// Specifies how to check the range for an action or condition.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RangeCheck {
     Ignore,
@@ -59,7 +62,7 @@ pub enum RangeCheck {
     FighterGrabRangeInstant,
 }
 
-/// Explicit, bounded sequence predicates using already-copied fighter facts.
+/// Represents a condition that must be satisfied for a sequence to be valid.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Condition {
     SelfGrounded,
@@ -111,7 +114,7 @@ impl Condition {
         matches!(self, Self::EnemyWithin | Self::EnemyOutside)
     }
 }
-
+/// Specifies the reference frame for input directions.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum InputReference {
     #[default]
@@ -135,7 +138,7 @@ impl InputReference {
             .ok_or_else(|| "input reference must be screen, facing or opponent".into())
     }
 }
-
+/// Represents a single action that can be performed by a fighter.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum Action {
     #[default]
@@ -275,6 +278,7 @@ impl Action {
         )
     }
 }
+/// A sequence of actions that can be executed by a fighter.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Sequence {
     pub actions: [Action; MAX_ACTIONS],
@@ -310,7 +314,7 @@ impl Sequence {
         &self.actions[..usize::from(self.len)]
     }
 }
-
+/// Represents a single entry in the catalog, corresponding to a specific fighter and preset slot.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Entry {
     pub fighter_kind: i32,

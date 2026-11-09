@@ -992,12 +992,7 @@ mod tests {
         f.output.requested = MAPPER_ZR;
         let mut recorder = Recorder::new();
         recorder.observe(Some(f), ("yoshi", 5), "Shield", Instant::now());
-        recorder.mapped(
-            MAPPER_ZR,
-            MAPPER_ZR,
-            native_input::MAPPED_GUARD,
-            "ledge",
-        );
+        recorder.mapped(MAPPER_ZR, MAPPER_ZR, native_input::MAPPED_GUARD, "ledge");
         let report = recorder.active.as_ref().unwrap();
         assert_eq!(report.result(), "INPUT requested; move model unavailable");
         assert!(report.explanation().contains("raw-input recipe"));

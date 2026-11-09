@@ -2,9 +2,13 @@
 //!
 //! These values are copied between automation policies and the live adapter.
 //! They contain no game pointers and do not write native fighter state.
+
+/// Maximum number of animation forecast frames considered for timing calculations.
 const MAX_ANIMATION_FORECAST_FRAMES: f32 = 120.0;
 
 /// Read-only animation timing; remaining values are measured in game frames.
+/// This struct captures the timing information for a single animation,
+///  including its current frame, rate of progress, and remaining duration.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MotionTiming {
     /// Animation Hash40 identifier, not a status ID or frame count.
@@ -109,7 +113,9 @@ pub struct Opponent {
 /// Controlled fighter's native state, copied by the platform adapter.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct GameplayContext {
+    /// Whether the controlled fighter is currently holding an input.
     pub held: bool,
+    /// Whether the controlled fighter is currently in active gameplay.
     pub gameplay: bool,
     /// Changes only on fresh physical gameplay input, never simulated output.
     pub manual_input_epoch: u64,
@@ -119,35 +125,55 @@ pub struct GameplayContext {
     pub can_control: bool,
     /// Native hitstop: preserve an existing shield, but start no new actions.
     pub stopped: bool,
+    /// The controlled fighter's current status kind.
     pub status: i32,
+    /// The controlled fighter's current situation kind.
     pub situation: i32,
     /// The controlled fighter's native motion clock distinguishes progress when a target
     /// holds one animation pose; it is also part of duplicate-observation reuse.
     pub motion_frame: f32,
+    /// The controlled fighter's current motion frame within its animation.
     pub motion_kind: u64,
+    /// The controlled fighter's current motion kind.
     pub motion_rate: f32,
+    /// The controlled fighter's current motion rate.
     pub position: [f32; 2],
+    /// The controlled fighter's current position in world coordinates.
     pub velocity: [f32; 2],
     /// Native ground deceleration; None avoids assuming a stopping distance.
     pub ground_brake: Option<f32>,
     /// Facing uses its sign (+right/-left); position/velocity remain absolute
     /// world axes. Multiplying dx by facing asks if the target is in front.
     pub facing: f32,
+    /// The controlled fighter's previous status kind.
     pub previous_status: i32,
+    /// Whether the controlled fighter can currently perform a grab.
     pub can_grab: bool,
+    /// Whether the controlled fighter can currently perform a tilt.
     pub can_tilt: bool,
+    /// Whether the controlled fighter can currently perform a down tilt.
     pub can_down_tilt: bool,
+    /// Whether the controlled fighter can currently perform a down special.
     pub can_down_special: bool,
+    /// Whether the controlled fighter can currently perform a dash attack.
     pub can_dash_attack: bool,
+    /// Whether the controlled fighter can currently perform a down smash.
     pub can_down_smash: bool,
     /// Explicit additional delay in game frames; live observations supply zero.
     pub input_delay: f32,
+    /// Whether the controlled fighter can currently perform a jump.
     pub can_jump: bool,
+    /// Whether the controlled fighter can currently perform an air attack.
     pub can_air_attack: bool,
+    /// The controlled fighter's current air physics, if applicable.
     pub air_physics: Option<AirPhysics>,
+    /// The controlled fighter's short hop speed, if applicable.
     pub short_hop_speed: Option<f32>,
+    /// The controlled fighter's full hop speed, if applicable.
     pub full_hop_speed: Option<f32>,
+    /// The number of frames the controlled fighter is in shield stun, if applicable.
     pub shield_stun_frames: Option<i32>,
+    /// The ID of the attacker causing the shield stun, if applicable.
     pub shield_attacker: Option<u32>,
     /// Native hit infliction during Kirby's current assisted attack.
     pub hit_confirmed: bool,
@@ -158,7 +184,9 @@ pub struct GameplayContext {
 /// Proposed controller inputs; the live adapter arbitrates and maps the request.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ControllerOutput {
+    /// Whether to consume the trigger for this update.
     pub consume_trigger: bool,
+    /// The desired stick position for this update, if any.
     pub stick: Option<[f32; 2]>,
     /// Buttons to hold for this update (a mask of native controller bits).
     pub requested: u32,

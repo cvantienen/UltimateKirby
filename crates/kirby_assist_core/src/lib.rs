@@ -55,8 +55,6 @@ pub mod state;
 pub mod timing;
 
 // Fighter-specific reference facts, move data, and startup catalogs.
-#[path = "shared/controller/up_b_receipt.rs"]
-mod up_b_receipt;
 pub mod fighter_kinds;
 pub mod fighter_profiles;
 pub mod fighter_tuning;
@@ -66,10 +64,11 @@ mod fighter_tuning_defaults;
 mod flame_choke;
 #[path = "fighters/kirby/mod.rs"]
 pub mod kirby;
+#[path = "shared/controller/up_b_receipt.rs"]
+mod up_b_receipt;
 
 // Independent assistance policies and their decision helpers.
 pub mod assist;
-pub mod auto_duck;
 pub mod autopilot_guard;
 pub mod defense_response;
 pub mod grab_handoff;

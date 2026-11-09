@@ -58,15 +58,18 @@ fn previous_character(text: &[u8], cursor: usize) -> usize {
     start
 }
 impl Catalog {
+    /// Returns whether the catalog is currently active (not closed).
     pub fn active(&self) -> bool {
         !matches!(self.mode, Mode::Closed)
     }
+    /// Closes the catalog, resetting its mode and input state.
     pub fn close(&mut self) {
         self.mode = Mode::Closed;
         self.revision = self.revision.wrapping_add(1);
         self.held = 0;
         self.ticks = 0;
     }
+    /// Processes input for the catalog, returning an event based on the current mode and input state.
     pub fn input(&mut self, buttons: u32, pressed: u32, name: &str) -> Event {
         use crate::native_input::{MAPPER_A as A, MAPPER_B as B, MAPPER_X as X, MAPPER_Y as Y};
         let pad = buttons & (DPAD_SIDES | DPAD_UP | DPAD_DOWN);
@@ -235,7 +238,7 @@ impl Catalog {
         }
     }
 }
-const ALPHABET: &[u8] = b" ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_/().+%";
+const ALPHABET: &[u8] = b" ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 #[cfg(test)]
 mod tests {

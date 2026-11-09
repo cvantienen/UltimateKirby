@@ -19,11 +19,8 @@
 mod config;
 mod controller;
 mod damage;
-#[allow(dead_code)] // Retained for offline calibration; Auto-duck is disabled.
-mod duck_hits;
+mod attack_sources;
 mod frame;
-#[path = "live/fighters/kirby/defense.rs"]
-mod kirby_defense;
 #[path = "live/fighters/kirby/followups.rs"]
 mod kirby_followups;
 mod native_params {
@@ -88,7 +85,7 @@ use kirby_assist_core::live_input::{
 };
 use kirby_assist_core::manual_controls::{
     ledge_walk_stick, suppress_reserved_taunts, turbo_movement_allowed, DashPivotAssist,
-    ManualContext, ManualOverlay, TurboState, DPAD_SIDES, DPAD_UP, TURBO_TRIGGER,
+    ManualContext, ManualOverlay, TurboOutput, TurboState, DPAD_SIDES, DPAD_UP, TURBO_TRIGGER,
 };
 use kirby_assist_core::native_input::{
     controller_index, selected_controller_mapper, MAPPER_DPAD_DOWN, MAPPER_L, MAPPER_MINUS,
@@ -159,7 +156,7 @@ static CONFIG: OnceLock<Box<Config>> = OnceLock::new();
 static PROFILES: OnceLock<FighterProfiles> = OnceLock::new();
 static SEQUENCES: OnceLock<Mutex<kirby_assist_core::sequence_config::SequenceLibrary>> =
     OnceLock::new();
-// Explicit saves replace compact definitions without publishing static menus.
+/// Explicit saves replace compact definitions without publishing static menus.
 static SEQUENCES_UPDATED: AtomicBool = AtomicBool::new(false);
 // STATE.lock() yields a guard. Rust releases the lock when the guard leaves
 // its scope (`}`); explicit small scopes below let us copy values, unlock, query
@@ -214,7 +211,7 @@ const SESSION_OBSERVATION_GAP: Duration = Duration::from_millis(250);
 // Online scheduling may separate controller sampling from fighter callbacks.
 // Proposals still require a current evaluation and expire at 35 ms.
 const CONTROLLER_SAMPLE_LIFETIME: Duration = Duration::from_millis(250);
-// Resolution copies small typed values; no JSON parsing or file I/O occurs here.
+/// Resolution copies small typed values; no JSON parsing or file I/O occurs here.
 fn settings_for_fighter(kind: Option<i32>, base: AssistSettings) -> AssistSettings {
     PROFILES.get().map_or(
         AssistSettings {
@@ -228,6 +225,7 @@ fn settings_for_fighter(kind: Option<i32>, base: AssistSettings) -> AssistSettin
 // Diagnostic snapshots are absent from silent builds, including formatting.
 #[cfg(feature = "diagnostic-logging")]
 #[derive(Clone, Copy, PartialEq, Eq)]
+/// Represents a diagnostic snapshot of the ledge state for the fighter.
 struct LedgeDiagnostic {
     target: Option<u32>,
     enemy_status: i32,
@@ -243,7 +241,8 @@ struct LedgeDiagnostic {
     requested: u32,
     action: &'static str,
 }
-
+/// Acquires a live match ticket for the current session,
+/// if available. Returns `None` if the ticket cannot be acquired.
 unsafe fn live_match_ticket() -> Option<SessionTicket> {
     let mut state = STATE.lock().ok()?;
     if state
@@ -254,7 +253,7 @@ unsafe fn live_match_ticket() -> Option<SessionTicket> {
     }
     state.update_match(true)
 }
-
+/// Represents the observation needs for the current state and configuration.
 struct ObservationNeeds {
     find_trump_edge: bool,
     find_trap_edge: bool,
@@ -265,9 +264,8 @@ struct ObservationNeeds {
     file_ledge_timeline: bool,
     ground_ledge_timeline: bool,
     observe_trump: bool,
-    observe_duck: bool,
 }
-
+/// Captures a snapshot of the observation policy for the current state.
 #[derive(Default)]
 struct ObservationPolicySnapshot {
     automatic_suspended: bool,
@@ -298,7 +296,7 @@ struct ObservationPolicySnapshot {
     self_shielded: bool,
     grab_dash_pending: bool,
 }
-
+/// Determines the observation needs based on the current state and configuration.
 fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
     let trump_held = state
         .settings_menu
@@ -351,10 +349,10 @@ fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
             .as_ref()
             .is_some_and(LedgeTrap::file_needs_ground),
         observe_trump: trump_held || state.trump.as_ref().is_some_and(LedgeTrump::active),
-        observe_duck: state.duck_active,
     }
 }
-
+/// Resolves the observation setup for the given fighter and session,
+///  returning the configuration, setup sequence, and observation needs if available.
 fn resolve_observation_setup(
     index: i32,
     session_ticket: SessionTicket,
@@ -380,7 +378,7 @@ fn resolve_observation_setup(
     };
     Some((config, setup_sequence, needs))
 }
-
+/// Determines whether manual automatic input is currently blocked for the given fighter and context.
 fn manual_automatic_input_blocked(
     object_id: u32,
     fighter_kind: i32,
@@ -403,7 +401,7 @@ fn manual_automatic_input_blocked(
         manual_allowed && (pending || actions != 0)
     })
 }
-
+/// Captures a snapshot of the observation policy for the given fighter, configuration, and context.
 fn snapshot_observation_policy(
     fighter_kind: i32,
     config: &Config,
@@ -559,7 +557,7 @@ fn snapshot_observation_policy(
             }
         })
 }
-
+/// Refreshes the master state for the specified controller, returning the readiness status if available.
 unsafe fn refresh_master_for_controller(
     wrapper: *mut c_void,
     index: i32,
@@ -571,12 +569,13 @@ unsafe fn refresh_master_for_controller(
     Some(ready)
 }
 
+/// Represents the admission state for the mapper callback, including configuration, readiness, and session ticket.
 struct MapperAdmission {
     config: &'static Config,
     master_ready_go: Option<Option<bool>>,
     session_ticket: SessionTicket,
 }
-
+/// Represents the output adjustments for the mapper callback, including stick input, automatic requests, and other control flags.
 struct MapperOutputAdjustments {
     left_stick: Option<[f32; 2]>,
     right_stick: Option<[f32; 2]>,
@@ -588,6 +587,8 @@ struct MapperOutputAdjustments {
     tech_output: Option<TechOutput>,
 }
 
+/// Represents the feedback delivered to the mapper callback, including manual and automatic actions, grab delivery, and other relevant events.
+#[derive(Clone, Copy)]
 struct MapperDeliveryFeedback {
     manual_jump: bool,
     reflect: bool,
@@ -601,7 +602,7 @@ struct MapperDeliveryFeedback {
     #[cfg(feature = "diagnostic-logging")]
     grab_delivery: Option<(u32, u32, u32, &'static str)>,
 }
-
+/// Admits the mapper callback for the specified controller, returning the admission state if successful.
 unsafe fn admit_mapper_callback(wrapper: *mut c_void, index: i32) -> Option<MapperAdmission> {
     let config = CONFIG.get().map(Box::as_ref)?;
     if !config.controls.enabled {
@@ -636,7 +637,7 @@ unsafe fn admit_mapper_callback(wrapper: *mut c_void, index: i32) -> Option<Mapp
         session_ticket,
     })
 }
-
+/// Enters the training passthrough mode for the specified controller and configuration, returning `true` if successful.
 unsafe fn enter_training_passthrough(wrapper: *mut c_void, index: i32, config: &Config) -> bool {
     let selected_physical = CONFIG
         .get()
@@ -648,6 +649,7 @@ unsafe fn enter_training_passthrough(wrapper: *mut c_void, index: i32, config: &
     training::enter_passthrough(physical, index, config.control_layout)
 }
 
+/// Applies the specified output adjustments to the mapper output, modifying stick input, automatic requests, and other control flags.
 unsafe fn apply_mapper_output_adjustments(
     output: *mut c_void,
     adjustments: MapperOutputAdjustments,
@@ -690,27 +692,9 @@ unsafe fn apply_mapper_output_adjustments(
         (*mapped).buttons = kirby_assist_core::tech_input::mapped_guard((*mapped).buttons, tech);
     }
 }
-
-unsafe fn record_mapped_delivery(
-    output: *mut c_void,
-    index: i32,
-    session_ticket: SessionTicket,
-    feedback: MapperDeliveryFeedback,
-    #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
-) {
-    let mapped = &*output.cast::<MappedInputs>();
-    let guard = mapped.buttons
-        & (kirby_assist_core::native_input::MAPPED_GUARD
-            | kirby_assist_core::native_input::MAPPED_GUARD_HOLD)
-        != 0;
-    let Ok(mut state) = STATE.lock() else {
-        return;
-    };
-    if state.mapping_index != Some(index) || !state.session.accepts(session_ticket) {
-        return;
-    }
-
-    if feedback.manual_jump
+/// Records a manual jump input for the given state and mapped inputs, updating the manual jump fence if applicable.
+fn record_mapped_manual_jump(state: &mut State, mapped: &MappedInputs, manual_jump: bool) {
+    if manual_jump
         && mapped.buttons
             & (kirby_assist_core::native_input::MAPPED_JUMP
                 | kirby_assist_core::native_input::MAPPED_JUMP_MINI)
@@ -738,28 +722,44 @@ unsafe fn record_mapped_delivery(
             );
         }
     }
-    if feedback.reflect
+}
+/// Records a mapped reflector input for the given state and mapped inputs, handling reflector delivery and receipt polling.
+fn record_mapped_reflector(
+    state: &mut State,
+    mapped: &MappedInputs,
+    reflect: bool,
+    reflector_tick: Option<i64>,
+) {
+    if reflect
         && mapped.buttons & kirby_assist_core::native_input::MAPPED_SPECIAL != 0
         && mapped.left_y < -63
     {
         let tick = state.raw_tick;
         state.reflector.mapped(tick);
     }
-    if let Some(tick) = feedback.reflector_tick {
+    if let Some(tick) = reflector_tick {
         state.reflector.poll_receipt(tick);
         if !state.reflector.active() {
             state.reflect_output = ControllerOutput::default();
             state.action_owner.release(Owner::Reflect);
         }
     }
-    if let Some((tick, target, grab)) = feedback.auto_grab {
+}
+/// Records mapped grab inputs for the given state and mapped inputs, handling automatic grabs and grab handoff events.
+fn record_mapped_grabs(
+    state: &mut State,
+    mapped: &MappedInputs,
+    auto_grab: Option<(i64, u32, bool)>,
+    grab_handoff: Option<(i64, Option<Owner>, bool, bool)>,
+) {
+    if let Some((tick, target, grab)) = auto_grab {
         if grab {
             state.oos.mapped_grab(tick, target);
         } else {
             state.oos.mapped_approach(tick, target);
         }
     }
-    if let Some((tick, owner, grab, eligible)) = feedback.grab_handoff {
+    if let Some((tick, owner, grab, eligible)) = grab_handoff {
         state.grab_handoff.mapped(
             tick,
             owner,
@@ -768,18 +768,23 @@ unsafe fn record_mapped_delivery(
             eligible,
         );
     }
+}
+/// Records mapped dodge inputs for the given state and mapped inputs, handling guard, punish grabs, and automatic dodges.
+fn record_mapped_dodges(
+    state: &mut State,
+    mapped: &MappedInputs,
+    guard: bool,
+    punish_grab: Option<(i64, u32)>,
+    auto_dodge: Option<(i64, u32)>,
+) {
     let delivery_tick = state.raw_tick;
-    state.oos.delivery_tick(delivery_tick);
-    if let Some(engine) = state.rule_engine.as_mut() {
-        engine.delivery_tick(delivery_tick);
-    }
     if let Some(spot) = state.spot_dodge.as_mut() {
-        if let Some((tick, target)) = feedback.dodge_punish_grab {
+        if let Some((tick, target)) = punish_grab {
             spot.mapped_grab(tick, target);
         }
         spot.delivery_tick(delivery_tick);
     }
-    if let Some((tick, target)) = feedback.auto_dodge {
+    if let Some((tick, target)) = auto_dodge {
         if let Some(spot) = state.spot_dodge.as_mut() {
             spot.attempted_dodge(tick, target);
             // Stop pressing only after actual Guard + Down delivery; failed
@@ -789,40 +794,56 @@ unsafe fn record_mapped_delivery(
             }
         }
     }
-    if let Some((tick, target, owner)) = feedback.auto_up_special {
-        // Rejected packets spend delivery attempts but cannot arm a delayed
-        // receipt. Confirmation requires final Special + Up.
-        let delivered = kirby_assist_core::native_input::mapped_up_special_delivered(
-            mapped.buttons,
-            mapped.left_y,
-        );
-        match owner {
-            Owner::OutOfShield => {
-                state.oos.attempted_up_special(tick, target);
-                if delivered {
-                    state.oos.mapped_up_special(tick, target);
-                }
+}
+
+/// Records mapped up special inputs for the given state and mapped inputs, handling out-of-shield, roll read, and spot dodge scenarios.
+fn record_mapped_up_special(
+    state: &mut State,
+    mapped: &MappedInputs,
+    request: Option<(i64, u32, Owner)>,
+) {
+    let Some((tick, target, owner)) = request else {
+        return;
+    };
+    // Rejected packets spend delivery attempts but cannot arm a delayed
+    // receipt. Confirmation requires final Special + Up.
+    let delivered =
+        kirby_assist_core::native_input::mapped_up_special_delivered(mapped.buttons, mapped.left_y);
+    match owner {
+        Owner::OutOfShield => {
+            state.oos.attempted_up_special(tick, target);
+            if delivered {
+                state.oos.mapped_up_special(tick, target);
             }
-            Owner::RollRead => {
-                if let Some(engine) = state.rule_engine.as_mut() {
-                    engine.attempted_up_special(tick, target);
-                    if delivered {
-                        engine.mapped_up_special(tick, target);
-                    }
-                }
-            }
-            Owner::OptionRead => {
-                if let Some(spot) = state.spot_dodge.as_mut() {
-                    spot.attempted_up_special(tick, target);
-                    if delivered {
-                        spot.mapped_up_special(tick, target);
-                    }
-                }
-            }
-            _ => {}
         }
+        Owner::RollRead => {
+            if let Some(engine) = state.rule_engine.as_mut() {
+                engine.attempted_up_special(tick, target);
+                if delivered {
+                    engine.mapped_up_special(tick, target);
+                }
+            }
+        }
+        Owner::OptionRead => {
+            if let Some(spot) = state.spot_dodge.as_mut() {
+                spot.attempted_up_special(tick, target);
+                if delivered {
+                    spot.mapped_up_special(tick, target);
+                }
+            }
+        }
+        _ => {}
     }
-    if feedback.tech_applied && guard && !state.last_mapped_guard {
+}
+
+/// Records mapped tech inputs for the given state, handling guard and tech application scenarios.
+fn record_mapped_tech(
+    state: &mut State,
+    guard: bool,
+    tech_applied: bool,
+    #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
+) {
+    if tech_applied && guard && !state.last_mapped_guard {
         if let Some(tech) = state.tech_input.as_mut() {
             tech.mapped_press();
         }
@@ -835,15 +856,20 @@ unsafe fn record_mapped_delivery(
                 .push("tech mapped: fresh GUARD edge confirmed; request cooldown committed".into());
         }
     }
-    if !feedback.tech_applied && guard && !state.last_mapped_guard {
+    if !tech_applied && guard && !state.last_mapped_guard {
         if let Some(tech) = state.tech_input.as_mut() {
             tech.mapped_human_guard();
         }
     }
-    state.last_mapped_guard = guard;
-    state.last_mapped_stick = Some([mapped.left_x as f32 / 127., mapped.left_y as f32 / 127.]);
-    #[cfg(feature = "diagnostic-logging")]
-    if let Some((proposed, applied, pressed, gate)) = feedback.grab_delivery {
+}
+
+#[cfg(feature = "diagnostic-logging")]
+fn record_mapped_grab_diagnostics(
+    state: &mut State,
+    mapped: &MappedInputs,
+    grab_delivery: Option<(u32, u32, u32, &'static str)>,
+) {
+    if let Some((proposed, applied, pressed, gate)) = grab_delivery {
         state.grab_trace.mapped(
             proposed,
             applied,
@@ -859,6 +885,65 @@ unsafe fn record_mapped_delivery(
     }
 }
 
+/// Records mapped grab diagnostics for the given state and mapped inputs, handling grab delivery events.
+unsafe fn record_mapped_delivery(
+    output: *mut c_void,
+    index: i32,
+    session_ticket: SessionTicket,
+    feedback: MapperDeliveryFeedback,
+    #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
+) {
+    let mapped = &*output.cast::<MappedInputs>();
+    let guard = mapped.buttons
+        & (kirby_assist_core::native_input::MAPPED_GUARD
+            | kirby_assist_core::native_input::MAPPED_GUARD_HOLD)
+        != 0;
+    let Ok(mut state) = STATE.lock() else {
+        return;
+    };
+    if state.mapping_index != Some(index) || !state.session.accepts(session_ticket) {
+        return;
+    }
+
+    record_mapped_manual_jump(&mut state, mapped, feedback.manual_jump);
+    record_mapped_reflector(
+        &mut state,
+        mapped,
+        feedback.reflect,
+        feedback.reflector_tick,
+    );
+    record_mapped_grabs(
+        &mut state,
+        mapped,
+        feedback.auto_grab,
+        feedback.grab_handoff,
+    );
+    let delivery_tick = state.raw_tick;
+    state.oos.delivery_tick(delivery_tick);
+    if let Some(engine) = state.rule_engine.as_mut() {
+        engine.delivery_tick(delivery_tick);
+    }
+    record_mapped_dodges(
+        &mut state,
+        mapped,
+        guard,
+        feedback.dodge_punish_grab,
+        feedback.auto_dodge,
+    );
+    record_mapped_up_special(&mut state, mapped, feedback.auto_up_special);
+    record_mapped_tech(
+        &mut state,
+        guard,
+        feedback.tech_applied,
+        #[cfg(feature = "diagnostic-logging")]
+        messages,
+    );
+    state.last_mapped_guard = guard;
+    state.last_mapped_stick = Some([mapped.left_x as f32 / 127., mapped.left_y as f32 / 127.]);
+    #[cfg(feature = "diagnostic-logging")]
+    record_mapped_grab_diagnostics(&mut state, mapped, feedback.grab_delivery);
+}
+/// Updates the mapper menu and input state for the specified controller, handling menu readiness, battle activity, and diagnostic logging.
 unsafe fn update_mapper_menu_and_input(
     controller: *mut controller::Controller,
     index: i32,
@@ -895,7 +980,7 @@ unsafe fn update_mapper_menu_and_input(
                     .get_or_insert_with(settings_menu::SettingsMenu::default)
                     .begin_match();
             } else {
-                duck_hits::clear();
+                attack_sources::clear();
                 state.menu_fighter_kind = None;
                 if let Some(settings_menu) = state.settings_menu.as_mut() {
                     settings_menu.end_match();
@@ -1025,7 +1110,7 @@ unsafe fn update_mapper_menu_and_input(
                         .as_ref()
                         .is_some_and(|p| p.sequence_enabled(config.assist.enabled))
                     && state.settings_menu.as_ref().is_some_and(|p| p.ledge_held);
-                duck_hits::tracking(
+                attack_sources::tracking(
                     config.autopilot_shield && ledge_held
                         || !ledge_held
                             && state
@@ -1088,12 +1173,6 @@ unsafe fn update_mapper_menu_and_input(
                     // Menu takeover cancels before a native refresh
                     // could replay a cached jump/dodge request.
                 }
-                let duck_held = false;
-                if state.duck_active != duck_held {
-                    state.duck_defense = None;
-                    state.duck_output = ControllerOutput::default();
-                    state.duck_active = duck_held;
-                }
                 if state.ledge_active != ledge_held {
                     if !ledge_held {
                         state.action_owner.release(Owner::Ledge);
@@ -1123,7 +1202,7 @@ unsafe fn update_mapper_menu_and_input(
         }
     }
 }
-
+/// Refreshes the selected fighter for the specified controller index, observing the fighter if valid or clearing the state if not.
 unsafe fn refresh_selected_fighter(index: i32) {
     let candidate = STATE.lock().ok().and_then(|state| {
         (state.mapping_index == Some(index))
@@ -1149,7 +1228,7 @@ unsafe fn refresh_selected_fighter(index: i32) {
     } else if let Ok(mut state) = STATE.lock() {
         if state.mapping_index == Some(index) {
             LOCAL_PARTICIPANT.store(false, Ordering::Release);
-            duck_hits::clear();
+            attack_sources::clear();
             state.cancel();
             state.associated_object = None;
             state.human_routes[index as usize] = None;
@@ -1169,7 +1248,8 @@ type GrabMappingComparison = (
     [f32; 2],
     [f32; 2],
 );
-
+/// Represents the preparation state for the mapper, 
+/// including restored controller state, mapped inputs, and diagnostic information.
 struct MapperPreparation {
     restore: Option<ControllerRestore>,
     mapped_left_stick: Option<[f32; 2]>,
@@ -1204,6 +1284,15 @@ struct MapperPreparation {
     mode_report: Option<kirby_assist_core::diagnostics::modes::Report>,
 }
 
+/// Represents the input flags for the mapper, indicating the current conditions of the controller and game state.
+/// # Fields
+/// * `fresh` - Indicates if the input is fresh.
+/// * `manual_scope` - Indicates if manual scope is active.
+/// * `mash_active` - Indicates if mash input is active.
+/// * `damage_active` - Indicates if damage input is active.
+/// * `turbo_active` - Indicates if turbo input is active.
+/// * `pivot_active` - Indicates if pivot input is active.
+/// * `posture_active` - Indicates if posture input is active.
 struct MapperIntentInputs {
     fresh: bool,
     manual_scope: bool,
@@ -1213,7 +1302,13 @@ struct MapperIntentInputs {
     pivot_active: bool,
     posture_active: bool,
 }
-
+/// Computes the action intents for the mapper based on the current state and input flags. Returns an array of `Intent` for each possible action.
+/// # Arguments
+/// * `state` - The current state of the mapper.
+/// * `inputs` - The input flags indicating the current conditions.
+/// 
+/// # Returns
+/// An array of `Intent` for each possible action.
 fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Intent; 14] {
     let ledge_priority = state.action_owner.ledge_priority()
         && state.ledge_active
@@ -1322,8 +1417,7 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
         },
         Intent {
             owner: Owner::Defense,
-            present: state.duck_output.owned != 0
-                || state.autopilot_guarding && state.ledge_output.owned != 0,
+            present: state.autopilot_guarding && state.ledge_output.owned != 0,
             committed: false,
         },
         Intent {
@@ -1339,7 +1433,7 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
     ];
     intents
 }
-
+/// Selects the appropriate controller output based on the winning owner, posture, and current situation, applying grab handoff and out-of-shield adjustments as needed.
 fn selected_owner_output(
     state: &mut State,
     winner: Option<Owner>,
@@ -1357,7 +1451,6 @@ fn selected_owner_output(
         Some(Owner::Ledge) => state.ledge_output,
         Some(Owner::RollRead) => state.roll_read_output,
         Some(Owner::GrabDodge | Owner::OptionRead) => state.spot_output,
-        Some(Owner::Defense) if state.duck_output.owned != 0 => state.duck_output,
         Some(Owner::Defense) => state.ledge_output,
         _ => ControllerOutput::default(),
     };
@@ -1371,6 +1464,7 @@ fn selected_owner_output(
     selected
 }
 
+/// Determines the appropriate right stick input based on the winning owner, selected controller output, and current situation.
 fn selected_owner_right_stick(
     state: &State,
     winner: Option<Owner>,
@@ -1400,6 +1494,7 @@ fn selected_owner_right_stick(
     }
 }
 
+/// Represents a sampled posture, including configured C-stick inputs, controller output, and tilt aiming status.
 struct PostureSample {
     configured_c_stick: Option<([f32; 2], [f32; 2])>,
     output: ControllerOutput,
@@ -1481,13 +1576,13 @@ fn sample_mapper_posture(
         tilt_aiming,
     }
 }
-
+/// Represents a sampled damage stick state, including DI, SDI, and damage stick inputs.
 struct DamageStickSample {
     di_stick: Option<[f32; 2]>,
     sdi_stick: Option<[f32; 2]>,
     damage_stick: Option<[f32; 2]>,
 }
-
+/// Handles manual ledge walking, returning the appropriate stick input if conditions are met.
 fn manual_ledge_walk(
     state: &State,
     settings: &AssistSettings,
@@ -1497,7 +1592,7 @@ fn manual_ledge_walk(
     physical_stick: [f32; 2],
     physical_right_stick: [f32; 2],
     ledge: ControllerOutput,
-    turbo: ControllerOutput,
+    turbo: TurboOutput,
 ) -> Option<[f32; 2]> {
     if !settings.enabled
         || !manual_scope
@@ -1541,7 +1636,7 @@ fn manual_ledge_walk(
         None
     }
 }
-
+/// Samples the damage stick inputs for the given state and configuration, handling DI, SDI, and damage trajectory considerations.
 fn sample_damage_sticks(
     state: &mut State,
     config: &Config,
@@ -1615,6 +1710,10 @@ fn sample_damage_sticks(
     }
 }
 
+/// Prepares the mapper overlay for the given controller index and session ticket. Returns a `MapperPreparation` if successful.
+/// 
+/// # Safety
+/// This function is unsafe because it dereferences raw pointers for the output and wrapper. The caller must ensure that these pointers are valid and correctly aligned.
 unsafe fn prepare_mapper_overlay(
     index: i32,
     output: *mut c_void,
@@ -2643,7 +2742,7 @@ unsafe fn prepare_mapper_overlay(
         mode_report,
     })
 }
-
+/// Finalizes the mapper overlay for the given output and preparation state, applying adjustments and recording delivery feedback.
 unsafe fn finish_mapper_overlay(
     output: *mut c_void,
     index: i32,
@@ -2887,6 +2986,7 @@ unsafe fn observe_commands(object: *mut game::Object, category: i32) -> i32 {
     flags
 }
 
+/// Observes the presence of the master player, updating internal state and timestamps as necessary.
 unsafe fn observe_master_presence(object: *mut game::Object) {
     if !MASTER_PULSE_REQUESTED.swap(false, Ordering::Relaxed) {
         return;
@@ -2902,7 +3002,7 @@ unsafe fn observe_master_presence(object: *mut game::Object) {
         }
     }
 }
-
+/// Installs the control mapper hook if the necessary conditions are met, ensuring it is only installed once.
 unsafe fn install_mapper_if_ready() {
     if MAPPING_OFFSET.load(Ordering::Relaxed) != 0 && !MAPPER_INSTALLED.swap(true, Ordering::AcqRel)
     {
@@ -2910,15 +3010,16 @@ unsafe fn install_mapper_if_ready() {
         // Read-only bounded projectile IDs for ledge shield; no Lua arguments
         // or native attacks are edited. Tracking runs only for enabled ledge
         // shield or a configured selected-fighter projectile reflector.
-        duck_hits::install();
+        attack_sources::install();
         log!("deferred mapper hook installed; existing Skyline mapper chain preserved");
     }
 }
+/// Declares the external C function for retrieving game command flags for a given object and category.
 extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind40ControlModule__get_command_flag_cat_implEPNS_26BattleObjectModuleAccessorEi"]
     fn game_command_flags(object: *mut game::Object, category: i32) -> i32;
 }
-
+/// Represents an observation of a fighter, including its object ID, index, session ticket, fighter kind, and tick timestamp.
 struct FighterObservation {
     object_id: u32,
     index: i32,
@@ -2927,13 +3028,14 @@ struct FighterObservation {
     tick: i64,
 }
 
+/// Represents a publication of an observation, including the session ticket, index, tick timestamp, and setup sequence.
 struct ObservationPublication {
     session_ticket: SessionTicket,
     index: i32,
     tick: i64,
     setup_sequence: u64,
 }
-
+/// Provides methods for working with observation publications, including checking if they are current.
 impl ObservationPublication {
     fn is_current(&self, state: &State) -> bool {
         state.session.accepts(self.session_ticket)
@@ -2947,7 +3049,7 @@ impl ObservationPublication {
             && RUNTIME_ENABLED.load(Ordering::Acquire)
     }
 }
-
+/// Refreshes the observation roster if necessary, based on the requested state, active consumer status, and the current publication.
 unsafe fn refresh_observation_roster(
     requested: bool,
     active_consumer: bool,
@@ -2973,7 +3075,7 @@ unsafe fn refresh_observation_roster(
         }
     }
 }
-
+/// Begins a full observation of a fighter, updating the state with the associated object, fighter kind, and observation sequence. Returns the new observation sequence if successful.
 fn begin_full_observation(
     publication: &ObservationPublication,
     object_id: u32,
@@ -3011,7 +3113,7 @@ fn begin_full_observation(
     state.observation_sequence = state.observation_sequence.wrapping_add(1);
     Some(state.observation_sequence)
 }
-
+/// Admits a fighter observation, validating the object and controller index, and updating the state with the observation if successful. Returns the fighter observation if applicable.
 unsafe fn admit_fighter_observation(
     object: *mut game::Object,
     discover_roster: bool,
@@ -3100,7 +3202,7 @@ unsafe fn admit_fighter_observation(
         tick,
     })
 }
-
+/// Represents an observation of a tech situation, including whether the fighter has stopped, clatter status, input delay, auto-tech settings, floor motion history, tech assessment, and timing information.
 struct TechObservation {
     stopped: bool,
     clatter_remaining: f32,
@@ -3114,6 +3216,61 @@ struct TechObservation {
     tech_timing: (u16, u16, u16),
 }
 
+/// Represents the basic native observation of a fighter, including status, situation, motion details, and input blocking information.
+struct NativeObservationBasics {
+    status: i32,
+    situation: i32,
+    stopped: bool,
+    motion_frame: f32,
+    motion_kind: u64,
+    motion_rate: f32,
+    manual_automatic_blocked: bool,
+    damage_stop: bool,
+}
+/// Observes the basic native state of a fighter, including status, situation, motion details, and input blocking information. Returns a `NativeObservationBasics` struct with the observed values.
+unsafe fn observe_native_basics(
+    reads: &frame::FrameReads,
+    object: *mut game::Object,
+    object_id: u32,
+    fighter_kind: i32,
+    config: &Config,
+) -> NativeObservationBasics {
+    let status = reads.status_kind(object);
+    let situation = reads.situation_kind(object);
+    let stopped = reads.is_stop(object);
+    let motion_frame = reads.motion_frame(object);
+    let motion_kind = reads.motion_kind(object);
+    let motion_rate = reads.motion_rate(object);
+    let manual_context = GameplayContext {
+        gameplay: true,
+        status,
+        situation,
+        stopped,
+        motion_kind,
+        motion_frame,
+        motion_rate,
+        ..GameplayContext::default()
+    };
+    let manual_automatic_blocked =
+        manual_automatic_input_blocked(object_id, fighter_kind, manual_context);
+    let damage_stop = (config.auto_sdi || config.auto_di.enabled)
+        && (kirby_assist_core::native_states::status::DAMAGE
+            ..=kirby_assist_core::native_states::status::DOWN_REFLECT_LR)
+            .contains(&status)
+        && reads.is_stop(object)
+        && game::is_damage_stop(object);
+    NativeObservationBasics {
+        status,
+        situation,
+        stopped,
+        motion_frame,
+        motion_kind,
+        motion_rate,
+        manual_automatic_blocked,
+        damage_stop,
+    }
+}
+/// Observes the tech state of a fighter, including hitstop, clatter, input delay, auto-tech settings, and floor motion history. Returns a `TechObservation` struct with the observed values.
 unsafe fn observe_tech_state(
     reads: &frame::FrameReads,
     object: *mut game::Object,
@@ -3186,7 +3343,7 @@ unsafe fn observe_tech_state(
 
 // This observer reads game facts and publishes input requests; it never changes
 // fighter status. Native reads happen outside STATE and publication revalidates
-// the session because those reads can re-enter hooks.
+/// Observes the fighter's state, including native reads and session validation. This function never changes fighter status and ensures that the session is revalidated because native reads can re-enter hooks.
 unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let Some(config) = CONFIG.get().map(Box::as_ref) else {
         return;
@@ -3228,7 +3385,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         file_ledge_timeline,
         ground_ledge_timeline,
         observe_trump,
-        observe_duck,
     } = needs;
 
     let reads = frame::FrameReads::default();
@@ -3236,30 +3392,16 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let _performance = crate::performance::Scope::root();
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::Observation);
-    let native_status = reads.status_kind(object);
-    let native_auto_ground = reads.situation_kind(object);
-    let native_auto_stopped = reads.is_stop(object);
-    let ledge_motion_frame = reads.motion_frame(object);
-    let own_motion_kind = reads.motion_kind(object);
-    let timing_rate = reads.motion_rate(object);
-    let manual_context = GameplayContext {
-        gameplay: true,
+    let NativeObservationBasics {
         status: native_status,
         situation: native_auto_ground,
         stopped: native_auto_stopped,
-        motion_kind: own_motion_kind,
         motion_frame: ledge_motion_frame,
+        motion_kind: own_motion_kind,
         motion_rate: timing_rate,
-        ..GameplayContext::default()
-    };
-    let manual_automatic_blocked =
-        manual_automatic_input_blocked(object_id, fighter_kind, manual_context);
-    let damage_stop = (config.auto_sdi || config.auto_di.enabled)
-        && (kirby_assist_core::native_states::status::DAMAGE
-            ..=kirby_assist_core::native_states::status::DOWN_REFLECT_LR)
-            .contains(&native_status)
-        && reads.is_stop(object)
-        && game::is_damage_stop(object);
+        manual_automatic_blocked,
+        damage_stop,
+    } = observe_native_basics(&reads, object, object_id, fighter_kind, &config);
     // Copy saved-mode flags once; no native queries happen while holding this
     // lock. All readers in this observation use the same configuration snapshot.
     let ObservationPolicySnapshot {
@@ -3361,7 +3503,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         || defense_observation_enabled && roster_missing
         || posture_modes.1 && posture_down && roster_missing;
     let roster_has_active_consumer = observe_ledge
-        || observe_duck
         || trip_watch
         || damage_stop
         || observe_roll_read
@@ -3640,32 +3781,12 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     } else {
         (false, false, false, false)
     };
-    // Independent Y defense needs only the existing motion sample and nearby
-    // fighter warning pass; it does not enable ledge rays/physics acquisition.
-    let duck_observation = kirby_defense::observe(
-        &reads,
-        object,
-        &kirby_defense::Observation {
-            enabled: observe_duck,
-            kind: fighter_kind,
-            object: object_id,
-            status: assessment.status,
-            situation: assessment.situation,
-            motion: own_motion_kind,
-            frame: ledge_motion_frame,
-            rate: timing_rate,
-            stopped,
-            clatter,
-            tech,
-        },
-        || analysis_settings.shield(),
-    );
     // Observation stage: build ordinary Rust values from read-only game calls.
     // Startup/cancel/hit-status queries describe the real game; they do not
     // make an input legal. The core uses these values to decide what to request.
     // Full movement/ledge queries (including ground rays) are demand-driven.
     // Stick-click/Y shortcuts use the existing motion sample, without ground rays.
-    let mut guard_threat = kirby_assist_core::auto_duck::DefenseThreat::default();
+    let mut guard_threat = false;
     let mut guard_ready = false;
     // Status-gated opponent acquisition comes first. Unrelated enemies stop at
     // their status checks; a ledge grab/getup gets full facts in this same pass.
@@ -3726,7 +3847,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                     object_id,
                     position,
                     velocity,
-                    false,
                     analysis_settings.shield(),
                 );
             }
@@ -4019,7 +4139,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 can_grab: oos_readiness.1,
                 can_jump: oos_readiness.2,
                 can_up_special: oos_readiness.3,
-                threatened: guard_threat.needs_defense(),
+                threatened: guard_threat,
             }
         });
     #[cfg(feature = "diagnostic-logging")]
@@ -4883,7 +5003,7 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 .get_or_insert_with(kirby_assist_core::autopilot_guard::GuardHold::default)
                 .sample_with_progress(
                     guard_eligible,
-                    guard_threat.needs_defense(),
+                    guard_threat,
                     kirby_assist_core::autopilot_guard::GuardClock {
                         status: context.status,
                         motion: context.motion_kind,
@@ -5073,26 +5193,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
             state.trump = None; // Clear released Down history without native reads.
             state.trump_seek_tick = None;
         }
-        state.duck_output = if let Some((context, threats)) = duck_observation {
-            let allowed = state.duck_active
-                && !clatter
-                && !tech
-                && state.trump_output.owned == 0
-                && state.roll_read_output.owned == 0
-                && state.trip_output.owned == 0
-                && state.fair_output.owned == 0
-                && !state
-                    .ledge
-                    .as_ref()
-                    .is_some_and(LedgeTrap::committed_input_pending);
-            state
-                .duck_defense
-                .get_or_insert_with(kirby_assist_core::auto_duck::DuckDefense::default)
-                .sample(allowed, context, threats)
-        } else {
-            state.duck_defense = None;
-            ControllerOutput::default()
-        };
         state.reflect_output = if let Some((configured, context, threat)) = reflect_observation {
             // Preparation happens after existing modes. Never admit two new
             // punish inputs on the same observation, nor steal their receipt.

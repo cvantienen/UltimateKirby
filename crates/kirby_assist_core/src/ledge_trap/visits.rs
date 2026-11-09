@@ -118,7 +118,6 @@ impl LedgeVisits {
 /// Preserve one response per visit even when this engine is recreated.
 /// Explicit editor previews remain independently repeatable.
 impl LedgeTrap {
-
     pub fn sample_with_visits(
         &mut self,
         visits: &mut LedgeVisits,

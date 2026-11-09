@@ -12,7 +12,13 @@ use crate::{
 pub fn active(installed: bool, training: bool) -> bool {
     installed && training
 }
-
+/// Determines if the Training compatibility is active based on the installed and training flags.
+/// # Arguments
+/// * `installed` - Indicates if the feature is installed.
+/// * `training` - Indicates if the training mode is active.
+///
+/// # Returns
+/// `true` if both installed and training are active, otherwise `false`.
 pub fn passthrough(buttons: u32, pressed: u32, already: bool) -> bool {
     let overlay_chord =
         crate::native_input::MAPPER_L | DPAD_DOWN | crate::settings_menu::MENU_STICK_CLICK;
@@ -27,6 +33,12 @@ pub fn passthrough(buttons: u32, pressed: u32, already: bool) -> bool {
 
 /// Default ZL+Up/Down save/load is momentary. Menus, recording/playback and
 /// OS-overlay shortcuts can stay open after release and require a Minus resume.
+/// Determines if a sticky shortcut is active based on the current button state.
+/// # Arguments
+/// * `buttons` - The current state of the buttons.
+///
+/// # Returns
+/// `true` if a sticky shortcut is active, otherwise `false`.
 pub fn sticky_shortcut(buttons: u32) -> bool {
     crate::settings_menu::monitor_chord(buttons)
         || buttons & MAPPER_PLUS != 0

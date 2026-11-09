@@ -186,7 +186,7 @@ mod frame {
         }
     }
 }
-mod duck_hits {
+mod attack_sources {
     pub fn forget(_: u32) {}
     pub fn projectiles() -> [Option<kirby_assist_core::projectile_reflect::ProjectileKey>; 32] {
         use kirby_assist_core::projectile_reflect::ProjectileKey;

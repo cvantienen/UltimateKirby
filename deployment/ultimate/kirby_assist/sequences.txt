@@ -5,7 +5,6 @@ control_layout = default
 auto_mash = false
 auto_tech = true
 autopilot_shield = true
-kirby_auto_duck = false
 tech_debug = true
 player_index = 0
 takeover = true

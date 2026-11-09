@@ -51,7 +51,7 @@ impl FrameReads {
     }
     /// Share copied roster IDs only within this accepted observation. Every
     /// consumer still revalidates native identity/team before reading fighters.
-    pub fn roster(&self) -> Option<kirby_assist_core::battle_objects::FighterRoster> {
+    pub fn roster(&self) -> Option<kirby_assist_core::battle_objects::FightersInGame> {
         self.roster.read(|| {
             super::STATE
                 .lock()

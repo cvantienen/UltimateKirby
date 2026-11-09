@@ -886,10 +886,6 @@ impl MenuSelection {
                 || self.lightweight && !self.menu_hidden && self.lightweight_navigation())
     }
 
-    pub fn auto_duck_held(&self, buttons: u32) -> bool {
-        let _ = buttons;
-        false // Auto-duck has no binding.
-    }
     /// Minus opens ledge home or closes. R3 edits; page rows navigate directly.
     /// In Training, visible D-pad belongs to navigation. The lightweight menu
     /// requires the held ledge modifier; otherwise custom D-pad inputs work.

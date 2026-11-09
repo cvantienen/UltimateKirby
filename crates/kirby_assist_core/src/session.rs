@@ -25,23 +25,30 @@ impl MenuPresence {
         })
     }
 }
-
+/// Represents a session ticket that uniquely identifies a match session.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SessionTicket(u64);
 
+/// Represents the current match session, tracking readiness and epoch for session validation.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct MatchSession {
     ready: bool,
     epoch: u64,
 }
 impl MatchSession {
+    /// Creates a new match session with default values.
     pub const fn new() -> Self {
         Self {
             ready: false,
             epoch: 0,
         }
     }
-    /// Returns true when cached fighter/controller/overlay state must reset.
+    /// Updates the match session's readiness state.
+    /// # Parameters
+    /// * `ready` - The new readiness state.
+    /// # Returns
+    /// * `true` if the readiness state changed and cached fighter/controller/overlay state must reset.
+    /// * `false` otherwise.
     pub fn update(&mut self, ready: bool) -> bool {
         let changed = self.ready != ready;
         if changed {
@@ -50,9 +57,19 @@ impl MatchSession {
         }
         changed
     }
+    /// Returns the current session ticket if the match session is ready.
+    /// # Returns
+    /// * `Some(SessionTicket)` if the match session is ready.
+    /// * `None` otherwise.
     pub fn ticket(self) -> Option<SessionTicket> {
         self.ready.then_some(SessionTicket(self.epoch))
     }
+    /// Checks if the given session ticket is accepted by the current match session.
+    /// # Parameters
+    /// * `ticket` - The session ticket to check.
+    /// # Returns
+    /// * `true` if the ticket matches the current session ticket.
+    /// * `false` otherwise.
     pub fn accepts(self, ticket: SessionTicket) -> bool {
         self.ticket() == Some(ticket)
     }

@@ -3,14 +3,19 @@
 use kirby_assist_core::projectile_reflect::ProjectileKey;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 
+/// Represents an empty record for projectile sources.
 const EMPTY: u64 = u64::MAX;
+/// The maximum number of projectile sources that can be tracked.
 const CAPACITY: usize = 32;
+
+/// Tracks projectile sources with bounded capacity and atomic coherence.
 pub(super) struct Sources {
     records: [AtomicU64; CAPACITY],
     next: AtomicUsize,
     generation: AtomicU32,
 }
 impl Sources {
+    /// Creates a new instance of `Sources` with empty records and initial generation.
     pub(super) const fn new() -> Self {
         Self {
             records: [const { AtomicU64::new(EMPTY) }; CAPACITY],
@@ -18,6 +23,7 @@ impl Sources {
             generation: AtomicU32::new(0),
         }
     }
+    /// Remembers a projectile source by its ID, updating the generation if necessary.
     pub(super) fn remember(&self, id: u32) {
         if !matches!(
             id >> 28,
@@ -47,6 +53,7 @@ impl Sources {
         let index = vacant.unwrap_or_else(|| self.next.fetch_add(1, Ordering::Relaxed) % CAPACITY);
         self.records[index].store(record, Ordering::Relaxed);
     }
+    /// Returns a snapshot of the current projectile sources as an array of `Option<ProjectileKey>`.
     pub(super) fn snapshot(&self) -> [Option<ProjectileKey>; CAPACITY] {
         std::array::from_fn(|index| {
             let record = self.records[index].load(Ordering::Relaxed);
@@ -56,6 +63,7 @@ impl Sources {
             })
         })
     }
+    /// Forgets a projectile source by its ID, marking its slot as empty.
     pub(super) fn forget(&self, id: u32) {
         for slot in &self.records {
             let old = slot.load(Ordering::Relaxed);
@@ -69,6 +77,7 @@ impl Sources {
             }
         }
     }
+    /// Clears all projectile sources, resetting the next index but preserving the generation.
     pub(super) fn clear(&self) {
         for slot in &self.records {
             slot.store(EMPTY, Ordering::Relaxed);

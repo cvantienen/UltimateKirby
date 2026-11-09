@@ -4,9 +4,11 @@ Both tools apply to the selected human player's controller without holding the l
 They respect the global `enabled` setting and existing controller/session checks.
 No parry feature or ZL/ZR chord was added.
 
-The Kirby-specific trip policy lives in [fighters/kirby/](../crates/kirby_assist_core/src/fighters/kirby/);
-shared SDI remains in [combat_assist.rs](../crates/kirby_assist_core/src/shared/survival/combat_assist.rs). Existing
-`combat_assist` imports of the Kirby follow-up types remain supported.
+The Kirby-specific trip policy lives in
+[trip_followup.rs](https://github.com/cvantienen/UltimateKirby/blob/main/crates/kirby_assist_core/src/fighters/kirby/trip_followup.rs);
+shared SDI remains in
+[combat_assist.rs](https://github.com/cvantienen/UltimateKirby/blob/main/crates/kirby_assist_core/src/shared/survival/combat_assist.rs).
+Existing `combat_assist` imports of the Kirby follow-up types remain supported.
 
 ```text
 down_tilt_trip_smash = true
@@ -41,21 +43,23 @@ ordinary hitstun, the attacker's hitlag, shield freeze or global stop. The nativ
 remaining-hitstop timer distinguishes advancing samples even when the animation
 is frozen. Repeated mapper polls at one timer value reuse one output.
 
-The automatic stick alternates horizontal full deflection away from the attacker
-and neutral at each observed timer change. A direction already held when hitstop
-starts does not override it. Moving the stick at least 0.4 from its entry position,
-with at least 0.4 magnitude, hands full physical control back for the rest of
-that hitstop. Releasing to neutral and pressing a direction again also counts.
-SDI resumes automatically on a later hitstop session; ordinary DI after hitstop
-is always physical.
+When eligible, SDI requests a full-strength flick and a neutral rearm, with at
+least four native hitstop frames between flicks. A stick already held in the
+game-visible output first receives a neutral release. When selected, the live
+damage response owns the gameplay inputs, including neutral gaps; moving the
+physical stick does not cancel it. SDI stops for the final three hitstop frames,
+when automatic DI may take over. Control returns when the response ends.
 
 Direction uses the attributed attacker's current horizontal position. If that
 attribution is unavailable and exactly one opponent is known, it uses that
-opponent. If direction is unknown or both roots overlap, it leaves the physical
-stick alone instead of guessing toward center stage. Buttons remain physical.
-Live learned-delay compensation has been removed. This does not change native
-SDI multipliers, restrictions or launch physics; actual movement still depends
-on the move, native acceptance and observation cadence.
+opponent. If direction is unknown or both roots overlap, SDI abstains instead of
+guessing toward center stage. When valid blast-zone geometry is available, the
+flick may bend inward or upward for clearance instead of remaining horizontal.
+Capture mash and tech can take priority over SDI. Live learned-delay compensation
+has been removed. This does not change native SDI multipliers, restrictions or
+launch physics; actual movement still depends on the move, native acceptance and
+observation cadence. See [DI and SDI input assistance](DI_SDI.md) for priority
+and survival-model details.
 
 ## Validation
 

@@ -61,7 +61,7 @@ impl State {
     }
 }
 static STATE: Mutex<State> = Mutex::new(State::new());
-mod duck_hits {
+mod attack_sources {
     pub fn clear() {
         super::CLEANUPS.fetch_add(1, super::Ordering::Relaxed);
     }

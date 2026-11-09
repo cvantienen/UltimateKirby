@@ -28,9 +28,9 @@ attacks and approaching/descending aerials that a root-only distance test misses
 A broad spatial filter precedes these reads; at most 16 active slots receive
 geometry work across the roster (at most two joint transforms per slot). Reaching
 that cap requests shield conservatively. These are read-only hitbox observations,
-not changes to attacks, and use the existing ABI without a new observer hook.
-Projectile/item objects are not scanned. Estimated body bounds and linear motion
-remain approximations; coverage is not guaranteed.
+not changes to attacks. A shared ATTACK observer remembers bounded weapon/item
+IDs for these checks and projectile reflection; it does not change attacks.
+Estimated body bounds and linear motion remain approximations; coverage is not guaranteed.
 
 Shield input requires native guard availability or an existing guard/shieldstun
 state. Native guard availability is checked without an idle/walk-only status
@@ -56,51 +56,11 @@ This cannot shield through hitstun, shield break or uncancellable move recovery.
 It does not parry, detect grabs, or guarantee collision coverage.
 
 The added native reads run only for grounded, guard-eligible, L-held ledge
-autopilot observations. There are no new hooks, threads, weapon scans or live
-file reads. Runtime cost and online effectiveness still require Switch testing.
+autopilot observations. The shared observer tracks projectile sources only when
+ledge shielding or a configured reflector needs them. Runtime cost and online
+effectiveness still require Switch testing.
 Diagnostic ledge snapshots label the action `autopilot_defensive_shield`.
 Disable with `autopilot_shield = false` in `[universal.settings]` of startup `sequences.txt`, then restart.
-
-## Kirby auto-duck
-
-Auto-duck is disabled and its Y binding is retired. Y uses the selected fighter
-recipe or Normal button; legacy configuration cannot re-enable auto-duck.
-
-A fixed six-frame swept envelope predicts incoming contact. It requests normal
-down-stick crouching when the detected hitbox overlaps an estimated standing
-Kirby body but clears the estimated crouching body. Multiple high hitboxes may
-be ducked together; a low/large/descending hitbox intersecting the crouching
-bound chooses shield if native shielding is ready. Native crouch readiness is
-required; an already raised shield is not replaced with down+shield. Damage,
-committed punishes and other higher-priority tools still take precedence.
-Down is not requested on passable platforms or for nonstandard Kirby sizes.
-
-The calibration model in `auto_duck.rs` uses standing height
-12, crouching top 4.5 and horizontal/depth half-width 4 world units. **These are
-estimates, not live native hurtboxes or universal clearance guarantees.** Capsule
-bounds are deliberately conservative. Native crouch startup, changing joint
-poses, slopes, hitstop and delayed inputs can still defeat the prediction.
-Only currently active attacks are visible; this is not prediction of attacks
-that have not spawned hitboxes yet. Grabs are not covered.
-
-One deferred `sv_animcmd::ATTACK` observer, installed only when auto-duck is
-configured on, calls the existing hook chain unchanged and remembers IDs in a
-32-slot atomic ring while the selected fighter is Kirby. It never edits attack
-arguments. This enables weapon/item discovery without traversing an unknown
-object-manager layout. The cache is retained while Y is released so a projectile
-already in flight can be considered when Y is pressed. Battle end clears it.
-Only held-Y observations scan geometry: up to eight cached fighters and 32
-weapon/item IDs, eight active slots per object and at most 32 active hitbox
-transforms per observation. There are no new threads, per-observation allocations,
-render effects or per-frame log strings. This is bounded work, not measured
-Switch performance. The additional ATTACK hook needs on-device coexistence
-validation with Training Modpack; its Lua arguments and original call are untouched.
-
-Objects not seen through the normal ATTACK command, evicted cached objects,
-secondary attack banks, unusual scaling rules and stage hazards can be missed.
-No claim is made that every hitbox can be ducked, that every projectile is
-tracked, or that this is exact collision prediction. Validate offline before
-relying on it. L's separate fighter-only shield policy is unchanged.
 
 ## Controls
 

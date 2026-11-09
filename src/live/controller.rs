@@ -30,11 +30,11 @@ const CONTROLLER_NPAD_OFFSET_BYTES: usize = 0xc4;
 const MAPPED_INPUTS_SIZE_BYTES: usize = 8;
 const MAPPED_INPUTS_BUTTONS_OFFSET_BYTES: usize = 0;
 
-// Pinned Controller prefix: overlay button words, stick floats, and affected
-// repeat flags as requested by the active tool. Restore them after mapping.
+/// Pinned Controller prefix: overlay button words, stick floats, and affected
+/// repeat flags as requested by the active tool. Restore them after mapping.
 #[repr(C)]
-// Padding fields are intentional: they preserve offsets of later native fields.
-// Do not remove padding or reorder fields as a normal Rust refactor would.
+/// Padding fields are intentional: they preserve offsets of later native fields.
+/// Do not remove padding or reorder fields as a normal Rust refactor would.
 pub(super) struct Controller {
     pub(super) vtable: usize,
     pub(super) current_buttons: u32,
@@ -90,7 +90,7 @@ const _: () = {
     assert!(std::mem::offset_of!(Controller, npad) == CONTROLLER_NPAD_OFFSET_BYTES);
 };
 
-/// Read the native wrapper's controller pointer. The caller checks that the
+/// Reads the native wrapper's controller pointer. The caller checks that the
 /// wrapper is non-null and valid for this pinned layout before calling.
 pub(super) unsafe fn controller_from_wrapper(wrapper: *mut c_void) -> *mut Controller {
     wrapper
@@ -100,6 +100,7 @@ pub(super) unsafe fn controller_from_wrapper(wrapper: *mut c_void) -> *mut Contr
         .read()
 }
 
+/// Selects the appropriate controller based on the wrapper, index, and player index.
 pub(super) unsafe fn selected_controller(
     wrapper: *mut c_void,
     index: i32,
@@ -117,6 +118,7 @@ pub(super) unsafe fn selected_controller(
     Some(controller)
 }
 
+/// Stores the state of a controller for later restoration, including button traces, stick positions, and trigger values.
 pub(super) struct ControllerRestore {
     pub(super) controller: *mut Controller,
     pub(super) physical: ButtonTrace,
@@ -127,6 +129,7 @@ pub(super) struct ControllerRestore {
 }
 
 impl ControllerRestore {
+    /// Restores the controller to the previously saved state.
     pub(super) unsafe fn restore(self) {
         let controller = self.controller;
         write_trace(controller, self.physical);
@@ -140,8 +143,8 @@ impl ControllerRestore {
     }
 }
 
-// Pinned MappedInputs result (common/input.rs). The post-map filter clears
-// reserved taunts which may otherwise survive native repeat/history handling.
+/// Pinned MappedInputs result (common/input.rs). The post-map filter clears
+/// reserved taunts which may otherwise survive native repeat/history handling.
 #[repr(C)]
 pub(super) struct MappedInputs {
     pub(super) buttons: u32,
@@ -155,7 +158,7 @@ const _: () = {
     assert!(std::mem::offset_of!(MappedInputs, buttons) == MAPPED_INPUTS_BUTTONS_OFFSET_BYTES);
 };
 
-// Copy the four physical button words before changing any of them.
+/// Copies the four physical button words before changing any of them.
 pub(super) unsafe fn trace(controller: *const Controller) -> ButtonTrace {
     ButtonTrace {
         held: (*controller).current_buttons,
@@ -164,8 +167,8 @@ pub(super) unsafe fn trace(controller: *const Controller) -> ButtonTrace {
         released: (*controller).just_release,
     }
 }
-// Write a complete, consistent button history; changing only held would leave
-// new-press/release queries inconsistent with what the mapper sees.
+/// Writes a complete, consistent button history; changing only held would leave
+/// new-press/release queries inconsistent with what the mapper sees.
 pub(super) unsafe fn write_trace(controller: *mut Controller, buttons: ButtonTrace) {
     (*controller).current_buttons = buttons.held;
     (*controller).previous_buttons = buttons.previous;

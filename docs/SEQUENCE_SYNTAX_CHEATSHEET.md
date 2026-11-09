@@ -432,7 +432,7 @@ auto_tech = true
 | Key(s) | Value syntax / accepted bounds |
 | --- | --- |
 | `enabled`, `auto_mash`, `auto_tech`, `takeover`, `tech_debug` | `true` / `false` |
-| `autopilot_shield`, `kirby_auto_duck`, `down_tilt_trip_smash`, `kirby_fair1_smash` | `true` / `false`; helpers retain their fighter/scope restrictions |
+| `autopilot_shield`, `down_tilt_trip_smash`, `kirby_fair1_smash` | `true` / `false`; helpers retain their fighter/scope restrictions |
 | `auto_sdi`, `auto_spot_dodge`, `auto_di` | `true` / `false` |
 | `control_layout` | `default` / `brother` |
 | `auto_di_mode` | `survival`, `adaptive`, `escape`; current adaptive shares survival behavior |
@@ -449,6 +449,7 @@ auto_tech = true
 | `ledge_grab_button` | `R`, `L`, `ZL` |
 | `turbo_walk_strength` | Finite 0.05–0.6; horizontal creep amount for the selected Turbo t-bag built-in |
 | `dpad_b_reverse`, `dpad_slide` | `true` / `false`; accepted for old-file compatibility but have no effect |
+| `kirby_auto_duck` | `true` / `false`; accepted for old-file compatibility but has no effect |
 Accepted legacy no-effect Turbo keys: `r3_turbo`, `l3_turbo`, `dpad_turbo` and
 `turbo_phase_frames`. Boolean values are validated but cannot activate the
 helper; `turbo_phase_frames` is range-checked to 1–10 but no longer changes its

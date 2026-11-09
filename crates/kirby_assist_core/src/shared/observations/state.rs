@@ -6,6 +6,10 @@
 //! They do not automatically read game memory or install native callbacks.
 use crate::input::ControllerFrame;
 
+/// simple label that tells the generic assist engine what it knows about the fighter
+/// It allows the engine to differentiate between known fighters, unknown fighters, and Kirby specifically.
+/// *** 
+/// Need to analyse more, may be extended in the future to include other specific fighters and unique modes/modifiers.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FighterKind {
     Kirby,

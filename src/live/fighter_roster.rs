@@ -1,9 +1,10 @@
 //! Eight entries plus independently validated Ice Climber partners. No scans
 //! of battle-object memory, native writes, allocations or retained pointers.
 use super::{active_fighter_manager, fighter_manager_instance, game, game_entry_id};
-use kirby_assist_core::battle_objects::{append_fighter, FighterRoster, FIGHTER_CAPACITY};
+use kirby_assist_core::battle_objects::{append_fighter, FightersInGame, FIGHTER_CAPACITY};
+use kirby_assist_core::battle_objects::BITSHIFT_CATEGORY;
 
-pub(crate) unsafe fn fighter_ids() -> Option<FighterRoster> {
+pub(crate) unsafe fn fighter_ids() -> Option<FightersInGame> {
     let manager = active_fighter_manager()?;
     let count = game::entry_count(manager);
     if !(0..=8).contains(&count) {
@@ -20,7 +21,7 @@ pub(crate) unsafe fn fighter_ids() -> Option<FighterRoster> {
             continue;
         }
         let id = game::current_fighter_id(entry) as u32;
-        if id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+        if id >> BITSHIFT_CATEGORY != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
             || !game::is_active(id)
         {
             continue;
@@ -35,8 +36,9 @@ pub(crate) unsafe fn fighter_ids() -> Option<FighterRoster> {
     Some(ids)
 }
 
+/// appends fighters and their Ice Climber partners to the list of fighters in the game.
 unsafe fn append_partner(
-    ids: &mut FighterRoster,
+    ids: &mut FightersInGame,
     id: u32,
     object: *mut game::Object,
     entry_id: i32,
@@ -84,7 +86,7 @@ pub(crate) unsafe fn human_fighter(object: *mut game::Object) -> bool {
         return false;
     };
     let id = game::battle_object_id(object);
-    if id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+    if id >> BITSHIFT_CATEGORY != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
         || !game::is_active(id)
     {
         return false;
@@ -105,7 +107,7 @@ pub(crate) unsafe fn human_fighter(object: *mut game::Object) -> bool {
 
 pub(crate) unsafe fn valid_local_route(id: u32, index: i32) -> bool {
     if !(0..8).contains(&index)
-        || id >> 28 != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
+        || id >> BITSHIFT_CATEGORY != kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER
         || !game::is_active(id)
     {
         return false;

@@ -21,8 +21,8 @@ const MAX_GROUND_OFFSET_MAGNITUDE: f32 = 100.0;
 const MIN_CONTACT_HORIZON_FRAMES: f32 = 1.0;
 const MAX_CONTACT_HORIZON_FRAMES: f32 = 20.0;
 
-// Diagnostic snapshot only: the string describes our detector's decision, not
-// a complete explanation of all native tech restrictions or proof of success.
+/// Diagnostic snapshot only: the string describes our detector's decision, not
+/// a complete explanation of all native tech restrictions or proof of success.
 pub(super) struct TechAssessment {
     pub(super) status: i32,
     pub(super) situation: i32,
@@ -65,9 +65,9 @@ pub(super) unsafe fn native_timing(object: *mut game::Object, fallback: u16) -> 
     ) // ganon_special_s_passive_trigger_frame
 }
 
-// Start with native status/eligibility gates, then test swept stage rays. Keep
-// the fixed body offsets in tech_prediction.rs separate so they can be tested
-// on the host and tuned without scattering geometry through native FFI code.
+/// Start with native status/eligibility gates, then test swept stage rays. Keep
+/// the fixed body offsets in tech_prediction.rs separate so they can be tested
+/// on the host and tuned without scattering geometry through native FFI code.
 pub(super) unsafe fn assess_tech(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,

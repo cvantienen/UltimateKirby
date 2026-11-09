@@ -92,7 +92,7 @@ and editor use directly linked pages: five ledge lists, fighter-specific X/Y/D-p
 bindings, and available mode ON/OFF settings. Button bindings select only input sequences or Normal button; hard-coded D-pad B-reverse/Down-trump are removed.
 No universal button recipes or shared edit cache remain. Menus are available
 only in battle; arena/character-select editing and its SDK capture hooks are removed.
-Automatic whiff punishing remains removed, and Auto-duck is disabled.
+Automatic whiff punishing and auto-duck have been removed.
 
 **Auto-reflect** appears in Assist modes only for a supported fighter with an
 explicit `reflect_default` setting. Game & Watch is the first configured fighter,

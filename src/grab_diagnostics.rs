@@ -3,9 +3,14 @@
 use kirby_assist_core::{ledge_trap::RollGrabSnapshot, native_input::MAPPED_CATCH};
 use std::{fmt::Write, time::Instant};
 
+/// The number of checkpoints to retain in the ring buffer.
 const CHECKPOINTS: usize = 32;
+/// The interval in milliseconds for progress updates.
 const PROGRESS_MS: u64 = 125;
+/// The maximum allowed duration in milliseconds before triggering the watchdog.
 const WATCHDOG_MS: u64 = 3_000;
+
+/// Represents an event in the roll grab diagnostics, either an observation or a mapper update.
 #[derive(Clone, Copy)]
 enum Event {
     Observation(RollGrabSnapshot),
@@ -18,12 +23,14 @@ enum Event {
         gate: &'static str,
     },
 }
+/// Represents a checkpoint in the roll grab diagnostics, storing the elapsed time and the associated event.
 #[derive(Clone, Copy)]
 struct Checkpoint {
     ms: u64,
     event: Event,
 }
 
+/// Represents a report for roll grab diagnostics, including metadata, checkpoints, and various counters.
 pub struct Report {
     id: u64,
     fighter: Option<i32>,
@@ -51,11 +58,13 @@ pub struct Report {
     end: &'static str,
 }
 impl Report {
+    /// Returns the elapsed time in milliseconds since the report's origin.
     fn elapsed(&self, now: Instant) -> u64 {
         now.saturating_duration_since(self.origin)
             .as_millis()
             .min(u128::from(u64::MAX)) as u64
     }
+    /// Pushes a new checkpoint into the report, recording the elapsed time and event.
     fn push(&mut self, ms: u64, event: Event) {
         // Preserve the initial checkpoint separately; the ring retains recent
         // evidence and reports overwrite counts instead of allocating/growing.
@@ -63,6 +72,7 @@ impl Report {
         self.written = self.written.saturating_add(1);
     }
     /// Called exclusively on the logger thread, never under the gameplay mutex.
+    /// Formats the report into a human-readable string for logging or display.
     pub fn format(&self) -> String {
         let result = if self.last.captured {
             "capture_confirmed"
@@ -122,13 +132,14 @@ impl Report {
         let _ = writeln!(text, "  +{ms}ms {label} gate={} status={:#x}@{:.2} pos={:?} vx={:.3} facing={} endpoint={:?} stand={:?} endpoint_gap={:?} target_gap_facing={:?} usable_reach={:.2} grab_range={:.2} ready(control/act/grab)={}/{}/{} stopped={} safe_ground={:?} enemy_status={:?}@{:?} enemy_pos={:?} vulnerable={:?} opens_in={:?} adjusted_opens_in={:?} actionable_in={:?} active={:?} request={:#x} grab_button={:#x} attempts={} animations={} native_grabbing={} captured={}", s.phase, s.status, s.motion_frame, s.position, s.velocity_x, s.facing, s.endpoint, s.stand_x, s.endpoint.map(|x| x-s.position[0]), s.enemy_position.map(|p| (p[0]-s.position[0])*s.facing), s.usable_reach, s.grab_range, s.can_control, s.can_act, s.can_grab, s.stopped, s.safe_ground, s.enemy_status, s.enemy_frame, s.enemy_position, s.vulnerable, s.vulnerable_in, s.adjusted_opens_in, s.actionable_in, s.active, s.requested, s.grab_button, s.attempts, s.animations, s.native_grabbing, s.captured);
     }
 }
-
+/// Represents the trace of a roll grab, including the active report and its completion status.
 pub struct GrabTrace {
     active: Option<Report>,
     completed: bool,
     next_id: u64,
 }
 impl GrabTrace {
+    /// Creates a new instance of `GrabTrace` with no active report and initial state.
     pub const fn new() -> Self {
         Self {
             active: None,
@@ -136,9 +147,11 @@ impl GrabTrace {
             next_id: 0,
         }
     }
+    /// Returns `true` if there is an active report being tracked.
     pub fn active(&self) -> bool {
         self.active.is_some()
     }
+    /// Observes a new roll grab snapshot, updating the active report or finishing it if necessary.
     pub fn observe(
         &mut self,
         snapshot: Option<RollGrabSnapshot>,
@@ -251,6 +264,7 @@ impl GrabTrace {
             self.finish(end);
         }
     }
+    /// Records a mapper update for the roll grab, including proposed and applied button states, stick input, and gate.
     pub fn mapped(
         &mut self,
         proposed: u32,
@@ -289,6 +303,7 @@ impl GrabTrace {
         }
         report.last_mapping = Some(key);
     }
+    /// Finishes the active report with the given reason, writing it to the log and marking it as completed.
     pub fn finish(&mut self, reason: &'static str) {
         if let Some(mut report) = self.active.take() {
             report.end = reason;
@@ -296,6 +311,7 @@ impl GrabTrace {
             self.completed = true;
         }
     }
+    /// Resets the grab trace by finishing the current report with the given reason and clearing the completion flag.
     pub fn reset(&mut self, reason: &'static str) {
         self.finish(reason);
         self.completed = false;

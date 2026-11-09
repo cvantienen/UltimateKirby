@@ -2,7 +2,7 @@
 use super::{color, Snapshot};
 use imgui_api::bindings::*;
 
-// No tables, measured rows or per-frame string formatting/allocation.
+/// No tables, measured rows or per-frame string formatting/allocation.
 pub(super) unsafe fn draw(view: &Snapshot, display: ImVec2_c, scale: f32) {
     if !view.lightweight {
         return;

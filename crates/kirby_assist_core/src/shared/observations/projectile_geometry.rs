@@ -1,6 +1,7 @@
 //! Continuous swept capsule bounds against an observed body envelope.
 use crate::autopilot_guard::Hitbox;
 
+/// Computes the earliest time of intersection between a swept capsule and an axis-aligned bounding box.
 pub(crate) fn swept_capsule_aabb(
     hit: Hitbox,
     body_lo: [f32; 3],
