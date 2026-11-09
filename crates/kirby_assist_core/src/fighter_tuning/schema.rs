@@ -2,7 +2,7 @@
 //!
 //! The index order is shared by saved configuration, menu rendering, and
 //! runtime policy values. Keep each key, label, and hint at the same index.
-pub const COUNT: usize = 58;
+pub const COUNT: usize = 54;
 pub const KEYS: [&str; COUNT] = [
     "walk_strength",
     "grab_range",
@@ -42,10 +42,6 @@ pub const KEYS: [&str; COUNT] = [
     "roll_smash_watch",
     "roll_grab_height",
     "roll_grab_watch",
-    "jab_lock_reach",
-    "jab_lock_smash_reach",
-    "jab_lock_chase_distance",
-    "jab_lock_height",
     "crouch_range",
     "crouch_height",
     "shield_scan_x",
@@ -103,10 +99,6 @@ pub const LABELS: [&str; COUNT] = [
     "Legacy roll: smash watch distance",
     "Legacy roll: grab height",
     "Legacy roll: grab watch distance",
-    "Yoshi jab lock: jab reach",
-    "Yoshi jab lock: smash reach",
-    "Yoshi jab lock: chase distance",
-    "Yoshi jab lock: chase height",
     "Kirby crouch: proximity X",
     "Kirby crouch: proximity Y",
     "Shield: scan X cutoff",
@@ -164,10 +156,6 @@ pub const HINTS: [&str; COUNT] = [
     "Maximum root distance for watching legacy roll-smash opportunities.",
     "Height tolerance for the Kirby/Yoshi legacy roll grab reader.",
     "Maximum root distance for watching legacy roll-grab opportunities.",
-    "Root-based jab-lock reach estimate; affects only the existing Yoshi helper.",
-    "Root-based smash punish reach estimate for the Yoshi tech chase.",
-    "Maximum root separation to start/continue the Yoshi tech chase.",
-    "Maximum root-height difference for Yoshi tech-chase candidates.",
     "Maximum horizontal root gap for Kirby automatic crouch.",
     "Maximum vertical root gap for Kirby automatic crouch.",
     "Coarse root-distance cutoff before bounded native hitbox reads; enlarged by relative speed.",
@@ -186,20 +174,20 @@ pub const HINTS: [&str; COUNT] = [
     "Aim physical up C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.",
 ];
 
-pub const TILT_TURN_DOWN: usize = 55;
-pub const TILT_TURN_FORWARD: usize = 56;
-pub const TILT_TURN_UP: usize = 57;
-pub const REFLECT_DEFAULT: usize = 48;
-pub const REFLECT_STARTUP: usize = 49;
-pub const REFLECT_MARGIN: usize = 50;
-pub const REFLECT_MAX_HOLD: usize = 51;
-pub const REFLECT_HALF_WIDTH: usize = 52;
-pub const REFLECT_HEIGHT: usize = 53;
-pub const REFLECT_HALF_DEPTH: usize = 54;
-pub const SHIELD_SCAN_X: usize = 44;
-pub const SHIELD_SCAN_Y: usize = 45;
-pub const AUTO_GRAB_CLOSE: usize = 46;
-pub const AUTO_GRAB_FAR: usize = 47;
+pub const TILT_TURN_DOWN: usize = 51;
+pub const TILT_TURN_FORWARD: usize = 52;
+pub const TILT_TURN_UP: usize = 53;
+pub const REFLECT_DEFAULT: usize = 44;
+pub const REFLECT_STARTUP: usize = 45;
+pub const REFLECT_MARGIN: usize = 46;
+pub const REFLECT_MAX_HOLD: usize = 47;
+pub const REFLECT_HALF_WIDTH: usize = 48;
+pub const REFLECT_HEIGHT: usize = 49;
+pub const REFLECT_HALF_DEPTH: usize = 50;
+pub const SHIELD_SCAN_X: usize = 40;
+pub const SHIELD_SCAN_Y: usize = 41;
+pub const AUTO_GRAB_CLOSE: usize = 42;
+pub const AUTO_GRAB_FAR: usize = 43;
 pub const SHIELD_WARNING_X: usize = 14;
 pub const SHIELD_WARNING_Y: usize = 15;
 pub const SHIELD_BODY_HALF_WIDTH: usize = 16;
@@ -224,12 +212,8 @@ pub const ROLL_SMASH_HEIGHT: usize = 34;
 pub const ROLL_SMASH_WATCH: usize = 35;
 pub const ROLL_GRAB_HEIGHT: usize = 36;
 pub const ROLL_GRAB_WATCH: usize = 37;
-pub const JAB_LOCK_REACH: usize = 38;
-pub const JAB_LOCK_SMASH_REACH: usize = 39;
-pub const JAB_LOCK_CHASE_DISTANCE: usize = 40;
-pub const JAB_LOCK_HEIGHT: usize = 41;
-pub const CROUCH_RANGE: usize = 42;
-pub const CROUCH_HEIGHT: usize = 43;
+pub const CROUCH_RANGE: usize = 38;
+pub const CROUCH_HEIGHT: usize = 39;
 pub const WALK_STRENGTH: usize = 0;
 pub const GRAB_RANGE: usize = 1;
 pub const HORIZONTAL_RANGE: usize = 2;

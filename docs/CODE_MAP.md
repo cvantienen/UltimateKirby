@@ -64,12 +64,10 @@ Paths below are relative to the project root. Core paths begin with
 | Core `manual_controls.rs` / `shared/controller/native_input.rs` | Trigger reservation, shared button-ownership masks, input overlays, and raw button conversion. |
 | Core `shared/survival/combat_assist.rs` / `auto_di.rs` | Shared damage-hitstop SDI and DI; SDI retains compatibility exports for Kirby follow-ups. |
 | Core `fighters/kirby/` | Kirby-specific tilt-trip and forward-air follow-up input policies. |
-| Core `fighters/yoshi/jab_lock.rs` / `jab_lock.rs` | Yoshi-specific defaults and shared jab-lock policy. |
 | Core `shared/controller/up_b_receipt.rs` | Shared bounded native-start receipt for direct automatic Up-B sequences. |
 | Core `fighters/tuning_defaults.rs` | Fighter-specific tuning visibility and legacy display defaults. |
 | Core `fighters/game_and_watch/projectile_reflect.rs` / `shared/observations/projectile_geometry.rs` | Game & Watch projectile defense and reusable swept geometry. |
 | Core `fighters/ganondorf/flame_choke.rs` | Grounded Flame Choke release detection, contact timing and tech-window selection. |
-| `src/live/fighters/` | Fighter-specific native adapters, including Kirby follow-ups, Yoshi jab-lock observations and lifecycle, Ganondorf capture timing, and Game & Watch's reflector. Ice Climbers partner validation lives with the shared roster adapter. |
 | Core `native_states.rs` / `native_states/fighter/` | Shared native status rules and fighter-specific constants, interruption, and special/final-state classification. |
 | Core `shared/survival/tech_prediction.rs` / `tech_input.rs` | Pure collision timing / shield request and acknowledgment scheduling. |
 | Core `timing.rs` | Shared motion-progress classification, event deduplication, simulation-frame arithmetic and forecast overlap. No learned compensation. |

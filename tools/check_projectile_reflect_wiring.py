@@ -37,7 +37,7 @@ struct State {
     reflector:Reflector,reflect_output:ControllerOutput,action_owner:ActionOwnership,
     ledge_active:bool,oos:OutOfShield,oos_output:ControllerOutput,
     roll_read_output:ControllerOutput,spot_output:ControllerOutput,trip_output:ControllerOutput,
-    fair_output:ControllerOutput,jab_lock_output:ControllerOutput,trump_output:ControllerOutput,
+    fair_output:ControllerOutput,trump_output:ControllerOutput,
     raw_tick:i64,
 }
 fn publish(state:&mut State,reflect_observation:Option<(Config,Context,Option<Threat>)>,clatter:bool,tech:bool) {
@@ -66,7 +66,7 @@ fn observation(frame:f32,status:i32)->Option<(Config,Context,Option<Threat>)> {
         let mut state=State::default();let attack=kirby_assist_core::move_input::output([0.,1.],MAPPER_B);
         match competitor {0=>state.oos_output=attack,1=>state.roll_read_output=attack,
             2=>state.spot_output=attack,3=>state.trip_output=attack,4=>state.fair_output=attack,
-            5=>state.jab_lock_output=attack,6=>state.trump_output=attack,7=>state.ledge_active=true,
+            6=>state.trump_output=attack,7=>state.ledge_active=true,
             8=>state.action_owner.set_automatic_suspended(true),_=>{}}
         publish(&mut state,observation(0.,0),false,competitor==9);
         assert_eq!(state.reflect_output.owned,0);assert!(!state.reflector.active());

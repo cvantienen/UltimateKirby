@@ -42,8 +42,6 @@ mod runtime;
 mod settings_menu;
 mod state;
 mod tech;
-#[path = "live/fighters/yoshi/jab_lock.rs"]
-mod yoshi_jab_lock;
 
 use config::load_config;
 use controller::{
@@ -272,7 +270,6 @@ struct ObservationPolicySnapshot {
     trip_queued: bool,
     grab_dodge_enabled: bool,
     posture_modes: (bool, bool),
-    observe_jab_lock: bool,
     posture_down: bool,
     roster_missing: bool,
     oos_enabled: bool,
@@ -404,7 +401,6 @@ fn manual_automatic_input_blocked(
 /// Captures a snapshot of the observation policy for the given fighter, configuration, and context.
 fn snapshot_observation_policy(
     fighter_kind: i32,
-    config: &Config,
     manual_automatic_blocked: bool,
     native_status: i32,
 ) -> ObservationPolicySnapshot {
@@ -506,12 +502,6 @@ fn snapshot_observation_policy(
                 } else {
                     (false, false)
                 },
-                observe_jab_lock: yoshi_jab_lock::enabled(
-                    automatic_suspended,
-                    fighter_kind,
-                    config.controls.enabled,
-                    || menu.is_some_and(|menu| menu.jab_lock_enabled()),
-                ),
                 posture_down: state.posture_down,
                 roster_missing: state.ledge_roster.is_none(),
                 oos_enabled: grabs_enabled,
@@ -1309,7 +1299,7 @@ struct MapperIntentInputs {
 /// 
 /// # Returns
 /// An array of `Intent` for each possible action.
-fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Intent; 14] {
+fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Intent; 13] {
     let ledge_priority = state.action_owner.ledge_priority()
         && state.ledge_active
         && inputs.fresh
@@ -1350,11 +1340,6 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
         Intent {
             owner: Owner::Trip,
             present: state.trip_output.owned != 0,
-            committed: true,
-        },
-        Intent {
-            owner: Owner::JabLock,
-            present: state.jab_lock_output.owned != 0,
             committed: true,
         },
         Intent {
@@ -1442,7 +1427,6 @@ fn selected_owner_output(
 ) -> ControllerOutput {
     let mut selected = match winner {
         Some(Owner::Reflect) => state.reflect_output,
-        Some(Owner::JabLock) => state.jab_lock_output,
         Some(Owner::Trip) => state.trip_output,
         Some(Owner::Fair) => state.fair_output,
         Some(Owner::Trump) => state.trump_output,
@@ -2283,14 +2267,6 @@ unsafe fn prepare_mapper_overlay(
                                 } else {
                                     0
                                 }
-                                | if winner == Some(Owner::JabLock)
-                                    && ledge.requested == 0
-                                    && ledge.stick.is_some_and(|s| s[0] != 0.0)
-                                {
-                                    (1 << 21) | (1 << 23)
-                                } else {
-                                    0
-                                }
                                 | if manual_walk_stick.is_some()
                                     && turbo_output.stick == manual_walk_stick
                                     && ledge.owned == 0
@@ -3014,7 +2990,7 @@ unsafe fn install_mapper_if_ready() {
         log!("deferred mapper hook installed; existing Skyline mapper chain preserved");
     }
 }
-/// Declares the external C function for retrieving game command flags for a given object and category.
+// Declares the external C function for retrieving game command flags for a given object and category.
 extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind40ControlModule__get_command_flag_cat_implEPNS_26BattleObjectModuleAccessorEi"]
     fn game_command_flags(object: *mut game::Object, category: i32) -> i32;
@@ -3409,7 +3385,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         trip_queued,
         grab_dodge_enabled,
         posture_modes,
-        observe_jab_lock,
         posture_down,
         roster_missing,
         oos_enabled,
@@ -3434,7 +3409,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         grab_dash_pending,
     } = snapshot_observation_policy(
         fighter_kind,
-        &config,
         manual_automatic_blocked,
         native_status,
     );
@@ -3515,7 +3489,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                         | kirby_assist_core::native_states::status::ATTACK_HI3
                 ))
         || posture_modes.0
-        || observe_jab_lock
         || defense_observation_enabled && automatic_scope.acquire;
     // A first Down input can need facing before any other assist discovered
     // opponents. Seed once here; ordinary refreshes stay on the existing path.
@@ -3574,39 +3547,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     }
 
     // Read native data outside STATE's mutex to avoid re-entrant deadlocks.
-    let jab_config = if observe_jab_lock {
-        analysis_settings.jab_lock(fighter_kind)
-    } else {
-        None
-    };
-    let jab_lock_observation = if observe_jab_lock {
-        Some(yoshi_jab_lock::observe(
-            &reads,
-            object,
-            &yoshi_jab_lock::Observation {
-                object: object_id,
-                kind: fighter_kind,
-                status: assessment.status,
-                situation: assessment.situation,
-                motion: own_motion_kind,
-                frame: ledge_motion_frame,
-                rate: timing_rate,
-                stopped,
-                clatter,
-                tech,
-            },
-            jab_config,
-            analysis_settings,
-            || {
-                STATE
-                    .lock()
-                    .ok()
-                    .is_some_and(|s| s.jab_lock.as_ref().is_some_and(|j| j.watching()))
-            },
-        ))
-    } else {
-        None
-    };
     // One bounded roster pass, only while custom rules are enabled. Follow the
     // locked target through recovery without a second scan or stale position.
     let rule_observation = if automatic_scope.acquire && (rules_on || pressure_on)
@@ -4611,19 +4551,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
         }
         #[cfg(feature = "diagnostic-logging")]
         drop(combo_performance);
-        let jab_lock_allowed = !automatic_suspended
-            && state.action_owner.allows(Owner::JabLock)
-            && !clatter
-            && !tech
-            && state.trump_output.owned == 0
-            && state.fair_output.owned == 0;
-        state.jab_lock_output = yoshi_jab_lock::sample(
-            &mut state.jab_lock,
-            jab_lock_observation,
-            jab_lock_allowed,
-            jab_config,
-            analysis_settings,
-        );
         let trip_allowed = state.action_owner.allows(Owner::Trip);
         state.trip_output = kirby_followups::trip(
             &mut state.trip_followup,
@@ -5207,7 +5134,6 @@ unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
                 && state.spot_output.owned == 0
                 && state.trip_output.owned == 0
                 && state.fair_output.owned == 0
-                && state.jab_lock_output.owned == 0
                 && state.trump_output.owned == 0;
             state
                 .reflector

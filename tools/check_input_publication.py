@@ -236,7 +236,7 @@ mod exclusive_packet_wiring {
   (selected,mapped_tech_output)
  }
  #[test]fn actual_live_packet_has_one_exclusive_winner_including_wait_and_safety_phases() {
-  for owner in [Owner::Ledge,Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Trump,Owner::Trip,Owner::Fair,Owner::JabLock,Owner::Reflect] {
+  for owner in [Owner::Ledge,Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Trump,Owner::Trip,Owner::Fair,Owner::Reflect] {
    let mut s=State{action_owner:ActionOwnership::new(),tech_output:TechOutput{press:true,owns_guard:true},tech_urgent:false};
    s.action_owner.select(true,&[Intent::input_sequence(owner,1)]);
    let (p,t)=packet(&mut s,Some(owner),ControllerOutput{requested:MAPPER_B,..Default::default()},Some([1.,0.]),Some([0.,1.]));
@@ -273,7 +273,7 @@ mod literal_delivery_wiring {
  }
  #[test]fn actual_selected_ledge_smash_keeps_attack_for_both_control_layouts() {
   for layout in [ControlLayout::Default,ControlLayout::Brother] {
-   for owner in [Owner::Ledge,Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Safety,Owner::Trump,Owner::Fair,Owner::Trip,Owner::JabLock,Owner::Reflect] {
+   for owner in [Owner::Ledge,Owner::RollRead,Owner::OutOfShield,Owner::OptionRead,Owner::Safety,Owner::Trump,Owner::Fair,Owner::Trip,Owner::Reflect] {
     let (attack,packet)=request(Some(owner),MAPPER_A,layout.physical_buttons(MAPPER_A),SEQUENCE_BUTTONS,layout,true,true,true);
     assert_eq!(attack,matches!(owner,Owner::Ledge|Owner::RollRead|Owner::OutOfShield|Owner::OptionRead));assert_eq!(packet,Some(MAPPER_A));
     assert_eq!(mapped_literal_buttons(0,packet.unwrap()),0x201);

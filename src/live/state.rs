@@ -62,8 +62,6 @@ pub(super) struct State {
     pub(super) fair_output: ControllerOutput,
     pub(super) trip_followup: Option<TripFollowup>,
     pub(super) trip_output: ControllerOutput,
-    pub(super) jab_lock: Option<kirby_assist_core::jab_lock::JabLock>,
-    pub(super) jab_lock_output: ControllerOutput,
     pub(super) sdi: Option<SdiState>,
     pub(super) sdi_context: Option<SdiContext>,
     pub(super) di: Option<kirby_assist_core::auto_di::AutoDi>,
@@ -165,12 +163,8 @@ impl State {
         if let Some(tool) = self.fair_followup.as_mut() {
             tool.cancel_pending();
         }
-        if let Some(tool) = self.jab_lock.as_mut() {
-            tool.cancel_pending();
-        }
         self.trip_output = ControllerOutput::default();
         self.fair_output = ControllerOutput::default();
-        self.jab_lock_output = ControllerOutput::default();
     }
     pub(super) fn cancel_non_owner(&mut self, keep: Option<Owner>) {
         if keep != Some(Owner::Safety) {
@@ -189,12 +183,6 @@ impl State {
             if let Some(tool) = self.dash_pivot.as_mut() {
                 tool.cancel_pending();
             }
-        }
-        if keep != Some(Owner::JabLock) && self.jab_lock_output.owned != 0 {
-            if let Some(tool) = self.jab_lock.as_mut() {
-                tool.cancel_pending();
-            }
-            self.jab_lock_output = ControllerOutput::default();
         }
         if keep != Some(Owner::Trip) {
             if self.trip_output.owned != 0 {
@@ -340,14 +328,6 @@ impl State {
                 native_short_hop: false,
             },
             trip_followup: None,
-            jab_lock: None,
-            jab_lock_output: ControllerOutput {
-                consume_trigger: false,
-                requested: 0,
-                owned: 0,
-                stick: None,
-                native_short_hop: false,
-            },
             trip_output: ControllerOutput {
                 consume_trigger: false,
                 stick: None,
@@ -507,8 +487,6 @@ impl State {
         self.fair_output = ControllerOutput::default();
         self.trip_followup = None;
         self.trip_output = ControllerOutput::default();
-        self.jab_lock = None;
-        self.jab_lock_output = ControllerOutput::default();
         self.turbo = None;
         self.dash_pivot = None;
     }
@@ -597,8 +575,6 @@ impl State {
         self.fair_output = ControllerOutput::default();
         self.trip_followup = None;
         self.trip_output = ControllerOutput::default();
-        self.jab_lock = None;
-        self.jab_lock_output = ControllerOutput::default();
         self.sdi = None;
         self.sdi_context = None;
         self.di = None;

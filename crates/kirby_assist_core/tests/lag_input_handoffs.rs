@@ -388,7 +388,7 @@ fn committed_automatic_binding_locks_block_configured_short_hop_starts() {
         Owner::Reflect,
         Owner::GrabDodge,
         Owner::Trip,
-        Owner::JabLock,
+        Owner::Fair,
         Owner::Fair,
     ] {
         let mut ownership = ActionOwnership::new();

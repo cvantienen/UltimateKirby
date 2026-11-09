@@ -76,7 +76,6 @@ pub enum MenuRow {
     AutoMash,
     IdleCrouch,
     TiltTurn,
-    JabLock,
     SpotPunish,
     GrabDodge,
     AutoTech,
@@ -95,7 +94,7 @@ pub enum MenuRow {
     AutoReflect,
 }
 impl MenuRow {
-    pub const ALL: [Self; 32] = [
+    pub const ALL: [Self; 31] = [
         Self::Neutral,
         Self::Jump,
         Self::Roll,
@@ -111,7 +110,6 @@ impl MenuRow {
         Self::AutoMash,
         Self::IdleCrouch,
         Self::TiltTurn,
-        Self::JabLock,
         Self::SpotPunish,
         Self::GrabDodge,
         Self::AutoTech,
@@ -148,7 +146,6 @@ impl MenuRow {
             | Self::AutoMash
             | Self::IdleCrouch
             | Self::TiltTurn
-            | Self::JabLock
             | Self::SpotPunish
             | Self::GrabDodge
             | Self::AutoTech
@@ -187,7 +184,6 @@ impl MenuRow {
             Self::AutoMash => "Auto-mash",
             Self::IdleCrouch => "Idle crouch",
             Self::TiltTurn => "Tilt face",
-            Self::JabLock => "Jab lock",
             Self::SpotPunish => "Spot punish",
             Self::GrabDodge => "Dodge incoming grabs",
             Self::AutoTech => "Auto-tech",
@@ -306,7 +302,6 @@ pub struct MenuSelection {
     pub toggle_mash: bool,
     pub idle_crouch: bool,
     pub tilt_turn: bool,
-    pub jab_lock: bool,
     pub spot_punish: bool,
     pub grab_dodge: bool,
     pub auto_tech: bool,
@@ -393,7 +388,7 @@ impl MenuSelection {
         MenuRow::LedgePage,
         MenuRow::ModesPage,
     ];
-    pub const ASSIST_ROWS: [MenuRow; 19] = [
+    pub const ASSIST_ROWS: [MenuRow; 18] = [
         MenuRow::RollRules,
         MenuRow::ShieldPressure,
         MenuRow::SpotPunish,
@@ -405,7 +400,6 @@ impl MenuSelection {
         MenuRow::AutoMash,
         MenuRow::TiltTurn,
         MenuRow::IdleCrouch,
-        MenuRow::JabLock,
         MenuRow::RollRead,
         MenuRow::Performance,
         MenuRow::TestLatency,
@@ -533,7 +527,7 @@ impl MenuSelection {
         } else {
             row.slot()
                 .is_some_and(|s| s.is_button() == self.button_menu)
-        }) && !(row == MenuRow::JabLock && self.y_fighter_kind != crate::fighter_kinds::YOSHI)
+        })
             && !(!cfg!(feature = "diagnostic-logging")
                 && matches!(row, MenuRow::Performance | MenuRow::TestLatency))
             && row != MenuRow::RollRead
@@ -591,8 +585,6 @@ impl MenuSelection {
             self.tilt_turn = !self.tilt_turn;
         } else if self.row == MenuRow::OutOfShield {
             self.out_of_shield = !self.out_of_shield;
-        } else if self.row == MenuRow::JabLock {
-            self.jab_lock = !self.jab_lock;
         } else if self.row == MenuRow::SpotPunish {
             self.spot_punish = !self.spot_punish;
         } else if self.row == MenuRow::GrabDodge {

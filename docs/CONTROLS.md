@@ -243,7 +243,7 @@ replaces the old two-stick chord and no longer runs turbo teabag.
 
 Yoshi: enable the separate **Jab lock** row (initially OFF) for automatic
 nearby tumble/knockdown/tech chases, including late Nair setups. Techs get grab
-attempts; missed techs get jab-lock attempts into down smash. See [tech chase](JAB_LOCK.md).
+attempts.
 
 
 The experimental automatic Spacing assist, its settings and dedicated hitbox/

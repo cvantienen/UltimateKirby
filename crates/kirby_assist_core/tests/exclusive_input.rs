@@ -15,7 +15,7 @@ const SEQUENCES: [Owner; 11] = [
     Owner::GrabDodge,
     Owner::OptionRead,
     Owner::Trip,
-    Owner::JabLock,
+    Owner::Fair,
     Owner::Fair,
     Owner::Trump,
     Owner::Ledge,

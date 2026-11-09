@@ -1688,6 +1688,8 @@ Fixes manual ledge walking to accept the actual turbo output type while preservi
 Fixes strict documentation links and updates DI/SDI guidance to match current input ownership, flick timing and survival forecasts.
 
 Removes auto-duck while retaining shared projectile source tracking for ledge shielding and reflection, and validates legacy settings without enabling the removed feature.
+
+Removes the retired Yoshi auto-tech jab-lock policy, live adapter, tuning, menu, diagnostics and documentation while preserving generic auto-tech behavior.
 """
 
 

@@ -674,20 +674,18 @@ fn match_optional_fighter_modes_and_diagnostic_controls_update_their_real_values
         (6, MenuRow::IdleCrouch),
         (6, MenuRow::TiltTurn),
         (5, MenuRow::TiltTurn),
-        (5, MenuRow::JabLock),
     ] {
         m.y_fighter_kind = kind;
         m.row = row;
         assert!(m.row_visible(row));
         m.input_with_editing(0, &p, false);
-        let before = (m.idle_crouch, m.tilt_turn, m.jab_lock);
+        let before = (m.idle_crouch, m.tilt_turn);
         m.input_with_editing(MAPPER_L | DPAD_LEFT, &p, false);
         let expected = match row {
-            MenuRow::IdleCrouch => (!before.0, before.1, before.2),
-            MenuRow::TiltTurn => (before.0, !before.1, before.2),
-            _ => (before.0, before.1, !before.2),
+            MenuRow::IdleCrouch => (!before.0, before.1),
+            _ => (before.0, !before.1),
         };
-        assert_eq!((m.idle_crouch, m.tilt_turn, m.jab_lock), expected);
+        assert_eq!((m.idle_crouch, m.tilt_turn), expected);
     }
     for row in [MenuRow::Performance, MenuRow::TestLatency] {
         assert_eq!(m.row_visible(row), cfg!(feature = "diagnostic-logging"));

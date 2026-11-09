@@ -32,7 +32,6 @@ nav:
       - Analog mash: ANALOG_MASH.md
       - DI and SDI: DI_SDI.md
       - Trip follow-up: TRIP_AND_SDI.md
-      - Jab-lock chase: JAB_LOCK.md
       - Input recipes: INPUT_RECIPES.md
       - Training and monitoring: TRAINING_MONITOR.md
       - Vulnerable ledge and regrabs: TWO_FRAME.md

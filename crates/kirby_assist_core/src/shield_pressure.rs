@@ -116,7 +116,7 @@ impl Pressure {
                 .flatten()
                 .any(|s| s.id == id && roll(s.status) && s.from_shield)
     }
-    /// Samples the current gameplay context and updates the pressure manager's state accordingly.
+    // Samples the current gameplay context and updates the pressure manager's state accordingly.
     /// # Parameters
     /// * `enabled` - Indicates whether the pressure manager is enabled.
     /// * `allowed` - Indicates whether the pressure manager is allowed to act.
@@ -219,9 +219,9 @@ impl Pressure {
             self.cancel_pending();
             return ControllerOutput::default();
         }
-        /// Samples the current gameplay context and updates the pressure manager's state accordingly.
+        // Samples the current gameplay context and updates the pressure manager's state accordingly.
         let mut following = follow.filter(|e| Some(e.id) == self.target());
-        /// Update the following target based on the current target ID.
+        // Update the following target based on the current target ID.
         if !self.committed() && !context.stopped && context.can_act {
             'rules: for candidate in rules.rules.iter().flatten() {
                 let rule = candidate.sequence.reaction;

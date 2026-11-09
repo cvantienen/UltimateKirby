@@ -130,29 +130,6 @@ fn auto_tech_toggles_once_and_survives_input_reset() {
 }
 
 #[test]
-fn yoshi_jab_lock_starts_off_and_is_a_separate_menu_toggle() {
-    let profiles = file_profiles();
-    let presets = &profiles.profile(5).unwrap().menu_options;
-    let mut menu = MenuSelection::new(presets);
-    menu.show_modes();
-    menu.y_fighter_kind = 5;
-    menu.input(0, presets);
-    assert!(!menu.jab_lock);
-    menu.row = MenuRow::JabLock;
-    menu.input(DPAD_RIGHT, presets);
-    assert!(menu.jab_lock && menu.cancel_pending);
-    menu.input(0, presets);
-    menu.input(crate::manual_controls::DPAD_LEFT, presets);
-    assert!(!menu.jab_lock);
-    // Kirby navigation skips the Yoshi-only row.
-    menu.y_fighter_kind = 6;
-    menu.row = MenuRow::TiltTurn;
-    menu.input(0, presets);
-    menu.input(DPAD_DOWN, presets);
-    assert_ne!(menu.row, MenuRow::JabLock);
-}
-
-#[test]
 fn kirby_helpers_default_on_and_classic_monitor_chord_does_not_toggle() {
     let profiles = file_profiles();
     let presets = &profiles.profile(6).unwrap().menu_options;
@@ -337,7 +314,7 @@ fn y_remains_available_to_its_mode_but_is_not_a_menu_or_ledge_trigger() {
     assert!(!menu.ledge_held(MAPPER_Y));
     menu.input(0, presets);
     menu.input(MAPPER_Y, presets);
-    assert_eq!(MenuRow::ALL.len(), 32);
+    assert_eq!(MenuRow::ALL.len(), 31);
 }
 
 #[test]

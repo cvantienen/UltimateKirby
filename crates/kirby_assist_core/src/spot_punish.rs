@@ -112,7 +112,7 @@ impl Punisher {
                     }),
                 })
         });
-        /// Early exit if the punisher is not enabled, no rules are available, or gameplay is not active.
+        // Early exit if the punisher is not enabled, no rules are available, or gameplay is not active.
         if !enabled || rules.is_none() || !context.gameplay {
             self.cancel_pending();
             return ControllerOutput::default();

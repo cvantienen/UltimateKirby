@@ -199,7 +199,7 @@ the live callback.
 | Reaction assists | Evaluate situational rules separately from manually selected recipes | [Reaction rules](REACTION_RULES.md), [Roll read](ROLL_READ.md), [Spot punish](SPOT_PUNISH.md), [Out of shield](OUT_OF_SHIELD.md), [Grab dodge](GRAB_DODGE.md) |
 | Ledge and recovery | Track ledge context and run configured/manual controller responses | [Ledge autopilot](LEDGE_TRAP.md), [ledge trump](LEDGE_TRUMP.md), [vulnerable ledge](TWO_FRAME.md) |
 | Defense and hitstun | Use controller-only defense, tech, mash, and directional influence policies | [Shield pressure](SHIELD_PRESSURE.md), [automatic tech](AUTO_TECH.md), [analog mash](ANALOG_MASH.md), [DI/SDI](DI_SDI.md), [trip follow-up](TRIP_AND_SDI.md) |
-| Combat and training | Run input recipes and training observations without changing native moves | [Input recipes](INPUT_RECIPES.md), [jab-lock chase](JAB_LOCK.md), [training monitor](TRAINING_MONITOR.md) |
+| Combat and training | Run input recipes and training observations without changing native moves | [Input recipes](INPUT_RECIPES.md), [training monitor](TRAINING_MONITOR.md) |
 | Roster behavior | Choose fighter profiles and inspect generated references and authored notes | [Fighter overview](FIGHTERS.md) |
 
 Feature-specific delays, thresholds, toggles, and supported actions belong in

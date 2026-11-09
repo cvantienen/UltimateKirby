@@ -9,18 +9,16 @@ pub enum Mode {
     IdleCrouch,
     TiltTurn,
     SpotPunish,
-    JabLock,
     OutOfShield,
 }
 impl Mode {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 7] = [
         Self::LedgeTrap,
         Self::AutoTech,
         Self::AutoMash,
         Self::IdleCrouch,
         Self::TiltTurn,
         Self::SpotPunish,
-        Self::JabLock,
         Self::OutOfShield,
     ];
     pub fn bit(self) -> u16 {
@@ -34,7 +32,6 @@ impl Mode {
             Self::IdleCrouch => "idle_crouch",
             Self::TiltTurn => "tilt_turn",
             Self::SpotPunish => "spot_punish",
-            Self::JabLock => "jab_lock",
             Self::OutOfShield => "out_of_shield",
         }
     }
@@ -46,7 +43,6 @@ impl Mode {
             Self::IdleCrouch => "Idle crouch",
             Self::TiltTurn => "Tilt face",
             Self::SpotPunish => "Spot punish",
-            Self::JabLock => "Jab lock",
             Self::OutOfShield => "Out of shield",
         }
     }
@@ -57,7 +53,6 @@ impl Mode {
         match self {
             Self::IdleCrouch => kind == crate::fighter_kinds::KIRBY,
             Self::TiltTurn => true,
-            Self::JabLock => kind == crate::fighter_kinds::YOSHI,
             Self::OutOfShield => true,
             _ => true,
         }
@@ -111,8 +106,6 @@ impl ModeBinding {
             "Toggle: Tilt face",
             "Hold: Spot punish",
             "Toggle: Spot punish",
-            "Hold: Jab lock",
-            "Toggle: Jab lock",
             "Hold: Out of shield",
             "Toggle: Out of shield",
         ];
@@ -132,8 +125,6 @@ impl ModeBinding {
             "__mode_tilt_turn_toggle",
             "__mode_spot_punish_hold",
             "__mode_spot_punish_toggle",
-            "__mode_jab_lock_hold",
-            "__mode_jab_lock_toggle",
             "__mode_out_of_shield_hold",
             "__mode_out_of_shield_toggle",
         ];

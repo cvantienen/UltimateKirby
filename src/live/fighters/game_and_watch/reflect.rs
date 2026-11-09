@@ -132,10 +132,9 @@ pub(super) unsafe fn observe(
                 if source_kind == kirby_assist_core::battle_objects::WEAPON_KIND_PIKMIN_PIKMIN {
                     reads.status_kind(object)    
                 } else {
-                    /// For non-Pikmin weapons, the source status is set to 0.
-                    /// Non-Pikmin weapons do not have a special status for projectile determination.
-                    /// so using 0 makes sense for non-Pikmin weapons, since they do not have a special status for projectile determination.
-                    /// the special status is only relevant for Pikmin weapons due to their unique projectile behavior, 
+                    // For non-Pikmin weapons, the source status is set to 0.
+                    // Non-Pikmin weapons do not have a special status for projectile determination.
+                    // Using 0 is appropriate because the special status is only relevant for Pikmin weapons.
                     0
                 };
             if !ObjectCategory::is_projectile(id, source_kind, source_status)

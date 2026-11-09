@@ -521,7 +521,7 @@ fn reflector_and_punishes_cannot_own_input_together_and_ledge_off_safety_win() {
         Owner::OptionRead,
         Owner::GrabDodge,
         Owner::Trip,
-        Owner::JabLock,
+        Owner::Fair,
         Owner::Ledge,
         Owner::Safety,
     ] {

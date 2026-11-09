@@ -139,10 +139,6 @@ impl Tuning {
             ROLL_SMASH_WATCH => (0.0, 150.0, 0.5),
             ROLL_GRAB_HEIGHT => (0.0, 60.0, 0.5),
             ROLL_GRAB_WATCH => (0.0, 150.0, 0.5),
-            JAB_LOCK_REACH => (0.0, 60.0, 0.5),
-            JAB_LOCK_SMASH_REACH => (0.0, 100.0, 0.5),
-            JAB_LOCK_CHASE_DISTANCE => (0.0, 150.0, 0.5),
-            JAB_LOCK_HEIGHT => (0.0, 100.0, 0.5),
             CROUCH_RANGE => (0.0, 150.0, 0.5),
             CROUCH_HEIGHT => (0.0, 100.0, 0.5),
             SHIELD_SCAN_X | SHIELD_SCAN_Y => (1.0, 300.0, 1.0),
@@ -212,10 +208,6 @@ impl Tuning {
         values[ROLL_SMASH_HEIGHT] = 6.0;
         values[ROLL_SMASH_WATCH] = 64.0;
         values[ROLL_GRAB_HEIGHT] = 4.0;
-        values[JAB_LOCK_REACH] = 7.0;
-        values[JAB_LOCK_SMASH_REACH] = 12.0;
-        values[JAB_LOCK_CHASE_DISTANCE] = 60.0;
-        values[JAB_LOCK_HEIGHT] = 24.0;
         values[CROUCH_RANGE] = 45.0;
         values[CROUCH_HEIGHT] = 20.0;
         values[SHIELD_SCAN_X] = 96.0;

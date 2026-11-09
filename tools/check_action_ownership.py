@@ -48,7 +48,7 @@ impl Menu {fn rule_config(&self)->Option<&kirby_assist_core::reaction_rules::Res
 #[derive(Default)]struct State {
  action_owner:ActionOwnership,reflector:Reflector,reflect_output:ControllerOutput,
  turbo:Option<TurboState>,dash_pivot:Option<DashPivotAssist>,
- jab_lock:Option<kirby_assist_core::jab_lock::JabLock>,jab_lock_output:ControllerOutput,
+
  trip_followup:Option<TripFollowup>,trip_output:ControllerOutput,
  fair_followup:Option<FairFollowup>,fair_output:ControllerOutput,
  rule_engine:Option<Box<kirby_assist_core::reaction_rules::Engine>>,roll_read_output:ControllerOutput,
@@ -84,19 +84,19 @@ fn select_phases(mut state:&mut State,fresh:bool,manual_scope:bool,mash_stick:Op
 fn packet(requested:u32)->ControllerOutput{ControllerOutput{requested,owned:MAPPER_A,..Default::default()}}
 fn choose(s:&mut State)->(Option<Owner>,ControllerOutput,Option<[f32;2]>){select(s,true,true,None,None)}
 #[test]fn committed_sequences_reject_every_competing_live_proposal_and_cancel_losers() {
- for current in [Owner::RollRead,Owner::OutOfShield,Owner::Ledge,Owner::Trip,Owner::Fair,Owner::JabLock,Owner::Trump,Owner::Reflect] {
+ for current in [Owner::RollRead,Owner::OutOfShield,Owner::Ledge,Owner::Trip,Owner::Fair,Owner::Trump,Owner::Reflect] {
   let mut s=State::default();
   s.action_owner.select(true,&[Intent::input_sequence(current,1)]);
   s.roll_read_output=packet(MAPPER_A);s.oos_output=packet(MAPPER_A);
   s.ledge_active=true;s.ledge_output=packet(MAPPER_A);s.trip_output=packet(MAPPER_A);
-  s.fair_output=packet(MAPPER_A);s.jab_lock_output=packet(MAPPER_A);
+  s.fair_output=packet(MAPPER_A);
   s.trump_output=packet(MAPPER_A);s.reflect_output=packet(MAPPER_A);
   let (owner,out,stick)=select(&mut s,true,true,None,None);
   assert_eq!(owner,Some(current));assert_eq!(out.requested,MAPPER_A);
   assert_eq!(out.owned,SEQUENCE_BUTTONS);assert_eq!(stick,Some([0.;2]));
   for (o,p) in [(Owner::RollRead,s.roll_read_output),(Owner::OutOfShield,s.oos_output),
    (Owner::Ledge,s.ledge_output),(Owner::Trip,s.trip_output),(Owner::Fair,s.fair_output),
-   (Owner::JabLock,s.jab_lock_output),(Owner::Trump,s.trump_output),(Owner::Reflect,s.reflect_output)] {
+   (Owner::Trump,s.trump_output),(Owner::Reflect,s.reflect_output)] {
    if o!=current {assert_eq!(p.owned,0,"losing {o:?} must not resume behind {current:?}");}
   }
  }

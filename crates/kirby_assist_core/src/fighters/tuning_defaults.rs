@@ -1,6 +1,6 @@
 //! Fighter-specific visibility and legacy display defaults.
 use crate::fighter_tuning::{
-    self as tuning, COUNT, CROUCH_HEIGHT, CROUCH_RANGE, JAB_LOCK_HEIGHT, JAB_LOCK_REACH,
+    self as tuning, COUNT, CROUCH_HEIGHT, CROUCH_RANGE,
     PUNISH_DOWN_REACH, PUNISH_FORWARD_REACH, REFLECT_DEFAULT, REFLECT_HALF_DEPTH, ROLL_GRAB_WATCH,
 };
 
@@ -13,9 +13,6 @@ pub(crate) fn visible(kind: i32, index: usize) -> bool {
     }
     if (PUNISH_DOWN_REACH..=ROLL_GRAB_WATCH).contains(&index) {
         return false;
-    }
-    if (JAB_LOCK_REACH..=JAB_LOCK_HEIGHT).contains(&index) {
-        return kind == crate::fighter_kinds::YOSHI;
     }
     if (CROUCH_RANGE..=CROUCH_HEIGHT).contains(&index) {
         return kind == crate::fighter_kinds::KIRBY;

@@ -91,7 +91,7 @@ there is a universal combo-player service:
   timeout and cancellation support, but is not wired to live playback slots.
 * `ScenarioAction::PlaybackSlot` is a reserved future backend. It preserves
   human input rather than running a sequence.
-* Target acquisition is feature-specific. Some defense, jab-lock, and
+* Target acquisition is feature-specific. Some defense and
   spot-dodge policies retain target IDs, but there is no universal
   combo-target service.
 * Damage observations support DI and survival decisions through launch

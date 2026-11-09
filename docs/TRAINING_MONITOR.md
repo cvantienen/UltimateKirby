@@ -284,7 +284,6 @@ clock/context, and the Training compatibility path does not copy identical
 settings or query the scene solely for an identity conversion.
 
 Tech prediction, mash, DI/SDI, grab avoidance, ledge acquisition/defense/trump,
-Auto react, shield grabs, posture/turnaround, trip/fair/jab-lock follow-ups, and
 button sequences retain their native observation/input cadence. There is no
 new frame skipping, polling throttle, wall-time catch-up, network query, physics
 change or persistent opponent-state cache. Same-observation floor/fact reuse

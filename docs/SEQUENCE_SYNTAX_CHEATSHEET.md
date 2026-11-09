@@ -333,10 +333,10 @@ assigned to and pressed from a button slot.
 Use only button slots X/Y/D-pad/L3/R3. Do not combine builtin with actions.
 
 Compatibility-only mode values: `ledge_trap`, `auto_tech`,
-`auto_mash`, `idle_crouch`, `tilt_turn`, `spot_punish`, `jab_lock`, `out_of_shield`.
+`auto_mash`, `idle_crouch`, `tilt_turn`, `spot_punish`, `out_of_shield`.
 The parser accepts `mode = VALUE` followed by `activation = hold` or
 `activation = toggle`, with no actions/nonzero delay, only on supported fighter
-button rows. Idle crouch is Kirby-only; tilt turn Kirby/Yoshi; jab lock Yoshi.
+button rows. Idle crouch is Kirby-only; tilt turn Kirby/Yoshi.
 These legacy bindings are not the current assist ON/OFF controls. Use the
 `builtin = ledge_trump` button action for a button-mapped ledge trump.
 
@@ -394,10 +394,6 @@ out_of_shield_default = true
 | `roll_smash_watch` | 0–150 | Legacy roll: smash watch distance — retired; compatibility only |
 | `roll_grab_height` | 0–60 | Legacy roll: grab height — retired; compatibility only |
 | `roll_grab_watch` | 0–150 | Legacy roll: grab watch distance — retired; compatibility only |
-| `jab_lock_reach` | 0–60 | Yoshi jab lock: jab reach — Yoshi only |
-| `jab_lock_smash_reach` | 0–100 | Yoshi jab lock: smash reach — Yoshi only |
-| `jab_lock_chase_distance` | 0–150 | Yoshi jab lock: chase distance — Yoshi only |
-| `jab_lock_height` | 0–100 | Yoshi jab lock: chase height — Yoshi only |
 | `crouch_range` | 0–150 | Kirby crouch: proximity X — Kirby only |
 | `crouch_height` | 0–100 | Kirby crouch: proximity Y — Kirby only |
 | `shield_scan_x` | 1–300 | Shield: scan X cutoff |

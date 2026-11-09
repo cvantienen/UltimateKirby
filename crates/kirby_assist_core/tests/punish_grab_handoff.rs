@@ -539,7 +539,7 @@ fn zero_input_receipt_reservation_blocks_competing_punishes_with_exclusive_neutr
         Owner::RollRead,
         Owner::GrabDodge,
         Owner::OptionRead,
-        Owner::JabLock,
+        Owner::Fair,
         Owner::Fair,
         Owner::Trip,
         Owner::Ledge,

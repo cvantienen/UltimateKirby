@@ -48,7 +48,7 @@ fn ledge_toggle_reserves_auto_modes_through_manual_pauses_but_safety_and_shield_
         Owner::OptionRead,
         Owner::RollRead,
         Owner::Trip,
-        Owner::JabLock,
+        Owner::Fair,
         Owner::Fair,
     ] {
         assert!(!owners.allows(owner));

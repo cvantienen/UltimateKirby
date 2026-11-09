@@ -1,13 +1,5 @@
 # Yoshi
 
-## Tech chase / jab lock and down-tilt facing
-
-The separate **Jab lock** ON/OFF row starts OFF. It recognizes nearby native
-tumble/knockdown/tech states after late Nair or other setups, as well as confirmed
-down-tilt hits. Missed techs get a jab-lock attempt into down smash; techs get grab
-attempts. It chases only while grounded and takes priority over background Roll
-read while active. See [setup, limits and calibration](../JAB_LOCK.md).
-
 **Tilt face** starts ON, with down tilt selected by default as on Kirby. It angles physical Down or down Tilt-stick
 toward the nearest enemy in the same input poll. It adds no attack delay and
 never creates A presses or forces native facing. Native acceptance can still

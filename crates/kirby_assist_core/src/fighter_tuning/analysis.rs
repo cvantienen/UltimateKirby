@@ -60,12 +60,4 @@ impl Tuning {
         c.forward_reach = self.value(PUNISH_FORWARD_REACH, c.forward_reach);
         c
     }
-    pub fn jab_lock(&self, kind: i32) -> Option<crate::jab_lock::Config> {
-        let mut c = crate::jab_lock::config(kind)?;
-        c.jab_reach = self.value(JAB_LOCK_REACH, c.jab_reach);
-        c.smash_reach = self.value(JAB_LOCK_SMASH_REACH, c.smash_reach);
-        c.grab_reach = self.0[1].or(c.grab_reach);
-        c.chase_distance = self.value(JAB_LOCK_CHASE_DISTANCE, c.chase_distance);
-        Some(c)
-    }
 }

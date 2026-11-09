@@ -18,7 +18,6 @@ pub enum Owner {
     GrabDodge,
     OptionRead,
     Trip,
-    JabLock,
     Fair,
     Trump,
     Ledge,
@@ -52,7 +51,6 @@ impl Owner {
             Self::GrabDodge => 99,
             Self::OptionRead => 98,
             Self::Trip => 90,
-            Self::JabLock => 75,
             Self::Fair => 80,
             Self::Trump => 70,
             Self::Ledge => 95,
@@ -224,7 +222,6 @@ impl ActionOwnership {
                 | Owner::GrabDodge
                 | Owner::OptionRead
                 | Owner::Trip
-                | Owner::JabLock
                 | Owner::Fair
                 | Owner::Reflect
         )

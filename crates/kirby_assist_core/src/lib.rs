@@ -72,7 +72,6 @@ pub mod assist;
 pub mod autopilot_guard;
 pub mod defense_response;
 pub mod grab_handoff;
-pub mod jab_lock;
 pub mod move_input;
 pub mod out_of_shield;
 pub mod posture;

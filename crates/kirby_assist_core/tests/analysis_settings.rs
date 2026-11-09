@@ -195,16 +195,6 @@ fn saved_values_round_trip_per_fighter_and_leave_recipe_inputs_unchanged() {
     assert!(c.tuning.get(&6).is_none());
     let mut custom = Tuning::default();
     custom.set("grab_range", "30").unwrap();
-    custom.set("jab_lock_reach", "10").unwrap();
-    let old = kirby_assist_core::jab_lock::config(5).unwrap();
-    let new = custom.jab_lock(5).unwrap();
-    assert_eq!(new.jab_reach, 10.);
-    assert_eq!(old.grab_reach, None);
-    assert_eq!(new.grab_reach, Some(30.));
-    assert_eq!(
-        (new.jab_start, new.smash_start, new.grab_start),
-        (old.jab_start, old.smash_start, old.grab_start)
-    );
     assert_eq!(
         custom.apply(base).sequence_overrides,
         base.sequence_overrides
@@ -222,15 +212,12 @@ fn zero_shield_tail_still_shields_an_actual_threat_and_specialist_rows_are_filte
     };
     assert!(hold.sample_with_duration(true, true, c, 0.));
     assert!(!hold.sample_with_duration(true, false, c, 0.));
-    assert!(Tuning::visible(5, JAB_LOCK_REACH));
-    assert!(!Tuning::visible(6, JAB_LOCK_REACH));
     assert!(Tuning::visible(6, CROUCH_RANGE));
     assert!(!Tuning::visible(15, CROUCH_RANGE));
     assert!(Tuning::visible(15, SHIELD_SCAN_X));
     for key in [
         "shield_body_half_width",
         "tech_floor_origin",
-        "jab_lock_reach",
     ] {
         assert!(Tuning::default().set(key, "NaN").is_err());
     }

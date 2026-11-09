@@ -45,7 +45,7 @@ fn committed_actions_keep_control_through_release_frames_and_passive_competitors
     for owner in [
         Owner::Ledge,
         Owner::RollRead,
-        Owner::JabLock,
+        Owner::Fair,
         Owner::Fair,
         Owner::Trip,
     ] {
@@ -180,7 +180,7 @@ fn priority_chooses_new_work_but_never_interrupts_a_committed_sequence() {
     for punish in [Owner::Ledge, Owner::RollRead] {
         for other in [
             Owner::Trip,
-            Owner::JabLock,
+            Owner::Fair,
             Owner::Fair,
             Owner::Trump,
             Owner::Defense,
@@ -229,7 +229,7 @@ fn posture_is_last_even_while_other_modes_are_only_preparing() {
         Owner::Safety,
         Owner::OptionRead,
         Owner::Trip,
-        Owner::JabLock,
+        Owner::Fair,
         Owner::Fair,
         Owner::Trump,
         Owner::Ledge,
@@ -260,7 +260,7 @@ fn ledge_reservation_blocks_new_configured_actions_until_released() {
         Owner::RollRead,
         Owner::OutOfShield,
         Owner::Trip,
-        Owner::JabLock,
+        Owner::Fair,
         Owner::Fair,
         Owner::Trump,
     ] {

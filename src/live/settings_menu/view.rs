@@ -188,25 +188,6 @@ pub(super) fn build(
                 usize::from(enabled),
                 2,
             )
-        } else if row == MenuRow::JabLock
-            && selection.y_fighter_kind == kirby_assist_core::fighter_kinds::YOSHI
-        {
-            (
-                if selection.effective_mode(
-                    kirby_assist_core::button_bindings::Mode::JabLock,
-                    selection.jab_lock,
-                ) {
-                    "ON"
-                } else {
-                    "OFF"
-                }
-                .to_owned(),
-                usize::from(selection.effective_mode(
-                    kirby_assist_core::button_bindings::Mode::JabLock,
-                    selection.jab_lock,
-                )),
-                2,
-            )
         } else if matches!(
             row,
             MenuRow::SpotPunish | MenuRow::GrabDodge | MenuRow::ShieldPressure

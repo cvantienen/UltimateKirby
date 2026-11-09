@@ -153,7 +153,6 @@ jab-to-grab helper and its row are removed; A/B keep normal game behavior. The
 
 Yoshi also has a separate **Jab lock** ON/OFF row, initially OFF. It chases only
 his own confirmed down-tilt hits and takes priority over background Roll read.
-See [Yoshi down-tilt chase](JAB_LOCK.md) for reactions and calibration.
 
 
 ## Shared editing and save limits

@@ -302,15 +302,6 @@ impl SettingsMenu {
                 .and_then(|k| self.selections.get(&k))
                 .is_some_and(|s| s.out_of_shield)
     }
-    pub fn jab_lock_enabled(&self) -> bool {
-        self.scope
-            && self.kind == Some(5)
-            && self
-                .selections
-                .get(&5)
-                .is_some_and(|s| s.effective_mode(Mode::JabLock, s.jab_lock))
-    }
-
     pub fn resume_saved_state(&mut self) {
         self.resume_saved_state = true;
     }
@@ -762,9 +753,6 @@ impl SettingsMenu {
                 rows[9] = on_off(selection.tilt_turn);
                 if kind == kirby_assist_core::fighter_kinds::KIRBY {
                     rows[8] = on_off(selection.idle_crouch);
-                }
-                if kind == kirby_assist_core::fighter_kinds::YOSHI {
-                    rows[10] = on_off(selection.jab_lock);
                 }
                 rows[11] = on_off(selection.spot_punish);
                 rows[12] = on_off(selection.grab_dodge);

@@ -2,7 +2,7 @@
 use crate::{action_owner::Owner, native_input::*};
 use std::fmt::Write;
 
-const OWNER_COUNT: usize = 14;
+const OWNER_COUNT: usize = 13;
 const REPORT_TEXT_CAPACITY_BYTES: usize = 1200;
 const MIN_REPORT_INTERVAL_MS: u64 = 250;
 const LABEL_CAPACITY_BYTES: usize = 64;
@@ -21,7 +21,6 @@ pub const OWNERS: [Owner; OWNER_COUNT] = [
     Owner::Ledge,
     Owner::RollRead,
     Owner::Trip,
-    Owner::JabLock,
     Owner::Fair,
     Owner::Trump,
     Owner::Defense,
@@ -43,7 +42,6 @@ pub fn name(owner: Owner) -> &'static str {
         Owner::Ledge => "Ledge trapping",
         Owner::RollRead => "Roll / shield-pressure rules",
         Owner::Trip => "Trip follow-up",
-        Owner::JabLock => "Yoshi jab lock",
         Owner::Fair => "Fair-hit follow-up",
         Owner::Trump => "Ledge trump",
         Owner::Defense => "Defensive spot dodge / shield / duck",
@@ -63,7 +61,6 @@ pub fn purpose(owner: Owner) -> &'static str {
         Owner::RollRead => "Watches approaching/crossing rolls; primes the chosen smash/grab only inside its timing and reach window.",
         Owner::Ledge => "Uses the saved response for neutral/jump/roll/attack/drop; waits for protection, reach and native readiness.",
         Owner::Trip => "Requires an observed trip/hit before buffering its grounded follow-up.",
-        Owner::JabLock => "Requires an attributed Yoshi down-tilt hit and a lockable knockdown; confirms native lock before finishing.",
         Owner::Fair => "A fresh Kirby fair-one hit arms the landing smash; shield/stale flags do not arm it.",
         Owner::Trump => "Uses the held trump trigger, a known floor edge and native movement readiness.",
         Owner::Defense => "Defensive shield/duck proposals yield to reads and ledge sequences; low hitboxes cannot safely be ducked.",
@@ -567,7 +564,6 @@ impl Configuration {
             "Auto mash",
             "Idle crouch",
             "Turnaround tilt",
-            "Yoshi jab lock",
             "Spot-dodge punish",
             "Grab dodge",
             "Auto tech",
@@ -595,7 +591,6 @@ impl Configuration {
                 "Auto mash" => "Acts only during supported capture/mash states, then returns physical control.",
                 "Idle crouch" => "Grounded idle within 45 horizontal / 20 vertical units of an enemy; movement, actions or held L suspend crouching.",
                 "Turnaround tilt" => "Aims a physical down tilt toward the enemy; does not generate an attack press.",
-                "Yoshi jab lock" => "Requires an attributed down-tilt hit, native knockdown and legal lock/recovery window.",
                 "Spot-dodge punish" => "Reads enemy spot-dodge recovery; selects near down smash or farther forward smash.",
                 _ => "Detects ordinary grab threats, requests spot dodge, then watches recovery for a smash punish.",
             };
@@ -752,7 +747,6 @@ mod tests {
         }
         let text = Configuration::new("yoshi", ["OFF"; CONFIGURATION_ROW_COUNT]).format();
         assert!(text.contains("Neutral getup: OFF"));
-        assert!(text.contains("Yoshi jab lock: OFF"));
     }
     #[test]
     fn configuration_rows_remain_aligned_after_removing_jab_grab() {
@@ -763,7 +757,6 @@ mod tests {
         let text = Configuration::new("yoshi", rows).format();
         for expected in [
             "Turnaround tilt: 9",
-            "Yoshi jab lock: 10",
             "Spot-dodge punish: 11",
             "X button recipe: 16",
             "D-pad Right binding: 21",

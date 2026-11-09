@@ -135,10 +135,6 @@ height, priority and actions instead.
 
 | Menu name | Text key | Simple explanation / changing it |
 | --- | --- | --- |
-| Yoshi jab lock: jab reach | `jab_lock_reach` | How close Yoshi thinks he must be to jab-lock. Higher permits a jab from farther away; too high can miss. |
-| Yoshi jab lock: smash reach | `jab_lock_smash_reach` | Estimated smash-punish reach for Yoshi's tech chase. Higher permits farther attempts. |
-| Yoshi jab lock: chase distance | `jab_lock_chase_distance` | Maximum horizontal distance for starting/continuing Yoshi's chase. Higher chases opponents farther away. |
-| Yoshi jab lock: chase height | `jab_lock_height` | Maximum vertical gap for Yoshi's chase candidates. Higher considers opponents farther above/below. |
 | Kirby crouch: proximity X | `crouch_range` | How close horizontally an opponent must be for automatic crouching. Higher begins crouching with opponents farther away. |
 | Kirby crouch: proximity Y | `crouch_height` | Allowed vertical gap for automatic crouching. Higher also considers opponents farther above/below. |
 

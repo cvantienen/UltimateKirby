@@ -820,10 +820,10 @@ default = true
 <p>Builtins: <code>normal</code>, <code>ledge_assist</code>, <code>turbo_teabag</code>, <code>ledge_trump</code>.
 Use a recipe action such as <code>short_hop:1</code> for short-hop input. Ledge trump starts only when assigned to and pressed from a button slot. Use only button slots X/Y/D-pad/L3/R3. Do not combine builtin with actions.</p>
 <p>Compatibility-only mode values: <code>ledge_trap</code>, <code>auto_tech</code>,
-<code>auto_mash</code>, <code>idle_crouch</code>, <code>tilt_turn</code>, <code>spot_punish</code>, <code>jab_lock</code>, <code>out_of_shield</code>.
+<code>auto_mash</code>, <code>idle_crouch</code>, <code>tilt_turn</code>, <code>spot_punish</code>, <code>out_of_shield</code>.
 The parser accepts <code>mode = VALUE</code> followed by <code>activation = hold</code> or
 <code>activation = toggle</code>, with no actions/nonzero delay, only on supported fighter
-button rows. Idle crouch is Kirby-only; tilt turn Kirby/Yoshi; jab lock Yoshi.
+button rows. Idle crouch is Kirby-only; tilt turn Kirby/Yoshi.
 These legacy bindings are not the current assist ON/OFF controls. Use the
 <code>builtin = ledge_trump</code> button action for a button-mapped ledge trump.</p>
 <h2>Fighter-setting keys</h2>
@@ -1030,30 +1030,12 @@ out_of_shield_default = true
 <td>0–60</td>
 <td>Legacy roll: grab height — retired; compatibility only</td>
 </tr>
+
+
+
+
 <tr>
-<td><code>roll_grab_watch</code></td>
-<td>0–150</td>
-<td>Legacy roll: grab watch distance — retired; compatibility only</td>
-</tr>
-<tr>
-<td><code>jab_lock_reach</code></td>
-<td>0–60</td>
-<td>Yoshi jab lock: jab reach — Yoshi only</td>
-</tr>
-<tr>
-<td><code>jab_lock_smash_reach</code></td>
 <td>0–100</td>
-<td>Yoshi jab lock: smash reach — Yoshi only</td>
-</tr>
-<tr>
-<td><code>jab_lock_chase_distance</code></td>
-<td>0–150</td>
-<td>Yoshi jab lock: chase distance — Yoshi only</td>
-</tr>
-<tr>
-<td><code>jab_lock_height</code></td>
-<td>0–100</td>
-<td>Yoshi jab lock: chase height — Yoshi only</td>
 </tr>
 <tr>
 <td><code>crouch_range</code></td>

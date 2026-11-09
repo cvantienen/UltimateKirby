@@ -23,7 +23,7 @@ Start with [assist rules](REACTION_RULES.md) for automatic reactions, or use the
 specific guides for [ledge autopilot](LEDGE_TRAP.md),
 [shield pressure](SHIELD_PRESSURE.md), [out of shield](OUT_OF_SHIELD.md),
 [grab dodge](GRAB_DODGE.md), [automatic tech](AUTO_TECH.md),
-[DI/SDI](DI_SDI.md), [jab-lock chase](JAB_LOCK.md), and
+[DI/SDI](DI_SDI.md), and
 [training/monitoring](TRAINING_MONITOR.md). The assist guides distinguish
 automatic rules from manually selected recipes and explain their own settings
 and timing.
