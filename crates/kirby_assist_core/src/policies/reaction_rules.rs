@@ -829,6 +829,14 @@ struct Track {
     crossed: bool,
     used: bool,
 }
+impl Track {
+    fn continues(&self, target: &Target) -> bool {
+        crate::timing::same_motion_event(
+            (self.id, self.status, self.motion, self.frame),
+            (target.id, target.status, target.motion, target.frame),
+        )
+    }
+}
 #[derive(Default)]
 pub struct Engine {
     tracks: [Option<Track>; crate::battle_objects::FIGHTER_CAPACITY],
@@ -938,12 +946,7 @@ impl Engine {
                 })
                 .map(|t| {
                     let dx = t.position[0] - c.position[0];
-                    let prev = old.iter().flatten().find(|p| {
-                        p.id == t.id
-                            && p.status == t.status
-                            && p.motion == t.motion
-                            && t.frame >= p.frame
-                    });
+                    let prev = old.iter().flatten().find(|p| p.continues(&t));
                     Track {
                         id: t.id,
                         status: t.status,
@@ -1112,6 +1115,72 @@ mod tests {
             vulnerable_in: Some(0.),
             actionable_in: Some(5.),
         }
+    }
+    #[test]
+    fn event_identity_requires_matching_motion_status_and_nonrewound_frame() {
+        let target = target(5., 1.);
+        let track = Track {
+            id: target.id,
+            status: target.status,
+            motion: target.motion,
+            frame: target.frame,
+            dx: 1.,
+            crossed: false,
+            used: true,
+        };
+        assert!(track.continues(&target));
+        assert!(track.continues(&Target {
+            frame: 6.,
+            ..target
+        }));
+        assert!(!track.continues(&Target {
+            frame: 4.,
+            ..target
+        }));
+        assert!(!track.continues(&Target {
+            frame: f32::NAN,
+            ..target
+        }));
+        assert!(!track.continues(&Target { id: 8, ..target }));
+        assert!(!track.continues(&Target {
+            status: ESCAPE_B,
+            ..target
+        }));
+        assert!(!track.continues(&Target {
+            motion: 457,
+            ..target
+        }));
+    }
+
+    #[test]
+    fn simple_tracking_retains_consumed_missing_actor_until_status_changes() {
+        let mut engine = Engine::default();
+        let first = target(5., 1.);
+        let mut targets = [None; 8];
+        targets[0] = Some(first);
+        engine.observe_simple_events(&targets);
+        engine.tracks[0].as_mut().unwrap().used = true;
+
+        targets[0] = Some(Target { id: 8, ..first });
+        engine.observe_simple_events(&targets);
+        assert!(engine
+            .tracks
+            .iter()
+            .flatten()
+            .any(|t| t.id == first.id && t.used));
+
+        targets[1] = Some(Target { frame: 6., ..first });
+        engine.observe_simple_events(&targets);
+        assert!(engine.tracks[1].unwrap().used);
+
+        targets[1] = Some(Target { frame: 1., ..first });
+        engine.observe_simple_events(&targets);
+        assert!(!engine.tracks[1].unwrap().used);
+
+        engine.tracks[1].as_mut().unwrap().used = true;
+        targets[1] = Some(Target { status: 0, ..first });
+        engine.observe_simple_events(&targets);
+        assert!(!engine.tracks.iter().flatten().any(|t| t.id == first.id));
     }
     fn resolved(s: Sequence) -> Resolved {
         let mut r = Resolved::default();

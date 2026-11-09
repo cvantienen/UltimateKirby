@@ -1694,6 +1694,8 @@ Removes the retired Yoshi auto-tech jab-lock policy, live adapter, tuning, menu,
 Separates live callback coordination from mapper and fighter-observation implementations without changing behavior.
 
 Consolidates Switch plugin fighter adapters, tech capture, menu text caching and performance diagnostics, and restores diagnostic build and host-test compatibility while preserving native input behavior.
+
+Extracts native tech prediction and consolidates menu row formatting without changing input behavior.
 """
 
 

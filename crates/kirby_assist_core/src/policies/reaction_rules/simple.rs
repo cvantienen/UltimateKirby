@@ -19,6 +19,51 @@ pub(super) fn up_b_status(kind: i32, c: GameplayContext) -> bool {
     automatic_up_b_status(kind, c.status, c.previous_status)
 }
 impl Engine {
+    pub(super) fn observe_simple_events(&mut self, targets: &[Option<Target>; 8]) {
+        let old = self.tracks;
+        self.tracks = std::array::from_fn(|i| {
+            targets
+                .get(i)
+                .copied()
+                .flatten()
+                .filter(|t| {
+                    event(t.status).is_some()
+                        && t.frame.is_finite()
+                        && t.frame >= 0.
+                        && t.rate.is_finite()
+                        && t.rate >= 0.
+                        && t.position.iter().all(|v| v.is_finite())
+                })
+                .map(|t| Track {
+                    id: t.id,
+                    status: t.status,
+                    motion: t.motion,
+                    frame: t.frame,
+                    dx: 0.,
+                    crossed: false,
+                    used: old
+                        .iter()
+                        .flatten()
+                        .any(|previous| previous.continues(&t) && previous.used),
+                })
+        });
+        // Fresh actors take current slots first; retain consumed missing actors
+        // in spare slots until a different status confirms their event ended.
+        for previous in old.into_iter().flatten().filter(|p| p.used) {
+            if self.tracks.iter().flatten().any(|t| t.id == previous.id)
+                || targets
+                    .iter()
+                    .flatten()
+                    .any(|t| t.id == previous.id && t.status != previous.status)
+            {
+                continue;
+            }
+            if let Some(empty) = self.tracks.iter_mut().find(|t| t.is_none()) {
+                *empty = Some(previous);
+            }
+        }
+    }
+
     fn simple_candidate<'a>(
         &self,
         rules: &'a Resolved,
@@ -41,13 +86,12 @@ impl Engine {
             }) else {
                 continue;
             };
-            if self.tracks.iter().flatten().any(|track| {
-                track.id == t.id
-                    && track.status == t.status
-                    && track.motion == t.motion
-                    && t.frame >= track.frame
-                    && track.used
-            }) {
+            if self
+                .tracks
+                .iter()
+                .flatten()
+                .any(|track| track.continues(&t) && track.used)
+            {
                 continue;
             }
             let Some(sequence) = event(t.status)
@@ -164,58 +208,9 @@ impl Engine {
             self.tracks = [None; crate::battle_objects::FIGHTER_CAPACITY];
             return ControllerOutput::default();
         }
-        // Read current live events without queuing an unactable response. A
-        // still-occurring roll can become usable after shieldstun/recovery.
+        // A live event can become usable after shieldstun or recovery.
         if !c.stopped {
-            let old = self.tracks;
-            self.tracks = std::array::from_fn(|i| {
-                targets
-                    .get(i)
-                    .copied()
-                    .flatten()
-                    .filter(|t| {
-                        event(t.status).is_some()
-                            && t.frame.is_finite()
-                            && t.frame >= 0.
-                            && t.rate.is_finite()
-                            && t.rate >= 0.
-                            && t.position.iter().all(|v| v.is_finite())
-                    })
-                    .map(|t| {
-                        let used = old.iter().flatten().any(|p| {
-                            p.id == t.id
-                                && p.status == t.status
-                                && p.motion == t.motion
-                                && t.frame >= p.frame
-                                && p.used
-                        });
-                        Track {
-                            id: t.id,
-                            status: t.status,
-                            motion: t.motion,
-                            frame: t.frame,
-                            dx: 0.,
-                            crossed: false,
-                            used,
-                        }
-                    })
-            });
-            // Fresh actors take their current slots first. Preserve missing
-            // consumed identities in spare slots, rather than overwriting one
-            // when a different fighter reuses its old roster position.
-            for previous in old.into_iter().flatten().filter(|p| p.used) {
-                if self.tracks.iter().flatten().any(|t| t.id == previous.id)
-                    || targets
-                        .iter()
-                        .flatten()
-                        .any(|t| t.id == previous.id && t.status != previous.status)
-                {
-                    continue;
-                }
-                if let Some(empty) = self.tracks.iter_mut().find(|t| t.is_none()) {
-                    *empty = Some(previous);
-                }
-            }
+            self.observe_simple_events(&targets);
         }
         if !allowed {
             self.cancel();

@@ -7,6 +7,17 @@ pub const MOTION_ATTACK_AIR_F: u64 = 0xc3495ada5;
 pub const MOTION_ATTACK_AIR_LW: u64 = 0xd40042152;
 const HASH40_CRC32_POLYNOMIAL: u32 = 0xedb88320;
 
+#[inline]
+pub(crate) fn same_motion_event(
+    previous: (u32, i32, u64, f32),
+    current: (u32, i32, u64, f32),
+) -> bool {
+    previous.0 == current.0
+        && previous.1 == current.1
+        && previous.2 == current.2
+        && current.3 >= previous.3
+}
+
 /// Common classification of observed motion progress, not an engine frame timer.
 /// Callers retain their existing first-sample, transition and timeout policies.
 /// No wall-clock delay, learned compensation or extra waiting is introduced.
@@ -255,6 +266,19 @@ impl AnimationClock {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn motion_event_continuation_does_not_accept_rewinds_or_nan() {
+        let previous = (7, 2, 3, 5.0);
+        assert!(same_motion_event(previous, (7, 2, 3, 5.0)));
+        assert!(same_motion_event(previous, (7, 2, 3, 6.0)));
+        assert!(!same_motion_event(previous, (7, 2, 3, 4.0)));
+        assert!(!same_motion_event(previous, (7, 2, 3, f32::NAN)));
+        assert!(!same_motion_event((7, 2, 3, f32::NAN), previous));
+        assert!(!same_motion_event(previous, (8, 2, 3, 6.0)));
+        assert!(!same_motion_event(previous, (7, 4, 3, 6.0)));
+        assert!(!same_motion_event(previous, (7, 2, 4, 6.0)));
+    }
 
     #[test]
     fn contact_uses_same_frame_for_geometry_protection_delay_and_recovery() {

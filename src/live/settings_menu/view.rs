@@ -181,6 +181,121 @@ impl Snapshot {
     }
 }
 
+fn toggle_value(enabled: bool) -> (String, usize, usize) {
+    (
+        (if enabled { "ON" } else { "OFF" }).to_owned(),
+        usize::from(enabled),
+        2,
+    )
+}
+
+#[cfg(test)]
+mod row_tests {
+    use super::*;
+
+    #[test]
+    fn toggle_rows_keep_matching_labels_and_positions() {
+        assert_eq!(toggle_value(false), ("OFF".to_owned(), 0, 2));
+        assert_eq!(toggle_value(true), ("ON".to_owned(), 1, 2));
+    }
+}
+
+fn row_value(
+    profile: &FighterProfile,
+    selection: &MenuSelection,
+    row: MenuRow,
+    auto_mash: bool,
+) -> Option<(String, usize, usize)> {
+    Some(if MenuSelection::page_link(row) {
+        ("Open >".to_owned(), 0, 0)
+    } else if let Some(slot) = row.slot() {
+        let raw_index = selection.choices[slot as usize];
+        let (index, count) = selection.choice_position(&profile.menu_options, slot);
+        let name = selection
+            .choice(&profile.menu_options, slot, raw_index)
+            .map_or_else(
+                || "Unavailable".into(),
+                |v| {
+                    format!(
+                        "{}{}",
+                        spacing::menu_name(v.name),
+                        if selection.recipe_modified(slot) {
+                            " *"
+                        } else {
+                            ""
+                        }
+                    )
+                },
+            );
+        let name = if slot.is_button() && selection.rule_button_mask & slot.button() != 0 {
+            format!("Toggle rules / saved: {name}")
+        } else {
+            name
+        };
+        (name, index, count)
+    } else if row == MenuRow::IdleCrouch
+        && selection.y_fighter_kind == kirby_assist_core::fighter_kinds::KIRBY
+    {
+        toggle_value(selection.effective_mode(
+            kirby_assist_core::button_bindings::Mode::IdleCrouch,
+            selection.idle_crouch,
+        ))
+    } else if row == MenuRow::TiltTurn {
+        toggle_value(selection.effective_mode(
+            kirby_assist_core::button_bindings::Mode::TiltTurn,
+            selection.tilt_turn,
+        ))
+    } else if row == MenuRow::AutoReflect {
+        toggle_value(selection.auto_reflect)
+    } else if row == MenuRow::OutOfShield {
+        let enabled = selection.effective_mode(
+            kirby_assist_core::button_bindings::Mode::OutOfShield,
+            selection.out_of_shield,
+        );
+        toggle_value(enabled)
+    } else if matches!(
+        row,
+        MenuRow::SpotPunish | MenuRow::GrabDodge | MenuRow::ShieldPressure
+    ) {
+        let enabled = if row == MenuRow::ShieldPressure {
+            selection.shield_pressure
+        } else if row == MenuRow::SpotPunish {
+            selection.effective_mode(
+                kirby_assist_core::button_bindings::Mode::SpotPunish,
+                selection.spot_punish,
+            )
+        } else {
+            selection.grab_dodge
+        };
+        toggle_value(enabled)
+    } else if row == MenuRow::TestLatency {
+        (
+            if selection.test_latency == 0 {
+                "Unset (label only)".into()
+            } else {
+                format!("External +{}f (label only)", selection.test_latency - 1)
+            },
+            selection.test_latency as usize,
+            32,
+        )
+    } else if row == MenuRow::Performance {
+        toggle_value(selection.performance)
+    } else if row == MenuRow::AutoTech {
+        toggle_value(selection.effective_mode(
+            kirby_assist_core::button_bindings::Mode::AutoTech,
+            selection.auto_tech,
+        ))
+    } else if row == MenuRow::AutoLedge {
+        toggle_value(selection.ledge_mode())
+    } else if row == MenuRow::RollRules {
+        toggle_value(selection.roll_rules)
+    } else if row == MenuRow::AutoMash {
+        toggle_value(auto_mash)
+    } else {
+        return None;
+    })
+}
+
 pub(super) fn build(
     profile: &FighterProfile,
     selection: &MenuSelection,
@@ -198,164 +313,10 @@ pub(super) fn build(
         )
         .map_err(|_| "Not enough memory for menu rows")?;
     for &row in selection.display_rows() {
-        if selection.assist_rule_page() {
+        if selection.assist_rule_page() || !selection.row_visible(row) {
             continue;
         }
-        if !selection.row_visible(row) {
-            continue;
-        }
-        let (name, index, count) = if MenuSelection::page_link(row) {
-            ("Open >".to_owned(), 0, 0)
-        } else if let Some(slot) = row.slot() {
-            let raw_index = selection.choices[slot as usize];
-            let (index, count) = selection.choice_position(&profile.menu_options, slot);
-            let name = selection
-                .choice(&profile.menu_options, slot, raw_index)
-                .map_or_else(
-                    || "Unavailable".into(),
-                    |v| {
-                        format!(
-                            "{}{}",
-                            spacing::menu_name(v.name),
-                            if selection.recipe_modified(slot) {
-                                " *"
-                            } else {
-                                ""
-                            }
-                        )
-                    },
-                );
-            let name = if slot.is_button() && selection.rule_button_mask & slot.button() != 0 {
-                format!("Toggle rules / saved: {name}")
-            } else {
-                name
-            };
-            (name, index, count)
-        } else if row == MenuRow::IdleCrouch
-            && selection.y_fighter_kind == kirby_assist_core::fighter_kinds::KIRBY
-        {
-            (
-                if selection.effective_mode(
-                    kirby_assist_core::button_bindings::Mode::IdleCrouch,
-                    selection.idle_crouch,
-                ) {
-                    "ON"
-                } else {
-                    "OFF"
-                }
-                .to_owned(),
-                usize::from(selection.effective_mode(
-                    kirby_assist_core::button_bindings::Mode::IdleCrouch,
-                    selection.idle_crouch,
-                )),
-                2,
-            )
-        } else if row == MenuRow::TiltTurn {
-            (
-                if selection.effective_mode(
-                    kirby_assist_core::button_bindings::Mode::TiltTurn,
-                    selection.tilt_turn,
-                ) {
-                    "ON"
-                } else {
-                    "OFF"
-                }
-                .to_owned(),
-                usize::from(selection.effective_mode(
-                    kirby_assist_core::button_bindings::Mode::TiltTurn,
-                    selection.tilt_turn,
-                )),
-                2,
-            )
-        } else if row == MenuRow::AutoReflect {
-            (
-                (if selection.auto_reflect { "ON" } else { "OFF" }).to_owned(),
-                usize::from(selection.auto_reflect),
-                2,
-            )
-        } else if row == MenuRow::OutOfShield {
-            let enabled = selection.effective_mode(
-                kirby_assist_core::button_bindings::Mode::OutOfShield,
-                selection.out_of_shield,
-            );
-            (
-                (if enabled { "ON" } else { "OFF" }).to_owned(),
-                usize::from(enabled),
-                2,
-            )
-        } else if matches!(
-            row,
-            MenuRow::SpotPunish | MenuRow::GrabDodge | MenuRow::ShieldPressure
-        ) {
-            let enabled = if row == MenuRow::ShieldPressure {
-                selection.shield_pressure
-            } else if row == MenuRow::SpotPunish {
-                selection.effective_mode(
-                    kirby_assist_core::button_bindings::Mode::SpotPunish,
-                    selection.spot_punish,
-                )
-            } else {
-                selection.grab_dodge
-            };
-            (
-                if enabled { "ON" } else { "OFF" }.to_owned(),
-                usize::from(enabled),
-                2,
-            )
-        } else if row == MenuRow::TestLatency {
-            (
-                if selection.test_latency == 0 {
-                    "Unset (label only)".into()
-                } else {
-                    format!("External +{}f (label only)", selection.test_latency - 1)
-                },
-                selection.test_latency as usize,
-                32,
-            )
-        } else if row == MenuRow::Performance {
-            let enabled = selection.performance;
-            (
-                if enabled { "ON" } else { "OFF" }.to_owned(),
-                usize::from(enabled),
-                2,
-            )
-        } else if row == MenuRow::AutoTech {
-            (
-                if selection.effective_mode(
-                    kirby_assist_core::button_bindings::Mode::AutoTech,
-                    selection.auto_tech,
-                ) {
-                    "ON"
-                } else {
-                    "OFF"
-                }
-                .to_owned(),
-                usize::from(selection.effective_mode(
-                    kirby_assist_core::button_bindings::Mode::AutoTech,
-                    selection.auto_tech,
-                )),
-                2,
-            )
-        } else if row == MenuRow::AutoLedge {
-            let enabled = selection.ledge_mode();
-            (
-                (if enabled { "ON" } else { "OFF" }).to_owned(),
-                usize::from(enabled),
-                2,
-            )
-        } else if row == MenuRow::RollRules {
-            (
-                (if selection.roll_rules { "ON" } else { "OFF" }).to_owned(),
-                usize::from(selection.roll_rules),
-                2,
-            )
-        } else if row == MenuRow::AutoMash {
-            (
-                if auto_mash { "ON" } else { "OFF" }.to_owned(),
-                usize::from(auto_mash),
-                2,
-            )
-        } else {
+        let Some((name, index, count)) = row_value(profile, selection, row, auto_mash) else {
             continue;
         };
         let position = if index < count { index + 1 } else { 0 };

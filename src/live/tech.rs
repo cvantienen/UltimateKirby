@@ -47,9 +47,7 @@ mod flame_choke {
         {
             assessment.reason = "ganon_ground_release_wait";
             if !stopped || victim_stop {
-                assessment.contact_in = Some(assessment.remaining_stop as f32);
-                assessment.prepare_guard = true;
-                assessment.reason = "collision_predicted";
+                assessment.contact_now("collision_predicted");
             }
             return true;
         }
@@ -119,6 +117,13 @@ pub(super) struct TechAssessment {
     // A grounded command grab can freeze the victim's animation. Its linked
     // captor's native clock supplies progress without counting controller polls.
     pub(super) capture_clock: Option<(u64, f32, f32)>,
+}
+impl TechAssessment {
+    fn contact_now(&mut self, reason: &'static str) {
+        self.contact_in = Some(self.remaining_stop as f32);
+        self.prepare_guard = true;
+        self.reason = reason;
+    }
 }
 
 /// Pinned common.prc integer parameters, read without changing native timing.
@@ -253,9 +258,7 @@ pub(super) unsafe fn assess_tech(
             kirby_assist_core::native_states::transition_terms::PASSIVE_CEIL
         };
         if game::transition_enabled(object, term) && (!stopped || victim_stop) {
-            assessment.contact_in = Some(assessment.remaining_stop as f32);
-            assessment.prepare_guard = true;
-            assessment.reason = "collision_predicted";
+            assessment.contact_now("collision_predicted");
         }
         return assessment;
     }
@@ -283,9 +286,7 @@ pub(super) unsafe fn assess_tech(
             || velocity[1].is_finite() && velocity[1] <= FLOOR_CONTACT_UPWARD_SPEED_TOLERANCE
         {
             assessment.velocity = velocity;
-            assessment.contact_in = Some(assessment.remaining_stop as f32);
-            assessment.prepare_guard = true;
-            assessment.reason = "collision_predicted";
+            assessment.contact_now("collision_predicted");
             return assessment;
         }
     }
@@ -402,14 +403,41 @@ pub(super) unsafe fn assess_tech(
             || assessment.velocity[1].is_finite()
                 && assessment.velocity[1] <= FLOOR_CONTACT_UPWARD_SPEED_TOLERANCE);
     if floor_contact || wall_touched || ceiling_touched {
-        assessment.prepare_guard = true;
-        assessment.contact_in = Some(assessment.remaining_stop as f32);
-        assessment.reason = "native_collision_contact";
+        assessment.contact_now("native_collision_contact");
         return assessment;
     }
     if !predict {
         return assessment;
     }
+    predict_contact(
+        reads,
+        object,
+        horizon,
+        stopped,
+        input_delay,
+        floor_motion,
+        body,
+        [
+            floor_surface_enabled,
+            wall_surface_enabled,
+            ceiling_surface_enabled,
+        ],
+        assessment,
+    )
+}
+
+#[inline]
+unsafe fn predict_contact(
+    reads: &super::frame::FrameReads,
+    object: *mut game::Object,
+    horizon: f32,
+    stopped: bool,
+    input_delay: f32,
+    floor_motion: &mut FloorMotionHistory,
+    body: kirby_assist_core::tech_prediction::Body,
+    surfaces: [bool; 3],
+    mut assessment: TechAssessment,
+) -> TechAssessment {
     // Existing native gates establish safe preparation even when this frame's
     // bounded rays find no surface. Never infer this from status alone.
     assessment.prepare_guard = true;
@@ -444,7 +472,7 @@ pub(super) unsafe fn assess_tech(
     } else {
         floor_motion.sample(FloorMotionSample {
             object: game::battle_object_id(object),
-            status,
+            status: assessment.status,
             motion: reads.motion_kind(object),
             frame: reads.motion_frame(object),
             rate: reads.motion_rate(object),
@@ -459,11 +487,7 @@ pub(super) unsafe fn assess_tech(
         horizon,
         acceleration,
         body,
-        [
-            floor_surface_enabled,
-            wall_surface_enabled,
-            ceiling_surface_enabled,
-        ],
+        surfaces,
         |probe| {
             let origin = game::Vector2 {
                 x: probe.origin[0],

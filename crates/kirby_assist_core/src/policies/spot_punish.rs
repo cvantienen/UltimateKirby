@@ -93,7 +93,8 @@ impl Punisher {
                         && target.rate > 0.
                         && target.frame.is_finite()
                         && target.frame >= 0.
-                        && target.position
+                        && target
+                            .position
                             .iter()
                             .chain(target.velocity.iter())
                             .all(|v| v.is_finite())
@@ -104,11 +105,15 @@ impl Punisher {
                     motion: target.motion,
                     frame: target.frame,
                     used: old.iter().flatten().any(|previous| {
-                        previous.id == target.id
-                            && previous.status == target.status
-                            && previous.motion == target.motion
-                            && target.frame >= previous.frame
-                            && previous.used
+                        crate::timing::same_motion_event(
+                            (
+                                previous.id,
+                                previous.status,
+                                previous.motion,
+                                previous.frame,
+                            ),
+                            (target.id, target.status, target.motion, target.frame),
+                        ) && previous.used
                     }),
                 })
         });
@@ -157,7 +162,10 @@ impl Punisher {
                 }
             }
             if let Some((_, index, enemy)) = best {
-                if self.response.start(rules, Trigger::SpotDodge, context, enemy) {
+                if self
+                    .response
+                    .start(rules, Trigger::SpotDodge, context, enemy)
+                {
                     self.seen[index].as_mut().unwrap().used = true;
                     following = Some(enemy);
                 }

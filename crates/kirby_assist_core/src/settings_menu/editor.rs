@@ -622,23 +622,6 @@ fn direction(v: &mut D, up: bool, onstage: bool) {
         }
     }
 }
-fn action_slot(field: Field) -> usize {
-    match field {
-        Field::TapButtons(i)
-        | Field::TapGap(i)
-        | Field::Duration(i)
-        | Field::X(i)
-        | Field::Y(i)
-        | Field::Strength(i)
-        | Field::Tolerance(i)
-        | Field::Brake(i)
-        | Field::PositionTimeout(i)
-        | Field::Distance(i)
-        | Field::Gap(i)
-        | Field::Direction(i) => i,
-        _ => unreachable!(),
-    }
-}
 fn adjust_action(action: &mut Action, field: Field, up: bool, delta: f32, onstage: bool) {
     match (action, field) {
         (Action::LedgePosition { offset, .. }, Field::Distance(_)) => {
@@ -1033,7 +1016,7 @@ impl RecipeEditor {
                 _ => {}
             },
             other => {
-                let i = action_slot(other);
+                let i = field_slot(other).expect("action field must have a slot");
                 adjust_action(&mut next.sequence.actions[i], other, up, delta, onstage);
             }
         }

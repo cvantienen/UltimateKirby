@@ -624,11 +624,10 @@ pub mod option_read {
                     frame: t.frame,
                     rate: t.rate,
                     used: old.iter().flatten().any(|p| {
-                        p.id == t.id
-                            && p.status == t.status
-                            && p.motion == t.motion
-                            && t.frame >= p.frame
-                            && p.used
+                        crate::timing::same_motion_event(
+                            (p.id, p.status, p.motion, p.frame),
+                            (t.id, t.status, t.motion, t.frame),
+                        ) && p.used
                     }),
                 });
             }
