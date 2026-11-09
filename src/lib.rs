@@ -15,13 +15,9 @@ mod live;
 // The diagnostic logger is absent from silent builds, not just disabled
 // by a setting. Config cannot enable it without rebuilding.
 #[cfg(feature = "diagnostic-logging")]
-mod calibration;
+mod diagnostics;
 #[cfg(feature = "diagnostic-logging")]
-mod grab_diagnostics;
-#[cfg(feature = "diagnostic-logging")]
-mod logging;
-#[cfg(feature = "diagnostic-logging")]
-mod performance;
+use diagnostics::{calibration, grab_diagnostics, logging, performance};
 
 // This attribute generates the native entry point/module metadata Skyline needs.
 // Adding a tool does not require another main function; extend the core policy

@@ -21,7 +21,7 @@ fn settings_for_fighter(_: Option<i32>, base: AssistSettings) -> AssistSettings 
     base
 }
 #[cfg(feature = "diagnostic-logging")]
-#[path = "../../../src/performance.rs"]
+#[path = "../../../src/diagnostics/performance.rs"]
 mod performance;
 mod calibration {
     pub fn clear() {}

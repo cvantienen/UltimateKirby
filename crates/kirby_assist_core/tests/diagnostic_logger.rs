@@ -7,17 +7,17 @@ mod live {
 }
 // Exercise the real logger/recorders on the host without opening SD files.
 #[allow(dead_code)]
-#[path = "../../../src/logging.rs"]
+#[path = "../../../src/diagnostics/logging.rs"]
 mod diagnostic_logger;
 use diagnostic_logger as logging;
 #[allow(dead_code)]
-#[path = "../../../src/calibration.rs"]
+#[path = "../../../src/diagnostics/calibration.rs"]
 mod calibration;
 #[allow(dead_code)]
-#[path = "../../../src/grab_diagnostics.rs"]
+#[path = "../../../src/diagnostics/grab_diagnostics.rs"]
 mod grab_diagnostics;
 
 #[cfg(feature = "diagnostic-logging")]
 #[allow(dead_code)]
-#[path = "../../../src/performance.rs"]
+#[path = "../../../src/diagnostics/performance.rs"]
 mod performance;

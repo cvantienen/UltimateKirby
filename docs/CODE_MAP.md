@@ -32,6 +32,11 @@ plus `config.rs`, `sequence_config.rs`, `settings_menu.rs`, `manual_controls.rs`
 `runtime.rs`, `live_input.rs` and `diagnostics.rs`. Small helper modules are inline
 in their parent file; `lib.rs` re-exports every module at its original crate-root path.
 
+The Switch plugin keeps live adapters flat in `src/live/`, with menu rendering
+and persistence in `src/live/settings_menu/`, and diagnostic-only recording,
+logging and performance instrumentation in `src/diagnostics/`. Tech capture
+timing, menu text caching and health counters are grouped with their parents.
+
 | File | Responsibility |
 | --- | --- |
 | `docs/FIGHTER_ADDITIONS.md` | Luigi/Falcon source, timing, performance and validation notes. |
@@ -51,11 +56,12 @@ in their parent file; `lib.rs` re-exports every module at its original crate-roo
 | `src/live/training.rs` | Mapper Training passthrough, handoff state and menu resume. |
 | Core `training_test.rs` | Diagnostic/Training Minus-menu handoff and isolated test settings. |
 | `src/live/observations.rs` / `src/live/fighter_roster.rs` | Read-only fighter, opponent, physics, roster, local-route and floor queries. |
-| `src/live/tech.rs` | Native tech eligibility and predicted contact/capture timing. |
+| `src/live/tech.rs` | Native tech eligibility and predicted contact/capture timing, including Ganondorf capture observation. |
+| `src/live/kirby_followups.rs` / `src/live/reflect.rs` | Fighter-specific native adapters for Kirby follow-ups and Game & Watch reflection. |
 | `src/game_ffi.rs` | Declarations of functions supplied by Smash; their memory/calling contract. |
-| `src/logging.rs` / `src/grab_diagnostics.rs` | Diagnostic-only queued writer / bounded roll-grab recorder. |
+| `src/diagnostics/logging.rs` / `src/diagnostics/grab_diagnostics.rs` | Diagnostic-only queued writer / bounded roll-grab recorder. |
 | Core `live_input.rs` (`config` module) | Startup settings, defaults, text parsing and validation. |
-| `src/calibration.rs` | Diagnostic-only fixed observation recorder, completed result formatting and cached card publication. |
+| `src/diagnostics/calibration.rs` / `src/diagnostics/performance.rs` | Diagnostic-only calibration recording, sampled timing and health counters. |
 | Core `policies/ledge_trap.rs` (`diagnostics` module) | Read-only response metadata for all five rows and detailed roll-grab snapshots. |
 | Core `live_input.rs` | Mash/tech request policy and compatibility helpers. |
 | Core `shared/observations/gameplay.rs` | Shared `GameplayContext`, `ControllerOutput`, opponent observations, motion timing, and recovery-frame helpers. |

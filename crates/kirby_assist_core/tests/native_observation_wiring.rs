@@ -27,7 +27,7 @@ mod game_ffi {
 }
 use game_ffi as game;
 #[cfg(feature = "diagnostic-logging")]
-#[path = "../../../src/performance.rs"]
+#[path = "../../../src/diagnostics/performance.rs"]
 mod performance;
 struct Menu;
 impl Menu {

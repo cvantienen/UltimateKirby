@@ -35,7 +35,6 @@ mod config;
 mod controller;
 mod damage;
 mod frame;
-#[path = "live/fighters/kirby/followups.rs"]
 mod kirby_followups;
 mod native_params {
     pub(super) const PARAM_COMMON: u64 = 0x6e5ec7051;
@@ -51,9 +50,7 @@ mod native_params {
 mod mapper;
 mod observation;
 mod observations;
-#[path = "live/fighters/game_and_watch/reflect.rs"]
 mod reflect;
-#[path = "live/runtime.rs"]
 mod runtime;
 mod settings_menu;
 mod state;

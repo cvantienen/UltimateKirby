@@ -1,5 +1,7 @@
 //! Shared callback state and its session-reset/cancellation rules.
 use super::*;
+#[cfg(feature = "diagnostic-logging")]
+use super::observation::LedgeDiagnostic;
 use kirby_assist_core::kirby::{FairFollowup, TripFollowup};
 
 // One session for the configured controller, rather than one global session per

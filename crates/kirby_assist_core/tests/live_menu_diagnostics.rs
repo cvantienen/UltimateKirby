@@ -19,7 +19,7 @@ static STATE: Mutex<HostState> = Mutex::new(HostState {
 fn settings_for_fighter(_: Option<i32>, base: AssistSettings) -> AssistSettings {
     base
 }
-#[path = "../../../src/performance.rs"]
+#[path = "../../../src/diagnostics/performance.rs"]
 mod performance;
 static CONFIGS: Mutex<Vec<kirby_assist_core::diagnostics::modes::Configuration>> =
     Mutex::new(Vec::new());
@@ -47,7 +47,6 @@ fn configuration_logs_once_on_entry_and_on_choice_edits_but_not_navigation_or_po
         menu.input(
             true,
             true,
-            false,
             false,
             false,
             Some(kind),

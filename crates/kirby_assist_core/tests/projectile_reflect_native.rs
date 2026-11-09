@@ -200,7 +200,7 @@ mod attack_sources {
         })
     }
 }
-#[path = "../../../src/live/fighters/game_and_watch/reflect.rs"]
+#[path = "../../../src/live/reflect.rs"]
 mod reflect;
 use kirby_assist_core::{fighter_tuning::Tuning, projectile_reflect::Config};
 fn config() -> Config {

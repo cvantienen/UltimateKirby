@@ -22,7 +22,7 @@ impl Drop for FighterObservationGuard {
 #[cfg(feature = "diagnostic-logging")]
 #[derive(Clone, Copy, PartialEq, Eq)]
 /// Represents a diagnostic snapshot of the ledge state for the fighter.
-struct LedgeDiagnostic {
+pub(super) struct LedgeDiagnostic {
     target: Option<u32>,
     enemy_status: i32,
     vulnerable: bool,

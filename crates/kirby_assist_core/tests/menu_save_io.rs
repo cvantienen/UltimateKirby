@@ -14,10 +14,10 @@ mod live {
 
 #[cfg(feature = "diagnostic-logging")]
 #[allow(dead_code)]
-#[path = "../../../src/performance.rs"]
+#[path = "../../../src/diagnostics/performance.rs"]
 mod performance;
 
 // Exercise the exact cache-copy implementation without loading ImGui/native UI.
 #[allow(dead_code)]
-#[path = "../../../src/live/settings_menu/text_cache.rs"]
-mod menu_text_cache;
+#[path = "../../../src/live/settings_menu/view.rs"]
+mod menu_view;

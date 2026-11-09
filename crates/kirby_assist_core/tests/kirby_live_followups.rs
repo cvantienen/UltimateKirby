@@ -1,4 +1,4 @@
-#[path = "../../../src/live/fighters/kirby/followups.rs"]
+#[path = "../../../src/live/kirby_followups.rs"]
 mod followups;
 
 use kirby_assist_core::{
