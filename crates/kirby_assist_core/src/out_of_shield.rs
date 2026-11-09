@@ -1,9 +1,47 @@
 //! Confirmed shield-contact responses. Inputs only; never force native states.
-use crate::gameplay::ControllerOutput;
+use crate::{
+    gameplay::{ControllerOutput, MotionTiming, Opponent},
+    roll_read::Target as ObservedTarget,
+};
 mod automatic;
 mod simple;
 pub use automatic::{AutomaticConfig, AutomaticLimits};
 mod shield_up_b;
+
+pub(super) fn copied_target(target: ObservedTarget) -> Opponent {
+    Opponent {
+        id: target.id,
+        status: target.status,
+        position: target.position,
+        velocity: [target.velocity_x, 0.],
+        vulnerable: target.vulnerable_in == Some(0.),
+        motion: Some(MotionTiming {
+            kind: target.motion,
+            frame: target.frame,
+            rate: target.rate,
+            remaining: None,
+        }),
+        ..Default::default()
+    }
+}
+
+pub(super) fn target_within_range(
+    origin: [f32; 2],
+    target: [f32; 2],
+    range: f32,
+    height: f32,
+) -> bool {
+    range.is_finite()
+        && range > 0.
+        && height.is_finite()
+        && height >= 0.
+        && origin
+            .iter()
+            .chain(target.iter())
+            .all(|value| value.is_finite())
+        && (target[0] - origin[0]).abs() <= range
+        && (target[1] - origin[1]).abs() <= height
+}
 
 /// Retained stationary gate for incoming-grab avoidance and legacy reactions.
 pub fn stationary_grab_state(status: i32) -> bool {
@@ -150,6 +188,7 @@ pub struct OutOfShield {
     configured_grab_wait: bool,
     configured_settling: bool,
 }
+
 impl OutOfShield {
     pub const fn new() -> Self {
         Self {
@@ -167,6 +206,7 @@ impl OutOfShield {
             configured_settling: false,
         }
     }
+
     fn bind_actor(&mut self, c: Context) {
         if self.object != Some(c.object) || self.kind != Some(c.kind) {
             *self = Self::default();
@@ -174,6 +214,7 @@ impl OutOfShield {
             self.kind = Some(c.kind);
         }
     }
+
     pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         self.simple.observe_statuses(known);
     }
@@ -451,5 +492,51 @@ impl OutOfShield {
             );
         }
         self.response.sample(enabled, settings, context, follow)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{copied_target, target_within_range};
+    use crate::{gameplay::MotionTiming, roll_read::Target as ObservedTarget};
+
+    #[test]
+    fn target_range_is_inclusive_and_rejects_invalid_facts() {
+        assert!(target_within_range([0., 0.], [3., -2.], 3., 2.));
+        assert!(!target_within_range([0., 0.], [3.01, 0.], 3., 2.));
+        assert!(!target_within_range([0., 0.], [0., 0.], 0., 2.));
+        assert!(!target_within_range([0., 0.], [0., 0.], 2., -1.));
+        assert!(!target_within_range([f32::NAN, 0.], [0., 0.], 2., 2.));
+    }
+
+    #[test]
+    fn copied_target_preserves_common_observation_facts() {
+        let opponent = copied_target(ObservedTarget {
+            id: 7,
+            status: 12,
+            motion: 34,
+            frame: 5.5,
+            rate: 1.25,
+            position: [2., -3.],
+            velocity_x: 0.5,
+            vulnerable_in: Some(0.),
+            actionable_in: Some(4.),
+        });
+
+        assert_eq!(opponent.id, 7);
+        assert_eq!(opponent.status, 12);
+        assert_eq!(opponent.position, [2., -3.]);
+        assert_eq!(opponent.velocity, [0.5, 0.]);
+        assert!(opponent.vulnerable);
+        assert_eq!(
+            opponent.motion,
+            Some(MotionTiming {
+                kind: 34,
+                frame: 5.5,
+                rate: 1.25,
+                remaining: None,
+            })
+        );
+        assert_eq!(opponent.actionable_in, None);
     }
 }

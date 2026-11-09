@@ -45,9 +45,11 @@ impl ObservationSetup {
 /// Exact floor-query reuse within ONE synchronous observation. Store copied
 /// values, never a pointer, and discard at callback exit so moving platforms
 /// and later frames always get new collision queries.
+type GroundSupportCache = Option<(u32, [f32; 2], f32, [bool; 2])>;
+
 #[derive(Default)]
 pub struct GroundSupportSnapshot {
-    last: Cell<Option<(u32, [f32; 2], f32, [bool; 2])>>,
+    last: Cell<GroundSupportCache>,
 }
 impl GroundSupportSnapshot {
     pub fn read(

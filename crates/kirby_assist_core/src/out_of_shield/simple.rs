@@ -17,19 +17,10 @@ pub(super) fn target_valid(
 ) -> bool {
     e.vulnerable
         && super::automatic_grab_target_status_with_shield(e.status, shielded)
-        && range.is_finite()
-        && range > 0.
         && c.facing.is_finite()
         && c.facing.abs() >= 0.5
-        && e.position
-            .iter()
-            .chain(c.position.iter())
-            .all(|v| v.is_finite())
+        && super::target_within_range(c.position, e.position, range, height)
         && (e.position[0] - c.position[0]) * c.facing > 0.
-        && (e.position[0] - c.position[0]).abs() <= range
-        && height.is_finite()
-        && height >= 0.
-        && (e.position[1] - c.position[1]).abs() <= height
         && {
             let relative = e.velocity[0] - lc.velocity[0];
             relative.is_finite()
@@ -322,27 +313,13 @@ impl Grab {
         }
         let valid =
             |e: Opponent| target_valid(c, lc, e, range, height, startup, approach, shielded);
-        let copied = |t: &Target| Opponent {
-            id: t.id,
-            status: t.status,
-            position: t.position,
-            velocity: [t.velocity_x, 0.],
-            vulnerable: t.vulnerable_in == Some(0.),
-            motion: Some(crate::gameplay::MotionTiming {
-                kind: t.motion,
-                frame: t.frame,
-                rate: t.rate,
-                remaining: None,
-            }),
-            ..Default::default()
-        };
         let enemy = if self.active() {
             follow.filter(|e| Some(e.id) == self.target).or_else(|| {
                 targets
                     .iter()
                     .flatten()
                     .find(|t| Some(t.id) == self.target)
-                    .map(copied)
+                    .map(|t| super::copied_target(*t))
             })
         } else {
             if c.stopped || !c.can_grab || !c.shield_ready {
@@ -351,7 +328,7 @@ impl Grab {
             targets
                 .iter()
                 .flatten()
-                .map(copied)
+                .map(|t| super::copied_target(*t))
                 .chain(follow)
                 .filter(|e| {
                     valid(*e)

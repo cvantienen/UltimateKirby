@@ -111,35 +111,18 @@ impl ShieldUpB {
         let valid = |e: Opponent| {
             e.vulnerable
                 && super::automatic_shield_target_status(e.status)
-                && range.is_finite()
-                && range > 0.
-                && e.position
-                    .iter()
-                    .chain(c.position.iter())
-                    .all(|v| v.is_finite())
-                && (e.position[0] - c.position[0]).abs() <= range
-                && height.is_finite()
-                && height >= 0.
-                && (e.position[1] - c.position[1]).abs() <= height
-        };
-        let copied = |t: &Target| Opponent {
-            id: t.id,
-            status: t.status,
-            position: t.position,
-            velocity: [t.velocity_x, 0.],
-            vulnerable: t.vulnerable_in == Some(0.),
-            motion: Some(crate::gameplay::MotionTiming {
-                kind: t.motion,
-                frame: t.frame,
-                rate: t.rate,
-                remaining: None,
-            }),
-            ..Default::default()
+                && super::target_within_range(c.position, e.position, range, height)
         };
         let enemy = if let Some(id) = self.target {
             follow
                 .filter(|e| e.id == id)
-                .or_else(|| targets.iter().flatten().find(|t| t.id == id).map(copied))
+                .or_else(|| {
+                    targets
+                        .iter()
+                        .flatten()
+                        .find(|t| t.id == id)
+                        .map(|t| super::copied_target(*t))
+                })
                 .filter(|e| {
                     if self.receipt_pending() {
                         e.position
@@ -154,7 +137,7 @@ impl ShieldUpB {
             targets
                 .iter()
                 .flatten()
-                .map(copied)
+                .map(|t| super::copied_target(*t))
                 .chain(follow)
                 .filter(|e| valid(*e))
                 .min_by(|a, b| {

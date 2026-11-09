@@ -95,22 +95,6 @@ fn backup_timing(s: &Sequence) -> Option<super::shield_up_b::Timing> {
         timeout: s.timeout,
     })
 }
-fn copied(t: crate::roll_read::Target) -> Opponent {
-    Opponent {
-        id: t.id,
-        status: t.status,
-        position: t.position,
-        velocity: [t.velocity_x, 0.],
-        vulnerable: t.vulnerable_in == Some(0.),
-        motion: Some(crate::gameplay::MotionTiming {
-            kind: t.motion,
-            frame: t.frame,
-            rate: t.rate,
-            remaining: None,
-        }),
-        ..Default::default()
-    }
-}
 impl OutOfShield {
     pub fn sample_automatic_configured(
         &mut self,
@@ -157,7 +141,7 @@ impl OutOfShield {
                         .flatten()
                         .find(|t| Some(t.id) == self.response.target())
                         .copied()
-                        .map(copied)
+                        .map(super::copied_target)
                 });
             let valid = allowed
                 && self.configured_shielded == shielded
@@ -381,7 +365,7 @@ impl OutOfShield {
                 .into_iter()
                 .flatten()
                 .find(|t| Some(t.id) == id)
-                .map(copied)
+                .map(super::copied_target)
         });
         let Some(enemy) = enemy else {
             self.cancel_pending();
