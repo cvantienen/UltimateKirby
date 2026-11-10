@@ -8,8 +8,7 @@ use super::{is_new_hit, stick_engaged, LAUNCH_DI_FRAMES, MAX_DAMAGE_STOP_DI_FRAM
 
 /// Defines the `SdiContext` data structure.
 ///
-///
-///  Holds the data for SdiContext.
+/// Holds the data for SdiContext.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SdiContext {
     /// Stores the `object` value in `SdiContext` as `u32`.
@@ -39,8 +38,7 @@ pub struct SdiContext {
 }
 /// Defines the `SdiState` data structure.
 ///
-///
-///  Holds the data for SdiState.
+/// Holds the data for SdiState.
 #[derive(Default)]
 pub struct SdiState {
     /// Stores the `last` value in `SdiState` as `Option<(u32`.

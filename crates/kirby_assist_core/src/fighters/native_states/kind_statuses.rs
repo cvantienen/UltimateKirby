@@ -30,8 +30,7 @@ pub fn up_special_status(fighter: i32, status: i32) -> bool {
 
 /// Returns the `standby_statuses` result.
 ///
-///
-///  Gets the standby statuses result.
+/// Gets the standby statuses result.
 fn standby_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::SQUIRTLE => &[fs::PZENIGAME_SPECIAL_LW_STANDBY],
@@ -45,8 +44,7 @@ fn standby_statuses(fighter: i32) -> &'static [i32] {
 
 /// Returns the `forced_statuses` result.
 ///
-///
-///  Gets the forced statuses result.
+/// Gets the forced statuses result.
 fn forced_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::DIDDY_KONG => &[
@@ -67,8 +65,7 @@ fn forced_statuses(fighter: i32) -> &'static [i32] {
 
 /// Returns the `final_statuses` result.
 ///
-///
-///  Gets the final statuses result.
+/// Gets the final statuses result.
 fn final_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::DONKEY_KONG => &[fs::DONKEY_FINAL_ATTACK, fs::DONKEY_FINAL_END],
@@ -499,8 +496,7 @@ fn final_statuses(fighter: i32) -> &'static [i32] {
 
 /// Returns the `up_special_statuses` result.
 ///
-///
-///  Gets the up special statuses result.
+/// Gets the up special statuses result.
 fn up_special_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::LINK => &[fs::LINK_SPECIAL_HI_HOLD, fs::LINK_SPECIAL_HI_END],

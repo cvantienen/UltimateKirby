@@ -3,32 +3,27 @@ use crate::native_states::status;
 
 /// Defines the `CATCHED_GANON` constant used by this module.
 ///
-///
-///  Provides the CATCHED GANON constant value.
+/// Provides the CATCHED GANON constant value.
 pub const CATCHED_GANON: i32 = status::CATCHED_GANON;
 /// Defines the `CATCHED_AIR_END_GANON` constant used by this module.
 ///
-///
-///  Provides the CATCHED AIR END GANON constant value.
+/// Provides the CATCHED AIR END GANON constant value.
 pub const CATCHED_AIR_END_GANON: i32 = status::CATCHED_AIR_END_GANON;
 /// Sets the default value for ganon passive trigger frame.
 ///
-///
-///  Holds the DEFAULT GANON PASSIVE TRIGGER FRAME value.
+/// Holds the DEFAULT GANON PASSIVE TRIGGER FRAME value.
 pub const DEFAULT_GANON_PASSIVE_TRIGGER_FRAME: u16 = 7;
 
 /// Classifies the current guard-lockout status.
 ///
-///
-///  Checks the current guard lockout.
+/// Checks the current guard lockout.
 pub(crate) fn guard_lockout_status(status: i32) -> bool {
     matches!(status, CATCHED_GANON | CATCHED_AIR_END_GANON)
 }
 
 /// Returns the remaining passive-tech window.
 ///
-///
-///  Gets the time left to tech.
+/// Gets the time left to tech.
 pub(crate) fn passive_window(status: i32, normal: u16, ganon: u16) -> u16 {
     if status == CATCHED_GANON {
         ganon

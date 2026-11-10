@@ -7,8 +7,7 @@ use crate::sequence_config::{Action, Sequence};
 
 /// Defines the `BUTTON_MASK` constant used by this module.
 ///
-///
-///  Provides the BUTTON MASK constant value.
+/// Provides the BUTTON MASK constant value.
 pub const BUTTON_MASK: u32 = MAPPER_X | MAPPER_Y | MAPPER_DPAD_BUTTONS | MAPPER_STICK_CLICKS;
 
 /// A literal one-frame jump input. Damage/tech safety routes it as input

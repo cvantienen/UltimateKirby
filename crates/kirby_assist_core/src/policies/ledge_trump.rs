@@ -8,8 +8,7 @@ use crate::{
 
 /// Sets the default value for trump edge scan limit.
 ///
-///
-///  Holds the DEFAULT TRUMP EDGE SCAN LIMIT value.
+/// Holds the DEFAULT TRUMP EDGE SCAN LIMIT value.
 const DEFAULT_TRUMP_EDGE_SCAN_LIMIT: u16 = 100;
 
 /// Find the nearest edge of the current floor using read-only support probes.
@@ -79,63 +78,61 @@ pub fn floor_edge_with_limit(
 
 /// Defines the available `Phase` cases.
 ///
-///
-///  Lists the available Phase choices.
+/// Lists the available Phase choices.
 #[derive(Clone, Copy)]
 enum Phase {
     /// Represents the `Approach` case of `Phase`.
     ///
     ///
-///  Represents the Approach option in Phase.
+    ///  Represents the Approach option in Phase.
     Approach,
     /// Represents the `Down` case of `Phase`.
     ///
     ///
-///  Represents the Down option in Phase.
+    ///  Represents the Down option in Phase.
     Down { status: i32, frame: f32 },
     /// Represents the `Return` case of `Phase`.
     ///
     ///
-///  Represents the Return option in Phase.
+    ///  Represents the Return option in Phase.
     Return,
 }
 
 /// Defines the `Attempt` data structure.
 ///
-///
-///  Holds the data for Attempt.
+/// Holds the data for Attempt.
 #[derive(Clone, Copy)]
 struct Attempt {
     /// Stores the `anchor` value in `Attempt` as `[f32; 2]`.
     ///
     ///
-///  Stores the anchor collection for Attempt.
+    ///  Stores the anchor collection for Attempt.
     anchor: [f32; 2],
     /// Stores the `outward` value in `Attempt` as `f32`.
     ///
     ///
-///  Holds the outward value used by Attempt.
+    ///  Holds the outward value used by Attempt.
     outward: f32,
     /// Stores the `approach_limit` value in `Attempt` as `f32`.
     ///
     ///
-///  Holds the approach limit value used by Attempt.
+    ///  Holds the approach limit value used by Attempt.
     approach_limit: f32,
     /// Stores the `phase` value in `Attempt` as `Phase`.
     ///
     ///
-///  Holds the phase value used by Attempt.
+    ///  Holds the phase value used by Attempt.
     phase: Phase,
     /// Stores the `updates` value in `Attempt` as `u16`.
     ///
     ///
-///  Holds the updates value used by Attempt.
+    ///  Holds the updates value used by Attempt.
     updates: u16,
 }
 impl Attempt {
     /// A usable same-floor edge within trump reach, from solid ground.
     ///
-///  A usable same-floor edge within trump reach, from solid ground.
+    ///  A usable same-floor edge within trump reach, from solid ground.
     fn start(anchor: [f32; 2], ctx: GameplayContext) -> Option<Self> {
         let dx = anchor[0] - ctx.position[0];
         (finite2(anchor)
@@ -154,7 +151,7 @@ impl Attempt {
     }
     /// Whether the fighter is still on the macro's path, in a state it can run.
     ///
-///  Whether the fighter is still on the macro's path, in a state it can run.
+    ///  Whether the fighter is still on the macro's path, in a state it can run.
     fn viable(&self, ctx: GameplayContext) -> bool {
         let air_fall = ctx.situation == situation::AIR && ctx.status == FALL;
         let reach = if matches!(self.phase, Phase::Approach) {
@@ -179,7 +176,7 @@ impl Attempt {
     }
     /// Left-stick request for this sample, advancing the phase; `None` ends the attempt.
     ///
-///  Left-stick request for this sample, advancing the phase; None ends the attempt.
+    ///  Left-stick request for this sample, advancing the phase; None ends the attempt.
     fn drive(&mut self, ctx: GameplayContext) -> Option<[f32; 2]> {
         match self.phase {
             Phase::Approach if ctx.situation == situation::GROUND => {
@@ -218,34 +215,33 @@ impl Attempt {
 
 /// Defines the `LedgeTrump` data structure.
 ///
-///
-///  Holds the data for LedgeTrump.
+/// Holds the data for LedgeTrump.
 #[derive(Default)]
 pub struct LedgeTrump {
     /// Stores the `held` value in `LedgeTrump` as `bool`.
     ///
     ///
-///  Holds the held value used by LedgeTrump.
+    ///  Holds the held value used by LedgeTrump.
     held: bool,
     /// Stores the `attempt` value in `LedgeTrump` as `Option<Attempt>`.
     ///
     ///
-///  Optionally stores the attempt for LedgeTrump; it may be absent.
+    ///  Optionally stores the attempt for LedgeTrump; it may be absent.
     attempt: Option<Attempt>,
     /// Stores the `last_tick` value in `LedgeTrump` as `Option<i64>`.
     ///
     ///
-///  Optionally stores the last tick for LedgeTrump; it may be absent.
+    ///  Optionally stores the last tick for LedgeTrump; it may be absent.
     last_tick: Option<i64>,
     /// Stores the `last_context` value in `LedgeTrump` as `Option<GameplayContext>`.
     ///
     ///
-///  Optionally stores the last context for LedgeTrump; it may be absent.
+    ///  Optionally stores the last context for LedgeTrump; it may be absent.
     last_context: Option<GameplayContext>,
     /// Stores the `output` value in `LedgeTrump` as `ControllerOutput`.
     ///
     ///
-///  Holds the output value used by LedgeTrump.
+    ///  Holds the output value used by LedgeTrump.
     output: ControllerOutput,
 }
 
@@ -253,14 +249,14 @@ impl LedgeTrump {
     /// Cancels the pending.
     ///
     ///
-///  Cancels the pending.
+    ///  Cancels the pending.
     pub fn cancel_pending(&mut self) {
         self.attempt = None;
         self.output = ControllerOutput::default(); // Keep held-Down history.
     }
     /// Keep sampling an in-flight tool after its physical trigger is released.
     ///
-///  Keep sampling an in-flight tool after its physical trigger is released.
+    ///  Keep sampling an in-flight tool after its physical trigger is released.
     pub fn active(&self) -> bool {
         self.attempt.is_some()
     }
@@ -268,7 +264,7 @@ impl LedgeTrump {
     /// Determines whether edge.
     ///
     ///
-///  Checks whether edge.
+    ///  Checks whether edge.
     pub fn needs_edge(&self, down: bool) -> bool {
         down && !self.held && self.attempt.is_none()
     }
@@ -276,7 +272,7 @@ impl LedgeTrump {
     /// Returns the `action_name` result.
     ///
     ///
-///  Gets the action name result.
+    ///  Gets the action name result.
     pub fn action_name(&self) -> &'static str {
         match self.attempt.map(|attempt| attempt.phase) {
             None => "idle_or_finished",
@@ -289,7 +285,7 @@ impl LedgeTrump {
     /// Updates the toggle state from the current button sample and match state.
     ///
     ///
-///  Checks the current buttons and updates whether the toggle should activate.
+    ///  Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         enabled: bool,

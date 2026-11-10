@@ -12,13 +12,11 @@ use std::str::FromStr;
 
 /// Sets the default value for tech cooldown frames.
 ///
-///
-///  Holds the DEFAULT TECH COOLDOWN FRAMES value.
+/// Holds the DEFAULT TECH COOLDOWN FRAMES value.
 const DEFAULT_TECH_COOLDOWN_FRAMES: u16 = 40;
 /// Sets the default value for collision lookahead frames.
 ///
-///
-///  Holds the DEFAULT COLLISION LOOKAHEAD FRAMES value.
+/// Holds the DEFAULT COLLISION LOOKAHEAD FRAMES value.
 const DEFAULT_COLLISION_LOOKAHEAD_FRAMES: f32 = 3.0;
 
 #[derive(Clone, Copy, Debug)]
@@ -27,8 +25,7 @@ const DEFAULT_COLLISION_LOOKAHEAD_FRAMES: f32 = 3.0;
 // relationship to the simulation clock still depends on the live input cadence.
 /// Defines the `LiveSettings` data structure.
 ///
-///
-///  Holds the data for LiveSettings.
+/// Holds the data for LiveSettings.
 pub struct LiveSettings {
     /// Stores whether `LiveSettings` is enabled.
     ///
@@ -168,8 +165,7 @@ impl Default for LiveConfig {
 
 /// Returns the `invalid_line` result.
 ///
-///
-///  Gets the invalid line result.
+/// Gets the invalid line result.
 fn invalid_line(line_number: usize, line: &str) -> String {
     format!("invalid config line {line_number}: {line}")
 }
@@ -295,16 +291,14 @@ struct RetiredSettings {
 // To expose a wider range, verify the consuming policy first.
 /// Determines whether the `finite_in` condition holds.
 ///
-///
-///  Checks whether finite in.
+/// Checks whether finite in.
 fn finite_in(value: f32, min: f32, max: f32) -> bool {
     value.is_finite() && (min..=max).contains(&value)
 }
 
 /// Determines whether the `retired_in` condition holds.
 ///
-///
-///  Checks whether retired in.
+/// Checks whether retired in.
 fn retired_in(value: Option<f32>, min: f32, max: f32) -> bool {
     value.is_none_or(|value| finite_in(value, min, max))
 }

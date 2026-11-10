@@ -16,8 +16,7 @@ use presentation::{schedule_summary, scheduled_frames};
 
 /// Builds the lookup key for the observed state.
 ///
-///
-///  Creates the key used to find this state.
+/// Creates the key used to find this state.
 const fn key(buttons: u32, x: f32, y: f32, frames: u8) -> Action {
     Action::Input {
         buttons,
@@ -28,8 +27,7 @@ const fn key(buttons: u32, x: f32, y: f32, frames: u8) -> Action {
 }
 /// Defines the `PRESETS` constant used by this module.
 ///
-///
-///  Provides the PRESETS constant value.
+/// Provides the PRESETS constant value.
 const PRESETS: &[(&str, Action)] = &[
     ("Empty", Action::Empty),
     ("Short hop", key(MAPPER_X, 0., 0., 1)),
@@ -255,8 +253,7 @@ const PRESETS: &[(&str, Action)] = &[
 ];
 /// Defines the `TAP_BUTTONS` constant used by this module.
 ///
-///
-///  Provides the TAP BUTTONS constant value.
+/// Provides the TAP BUTTONS constant value.
 const TAP_BUTTONS: &[(u32, [f32; 2], &str)] = &[
     (MAPPER_A, [0., 0.], "A"),
     (MAPPER_B, [0., 0.], "B"),
@@ -266,8 +263,7 @@ const TAP_BUTTONS: &[(u32, [f32; 2], &str)] = &[
 ];
 /// Defines the `DIRECTIONS` constant used by this module.
 ///
-///
-///  Provides the DIRECTIONS constant value.
+/// Provides the DIRECTIONS constant value.
 const DIRECTIONS: [D; 8] = [
     D::Opponent,
     D::AwayFromOpponent,
@@ -281,8 +277,7 @@ const DIRECTIONS: [D; 8] = [
 
 /// Returns an optional `preset_kind` value.
 ///
-///
-///  Gets preset kind if it is available.
+/// Gets preset kind if it is available.
 fn preset_kind(action: Action) -> Option<usize> {
     // Keep an edited action in its preset so users can keep editing its fields.
     PRESETS
@@ -297,8 +292,7 @@ fn preset_kind(action: Action) -> Option<usize> {
 
 /// Determines whether the `same_preset_shape` condition holds.
 ///
-///
-///  Checks whether same preset shape.
+/// Checks whether same preset shape.
 fn same_preset_shape(action: Action, preset: Action) -> bool {
     match (action, preset) {
         (
@@ -363,8 +357,7 @@ fn same_preset_shape(action: Action, preset: Action) -> bool {
 
 /// Defines the `Recipe` data structure.
 ///
-///
-///  Holds the data for Recipe.
+/// Holds the data for Recipe.
 #[derive(Clone)]
 struct Recipe {
     /// Stores the `button_recipe` value in `Recipe` as `bool`.
@@ -558,8 +551,7 @@ impl Recipe {
 }
 /// Returns the `action_name` result.
 ///
-///
-///  Gets the action name result.
+/// Gets the action name result.
 fn action_name(r: &Recipe, i: usize) -> String {
     let action = r.sequence.actions[i];
     if let Some((name, preset)) = PRESETS.get(r.kinds[i]) {
@@ -589,8 +581,7 @@ fn action_name(r: &Recipe, i: usize) -> String {
 }
 /// Defines the `INPUT_BUTTONS` constant used by this module.
 ///
-///
-///  Provides the INPUT BUTTONS constant value.
+/// Provides the INPUT BUTTONS constant value.
 const INPUT_BUTTONS: &[(u32, &str)] = &[
     (MAPPER_A, "A"),
     (MAPPER_B, "B"),
@@ -603,8 +594,7 @@ const INPUT_BUTTONS: &[(u32, &str)] = &[
 ];
 /// Returns mutable access to the buttons value.
 ///
-///
-///  Provides mutable access to buttons.
+/// Provides mutable access to buttons.
 fn buttons_mut(a: &mut Action) -> Option<&mut u32> {
     match a {
         Action::Input { buttons, .. }
@@ -615,8 +605,7 @@ fn buttons_mut(a: &mut Action) -> Option<&mut u32> {
 }
 /// Returns an optional `input_buttons` value.
 ///
-///
-///  Gets input buttons if it is available.
+/// Gets input buttons if it is available.
 fn input_buttons(mut a: Action) -> Option<u32> {
     buttons_mut(&mut a).map(|buttons| *buttons)
 }
@@ -649,8 +638,7 @@ fn buttons_text(mask: u32, none: &str) -> String {
 }
 /// Returns the `input_reference` result.
 ///
-///
-///  Gets the input reference result.
+/// Gets the input reference result.
 fn input_reference(a: Action, right: bool) -> IR {
     match a {
         Action::Controller {
@@ -671,8 +659,7 @@ fn input_reference(a: Action, right: bool) -> IR {
 }
 /// Sets the input reference.
 ///
-///
-///  Sets the input reference.
+/// Sets the input reference.
 fn set_input_reference(a: &mut Action, r: IR, right: bool) {
     match a {
         Action::Controller {
@@ -717,8 +704,7 @@ fn set_input_reference(a: &mut Action, r: IR, right: bool) {
 }
 /// Returns the `describe_input` result.
 ///
-///
-///  Gets the describe input result.
+/// Gets the describe input result.
 fn describe_input(buttons: u32, stick: [f32; 2], reference: &str, frames: u8) -> String {
     let mut text = format!(
         "{} | X:{:.0}% Y:{:.0}% ({reference}) | ",
@@ -735,8 +721,7 @@ fn describe_input(buttons: u32, stick: [f32; 2], reference: &str, frames: u8) ->
 }
 /// Returns the `describe_action` result.
 ///
-///
-///  Gets the describe action result.
+/// Gets the describe action result.
 fn describe_action(action: Action) -> String {
     match action {
         Action::Controller{buttons,stick,cstick,reference,cstick_reference,frames}=>format!("{} | Left {:.0}%/{:.0}% {} | Right {:.0}%/{:.0}% {} | {frames}f",buttons_text(buttons, "None (stick only)"),stick[0]*100.,stick[1]*100.,reference.token(),cstick[0]*100.,cstick[1]*100.,cstick_reference.token()),
@@ -758,15 +743,13 @@ fn focus(fields: &[Field], cursor: usize) -> Field {
 }
 /// Advances the state machine by one step.
 ///
-///
-///  Moves the state machine to its next step.
+/// Moves the state machine to its next step.
 fn step(v: f32, delta: f32, min: f32, max: f32) -> f32 {
     ((v + delta).clamp(min, max) * 100.).round() / 100.
 }
 /// Updates the `byte` state using the supplied inputs.
 ///
-///
-///  Updates byte.
+/// Updates byte.
 fn byte(v: &mut u8, up: bool, min: u8) {
     *v = if up {
         v.saturating_add(1)
@@ -786,8 +769,7 @@ fn wide(v: &mut u16, up: bool, min: u16) {
 }
 /// Updates the `direction` state using the supplied inputs.
 ///
-///
-///  Updates direction.
+/// Updates direction.
 fn direction(v: &mut D, up: bool, onstage: bool) {
     let mut i = DIRECTIONS.iter().position(|d| d == v).unwrap_or(0);
     for _ in 0..DIRECTIONS.len() {
@@ -819,15 +801,13 @@ fn frames_mut(a: &mut Action) -> Option<(&mut u8, u8)> {
 }
 /// Returns the configured frame count.
 ///
-///
-///  Gets the number of frames.
+/// Gets the number of frames.
 fn frames(mut a: Action) -> Option<u8> {
     frames_mut(&mut a).map(|(frames, _)| *frames)
 }
 /// Returns mutable access to the stick value.
 ///
-///
-///  Provides mutable access to stick.
+/// Provides mutable access to stick.
 fn stick_mut(a: &mut Action) -> Option<&mut [f32; 2]> {
     match a {
         Action::Input { stick, .. }
@@ -839,8 +819,7 @@ fn stick_mut(a: &mut Action) -> Option<&mut [f32; 2]> {
 }
 /// Returns mutable access to the direction value.
 ///
-///
-///  Provides mutable access to direction.
+/// Provides mutable access to direction.
 fn direction_mut(a: &mut Action) -> Option<&mut D> {
     match a {
         Action::Face(d)
@@ -877,8 +856,7 @@ struct Scalar<'a> {
 }
 /// Returns mutable access to the scalar value.
 ///
-///
-///  Provides mutable access to scalar.
+/// Provides mutable access to scalar.
 fn scalar_mut(a: &mut Action, field: Field) -> Option<Scalar<'_>> {
     let (value, min, max, scale) = match (a, field) {
         (Action::Controller { cstick, .. }, Field::CX(_)) => (&mut cstick[0], -1., 1., 0.01),
@@ -920,15 +898,13 @@ fn scalar_mut(a: &mut Action, field: Field) -> Option<Scalar<'_>> {
 }
 /// Returns an optional `scalar` value.
 ///
-///
-///  Gets scalar if it is available.
+/// Gets scalar if it is available.
 fn scalar(mut a: Action, field: Field) -> Option<f32> {
     scalar_mut(&mut a, field).map(|s| *s.value)
 }
 /// Updates the `cycle_tap_input` state using the supplied inputs.
 ///
-///
-///  Updates cycle tap input.
+/// Updates cycle tap input.
 fn cycle_tap_input(action: &mut Action, up: bool) {
     let Action::Tap {
         buttons,
@@ -952,8 +928,7 @@ fn cycle_tap_input(action: &mut Action, up: bool) {
 }
 /// Updates the `adjust_action` state using the supplied inputs.
 ///
-///
-///  Updates adjust action.
+/// Updates adjust action.
 fn adjust_action(action: &mut Action, field: Field, up: bool, onstage: bool) {
     let delta = if up { 1. } else { -1. };
     match (&mut *action, field) {
@@ -1004,8 +979,7 @@ fn adjust_action(action: &mut Action, field: Field, up: bool, onstage: bool) {
 }
 /// Defines the `CopySource` data structure.
 ///
-///
-///  Holds the data for CopySource.
+/// Holds the data for CopySource.
 pub(super) struct CopySource {
     /// Stores the `slot` value in `CopySource` as `super::PresetSlot`.
     ///
@@ -1026,8 +1000,7 @@ pub(super) struct CopySource {
 
 /// Updates the `adjust_reference` state using the supplied inputs.
 ///
-///
-///  Updates adjust reference.
+/// Updates adjust reference.
 fn adjust_reference(recipe: &mut Recipe, index: usize, right: bool, up: bool) {
     let old = input_reference(recipe.sequence.actions[index], right);
     let current = IR::ALL.iter().position(|value| *value == old).unwrap_or(0);
@@ -1037,8 +1010,7 @@ fn adjust_reference(recipe: &mut Recipe, index: usize, right: bool, up: bool) {
 
 /// Updates the `adjust_action_kind` state using the supplied inputs.
 ///
-///
-///  Updates adjust action kind.
+/// Updates adjust action kind.
 fn adjust_action_kind(recipe: &mut Recipe, index: usize, up: bool) {
     let count = PRESETS.len() + recipe.imported.len();
     recipe.kinds[index] = cycle(recipe.kinds[index], count, up);
@@ -1047,8 +1019,7 @@ fn adjust_action_kind(recipe: &mut Recipe, index: usize, up: bool) {
 
 /// Toggles the shield hold.
 ///
-///
-///  Toggles the shield hold.
+/// Toggles the shield hold.
 fn toggle_shield_hold(recipe: &mut Recipe, index: usize) {
     match &mut recipe.sequence.actions[index] {
         Action::Input { frames, .. } => *frames = if *frames == 0 { 4 } else { 0 },
@@ -1063,8 +1034,7 @@ fn toggle_shield_hold(recipe: &mut Recipe, index: usize) {
 
 /// Updates the `adjust_slots` state using the supplied inputs.
 ///
-///
-///  Updates adjust slots.
+/// Updates adjust slots.
 fn adjust_slots(recipe: &mut Recipe, up: bool) {
     let len = usize::from(recipe.sequence.len);
     if up && len < MAX_ACTIONS {
@@ -1076,8 +1046,7 @@ fn adjust_slots(recipe: &mut Recipe, up: bool) {
 
 /// Determines whether the `adjust_field` condition holds.
 ///
-///
-///  Checks whether adjust field.
+/// Checks whether adjust field.
 fn adjust_field(recipe: &mut Recipe, field: Field, up: bool, onstage: bool) -> bool {
     match field {
         Field::Reaction(0) => {
@@ -1111,8 +1080,7 @@ fn adjust_field(recipe: &mut Recipe, field: Field, up: bool, onstage: bool) -> b
 
 /// Defines the `RecipeEditor` data structure.
 ///
-///
-///  Holds the data for RecipeEditor.
+/// Holds the data for RecipeEditor.
 #[derive(Default)]
 pub(super) struct RecipeEditor {
     /// Stores the `modal` value in `RecipeEditor` as `Option<commands::Modal>`.

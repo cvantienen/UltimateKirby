@@ -6,8 +6,7 @@ use crate::{AssistConfig, AssistEngine, FrameDecision, GameAdapter, InputPermiss
 
 /// Defines the `AssistRuntime` data structure.
 ///
-///
-///  Holds the data for AssistRuntime.
+/// Holds the data for AssistRuntime.
 #[derive(Clone, Debug, Default)]
 pub struct AssistRuntime {
     /// Stores the `config` value in `AssistRuntime` as `AssistConfig`.

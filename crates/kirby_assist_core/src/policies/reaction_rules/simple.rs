@@ -3,8 +3,7 @@ use super::*;
 use crate::move_input::{finite_positions, UpBVerdict};
 /// Returns an optional `event` value.
 ///
-///
-///  Gets event if it is available.
+/// Gets event if it is available.
 pub fn event(status: i32) -> Option<usize> {
     match status {
         crate::native_states::ESCAPE_F | crate::native_states::ESCAPE_B => Some(0),
@@ -15,8 +14,7 @@ pub fn event(status: i32) -> Option<usize> {
 }
 /// Determines whether the `starts_up_b` condition holds.
 ///
-///
-///  Checks whether starts up b.
+/// Checks whether starts up b.
 pub(super) fn starts_up_b(sequence: &Sequence) -> bool {
     matches!(sequence.actions().first(),
         Some(crate::sequence_config::Action::Input{buttons,stick,..}

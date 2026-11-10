@@ -242,49 +242,40 @@ mod assist_handoff {
 pub use assist_handoff::{AssistGuardHandoff, ManualJumpFence};
 /// Defines the `TURBO_TRIGGER` constant used by this module.
 ///
-///
-///  Provides the TURBO TRIGGER constant value.
+/// Provides the TURBO TRIGGER constant value.
 pub const TURBO_TRIGGER: u32 = 1 << 16; // Canonical turbo role; physical source comes from button bindings.
 /// Defines the `DPAD_UP` constant used by this module.
 ///
-///
-///  Provides the DPAD UP constant value.
+/// Provides the DPAD UP constant value.
 pub const DPAD_UP: u32 = crate::native_input::MAPPER_DPAD_UP;
 /// Defines the `DPAD_RIGHT` constant used by this module.
 ///
-///
-///  Provides the DPAD RIGHT constant value.
+/// Provides the DPAD RIGHT constant value.
 pub const DPAD_RIGHT: u32 = crate::native_input::MAPPER_DPAD_RIGHT;
 /// Defines the `DPAD_LEFT` constant used by this module.
 ///
-///
-///  Provides the DPAD LEFT constant value.
+/// Provides the DPAD LEFT constant value.
 pub const DPAD_LEFT: u32 = crate::native_input::MAPPER_DPAD_LEFT;
 /// Defines the `DPAD_SIDES` constant used by this module.
 ///
-///
-///  Provides the DPAD SIDES constant value.
+/// Provides the DPAD SIDES constant value.
 pub const DPAD_SIDES: u32 = DPAD_LEFT | DPAD_RIGHT;
 /// Defines the `LEFT_STICK_DIRECTIONS` constant used by this module.
 ///
-///
-///  Provides the LEFT STICK DIRECTIONS constant value.
+/// Provides the LEFT STICK DIRECTIONS constant value.
 pub const LEFT_STICK_DIRECTIONS: u32 = crate::native_input::MAPPER_LEFT_STICK_DIRECTIONS;
 /// Defines the `RIGHT_STICK_DIRECTIONS` constant used by this module.
 ///
-///
-///  Provides the RIGHT STICK DIRECTIONS constant value.
+/// Provides the RIGHT STICK DIRECTIONS constant value.
 pub const RIGHT_STICK_DIRECTIONS: u32 = crate::native_input::MAPPER_RIGHT_STICK_DIRECTIONS;
 /// Defines the `STICK_CLICKS` constant used by this module.
 ///
-///
-///  Provides the STICK CLICKS constant value.
+/// Provides the STICK CLICKS constant value.
 pub const STICK_CLICKS: u32 = crate::native_input::MAPPER_STICK_CLICKS;
 
 /// Defines the `ManualContext` data structure.
 ///
-///
-///  Holds the data for ManualContext.
+/// Holds the data for ManualContext.
 #[derive(Clone, Copy, Debug)]
 pub struct ManualContext {
     /// Stores the `status` value in `ManualContext` as `i32`.
@@ -430,8 +421,7 @@ impl DpadReservation {
 
 /// Defines the `TurboSettings` data structure.
 ///
-///
-///  Holds the data for TurboSettings.
+/// Holds the data for TurboSettings.
 #[derive(Clone, Copy, Debug)]
 pub struct TurboSettings {
     /// Normalized horizontal stick magnitude during crouch and creep phases.
@@ -466,8 +456,7 @@ pub fn turbo_movement_allowed(status: i32, situation: i32, stopped: bool) -> boo
 
 /// Defines the `TurboOutput` data structure.
 ///
-///
-///  Holds the data for TurboOutput.
+/// Holds the data for TurboOutput.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct TurboOutput {
     /// Stores the `stick` value in `TurboOutput` as `Option<[f32; 2]>`.
@@ -640,8 +629,7 @@ impl DashPivotAssist {
 
 /// Defines the `TurboState` data structure.
 ///
-///
-///  Holds the data for TurboState.
+/// Holds the data for TurboState.
 #[derive(Default)]
 pub struct TurboState {
     /// Stores the `direction` value in `TurboState` as `i8`.
@@ -749,8 +737,7 @@ pub struct ManualFrame {
 }
 /// Defines the `ManualOverlay` data structure.
 ///
-///
-///  Holds the data for ManualOverlay.
+/// Holds the data for ManualOverlay.
 #[derive(Default)]
 pub struct ManualOverlay {
     /// Stores the `buttons` value in `ManualOverlay` as `MapperButtonOverlay`.
@@ -946,8 +933,7 @@ pub fn sequence_taunt_reservation(consumed: u32, requested: u32, owned: u32) -> 
 }
 /// Determines whether reserved taunt inputs must be suppressed.
 ///
-///
-///  Checks whether the reserved taunt buttons should be ignored.
+/// Checks whether the reserved taunt buttons should be ignored.
 pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
     let sides = if consumed & DPAD_SIDES != 0 {
         crate::native_input::MAPPED_TAUNT_SIDES

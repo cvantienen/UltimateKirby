@@ -10,8 +10,7 @@ use crate::sequence_config::{
 
 /// Returns the `push` result.
 ///
-///
-///  Gets the push result.
+/// Gets the push result.
 fn push(sequence: &mut Sequence, action: Action) -> Result<(), String> {
     if usize::from(sequence.len) == MAX_ACTIONS {
         return Err(format!(
@@ -25,8 +24,7 @@ fn push(sequence: &mut Sequence, action: Action) -> Result<(), String> {
 
 /// Parses the actions.
 ///
-///
-///  Parses the actions.
+/// Parses the actions.
 pub(super) fn parse_actions(value: &str, line: usize) -> Result<Sequence, String> {
     let mut result = Sequence::default();
     for token in value.split(',').map(str::trim) {
@@ -79,8 +77,7 @@ pub fn validate_facing_blocks(actions: &[Action]) -> Result<(), String> {
 
 /// Constructs a parsed input action from the supplied arguments.
 ///
-///
-///  Builds the input action described by the arguments.
+/// Builds the input action described by the arguments.
 fn input(buttons: u32, stick: [f32; 2], frames: u8, relative: bool) -> Action {
     Action::Input {
         buttons,
@@ -278,8 +275,7 @@ fn normalize(token: &str) -> String {
 
 /// Parses the action.
 ///
-///
-///  Parses the action.
+/// Parses the action.
 fn parse_action(token: &str, sequence: &mut Sequence) -> Result<(), String> {
     let normalized = normalize(token);
     let args = Args {
@@ -384,8 +380,7 @@ fn marker(args: &Args, action: Action) -> Result<Action, String> {
 
 /// Returns the `wait` result.
 ///
-///
-///  Gets the wait result.
+/// Gets the wait result.
 fn wait(args: &Args) -> Result<Action, String> {
     args.at_most(2)?;
     Ok(Action::Wait(args.frames_or(1, 1)?))
@@ -393,8 +388,7 @@ fn wait(args: &Args) -> Result<Action, String> {
 
 /// Returns the `check` result.
 ///
-///
-///  Gets the check result.
+/// Gets the check result.
 fn check(args: &Args) -> Result<Action, String> {
     let condition = args
         .parts
@@ -419,8 +413,7 @@ fn check(args: &Args) -> Result<Action, String> {
 
 /// Returns the `tap` result.
 ///
-///
-///  Gets the tap result.
+/// Gets the tap result.
 fn tap(args: &Args) -> Result<Action, String> {
     args.exact(7)?;
     let frames = parse_frames(args.parts[6])
@@ -440,8 +433,7 @@ fn tap(args: &Args) -> Result<Action, String> {
 
 /// Returns the `press` result.
 ///
-///
-///  Gets the press result.
+/// Gets the press result.
 fn press(args: &Args) -> Result<Action, String> {
     if args.len() != 2 && args.len() != 3 {
         return Err("use press:BUTTONS[:FRAMES] or hold:BUTTONS:FRAMES".into());
@@ -451,8 +443,7 @@ fn press(args: &Args) -> Result<Action, String> {
 
 /// Returns the `controller_input` result.
 ///
-///
-///  Gets the controller input result.
+/// Gets the controller input result.
 fn controller_input(args: &Args) -> Result<Action, String> {
     if !(7..=9).contains(&args.len()) {
         return Err(
@@ -471,8 +462,7 @@ fn controller_input(args: &Args) -> Result<Action, String> {
 
 /// Returns the `opponent_input` result.
 ///
-///
-///  Gets the opponent input result.
+/// Gets the opponent input result.
 fn opponent_input(args: &Args) -> Result<Action, String> {
     args.exact(5)?;
     Ok(Action::OpponentInput {
@@ -484,8 +474,7 @@ fn opponent_input(args: &Args) -> Result<Action, String> {
 
 /// Returns the `hold_until_manual` result.
 ///
-///
-///  Gets the hold until manual result.
+/// Gets the hold until manual result.
 fn hold_until_manual(args: &Args) -> Result<Action, String> {
     args.exact(4)?;
     let held = args.buttons(1)?;
@@ -502,8 +491,7 @@ fn hold_until_manual(args: &Args) -> Result<Action, String> {
 
 /// Returns the `walk` result.
 ///
-///
-///  Gets the walk result.
+/// Gets the walk result.
 fn walk(args: &Args) -> Result<Action, String> {
     if args.len() != 4 && args.len() != 5 {
         return Err("use walk:DIRECTION:UNITS:STRENGTH[:MIN_GAP]".into());
@@ -527,8 +515,7 @@ fn walk(args: &Args) -> Result<Action, String> {
 
 /// Runs the to ledge.
 ///
-///
-///  Runs the to ledge.
+/// Runs the to ledge.
 fn run_to_ledge(args: &Args) -> Result<Action, String> {
     if !(3..=6).contains(&args.len()) {
         return Err(
@@ -550,8 +537,7 @@ fn run_to_ledge(args: &Args) -> Result<Action, String> {
 
 /// Returns the `approach` result.
 ///
-///
-///  Gets the approach result.
+/// Gets the approach result.
 fn approach(args: &Args) -> Result<Action, String> {
     args.exact(4)?;
     let airborne = args.parts[0] == "drift_to_opponent";
@@ -565,8 +551,7 @@ fn approach(args: &Args) -> Result<Action, String> {
 
 /// Returns the `range_check` result.
 ///
-///
-///  Gets the range check result.
+/// Gets the range check result.
 fn range_check(value: &str, token: &str) -> Result<RangeCheck, String> {
     Ok(match value {
         "ignore" => RangeCheck::Ignore,
@@ -709,8 +694,7 @@ fn button_alias(name: &str) -> Option<u32> {
 
 /// Parses the float.
 ///
-///
-///  Parses the float.
+/// Parses the float.
 fn parse_float(value: &str, min: f32, max: f32, token: &str) -> Result<f32, String> {
     let value = value
         .strip_suffix("_units")
@@ -733,8 +717,7 @@ fn parse_float(value: &str, min: f32, max: f32, token: &str) -> Result<f32, Stri
 
 /// Parses the u 8.
 ///
-///
-///  Parses the u8.
+/// Parses the u8.
 fn parse_u8(value: &str, token: &str) -> Result<u8, String> {
     let value = value.strip_prefix("until_motion_frame_").unwrap_or(value);
     let value = value

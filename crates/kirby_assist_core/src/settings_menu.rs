@@ -34,39 +34,32 @@ pub use choices::Choice;
 
 /// Defines the `MENU_STICK_CLICK` constant used by this module.
 ///
-///
-///  Provides the MENU STICK CLICK constant value.
+/// Provides the MENU STICK CLICK constant value.
 pub const MENU_STICK_CLICK: u32 = 1 << 17; // Physical right-stick click (R3).
 /// Defines the `MENU_L3` constant used by this module.
 ///
-///
-///  Provides the MENU L3 constant value.
+/// Provides the MENU L3 constant value.
 pub const MENU_L3: u32 = 1 << 16; // L3 is a menu control only while the menu is visible.
 /// Defines the `MENU_TOGGLE_CHORD` constant used by this module.
 ///
-///
-///  Provides the MENU TOGGLE CHORD constant value.
+/// Provides the MENU TOGGLE CHORD constant value.
 pub const MENU_TOGGLE_CHORD: u32 = MAPPER_MINUS;
 
 /// Defines the `MENU_REPEAT_INITIAL_DELAY_TICKS` constant used by this module.
 ///
-///
-///  Provides the MENU REPEAT INITIAL DELAY TICKS constant value.
+/// Provides the MENU REPEAT INITIAL DELAY TICKS constant value.
 const MENU_REPEAT_INITIAL_DELAY_TICKS: u16 = 24;
 /// Defines the `MENU_REPEAT_FAST_MODE_TICKS` constant used by this module.
 ///
-///
-///  Provides the MENU REPEAT FAST MODE TICKS constant value.
+/// Provides the MENU REPEAT FAST MODE TICKS constant value.
 const MENU_REPEAT_FAST_MODE_TICKS: u16 = 90;
 /// Defines the `MENU_REPEAT_FAST_INTERVAL_TICKS` constant used by this module.
 ///
-///
-///  Provides the MENU REPEAT FAST INTERVAL TICKS constant value.
+/// Provides the MENU REPEAT FAST INTERVAL TICKS constant value.
 const MENU_REPEAT_FAST_INTERVAL_TICKS: u16 = 2;
 /// Defines the `MENU_REPEAT_SLOW_INTERVAL_TICKS` constant used by this module.
 ///
-///
-///  Provides the MENU REPEAT SLOW INTERVAL TICKS constant value.
+/// Provides the MENU REPEAT SLOW INTERVAL TICKS constant value.
 const MENU_REPEAT_SLOW_INTERVAL_TICKS: u16 = 6;
 
 /// Auto-repeat of one held direction: a delay, then a slow and later a fast cadence.
@@ -118,16 +111,14 @@ impl HoldRepeat {
 
 /// Checks whether the monitor-button chord is present in the input sample.
 ///
-///
-///  Checks whether the monitor buttons are pressed together.
+/// Checks whether the monitor buttons are pressed together.
 pub fn monitor_chord(buttons: u32) -> bool {
     let mask = MAPPER_L | DPAD_DOWN | MENU_STICK_CLICK;
     buttons & mask == mask
 }
 /// Checks whether the configured menu-toggle chord was newly pressed.
 ///
-///
-///  Checks whether the menu-toggle buttons were just pressed.
+/// Checks whether the menu-toggle buttons were just pressed.
 pub fn menu_toggle_pressed(_held: u32, pressed: u32) -> bool {
     pressed & MAPPER_MINUS != 0
 }
@@ -142,8 +133,7 @@ pub fn observation_buttons(physical: u32, consumed: u32) -> u32 {
 
 /// Defines the available `MenuRow` cases.
 ///
-///
-///  Lists the available MenuRow choices.
+/// Lists the available MenuRow choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MenuRow {
     #[default]
@@ -461,8 +451,7 @@ impl RecipePanel {
 }
 /// Defines the `MenuSelection` data structure.
 ///
-///
-///  Holds the data for MenuSelection.
+/// Holds the data for MenuSelection.
 #[derive(Default)]
 pub struct MenuSelection {
     /// Stores the `binding_input` value in `MenuSelection` as `Option<(u32`.
@@ -1563,8 +1552,7 @@ impl MenuSelection {
 }
 /// Advances the selected choice to the next value.
 ///
-///
-///  Moves to the next choice.
+/// Moves to the next choice.
 fn cycle(index: usize, count: usize, forward: bool) -> usize {
     if count == 0 {
         return 0;

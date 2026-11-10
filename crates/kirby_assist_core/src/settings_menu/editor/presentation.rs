@@ -5,8 +5,7 @@ use std::borrow::Cow;
 
 /// Defines the available `Field` cases.
 ///
-///
-///  Lists the available Field choices.
+/// Lists the available Field choices.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Field {
     /// Represents the `Reaction` case of `Field`.
@@ -263,8 +262,7 @@ pub(super) enum Field {
 }
 /// Adds the action fields.
 ///
-///
-///  Adds the action fields.
+/// Adds the action fields.
 fn push_action_fields(out: &mut Vec<Field>, action: Action, i: usize) {
     match action {
         Action::Controller { .. } => out.extend([
@@ -363,8 +361,7 @@ pub(super) fn fields(r: &Recipe) -> Vec<Field> {
 }
 /// Returns an optional `field_slot` value.
 ///
-///
-///  Gets field slot if it is available.
+/// Gets field slot if it is available.
 pub(super) fn field_slot(f: Field) -> Option<usize> {
     match f {
         Field::Start | Field::Slots | Field::WhileHeld | Field::GroundOnly | Field::Reaction(_) => {
@@ -557,8 +554,7 @@ fn field_text(r: &Recipe, f: Field, short: bool) -> String {
 // observations; never present those as exact attack startup/recovery timings.
 /// Returns an optional `scheduled_frames` value.
 ///
-///
-///  Gets scheduled frames if it is available.
+/// Gets scheduled frames if it is available.
 pub(super) fn scheduled_frames(action: Action) -> Option<u32> {
     match action {
         Action::Tap { frames, .. } => Some(u32::from(frames)),
@@ -580,8 +576,7 @@ pub(super) fn scheduled_frames(action: Action) -> Option<u32> {
 }
 /// Returns the `schedule_summary` result.
 ///
-///
-///  Gets the schedule summary result.
+/// Gets the schedule summary result.
 pub(super) fn schedule_summary(r: &Recipe) -> (u32, bool) {
     r.sequence.actions().iter().enumerate().fold(
         (u32::from(r.sequence.start_delay), false),
@@ -633,8 +628,7 @@ struct Row {
 }
 /// Defines the `FIELD_ROW` constant used by this module.
 ///
-///
-///  Provides the FIELD ROW constant value.
+/// Provides the FIELD ROW constant value.
 const FIELD_ROW: Row = Row {
     plain: "",
     focused: "> ",
@@ -642,8 +636,7 @@ const FIELD_ROW: Row = Row {
 };
 /// Defines the `TITLE_ROW` constant used by this module.
 ///
-///
-///  Provides the TITLE ROW constant value.
+/// Provides the TITLE ROW constant value.
 const TITLE_ROW: Row = Row {
     plain: "",
     focused: "> ",
@@ -651,8 +644,7 @@ const TITLE_ROW: Row = Row {
 };
 /// Defines the `SETTING_ROW` constant used by this module.
 ///
-///
-///  Provides the SETTING ROW constant value.
+/// Provides the SETTING ROW constant value.
 const SETTING_ROW: Row = Row {
     plain: "    ",
     focused: ">   ",
@@ -660,8 +652,7 @@ const SETTING_ROW: Row = Row {
 };
 /// Adds the row.
 ///
-///
-///  Adds the row.
+/// Adds the row.
 fn push_row(panel: &mut RecipePanel, focused: bool, row: Row, text: impl std::fmt::Display) {
     let text = match (focused, row.bracket) {
         (true, true) => format!("{}[{text}]", row.focused),
@@ -676,8 +667,7 @@ fn push_row(panel: &mut RecipePanel, focused: bool, row: Row, text: impl std::fm
 
 /// Returns the `timing_summary` result.
 ///
-///
-///  Gets the timing summary result.
+/// Gets the timing summary result.
 fn timing_summary(r: &Recipe, branched: bool) -> String {
     let (scheduled, variable) = schedule_summary(r);
     if branched {

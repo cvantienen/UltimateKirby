@@ -14,14 +14,12 @@ use crate::{
 
 /// Sets the upper bound for grounded ledge scan distance.
 ///
-///
-///  Holds the MAX GROUNDED LEDGE SCAN DISTANCE value.
+/// Holds the MAX GROUNDED LEDGE SCAN DISTANCE value.
 const MAX_GROUNDED_LEDGE_SCAN_DISTANCE: u16 = 400;
 
 /// Determines whether the `eligible_for_positioning` condition holds.
 ///
-///
-///  Checks whether eligible for positioning.
+/// Checks whether eligible for positioning.
 fn eligible_for_positioning(settings: AssistSettings, ctx: GameplayContext) -> bool {
     settings.enabled
         && ctx.held
@@ -36,8 +34,7 @@ fn eligible_for_positioning(settings: AssistSettings, ctx: GameplayContext) -> b
 
 /// Defines the `LedgeSpot` data structure.
 ///
-///
-///  Holds the data for LedgeSpot.
+/// Holds the data for LedgeSpot.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeSpot {
     /// Stores the `edge` value in `LedgeSpot` as `[f32; 2]`.
@@ -79,8 +76,7 @@ pub fn nearest_ground_ledge(
 
 /// Defines the `LedgePosition` data structure.
 ///
-///
-///  Holds the data for LedgePosition.
+/// Holds the data for LedgePosition.
 #[derive(Default)]
 pub struct LedgePosition {
     /// Stores the `spot` value in `LedgePosition` as `Option<LedgeSpot>`.

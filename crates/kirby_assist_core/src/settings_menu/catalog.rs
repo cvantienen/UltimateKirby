@@ -5,19 +5,16 @@ use std::collections::BTreeMap;
 
 /// Defines the `UTF8_CONTINUATION_MASK` constant used by this module.
 ///
-///
-///  Provides the UTF8 CONTINUATION MASK constant value.
+/// Provides the UTF8 CONTINUATION MASK constant value.
 const UTF8_CONTINUATION_MASK: u8 = 0xc0;
 /// Defines the `UTF8_CONTINUATION_PREFIX` constant used by this module.
 ///
-///
-///  Provides the UTF8 CONTINUATION PREFIX constant value.
+/// Provides the UTF8 CONTINUATION PREFIX constant value.
 const UTF8_CONTINUATION_PREFIX: u8 = 0x80;
 
 /// Defines the `Draft` data structure.
 ///
-///
-///  Holds the data for Draft.
+/// Holds the data for Draft.
 #[derive(Clone, Default)]
 pub(super) struct Draft {
     /// Stores the `id` value in `Draft` as `String`.
@@ -61,8 +58,7 @@ impl Draft {
 }
 /// Defines the available `Mode` cases.
 ///
-///
-///  Lists the available Mode choices.
+/// Lists the available Mode choices.
 #[derive(Default)]
 pub(super) enum Mode {
     #[default]
@@ -106,8 +102,7 @@ pub(super) enum Mode {
 }
 /// Defines the `Catalog` data structure.
 ///
-///
-///  Holds the data for Catalog.
+/// Holds the data for Catalog.
 #[derive(Default)]
 pub(super) struct Catalog {
     /// Stores the `drafts` value in `Catalog` as `BTreeMap<(usize`.
@@ -143,8 +138,7 @@ pub(super) struct Catalog {
 }
 /// Defines the available `Event` cases.
 ///
-///
-///  Lists the available Event choices.
+/// Lists the available Event choices.
 pub(super) enum Event {
     /// Represents the `None` case of `Event`.
     ///
@@ -187,8 +181,7 @@ pub(super) enum Event {
 // Cursors are UTF-8 byte boundaries; saved recipe names allow 64 bytes.
 /// Returns the next the character.
 ///
-///
-///  Returns the next the character.
+/// Returns the next the character.
 fn next_character(text: &[u8], cursor: usize) -> usize {
     let mut end = cursor + 1;
     while end < text.len() && text[end] & UTF8_CONTINUATION_MASK == UTF8_CONTINUATION_PREFIX {
@@ -198,8 +191,7 @@ fn next_character(text: &[u8], cursor: usize) -> usize {
 }
 /// Returns the `previous_character` result.
 ///
-///
-///  Gets the previous character result.
+/// Gets the previous character result.
 fn previous_character(text: &[u8], cursor: usize) -> usize {
     let mut start = if cursor == 0 { text.len() } else { cursor } - 1;
     while start > 0 && text[start] & UTF8_CONTINUATION_MASK == UTF8_CONTINUATION_PREFIX {
@@ -400,8 +392,7 @@ impl Catalog {
 }
 /// Defines the `ALPHABET` constant used by this module.
 ///
-///
-///  Provides the ALPHABET constant value.
+/// Provides the ALPHABET constant value.
 const ALPHABET: &[u8] = b" ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 #[cfg(test)]

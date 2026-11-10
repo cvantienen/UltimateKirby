@@ -19,59 +19,48 @@ pub use config::{LiveConfig, LiveSettings};
 // explicit rather than copying a u64 mask directly into native Controller memory.
 /// Defines the `HID_A` constant used by this module.
 ///
-///
-///  Provides the HID A constant value.
+/// Provides the HID A constant value.
 pub const HID_A: u64 = 1;
 /// Defines the `HID_B` constant used by this module.
 ///
-///
-///  Provides the HID B constant value.
+/// Provides the HID B constant value.
 pub const HID_B: u64 = 1 << 1;
 /// Defines the `HID_X` constant used by this module.
 ///
-///
-///  Provides the HID X constant value.
+/// Provides the HID X constant value.
 pub const HID_X: u64 = 1 << 2;
 /// Defines the `HID_Y` constant used by this module.
 ///
-///
-///  Provides the HID Y constant value.
+/// Provides the HID Y constant value.
 pub const HID_Y: u64 = 1 << 3;
 /// Defines the `HID_L` constant used by this module.
 ///
-///
-///  Provides the HID L constant value.
+/// Provides the HID L constant value.
 pub const HID_L: u64 = 1 << 6;
 /// Defines the `HID_R` constant used by this module.
 ///
-///
-///  Provides the HID R constant value.
+/// Provides the HID R constant value.
 pub const HID_R: u64 = 1 << 7;
 /// Defines the `HID_ZL` constant used by this module.
 ///
-///
-///  Provides the HID ZL constant value.
+/// Provides the HID ZL constant value.
 pub const HID_ZL: u64 = 1 << 8;
 /// Defines the `HID_ZR` constant used by this module.
 ///
-///
-///  Provides the HID ZR constant value.
+/// Provides the HID ZR constant value.
 pub const HID_ZR: u64 = 1 << 9;
 /// Defines the `HID_PLUS` constant used by this module.
 ///
-///
-///  Provides the HID PLUS constant value.
+/// Provides the HID PLUS constant value.
 pub const HID_PLUS: u64 = 1 << 10;
 /// Defines the `HID_MINUS` constant used by this module.
 ///
-///
-///  Provides the HID MINUS constant value.
+/// Provides the HID MINUS constant value.
 pub const HID_MINUS: u64 = 1 << 11;
 // Limit which bits the request utilities may affect; Plus/Minus are excluded.
 /// Defines the `ASSIST_BUTTONS` constant used by this module.
 ///
-///
-///  Provides the ASSIST BUTTONS constant value.
+/// Provides the ASSIST BUTTONS constant value.
 pub const ASSIST_BUTTONS: u64 = HID_A | HID_B | HID_X | HID_Y | HID_L | HID_R | HID_ZL | HID_ZR;
 
 // One full-strength cardinal direction per distinct mashable input update.
@@ -79,8 +68,7 @@ pub const ASSIST_BUTTONS: u64 = HID_A | HID_B | HID_X | HID_Y | HID_L | HID_R | 
 // button-mash request. These are normalized left-stick values, not C-stick.
 /// Defines the `MASH_DIRECTIONS` constant used by this module.
 ///
-///
-///  Provides the MASH DIRECTIONS constant value.
+/// Provides the MASH DIRECTIONS constant value.
 const MASH_DIRECTIONS: [[f32; 2]; 4] = [
     [1.0, 0.0],  // Right
     [0.0, 1.0],  // Up
@@ -92,8 +80,7 @@ const MASH_DIRECTIONS: [[f32; 2]; 4] = [
 // a new collision may begin while the previous request is still cooling down.
 /// Defines the `ScenarioCounter` data structure.
 ///
-///
-///  Holds the data for ScenarioCounter.
+/// Holds the data for ScenarioCounter.
 #[derive(Default)]
 struct ScenarioCounter {
     /// Stores the `previous_active` value in `ScenarioCounter` as `bool`.

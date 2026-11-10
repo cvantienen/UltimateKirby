@@ -13,138 +13,138 @@ mod fair_followup {
     /// Defines the `FAIR` constant used by this module.
     ///
     ///
-///  Provides the FAIR constant value.
+    ///  Provides the FAIR constant value.
     const FAIR: u64 = crate::timing::MOTION_ATTACK_AIR_F;
     /// Defines the `UP_ANGLE` constant used by this module.
     ///
     ///
-///  Provides the UP ANGLE constant value.
+    ///  Provides the UP ANGLE constant value.
     const UP_ANGLE: f32 = 0.5;
     /// Defines the `FAST_FALL_FRAMES` constant used by this module.
     ///
     ///
-///  Provides the FAST FALL FRAMES constant value.
+    ///  Provides the FAST FALL FRAMES constant value.
     const FAST_FALL_FRAMES: f32 = 16.0;
     /// Sets the upper bound for latch frames.
     ///
     ///
-///  Holds the MAX LATCH FRAMES value.
+    ///  Holds the MAX LATCH FRAMES value.
     const MAX_LATCH_FRAMES: f32 = 180.0;
     /// Fair frames whose hit counts as the first hit; contact from the next frame on is a later hit.
     ///
-///  Fair frames whose hit counts as the first hit; contact from the next frame on is a later hit.
+    ///  Fair frames whose hit counts as the first hit; contact from the next frame on is a later hit.
     const FIRST_HIT_FRAMES: Range<f32> = 10.0..12.0;
 
     /// Defines the `FairContext` data structure.
     ///
     ///
-///  Holds the data for FairContext.
+    ///  Holds the data for FairContext.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct FairContext {
         /// Stores the `object` value in `FairContext` as `u32`.
         ///
         ///
-///  Holds the object value used by FairContext.
+        ///  Holds the object value used by FairContext.
         pub object: u32,
         /// Stores the `kirby` value in `FairContext` as `bool`.
         ///
         ///
-///  Holds the kirby value used by FairContext.
+        ///  Holds the kirby value used by FairContext.
         pub kirby: bool,
         /// Stores the `status` value in `FairContext` as `i32`.
         ///
         ///
-///  Holds the status value used by FairContext.
+        ///  Holds the status value used by FairContext.
         pub status: i32,
         /// Stores the `motion` value in `FairContext` as `u64`.
         ///
         ///
-///  Holds the motion value used by FairContext.
+        ///  Holds the motion value used by FairContext.
         pub motion: u64,
         /// Stores the `frame` value in `FairContext` as `f32`.
         ///
         ///
-///  Holds the frame value used by FairContext.
+        ///  Holds the frame value used by FairContext.
         pub frame: f32,
         /// Stores the `rate` value in `FairContext` as `f32`.
         ///
         ///
-///  Holds the rate value used by FairContext.
+        ///  Holds the rate value used by FairContext.
         pub rate: f32,
         /// Stores the `grounded` value in `FairContext` as `bool`.
         ///
         ///
-///  Holds the grounded value used by FairContext.
+        ///  Holds the grounded value used by FairContext.
         pub grounded: bool,
         /// Stores the `stopped` value in `FairContext` as `bool`.
         ///
         ///
-///  Holds the stopped value used by FairContext.
+        ///  Holds the stopped value used by FairContext.
         pub stopped: bool,
         /// Stores the `facing` value in `FairContext` as `f32`.
         ///
         ///
-///  Holds the facing value used by FairContext.
+        ///  Holds the facing value used by FairContext.
         pub facing: f32,
         /// AttackModule::is_infliction(HIT), not the persistent status flag.
         ///
-///  AttackModule::isinfliction(HIT), not the persistent status flag.
+        ///  AttackModule::isinfliction(HIT), not the persistent status flag.
         pub hit_now: bool,
     }
     /// Defines the `FairFollowup` data structure.
     ///
     ///
-///  Holds the data for FairFollowup.
+    ///  Holds the data for FairFollowup.
     #[derive(Default)]
     pub struct FairFollowup {
         /// Stores the `last` value in `FairFollowup` as `Option<FairContext>`.
         ///
         ///
-///  Optionally stores the last for FairFollowup; it may be absent.
+        ///  Optionally stores the last for FairFollowup; it may be absent.
         last: Option<FairContext>,
         /// Stores the `output` value in `FairFollowup` as `ControllerOutput`.
         ///
         ///
-///  Holds the output value used by FairFollowup.
+        ///  Holds the output value used by FairFollowup.
         output: ControllerOutput,
         /// Stores the `queued` value in `FairFollowup` as `bool`.
         ///
         ///
-///  Holds the queued value used by FairFollowup.
+        ///  Holds the queued value used by FairFollowup.
         queued: bool,
         /// Stores the `spent` value in `FairFollowup` as `bool`.
         ///
         ///
-///  Holds the spent value used by FairFollowup.
+        ///  Holds the spent value used by FairFollowup.
         spent: bool,
         /// Stores the `age` value in `FairFollowup` as `f32`.
         ///
         ///
-///  Holds the age value used by FairFollowup.
+        ///  Holds the age value used by FairFollowup.
         age: f32,
         /// Stores the `facing` value in `FairFollowup` as `f32`.
         ///
         ///
-///  Holds the facing value used by FairFollowup.
+        ///  Holds the facing value used by FairFollowup.
         facing: f32,
         /// Stores the `down_held` value in `FairFollowup` as `bool`.
         ///
         ///
-///  Holds the down held value used by FairFollowup.
+        ///  Holds the down held value used by FairFollowup.
         down_held: bool,
     }
     impl FairFollowup {
         /// Checks whether the feature is active.
         ///
         ///
-///  Checks whether the feature is on.
+        ///  Checks whether the feature is on.
         pub fn active(&self) -> bool {
             self.queued
         }
         /// Cancels the pending.
         ///
         ///
-///  Cancels the pending.
+        ///  Cancels the pending.
         pub fn cancel_pending(&mut self) {
             self.finish();
             self.output = ControllerOutput::default();
@@ -152,14 +152,14 @@ mod fair_followup {
         /// Updates the toggle state from the current button sample and match state.
         ///
         ///
-///  Checks the current buttons and updates whether the toggle should activate.
+        ///  Checks the current buttons and updates whether the toggle should activate.
         pub fn sample(&mut self, enabled: bool, ctx: FairContext) -> ControllerOutput {
             self.sample_with_velocity(enabled, ctx, 0.0)
         }
         /// Samples the with velocity.
         ///
         ///
-///  Samples the with velocity.
+        ///  Samples the with velocity.
         pub fn sample_with_velocity(
             &mut self,
             enabled: bool,
@@ -206,7 +206,7 @@ mod fair_followup {
         }
         /// Rearm on a new fair, drop the latch on a later hit, and latch the first hit.
         ///
-///  Rearm on a new fair, drop the latch on a later hit, and latch the first hit.
+        ///  Rearm on a new fair, drop the latch on a later hit, and latch the first hit.
         fn recognize(&mut self, ctx: FairContext, landed: bool) -> bool {
             let fair = ctx.is_fair();
             let new_fair = fair
@@ -241,7 +241,7 @@ mod fair_followup {
         /// Advances the age.
         ///
         ///
-///  Advances the age.
+        ///  Advances the age.
         fn advance_age(&mut self, ctx: FairContext) {
             let mut delta = crate::timing::motion_elapsed(
                 self.last
@@ -269,7 +269,7 @@ mod fair_followup {
         /// Returns the output currently queued for delivery.
         ///
         ///
-///  Gets the input waiting to be delivered.
+        ///  Gets the input waiting to be delivered.
         fn queued_output(
             &mut self,
             ctx: FairContext,
@@ -319,7 +319,7 @@ mod fair_followup {
         /// Completes the active operation and records its final state.
         ///
         ///
-///  Finishes the current operation.
+        ///  Finishes the current operation.
         fn finish(&mut self) {
             self.queued = false;
             self.down_held = false;
@@ -330,7 +330,7 @@ mod fair_followup {
         /// Determines whether the `usable` condition holds.
         ///
         ///
-///  Checks whether usable.
+        ///  Checks whether usable.
         fn usable(&self) -> bool {
             self.kirby
                 && self.frame.is_finite()
@@ -342,7 +342,7 @@ mod fair_followup {
         /// Checks whether fair.
         ///
         ///
-///  Checks whether fair.
+        ///  Checks whether fair.
         fn is_fair(&self) -> bool {
             self.status == status::ATTACK_AIR && self.motion == FAIR
         }
@@ -354,7 +354,7 @@ mod fair_followup {
         /// Regression test for `later_contact_cancels_first_hit_followup_even_during_hitstop`.
         ///
         ///
-///  Checks that later contact cancels first hit followup even during hitstop.
+        ///  Checks that later contact cancels first hit followup even during hitstop.
         #[test]
         fn later_contact_cancels_first_hit_followup_even_during_hitstop() {
             let mut tool = FairFollowup::default();
@@ -378,7 +378,7 @@ mod fair_followup {
         /// Returns the `fair` result.
         ///
         ///
-///  Gets the fair result.
+        ///  Gets the fair result.
         fn fair(frame: f32) -> FairContext {
             FairContext {
                 object: 1,
@@ -396,7 +396,7 @@ mod fair_followup {
         /// Regression test for `manual_first_hit_survives_late_fair_skipped_frames_and_falling_until_grounded_smash`.
         ///
         ///
-///  Checks that manual first hit survives late fair skipped frames and falling until grounded smash.
+        ///  Checks that manual first hit survives late fair skipped frames and falling until grounded smash.
         #[test]
         fn manual_first_hit_survives_late_fair_skipped_frames_and_falling_until_grounded_smash() {
             for facing in [-1.0, 1.0] {
@@ -472,7 +472,7 @@ mod fair_followup {
         /// Regression test for `first_hit_with_mixed_landing_flag_is_latched_without_sending_a_second_aerial`.
         ///
         ///
-///  Checks that first hit with mixed landing flag is latched without sending a second aerial.
+        ///  Checks that first hit with mixed landing flag is latched without sending a second aerial.
         #[test]
         fn first_hit_with_mixed_landing_flag_is_latched_without_sending_a_second_aerial() {
             let mut tool = FairFollowup::default();
@@ -494,7 +494,7 @@ mod fair_followup {
         /// Regression test for `fresh_first_hit_reported_on_immediate_landing_arms_but_later_hit_does_not`.
         ///
         ///
-///  Checks that fresh first hit reported on immediate landing arms but later hit does not.
+        ///  Checks that fresh first hit reported on immediate landing arms but later hit does not.
         #[test]
         fn fresh_first_hit_reported_on_immediate_landing_arms_but_later_hit_does_not() {
             for previous_frame in [11.0, 17.0] {
@@ -531,7 +531,7 @@ mod fair_followup {
         /// Regression test for `landing_hit_flag_changes_cannot_create_another_smash_input_frame`.
         ///
         ///
-///  Checks that landing hit flag changes cannot create another smash input frame.
+        ///  Checks that landing hit flag changes cannot create another smash input frame.
         #[test]
         fn landing_hit_flag_changes_cannot_create_another_smash_input_frame() {
             let mut tool = FairFollowup::default();
@@ -564,7 +564,7 @@ mod fair_followup {
         /// Regression test for `first_hit_waits_for_landing_then_buffers_upward_smash_without_charging`.
         ///
         ///
-///  Checks that first hit waits for landing then buffers upward smash without charging.
+        ///  Checks that first hit waits for landing then buffers upward smash without charging.
         #[test]
         fn first_hit_waits_for_landing_then_buffers_upward_smash_without_charging() {
             for facing in [-1.0, 1.0] {
@@ -657,7 +657,7 @@ mod fair_followup {
         /// Regression test for `shield_stale_or_later_hits_and_other_moves_cannot_arm`.
         ///
         ///
-///  Checks that shield stale or later hits and other moves cannot arm.
+        ///  Checks that shield stale or later hits and other moves cannot arm.
         #[test]
         fn shield_stale_or_later_hits_and_other_moves_cannot_arm() {
             for c in [
@@ -685,7 +685,7 @@ mod fair_followup {
         /// Regression test for `damage_still_cancels_the_confirm`.
         ///
         ///
-///  Checks that damage still cancels the confirm.
+        ///  Checks that damage still cancels the confirm.
         #[test]
         fn damage_still_cancels_the_confirm() {
             for changed in [FairContext {
@@ -721,36 +721,36 @@ mod trip_followup {
     /// Defines the `TripTarget` data structure.
     ///
     ///
-///  Holds the data for TripTarget.
+    ///  Holds the data for TripTarget.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct TripTarget {
         /// Stores the `id` value in `TripTarget` as `u32`.
         ///
         ///
-///  Holds the id value used by TripTarget.
+        ///  Holds the id value used by TripTarget.
         pub id: u32,
         /// Stores the `status` value in `TripTarget` as `i32`.
         ///
         ///
-///  Holds the status value used by TripTarget.
+        ///  Holds the status value used by TripTarget.
         pub status: i32,
         /// Stores the `previous_status` value in `TripTarget` as `i32`.
         ///
         ///
-///  Holds the previous status value used by TripTarget.
+        ///  Holds the previous status value used by TripTarget.
         pub previous_status: i32,
     }
     /// Determines whether the `trip_tilt` condition holds.
     ///
     ///
-///  Checks whether trip tilt.
+    ///  Checks whether trip tilt.
     fn trip_tilt(status: i32) -> bool {
         matches!(status, status::ATTACK_S3 | status::ATTACK_LW3)
     }
     /// Determines whether the `tripping` condition holds.
     ///
     ///
-///  Checks whether tripping.
+    ///  Checks whether tripping.
     fn tripping(status: i32) -> bool {
         matches!(status, status::SLIP..=status::SLIP_WAIT)
     }
@@ -758,92 +758,92 @@ mod trip_followup {
     /// Defines the `TripContext` data structure.
     ///
     ///
-///  Holds the data for TripContext.
+    ///  Holds the data for TripContext.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct TripContext {
         /// Stores the `object` value in `TripContext` as `u32`.
         ///
         ///
-///  Holds the object value used by TripContext.
+        ///  Holds the object value used by TripContext.
         pub object: u32,
         /// Stores the `kirby` value in `TripContext` as `bool`.
         ///
         ///
-///  Holds the kirby value used by TripContext.
+        ///  Holds the kirby value used by TripContext.
         pub kirby: bool,
         /// Stores the `status` value in `TripContext` as `i32`.
         ///
         ///
-///  Holds the status value used by TripContext.
+        ///  Holds the status value used by TripContext.
         pub status: i32,
         /// Stores the `motion` value in `TripContext` as `u64`.
         ///
         ///
-///  Holds the motion value used by TripContext.
+        ///  Holds the motion value used by TripContext.
         pub motion: u64,
         /// Stores the `frame` value in `TripContext` as `f32`.
         ///
         ///
-///  Holds the frame value used by TripContext.
+        ///  Holds the frame value used by TripContext.
         pub frame: f32,
         /// Stores the `grounded` value in `TripContext` as `bool`.
         ///
         ///
-///  Holds the grounded value used by TripContext.
+        ///  Holds the grounded value used by TripContext.
         pub grounded: bool,
         /// Stores the `facing` value in `TripContext` as `f32`.
         ///
         ///
-///  Holds the facing value used by TripContext.
+        ///  Holds the facing value used by TripContext.
         pub facing: f32,
         /// Stores the `stopped` value in `TripContext` as `bool`.
         ///
         ///
-///  Holds the stopped value used by TripContext.
+        ///  Holds the stopped value used by TripContext.
         pub stopped: bool,
         /// Stores the `targets` value in `TripContext` as `[Option<TripTarget>; 8]`.
         ///
         ///
-///  Stores the targets collection for TripContext.
+        ///  Stores the targets collection for TripContext.
         pub targets: [Option<TripTarget>; 8],
     }
     /// Defines the `TripFollowup` data structure.
     ///
     ///
-///  Holds the data for TripFollowup.
+    ///  Holds the data for TripFollowup.
     #[derive(Default)]
     pub struct TripFollowup {
         /// Stores the `last` value in `TripFollowup` as `Option<TripContext>`.
         ///
         ///
-///  Optionally stores the last for TripFollowup; it may be absent.
+        ///  Optionally stores the last for TripFollowup; it may be absent.
         last: Option<TripContext>,
         /// Stores the `output` value in `TripFollowup` as `ControllerOutput`.
         ///
         ///
-///  Holds the output value used by TripFollowup.
+        ///  Holds the output value used by TripFollowup.
         output: ControllerOutput,
         /// Stores the `queued` value in `TripFollowup` as `bool`.
         ///
         ///
-///  Holds the queued value used by TripFollowup.
+        ///  Holds the queued value used by TripFollowup.
         queued: bool,
         /// Stores the `spent` value in `TripFollowup` as `bool`.
         ///
         ///
-///  Holds the spent value used by TripFollowup.
+        ///  Holds the spent value used by TripFollowup.
         spent: bool,
         /// Stores the `facing` value in `TripFollowup` as `f32`.
         ///
         ///
-///  Holds the facing value used by TripFollowup.
+        ///  Holds the facing value used by TripFollowup.
         facing: f32,
     }
     impl TripFollowup {
         /// Cancels the pending.
         ///
         ///
-///  Cancels the pending.
+        ///  Cancels the pending.
         pub fn cancel_pending(&mut self) {
             self.finish();
             self.output = ControllerOutput::default();
@@ -851,14 +851,14 @@ mod trip_followup {
         /// Determines whether the `watching` condition holds.
         ///
         ///
-///  Checks whether watching.
+        ///  Checks whether watching.
         pub fn watching(&self) -> bool {
             self.queued
         }
         /// Updates the toggle state from the current button sample and match state.
         ///
         ///
-///  Checks the current buttons and updates whether the toggle should activate.
+        ///  Checks the current buttons and updates whether the toggle should activate.
         pub fn sample(&mut self, enabled: bool, ctx: TripContext) -> ControllerOutput {
             // Invalid/changed identity resets the tool. An identical observation
             // reuses output, so repeated mapper polls do not manufacture new pulses.
@@ -910,7 +910,7 @@ mod trip_followup {
         /// damage whose immediate previous state was a trip. No new-trip
         /// transition or hit flag required.
         ///
-///  Rearm on a new tilt, then latch a current trip or grounded re-hit damage whose immediate previous state was a trip. No new-trip transition or hit flag required.
+        ///  Rearm on a new tilt, then latch a current trip or grounded re-hit damage whose immediate previous state was a trip. No new-trip transition or hit flag required.
         fn recognize(&mut self, ctx: TripContext) -> bool {
             let new_tilt = trip_tilt(ctx.status)
                 && self.last.is_none_or(|last| {
@@ -936,7 +936,7 @@ mod trip_followup {
         /// Returns the `tilt_lag_output` result.
         ///
         ///
-///  Gets the tilt lag output result.
+        ///  Gets the tilt lag output result.
         fn tilt_lag_output(&self, ctx: TripContext, recognized: bool) -> ControllerOutput {
             // Own every competing gameplay button and both sticks from
             // recognition onward, including tilt lag and release gaps. First
@@ -955,7 +955,7 @@ mod trip_followup {
         /// Completes the active operation and records its final state.
         ///
         ///
-///  Finishes the current operation.
+        ///  Finishes the current operation.
         fn finish(&mut self) {
             self.queued = false;
             self.spent = true;
@@ -964,7 +964,7 @@ mod trip_followup {
     impl TripContext {
         /// Smash startup was accepted, or Kirby left the grounded tilt/idle states.
         ///
-///  Smash startup was accepted, or Kirby left the grounded tilt/idle states.
+        ///  Smash startup was accepted, or Kirby left the grounded tilt/idle states.
         fn tilt_ended(&self) -> bool {
             let accepted = matches!(self.status, status::ATTACK_S4_START..=status::ATTACK_S4);
             let supported = self.grounded
@@ -980,7 +980,7 @@ mod trip_followup {
         /// Returns the `ctx` result.
         ///
         ///
-///  Gets the ctx result.
+        ///  Gets the ctx result.
         fn ctx(status: i32, target_status: i32) -> TripContext {
             TripContext {
                 object: 1,
@@ -1010,7 +1010,7 @@ mod trip_followup {
         /// Regression test for `trip_immediately_owns_controls_and_buffers_smash_without_readiness_or_target_rechecks`.
         ///
         ///
-///  Checks that trip immediately owns controls and buffers smash without readiness or target rechecks.
+        ///  Checks that trip immediately owns controls and buffers smash without readiness or target rechecks.
         #[test]
         fn trip_immediately_owns_controls_and_buffers_smash_without_readiness_or_target_rechecks() {
             let mut state = TripFollowup::default();
@@ -1087,7 +1087,7 @@ mod trip_followup {
         /// Regression test for `either_tilt_trip_flicks_in_existing_facing_and_new_tilt_rearms`.
         ///
         ///
-///  Checks that either tilt trip flicks in existing facing and new tilt rearms.
+        ///  Checks that either tilt trip flicks in existing facing and new tilt rearms.
         #[test]
         fn either_tilt_trip_flicks_in_existing_facing_and_new_tilt_rearms() {
             for status in [
@@ -1138,7 +1138,7 @@ mod trip_followup {
         /// Regression test for `trip_takeover_suppresses_physical_actions_stick_and_taunts_through_release_gaps`.
         ///
         ///
-///  Checks that trip takeover suppresses physical actions stick and taunts through release gaps.
+        ///  Checks that trip takeover suppresses physical actions stick and taunts through release gaps.
         #[test]
         fn trip_takeover_suppresses_physical_actions_stick_and_taunts_through_release_gaps() {
             use crate::manual_controls::{ManualOverlay, TurboOutput, LEFT_STICK_DIRECTIONS};
@@ -1196,7 +1196,7 @@ mod trip_followup {
         /// Regression test for `no_trip_no_tilt_and_non_kirby_are_inert_and_interruptions_cancel`.
         ///
         ///
-///  Checks that no trip no tilt and non kirby are inert and interruptions cancel.
+        ///  Checks that no trip no tilt and non kirby are inert and interruptions cancel.
         #[test]
         fn no_trip_no_tilt_and_non_kirby_are_inert_and_interruptions_cancel() {
             for sample in [
@@ -1325,8 +1325,7 @@ pub use trip_followup::{TripContext, TripFollowup, TripTarget};
 // Follow-ups also suppress taunts; Plus/Minus remain available.
 /// Defines the `FOLLOWUP_BUTTONS` constant used by this module.
 ///
-///
-///  Provides the FOLLOWUP BUTTONS constant value.
+/// Provides the FOLLOWUP BUTTONS constant value.
 const FOLLOWUP_BUTTONS: u32 =
     crate::native_input::ASSIST_BUTTONS | crate::native_input::MAPPER_DPAD_BUTTONS;
 

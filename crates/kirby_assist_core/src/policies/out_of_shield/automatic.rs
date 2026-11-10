@@ -9,8 +9,7 @@ use crate::{
 
 /// Defines the `AutomaticConfig` data structure.
 ///
-///
-///  Holds the data for AutomaticConfig.
+/// Holds the data for AutomaticConfig.
 #[derive(Clone, Copy, Default)]
 pub struct AutomaticConfig<'a> {
     /// Stores the `grab` value in `AutomaticConfig` as `Option<&'a Sequence>`.
@@ -31,8 +30,7 @@ pub struct AutomaticConfig<'a> {
 }
 /// Defines the `AutomaticLimits` data structure.
 ///
-///
-///  Holds the data for AutomaticLimits.
+/// Holds the data for AutomaticLimits.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AutomaticLimits {
     /// Stores the `close` value in `AutomaticLimits` as `f32`.
@@ -105,8 +103,7 @@ impl AutomaticConfig<'_> {
 }
 /// Determines whether the `literal_input` condition holds.
 ///
-///
-///  Checks whether literal input.
+/// Checks whether literal input.
 fn literal_input(action: &Action, buttons: u32, stick: [f32; 2], frames: u8) -> bool {
     match action {
         Action::Input {
@@ -132,8 +129,7 @@ fn literal_input(action: &Action, buttons: u32, stick: [f32; 2], frames: u8) -> 
 }
 /// Determines whether the `native_grab_recipe` condition holds.
 ///
-///
-///  Checks whether native grab recipe.
+/// Checks whether native grab recipe.
 fn native_grab_recipe(s: &Sequence) -> bool {
     let grab = match s.actions() {
         [grab] => Some(grab),
@@ -152,8 +148,7 @@ fn native_grab_recipe(s: &Sequence) -> bool {
 }
 /// Returns an optional `backup_timing` value.
 ///
-///
-///  Gets backup timing if it is available.
+/// Gets backup timing if it is available.
 fn backup_timing(s: &Sequence) -> Option<super::shield_up_b::Timing> {
     if s.start_delay != 0 || s.timeout < 24 {
         return None;

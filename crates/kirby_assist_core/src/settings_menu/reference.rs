@@ -5,8 +5,7 @@ use std::sync::OnceLock;
 
 /// Returns the `short` result.
 ///
-///
-///  Gets the short result.
+/// Gets the short result.
 fn short(text: &str, limit: usize) -> String {
     let mut chars = text.chars();
     let mut result: String = chars.by_ref().take(limit).collect();
@@ -17,8 +16,7 @@ fn short(text: &str, limit: usize) -> String {
 }
 /// Returns an optional `raw` value.
 ///
-///
-///  Gets raw if it is available.
+/// Gets raw if it is available.
 fn raw<'a>(data: &'a MoveData, key: &str) -> Option<&'a str> {
     data.raw
         .iter()
@@ -28,8 +26,7 @@ fn raw<'a>(data: &'a MoveData, key: &str) -> Option<&'a str> {
 }
 /// Returns the `timing` result.
 ///
-///
-///  Gets the timing result.
+/// Gets the timing result.
 fn timing(data: &MoveData) -> String {
     let startup = raw(data, "startup")
         .map(|s| short(s, 22))
@@ -69,8 +66,7 @@ fn timing(data: &MoveData) -> String {
 
 /// Returns the `move_names` result.
 ///
-///
-///  Gets the move names result.
+/// Gets the move names result.
 fn move_names(label: &str) -> &'static [&'static str] {
     match label {
         "Neutral A / Nair" => &["Jab 1", "Neutral Air"],
@@ -98,8 +94,7 @@ fn move_names(label: &str) -> &'static [&'static str] {
 }
 /// Finds the move.
 ///
-///
-///  Finds the move.
+/// Finds the move.
 fn find_move(kind: i32, name: &str) -> Option<&'static MoveData> {
     if let Some(data) = fighter_data::named_move(kind, name) {
         return Some(data);
@@ -117,8 +112,7 @@ fn find_move(kind: i32, name: &str) -> Option<&'static MoveData> {
 
 /// Defines the `Summary` data structure.
 ///
-///
-///  Holds the data for Summary.
+/// Holds the data for Summary.
 #[derive(Clone, Copy, Default)]
 struct Summary {
     /// Stores the `n` value in `Summary` as `u32`.
@@ -149,8 +143,7 @@ struct Summary {
 }
 /// Defines the `KEYS` constant used by this module.
 ///
-///
-///  Provides the KEYS constant value.
+/// Provides the KEYS constant value.
 const KEYS: [&str; 4] = [
     "ledgestats.neutralgetup",
     "ledgestats.roll",
@@ -159,13 +152,11 @@ const KEYS: [&str; 4] = [
 ];
 /// Defines the `LEDGE` constant used by this module.
 ///
-///
-///  Provides the LEDGE constant value.
+/// Provides the LEDGE constant value.
 static LEDGE: OnceLock<[Summary; 4]> = OnceLock::new();
 /// Returns an optional `ledge_reference` value.
 ///
-///
-///  Gets ledge reference if it is available.
+/// Gets ledge reference if it is available.
 fn ledge_reference(slot: PresetSlot) -> Option<String> {
     let (index, name) = match slot {
         PresetSlot::Neutral => (0, "Neutral get-up"),
@@ -208,8 +199,7 @@ fn ledge_reference(slot: PresetSlot) -> Option<String> {
 }
 /// Returns an optional `ledge_frames` value.
 ///
-///
-///  Gets ledge frames if it is available.
+/// Gets ledge frames if it is available.
 fn ledge_frames(value: &str) -> Option<(u16, u16)> {
     let (span, rest) = value.split_once(" intangible / ")?;
     let end = span.strip_prefix("1-")?.parse::<u16>().ok()?;
@@ -219,8 +209,7 @@ fn ledge_frames(value: &str) -> Option<(u16, u16)> {
 
 /// Returns the `hints` result.
 ///
-///
-///  Gets the hints result.
+/// Gets the hints result.
 pub(super) fn hints(kind: i32, slot: PresetSlot, label: Option<&str>) -> Vec<String> {
     let mut lines = Vec::new();
     if let Some(label) = label {

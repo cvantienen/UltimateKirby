@@ -5,13 +5,11 @@ use crate::native_input::{MAPPER_A, MAPPER_X};
 
 /// Defines the `ATTACK` constant used by this module.
 ///
-///
-///  Provides the ATTACK constant value.
+/// Provides the ATTACK constant value.
 pub const ATTACK: u32 = MAPPER_A;
 /// Defines the `SHORT_HOP_ATTACK` constant used by this module.
 ///
-///
-///  Provides the SHORT HOP ATTACK constant value.
+/// Provides the SHORT HOP ATTACK constant value.
 pub const SHORT_HOP_ATTACK: u32 = MAPPER_X | MAPPER_A;
 /// Acceptance budget, not attack startup or a timing offset. Buffered online
 /// inputs can reach native state after several advancing frames. Keep the
@@ -418,8 +416,7 @@ pub(crate) fn finite_positions(a: [f32; 2], b: [f32; 2]) -> bool {
 }
 /// Returns the `output` result.
 ///
-///
-///  Gets the output result.
+/// Gets the output result.
 pub fn output(stick: [f32; 2], requested: u32) -> crate::gameplay::ControllerOutput {
     crate::gameplay::ControllerOutput {
         owned: crate::native_input::ASSIST_BUTTONS,
@@ -431,8 +428,7 @@ pub fn output(stick: [f32; 2], requested: u32) -> crate::gameplay::ControllerOut
 }
 /// Defines the available `Aerial` cases.
 ///
-///
-///  Lists the available Aerial choices.
+/// Lists the available Aerial choices.
 #[derive(Clone, Copy)]
 pub enum Aerial {
     /// Represents the `Neutral` case of `Aerial`.
@@ -463,8 +459,7 @@ pub enum Aerial {
 }
 /// Defines the available `Smash` cases.
 ///
-///
-///  Lists the available Smash choices.
+/// Lists the available Smash choices.
 #[derive(Clone, Copy)]
 pub enum Smash {
     /// Represents the `Forward` case of `Smash`.
@@ -502,8 +497,7 @@ pub fn smash_stick(move_: Smash, facing: f32) -> [f32; 2] {
 }
 /// Returns the `aerial_stick` result.
 ///
-///
-///  Gets the aerial stick result.
+/// Gets the aerial stick result.
 pub fn aerial_stick(move_: Aerial, facing: f32) -> [f32; 2] {
     let facing = if facing < 0.0 { -1.0 } else { 1.0 };
     match move_ {
@@ -532,8 +526,7 @@ pub fn aerial_ready(status: i32, situation: i32) -> bool {
 }
 /// Returns an optional `fast_fall` value.
 ///
-///
-///  Gets fast fall if it is available.
+/// Gets fast fall if it is available.
 pub fn fast_fall(velocity_y: f32) -> Option<[f32; 2]> {
     (velocity_y.is_finite() && velocity_y < -0.05).then_some([0.0, -1.0])
 }

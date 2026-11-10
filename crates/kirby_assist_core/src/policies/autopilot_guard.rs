@@ -30,18 +30,15 @@ pub struct Hitbox {
 
 /// Defines the `LOOKAHEAD_FRAMES` constant used by this module.
 ///
-///
-///  Provides the LOOKAHEAD FRAMES constant value.
+/// Provides the LOOKAHEAD FRAMES constant value.
 pub const LOOKAHEAD_FRAMES: f32 = 10.0;
 /// Defines the `HOLD_FRAMES` constant used by this module.
 ///
-///
-///  Provides the HOLD FRAMES constant value.
+/// Provides the HOLD FRAMES constant value.
 pub const HOLD_FRAMES: f32 = 4.0;
 /// Defines the `Envelope` data structure.
 ///
-///
-///  Holds the data for Envelope.
+/// Holds the data for Envelope.
 #[derive(Clone, Copy)]
 pub struct Envelope {
     /// Stores the `scan_x` value in `Envelope` as `f32`.
@@ -125,8 +122,7 @@ pub fn approaching_active_attack(
 }
 /// Determines whether the `approaching_active_attack_with` condition holds.
 ///
-///
-///  Checks whether approaching active attack with.
+/// Checks whether approaching active attack with.
 pub fn approaching_active_attack_with(
     own: [f32; 2],
     own_velocity: [f32; 2],
@@ -155,8 +151,7 @@ pub fn approaching_active_attack_with(
 
 /// Determines whether the `finite` condition holds.
 ///
-///
-///  Checks whether finite.
+/// Checks whether finite.
 fn finite(groups: &[&[f32]]) -> bool {
     groups.iter().all(|g| g.iter().all(|v| v.is_finite()))
 }
@@ -298,8 +293,7 @@ pub fn active_hitbox_threat_with(
 
 /// Defines the `GuardClock` data structure.
 ///
-///
-///  Holds the data for GuardClock.
+/// Holds the data for GuardClock.
 #[derive(Clone, Copy)]
 pub struct GuardClock {
     /// Stores the `status` value in `GuardClock` as `i32`.
@@ -330,8 +324,7 @@ pub struct GuardClock {
 }
 /// Defines the `GuardHold` data structure.
 ///
-///
-///  Holds the data for GuardHold.
+/// Holds the data for GuardHold.
 #[derive(Default)]
 pub struct GuardHold {
     /// Stores the `previous` value in `GuardHold` as `Option<GuardClock>`.

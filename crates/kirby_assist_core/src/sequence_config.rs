@@ -1462,14 +1462,12 @@ pub struct Template {
 }
 /// Sets the upper bound for templates.
 ///
-///
-///  Holds the MAX TEMPLATES value.
+/// Holds the MAX TEMPLATES value.
 pub const MAX_TEMPLATES: usize = 64;
 
 /// Defines the `Catalog` data structure.
 ///
-///
-///  Holds the data for Catalog.
+/// Holds the data for Catalog.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Catalog {
     /// Stores the `entries` value in `Catalog` as `Vec<Entry>`.

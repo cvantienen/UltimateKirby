@@ -10,8 +10,7 @@ mod shield_up_b;
 
 /// Returns the `copied_target` result.
 ///
-///
-///  Gets the copied target result.
+/// Gets the copied target result.
 fn copied_target(target: &ObservedTarget) -> Opponent {
     target.opponent(crate::native_states::situation::GROUND, None)
 }
@@ -57,8 +56,7 @@ pub(super) fn nearest_enemy(
 
 /// Determines whether the `target_within_range` condition holds.
 ///
-///
-///  Checks whether target within range.
+/// Checks whether target within range.
 pub(super) fn target_within_range(
     origin: [f32; 2],
     target: [f32; 2],
@@ -200,188 +198,185 @@ pub(crate) fn direct_shield_input(
 
 /// Defines the `Target` data structure.
 ///
-///
-///  Holds the data for Target.
+/// Holds the data for Target.
 #[derive(Clone, Copy)]
 pub struct Target {
     /// Stores the `id` value in `Target` as `u32`.
     ///
     ///
-///  Holds the id value used by Target.
+    ///  Holds the id value used by Target.
     pub id: u32,
     /// Stores the `position` value in `Target` as `[f32; 2]`.
     ///
     ///
-///  Stores the position collection for Target.
+    ///  Stores the position collection for Target.
     pub position: [f32; 2],
     /// Stores the `velocity` value in `Target` as `[f32; 2]`.
     ///
     ///
-///  Stores the velocity collection for Target.
+    ///  Stores the velocity collection for Target.
     pub velocity: [f32; 2],
     /// Stores the `grounded` value in `Target` as `bool`.
     ///
     ///
-///  Holds the grounded value used by Target.
+    ///  Holds the grounded value used by Target.
     pub grounded: bool,
     /// Stores the `dangerous` value in `Target` as `bool`.
     ///
     ///
-///  Holds the dangerous value used by Target.
+    ///  Holds the dangerous value used by Target.
     pub dangerous: bool,
     /// Stores the `recovery` value in `Target` as `Option<f32>`.
     ///
     ///
-///  Optionally stores the recovery for Target; it may be absent.
+    ///  Optionally stores the recovery for Target; it may be absent.
     pub recovery: Option<f32>,
 }
 /// Defines the `Context` data structure.
 ///
-///
-///  Holds the data for Context.
+/// Holds the data for Context.
 #[derive(Clone, Copy)]
 pub struct Context {
     /// Stores the `object` value in `Context` as `u32`.
     ///
     ///
-///  Holds the object value used by Context.
+    ///  Holds the object value used by Context.
     pub object: u32,
     /// Stores the `kind` value in `Context` as `i32`.
     ///
     ///
-///  Holds the kind value used by Context.
+    ///  Holds the kind value used by Context.
     pub kind: i32,
     /// Stores the `status` value in `Context` as `i32`.
     ///
     ///
-///  Holds the status value used by Context.
+    ///  Holds the status value used by Context.
     pub status: i32,
     /// Stores the `motion` value in `Context` as `u64`.
     ///
     ///
-///  Holds the motion value used by Context.
+    ///  Holds the motion value used by Context.
     pub motion: u64,
     /// Stores the `frame` value in `Context` as `f32`.
     ///
     ///
-///  Holds the frame value used by Context.
+    ///  Holds the frame value used by Context.
     pub frame: f32,
     /// Stores the `rate` value in `Context` as `f32`.
     ///
     ///
-///  Holds the rate value used by Context.
+    ///  Holds the rate value used by Context.
     pub rate: f32,
     /// Stores the `stopped` value in `Context` as `bool`.
     ///
     ///
-///  Holds the stopped value used by Context.
+    ///  Holds the stopped value used by Context.
     pub stopped: bool,
     /// Stores the `grounded` value in `Context` as `bool`.
     ///
     ///
-///  Holds the grounded value used by Context.
+    ///  Holds the grounded value used by Context.
     pub grounded: bool,
     /// Stores the `position` value in `Context` as `[f32; 2]`.
     ///
     ///
-///  Stores the position collection for Context.
+    ///  Stores the position collection for Context.
     pub position: [f32; 2],
     /// Stores the `facing` value in `Context` as `f32`.
     ///
     ///
-///  Holds the facing value used by Context.
+    ///  Holds the facing value used by Context.
     pub facing: f32,
     /// Stores the `shield_ready` value in `Context` as `bool`.
     ///
     ///
-///  Holds the shield ready value used by Context.
+    ///  Holds the shield ready value used by Context.
     pub shield_ready: bool,
     /// Stores the `can_grab` value in `Context` as `bool`.
     ///
     ///
-///  Holds the can grab value used by Context.
+    ///  Holds the can grab value used by Context.
     pub can_grab: bool,
     /// Stores the `can_jump` value in `Context` as `bool`.
     ///
     ///
-///  Holds the can jump value used by Context.
+    ///  Holds the can jump value used by Context.
     pub can_jump: bool,
     /// Stores the `can_up_special` value in `Context` as `bool`.
     ///
     ///
-///  Holds the can up special value used by Context.
+    ///  Holds the can up special value used by Context.
     pub can_up_special: bool,
     /// Stores the `threatened` value in `Context` as `bool`.
     ///
     ///
-///  Holds the threatened value used by Context.
+    ///  Holds the threatened value used by Context.
     pub threatened: bool,
 }
 /// Defines the `OutOfShield` data structure.
 ///
-///
-///  Holds the data for OutOfShield.
+/// Holds the data for OutOfShield.
 #[derive(Default)]
 pub struct OutOfShield {
     /// Stores the `object` value in `OutOfShield` as `Option<u32>`.
     ///
     ///
-///  Optionally stores the object for OutOfShield; it may be absent.
+    ///  Optionally stores the object for OutOfShield; it may be absent.
     object: Option<u32>,
     /// Stores the `kind` value in `OutOfShield` as `Option<i32>`.
     ///
     ///
-///  Optionally stores the kind for OutOfShield; it may be absent.
+    ///  Optionally stores the kind for OutOfShield; it may be absent.
     kind: Option<i32>,
     /// Stores the `target` value in `OutOfShield` as `Option<u32>`.
     ///
     ///
-///  Optionally stores the target for OutOfShield; it may be absent.
+    ///  Optionally stores the target for OutOfShield; it may be absent.
     target: Option<u32>,
     /// Stores the `guarded` value in `OutOfShield` as `bool`.
     ///
     ///
-///  Holds the guarded value used by OutOfShield.
+    ///  Holds the guarded value used by OutOfShield.
     guarded: bool,
     /// Stores the `response` value in `OutOfShield` as `crate::defense_response::Response`.
     ///
     ///
-///  Holds the response value used by OutOfShield.
+    ///  Holds the response value used by OutOfShield.
     response: crate::defense_response::Response,
     /// Stores the `simple` value in `OutOfShield` as `simple::Grab`.
     ///
     ///
-///  Holds the simple value used by OutOfShield.
+    ///  Holds the simple value used by OutOfShield.
     simple: simple::Grab,
     /// Stores the `shield_up_b` value in `OutOfShield` as `shield_up_b::ShieldUpB`.
     ///
     ///
-///  Holds the shield up b value used by OutOfShield.
+    ///  Holds the shield up b value used by OutOfShield.
     shield_up_b: shield_up_b::ShieldUpB,
     /// Stores the `configured_response` value in `OutOfShield` as `bool`.
     ///
     ///
-///  Holds the configured response value used by OutOfShield.
+    ///  Holds the configured response value used by OutOfShield.
     configured_response: bool,
     /// Stores the `configured_backup` value in `OutOfShield` as `bool`.
     ///
     ///
-///  Holds the configured backup value used by OutOfShield.
+    ///  Holds the configured backup value used by OutOfShield.
     configured_backup: bool,
     /// Stores the `configured_shielded` value in `OutOfShield` as `bool`.
     ///
     ///
-///  Holds the configured shielded value used by OutOfShield.
+    ///  Holds the configured shielded value used by OutOfShield.
     configured_shielded: bool,
     /// Stores the `configured_grab_wait` value in `OutOfShield` as `bool`.
     ///
     ///
-///  Holds the configured grab wait value used by OutOfShield.
+    ///  Holds the configured grab wait value used by OutOfShield.
     configured_grab_wait: bool,
     /// Stores the `configured_settling` value in `OutOfShield` as `bool`.
     ///
     ///
-///  Holds the configured settling value used by OutOfShield.
+    ///  Holds the configured settling value used by OutOfShield.
     configured_settling: bool,
 }
 
@@ -389,7 +384,7 @@ impl OutOfShield {
     /// Constructs a new value with the type’s initial state.
     ///
     ///
-///  Creates a new value.
+    ///  Creates a new value.
     pub const fn new() -> Self {
         Self {
             object: None,
@@ -410,7 +405,7 @@ impl OutOfShield {
     /// Updates the `bind_actor` state using the supplied inputs.
     ///
     ///
-///  Updates bind actor.
+    ///  Updates bind actor.
     fn bind_actor(&mut self, c: Context) {
         if self.object != Some(c.object) || self.kind != Some(c.kind) {
             *self = Self::default();
@@ -422,14 +417,14 @@ impl OutOfShield {
     /// Observes the statuses.
     ///
     ///
-///  Observes the statuses.
+    ///  Observes the statuses.
     pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         self.simple.observe_statuses(known);
     }
     /// Returns the selected target observation.
     ///
     ///
-///  Gets the chosen target.
+    ///  Gets the chosen target.
     pub fn target(&self) -> Option<u32> {
         self.simple
             .target()
@@ -440,7 +435,7 @@ impl OutOfShield {
     /// Cancels the pending.
     ///
     ///
-///  Cancels the pending.
+    ///  Cancels the pending.
     pub fn cancel_pending(&mut self) {
         self.response.cancel();
         self.configured_response = false;
@@ -455,7 +450,7 @@ impl OutOfShield {
     /// Ledge/manual takeover releases inputs immediately. Delivered R retains
     /// only its bounded receipt so a competing script cannot turn it into Up-B.
     ///
-///  Ledge/manual takeover releases inputs immediately. Delivered R retains only its bounded receipt so a competing script cannot turn it into Up-B.
+    ///  Ledge/manual takeover releases inputs immediately. Delivered R retains only its bounded receipt so a competing script cannot turn it into Up-B.
     pub fn suspend_automatic(&mut self) {
         self.shield_up_b.cancel();
         self.response.suspend();
@@ -468,7 +463,7 @@ impl OutOfShield {
     }
     /// Acknowledge only an input packet actually passed to the native mapper.
     ///
-///  Acknowledge only an input packet actually passed to the native mapper.
+    ///  Acknowledge only an input packet actually passed to the native mapper.
     pub fn mapped_grab(&mut self, tick: i64, target: u32) {
         self.simple.mapped_grab(tick, target);
         if self.configured_response {
@@ -478,28 +473,28 @@ impl OutOfShield {
     /// Determines whether the `configured_committed` condition holds.
     ///
     ///
-///  Checks whether configured committed.
+    ///  Checks whether configured committed.
     pub fn configured_committed(&self) -> bool {
         self.configured_response
     }
     /// Determines whether ground.
     ///
     ///
-///  Checks whether ground.
+    ///  Checks whether ground.
     pub fn needs_ground(&self) -> bool {
         self.configured_response && self.response.needs_ground()
     }
     /// Determines whether the `attack_hold` condition holds.
     ///
     ///
-///  Checks whether attack hold.
+    ///  Checks whether attack hold.
     pub fn attack_hold(&self) -> bool {
         self.response.attack_hold()
     }
     /// Returns an optional `right_stick` value.
     ///
     ///
-///  Gets right stick if it is available.
+    ///  Gets right stick if it is available.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         if self.configured_response {
             self.response.right_stick()
@@ -512,14 +507,14 @@ impl OutOfShield {
     /// Determines whether the `walking` condition holds.
     ///
     ///
-///  Checks whether walking.
+    ///  Checks whether walking.
     pub fn walking(&self) -> bool {
         self.response.walking()
     }
     /// Samples the simple.
     ///
     ///
-///  Samples the simple.
+    ///  Samples the simple.
     pub fn sample_simple(
         &mut self,
         allowed: bool,
@@ -537,7 +532,7 @@ impl OutOfShield {
     /// The live adapter supplies this fighter's resolved standing/shield startup.
     /// No new delay: this only rejects projected misses before pressing Grab.
     ///
-///  The live adapter supplies this fighter's resolved standing/shield startup. No new delay: this only rejects projected misses before pressing Grab.
+    ///  The live adapter supplies this fighter's resolved standing/shield startup. No new delay: this only rejects projected misses before pressing Grab.
     pub fn sample_simple_timed(
         &mut self,
         allowed: bool,
@@ -573,7 +568,7 @@ impl OutOfShield {
     /// direct neutral-axis R in shield, immediate
     /// R during ground movement/landing, or one idle approach pulse then R.
     ///
-///  Front vulnerable-target grab (enemy shield required only when unshielded): direct neutral-axis R in shield, immediate R during ground movement/landing, or one idle approach pulse then R.
+    ///  Front vulnerable-target grab (enemy shield required only when unshielded): direct neutral-axis R in shield, immediate R during ground movement/landing, or one idle approach pulse then R.
     pub fn sample_automatic(
         &mut self,
         allowed: bool,
@@ -606,7 +601,7 @@ impl OutOfShield {
     /// Neutralize the stick during unshielded Grab delivery while preserving
     /// manual turning-away cancellation. Shield grabs already use neutral axes.
     ///
-///  Neutralize the stick during unshielded Grab delivery while preserving manual turning-away cancellation. Shield grabs already use neutral axes.
+    ///  Neutralize the stick during unshielded Grab delivery while preserving manual turning-away cancellation. Shield grabs already use neutral axes.
     pub fn with_grab_movement(
         &mut self,
         mut output: ControllerOutput,
@@ -626,21 +621,21 @@ impl OutOfShield {
     /// Determines whether the `unshielded_grab_started` condition holds.
     ///
     ///
-///  Checks whether unshielded grab started.
+    ///  Checks whether unshielded grab started.
     pub fn unshielded_grab_started(&self) -> bool {
         self.simple.unshielded_grab_started()
     }
     /// Determines whether the `shield_up_b_pending` condition holds.
     ///
     ///
-///  Checks whether shield up b pending.
+    ///  Checks whether shield up b pending.
     pub fn shield_up_b_pending(&self) -> bool {
         self.shield_up_b.active() || self.configured_response && self.response.automatic_up_b()
     }
     /// Determines whether the `up_b_delivery_started` condition holds.
     ///
     ///
-///  Checks whether up b delivery started.
+    ///  Checks whether up b delivery started.
     pub fn up_b_delivery_started(&self) -> bool {
         self.shield_up_b.delivery_started()
             || self.configured_response && self.response.up_b_delivery_started()
@@ -648,7 +643,7 @@ impl OutOfShield {
     /// Determines whether the `up_b_receipt_pending` condition holds.
     ///
     ///
-///  Checks whether up b receipt pending.
+    ///  Checks whether up b receipt pending.
     pub fn up_b_receipt_pending(&self) -> bool {
         self.shield_up_b.receipt_pending()
             || self.configured_response && self.response.up_b_receipt_pending()
@@ -656,14 +651,14 @@ impl OutOfShield {
     /// Determines whether the `awaiting_up_b` condition holds.
     ///
     ///
-///  Checks whether awaiting up b.
+    ///  Checks whether awaiting up b.
     pub fn awaiting_up_b(&self) -> bool {
         self.shield_up_b.awaiting() || self.configured_response && self.response.awaiting_up_b()
     }
     /// Updates the `attempted_up_special` state using the supplied inputs.
     ///
     ///
-///  Updates attempted up special.
+    ///  Updates attempted up special.
     pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
         if self.configured_response {
             self.response.attempted_up_special(tick, target);
@@ -674,7 +669,7 @@ impl OutOfShield {
     /// Updates the `mapped_up_special` state using the supplied inputs.
     ///
     ///
-///  Updates mapped up special.
+    ///  Updates mapped up special.
     pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
         if self.configured_response {
             self.response.mapped_up_special(tick, target);
@@ -685,14 +680,14 @@ impl OutOfShield {
     /// Determines whether the `grab_delivery_pending` condition holds.
     ///
     ///
-///  Checks whether grab delivery pending.
+    ///  Checks whether grab delivery pending.
     pub fn grab_delivery_pending(&self) -> bool {
         self.simple.delivery_pending() || self.response.grab_delivery_pending()
     }
     /// Updates the `delivery_tick` state using the supplied inputs.
     ///
     ///
-///  Updates delivery tick.
+    ///  Updates delivery tick.
     pub fn delivery_tick(&mut self, tick: i64) {
         self.shield_up_b.delivery_tick(tick);
         self.simple.delivery_tick(tick);
@@ -701,35 +696,35 @@ impl OutOfShield {
     /// Determines whether the `automatic_grab_pending` condition holds.
     ///
     ///
-///  Checks whether automatic grab pending.
+    ///  Checks whether automatic grab pending.
     pub fn automatic_grab_pending(&self) -> bool {
         self.simple.active() && !self.configured_response && !self.configured_settling
     }
     /// Determines whether the `approach_pending` condition holds.
     ///
     ///
-///  Checks whether approach pending.
+    ///  Checks whether approach pending.
     pub fn approach_pending(&self) -> bool {
         self.simple.approach_pending()
     }
     /// Determines whether the `approach_active` condition holds.
     ///
     ///
-///  Checks whether approach active.
+    ///  Checks whether approach active.
     pub fn approach_active(&self) -> bool {
         self.simple.approach_active()
     }
     /// Updates the `mapped_approach` state using the supplied inputs.
     ///
     ///
-///  Updates mapped approach.
+    ///  Updates mapped approach.
     pub fn mapped_approach(&mut self, tick: i64, target: u32) {
         self.simple.mapped_approach(tick, target);
     }
     /// Samples the configured.
     ///
     ///
-///  Samples the configured.
+    ///  Samples the configured.
     pub fn sample_configured(
         &mut self,
         enabled: bool,
@@ -811,7 +806,7 @@ mod tests {
     /// Regression test for `target_range_is_inclusive_and_rejects_invalid_facts`.
     ///
     ///
-///  Checks that target range is inclusive and rejects invalid facts.
+    ///  Checks that target range is inclusive and rejects invalid facts.
     #[test]
     fn target_range_is_inclusive_and_rejects_invalid_facts() {
         assert!(target_within_range([0., 0.], [3., -2.], 3., 2.));
@@ -824,7 +819,7 @@ mod tests {
     /// Regression test for `copied_target_preserves_common_observation_facts`.
     ///
     ///
-///  Checks that copied target preserves common observation facts.
+    ///  Checks that copied target preserves common observation facts.
     #[test]
     fn copied_target_preserves_common_observation_facts() {
         let opponent = copied_target(&ObservedTarget {

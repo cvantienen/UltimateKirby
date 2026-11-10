@@ -13,68 +13,55 @@ use crate::live_input::{HID_A, HID_B, HID_L, HID_R, HID_X, HID_Y, HID_ZL, HID_ZR
 // Pinned HDR ext.rs a8f98eace1c6a7b45c88cb3f0ac1ef05426624dc, Buttons.
 /// Defines the `MAPPED_SPECIAL` constant used by this module.
 ///
-///
-///  Provides the MAPPED SPECIAL constant value.
+/// Provides the MAPPED SPECIAL constant value.
 pub const MAPPED_SPECIAL: u32 = 0x2;
 /// Defines the `MAPPED_ATTACK` constant used by this module.
 ///
-///
-///  Provides the MAPPED ATTACK constant value.
+/// Provides the MAPPED ATTACK constant value.
 pub const MAPPED_ATTACK: u32 = 0x1;
 /// Defines the `MAPPED_GUARD` constant used by this module.
 ///
-///
-///  Provides the MAPPED GUARD constant value.
+/// Provides the MAPPED GUARD constant value.
 pub const MAPPED_GUARD: u32 = 0x8;
 /// Defines the `MAPPED_CATCH` constant used by this module.
 ///
-///
-///  Provides the MAPPED CATCH constant value.
+/// Provides the MAPPED CATCH constant value.
 pub const MAPPED_CATCH: u32 = 0x10;
 /// Defines the `MAPPED_JUMP` constant used by this module.
 ///
-///
-///  Provides the MAPPED JUMP constant value.
+/// Provides the MAPPED JUMP constant value.
 pub const MAPPED_JUMP: u32 = 0x4;
 /// Defines the `MAPPED_JUMP_MINI` constant used by this module.
 ///
-///
-///  Provides the MAPPED JUMP MINI constant value.
+/// Provides the MAPPED JUMP MINI constant value.
 pub const MAPPED_JUMP_MINI: u32 = 0x40;
 /// Defines the `MAPPED_GUARD_HOLD` constant used by this module.
 ///
-///
-///  Provides the MAPPED GUARD HOLD constant value.
+/// Provides the MAPPED GUARD HOLD constant value.
 pub const MAPPED_GUARD_HOLD: u32 = 0x10000;
 /// Defines the `MAPPED_TAUNT_UP` constant used by this module.
 ///
-///
-///  Provides the MAPPED TAUNT UP constant value.
+/// Provides the MAPPED TAUNT UP constant value.
 pub const MAPPED_TAUNT_UP: u32 = 0x400;
 /// Defines the `MAPPED_TAUNT_DOWN` constant used by this module.
 ///
-///
-///  Provides the MAPPED TAUNT DOWN constant value.
+/// Provides the MAPPED TAUNT DOWN constant value.
 pub const MAPPED_TAUNT_DOWN: u32 = 0x1000;
 /// Defines the `MAPPED_TAUNT_SIDES` constant used by this module.
 ///
-///
-///  Provides the MAPPED TAUNT SIDES constant value.
+/// Provides the MAPPED TAUNT SIDES constant value.
 pub const MAPPED_TAUNT_SIDES: u32 = 0x6000;
 /// Defines the `MAPPED_ATTACK_RAW` constant used by this module.
 ///
-///
-///  Provides the MAPPED ATTACK RAW constant value.
+/// Provides the MAPPED ATTACK RAW constant value.
 pub const MAPPED_ATTACK_RAW: u32 = 0x200;
 /// Defines the `MAPPED_ATTACK_HOLD_BITS` constant used by this module.
 ///
-///
-///  Provides the MAPPED ATTACK HOLD BITS constant value.
+/// Provides the MAPPED ATTACK HOLD BITS constant value.
 pub const MAPPED_ATTACK_HOLD_BITS: u32 = MAPPED_ATTACK | MAPPED_ATTACK_RAW;
 /// Defines the `MAPPED_CSTICK_BUTTON` constant used by this module.
 ///
-///
-///  Provides the MAPPED CSTICK BUTTON constant value.
+/// Provides the MAPPED CSTICK BUTTON constant value.
 const MAPPED_CSTICK_BUTTON: u32 = 0x80;
 /// `NPAD_ID_HANDHELD` from libnx's `hid.h`.
 ///
@@ -83,198 +70,160 @@ pub const HANDHELD_NPAD_ID: u32 = 0x20;
 
 /// Defines the `MAPPER_SLOT_COUNT` constant used by this module.
 ///
-///
-///  Provides the MAPPER SLOT COUNT constant value.
+/// Provides the MAPPER SLOT COUNT constant value.
 pub const MAPPER_SLOT_COUNT: i32 = 8;
 /// Defines the `MAPPER_DPAD_UP` constant used by this module.
 ///
-///
-///  Provides the MAPPER DPAD UP constant value.
+/// Provides the MAPPER DPAD UP constant value.
 pub const MAPPER_DPAD_UP: u32 = 1;
 /// Defines the `MAPPER_DPAD_RIGHT` constant used by this module.
 ///
-///
-///  Provides the MAPPER DPAD RIGHT constant value.
+/// Provides the MAPPER DPAD RIGHT constant value.
 pub const MAPPER_DPAD_RIGHT: u32 = 1 << 1;
 /// Defines the `MAPPER_DPAD_DOWN` constant used by this module.
 ///
-///
-///  Provides the MAPPER DPAD DOWN constant value.
+/// Provides the MAPPER DPAD DOWN constant value.
 pub const MAPPER_DPAD_DOWN: u32 = 1 << 2;
 /// Defines the `MAPPER_DPAD_LEFT` constant used by this module.
 ///
-///
-///  Provides the MAPPER DPAD LEFT constant value.
+/// Provides the MAPPER DPAD LEFT constant value.
 pub const MAPPER_DPAD_LEFT: u32 = 1 << 3;
 /// Defines the `MAPPER_DPAD_BUTTONS` constant used by this module.
 ///
-///
-///  Provides the MAPPER DPAD BUTTONS constant value.
+/// Provides the MAPPER DPAD BUTTONS constant value.
 pub const MAPPER_DPAD_BUTTONS: u32 =
     MAPPER_DPAD_UP | MAPPER_DPAD_RIGHT | MAPPER_DPAD_DOWN | MAPPER_DPAD_LEFT;
 /// Defines the `MAPPER_STICK_CLICKS` constant used by this module.
 ///
-///
-///  Provides the MAPPER STICK CLICKS constant value.
+/// Provides the MAPPER STICK CLICKS constant value.
 pub const MAPPER_STICK_CLICKS: u32 = 3 << 16;
 // Controller::ButtonBitfield l_*/r_* digital stick aliases in the pinned HDR
 // layout. A stick flick includes these as well as its analog axis.
 /// Defines the `MAPPER_LEFT_STICK_UP` constant used by this module.
 ///
-///
-///  Provides the MAPPER LEFT STICK UP constant value.
+/// Provides the MAPPER LEFT STICK UP constant value.
 pub const MAPPER_LEFT_STICK_UP: u32 = 1 << 20;
 /// Defines the `MAPPER_LEFT_STICK_RIGHT` constant used by this module.
 ///
-///
-///  Provides the MAPPER LEFT STICK RIGHT constant value.
+/// Provides the MAPPER LEFT STICK RIGHT constant value.
 pub const MAPPER_LEFT_STICK_RIGHT: u32 = 1 << 21;
 /// Defines the `MAPPER_LEFT_STICK_DOWN` constant used by this module.
 ///
-///
-///  Provides the MAPPER LEFT STICK DOWN constant value.
+/// Provides the MAPPER LEFT STICK DOWN constant value.
 pub const MAPPER_LEFT_STICK_DOWN: u32 = 1 << 22;
 /// Defines the `MAPPER_LEFT_STICK_LEFT` constant used by this module.
 ///
-///
-///  Provides the MAPPER LEFT STICK LEFT constant value.
+/// Provides the MAPPER LEFT STICK LEFT constant value.
 pub const MAPPER_LEFT_STICK_LEFT: u32 = 1 << 23;
 /// Defines the `MAPPER_LEFT_STICK_HORIZONTAL` constant used by this module.
 ///
-///
-///  Provides the MAPPER LEFT STICK HORIZONTAL constant value.
+/// Provides the MAPPER LEFT STICK HORIZONTAL constant value.
 pub const MAPPER_LEFT_STICK_HORIZONTAL: u32 = MAPPER_LEFT_STICK_RIGHT | MAPPER_LEFT_STICK_LEFT;
 /// Defines the `MAPPER_LEFT_STICK_DIRECTIONS` constant used by this module.
 ///
-///
-///  Provides the MAPPER LEFT STICK DIRECTIONS constant value.
+/// Provides the MAPPER LEFT STICK DIRECTIONS constant value.
 pub const MAPPER_LEFT_STICK_DIRECTIONS: u32 = 0xf << 20;
 /// Defines the `MAPPER_RIGHT_STICK_UP` constant used by this module.
 ///
-///
-///  Provides the MAPPER RIGHT STICK UP constant value.
+/// Provides the MAPPER RIGHT STICK UP constant value.
 pub const MAPPER_RIGHT_STICK_UP: u32 = 1 << 24;
 /// Defines the `MAPPER_RIGHT_STICK_RIGHT` constant used by this module.
 ///
-///
-///  Provides the MAPPER RIGHT STICK RIGHT constant value.
+/// Provides the MAPPER RIGHT STICK RIGHT constant value.
 pub const MAPPER_RIGHT_STICK_RIGHT: u32 = 1 << 25;
 /// Defines the `MAPPER_RIGHT_STICK_DOWN` constant used by this module.
 ///
-///
-///  Provides the MAPPER RIGHT STICK DOWN constant value.
+/// Provides the MAPPER RIGHT STICK DOWN constant value.
 pub const MAPPER_RIGHT_STICK_DOWN: u32 = 1 << 26;
 /// Defines the `MAPPER_RIGHT_STICK_LEFT` constant used by this module.
 ///
-///
-///  Provides the MAPPER RIGHT STICK LEFT constant value.
+/// Provides the MAPPER RIGHT STICK LEFT constant value.
 pub const MAPPER_RIGHT_STICK_LEFT: u32 = 1 << 27;
 /// Defines the `MAPPER_RIGHT_STICK_DIRECTIONS` constant used by this module.
 ///
-///
-///  Provides the MAPPER RIGHT STICK DIRECTIONS constant value.
+/// Provides the MAPPER RIGHT STICK DIRECTIONS constant value.
 pub const MAPPER_RIGHT_STICK_DIRECTIONS: u32 = 0xf << 24;
 /// Defines the `MAPPER_EXTRA_BUTTON_CHANNELS` constant used by this module.
 ///
-///
-///  Provides the MAPPER EXTRA BUTTON CHANNELS constant value.
+/// Provides the MAPPER EXTRA BUTTON CHANNELS constant value.
 const MAPPER_EXTRA_BUTTON_CHANNELS: u32 = 0xf << 12;
 /// Defines the `MODULE_ACCESSOR_CONTROL_MODULE_POINTER_OFFSET_BYTES` constant used by this module.
 ///
-///
-///  Provides the MODULE ACCESSOR CONTROL MODULE POINTER OFFSET BYTES constant value.
+/// Provides the MODULE ACCESSOR CONTROL MODULE POINTER OFFSET BYTES constant value.
 const MODULE_ACCESSOR_CONTROL_MODULE_POINTER_OFFSET_BYTES: usize = 0x48;
 /// Defines the `CONTROL_MODULE_INPUT_CONTEXT_POINTER_OFFSET_BYTES` constant used by this module.
 ///
-///
-///  Provides the CONTROL MODULE INPUT CONTEXT POINTER OFFSET BYTES constant value.
+/// Provides the CONTROL MODULE INPUT CONTEXT POINTER OFFSET BYTES constant value.
 const CONTROL_MODULE_INPUT_CONTEXT_POINTER_OFFSET_BYTES: usize = 0x118;
 /// Defines the `INPUT_CONTEXT_CONTROLLER_RECORD_POINTER_OFFSET_BYTES` constant used by this module.
 ///
-///
-///  Provides the INPUT CONTEXT CONTROLLER RECORD POINTER OFFSET BYTES constant value.
+/// Provides the INPUT CONTEXT CONTROLLER RECORD POINTER OFFSET BYTES constant value.
 const INPUT_CONTEXT_CONTROLLER_RECORD_POINTER_OFFSET_BYTES: usize = 0x58;
 /// Defines the `CONTROLLER_RECORD_INDEX_POINTER_OFFSET_BYTES` constant used by this module.
 ///
-///
-///  Provides the CONTROLLER RECORD INDEX POINTER OFFSET BYTES constant value.
+/// Provides the CONTROLLER RECORD INDEX POINTER OFFSET BYTES constant value.
 const CONTROLLER_RECORD_INDEX_POINTER_OFFSET_BYTES: usize = 8;
 /// Defines the `INPUT_INDEX_FIELD_OFFSET_BYTES` constant used by this module.
 ///
-///
-///  Provides the INPUT INDEX FIELD OFFSET BYTES constant value.
+/// Provides the INPUT INDEX FIELD OFFSET BYTES constant value.
 const INPUT_INDEX_FIELD_OFFSET_BYTES: usize = 8;
 /// Defines the `MINIMUM_NATIVE_POINTER_ADDRESS` constant used by this module.
 ///
-///
-///  Provides the MINIMUM NATIVE POINTER ADDRESS constant value.
+/// Provides the MINIMUM NATIVE POINTER ADDRESS constant value.
 const MINIMUM_NATIVE_POINTER_ADDRESS: usize = 0x1000;
 /// Defines the `MAPPER_A` constant used by this module.
 ///
-///
-///  Provides the MAPPER A constant value.
+/// Provides the MAPPER A constant value.
 pub const MAPPER_A: u32 = 1 << 5;
 /// Defines the `MAPPER_B` constant used by this module.
 ///
-///
-///  Provides the MAPPER B constant value.
+/// Provides the MAPPER B constant value.
 pub const MAPPER_B: u32 = 1 << 6;
 /// Defines the `MAPPER_X` constant used by this module.
 ///
-///
-///  Provides the MAPPER X constant value.
+/// Provides the MAPPER X constant value.
 pub const MAPPER_X: u32 = 1 << 4;
 /// Defines the `MAPPER_Y` constant used by this module.
 ///
-///
-///  Provides the MAPPER Y constant value.
+/// Provides the MAPPER Y constant value.
 pub const MAPPER_Y: u32 = 1 << 7;
 /// Defines the `MAPPER_L` constant used by this module.
 ///
-///
-///  Provides the MAPPER L constant value.
+/// Provides the MAPPER L constant value.
 pub const MAPPER_L: u32 = 1 << 8;
 /// Defines the `MAPPER_R` constant used by this module.
 ///
-///
-///  Provides the MAPPER R constant value.
+/// Provides the MAPPER R constant value.
 pub const MAPPER_R: u32 = 1 << 9;
 /// Defines the `MAPPER_ZL` constant used by this module.
 ///
-///
-///  Provides the MAPPER ZL constant value.
+/// Provides the MAPPER ZL constant value.
 pub const MAPPER_ZL: u32 = 1 << 10;
 /// Defines the `MAPPER_ZR` constant used by this module.
 ///
-///
-///  Provides the MAPPER ZR constant value.
+/// Provides the MAPPER ZR constant value.
 pub const MAPPER_ZR: u32 = 1 << 11;
 /// Defines the `MAPPER_PLUS` constant used by this module.
 ///
-///
-///  Provides the MAPPER PLUS constant value.
+/// Provides the MAPPER PLUS constant value.
 pub const MAPPER_PLUS: u32 = 1 << 18;
 /// Defines the `MAPPER_MINUS` constant used by this module.
 ///
-///
-///  Provides the MAPPER MINUS constant value.
+/// Provides the MAPPER MINUS constant value.
 pub const MAPPER_MINUS: u32 = 1 << 19;
 /// Defines the `MAPPER_MENU` constant used by this module.
 ///
-///
-///  Provides the MAPPER MENU constant value.
+/// Provides the MAPPER MENU constant value.
 pub const MAPPER_MENU: u32 = MAPPER_PLUS | MAPPER_MINUS;
 // Established recipe layout, BEFORE physical custom-button bindings. Brother
 // translates these canonical inputs only at the existing physical overlay.
 /// Defines the `SEQUENCE_JUMP_BUTTONS` constant used by this module.
 ///
-///
-///  Provides the SEQUENCE JUMP BUTTONS constant value.
+/// Provides the SEQUENCE JUMP BUTTONS constant value.
 pub const SEQUENCE_JUMP_BUTTONS: u32 = MAPPER_X | MAPPER_Y | MAPPER_ZL;
 /// Defines the `SEQUENCE_GUARD_BUTTONS` constant used by this module.
 ///
-///
-///  Provides the SEQUENCE GUARD BUTTONS constant value.
+/// Provides the SEQUENCE GUARD BUTTONS constant value.
 pub const SEQUENCE_GUARD_BUTTONS: u32 = MAPPER_ZR;
 /// Native Grab also expands to Guard/Attack; it is a guard-producing alias,
 /// while canonical X/Y/ZL remain jump inputs.
@@ -284,18 +233,15 @@ pub const SEQUENCE_GUARD_INPUTS: u32 = SEQUENCE_GUARD_BUTTONS | MAPPER_R;
 // Native Controller channels outside the ordinary face/shoulder words.
 /// Defines the `MAPPER_DIGITAL_L` constant used by this module.
 ///
-///
-///  Provides the MAPPER DIGITAL L constant value.
+/// Provides the MAPPER DIGITAL L constant value.
 pub const MAPPER_DIGITAL_L: u32 = 1 << 28;
 /// Defines the `MAPPER_DIGITAL_R` constant used by this module.
 ///
-///
-///  Provides the MAPPER DIGITAL R constant value.
+/// Provides the MAPPER DIGITAL R constant value.
 pub const MAPPER_DIGITAL_R: u32 = 1 << 29;
 /// Defines the `MAPPER_EXTRA_BUTTONS` constant used by this module.
 ///
-///
-///  Provides the MAPPER EXTRA BUTTONS constant value.
+/// Provides the MAPPER EXTRA BUTTONS constant value.
 pub const MAPPER_EXTRA_BUTTONS: u32 =
     MAPPER_EXTRA_BUTTON_CHANNELS | MAPPER_DIGITAL_L | MAPPER_DIGITAL_R;
 /// Native buttons that an assist policy may replace, excluding the D-pad.
@@ -476,8 +422,7 @@ fn remap_buttons(buttons: u32, sources: u32, pairs: &[(u32, u32)]) -> u32 {
 
 /// Defines the available `ControlLayout` cases.
 ///
-///
-///  Lists the available ControlLayout choices.
+/// Lists the available ControlLayout choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ControlLayout {
     #[default]
@@ -615,8 +560,7 @@ pub fn selected_controller_mapper(
 // Unsupported request bits naturally produce no native bits.
 /// Returns the `mapper_buttons` result.
 ///
-///
-///  Gets the mapper buttons result.
+/// Gets the mapper buttons result.
 pub fn mapper_buttons(hid: u64) -> u32 {
     (u32::from(hid & HID_A != 0) * MAPPER_A)
         | (u32::from(hid & HID_B != 0) * MAPPER_B)
@@ -683,8 +627,7 @@ pub fn mapped_unshielded_auto_grab(buttons: u32, requested: u32, active: bool) -
 // (off -> on), whereas `held` stays on for as long as a button remains pressed.
 /// Defines the `ButtonTrace` data structure.
 ///
-///
-///  Holds the data for ButtonTrace.
+/// Holds the data for ButtonTrace.
 pub struct ButtonTrace {
     /// Stores the `held` value in `ButtonTrace` as `u32`.
     ///
@@ -832,8 +775,7 @@ unsafe fn read_native_pointer(object: *const u8, offset: usize) -> Option<*const
 // native callback identity/readiness before entering this chain.
 /// Determines whether the `native_pointer_address` condition holds.
 ///
-///
-///  Checks whether native pointer address.
+/// Checks whether native pointer address.
 fn native_pointer_address(pointer: *const u8) -> bool {
     let address = pointer as usize;
     address >= MINIMUM_NATIVE_POINTER_ADDRESS

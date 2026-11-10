@@ -17,8 +17,7 @@ use crate::sequence_config::{
 
 /// Defines the `Timeline` data structure.
 ///
-///
-///  Holds the data for Timeline.
+/// Holds the data for Timeline.
 pub struct Timeline {
     /// Stores the `sequence` value in `Timeline` as `Sequence`.
     ///
@@ -1310,8 +1309,7 @@ fn is_spatial(action: &Action) -> bool {
 }
 /// Determines whether the `moves_on_ground` condition holds.
 ///
-///
-///  Checks whether moves on ground.
+/// Checks whether moves on ground.
 fn moves_on_ground(action: &Action) -> bool {
     matches!(
         action,
@@ -1327,8 +1325,7 @@ fn moves_on_ground(action: &Action) -> bool {
 }
 /// Determines whether saved ledge.
 ///
-///
-///  Checks whether saved ledge.
+/// Checks whether saved ledge.
 fn needs_saved_ledge(action: Action) -> bool {
     let saved = |d| matches!(d, Direction::SavedLedge | Direction::AwayFromLedge);
     match action {
@@ -1386,8 +1383,7 @@ fn satisfied_on_entry(action: Action, f: &Frame) -> bool {
 }
 /// Determines whether the `facing_satisfied` condition holds.
 ///
-///
-///  Checks whether facing satisfied.
+/// Checks whether facing satisfied.
 fn facing_satisfied(ctx: GameplayContext, desired: f32) -> bool {
     desired == 0. || ctx.facing * desired > 0.5
 }
@@ -1419,8 +1415,7 @@ struct Literal {
 }
 /// Returns an optional `literal` value.
 ///
-///
-///  Gets literal if it is available.
+/// Gets literal if it is available.
 fn literal(action: Action) -> Option<Literal> {
     let (buttons, stick, cstick, hold) = match action {
         Action::Input {
@@ -1462,8 +1457,7 @@ fn literal(action: Action) -> Option<Literal> {
 // lookup; no per-frame scan, allocation or synthetic input frame is needed.
 /// Returns the `facing_jumps` result.
 ///
-///
-///  Gets the facing jumps result.
+/// Gets the facing jumps result.
 fn facing_jumps(actions: &[Action]) -> [u8; MAX_ACTIONS] {
     let mut jumps = [u8::MAX; MAX_ACTIONS];
     let mut open = None;
@@ -1504,8 +1498,7 @@ fn stopping_distance(ctx: GameplayContext, speed: f32) -> f32 {
 }
 /// Determines whether the `ledge_arrived` condition holds.
 ///
-///
-///  Checks whether ledge arrived.
+/// Checks whether ledge arrived.
 fn ledge_arrived(ctx: GameplayContext, goal: f32, tolerance: f32, brake: f32) -> bool {
     if (ctx.position[0] - goal).abs() > tolerance || !ctx.velocity[0].is_finite() {
         return false;
@@ -1522,8 +1515,7 @@ fn ledge_arrived(ctx: GameplayContext, goal: f32, tolerance: f32, brake: f32) ->
 }
 /// Returns an optional `ledge_goal` value.
 ///
-///
-///  Gets ledge goal if it is available.
+/// Gets ledge goal if it is available.
 fn ledge_goal(
     ctx: GameplayContext,
     anchor: Option<[f32; 2]>,
@@ -1551,8 +1543,7 @@ fn ledge_goal(
 }
 /// Returns the `shield_grab_input` result.
 ///
-///
-///  Gets the shield grab input result.
+/// Gets the shield grab input result.
 fn shield_grab_input(status: i32, out: ControllerOutput, right: [f32; 2]) -> ControllerOutput {
     if out.requested & MAPPER_R != 0 {
         crate::out_of_shield::direct_shield_input(status, out, right)
@@ -1562,15 +1553,13 @@ fn shield_grab_input(status: i32, out: ControllerOutput, right: [f32; 2]) -> Con
 }
 /// Determines whether the `shielding` condition holds.
 ///
-///
-///  Checks whether shielding.
+/// Checks whether shielding.
 fn shielding(status: i32) -> bool {
     matches!(status, GUARD_ON | GUARD | GUARD_DAMAGE)
 }
 /// Determines whether the `condition_met` condition holds.
 ///
-///
-///  Checks whether condition met.
+/// Checks whether condition met.
 fn condition_met(
     condition: Condition,
     ctx: GameplayContext,
@@ -1601,8 +1590,7 @@ fn condition_met(
 // Native statuses: guard-on, guard, guard-off, guard-damage. No new queries.
 /// Determines whether the `shield_handoff_needed` condition holds.
 ///
-///
-///  Checks whether shield handoff needed.
+/// Checks whether shield handoff needed.
 fn shield_handoff_needed(action: Action, status: i32, ground: i32) -> bool {
     if ground != situation::GROUND || !(GUARD_ON..=GUARD_DAMAGE).contains(&status) {
         return false;
@@ -1645,8 +1633,7 @@ fn shield_handoff_needed(action: Action, status: i32, ground: i32) -> bool {
 }
 /// Returns the `cstick_buttons` result.
 ///
-///
-///  Gets the cstick buttons result.
+/// Gets the cstick buttons result.
 fn cstick_buttons(stick: [f32; 2]) -> u32 {
     (if stick[0] > 0. {
         MAPPER_RIGHT_STICK_RIGHT
@@ -1664,8 +1651,7 @@ fn cstick_buttons(stick: [f32; 2]) -> u32 {
 }
 /// Returns the `controls` result.
 ///
-///
-///  Gets the controls result.
+/// Gets the controls result.
 fn controls(stick: [f32; 2], requested: u32) -> ControllerOutput {
     ControllerOutput {
         consume_trigger: true,
@@ -1677,15 +1663,13 @@ fn controls(stick: [f32; 2], requested: u32) -> ControllerOutput {
 }
 /// Returns the `neutral` result.
 ///
-///
-///  Gets the neutral result.
+/// Gets the neutral result.
 fn neutral() -> ControllerOutput {
     controls([0.0; 2], 0)
 }
 /// Returns the `guard_hold` result.
 ///
-///
-///  Gets the guard hold result.
+/// Gets the guard hold result.
 fn guard_hold() -> ControllerOutput {
     controls([0.0; 2], MAPPER_ZR)
 }
@@ -1699,8 +1683,7 @@ fn facing_toward(ctx: GameplayContext, target_x: f32) -> Option<bool> {
 }
 /// Returns an optional `facing_saved_ledge` value.
 ///
-///
-///  Gets facing saved ledge if it is available.
+/// Gets facing saved ledge if it is available.
 fn facing_saved_ledge(ctx: GameplayContext, anchor: Option<[f32; 2]>) -> Option<bool> {
     let anchor = anchor.filter(|p| finite2(*p))?;
     facing_toward(ctx, anchor[0])
@@ -1708,8 +1691,7 @@ fn facing_saved_ledge(ctx: GameplayContext, anchor: Option<[f32; 2]>) -> Option<
 
 /// Returns the `direction` result.
 ///
-///
-///  Gets the direction result.
+/// Gets the direction result.
 fn direction(
     d: Direction,
     ctx: GameplayContext,

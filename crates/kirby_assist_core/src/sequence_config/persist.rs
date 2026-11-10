@@ -3,8 +3,7 @@ use super::*;
 
 /// Returns the `button_names` result.
 ///
-///
-///  Gets the button names result.
+/// Gets the button names result.
 fn button_names(buttons: u32) -> Result<String, String> {
     let known = BUTTON_TOKENS
         .iter()
@@ -54,8 +53,7 @@ fn input_action(
 
 /// Returns the `action` result.
 ///
-///
-///  Gets the action result.
+/// Gets the action result.
 fn action(a: Action) -> Result<String, String> {
     Ok(match a {
         Action::Empty => return Err("Remove empty execution steps before saving".into()),
@@ -440,8 +438,7 @@ fn matches_section(clean: &str, fighter: &str, slot: PresetSlot, choice: &str) -
 }
 /// Validates the output.
 ///
-///
-///  Validates the output.
+/// Validates the output.
 pub fn validate_output(source: &str) -> Result<(), String> {
     let catalog = Catalog::parse(source)?;
     validate_catalog(&catalog)
@@ -449,8 +446,7 @@ pub fn validate_output(source: &str) -> Result<(), String> {
 
 /// Validates the catalog.
 ///
-///
-///  Validates the catalog.
+/// Validates the catalog.
 fn validate_catalog(catalog: &Catalog) -> Result<(), String> {
     // add_sequence_choices is a startup publisher: it deliberately leaks frozen
     // menu references for the game's lifetime. Saves must NEVER call it.
@@ -463,8 +459,7 @@ fn validate_catalog(catalog: &Catalog) -> Result<(), String> {
 }
 /// Updates the named.
 ///
-///
-///  Updates the named.
+/// Updates the named.
 pub fn update_named(
     source: &str,
     kind: i32,
@@ -524,8 +519,7 @@ pub fn update_named(
 }
 /// Returns the `delete` result.
 ///
-///
-///  Gets the delete result.
+/// Gets the delete result.
 pub fn delete(
     source: &str,
     kind: i32,

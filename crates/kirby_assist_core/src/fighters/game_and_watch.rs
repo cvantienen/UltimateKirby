@@ -11,48 +11,39 @@ use crate::{
 
 /// Defines the `REFLECT_CONTACT_SAFETY_MARGIN_FRAMES` constant used by this module.
 ///
-///
-///  Provides the REFLECT CONTACT SAFETY MARGIN FRAMES constant value.
+/// Provides the REFLECT CONTACT SAFETY MARGIN FRAMES constant value.
 const REFLECT_CONTACT_SAFETY_MARGIN_FRAMES: f32 = 2.0;
 /// Sets the upper bound for projectile radius.
 ///
-///
-///  Holds the MAX PROJECTILE RADIUS value.
+/// Holds the MAX PROJECTILE RADIUS value.
 const MAX_PROJECTILE_RADIUS: f32 = 100.0;
 /// Sets the upper bound for reflector horizon frames.
 ///
-///
-///  Holds the MAX REFLECTOR HORIZON FRAMES value.
+/// Holds the MAX REFLECTOR HORIZON FRAMES value.
 const MAX_REFLECTOR_HORIZON_FRAMES: f32 = 40.0;
 /// Sets the upper bound for receipt poll count.
 ///
-///
-///  Holds the MAX RECEIPT POLL COUNT value.
+/// Holds the MAX RECEIPT POLL COUNT value.
 const MAX_RECEIPT_POLL_COUNT: u8 = 24;
 /// Sets the upper bound for unconfirmed reflect frames.
 ///
-///
-///  Holds the MAX UNCONFIRMED REFLECT FRAMES value.
+/// Holds the MAX UNCONFIRMED REFLECT FRAMES value.
 const MAX_UNCONFIRMED_REFLECT_FRAMES: f32 = 24.0;
 /// Sets the lower bound for reflect retry interval frames.
 ///
-///
-///  Holds the MIN REFLECT RETRY INTERVAL FRAMES value.
+/// Holds the MIN REFLECT RETRY INTERVAL FRAMES value.
 const MIN_REFLECT_RETRY_INTERVAL_FRAMES: f32 = 2.0;
 /// Sets the upper bound for turning frames.
 ///
-///
-///  Holds the MAX TURNING FRAMES value.
+/// Holds the MAX TURNING FRAMES value.
 const MAX_TURNING_FRAMES: f32 = 2.0;
 /// Sets the upper bound for unsent reflect frames.
 ///
-///
-///  Holds the MAX UNSENT REFLECT FRAMES value.
+/// Holds the MAX UNSENT REFLECT FRAMES value.
 const MAX_UNSENT_REFLECT_FRAMES: f32 = 4.0;
 /// Defines the `TURNING_REFLECT_STARTUP_EXTRA_FRAMES` constant used by this module.
 ///
-///
-///  Provides the TURNING REFLECT STARTUP EXTRA FRAMES constant value.
+/// Provides the TURNING REFLECT STARTUP EXTRA FRAMES constant value.
 const TURNING_REFLECT_STARTUP_EXTRA_FRAMES: f32 = 1.0;
 /// Recently attempted shots remembered so a missed/consumed shot is not retried.
 ///
@@ -61,8 +52,7 @@ const ATTEMPT_MEMORY: usize = 32;
 
 /// Defines the `GAMEWATCH` constant used by this module.
 ///
-///
-///  Provides the GAMEWATCH constant value.
+/// Provides the GAMEWATCH constant value.
 pub const GAMEWATCH: i32 = crate::fighter_kinds::MR_GAME_AND_WATCH;
 /// Adding a fighter requires a verified native move/resource adapter too.
 ///
@@ -73,46 +63,45 @@ pub fn supports(kind: i32) -> bool {
 
 /// Defines the `Config` data structure.
 ///
-///
-///  Holds the data for Config.
+/// Holds the data for Config.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Config {
     /// Stores the `startup` value in `Config` as `f32`.
     ///
     ///
-///  Holds the startup value used by Config.
+    ///  Holds the startup value used by Config.
     pub startup: f32,
     /// Stores the `margin` value in `Config` as `f32`.
     ///
     ///
-///  Holds the margin value used by Config.
+    ///  Holds the margin value used by Config.
     pub margin: f32,
     /// Stores the `max_hold` value in `Config` as `f32`.
     ///
     ///
-///  Holds the max hold value used by Config.
+    ///  Holds the max hold value used by Config.
     pub max_hold: f32,
     /// Stores the `half_width` value in `Config` as `f32`.
     ///
     ///
-///  Holds the half width value used by Config.
+    ///  Holds the half width value used by Config.
     pub half_width: f32,
     /// Stores the `height` value in `Config` as `f32`.
     ///
     ///
-///  Holds the height value used by Config.
+    ///  Holds the height value used by Config.
     pub height: f32,
     /// Stores the `half_depth` value in `Config` as `f32`.
     ///
     ///
-///  Holds the half depth value used by Config.
+    ///  Holds the half depth value used by Config.
     pub half_depth: f32,
 }
 impl Config {
     /// Returns the profile data for the requested fighter.
     ///
     ///
-///  Gets the data for this fighter.
+    ///  Gets the data for this fighter.
     pub fn for_fighter(kind: i32, values: Tuning) -> Option<Self> {
         // Explicit saved configuration, never a global/cross-fighter fallback.
         if !supports(kind) || values.0[tuning::REFLECT_DEFAULT].is_none() {
@@ -132,7 +121,7 @@ impl Config {
     /// Returns the prediction horizon used by the policy.
     ///
     ///
-///  Gets how far ahead the policy looks.
+    ///  Gets how far ahead the policy looks.
     pub fn horizon(self) -> f32 {
         self.startup + self.margin + REFLECT_CONTACT_SAFETY_MARGIN_FRAMES
     }
@@ -140,8 +129,7 @@ impl Config {
 
 /// Checks whether the fighter can move in the observed state.
 ///
-///
-///  Checks whether the fighter can move.
+/// Checks whether the fighter can move.
 pub fn movable(status: i32, situation: i32) -> bool {
     match situation {
         crate::native_states::situation::GROUND => {
@@ -154,8 +142,7 @@ pub fn movable(status: i32, situation: i32) -> bool {
 }
 /// Classifies the value into its bounded bucket.
 ///
-///
-///  Groups the value into a range.
+/// Groups the value into a range.
 pub fn bucket(status: i32) -> bool {
     matches!(
         status,
@@ -167,29 +154,28 @@ pub fn bucket(status: i32) -> bool {
 
 /// Defines the `Threat` data structure.
 ///
-///
-///  Holds the data for Threat.
+/// Holds the data for Threat.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Threat {
     /// Stores the `id` value in `Threat` as `u32`.
     ///
     ///
-///  Holds the id value used by Threat.
+    ///  Holds the id value used by Threat.
     pub id: u32,
     /// Stores the `generation` value in `Threat` as `u32`.
     ///
     ///
-///  Holds the generation value used by Threat.
+    ///  Holds the generation value used by Threat.
     pub generation: u32,
     /// Stores the `in_frames` value in `Threat` as `f32`.
     ///
     ///
-///  Sets the in frames timing for Threat.
+    ///  Sets the in frames timing for Threat.
     pub in_frames: f32,
     /// Stores the `direction` value in `Threat` as `f32`.
     ///
     ///
-///  Holds the direction value used by Threat.
+    ///  Holds the direction value used by Threat.
     pub direction: f32,
 }
 /// A new native ATTACK on a reused object is a fresh opportunity, not the
@@ -201,19 +187,19 @@ pub struct ProjectileKey {
     /// Stores the `id` value in `ProjectileKey` as `u32`.
     ///
     ///
-///  Holds the id value used by ProjectileKey.
+    ///  Holds the id value used by ProjectileKey.
     pub id: u32,
     /// Stores the `generation` value in `ProjectileKey` as `u32`.
     ///
     ///
-///  Holds the generation value used by ProjectileKey.
+    ///  Holds the generation value used by ProjectileKey.
     pub generation: u32,
 }
 impl Threat {
     /// Builds the lookup key for the observed state.
     ///
     ///
-///  Creates the key used to find this state.
+    ///  Creates the key used to find this state.
     fn key(self) -> ProjectileKey {
         ProjectileKey {
             id: self.id,
@@ -299,44 +285,43 @@ pub fn predict(
 
 /// Defines the `Context` data structure.
 ///
-///
-///  Holds the data for Context.
+/// Holds the data for Context.
 #[derive(Clone, Copy)]
 pub struct Context {
     /// Stores the `kind` value in `Context` as `i32`.
     ///
     ///
-///  Holds the kind value used by Context.
+    ///  Holds the kind value used by Context.
     pub kind: i32,
     /// Stores the `situation` value in `Context` as `i32`.
     ///
     ///
-///  Holds the situation value used by Context.
+    ///  Holds the situation value used by Context.
     pub situation: i32,
     /// Stores the `facing` value in `Context` as `f32`.
     ///
     ///
-///  Holds the facing value used by Context.
+    ///  Holds the facing value used by Context.
     pub facing: f32,
     /// Stores the `can_special` value in `Context` as `bool`.
     ///
     ///
-///  Holds the can special value used by Context.
+    ///  Holds the can special value used by Context.
     pub can_special: bool,
     /// Stores the `gauge` value in `Context` as `f32`.
     ///
     ///
-///  Holds the gauge value used by Context.
+    ///  Holds the gauge value used by Context.
     pub gauge: f32,
     /// Stores the `stopped` value in `Context` as `bool`.
     ///
     ///
-///  Holds the stopped value used by Context.
+    ///  Holds the stopped value used by Context.
     pub stopped: bool,
     /// Stores the `animation` value in `Context` as `AnimationSample`.
     ///
     ///
-///  Holds the animation value used by Context.
+    ///  Holds the animation value used by Context.
     pub animation: AnimationSample,
 }
 /// One current input owner. Delivered/expired attempts remember their native
@@ -348,64 +333,64 @@ pub struct Reflector {
     /// Stores the `clock` value in `Reflector` as `AnimationClock`.
     ///
     ///
-///  Holds the clock value used by Reflector.
+    ///  Holds the clock value used by Reflector.
     clock: AnimationClock,
     /// Stores the `target` value in `Reflector` as `Option<ProjectileKey>`.
     ///
     ///
-///  Optionally stores the target for Reflector; it may be absent.
+    ///  Optionally stores the target for Reflector; it may be absent.
     target: Option<ProjectileKey>,
     /// Stores the `began` value in `Reflector` as `i64`.
     ///
     ///
-///  Holds the began value used by Reflector.
+    ///  Holds the began value used by Reflector.
     began: i64,
     /// Stores the `turning` value in `Reflector` as `bool`.
     ///
     ///
-///  Holds the turning value used by Reflector.
+    ///  Holds the turning value used by Reflector.
     turning: bool,
     /// Stores the `sent` value in `Reflector` as `bool`.
     ///
     ///
-///  Holds the sent value used by Reflector.
+    ///  Holds the sent value used by Reflector.
     sent: bool,
     /// Stores the `confirmed` value in `Reflector` as `bool`.
     ///
     ///
-///  Holds the confirmed value used by Reflector.
+    ///  Holds the confirmed value used by Reflector.
     confirmed: bool,
     /// Stores the `delivery` value in `Reflector` as `crate::move_input::DeliveryBudget`.
     ///
     ///
-///  Holds the delivery value used by Reflector.
+    ///  Holds the delivery value used by Reflector.
     delivery: crate::move_input::DeliveryBudget,
     /// Stores the `receipt_polls` value in `Reflector` as `u8`.
     ///
     ///
-///  Holds the receipt polls value used by Reflector.
+    ///  Holds the receipt polls value used by Reflector.
     receipt_polls: u8,
     /// Stores the `last_poll` value in `Reflector` as `Option<i64>`.
     ///
     ///
-///  Optionally stores the last poll for Reflector; it may be absent.
+    ///  Optionally stores the last poll for Reflector; it may be absent.
     last_poll: Option<i64>,
     /// Stores the `attempted` value in `Reflector` as `[Option<ProjectileKey>; ATTEMPT_MEMORY]`.
     ///
     ///
-///  Stores the attempted collection for Reflector.
+    ///  Stores the attempted collection for Reflector.
     attempted: [Option<ProjectileKey>; ATTEMPT_MEMORY],
     /// Stores the `next` value in `Reflector` as `usize`.
     ///
     ///
-///  Holds the next value used by Reflector.
+    ///  Holds the next value used by Reflector.
     next: usize,
 }
 impl Default for Reflector {
     /// Returns the default value for this type.
     ///
     ///
-///  Returns the default value for this type.
+    ///  Returns the default value for this type.
     fn default() -> Self {
         Self::new()
     }
@@ -414,7 +399,7 @@ impl Reflector {
     /// Constructs a new value with the type’s initial state.
     ///
     ///
-///  Creates a new value.
+    ///  Creates a new value.
     pub const fn new() -> Self {
         Self {
             clock: AnimationClock::new(),
@@ -433,21 +418,21 @@ impl Reflector {
     /// Checks whether the feature is active.
     ///
     ///
-///  Checks whether the feature is on.
+    ///  Checks whether the feature is on.
     pub fn active(&self) -> bool {
         self.target.is_some()
     }
     /// Returns the selected target observation.
     ///
     ///
-///  Gets the chosen target.
+    ///  Gets the chosen target.
     pub fn target(&self) -> Option<u32> {
         self.target.map(|key| key.id)
     }
     /// Stores the latest eligible target observation.
     ///
     ///
-///  Remembers the target that can be used next.
+    ///  Remembers the target that can be used next.
     fn remember_target(&mut self) {
         if let Some(id) = self
             .target
@@ -460,7 +445,7 @@ impl Reflector {
     /// Cancels the pending operation and clears its state.
     ///
     ///
-///  Stops the operation that was waiting.
+    ///  Stops the operation that was waiting.
     pub fn cancel(&mut self) {
         self.target = None;
         self.turning = false;
@@ -473,14 +458,14 @@ impl Reflector {
     /// Aborts the active sequence and resets its progress.
     ///
     ///
-///  Stops the sequence and starts it over.
+    ///  Stops the sequence and starts it over.
     fn abort(&mut self) -> ControllerOutput {
         self.cancel();
         ControllerOutput::default()
     }
     /// Abort, remembering the target when a receipt poll already counted against it.
     ///
-///  Abort, remembering the target when a receipt poll already counted against it.
+    ///  Abort, remembering the target when a receipt poll already counted against it.
     fn abort_polled(&mut self) -> ControllerOutput {
         if self.receipt_polls > 0 {
             self.remember_target();
@@ -490,7 +475,7 @@ impl Reflector {
     /// Last-resort receipt fence when BOTH native animation and projectile
     /// clocks are unavailable/frozen. This never advances a move or adds input.
     ///
-///  Last-resort receipt fence when BOTH native animation and projectile clocks are unavailable/frozen. This never advances a move or adds input.
+    ///  Last-resort receipt fence when BOTH native animation and projectile clocks are unavailable/frozen. This never advances a move or adds input.
     pub fn poll_receipt(&mut self, tick: i64) {
         if self.target.is_some() && !self.confirmed && self.last_poll != Some(tick) {
             self.last_poll = Some(tick);
@@ -504,7 +489,7 @@ impl Reflector {
     /// Checks whether the requested input was acknowledged by the mapper.
     ///
     ///
-///  Checks whether the controller mapping accepted the input.
+    ///  Checks whether the controller mapping accepted the input.
     pub fn mapped(&mut self, tick: i64) {
         if self.target.is_some() {
             self.delivery.mapped(tick);
@@ -517,7 +502,7 @@ impl Reflector {
     /// Updates the toggle state from the current button sample and match state.
     ///
     ///
-///  Checks the current buttons and updates whether the toggle should activate.
+    ///  Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         allowed: bool,
@@ -623,7 +608,7 @@ impl Reflector {
     /// act, the shot is a fresh attempt, and it arrives inside the startup
     /// window (a turn-around costs extra startup and keeps a larger margin).
     ///
-///  Whether a new reflect started now covers this shot: Game & Watch can act, the shot is a fresh attempt, and it arrives inside the startup window (a turn-around costs extra startup and keeps a larger margin).
+    ///  Whether a new reflect started now covers this shot: Game & Watch can act, the shot is a fresh attempt, and it arrives inside the startup window (a turn-around costs extra startup and keeps a larger margin).
     fn admissible(&self, config: Config, c: Context, threat: Threat, facing: bool) -> bool {
         let (extra_startup, extra_margin) = if facing {
             (0., 0.)

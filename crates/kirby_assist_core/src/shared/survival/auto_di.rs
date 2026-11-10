@@ -266,8 +266,7 @@ mod trajectory {
 pub use trajectory::{choose_trajectory, BlastZone, Trajectory};
 /// Defines the available `Mode` cases.
 ///
-///
-///  Lists the available Mode choices.
+/// Lists the available Mode choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Mode {
     /// Represents the `Adaptive` case of `Mode`.
@@ -289,8 +288,7 @@ pub enum Mode {
 }
 /// Defines the `Settings` data structure.
 ///
-///
-///  Holds the data for Settings.
+/// Holds the data for Settings.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Settings {
     /// Stores whether `Settings` is enabled.
@@ -323,8 +321,7 @@ impl Default for Settings {
 }
 /// Defines the `Context` data structure.
 ///
-///
-///  Holds the data for Context.
+/// Holds the data for Context.
 #[derive(Clone, Copy, Debug)]
 pub struct Context {
     /// Stores the `object` value in `Context` as `u32`.
@@ -353,8 +350,7 @@ pub struct Context {
 }
 /// Defines the available `Reason` cases.
 ///
-///
-///  Lists the available Reason choices.
+/// Lists the available Reason choices.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Reason {
     /// Represents the `TrajectorySurvival` case of `Reason`.
@@ -394,8 +390,7 @@ impl Reason {
 }
 /// Defines the `Decision` data structure.
 ///
-///
-///  Holds the data for Decision.
+/// Holds the data for Decision.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Decision {
     /// Stores the `stick` value in `Decision` as `[f32; 2]`.
@@ -414,8 +409,7 @@ pub struct Decision {
 // infer blast-zone safety, recovery ability, throws or guaranteed true combos.
 /// Returns the `predicted_launch` result.
 ///
-///
-///  Gets the predicted launch result.
+/// Gets the predicted launch result.
 pub fn predicted_launch(v: [f32; 2], s: [f32; 2]) -> [f32; 2] {
     let speed = v[0].hypot(v[1]);
     if !v.iter().chain(s.iter()).all(|v| v.is_finite()) || speed < 0.00001 {
@@ -458,8 +452,7 @@ fn usable(settings: Settings, launch: [f32; 2]) -> bool {
 }
 /// Returns an optional `choose` value.
 ///
-///
-///  Gets choose if it is available.
+/// Gets choose if it is available.
 pub fn choose(settings: Settings, c: Context) -> Option<Decision> {
     if !usable(settings, c.launch) || !c.outward.is_finite() {
         return None;
@@ -543,8 +536,7 @@ pub fn choose(settings: Settings, c: Context) -> Option<Decision> {
 
 /// Defines the `AutoDi` data structure.
 ///
-///
-///  Holds the data for AutoDi.
+/// Holds the data for AutoDi.
 #[derive(Default)]
 pub struct AutoDi {
     /// Stores the `last` value in `AutoDi` as `Option<(u32`.

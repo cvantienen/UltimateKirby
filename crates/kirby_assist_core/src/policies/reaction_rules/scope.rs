@@ -9,8 +9,7 @@ pub fn automatic_start_status(status: i32) -> bool {
 }
 /// Determines whether the `automatic_start_allowed` condition holds.
 ///
-///
-///  Checks whether automatic start allowed.
+/// Checks whether automatic start allowed.
 pub fn automatic_start_allowed(status: i32, situation: i32, stopped: bool, linked: bool) -> bool {
     situation == crate::native_states::situation::GROUND
         && !stopped
@@ -38,8 +37,7 @@ pub fn automatic_follow_target_available(status: i32) -> bool {
 }
 /// Determines whether the `automatic_up_b_status` condition holds.
 ///
-///
-///  Checks whether automatic up b status.
+/// Checks whether automatic up b status.
 pub fn automatic_up_b_status(kind: i32, status: i32, _previous: i32) -> bool {
     crate::native_states::up_special_status(kind, status)
 }
@@ -60,8 +58,7 @@ pub fn automatic_up_b_receipt_status(status: i32, situation: i32, assisted_dodge
 
 /// Defines the `AutomaticObservationScope` data structure.
 ///
-///
-///  Holds the data for AutomaticObservationScope.
+/// Holds the data for AutomaticObservationScope.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct AutomaticObservationScope {
     /// Stores the `acquire` value in `AutomaticObservationScope` as `bool`.
@@ -137,8 +134,7 @@ impl AutomaticObservationScope {
 
 /// Determines whether the `automatic_fighter_target_available` condition holds.
 ///
-///
-///  Checks whether automatic fighter target available.
+/// Checks whether automatic fighter target available.
 pub fn automatic_fighter_target_available(kind: i32, status: i32) -> bool {
     automatic_target_available(status) && !crate::native_states::fighter_noncombat(kind, status)
 }

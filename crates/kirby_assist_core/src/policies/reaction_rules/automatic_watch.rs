@@ -3,8 +3,7 @@ use super::*;
 
 /// Defines the `SimpleStart` data structure.
 ///
-///
-///  Holds the data for SimpleStart.
+/// Holds the data for SimpleStart.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SimpleStart {
     /// Stores the `distance` value in `SimpleStart` as `f32`.
@@ -26,8 +25,7 @@ pub struct SimpleStart {
 
 /// Determines whether ground.
 ///
-///
-///  Checks whether ground.
+/// Checks whether ground.
 pub(super) fn needs_ground(sequence: &Sequence) -> bool {
     sequence.actions().iter().any(|action| {
         matches!(

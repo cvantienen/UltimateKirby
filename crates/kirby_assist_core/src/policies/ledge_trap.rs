@@ -10,45 +10,45 @@ mod attempt {
     /// Defines `Stamp` as a type alias.
     ///
     ///
-///  Holds the Stamp value.
+    ///  Holds the Stamp value.
     type Stamp = (i32, u64, f32, f32);
     /// Defines the `NativeAttempt` data structure.
     ///
     ///
-///  Holds the data for NativeAttempt.
+    ///  Holds the data for NativeAttempt.
     #[derive(Default)]
     pub(crate) struct NativeAttempt {
         /// Stores the `previous` value in `NativeAttempt` as `Option<Stamp>`.
         ///
         ///
-///  Optionally stores the previous for NativeAttempt; it may be absent.
+        ///  Optionally stores the previous for NativeAttempt; it may be absent.
         previous: Option<Stamp>,
         /// Stores the `previous_enemy` value in `NativeAttempt` as `Option<(u32`.
         ///
         ///
-///  Optionally stores the previous enemy for NativeAttempt; it may be absent.
+        ///  Optionally stores the previous enemy for NativeAttempt; it may be absent.
         previous_enemy: Option<(u32, Stamp)>,
         /// Stores the `enemy_was_fresh` value in `NativeAttempt` as `bool`.
         ///
         ///
-///  Holds the enemy was fresh value used by NativeAttempt.
+        ///  Holds the enemy was fresh value used by NativeAttempt.
         enemy_was_fresh: bool,
         /// Stores the `age` value in `NativeAttempt` as `f32`.
         ///
         ///
-///  Holds the age value used by NativeAttempt.
+        ///  Holds the age value used by NativeAttempt.
         age: f32,
         /// Stores the `expired` value in `NativeAttempt` as `bool`.
         ///
         ///
-///  Holds the expired value used by NativeAttempt.
+        ///  Holds the expired value used by NativeAttempt.
         pub expired: bool,
     }
     impl NativeAttempt {
         /// Constructs a new value with the type’s initial state.
         ///
         ///
-///  Creates a new value.
+        ///  Creates a new value.
         pub const fn new() -> Self {
             Self {
                 previous: None,
@@ -61,21 +61,21 @@ mod attempt {
 
         /// Rebase a completed loop without discarding native actor stamps.
         ///
-///  Rebase a completed loop without discarding native actor stamps.
+        ///  Rebase a completed loop without discarding native actor stamps.
         pub fn consume(&mut self, frames: f32) {
             self.age -= frames;
         }
         /// Returns the `elapsed` result.
         ///
         ///
-///  Gets the elapsed result.
+        ///  Gets the elapsed result.
         pub fn elapsed(&self) -> f32 {
             self.age
         }
         /// Advances the pause.
         ///
         ///
-///  Advances the pause.
+        ///  Advances the pause.
         pub fn advance_pause(
             &mut self,
             ctx: GameplayContext,
@@ -158,7 +158,7 @@ mod attempt {
     /// Returns the `progress` result.
     ///
     ///
-///  Gets the progress result.
+    ///  Gets the progress result.
     fn progress(previous: Option<Stamp>, current: Stamp) -> f32 {
         let Some(p) = previous else {
             return 0.0;
@@ -207,7 +207,7 @@ mod attempt {
         /// Regression test for `held_guard_and_teeter_poses_use_opponent_frames_without_counting_duplicates_or_hitstop`.
         ///
         ///
-///  Checks that held guard and teeter poses use opponent frames without counting duplicates or hitstop.
+        ///  Checks that held guard and teeter poses use opponent frames without counting duplicates or hitstop.
         #[test]
         fn held_guard_and_teeter_poses_use_opponent_frames_without_counting_duplicates_or_hitstop()
         {
@@ -285,106 +285,106 @@ mod diagnostics {
     /// Defines the available `CalibrationKind` cases.
     ///
     ///
-///  Lists the available CalibrationKind choices.
+    ///  Lists the available CalibrationKind choices.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum CalibrationKind {
         /// Represents the `Attack` case of `CalibrationKind`.
         ///
         ///
-///  Represents the Attack option in CalibrationKind.
+        ///  Represents the Attack option in CalibrationKind.
         Attack,
         /// Represents the `Special` case of `CalibrationKind`.
         ///
         ///
-///  Represents the Special option in CalibrationKind.
+        ///  Represents the Special option in CalibrationKind.
         Special,
         /// Represents the `Grab` case of `CalibrationKind`.
         ///
         ///
-///  Represents the Grab option in CalibrationKind.
+        ///  Represents the Grab option in CalibrationKind.
         Grab,
         /// Represents the `Zair` case of `CalibrationKind`.
         ///
         ///
-///  Represents the Zair option in CalibrationKind.
+        ///  Represents the Zair option in CalibrationKind.
         Zair,
         /// Represents the `Shield` case of `CalibrationKind`.
         ///
         ///
-///  Represents the Shield option in CalibrationKind.
+        ///  Represents the Shield option in CalibrationKind.
         Shield,
         /// Represents the `Unknown` case of `CalibrationKind`.
         ///
         ///
-///  Represents the Unknown option in CalibrationKind.
+        ///  Represents the Unknown option in CalibrationKind.
         Unknown,
     }
 
     /// Defines the available `NativeRule` cases.
     ///
     ///
-///  Lists the available NativeRule choices.
+    ///  Lists the available NativeRule choices.
     #[derive(Clone, Copy, Debug)]
     pub enum NativeRule {
         /// Represents the `Unknown` case of `NativeRule`.
         ///
         ///
-///  Represents the Unknown option in NativeRule.
+        ///  Represents the Unknown option in NativeRule.
         Unknown,
         /// Represents the `Ground` case of `NativeRule`.
         ///
         ///
-///  Represents the Ground option in NativeRule.
+        ///  Represents the Ground option in NativeRule.
         Ground {
             /// Stores the `startup` value in `NativeRule` as `i32`.
             ///
             ///
-///  Holds the startup value used by NativeRule.
+            ///  Holds the startup value used by NativeRule.
             startup: i32,
             /// Stores the `attack` value in `NativeRule` as `i32`.
             ///
             ///
-///  Holds the attack value used by NativeRule.
+            ///  Holds the attack value used by NativeRule.
             attack: i32,
         },
         /// Represents the `Aerial` case of `NativeRule`.
         ///
         ///
-///  Represents the Aerial option in NativeRule.
+        ///  Represents the Aerial option in NativeRule.
         Aerial {
             /// Stores the `motion` value in `NativeRule` as `u64`.
             ///
             ///
-///  Holds the motion value used by NativeRule.
+            ///  Holds the motion value used by NativeRule.
             motion: u64,
             /// Stores the `custom_status` value in `NativeRule` as `Option<i32>`.
             ///
             ///
-///  Optionally stores the custom status for NativeRule; it may be absent.
+            ///  Optionally stores the custom status for NativeRule; it may be absent.
             custom_status: Option<i32>,
         },
         /// Represents the `Statuses` case of `NativeRule`.
         ///
         ///
-///  Represents the Statuses option in NativeRule.
+        ///  Represents the Statuses option in NativeRule.
         Statuses(
             /// Carries the native status IDs that activate the rule in `NativeRule`.
             ///
             ///
-///  Holds the native status IDs that activate the rule for this `NativeRule` choice.
+            ///  Holds the native status IDs that activate the rule for this `NativeRule` choice.
             &'static [i32],
         ),
         /// Represents the `Inhale` case of `NativeRule`.
         ///
         ///
-///  Represents the Inhale option in NativeRule.
+        ///  Represents the Inhale option in NativeRule.
         Inhale,
     }
     impl NativeRule {
         /// Determines whether the `matches` condition holds.
         ///
         ///
-///  Checks whether matches.
+        ///  Checks whether matches.
         pub fn matches(self, c: GameplayContext) -> bool {
             match self {
                 Self::Unknown => false,
@@ -411,55 +411,55 @@ mod diagnostics {
     /// Defines the `CalibrationMove` data structure.
     ///
     ///
-///  Holds the data for CalibrationMove.
+    ///  Holds the data for CalibrationMove.
     #[derive(Clone, Copy, Debug)]
     pub struct CalibrationMove {
         /// Stores the `kind` value in `CalibrationMove` as `CalibrationKind`.
         ///
         ///
-///  Holds the kind value used by CalibrationMove.
+        ///  Holds the kind value used by CalibrationMove.
         pub kind: CalibrationKind,
         /// Stores the `native` value in `CalibrationMove` as `NativeRule`.
         ///
         ///
-///  Holds the native value used by CalibrationMove.
+        ///  Holds the native value used by CalibrationMove.
         pub native: NativeRule,
         /// Stores the `first` value in `CalibrationMove` as `Option<u8>`.
         ///
         ///
-///  Optionally stores the first for CalibrationMove; it may be absent.
+        ///  Optionally stores the first for CalibrationMove; it may be absent.
         pub first: Option<u8>,
         /// Stores the `last` value in `CalibrationMove` as `Option<u8>`.
         ///
         ///
-///  Optionally stores the last for CalibrationMove; it may be absent.
+        ///  Optionally stores the last for CalibrationMove; it may be absent.
         pub last: Option<u8>,
         /// Stores the `full_hop` value in `CalibrationMove` as `Option<bool>`.
         ///
         ///
-///  Optionally stores the full hop for CalibrationMove; it may be absent.
+        ///  Optionally stores the full hop for CalibrationMove; it may be absent.
         pub full_hop: Option<bool>,
         /// Stores the `drift` value in `CalibrationMove` as `Option<f32>`.
         ///
         ///
-///  Optionally stores the drift for CalibrationMove; it may be absent.
+        ///  Optionally stores the drift for CalibrationMove; it may be absent.
         pub drift: Option<f32>,
         /// Stores the `drift_until` value in `CalibrationMove` as `Option<u8>`.
         ///
         ///
-///  Optionally stores the drift until for CalibrationMove; it may be absent.
+        ///  Optionally stores the drift until for CalibrationMove; it may be absent.
         pub drift_until: Option<u8>,
         /// Stores the `fast_fall_from` value in `CalibrationMove` as `Option<u8>`.
         ///
         ///
-///  Optionally stores the fast fall from for CalibrationMove; it may be absent.
+        ///  Optionally stores the fast fall from for CalibrationMove; it may be absent.
         pub fast_fall_from: Option<u8>,
     }
     impl CalibrationMove {
         /// Returns the `unknown` result.
         ///
         ///
-///  Gets the unknown result.
+        ///  Gets the unknown result.
         pub const fn unknown() -> Self {
             Self {
                 kind: CalibrationKind::Unknown,
@@ -477,250 +477,250 @@ mod diagnostics {
     /// Defines the `CalibrationFrame` data structure.
     ///
     ///
-///  Holds the data for CalibrationFrame.
+    ///  Holds the data for CalibrationFrame.
     #[derive(Clone, Copy, Debug)]
     pub struct CalibrationFrame {
         /// Stores the `target` value in `CalibrationFrame` as `u32`.
         ///
         ///
-///  Holds the target value used by CalibrationFrame.
+        ///  Holds the target value used by CalibrationFrame.
         pub target: u32,
         /// Stores the `slot` value in `CalibrationFrame` as `PresetSlot`.
         ///
         ///
-///  Holds the slot value used by CalibrationFrame.
+        ///  Holds the slot value used by CalibrationFrame.
         pub slot: PresetSlot,
         /// Stores the `expected` value in `CalibrationFrame` as `CalibrationMove`.
         ///
         ///
-///  Holds the expected value used by CalibrationFrame.
+        ///  Holds the expected value used by CalibrationFrame.
         pub expected: CalibrationMove,
         /// Diagnostic-only native activity evidence; never a gameplay gate.
         ///
-///  Diagnostic-only native activity evidence; never a gameplay gate.
+        ///  Diagnostic-only native activity evidence; never a gameplay gate.
         pub native_attack_active: Option<bool>,
         /// Stores the `timeline_end` value in `CalibrationFrame` as `Option<&'static str>`.
         ///
         ///
-///  Optionally stores the timeline end for CalibrationFrame; it may be absent.
+        ///  Optionally stores the timeline end for CalibrationFrame; it may be absent.
         pub timeline_end: Option<&'static str>,
         /// Stores the `context` value in `CalibrationFrame` as `GameplayContext`.
         ///
         ///
-///  Holds the context value used by CalibrationFrame.
+        ///  Holds the context value used by CalibrationFrame.
         pub context: GameplayContext,
         /// Stores the `enemy` value in `CalibrationFrame` as `Option<Opponent>`.
         ///
         ///
-///  Optionally stores the enemy for CalibrationFrame; it may be absent.
+        ///  Optionally stores the enemy for CalibrationFrame; it may be absent.
         pub enemy: Option<Opponent>,
         /// Stores the `output` value in `CalibrationFrame` as `ControllerOutput`.
         ///
         ///
-///  Holds the output value used by CalibrationFrame.
+        ///  Holds the output value used by CalibrationFrame.
         pub output: ControllerOutput,
         /// Stores the `phase` value in `CalibrationFrame` as `&'static str`.
         ///
         ///
-///  Holds the phase value used by CalibrationFrame.
+        ///  Holds the phase value used by CalibrationFrame.
         pub phase: &'static str,
         /// Stores the `complete` value in `CalibrationFrame` as `bool`.
         ///
         ///
-///  Holds the complete value used by CalibrationFrame.
+        ///  Holds the complete value used by CalibrationFrame.
         pub complete: bool,
         /// Stores the `captured` value in `CalibrationFrame` as `bool`.
         ///
         ///
-///  Holds the captured value used by CalibrationFrame.
+        ///  Holds the captured value used by CalibrationFrame.
         pub captured: bool,
         /// Stores the `blocked` value in `CalibrationFrame` as `bool`.
         ///
         ///
-///  Holds the blocked value used by CalibrationFrame.
+        ///  Holds the blocked value used by CalibrationFrame.
         pub blocked: bool,
         /// Stores the `endpoint` value in `CalibrationFrame` as `Option<[f32; 3]>`.
         ///
         ///
-///  Optionally stores the endpoint for CalibrationFrame; it may be absent.
+        ///  Optionally stores the endpoint for CalibrationFrame; it may be absent.
         pub endpoint: Option<[f32; 3]>,
         /// Stores the `configured_range` value in `CalibrationFrame` as `Option<f32>`.
         ///
         ///
-///  Optionally stores the configured range for CalibrationFrame; it may be absent.
+        ///  Optionally stores the configured range for CalibrationFrame; it may be absent.
         pub configured_range: Option<f32>,
         /// Stores the `lead` value in `CalibrationFrame` as `Option<f32>`.
         ///
         ///
-///  Optionally stores the lead for CalibrationFrame; it may be absent.
+        ///  Optionally stores the lead for CalibrationFrame; it may be absent.
         pub lead: Option<f32>,
         /// Stores the `distance_agnostic` value in `CalibrationFrame` as `bool`.
         ///
         ///
-///  Holds the distance agnostic value used by CalibrationFrame.
+        ///  Holds the distance agnostic value used by CalibrationFrame.
         pub distance_agnostic: bool,
         /// Stores the `grab_button` value in `CalibrationFrame` as `u32`.
         ///
         ///
-///  Holds the grab button value used by CalibrationFrame.
+        ///  Holds the grab button value used by CalibrationFrame.
         pub grab_button: u32,
     }
 
     /// Defines the `RollGrabSnapshot` data structure.
     ///
     ///
-///  Holds the data for RollGrabSnapshot.
+    ///  Holds the data for RollGrabSnapshot.
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
     pub struct RollGrabSnapshot {
         /// Stores the `target` value in `RollGrabSnapshot` as `Option<u32>`.
         ///
         ///
-///  Optionally stores the target for RollGrabSnapshot; it may be absent.
+        ///  Optionally stores the target for RollGrabSnapshot; it may be absent.
         pub target: Option<u32>,
         /// Stores the `phase` value in `RollGrabSnapshot` as `&'static str`.
         ///
         ///
-///  Holds the phase value used by RollGrabSnapshot.
+        ///  Holds the phase value used by RollGrabSnapshot.
         pub phase: &'static str,
         /// Stores the `status` value in `RollGrabSnapshot` as `i32`.
         ///
         ///
-///  Holds the status value used by RollGrabSnapshot.
+        ///  Holds the status value used by RollGrabSnapshot.
         pub status: i32,
         /// Stores the `motion_frame` value in `RollGrabSnapshot` as `f32`.
         ///
         ///
-///  Holds the motion frame value used by RollGrabSnapshot.
+        ///  Holds the motion frame value used by RollGrabSnapshot.
         pub motion_frame: f32,
         /// Stores the `position` value in `RollGrabSnapshot` as `[f32; 2]`.
         ///
         ///
-///  Stores the position collection for RollGrabSnapshot.
+        ///  Stores the position collection for RollGrabSnapshot.
         pub position: [f32; 2],
         /// Stores the `velocity_x` value in `RollGrabSnapshot` as `f32`.
         ///
         ///
-///  Holds the velocity x value used by RollGrabSnapshot.
+        ///  Holds the velocity x value used by RollGrabSnapshot.
         pub velocity_x: f32,
         /// Stores the `facing` value in `RollGrabSnapshot` as `f32`.
         ///
         ///
-///  Holds the facing value used by RollGrabSnapshot.
+        ///  Holds the facing value used by RollGrabSnapshot.
         pub facing: f32,
         /// Stores the `endpoint` value in `RollGrabSnapshot` as `Option<f32>`.
         ///
         ///
-///  Optionally stores the endpoint for RollGrabSnapshot; it may be absent.
+        ///  Optionally stores the endpoint for RollGrabSnapshot; it may be absent.
         pub endpoint: Option<f32>,
         /// Stores the `stand_x` value in `RollGrabSnapshot` as `Option<f32>`.
         ///
         ///
-///  Optionally stores the stand x for RollGrabSnapshot; it may be absent.
+        ///  Optionally stores the stand x for RollGrabSnapshot; it may be absent.
         pub stand_x: Option<f32>,
         /// Stores the `usable_reach` value in `RollGrabSnapshot` as `f32`.
         ///
         ///
-///  Holds the usable reach value used by RollGrabSnapshot.
+        ///  Holds the usable reach value used by RollGrabSnapshot.
         pub usable_reach: f32,
         /// Stores the `grab_range` value in `RollGrabSnapshot` as `f32`.
         ///
         ///
-///  Holds the grab range value used by RollGrabSnapshot.
+        ///  Holds the grab range value used by RollGrabSnapshot.
         pub grab_range: f32,
         /// Stores the `can_control` value in `RollGrabSnapshot` as `bool`.
         ///
         ///
-///  Holds the can control value used by RollGrabSnapshot.
+        ///  Holds the can control value used by RollGrabSnapshot.
         pub can_control: bool,
         /// Stores the `can_act` value in `RollGrabSnapshot` as `bool`.
         ///
         ///
-///  Holds the can act value used by RollGrabSnapshot.
+        ///  Holds the can act value used by RollGrabSnapshot.
         pub can_act: bool,
         /// Stores the `can_grab` value in `RollGrabSnapshot` as `bool`.
         ///
         ///
-///  Holds the can grab value used by RollGrabSnapshot.
+        ///  Holds the can grab value used by RollGrabSnapshot.
         pub can_grab: bool,
         /// Stores the `stopped` value in `RollGrabSnapshot` as `bool`.
         ///
         ///
-///  Holds the stopped value used by RollGrabSnapshot.
+        ///  Holds the stopped value used by RollGrabSnapshot.
         pub stopped: bool,
         /// Stores the `safe_ground` value in `RollGrabSnapshot` as `[bool; 2]`.
         ///
         ///
-///  Stores the safe ground collection for RollGrabSnapshot.
+        ///  Stores the safe ground collection for RollGrabSnapshot.
         pub safe_ground: [bool; 2],
         /// Stores the `enemy_status` value in `RollGrabSnapshot` as `Option<i32>`.
         ///
         ///
-///  Optionally stores the enemy status for RollGrabSnapshot; it may be absent.
+        ///  Optionally stores the enemy status for RollGrabSnapshot; it may be absent.
         pub enemy_status: Option<i32>,
         /// Stores the `enemy_frame` value in `RollGrabSnapshot` as `Option<f32>`.
         ///
         ///
-///  Optionally stores the enemy frame for RollGrabSnapshot; it may be absent.
+        ///  Optionally stores the enemy frame for RollGrabSnapshot; it may be absent.
         pub enemy_frame: Option<f32>,
         /// Stores the `enemy_position` value in `RollGrabSnapshot` as `Option<[f32; 2]>`.
         ///
         ///
-///  Optionally stores the enemy position for RollGrabSnapshot; it may be absent.
+        ///  Optionally stores the enemy position for RollGrabSnapshot; it may be absent.
         pub enemy_position: Option<[f32; 2]>,
         /// Stores the `vulnerable` value in `RollGrabSnapshot` as `Option<bool>`.
         ///
         ///
-///  Optionally stores the vulnerable for RollGrabSnapshot; it may be absent.
+        ///  Optionally stores the vulnerable for RollGrabSnapshot; it may be absent.
         pub vulnerable: Option<bool>,
         /// Stores the `vulnerable_in` value in `RollGrabSnapshot` as `Option<f32>`.
         ///
         ///
-///  Optionally stores the vulnerable in for RollGrabSnapshot; it may be absent.
+        ///  Optionally stores the vulnerable in for RollGrabSnapshot; it may be absent.
         pub vulnerable_in: Option<f32>,
         /// Stores the `adjusted_opens_in` value in `RollGrabSnapshot` as `Option<f32>`.
         ///
         ///
-///  Optionally stores the adjusted opens in for RollGrabSnapshot; it may be absent.
+        ///  Optionally stores the adjusted opens in for RollGrabSnapshot; it may be absent.
         pub adjusted_opens_in: Option<f32>,
         /// Stores the `actionable_in` value in `RollGrabSnapshot` as `Option<f32>`.
         ///
         ///
-///  Optionally stores the actionable in for RollGrabSnapshot; it may be absent.
+        ///  Optionally stores the actionable in for RollGrabSnapshot; it may be absent.
         pub actionable_in: Option<f32>,
         /// Stores the `active` value in `RollGrabSnapshot` as `[u8; 2]`.
         ///
         ///
-///  Stores the active collection for RollGrabSnapshot.
+        ///  Stores the active collection for RollGrabSnapshot.
         pub active: [u8; 2],
         /// Stores the `requested` value in `RollGrabSnapshot` as `u32`.
         ///
         ///
-///  Holds the requested value used by RollGrabSnapshot.
+        ///  Holds the requested value used by RollGrabSnapshot.
         pub requested: u32,
         /// Stores the `grab_button` value in `RollGrabSnapshot` as `u32`.
         ///
         ///
-///  Holds the grab button value used by RollGrabSnapshot.
+        ///  Holds the grab button value used by RollGrabSnapshot.
         pub grab_button: u32,
         /// Stores the `attempts` value in `RollGrabSnapshot` as `u8`.
         ///
         ///
-///  Holds the attempts value used by RollGrabSnapshot.
+        ///  Holds the attempts value used by RollGrabSnapshot.
         pub attempts: u8,
         /// Stores the `animations` value in `RollGrabSnapshot` as `u8`.
         ///
         ///
-///  Holds the animations value used by RollGrabSnapshot.
+        ///  Holds the animations value used by RollGrabSnapshot.
         pub animations: u8,
         /// Stores the `native_grabbing` value in `RollGrabSnapshot` as `bool`.
         ///
         ///
-///  Holds the native grabbing value used by RollGrabSnapshot.
+        ///  Holds the native grabbing value used by RollGrabSnapshot.
         pub native_grabbing: bool,
         /// Stores the `captured` value in `RollGrabSnapshot` as `bool`.
         ///
         ///
-///  Holds the captured value used by RollGrabSnapshot.
+        ///  Holds the captured value used by RollGrabSnapshot.
         pub captured: bool,
     }
 
@@ -728,14 +728,14 @@ mod diagnostics {
         /// Returns an optional `calibration_slot` value.
         ///
         ///
-///  Gets calibration slot if it is available.
+        ///  Gets calibration slot if it is available.
         pub fn calibration_slot(&self) -> Option<PresetSlot> {
             self.slot
         }
         /// Returns an optional `calibration_frame` value.
         ///
         ///
-///  Gets calibration frame if it is available.
+        ///  Gets calibration frame if it is available.
         pub fn calibration_frame(
             &self,
             settings: AssistSettings,
@@ -766,7 +766,7 @@ mod diagnostics {
         /// Returns an optional `roll_grab_diagnostic` value.
         ///
         ///
-///  Gets roll grab diagnostic if it is available.
+        ///  Gets roll grab diagnostic if it is available.
         pub fn roll_grab_diagnostic(&self) -> Option<RollGrabSnapshot> {
             None
         }
@@ -779,410 +779,410 @@ mod identity {
     /// Defines the available `ResponseImplementation` cases.
     ///
     ///
-///  Lists the available ResponseImplementation choices.
+    ///  Lists the available ResponseImplementation choices.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum ResponseImplementation {
         /// Represents the `Kirby` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Kirby option in ResponseImplementation.
+        ///  Represents the Kirby option in ResponseImplementation.
         Kirby,
         /// Represents the `Luigi` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Luigi option in ResponseImplementation.
+        ///  Represents the Luigi option in ResponseImplementation.
         Luigi,
         /// Represents the `CaptainFalcon` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the CaptainFalcon option in ResponseImplementation.
+        ///  Represents the CaptainFalcon option in ResponseImplementation.
         CaptainFalcon,
         /// Represents the `Mario` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Mario option in ResponseImplementation.
+        ///  Represents the Mario option in ResponseImplementation.
         Mario,
         /// Represents the `DonkeyKong` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the DonkeyKong option in ResponseImplementation.
+        ///  Represents the DonkeyKong option in ResponseImplementation.
         DonkeyKong,
         /// Represents the `Link` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Link option in ResponseImplementation.
+        ///  Represents the Link option in ResponseImplementation.
         Link,
         /// Represents the `Samus` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Samus option in ResponseImplementation.
+        ///  Represents the Samus option in ResponseImplementation.
         Samus,
         /// Represents the `Yoshi` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Yoshi option in ResponseImplementation.
+        ///  Represents the Yoshi option in ResponseImplementation.
         Yoshi,
         /// Represents the `Fox` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Fox option in ResponseImplementation.
+        ///  Represents the Fox option in ResponseImplementation.
         Fox,
         /// Represents the `Pikachu` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Pikachu option in ResponseImplementation.
+        ///  Represents the Pikachu option in ResponseImplementation.
         Pikachu,
         /// Represents the `Sonic` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Sonic option in ResponseImplementation.
+        ///  Represents the Sonic option in ResponseImplementation.
         Sonic,
         /// Represents the `KingKRool` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the KingKRool option in ResponseImplementation.
+        ///  Represents the KingKRool option in ResponseImplementation.
         KingKRool,
         /// Represents the `Isabelle` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Isabelle option in ResponseImplementation.
+        ///  Represents the Isabelle option in ResponseImplementation.
         Isabelle,
         /// Represents the `PacMan` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the PacMan option in ResponseImplementation.
+        ///  Represents the PacMan option in ResponseImplementation.
         PacMan,
         /// Represents the `LittleMac` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the LittleMac option in ResponseImplementation.
+        ///  Represents the LittleMac option in ResponseImplementation.
         LittleMac,
         /// Represents the `DarkSamus` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the DarkSamus option in ResponseImplementation.
+        ///  Represents the DarkSamus option in ResponseImplementation.
         DarkSamus,
         /// Represents the `Ness` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Ness option in ResponseImplementation.
+        ///  Represents the Ness option in ResponseImplementation.
         Ness,
         /// Represents the `Jigglypuff` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Jigglypuff option in ResponseImplementation.
+        ///  Represents the Jigglypuff option in ResponseImplementation.
         Jigglypuff,
         /// Represents the `Peach` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Peach option in ResponseImplementation.
+        ///  Represents the Peach option in ResponseImplementation.
         Peach,
         /// Represents the `Daisy` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Daisy option in ResponseImplementation.
+        ///  Represents the Daisy option in ResponseImplementation.
         Daisy,
         /// Represents the `Bowser` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Bowser option in ResponseImplementation.
+        ///  Represents the Bowser option in ResponseImplementation.
         Bowser,
         /// Represents the `Sheik` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Sheik option in ResponseImplementation.
+        ///  Represents the Sheik option in ResponseImplementation.
         Sheik,
         /// Represents the `Zelda` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Zelda option in ResponseImplementation.
+        ///  Represents the Zelda option in ResponseImplementation.
         Zelda,
         /// Represents the `DrMario` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the DrMario option in ResponseImplementation.
+        ///  Represents the DrMario option in ResponseImplementation.
         DrMario,
         /// Represents the `Pichu` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Pichu option in ResponseImplementation.
+        ///  Represents the Pichu option in ResponseImplementation.
         Pichu,
         /// Represents the `Falco` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Falco option in ResponseImplementation.
+        ///  Represents the Falco option in ResponseImplementation.
         Falco,
         /// Represents the `Marth` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Marth option in ResponseImplementation.
+        ///  Represents the Marth option in ResponseImplementation.
         Marth,
         /// Represents the `Lucina` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Lucina option in ResponseImplementation.
+        ///  Represents the Lucina option in ResponseImplementation.
         Lucina,
         /// Represents the `YoungLink` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the YoungLink option in ResponseImplementation.
+        ///  Represents the YoungLink option in ResponseImplementation.
         YoungLink,
         /// Represents the `Ganondorf` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Ganondorf option in ResponseImplementation.
+        ///  Represents the Ganondorf option in ResponseImplementation.
         Ganondorf,
         /// Represents the `Mewtwo` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Mewtwo option in ResponseImplementation.
+        ///  Represents the Mewtwo option in ResponseImplementation.
         Mewtwo,
         /// Represents the `Roy` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Roy option in ResponseImplementation.
+        ///  Represents the Roy option in ResponseImplementation.
         Roy,
         /// Represents the `Chrom` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Chrom option in ResponseImplementation.
+        ///  Represents the Chrom option in ResponseImplementation.
         Chrom,
         /// Represents the `MrGameAndWatch` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the MrGameAndWatch option in ResponseImplementation.
+        ///  Represents the MrGameAndWatch option in ResponseImplementation.
         MrGameAndWatch,
         /// Represents the `MetaKnight` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the MetaKnight option in ResponseImplementation.
+        ///  Represents the MetaKnight option in ResponseImplementation.
         MetaKnight,
         /// Represents the `Pit` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Pit option in ResponseImplementation.
+        ///  Represents the Pit option in ResponseImplementation.
         Pit,
         /// Represents the `DarkPit` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the DarkPit option in ResponseImplementation.
+        ///  Represents the DarkPit option in ResponseImplementation.
         DarkPit,
         /// Represents the `ZeroSuitSamus` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the ZeroSuitSamus option in ResponseImplementation.
+        ///  Represents the ZeroSuitSamus option in ResponseImplementation.
         ZeroSuitSamus,
         /// Represents the `Wario` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Wario option in ResponseImplementation.
+        ///  Represents the Wario option in ResponseImplementation.
         Wario,
         /// Represents the `Snake` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Snake option in ResponseImplementation.
+        ///  Represents the Snake option in ResponseImplementation.
         Snake,
         /// Represents the `Ike` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Ike option in ResponseImplementation.
+        ///  Represents the Ike option in ResponseImplementation.
         Ike,
         /// Represents the `Squirtle` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Squirtle option in ResponseImplementation.
+        ///  Represents the Squirtle option in ResponseImplementation.
         Squirtle,
         /// Represents the `Ivysaur` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Ivysaur option in ResponseImplementation.
+        ///  Represents the Ivysaur option in ResponseImplementation.
         Ivysaur,
         /// Represents the `Charizard` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Charizard option in ResponseImplementation.
+        ///  Represents the Charizard option in ResponseImplementation.
         Charizard,
         /// Represents the `DiddyKong` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the DiddyKong option in ResponseImplementation.
+        ///  Represents the DiddyKong option in ResponseImplementation.
         DiddyKong,
         /// Represents the `Lucas` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Lucas option in ResponseImplementation.
+        ///  Represents the Lucas option in ResponseImplementation.
         Lucas,
         /// Represents the `KingDedede` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the KingDedede option in ResponseImplementation.
+        ///  Represents the KingDedede option in ResponseImplementation.
         KingDedede,
         /// Represents the `Olimar` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Olimar option in ResponseImplementation.
+        ///  Represents the Olimar option in ResponseImplementation.
         Olimar,
         /// Represents the `Lucario` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Lucario option in ResponseImplementation.
+        ///  Represents the Lucario option in ResponseImplementation.
         Lucario,
         /// Represents the `Rob` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Rob option in ResponseImplementation.
+        ///  Represents the Rob option in ResponseImplementation.
         Rob,
         /// Represents the `ToonLink` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the ToonLink option in ResponseImplementation.
+        ///  Represents the ToonLink option in ResponseImplementation.
         ToonLink,
         /// Represents the `Wolf` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Wolf option in ResponseImplementation.
+        ///  Represents the Wolf option in ResponseImplementation.
         Wolf,
         /// Represents the `Villager` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Villager option in ResponseImplementation.
+        ///  Represents the Villager option in ResponseImplementation.
         Villager,
         /// Represents the `MegaMan` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the MegaMan option in ResponseImplementation.
+        ///  Represents the MegaMan option in ResponseImplementation.
         MegaMan,
         /// Represents the `WiiFitTrainer` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the WiiFitTrainer option in ResponseImplementation.
+        ///  Represents the WiiFitTrainer option in ResponseImplementation.
         WiiFitTrainer,
         /// Represents the `RosalinaAndLuma` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the RosalinaAndLuma option in ResponseImplementation.
+        ///  Represents the RosalinaAndLuma option in ResponseImplementation.
         RosalinaAndLuma,
         /// Represents the `Greninja` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Greninja option in ResponseImplementation.
+        ///  Represents the Greninja option in ResponseImplementation.
         Greninja,
         /// Represents the `Palutena` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Palutena option in ResponseImplementation.
+        ///  Represents the Palutena option in ResponseImplementation.
         Palutena,
         /// Represents the `Robin` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Robin option in ResponseImplementation.
+        ///  Represents the Robin option in ResponseImplementation.
         Robin,
         /// Represents the `Shulk` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Shulk option in ResponseImplementation.
+        ///  Represents the Shulk option in ResponseImplementation.
         Shulk,
         /// Represents the `BowserJr` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the BowserJr option in ResponseImplementation.
+        ///  Represents the BowserJr option in ResponseImplementation.
         BowserJr,
         /// Represents the `DuckHunt` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the DuckHunt option in ResponseImplementation.
+        ///  Represents the DuckHunt option in ResponseImplementation.
         DuckHunt,
         /// Represents the `Ryu` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Ryu option in ResponseImplementation.
+        ///  Represents the Ryu option in ResponseImplementation.
         Ryu,
         /// Represents the `Ken` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Ken option in ResponseImplementation.
+        ///  Represents the Ken option in ResponseImplementation.
         Ken,
         /// Represents the `Cloud` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Cloud option in ResponseImplementation.
+        ///  Represents the Cloud option in ResponseImplementation.
         Cloud,
         /// Represents the `Corrin` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Corrin option in ResponseImplementation.
+        ///  Represents the Corrin option in ResponseImplementation.
         Corrin,
         /// Represents the `Bayonetta` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Bayonetta option in ResponseImplementation.
+        ///  Represents the Bayonetta option in ResponseImplementation.
         Bayonetta,
         /// Represents the `Inkling` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Inkling option in ResponseImplementation.
+        ///  Represents the Inkling option in ResponseImplementation.
         Inkling,
         /// Represents the `Ridley` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Ridley option in ResponseImplementation.
+        ///  Represents the Ridley option in ResponseImplementation.
         Ridley,
         /// Represents the `Simon` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Simon option in ResponseImplementation.
+        ///  Represents the Simon option in ResponseImplementation.
         Simon,
         /// Represents the `Richter` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Richter option in ResponseImplementation.
+        ///  Represents the Richter option in ResponseImplementation.
         Richter,
         /// Represents the `Incineroar` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Incineroar option in ResponseImplementation.
+        ///  Represents the Incineroar option in ResponseImplementation.
         Incineroar,
         /// Represents the `MiiBrawler` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the MiiBrawler option in ResponseImplementation.
+        ///  Represents the MiiBrawler option in ResponseImplementation.
         MiiBrawler,
         /// Represents the `MiiSwordfighter` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the MiiSwordfighter option in ResponseImplementation.
+        ///  Represents the MiiSwordfighter option in ResponseImplementation.
         MiiSwordfighter,
         /// Represents the `MiiGunner` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the MiiGunner option in ResponseImplementation.
+        ///  Represents the MiiGunner option in ResponseImplementation.
         MiiGunner,
         /// Represents the `IceClimbers` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the IceClimbers option in ResponseImplementation.
+        ///  Represents the IceClimbers option in ResponseImplementation.
         IceClimbers,
         /// Represents the `IceClimbersNana` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the IceClimbersNana option in ResponseImplementation.
+        ///  Represents the IceClimbersNana option in ResponseImplementation.
         IceClimbersNana,
         /// Represents the `Pyra` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Pyra option in ResponseImplementation.
+        ///  Represents the Pyra option in ResponseImplementation.
         Pyra,
         /// Represents the `Mythra` case of `ResponseImplementation`.
         ///
         ///
-///  Represents the Mythra option in ResponseImplementation.
+        ///  Represents the Mythra option in ResponseImplementation.
         Mythra,
     }
     impl ResponseImplementation {
         /// Returns an optional `for_kind` value.
         ///
         ///
-///  Gets for kind if it is available.
+        ///  Gets for kind if it is available.
         pub fn for_kind(kind: i32) -> Option<Self> {
             match kind {
                 0 => Some(Self::Mario),
@@ -1281,48 +1281,39 @@ pub use visits::LedgeVisits;
 
 /// Defines the `DPAD_DOWN` constant used by this module.
 ///
-///
-///  Provides the DPAD DOWN constant value.
+/// Provides the DPAD DOWN constant value.
 pub const DPAD_DOWN: u32 = crate::native_input::MAPPER_DPAD_DOWN;
 /// Defines the `LEDGE_TRIGGER` constant used by this module.
 ///
-///
-///  Provides the LEDGE TRIGGER constant value.
+/// Provides the LEDGE TRIGGER constant value.
 pub const LEDGE_TRIGGER: u32 = MAPPER_L;
 /// Defines the `CLIFF_CATCH_MOVE` constant used by this module.
 ///
-///
-///  Provides the CLIFF CATCH MOVE constant value.
+/// Provides the CLIFF CATCH MOVE constant value.
 pub const CLIFF_CATCH_MOVE: i32 = crate::native_states::status::CLIFF_CATCH_MOVE;
 /// Defines the `CLIFF_WAIT` constant used by this module.
 ///
-///
-///  Provides the CLIFF WAIT constant value.
+/// Provides the CLIFF WAIT constant value.
 pub const CLIFF_WAIT: i32 = crate::native_states::status::CLIFF_WAIT;
 /// Defines the `CLIFF_ATTACK` constant used by this module.
 ///
-///
-///  Provides the CLIFF ATTACK constant value.
+/// Provides the CLIFF ATTACK constant value.
 pub const CLIFF_ATTACK: i32 = crate::native_states::status::CLIFF_ATTACK;
 /// Defines the `CLIFF_CLIMB` constant used by this module.
 ///
-///
-///  Provides the CLIFF CLIMB constant value.
+/// Provides the CLIFF CLIMB constant value.
 pub const CLIFF_CLIMB: i32 = crate::native_states::status::CLIFF_CLIMB;
 /// Defines the `CLIFF_ESCAPE` constant used by this module.
 ///
-///
-///  Provides the CLIFF ESCAPE constant value.
+/// Provides the CLIFF ESCAPE constant value.
 pub const CLIFF_ESCAPE: i32 = crate::native_states::status::CLIFF_ESCAPE;
 /// Defines the `CLIFF_JUMP1` constant used by this module.
 ///
-///
-///  Provides the CLIFF JUMP1 constant value.
+/// Provides the CLIFF JUMP1 constant value.
 pub const CLIFF_JUMP1: i32 = crate::native_states::status::CLIFF_JUMP1;
 /// Defines the `CLIFF_JUMP3` constant used by this module.
 ///
-///
-///  Provides the CLIFF JUMP3 constant value.
+/// Provides the CLIFF JUMP3 constant value.
 pub const CLIFF_JUMP3: i32 = crate::native_states::status::CLIFF_JUMP3;
 /// Held shield/edge balancing can freeze a pose at a positive reported rate.
 /// Keep a read-only clock sample of the locked opponent in those states too.
@@ -1352,8 +1343,7 @@ pub const SEQUENCE_BUTTONS: u32 = ASSIST_BUTTONS
 pub use crate::native_states::sequence_interrupted;
 /// Checks whether hanging.
 ///
-///
-///  Checks whether hanging.
+/// Checks whether hanging.
 fn is_hanging(status: i32) -> bool {
     (CLIFF_CATCH_MOVE..=CLIFF_WAIT).contains(&status)
 }
@@ -1377,8 +1367,7 @@ pub(crate) fn finite2(p: [f32; 2]) -> bool {
 }
 /// Determines whether the `finite_opponent` condition holds.
 ///
-///
-///  Checks whether finite opponent.
+/// Checks whether finite opponent.
 fn finite_opponent(e: &Opponent) -> bool {
     finite2(e.position) && finite2(e.velocity)
 }
@@ -1455,86 +1444,85 @@ pub fn in_tracking_range(
 
 /// Defines the `LedgeTrap` data structure.
 ///
-///
-///  Holds the data for LedgeTrap.
+/// Holds the data for LedgeTrap.
 #[derive(Default)]
 pub struct LedgeTrap {
     /// Stores the `target` value in `LedgeTrap` as `Option<u32>`.
     ///
     ///
-///  Optionally stores the target for LedgeTrap; it may be absent.
+    ///  Optionally stores the target for LedgeTrap; it may be absent.
     target: Option<u32>,
     /// Stores the `preview` value in `LedgeTrap` as `Option<PresetSlot>`.
     ///
     ///
-///  Optionally stores the preview for LedgeTrap; it may be absent.
+    ///  Optionally stores the preview for LedgeTrap; it may be absent.
     preview: Option<PresetSlot>,
     /// Stores the `slot` value in `LedgeTrap` as `Option<PresetSlot>`.
     ///
     ///
-///  Optionally stores the slot for LedgeTrap; it may be absent.
+    ///  Optionally stores the slot for LedgeTrap; it may be absent.
     slot: Option<PresetSlot>,
     /// Stores the `anchor` value in `LedgeTrap` as `Option<[f32; 2]>`.
     ///
     ///
-///  Optionally stores the anchor for LedgeTrap; it may be absent.
+    ///  Optionally stores the anchor for LedgeTrap; it may be absent.
     anchor: Option<[f32; 2]>,
     /// Stores the `inward` value in `LedgeTrap` as `f32`.
     ///
     ///
-///  Holds the inward value used by LedgeTrap.
+    ///  Holds the inward value used by LedgeTrap.
     inward: f32,
     /// Stores the `last_status` value in `LedgeTrap` as `i32`.
     ///
     ///
-///  Holds the last status value used by LedgeTrap.
+    ///  Holds the last status value used by LedgeTrap.
     last_status: i32,
     /// Stores the `observed_velocity` value in `LedgeTrap` as `[f32; 2]`.
     ///
     ///
-///  Stores the observed velocity collection for LedgeTrap.
+    ///  Stores the observed velocity collection for LedgeTrap.
     observed_velocity: [f32; 2],
     /// Stores the `file_timeline` value in `LedgeTrap` as `Option<file_timeline::Timeline>`.
     ///
     ///
-///  Optionally stores the file timeline for LedgeTrap; it may be absent.
+    ///  Optionally stores the file timeline for LedgeTrap; it may be absent.
     file_timeline: Option<file_timeline::Timeline>,
     #[cfg(feature = "diagnostic-logging")]
     /// Stores the `last_timeline_end` value in `LedgeTrap` as `Option<&'static str>`.
     ///
     ///
-///  Optionally stores the last timeline end for LedgeTrap; it may be absent.
+    ///  Optionally stores the last timeline end for LedgeTrap; it may be absent.
     last_timeline_end: Option<&'static str>,
     /// Stores the `complete` value in `LedgeTrap` as `bool`.
     ///
     ///
-///  Holds the complete value used by LedgeTrap.
+    ///  Holds the complete value used by LedgeTrap.
     complete: bool,
     /// Stores the `visit_consumed` value in `LedgeTrap` as `bool`.
     ///
     ///
-///  Holds the visit consumed value used by LedgeTrap.
+    ///  Holds the visit consumed value used by LedgeTrap.
     visit_consumed: bool,
     /// Stores the `captured` value in `LedgeTrap` as `bool`.
     ///
     ///
-///  Holds the captured value used by LedgeTrap.
+    ///  Holds the captured value used by LedgeTrap.
     captured: bool,
     /// Stores the `last_output` value in `LedgeTrap` as `ControllerOutput`.
     ///
     ///
-///  Holds the last output value used by LedgeTrap.
+    ///  Holds the last output value used by LedgeTrap.
     last_output: ControllerOutput,
     /// Stores the `last_tick` value in `LedgeTrap` as `Option<i64>`.
     ///
     ///
-///  Optionally stores the last tick for LedgeTrap; it may be absent.
+    ///  Optionally stores the last tick for LedgeTrap; it may be absent.
     last_tick: Option<i64>,
 }
 impl LedgeTrap {
     /// Arm a one-shot input preview; never synthesize opponent status or game state.
     ///
-///  Arm a one-shot input preview; never synthesize opponent status or game state.
+    ///  Arm a one-shot input preview; never synthesize opponent status or game state.
     pub fn request_preview(&mut self, slot: PresetSlot) {
         *self = Self {
             preview: Some(slot),
@@ -1544,28 +1532,28 @@ impl LedgeTrap {
     /// Determines whether the `preview_active` condition holds.
     ///
     ///
-///  Checks whether preview active.
+    ///  Checks whether preview active.
     pub fn preview_active(&self) -> bool {
         self.preview.is_some() && !self.complete
     }
     /// Determines whether the `manual_after_response` condition holds.
     ///
     ///
-///  Checks whether manual after response.
+    ///  Checks whether manual after response.
     pub fn manual_after_response(&self) -> bool {
         self.complete
     }
     /// Determines whether the `file_timeline_active` condition holds.
     ///
     ///
-///  Checks whether file timeline active.
+    ///  Checks whether file timeline active.
     pub fn file_timeline_active(&self) -> bool {
         self.file_timeline.is_some()
     }
     /// Determines whether the `file_needs_ground` condition holds.
     ///
     ///
-///  Checks whether file needs ground.
+    ///  Checks whether file needs ground.
     pub fn file_needs_ground(&self) -> bool {
         self.file_timeline
             .as_ref()
@@ -1574,42 +1562,42 @@ impl LedgeTrap {
     /// Determines whether the `file_inputs_only` condition holds.
     ///
     ///
-///  Checks whether file inputs only.
+    ///  Checks whether file inputs only.
     pub fn file_inputs_only(&self) -> bool {
         self.file_timeline.as_ref().is_some_and(|t| t.inputs_only())
     }
     /// Returns the selected target observation.
     ///
     ///
-///  Gets the chosen target.
+    ///  Gets the chosen target.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
     /// Determines whether the `engaged` condition holds.
     ///
     ///
-///  Checks whether engaged.
+    ///  Checks whether engaged.
     fn engaged(&self) -> bool {
         self.preview.is_some() || self.target.is_some() || self.file_timeline.is_some()
     }
     /// Determines whether response observation.
     ///
     ///
-///  Checks whether response observation.
+    ///  Checks whether response observation.
     pub fn needs_response_observation(&self) -> bool {
         !self.complete && self.engaged()
     }
     /// Returns an optional `observation_target` value.
     ///
     ///
-///  Gets observation target if it is available.
+    ///  Gets observation target if it is available.
     pub fn observation_target(&self) -> Option<u32> {
         self.target.filter(|_| self.needs_response_observation())
     }
     /// Determines whether the `reserves_response` condition holds.
     ///
     ///
-///  Checks whether reserves response.
+    ///  Checks whether reserves response.
     pub fn reserves_response(&self, enemy: Option<Opponent>) -> bool {
         !self.visit_consumed
             && !self.complete
@@ -1620,13 +1608,13 @@ impl LedgeTrap {
     /// Determines whether the `committed_input_pending` condition holds.
     ///
     ///
-///  Checks whether committed input pending.
+    ///  Checks whether committed input pending.
     pub fn committed_input_pending(&self) -> bool {
         self.file_timeline_active()
     }
     /// The selected walking step owns this analog input, not a movement/physics override.
     ///
-///  The selected walking step owns this analog input, not a movement/physics override.
+    ///  The selected walking step owns this analog input, not a movement/physics override.
     pub fn requested_walk_stick(&self) -> Option<[f32; 2]> {
         self.file_timeline
             .as_ref()
@@ -1636,28 +1624,28 @@ impl LedgeTrap {
     /// Determines whether the `requests_attack_hold` condition holds.
     ///
     ///
-///  Checks whether requests attack hold.
+    ///  Checks whether requests attack hold.
     pub fn requests_attack_hold(&self) -> bool {
         self.file_timeline.as_ref().is_some_and(|t| t.attack_hold())
     }
     /// Returns an optional `requested_right_stick` value.
     ///
     ///
-///  Gets requested right stick if it is available.
+    ///  Gets requested right stick if it is available.
     pub fn requested_right_stick(&self) -> Option<[f32; 2]> {
         self.file_timeline.as_ref().map(|t| t.right_stick())
     }
     /// Determines whether the `owns_jump_state` condition holds.
     ///
     ///
-///  Checks whether owns jump state.
+    ///  Checks whether owns jump state.
     pub fn owns_jump_state(&self, status: i32) -> bool {
         self.file_timeline_active() && !sequence_interrupted(status)
     }
     /// Updates the `prepare_stance` state using the supplied inputs.
     ///
     ///
-///  Updates prepare stance.
+    ///  Updates prepare stance.
     pub fn prepare_stance(&mut self, anchor: [f32; 2], inward: f32) {
         if finite2(anchor) && inward.is_finite() {
             self.anchor = Some(anchor);
@@ -1667,21 +1655,21 @@ impl LedgeTrap {
     /// Determines whether the `owns_roll_navigation` condition holds.
     ///
     ///
-///  Checks whether owns roll navigation.
+    ///  Checks whether owns roll navigation.
     pub fn owns_roll_navigation(&self) -> bool {
         self.file_timeline_active() && self.slot == Some(PresetSlot::Roll)
     }
     /// Returns the `observed_target_velocity` result.
     ///
     ///
-///  Gets the observed target velocity result.
+    ///  Gets the observed target velocity result.
     pub fn observed_target_velocity(&self) -> [f32; 2] {
         self.observed_velocity
     }
     /// Returns the `action_name` result.
     ///
     ///
-///  Gets the action name result.
+    ///  Gets the action name result.
     pub fn action_name(&self) -> &'static str {
         if self.visit_consumed {
             "await_new_ledge_visit"
@@ -1698,7 +1686,7 @@ impl LedgeTrap {
     /// Updates the toggle state from the current button sample and match state.
     ///
     ///
-///  Checks the current buttons and updates whether the toggle should activate.
+    ///  Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         settings: AssistSettings,
@@ -1759,7 +1747,7 @@ impl LedgeTrap {
     /// Editor preview: answer the one observed opponent with the chosen slot,
     /// whatever its native status.
     ///
-///  Editor preview: answer the one observed opponent with the chosen slot, whatever its native status.
+    ///  Editor preview: answer the one observed opponent with the chosen slot, whatever its native status.
     fn sample_preview(
         &mut self,
         settings: AssistSettings,
@@ -1781,7 +1769,7 @@ impl LedgeTrap {
     /// Starts the timeline.
     ///
     ///
-///  Starts the timeline.
+    ///  Starts the timeline.
     fn start_timeline(
         &mut self,
         settings: AssistSettings,
@@ -1800,7 +1788,7 @@ impl LedgeTrap {
     }
     /// Complete this visit without a response (or after an unusable observation).
     ///
-///  Complete this visit without a response (or after an unusable observation).
+    ///  Complete this visit without a response (or after an unusable observation).
     fn end_visit(&mut self) -> ControllerOutput {
         self.file_timeline = None;
         self.complete = true;
@@ -1810,7 +1798,7 @@ impl LedgeTrap {
     /// Returns the `continue_timeline` result.
     ///
     ///
-///  Gets the continue timeline result.
+    ///  Gets the continue timeline result.
     fn continue_timeline(
         &mut self,
         settings: AssistSettings,

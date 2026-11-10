@@ -9,83 +9,67 @@ pub use crate::flame_choke::DEFAULT_GANON_PASSIVE_TRIGGER_FRAME;
 use crate::tech_prediction::{is_tech_status, is_tumble_status};
 /// Sets the default value for passive trigger frame.
 ///
-///
-///  Holds the DEFAULT PASSIVE TRIGGER FRAME value.
+/// Holds the DEFAULT PASSIVE TRIGGER FRAME value.
 pub const DEFAULT_PASSIVE_TRIGGER_FRAME: u16 = 12;
 /// Sets the upper bound for input delay frames.
 ///
-///
-///  Holds the MAX INPUT DELAY FRAMES value.
+/// Holds the MAX INPUT DELAY FRAMES value.
 pub const MAX_INPUT_DELAY_FRAMES: f32 = 12.0;
 /// Sets the upper bound for reaction remaining frames.
 ///
-///
-///  Holds the MAX REACTION REMAINING FRAMES value.
+/// Holds the MAX REACTION REMAINING FRAMES value.
 pub const MAX_REACTION_REMAINING_FRAMES: f32 = 1200.0;
 /// Sets the lower bound for tech cooldown frames.
 ///
-///
-///  Holds the MIN TECH COOLDOWN FRAMES value.
+/// Holds the MIN TECH COOLDOWN FRAMES value.
 pub const MIN_TECH_COOLDOWN_FRAMES: u16 = 2;
 /// Sets the upper bound for hitstop observation frames.
 ///
-///
-///  Holds the MAX HITSTOP OBSERVATION FRAMES value.
+/// Holds the MAX HITSTOP OBSERVATION FRAMES value.
 const MAX_HITSTOP_OBSERVATION_FRAMES: u64 = 120;
 /// Sets the upper bound for reaction clock advance frames.
 ///
-///
-///  Holds the MAX REACTION CLOCK ADVANCE FRAMES value.
+/// Holds the MAX REACTION CLOCK ADVANCE FRAMES value.
 const MAX_REACTION_CLOCK_ADVANCE_FRAMES: f32 = 4.0;
 /// Defines the `STABLE_ANIMATION_RATE_EPSILON` constant used by this module.
 ///
-///
-///  Provides the STABLE ANIMATION RATE EPSILON constant value.
+/// Provides the STABLE ANIMATION RATE EPSILON constant value.
 const STABLE_ANIMATION_RATE_EPSILON: f32 = 0.001;
 /// Sets the upper bound for animation clock advance frames.
 ///
-///
-///  Holds the MAX ANIMATION CLOCK ADVANCE FRAMES value.
+/// Holds the MAX ANIMATION CLOCK ADVANCE FRAMES value.
 const MAX_ANIMATION_CLOCK_ADVANCE_FRAMES: f32 = 4.0;
 /// Sets the lower bound for native tech window frames.
 ///
-///
-///  Holds the MIN NATIVE TECH WINDOW FRAMES value.
+/// Holds the MIN NATIVE TECH WINDOW FRAMES value.
 const MIN_NATIVE_TECH_WINDOW_FRAMES: u16 = 2;
 /// Sets the upper bound for native tech window frames.
 ///
-///
-///  Holds the MAX NATIVE TECH WINDOW FRAMES value.
+/// Holds the MAX NATIVE TECH WINDOW FRAMES value.
 const MAX_NATIVE_TECH_WINDOW_FRAMES: u16 = 60;
 /// Defines the `TECH_WINDOW_SAFETY_MARGIN_FRAMES` constant used by this module.
 ///
-///
-///  Provides the TECH WINDOW SAFETY MARGIN FRAMES constant value.
+/// Provides the TECH WINDOW SAFETY MARGIN FRAMES constant value.
 const TECH_WINDOW_SAFETY_MARGIN_FRAMES: u16 = 3;
 /// Sets the lower bound for tech arrival lead frames.
 ///
-///
-///  Holds the MIN TECH ARRIVAL LEAD FRAMES value.
+/// Holds the MIN TECH ARRIVAL LEAD FRAMES value.
 const MIN_TECH_ARRIVAL_LEAD_FRAMES: u16 = 1;
 /// Defines the `NEAR_CONTACT_EXTRA_MARGIN_FRAMES` constant used by this module.
 ///
-///
-///  Provides the NEAR CONTACT EXTRA MARGIN FRAMES constant value.
+/// Provides the NEAR CONTACT EXTRA MARGIN FRAMES constant value.
 const NEAR_CONTACT_EXTRA_MARGIN_FRAMES: f32 = 2.0;
 /// Defines the `URGENT_CONTACT_LEAD_FRAMES` constant used by this module.
 ///
-///
-///  Provides the URGENT CONTACT LEAD FRAMES constant value.
+/// Provides the URGENT CONTACT LEAD FRAMES constant value.
 const URGENT_CONTACT_LEAD_FRAMES: f32 = 1.25;
 /// Sets the upper bound for guard preparation advances.
 ///
-///
-///  Holds the MAX GUARD PREPARATION ADVANCES value.
+/// Holds the MAX GUARD PREPARATION ADVANCES value.
 const MAX_GUARD_PREPARATION_ADVANCES: u8 = 3;
 /// Defines the `TechContext` data structure.
 ///
-///
-///  Holds the data for TechContext.
+/// Holds the data for TechContext.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TechContext {
     /// Stores the `object` value in `TechContext` as `u32`.
@@ -168,8 +152,7 @@ impl TechContext {
 }
 /// Defines the `TechOutput` data structure.
 ///
-///
-///  Holds the data for TechOutput.
+/// Holds the data for TechOutput.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TechOutput {
     /// Ask for a fresh shield press, rather than writing a tech status.
@@ -213,8 +196,7 @@ pub fn mapped_guard(buttons: u32, output: TechOutput) -> u32 {
 }
 /// Defines the `TechInput` data structure.
 ///
-///
-///  Holds the data for TechInput.
+/// Holds the data for TechInput.
 #[derive(Default)]
 pub struct TechInput {
     /// Stores the `last` value in `TechInput` as `Option<TechContext>`.
@@ -260,8 +242,7 @@ pub struct TechInput {
 }
 /// Defines the `Delivery` data structure.
 ///
-///
-///  Holds the data for Delivery.
+/// Holds the data for Delivery.
 #[derive(Clone, Copy)]
 struct Delivery {
     /// Stores the `stamp` value in `Delivery` as `TechContext`.

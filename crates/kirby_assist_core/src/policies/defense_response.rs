@@ -10,51 +10,50 @@ use crate::{
 
 /// Defines the `Response` data structure.
 ///
-///
-///  Holds the data for Response.
+/// Holds the data for Response.
 #[derive(Default)]
 pub struct Response {
     /// Stores the `plan` value in `Response` as `Option<InputTimeline>`.
     ///
     ///
-///  Optionally stores the plan for Response; it may be absent.
+    ///  Optionally stores the plan for Response; it may be absent.
     plan: Option<InputTimeline>,
     /// Stores the `target` value in `Response` as `Option<u32>`.
     ///
     ///
-///  Optionally stores the target for Response; it may be absent.
+    ///  Optionally stores the target for Response; it may be absent.
     target: Option<u32>,
     /// Stores the `up_b` value in `Response` as `UpBFlow`.
     ///
     ///
-///  Holds the up b value used by Response.
+    ///  Holds the up b value used by Response.
     up_b: UpBFlow,
     /// Stores the `configured` value in `Response` as `bool`.
     ///
     ///
-///  Holds the configured value used by Response.
+    ///  Holds the configured value used by Response.
     configured: bool,
     /// Stores the `grab_sent` value in `Response` as `bool`.
     ///
     ///
-///  Holds the grab sent value used by Response.
+    ///  Holds the grab sent value used by Response.
     grab_sent: bool,
     /// Stores the `grab_settling` value in `Response` as `bool`.
     ///
     ///
-///  Holds the grab settling value used by Response.
+    ///  Holds the grab settling value used by Response.
     grab_settling: bool,
     /// Stores the `grab_delivery` value in `Response` as `crate::move_input::DeliveryBudget`.
     ///
     ///
-///  Holds the grab delivery value used by Response.
+    ///  Holds the grab delivery value used by Response.
     grab_delivery: crate::move_input::DeliveryBudget,
 }
 impl Response {
     /// Constructs a new value with the type’s initial state.
     ///
     ///
-///  Creates a new value.
+    ///  Creates a new value.
     pub const fn new() -> Self {
         Self {
             plan: None,
@@ -69,56 +68,56 @@ impl Response {
     /// Returns the selected target observation.
     ///
     ///
-///  Gets the chosen target.
+    ///  Gets the chosen target.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
     /// Determines whether ground.
     ///
     ///
-///  Checks whether ground.
+    ///  Checks whether ground.
     pub fn needs_ground(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::needs_ground)
     }
     /// Determines whether the `attack_hold` condition holds.
     ///
     ///
-///  Checks whether attack hold.
+    ///  Checks whether attack hold.
     pub fn attack_hold(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::attack_hold)
     }
     /// Returns an optional `right_stick` value.
     ///
     ///
-///  Gets right stick if it is available.
+    ///  Gets right stick if it is available.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         self.plan.as_ref().map(InputTimeline::right_stick)
     }
     /// Determines whether the `walking` condition holds.
     ///
     ///
-///  Checks whether walking.
+    ///  Checks whether walking.
     pub fn walking(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::walking)
     }
     /// Determines whether the `automatic_up_b` condition holds.
     ///
     ///
-///  Checks whether automatic up b.
+    ///  Checks whether automatic up b.
     pub fn automatic_up_b(&self) -> bool {
         self.up_b.armed() && self.plan.is_some()
     }
     /// Determines whether the `up_b_delivery_started` condition holds.
     ///
     ///
-///  Checks whether up b delivery started.
+    ///  Checks whether up b delivery started.
     pub fn up_b_delivery_started(&self) -> bool {
         self.automatic_up_b() && self.up_b.started()
     }
     /// Updates the `attempted_up_special` state using the supplied inputs.
     ///
     ///
-///  Updates attempted up special.
+    ///  Updates attempted up special.
     pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
         if self.automatic_up_b() && self.target == Some(target) {
             self.up_b.attempted(tick);
@@ -127,7 +126,7 @@ impl Response {
     /// Updates the `mapped_up_special` state using the supplied inputs.
     ///
     ///
-///  Updates mapped up special.
+    ///  Updates mapped up special.
     pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
         if self.automatic_up_b() && self.target == Some(target) {
             self.up_b.mapped(tick);
@@ -136,21 +135,21 @@ impl Response {
     /// Determines whether the `configured_committed` condition holds.
     ///
     ///
-///  Checks whether configured committed.
+    ///  Checks whether configured committed.
     pub fn configured_committed(&self) -> bool {
         self.configured && self.target.is_some()
     }
     /// Determines whether the `grab_delivery_pending` condition holds.
     ///
     ///
-///  Checks whether grab delivery pending.
+    ///  Checks whether grab delivery pending.
     pub fn grab_delivery_pending(&self) -> bool {
         self.grab_sent && self.target.is_some()
     }
     /// Updates the `mapped_grab` state using the supplied inputs.
     ///
     ///
-///  Updates mapped grab.
+    ///  Updates mapped grab.
     pub fn mapped_grab(&mut self, tick: i64, target: u32) {
         if self.configured && self.target == Some(target) {
             self.grab_sent = true;
@@ -160,21 +159,21 @@ impl Response {
     /// Determines whether the `up_b_receipt_pending` condition holds.
     ///
     ///
-///  Checks whether up b receipt pending.
+    ///  Checks whether up b receipt pending.
     pub fn up_b_receipt_pending(&self) -> bool {
         self.automatic_up_b() && self.up_b.receipt_pending()
     }
     /// Determines whether the `awaiting_up_b` condition holds.
     ///
     ///
-///  Checks whether awaiting up b.
+    ///  Checks whether awaiting up b.
     pub fn awaiting_up_b(&self) -> bool {
         self.automatic_up_b() && self.up_b.awaiting()
     }
     /// Updates the `delivery_tick` state using the supplied inputs.
     ///
     ///
-///  Updates delivery tick.
+    ///  Updates delivery tick.
     pub fn delivery_tick(&mut self, tick: i64) {
         if self.grab_sent {
             self.grab_delivery.mapped(tick);
@@ -185,7 +184,7 @@ impl Response {
     }
     /// Stop playback without forgetting a controller Grab still in flight.
     ///
-///  Stop playback without forgetting a controller Grab still in flight.
+    ///  Stop playback without forgetting a controller Grab still in flight.
     pub fn suspend(&mut self) {
         if self.grab_sent {
             self.plan = None;
@@ -198,14 +197,14 @@ impl Response {
     /// Cancels the pending operation and clears its state.
     ///
     ///
-///  Stops the operation that was waiting.
+    ///  Stops the operation that was waiting.
     pub fn cancel(&mut self) {
         *self = Self::new();
     }
     /// Common admission for an explicitly configured automatic response: native
     /// control now, an available target and no grab already in progress.
     ///
-///  Common admission for an explicitly configured automatic response: native control now, an available target and no grab already in progress.
+    ///  Common admission for an explicitly configured automatic response: native control now, an available target and no grab already in progress.
     fn can_begin(c: GameplayContext, enemy: Opponent) -> bool {
         c.gameplay
             && c.situation == crate::native_states::situation::GROUND
@@ -219,8 +218,13 @@ impl Response {
     /// Starts the up b.
     ///
     ///
-///  Starts the up b.
-    pub fn start_up_b(&mut self, mut sequence: Sequence, c: GameplayContext, enemy: Opponent) -> bool {
+    ///  Starts the up b.
+    pub fn start_up_b(
+        &mut self,
+        mut sequence: Sequence,
+        c: GameplayContext,
+        enemy: Opponent,
+    ) -> bool {
         if !Self::can_begin(c, enemy)
             || sequence.start_delay != 0
             || !crate::reaction_rules::starts_direct_up_b(&sequence)
@@ -239,7 +243,7 @@ impl Response {
     /// Commit an explicitly configured automatic response. Native Up-B keeps
     /// its confirmation/air/manual safeguards; other recipes use the same tape.
     ///
-///  Commit an explicitly configured automatic response. Native Up-B keeps its confirmation/air/manual safeguards; other recipes use the same tape.
+    ///  Commit an explicitly configured automatic response. Native Up-B keeps its confirmation/air/manual safeguards; other recipes use the same tape.
     pub fn start_sequence(
         &mut self,
         mut sequence: Sequence,
@@ -262,7 +266,7 @@ impl Response {
     /// Determines whether the `start` condition holds.
     ///
     ///
-///  Checks whether start.
+    ///  Checks whether start.
     pub fn start(
         &mut self,
         rules: &Resolved,
@@ -283,7 +287,7 @@ impl Response {
     /// The locked target stays usable: same actor, measurable and either an
     /// ordinary target or, for an existing tape, a ledge-invulnerable one.
     ///
-///  The locked target stays usable: same actor, measurable and either an ordinary target or, for an existing tape, a ledge-invulnerable one.
+    ///  The locked target stays usable: same actor, measurable and either an ordinary target or, for an existing tape, a ledge-invulnerable one.
     fn follows(&self, e: Opponent, c: GameplayContext) -> bool {
         Some(e.id) == self.target
             && finite_positions(e.position, c.position)
@@ -294,7 +298,7 @@ impl Response {
     /// Updates the toggle state from the current button sample and match state.
     ///
     ///
-///  Checks the current buttons and updates whether the toggle should activate.
+    ///  Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         allowed: bool,

@@ -44,8 +44,7 @@ pub(super) struct Reach {
 
 /// Determines whether the `target_valid` condition holds.
 ///
-///
-///  Checks whether target valid.
+/// Checks whether target valid.
 pub(super) fn target_valid(c: super::Context, lc: GameplayContext, e: Opponent, reach: Reach) -> bool {
     let Reach {
         range,
@@ -76,8 +75,7 @@ pub(super) fn target_valid(c: super::Context, lc: GameplayContext, e: Opponent, 
 }
 /// Defines the `Grab` data structure.
 ///
-///
-///  Holds the data for Grab.
+/// Holds the data for Grab.
 #[derive(Default)]
 pub(super) struct Grab {
     /// Stores the `target` value in `Grab` as `Option<u32>`.

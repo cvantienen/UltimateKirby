@@ -6,8 +6,7 @@ use crate::settings_menu::RecipePanel;
 
 /// Defines the available `Modal` cases.
 ///
-///
-///  Lists the available Modal choices.
+/// Lists the available Modal choices.
 #[derive(Clone, Copy)]
 pub(super) enum Modal {
     /// Represents the `Buttons` case of `Modal`.
@@ -82,8 +81,7 @@ pub(super) enum Modal {
 }
 /// Defines the `TOOLS` constant used by this module.
 ///
-///
-///  Provides the TOOLS constant value.
+/// Provides the TOOLS constant value.
 const TOOLS: &[&str] = &[
     "Choose action",
     "Insert before",
@@ -102,78 +100,63 @@ const TOOLS: &[&str] = &[
 // Positions in `TOOLS`.
 /// Defines the `CHOOSE_ACTION` constant used by this module.
 ///
-///
-///  Provides the CHOOSE ACTION constant value.
+/// Provides the CHOOSE ACTION constant value.
 const CHOOSE_ACTION: usize = 0;
 /// Defines the `INSERT_BEFORE` constant used by this module.
 ///
-///
-///  Provides the INSERT BEFORE constant value.
+/// Provides the INSERT BEFORE constant value.
 const INSERT_BEFORE: usize = 1;
 /// Defines the `INSERT_AFTER` constant used by this module.
 ///
-///
-///  Provides the INSERT AFTER constant value.
+/// Provides the INSERT AFTER constant value.
 const INSERT_AFTER: usize = 2;
 /// Defines the `DUPLICATE` constant used by this module.
 ///
-///
-///  Provides the DUPLICATE constant value.
+/// Provides the DUPLICATE constant value.
 const DUPLICATE: usize = 3;
 /// Defines the `MOVE_UP` constant used by this module.
 ///
-///
-///  Provides the MOVE UP constant value.
+/// Provides the MOVE UP constant value.
 const MOVE_UP: usize = 4;
 /// Defines the `MOVE_DOWN` constant used by this module.
 ///
-///
-///  Provides the MOVE DOWN constant value.
+/// Provides the MOVE DOWN constant value.
 const MOVE_DOWN: usize = 5;
 /// Defines the `DELETE` constant used by this module.
 ///
-///
-///  Provides the DELETE constant value.
+/// Provides the DELETE constant value.
 const DELETE: usize = 6;
 /// Defines the `UNDO` constant used by this module.
 ///
-///
-///  Provides the UNDO constant value.
+/// Provides the UNDO constant value.
 const UNDO: usize = 7;
 /// Defines the `COPY_RECIPE` constant used by this module.
 ///
-///
-///  Provides the COPY RECIPE constant value.
+/// Provides the COPY RECIPE constant value.
 const COPY_RECIPE: usize = 8;
 /// Defines the `COPY_STEP` constant used by this module.
 ///
-///
-///  Provides the COPY STEP constant value.
+/// Provides the COPY STEP constant value.
 const COPY_STEP: usize = 9;
 /// Defines the `PASTE_BEFORE` constant used by this module.
 ///
-///
-///  Provides the PASTE BEFORE constant value.
+/// Provides the PASTE BEFORE constant value.
 const PASTE_BEFORE: usize = 10;
 /// Defines the `PASTE_AFTER` constant used by this module.
 ///
-///
-///  Provides the PASTE AFTER constant value.
+/// Provides the PASTE AFTER constant value.
 const PASTE_AFTER: usize = 11;
 /// Defines the `RECIPE_OPTIONS` constant used by this module.
 ///
-///
-///  Provides the RECIPE OPTIONS constant value.
+/// Provides the RECIPE OPTIONS constant value.
 const RECIPE_OPTIONS: usize = 12;
 /// Defines the `NO_ROOM` constant used by this module.
 ///
-///
-///  Provides the NO ROOM constant value.
+/// Provides the NO ROOM constant value.
 const NO_ROOM: &str = "All 32 slots are occupied; remove a step first";
 /// Defines the `GROUPS` constant used by this module.
 ///
-///
-///  Provides the GROUPS constant value.
+/// Provides the GROUPS constant value.
 const GROUPS: &[&str] = &[
     "Attacks / aerials / tilts",
     "Jumps / jump attacks",
@@ -187,13 +170,11 @@ const GROUPS: &[&str] = &[
 ];
 /// Defines the `SAVED_INPUTS_GROUP` constant used by this module.
 ///
-///
-///  Provides the SAVED INPUTS GROUP constant value.
+/// Provides the SAVED INPUTS GROUP constant value.
 const SAVED_INPUTS_GROUP: usize = GROUPS.len() - 1;
 /// Defines the `COPY_GROUPS` constant used by this module.
 ///
-///
-///  Provides the COPY GROUPS constant value.
+/// Provides the COPY GROUPS constant value.
 const COPY_GROUPS: &[&str] = &[
     "Neutral getup",
     "Ledge jump",
@@ -210,13 +191,11 @@ const COPY_GROUPS: &[&str] = &[
 ];
 /// Defines the `TEMPLATE_GROUP` constant used by this module.
 ///
-///
-///  Provides the TEMPLATE GROUP constant value.
+/// Provides the TEMPLATE GROUP constant value.
 const TEMPLATE_GROUP: usize = COPY_GROUPS.len() - 1;
 /// Defines the `DPAD` constant used by this module.
 ///
-///
-///  Provides the DPAD constant value.
+/// Provides the DPAD constant value.
 const DPAD: u32 = DPAD_UP | DPAD_DOWN | DPAD_LEFT | DPAD_RIGHT;
 /// Picker category of a preset action.
 ///
@@ -260,8 +239,7 @@ fn group(action: Action) -> usize {
 }
 /// Returns the `candidates` result.
 ///
-///
-///  Gets the candidates result.
+/// Gets the candidates result.
 pub(super) fn candidates(r: &Recipe, category: usize) -> Vec<usize> {
     let ledge_free = |action: Action| !r.sequence.reaction.active() || !action.needs_ledge();
     if category == SAVED_INPUTS_GROUP {
@@ -277,8 +255,7 @@ pub(super) fn candidates(r: &Recipe, category: usize) -> Vec<usize> {
 }
 /// Returns the `changed_steps` result.
 ///
-///
-///  Gets the changed steps result.
+/// Gets the changed steps result.
 fn changed_steps(before: &Recipe, after: &Recipe) -> u32 {
     (0..usize::from(after.sequence.len)).fold(0, |mask, i| {
         if before.sequence.actions[i] != after.sequence.actions[i]
@@ -293,8 +270,7 @@ fn changed_steps(before: &Recipe, after: &Recipe) -> u32 {
 }
 /// Determines whether the `vertical` condition holds.
 ///
-///
-///  Checks whether vertical.
+/// Checks whether vertical.
 fn vertical(pad: u32) -> bool {
     pad == DPAD_UP || pad == DPAD_DOWN
 }
@@ -1144,8 +1120,7 @@ impl RecipeEditor {
 
 /// Updates the `group_header` state using the supplied inputs.
 ///
-///
-///  Updates group header.
+/// Updates group header.
 fn group_header(panel: &mut RecipePanel, names: &[&str], group: usize) {
     panel.header.push(format!(
         "< {} >  {}/{}",
@@ -1156,16 +1131,14 @@ fn group_header(panel: &mut RecipePanel, names: &[&str], group: usize) {
 }
 /// Updates the `numbered_row` state using the supplied inputs.
 ///
-///
-///  Updates numbered row.
+/// Updates numbered row.
 fn numbered_row(panel: &mut RecipePanel, i: usize, item: usize, text: impl std::fmt::Display) {
     let marker = if i == item { "> " } else { "" };
     panel.body.push(format!("{marker}{:02}  {text}", i + 1));
 }
 /// Updates the `buttons_panel` state using the supplied inputs.
 ///
-///
-///  Updates buttons panel.
+/// Updates buttons panel.
 fn buttons_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, item: usize) {
     panel
         .header
@@ -1186,8 +1159,7 @@ fn buttons_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, item: usize) 
 }
 /// Updates the `tools_panel` state using the supplied inputs.
 ///
-///
-///  Updates tools panel.
+/// Updates tools panel.
 fn tools_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, item: usize) {
     panel
         .header
@@ -1205,8 +1177,7 @@ fn tools_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, item: usize) {
 }
 /// Updates the `picker_panel` state using the supplied inputs.
 ///
-///
-///  Updates picker panel.
+/// Updates picker panel.
 fn picker_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, group: usize, item: usize) {
     panel
         .header

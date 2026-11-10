@@ -2,14 +2,12 @@
 //! Native action edges remain immediate; wall-clock samples explain long waits.
 /// Defines the `PERIODIC_DIAGNOSTIC_INTERVAL_MS` constant used by this module.
 ///
-///
-///  Provides the PERIODIC DIAGNOSTIC INTERVAL MS constant value.
+/// Provides the PERIODIC DIAGNOSTIC INTERVAL MS constant value.
 const PERIODIC_DIAGNOSTIC_INTERVAL_MS: u64 = 500;
 
 /// Defines the `DiagnosticEmission` data structure.
 ///
-///
-///  Holds the data for DiagnosticEmission.
+/// Holds the data for DiagnosticEmission.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DiagnosticEmission {
     /// Stores the `periodic` value in `DiagnosticEmission` as `bool`.
@@ -26,8 +24,7 @@ pub struct DiagnosticEmission {
 
 /// Defines the `DiagnosticGate` data structure.
 ///
-///
-///  Holds the data for DiagnosticGate.
+/// Holds the data for DiagnosticGate.
 pub struct DiagnosticGate<K> {
     /// Stores the `last` value in `DiagnosticGate` as `Option<K>`.
     ///

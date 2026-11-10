@@ -8,8 +8,7 @@
 // Ignore only numerical rest, not genuine slow tumble/contact motion.
 /// Defines the `APPROACH_EPSILON` constant used by this module.
 ///
-///
-///  Provides the APPROACH EPSILON constant value.
+/// Provides the APPROACH EPSILON constant value.
 const APPROACH_EPSILON: f32 = 0.0001;
 pub use crate::flame_choke::{
     grounded_ganon_contact_in, grounded_ganon_release, CATCHED_AIR_END_GANON, CATCHED_GANON,
@@ -86,8 +85,7 @@ pub struct FloorMotionSample {
 }
 /// Defines the `FloorMotionHistory` data structure.
 ///
-///
-///  Holds the data for FloorMotionHistory.
+/// Holds the data for FloorMotionHistory.
 #[derive(Clone, Copy, Default)]
 pub struct FloorMotionHistory {
     /// Stores the `last` value in `FloorMotionHistory` as `Option<FloorMotionSample>`.
@@ -181,8 +179,7 @@ pub fn tech_press_allowed(status: i32, air_escape_enabled: bool) -> bool {
 // same as the game's final decision to accept a shield input as a legal tech.
 /// Defines the available `TechGate` cases.
 ///
-///
-///  Lists the available TechGate choices.
+/// Lists the available TechGate choices.
 pub enum TechGate {
     /// Represents the `OutsideTumble` case of `TechGate`.
     ///
@@ -273,8 +270,7 @@ pub fn tech_gate_with_floor(
 // two-element float array: index 0 is x (right), index 1 is y (up).
 /// Defines the `CollisionRay` data structure.
 ///
-///
-///  Holds the data for CollisionRay.
+/// Holds the data for CollisionRay.
 pub struct CollisionRay {
     /// Stores the `origin` value in `CollisionRay` as `[f32; 2]`.
     ///
@@ -390,8 +386,7 @@ pub fn tech_probes(x: f32, y: f32, vx: f32, vy: f32, horizon: f32) -> [Option<Co
 }
 /// Returns an optional `tech_probes_with_body` value.
 ///
-///
-///  Gets tech probes with body if it is available.
+/// Gets tech probes with body if it is available.
 pub fn tech_probes_with_body(
     x: f32,
     y: f32,
@@ -455,8 +450,7 @@ fn probe_delta(surface: usize, vx: f32, vy: f32, horizon: f32, body: Body) -> [f
 // changes its horizon; rebuilding all nine body probes for one slot is wasteful.
 /// Returns the `refined_probe` result.
 ///
-///
-///  Gets the refined probe result.
+/// Gets the refined probe result.
 fn refined_probe(
     ray: CollisionRay,
     index: usize,
@@ -514,8 +508,7 @@ pub fn first_contact_with_floor_acceleration(
 }
 /// Determines whether the `first_contact_with_body` condition holds.
 ///
-///
-///  Checks whether first contact with body.
+/// Checks whether first contact with body.
 pub fn first_contact_with_body(
     x: f32,
     y: f32,

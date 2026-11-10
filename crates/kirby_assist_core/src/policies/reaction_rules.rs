@@ -8,8 +8,7 @@ use crate::{
 };
 /// Determines whether the `starts_direct_up_b` condition holds.
 ///
-///
-///  Checks whether starts direct up b.
+/// Checks whether starts direct up b.
 pub fn starts_direct_up_b(sequence: &Sequence) -> bool {
     simple::starts_up_b(sequence)
 }
@@ -89,18 +88,15 @@ pub(crate) fn retain_missing<T: Tracked>(
 }
 /// Sets the upper bound for rules per mode.
 ///
-///
-///  Holds the MAX RULES PER MODE value.
+/// Holds the MAX RULES PER MODE value.
 pub const MAX_RULES_PER_MODE: usize = 8;
 /// Sets the upper bound for rules.
 ///
-///
-///  Holds the MAX RULES value.
+/// Holds the MAX RULES value.
 pub const MAX_RULES: usize = MAX_RULES_PER_MODE * 7;
 /// Defines the available `Trigger` cases.
 ///
-///
-///  Lists the available Trigger choices.
+/// Lists the available Trigger choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Trigger {
     #[default]
@@ -467,8 +463,7 @@ impl Trigger {
 }
 /// Defines the available `SelfState` cases.
 ///
-///
-///  Lists the available SelfState choices.
+/// Lists the available SelfState choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SelfState {
     #[default]
@@ -576,8 +571,7 @@ impl SelfState {
 }
 /// Defines the available `Side` cases.
 ///
-///
-///  Lists the available Side choices.
+/// Lists the available Side choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Side {
     #[default]
@@ -727,8 +721,7 @@ impl Control {
 }
 /// Defines the `Rule` data structure.
 ///
-///
-///  Holds the data for Rule.
+/// Holds the data for Rule.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rule {
     /// Stores the `trigger` value in `Rule` as `Trigger`.
@@ -1041,8 +1034,7 @@ impl Rule {
 }
 /// Validates the response.
 ///
-///
-///  Validates the response.
+/// Validates the response.
 pub fn validate_response(s: Sequence) -> Result<(), String> {
     s.reaction.validate()?;
     crate::sequence_config::validate_facing_blocks(s.actions())?;
@@ -1059,8 +1051,7 @@ pub fn validate_response(s: Sequence) -> Result<(), String> {
 }
 /// Defines the `Candidate` data structure.
 ///
-///
-///  Holds the data for Candidate.
+/// Holds the data for Candidate.
 #[derive(Clone, Copy)]
 pub struct Candidate {
     /// Stores the `slot` value in `Candidate` as `usize`.
@@ -1081,8 +1072,7 @@ pub struct Candidate {
 }
 /// Defines the `Resolved` data structure.
 ///
-///
-///  Holds the data for Resolved.
+/// Holds the data for Resolved.
 pub struct Resolved {
     /// Stores the `rules` value in `Resolved` as `Vec<Option<Candidate>>`.
     ///
@@ -1250,8 +1240,7 @@ impl Resolved {
 }
 /// Defines the available `Feedback` cases.
 ///
-///
-///  Lists the available Feedback choices.
+/// Lists the available Feedback choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Feedback {
     #[default]
@@ -1340,8 +1329,7 @@ impl Feedback {
 }
 /// Defines the `Track` data structure.
 ///
-///
-///  Holds the data for Track.
+/// Holds the data for Track.
 #[derive(Clone, Copy)]
 struct Track {
     /// Stores the `id` value in `Track` as `u32`.
@@ -1410,8 +1398,7 @@ impl Tracked for Track {
 }
 /// Defines the `Engine` data structure.
 ///
-///
-///  Holds the data for Engine.
+/// Holds the data for Engine.
 #[derive(Default)]
 pub struct Engine {
     /// Stores the `tracks` value in `Engine` as `[Option<Track>; crate::battle_objects::FIGHTER_CAPACITY]`.

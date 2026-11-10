@@ -28,8 +28,7 @@ pub(crate) fn is_new_hit(last: Option<(u32, u64)>, object: u32, remaining: u64) 
 
 /// Determines whether the `stick_engaged` condition holds.
 ///
-///
-///  Checks whether stick engaged.
+/// Checks whether stick engaged.
 pub(crate) fn stick_engaged(stick: [f32; 2]) -> bool {
     stick[0].hypot(stick[1]) >= PHYSICAL_STICK_DEFLECTION
 }

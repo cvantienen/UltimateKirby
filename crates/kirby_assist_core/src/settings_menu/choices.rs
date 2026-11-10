@@ -6,8 +6,7 @@ use crate::sequence_config::{Action, Sequence};
 
 /// Defines the `Choice` data structure.
 ///
-///
-///  Holds the data for Choice.
+/// Holds the data for Choice.
 pub struct Choice<'a> {
     /// Stores the `id` value in `Choice` as `&'a str`.
     ///

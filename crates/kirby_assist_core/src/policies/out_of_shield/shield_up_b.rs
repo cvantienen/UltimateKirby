@@ -8,8 +8,7 @@ use crate::{
 
 /// Defines the `Timing` data structure.
 ///
-///
-///  Holds the data for Timing.
+/// Holds the data for Timing.
 #[derive(Clone, Copy)]
 pub(super) struct Timing {
     /// Stores the `delivery` value in `Timing` as `u8`.
@@ -37,8 +36,7 @@ impl Timing {
 }
 /// Defines the `ShieldUpB` data structure.
 ///
-///
-///  Holds the data for ShieldUpB.
+/// Holds the data for ShieldUpB.
 #[derive(Default)]
 pub(super) struct ShieldUpB {
     /// Stores the `target` value in `ShieldUpB` as `Option<u32>`.

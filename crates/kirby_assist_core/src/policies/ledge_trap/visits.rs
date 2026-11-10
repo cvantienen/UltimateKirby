@@ -8,8 +8,7 @@ use crate::ledge_position::LedgeSpot;
 
 /// Defines the `Visit` data structure.
 ///
-///
-///  Holds the data for Visit.
+/// Holds the data for Visit.
 #[derive(Clone, Copy)]
 struct Visit {
     /// Stores the `id` value in `Visit` as `u32`.
@@ -35,8 +34,7 @@ struct Visit {
 }
 /// Defines the `LedgeVisits` data structure.
 ///
-///
-///  Holds the data for LedgeVisits.
+/// Holds the data for LedgeVisits.
 #[derive(Default)]
 pub struct LedgeVisits {
     /// Stores the `owner` value in `LedgeVisits` as `Option<(u32`.
@@ -67,8 +65,7 @@ pub struct LedgeVisits {
 }
 /// Defines the `Observation` data structure.
 ///
-///
-///  Holds the data for Observation.
+/// Holds the data for Observation.
 #[derive(Clone, Copy)]
 struct Observation {
     /// Stores the `new_visit` value in `Observation` as `bool`.

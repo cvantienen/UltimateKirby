@@ -15,8 +15,7 @@ pub use actions::validate_facing_blocks;
 
 /// Defines the available `SectionHeader` cases.
 ///
-///
-///  Lists the available SectionHeader choices.
+/// Lists the available SectionHeader choices.
 #[derive(Clone, Copy)]
 enum SectionHeader<'a> {
     /// Represents the `UniversalSettings` case of `SectionHeader`.
@@ -48,8 +47,7 @@ enum SectionHeader<'a> {
 
 /// Classifies the section header.
 ///
-///
-///  Classifies the section header.
+/// Classifies the section header.
 fn classify_section_header(line: &str) -> Option<SectionHeader<'_>> {
     if !line.starts_with('[') || !line.ends_with(']') {
         return None;
@@ -256,8 +254,7 @@ impl RecipeKey {
 
 /// Constructs the entry.
 ///
-///
-///  Holds the new entry value.
+/// Holds the new entry value.
 fn new_entry(fighter_kind: i32, fighter: String, slot: PresetSlot, choice: String) -> Entry {
     Entry {
         fighter_kind,
@@ -579,8 +576,7 @@ impl Parser {
 
 /// Applies the recipe key.
 ///
-///
-///  Applies the recipe key.
+/// Applies the recipe key.
 fn apply_recipe_key(
     entry: &mut Entry,
     key: RecipeKey,
@@ -648,8 +644,7 @@ fn apply_recipe_key(
 
 /// Parses the name.
 ///
-///
-///  Parses the name.
+/// Parses the name.
 fn parse_name(value: &str, line_number: usize) -> Result<String, String> {
     let value = if value.starts_with('"') || value.ends_with('"') {
         value
@@ -669,8 +664,7 @@ fn parse_name(value: &str, line_number: usize) -> Result<String, String> {
 
 /// Parses the flag.
 ///
-///
-///  Parses the flag.
+/// Parses the flag.
 fn parse_flag(key: RecipeKey, value: &str, line_number: usize) -> Result<bool, String> {
     match value {
         "true" => Ok(true),
@@ -845,8 +839,7 @@ impl Catalog {
 // including small files that do not contain universal settings at all.
 /// Validates the universal settings.
 ///
-///
-///  Validates the universal settings.
+/// Validates the universal settings.
 #[inline(never)]
 fn validate_universal_settings(settings: &str) -> Result<(), String> {
     crate::live_input::LiveConfig::parse(settings)
@@ -857,8 +850,7 @@ fn validate_universal_settings(settings: &str) -> Result<(), String> {
 // Policy sections contain no 32-action Entry; do not reserve recipe storage for them.
 /// Determines whether the `settings_header` condition holds.
 ///
-///
-///  Checks whether settings header.
+/// Checks whether settings header.
 fn settings_header(line: &str) -> bool {
     let Some(header) = line.strip_prefix('[').and_then(|s| s.strip_suffix(']')) else {
         return false;
@@ -948,8 +940,7 @@ fn check_entry(entry: &Entry, line: usize) -> Result<(), String> {
 
 /// Finishes the entry.
 ///
-///
-///  Finishes the entry.
+/// Finishes the entry.
 fn finish_entry(
     current: &mut Option<(Entry, usize)>,
     entries: &mut Vec<Entry>,
@@ -968,8 +959,7 @@ fn finish_entry(
 
 /// Returns the `words_id` result.
 ///
-///
-///  Gets the words id result.
+/// Gets the words id result.
 pub(super) fn words_id(value: &str) -> String {
     value
         .trim()
@@ -982,8 +972,7 @@ pub(super) fn words_id(value: &str) -> String {
 
 /// Parses the slot.
 ///
-///
-///  Parses the slot.
+/// Parses the slot.
 pub(super) fn parse_slot(value: &str) -> Option<PresetSlot> {
     Some(match value.to_ascii_lowercase().as_str() {
         "neutral" | "neutral_getup" => PresetSlot::Neutral,
@@ -1005,8 +994,7 @@ pub(super) fn parse_slot(value: &str) -> Option<PresetSlot> {
 
 /// Returns the `slot_name` result.
 ///
-///
-///  Gets the slot name result.
+/// Gets the slot name result.
 pub(super) fn slot_name(slot: PresetSlot) -> &'static str {
     match slot {
         PresetSlot::Neutral => "neutral",
@@ -1027,8 +1015,7 @@ pub(super) fn slot_name(slot: PresetSlot) -> &'static str {
 
 /// Determines whether the `valid_id` condition holds.
 ///
-///
-///  Checks whether valid id.
+/// Checks whether valid id.
 pub(super) fn valid_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 48

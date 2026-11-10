@@ -4,18 +4,15 @@
 
 /// Defines the `NO_MOTION_KIND` constant used by this module.
 ///
-///
-///  Provides the NO MOTION KIND constant value.
+/// Provides the NO MOTION KIND constant value.
 pub const NO_MOTION_KIND: u64 = 0;
 /// Defines the `MOTION_ATTACK_AIR_F` constant used by this module.
 ///
-///
-///  Provides the MOTION ATTACK AIR F constant value.
+/// Provides the MOTION ATTACK AIR F constant value.
 pub const MOTION_ATTACK_AIR_F: u64 = 0xc3495ada5;
 /// Defines the `HASH40_CRC32_POLYNOMIAL` constant used by this module.
 ///
-///
-///  Provides the HASH40 CRC32 POLYNOMIAL constant value.
+/// Provides the HASH40 CRC32 POLYNOMIAL constant value.
 const HASH40_CRC32_POLYNOMIAL: u32 = 0xedb88320;
 
 /// Hash40 motion identifier: CRC32 in the low word, byte length in the high word.
@@ -39,8 +36,7 @@ pub const fn motion_hash(name: &str) -> u64 {
 
 /// Determines whether the `same_motion_event` condition holds.
 ///
-///
-///  Checks whether same motion event.
+/// Checks whether same motion event.
 #[inline]
 pub(crate) fn same_motion_event(
     previous: (u32, i32, u64, f32),
@@ -113,8 +109,7 @@ impl MotionStamp {
 
 /// Determines whether the `playback_valid` condition holds.
 ///
-///
-///  Checks whether playback valid.
+/// Checks whether playback valid.
 fn playback_valid(frame: f32, rate: f32) -> bool {
     frame.is_finite() && frame >= 0.0 && rate.is_finite() && rate > 0.0
 }
