@@ -4,6 +4,8 @@
 /// Records that a menu publish could not acquire its required locks.
 ///
 ///  Signals the menu should try publishing again later.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn menu_retry() -> bool {
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::MenuRetry);
@@ -38,6 +40,12 @@ fn snapshot_bytes(v: &Snapshot) -> usize {
 /// Publishes a complete cached view or defers/retries when an edit/save lock is busy.
 ///
 ///  Updates the menu display to match the player's current selection.
+/// ### Arguments
+/// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+/// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+/// - `auto_mash` (`bool`): Represents the auto mash; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn publish(
     profile: &FighterProfile,
     selection: &MenuSelection,

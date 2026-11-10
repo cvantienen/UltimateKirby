@@ -67,7 +67,15 @@ impl SdiState {
     /// already held. Repeated mapper polls retain that neutral release until
     /// native hitstop advances; a same-side held sample is never a fresh SDI.
     ///
-///  Re-arm a real controller flick when the previous game-visible stick was already held. Repeated mapper polls retain that neutral release until native hitstop advances; a same-side held sample is never a fresh SDI.
+    ///  Re-arm a real controller flick when the previous game-visible stick was already held. Repeated mapper polls retain that neutral release until native hitstop advances; a same-side held sample is never a fresh SDI.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `ctx` (`SdiContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `geometry` (`Option<([f32; 2], crate::auto_di::BlastZone)>`): Represents the geometry; the function uses it as input to the operation described above.
+    /// - `previous` (`[f32; 2]`): Represents the previous; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample_exclusive_with_previous(
         &mut self,
         enabled: bool,
@@ -87,7 +95,13 @@ impl SdiState {
     /// Neutral flick gaps are owned too; physical movement cannot cancel an
     /// already selected damage response or leak into its later DI phase.
     ///
-///  Neutral flick gaps are owned too; physical movement cannot cancel an already selected damage response or leak into its later DI phase.
+    ///  Neutral flick gaps are owned too; physical movement cannot cancel an already selected damage response or leak into its later DI phase.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `ctx` (`SdiContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample_exclusive(&mut self, enabled: bool, ctx: SdiContext) -> Option<[f32; 2]> {
         self.manual_control = false;
         self.sample(enabled, ctx, [0.; 2])
@@ -95,7 +109,14 @@ impl SdiState {
     /// Samples the exclusive with geometry.
     ///
     ///
-///  Samples the exclusive with geometry.
+    ///  Samples the exclusive with geometry.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `ctx` (`SdiContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `geometry` (`Option<([f32; 2], crate::auto_di::BlastZone)>`): Represents the geometry; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample_exclusive_with_geometry(
         &mut self,
         enabled: bool,
@@ -128,7 +149,14 @@ impl SdiState {
     /// Updates the toggle state from the current button sample and match state.
     ///
     ///
-///  Checks the current buttons and updates whether the toggle should activate.
+    ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `ctx` (`SdiContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `physical` (`[f32; 2]`): Represents the physical; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample(
         &mut self,
         enabled: bool,

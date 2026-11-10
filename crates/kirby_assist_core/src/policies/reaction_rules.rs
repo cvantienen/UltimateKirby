@@ -9,6 +9,10 @@ use crate::{
 /// Determines whether the `starts_direct_up_b` condition holds.
 ///
 /// Checks whether starts direct up b.
+/// ### Arguments
+/// - `sequence` (`&Sequence`): Represents the sequence; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn starts_direct_up_b(sequence: &Sequence) -> bool {
     simple::starts_up_b(sequence)
 }
@@ -24,6 +28,11 @@ pub use scope::{
 /// pending Grab/Up-B is rejected after manual takeoff.
 ///
 ///  An automatic reaction tape: delivered holds survive observation gaps and a pending Grab/Up-B is rejected after manual takeoff.
+/// ### Arguments
+/// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
+/// - `enemy` (`Opponent`): Represents the enemy; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `InputTimeline` value.
 pub(crate) fn automatic_plan(sequence: Sequence, enemy: Opponent) -> InputTimeline {
     let mut plan = InputTimeline::new(sequence, enemy);
     plan.allow_continuous_progress();
@@ -37,17 +46,28 @@ pub(crate) trait Tracked: Copy {
     /// Returns the native identifier of the observed object.
     ///
     ///
-///  Gets the object’s identifier.
+    ///  Gets the object’s identifier.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     fn id(&self) -> u32;
     /// Returns an optional `status` value.
     ///
     ///
-///  Gets status if it is available.
+    ///  Gets status if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `i32` value.
     fn status(&self) -> i32;
 }
 /// Positive status evidence that an actor left its remembered event.
 ///
 ///  Positive status evidence that an actor left its remembered event.
+/// ### Arguments
+/// - `tracks` (`&mut [Option<T>]`): Represents the tracks; the function uses it as input to the operation described above.
+/// - `known` (`&[Option<(u32, i32)>; N]`): Represents the known; the function uses it as input to the operation described above.
 pub(crate) fn forget_ended<T: Tracked, const N: usize>(
     tracks: &mut [Option<T>],
     known: &[Option<(u32, i32)>; N],
@@ -67,6 +87,11 @@ pub(crate) fn forget_ended<T: Tracked, const N: usize>(
 /// actors absent from this poll in spare slots until a different status is seen.
 ///
 ///  Missing samples are not evidence of a new event: keep selected memories of actors absent from this poll in spare slots until a different status is seen.
+/// ### Arguments
+/// - `tracks` (`&mut [Option<T>]`): Represents the tracks; the function uses it as input to the operation described above.
+/// - `old` (`impl IntoIterator<Item = T>`): Represents the old; the function uses it as input to the operation described above.
+/// - `observed` (`impl Iterator<Item = (u32, i32)> + Clone`): Represents the observed; the function uses it as input to the operation described above.
+/// - `keep` (`impl Fn(&T) -> bool`): Represents the keep; the function uses it as input to the operation described above.
 pub(crate) fn retain_missing<T: Tracked>(
     tracks: &mut [Option<T>],
     old: impl IntoIterator<Item = T>,
@@ -253,7 +278,11 @@ impl Trigger {
     /// Returns the `auto_name` result.
     ///
     ///
-///  Gets the auto name result.
+    ///  Gets the auto name result.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn auto_name(self) -> &'static str {
         match self {
             Self::AutoRoll => "Roll",
@@ -303,7 +332,11 @@ impl Trigger {
     /// Returns the `family` result.
     ///
     ///
-///  Gets the family result.
+    ///  Gets the family result.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `usize` value.
     pub fn family(self) -> usize {
         match self {
             t if t.simple().is_some() => 6,
@@ -318,7 +351,11 @@ impl Trigger {
     /// Returns an optional `simple` value.
     ///
     ///
-///  Gets simple if it is available.
+    ///  Gets simple if it is available.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn simple(self) -> Option<usize> {
         match self {
             Self::AutoRoll => Some(0),
@@ -334,7 +371,11 @@ impl Trigger {
     /// Determines whether the `shield_pressure` condition holds.
     ///
     ///
-///  Checks whether shield pressure.
+    ///  Checks whether shield pressure.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn shield_pressure(self) -> bool {
         matches!(
             self,
@@ -365,7 +406,11 @@ impl Trigger {
     /// Determines whether the `defensive` condition holds.
     ///
     ///
-///  Checks whether defensive.
+    ///  Checks whether defensive.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn defensive(self) -> bool {
         self.shield_pressure()
             || matches!(
@@ -382,7 +427,12 @@ impl Trigger {
     /// Determines whether the `event_matches` condition holds.
     ///
     ///
-///  Checks whether event matches.
+    ///  Checks whether event matches.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `event` (`Self`): Represents the event; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn event_matches(self, event: Self) -> bool {
         self == event
             || matches!(
@@ -395,7 +445,11 @@ impl Trigger {
     /// Determines whether vulnerable.
     ///
     ///
-///  Checks whether vulnerable.
+    ///  Checks whether vulnerable.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_vulnerable(self) -> bool {
         matches!(
             self,
@@ -408,7 +462,11 @@ impl Trigger {
     /// Returns the `events` result.
     ///
     ///
-///  Gets the events result.
+    ///  Gets the events result.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `&'static [Self]` value.
     pub fn events(self) -> &'static [Self] {
         match self.family() {
             6 => &Self::AUTO_EVENTS,
@@ -428,7 +486,11 @@ impl Trigger {
     /// Returns the serialized token for the value.
     ///
     ///
-///  Gets the text form used when saving this value.
+    ///  Gets the text form used when saving this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn token(self) -> &'static str {
         match self {
             Self::AutoGrab => "auto_grab",
@@ -520,7 +582,11 @@ impl SelfState {
     /// Returns the serialized token for the value.
     ///
     ///
-///  Gets the text form used when saving this value.
+    ///  Gets the text form used when saving this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn token(self) -> &'static str {
         match self {
             Self::Any => "any",
@@ -535,7 +601,12 @@ impl SelfState {
     /// Determines whether the `matches` condition holds.
     ///
     ///
-///  Checks whether matches.
+    ///  Checks whether matches.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(crate) fn matches(self, c: GameplayContext) -> bool {
         match self {
             Self::Any => true,
@@ -600,7 +671,11 @@ impl Side {
     /// Returns the serialized token for the value.
     ///
     ///
-///  Gets the text form used when saving this value.
+    ///  Gets the text form used when saving this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn token(self) -> &'static str {
         match self {
             Self::Any => "any",
@@ -668,14 +743,22 @@ impl Control {
     /// Tests whether the requested bit is set in the value.
     ///
     ///
-///  Checks whether this bit is on.
+    ///  Checks whether this bit is on.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u8` value.
     pub fn bit(self) -> u8 {
         1 << self as u8
     }
     /// Returns the serialized token for the value.
     ///
     ///
-///  Gets the text form used when saving this value.
+    ///  Gets the text form used when saving this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn token(self) -> &'static str {
         match self {
             Self::Menu => "menu",
@@ -690,7 +773,11 @@ impl Control {
     /// Returns the display label for the value.
     ///
     ///
-///  Gets the text shown for this value.
+    ///  Gets the text shown for this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn label(self) -> &'static str {
         match self {
             Self::Menu => "Menu",
@@ -705,7 +792,11 @@ impl Control {
     /// Returns the button associated with the binding.
     ///
     ///
-///  Gets the assigned button.
+    ///  Gets the assigned button.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn button(self) -> u32 {
         use crate::{manual_controls::*, native_input::*};
         match self {
@@ -769,7 +860,9 @@ impl Default for Rule {
     /// Returns the default value for this type.
     ///
     ///
-///  Returns the default value for this type.
+    ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             trigger: Trigger::Off,
@@ -787,14 +880,24 @@ impl Rule {
     /// Checks whether the feature is active.
     ///
     ///
-///  Checks whether the feature is on.
+    ///  Checks whether the feature is on.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(self) -> bool {
         self.trigger != Trigger::Off
     }
     /// The first failing self-state/range/height/side gate for a target at
     /// `target`, in the order shown as feedback. Non-finite geometry never fits.
     ///
-///  The first failing self-state/range/height/side gate for a target at target, in the order shown as feedback. Non-finite geometry never fits.
+    ///  The first failing self-state/range/height/side gate for a target at target, in the order shown as feedback. Non-finite geometry never fits.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
+    /// - `target` (`[f32; 2]`): Represents the target object or value being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(crate) fn rejects(self, c: GameplayContext, target: [f32; 2]) -> Option<Feedback> {
         if !self.state.matches(c) {
             return Some(Feedback::State);
@@ -818,7 +921,12 @@ impl Rule {
     /// Returns the `field` result.
     ///
     ///
-///  Gets the field result.
+    ///  Gets the field result.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `n` (`u8`): Represents the n; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn field(self, n: u8) -> String {
         match n {
             0 => format!(
@@ -880,12 +988,20 @@ impl Rule {
     /// Updates the `adjust` state using the supplied inputs.
     ///
     ///
-///  Updates adjust.
+    ///  Updates adjust.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `n` (`u8`): Represents the n; the function uses it as input to the operation described above.
+    /// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
     pub fn adjust(&mut self, n: u8, up: bool) {
         /// Advances the selected choice to the next value.
         ///
         ///
-///  Moves to the next choice.
+        ///  Moves to the next choice.
+        /// ### Arguments
+        /// - `v` (`&mut T`): Represents the v; the function uses it as input to the operation described above.
+        /// - `all` (`&[T]`): Represents the all; the function uses it as input to the operation described above.
+        /// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
         fn cycle<T: Copy + PartialEq>(v: &mut T, all: &[T], up: bool) {
             let i = all.iter().position(|x| x == v).unwrap_or(0);
             *v = all[(i + if up { 1 } else { all.len() - 1 }) % all.len()]
@@ -920,7 +1036,11 @@ impl Rule {
     /// Returns the `validate` result.
     ///
     ///
-///  Gets the validate result.
+    ///  Gets the validate result.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn validate(self) -> Result<(), String> {
         if (self.trigger.defensive() || self.trigger.simple().is_some())
             && self.control != Control::Menu
@@ -944,7 +1064,11 @@ impl Rule {
     /// Parses the supplied source into the module’s validated representation.
     ///
     ///
-///  Reads the source and checks that it is valid.
+    ///  Reads the source and checks that it is valid.
+    /// ### Arguments
+    /// - `s` (`&str`): Represents the s; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn parse(s: &str) -> Result<Self, String> {
         let p: Vec<_> = s.trim().split(':').collect();
         if p.len() == 3 {
@@ -1010,7 +1134,11 @@ impl Rule {
     /// Returns the serialized token for the value.
     ///
     ///
-///  Gets the text form used when saving this value.
+    ///  Gets the text form used when saving this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn token(self) -> String {
         if self.trigger.simple().is_some() {
             return format!("{}:{}:{}", self.trigger.token(), self.max, self.height);
@@ -1035,6 +1163,10 @@ impl Rule {
 /// Validates the response.
 ///
 /// Validates the response.
+/// ### Arguments
+/// - `s` (`Sequence`): Represents the s; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn validate_response(s: Sequence) -> Result<(), String> {
     s.reaction.validate()?;
     crate::sequence_config::validate_facing_blocks(s.actions())?;
@@ -1124,7 +1256,9 @@ impl Default for Resolved {
     /// Returns the default value for this type.
     ///
     ///
-///  Returns the default value for this type.
+    ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             rules: Vec::new(),
@@ -1143,7 +1277,12 @@ impl Resolved {
     /// Returns an optional `simple_sequence` value.
     ///
     ///
-///  Gets simple sequence if it is available.
+    ///  Gets simple sequence if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn simple_sequence(&self, index: usize) -> Option<&Sequence> {
         self.simple
             .as_ref()
@@ -1153,14 +1292,23 @@ impl Resolved {
     /// Checks whether simple events.
     ///
     ///
-///  Checks whether simple events.
+    ///  Checks whether simple events.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn has_simple_events(&self) -> bool {
         (0..3).any(|i| self.simple_sequence(i).is_some())
     }
     /// Checks whether defense.
     ///
     ///
-///  Checks whether defense.
+    ///  Checks whether defense.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `trigger` (`Trigger`): Represents the trigger; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn has_defense(&self, trigger: Trigger) -> bool {
         let alias = match trigger {
             Trigger::ShieldHit => 1 << Trigger::ShieldHitVulnerable as u8,
@@ -1173,14 +1321,22 @@ impl Resolved {
     /// Sets the enabled controls.
     ///
     ///
-///  Sets the enabled controls.
+    ///  Sets the enabled controls.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `controls` (`u8`): Represents the controls; the function uses it as input to the operation described above.
     pub fn set_enabled_controls(&mut self, controls: u8) {
         self.enabled_controls = controls;
     }
     /// Returns the `add` result.
     ///
     ///
-///  Gets the add result.
+    ///  Gets the add result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `c` (`Candidate`): Represents the c; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn add(&mut self, c: Candidate) -> Result<(), String> {
         if !c.sequence.reaction.active() {
             return Ok(());
@@ -1310,7 +1466,11 @@ impl Feedback {
     /// Returns the display label for the value.
     ///
     ///
-///  Gets the text shown for this value.
+    ///  Gets the text shown for this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn label(self) -> &'static str {
         match self {
             Self::Watching => "watching rolls",
@@ -1372,7 +1532,12 @@ impl Track {
     /// Determines whether the `continues` condition holds.
     ///
     ///
-///  Checks whether continues.
+    ///  Checks whether continues.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `target` (`&Target`): Represents the target object or value being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn continues(&self, target: &Target) -> bool {
         crate::timing::same_motion_event(
             (self.id, self.status, self.motion, self.frame),
@@ -1384,14 +1549,22 @@ impl Tracked for Track {
     /// Returns the native identifier of the observed object.
     ///
     ///
-///  Gets the object’s identifier.
+    ///  Gets the object’s identifier.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     fn id(&self) -> u32 {
         self.id
     }
     /// Returns the `status` result.
     ///
     ///
-///  Gets the status result.
+    ///  Gets the status result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `i32` value.
     fn status(&self) -> i32 {
         self.status
     }
@@ -1441,42 +1614,65 @@ impl Engine {
     /// Observes the statuses.
     ///
     ///
-///  Observes the statuses.
+    ///  Observes the statuses.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `known` (`&[Option<(u32, i32)>; N]`): Represents the known; the function uses it as input to the operation described above.
     pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         forget_ended(&mut self.tracks, known);
     }
     /// Returns the selected target observation.
     ///
     ///
-///  Gets the chosen target.
+    ///  Gets the chosen target.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
     /// Checks whether an input owner has committed the action.
     ///
     ///
-///  Checks whether the action has been committed.
+    ///  Checks whether the action has been committed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn committed(&self) -> bool {
         self.plan.is_some()
     }
     /// Determines whether the `direct_up_b` condition holds.
     ///
     ///
-///  Checks whether direct up b.
+    ///  Checks whether direct up b.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn direct_up_b(&self) -> bool {
         self.up_b.armed() && self.plan.is_some()
     }
     /// Determines whether the `up_b_delivery_started` condition holds.
     ///
     ///
-///  Checks whether up b delivery started.
+    ///  Checks whether up b delivery started.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn up_b_delivery_started(&self) -> bool {
         self.direct_up_b() && self.up_b.started()
     }
     /// Updates the `attempted_up_special` state using the supplied inputs.
     ///
     ///
-///  Updates attempted up special.
+    ///  Updates attempted up special.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
         if self.direct_up_b() && self.target == Some(target) {
             self.up_b.attempted(tick);
@@ -1485,7 +1681,11 @@ impl Engine {
     /// Updates the `mapped_up_special` state using the supplied inputs.
     ///
     ///
-///  Updates mapped up special.
+    ///  Updates mapped up special.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
         if self.direct_up_b() && self.target == Some(target) {
             self.up_b.mapped(tick);
@@ -1494,21 +1694,32 @@ impl Engine {
     /// Determines whether the `up_b_receipt_pending` condition holds.
     ///
     ///
-///  Checks whether up b receipt pending.
+    ///  Checks whether up b receipt pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn up_b_receipt_pending(&self) -> bool {
         self.direct_up_b() && self.up_b.receipt_pending()
     }
     /// Determines whether the `awaiting_up_b` condition holds.
     ///
     ///
-///  Checks whether awaiting up b.
+    ///  Checks whether awaiting up b.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn awaiting_up_b(&self) -> bool {
         self.direct_up_b() && self.up_b.awaiting()
     }
     /// Updates the `delivery_tick` state using the supplied inputs.
     ///
     ///
-///  Updates delivery tick.
+    ///  Updates delivery tick.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn delivery_tick(&mut self, tick: i64) {
         if self.direct_up_b() {
             self.up_b.tick(tick);
@@ -1517,35 +1728,53 @@ impl Engine {
     /// Determines whether ground.
     ///
     ///
-///  Checks whether ground.
+    ///  Checks whether ground.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_ground(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::needs_ground)
     }
     /// Returns an optional `right_stick` value.
     ///
     ///
-///  Gets right stick if it is available.
+    ///  Gets right stick if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         self.plan.as_ref().map(InputTimeline::right_stick)
     }
     /// Determines whether the `walking` condition holds.
     ///
     ///
-///  Checks whether walking.
+    ///  Checks whether walking.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn walking(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::walking)
     }
     /// Determines whether the `attack_hold` condition holds.
     ///
     ///
-///  Checks whether attack hold.
+    ///  Checks whether attack hold.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn attack_hold(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::attack_hold)
     }
     /// Cancels the pending operation and clears its state.
     ///
     ///
-///  Stops the operation that was waiting.
+    ///  Stops the operation that was waiting.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel(&mut self) {
         self.plan = None;
         self.target = None;
@@ -1557,7 +1786,12 @@ impl Engine {
     /// actor is missing stays consumed until a different status is observed.
     /// `origin_x` additionally follows each target's side and roll crossing.
     ///
-///  Rebuild the per-slot event memory from this poll. A consumed event whose actor is missing stays consumed until a different status is observed. originx additionally follows each target's side and roll crossing.
+    ///  Rebuild the per-slot event memory from this poll. A consumed event whose actor is missing stays consumed until a different status is observed. originx additionally follows each target's side and roll crossing.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+    /// - `origin_x` (`Option<f32>`): Represents the origin x; the function uses it as input to the operation described above.
+    /// - `tracked` (`impl Fn(&Target) -> bool`): Represents the tracked; the function uses it as input to the operation described above.
     fn observe_events(
         &mut self,
         targets: &[Option<Target>; 8],
@@ -1600,7 +1834,17 @@ impl Engine {
     /// Updates the toggle state from the current button sample and match state.
     ///
     ///
-///  Checks the current buttons and updates whether the toggle should activate.
+    ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+    /// - `rules` (`&Resolved`): Represents the rules; the function uses it as input to the operation described above.
+    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
+    /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample(
         &mut self,
         allowed: bool,
@@ -1648,7 +1892,13 @@ impl Engine {
     }
     /// Commit the first priority-ordered rule that matches an unconsumed roll.
     ///
-///  Commit the first priority-ordered rule that matches an unconsumed roll.
+    ///  Commit the first priority-ordered rule that matches an unconsumed roll.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `rules` (`&Resolved`): Represents the rules; the function uses it as input to the operation described above.
+    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
+    /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+    /// - `follow` (`&mut Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
     fn start_matching_roll(
         &mut self,
         rules: &Resolved,
@@ -1713,7 +1963,12 @@ mod tests {
     /// Returns the `sequence` result.
     ///
     ///
-///  Gets the sequence result.
+    ///  Gets the sequence result.
+    /// ### Arguments
+    /// - `trigger` (`&str`): Represents the trigger; the function uses it as input to the operation described above.
+    /// - `actions` (`&str`): Represents the actions; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Sequence` value.
     fn sequence(trigger: &str, actions: &str) -> Sequence {
         Catalog::parse(&format!(
             "[yoshi.roll.rule]\nstart_delay=0\nreaction={trigger}\nactions={actions}\n"
@@ -1725,7 +1980,11 @@ mod tests {
     /// Returns the `context` result.
     ///
     ///
-///  Gets the context result.
+    ///  Gets the context result.
+    /// ### Arguments
+    /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `GameplayContext` value.
     fn context(frame: f32) -> GameplayContext {
         GameplayContext {
             held: true,
@@ -1744,7 +2003,12 @@ mod tests {
     /// Returns the selected target observation.
     ///
     ///
-///  Gets the chosen target.
+    ///  Gets the chosen target.
+    /// ### Arguments
+    /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+    /// - `x` (`f32`): Represents the horizontal coordinate; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Target` value.
     fn target(frame: f32, x: f32) -> Target {
         Target {
             id: 7,
@@ -1835,7 +2099,11 @@ mod tests {
     /// Returns the `resolved` result.
     ///
     ///
-///  Gets the resolved result.
+    ///  Gets the resolved result.
+    /// ### Arguments
+    /// - `s` (`Sequence`): Represents the s; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Resolved` value.
     fn resolved(s: Sequence) -> Resolved {
         let mut r = Resolved::default();
         r.add(Candidate {
@@ -1849,7 +2117,14 @@ mod tests {
     /// Updates the toggle state from the current button sample and match state.
     ///
     ///
-///  Checks the current buttons and updates whether the toggle should activate.
+    ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `e` (`&mut Engine`): Represents the e; the function uses it as input to the operation described above.
+    /// - `r` (`&Resolved`): Represents the r; the function uses it as input to the operation described above.
+    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
+    /// - `t` (`Target`): Represents the t; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     fn sample(e: &mut Engine, r: &Resolved, c: GameplayContext, t: Target) -> ControllerOutput {
         e.sample(
             true,

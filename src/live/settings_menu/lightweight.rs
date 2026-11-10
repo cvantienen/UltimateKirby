@@ -7,6 +7,10 @@ use imgui_api::bindings::*;
 /// No tables, measured rows or per-frame string formatting/allocation.
 ///
 ///  Displays the compact list using cached text and minimal drawing work.
+/// ### Arguments
+/// - `view` (`&Snapshot`): Represents the view; the function uses it as input to the operation described above.
+/// - `display` (`ImVec2_c`): Represents the display; the function uses it as input to the operation described above.
+/// - `scale` (`f32`): Represents the scale; the function uses it as input to the operation described above.
 pub(super) unsafe fn draw(view: &Snapshot, display: ImVec2_c, scale: f32) {
     if !view.lightweight {
         return;

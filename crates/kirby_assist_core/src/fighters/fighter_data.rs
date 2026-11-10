@@ -148,6 +148,10 @@ impl MoveData {
     ///
     ///
     ///  Checks whether damage data.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn has_damage_data(&self) -> bool {
         self.raw
             .iter()
@@ -159,6 +163,10 @@ impl MoveData {
     ///
     ///
     ///  Gets the last frame when the action was active.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn last_active(&self) -> Option<u16> {
         self.active.iter().map(|span| span.last).max()
     }
@@ -167,6 +175,11 @@ impl MoveData {
     ///
     ///
     ///  Gets how long recovery lasts.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `observation` (`RecoveryObservation`): Represents the observation; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn recovery(&self, observation: RecoveryObservation) -> Option<f32> {
         let expected_status = match self.name.as_str() {
             "Dash Attack" => STATUS_DASH_ATTACK,
@@ -306,6 +319,11 @@ impl FighterData {
     ///
     ///
     ///  Finds the move that matches this animation.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `motion` (`u64`): Represents the motion being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn move_for_motion(&self, motion: u64) -> Option<&MoveData> {
         unique(
             self.moves
@@ -318,6 +336,11 @@ impl FighterData {
     ///
     ///
     ///  Gets the fighter statistic.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn stat(&self, key: &str) -> Option<&str> {
         self.stats
             .iter()
@@ -329,6 +352,11 @@ impl FighterData {
     ///
     ///
     ///  Gets the number for this fighter statistic.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn numeric_stat(&self, key: &str) -> Option<f32> {
         self.stat(key)?.parse().ok()
     }
@@ -475,6 +503,8 @@ static GRAB_FACTS: OnceLock<Vec<GrabFacts>> = OnceLock::new();
 /// Loads the fighters.
 ///
 /// Loads the fighters.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn load_fighters() -> Result<Vec<FighterData>, String> {
     let file: DataFile = serde_json::from_str(DATA_FILE)
         .map_err(|error| format!("cannot parse embedded Ultimate_stats.json: {error}"))?;
@@ -507,6 +537,10 @@ fn load_fighters() -> Result<Vec<FighterData>, String> {
 /// Parses the fighter.
 ///
 /// Parses the fighter.
+/// ### Arguments
+/// - `record` (`FighterRecord`): Represents the record; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn parse_fighter(record: FighterRecord) -> Result<FighterData, String> {
     if record.name.is_empty() || record.stats.is_empty() || record.moves.is_empty() {
         return Err(format!(
@@ -546,6 +580,11 @@ fn parse_fighter(record: FighterRecord) -> Result<FighterData, String> {
 /// Parses the move.
 ///
 /// Parses the move.
+/// ### Arguments
+/// - `fighter_name` (`&str`): Represents the fighter name; the function uses it as input to the operation described above.
+/// - `record` (`MoveRecord`): Represents the record; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn parse_move(fighter_name: &str, record: MoveRecord) -> Result<MoveData, String> {
     let active = record
         .active
@@ -588,6 +627,8 @@ fn parse_move(fighter_name: &str, record: MoveRecord) -> Result<MoveData, String
 /// Validate and initialize the embedded roster before installing live hooks.
 ///
 ///  Validate and initialize the embedded roster before installing live hooks.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn initialize() -> Result<(), &'static str> {
     try_all().map(|_| ())
 }
@@ -595,6 +636,8 @@ pub fn initialize() -> Result<(), &'static str> {
 /// Attempts each eligible candidate until one is accepted.
 ///
 /// Tries the available options in order.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn try_all() -> Result<&'static [FighterData], &'static str> {
     FIGHTERS
         .get_or_init(load_fighters)
@@ -605,6 +648,8 @@ fn try_all() -> Result<&'static [FighterData], &'static str> {
 /// All fighter records, independent of player/opponent role.
 ///
 ///  All fighter records, independent of player/opponent role.
+/// ### Returns
+/// Returns the resulting `&'static [FighterData]` value.
 pub fn all() -> &'static [FighterData] {
     try_all().unwrap_or_else(|error| panic!("invalid embedded fighter data: {error}"))
 }
@@ -612,6 +657,10 @@ pub fn all() -> &'static [FighterData] {
 /// Exact native fighter-kind lookup. Unknown kinds never borrow another row.
 ///
 ///  Exact native fighter-kind lookup. Unknown kinds never borrow another row.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn fighter(kind: i32) -> Option<&'static FighterData> {
     let fighters = all();
     fighters
@@ -623,6 +672,8 @@ pub fn fighter(kind: i32) -> Option<&'static FighterData> {
 /// Prepare the compact native-kind grab lookup once before live callbacks.
 ///
 ///  Prepare the compact native-kind grab lookup once before live callbacks.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn prepare_grab_references() -> Result<(), &'static str> {
     let fighters = try_all()?;
     GRAB_FACTS.get_or_init(|| {
@@ -642,6 +693,11 @@ pub fn prepare_grab_references() -> Result<(), &'static str> {
 /// Exact standing, dash, or pivot grab facts for any fighter-data row.
 ///
 ///  Exact standing, dash, or pivot grab facts for any fighter-data row.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn ordinary_grab(kind: i32, status: i32) -> Option<GrabReference> {
     let slot = GRAB_STATUSES.iter().position(|&known| known == status)?;
     if let Some(facts) = GRAB_FACTS.get() {
@@ -656,6 +712,11 @@ pub fn ordinary_grab(kind: i32, status: i32) -> Option<GrabReference> {
 /// Reads ordinary-grab data without reusing a cached result.
 ///
 /// Gets fresh ordinary-grab data.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn ordinary_grab_uncached(kind: i32, status: i32) -> Option<GrabReference> {
     let move_name = match status {
         STATUS_GRAB => "Grab",
@@ -696,6 +757,11 @@ fn ordinary_grab_uncached(kind: i32, status: i32) -> Option<GrabReference> {
 /// Return one unambiguous named move; variants are never guessed.
 ///
 ///  Return one unambiguous named move; variants are never guessed.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn named_move(kind: i32, name: &str) -> Option<&'static MoveData> {
     unique(
         fighter(kind)?
@@ -708,6 +774,10 @@ pub fn named_move(kind: i32, name: &str) -> Option<&'static MoveData> {
 /// The only item of `matches`; zero or several candidates are ambiguous.
 ///
 ///  The only item of matches; zero or several candidates are ambiguous.
+/// ### Arguments
+/// - `matches` (`impl Iterator<Item = &'a T>`): Represents the matches; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn unique<'a, T>(mut matches: impl Iterator<Item = &'a T>) -> Option<&'a T> {
     let first = matches.next()?;
     matches.next().is_none().then_some(first)
@@ -730,6 +800,8 @@ impl FighterDataCache {
     ///
     ///
     ///  Creates a new value.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self { slots: [None; 8] }
     }
@@ -738,6 +810,13 @@ impl FighterDataCache {
     ///
     ///
     ///  Finds the button assigned to this action.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn bind(&mut self, slot: usize, id: u32, kind: i32) -> Option<&'static FighterData> {
         let entry = self.slots.get_mut(slot)?;
         if let Some((old_id, old_kind, data)) = *entry {
@@ -753,6 +832,9 @@ impl FighterDataCache {
     ///
     ///
     ///  Forgets the last fighter observation.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
     pub fn clear(&mut self, slot: usize) {
         if let Some(entry) = self.slots.get_mut(slot) {
             *entry = None;

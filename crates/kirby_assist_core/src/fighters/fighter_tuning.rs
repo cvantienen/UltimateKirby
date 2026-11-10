@@ -7,6 +7,11 @@ use crate::settings::AssistSettings;
 /// range scaled by the fighter's dash-grab/standing-grab reach ratio.
 ///
 ///  Default close/approach automatic-grab ranges: the standing range, and that range scaled by the fighter's dash-grab/standing-grab reach ratio.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `standing` (`f32`): Represents the standing; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `(f32, f32)` value.
 fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
     if !standing.is_finite() || standing <= 0. {
         return (0., 0.);
@@ -27,6 +32,10 @@ fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
 /// Returns the default down-tilt facing adjustment.
 ///
 /// Gets the default facing for down tilt.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn tilt_turn_down_default(kind: i32) -> bool {
     matches!(
         kind,
@@ -621,6 +630,8 @@ impl Default for Values {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self([0.; COUNT])
     }
@@ -635,6 +646,10 @@ impl std::ops::Deref for Values {
     ///
     ///
     ///  Lets callers use the wrapped value directly.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `&Self::Target` value.
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -644,6 +659,10 @@ impl std::ops::DerefMut for Values {
     ///
     ///
     ///  Provides mutable access to deref.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `&mut Self::Target` value.
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -653,6 +672,8 @@ impl Default for Tuning {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self([None; COUNT])
     }
@@ -662,12 +683,23 @@ impl Tuning {
     ///
     ///
     ///  Gets the stored value.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
+    /// - `fallback` (`f32`): Represents the fallback; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub fn value(&self, i: usize, fallback: f32) -> f32 {
         self.0[i].unwrap_or(fallback)
     }
     /// The override, or this row's shared fixed default.
     ///
     ///  The override, or this row's shared fixed default.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub fn get(&self, i: usize) -> f32 {
         self.value(i, DEFAULTS[i])
     }
@@ -675,6 +707,10 @@ impl Tuning {
     ///
     ///
     ///  Gets the number of frames.
+    /// ### Arguments
+    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn frames(i: usize) -> bool {
         matches!(
             i,
@@ -690,6 +726,11 @@ impl Tuning {
     /// the legacy punish/roll rows are hidden, and crouch rows are Kirby-only.
     ///
     ///  Menu rows shown for this fighter: reflect rows need a supported reflector, the legacy punish/roll rows are hidden, and crouch rows are Kirby-only.
+    /// ### Arguments
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn visible(kind: i32, i: usize) -> bool {
         match i {
             REFLECT_DEFAULT..=REFLECT_HALF_DEPTH => crate::projectile_reflect::supports(kind),
@@ -702,6 +743,10 @@ impl Tuning {
     ///
     ///
     ///  Checks whether bool.
+    /// ### Arguments
+    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn is_bool(i: usize) -> bool {
         (MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT).contains(&i)
             || i == REFLECT_DEFAULT
@@ -711,6 +756,11 @@ impl Tuning {
     ///
     ///
     ///  Gets the tilt-turn setting.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `crate::posture::TiltSettings` value.
     pub fn tilt_turn(self, kind: i32) -> crate::posture::TiltSettings {
         crate::posture::TiltSettings {
             down: self.value(TILT_TURN_DOWN, f32::from(tilt_turn_down_default(kind))) == 1.0,
@@ -722,6 +772,11 @@ impl Tuning {
     ///
     ///
     ///  Gets the standard grab-dodge setting.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `base` (`bool`): Represents the base; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn grab_dodge_default(self, base: bool) -> bool {
         self.0[GRAB_DODGE_DEFAULT].map_or(base, |x| x == 1.0)
     }
@@ -729,6 +784,10 @@ impl Tuning {
     ///
     ///
     ///  Gets the standard out-of-shield setting.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn oos_default(self) -> bool {
         self.get(OUT_OF_SHIELD_DEFAULT) == 1.0
     }
@@ -736,6 +795,10 @@ impl Tuning {
     ///
     ///
     ///  Gets how far ahead the dodge check looks.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub fn dodge_lookahead(self) -> f32 {
         self.get(GRAB_DODGE_LOOKAHEAD)
     }
@@ -743,6 +806,12 @@ impl Tuning {
     ///
     ///
     ///  Gets how close a target must be for the automatic grab.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// - `standing` (`f32`): Represents the standing; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub fn auto_grab_range(&self, kind: i32, standing: f32) -> f32 {
         self.auto_grab_ranges(kind, standing).0
     }
@@ -750,6 +819,12 @@ impl Tuning {
     ///
     ///
     ///  Gets the automatic-grab ranges for the fighters.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// - `standing` (`f32`): Represents the standing; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `(f32, f32)` value.
     pub fn auto_grab_ranges(&self, kind: i32, standing: f32) -> (f32, f32) {
         let (close, far) = match (self.0[AUTO_GRAB_CLOSE], self.0[AUTO_GRAB_FAR]) {
             (Some(close), Some(far)) => (close, far),
@@ -764,6 +839,10 @@ impl Tuning {
     ///
     ///
     ///  Gets the observed shield data.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `crate::autopilot_guard::Envelope` value.
     pub fn shield(&self) -> crate::autopilot_guard::Envelope {
         crate::autopilot_guard::Envelope {
             scan_x: self.get(SHIELD_SCAN_X),
@@ -780,6 +859,10 @@ impl Tuning {
     ///
     ///
     ///  Gets the body area used to estimate a tech.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `crate::tech_prediction::Body` value.
     pub fn tech_body(&self) -> crate::tech_prediction::Body {
         crate::tech_prediction::Body {
             half_width: self.get(TECH_HALF_WIDTH),
@@ -798,6 +881,10 @@ impl Tuning {
     ///
     ///
     ///  Gets the object’s bounds.
+    /// ### Arguments
+    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `(f32, f32, f32)` value.
     pub fn bounds(i: usize) -> (f32, f32, f32) {
         if Self::is_bool(i) {
             return (0., 1., 1.);
@@ -840,6 +927,12 @@ impl Tuning {
     ///
     ///
     ///  Sets the value.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `text` (`&str`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn set(&mut self, key: &str, text: &str) -> Result<(), String> {
         let i = KEYS
             .iter()
@@ -869,6 +962,10 @@ impl Tuning {
     ///
     ///
     ///  Gets the actual tuning values.
+    /// ### Arguments
+    /// - `s` (`AssistSettings`): Represents the s; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Values` value.
     pub fn values(s: AssistSettings) -> Values {
         let mut values = DEFAULTS;
         values[WALK_STRENGTH] = s.walk_strength;
@@ -902,6 +999,11 @@ impl Tuning {
     ///
     ///
     ///  Makes the supplied change.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `s` (`AssistSettings`): Represents the s; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `AssistSettings` value.
     pub fn apply(self, mut s: AssistSettings) -> AssistSettings {
         let v = self.0;
         let set = |slot: usize, target: &mut f32| {

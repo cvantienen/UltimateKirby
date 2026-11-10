@@ -231,6 +231,10 @@ const _: () = {
 ///
 /// # Safety
 /// `wrapper` must point to a readable native wrapper using the documented layout.
+/// ### Arguments
+/// - `wrapper` (`*mut c_void`): Represents the wrapper; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `*mut Controller` value.
 pub(super) unsafe fn controller_from_wrapper(wrapper: *mut c_void) -> *mut Controller {
     wrapper
         .cast::<u8>()
@@ -247,6 +251,12 @@ pub(super) unsafe fn controller_from_wrapper(wrapper: *mut c_void) -> *mut Contr
 ///
 /// # Safety
 /// `wrapper` must point to a readable native wrapper for the pinned game ABI.
+/// ### Arguments
+/// - `wrapper` (`*mut c_void`): Represents the wrapper; the function uses it as input to the operation described above.
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// - `player_index` (`u32`): Represents the player index; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) unsafe fn selected_controller(
     wrapper: *mut c_void,
     index: i32,
@@ -303,6 +313,8 @@ impl ControllerRestore {
     ///
     /// # Safety
     /// The controller pointer must still refer to the same live native controller.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub(super) unsafe fn restore(self) {
         let controller = self.controller;
         write_trace(controller, self.physical);
@@ -356,6 +368,10 @@ const _: () = {
 ///
 /// # Safety
 /// `controller` must point to a valid controller with the pinned layout.
+/// ### Arguments
+/// - `controller` (`*const Controller`): Represents the controller; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ButtonTrace` value.
 pub(super) unsafe fn trace(controller: *const Controller) -> ButtonTrace {
     ButtonTrace {
         held: (*controller).current_buttons,
@@ -372,6 +388,9 @@ pub(super) unsafe fn trace(controller: *const Controller) -> ButtonTrace {
 ///
 /// # Safety
 /// `controller` must point to a writable controller with the pinned layout.
+/// ### Arguments
+/// - `controller` (`*mut Controller`): Represents the controller; the function uses it as input to the operation described above.
+/// - `buttons` (`ButtonTrace`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
 pub(super) unsafe fn write_trace(controller: *mut Controller, buttons: ButtonTrace) {
     (*controller).current_buttons = buttons.held;
     (*controller).previous_buttons = buttons.previous;

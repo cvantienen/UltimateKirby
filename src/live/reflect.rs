@@ -5,7 +5,6 @@
 //! Plain English: This module checks nearby projectiles and prepares a reflection
 //! response without changing game state.
 use crate::game_ffi as game;
-use kirby_assist_core::battle_objects::ObjectCategory;
 use kirby_assist_core::{
     autopilot_guard::Hitbox,
     projectile_reflect::{self as policy, Config, Context, Threat},
@@ -18,6 +17,16 @@ use kirby_assist_core::{
 ///
 /// # Safety
 /// Native object pointers must remain valid for each read; the function retains none.
+/// ### Arguments
+/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
+/// - `own` (`*mut game::Object`): Represents the own; the function uses it as input to the operation described above.
+/// - `own_id` (`u32`): Represents the own id; the function uses it as input to the operation described above.
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `config` (`Option<Config>`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// - `tracked` (`Option<u32>`): Represents the tracked; the function uses it as input to the operation described above.
+/// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) unsafe fn observe(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
@@ -131,10 +140,7 @@ pub(super) unsafe fn observe(
         {
             continue;
         }
-        let Some(category) = ObjectCategory::from_id(id) else {
-            continue;
-        };
-        if category == ObjectCategory::Weapon {
+        if id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON {
             // Only consider weapons that are projectiles.
             let source_kind = reads.fighter_kind(object);
             // Determine the status of the source based on its kind.
@@ -148,7 +154,7 @@ pub(super) unsafe fn observe(
                     // Using 0 is appropriate because the special status is only relevant for Pikmin weapons.
                     0
                 };
-            if !ObjectCategory::is_projectile(id, source_kind, source_status) {
+            if !kirby_assist_core::battle_objects::is_projectile(id, source_kind, source_status) {
                 continue;
             }
         }

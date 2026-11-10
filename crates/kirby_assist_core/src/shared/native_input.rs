@@ -266,6 +266,10 @@ pub const GAMEPLAY_BUTTONS: u32 = ASSIST_BUTTONS | MAPPER_DPAD_BUTTONS;
 /// Every gameplay control belongs to the caller: a fully owned input tape.
 ///
 ///  Every gameplay control belongs to the caller: a fully owned input tape.
+/// ### Arguments
+/// - `owned` (`u32`): Represents the owned; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub const fn fully_owned(owned: u32) -> bool {
     owned & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS
 }
@@ -273,6 +277,11 @@ pub const fn fully_owned(owned: u32) -> bool {
 /// `bits` when `condition` holds, otherwise no bits.
 ///
 ///  bits when condition holds, otherwise no bits.
+/// ### Arguments
+/// - `condition` (`bool`): Represents the condition; the function uses it as input to the operation described above.
+/// - `bits` (`u32`): Represents the bits; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub(crate) const fn bits_if(condition: bool, bits: u32) -> u32 {
     if condition {
         bits
@@ -285,6 +294,10 @@ pub(crate) const fn bits_if(condition: bool, bits: u32) -> u32 {
 /// This expands suppression only; generated buttons keep their normal meaning.
 ///
 ///  Consume the alternate native click channel of an owned physical shoulder. This expands suppression only; generated buttons keep their normal meaning.
+/// ### Arguments
+/// - `mask` (`u32`): Represents the mask; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn physical_button_aliases(mask: u32) -> u32 {
     mask | bits_if(mask & (MAPPER_L | MAPPER_ZL) != 0, MAPPER_DIGITAL_L)
         | bits_if(mask & (MAPPER_R | MAPPER_ZR) != 0, MAPPER_DIGITAL_R)
@@ -294,6 +307,11 @@ pub fn physical_button_aliases(mask: u32) -> u32 {
 /// Filter only an owned/consumed side, restoring both original axes after mapping.
 ///
 ///  Native analog trigger axes are independent of the button-history words. Filter only an owned/consumed side, restoring both original axes after mapping.
+/// ### Arguments
+/// - `physical` (`[f32; 2]`): Represents the physical; the function uses it as input to the operation described above.
+/// - `suppressed` (`u32`): Represents the suppressed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[f32; 2]` value.
 pub fn owned_trigger_axes(physical: [f32; 2], suppressed: u32) -> [f32; 2] {
     [
         if suppressed & (MAPPER_L | MAPPER_ZL | MAPPER_DIGITAL_L) != 0 {
@@ -313,6 +331,11 @@ pub fn owned_trigger_axes(physical: [f32; 2], suppressed: u32) -> [f32; 2] {
 /// release frames. Partial helpers and native safety keep their existing path.
 ///
 ///  Every exclusive tape forwards the same analog packet, including neutral release frames. Partial helpers and native safety keep their existing path.
+/// ### Arguments
+/// - `owned` (`u32`): Represents the owned; the function uses it as input to the operation described above.
+/// - `stick` (`Option<[f32; 2]>`): Represents the stick; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn exclusive_sequence_stick(owned: u32, stick: Option<[f32; 2]>) -> Option<[f32; 2]> {
     stick
         .filter(|_| fully_owned(owned))
@@ -322,6 +345,11 @@ pub fn exclusive_sequence_stick(owned: u32, stick: Option<[f32; 2]>) -> Option<[
 /// Walking suppresses a dash flick; explicit full-strength Drift/Run must not.
 ///
 ///  Walking suppresses a dash flick; explicit full-strength Drift/Run must not.
+/// ### Arguments
+/// - `owned` (`u32`): Represents the owned; the function uses it as input to the operation described above.
+/// - `walking` (`bool`): Represents the walking; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn sequence_flick_consumption(owned: u32, walking: bool) -> u32 {
     bits_if(fully_owned(owned) && walking, MAPPER_LEFT_STICK_HORIZONTAL)
 }
@@ -331,6 +359,11 @@ pub fn sequence_flick_consumption(owned: u32, walking: bool) -> u32 {
 /// the canonical recipe layout. Only suppress an unrequested physical C-stick.
 ///
 ///  Raw source buttons/axes were already masked before native mapping. Preserve its action result: e.g. Grab can contain Guard/Attack flags and ZL is Jump in the canonical recipe layout. Only suppress an unrequested physical C-stick.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// - `right` (`[f32; 2]`): Represents the right; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn mapped_sequence_cstick(buttons: u32, right: [f32; 2]) -> u32 {
     if right == [0.; 2] {
         buttons & !MAPPED_CSTICK_BUTTON
@@ -344,6 +377,11 @@ pub fn mapped_sequence_cstick(buttons: u32, right: [f32; 2]) -> u32 {
 /// native Attack/Special/Catch semantics and every explicitly requested jump.
 ///
 ///  Fixed automatic grab and direct Up-B tapes own all raw sources. Remove unrequested jump/shield output that can turn a dash/Up-B into a jump/roll. Keep native Attack/Special/Catch semantics and every explicitly requested jump.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// - `requested` (`u32`): Represents the requested; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn mapped_automatic_actions(buttons: u32, requested: u32) -> u32 {
     let mut result = buttons;
     if requested & SEQUENCE_JUMP_BUTTONS == 0 {
@@ -359,6 +397,12 @@ pub fn mapped_automatic_actions(buttons: u32, requested: u32) -> u32 {
 /// must win owner selection, rather than being mixed into another owner's tape.
 ///
 ///  A fully owned input tape supplies its own buttons exclusively. Native safety must win owner selection, rather than being mixed into another owner's tape.
+/// ### Arguments
+/// - `owned` (`u32`): Represents the owned; the function uses it as input to the operation described above.
+/// - `selected` (`u32`): Represents the selected; the function uses it as input to the operation described above.
+/// - `other` (`u32`): Represents the other; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn selected_requests(owned: u32, selected: u32, other: u32) -> u32 {
     if fully_owned(owned) {
         selected
@@ -371,6 +415,15 @@ pub fn selected_requests(owned: u32, selected: u32, other: u32) -> u32 {
 /// suspends automatic modes rather than mixing human input into their tapes.
 ///
 ///  Fixed native jump triggers are never custom-binding sources. Manual escape suspends automatic modes rather than mixing human input into their tapes.
+/// ### Arguments
+/// - `layout` (`ControlLayout`): Represents the layout; the function uses it as input to the operation described above.
+/// - `held` (`u32`): Represents the held; the function uses it as input to the operation described above.
+/// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
+/// - `reacting` (`bool`): Represents the reacting; the function uses it as input to the operation described above.
+/// - `grounded` (`bool`): Represents the grounded; the function uses it as input to the operation described above.
+/// - `requested` (`u32`): Represents the requested; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn automatic_escape(
     layout: ControlLayout,
     held: u32,
@@ -394,6 +447,11 @@ pub fn automatic_escape(
 /// Failed mapper attempts still spend their separate bounded pulse budget.
 ///
 ///  Arm a passive Up-B receipt only after final native Special + Up delivery. Failed mapper attempts still spend their separate bounded pulse budget.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// - `left_y` (`i8`): Represents the left y; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn mapped_up_special_delivered(buttons: u32, left_y: i8) -> bool {
     buttons & MAPPED_SPECIAL != 0 && left_y > 63
 }
@@ -402,6 +460,10 @@ pub fn mapped_up_special_delivered(buttons: u32, left_y: i8) -> bool {
 /// Matches the controller packet's signed-byte scale; native deadzones still apply.
 ///
 ///  Serialize a normalized simulated stick axis into the native mapped-input packet. Matches the controller packet's signed-byte scale; native deadzones still apply.
+/// ### Arguments
+/// - `axis` (`f32`): Represents the axis; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `i8` value.
 pub fn mapped_stick_axis(axis: f32) -> i8 {
     if axis.is_finite() {
         (axis.clamp(-1.0, 1.0) * i8::MAX as f32) as i8
@@ -414,6 +476,12 @@ pub fn mapped_stick_axis(axis: f32) -> i8 {
 /// source bits is held. Bits outside `sources` pass through unchanged.
 ///
 ///  Drop every sources bit, then add each pair's destination when any of its source bits is held. Bits outside sources pass through unchanged.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// - `sources` (`u32`): Represents the sources; the function uses it as input to the operation described above.
+/// - `pairs` (`&[(u32, u32)]`): Represents the pairs; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 fn remap_buttons(buttons: u32, sources: u32, pairs: &[(u32, u32)]) -> u32 {
     pairs.iter().fold(buttons & !sources, |mapped, &(from, to)| {
         mapped | bits_if(buttons & from != 0, to)
@@ -442,7 +510,12 @@ impl ControlLayout {
     /// policies. Native R/ZR jumps are deliberately hidden from the old X
     /// shortcut while still passing untouched to the game's mapper.
     ///
-///  Convert physical assist triggers into the canonical controls consumed by policies. Native R/ZR jumps are deliberately hidden from the old X shortcut while still passing untouched to the game's mapper.
+    ///  Convert physical assist triggers into the canonical controls consumed by policies. Native R/ZR jumps are deliberately hidden from the old X shortcut while still passing untouched to the game's mapper.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn policy_buttons(self, physical: u32) -> u32 {
         if self == Self::Default {
             return physical;
@@ -461,7 +534,12 @@ impl ControlLayout {
     /// One-to-one ownership conversion for physical custom binding sources.
     /// Unlike policy_buttons this retains jump buttons hidden from old helpers.
     ///
-///  One-to-one ownership conversion for physical custom binding sources. Unlike policybuttons this retains jump buttons hidden from old helpers.
+    ///  One-to-one ownership conversion for physical custom binding sources. Unlike policybuttons this retains jump buttons hidden from old helpers.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn binding_ownership(self, physical: u32) -> u32 {
         if self == Self::Default {
             return physical;
@@ -481,7 +559,12 @@ impl ControlLayout {
 
     /// Manual intent includes jump buttons hidden from shortcut policy.
     ///
-///  Manual intent includes jump buttons hidden from shortcut policy.
+    ///  Manual intent includes jump buttons hidden from shortcut policy.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn takeover_buttons(self, physical: u32) -> u32 {
         let buttons = self.policy_buttons(physical);
         if self == Self::Default {
@@ -495,14 +578,24 @@ impl ControlLayout {
     /// Full takeovers suppress every raw gameplay button, including buttons
     /// unused by the simulated layout that may still map to shield/jump in-game.
     ///
-///  Full takeovers suppress every raw gameplay button, including buttons unused by the simulated layout that may still map to shield/jump in-game.
+    ///  Full takeovers suppress every raw gameplay button, including buttons unused by the simulated layout that may still map to shield/jump in-game.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `canonical` (`u32`): Represents the canonical; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn physical_owned_buttons(self, canonical: u32) -> u32 {
         self.physical_buttons(canonical) | bits_if(fully_owned(canonical), GAMEPLAY_BUTTONS)
     }
 
     /// Convert canonical assist buttons back to this layout's physical buttons.
     ///
-///  Convert canonical assist buttons back to this layout's physical buttons.
+    ///  Convert canonical assist buttons back to this layout's physical buttons.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `canonical` (`u32`): Represents the canonical; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn physical_buttons(self, canonical: u32) -> u32 {
         if self == Self::Default {
             return canonical;
@@ -527,6 +620,11 @@ impl ControlLayout {
 /// never manufacture a jump, attack, or shield input.
 ///
 ///  Mapped action bits, distinct from the physical MAPPER button positions. Pinned HDR dynamic/src/ext.rs Buttons: Jump=0x4, JumpMini=0x40. Annotate an existing mapped jump only when its owner requested a short hop; never.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// - `requested` (`bool`): Represents the requested; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn mapped_short_hop(buttons: u32, requested: bool) -> u32 {
     if requested && buttons & MAPPED_JUMP != 0 {
         buttons | MAPPED_JUMP_MINI
@@ -540,6 +638,12 @@ pub fn mapped_short_hop(buttons: u32, requested: bool) -> u32 {
 /// can occupy another mapper slot after entering a different battle lobby.
 ///
 ///  Bind the configured physical controller to its current game mapper slot. Controller identity and mapper slot are separate namespaces: controller 0 can occupy another mapper slot after entering a different battle lobby.
+/// ### Arguments
+/// - `selected_player` (`u32`): Represents the selected player; the function uses it as input to the operation described above.
+/// - `controller_npad` (`u32`): Represents the controller npad; the function uses it as input to the operation described above.
+/// - `mapper_index` (`i32`): Represents the mapper index; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn selected_controller_mapper(
     selected_player: u32,
     controller_npad: u32,
@@ -561,6 +665,10 @@ pub fn selected_controller_mapper(
 /// Returns the `mapper_buttons` result.
 ///
 /// Gets the mapper buttons result.
+/// ### Arguments
+/// - `hid` (`u64`): Represents the hid; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn mapper_buttons(hid: u64) -> u32 {
     (u32::from(hid & HID_A != 0) * MAPPER_A)
         | (u32::from(hid & HID_B != 0) * MAPPER_B)
@@ -578,6 +686,11 @@ pub fn mapper_buttons(hid: u64) -> u32 {
 /// No ownership/input request means the original mapper output is untouched.
 ///
 ///  Preserve an explicitly requested A input after native mapper/history filtering. Pinned HDR dynamic/src/ext.rs Buttons: Attack=1, AttackRaw=0x200. This is a held input word, not command flags or repeated trigger edges. No.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// - `requested` (`bool`): Represents the requested; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn mapped_attack_hold(buttons: u32, requested: bool) -> u32 {
     if requested {
         buttons | MAPPED_ATTACK_HOLD_BITS
@@ -591,6 +704,11 @@ pub fn mapped_attack_hold(buttons: u32, requested: bool) -> u32 {
 /// These are held input bits; no command flags, move/state writes or new edges.
 ///
 ///  Final literal controller actions, after raw-source/history filtering. The caller supplies only selected, owned buttons still present in its raw packet. These are held input bits; no command flags, move/state writes or new edges.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// - `requested` (`u32`): Represents the requested; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn mapped_literal_buttons(buttons: u32, requested: u32) -> u32 {
     let mut mapped = buttons;
     // Fully owned neutral/attack frames release the preceding shield too.
@@ -614,6 +732,12 @@ pub fn mapped_literal_buttons(buttons: u32, requested: u32) -> u32 {
 /// Match the native Catch+Guard result observed for an unshielded manual Grab.
 ///
 ///  Match the native Catch+Guard result observed for an unshielded manual Grab.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// - `requested` (`u32`): Represents the requested; the function uses it as input to the operation described above.
+/// - `active` (`bool`): Represents the active; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn mapped_unshielded_auto_grab(buttons: u32, requested: u32, active: bool) -> u32 {
     if active && requested & MAPPER_R != 0 && requested & MAPPER_ZR == 0 {
         buttons | MAPPED_CATCH | MAPPED_GUARD
@@ -673,7 +797,11 @@ impl MapperButtonOverlay {
     /// of the human's earlier held direction. Re-arm only those requested bits;
     /// preserve the remaining history, including guard release and safety.
     ///
-///  A newly started reaction owns its first horizontal flick independently of the human's earlier held direction. Re-arm only those requested bits; preserve the remaining history, including guard release and safety.
+    ///  A newly started reaction owns its first horizontal flick independently of the human's earlier held direction. Re-arm only those requested bits; preserve the remaining history, including guard release and safety.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `mask` (`u32`): Represents the mask; the function uses it as input to the operation described above.
+    /// - `previous` (`u32`): Represents the previous; the function uses it as input to the operation described above.
     pub fn rearm_requested(&mut self, mask: u32, previous: u32) {
         if mask != 0 {
             self.last_output = Some(self.last_output.unwrap_or(previous) & !mask);
@@ -682,7 +810,9 @@ impl MapperButtonOverlay {
     /// Restores the state to its initial configuration.
     ///
     ///
-///  Returns the state to its starting point.
+    ///  Returns the state to its starting point.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn reset(&mut self) {
         *self = Self::default();
     }
@@ -693,7 +823,14 @@ impl MapperButtonOverlay {
     /// Applies the supplied configuration or action.
     ///
     ///
-///  Makes the supplied change.
+    ///  Makes the supplied change.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
+    /// - `requested` (`u64`): Represents the requested; the function uses it as input to the operation described above.
+    /// - `owned` (`u64`): Represents the owned; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ButtonTrace` value.
     pub fn apply(&mut self, human: ButtonTrace, requested: u64, owned: u64) -> ButtonTrace {
         let requested = mapper_buttons(requested);
         let owned = mapper_buttons(owned);
@@ -706,7 +843,14 @@ impl MapperButtonOverlay {
     /// Already-converted native masks for manual D-pad/stick ownership. Callers
     /// must limit masks to their own controls; use apply() for HID-named requests.
     ///
-///  Already-converted native masks for manual D-pad/stick ownership. Callers must limit masks to their own controls; use apply() for HID-named requests.
+    ///  Already-converted native masks for manual D-pad/stick ownership. Callers must limit masks to their own controls; use apply() for HID-named requests.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
+    /// - `requested` (`u32`): Represents the requested; the function uses it as input to the operation described above.
+    /// - `owned` (`u32`): Represents the owned; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ButtonTrace` value.
     pub fn apply_raw(&mut self, human: ButtonTrace, requested: u32, owned: u32) -> ButtonTrace {
         // requested = bits to turn ON; owned = bits automation may replace,
         // including turning them OFF. Request=0 with owned=ZR releases ZR even
@@ -742,6 +886,10 @@ impl MapperButtonOverlay {
 /// must point to live, sufficiently large, aligned native allocations.
 ///
 ///  Resolve the input-mapper index through the game's controller ownership chain. A ControlModule's +8 field is NOT its controller index. # Safety accessor and every non-null pointer in this game-version-specific chain must point.
+/// ### Arguments
+/// - `accessor` (`*const u8`): Represents the accessor; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub unsafe fn controller_index(accessor: *const u8) -> Option<i32> {
     if !native_pointer_address(accessor) {
         return None;
@@ -765,6 +913,11 @@ pub unsafe fn controller_index(accessor: *const u8) -> Option<i32> {
 /// as `controller_index`.
 ///
 ///  Follow the pointer stored offset bytes into object; same safety contract as controllerindex.
+/// ### Arguments
+/// - `object` (`*const u8`): Represents the object; the function uses it as input to the operation described above.
+/// - `offset` (`usize`): Represents the offset; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn read_native_pointer(object: *const u8, offset: usize) -> Option<*const u8> {
     let pointer = object.add(offset).cast::<*const u8>().read();
     native_pointer_address(pointer).then_some(pointer)
@@ -776,6 +929,10 @@ unsafe fn read_native_pointer(object: *const u8, offset: usize) -> Option<*const
 /// Determines whether the `native_pointer_address` condition holds.
 ///
 /// Checks whether native pointer address.
+/// ### Arguments
+/// - `pointer` (`*const u8`): Represents the pointer; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn native_pointer_address(pointer: *const u8) -> bool {
     let address = pointer as usize;
     address >= MINIMUM_NATIVE_POINTER_ADDRESS

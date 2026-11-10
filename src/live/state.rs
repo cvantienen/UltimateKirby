@@ -433,6 +433,8 @@ impl State {
     /// Keep edge histories while discarding automatic plans under ledge priority.
     ///
     ///  Stops lower-priority automatic helpers while preserving input history.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub(super) fn suspend_automatic_punishes(&mut self) {
         self.reflector.cancel();
         self.reflect_output = ControllerOutput::default();
@@ -459,6 +461,9 @@ impl State {
     /// Cancels pending actions except those owned by the selected priority owner.
     ///
     ///  Clears helper requests that should yield to another action.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `keep` (`Option<Owner>`): Represents the keep; the function uses it as input to the operation described above.
     pub(super) fn cancel_non_owner(&mut self, keep: Option<Owner>) {
         if keep != Some(Owner::Safety) {
             if let Some(tech) = self.tech_input.as_mut() {
@@ -563,6 +568,8 @@ impl State {
     /// Constructs empty callback state with initialized policy primitives.
     ///
     ///  Starts a session state with no active helper requests.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub(super) const fn new() -> Self {
         Self {
             reflector: kirby_assist_core::projectile_reflect::Reflector::new(),
@@ -688,6 +695,8 @@ impl State {
     /// cancellation does not.
     ///
     ///  Clears pending helper actions so stale input cannot continue.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn clear_tool_proposals(&mut self) {
         self.reflect_output = ControllerOutput::default();
         // Native facts/settings already being read are no longer current, so the
@@ -735,6 +744,8 @@ impl State {
     /// Clears manual-control overlays and their pending ownership/outputs.
     ///
     ///  Stops the manual helpers from keeping old input requests.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub(super) fn cancel_manual_tools(&mut self) {
         self.reflector.cancel();
         self.clear_tool_proposals();
@@ -752,6 +763,11 @@ impl State {
     /// Advances match-session state and yields its current publication ticket.
     ///
     ///  Starts, updates, or ends the active match session.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `ready` (`bool`): Represents the ready; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(super) fn update_match(&mut self, ready: bool) -> Option<SessionTicket> {
         if self.session.update(ready) || !ready {
             #[cfg(feature = "diagnostic-logging")]
@@ -782,6 +798,8 @@ impl State {
     /// Cancels all pending tool proposals and resets transient assistance state.
     ///
     ///  Clears active helper actions while leaving native game state untouched.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub(super) fn cancel(&mut self) {
         self.reflector = kirby_assist_core::projectile_reflect::Reflector::new();
         self.clear_tool_proposals();

@@ -90,6 +90,9 @@ pub fn clear_snapshot() {
 /// Publishes text only if its generation remains current across locking.
 ///
 ///  Caches a report only when it still belongs to the active match.
+/// ### Arguments
+/// - `epoch` (`usize`): Represents the epoch; the function uses it as input to the operation described above.
+/// - `text` (`String`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
 fn publish_snapshot(epoch: usize, text: String) {
     if epoch != SNAPSHOT_EPOCH.load(Ordering::Acquire) {
         return;
@@ -106,6 +109,10 @@ fn publish_snapshot(epoch: usize, text: String) {
 /// Calls `draw` only while a nonblocking lock holds a current cached card.
 ///
 ///  Shows the latest valid summary without making rendering wait.
+/// ### Arguments
+/// - `draw` (`impl FnOnce(&std::ffi::CStr)`): Represents the draw; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn with_snapshot(draw: impl FnOnce(&std::ffi::CStr)) -> bool {
     if let Ok(card) = SNAPSHOT_CARD.try_lock() {
         if let Some((epoch, text)) = card.as_ref() {
@@ -156,6 +163,8 @@ pub fn start() {
 /// Copies borrowed text and queues it for asynchronous output.
 ///
 ///  Sends a log message to be written later.
+/// ### Arguments
+/// - `message` (`&str`): Represents the message; the function uses it as input to the operation described above.
 pub fn write(message: &str) {
     write_owned(message.to_owned());
 }
@@ -163,6 +172,8 @@ pub fn write(message: &str) {
 /// Enqueues owned text if the background logger has started.
 ///
 ///  Hands an already-created log message to the writer.
+/// ### Arguments
+/// - `message` (`String`): Represents the message; the function uses it as input to the operation described above.
 pub fn write_owned(message: String) {
     if let Some(sender) = SENDER.get() {
         enqueue_message(sender, &DROPPED, Message::Text(message));
@@ -172,6 +183,8 @@ pub fn write_owned(message: String) {
 /// Transfers a completed grab report into the bounded writer queue.
 ///
 ///  Sends a grab troubleshooting report to the logger.
+/// ### Arguments
+/// - `report` (`crate::grab_diagnostics::Report`): Represents the report; the function uses it as input to the operation described above.
 pub fn write_grab(report: crate::grab_diagnostics::Report) {
     if let Some(sender) = SENDER.get() {
         enqueue_message(sender, &DROPPED, Message::Grab(Box::new(report)));
@@ -180,6 +193,8 @@ pub fn write_grab(report: crate::grab_diagnostics::Report) {
 /// Transfers a completed calibration report into the bounded writer queue.
 ///
 ///  Sends a calibration report to the logger.
+/// ### Arguments
+/// - `report` (`crate::calibration::Report`): Represents the report; the function uses it as input to the operation described above.
 pub fn write_calibration(report: crate::calibration::Report) {
     if let Some(sender) = SENDER.get() {
         enqueue_message(sender, &DROPPED, Message::Calibration(Box::new(report)));
@@ -189,6 +204,8 @@ pub fn write_calibration(report: crate::calibration::Report) {
 /// Queues a mode report tagged for generation-safe card publication.
 ///
 ///  Sends a mode summary to the logger and menu card.
+/// ### Arguments
+/// - `report` (`kirby_assist_core::diagnostics::modes::Report`): Represents the report; the function uses it as input to the operation described above.
 pub fn write_modes(report: kirby_assist_core::diagnostics::modes::Report) {
     if let Some(sender) = SENDER.get() {
         enqueue_message(
@@ -201,6 +218,8 @@ pub fn write_modes(report: kirby_assist_core::diagnostics::modes::Report) {
 /// Queues an owned configuration snapshot for asynchronous formatting.
 ///
 ///  Sends current settings details to the logger.
+/// ### Arguments
+/// - `config` (`kirby_assist_core::diagnostics::modes::Configuration`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
 pub fn write_configuration(config: kirby_assist_core::diagnostics::modes::Configuration) {
     if let Some(sender) = SENDER.get() {
         enqueue_message(sender, &DROPPED, Message::Configuration(Box::new(config)));
@@ -210,6 +229,10 @@ pub fn write_configuration(config: kirby_assist_core::diagnostics::modes::Config
 /// Attempts a nonblocking send and accounts for rejected queue entries.
 ///
 ///  Adds a message if space is available; logging never stalls gameplay.
+/// ### Arguments
+/// - `sender` (`&SyncSender<Message>`): Represents the sender; the function uses it as input to the operation described above.
+/// - `dropped` (`&AtomicUsize`): Represents the dropped; the function uses it as input to the operation described above.
+/// - `message` (`Message`): Represents the message; the function uses it as input to the operation described above.
 fn enqueue_message(sender: &SyncSender<Message>, dropped: &AtomicUsize, message: Message) {
     crate::performance::health::queue_enter();
     match sender.try_send(message) {
@@ -226,6 +249,10 @@ fn enqueue_message(sender: &SyncSender<Message>, dropped: &AtomicUsize, message:
 /// Test-only generic variant for verifying bounded queue semantics.
 ///
 ///  Exercises queue behavior without starting the real writer.
+/// ### Arguments
+/// - `sender` (`&SyncSender<T>`): Represents the sender; the function uses it as input to the operation described above.
+/// - `dropped` (`&AtomicUsize`): Represents the dropped; the function uses it as input to the operation described above.
+/// - `message` (`T`): Represents the message; the function uses it as input to the operation described above.
 fn enqueue<T>(sender: &SyncSender<T>, dropped: &AtomicUsize, message: T) {
     if let Err(TrySendError::Full(_)) = sender.try_send(message) {
         dropped.fetch_add(1, Ordering::Relaxed);
@@ -234,6 +261,10 @@ fn enqueue<T>(sender: &SyncSender<T>, dropped: &AtomicUsize, message: T) {
 /// Opens an append-only buffered log and degrades to console on failure.
 ///
 ///  Tries to open a log file without making logging depend on the SD card.
+/// ### Arguments
+/// - `path` (`&str`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn open_log(path: &str) -> Option<BufWriter<std::fs::File>> {
     match OpenOptions::new().create(true).append(true).open(path) {
         Ok(file) => Some(BufWriter::with_capacity(16 * 1024, file)),
@@ -248,6 +279,10 @@ fn open_log(path: &str) -> Option<BufWriter<std::fs::File>> {
 /// Flushes a file buffer and disables that file sink if flushing fails.
 ///
 ///  Saves pending log text and falls back to console if the file fails.
+/// ### Arguments
+/// - `file` (`&mut Option<BufWriter<std::fs::File>>`): Represents the file; the function uses it as input to the operation described above.
+/// - `console` (`&mut BufWriter<std::io::Stdout>`): Represents the console; the function uses it as input to the operation described above.
+/// - `path` (`&str`): Represents the file path being read or written; the function uses it as input to the operation described above.
 fn flush_log(
     file: &mut Option<BufWriter<std::fs::File>>,
     console: &mut BufWriter<std::io::Stdout>,
@@ -266,6 +301,8 @@ fn flush_log(
 /// and periodically flushes output sinks.
 ///
 ///  Writes queued diagnostics in the background, away from gameplay.
+/// ### Arguments
+/// - `receiver` (`Receiver<Message>`): Represents the receiver; the function uses it as input to the operation described above.
 fn writer_loop(receiver: Receiver<Message>) {
     // Both files share the existing worker; no extra logging thread/queue.
     let mut file = open_log(LOG_PATH);
@@ -326,6 +363,10 @@ fn writer_loop(receiver: Receiver<Message>) {
 /// Dispatches each typed queue message to formatting and output sinks.
 ///
 ///  Turns a queued report into text and writes it.
+/// ### Arguments
+/// - `file` (`&mut Option<BufWriter<std::fs::File>>`): Represents the file; the function uses it as input to the operation described above.
+/// - `console` (`&mut BufWriter<std::io::Stdout>`): Represents the console; the function uses it as input to the operation described above.
+/// - `message` (`Message`): Represents the message; the function uses it as input to the operation described above.
 fn output_message(
     file: &mut Option<BufWriter<std::fs::File>>,
     console: &mut BufWriter<std::io::Stdout>,
@@ -353,6 +394,10 @@ fn output_message(
 /// Writes formatted performance data to the dedicated performance log.
 ///
 ///  Keeps timing reports separate from ordinary status logs.
+/// ### Arguments
+/// - `file` (`&mut Option<BufWriter<std::fs::File>>`): Represents the file; the function uses it as input to the operation described above.
+/// - `console` (`&mut BufWriter<std::io::Stdout>`): Represents the console; the function uses it as input to the operation described above.
+/// - `report` (`&str`): Represents the report; the function uses it as input to the operation described above.
 fn output_performance(
     file: &mut Option<BufWriter<std::fs::File>>,
     console: &mut BufWriter<std::io::Stdout>,
@@ -364,6 +409,10 @@ fn output_performance(
 /// Writes ordinary diagnostic text to the status log.
 ///
 ///  Saves one regular status message.
+/// ### Arguments
+/// - `file` (`&mut Option<BufWriter<std::fs::File>>`): Represents the file; the function uses it as input to the operation described above.
+/// - `console` (`&mut BufWriter<std::io::Stdout>`): Represents the console; the function uses it as input to the operation described above.
+/// - `message` (`&str`): Represents the message; the function uses it as input to the operation described above.
 fn output(
     file: &mut Option<BufWriter<std::fs::File>>,
     console: &mut BufWriter<std::io::Stdout>,
@@ -374,6 +423,11 @@ fn output(
 /// Writes to console and optional file, retiring a failed file sink.
 ///
 ///  Prints a report and saves it when the file is available.
+/// ### Arguments
+/// - `file` (`&mut Option<BufWriter<std::fs::File>>`): Represents the file; the function uses it as input to the operation described above.
+/// - `console` (`&mut BufWriter<std::io::Stdout>`): Represents the console; the function uses it as input to the operation described above.
+/// - `message` (`&str`): Represents the message; the function uses it as input to the operation described above.
+/// - `path` (`&str`): Represents the file path being read or written; the function uses it as input to the operation described above.
 fn output_to(
     file: &mut Option<BufWriter<std::fs::File>>,
     console: &mut BufWriter<std::io::Stdout>,

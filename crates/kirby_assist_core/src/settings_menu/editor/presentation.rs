@@ -263,6 +263,10 @@ pub(super) enum Field {
 /// Adds the action fields.
 ///
 /// Adds the action fields.
+/// ### Arguments
+/// - `out` (`&mut Vec<Field>`): Represents the out; the function uses it as input to the operation described above.
+/// - `action` (`Action`): Represents the action; the function uses it as input to the operation described above.
+/// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
 fn push_action_fields(out: &mut Vec<Field>, action: Action, i: usize) {
     match action {
         Action::Controller { .. } => out.extend([
@@ -333,6 +337,10 @@ fn push_action_fields(out: &mut Vec<Field>, action: Action, i: usize) {
 /// sequence-level rows. `recipe_panel` renders straight from this list.
 ///
 ///  Every focusable field in display order: Start, each slot's fields, then the sequence-level rows. recipepanel renders straight from this list.
+/// ### Arguments
+/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting items; the vector is empty when there are none.
 pub(super) fn fields(r: &Recipe) -> Vec<Field> {
     let mut out = vec![Field::Start];
     for (i, a) in r.sequence.actions().iter().enumerate() {
@@ -362,6 +370,10 @@ pub(super) fn fields(r: &Recipe) -> Vec<Field> {
 /// Returns an optional `field_slot` value.
 ///
 /// Gets field slot if it is available.
+/// ### Arguments
+/// - `f` (`Field`): Represents the f; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) fn field_slot(f: Field) -> Option<usize> {
     match f {
         Field::Start | Field::Slots | Field::WhileHeld | Field::GroundOnly | Field::Reaction(_) => {
@@ -392,6 +404,11 @@ pub(super) fn field_slot(f: Field) -> Option<usize> {
 /// Full label and value of a field.
 ///
 ///  Full label and value of a field.
+/// ### Arguments
+/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
+/// - `f` (`Field`): Represents the f; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 pub(super) fn field_value(r: &Recipe, f: Field) -> String {
     field_text(r, f, false)
 }
@@ -399,6 +416,12 @@ pub(super) fn field_value(r: &Recipe, f: Field) -> String {
 /// list: abbreviated labels and `Nf` instead of `N frames`.
 ///
 ///  Label and value of a field. short is the compact form used in the slot list: abbreviated labels and Nf instead of N frames.
+/// ### Arguments
+/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
+/// - `f` (`Field`): Represents the f; the function uses it as input to the operation described above.
+/// - `short` (`bool`): Represents the short; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 fn field_text(r: &Recipe, f: Field, short: bool) -> String {
     let sequence = &r.sequence;
     let action = field_slot(f).map_or(Action::Empty, |i| sequence.actions[i]);
@@ -555,6 +578,10 @@ fn field_text(r: &Recipe, f: Field, short: bool) -> String {
 /// Returns an optional `scheduled_frames` value.
 ///
 /// Gets scheduled frames if it is available.
+/// ### Arguments
+/// - `action` (`Action`): Represents the action; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) fn scheduled_frames(action: Action) -> Option<u32> {
     match action {
         Action::Tap { frames, .. } => Some(u32::from(frames)),
@@ -577,6 +604,10 @@ pub(super) fn scheduled_frames(action: Action) -> Option<u32> {
 /// Returns the `schedule_summary` result.
 ///
 /// Gets the schedule summary result.
+/// ### Arguments
+/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `(u32, bool)` value.
 pub(super) fn schedule_summary(r: &Recipe) -> (u32, bool) {
     r.sequence.actions().iter().enumerate().fold(
         (u32::from(r.sequence.start_delay), false),
@@ -592,6 +623,12 @@ pub(super) fn schedule_summary(r: &Recipe) -> (u32, bool) {
 /// ` | F<n>` style timing suffix; `None` duration means a check of unknown length.
 ///
 ///   | F<n> style timing suffix; None duration means a check of unknown length.
+/// ### Arguments
+/// - `start` (`u32`): Represents the start; the function uses it as input to the operation described above.
+/// - `duration` (`Option<u32>`): Represents the length of time or number of frames; the function uses it as input to the operation described above.
+/// - `after_check` (`bool`): Represents the after check; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 fn frame_label(start: u32, duration: Option<u32>, after_check: bool) -> String {
     let first = start + 1;
     if after_check {
@@ -653,6 +690,11 @@ const SETTING_ROW: Row = Row {
 /// Adds the row.
 ///
 /// Adds the row.
+/// ### Arguments
+/// - `panel` (`&mut RecipePanel`): Represents the panel; the function uses it as input to the operation described above.
+/// - `focused` (`bool`): Represents the focused; the function uses it as input to the operation described above.
+/// - `row` (`Row`): Represents the row; the function uses it as input to the operation described above.
+/// - `text` (`impl std::fmt::Display`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
 fn push_row(panel: &mut RecipePanel, focused: bool, row: Row, text: impl std::fmt::Display) {
     let text = match (focused, row.bracket) {
         (true, true) => format!("{}[{text}]", row.focused),
@@ -668,6 +710,11 @@ fn push_row(panel: &mut RecipePanel, focused: bool, row: Row, text: impl std::fm
 /// Returns the `timing_summary` result.
 ///
 /// Gets the timing summary result.
+/// ### Arguments
+/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
+/// - `branched` (`bool`): Represents the branched; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 fn timing_summary(r: &Recipe, branched: bool) -> String {
     let (scheduled, variable) = schedule_summary(r);
     if branched {
@@ -687,6 +734,14 @@ fn timing_summary(r: &Recipe, branched: bool) -> String {
 /// Renders every field in `fs` (from `fields(r)`); `selected` marks the focused one.
 ///
 ///  Renders every field in fs (from fields(r)); selected marks the focused one.
+/// ### Arguments
+/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
+/// - `fs` (`&[Field]`): Represents the fs; the function uses it as input to the operation described above.
+/// - `selected` (`Option<Field>`): Represents the selected; the function uses it as input to the operation described above.
+/// - `limited` (`bool`): Represents the limited; the function uses it as input to the operation described above.
+/// - `last` (`Option<&str>`): Represents the last; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `RecipePanel` value.
 pub(super) fn recipe_panel(
     r: &Recipe,
     fs: &[Field],

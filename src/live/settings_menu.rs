@@ -31,6 +31,8 @@ mod save;
 /// Serializes host-side tests that share save-worker globals.
 ///
 ///  Prevents save tests from interfering with each other.
+/// ### Returns
+/// Returns the resulting `std::sync::MutexGuard<'static, ()>` value.
 pub(super) fn save_test_guard() -> std::sync::MutexGuard<'static, ()> {
     save::WORKER_TEST.lock().unwrap()
 }
@@ -38,6 +40,8 @@ pub(super) fn save_test_guard() -> std::sync::MutexGuard<'static, ()> {
 /// Performs startup recovery of an interrupted saved-file update.
 ///
 ///  Restores a settings file left halfway through saving.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub(super) fn recover_saved_file() -> Result<(), String> {
     save::recover()
 }
@@ -45,6 +49,8 @@ pub(super) fn recover_saved_file() -> Result<(), String> {
 /// Updates menu presence from an existing local-fighter callback timestamp.
 ///
 ///  Tells the menu when the local fighter was last seen.
+/// ### Arguments
+/// - `now` (`std::time::Instant`): Represents the current time; the function uses it as input to the operation described above.
 pub(super) fn observe_local_fighter(now: std::time::Instant) {
     #[cfg(feature = "imgui-menu")]
     menu::observe_local_fighter(now);
@@ -55,6 +61,8 @@ pub(super) fn observe_local_fighter(now: std::time::Instant) {
 /// Requests a transient display of the runtime enabled state.
 ///
 ///  Shows whether the assist is switched on or off.
+/// ### Arguments
+/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
 pub(super) fn show_master_status(enabled: bool) {
     #[cfg(feature = "imgui-menu")]
     menu::show_master_status(enabled);
@@ -72,6 +80,8 @@ static CLEANUP_PENDING: std::sync::atomic::AtomicBool = std::sync::atomic::Atomi
 /// Reads the deferred cleanup request with acquire ordering.
 ///
 ///  Checks whether session cleanup is still waiting.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn cleanup_pending() -> bool {
     CLEANUP_PENDING.load(std::sync::atomic::Ordering::Acquire)
 }
@@ -139,6 +149,11 @@ impl ResolvedSettings {
     /// Checks all cache-key components against the current selection.
     ///
     ///  Checks whether the saved settings still match the menu.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn is_current(&self, selection: &MenuSelection) -> bool {
         self.choices == Some(selection.choices)
             && self.recipe_revision == Some(selection.recipe_revision)
@@ -147,6 +162,11 @@ impl ResolvedSettings {
     /// Recomputes effective settings only when the selection cache key changes.
     ///
     ///  Updates the applied settings only after a relevant menu change.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+    /// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+    /// - `base` (`AssistSettings`): Represents the base; the function uses it as input to the operation described above.
     fn refresh(
         &mut self,
         selection: &MenuSelection,
@@ -183,6 +203,12 @@ impl RuleCache {
     /// Returns rules only when both fighter and revision match the cache stamp.
     ///
     ///  Gets prepared rules only if they belong to the current selection.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// - `revision` (`u64`): Represents the revision; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn get(
         &self,
         kind: i32,
@@ -194,12 +220,19 @@ impl RuleCache {
     /// Drops the cache and stamp together.
     ///
     ///  Forgets old prepared rules after a fighter or session change.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn clear(&mut self) {
         *self = Self::default();
     }
     /// Resolves reaction recipes on cache misses and applies enabled controls.
     ///
     ///  Prepares automatic rules when their saved recipes change.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// - `selection` (`&mut MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+    /// - `options` (`&MenuPresets`): Represents the options; the function uses it as input to the operation described above.
     fn refresh(&mut self, kind: i32, selection: &mut MenuSelection, options: &MenuPresets) {
         if self.stamp != Some((kind, selection.recipe_revision)) {
             self.stamp = Some((kind, selection.recipe_revision));
@@ -227,12 +260,16 @@ impl RuleCache {
 /// Advances the general selection revision with wrapping arithmetic.
 ///
 ///  Marks the menu state as changed.
+/// ### Arguments
+/// - `selection` (`&mut MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
 fn bump_revision(selection: &mut MenuSelection) {
     selection.revision = selection.revision.wrapping_add(1);
 }
 /// Advances both general and visible-content revisions.
 ///
 ///  Marks saved menu text as needing an update.
+/// ### Arguments
+/// - `selection` (`&mut MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
 fn bump_content(selection: &mut MenuSelection) {
     bump_revision(selection);
     selection.content_revision = selection.content_revision.wrapping_add(1);
@@ -240,6 +277,8 @@ fn bump_content(selection: &mut MenuSelection) {
 /// Clears an active preview and advances the revision when one existed.
 ///
 ///  Stops a recipe preview and notifies the menu that it changed.
+/// ### Arguments
+/// - `selection` (`&mut MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
 fn end_preview(selection: &mut MenuSelection) {
     if selection.preview_slot.take().is_some() {
         bump_revision(selection);
@@ -338,12 +377,20 @@ impl SettingsMenu {
     /// Returns the selection for the currently selected fighter.
     ///
     ///  Gets the current fighter's menu choices.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn current(&self) -> Option<&MenuSelection> {
         self.kind.and_then(|kind| self.selections.get(&kind))
     }
     /// Returns the mutable selection for the currently selected fighter.
     ///
     ///  Gets the current fighter's choices so they can be changed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn current_mut(&mut self) -> Option<&mut MenuSelection> {
         let kind = self.kind?;
         self.selections.get_mut(&kind)
@@ -351,12 +398,20 @@ impl SettingsMenu {
     /// The active selection while its fighter is in gameplay scope.
     ///
     ///  Gets the current fighter's choices only while gameplay is active.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn scoped(&self) -> Option<&MenuSelection> {
         self.current().filter(|_| self.scope)
     }
     /// Scoped selection that is not paused on an editor/tuning/manage page.
     ///
     ///  Gets choices that can currently control gameplay, not editor pages.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn live(&self) -> Option<&MenuSelection> {
         self.scoped()
             .filter(|s| !s.recipe_editing && !s.tuning_page && !s.managing())
@@ -365,6 +420,11 @@ impl SettingsMenu {
     /// expose a previous fighter's automatic rules or ranges in that gap.
     ///
     ///  Hides old fighter settings as soon as the game reports a different fighter.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn for_fighter(&self, kind: i32) -> Option<&Self> {
         (self.kind == Some(kind)).then_some(self)
     }
@@ -372,6 +432,12 @@ impl SettingsMenu {
     /// Finds a cached display label for a saved menu choice.
     ///
     ///  Looks up the names shown for a saved choice.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn selected_choice_labels(&self, kind: i32, slot: PresetSlot) -> Option<(&str, &str)> {
         let selection = self.for_fighter(kind)?.current()?;
         let profile = PROFILES.get()?.profile(kind)?;
@@ -384,12 +450,20 @@ impl SettingsMenu {
     /// Returns the active preview slot from the current selection.
     ///
     ///  Reports which saved recipe is being previewed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn preview_slot(&self) -> Option<PresetSlot> {
         self.current().and_then(|s| s.preview_slot)
     }
     /// Polls the save worker and reconciles a completed result.
     ///
     ///  Checks whether a save finished and updates the menu.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(super) fn poll_save_result(&mut self) -> bool {
         save::poll().is_some_and(|result| self.apply_save_result(result, PROFILES.get()))
     }
@@ -397,6 +471,12 @@ impl SettingsMenu {
     /// true when a delete changed the active fighter's saved-file list.
     ///
     ///  Applies a finished save only to the matching current recipe.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `result` (`save::ResultMessage`): Represents the result being processed; the function uses it as input to the operation described above.
+    /// - `profiles` (`Option<&FighterProfiles>`): Represents the profiles; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn apply_save_result(
         &mut self,
         result: save::ResultMessage,
@@ -489,12 +569,21 @@ impl SettingsMenu {
     /// Combines the base enablement with current ledge/sequence holds.
     ///
     ///  Reports whether the assist should be active right now.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `base` (`bool`): Represents the base; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn sequence_enabled(&self, base: bool) -> bool {
         base || self.ledge_held || self.scoped().is_some_and(|s| s.sequence_enabled(false))
     }
     /// Resolves manual native actions for the scoped fighter selection.
     ///
     ///  Gets the buttons requested by manually configured actions.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn manual_native_actions(&self) -> u32 {
         let Some((kind, selection)) = self.kind.zip(self.scoped()) else {
             return 0;
@@ -509,12 +598,18 @@ impl SettingsMenu {
     /// Queries whether the scoped selection reserves automatic modes.
     ///
     ///  Checks whether an automatic mode is currently claimed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn reserves_automatic_modes(&self) -> bool {
         self.scoped().is_some_and(|s| s.reserves_automatic_modes())
     }
     /// Ends the current selection's preview and updates its revision.
     ///
     ///  Stops the currently previewed recipe.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn finish_preview(&mut self) {
         if let Some(selection) = self.current_mut() {
             end_preview(selection);
@@ -523,12 +618,21 @@ impl SettingsMenu {
     /// Reads ledge-trump hold state only from the scoped selection.
     ///
     ///  Checks whether the ledge-trump control is held.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn ledge_trump_held(&self) -> bool {
         self.scoped().is_some_and(MenuSelection::ledge_trump_held)
     }
     /// Returns the effective Auto Tech mode with startup fallback.
     ///
     ///  Checks whether automatic teching is enabled.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `startup_default` (`bool`): Represents the startup default; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn auto_tech(&self, startup_default: bool) -> bool {
         self.current().map_or(startup_default, |s| {
             s.effective_mode(Mode::AutoTech, s.auto_tech)
@@ -537,6 +641,10 @@ impl SettingsMenu {
     /// Reads grab-dodge enablement from the scoped selection.
     ///
     ///  Checks whether grab dodge assistance is on.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn grab_dodge_enabled(&self) -> bool {
         self.scoped().is_some_and(|s| s.grab_dodge)
     }
@@ -544,24 +652,38 @@ impl SettingsMenu {
     /// Returns the current Performance diagnostic option.
     ///
     ///  Checks whether performance diagnostics are enabled.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn diagnostic_options(&self) -> bool {
         self.current().is_some_and(|s| s.performance)
     }
     /// Reads out-of-shield assistance from the scoped selection.
     ///
     ///  Checks whether out-of-shield help is on.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn out_of_shield_enabled(&self) -> bool {
         self.scoped().is_some_and(|s| s.out_of_shield)
     }
     /// Defers training ledge-hold restoration until gameplay input.
     ///
     ///  Asks the menu to restore saved training state later.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn resume_saved_state(&mut self) {
         self.resume_saved_state = true;
     }
     /// Returns effective idle-crouch and tilt-turn modes for the current fighter.
     ///
     ///  Gets the two posture helper settings currently in effect.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `(bool, bool)` value.
     pub fn posture_modes(&self) -> (bool, bool) {
         let Some((kind, s)) = self.kind.zip(self.scoped()) else {
             return (false, false);
@@ -575,12 +697,19 @@ impl SettingsMenu {
     /// Schedules the quick menu to open on the next input update.
     ///
     ///  Requests that the settings menu open.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn request_open(&mut self) {
         self.open_requested = true;
     }
     /// Returns stored tuning for `kind` only when it is the active fighter.
     ///
     ///  Gets the current fighter's tuning values, or defaults for another.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `kirby_assist_core::fighter_tuning::Tuning` value.
     pub fn fighter_tuning(&self, kind: i32) -> kirby_assist_core::fighter_tuning::Tuning {
         self.for_fighter(kind)
             .and_then(Self::current)
@@ -589,6 +718,11 @@ impl SettingsMenu {
     /// Builds a fighter-specific reflect configuration for a live selection.
     ///
     ///  Gets the current automatic projectile-reflect settings.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn reflect_config(
         &self,
         kind: i32,
@@ -602,6 +736,10 @@ impl SettingsMenu {
     /// Returns configured dodge lookahead or the core default.
     ///
     ///  Gets how far ahead the dodge helper checks.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub fn dodge_lookahead(&self) -> f32 {
         self.current()
             .map_or(kirby_assist_core::spot_dodge::LOOKAHEAD, |s| {
@@ -611,6 +749,10 @@ impl SettingsMenu {
     /// Returns resolved rules only when they contain enabled menu controls.
     ///
     ///  Gets automatic rules that are active from the menu.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn rule_config(&self) -> Option<&kirby_assist_core::reaction_rules::Resolved> {
         self.current_rules().filter(|r| {
             r.has_simple_events()
@@ -620,6 +762,10 @@ impl SettingsMenu {
     /// Selects cached rules matching the current scoped recipe revision.
     ///
     ///  Gets the prepared rules for the current recipe version.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn current_rules(&self) -> Option<&kirby_assist_core::reaction_rules::Resolved> {
         let revision = self.scoped()?.recipe_revision;
         self.rules.get(self.kind?, revision)
@@ -628,6 +774,10 @@ impl SettingsMenu {
     /// Only its own event recipe may punish a confirmed grab dodge.
     ///
     ///  Gets the grab-dodge recipe only when grab dodge is enabled.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn grab_dodge_sequence(&self) -> Option<&kirby_assist_core::sequence_config::Sequence> {
         if !self.live()?.grab_dodge {
             return None;
@@ -639,6 +789,10 @@ impl SettingsMenu {
     /// Builds the automatic-action view over the cached resolved recipes.
     ///
     ///  Gets prepared recipes used by automatic follow-up actions.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `kirby_assist_core::out_of_shield::AutomaticConfig<'_>` value.
     pub fn automatic_sequences(&self) -> kirby_assist_core::out_of_shield::AutomaticConfig<'_> {
         let rules = self.current_rules();
         kirby_assist_core::out_of_shield::AutomaticConfig {
@@ -650,6 +804,10 @@ impl SettingsMenu {
     /// Returns configured time/distance limits for the three automatic recipes.
     ///
     ///  Gets how far and how long automatic actions may search.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `[Option<(f32, f32)>; 3]` value.
     pub fn automatic_limits(&self) -> [Option<(f32, f32)>; 3] {
         let r = self.automatic_sequences();
         [r.grab, r.shield_grab, r.backup].map(|s| s.map(|s| (s.reaction.max, s.reaction.height)))
@@ -657,12 +815,20 @@ impl SettingsMenu {
     /// Returns cached resolved rules when at least one mode is enabled.
     ///
     ///  Gets automatic rules currently available to gameplay.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn automatic_rules(&self) -> Option<&kirby_assist_core::reaction_rules::Resolved> {
         self.current_rules()
     }
     /// Records physical passthrough input for the selected fighter's binding state.
     ///
     ///  Remembers buttons that passed through while menu selection changed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `layout` (`kirby_assist_core::native_input::ControlLayout`): Represents the layout; the function uses it as input to the operation described above.
     pub fn observe_passthrough(
         &mut self,
         buttons: u32,
@@ -676,6 +842,11 @@ impl SettingsMenu {
     /// Returns retained auto-mash state or the startup default.
     ///
     ///  Gets the current auto-mash choice.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `startup_default` (`bool`): Represents the startup default; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn auto_mash(&self, startup_default: bool) -> bool {
         let base = self.auto_mash.unwrap_or(startup_default);
         self.current()
@@ -684,6 +855,8 @@ impl SettingsMenu {
     /// Drops current scope, pending actions, and derived caches without deleting profiles.
     ///
     ///  Pauses menu use and clears temporary active state.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn invalidate(&mut self) {
         self.ledge_held = false;
         self.scope = false;
@@ -696,6 +869,8 @@ impl SettingsMenu {
     /// Enters match scope and initializes state for the observed session.
     ///
     ///  Starts using the menu state for a match.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn begin_match(&mut self) {
         // A positively observed new battle supersedes deferred cleanup for the
         // previous battle. Never let the render callback discard its new menu.
@@ -717,6 +892,8 @@ impl SettingsMenu {
     /// Ends match scope and conditionally releases retained session data.
     ///
     ///  Stops using match choices and clears them when safe.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn end_match(&mut self) {
         #[cfg(feature = "diagnostic-logging")]
         crate::performance::clear();
@@ -751,6 +928,9 @@ impl SettingsMenu {
     /// Updates ImGui battle visibility without affecting menu state.
     ///
     ///  Tells the display whether a battle is active.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `active` (`bool`): Represents the active; the function uses it as input to the operation described above.
     pub fn display_battle(&self, active: bool) {
         #[cfg(feature = "imgui-menu")]
         menu::set_battle_active(active);
@@ -761,6 +941,23 @@ impl SettingsMenu {
     /// Routes one physical-input sample, refreshes derived caches, and publishes changed views.
     ///
     ///  Applies one frame of menu input and updates the active settings.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `available` (`bool`): Represents the available; the function uses it as input to the operation described above.
+    /// - `gameplay` (`bool`): Represents the gameplay; the function uses it as input to the operation described above.
+    /// - `bindings_blocked` (`bool`): Represents the bindings blocked; the function uses it as input to the operation described above.
+    /// - `safety_jump` (`bool`): Represents the safety jump; the function uses it as input to the operation described above.
+    /// - `kind` (`Option<i32>`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
+    /// - `layout` (`kirby_assist_core::native_input::ControlLayout`): Represents the layout; the function uses it as input to the operation described above.
+    /// - `base` (`&AssistSettings`): Represents the base; the function uses it as input to the operation described above.
+    /// - `mash_default` (`bool`): Represents the mash default; the function uses it as input to the operation described above.
+    /// - `grab_default` (`bool`): Represents the grab default; the function uses it as input to the operation described above.
+    /// - `tech_default` (`bool`): Represents the tech default; the function uses it as input to the operation described above.
+    /// - `training` (`bool`): Represents the training; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn input(
         &mut self,
         available: bool,
@@ -861,6 +1058,9 @@ impl SettingsMenu {
     /// Invalidates cross-fighter state and retains only the newly active fighter entry.
     ///
     ///  Switches the menu to a fighter without reusing the old fighter's active data.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
     fn switch_fighter(&mut self, kind: i32) {
         #[cfg(feature = "diagnostic-logging")]
         crate::performance::health::event(crate::performance::health::Event::FighterChange);
@@ -879,6 +1079,12 @@ impl SettingsMenu {
     /// Returns scoped resolved settings when available, otherwise applies startup settings.
     ///
     ///  Gets the settings gameplay should use for this fighter.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`Option<i32>`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// - `startup` (`&AssistSettings`): Represents the startup; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `AssistSettings` value.
     pub fn settings(&self, kind: Option<i32>, startup: &AssistSettings) -> AssistSettings {
         if self.scope && self.kind == kind {
             if let Some(resolved) = self.resolved.settings.as_ref() {
@@ -899,6 +1105,14 @@ impl SettingsMenu {
 /// Creates a menu selection initialized from saved recipes and tuning.
 ///
 ///  Loads the starting menu choices for a fighter.
+/// ### Arguments
+/// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `base` (`&AssistSettings`): Represents the base; the function uses it as input to the operation described above.
+/// - `grab_default` (`bool`): Represents the grab default; the function uses it as input to the operation described above.
+/// - `tech_default` (`bool`): Represents the tech default; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `MenuSelection` value.
 fn new_selection(
     profile: &FighterProfile,
     kind: i32,
@@ -928,6 +1142,17 @@ fn new_selection(
 /// Applies menu input while respecting training-save and binding gates.
 ///
 ///  Sends one controller update through the menu and reports consumed buttons.
+/// ### Arguments
+/// - `selection` (`&mut MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+/// - `options` (`&MenuPresets`): Represents the options; the function uses it as input to the operation described above.
+/// - `bindings_blocked` (`bool`): Represents the bindings blocked; the function uses it as input to the operation described above.
+/// - `safety_jump` (`bool`): Represents the safety jump; the function uses it as input to the operation described above.
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
+/// - `layout` (`kirby_assist_core::native_input::ControlLayout`): Represents the layout; the function uses it as input to the operation described above.
+/// - `training` (`bool`): Represents the training; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 fn route_input(
     selection: &mut MenuSelection,
     options: &MenuPresets,
@@ -963,6 +1188,11 @@ fn route_input(
 /// Converts pending tuning or recipe edits into explicit save-worker requests.
 ///
 ///  Starts a save after the player asks to save menu changes.
+/// ### Arguments
+/// - `selection` (`&mut MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `options` (`&MenuPresets`): Represents the options; the function uses it as input to the operation described above.
+/// - `training` (`bool`): Represents the training; the function uses it as input to the operation described above.
 fn request_saves(selection: &mut MenuSelection, kind: i32, options: &MenuPresets, training: bool) {
     if selection.tuning_save_requested {
         let job = save::Job {
@@ -996,6 +1226,13 @@ fn request_saves(selection: &mut MenuSelection, kind: i32, options: &MenuPresets
 /// Captures the selected recipe or delete operation as an immutable save job.
 ///
 ///  Packages the current recipe choice for saving or deletion.
+/// ### Arguments
+/// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// - `options` (`&MenuPresets`): Represents the options; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn recipe_job(
     selection: &MenuSelection,
     kind: i32,
@@ -1110,6 +1347,13 @@ mod config_rows {
 /// Produces the stable row-aligned diagnostic representation for a selection.
 ///
 ///  Prepares the current menu choices for a diagnostic report.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+/// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+/// - `auto_mash` (`bool`): Represents the auto mash; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `kirby_assist_core::diagnostics::modes::Configuration` value.
 fn configuration(
     kind: i32,
     profile: &FighterProfile,
@@ -1154,6 +1398,12 @@ impl DiagnosticState {
     /// Log the visible configuration once per change, never per frame.
     ///
     ///  Writes a new settings snapshot only when something changed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+    /// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+    /// - `auto_mash` (`bool`): Represents the auto mash; the function uses it as input to the operation described above.
     fn log_configuration(
         &mut self,
         kind: i32,
@@ -1175,6 +1425,11 @@ impl DiagnosticState {
     /// Recomputes estimated retained payload only when its cache stamp changes.
     ///
     ///  Updates memory estimates after a fighter or menu revision changes.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `stamp` (`(i32, u64)`): Represents the stamp; the function uses it as input to the operation described above.
+    /// - `selections` (`&BTreeMap<i32, MenuSelection>`): Represents the selections; the function uses it as input to the operation described above.
+    /// - `rules` (`Option<&kirby_assist_core::reaction_rules::Resolved>`): Represents the rules; the function uses it as input to the operation described above.
     fn record_retained(
         &mut self,
         stamp: (i32, u64),

@@ -4,6 +4,10 @@ use super::*;
 /// Returns the `button_names` result.
 ///
 /// Gets the button names result.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn button_names(buttons: u32) -> Result<String, String> {
     let known = BUTTON_TOKENS
         .iter()
@@ -29,6 +33,13 @@ fn button_names(buttons: u32) -> Result<String, String> {
 /// "until the player takes over", which needs at least one button.
 ///
 ///  Text of buttons/stick chords that hold for frames; zero frames means "until the player takes over", which needs at least one button.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// - `stick` (`[f32; 2]`): Represents the stick; the function uses it as input to the operation described above.
+/// - `frames` (`u8`): Represents the number of frames; the function uses it as input to the operation described above.
+/// - `relative` (`bool`): Represents the relative; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn input_action(
     buttons: u32,
     stick: [f32; 2],
@@ -54,6 +65,10 @@ fn input_action(
 /// Returns the `action` result.
 ///
 /// Gets the action result.
+/// ### Arguments
+/// - `a` (`Action`): Represents the a; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn action(a: Action) -> Result<String, String> {
     Ok(match a {
         Action::Empty => return Err("Remove empty execution steps before saving".into()),
@@ -193,6 +208,15 @@ fn action(a: Action) -> Result<String, String> {
 /// every other section. A new Custom recipe gets a separate, nondefault entry.
 ///
 ///  Replace only one recipe's actions/timings, preserving its label, default and every other section. A new Custom recipe gets a separate, nondefault entry.
+/// ### Arguments
+/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
+/// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
+/// - `allow_new` (`bool`): Represents the allow new; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn update(
     source: &str,
     kind: i32,
@@ -362,6 +386,13 @@ pub fn update(
 /// remain byte-for-byte unchanged. Call after update_named to allow new recipes.
 ///
 ///  Select exactly one startup default in this fighter/category. Other sections remain byte-for-byte unchanged. Call after updatenamed to allow new recipes.
+/// ### Arguments
+/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn set_default(
     source: &str,
     kind: i32,
@@ -423,6 +454,13 @@ pub fn set_default(
 /// Persist an explicit selected binding without enabling any other row.
 ///
 ///  Persist an explicit selected binding without enabling any other row.
+/// ### Arguments
+/// - `clean` (`&str`): Represents the clean; the function uses it as input to the operation described above.
+/// - `fighter` (`&str`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
+/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn matches_section(clean: &str, fighter: &str, slot: PresetSlot, choice: &str) -> bool {
     if !clean.starts_with('[') || !clean.ends_with(']') {
         return false;
@@ -439,6 +477,10 @@ fn matches_section(clean: &str, fighter: &str, slot: PresetSlot, choice: &str) -
 /// Validates the output.
 ///
 /// Validates the output.
+/// ### Arguments
+/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn validate_output(source: &str) -> Result<(), String> {
     let catalog = Catalog::parse(source)?;
     validate_catalog(&catalog)
@@ -447,6 +489,10 @@ pub fn validate_output(source: &str) -> Result<(), String> {
 /// Validates the catalog.
 ///
 /// Validates the catalog.
+/// ### Arguments
+/// - `catalog` (`&Catalog`): Represents the catalog; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn validate_catalog(catalog: &Catalog) -> Result<(), String> {
     // add_sequence_choices is a startup publisher: it deliberately leaks frozen
     // menu references for the game's lifetime. Saves must NEVER call it.
@@ -460,6 +506,16 @@ fn validate_catalog(catalog: &Catalog) -> Result<(), String> {
 /// Updates the named.
 ///
 /// Updates the named.
+/// ### Arguments
+/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
+/// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
+/// - `allow_new` (`bool`): Represents the allow new; the function uses it as input to the operation described above.
+/// - `name` (`Option<&str>`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn update_named(
     source: &str,
     kind: i32,
@@ -520,6 +576,14 @@ pub fn update_named(
 /// Returns the `delete` result.
 ///
 /// Gets the delete result.
+/// ### Arguments
+/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
+/// - `allow_missing` (`bool`): Represents the allow missing; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn delete(
     source: &str,
     kind: i32,
@@ -566,7 +630,11 @@ mod tests {
     /// Returns the `sequence` result.
     ///
     ///
-///  Gets the sequence result.
+    ///  Gets the sequence result.
+    /// ### Arguments
+    /// - `actions` (`&str`): Represents the actions; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Sequence` value.
     fn sequence(actions: &str) -> Sequence {
         Catalog::parse(&format!("[yoshi.roll.x]\nstart_delay=4\nactions={actions}"))
             .unwrap()
@@ -800,7 +868,11 @@ mod tests {
     /// Exhaustive on purpose: adding an `Action` variant breaks this match until
     /// the writer/reader round-trip below also covers it.
     ///
-///  Exhaustive on purpose: adding an Action variant breaks this match until the writer/reader round-trip below also covers it.
+    ///  Exhaustive on purpose: adding an Action variant breaks this match until the writer/reader round-trip below also covers it.
+    /// ### Arguments
+    /// - `action` (`&Action`): Represents the action; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `usize` value.
     fn variant_index(action: &Action) -> usize {
         match action {
             Action::Empty => 0,
@@ -1062,6 +1134,12 @@ mod unchanged_save_tests {
 /// Replace only one fighter's policy section, preserving recipes verbatim.
 ///
 ///  Replace only one fighter's policy section, preserving recipes verbatim.
+/// ### Arguments
+/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `tuning` (`crate::fighter_tuning::Tuning`): Represents the tuning; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn update_tuning(
     source: &str,
     kind: i32,

@@ -129,7 +129,16 @@ impl AssistEngine {
     /// Returns the `evaluate` result.
     ///
     ///
-///  Gets the evaluate result.
+    ///  Gets the evaluate result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `config` (`AssistConfig`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+    /// - `context` (`RunContext`): Represents the current execution context; the function uses it as input to the operation described above.
+    /// - `observation` (`FighterObservation`): Represents the observation; the function uses it as input to the operation described above.
+    /// - `user_input` (`ControllerFrame`): Represents the user input; the function uses it as input to the operation described above.
+    /// - `permissions` (`InputPermissions`): Represents the permissions; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `FrameDecision` value.
     pub fn evaluate(
         &self,
         config: AssistConfig,
@@ -197,7 +206,12 @@ impl FrameDecision {
     /// Returns the `unchanged` result.
     ///
     ///
-///  Gets the unchanged result.
+    ///  Gets the unchanged result.
+    /// ### Arguments
+    /// - `proposed` (`ControllerFrame`): Represents the proposed; the function uses it as input to the operation described above.
+    /// - `status` (`DecisionStatus`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     const fn unchanged(proposed: ControllerFrame, status: DecisionStatus) -> Self {
         Self {
             proposed,
@@ -247,7 +261,11 @@ mod tests {
     /// Returns the `enabled_config` result.
     ///
     ///
-///  Gets the enabled config result.
+    ///  Gets the enabled config result.
+    /// ### Arguments
+    /// - `rule` (`ScenarioRule`): Represents the scenario rule being added, changed, or checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `AssistConfig` value.
     fn enabled_config(rule: ScenarioRule) -> AssistConfig {
         let mut config = AssistConfig {
             enabled: true,

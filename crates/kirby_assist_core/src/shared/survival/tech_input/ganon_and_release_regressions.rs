@@ -6,6 +6,11 @@ use crate::tech_prediction::{CATCHED_AIR_END_GANON, CATCHED_GANON};
 /// Returns the `capture` result.
 ///
 /// Gets the capture result.
+/// ### Arguments
+/// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `delay` (`f32`): Represents the delay; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `TechContext` value.
 fn capture(frame: f32, delay: f32) -> TechContext {
     TechContext {
         object: 1,

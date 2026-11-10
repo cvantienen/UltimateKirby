@@ -83,12 +83,19 @@ impl HoldRepeat {
     ///
     ///
     ///  Returns the state to its starting point.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn reset(&mut self) {
         *self = Self::default();
     }
     /// Track the held direction; true when a repeat is due this sample.
     ///
     ///  Track the held direction; true when a repeat is due this sample.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `direction` (`u32`): Represents the direction; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn step(&mut self, direction: u32) -> bool {
         if self.direction != direction {
             *self = Self {
@@ -112,6 +119,10 @@ impl HoldRepeat {
 /// Checks whether the monitor-button chord is present in the input sample.
 ///
 /// Checks whether the monitor buttons are pressed together.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn monitor_chord(buttons: u32) -> bool {
     let mask = MAPPER_L | DPAD_DOWN | MENU_STICK_CLICK;
     buttons & mask == mask
@@ -119,6 +130,11 @@ pub fn monitor_chord(buttons: u32) -> bool {
 /// Checks whether the configured menu-toggle chord was newly pressed.
 ///
 /// Checks whether the menu-toggle buttons were just pressed.
+/// ### Arguments
+/// - `_held` (`u32`): Represents the held; the function uses it as input to the operation described above.
+/// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn menu_toggle_pressed(_held: u32, pressed: u32) -> bool {
     pressed & MAPPER_MINUS != 0
 }
@@ -127,6 +143,11 @@ pub fn menu_toggle_pressed(_held: u32, pressed: u32) -> bool {
 /// Bound D-pad/X/Y inputs must not also reach legacy shortcut observers.
 ///
 ///  Only the dedicated L trigger bypasses menu consumption for readiness. Bound D-pad/X/Y inputs must not also reach legacy shortcut observers.
+/// ### Arguments
+/// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
+/// - `consumed` (`u32`): Represents the consumed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn observation_buttons(physical: u32, consumed: u32) -> u32 {
     physical & !(consumed & !MAPPER_L)
 }
@@ -335,6 +356,10 @@ impl MenuRow {
     ///
     ///
     ///  Gets the currently selected slot.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn slot(self) -> Option<PresetSlot> {
         match self {
             Self::Neutral => Some(PresetSlot::Neutral),
@@ -374,6 +399,10 @@ impl MenuRow {
     ///
     ///
     ///  Gets the text shown for this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn label(self) -> &'static str {
         match self {
             Self::Neutral => "Neutral",
@@ -441,6 +470,10 @@ impl RecipePanel {
     ///
     ///
     ///  Turns the presentation into lines of text.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting items; the vector is empty when there are none.
     pub fn into_lines(self) -> Vec<String> {
         self.header
             .into_iter()
@@ -960,6 +993,10 @@ impl MenuSelection {
     ///
     ///
     ///  Handles button navigation in the compact settings view.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn lightweight_navigation(&self) -> bool {
         self.binding_physical & self.binding_layout.physical_buttons(MAPPER_L) != 0
     }
@@ -967,6 +1004,9 @@ impl MenuSelection {
     ///
     ///
     ///  Moves the highlight to another row.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
     fn navigate_row(&mut self, forward: bool) {
         let rows = self.display_rows();
         let mut index = rows.iter().position(|r| *r == self.row).unwrap_or(0);
@@ -982,6 +1022,10 @@ impl MenuSelection {
     ///
     ///
     ///  Lists the rows to show on the page.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `&'static [MenuRow]` value.
     pub fn display_rows(&self) -> &'static [MenuRow] {
         if self.modes_menu {
             &Self::ASSIST_ROWS
@@ -995,6 +1039,10 @@ impl MenuSelection {
     ///
     ///
     ///  Gets the rows for one page.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `&'static [MenuRow]` value.
     fn page_rows(&self) -> &'static [MenuRow] {
         if self.button_menu {
             &Self::BUTTON_ROWS
@@ -1006,6 +1054,10 @@ impl MenuSelection {
     ///
     ///
     ///  Creates the button link to a page.
+    /// ### Arguments
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn page_link(row: MenuRow) -> bool {
         matches!(
             row,
@@ -1019,6 +1071,9 @@ impl MenuSelection {
     ///
     ///
     ///  Shows the selected page.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
     fn open_page(&mut self, row: MenuRow) {
         self.hold.reset();
         self.menu_hidden = false;
@@ -1044,6 +1099,11 @@ impl MenuSelection {
     ///
     ///
     ///  Checks whether the row can be seen.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn row_visible(&self, row: MenuRow) -> bool {
         if self.tuning_page {
             return false;
@@ -1057,6 +1117,11 @@ impl MenuSelection {
     ///
     ///
     ///  Checks whether the page link can be seen.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn page_link_visible(&self, row: MenuRow) -> bool {
         match row {
             MenuRow::FighterSettings => true,
@@ -1070,6 +1135,11 @@ impl MenuSelection {
     ///
     ///
     ///  Checks whether the row is on this page.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn row_on_page(&self, row: MenuRow) -> bool {
         let slot = row.slot();
         if self.lightweight && self.button_menu {
@@ -1083,6 +1153,11 @@ impl MenuSelection {
     /// Rows hidden by the build, the fighter or the reaction mode.
     ///
     ///  Rows hidden by the build, the fighter or the reaction mode.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn row_available(&self, row: MenuRow) -> bool {
         !(!cfg!(feature = "diagnostic-logging")
             && matches!(row, MenuRow::Performance | MenuRow::TestLatency))
@@ -1098,6 +1173,10 @@ impl MenuSelection {
     ///
     ///
     ///  Creates a new value.
+    /// ### Arguments
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub fn new(presets: &MenuPresets) -> Self {
         Self {
             choices: std::array::from_fn(|i| {
@@ -1124,6 +1203,11 @@ impl MenuSelection {
     /// The on/off setting a mode row toggles; Auto-mash is an event, not a flag.
     ///
     ///  The on/off setting a mode row toggles; Auto-mash is an event, not a flag.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn mode_flag(&mut self, row: MenuRow) -> Option<&mut bool> {
         Some(match row {
             MenuRow::ShieldPressure => &mut self.shield_pressure,
@@ -1144,6 +1228,9 @@ impl MenuSelection {
     ///
     ///
     ///  Changes the value using the selected adjustment mode.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
     fn adjust_mode(&mut self, forward: bool) {
         match self.row {
             MenuRow::AutoMash => self.toggle_mash = true,
@@ -1160,6 +1247,11 @@ impl MenuSelection {
     /// Ledge autopilot stays OFF unless separately enabled by the user.
     ///
     ///  Ledge autopilot stays OFF unless separately enabled by the user.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `base` (`bool`): Represents the base; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn sequence_enabled(&self, base: bool) -> bool {
         base || self.preview_slot.is_some() || self.ledge_mode()
     }
@@ -1167,6 +1259,12 @@ impl MenuSelection {
     ///
     ///
     ///  Gets the settings being edited.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `base` (`AssistSettings`): Represents the base; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `AssistSettings` value.
     pub fn settings(&self, presets: &MenuPresets, base: AssistSettings) -> AssistSettings {
         // Cache selected file timelines. There is no fighter-function fallback.
         let mut s = self.tuning.apply(base);
@@ -1201,6 +1299,11 @@ impl MenuSelection {
     ///
     ///
     ///  Checks whether the tuning options are shown.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn tuning_visible(&self, i: usize) -> bool {
         crate::fighter_tuning::Tuning::visible(self.y_fighter_kind, i)
             && !(i == crate::fighter_tuning::AUTO_GRAB_CLOSE && self.auto_grab_configured & 2 != 0)
@@ -1209,6 +1312,11 @@ impl MenuSelection {
     /// The first visible fighter-setting row at or after `row`, wrapping to the first one.
     ///
     ///  The first visible fighter-setting row at or after row, wrapping to the first one.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `row` (`usize`): Represents the row; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `usize` value.
     fn tuning_visible_index(&self, row: usize) -> usize {
         (row..crate::fighter_tuning::COUNT)
             .find(|i| self.tuning_visible(*i))
@@ -1219,6 +1327,11 @@ impl MenuSelection {
     ///
     ///
     ///  Gets the recipe error message if one exists.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn recipe_input_error(&self, presets: &MenuPresets) -> Option<String> {
         let slot = self.row.slot()?;
         let key = (slot as usize, self.choices[slot as usize]);
@@ -1242,6 +1355,11 @@ impl MenuSelection {
     ///
     ///
     ///  Checks whether the recipe has unsaved changes.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn recipe_modified(&self, slot: PresetSlot) -> bool {
         let index = self.choices[slot as usize];
         self.editor
@@ -1253,6 +1371,11 @@ impl MenuSelection {
     ///
     ///
     ///  Checks whether the ledge-assist input is held.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn ledge_held(&self, buttons: u32) -> bool {
         // Training navigation is still a UI command even when that physical
         // direction is assigned to a gameplay helper and filtered from policy.
@@ -1280,6 +1403,10 @@ impl MenuSelection {
     /// pauses its movement. Safety tech/mash and ledge shield are separate.
     ///
     ///  A toggled ledge watch stays reserved even while manual input temporarily pauses its movement. Safety tech/mash and ledge shield are separate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn reserves_automatic_modes(&self) -> bool {
         self.ledge_mode()
             || self.preview_slot.is_some()
@@ -1291,6 +1418,11 @@ impl MenuSelection {
     ///
     ///
     ///  Checks whether the autopilot input is held.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn autopilot_held(&self, buttons: u32) -> bool {
         self.ledge_mode()
             && !self.recipe_editing
@@ -1302,6 +1434,10 @@ impl MenuSelection {
     /// Telemetry is not selector content; updating it must not rebuild menu text.
     ///
     ///  Telemetry is not selector content; updating it must not rebuild menu text.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `feedback` (`crate::reaction_rules::Feedback`): Represents the feedback; the function uses it as input to the operation described above.
+    /// - `last` (`Option<u8>`): Represents the last; the function uses it as input to the operation described above.
     pub fn record_rule_feedback(
         &mut self,
         feedback: crate::reaction_rules::Feedback,
@@ -1314,12 +1450,16 @@ impl MenuSelection {
     /// Cursor/page moved; displayed values did not.
     ///
     ///  Cursor/page moved; displayed values did not.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn view_changed(&mut self) {
         self.revision = self.revision.wrapping_add(1);
     }
     /// Displayed values or the page changed.
     ///
     ///  Displayed values or the page changed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn content_changed(&mut self) {
         self.content_revision = self.content_revision.wrapping_add(1);
         self.view_changed();
@@ -1327,6 +1467,8 @@ impl MenuSelection {
     /// A menu change cancels any running test or held binding.
     ///
     ///  A menu change cancels any running test or held binding.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn changed(&mut self) {
         self.content_changed();
         self.held_binding = None;
@@ -1337,6 +1479,8 @@ impl MenuSelection {
     /// Recipe data changed: caches keyed on `recipe_revision` must rebuild.
     ///
     ///  Recipe data changed: caches keyed on reciperevision must rebuild.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn bump_recipes(&mut self) {
         self.recipe_revision = self.recipe_revision.wrapping_add(1);
     }
@@ -1344,6 +1488,9 @@ impl MenuSelection {
     ///
     ///
     ///  Checks whether recipes have unsaved changes.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `status` (`&str`): Represents the status being checked; the function uses it as input to the operation described above.
     fn recipes_edited(&mut self, status: &str) {
         self.bump_recipes();
         self.save_status = Some(status.into());
@@ -1352,6 +1499,8 @@ impl MenuSelection {
     ///
     ///
     ///  Closes the recipe list.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn close_catalog(&mut self) {
         if let Some(catalog) = self.catalog.as_mut() {
             catalog.close();
@@ -1361,6 +1510,8 @@ impl MenuSelection {
     ///
     ///
     ///  Leaves the editor command view.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn close_editor_commands(&mut self) {
         if let Some(editor) = self.editor.as_mut() {
             editor.close_commands();
@@ -1370,6 +1521,8 @@ impl MenuSelection {
     ///
     ///
     ///  Leaves the tools view.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn close_tools(&mut self) {
         self.close_editor_commands();
         self.close_catalog();
@@ -1377,6 +1530,8 @@ impl MenuSelection {
     /// One-shot save/delete/default requests live for a single input sample.
     ///
     ///  One-shot save/delete/default requests live for a single input sample.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn clear_requests(&mut self) {
         self.save_requested = false;
         self.delete_requested = false;
@@ -1388,6 +1543,8 @@ impl MenuSelection {
     ///
     ///
     ///  Resets the inputs.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn reset_inputs(&mut self) {
         self.restore_mode_choices();
         self.tuning_page = false;
@@ -1415,6 +1572,9 @@ impl MenuSelection {
     /// Remember held directions too, so resuming cannot synthesize a menu tap.
     ///
     ///  Observe real releases while another tool owns input. Do not navigate, toggle mash, consume buttons or run an assist during passthrough. Remember held directions too, so resuming cannot synthesize a menu tap.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
     pub fn observe_passthrough(&mut self, buttons: u32) {
         self.observe_physical_passthrough(
             self.binding_layout.physical_buttons(buttons),
@@ -1425,6 +1585,10 @@ impl MenuSelection {
     ///
     ///
     ///  Observes the physical passthrough.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
+    /// - `layout` (`ControlLayout`): Represents the layout; the function uses it as input to the operation described above.
     pub fn observe_physical_passthrough(&mut self, physical: u32, layout: ControlLayout) {
         let buttons = layout.policy_buttons(physical);
         self.binding_layout = layout;
@@ -1446,6 +1610,12 @@ impl MenuSelection {
     /// or skip first-frame scene defaults at the next battle entry.
     ///
     ///  Keep real edge history while a visible editor waits for its save worker. Do not accumulate invisible edits or replay a held Save on completion. A Training worker must not keep its editor/layout alive in another mode or skip.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `training` (`bool`): Represents the training; the function uses it as input to the operation described above.
+    /// - `busy` (`bool`): Represents the busy; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn waits_for_training_save(&self, training: bool, busy: bool) -> bool {
         training && busy && !self.lightweight && !self.match_visibility_pending && !self.menu_hidden
     }
@@ -1453,6 +1623,11 @@ impl MenuSelection {
     ///
     ///
     ///  Waits until saving is done.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn wait_for_save(&mut self, buttons: u32) -> u32 {
         self.observe_passthrough(buttons);
         self.cancel_pending = false;
@@ -1464,6 +1639,8 @@ impl MenuSelection {
     /// A momentary Training save/load may resume held-L practice, never Y.
     ///
     ///  A momentary Training save/load may resume held-L practice, never Y.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn resume_training_ledge_hold(&mut self) {
         self.trigger_ready |= MAPPER_L;
     }
@@ -1471,6 +1648,8 @@ impl MenuSelection {
     /// death or respawn: saved choices remain editable in those phases.
     ///
     ///  Combat cancellation must not erase menu press history during entry, death or respawn: saved choices remain editable in those phases.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel_actions(&mut self) {
         self.held_binding = None;
         self.trigger_ready = 0;
@@ -1480,6 +1659,8 @@ impl MenuSelection {
     ///
     ///
     ///  Creates the view to show.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn show(&mut self) {
         self.tuning_page = false;
         self.menu_hidden = false;
@@ -1494,6 +1675,8 @@ impl MenuSelection {
     ///
     ///
     ///  Shows the assistance mode choices.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn show_modes(&mut self) {
         self.show();
         self.modes_menu = true;
@@ -1504,6 +1687,8 @@ impl MenuSelection {
     ///
     ///
     ///  Shows the quick settings.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn show_quick(&mut self) {
         if self.mode_editor_origin.is_some() && !self.mode_rule_list {
             self.recipe_editing = false;
@@ -1539,6 +1724,8 @@ impl MenuSelection {
     /// Lightweight starts visible; Training starts hidden.
     ///
     ///  Resolve the new battle's visibility on its first scene-aware input. Lightweight starts visible; Training starts hidden.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn begin_match(&mut self) {
         self.menu_hidden = true;
         self.match_visibility_pending = true;
@@ -1553,6 +1740,12 @@ impl MenuSelection {
 /// Advances the selected choice to the next value.
 ///
 /// Moves to the next choice.
+/// ### Arguments
+/// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// - `count` (`usize`): Represents the number of items; the function uses it as input to the operation described above.
+/// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `usize` value.
 fn cycle(index: usize, count: usize, forward: bool) -> usize {
     if count == 0 {
         return 0;

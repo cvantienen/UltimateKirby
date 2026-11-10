@@ -7,7 +7,11 @@ pub mod action_owner {
     /// Native grab startup, pull, hold, pummel, release and throw belong to the
     /// player's grab interaction. No automated punish may inject a throw here.
     ///
-///  Native grab startup, pull, hold, pummel, release and throw belong to the player's grab interaction. No automated punish may inject a throw here.
+    ///  Native grab startup, pull, hold, pummel, release and throw belong to the player's grab interaction. No automated punish may inject a throw here.
+    /// ### Arguments
+    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn native_grab_active(status: i32) -> bool {
         matches!(
             status,
@@ -91,7 +95,14 @@ pub mod action_owner {
     /// Select the base physical escape request for automatic special owners.
     /// Shield grabs and authored ledge/button tapes retain their own controls.
     ///
-///  Select the base physical escape request for automatic special owners. Shield grabs and authored ledge/button tapes retain their own controls.
+    ///  Select the base physical escape request for automatic special owners. Shield grabs and authored ledge/button tapes retain their own controls.
+    /// ### Arguments
+    /// - `owner` (`Option<Owner>`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+    /// - `roll` (`u32`): Represents the roll; the function uses it as input to the operation described above.
+    /// - `option` (`u32`): Represents the option; the function uses it as input to the operation described above.
+    /// - `shield_up_b` (`Option<u32>`): Represents the shield up b; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn automatic_escape_request(
         owner: Option<Owner>,
         roll: u32,
@@ -109,7 +120,11 @@ pub mod action_owner {
         /// Returns the `priority` result.
         ///
         ///
-///  Gets the priority result.
+        ///  Gets the priority result.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `u8` value.
         fn priority(self) -> u8 {
             match self {
                 Self::Safety => 100,
@@ -130,7 +145,11 @@ pub mod action_owner {
         /// Determines whether the `exclusive` condition holds.
         ///
         ///
-///  Checks whether exclusive.
+        ///  Checks whether exclusive.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn exclusive(self) -> bool {
             !matches!(self, Self::Defense | Self::Turbo | Self::Posture)
         }
@@ -140,7 +159,13 @@ pub mod action_owner {
     /// wait/release owns all gameplay sources; absent axes mean neutral, not human
     /// passthrough. Passive movement/posture helpers deliberately remain partial.
     ///
-///  Complete the selected packet at the shared output boundary. Even a neutral wait/release owns all gameplay sources; absent axes mean neutral, not human passthrough. Passive movement/posture helpers deliberately remain partial.
+    ///  Complete the selected packet at the shared output boundary. Even a neutral wait/release owns all gameplay sources; absent axes mean neutral, not human passthrough. Passive movement/posture helpers deliberately remain partial.
+    /// ### Arguments
+    /// - `owner` (`Option<Owner>`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+    /// - `committed` (`bool`): Represents the committed; the function uses it as input to the operation described above.
+    /// - `output` (`crate::gameplay::ControllerOutput`): Represents the output data being produced; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `crate::gameplay::ControllerOutput` value.
     pub fn exclusive_output(
         owner: Option<Owner>,
         committed: bool,
@@ -157,7 +182,14 @@ pub mod action_owner {
     /// DI, imminent tech, then early SDI is the fixed precedence. A losing tech
     /// proposal receives no mapper acknowledgment and cannot spend its lockout.
     ///
-///  Exactly one native safety phase owns a packet. Capture mash, final launch DI, imminent tech, then early SDI is the fixed precedence. A losing tech proposal receives no mapper acknowledgment and cannot spend its lockout.
+    ///  Exactly one native safety phase owns a packet. Capture mash, final launch DI, imminent tech, then early SDI is the fixed precedence. A losing tech proposal receives no mapper acknowledgment and cannot spend its lockout.
+    /// ### Arguments
+    /// - `tech` (`crate::tech_input::TechOutput`): Represents the tech; the function uses it as input to the operation described above.
+    /// - `mash` (`Option<[f32; 2]>`): Represents the mash; the function uses it as input to the operation described above.
+    /// - `di` (`Option<[f32; 2]>`): Represents the di; the function uses it as input to the operation described above.
+    /// - `sdi` (`Option<[f32; 2]>`): Represents the sdi; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `( crate::gameplay::ControllerOutput, Option<crate::tech_input::TechOutput>, )` value.
     pub fn safety_output(
         tech: crate::tech_input::TechOutput,
         mash: Option<[f32; 2]>,
@@ -172,7 +204,15 @@ pub mod action_owner {
     /// Only an independently validated imminent tech press can displace launch DI.
     /// No sticks/buttons are combined; DI resumes on the Guard release packet.
     ///
-///  Only an independently validated imminent tech press can displace launch DI. No sticks/buttons are combined; DI resumes on the Guard release packet.
+    ///  Only an independently validated imminent tech press can displace launch DI. No sticks/buttons are combined; DI resumes on the Guard release packet.
+    /// ### Arguments
+    /// - `tech` (`crate::tech_input::TechOutput`): Represents the tech; the function uses it as input to the operation described above.
+    /// - `mash` (`Option<[f32; 2]>`): Represents the mash; the function uses it as input to the operation described above.
+    /// - `di` (`Option<[f32; 2]>`): Represents the di; the function uses it as input to the operation described above.
+    /// - `sdi` (`Option<[f32; 2]>`): Represents the sdi; the function uses it as input to the operation described above.
+    /// - `urgent` (`bool`): Represents the urgent; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `( crate::gameplay::ControllerOutput, Option<crate::tech_input::TechOutput>, )` value.
     pub fn safety_output_with_deadline(
         tech: crate::tech_input::TechOutput,
         mash: Option<[f32; 2]>,
@@ -227,7 +267,13 @@ pub mod action_owner {
         /// A bounded native receipt keeps the reservation and emits an exclusive
         /// neutral packet at the shared output boundary until success or expiry.
         ///
-///  The final neutral release still belongs to the sequence, even after its interpreter has finished. Repeated mapper polls must deliver that release before a competing owner can take over on the next observation. A bounded native.
+        ///  The final neutral release still belongs to the sequence, even after its interpreter has finished. Repeated mapper polls must deliver that release before a competing owner can take over on the next observation. A bounded native.
+        /// ### Arguments
+        /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+        /// - `owned_buttons` (`u32`): Represents the owned buttons; the function uses it as input to the operation described above.
+        /// - `receipt` (`bool`): Represents the receipt; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub fn sequence_receipt(owner: Owner, owned_buttons: u32, receipt: bool) -> Self {
             Self {
                 owner,
@@ -238,7 +284,12 @@ pub mod action_owner {
         /// Returns the `input_sequence` result.
         ///
         ///
-///  Gets the input sequence result.
+        ///  Gets the input sequence result.
+        /// ### Arguments
+        /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+        /// - `owned_buttons` (`u32`): Represents the owned buttons; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub fn input_sequence(owner: Owner, owned_buttons: u32) -> Self {
             Self::sequence_receipt(owner, owned_buttons, false)
         }
@@ -279,7 +330,9 @@ pub mod action_owner {
         /// Constructs a new value with the type’s initial state.
         ///
         ///
-///  Creates a new value.
+        ///  Creates a new value.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self {
                 locked: None,
@@ -294,7 +347,10 @@ pub mod action_owner {
         /// Configured actions all share this gate; future action owners are blocked
         /// by default unless explicitly classified as passive/safety here.
         ///
-///  An observed ledge visit reserves admission ahead of new general reads. An existing committed sequence finishes first; native safety still wins. Configured actions all share this gate; future action owners are blocked by.
+        ///  An observed ledge visit reserves admission ahead of new general reads. An existing committed sequence finishes first; native safety still wins. Configured actions all share this gate; future action owners are blocked by.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `active` (`bool`): Represents the active; the function uses it as input to the operation described above.
         pub fn set_ledge_priority(&mut self, active: bool) {
             self.ledge_priority = active;
         }
@@ -302,14 +358,22 @@ pub mod action_owner {
         /// Determines whether the `ledge_priority` condition holds.
         ///
         ///
-///  Checks whether ledge priority.
+        ///  Checks whether ledge priority.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn ledge_priority(&self) -> bool {
             self.ledge_priority
         }
         /// Determines whether the `ledge_compatible` condition holds.
         ///
         ///
-///  Checks whether ledge compatible.
+        ///  Checks whether ledge compatible.
+        /// ### Arguments
+        /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn ledge_compatible(owner: Owner) -> bool {
             matches!(
                 owner,
@@ -319,14 +383,19 @@ pub mod action_owner {
         /// Updates the `unlock` state using the supplied inputs.
         ///
         ///
-///  Updates unlock.
+        ///  Updates unlock.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         fn unlock(&mut self) {
             self.locked = None;
             self.locked_manual = None;
         }
         /// Release only this owner when native startup/cancellation has ended it.
         ///
-///  Release only this owner when native startup/cancellation has ended it.
+        ///  Release only this owner when native startup/cancellation has ended it.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
         pub fn release(&mut self, owner: Owner) {
             if self.locked == Some(owner) {
                 self.unlock();
@@ -335,7 +404,13 @@ pub mod action_owner {
         /// Transfer an explicitly chained response after native confirmation. This
         /// retains the input snapshot; unrelated proposals must use select().
         ///
-///  Transfer an explicitly chained response after native confirmation. This retains the input snapshot; unrelated proposals must use select().
+        ///  Transfer an explicitly chained response after native confirmation. This retains the input snapshot; unrelated proposals must use select().
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `from` (`Owner`): Represents the from; the function uses it as input to the operation described above.
+        /// - `to` (`Owner`): Represents the to; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn handoff(&mut self, from: Owner, to: Owner) -> bool {
             if self.locked != Some(from) {
                 return false;
@@ -345,14 +420,22 @@ pub mod action_owner {
         }
         /// Current committed owner; preparation with no committed input is None.
         ///
-///  Current committed owner; preparation with no committed input is None.
+        ///  Current committed owner; preparation with no committed input is None.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn current_owner(&self) -> Option<Owner> {
             self.locked
         }
         /// Checks whether the supplied owner is managed automatically.
         ///
         ///
-///  Reports whether this owner uses automatic handling.
+        ///  Reports whether this owner uses automatic handling.
+        /// ### Arguments
+        /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn automatic(owner: Owner) -> bool {
             matches!(
                 owner,
@@ -368,7 +451,11 @@ pub mod action_owner {
         /// Determines whether the `automatic_active` condition holds.
         ///
         ///
-///  Checks whether automatic active.
+        ///  Checks whether automatic active.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn automatic_active(&self) -> bool {
             self.locked.is_some_and(Self::automatic)
         }
@@ -376,41 +463,65 @@ pub mod action_owner {
         /// admission/movement view for the lifetime of the committed owner. Explicit
         /// until-manual recipe steps still read physical_inputs().epoch().
         ///
-///  Observe fresh physical intent continuously, but freeze the automatic admission/movement view for the lifetime of the committed owner. Explicit until-manual recipe steps still read physicalinputs().epoch().
+        ///  Observe fresh physical intent continuously, but freeze the automatic admission/movement view for the lifetime of the committed owner. Explicit until-manual recipe steps still read physicalinputs().epoch().
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+        /// - `sticks` (`[f32; 4]`): Represents the sticks; the function uses it as input to the operation described above.
         pub fn observe_manual(&mut self, buttons: u32, sticks: [f32; 4]) {
             self.manual.sample(buttons, sticks);
         }
         /// Returns the `physical_inputs` result.
         ///
         ///
-///  Gets the physical inputs result.
+        ///  Gets the physical inputs result.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `&crate::manual_controls::ManualTakeover` value.
         pub fn physical_inputs(&self) -> &crate::manual_controls::ManualTakeover {
             &self.manual
         }
         /// Returns the `policy_inputs` result.
         ///
         ///
-///  Gets the policy inputs result.
+        ///  Gets the policy inputs result.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `&crate::manual_controls::ManualTakeover` value.
         pub fn policy_inputs(&self) -> &crate::manual_controls::ManualTakeover {
             self.locked_manual.as_ref().unwrap_or(&self.manual)
         }
         /// Suspension prevents new automatic work. Cancellation of an active tape
         /// is explicit (disable, scene loss, native interruption or recipe handback).
         ///
-///  Suspension prevents new automatic work. Cancellation of an active tape is explicit (disable, scene loss, native interruption or recipe handback).
+        ///  Suspension prevents new automatic work. Cancellation of an active tape is explicit (disable, scene loss, native interruption or recipe handback).
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `active` (`bool`): Represents the active; the function uses it as input to the operation described above.
         pub fn set_automatic_suspended(&mut self, active: bool) {
             self.automatic_suspended = active;
         }
         /// Determines whether the `automatic_suspended` condition holds.
         ///
         ///
-///  Checks whether automatic suspended.
+        ///  Checks whether automatic suspended.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn automatic_suspended(&self) -> bool {
             self.automatic_suspended
         }
         /// Scope-independent admission gates shared by every owner.
         ///
-///  Scope-independent admission gates shared by every owner.
+        ///  Scope-independent admission gates shared by every owner.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn admissible(&self, owner: Owner) -> bool {
             (!self.automatic_suspended || !Self::automatic(owner))
                 && (!self.ledge_priority || Self::ledge_compatible(owner))
@@ -418,7 +529,12 @@ pub mod action_owner {
         /// Priority admits new work; it never replaces an in-flight tape. Native
         /// safety cancels a tape whose gameplay prerequisites have been lost.
         ///
-///  Priority admits new work; it never replaces an in-flight tape. Native safety cancels a tape whose gameplay prerequisites have been lost.
+        ///  Priority admits new work; it never replaces an in-flight tape. Native safety cancels a tape whose gameplay prerequisites have been lost.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn allows(&self, owner: Owner) -> bool {
             self.locked == Some(owner)
                 || (self.admissible(owner) && self.locked.is_none_or(|_| owner == Owner::Safety))
@@ -426,7 +542,13 @@ pub mod action_owner {
 
         /// Check admission after releasing a particular owner without changing state.
         ///
-///  Check admission after releasing a particular owner without changing state.
+        ///  Check admission after releasing a particular owner without changing state.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+        /// - `releasing` (`Owner`): Represents the releasing; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn allows_after_release(&self, owner: Owner, releasing: Owner) -> bool {
             if self.locked != Some(releasing) {
                 return self.allows(owner);
@@ -437,7 +559,13 @@ pub mod action_owner {
         /// Returns an optional `select` value.
         ///
         ///
-///  Gets select if it is available.
+        ///  Gets select if it is available.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `valid_scope` (`bool`): Represents the valid scope; the function uses it as input to the operation described above.
+        /// - `intents` (`&[Intent]`): Represents the intents; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn select(&mut self, valid_scope: bool, intents: &[Intent]) -> Option<Owner> {
             if !valid_scope {
                 self.unlock();
@@ -545,7 +673,12 @@ pub mod input {
         /// Determines whether the `contains` condition holds.
         ///
         ///
-///  Checks whether contains.
+        ///  Checks whether contains.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `other` (`Self`): Represents the other; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub const fn contains(self, other: Self) -> bool {
             (self.0 & other.0) == other.0
         }
@@ -554,7 +687,12 @@ pub mod input {
         /// Returns the `union` result.
         ///
         ///
-///  Gets the union result.
+        ///  Gets the union result.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `other` (`Self`): Represents the other; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn union(self, other: Self) -> Self {
             Self(self.0 | other.0)
         }
@@ -562,7 +700,12 @@ pub mod input {
         /// Returns the `difference` result.
         ///
         ///
-///  Gets the difference result.
+        ///  Gets the difference result.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `other` (`Self`): Represents the other; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn difference(self, other: Self) -> Self {
             Self(self.0 & !other.0)
         }
@@ -570,7 +713,11 @@ pub mod input {
         /// Checks whether empty.
         ///
         ///
-///  Checks whether empty.
+        ///  Checks whether empty.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub const fn is_empty(self) -> bool {
             self.0 == 0
         }
@@ -710,7 +857,11 @@ pub mod input {
         /// Returns the `buttons` result.
         ///
         ///
-///  Gets the buttons result.
+        ///  Gets the buttons result.
+        /// ### Arguments
+        /// - `buttons_to_add` (`ButtonSet`): Represents the buttons to add; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn buttons(buttons_to_add: ButtonSet) -> Self {
             Self {
                 buttons_to_add,
@@ -721,7 +872,12 @@ pub mod input {
         /// Returns the `buttons_with_left_stick` result.
         ///
         ///
-///  Gets the buttons with left stick result.
+        ///  Gets the buttons with left stick result.
+        /// ### Arguments
+        /// - `buttons_to_add` (`ButtonSet`): Represents the buttons to add; the function uses it as input to the operation described above.
+        /// - `left_stick` (`StickPosition`): Represents the left stick; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn buttons_with_left_stick(
             buttons_to_add: ButtonSet,
             left_stick: StickPosition,
@@ -778,7 +934,13 @@ pub mod input {
     /// permissions. It does not implement exclusive ownership or saved-sequence
     /// playback.
     ///
-///  Applies one assist recipe to the player's input for this frame. Requested buttons are added to held player buttons; an empty request adds nothing. The left stick stays with the player unless an override is allowed. The right.
+    ///  Applies one assist recipe to the player's input for this frame. Requested buttons are added to held player buttons; an empty request adds nothing. The left stick stays with the player unless an override is allowed. The right.
+    /// ### Arguments
+    /// - `user` (`ControllerFrame`): Represents the user; the function uses it as input to the operation described above.
+    /// - `recipe` (`InputRecipe`): Represents the input recipe to use; the function uses it as input to the operation described above.
+    /// - `permissions` (`InputPermissions`): Represents the permissions; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ArbitrationResult` value.
     pub const fn arbitrate(
         user: ControllerFrame,
         recipe: InputRecipe,
@@ -913,7 +1075,12 @@ pub(crate) mod up_b_receipt {
     /// Checks whether a pending operation is stored.
     ///
     ///
-///  Checks whether something is waiting to be processed.
+    ///  Checks whether something is waiting to be processed.
+    /// ### Arguments
+    /// - `seen` (`bool`): Represents the seen; the function uses it as input to the operation described above.
+    /// - `sent` (`bool`): Represents the sent; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(crate) fn pending(seen: bool, sent: bool) -> bool {
         !seen && sent
     }
@@ -921,7 +1088,14 @@ pub(crate) mod up_b_receipt {
     /// Determines whether the `manual_handback` condition holds.
     ///
     ///
-///  Checks whether manual handback.
+    ///  Checks whether manual handback.
+    /// ### Arguments
+    /// - `automatic` (`bool`): Represents the automatic; the function uses it as input to the operation described above.
+    /// - `seen` (`bool`): Represents the seen; the function uses it as input to the operation described above.
+    /// - `context` (`GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+    /// - `epoch` (`u64`): Represents the epoch; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(crate) fn manual_handback(
         automatic: bool,
         seen: bool,
@@ -934,7 +1108,17 @@ pub(crate) mod up_b_receipt {
     /// Returns the `evaluate` result.
     ///
     ///
-///  Gets the evaluate result.
+    ///  Gets the evaluate result.
+    /// ### Arguments
+    /// - `seen` (`bool`): Represents the seen; the function uses it as input to the operation described above.
+    /// - `native` (`bool`): Represents the native; the function uses it as input to the operation described above.
+    /// - `waiting` (`bool`): Represents the waiting; the function uses it as input to the operation described above.
+    /// - `from_dodge` (`bool`): Represents the from dodge; the function uses it as input to the operation described above.
+    /// - `context` (`GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+    /// - `receipt` (`&UpBReceipt`): Represents the receipt; the function uses it as input to the operation described above.
+    /// - `delivery` (`&DeliveryBudget`): Represents the delivery; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ReceiptAction` value.
     pub(crate) fn evaluate(
         seen: bool,
         native: bool,

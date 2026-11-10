@@ -51,7 +51,11 @@ pub(super) struct Draft {
 impl Draft {
     /// A deleted draft or a legacy mode binding is not a selectable recipe.
     ///
-///  A deleted draft or a legacy mode binding is not a selectable recipe.
+    ///  A deleted draft or a legacy mode binding is not a selectable recipe.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn live(&self) -> bool {
         !self.deleted && self.sequence.mode.is_none()
     }
@@ -182,6 +186,11 @@ pub(super) enum Event {
 /// Returns the next the character.
 ///
 /// Returns the next the character.
+/// ### Arguments
+/// - `text` (`&[u8]`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
+/// - `cursor` (`usize`): Represents the cursor; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `usize` value.
 fn next_character(text: &[u8], cursor: usize) -> usize {
     let mut end = cursor + 1;
     while end < text.len() && text[end] & UTF8_CONTINUATION_MASK == UTF8_CONTINUATION_PREFIX {
@@ -192,6 +201,11 @@ fn next_character(text: &[u8], cursor: usize) -> usize {
 /// Returns the `previous_character` result.
 ///
 /// Gets the previous character result.
+/// ### Arguments
+/// - `text` (`&[u8]`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
+/// - `cursor` (`usize`): Represents the cursor; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `usize` value.
 fn previous_character(text: &[u8], cursor: usize) -> usize {
     let mut start = if cursor == 0 { text.len() } else { cursor } - 1;
     while start > 0 && text[start] & UTF8_CONTINUATION_MASK == UTF8_CONTINUATION_PREFIX {
@@ -202,13 +216,19 @@ fn previous_character(text: &[u8], cursor: usize) -> usize {
 impl Catalog {
     /// Returns whether the catalog is currently active (not closed).
     ///
-///  Returns whether the catalog is currently active (not closed).
+    ///  Returns whether the catalog is currently active (not closed).
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(&self) -> bool {
         !matches!(self.mode, Mode::Closed)
     }
     /// Closes the catalog, resetting its mode and input state.
     ///
-///  Closes the catalog, resetting its mode and input state.
+    ///  Closes the catalog, resetting its mode and input state.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn close(&mut self) {
         self.mode = Mode::Closed;
         self.revision = self.revision.wrapping_add(1);
@@ -217,7 +237,14 @@ impl Catalog {
     }
     /// Processes input for the catalog, returning an event based on the current mode and input state.
     ///
-///  Processes input for the catalog, returning an event based on the current mode and input state.
+    ///  Processes input for the catalog, returning an event based on the current mode and input state.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
+    /// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Event` value.
     pub fn input(&mut self, buttons: u32, pressed: u32, name: &str) -> Event {
         use crate::native_input::{MAPPER_A as A, MAPPER_B as B, MAPPER_X as X, MAPPER_Y as Y};
         let pad = buttons & (DPAD_SIDES | DPAD_UP | DPAD_DOWN);
@@ -346,7 +373,11 @@ impl Catalog {
     /// Returns the `lines` result.
     ///
     ///
-///  Gets the lines result.
+    ///  Gets the lines result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting items; the vector is empty when there are none.
     pub fn lines(&self) -> Vec<String> {
         match &self.mode {
             Mode::Closed => vec![],
@@ -406,7 +437,9 @@ mod tests {
     /// Returns the `presets` result.
     ///
     ///
-///  Gets the presets result.
+    ///  Gets the presets result.
+    /// ### Returns
+    /// Returns the resulting `MenuPresets` value.
     fn presets() -> MenuPresets {
         let file=FileCatalog::parse("[yoshi.neutral.alpha]\nname=Alpha\nstart_delay=0\nactions=a\n[yoshi.neutral.beta]\nname=Beta\nstart_delay=0\nactions=b\n").unwrap();
         let mut profiles = FighterProfiles::default();
@@ -416,7 +449,11 @@ mod tests {
     /// Updates the `tap` state using the supplied inputs.
     ///
     ///
-///  Updates tap.
+    ///  Updates tap.
+    /// ### Arguments
+    /// - `menu` (`&mut MenuSelection`): Represents the menu; the function uses it as input to the operation described above.
+    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
+    /// - `button` (`u32`): Represents the button; the function uses it as input to the operation described above.
     fn tap(menu: &mut MenuSelection, p: &MenuPresets, button: u32) {
         menu.input(button, p);
         menu.input(0, p);
@@ -424,7 +461,11 @@ mod tests {
     /// Returns the `menu` result.
     ///
     ///
-///  Gets the menu result.
+    ///  Gets the menu result.
+    /// ### Arguments
+    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `MenuSelection` value.
     fn menu(p: &MenuPresets) -> MenuSelection {
         let mut m = MenuSelection::new(p);
         m.show();
@@ -801,7 +842,11 @@ mod rename_regressions {
     /// Returns the `rename` result.
     ///
     ///
-///  Gets the rename result.
+    ///  Gets the rename result.
+    /// ### Arguments
+    /// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Catalog` value.
     fn rename(name: &str) -> Catalog {
         let mut c = Catalog {
             mode: Mode::Actions(0),
@@ -813,7 +858,11 @@ mod rename_regressions {
     /// Returns the `accepted` result.
     ///
     ///
-///  Gets the accepted result.
+    ///  Gets the accepted result.
+    /// ### Arguments
+    /// - `c` (`&mut Catalog`): Represents the c; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn accepted(c: &mut Catalog) -> String {
         match c.input(Y, Y, "") {
             Event::Rename(n) => n,

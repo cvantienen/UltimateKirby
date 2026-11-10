@@ -85,6 +85,11 @@ fn load_on_worker() -> Result<LoadedConfig, String> {
 /// templates, and boxes the live configuration.
 ///
 ///  It checks that the loaded choices are usable and prepares them for play.
+/// ### Arguments
+/// - `config` (`LiveConfig`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// - `sequences` (`Catalog`): Represents the sequences; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn prepare_runtime(config: LiveConfig, sequences: Catalog) -> Result<LoadedConfig, String> {
     let mut profiles = FighterProfiles::default();
     profiles.validate()?;

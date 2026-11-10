@@ -1704,6 +1704,17 @@ Refreshes architecture and source-map references to current live modules and add
 Refactor and logic audit across the plugin and core: decomposes observe_fighter and the mapper overlay into staged helpers, shares one tool-proposal reset between cancel paths, merges the observation setup double lock into one atomic snapshot, splits the menu input state machine, save helpers and sequence/ledge samplers, fixes shifted diagnostic configuration rows, removes dead code, and keeps automation input-only with no gameplay behavior changes beyond the listed fixes.
 
 Adds technical and plain-English Rustdoc summaries throughout the root plugin source tree.
+
+Documents Rust function parameters and return values for IDE hover.
+Formats Rust function sections as compact third-level headings.
+
+Names incoming attack-source ID exclusions in a dedicated skip helper.
+
+Replaces ObjectCategory enum conversions with direct object-ID category checks.
+
+Extracts shield attack endpoint world-coordinate conversion into a small helper without changing behavior.
+
+Extracts per-object active-hitbox threat checks while preserving shared scan budgets and cached depth reads.
 """
 
 

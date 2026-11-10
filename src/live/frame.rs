@@ -41,6 +41,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of this read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub unsafe fn capture_link(&self, object: *mut game::Object) -> bool {
         let id = game::battle_object_id(object);
         // LINK_NO_CAPTURE and LINK_NO_CAPTURE_STOP. The latter also covers a
@@ -55,12 +60,21 @@ impl FrameReads {
     /// Returns copied object/status pairs already present in the fact cache.
     ///
     ///  Lists status values this update has already read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `[Option<(u32, i32)>; 16]` value.
     pub fn known_statuses(&self) -> [Option<(u32, i32)>; 16] {
         self.facts.known_statuses()
     }
     /// Converts a cached status/motion/frame/rate tuple into a guard clock.
     ///
     ///  Builds a reusable animation timer from facts already observed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `own` (`u32`): Represents the own; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn known_guard_clock(
         &self,
         own: u32,
@@ -85,6 +99,10 @@ impl FrameReads {
     /// Lazily obtains the roster snapshot stored in shared callback state.
     ///
     ///  Reuses the roster list for this update; later reads still check it.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn roster(&self) -> Option<kirby_assist_core::battle_objects::FightersInGame> {
         self.roster.read(|| {
             super::STATE
@@ -101,6 +119,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of this read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub unsafe fn ground_brake(&self, object: *mut game::Object) -> Option<f32> {
         let id = game::battle_object_id(object);
         if let Some((_, value)) = self.ground_brake.get().filter(|(cached, _)| *cached == id) {
@@ -118,6 +141,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of this read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `[f32; 2]` value.
     pub unsafe fn damage_launch(&self, object: *mut game::Object) -> [f32; 2] {
         let id = game::battle_object_id(object);
         if let Some((_, velocity)) = self.damage_launch.get().filter(|(cached, _)| *cached == id) {
@@ -142,6 +170,13 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the probe.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
+    /// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `[bool; 2]` value.
     pub unsafe fn ground_support(
         &self,
         object: *mut game::Object,
@@ -159,6 +194,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `i32` value.
     pub unsafe fn fighter_kind(&self, object: *mut game::Object) -> i32 {
         let id = game::battle_object_id(object);
         match self
@@ -175,6 +215,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `i32` value.
     pub unsafe fn status_kind(&self, object: *mut game::Object) -> i32 {
         let id = game::battle_object_id(object);
         match self
@@ -191,6 +236,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `i32` value.
     pub unsafe fn situation_kind(&self, object: *mut game::Object) -> i32 {
         let id = game::battle_object_id(object);
         match self.facts.read(id, Field::Situation, || {
@@ -206,6 +256,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u64` value.
     pub unsafe fn motion_kind(&self, object: *mut game::Object) -> u64 {
         let id = game::battle_object_id(object);
         match self.facts.read(id, Field::Motion, || {
@@ -221,6 +276,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub unsafe fn motion_frame(&self, object: *mut game::Object) -> f32 {
         let id = game::battle_object_id(object);
         match self
@@ -237,6 +297,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub unsafe fn motion_rate(&self, object: *mut game::Object) -> f32 {
         let id = game::battle_object_id(object);
         match self
@@ -253,6 +318,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub unsafe fn pos_x(&self, object: *mut game::Object) -> f32 {
         let id = game::battle_object_id(object);
         match self
@@ -269,6 +339,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub unsafe fn pos_y(&self, object: *mut game::Object) -> f32 {
         let id = game::battle_object_id(object);
         match self
@@ -285,6 +360,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub unsafe fn facing(&self, object: *mut game::Object) -> f32 {
         let id = game::battle_object_id(object);
         match self
@@ -301,6 +381,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u64` value.
     pub unsafe fn team(&self, object: *mut game::Object) -> u64 {
         let id = game::battle_object_id(object);
         match self
@@ -317,6 +402,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub unsafe fn is_stop(&self, object: *mut game::Object) -> bool {
         let id = game::battle_object_id(object);
         match self
@@ -333,6 +423,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub unsafe fn motion_end_frame(&self, object: *mut game::Object) -> f32 {
         let id = game::battle_object_id(object);
         match self.facts.read(id, Field::EndFrame, || {
@@ -348,6 +443,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub unsafe fn speed_x(&self, object: *mut game::Object) -> f32 {
         let id = game::battle_object_id(object);
         match self.facts.read(id, Field::Vx, || {
@@ -363,6 +463,11 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub unsafe fn speed_y(&self, object: *mut game::Object) -> f32 {
         let id = game::battle_object_id(object);
         match self.facts.read(id, Field::Vy, || {
@@ -378,6 +483,12 @@ impl FrameReads {
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// - `history` (`u32`): Represents the history; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `i32` value.
     pub unsafe fn previous_status(&self, object: *mut game::Object, history: u32) -> i32 {
         if history != 0 {
             return game::previous_status(object, history);

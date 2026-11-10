@@ -27,6 +27,8 @@ static TRACKING: AtomicBool = AtomicBool::new(false);
 /// Publishes whether the attack callback should record projectile IDs.
 ///
 ///  Turns projectile remembering on or off.
+/// ### Arguments
+/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
 pub(super) fn tracking(enabled: bool) {
     TRACKING.store(enabled, Ordering::Relaxed);
 }
@@ -35,6 +37,8 @@ pub(super) fn tracking(enabled: bool) {
 /// Returns a copied snapshot of tracked object IDs, omitting generation data.
 ///
 ///  Gives callers projectile IDs they can check again before use.
+/// ### Returns
+/// Returns the resulting `[Option<u32>; CAPACITY]` value.
 pub(super) fn sources() -> [Option<u32>; CAPACITY] {
     SOURCES.snapshot().map(|key| key.map(|key| key.id))
 }
@@ -43,6 +47,8 @@ pub(super) fn sources() -> [Option<u32>; CAPACITY] {
 ///
 ///  Gives reflection logic projectile IDs that distinguish new attacks
 /// from earlier attacks by the same object.
+/// ### Returns
+/// Returns the resulting `[Option<kirby_assist_core::projectile_reflect::ProjectileKey>; CAPACITY]` value.
 pub(super) fn projectiles(
 ) -> [Option<kirby_assist_core::projectile_reflect::ProjectileKey>; CAPACITY] {
     SOURCES.snapshot()
@@ -51,6 +57,8 @@ pub(super) fn projectiles(
 /// Removes the matching projectile identity from the bounded tracker.
 ///
 ///  Stops treating the given object as a remembered projectile.
+/// ### Arguments
+/// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
 pub(super) fn forget(id: u32) {
     SOURCES.forget(id);
 }
@@ -59,6 +67,8 @@ pub(super) fn forget(id: u32) {
 /// Chains the native attack command, then records eligible active weapon/item IDs.
 ///
 ///  After an attack starts, this remembers its projectile if tracking is enabled.
+/// ### Arguments
+/// - `lua_state` (`u64`): Represents the lua state; the function uses it as input to the operation described above.
 unsafe fn remember_attack(lua_state: u64) {
     original!()(lua_state);
     if !TRACKING.load(Ordering::Relaxed) || !super::feature_activity_allowed() {

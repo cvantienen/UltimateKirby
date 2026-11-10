@@ -83,7 +83,9 @@ impl LedgeVisits {
     /// Constructs a new value with the type’s initial state.
     ///
     ///
-///  Creates a new value.
+    ///  Creates a new value.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             owner: None,
@@ -96,7 +98,11 @@ impl LedgeVisits {
     /// Sets the owner.
     ///
     ///
-///  Sets the owner.
+    ///  Sets the owner.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
     pub fn set_owner(&mut self, id: u32, kind: i32) {
         if self.owner != Some((id, kind)) {
             *self = Self::default();
@@ -106,21 +112,35 @@ impl LedgeVisits {
     /// Visits the epoch.
     ///
     ///
-///  Visits the epoch.
+    ///  Visits the epoch.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u64` value.
     pub fn visit_epoch(&self) -> u64 {
         self.visit_epoch
     }
     /// Returns an optional `walking_ledge` value.
     ///
     ///
-///  Gets walking ledge if it is available.
+    ///  Gets walking ledge if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn walking_ledge(&self) -> Option<LedgeSpot> {
         self.ledge
     }
     /// Records the time of the latest fighter observation.
     ///
     ///
-///  Remembers when a fighter was last seen.
+    ///  Remembers when a fighter was last seen.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `e` (`Opponent`): Represents the e; the function uses it as input to the operation described above.
+    /// - `own` (`[f32; 2]`): Represents the own; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Observation` value.
     fn observe(&mut self, e: Opponent, own: [f32; 2]) -> Observation {
         let index = self
             .visits
@@ -181,7 +201,10 @@ impl LedgeVisits {
     /// Updates the `claim` state using the supplied inputs.
     ///
     ///
-///  Updates claim.
+    ///  Updates claim.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
     fn claim(&mut self, id: u32) {
         if let Some(v) = self.visits.iter_mut().flatten().find(|v| v.id == id) {
             v.handled = true;
@@ -195,7 +218,16 @@ impl LedgeTrap {
     /// Samples the with visits.
     ///
     ///
-///  Samples the with visits.
+    ///  Samples the with visits.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `visits` (`&mut LedgeVisits`): Represents the visits; the function uses it as input to the operation described above.
+    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `enemy` (`Option<Opponent>`): Represents the enemy; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample_with_visits(
         &mut self,
         visits: &mut LedgeVisits,
@@ -248,7 +280,9 @@ mod tests {
     /// Returns the current settings view.
     ///
     ///
-///  Gets the settings being edited.
+    ///  Gets the settings being edited.
+    /// ### Returns
+    /// Returns the resulting `AssistSettings` value.
     fn settings() -> AssistSettings {
         let c = Catalog::parse("[kirby.neutral.test]\nstart_delay=0\nactions=a:1").unwrap();
         let mut s = AssistSettings {
@@ -261,7 +295,11 @@ mod tests {
     /// Returns the `ctx` result.
     ///
     ///
-///  Gets the ctx result.
+    ///  Gets the ctx result.
+    /// ### Arguments
+    /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `GameplayContext` value.
     fn ctx(frame: f32) -> GameplayContext {
         GameplayContext {
             motion_kind: 123,

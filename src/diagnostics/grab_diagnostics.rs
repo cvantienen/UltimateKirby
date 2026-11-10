@@ -182,6 +182,11 @@ impl Report {
     /// Returns the elapsed time in milliseconds since the report's origin.
     ///
     ///  Tells how many milliseconds have passed since this trace began.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u64` value.
     fn elapsed(&self, now: Instant) -> u64 {
         now.saturating_duration_since(self.origin)
             .as_millis()
@@ -190,6 +195,10 @@ impl Report {
     /// Pushes a new checkpoint into the report, recording the elapsed time and event.
     ///
     ///  Adds a recent event to the bounded trace history.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `ms` (`u64`): Represents the ms; the function uses it as input to the operation described above.
+    /// - `event` (`Event`): Represents the event; the function uses it as input to the operation described above.
     fn push(&mut self, ms: u64, event: Event) {
         // Preserve the initial checkpoint separately; the ring retains recent
         // evidence and reports overwrite counts instead of allocating/growing.
@@ -200,6 +209,10 @@ impl Report {
     /// Formats the report into a human-readable string for logging or display.
     ///
     ///  Turns the saved trace into readable troubleshooting text.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn format(&self) -> String {
         let result = if self.last.captured {
             "capture_confirmed"
@@ -258,6 +271,11 @@ impl Report {
     /// Appends the copied native snapshot fields to the report buffer.
     ///
     ///  Adds one timestamped fighter/grab state to the troubleshooting log.
+    /// ### Arguments
+    /// - `text` (`&mut String`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
+    /// - `label` (`&str`): Represents the label; the function uses it as input to the operation described above.
+    /// - `ms` (`u64`): Represents the ms; the function uses it as input to the operation described above.
+    /// - `s` (`RollGrabSnapshot`): Represents the s; the function uses it as input to the operation described above.
     fn format_observation(text: &mut String, label: &str, ms: u64, s: RollGrabSnapshot) {
         let _ = writeln!(text, "  +{ms}ms {label} gate={} status={:#x}@{:.2} pos={:?} vx={:.3} facing={} endpoint={:?} stand={:?} endpoint_gap={:?} target_gap_facing={:?} usable_reach={:.2} grab_range={:.2} ready(control/act/grab)={}/{}/{} stopped={} safe_ground={:?} enemy_status={:?}@{:?} enemy_pos={:?} vulnerable={:?} opens_in={:?} adjusted_opens_in={:?} actionable_in={:?} active={:?} request={:#x} grab_button={:#x} attempts={} animations={} native_grabbing={} captured={}", s.phase, s.status, s.motion_frame, s.position, s.velocity_x, s.facing, s.endpoint, s.stand_x, s.endpoint.map(|x| x-s.position[0]), s.enemy_position.map(|p| (p[0]-s.position[0])*s.facing), s.usable_reach, s.grab_range, s.can_control, s.can_act, s.can_grab, s.stopped, s.safe_ground, s.enemy_status, s.enemy_frame, s.enemy_position, s.vulnerable, s.vulnerable_in, s.adjusted_opens_in, s.actionable_in, s.active, s.requested, s.grab_button, s.attempts, s.animations, s.native_grabbing, s.captured);
     }
@@ -284,6 +302,8 @@ impl GrabTrace {
     /// Creates a new instance of `GrabTrace` with no active report and initial state.
     ///
     ///  Starts a grab trace recorder with nothing recorded.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             active: None,
@@ -294,12 +314,21 @@ impl GrabTrace {
     /// Returns `true` if there is an active report being tracked.
     ///
     ///  Checks whether a grab trace is currently running.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(&self) -> bool {
         self.active.is_some()
     }
     /// Observes a new roll grab snapshot, updating the active report or finishing it if necessary.
     ///
     ///  Adds the latest fighter snapshot and ends the trace if tracking stops.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `snapshot` (`Option<RollGrabSnapshot>`): Represents the snapshot; the function uses it as input to the operation described above.
+    /// - `fighter` (`Option<i32>`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
+    /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
     pub fn observe(
         &mut self,
         snapshot: Option<RollGrabSnapshot>,
@@ -415,6 +444,15 @@ impl GrabTrace {
     /// Records a mapper update for the roll grab, including proposed and applied button states, stick input, and gate.
     ///
     ///  Records what the helper tried to send and what the game received.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `proposed` (`u32`): Represents the proposed; the function uses it as input to the operation described above.
+    /// - `applied` (`u32`): Represents the applied; the function uses it as input to the operation described above.
+    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
+    /// - `mapped` (`u32`): Represents the mapped; the function uses it as input to the operation described above.
+    /// - `stick` (`[i8; 2]`): Represents the stick; the function uses it as input to the operation described above.
+    /// - `gate` (`&'static str`): Represents the gate; the function uses it as input to the operation described above.
+    /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
     pub fn mapped(
         &mut self,
         proposed: u32,
@@ -456,6 +494,9 @@ impl GrabTrace {
     /// Finishes the active report with the given reason, writing it to the log and marking it as completed.
     ///
     ///  Ends the current trace and sends its report to the logger.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `reason` (`&'static str`): Represents the reason; the function uses it as input to the operation described above.
     pub fn finish(&mut self, reason: &'static str) {
         if let Some(mut report) = self.active.take() {
             report.end = reason;
@@ -466,6 +507,9 @@ impl GrabTrace {
     /// Resets the grab trace by finishing the current report with the given reason and clearing the completion flag.
     ///
     ///  Ends the current trace and clears its finished status.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `reason` (`&'static str`): Represents the reason; the function uses it as input to the operation described above.
     pub fn reset(&mut self, reason: &'static str) {
         self.finish(reason);
         self.completed = false;
@@ -484,6 +528,10 @@ mod tests {
     /// Creates a minimal target-bearing fixture for trace tests.
     ///
     ///  Makes a sample grab state for the tests.
+    /// ### Arguments
+    /// - `phase` (`&'static str`): Represents the phase; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `RollGrabSnapshot` value.
     fn snapshot(phase: &'static str) -> RollGrabSnapshot {
         RollGrabSnapshot {
             target: Some(42),

@@ -16,6 +16,11 @@ const LEFT_STICK_SIDE_FLICKS: u32 = (1 << 21) | (1 << 23);
 /// Returns `mask` unchanged when its condition is true, otherwise zero.
 ///
 ///  Turns a group of button bits on only when requested.
+/// ### Arguments
+/// - `condition` (`bool`): Represents the condition; the function uses it as input to the operation described above.
+/// - `mask` (`u32`): Represents the mask; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 fn mask_if(condition: bool, mask: u32) -> u32 {
     if condition {
         mask
@@ -28,6 +33,12 @@ fn mask_if(condition: bool, mask: u32) -> u32 {
 /// Tests the physical trace using the configured canonical-to-physical mapping.
 ///
 ///  Checks whether the player is holding this button on their controller.
+/// ### Arguments
+/// - `config` (`&Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// - `trace` (`ButtonTrace`): Represents the trace; the function uses it as input to the operation described above.
+/// - `button` (`u32`): Represents the button; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn physical_held(config: &Config, trace: ButtonTrace, button: u32) -> bool {
     trace.held & config.control_layout.physical_buttons(button) != 0
 }
@@ -186,6 +197,11 @@ struct MapperDeliveryFeedback {
 ///
 /// # Safety
 /// `wrapper` must be a live mapper wrapper matching the pinned native layout.
+/// ### Arguments
+/// - `wrapper` (`*mut c_void`): Represents the wrapper; the function uses it as input to the operation described above.
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) unsafe fn admit_mapper_callback(
     wrapper: *mut c_void,
     index: i32,
@@ -236,6 +252,11 @@ pub(super) unsafe fn admit_mapper_callback(
 ///
 /// # Safety
 /// The admission must still refer to the current native controller callback.
+/// ### Arguments
+/// - `admission` (`&MapperAdmission`): Represents the admission; the function uses it as input to the operation described above.
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) unsafe fn enter_training_passthrough(admission: &MapperAdmission, index: i32) -> bool {
     training::enter_passthrough(
         trace(admission.controller),
@@ -251,6 +272,9 @@ pub(super) unsafe fn enter_training_passthrough(admission: &MapperAdmission, ind
 ///
 /// # Safety
 /// `output` must point to a writable `MappedInputs` value using the pinned layout.
+/// ### Arguments
+/// - `output` (`*mut c_void`): Represents the output data being produced; the function uses it as input to the operation described above.
+/// - `adjustments` (`&MapperOutputAdjustments`): Represents the adjustments; the function uses it as input to the operation described above.
 unsafe fn apply_mapper_output_adjustments(
     output: *mut c_void,
     adjustments: &MapperOutputAdjustments,
@@ -295,6 +319,10 @@ unsafe fn apply_mapper_output_adjustments(
 /// Samples the manual-jump fence only after a manual jump is present in mapped output.
 ///
 ///  Remembers a real jump so automation won't mistake it for its own input.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `mapped` (`&MappedInputs`): Represents the mapped; the function uses it as input to the operation described above.
+/// - `manual_jump` (`bool`): Represents the manual jump; the function uses it as input to the operation described above.
 fn record_mapped_manual_jump(state: &mut State, mapped: &MappedInputs, manual_jump: bool) {
     if manual_jump
         && mapped.buttons
@@ -329,6 +357,11 @@ fn record_mapped_manual_jump(state: &mut State, mapped: &MappedInputs, manual_ju
 /// Acknowledges mapped reflector input and polls its bounded receipt state.
 ///
 ///  Confirms reflection input reached the mapper and releases ownership when done.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `mapped` (`&MappedInputs`): Represents the mapped; the function uses it as input to the operation described above.
+/// - `reflect` (`bool`): Represents the reflect; the function uses it as input to the operation described above.
+/// - `reflector_tick` (`Option<i64>`): Represents the reflector tick; the function uses it as input to the operation described above.
 fn record_mapped_reflector(
     state: &mut State,
     mapped: &MappedInputs,
@@ -353,6 +386,11 @@ fn record_mapped_reflector(
 /// Records mapped grab inputs for the given state and mapped inputs, handling automatic grabs and grab handoff events.
 ///
 ///  Tracks grab-related buttons that the mapper applied.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `mapped` (`&MappedInputs`): Represents the mapped; the function uses it as input to the operation described above.
+/// - `auto_grab` (`Option<(i64, u32, bool)>`): Represents the auto grab; the function uses it as input to the operation described above.
+/// - `grab_handoff` (`Option<(i64, Option<Owner>, bool, bool)>`): Represents the grab handoff; the function uses it as input to the operation described above.
 fn record_mapped_grabs(
     state: &mut State,
     mapped: &MappedInputs,
@@ -379,6 +417,12 @@ fn record_mapped_grabs(
 /// Records mapped dodge inputs for the given state and mapped inputs, handling guard, punish grabs, and automatic dodges.
 ///
 ///  Tracks dodge and guard buttons that the mapper applied.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `mapped` (`&MappedInputs`): Represents the mapped; the function uses it as input to the operation described above.
+/// - `guard` (`bool`): Represents the guard; the function uses it as input to the operation described above.
+/// - `punish_grab` (`Option<(i64, u32)>`): Represents the punish grab; the function uses it as input to the operation described above.
+/// - `auto_dodge` (`Option<(i64, u32)>`): Represents the auto dodge; the function uses it as input to the operation described above.
 fn record_mapped_dodges(
     state: &mut State,
     mapped: &MappedInputs,
@@ -406,6 +450,10 @@ fn record_mapped_dodges(
 /// Records mapped up special inputs for the given state and mapped inputs, handling out-of-shield, roll read, and spot dodge scenarios.
 ///
 ///  Tracks up-special input changes made by defensive helpers.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `mapped` (`&MappedInputs`): Represents the mapped; the function uses it as input to the operation described above.
+/// - `request` (`Option<(i64, u32, Owner)>`): Represents the request; the function uses it as input to the operation described above.
 fn record_mapped_up_special(
     state: &mut State,
     mapped: &MappedInputs,
@@ -448,6 +496,11 @@ fn record_mapped_up_special(
 /// Records mapped tech inputs for the given state, handling guard and tech application scenarios.
 ///
 ///  Tracks tech and guard buttons added by the mapper.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `guard` (`bool`): Represents the guard; the function uses it as input to the operation described above.
+/// - `tech_applied` (`bool`): Represents the tech applied; the function uses it as input to the operation described above.
+/// - `messages` (`&mut Vec<String>`): Represents the messages; the function uses it as input to the operation described above.
 fn record_mapped_tech(
     state: &mut State,
     guard: bool,
@@ -478,6 +531,10 @@ fn record_mapped_tech(
 /// Records whether a proposed grab reached mapped buttons and calibration traces.
 ///
 ///  Saves the result of grab-input delivery for troubleshooting.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `mapped` (`&MappedInputs`): Represents the mapped; the function uses it as input to the operation described above.
+/// - `grab_delivery` (`Option<(u32, u32, u32, &'static str)>`): Represents the grab delivery; the function uses it as input to the operation described above.
 fn record_mapped_grab_diagnostics(
     state: &mut State,
     mapped: &MappedInputs,
@@ -502,6 +559,12 @@ fn record_mapped_grab_diagnostics(
 /// Records mapped grab diagnostics for the given state and mapped inputs, handling grab delivery events.
 ///
 ///  Updates grab and tech delivery records after native mapping.
+/// ### Arguments
+/// - `output` (`*mut c_void`): Represents the output data being produced; the function uses it as input to the operation described above.
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// - `session_ticket` (`SessionTicket`): Represents the session ticket; the function uses it as input to the operation described above.
+/// - `feedback` (`MapperDeliveryFeedback`): Represents the feedback; the function uses it as input to the operation described above.
+/// - `messages` (`&mut Vec<String>`): Represents the messages; the function uses it as input to the operation described above.
 unsafe fn record_mapped_delivery(
     output: *mut c_void,
     index: i32,
@@ -607,6 +670,11 @@ struct OverlayFrame {
 /// Whether this mapper slot's human fighter was observed recently and is the associated object.
 ///
 ///  Checks whether this controller still belongs to the recently observed local fighter.
+/// ### Arguments
+/// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn local_route_current(state: &State, index: i32) -> bool {
     state.human_routes[index as usize].is_some_and(|(id, seen)| {
         Some(id) == state.associated_object && seen.elapsed() < SESSION_OBSERVATION_GAP
@@ -616,6 +684,11 @@ fn local_route_current(state: &State, index: i32) -> bool {
 /// Starts or ends the menu's battle session as the local fighter enters or leaves a live match.
 ///
 ///  Opens or closes the menu's match-specific state as battle begins or ends.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// - `connected` (`bool`): Represents the connected; the function uses it as input to the operation described above.
+/// - `menu_ready_go` (`Option<bool>`): Represents the menu ready go; the function uses it as input to the operation described above.
 fn track_menu_battle(state: &mut State, index: i32, connected: bool, menu_ready_go: Option<bool>) {
     let intro_current = state.menu_intro_object.is_some_and(|intro| {
         state.human_routes[index as usize]
@@ -648,6 +721,10 @@ fn track_menu_battle(state: &mut State, index: i32, connected: bool, menu_ready_
 /// Binds mapper state to this slot, discarding anything learned from a previously selected slot.
 ///
 ///  Resets cached controller data when the selected player changes.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `messages` (`&mut Vec<String>`): Represents the messages; the function uses it as input to the operation described above.
 unsafe fn bind_mapper_index(
     state: &mut State,
     frame: &OverlayFrame,
@@ -678,6 +755,11 @@ unsafe fn bind_mapper_index(
 /// Updates the mapper menu and input state for the selected controller, handling menu readiness, battle activity, and diagnostic logging.
 ///
 ///  Refreshes the menu and controller state for this update.
+/// ### Arguments
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `menu_ready_go` (`Option<bool>`): Represents the menu ready go; the function uses it as input to the operation described above.
+/// - `menu_training_mode` (`bool`): Represents the menu training mode; the function uses it as input to the operation described above.
+/// - `diagnostics` (`&mut MapperDiagnostics`): Represents the diagnostics; the function uses it as input to the operation described above.
 unsafe fn update_mapper_menu_and_input(
     frame: &OverlayFrame,
     menu_ready_go: Option<bool>,
@@ -715,6 +797,11 @@ unsafe fn update_mapper_menu_and_input(
 /// returns the canonical policy buttons.
 ///
 ///  Stores the real buttons pressed and prepares them for helper decisions.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 fn observe_raw_input(state: &mut State, frame: &OverlayFrame) -> u32 {
     let OverlayFrame {
         config,
@@ -757,6 +844,12 @@ fn observe_raw_input(state: &mut State, frame: &OverlayFrame) -> u32 {
 /// Feeds this poll to the settings menu and publishes its consumed/native buttons.
 ///
 ///  Gives the menu this controller update and returns the buttons it handles.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `policy_buttons` (`u32`): Represents the policy buttons; the function uses it as input to the operation described above.
+/// - `menu_training_mode` (`bool`): Represents the menu training mode; the function uses it as input to the operation described above.
+/// - `kind` (`Option<i32>`): Represents the kind or category being checked; the function uses it as input to the operation described above.
 fn run_settings_menu(
     state: &mut State,
     frame: &OverlayFrame,
@@ -823,6 +916,10 @@ fn run_settings_menu(
 /// suspension and the ledge-assist lifecycle.
 ///
 ///  Updates helper behavior based on the current menu mode choices.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `kind` (`Option<i32>`): Represents the kind or category being checked; the function uses it as input to the operation described above.
 fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) {
     let OverlayFrame {
         config, physical, ..
@@ -908,6 +1005,8 @@ fn trump_input_pressed(state: &State, physical: ButtonTrace) -> bool {
 /// Refreshes the selected fighter for the specified controller index, observing the fighter if valid or clearing the state if not.
 ///
 ///  Updates or clears the fighter data for the selected controller.
+/// ### Arguments
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
 unsafe fn refresh_selected_fighter(index: i32) {
     let candidate = STATE.lock().ok().and_then(|state| {
         (state.mapping_index == Some(index))
@@ -1056,11 +1155,10 @@ struct MapperIntentInputs {
     posture_active: bool,
 }
 /// Computes the action intents for the mapper based on the current state and input flags. Returns an array of `Intent` for each possible action.
-/// # Arguments
+/// ### Arguments
 /// * `state` - The current state of the mapper.
 /// * `inputs` - The input flags indicating the current conditions.
-///
-/// # Returns
+/// ### Returns
 /// An array of `Intent` for each possible action.
 ///
 ///  Decides which controller actions each active helper wants to perform.
@@ -1161,6 +1259,11 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
 /// An intent whose owner keeps its reservation until its own script finishes.
 ///
 ///  Creates an action request that holds priority until its script ends.
+/// ### Arguments
+/// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+/// - `present` (`bool`): Represents the present; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `Intent` value.
 fn committed_intent(owner: Owner, present: bool) -> Intent {
     Intent {
         owner,
@@ -1171,6 +1274,11 @@ fn committed_intent(owner: Owner, present: bool) -> Intent {
 /// An intent that yields to every committed owner.
 ///
 ///  Creates a lower-priority request that steps aside for active scripts.
+/// ### Arguments
+/// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+/// - `present` (`bool`): Represents the present; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `Intent` value.
 fn passive_intent(owner: Owner, present: bool) -> Intent {
     Intent {
         owner,
@@ -1181,6 +1289,13 @@ fn passive_intent(owner: Owner, present: bool) -> Intent {
 /// Selects the appropriate controller output based on the winning owner, posture, and current situation, applying grab handoff and out-of-shield adjustments as needed.
 ///
 ///  Chooses the final button and stick output for the helper that won.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `winner` (`Option<Owner>`): Represents the winner; the function uses it as input to the operation described above.
+/// - `posture` (`ControllerOutput`): Represents the posture; the function uses it as input to the operation described above.
+/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ControllerOutput` value.
 fn selected_owner_output(
     state: &mut State,
     winner: Option<Owner>,
@@ -1212,6 +1327,11 @@ fn selected_owner_output(
 /// A grounded Grab packet neutralises the C-stick so the native mapper cannot read it as a smash.
 ///
 ///  Releases the right stick when a grounded grab is sent.
+/// ### Arguments
+/// - `selected` (`ControllerOutput`): Represents the selected; the function uses it as input to the operation described above.
+/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn grab_release_right_stick(selected: ControllerOutput, situation: i32) -> Option<[f32; 2]> {
     (situation == kirby_assist_core::native_states::situation::GROUND
         && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0)
@@ -1221,6 +1341,11 @@ fn grab_release_right_stick(selected: ControllerOutput, situation: i32) -> Optio
 /// The C-stick packet the winning script requests, for the owners that supply one.
 ///
 ///  Gets the right-stick direction requested by the winning helper.
+/// ### Arguments
+/// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `winner` (`Option<Owner>`): Represents the winner; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn owner_right_stick(state: &State, winner: Option<Owner>) -> Option<[f32; 2]> {
     match winner {
         Some(Owner::Ledge) => state
@@ -1243,6 +1368,13 @@ fn owner_right_stick(state: &State, winner: Option<Owner>) -> Option<[f32; 2]> {
 /// Determines the appropriate right stick input based on the winning owner, selected controller output, and current situation.
 ///
 ///  Chooses the right-stick output after considering the active helper and fighter state.
+/// ### Arguments
+/// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `winner` (`Option<Owner>`): Represents the winner; the function uses it as input to the operation described above.
+/// - `selected` (`ControllerOutput`): Represents the selected; the function uses it as input to the operation described above.
+/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn selected_owner_right_stick(
     state: &State,
     winner: Option<Owner>,
@@ -1275,6 +1407,17 @@ struct PostureSample {
 /// Samples configured posture assistance using copied physical and native input state.
 ///
 ///  Chooses posture-related input for the current controller update.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `manual_context` (`Option<ManualContext>`): Represents the manual context; the function uses it as input to the operation described above.
+/// - `manual_scope` (`bool`): Represents the manual scope; the function uses it as input to the operation described above.
+/// - `fresh` (`bool`): Represents the fresh; the function uses it as input to the operation described above.
+/// - `policy_buttons` (`u32`): Represents the policy buttons; the function uses it as input to the operation described above.
+/// - `physical` (`kirby_assist_core::native_input::ButtonTrace`): Represents the physical; the function uses it as input to the operation described above.
+/// - `physical_stick` (`[f32; 2]`): Represents the physical stick; the function uses it as input to the operation described above.
+/// - `physical_right_stick` (`[f32; 2]`): Represents the physical right stick; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `PostureSample` value.
 fn sample_mapper_posture(
     state: &mut State,
     manual_context: Option<ManualContext>,
@@ -1371,6 +1514,13 @@ struct DamageStickSample {
 /// Handles manual ledge walking, returning the appropriate stick input if conditions are met.
 ///
 ///  Uses the player's stick to walk along a ledge when the helper allows it.
+/// ### Arguments
+/// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `gate` (`&PollGate`): Represents the gate; the function uses it as input to the operation described above.
+/// - `turbo` (`TurboOutput`): Represents the turbo; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn manual_ledge_walk(
     state: &State,
     frame: &OverlayFrame,
@@ -1440,6 +1590,16 @@ fn manual_ledge_walk(
 /// Samples the damage stick inputs for the given state and configuration, handling DI, SDI, and damage trajectory considerations.
 ///
 ///  Chooses safe DI or SDI stick input without overriding higher-priority actions.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `config` (`&Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// - `manual_scope` (`bool`): Represents the manual scope; the function uses it as input to the operation described above.
+/// - `fresh` (`bool`): Represents the fresh; the function uses it as input to the operation described above.
+/// - `mash_stick` (`Option<[f32; 2]>`): Represents the mash stick; the function uses it as input to the operation described above.
+/// - `physical_stick` (`[f32; 2]`): Represents the physical stick; the function uses it as input to the operation described above.
+/// - `messages` (`&mut Vec<String>`): Represents the messages; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `DamageStickSample` value.
 fn sample_damage_sticks(
     state: &mut State,
     config: &Config,
@@ -1518,6 +1678,11 @@ fn sample_damage_sticks(
 /// overlays remain responsible for their own focus.
 ///
 ///  Lets the monitor shortcut reach the system and cancels helper actions first.
+/// ### Arguments
+/// - `config` (`&Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// - `physical` (`ButtonTrace`): Represents the physical; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn pass_monitor_chord(config: &Config, physical: ButtonTrace) -> bool {
     if !kirby_assist_core::settings_menu::monitor_chord(
         config.control_layout.policy_buttons(physical.held),
@@ -1558,6 +1723,14 @@ unsafe fn note_observed_mapper(
 ///
 /// # Safety
 /// `admission.controller` must be the live native controller of this callback and `output` the mapper's result buffer.
+/// ### Arguments
+/// - `admission` (`MapperAdmission`): Represents the admission; the function uses it as input to the operation described above.
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// - `output` (`*mut c_void`): Represents the output data being produced; the function uses it as input to the operation described above.
+/// - `training_mode` (`Option<bool>`): Represents the training mode; the function uses it as input to the operation described above.
+/// - `training_test_mode` (`bool`): Represents the training test mode; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) unsafe fn prepare_mapper_overlay(
     admission: MapperAdmission,
     index: i32,
@@ -1627,6 +1800,10 @@ pub(super) unsafe fn prepare_mapper_overlay(
 /// Runs every overlay stage for one admitted poll while holding the state lock.
 ///
 ///  Applies the helper checks, chooses who controls the output, and prepares this poll.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `prep` (`&mut MapperPreparation`): Represents the prep; the function uses it as input to the operation described above.
 unsafe fn compose_overlay(state: &mut State, frame: &OverlayFrame, prep: &mut MapperPreparation) {
     let gate = poll_gate(state, frame);
     #[cfg(feature = "diagnostic-logging")]
@@ -1710,6 +1887,11 @@ struct PollGate {
 /// Computes canonical button state, request freshness, route scope, and grab gates.
 ///
 ///  Checks whether current physical input and assistance requests are still usable.
+/// ### Arguments
+/// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `PollGate` value.
 fn poll_gate(state: &State, frame: &OverlayFrame) -> PollGate {
     let OverlayFrame {
         index,
@@ -1819,6 +2001,12 @@ struct ToolSamples {
 /// Samples the Turbo t-bag and dash-pivot helpers from the physical input.
 ///
 ///  Checks physical buttons for Turbo and dash-pivot stick requests.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `gate` (`&PollGate`): Represents the gate; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `(TurboOutput, Option<[f32; 2]>)` value.
 fn sample_turbo_and_pivot(
     state: &mut State,
     frame: &OverlayFrame,
@@ -1901,6 +2089,13 @@ fn sample_turbo_and_pivot(
 /// Samples every manual tool for this poll: turbo, dash pivot, ledge walk, posture and damage sticks.
 ///
 ///  Collects every helper's proposed input before choosing a winner.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `gate` (`&PollGate`): Represents the gate; the function uses it as input to the operation described above.
+/// - `prep` (`&mut MapperPreparation`): Represents the prep; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ToolSamples` value.
 fn sample_tools(
     state: &mut State,
     frame: &OverlayFrame,
@@ -1989,6 +2184,13 @@ fn report_trump_input(state: &State, gate: &PollGate, prep: &mut MapperPreparati
 /// Resolves the owner of this poll's left stick and buttons, then records what the mapper hook must deliver for it.
 ///
 ///  Gives control to one helper and remembers which buttons it must deliver.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `gate` (`&PollGate`): Represents the gate; the function uses it as input to the operation described above.
+/// - `samples` (`&ToolSamples`): Represents the samples; the function uses it as input to the operation described above.
+/// - `prep` (`&mut MapperPreparation`): Represents the prep; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `Arbitration` value.
 fn arbitrate_owner(
     state: &mut State,
     gate: &PollGate,
@@ -2117,6 +2319,11 @@ fn arbitrate_owner(
 /// Whether the winning script asked the mapped jump to be shortened.
 ///
 ///  Checks whether the active helper requested a short hop.
+/// ### Arguments
+/// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `winner` (`Option<Owner>`): Represents the winner; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn owner_native_short_hop(state: &State, winner: Option<Owner>) -> bool {
     match winner {
         Some(Owner::Ledge) => state.ledge_output.native_short_hop,
@@ -2129,6 +2336,11 @@ fn owner_native_short_hop(state: &State, winner: Option<Owner>) -> bool {
 /// The left-stick packet the winning owner supplies.
 ///
 ///  Chooses the winning helper's left-stick direction, if any.
+/// ### Arguments
+/// - `arbitration` (`&Arbitration`): Represents the arbitration; the function uses it as input to the operation described above.
+/// - `samples` (`&ToolSamples`): Represents the samples; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn winner_left_stick(arbitration: &Arbitration, samples: &ToolSamples) -> Option<[f32; 2]> {
     let Arbitration {
         winner, selected, ..
@@ -2304,6 +2516,14 @@ struct NativeRequest {
 /// winning script's own stick while its input is current.
 ///
 ///  Chooses the right-stick value needed to prevent stray native input.
+/// ### Arguments
+/// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `winner` (`Option<Owner>`): Represents the winner; the function uses it as input to the operation described above.
+/// - `selected` (`ControllerOutput`): Represents the selected; the function uses it as input to the operation described above.
+/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
+/// - `fresh` (`bool`): Represents the fresh; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn cancel_right_stick(
     state: &State,
     winner: Option<Owner>,
@@ -2327,6 +2547,14 @@ fn cancel_right_stick(
 /// Combines arbitration and sampled helper outputs into a native request.
 ///
 ///  Builds the final set of button/stick changes for this mapping poll.
+/// ### Arguments
+/// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `gate` (`&PollGate`): Represents the gate; the function uses it as input to the operation described above.
+/// - `samples` (`&ToolSamples`): Represents the samples; the function uses it as input to the operation described above.
+/// - `arbitration` (`&Arbitration`): Represents the arbitration; the function uses it as input to the operation described above.
+/// - `prep` (`&mut MapperPreparation`): Represents the prep; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `NativeRequest` value.
 fn compose_native_request(
     state: &State,
     gate: &PollGate,
@@ -2438,6 +2666,14 @@ fn compose_native_request(
 /// frame plus whether Out of Shield is mid approach pulse.
 ///
 ///  Applies menu and helper button changes to the physical input.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `samples` (`&ToolSamples`): Represents the samples; the function uses it as input to the operation described above.
+/// - `arbitration` (`&Arbitration`): Represents the arbitration; the function uses it as input to the operation described above.
+/// - `request` (`&NativeRequest`): Represents the request; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `(ManualFrame, bool)` value.
 fn apply_manual_overlay(
     state: &mut State,
     frame: &OverlayFrame,
@@ -2488,6 +2724,15 @@ fn apply_manual_overlay(
 /// Chooses the analog sticks and final-button adjustments the mapper hook applies after native mapping.
 ///
 ///  Plans which sticks and buttons should reach the game after native mapping.
+/// ### Arguments
+/// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `gate` (`&PollGate`): Represents the gate; the function uses it as input to the operation described above.
+/// - `samples` (`&ToolSamples`): Represents the samples; the function uses it as input to the operation described above.
+/// - `arbitration` (`&Arbitration`): Represents the arbitration; the function uses it as input to the operation described above.
+/// - `request` (`&NativeRequest`): Represents the request; the function uses it as input to the operation described above.
+/// - `manual` (`&ManualFrame`): Represents the manual; the function uses it as input to the operation described above.
+/// - `prep` (`&mut MapperPreparation`): Represents the prep; the function uses it as input to the operation described above.
 fn plan_stick_overlay(
     state: &State,
     frame: &OverlayFrame,
@@ -2589,6 +2834,16 @@ fn plan_stick_overlay(
 /// returns the button history after posture side-tilt aliasing.
 ///
 ///  Checks which helper actions reached the game and updates delivery history.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `arbitration` (`&Arbitration`): Represents the arbitration; the function uses it as input to the operation described above.
+/// - `samples` (`&ToolSamples`): Represents the samples; the function uses it as input to the operation described above.
+/// - `manual` (`&ManualFrame`): Represents the manual; the function uses it as input to the operation described above.
+/// - `approach_pulse` (`bool`): Represents the approach pulse; the function uses it as input to the operation described above.
+/// - `prep` (`&mut MapperPreparation`): Represents the prep; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ButtonTrace` value.
 fn plan_delivery_feedback(
     state: &mut State,
     frame: &OverlayFrame,
@@ -2804,6 +3059,16 @@ fn report_overlay_diagnostics(
 /// Publishes the final buttons and sticks into the native controller and records what to restore.
 ///
 ///  Temporarily applies the chosen inputs and saves the real controller values for restoration.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `frame` (`&OverlayFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `gate` (`&PollGate`): Represents the gate; the function uses it as input to the operation described above.
+/// - `samples` (`&ToolSamples`): Represents the samples; the function uses it as input to the operation described above.
+/// - `arbitration` (`&Arbitration`): Represents the arbitration; the function uses it as input to the operation described above.
+/// - `request` (`&NativeRequest`): Represents the request; the function uses it as input to the operation described above.
+/// - `manual` (`&ManualFrame`): Represents the manual; the function uses it as input to the operation described above.
+/// - `modified` (`ButtonTrace`): Represents the modified; the function uses it as input to the operation described above.
+/// - `prep` (`&mut MapperPreparation`): Represents the prep; the function uses it as input to the operation described above.
 unsafe fn commit_overlay(
     state: &mut State,
     frame: &OverlayFrame,
@@ -2893,6 +3158,11 @@ unsafe fn commit_overlay(
 /// Finalizes the mapper overlay for the given output and preparation state, applying adjustments and recording delivery feedback.
 ///
 ///  Applies the final controller changes, records delivery, and writes deferred diagnostics.
+/// ### Arguments
+/// - `output` (`*mut c_void`): Represents the output data being produced; the function uses it as input to the operation described above.
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// - `session_ticket` (`SessionTicket`): Represents the session ticket; the function uses it as input to the operation described above.
+/// - `preparation` (`MapperPreparation`): Represents the preparation; the function uses it as input to the operation described above.
 pub(super) unsafe fn finish_mapper_overlay(
     output: *mut c_void,
     index: i32,

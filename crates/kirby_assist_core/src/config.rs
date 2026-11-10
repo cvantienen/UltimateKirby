@@ -43,6 +43,8 @@ impl Default for AssistConfig {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             enabled: false,
@@ -59,6 +61,11 @@ impl AssistConfig {
     /// Disabled rules retain their settings until explicitly removed.
     ///
     ///  Replaces the matching rule, or uses the first empty slot. Returns false for Scenario::None or when no empty slot remains. Disabled rules retain their settings until explicitly removed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `rule` (`ScenarioRule`): Represents the scenario rule being added, changed, or checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn set_rule(&mut self, rule: ScenarioRule) -> bool {
         if rule.scenario == Scenario::None {
             return false;
@@ -78,6 +85,11 @@ impl AssistConfig {
     ///
     ///
     ///  Returns mutable access to the configured rule for the requested scenario.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn rule_mut(&mut self, scenario: Scenario) -> Option<&mut ScenarioRule> {
         if scenario == Scenario::None {
             return None;
@@ -88,6 +100,12 @@ impl AssistConfig {
     /// Toggle a tool without losing its recipe or timing.
     ///
     ///  Toggle a tool without losing its recipe or timing.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn set_rule_enabled(&mut self, scenario: Scenario, enabled: bool) -> bool {
         self.rule_mut(scenario)
             .map(|rule| rule.enabled = enabled)
@@ -97,6 +115,11 @@ impl AssistConfig {
     /// Remove a tool and free its configuration slot.
     ///
     ///  Remove a tool and free its configuration slot.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn remove_rule(&mut self, scenario: Scenario) -> bool {
         self.rule_mut(scenario)
             .map(|rule| *rule = ScenarioRule::DISABLED)
@@ -109,6 +132,11 @@ impl AssistConfig {
     ///
     ///
     ///  Returns the enabled rule configured for the requested scenario.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn rule_for(&self, scenario: Scenario) -> Option<ScenarioRule> {
         self.rules
             .iter()
@@ -142,6 +170,11 @@ impl AssistScope {
     ///
     ///
     ///  Returns whether the supplied context is permitted by this scope.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `context` (`RunContext`): Represents the current execution context; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn allows(self, context: RunContext) -> bool {
         (!self.require_locally_human_controlled || context.is_locally_human_controlled)
             && (!self.require_kirby || context.fighter == FighterKind::Kirby)
@@ -153,6 +186,8 @@ impl Default for AssistScope {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             require_locally_human_controlled: true,
@@ -255,6 +290,10 @@ impl RuleTiming {
     ///
     ///
     ///  Gets the after result.
+    /// ### Arguments
+    /// - `start_after_frames` (`u16`): Represents the start after frames; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn after(start_after_frames: u16) -> Self {
         Self {
             start_after_frames,
@@ -266,6 +305,10 @@ impl RuleTiming {
     ///
     ///
     ///  Gets the pulse every result.
+    /// ### Arguments
+    /// - `repeat_every_frames` (`u16`): Represents the repeat every frames; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn pulse_every(repeat_every_frames: u16) -> Self {
         Self {
             repeat_every_frames,
@@ -280,6 +323,11 @@ impl RuleTiming {
     ///
     ///
     ///  Checks whether the timing rule is active at the supplied scenario age.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `frames_active` (`u32`): Represents the frames active; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn is_active_on(self, frames_active: u32) -> bool {
         if frames_active < self.start_after_frames as u32 {
             return false;
@@ -341,6 +389,12 @@ impl ScenarioRule {
     ///
     ///
     ///  Gets the controller result.
+    /// ### Arguments
+    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
+    /// - `timing` (`RuleTiming`): Represents the timing; the function uses it as input to the operation described above.
+    /// - `recipe` (`InputRecipe`): Represents the input recipe to use; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn controller(scenario: Scenario, timing: RuleTiming, recipe: InputRecipe) -> Self {
         Self {
             enabled: true,
@@ -354,6 +408,12 @@ impl ScenarioRule {
     ///
     ///
     ///  Gets the playback result.
+    /// ### Arguments
+    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
+    /// - `timing` (`RuleTiming`): Represents the timing; the function uses it as input to the operation described above.
+    /// - `slot` (`RecordingSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn playback(scenario: Scenario, timing: RuleTiming, slot: RecordingSlot) -> Self {
         Self {
             enabled: true,
@@ -522,6 +582,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Checks whether this bit is on.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `u16` value.
         pub fn bit(self) -> u16 {
             1 << self as usize
         }
@@ -529,6 +593,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Gets the object’s identifier.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn id(self) -> &'static str {
             match self {
                 Self::LedgeTrap => "ledge_trap",
@@ -544,6 +612,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Gets the text shown for this value.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn label(self) -> &'static str {
             match self {
                 Self::LedgeTrap => "Ledge trap",
@@ -559,6 +631,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Reads the source and checks that it is valid.
+        /// ### Arguments
+        /// - `s` (`&str`): Represents the s; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn parse(s: &str) -> Option<Self> {
             Self::ALL.into_iter().find(|m| m.id() == s)
         }
@@ -566,6 +642,11 @@ pub mod button_bindings {
         ///
         ///
         ///  Checks whether this value can be used for that operation.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn supports(self, kind: i32) -> bool {
             self != Self::IdleCrouch || kind == crate::fighter_kinds::KIRBY
         }
@@ -593,6 +674,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Gets the object’s identifier.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn id(self) -> &'static str {
             match self {
                 Self::Hold => "hold",
@@ -627,6 +712,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Turns a millisecond value into a time duration.
+        /// ### Arguments
+        /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn at(index: usize) -> Option<Self> {
             Some(Self {
                 mode: *Mode::ALL.get(index / 2)?,
@@ -641,6 +730,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Gets the selected item’s position.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `usize` value.
         pub fn index(self) -> usize {
             self.mode as usize * 2 + usize::from(self.activation == Activation::Toggle)
         }
@@ -648,6 +741,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Gets the text shown for this value.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn label(self) -> &'static str {
             /// Defines the `LABELS` constant used by this module.
             ///
@@ -675,6 +772,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Gets the selected choice’s ID.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn choice_id(self) -> &'static str {
             /// Defines the `IDS` constant used by this module.
             ///
@@ -741,6 +842,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Gets the text form used when saving this value.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn token(self) -> &'static str {
             match self {
                 Self::Normal => "normal",
@@ -753,6 +858,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Gets the text shown for this value.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn label(self) -> &'static str {
             match self {
                 Self::Normal => "Normal button",
@@ -765,6 +874,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Gets the selected choice’s ID.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn choice_id(self) -> &'static str {
             match self {
                 Self::Normal => "__normal_button",
@@ -777,6 +890,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Reads the source and checks that it is valid.
+        /// ### Arguments
+        /// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn parse(value: &str) -> Option<Self> {
             match value {
                 "short_hop" => Some(Self::Normal),
@@ -787,6 +904,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Holds the default for value.
+        /// ### Arguments
+        /// - `slot` (`crate::fighter_profiles::presets::PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub fn default_for(slot: crate::fighter_profiles::presets::PresetSlot) -> Self {
             use crate::fighter_profiles::presets::PresetSlot;
             match slot {
@@ -798,6 +919,10 @@ pub mod button_bindings {
         ///
         ///
         ///  Gets the template’s position in the stored data.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `usize` value.
         pub fn template_offset(self) -> usize {
             match self {
                 Self::Normal => 0,
@@ -971,6 +1096,10 @@ pub mod option_read {
         /// Grounded with a usable motion clock and a known facing.
         ///
         ///  Grounded with a usable motion clock and a known facing.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn ready_to_read(&self) -> bool {
             self.grounded
                 && crate::timing::clock_known(self.motion, self.frame, self.rate)
@@ -1099,6 +1228,10 @@ pub mod option_read {
         ///
         ///
         ///  Checks whether the action has been committed.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn committed(&self) -> bool {
             self.target.is_some() && self.output.owned != 0
         }
@@ -1106,6 +1239,8 @@ pub mod option_read {
         ///
         ///
         ///  Cancels the pending.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         pub fn cancel_pending(&mut self) {
             self.target = None;
             self.phase = 0;
@@ -1115,6 +1250,14 @@ pub mod option_read {
         ///
         ///
         ///  Checks the current buttons and updates whether the toggle should activate.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+        /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+        /// - `cfg` (`Config`): Represents the cfg; the function uses it as input to the operation described above.
+        /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `ControllerOutput` value.
         pub fn sample(
             &mut self,
             enabled: bool,
@@ -1128,6 +1271,15 @@ pub mod option_read {
         ///
         ///
         ///  Samples the with height.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+        /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+        /// - `cfg` (`Config`): Represents the cfg; the function uses it as input to the operation described above.
+        /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+        /// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `ControllerOutput` value.
         pub fn sample_with_height(
             &mut self,
             enabled: bool,
@@ -1221,6 +1373,11 @@ pub mod option_read {
         /// motion event continues. Returns the previous tracks.
         ///
         ///  Remember each target's motion clock; used survives while the same motion event continues. Returns the previous tracks.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `[Option<Track>; 8]` value.
         fn refresh_tracks(&mut self, targets: &[Option<Target>; 8]) -> [Option<Track>; 8] {
             let old = self.tracks;
             for (track, target) in self.tracks.iter_mut().zip(targets) {
@@ -1245,6 +1402,13 @@ pub mod option_read {
         /// when either clock is invalid or rewound.
         ///
         ///  Elapsed frames of our own clock, else of the committed target's, else NaN when either clock is invalid or rewound.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `c` (`&Context`): Represents the c; the function uses it as input to the operation described above.
+        /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+        /// - `old` (`[Option<Track>; 8]`): Represents the old; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `f32` value.
         fn clock_delta(
             &mut self,
             c: &Context,
@@ -1280,6 +1444,14 @@ pub mod option_read {
         /// A committed target must stay in reach of the committed attack.
         ///
         ///  A committed target must stay in reach of the committed attack.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+        /// - `cfg` (`Config`): Represents the cfg; the function uses it as input to the operation described above.
+        /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+        /// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn target_in_contact(
             &self,
             c: Context,
@@ -1299,6 +1471,15 @@ pub mod option_read {
         /// `setup` frames have elapsed. Returns its slot, side and horizontal offset.
         ///
         ///  First untouched target (or the committed one) already in reach once setup frames have elapsed. Returns its slot, side and horizontal offset.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+        /// - `cfg` (`Config`): Represents the cfg; the function uses it as input to the operation described above.
+        /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+        /// - `setup` (`f32`): Represents the setup; the function uses it as input to the operation described above.
+        /// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn select_target(
             &self,
             c: Context,
@@ -1331,6 +1512,12 @@ pub mod option_read {
         /// press on the game's retry schedule until it times out.
         ///
         ///  Hold the committed smash while native acceptance is pending, repeating the press on the game's retry schedule until it times out.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
+        /// - `delta` (`f32`): Represents the delta; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `ControllerOutput` value.
         fn retry_attack(&mut self, facing: f32, delta: f32) -> ControllerOutput {
             self.age += delta;
             if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT {
@@ -1350,6 +1537,10 @@ pub mod option_read {
     ///
     ///
     ///  Gets how long the shield was held.
+    /// ### Arguments
+    /// - `c` (`&Context`): Represents the c; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     fn shield_frames(c: &Context) -> f32 {
         match c.status {
             crate::native_states::GUARD_ON..=crate::native_states::GUARD => 11.0,
@@ -1361,6 +1552,11 @@ pub mod option_read {
     ///
     ///
     ///  Gets the attack input requested by the response.
+    /// ### Arguments
+    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
+    /// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     fn attack_output(forward: bool, facing: f32) -> ControllerOutput {
         crate::move_input::output(
             if forward {
@@ -1375,6 +1571,15 @@ pub mod option_read {
     ///
     ///
     ///  Checks whether contact was observed.
+    /// ### Arguments
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `cfg` (`Config`): Represents the cfg; the function uses it as input to the operation described above.
+    /// - `t` (`Target`): Represents the t; the function uses it as input to the operation described above.
+    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
+    /// - `setup` (`f32`): Represents the setup; the function uses it as input to the operation described above.
+    /// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn contact(c: Context, cfg: Config, t: Target, forward: bool, setup: f32, height: f32) -> bool {
         if !t.frame.is_finite()
             || !t.rate.is_finite()
@@ -1545,6 +1750,8 @@ pub mod settings {
         ///
         ///
         ///  Returns the default value for this type.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         fn default() -> Self {
             Self {
                 implementation: Some(crate::ledge_trap::ResponseImplementation::Kirby),

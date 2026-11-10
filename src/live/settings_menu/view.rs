@@ -17,6 +17,10 @@ mod text_cache {
     /// Copies valid UTF-8 bytes into an independently owned NUL-terminated CString.
     ///
     ///  Makes a safe text copy for native menu display.
+    /// ### Arguments
+    /// - `text` (`&str`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub(super) fn copy_text(text: &str) -> Result<Option<CString>, &'static str> {
         if text.as_bytes().contains(&0) {
             return Ok(None);
@@ -37,6 +41,10 @@ mod text_cache {
     /// Reserves and copies each display line into separately owned C strings.
     ///
     ///  Prepares a list of menu lines that can safely outlive their source.
+    /// ### Arguments
+    /// - `lines` (`&[String]`): Represents the lines; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub(super) fn copy_lines(lines: &[String]) -> Result<Vec<CString>, &'static str> {
         let mut cached = Vec::new();
         cached
@@ -209,6 +217,14 @@ impl Snapshot {
     /// Tests whether content/layout inputs are reusable apart from cursor and revision.
     ///
     ///  Checks if the existing display still matches the menu's choices.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+    /// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+    /// - `auto_mash` (`bool`): Represents the auto mash; the function uses it as input to the operation described above.
+    /// - `generation` (`u64`): Represents the generation; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(super) fn reusable(
         &self,
         profile: &FighterProfile,
@@ -231,6 +247,14 @@ impl Snapshot {
     /// Updates only cursor/revision fields when the cached content remains reusable.
     ///
     ///  Moves the highlight without rebuilding the menu text.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+    /// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+    /// - `auto_mash` (`bool`): Represents the auto mash; the function uses it as input to the operation described above.
+    /// - `generation` (`u64`): Represents the generation; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(super) fn refresh_cursor(
         &mut self,
         profile: &FighterProfile,
@@ -248,6 +272,14 @@ impl Snapshot {
     /// Checks layout, fighter, revision, and generation against a publication request.
     ///
     ///  Confirms this snapshot is the one the menu currently wants.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `lightweight` (`bool`): Represents the lightweight; the function uses it as input to the operation described above.
+    /// - `fighter` (`i32`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
+    /// - `revision` (`u64`): Represents the revision; the function uses it as input to the operation described above.
+    /// - `generation` (`u64`): Represents the generation; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(super) fn matches_request(
         &self,
         lightweight: bool,
@@ -263,6 +295,11 @@ impl Snapshot {
     /// Compares only the requested lightweight/full layout flag.
     ///
     ///  Checks whether the menu is compact or full-sized as requested.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `lightweight` (`bool`): Represents the lightweight; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(super) fn matches_layout(&self, lightweight: bool) -> bool {
         self.lightweight == lightweight
     }
@@ -271,6 +308,10 @@ impl Snapshot {
 /// Converts a boolean toggle to its label, selected index, and option count.
 ///
 ///  Prepares the ON/OFF text and selection position.
+/// ### Arguments
+/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `(String, usize, usize)` value.
 fn toggle_value(enabled: bool) -> (String, usize, usize) {
     (
         (if enabled { "ON" } else { "OFF" }).to_owned(),
@@ -299,6 +340,12 @@ mod row_tests {
 /// Formats the selected preset display name and its one-based position.
 ///
 ///  Gets the name and position shown for a recipe slot.
+/// ### Arguments
+/// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+/// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `(String, usize, usize)` value.
 fn slot_value(
     profile: &FighterProfile,
     selection: &MenuSelection,
@@ -333,6 +380,13 @@ fn slot_value(
 /// Resolves one menu row into display text and choice position metadata.
 ///
 ///  Prepares the text and selection for a single menu row.
+/// ### Arguments
+/// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+/// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+/// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
+/// - `auto_mash` (`bool`): Represents the auto mash; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn row_value(
     profile: &FighterProfile,
     selection: &MenuSelection,
@@ -379,6 +433,12 @@ fn row_value(
 /// Builds owned text records for visible rows, reserving their full capacity first.
 ///
 ///  Prepares all visible menu choices for display.
+/// ### Arguments
+/// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+/// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+/// - `auto_mash` (`bool`): Represents the auto mash; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn build_values(
     profile: &FighterProfile,
     selection: &MenuSelection,
@@ -433,6 +493,12 @@ fn build_values(
 /// Formats the heading and navigation position for the active page.
 ///
 ///  Creates the title showing the current fighter and menu page.
+/// ### Arguments
+/// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+/// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+/// - `values` (`&[SavedChoice]`): Represents the values; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 fn navigation_text(
     profile: &FighterProfile,
     selection: &MenuSelection,
@@ -468,6 +534,11 @@ fn navigation_text(
 /// Selects or constructs the panel content appropriate to the active editor page.
 ///
 ///  Chooses which status and help text belongs on this menu page.
+/// ### Arguments
+/// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+/// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `RecipePanel` value.
 fn recipe_panel(profile: &FighterProfile, selection: &MenuSelection) -> RecipePanel {
     if selection.lightweight {
         RecipePanel::default()
@@ -496,6 +567,13 @@ fn recipe_panel(profile: &FighterProfile, selection: &MenuSelection) -> RecipePa
 /// Builds a revision-tagged snapshot, owning all text required by rendering.
 ///
 ///  Prepares a complete menu display from the current fighter choices.
+/// ### Arguments
+/// - `profile` (`&FighterProfile`): Represents the profile; the function uses it as input to the operation described above.
+/// - `selection` (`&MenuSelection`): Represents the selection; the function uses it as input to the operation described above.
+/// - `auto_mash` (`bool`): Represents the auto mash; the function uses it as input to the operation described above.
+/// - `generation` (`u64`): Represents the generation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub(super) fn build(
     profile: &FighterProfile,
     selection: &MenuSelection,

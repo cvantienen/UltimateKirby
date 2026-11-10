@@ -86,7 +86,9 @@ impl Default for Envelope {
     /// Returns the default value for this type.
     ///
     ///
-///  Returns the default value for this type.
+    ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             scan_x: 96.,
@@ -106,6 +108,13 @@ impl Default for Envelope {
 /// acceleration, teleports, projectiles or the actual shape of an attack.
 ///
 ///  Root positions/velocities are in world units and game frames. Five-frame linear projection helps with approaching aerials, but cannot predict startup, acceleration, teleports, projectiles or the actual shape of an attack.
+/// ### Arguments
+/// - `own` (`[f32; 2]`): Represents the own; the function uses it as input to the operation described above.
+/// - `own_velocity` (`[f32; 2]`): Represents the own velocity; the function uses it as input to the operation described above.
+/// - `enemy` (`[f32; 2]`): Represents the enemy; the function uses it as input to the operation described above.
+/// - `enemy_velocity` (`[f32; 2]`): Represents the enemy velocity; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn approaching_active_attack(
     own: [f32; 2],
     own_velocity: [f32; 2],
@@ -122,7 +131,15 @@ pub fn approaching_active_attack(
 }
 /// Determines whether the `approaching_active_attack_with` condition holds.
 ///
-/// Checks whether approaching active attack with.
+/// Checks whether approaching active attack with the given envelope.
+/// ### Arguments
+/// - `own` (`[f32; 2]`): Represents the own; the function uses it as input to the operation described above.
+/// - `own_velocity` (`[f32; 2]`): Represents the own velocity; the function uses it as input to the operation described above.
+/// - `enemy` (`[f32; 2]`): Represents the enemy; the function uses it as input to the operation described above.
+/// - `enemy_velocity` (`[f32; 2]`): Represents the enemy velocity; the function uses it as input to the operation described above.
+/// - `e` (`Envelope`): Represents the e; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn approaching_active_attack_with(
     own: [f32; 2],
     own_velocity: [f32; 2],
@@ -139,7 +156,6 @@ pub fn approaching_active_attack_with(
         enemy_velocity[1] - own_velocity[1],
     ];
     // Swept segment against a rectangular warning envelope: no missed crossing
-    // just because both sampled endpoints fall outside it.
     let mut window = [0.0_f32, e.forecast];
     [(0, e.warning_x), (1, e.warning_y)]
         .into_iter()
@@ -152,6 +168,10 @@ pub fn approaching_active_attack_with(
 /// Determines whether the `finite` condition holds.
 ///
 /// Checks whether finite.
+/// ### Arguments
+/// - `groups` (`&[&[f32]]`): Represents the groups; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn finite(groups: &[&[f32]]) -> bool {
     groups.iter().all(|g| g.iter().all(|v| v.is_finite()))
 }
@@ -160,6 +180,15 @@ fn finite(groups: &[&[f32]]) -> bool {
 /// (`[enter, leave]`) to it and report whether any time is left.
 ///
 ///  One axis of a swept overlap test. A span [lo, hi] moving at velocity overlaps [low, high] during some time interval; narrow window ([enter, leave]) to it and report whether any time is left.
+/// ### Arguments
+/// - `window` (`&mut [f32; 2]`): Represents the window; the function uses it as input to the operation described above.
+/// - `lo` (`f32`): Represents the lo; the function uses it as input to the operation described above.
+/// - `hi` (`f32`): Represents the hi; the function uses it as input to the operation described above.
+/// - `low` (`f32`): Represents the low; the function uses it as input to the operation described above.
+/// - `high` (`f32`): Represents the high; the function uses it as input to the operation described above.
+/// - `velocity` (`f32`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn sweep_axis(window: &mut [f32; 2], lo: f32, hi: f32, low: f32, high: f32, velocity: f32) -> bool {
     if velocity.abs() < 0.0001 {
         return hi >= low && lo <= high;
@@ -176,6 +205,17 @@ fn sweep_axis(window: &mut [f32; 2], lo: f32, hi: f32, low: f32, high: f32, velo
 /// active geometry handles later phases. This does not confirm a hit or punish.
 ///
 ///  A nearby Up-B can reach the stage before its first active-hitbox observation. Reserve shield conservatively during its native startup/first continuation; active geometry handles later phases. This does not confirm a hit or punish.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `previous` (`i32`): Represents the previous; the function uses it as input to the operation described above.
+/// - `own` (`[f32; 2]`): Represents the own; the function uses it as input to the operation described above.
+/// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
+/// - `enemy` (`[f32; 2]`): Represents the enemy; the function uses it as input to the operation described above.
+/// - `enemy_velocity` (`[f32; 2]`): Represents the enemy velocity; the function uses it as input to the operation described above.
+/// - `envelope` (`Envelope`): Represents the envelope; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn recovery_warning(
     kind: i32,
     status: i32,
@@ -203,6 +243,13 @@ pub fn recovery_warning(
 /// attacks. Unknown/ambiguous motion mappings do not invent startup timing.
 ///
 ///  Predict only move families described by the actual opponent's compiled profile. Unknown attacks retain active-hitbox fallback, never Kirby data. Verified compiled active windows, including aerials, jabs and other mapped.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `motion` (`u64`): Represents the motion being checked; the function uses it as input to the operation described above.
+/// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `rate` (`f32`): Represents the rate; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn referenced_imminent_attack(kind: i32, motion: u64, frame: f32, rate: f32) -> bool {
     referenced_imminent_attack_with(kind, motion, frame, rate, LOOKAHEAD_FRAMES)
 }
@@ -210,6 +257,14 @@ pub fn referenced_imminent_attack(kind: i32, motion: u64, frame: f32, rate: f32)
 /// Predict whether an opponent's attack will become active within the forecast window.
 ///
 ///  Predict whether an opponent's attack will become active within the forecast window.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `motion` (`u64`): Represents the motion being checked; the function uses it as input to the operation described above.
+/// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `rate` (`f32`): Represents the rate; the function uses it as input to the operation described above.
+/// - `forecast` (`f32`): Represents the forecast; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn referenced_imminent_attack_with(
     kind: i32,
     motion: u64,
@@ -234,12 +289,25 @@ pub fn referenced_imminent_attack_with(
 /// Bounds are estimates, not live hurtboxes; reads never alter attack geometry.
 ///
 ///  Conservative swept hitbox AABB versus a standing defensive envelope. Bounds are estimates, not live hurtboxes; reads never alter attack geometry.
+/// ### Arguments
+/// - `position` (`[f32; 3]`): Represents an object position; the function uses it as input to the operation described above.
+/// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
+/// - `h` (`Hitbox`): Represents the h; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn active_hitbox_threat(position: [f32; 3], velocity: [f32; 2], h: Hitbox) -> bool {
     active_hitbox_threat_with(position, velocity, h, Envelope::default())
 }
 /// Conservative swept hitbox AABB versus a standing defensive envelope, with custom envelope.
 ///
 ///  Conservative swept hitbox AABB versus a standing defensive envelope, with custom envelope.
+/// ### Arguments
+/// - `position` (`[f32; 3]`): Represents an object position; the function uses it as input to the operation described above.
+/// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
+/// - `h` (`Hitbox`): Represents the h; the function uses it as input to the operation described above.
+/// - `e` (`Envelope`): Represents the e; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn active_hitbox_threat_with(
     position: [f32; 3],
     velocity: [f32; 2],
@@ -347,14 +415,26 @@ impl GuardHold {
     /// Four advancing native frames of tail coverage, not mapper polls or ms.
     /// Release/invalid readiness clears immediately; hitstop does not spend it.
     ///
-///  Four advancing native frames of tail coverage, not mapper polls or ms. Release/invalid readiness clears immediately; hitstop does not spend it.
+    ///  Four advancing native frames of tail coverage, not mapper polls or ms. Release/invalid readiness clears immediately; hitstop does not spend it.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `eligible` (`bool`): Represents the eligible; the function uses it as input to the operation described above.
+    /// - `threat` (`bool`): Represents the threat; the function uses it as input to the operation described above.
+    /// - `c` (`GuardClock`): Represents the c; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn sample(&mut self, eligible: bool, threat: bool, c: GuardClock) -> bool {
         self.sample_with_duration(eligible, threat, c, HOLD_FRAMES)
     }
-    /// Samples the with duration.
-    ///
-    ///
-///  Samples the with duration.
+    ///  Samples the with duration.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `eligible` (`bool`): Represents the eligible; the function uses it as input to the operation described above.
+    /// - `threat` (`bool`): Represents the threat; the function uses it as input to the operation described above.
+    /// - `c` (`GuardClock`): Represents the c; the function uses it as input to the operation described above.
+    /// - `hold` (`f32`): Represents the hold; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn sample_with_duration(
         &mut self,
         eligible: bool,
@@ -368,7 +448,16 @@ impl GuardHold {
     /// progressing opponent clock; never keep a stale tail without a clock.
     /// This is passive defense only, not an authored shield sequence.
     ///
-///  Live ledge defense can hold a static guard pose. Use only a copied progressing opponent clock; never keep a stale tail without a clock. This is passive defense only, not an authored shield sequence.
+    ///  Live ledge defense can hold a static guard pose. Use only a copied progressing opponent clock; never keep a stale tail without a clock. This is passive defense only, not an authored shield sequence.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `eligible` (`bool`): Represents the eligible; the function uses it as input to the operation described above.
+    /// - `threat` (`bool`): Represents the threat; the function uses it as input to the operation described above.
+    /// - `c` (`GuardClock`): Represents the c; the function uses it as input to the operation described above.
+    /// - `hold` (`f32`): Represents the hold; the function uses it as input to the operation described above.
+    /// - `enemy` (`Option<(u32, GuardClock)>`): Represents the enemy; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn sample_with_progress(
         &mut self,
         eligible: bool,
@@ -382,7 +471,17 @@ impl GuardHold {
     /// Samples the inner.
     ///
     ///
-///  Samples the inner.
+    ///  Samples the inner.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `eligible` (`bool`): Represents the eligible; the function uses it as input to the operation described above.
+    /// - `threat` (`bool`): Represents the threat; the function uses it as input to the operation described above.
+    /// - `c` (`GuardClock`): Represents the c; the function uses it as input to the operation described above.
+    /// - `hold` (`f32`): Represents the hold; the function uses it as input to the operation described above.
+    /// - `enemy` (`Option<(u32, GuardClock)>`): Represents the enemy; the function uses it as input to the operation described above.
+    /// - `source_aware` (`bool`): Represents the source aware; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn sample_inner(
         &mut self,
         eligible: bool,

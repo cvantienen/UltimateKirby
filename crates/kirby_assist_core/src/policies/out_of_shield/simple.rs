@@ -45,6 +45,13 @@ pub(super) struct Reach {
 /// Determines whether the `target_valid` condition holds.
 ///
 /// Checks whether target valid.
+/// ### Arguments
+/// - `c` (`super::Context`): Represents the c; the function uses it as input to the operation described above.
+/// - `lc` (`GameplayContext`): Represents the lc; the function uses it as input to the operation described above.
+/// - `e` (`Opponent`): Represents the e; the function uses it as input to the operation described above.
+/// - `reach` (`Reach`): Represents the reach; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn target_valid(c: super::Context, lc: GameplayContext, e: Opponent, reach: Reach) -> bool {
     let Reach {
         range,
@@ -158,7 +165,9 @@ impl Grab {
     /// Constructs a new value with the type’s initial state.
     ///
     ///
-///  Creates a new value.
+    ///  Creates a new value.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             target: None,
@@ -181,21 +190,31 @@ impl Grab {
     /// Returns the selected target observation.
     ///
     ///
-///  Gets the chosen target.
+    ///  Gets the chosen target.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
     /// Checks whether the feature is active.
     ///
     ///
-///  Checks whether the feature is on.
+    ///  Checks whether the feature is on.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(&self) -> bool {
         self.target.is_some()
     }
     /// Cancels the pending operation and clears its state.
     ///
     ///
-///  Stops the operation that was waiting.
+    ///  Stops the operation that was waiting.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel(&mut self) {
         // Failure remains fenced until new manual intent or a positively
         // observed end of the enemy's shield. Missing observations do not rearm.
@@ -207,7 +226,9 @@ impl Grab {
     /// Updates the `rebase_custom_delivery` state using the supplied inputs.
     ///
     ///
-///  Updates rebase custom delivery.
+    ///  Updates rebase custom delivery.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn rebase_custom_delivery(&mut self) {
         if !self.delivery_pending() {
             self.clock = NativeAttempt::default();
@@ -216,14 +237,21 @@ impl Grab {
     /// Determines whether the `delivery_pending` condition holds.
     ///
     ///
-///  Checks whether delivery pending.
+    ///  Checks whether delivery pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn delivery_pending(&self) -> bool {
         self.active() && self.mapped > 0
     }
     /// Updates the `delivery_tick` state using the supplied inputs.
     ///
     ///
-///  Updates delivery tick.
+    ///  Updates delivery tick.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn delivery_tick(&mut self, tick: i64) {
         if self.approach_pending() && self.last_approach_poll != Some(tick) {
             self.approach_polls = self.approach_polls.saturating_add(1);
@@ -237,28 +265,45 @@ impl Grab {
     /// Determines whether the `unshielded_grab_started` condition holds.
     ///
     ///
-///  Checks whether unshielded grab started.
+    ///  Checks whether unshielded grab started.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn unshielded_grab_started(&self) -> bool {
         self.active() && self.approach && self.dash_sent
     }
     /// Determines whether the `approach_pending` condition holds.
     ///
     ///
-///  Checks whether approach pending.
+    ///  Checks whether approach pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn approach_pending(&self) -> bool {
         self.active() && self.approach && (!self.dash_sent || self.await_dash)
     }
     /// Determines whether the `approach_active` condition holds.
     ///
     ///
-///  Checks whether approach active.
+    ///  Checks whether approach active.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn approach_active(&self) -> bool {
         self.active() && self.approach
     }
     /// Determines whether the `turning_away` condition holds.
     ///
     ///
-///  Checks whether turning away.
+    ///  Checks whether turning away.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `physical` (`f32`): Represents the physical; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn turning_away(&self, physical: f32) -> bool {
         self.active()
             && self.approach
@@ -269,7 +314,10 @@ impl Grab {
     /// Observes the statuses.
     ///
     ///
-///  Observes the statuses.
+    ///  Observes the statuses.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `known` (`&[Option<(u32, i32)>; N]`): Represents the known; the function uses it as input to the operation described above.
     pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         if self.failed_approach.is_some_and(|(id, _)| {
             known.iter().flatten().any(|(actor, status)| {
@@ -282,7 +330,10 @@ impl Grab {
     /// Updates the `fail_approach` state using the supplied inputs.
     ///
     ///
-///  Updates fail approach.
+    ///  Updates fail approach.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `epoch` (`u64`): Represents the epoch; the function uses it as input to the operation described above.
     fn fail_approach(&mut self, epoch: u64) {
         let failed = self.target.map(|id| (id, epoch));
         self.cancel();
@@ -290,7 +341,10 @@ impl Grab {
     }
     /// An unanswered dash fences the target; an unanswered direct R just ends.
     ///
-///  An unanswered dash fences the target; an unanswered direct R just ends.
+    ///  An unanswered dash fences the target; an unanswered direct R just ends.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `epoch` (`u64`): Represents the epoch; the function uses it as input to the operation described above.
     fn give_up(&mut self, epoch: u64) {
         if self.assisted_dash {
             self.fail_approach(epoch);
@@ -301,7 +355,9 @@ impl Grab {
     /// Updates the `release_unless_delivered` state using the supplied inputs.
     ///
     ///
-///  Updates release unless delivered.
+    ///  Updates release unless delivered.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn release_unless_delivered(&mut self) {
         if !self.delivery_pending() {
             self.cancel();
@@ -310,7 +366,11 @@ impl Grab {
     /// Updates the `mapped_approach` state using the supplied inputs.
     ///
     ///
-///  Updates mapped approach.
+    ///  Updates mapped approach.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_approach(&mut self, tick: i64, target: u32) {
         if self.target == Some(target)
             && self.approach
@@ -328,7 +388,11 @@ impl Grab {
     /// Updates the `mapped_grab` state using the supplied inputs.
     ///
     ///
-///  Updates mapped grab.
+    ///  Updates mapped grab.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_grab(&mut self, tick: i64, target: u32) {
         if self.target == Some(target) && self.last_mapped != Some(tick) {
             self.mapped = self.mapped.saturating_add(1);
@@ -338,7 +402,11 @@ impl Grab {
     /// Returns the `output` result.
     ///
     ///
-///  Gets the output result.
+    ///  Gets the output result.
+    /// ### Arguments
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     fn output(buttons: u32) -> ControllerOutput {
         ControllerOutput {
             owned: SEQUENCE_BUTTONS,
@@ -350,7 +418,17 @@ impl Grab {
     /// Updates the toggle state from the current button sample and match state.
     ///
     ///
-///  Checks the current buttons and updates whether the toggle should activate.
+    ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+    /// - `c` (`super::Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `lc` (`GameplayContext`): Represents the lc; the function uses it as input to the operation described above.
+    /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
+    /// - `reach` (`Reach`): Represents the reach; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample(
         &mut self,
         allowed: bool,
@@ -422,7 +500,15 @@ impl Grab {
     /// or is still settling. Settling owns no buttons or movement; false means
     /// the request is still retryable within its bounded budget.
     ///
-///  True when this sample must emit nothing: the delivered Grab ended, expired or is still settling. Settling owns no buttons or movement; false means the request is still retryable within its bounded budget.
+    ///  True when this sample must emit nothing: the delivered Grab ended, expired or is still settling. Settling owns no buttons or movement; false means the request is still retryable within its bounded budget.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+    /// - `c` (`super::Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `lc` (`GameplayContext`): Represents the lc; the function uses it as input to the operation described above.
+    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn settle_delivered(
         &mut self,
         allowed: bool,
@@ -458,7 +544,15 @@ impl Grab {
     /// through shieldstun or force a cancel of native recovery. A delivered R
     /// keeps its receipt state while the actor is merely not ready.
     ///
-///  True when no grab may be sampled now. Native incapacitation, a renewed shield hit or catch startup ends the previous tap; never queue it through shieldstun or force a cancel of native recovery. A delivered R keeps its receipt.
+    ///  True when no grab may be sampled now. Native incapacitation, a renewed shield hit or catch startup ends the previous tap; never queue it through shieldstun or force a cancel of native recovery. A delivered R keeps its receipt.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+    /// - `c` (`super::Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `lc` (`GameplayContext`): Represents the lc; the function uses it as input to the operation described above.
+    /// - `approach` (`bool`): Represents the approach; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn admission_lost(
         &mut self,
         allowed: bool,
@@ -496,7 +590,11 @@ impl Grab {
     }
     /// Promote an approach whose dash is already visible in native status.
     ///
-///  Promote an approach whose dash is already visible in native status.
+    ///  Promote an approach whose dash is already visible in native status.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `c` (`super::Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `lc` (`GameplayContext`): Represents the lc; the function uses it as input to the operation described above.
     fn observe_dash(&mut self, c: super::Context, lc: GameplayContext) {
         if !self.active() {
             return;
@@ -530,7 +628,12 @@ impl Grab {
     /// Updates the `acquire` state using the supplied inputs.
     ///
     ///
-///  Updates acquire.
+    ///  Updates acquire.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `e` (`Opponent`): Represents the e; the function uses it as input to the operation described above.
+    /// - `c` (`super::Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `reach` (`Reach`): Represents the reach; the function uses it as input to the operation described above.
     fn acquire(&mut self, e: Opponent, c: super::Context, reach: Reach) {
         self.target = Some(e.id);
         self.clock = NativeAttempt::default();
@@ -556,7 +659,14 @@ impl Grab {
     /// The approach stick while the dash is unsent or unconfirmed; `None` once
     /// the approach is over and the Grab itself may be pressed.
     ///
-///  The approach stick while the dash is unsent or unconfirmed; None once the approach is over and the Grab itself may be pressed.
+    ///  The approach stick while the dash is unsent or unconfirmed; None once the approach is over and the Grab itself may be pressed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `c` (`super::Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `lc` (`GameplayContext`): Represents the lc; the function uses it as input to the operation described above.
+    /// - `enemy` (`Opponent`): Represents the enemy; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn approach_output(
         &mut self,
         c: super::Context,

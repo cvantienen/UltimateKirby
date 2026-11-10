@@ -63,6 +63,8 @@ impl Default for LiveSettings {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             enabled: true,
@@ -145,6 +147,8 @@ impl Default for LiveConfig {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             autopilot_shield: true,
@@ -166,6 +170,11 @@ impl Default for LiveConfig {
 /// Returns the `invalid_line` result.
 ///
 /// Gets the invalid line result.
+/// ### Arguments
+/// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
+/// - `line` (`&str`): Represents the line; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 fn invalid_line(line_number: usize, line: &str) -> String {
     format!("invalid config line {line_number}: {line}")
 }
@@ -197,6 +206,10 @@ impl Setting<'_> {
     ///
     ///
     ///  Gets the invalid result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn invalid(&self) -> String {
         invalid_line(self.line_number, self.line)
     }
@@ -204,6 +217,10 @@ impl Setting<'_> {
     /// The destination type decides whether this is a bool, integer or float.
     ///
     ///  The destination type decides whether this is a bool, integer or float.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn parse<T: FromStr>(&self) -> Result<T, String> {
         self.value.parse().map_err(|_| self.invalid())
     }
@@ -212,6 +229,11 @@ impl Setting<'_> {
     ///
     ///
     ///  Sets the value.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `field` (`&mut T`): Represents the field; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn set<T: FromStr>(&self, field: &mut T) -> Result<(), String> {
         *field = self.parse()?;
         Ok(())
@@ -221,6 +243,10 @@ impl Setting<'_> {
     /// malformed ones so a typo is still reported.
     ///
     ///  Older SD files carry values that no longer do anything; keep rejecting malformed ones so a typo is still reported.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn accept<T: FromStr>(&self) -> Result<(), String> {
         self.parse::<T>().map(drop)
     }
@@ -229,6 +255,12 @@ impl Setting<'_> {
     ///
     ///
     ///  Gets the choice result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `options` (`&[(&str, T)]`): Represents the options; the function uses it as input to the operation described above.
+    /// - `ignore_case` (`bool`): Represents the ignore case; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn choice<T: Copy>(&self, options: &[(&str, T)], ignore_case: bool) -> Result<T, String> {
         options
             .iter()
@@ -292,6 +324,12 @@ struct RetiredSettings {
 /// Determines whether the `finite_in` condition holds.
 ///
 /// Checks whether finite in.
+/// ### Arguments
+/// - `value` (`f32`): Represents the value being processed; the function uses it as input to the operation described above.
+/// - `min` (`f32`): Represents the minimum allowed value; the function uses it as input to the operation described above.
+/// - `max` (`f32`): Represents the maximum allowed value; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn finite_in(value: f32, min: f32, max: f32) -> bool {
     value.is_finite() && (min..=max).contains(&value)
 }
@@ -299,6 +337,12 @@ fn finite_in(value: f32, min: f32, max: f32) -> bool {
 /// Determines whether the `retired_in` condition holds.
 ///
 /// Checks whether retired in.
+/// ### Arguments
+/// - `value` (`Option<f32>`): Represents the value being processed; the function uses it as input to the operation described above.
+/// - `min` (`f32`): Represents the minimum allowed value; the function uses it as input to the operation described above.
+/// - `max` (`f32`): Represents the maximum allowed value; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn retired_in(value: Option<f32>, min: f32, max: f32) -> bool {
     value.is_none_or(|value| finite_in(value, min, max))
 }
@@ -308,6 +352,10 @@ impl LiveConfig {
     ///
     ///
     ///  Reads the source and checks that it is valid.
+    /// ### Arguments
+    /// - `contents` (`&str`): Represents the contents; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn parse(contents: &str) -> Result<Self, String> {
         // Start from Rust defaults, then replace only keys present in the file.
         // `?` propagates Err immediately: no partially parsed config is installed.
@@ -339,6 +387,13 @@ impl LiveConfig {
     ///
     ///
     ///  Makes the supplied change.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `retired` (`&mut RetiredSettings`): Represents the retired; the function uses it as input to the operation described above.
+    /// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `setting` (`&Setting`): Represents the setting; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn apply(
         &mut self,
         retired: &mut RetiredSettings,
@@ -460,6 +515,11 @@ impl LiveConfig {
     ///
     ///
     ///  Gets the validate result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `retired` (`&RetiredSettings`): Represents the retired; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn validate(&self, retired: &RetiredSettings) -> Result<(), String> {
         let assist = &self.assist;
         if !finite_in(assist.walk_strength, 0.1, 0.45) || !retired_in(retired.roll_range, 1.0, 20.0)

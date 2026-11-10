@@ -18,6 +18,11 @@ pub use crate::flame_choke::{
 /// than waiting until the last two. Global stop/unknown timers remain excluded.
 ///
 ///  Spend the existing ray budget in the last five damage-hitstop frames rather than waiting until the last two. Global stop/unknown timers remain excluded.
+/// ### Arguments
+/// - `remaining` (`u64`): Represents the remaining; the function uses it as input to the operation described above.
+/// - `input_delay` (`f32`): Represents the input delay; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn late_damage_stop_prediction(remaining: u64, input_delay: f32) -> bool {
     input_delay.is_finite()
         && remaining > 0
@@ -29,6 +34,11 @@ pub fn late_damage_stop_prediction(remaining: u64, input_delay: f32) -> bool {
 /// kinetic motion. Invalid/zero reservations retain the ordinary velocity.
 ///
 ///  During victim hitstop the reserved new launch is more useful than frozen kinetic motion. Invalid/zero reservations retain the ordinary velocity.
+/// ### Arguments
+/// - `current` (`[f32; 2]`): Represents the current; the function uses it as input to the operation described above.
+/// - `reserved` (`Option<[f32; 2]>`): Represents the reserved; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[f32; 2]` value.
 pub fn prediction_velocity(current: [f32; 2], reserved: Option<[f32; 2]>) -> [f32; 2] {
     reserved
         .filter(|v| v.iter().all(|x| x.is_finite()) && v.iter().any(|x| x.abs() > APPROACH_EPSILON))
@@ -43,6 +53,12 @@ const FLOOR_ACCELERATION: std::ops::RangeInclusive<f32> = -0.3..=-0.005;
 /// Vertical offset after `t` frames of constant acceleration.
 ///
 ///  Vertical offset after t frames of constant acceleration.
+/// ### Arguments
+/// - `vy` (`f32`): Represents the vy; the function uses it as input to the operation described above.
+/// - `acceleration` (`f32`): Represents the acceleration; the function uses it as input to the operation described above.
+/// - `t` (`f32`): Represents the t; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `f32` value.
 fn arc_height(vy: f32, acceleration: f32, t: f32) -> f32 {
     vy * t + 0.5 * acceleration * t * t
 }
@@ -103,7 +119,9 @@ impl FloorMotionHistory {
     /// Constructs a new value with the type’s initial state.
     ///
     ///
-///  Creates a new value.
+    ///  Creates a new value.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             last: None,
@@ -113,7 +131,12 @@ impl FloorMotionHistory {
     /// Estimate only small, recent downward acceleration in the same native
     /// motion. Discontinuities/new hits/unknown clocks fall back to linear rays.
     ///
-///  Estimate only small, recent downward acceleration in the same native motion. Discontinuities/new hits/unknown clocks fall back to linear rays.
+    ///  Estimate only small, recent downward acceleration in the same native motion. Discontinuities/new hits/unknown clocks fall back to linear rays.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `now` (`FloorMotionSample`): Represents the current time; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub fn sample(&mut self, now: FloorMotionSample) -> f32 {
         if !crate::timing::clock_known(now.motion, now.frame, now.rate) || !now.vy.is_finite() {
             *self = Self::default();
@@ -147,6 +170,10 @@ impl FloorMotionHistory {
 /// airborne movement. Broadening it carelessly could cause unrelated dodges.
 ///
 ///  The pinned status range covering damage-fly/reflect/fall, not ordinary airborne movement. Broadening it carelessly could cause unrelated dodges.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn is_tumble_status(status: i32) -> bool {
     (crate::native_states::status::DAMAGE_FLY..=crate::native_states::status::DAMAGE_FALL)
         .contains(&status)
@@ -158,6 +185,10 @@ pub fn is_tumble_status(status: i32) -> bool {
 /// native adapter; aerial releases never receive a contact forecast.
 ///
 ///  Statuses in which a shield press can be a tech or release request: tumble, wall/ceiling bounce, and the Flame Choke capture/release pair. Release eligibility additionally requires a verified grounded predecessor in the native.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn is_tech_status(status: i32) -> bool {
     is_tumble_status(status)
         || matches!(
@@ -170,6 +201,11 @@ pub fn is_tech_status(status: i32) -> bool {
 /// Withhold automatic guard once native air escape can consume the input.
 ///
 ///  Withhold automatic guard once native air escape can consume the input.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `air_escape_enabled` (`bool`): Represents the air escape enabled; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn tech_press_allowed(status: i32, air_escape_enabled: bool) -> bool {
     is_tech_status(status) && !air_escape_enabled
 }
@@ -212,7 +248,11 @@ impl TechGate {
     /// Returns the display label for the value.
     ///
     ///
-///  Gets the text shown for this value.
+    ///  Gets the text shown for this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub const fn label(self) -> &'static str {
         match self {
             Self::OutsideTumble => "outside_supported_tumble",
@@ -227,6 +267,13 @@ impl TechGate {
 /// Classify native gates without claiming that passing them guarantees a tech.
 ///
 ///  Classify native gates without claiming that passing them guarantees a tech.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
+/// - `passive_disabled` (`bool`): Represents the passive disabled; the function uses it as input to the operation described above.
+/// - `stopped` (`bool`): Represents the stopped; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `TechGate` value.
 pub fn tech_gate(status: i32, situation: i32, passive_disabled: bool, stopped: bool) -> TechGate {
     if !is_tumble_status(status) {
         TechGate::OutsideTumble
@@ -246,6 +293,14 @@ pub fn tech_gate(status: i32, situation: i32, passive_disabled: bool, stopped: b
 /// ordinary landing/down states and disabled-passive hits remain excluded.
 ///
 ///  A floor collision can change situation before the last techable observation. Admit grounded tumble only when the native floor-tech transition is enabled; ordinary landing/down states and disabled-passive hits remain excluded.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
+/// - `passive_disabled` (`bool`): Represents the passive disabled; the function uses it as input to the operation described above.
+/// - `stopped` (`bool`): Represents the stopped; the function uses it as input to the operation described above.
+/// - `native_floor_tech` (`bool`): Represents the native floor tech; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `TechGate` value.
 pub fn tech_gate_with_floor(
     status: i32,
     situation: i32,
@@ -328,7 +383,9 @@ impl Default for Body {
     /// Returns the default value for this type.
     ///
     ///
-///  Returns the default value for this type.
+    ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             half_width: 2.5,
@@ -344,7 +401,12 @@ impl Body {
     /// Forecast dimensions are local fighter units. Native contacts remain
     /// authoritative; do not use hurtbox/model height as an invented ECB size.
     ///
-///  Forecast dimensions are local fighter units. Native contacts remain authoritative; do not use hurtbox/model height as an invented ECB size.
+    ///  Forecast dimensions are local fighter units. Native contacts remain authoritative; do not use hurtbox/model height as an invented ECB size.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `scale` (`f32`): Represents the scale; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub fn scaled(self, scale: f32) -> Self {
         let scale = if scale.is_finite() && (0.1..=10.).contains(&scale) {
             scale
@@ -362,7 +424,11 @@ impl Body {
     }
     /// Finite, non-negative and bounded: rejects corrupted per-fighter tuning.
     ///
-///  Finite, non-negative and bounded: rejects corrupted per-fighter tuning.
+    ///  Finite, non-negative and bounded: rejects corrupted per-fighter tuning.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn plausible(&self) -> bool {
         [
             self.half_width,
@@ -381,12 +447,29 @@ impl Body {
 /// Three probes per approaching surface; unused directions stay empty.
 ///
 ///  Three probes per approaching surface; unused directions stay empty.
+/// ### Arguments
+/// - `x` (`f32`): Represents the horizontal coordinate; the function uses it as input to the operation described above.
+/// - `y` (`f32`): Represents the vertical coordinate; the function uses it as input to the operation described above.
+/// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
+/// - `vy` (`f32`): Represents the vy; the function uses it as input to the operation described above.
+/// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[Option<CollisionRay>; 9]` value.
 pub fn tech_probes(x: f32, y: f32, vx: f32, vy: f32, horizon: f32) -> [Option<CollisionRay>; 9] {
     tech_probes_with_body(x, y, vx, vy, horizon, Body::default())
 }
 /// Returns an optional `tech_probes_with_body` value.
 ///
 /// Gets tech probes with body if it is available.
+/// ### Arguments
+/// - `x` (`f32`): Represents the horizontal coordinate; the function uses it as input to the operation described above.
+/// - `y` (`f32`): Represents the vertical coordinate; the function uses it as input to the operation described above.
+/// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
+/// - `vy` (`f32`): Represents the vy; the function uses it as input to the operation described above.
+/// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+/// - `body` (`Body`): Represents the body; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[Option<CollisionRay>; 9]` value.
 pub fn tech_probes_with_body(
     x: f32,
     y: f32,
@@ -438,6 +521,14 @@ pub fn tech_probes_with_body(
 /// frames, padded by the body so thin surfaces are caught before contact.
 ///
 ///  Displacement of a floor (0), wall (1) or ceiling (2) probe over horizon frames, padded by the body so thin surfaces are caught before contact.
+/// ### Arguments
+/// - `surface` (`usize`): Represents the surface; the function uses it as input to the operation described above.
+/// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
+/// - `vy` (`f32`): Represents the vy; the function uses it as input to the operation described above.
+/// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+/// - `body` (`Body`): Represents the body; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[f32; 2]` value.
 fn probe_delta(surface: usize, vx: f32, vy: f32, horizon: f32, body: Body) -> [f32; 2] {
     match surface {
         0 => [vx * horizon, vy * horizon - body.floor_padding],
@@ -451,6 +542,15 @@ fn probe_delta(surface: usize, vx: f32, vy: f32, horizon: f32, body: Body) -> [f
 /// Returns the `refined_probe` result.
 ///
 /// Gets the refined probe result.
+/// ### Arguments
+/// - `ray` (`CollisionRay`): Represents the ray; the function uses it as input to the operation described above.
+/// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
+/// - `vy` (`f32`): Represents the vy; the function uses it as input to the operation described above.
+/// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+/// - `body` (`Body`): Represents the body; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `CollisionRay` value.
 fn refined_probe(
     ray: CollisionRay,
     index: usize,
@@ -470,6 +570,15 @@ fn refined_probe(
 /// is the collision time. At most five refinement queries per hit ray.
 ///
 ///  Estimate first contact using bounded ray refinement. The native query only reports a hit, so this brackets time rather than assuming the full lookahead is the collision time. At most five refinement queries per hit ray.
+/// ### Arguments
+/// - `x` (`f32`): Represents the horizontal coordinate; the function uses it as input to the operation described above.
+/// - `y` (`f32`): Represents the vertical coordinate; the function uses it as input to the operation described above.
+/// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
+/// - `vy` (`f32`): Represents the vy; the function uses it as input to the operation described above.
+/// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+/// - `collides` (`impl FnMut(CollisionRay) -> bool`): Represents the collides; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn first_contact_in(
     x: f32,
     y: f32,
@@ -486,6 +595,16 @@ pub fn first_contact_in(
 /// Wall/ceiling rays and fallback geometry are unchanged.
 ///
 ///  Use at most five one-frame floor sweeps when recent native motion shows downward acceleration. Rising segments before an apex are excluded. Wall/ceiling rays and fallback geometry are unchanged.
+/// ### Arguments
+/// - `x` (`f32`): Represents the horizontal coordinate; the function uses it as input to the operation described above.
+/// - `y` (`f32`): Represents the vertical coordinate; the function uses it as input to the operation described above.
+/// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
+/// - `vy` (`f32`): Represents the vy; the function uses it as input to the operation described above.
+/// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+/// - `acceleration` (`f32`): Represents the acceleration; the function uses it as input to the operation described above.
+/// - `collides` (`impl FnMut(CollisionRay) -> bool`): Represents the collides; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn first_contact_with_floor_acceleration(
     x: f32,
     y: f32,
@@ -509,6 +628,17 @@ pub fn first_contact_with_floor_acceleration(
 /// Determines whether the `first_contact_with_body` condition holds.
 ///
 /// Checks whether first contact with body.
+/// ### Arguments
+/// - `x` (`f32`): Represents the horizontal coordinate; the function uses it as input to the operation described above.
+/// - `y` (`f32`): Represents the vertical coordinate; the function uses it as input to the operation described above.
+/// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
+/// - `vy` (`f32`): Represents the vy; the function uses it as input to the operation described above.
+/// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+/// - `acceleration` (`f32`): Represents the acceleration; the function uses it as input to the operation described above.
+/// - `body` (`Body`): Represents the body; the function uses it as input to the operation described above.
+/// - `collides` (`impl FnMut(CollisionRay) -> bool`): Represents the collides; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn first_contact_with_body(
     x: f32,
     y: f32,
@@ -577,6 +707,17 @@ pub fn first_contact_with_body(
 /// end time. Rising segments before an apex are excluded.
 ///
 ///  The first one-frame floor sweep along the accelerated arc that hits, as its end time. Rising segments before an apex are excluded.
+/// ### Arguments
+/// - `x` (`f32`): Represents the horizontal coordinate; the function uses it as input to the operation described above.
+/// - `y` (`f32`): Represents the vertical coordinate; the function uses it as input to the operation described above.
+/// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
+/// - `vy` (`f32`): Represents the vy; the function uses it as input to the operation described above.
+/// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+/// - `acceleration` (`f32`): Represents the acceleration; the function uses it as input to the operation described above.
+/// - `body` (`Body`): Represents the body; the function uses it as input to the operation described above.
+/// - `collides` (`&mut impl FnMut(CollisionRay) -> bool`): Represents the collides; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn curved_floor_contact(
     x: f32,
     y: f32,
@@ -627,6 +768,18 @@ fn curved_floor_contact(
 /// in floor/wall/ceiling order; a disabled surface cannot trigger a shield edge.
 ///
 ///  Native adapter's contact forecast: sweep each simulation frame separately. A long padded diagonal is not a monotonic collision predicate and can miss narrow platforms between its endpoints. Frame segments preserve the body.
+/// ### Arguments
+/// - `x` (`f32`): Represents the horizontal coordinate; the function uses it as input to the operation described above.
+/// - `y` (`f32`): Represents the vertical coordinate; the function uses it as input to the operation described above.
+/// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
+/// - `vy` (`f32`): Represents the vy; the function uses it as input to the operation described above.
+/// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+/// - `acceleration` (`f32`): Represents the acceleration; the function uses it as input to the operation described above.
+/// - `body` (`Body`): Represents the body; the function uses it as input to the operation described above.
+/// - `surfaces` (`[bool; 3]`): Represents the surfaces; the function uses it as input to the operation described above.
+/// - `collides` (`impl FnMut(CollisionRay) -> bool`): Represents the collides; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn first_contact_swept(
     x: f32,
     y: f32,

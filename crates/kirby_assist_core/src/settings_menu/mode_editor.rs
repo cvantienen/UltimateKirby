@@ -5,7 +5,11 @@ impl MenuSelection {
     /// Returns an optional `mode_trigger` value.
     ///
     ///
-///  Gets mode trigger if it is available.
+    ///  Gets mode trigger if it is available.
+    /// ### Arguments
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(super) fn mode_trigger(row: MenuRow) -> Option<Trigger> {
         match row {
             MenuRow::ShieldPressure => Some(Trigger::EnemyShield),
@@ -19,7 +23,12 @@ impl MenuSelection {
     /// Returns an optional `auto_mode_events` value.
     ///
     ///
-///  Gets auto mode events if it is available.
+    ///  Gets auto mode events if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(super) fn auto_mode_events(&self, row: MenuRow) -> Option<&'static [Trigger]> {
         if !self.simplified_reactions {
             return None;
@@ -38,14 +47,22 @@ impl MenuSelection {
     /// Determines whether the `assist_rule_page` condition holds.
     ///
     ///
-///  Checks whether assist rule page.
+    ///  Checks whether assist rule page.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn assist_rule_page(&self) -> bool {
         self.mode_editor_origin.is_some()
     }
     /// Returns an optional `restore_mode_choices` value.
     ///
     ///
-///  Gets restore mode choices if it is available.
+    ///  Gets restore mode choices if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(super) fn restore_mode_choices(&mut self) -> Option<MenuRow> {
         let (row, choices) = self.mode_editor_origin.take()?;
         self.mode_rule_list = false;
@@ -57,7 +74,13 @@ impl MenuSelection {
     /// Returns the `mode_entries` result.
     ///
     ///
-///  Gets the mode entries result.
+    ///  Gets the mode entries result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting items; the vector is empty when there are none.
     pub(super) fn mode_entries(
         &self,
         presets: &MenuPresets,
@@ -100,7 +123,11 @@ impl MenuSelection {
     /// Updates the `open_mode_list` state using the supplied inputs.
     ///
     ///
-///  Updates open mode list.
+    ///  Updates open mode list.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `_presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
     pub(super) fn open_mode_list(&mut self, _presets: &MenuPresets, row: MenuRow) {
         if Self::mode_trigger(row).is_none() {
             return;
@@ -121,7 +148,12 @@ impl MenuSelection {
     /// Chooses the mode rule.
     ///
     ///
-///  Chooses the mode rule.
+    ///  Chooses the mode rule.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
     fn choose_mode_rule(&mut self, presets: &MenuPresets, slot: PresetSlot, index: usize) {
         self.row = MenuRow::ALL
             .into_iter()
@@ -137,7 +169,11 @@ impl MenuSelection {
     /// Adds the mode rule.
     ///
     ///
-///  Adds the mode rule.
+    ///  Adds the mode rule.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
     fn add_mode_rule(&mut self, presets: &MenuPresets, row: MenuRow) {
         let Some(mut trigger) = Self::mode_trigger(row) else {
             return;
@@ -259,7 +295,12 @@ impl MenuSelection {
     /// Updates the `open_mode_response` state using the supplied inputs.
     ///
     ///
-///  Updates open mode response.
+    ///  Updates open mode response.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
+    /// - `cycle` (`Option<bool>`): Represents the cycle; the function uses it as input to the operation described above.
     pub(super) fn open_mode_response(
         &mut self,
         presets: &MenuPresets,
@@ -289,7 +330,10 @@ impl MenuSelection {
     /// Updates the `mode_cursor_to_current` state using the supplied inputs.
     ///
     ///
-///  Updates mode cursor to current.
+    ///  Updates mode cursor to current.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
     pub(super) fn mode_cursor_to_current(&mut self, presets: &MenuPresets) {
         if let Some((row, _)) = self.mode_editor_origin.as_ref() {
             let entries = self.mode_entries(presets, *row);
@@ -303,7 +347,12 @@ impl MenuSelection {
     /// Returns the `mode_rules_panel` result.
     ///
     ///
-///  Gets the mode rules panel result.
+    ///  Gets the mode rules panel result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `RecipePanel` value.
     pub(super) fn mode_rules_panel(&self, presets: &MenuPresets) -> RecipePanel {
         let Some((row, _)) = self.mode_editor_origin.as_ref() else {
             return RecipePanel::default();
@@ -381,7 +430,14 @@ impl MenuSelection {
     /// Determines whether the `mode_list_input` condition holds.
     ///
     ///
-///  Checks whether mode list input.
+    ///  Checks whether mode list input.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(super) fn mode_list_input(
         &mut self,
         presets: &MenuPresets,
@@ -472,7 +528,11 @@ mod tests {
     /// Updates the `tap` state using the supplied inputs.
     ///
     ///
-///  Updates tap.
+    ///  Updates tap.
+    /// ### Arguments
+    /// - `m` (`&mut MenuSelection`): Represents the m; the function uses it as input to the operation described above.
+    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
+    /// - `b` (`u32`): Represents the b; the function uses it as input to the operation described above.
     fn tap(m: &mut MenuSelection, p: &MenuPresets, b: u32) {
         m.input(0, p);
         m.input(b, p);

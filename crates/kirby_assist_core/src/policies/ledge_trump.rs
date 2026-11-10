@@ -16,6 +16,12 @@ const DEFAULT_TRUMP_EDGE_SCAN_LIMIT: u16 = 100;
 /// Scan only at activation; the attempt retains the selected edge afterward.
 ///
 ///  Find the nearest edge of the current floor using read-only support probes. This detects collision edges, not native grabbability (platforms can differ). Scan only at activation; the attempt retains the selected edge afterward.
+/// ### Arguments
+/// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
+/// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
+/// - `supported` (`impl FnMut([f32; 2]) -> bool`): Represents the supported; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn nearest_floor_edge(
     position: [f32; 2],
     facing: f32,
@@ -27,6 +33,13 @@ pub fn nearest_floor_edge(
 /// Shared short floor probes; the trap may search farther than a trump run.
 ///
 ///  Shared short floor probes; the trap may search farther than a trump run.
+/// ### Arguments
+/// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
+/// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
+/// - `limit` (`u16`): Represents the maximum allowed value; the function uses it as input to the operation described above.
+/// - `supported` (`impl FnMut([f32; 2]) -> bool`): Represents the supported; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn floor_edge_with_limit(
     position: [f32; 2],
     facing: f32,
@@ -133,6 +146,11 @@ impl Attempt {
     /// A usable same-floor edge within trump reach, from solid ground.
     ///
     ///  A usable same-floor edge within trump reach, from solid ground.
+    /// ### Arguments
+    /// - `anchor` (`[f32; 2]`): Represents the anchor; the function uses it as input to the operation described above.
+    /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn start(anchor: [f32; 2], ctx: GameplayContext) -> Option<Self> {
         let dx = anchor[0] - ctx.position[0];
         (finite2(anchor)
@@ -152,6 +170,11 @@ impl Attempt {
     /// Whether the fighter is still on the macro's path, in a state it can run.
     ///
     ///  Whether the fighter is still on the macro's path, in a state it can run.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn viable(&self, ctx: GameplayContext) -> bool {
         let air_fall = ctx.situation == situation::AIR && ctx.status == FALL;
         let reach = if matches!(self.phase, Phase::Approach) {
@@ -177,6 +200,11 @@ impl Attempt {
     /// Left-stick request for this sample, advancing the phase; `None` ends the attempt.
     ///
     ///  Left-stick request for this sample, advancing the phase; None ends the attempt.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn drive(&mut self, ctx: GameplayContext) -> Option<[f32; 2]> {
         match self.phase {
             Phase::Approach if ctx.situation == situation::GROUND => {
@@ -250,6 +278,8 @@ impl LedgeTrump {
     ///
     ///
     ///  Cancels the pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel_pending(&mut self) {
         self.attempt = None;
         self.output = ControllerOutput::default(); // Keep held-Down history.
@@ -257,6 +287,10 @@ impl LedgeTrump {
     /// Keep sampling an in-flight tool after its physical trigger is released.
     ///
     ///  Keep sampling an in-flight tool after its physical trigger is released.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(&self) -> bool {
         self.attempt.is_some()
     }
@@ -265,6 +299,11 @@ impl LedgeTrump {
     ///
     ///
     ///  Checks whether edge.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `down` (`bool`): Represents the down; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_edge(&self, down: bool) -> bool {
         down && !self.held && self.attempt.is_none()
     }
@@ -273,6 +312,10 @@ impl LedgeTrump {
     ///
     ///
     ///  Gets the action name result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn action_name(&self) -> &'static str {
         match self.attempt.map(|attempt| attempt.phase) {
             None => "idle_or_finished",
@@ -286,6 +329,15 @@ impl LedgeTrump {
     ///
     ///
     ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `down` (`bool`): Represents the down; the function uses it as input to the operation described above.
+    /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `edge` (`Option<[f32; 2]>`): Represents the edge; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample(
         &mut self,
         enabled: bool,

@@ -15,7 +15,11 @@ use std::{sync::atomic::Ordering, time::Instant};
 /// * `physical` - The current button trace.
 /// * `index` - The mapping index of the controller.
 /// * `layout` - The control layout of the controller.
-/// # Returns
+/// ### Arguments
+/// - `physical` (`ButtonTrace`): Represents the physical; the function uses it as input to the operation described above.
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// - `layout` (`ControlLayout`): Represents the layout; the function uses it as input to the operation described above.
+/// ### Returns
 /// * `true` if passthrough mode was successfully entered.
 /// * `false` otherwise.
 /// Detects the passthrough shortcut and records the physical controller
@@ -68,6 +72,8 @@ pub(super) fn enter_passthrough(physical: ButtonTrace, index: i32, layout: Contr
 /// settings menu according to the handoff mode.
 ///
 ///  It returns control to Kirby Assist after the training shortcut ends.
+/// ### Arguments
+/// - `training_test_mode` (`bool`): Represents the training test mode; the function uses it as input to the operation described above.
 pub(super) fn finish_passthrough(training_test_mode: bool) {
     if TRAINING_PASSTHROUGH.swap(false, Ordering::Relaxed) {
         let was_modal = TRAINING_MODAL_HANDOFF.swap(false, Ordering::Relaxed);

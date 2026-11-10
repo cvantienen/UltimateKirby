@@ -6,6 +6,11 @@ use std::sync::OnceLock;
 /// Returns the `short` result.
 ///
 /// Gets the short result.
+/// ### Arguments
+/// - `text` (`&str`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
+/// - `limit` (`usize`): Represents the maximum allowed value; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 fn short(text: &str, limit: usize) -> String {
     let mut chars = text.chars();
     let mut result: String = chars.by_ref().take(limit).collect();
@@ -17,6 +22,11 @@ fn short(text: &str, limit: usize) -> String {
 /// Returns an optional `raw` value.
 ///
 /// Gets raw if it is available.
+/// ### Arguments
+/// - `data` (`&'a MoveData`): Represents the data; the function uses it as input to the operation described above.
+/// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn raw<'a>(data: &'a MoveData, key: &str) -> Option<&'a str> {
     data.raw
         .iter()
@@ -27,6 +37,10 @@ fn raw<'a>(data: &'a MoveData, key: &str) -> Option<&'a str> {
 /// Returns the `timing` result.
 ///
 /// Gets the timing result.
+/// ### Arguments
+/// - `data` (`&MoveData`): Represents the data; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 fn timing(data: &MoveData) -> String {
     let startup = raw(data, "startup")
         .map(|s| short(s, 22))
@@ -67,6 +81,10 @@ fn timing(data: &MoveData) -> String {
 /// Returns the `move_names` result.
 ///
 /// Gets the move names result.
+/// ### Arguments
+/// - `label` (`&str`): Represents the label; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `&'static [&'static str]` value.
 fn move_names(label: &str) -> &'static [&'static str] {
     match label {
         "Neutral A / Nair" => &["Jab 1", "Neutral Air"],
@@ -95,6 +113,11 @@ fn move_names(label: &str) -> &'static [&'static str] {
 /// Finds the move.
 ///
 /// Finds the move.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn find_move(kind: i32, name: &str) -> Option<&'static MoveData> {
     if let Some(data) = fighter_data::named_move(kind, name) {
         return Some(data);
@@ -157,6 +180,10 @@ static LEDGE: OnceLock<[Summary; 4]> = OnceLock::new();
 /// Returns an optional `ledge_reference` value.
 ///
 /// Gets ledge reference if it is available.
+/// ### Arguments
+/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn ledge_reference(slot: PresetSlot) -> Option<String> {
     let (index, name) = match slot {
         PresetSlot::Neutral => (0, "Neutral get-up"),
@@ -200,6 +227,10 @@ fn ledge_reference(slot: PresetSlot) -> Option<String> {
 /// Returns an optional `ledge_frames` value.
 ///
 /// Gets ledge frames if it is available.
+/// ### Arguments
+/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn ledge_frames(value: &str) -> Option<(u16, u16)> {
     let (span, rest) = value.split_once(" intangible / ")?;
     let end = span.strip_prefix("1-")?.parse::<u16>().ok()?;
@@ -210,6 +241,12 @@ fn ledge_frames(value: &str) -> Option<(u16, u16)> {
 /// Returns the `hints` result.
 ///
 /// Gets the hints result.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// - `label` (`Option<&str>`): Represents the label; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting items; the vector is empty when there are none.
 pub(super) fn hints(kind: i32, slot: PresetSlot, label: Option<&str>) -> Vec<String> {
     let mut lines = Vec::new();
     if let Some(label) = label {

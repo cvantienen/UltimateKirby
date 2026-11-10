@@ -138,6 +138,10 @@ mod fair_followup {
         ///
         ///
         ///  Checks whether the feature is on.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn active(&self) -> bool {
             self.queued
         }
@@ -145,6 +149,8 @@ mod fair_followup {
         ///
         ///
         ///  Cancels the pending.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         pub fn cancel_pending(&mut self) {
             self.finish();
             self.output = ControllerOutput::default();
@@ -153,6 +159,12 @@ mod fair_followup {
         ///
         ///
         ///  Checks the current buttons and updates whether the toggle should activate.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+        /// - `ctx` (`FairContext`): Represents the ctx; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `ControllerOutput` value.
         pub fn sample(&mut self, enabled: bool, ctx: FairContext) -> ControllerOutput {
             self.sample_with_velocity(enabled, ctx, 0.0)
         }
@@ -160,6 +172,13 @@ mod fair_followup {
         ///
         ///
         ///  Samples the with velocity.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+        /// - `ctx` (`FairContext`): Represents the ctx; the function uses it as input to the operation described above.
+        /// - `velocity_y` (`f32`): Represents the velocity y; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `ControllerOutput` value.
         pub fn sample_with_velocity(
             &mut self,
             enabled: bool,
@@ -207,6 +226,12 @@ mod fair_followup {
         /// Rearm on a new fair, drop the latch on a later hit, and latch the first hit.
         ///
         ///  Rearm on a new fair, drop the latch on a later hit, and latch the first hit.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `ctx` (`FairContext`): Represents the ctx; the function uses it as input to the operation described above.
+        /// - `landed` (`bool`): Represents the landed; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn recognize(&mut self, ctx: FairContext, landed: bool) -> bool {
             let fair = ctx.is_fair();
             let new_fair = fair
@@ -242,6 +267,9 @@ mod fair_followup {
         ///
         ///
         ///  Advances the age.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `ctx` (`FairContext`): Represents the ctx; the function uses it as input to the operation described above.
         fn advance_age(&mut self, ctx: FairContext) {
             let mut delta = crate::timing::motion_elapsed(
                 self.last
@@ -270,6 +298,15 @@ mod fair_followup {
         ///
         ///
         ///  Gets the input waiting to be delivered.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `ctx` (`FairContext`): Represents the ctx; the function uses it as input to the operation described above.
+        /// - `landed` (`bool`): Represents the landed; the function uses it as input to the operation described above.
+        /// - `recognized` (`bool`): Represents the recognized; the function uses it as input to the operation described above.
+        /// - `native_progress` (`bool`): Represents the native progress; the function uses it as input to the operation described above.
+        /// - `velocity_y` (`f32`): Represents the velocity y; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `ControllerOutput` value.
         fn queued_output(
             &mut self,
             ctx: FairContext,
@@ -320,6 +357,8 @@ mod fair_followup {
         ///
         ///
         ///  Finishes the current operation.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         fn finish(&mut self) {
             self.queued = false;
             self.down_held = false;
@@ -331,6 +370,10 @@ mod fair_followup {
         ///
         ///
         ///  Checks whether usable.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn usable(&self) -> bool {
             self.kirby
                 && self.frame.is_finite()
@@ -343,6 +386,10 @@ mod fair_followup {
         ///
         ///
         ///  Checks whether fair.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn is_fair(&self) -> bool {
             self.status == status::ATTACK_AIR && self.motion == FAIR
         }
@@ -379,6 +426,10 @@ mod fair_followup {
         ///
         ///
         ///  Gets the fair result.
+        /// ### Arguments
+        /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `FairContext` value.
         fn fair(frame: f32) -> FairContext {
             FairContext {
                 object: 1,
@@ -744,6 +795,10 @@ mod trip_followup {
     ///
     ///
     ///  Checks whether trip tilt.
+    /// ### Arguments
+    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn trip_tilt(status: i32) -> bool {
         matches!(status, status::ATTACK_S3 | status::ATTACK_LW3)
     }
@@ -751,6 +806,10 @@ mod trip_followup {
     ///
     ///
     ///  Checks whether tripping.
+    /// ### Arguments
+    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn tripping(status: i32) -> bool {
         matches!(status, status::SLIP..=status::SLIP_WAIT)
     }
@@ -844,6 +903,8 @@ mod trip_followup {
         ///
         ///
         ///  Cancels the pending.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         pub fn cancel_pending(&mut self) {
             self.finish();
             self.output = ControllerOutput::default();
@@ -852,6 +913,10 @@ mod trip_followup {
         ///
         ///
         ///  Checks whether watching.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn watching(&self) -> bool {
             self.queued
         }
@@ -859,6 +924,12 @@ mod trip_followup {
         ///
         ///
         ///  Checks the current buttons and updates whether the toggle should activate.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+        /// - `ctx` (`TripContext`): Represents the ctx; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `ControllerOutput` value.
         pub fn sample(&mut self, enabled: bool, ctx: TripContext) -> ControllerOutput {
             // Invalid/changed identity resets the tool. An identical observation
             // reuses output, so repeated mapper polls do not manufacture new pulses.
@@ -911,6 +982,11 @@ mod trip_followup {
         /// transition or hit flag required.
         ///
         ///  Rearm on a new tilt, then latch a current trip or grounded re-hit damage whose immediate previous state was a trip. No new-trip transition or hit flag required.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `ctx` (`TripContext`): Represents the ctx; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn recognize(&mut self, ctx: TripContext) -> bool {
             let new_tilt = trip_tilt(ctx.status)
                 && self.last.is_none_or(|last| {
@@ -937,6 +1013,12 @@ mod trip_followup {
         ///
         ///
         ///  Gets the tilt lag output result.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `ctx` (`TripContext`): Represents the ctx; the function uses it as input to the operation described above.
+        /// - `recognized` (`bool`): Represents the recognized; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `ControllerOutput` value.
         fn tilt_lag_output(&self, ctx: TripContext, recognized: bool) -> ControllerOutput {
             // Own every competing gameplay button and both sticks from
             // recognition onward, including tilt lag and release gaps. First
@@ -956,6 +1038,8 @@ mod trip_followup {
         ///
         ///
         ///  Finishes the current operation.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         fn finish(&mut self) {
             self.queued = false;
             self.spent = true;
@@ -965,6 +1049,10 @@ mod trip_followup {
         /// Smash startup was accepted, or Kirby left the grounded tilt/idle states.
         ///
         ///  Smash startup was accepted, or Kirby left the grounded tilt/idle states.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn tilt_ended(&self) -> bool {
             let accepted = matches!(self.status, status::ATTACK_S4_START..=status::ATTACK_S4);
             let supported = self.grounded
@@ -981,6 +1069,11 @@ mod trip_followup {
         ///
         ///
         ///  Gets the ctx result.
+        /// ### Arguments
+        /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+        /// - `target_status` (`i32`): Represents the target status; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `TripContext` value.
         fn ctx(status: i32, target_status: i32) -> TripContext {
             TripContext {
                 object: 1,
@@ -1334,6 +1427,10 @@ use super::valid_facing;
 /// Own every competing gameplay button and the left stick, holding `stick`.
 ///
 ///  Own every competing gameplay button and the left stick, holding stick.
+/// ### Arguments
+/// - `stick` (`[f32; 2]`): Represents the stick; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ControllerOutput` value.
 fn hold(stick: [f32; 2]) -> ControllerOutput {
     ControllerOutput {
         owned: FOLLOWUP_BUTTONS,
@@ -1345,6 +1442,10 @@ fn hold(stick: [f32; 2]) -> ControllerOutput {
 /// `hold`, plus one fresh A press.
 ///
 ///  hold, plus one fresh A press.
+/// ### Arguments
+/// - `stick` (`[f32; 2]`): Represents the stick; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ControllerOutput` value.
 fn press_a(stick: [f32; 2]) -> ControllerOutput {
     ControllerOutput {
         requested: MAPPER_A,

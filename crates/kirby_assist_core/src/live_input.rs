@@ -100,6 +100,11 @@ impl ScenarioCounter {
     ///
     ///
     ///  Updates the current value with the new state.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `active` (`bool`): Represents the active; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     fn update(&mut self, active: bool) -> u32 {
         self.frame = if active && self.previous_active {
             // Saturation stops at u32::MAX instead of wrapping back to zero
@@ -173,6 +178,10 @@ impl RawAutoControls {
     /// None returns ownership to the fresh physical stick immediately.
     ///
     ///  Cached left-stick proposal from the same update as the button result. None returns ownership to the fresh physical stick immediately.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn mash_stick(&self) -> Option<[f32; 2]> {
         self.mash_stick
     }
@@ -181,6 +190,10 @@ impl RawAutoControls {
     ///
     ///
     ///  Reports how many frames remain before another tech input.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u16` value.
     pub fn tech_cooldown_remaining(&self) -> u16 {
         self.cooldown
     }
@@ -189,6 +202,8 @@ impl RawAutoControls {
     ///
     ///
     ///  Returns the state to its starting point.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn reset(&mut self) {
         *self = Self::default();
     }
@@ -197,6 +212,8 @@ impl RawAutoControls {
     /// cooldowns. Resuming the same frozen animation must not replay a press.
     ///
     ///  Stop/unknown native timing releases cached pulses without forgetting cooldowns. Resuming the same frozen animation must not replay a press.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn pause_inputs(&mut self) {
         self.proposed = 0;
         self.mash_stick = None;
@@ -208,6 +225,15 @@ impl RawAutoControls {
     ///
     ///
     ///  Updates the current value with the new state.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `settings` (`LiveSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `input_tick` (`i64`): Represents the input tick; the function uses it as input to the operation described above.
+    /// - `object_id` (`u32`): Represents the object id; the function uses it as input to the operation described above.
+    /// - `clatter_active` (`bool`): Represents the clatter active; the function uses it as input to the operation described above.
+    /// - `tech_opportunity` (`bool`): Represents the tech opportunity; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u64` value.
     pub fn update(
         &mut self,
         settings: LiveSettings,
@@ -381,6 +407,14 @@ impl HidButtonOverlay {
     ///
     ///
     ///  Makes the supplied change.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `sample` (`i64`): Represents the sample; the function uses it as input to the operation described above.
+    /// - `human` (`u64`): Represents the human; the function uses it as input to the operation described above.
+    /// - `requested` (`u64`): Represents the requested; the function uses it as input to the operation described above.
+    /// - `connected` (`bool`): Represents the connected; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u64` value.
     pub fn apply(&mut self, sample: i64, human: u64, requested: u64, connected: bool) -> u64 {
         self.apply_owned(sample, human, requested, 0, connected)
     }
@@ -389,6 +423,15 @@ impl HidButtonOverlay {
     ///
     ///
     ///  Applies the owned.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `sample` (`i64`): Represents the sample; the function uses it as input to the operation described above.
+    /// - `human` (`u64`): Represents the human; the function uses it as input to the operation described above.
+    /// - `requested` (`u64`): Represents the requested; the function uses it as input to the operation described above.
+    /// - `owned` (`u64`): Represents the owned; the function uses it as input to the operation described above.
+    /// - `connected` (`bool`): Represents the connected; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u64` value.
     pub fn apply_owned(
         &mut self,
         sample: i64,
@@ -419,6 +462,11 @@ impl HidButtonOverlay {
 // different function and corrupt game memory. Never add a guessed fallback.
 ///
 ///  Returns the unique aligned instruction-pattern match, or no supported hook. This deliberately rejects ambiguous matches instead of choosing an address.
+/// ### Arguments
+/// - `text` (`&[u8]`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
+/// - `needle` (`&[u8]`): Represents the needle; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn unique_instruction_offset(text: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() || needle.len() > text.len() {
         return None;
@@ -537,6 +585,11 @@ pub mod mapper_hook {
     ///
     ///
     ///  Reads one four-byte instruction from the byte buffer.
+    /// ### Arguments
+    /// - `bytes` (`&[u8]`): Represents the byte data being processed; the function uses it as input to the operation described above.
+    /// - `offset` (`usize`): Represents the offset; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     fn instruction(bytes: &[u8], offset: usize) -> u32 {
         u32::from_le_bytes(
             bytes[offset..offset + AARCH64_INSTRUCTION_BYTES]
@@ -550,6 +603,10 @@ pub mod mapper_hook {
     /// candidates even if one is unpatched: silently choosing one is unsafe.
     ///
     ///  Accept only the original entry or Skyline's B / LDR+BR entry replacements. The original bytes after the replaced region must still match. Reject two candidates even if one is unpatched: silently choosing one is unsafe.
+    /// ### Arguments
+    /// - `text` (`&[u8]`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn mapper_offset(text: &[u8]) -> Option<usize> {
         if text.len() < MAPPING_NEEDLE.len() {
             return None;
@@ -602,6 +659,10 @@ pub mod mapper_hook {
         ///
         ///
         ///  Creates the test instruction bytes.
+        /// ### Arguments
+        /// - `words` (`&[u32]`): Represents the words; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting items; the vector is empty when there are none.
         fn patched(words: &[u32]) -> Vec<u8> {
             let mut bytes = MAPPING_NEEDLE.to_vec();
             for (i, word) in words.iter().enumerate() {

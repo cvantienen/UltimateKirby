@@ -40,7 +40,9 @@ impl DeliveryBudget {
     /// Constructs a new value with the type’s initial state.
     ///
     ///
-///  Creates a new value.
+    ///  Creates a new value.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             attempts: 0,
@@ -50,7 +52,10 @@ impl DeliveryBudget {
     /// Checks whether the requested input was acknowledged by the mapper.
     ///
     ///
-///  Checks whether the controller mapping accepted the input.
+    ///  Checks whether the controller mapping accepted the input.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn mapped(&mut self, tick: i64) {
         if self.last_tick != Some(tick) {
             self.attempts = self.attempts.saturating_add(1);
@@ -60,7 +65,11 @@ impl DeliveryBudget {
     /// Determines whether the `exhausted` condition holds.
     ///
     ///
-///  Checks whether exhausted.
+    ///  Checks whether exhausted.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn exhausted(&self) -> bool {
         self.attempts >= 24
     }
@@ -91,7 +100,9 @@ impl UpBReceipt {
     /// Constructs a new value with the type’s initial state.
     ///
     ///
-///  Creates a new value.
+    ///  Creates a new value.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             sent: false,
@@ -102,7 +113,10 @@ impl UpBReceipt {
     /// Checks whether the requested input was acknowledged by the mapper.
     ///
     ///
-///  Checks whether the controller mapping accepted the input.
+    ///  Checks whether the controller mapping accepted the input.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn mapped(&mut self, tick: i64) {
         if !self.sent {
             self.sent = true;
@@ -115,7 +129,10 @@ impl UpBReceipt {
     /// Updates the `tick` state using the supplied inputs.
     ///
     ///
-///  Updates tick.
+    ///  Updates tick.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn tick(&mut self, tick: i64) {
         if self.sent && self.last_tick != Some(tick) {
             self.last_tick = Some(tick);
@@ -125,14 +142,22 @@ impl UpBReceipt {
     /// Determines whether the `sent` condition holds.
     ///
     ///
-///  Checks whether sent.
+    ///  Checks whether sent.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn sent(&self) -> bool {
         self.sent
     }
     /// Determines whether the `expired` condition holds.
     ///
     ///
-///  Checks whether expired.
+    ///  Checks whether expired.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn expired(&self) -> bool {
         self.ticks >= 24
     }
@@ -215,7 +240,9 @@ impl UpBFlow {
     /// Constructs a new value with the type’s initial state.
     ///
     ///
-///  Creates a new value.
+    ///  Creates a new value.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             armed: false,
@@ -231,7 +258,11 @@ impl UpBFlow {
     /// Updates the `arm` state using the supplied inputs.
     ///
     ///
-///  Updates arm.
+    ///  Updates arm.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `c` (`crate::gameplay::GameplayContext`): Represents the c; the function uses it as input to the operation described above.
+    /// - `defense` (`bool`): Represents the defense; the function uses it as input to the operation described above.
     pub fn arm(&mut self, c: crate::gameplay::GameplayContext, defense: bool) {
         *self = Self {
             armed: true,
@@ -244,41 +275,62 @@ impl UpBFlow {
     /// Clears the armed state and resets the hold and release timers.
     ///
     ///
-///  Disarms the toggle and clears its timing history.
+    ///  Disarms the toggle and clears its timing history.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn disarm(&mut self) {
         *self = Self::new();
     }
     /// Determines whether the `armed` condition holds.
     ///
     ///
-///  Checks whether armed.
+    ///  Checks whether armed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn armed(&self) -> bool {
         self.armed
     }
     /// Determines whether the `started` condition holds.
     ///
     ///
-///  Checks whether started.
+    ///  Checks whether started.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn started(&self) -> bool {
         self.armed && (self.seen || self.receipt.sent())
     }
     /// Determines whether the `receipt_pending` condition holds.
     ///
     ///
-///  Checks whether receipt pending.
+    ///  Checks whether receipt pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn receipt_pending(&self) -> bool {
         self.armed && crate::up_b_receipt::pending(self.seen, self.receipt.sent())
     }
     /// Determines whether the `awaiting` condition holds.
     ///
     ///
-///  Checks whether awaiting.
+    ///  Checks whether awaiting.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn awaiting(&self) -> bool {
         self.receipt_pending() && self.waiting
     }
     /// A mapped packet the game rejected still spends the delivery budget.
     ///
-///  A mapped packet the game rejected still spends the delivery budget.
+    ///  A mapped packet the game rejected still spends the delivery budget.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn attempted(&mut self, tick: i64) {
         if self.armed && !self.seen {
             self.delivery.mapped(tick);
@@ -287,7 +339,10 @@ impl UpBFlow {
     /// Checks whether the requested input was acknowledged by the mapper.
     ///
     ///
-///  Checks whether the controller mapping accepted the input.
+    ///  Checks whether the controller mapping accepted the input.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn mapped(&mut self, tick: i64) {
         if self.armed && !self.seen {
             self.delivery.mapped(tick);
@@ -297,7 +352,10 @@ impl UpBFlow {
     /// Updates the `tick` state using the supplied inputs.
     ///
     ///
-///  Updates tick.
+    ///  Updates tick.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn tick(&mut self, tick: i64) {
         if self.receipt_pending() {
             self.receipt.tick(tick);
@@ -306,13 +364,24 @@ impl UpBFlow {
     /// Determines whether the `manual_handback` condition holds.
     ///
     ///
-///  Checks whether manual handback.
+    ///  Checks whether manual handback.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `c` (`crate::gameplay::GameplayContext`): Represents the c; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn manual_handback(&self, c: crate::gameplay::GameplayContext) -> bool {
         crate::up_b_receipt::manual_handback(self.armed, self.seen, c, self.epoch)
     }
     /// Native confirmation and lifecycle checks before the tape is sampled.
     ///
-///  Native confirmation and lifecycle checks before the tape is sampled.
+    ///  Native confirmation and lifecycle checks before the tape is sampled.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `c` (`crate::gameplay::GameplayContext`): Represents the c; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `UpBVerdict` value.
     pub fn advance(&mut self, c: crate::gameplay::GameplayContext, kind: i32) -> UpBVerdict {
         use crate::native_states::{status, ESCAPE, ESCAPE_AIR_SLIDE, ESCAPE_F, GUARD_DAMAGE};
         let native = crate::reaction_rules::automatic_up_b_status(kind, c.status, c.previous_status);
@@ -367,7 +436,13 @@ impl UpBFlow {
     /// Never drift before native startup. A delivered packet may keep only a
     /// bounded, input-free receipt wait; no B is retried.
     ///
-///  Never drift before native startup. A delivered packet may keep only a bounded, input-free receipt wait; no B is retried.
+    ///  Never drift before native startup. A delivered packet may keep only a bounded, input-free receipt wait; no B is retried.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `manual_drifting` (`bool`): Represents the manual drifting; the function uses it as input to the operation described above.
+    /// - `requested` (`u32`): Represents the requested; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `UpBVerdict` value.
     pub fn after_sample(&mut self, manual_drifting: bool, requested: u32) -> UpBVerdict {
         if !self.armed
             || !(manual_drifting || !self.seen && requested & crate::native_input::MAPPER_B == 0)
@@ -388,6 +463,11 @@ impl UpBFlow {
 /// controller polls online cannot speed up or reshape the rhythm.
 ///
 ///  Less mechanical retry cadence for smash attacks. The caller still sends the first legal smash immediately; this only controls retries when native startup has not appeared. Age advances from native fighter/opponent clocks, so.
+/// ### Arguments
+/// - `age` (`f32`): Represents the age; the function uses it as input to the operation described above.
+/// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn smash_retry_pressed(age: f32, target: u32) -> bool {
     if !age.is_finite() || age < 2.0 {
         return false;
@@ -405,18 +485,32 @@ pub fn smash_retry_pressed(age: f32, target: u32) -> bool {
 /// Full automated sequences still suppress competing physical aerials/tilts.
 ///
 ///  Owning only left-stick aim must not erase a physical tilt-stick attack. Full automated sequences still suppress competing physical aerials/tilts.
+/// ### Arguments
+/// - `owned` (`u32`): Represents the owned; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn blocks_physical_c_stick(owned: u32) -> bool {
     owned & crate::native_input::ASSIST_BUTTONS != 0
 }
 /// Both planar positions are usable measurements.
 ///
 ///  Both planar positions are usable measurements.
+/// ### Arguments
+/// - `a` (`[f32; 2]`): Represents the a; the function uses it as input to the operation described above.
+/// - `b` (`[f32; 2]`): Represents the b; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(crate) fn finite_positions(a: [f32; 2], b: [f32; 2]) -> bool {
     a.iter().chain(b.iter()).all(|v| v.is_finite())
 }
 /// Returns the `output` result.
 ///
 /// Gets the output result.
+/// ### Arguments
+/// - `stick` (`[f32; 2]`): Represents the stick; the function uses it as input to the operation described above.
+/// - `requested` (`u32`): Represents the requested; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `crate::gameplay::ControllerOutput` value.
 pub fn output(stick: [f32; 2], requested: u32) -> crate::gameplay::ControllerOutput {
     crate::gameplay::ControllerOutput {
         owned: crate::native_input::ASSIST_BUTTONS,
@@ -487,6 +581,11 @@ pub enum Smash {
 /// native startup. Holding A indefinitely would charge, rather than retry.
 ///
 ///  Callers provide a neutral release before this flick, and release Attack on native startup. Holding A indefinitely would charge, rather than retry.
+/// ### Arguments
+/// - `move_` (`Smash`): Represents the move; the function uses it as input to the operation described above.
+/// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[f32; 2]` value.
 pub fn smash_stick(move_: Smash, facing: f32) -> [f32; 2] {
     match move_ {
         Smash::Forward => [facing.signum(), 0.0],
@@ -498,6 +597,11 @@ pub fn smash_stick(move_: Smash, facing: f32) -> [f32; 2] {
 /// Returns the `aerial_stick` result.
 ///
 /// Gets the aerial stick result.
+/// ### Arguments
+/// - `move_` (`Aerial`): Represents the move; the function uses it as input to the operation described above.
+/// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[f32; 2]` value.
 pub fn aerial_stick(move_: Aerial, facing: f32) -> [f32; 2] {
     let facing = if facing < 0.0 { -1.0 } else { 1.0 };
     match move_ {
@@ -512,6 +616,11 @@ pub fn aerial_stick(move_: Aerial, facing: f32) -> [f32; 2] {
 /// grounded turnaround. Jump-only launch avoids accidental grounded tilts.
 ///
 ///  Directional A is legal in native jump squat or in the air, never in a grounded turnaround. Jump-only launch avoids accidental grounded tilts.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn aerial_ready(status: i32, situation: i32) -> bool {
     status == crate::native_states::status::JUMP_SQUAT
         || matches!(
@@ -527,6 +636,10 @@ pub fn aerial_ready(status: i32, situation: i32) -> bool {
 /// Returns an optional `fast_fall` value.
 ///
 /// Gets fast fall if it is available.
+/// ### Arguments
+/// - `velocity_y` (`f32`): Represents the velocity y; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn fast_fall(velocity_y: f32) -> Option<[f32; 2]> {
     (velocity_y.is_finite() && velocity_y < -0.05).then_some([0.0, -1.0])
 }

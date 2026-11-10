@@ -57,6 +57,10 @@ pub const GAMEWATCH: i32 = crate::fighter_kinds::MR_GAME_AND_WATCH;
 /// Adding a fighter requires a verified native move/resource adapter too.
 ///
 ///  Adding a fighter requires a verified native move/resource adapter too.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn supports(kind: i32) -> bool {
     kind == GAMEWATCH
 }
@@ -102,6 +106,11 @@ impl Config {
     ///
     ///
     ///  Gets the data for this fighter.
+    /// ### Arguments
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// - `values` (`Tuning`): Represents the values; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn for_fighter(kind: i32, values: Tuning) -> Option<Self> {
         // Explicit saved configuration, never a global/cross-fighter fallback.
         if !supports(kind) || values.0[tuning::REFLECT_DEFAULT].is_none() {
@@ -122,6 +131,10 @@ impl Config {
     ///
     ///
     ///  Gets how far ahead the policy looks.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub fn horizon(self) -> f32 {
         self.startup + self.margin + REFLECT_CONTACT_SAFETY_MARGIN_FRAMES
     }
@@ -130,6 +143,11 @@ impl Config {
 /// Checks whether the fighter can move in the observed state.
 ///
 /// Checks whether the fighter can move.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn movable(status: i32, situation: i32) -> bool {
     match situation {
         crate::native_states::situation::GROUND => {
@@ -143,6 +161,10 @@ pub fn movable(status: i32, situation: i32) -> bool {
 /// Classifies the value into its bounded bucket.
 ///
 /// Groups the value into a range.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn bucket(status: i32) -> bool {
     matches!(
         status,
@@ -200,6 +222,10 @@ impl Threat {
     ///
     ///
     ///  Creates the key used to find this state.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ProjectileKey` value.
     fn key(self) -> ProjectileKey {
         ProjectileKey {
             id: self.id,
@@ -213,6 +239,17 @@ impl Threat {
 /// Bounds are estimates, not a claim about the native reflector's hitbox.
 ///
 ///  Swept capsule AABB against a configurable body envelope. Continuous slab intersections cannot skip a fast straight projectile between frame samples. Bounds are estimates, not a claim about the native reflector's hitbox.
+/// ### Arguments
+/// - `config` (`Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// - `origin` (`[f32; 3]`): Represents the origin; the function uses it as input to the operation described above.
+/// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
+/// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
+/// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
+/// - `hit` (`Hitbox`): Represents the hit; the function uses it as input to the operation described above.
+/// - `reflectable` (`bool`): Represents the reflectable; the function uses it as input to the operation described above.
+/// - `absorbable` (`bool`): Represents the absorbable; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn predict(
     config: Config,
     origin: [f32; 3],
@@ -391,6 +428,8 @@ impl Default for Reflector {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self::new()
     }
@@ -400,6 +439,8 @@ impl Reflector {
     ///
     ///
     ///  Creates a new value.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             clock: AnimationClock::new(),
@@ -419,6 +460,10 @@ impl Reflector {
     ///
     ///
     ///  Checks whether the feature is on.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(&self) -> bool {
         self.target.is_some()
     }
@@ -426,6 +471,10 @@ impl Reflector {
     ///
     ///
     ///  Gets the chosen target.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn target(&self) -> Option<u32> {
         self.target.map(|key| key.id)
     }
@@ -433,6 +482,8 @@ impl Reflector {
     ///
     ///
     ///  Remembers the target that can be used next.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn remember_target(&mut self) {
         if let Some(id) = self
             .target
@@ -446,6 +497,8 @@ impl Reflector {
     ///
     ///
     ///  Stops the operation that was waiting.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel(&mut self) {
         self.target = None;
         self.turning = false;
@@ -459,6 +512,10 @@ impl Reflector {
     ///
     ///
     ///  Stops the sequence and starts it over.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     fn abort(&mut self) -> ControllerOutput {
         self.cancel();
         ControllerOutput::default()
@@ -466,6 +523,10 @@ impl Reflector {
     /// Abort, remembering the target when a receipt poll already counted against it.
     ///
     ///  Abort, remembering the target when a receipt poll already counted against it.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     fn abort_polled(&mut self) -> ControllerOutput {
         if self.receipt_polls > 0 {
             self.remember_target();
@@ -476,6 +537,9 @@ impl Reflector {
     /// clocks are unavailable/frozen. This never advances a move or adds input.
     ///
     ///  Last-resort receipt fence when BOTH native animation and projectile clocks are unavailable/frozen. This never advances a move or adds input.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn poll_receipt(&mut self, tick: i64) {
         if self.target.is_some() && !self.confirmed && self.last_poll != Some(tick) {
             self.last_poll = Some(tick);
@@ -490,6 +554,9 @@ impl Reflector {
     ///
     ///
     ///  Checks whether the controller mapping accepted the input.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn mapped(&mut self, tick: i64) {
         if self.target.is_some() {
             self.delivery.mapped(tick);
@@ -503,6 +570,14 @@ impl Reflector {
     ///
     ///
     ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+    /// - `config` (`Option<Config>`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `threat` (`Option<Threat>`): Represents the threat; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample(
         &mut self,
         allowed: bool,
@@ -609,6 +684,14 @@ impl Reflector {
     /// window (a turn-around costs extra startup and keeps a larger margin).
     ///
     ///  Whether a new reflect started now covers this shot: Game & Watch can act, the shot is a fresh attempt, and it arrives inside the startup window (a turn-around costs extra startup and keeps a larger margin).
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `config` (`Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `threat` (`Threat`): Represents the threat; the function uses it as input to the operation described above.
+    /// - `facing` (`bool`): Represents the facing; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn admissible(&self, config: Config, c: Context, threat: Threat, facing: bool) -> bool {
         let (extra_startup, extra_margin) = if facing {
             (0., 0.)

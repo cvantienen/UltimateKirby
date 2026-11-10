@@ -72,6 +72,10 @@ pub struct Context {
 /// Determines whether the `ground_status` condition holds.
 ///
 /// Checks whether ground status.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn ground_status(status: i32) -> bool {
     crate::out_of_shield::stationary_grab_state(status)
 }
@@ -80,6 +84,10 @@ pub fn ground_status(status: i32) -> bool {
 /// Determines whether the `stationary_guard` condition holds.
 ///
 /// Checks whether stationary guard.
+/// ### Arguments
+/// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn stationary_guard(c: Context) -> bool {
     matches!(
         c.status,
@@ -89,6 +97,10 @@ fn stationary_guard(c: Context) -> bool {
 /// Determines whether the `valid_clock_rate` condition holds.
 ///
 /// Checks whether valid clock rate.
+/// ### Arguments
+/// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn valid_clock_rate(c: Context) -> bool {
     c.rate.is_finite() && (c.rate > 0.0 || stationary_guard(c))
 }
@@ -220,6 +232,10 @@ struct ThreatWindow {
 /// Checks whether grab target.
 ///
 /// Checks whether grab target.
+/// ### Arguments
+/// - `target` (`Target`): Represents the target object or value being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn is_grab_target(target: Target) -> bool {
     matches!(
         target.status,
@@ -234,6 +250,15 @@ fn is_grab_target(target: Target) -> bool {
 /// Returns an optional `track_grabs` value.
 ///
 /// Gets track grabs if it is available.
+/// ### Arguments
+/// - `old` (`Tracks`): Represents the old; the function uses it as input to the operation described above.
+/// - `selected_target` (`Option<u32>`): Represents the selected target; the function uses it as input to the operation described above.
+/// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+/// - `context` (`Context`): Represents the current execution context; the function uses it as input to the operation described above.
+/// - `request_ready` (`bool`): Represents the request ready; the function uses it as input to the operation described above.
+/// - `window` (`ThreatWindow`): Represents the window; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `(Tracks, Option<(u32, f32)>)` value.
 fn track_grabs(
     old: Tracks,
     selected_target: Option<u32>,
@@ -304,12 +329,23 @@ fn track_grabs(
 /// Checks whether the observed interaction includes contact.
 ///
 /// Checks whether contact was observed.
+/// ### Arguments
+/// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+/// - `t` (`Target`): Represents the t; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn contact(c: Context, t: Target) -> Option<f32> {
     contact_with_lookahead(c, t, LOOKAHEAD)
 }
 /// Returns an optional `contact_with_lookahead` value.
 ///
 /// Gets contact with lookahead if it is available.
+/// ### Arguments
+/// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+/// - `t` (`Target`): Represents the t; the function uses it as input to the operation described above.
+/// - `lookahead` (`f32`): Represents the lookahead; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn contact_with_lookahead(c: Context, t: Target, lookahead: f32) -> Option<f32> {
     contact_with_shape(
         c,
@@ -322,6 +358,14 @@ pub fn contact_with_lookahead(c: Context, t: Target, lookahead: f32) -> Option<f
 /// Returns an optional `contact_with_shape` value.
 ///
 /// Gets contact with shape if it is available.
+/// ### Arguments
+/// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+/// - `t` (`Target`): Represents the t; the function uses it as input to the operation described above.
+/// - `lookahead` (`f32`): Represents the lookahead; the function uses it as input to the operation described above.
+/// - `padding` (`f32`): Represents the padding; the function uses it as input to the operation described above.
+/// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn contact_with_shape(
     c: Context,
     t: Target,
@@ -484,6 +528,8 @@ impl SpotDodge {
     ///
     ///
     ///  Updates suspend response.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn suspend_response(&mut self) {
         self.punish_target = None;
         self.punish_clock = Default::default();
@@ -493,6 +539,9 @@ impl SpotDodge {
     /// next native grab even when its first observed animation frame is later.
     ///
     ///  Missing samples retain consumption; a positively observed end rearms the next native grab even when its first observed animation frame is later.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `known` (`&[Option<(u32, i32)>; N]`): Represents the known; the function uses it as input to the operation described above.
     pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         for track in &mut self.tracks {
             if track.is_some_and(|t| {
@@ -509,6 +558,8 @@ impl SpotDodge {
     ///
     ///
     ///  Cancels the response.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel_response(&mut self) {
         self.response.cancel();
         self.punish_target = None;
@@ -518,6 +569,10 @@ impl SpotDodge {
     ///
     ///
     ///  Gets follow target if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn follow_target(&self) -> Option<u32> {
         self.response
             .target()
@@ -528,6 +583,10 @@ impl SpotDodge {
     ///
     ///
     ///  Checks whether direct up b.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn direct_up_b(&self) -> bool {
         self.response.automatic_up_b()
     }
@@ -535,6 +594,10 @@ impl SpotDodge {
     ///
     ///
     ///  Checks whether up b delivery started.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn up_b_delivery_started(&self) -> bool {
         self.response.up_b_delivery_started()
     }
@@ -542,6 +605,10 @@ impl SpotDodge {
     ///
     ///
     ///  Checks whether up b receipt pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn up_b_receipt_pending(&self) -> bool {
         self.response.up_b_receipt_pending()
     }
@@ -549,6 +616,10 @@ impl SpotDodge {
     ///
     ///
     ///  Checks whether awaiting up b.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn awaiting_up_b(&self) -> bool {
         self.response.awaiting_up_b()
     }
@@ -556,6 +627,10 @@ impl SpotDodge {
     ///
     ///
     ///  Updates attempted up special.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
         self.response.attempted_up_special(tick, target);
     }
@@ -563,6 +638,10 @@ impl SpotDodge {
     ///
     ///
     ///  Updates mapped up special.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
         self.response.mapped_up_special(tick, target);
     }
@@ -570,6 +649,10 @@ impl SpotDodge {
     ///
     ///
     ///  Checks whether punish committed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn punish_committed(&self) -> bool {
         self.response.target().is_some()
     }
@@ -577,6 +660,10 @@ impl SpotDodge {
     /// while native recovery requires an exclusive neutral packet.
     ///
     ///  A confirmed dodge and its configured follow-up are one response, even while native recovery requires an exclusive neutral packet.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn punish_pending(&self) -> bool {
         self.punish_target.is_some() || self.punish_committed()
     }
@@ -584,6 +671,10 @@ impl SpotDodge {
     ///
     ///
     ///  Checks whether grab delivery pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn grab_delivery_pending(&self) -> bool {
         self.response.grab_delivery_pending()
     }
@@ -591,6 +682,10 @@ impl SpotDodge {
     ///
     ///
     ///  Updates mapped grab.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_grab(&mut self, tick: i64, target: u32) {
         self.response.mapped_grab(tick, target);
     }
@@ -598,6 +693,9 @@ impl SpotDodge {
     ///
     ///
     ///  Updates delivery tick.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn delivery_tick(&mut self, tick: i64) {
         self.response.delivery_tick(tick);
         if self.dodge_delivered {
@@ -608,6 +706,10 @@ impl SpotDodge {
     ///
     ///
     ///  Checks whether ground.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_ground(&self) -> bool {
         self.response.needs_ground()
     }
@@ -615,6 +717,10 @@ impl SpotDodge {
     ///
     ///
     ///  Checks whether attack hold.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn attack_hold(&self) -> bool {
         self.response.attack_hold()
     }
@@ -622,6 +728,10 @@ impl SpotDodge {
     ///
     ///
     ///  Gets right stick if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         self.response.right_stick()
     }
@@ -629,6 +739,10 @@ impl SpotDodge {
     ///
     ///
     ///  Checks whether walking.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn walking(&self) -> bool {
         self.response.walking()
     }
@@ -636,6 +750,16 @@ impl SpotDodge {
     ///
     ///
     ///  Gets the punish configured result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `can_act` (`bool`): Represents the can act; the function uses it as input to the operation described above.
+    /// - `rules` (`Option<&crate::reaction_rules::Resolved>`): Represents the rules; the function uses it as input to the operation described above.
+    /// - `settings` (`crate::settings::AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `context` (`crate::gameplay::GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+    /// - `follow` (`Option<crate::gameplay::Opponent>`): Represents the follow; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn punish_configured(
         &mut self,
         enabled: bool,
@@ -686,6 +810,10 @@ impl SpotDodge {
     /// ESCAPE. Delivery is not a successful dodge or authorization to punish.
     ///
     ///  One delivered Down+Guard packet, then neutral while awaiting native ESCAPE. Delivery is not a successful dodge or authorization to punish.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_dodge(&mut self, tick: i64, target: u32) {
         if self.target == Some(target) {
             self.dodge_delivered = true;
@@ -699,6 +827,10 @@ impl SpotDodge {
     /// never count as delivery, native dodge success or a punish confirmation.
     ///
     ///  Rejected mapped packets still spend the bounded attempt budget; they never count as delivery, native dodge success or a punish confirmation.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn attempted_dodge(&mut self, tick: i64, target: u32) {
         if self.target == Some(target) {
             self.dodge_wait_tick(tick);
@@ -708,6 +840,9 @@ impl SpotDodge {
     ///
     ///
     ///  Updates dodge wait tick.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     fn dodge_wait_tick(&mut self, tick: i64) {
         if self.target.is_some() && self.last_mapped != Some(tick) {
             self.mapped = self.mapped.saturating_add(1);
@@ -719,6 +854,15 @@ impl SpotDodge {
     /// forced cancel, extra roster pass or per-frame sequence copy is needed.
     ///
     ///  A follow-up requires our own observed ESCAPE from a pending warning. It reuses the saved spot-dodge Up-B recipe; no synthetic dodge success, forced cancel, extra roster pass or per-frame sequence copy is needed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+    /// - `sequence` (`Option<&crate::sequence_config::Sequence>`): Represents the sequence; the function uses it as input to the operation described above.
+    /// - `settings` (`crate::settings::AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `context` (`crate::gameplay::GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+    /// - `follow` (`Option<crate::gameplay::Opponent>`): Represents the follow; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn punish_automatic(
         &mut self,
         allowed: bool,
@@ -783,6 +927,10 @@ impl SpotDodge {
     ///
     ///
     ///  Gets the chosen target.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
@@ -790,6 +938,8 @@ impl SpotDodge {
     ///
     ///
     ///  Cancels the pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel_pending(&mut self) {
         self.target = None;
         self.mapped = 0;
@@ -801,6 +951,9 @@ impl SpotDodge {
     ///
     ///
     ///  Marks the used.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
     fn mark_used(&mut self, id: u32) {
         for track in self.tracks.iter_mut().flatten() {
             if track.id == id {
@@ -812,6 +965,13 @@ impl SpotDodge {
     ///
     ///
     ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample(
         &mut self,
         enabled: bool,
@@ -824,6 +984,14 @@ impl SpotDodge {
     ///
     ///
     ///  Samples the with lookahead.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+    /// - `lookahead` (`f32`): Represents the lookahead; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample_with_lookahead(
         &mut self,
         enabled: bool,
@@ -844,6 +1012,16 @@ impl SpotDodge {
     ///
     ///
     ///  Samples the with shape.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+    /// - `lookahead` (`f32`): Represents the lookahead; the function uses it as input to the operation described above.
+    /// - `padding` (`f32`): Represents the padding; the function uses it as input to the operation described above.
+    /// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample_with_shape(
         &mut self,
         enabled: bool,
@@ -1070,6 +1248,10 @@ pub mod roll_read {
         ///
         ///
         ///  Checks whether vulnerable now.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn vulnerable_now(&self) -> bool {
             self.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.)
         }
@@ -1077,6 +1259,12 @@ pub mod roll_read {
         /// situation and which recovery clock, if any, applies.
         ///
         ///  Copied facts as an Opponent. The caller knows the actor's native situation and which recovery clock, if any, applies.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
+        /// - `remaining` (`Option<f32>`): Represents the remaining; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `crate::gameplay::Opponent` value.
         pub(crate) fn opponent(
             &self,
             situation: i32,

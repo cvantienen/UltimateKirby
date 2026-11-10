@@ -224,6 +224,8 @@ static MASTER_PRESENCE: Mutex<kirby_assist_core::session::MenuPresence> =
 /// Refreshes the conservative match lock from Ready-Go and recent presence.
 ///
 ///  Updates whether the master switch must stay locked.
+/// ### Arguments
+/// - `ready_go` (`Option<bool>`): Represents the ready go; the function uses it as input to the operation described above.
 fn refresh_master_match_lock(ready_go: Option<bool>) {
     // Paused matches retain GO; intro callbacks supply a short conservative
     // lease before GO. No assist observation/state is required while OFF.
@@ -323,6 +325,10 @@ fn sync_diagnostic_options() {
 /// Synchronizes performance settings before returning the config unchanged.
 ///
 ///  Updates diagnostics and passes the same settings onward.
+/// ### Arguments
+/// - `config` (`Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `Config` value.
 fn diagnostic_config(config: Config) -> Config {
     sync_diagnostic_options();
     config
@@ -356,6 +362,11 @@ const CONTROLLER_SAMPLE_LIFETIME: Duration = Duration::from_millis(250);
 /// Resolves the selected fighter's profile settings over the supplied defaults.
 ///
 ///  Gets the configured options for a character, or shared defaults.
+/// ### Arguments
+/// - `kind` (`Option<i32>`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `base` (`AssistSettings`): Represents the base; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `AssistSettings` value.
 fn settings_for_fighter(kind: Option<i32>, base: AssistSettings) -> AssistSettings {
     PROFILES.get().map_or(
         AssistSettings {
@@ -371,6 +382,8 @@ fn settings_for_fighter(kind: Option<i32>, base: AssistSettings) -> AssistSettin
 /// Expires stale match state before requesting a fresh session ticket.
 ///
 ///  Confirms the current session is still valid before assistance proceeds.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn live_match_ticket() -> Option<SessionTicket> {
     let mut state = STATE.lock().ok()?;
     if state
@@ -392,6 +405,12 @@ unsafe fn live_match_ticket() -> Option<SessionTicket> {
 ///
 /// # Safety
 /// Native arguments must match the pinned mapper ABI (ABI stands for Application Binary Interface) and point to live mapping data.
+/// ### Arguments
+/// - `mappings` (`*mut c_void`): Represents the mappings; the function uses it as input to the operation described above.
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// - `output` (`*mut c_void`): Represents the output data being produced; the function uses it as input to the operation described above.
+/// - `wrapper` (`*mut c_void`): Represents the wrapper; the function uses it as input to the operation described above.
+/// - `arg` (`bool`): Represents the arg; the function uses it as input to the operation described above.
 unsafe fn map_controls(
     mappings: *mut c_void,
     index: i32,
@@ -457,6 +476,11 @@ unsafe fn map_controls(
 ///
 /// # Safety
 /// `object` must follow the native command callback ABI; the trampoline must be valid.
+/// ### Arguments
+/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+/// - `category` (`i32`): Represents the category; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `i32` value.
 unsafe fn observe_commands(object: *mut game::Object, category: i32) -> i32 {
     let flags = original!()(object, category);
     if category != 0 || object.is_null() {
@@ -478,6 +502,8 @@ unsafe fn observe_commands(object: *mut game::Object, category: i32) -> i32 {
 /// Observes the presence of the master player, updating internal state and timestamps as necessary.
 ///
 ///  Uses existing manager observations to remember when the master player is in a match.
+/// ### Arguments
+/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
 unsafe fn observe_master_presence(object: *mut game::Object) {
     if !MASTER_PULSE_REQUESTED.swap(false, Ordering::Relaxed) {
         return;
@@ -513,6 +539,11 @@ extern "C" {
     /// Native command-flag query used by the read-only callback hook.
     ///
     ///  Reads the game's current command flags for an object.
+    /// ### Arguments
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// - `category` (`i32`): Represents the category; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `i32` value.
     fn game_command_flags(object: *mut game::Object, category: i32) -> i32;
 }
 // Publish only the existing box pointer on the small native loader stack.
@@ -521,6 +552,8 @@ extern "C" {
 /// Publishes the boxed immutable configuration without moving its contents.
 ///
 ///  Makes startup settings available to callbacks safely.
+/// ### Arguments
+/// - `config` (`Box<Config>`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
 fn publish_startup_config(config: Box<Config>) {
     let _ = CONFIG.set(config);
 }

@@ -49,6 +49,8 @@ mod attempt {
         ///
         ///
         ///  Creates a new value.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self {
                 previous: None,
@@ -62,6 +64,9 @@ mod attempt {
         /// Rebase a completed loop without discarding native actor stamps.
         ///
         ///  Rebase a completed loop without discarding native actor stamps.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `frames` (`f32`): Represents the number of frames; the function uses it as input to the operation described above.
         pub fn consume(&mut self, frames: f32) {
             self.age -= frames;
         }
@@ -69,6 +74,10 @@ mod attempt {
         ///
         ///
         ///  Gets the elapsed result.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `f32` value.
         pub fn elapsed(&self) -> f32 {
             self.age
         }
@@ -76,6 +85,11 @@ mod attempt {
         ///
         ///
         ///  Advances the pause.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
+        /// - `enemy` (`Option<Opponent>`): Represents the enemy; the function uses it as input to the operation described above.
+        /// - `timeout` (`u16`): Represents the timeout; the function uses it as input to the operation described above.
         pub fn advance_pause(
             &mut self,
             ctx: GameplayContext,
@@ -159,6 +173,11 @@ mod attempt {
     ///
     ///
     ///  Gets the progress result.
+    /// ### Arguments
+    /// - `previous` (`Option<Stamp>`): Represents the previous; the function uses it as input to the operation described above.
+    /// - `current` (`Stamp`): Represents the current; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     fn progress(previous: Option<Stamp>, current: Stamp) -> f32 {
         let Some(p) = previous else {
             return 0.0;
@@ -385,6 +404,11 @@ mod diagnostics {
         ///
         ///
         ///  Checks whether matches.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn matches(self, c: GameplayContext) -> bool {
             match self {
                 Self::Unknown => false,
@@ -460,6 +484,8 @@ mod diagnostics {
         ///
         ///
         ///  Gets the unknown result.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn unknown() -> Self {
             Self {
                 kind: CalibrationKind::Unknown,
@@ -729,6 +755,10 @@ mod diagnostics {
         ///
         ///
         ///  Gets calibration slot if it is available.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn calibration_slot(&self) -> Option<PresetSlot> {
             self.slot
         }
@@ -736,6 +766,14 @@ mod diagnostics {
         ///
         ///
         ///  Gets calibration frame if it is available.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+        /// - `context` (`GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+        /// - `enemy` (`Option<Opponent>`): Represents the enemy; the function uses it as input to the operation described above.
+        /// - `_` (`&str`): Represents the input value; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn calibration_frame(
             &self,
             settings: AssistSettings,
@@ -767,6 +805,10 @@ mod diagnostics {
         ///
         ///
         ///  Gets roll grab diagnostic if it is available.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn roll_grab_diagnostic(&self) -> Option<RollGrabSnapshot> {
             None
         }
@@ -1183,6 +1225,10 @@ mod identity {
         ///
         ///
         ///  Gets for kind if it is available.
+        /// ### Arguments
+        /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn for_kind(kind: i32) -> Option<Self> {
             match kind {
                 0 => Some(Self::Mario),
@@ -1319,6 +1365,11 @@ pub const CLIFF_JUMP3: i32 = crate::native_states::status::CLIFF_JUMP3;
 /// Keep a read-only clock sample of the locked opponent in those states too.
 ///
 ///  Held shield/edge balancing can freeze a pose at a positive reported rate. Keep a read-only clock sample of the locked opponent in those states too.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `motion_rate` (`f32`): Represents the motion rate; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn needs_opponent_clock(status: i32, motion_rate: f32) -> bool {
     motion_rate == 0.0
         || matches!(
@@ -1344,36 +1395,60 @@ pub use crate::native_states::sequence_interrupted;
 /// Checks whether hanging.
 ///
 /// Checks whether hanging.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn is_hanging(status: i32) -> bool {
     (CLIFF_CATCH_MOVE..=CLIFF_WAIT).contains(&status)
 }
 /// Any native ledge state: the hang plus every option taken from it.
 ///
 ///  Any native ledge state: the hang plus every option taken from it.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn is_ledge_status(status: i32) -> bool {
     is_hanging(status) || is_ledge_option(status)
 }
 /// A get-up, roll, ledge attack or ledge jump.
 ///
 ///  A get-up, roll, ledge attack or ledge jump.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn is_ledge_option(status: i32) -> bool {
     option_slot(status).is_some()
 }
 /// Both axes of a copied native position/velocity are usable.
 ///
 ///  Both axes of a copied native position/velocity are usable.
+/// ### Arguments
+/// - `p` (`[f32; 2]`): Represents the p; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(crate) fn finite2(p: [f32; 2]) -> bool {
     p[0].is_finite() && p[1].is_finite()
 }
 /// Determines whether the `finite_opponent` condition holds.
 ///
 /// Checks whether finite opponent.
+/// ### Arguments
+/// - `e` (`&Opponent`): Represents the e; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn finite_opponent(e: &Opponent) -> bool {
     finite2(e.position) && finite2(e.velocity)
 }
 /// Our own native sample is finite with a real left/right facing.
 ///
 ///  Our own native sample is finite with a real left/right facing.
+/// ### Arguments
+/// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn usable_context(ctx: GameplayContext) -> bool {
     finite2(ctx.position)
         && finite2(ctx.velocity)
@@ -1383,6 +1458,10 @@ fn usable_context(ctx: GameplayContext) -> bool {
 /// The ledge option slot whose input recipe answers this native status.
 ///
 ///  The ledge option slot whose input recipe answers this native status.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn option_slot(status: i32) -> Option<PresetSlot> {
     match status {
         CLIFF_CLIMB => Some(PresetSlot::Neutral),
@@ -1396,6 +1475,11 @@ fn option_slot(status: i32) -> Option<PresetSlot> {
 /// just took, as its sticky previous status shows), or a drop from the hang.
 ///
 ///  The response slot for an observed opponent: a ledge option it is taking (or just took, as its sticky previous status shows), or a drop from the hang.
+/// ### Arguments
+/// - `enemy` (`Opponent`): Represents the enemy; the function uses it as input to the operation described above.
+/// - `from_hang` (`bool`): Represents the from hang; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn response_slot(enemy: Opponent, from_hang: bool) -> Option<PresetSlot> {
     option_slot(enemy.status)
         .or_else(|| option_slot(enemy.previous_status))
@@ -1418,6 +1502,13 @@ fn response_slot(enemy: Opponent, from_hang: bool) -> Option<PresetSlot> {
 /// much lower root. Tracked opponents get a separate, bounded follow-up box.
 ///
 ///  Acquisition can use the actual cliff anchor instead of a hanging fighter's much lower root. Tracked opponents get a separate, bounded follow-up box.
+/// ### Arguments
+/// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+/// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
+/// - `enemy` (`Opponent`): Represents the enemy; the function uses it as input to the operation described above.
+/// - `tracked` (`bool`): Represents the tracked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn in_tracking_range(
     settings: AssistSettings,
     position: [f32; 2],
@@ -1523,6 +1614,9 @@ impl LedgeTrap {
     /// Arm a one-shot input preview; never synthesize opponent status or game state.
     ///
     ///  Arm a one-shot input preview; never synthesize opponent status or game state.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
     pub fn request_preview(&mut self, slot: PresetSlot) {
         *self = Self {
             preview: Some(slot),
@@ -1533,6 +1627,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether preview active.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn preview_active(&self) -> bool {
         self.preview.is_some() && !self.complete
     }
@@ -1540,6 +1638,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether manual after response.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn manual_after_response(&self) -> bool {
         self.complete
     }
@@ -1547,6 +1649,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether file timeline active.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn file_timeline_active(&self) -> bool {
         self.file_timeline.is_some()
     }
@@ -1554,6 +1660,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether file needs ground.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn file_needs_ground(&self) -> bool {
         self.file_timeline
             .as_ref()
@@ -1563,6 +1673,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether file inputs only.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn file_inputs_only(&self) -> bool {
         self.file_timeline.as_ref().is_some_and(|t| t.inputs_only())
     }
@@ -1570,6 +1684,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Gets the chosen target.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
@@ -1577,6 +1695,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether engaged.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn engaged(&self) -> bool {
         self.preview.is_some() || self.target.is_some() || self.file_timeline.is_some()
     }
@@ -1584,6 +1706,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether response observation.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_response_observation(&self) -> bool {
         !self.complete && self.engaged()
     }
@@ -1591,6 +1717,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Gets observation target if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn observation_target(&self) -> Option<u32> {
         self.target.filter(|_| self.needs_response_observation())
     }
@@ -1598,6 +1728,11 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether reserves response.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enemy` (`Option<Opponent>`): Represents the enemy; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn reserves_response(&self, enemy: Option<Opponent>) -> bool {
         !self.visit_consumed
             && !self.complete
@@ -1609,12 +1744,20 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether committed input pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn committed_input_pending(&self) -> bool {
         self.file_timeline_active()
     }
     /// The selected walking step owns this analog input, not a movement/physics override.
     ///
     ///  The selected walking step owns this analog input, not a movement/physics override.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn requested_walk_stick(&self) -> Option<[f32; 2]> {
         self.file_timeline
             .as_ref()
@@ -1625,6 +1768,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether requests attack hold.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn requests_attack_hold(&self) -> bool {
         self.file_timeline.as_ref().is_some_and(|t| t.attack_hold())
     }
@@ -1632,6 +1779,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Gets requested right stick if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn requested_right_stick(&self) -> Option<[f32; 2]> {
         self.file_timeline.as_ref().map(|t| t.right_stick())
     }
@@ -1639,6 +1790,11 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether owns jump state.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn owns_jump_state(&self, status: i32) -> bool {
         self.file_timeline_active() && !sequence_interrupted(status)
     }
@@ -1646,6 +1802,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Updates prepare stance.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `anchor` (`[f32; 2]`): Represents the anchor; the function uses it as input to the operation described above.
+    /// - `inward` (`f32`): Represents the inward; the function uses it as input to the operation described above.
     pub fn prepare_stance(&mut self, anchor: [f32; 2], inward: f32) {
         if finite2(anchor) && inward.is_finite() {
             self.anchor = Some(anchor);
@@ -1656,6 +1816,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks whether owns roll navigation.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn owns_roll_navigation(&self) -> bool {
         self.file_timeline_active() && self.slot == Some(PresetSlot::Roll)
     }
@@ -1663,6 +1827,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Gets the observed target velocity result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `[f32; 2]` value.
     pub fn observed_target_velocity(&self) -> [f32; 2] {
         self.observed_velocity
     }
@@ -1670,6 +1838,10 @@ impl LedgeTrap {
     ///
     ///
     ///  Gets the action name result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn action_name(&self) -> &'static str {
         if self.visit_consumed {
             "await_new_ledge_visit"
@@ -1687,6 +1859,14 @@ impl LedgeTrap {
     ///
     ///
     ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `enemy` (`Option<Opponent>`): Represents the enemy; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample(
         &mut self,
         settings: AssistSettings,
@@ -1748,6 +1928,14 @@ impl LedgeTrap {
     /// whatever its native status.
     ///
     ///  Editor preview: answer the one observed opponent with the chosen slot, whatever its native status.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `enemy` (`Option<Opponent>`): Represents the enemy; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     fn sample_preview(
         &mut self,
         settings: AssistSettings,
@@ -1770,6 +1958,14 @@ impl LedgeTrap {
     ///
     ///
     ///  Starts the timeline.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `enemy` (`Opponent`): Represents the enemy; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     fn start_timeline(
         &mut self,
         settings: AssistSettings,
@@ -1789,6 +1985,10 @@ impl LedgeTrap {
     /// Complete this visit without a response (or after an unusable observation).
     ///
     ///  Complete this visit without a response (or after an unusable observation).
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     fn end_visit(&mut self) -> ControllerOutput {
         self.file_timeline = None;
         self.complete = true;
@@ -1799,6 +1999,13 @@ impl LedgeTrap {
     ///
     ///
     ///  Gets the continue timeline result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `enemy` (`Option<Opponent>`): Represents the enemy; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     fn continue_timeline(
         &mut self,
         settings: AssistSettings,

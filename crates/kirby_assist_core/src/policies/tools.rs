@@ -24,7 +24,9 @@ impl Default for AutoTech {
     /// Returns the default value for this type.
     ///
     ///
-///  Returns the default value for this type.
+    ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             timing: RuleTiming::IMMEDIATELY_ONCE,
@@ -36,10 +38,12 @@ impl Default for AutoTech {
 // in src/live.rs + tech_prediction.rs; the live scheduler maps SHIELD to ZR.
 impl AutoTech {
     /// Constructs a `ScenarioRule` for the auto-tech preset based on the current timing.
-    /// # Returns
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
     /// A `ScenarioRule` configured for the auto-tech preset.
     ///
-///  Constructs a ScenarioRule for the auto-tech preset based on the current timing. # Returns A ScenarioRule configured for the auto-tech preset.
+    ///  Constructs a ScenarioRule for the auto-tech preset based on the current timing. # Returns A ScenarioRule configured for the auto-tech preset.
     pub const fn rule(self) -> ScenarioRule {
         ScenarioRule::controller(
             Scenario::Tech,
@@ -75,7 +79,9 @@ pub struct AutoMash {
 impl Default for AutoMash {
     /// Constructs the default auto-mash preset with standard buttons(attack) and interval(3).
     ///
-///  Constructs the default auto-mash preset with standard buttons(attack) and interval(3).
+    ///  Constructs the default auto-mash preset with standard buttons(attack) and interval(3).
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             buttons: ButtonSet::ATTACK,
@@ -86,10 +92,12 @@ impl Default for AutoMash {
 
 impl AutoMash {
     /// Constructs a `ScenarioRule` for the auto-mash preset based on the current buttons and interval.
-    /// # Returns
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
     /// A `ScenarioRule` configured for the auto-mash preset.
     ///
-///  Constructs a ScenarioRule for the auto-mash preset based on the current buttons and interval. # Returns A ScenarioRule configured for the auto-mash preset.
+    ///  Constructs a ScenarioRule for the auto-mash preset based on the current buttons and interval. # Returns A ScenarioRule configured for the auto-mash preset.
     pub fn rule(self) -> ScenarioRule {
         ScenarioRule::controller(
             Scenario::Clatter,

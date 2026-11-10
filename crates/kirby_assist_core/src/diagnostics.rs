@@ -47,6 +47,8 @@ impl<K: PartialEq> DiagnosticGate<K> {
     ///
     ///
     ///  Creates a new value.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             last: None,
@@ -58,6 +60,13 @@ impl<K: PartialEq> DiagnosticGate<K> {
     ///
     ///
     ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`K`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `now_ms` (`u64`): Represents the current time in milliseconds; the function uses it as input to the operation described above.
+    /// - `periodic` (`bool`): Represents whether this is a periodic sample; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample(&mut self, key: K, now_ms: u64, periodic: bool) -> Option<DiagnosticEmission> {
         let changed = self.last.as_ref() != Some(&key);
         let sample_due = periodic
@@ -82,6 +91,14 @@ impl<K: PartialEq> DiagnosticGate<K> {
     /// grab traces preserve critical edges separately before this throttle.
     ///
     ///  Bound bulky progress logs even when readiness/requests chatter. Dedicated grab traces preserve critical edges separately before this throttle.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`K`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `now_ms` (`u64`): Represents the current time in milliseconds; the function uses it as input to the operation described above.
+    /// - `periodic` (`bool`): Represents whether this is a periodic sample; the function uses it as input to the operation described above.
+    /// - `minimum_ms` (`u64`): Represents the minimum ms; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample_throttled(
         &mut self,
         key: K,
@@ -104,6 +121,8 @@ impl<K: PartialEq> Default for DiagnosticGate<K> {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self::new()
     }
@@ -309,6 +328,10 @@ pub mod modes {
     ///
     ///
     ///  Checks whether this bit is on.
+    /// ### Arguments
+    /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn bit(owner: Owner) -> u32 {
         1 << OWNERS.iter().position(|v| *v == owner).unwrap()
     }
@@ -316,6 +339,10 @@ pub mod modes {
     ///
     ///
     ///  Gets the name shown for this value.
+    /// ### Arguments
+    /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn name(owner: Owner) -> &'static str {
         match owner {
             Owner::Safety => "Tech / mash / SDI / DI",
@@ -336,6 +363,10 @@ pub mod modes {
     /// Describe each tool's prerequisites without guessing a particular failed gate.
     ///
     ///  Describe each tool's prerequisites without guessing a particular failed gate.
+    /// ### Arguments
+    /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn purpose(owner: Owner) -> &'static str {
         match owner {
             Owner::OutOfShield => "Confirms shield contact, retains defense through stun/multihits and selects the fighter-specific in-range response; yields to ledge responses.",
@@ -357,6 +388,11 @@ pub mod modes {
     ///
     ///
     ///  Gets the motion’s display name.
+    /// ### Arguments
+    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// - `motion` (`u64`): Represents the motion being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn motion_name(status: i32, motion: u64) -> &'static str {
         /// Defines the `ATTACK_AIR_NAMES` constant used by this module.
         ///
@@ -380,6 +416,10 @@ pub mod modes {
     ///
     ///
     ///  Gets the readable name for the native action.
+    /// ### Arguments
+    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u16` value.
     fn native_action(status: i32) -> u16 {
         match status {
             crate::native_states::status::JUMP_SQUAT
@@ -485,6 +525,10 @@ pub mod modes {
     ///
     ///
     ///  Gets the readable name for the native value.
+    /// ### Arguments
+    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn native_name(status: i32) -> &'static str {
         match status {
             crate::native_states::status::WAIT => "standing",
@@ -691,6 +735,11 @@ pub mod modes {
         ///
         ///
         ///  Creates a new value.
+        /// ### Arguments
+        /// - `snapshot` (`Snapshot`): Represents the snapshot; the function uses it as input to the operation described above.
+        /// - `at_ms` (`u64`): Represents the at ms; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         fn new(snapshot: Snapshot, at_ms: u64) -> Self {
             Self {
                 first: snapshot,
@@ -707,6 +756,9 @@ pub mod modes {
         ///
         ///
         ///  Remembers when a fighter was last seen.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `s` (`Snapshot`): Represents the s; the function uses it as input to the operation described above.
         fn observe(&mut self, s: Snapshot) {
             self.native_actions |= native_action(s.status);
             self.last = s;
@@ -726,6 +778,10 @@ pub mod modes {
         /// Compact menu snapshot, formatted only by the background writer.
         ///
         ///  Compact menu snapshot, formatted only by the background writer.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn card_text(&self) -> String {
             let s = self.last;
             let owner = s.winner.map_or("Physical controls", name);
@@ -771,6 +827,10 @@ pub mod modes {
         /// Called by the background writer, never the input hook.
         ///
         ///  Called by the background writer, never the input hook.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn format(&self) -> String {
             let mut text = String::with_capacity(REPORT_TEXT_CAPACITY_BYTES);
             let last = self.last;
@@ -842,6 +902,10 @@ pub mod modes {
     ///
     ///
     ///  Gets the name shown for the selected winner.
+    /// ### Arguments
+    /// - `winner` (`Option<Owner>`): Represents the winner; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn winner_name(winner: Option<Owner>) -> &'static str {
         winner.map_or("physical controls", name)
     }
@@ -850,6 +914,10 @@ pub mod modes {
     ///
     ///
     ///  Builds the text explaining the decision.
+    /// ### Arguments
+    /// - `last` (`Snapshot`): Represents the last; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn why_text(last: Snapshot) -> &'static str {
         if !last.valid {
             "assistance paused: observation or gameplay scope is unavailable"
@@ -874,6 +942,10 @@ pub mod modes {
     ///
     ///
     ///  Writes the input evidence.
+    /// ### Arguments
+    /// - `text` (`&mut String`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
+    /// - `e` (`Evidence`): Represents the e; the function uses it as input to the operation described above.
+    /// - `valid` (`bool`): Represents the valid; the function uses it as input to the operation described above.
     fn write_input_evidence(text: &mut String, e: Evidence, valid: bool) {
         if e.selected == 0 {
             let _ = writeln!(
@@ -948,6 +1020,8 @@ pub mod modes {
         ///
         ///
         ///  Returns the default value for this type.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         fn default() -> Self {
             Self::new()
         }
@@ -957,6 +1031,8 @@ pub mod modes {
         ///
         ///
         ///  Creates a new value.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self {
                 previous: None,
@@ -967,6 +1043,12 @@ pub mod modes {
         /// At most four fixed-size batches per second. Unchanged polls do no work.
         ///
         ///  At most four fixed-size batches per second. Unchanged polls do no work.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `snapshot` (`Snapshot`): Represents the snapshot; the function uses it as input to the operation described above.
+        /// - `ms` (`u64`): Represents the ms; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn sample(&mut self, snapshot: Snapshot, ms: u64) -> Option<Report> {
             if self.last_ms.is_some_and(|last| ms < last) {
                 *self = Self::new();
@@ -1009,6 +1091,12 @@ pub mod modes {
     /// Keep completed results below the menu; hide rather than overlap if it fills the screen.
     ///
     ///  Keep completed results below the menu; hide rather than overlap if it fills the screen.
+    /// ### Arguments
+    /// - `display_height` (`f32`): Represents the display height; the function uses it as input to the operation described above.
+    /// - `scale` (`f32`): Represents the scale; the function uses it as input to the operation described above.
+    /// - `menu_height` (`f32`): Represents the menu height; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn left_result_space(
         display_height: f32,
         scale: f32,
@@ -1050,6 +1138,10 @@ pub mod modes {
         ///
         ///
         ///  Creates a new value.
+        /// ### Arguments
+        /// - `text` (`&str`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub fn new(text: &str) -> Self {
             let mut len = text.len().min(LABEL_CAPACITY_BYTES);
             while !text.is_char_boundary(len) {
@@ -1066,6 +1158,10 @@ pub mod modes {
         ///
         ///
         ///  Gets the value as text.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn as_str(&self) -> &str {
             std::str::from_utf8(&self.bytes[..self.len]).unwrap_or("")
         }
@@ -1073,6 +1169,10 @@ pub mod modes {
         ///
         ///
         ///  Checks whether empty.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn is_empty(&self) -> bool {
             self.len == 0
         }
@@ -1082,6 +1182,11 @@ pub mod modes {
         ///
         ///
         ///  Writes the value in its display form.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `f` (`&mut std::fmt::Formatter<'_>`): Represents the f; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `std::fmt::Result` value.
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
@@ -1113,6 +1218,11 @@ pub mod modes {
         ///
         ///
         ///  Creates a new value.
+        /// ### Arguments
+        /// - `fighter` (`&'static str`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
+        /// - `rows` (`[&str; CONFIGURATION_ROW_COUNT]`): Represents the rows; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub fn new(fighter: &'static str, rows: [&str; CONFIGURATION_ROW_COUNT]) -> Self {
             Self {
                 fighter,
@@ -1124,6 +1234,11 @@ pub mod modes {
         ///
         ///
         ///  Creates a copy that includes the reflect response.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub fn with_reflect(mut self, enabled: bool) -> Self {
             self.auto_reflect = enabled;
             self
@@ -1132,6 +1247,10 @@ pub mod modes {
         ///
         ///
         ///  Turns the value into formatted text.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting text.
         pub fn format(&self) -> String {
             let mut text = format!("SAVED MODES for {} (changed configuration)\n", self.fighter);
             if self.fighter == "mr_game_and_watch" {
@@ -1184,6 +1303,8 @@ pub mod modes {
         ///
         ///
         ///  Saves a snapshot of the current values.
+        /// ### Returns
+        /// Returns the resulting `Snapshot` value.
         fn snapshot() -> Snapshot {
             Snapshot {
                 winner: Some(Owner::Ledge),

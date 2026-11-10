@@ -38,7 +38,12 @@ mod trajectory {
         /// Determines whether the `contains` condition holds.
         ///
         ///
-///  Checks whether contains.
+        ///  Checks whether contains.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `p` (`[f32; 2]`): Represents the p; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn contains(self, p: [f32; 2]) -> bool {
             [self.left, self.right, self.bottom, self.top, p[0], p[1]]
                 .iter()
@@ -53,7 +58,12 @@ mod trajectory {
         /// Each axis is bracketed independently from a verified interior point.
         /// Unknown/nonrectangular results fail closed instead of inventing a stage.
         ///
-///  Read the actual death rectangle through GroundUtility::checkdeadarea. Pinned native result enum: NONE=-1, UP=0, DOWN=1, LEFT=2, RIGHT=3. Each axis is bracketed independently from a verified interior point.
+        ///  Read the actual death rectangle through GroundUtility::checkdeadarea. Pinned native result enum: NONE=-1, UP=0, DOWN=1, LEFT=2, RIGHT=3. Each axis is bracketed independently from a verified interior point.
+        /// ### Arguments
+        /// - `p` (`[f32; 2]`): Represents the p; the function uses it as input to the operation described above.
+        /// - `query` (`impl FnMut([f32; 2]) -> i32`): Represents the query; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn observe(p: [f32; 2], mut query: impl FnMut([f32; 2]) -> i32) -> Option<Self> {
             if !p.iter().all(|v| v.is_finite() && v.abs() < 8192.) || query(p) != -1 {
                 return None;
@@ -101,7 +111,12 @@ mod trajectory {
         /// Returns the `margin` result.
         ///
         ///
-///  Gets the margin result.
+        ///  Gets the margin result.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `p` (`[f32; 2]`): Represents the p; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `f32` value.
         pub fn margin(self, p: [f32; 2]) -> f32 {
             (p[0] - self.left)
                 .min(self.right - p[0])
@@ -146,7 +161,11 @@ mod trajectory {
         /// Determines whether the `valid` condition holds.
         ///
         ///
-///  Checks whether valid.
+        ///  Checks whether valid.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn valid(self) -> bool {
             self.blast.contains(self.position)
                 && self.hitstun.is_finite()
@@ -160,7 +179,12 @@ mod trajectory {
         /// among survivors prefer clearance throughout flight, including corners.
         /// Uses Ultimate's 0.051 launch-speed decay and native fighter gravity.
         ///
-///  Larger is safer. Surviving the forecast outranks delaying a predicted KO; among survivors prefer clearance throughout flight, including corners. Uses Ultimate's 0.051 launch-speed decay and native fighter gravity.
+        ///  Larger is safer. Surviving the forecast outranks delaying a predicted KO; among survivors prefer clearance throughout flight, including corners. Uses Ultimate's 0.051 launch-speed decay and native fighter gravity.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `launch` (`[f32; 2]`): Represents the launch; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `f32` value.
         pub fn score(self, launch: [f32; 2]) -> f32 {
             let initial_speed = launch[0].hypot(launch[1]);
             if !self.valid() || !launch.iter().all(|v| v.is_finite()) || initial_speed < 0.00001 {
@@ -214,7 +238,13 @@ mod trajectory {
     /// Chooses the trajectory.
     ///
     ///
-///  Chooses the trajectory.
+    ///  Chooses the trajectory.
+    /// ### Arguments
+    /// - `settings` (`Settings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `trajectory` (`Trajectory`): Represents the trajectory; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn choose_trajectory(
         settings: Settings,
         c: Context,
@@ -310,7 +340,9 @@ impl Default for Settings {
     /// Returns the default value for this type.
     ///
     ///
-///  Returns the default value for this type.
+    ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             enabled: true,
@@ -378,7 +410,11 @@ impl Reason {
     /// Returns the display label for the value.
     ///
     ///
-///  Gets the text shown for this value.
+    ///  Gets the text shown for this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn label(self) -> &'static str {
         match self {
             Self::TrajectorySurvival => "maximize predicted blast-zone clearance",
@@ -410,6 +446,11 @@ pub struct Decision {
 /// Returns the `predicted_launch` result.
 ///
 /// Gets the predicted launch result.
+/// ### Arguments
+/// - `v` (`[f32; 2]`): Represents the v; the function uses it as input to the operation described above.
+/// - `s` (`[f32; 2]`): Represents the s; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[f32; 2]` value.
 pub fn predicted_launch(v: [f32; 2], s: [f32; 2]) -> [f32; 2] {
     let speed = v[0].hypot(v[1]);
     if !v.iter().chain(s.iter()).all(|v| v.is_finite()) || speed < 0.00001 {
@@ -443,6 +484,11 @@ pub fn predicted_launch(v: [f32; 2], s: [f32; 2]) -> [f32; 2] {
 /// Settings and launch vector that either DI heuristic may act on.
 ///
 ///  Settings and launch vector that either DI heuristic may act on.
+/// ### Arguments
+/// - `settings` (`Settings`): Represents the settings; the function uses it as input to the operation described above.
+/// - `launch` (`[f32; 2]`): Represents the launch; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn usable(settings: Settings, launch: [f32; 2]) -> bool {
     settings.enabled
         && launch.iter().all(|v| v.is_finite())
@@ -453,6 +499,11 @@ fn usable(settings: Settings, launch: [f32; 2]) -> bool {
 /// Returns an optional `choose` value.
 ///
 /// Gets choose if it is available.
+/// ### Arguments
+/// - `settings` (`Settings`): Represents the settings; the function uses it as input to the operation described above.
+/// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn choose(settings: Settings, c: Context) -> Option<Decision> {
     if !usable(settings, c.launch) || !c.outward.is_finite() {
         return None;
@@ -574,21 +625,35 @@ impl AutoDi {
     /// Determines whether the `manual_override` condition holds.
     ///
     ///
-///  Checks whether manual override.
+    ///  Checks whether manual override.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn manual_override(&self) -> bool {
         self.manual
     }
     /// Returns an optional `decision` value.
     ///
     ///
-///  Gets decision if it is available.
+    ///  Gets decision if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn decision(&self) -> Option<Decision> {
         self.decision
     }
     /// An automated damage response owns its stick through the launch phase.
     /// Physical intent is handled by the shared owner, never by a second veto.
     ///
-///  An automated damage response owns its stick through the launch phase. Physical intent is handled by the shared owner, never by a second veto.
+    ///  An automated damage response owns its stick through the launch phase. Physical intent is handled by the shared owner, never by a second veto.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `settings` (`Settings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample_exclusive(&mut self, settings: Settings, c: Context) -> Option<[f32; 2]> {
         self.manual = false;
         self.sample(settings, c, [0.; 2])
@@ -596,7 +661,14 @@ impl AutoDi {
     /// Re-evaluate at the start of the final launch-input phase, then hold the
     /// same result through release. Early SDI may have changed the position.
     ///
-///  Re-evaluate at the start of the final launch-input phase, then hold the same result through release. Early SDI may have changed the position.
+    ///  Re-evaluate at the start of the final launch-input phase, then hold the same result through release. Early SDI may have changed the position.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `settings` (`Settings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `trajectory` (`Option<Trajectory>`): Represents the trajectory; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample_exclusive_with_trajectory(
         &mut self,
         settings: Settings,
@@ -622,7 +694,14 @@ impl AutoDi {
     /// Updates the toggle state from the current button sample and match state.
     ///
     ///
-///  Checks the current buttons and updates whether the toggle should activate.
+    ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `settings` (`Settings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `physical` (`[f32; 2]`): Represents the physical; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample(
         &mut self,
         settings: Settings,

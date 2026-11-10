@@ -79,6 +79,11 @@ impl Stamp {
     /// Copies timing/status facts from a calibration frame.
     ///
     ///  Creates a compact record of what both fighters were doing.
+    /// ### Arguments
+    /// - `frame` (`CalibrationFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+    /// - `ms` (`u64`): Represents the ms; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn new(frame: CalibrationFrame, ms: u64) -> Self {
         Self {
             ms,
@@ -93,6 +98,10 @@ impl Stamp {
     /// Formats the target's copied status and motion clock.
     ///
     ///  Produces a short readable timestamp for the report.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn describe(self) -> String {
         let frame = self
             .target_frame
@@ -141,6 +150,11 @@ impl NeutralActivity {
     /// Copies neutral activity and target spacing/protection from a frame.
     ///
     ///  Captures the fighter and opponent state for this moment.
+    /// ### Arguments
+    /// - `frame` (`CalibrationFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+    /// - `stamp` (`Stamp`): Represents the stamp; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn new(frame: CalibrationFrame, stamp: Stamp) -> Self {
         Self {
             stamp,
@@ -171,6 +185,10 @@ impl NeutralActivity {
     /// Formats copied animation, vulnerability, timing, and spacing values.
     ///
     ///  Turns the activity snapshot into one readable report line.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn describe(self) -> String {
         format!(
             "own {} f{:.1}; {}; vulnerable={:?}; protection_left={}; recovery_left={}; gap_x/height={:?}",
@@ -330,6 +348,10 @@ pub struct Report {
 /// Maps known gate identifiers to readable phrases and normalizes unknown labels.
 ///
 ///  Rewrites internal wait reasons into clearer report text.
+/// ### Arguments
+/// - `gate` (`&str`): Represents the gate; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `std::borrow::Cow<'_, str>` value.
 fn readable_gate(gate: &str) -> std::borrow::Cow<'_, str> {
     let known = match gate {
         "watch_ledge" => "Watching for an opponent ledge option",
@@ -361,6 +383,10 @@ impl Report {
     /// native start, and input evidence.
     ///
     ///  Summarizes what the game appeared to do during the attempt.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn result(&self) -> &'static str {
         if self.captured {
             "CAPTURE confirmed"
@@ -386,6 +412,10 @@ impl Report {
     /// Returns a caveated narrative consistent with the available native evidence.
     ///
     ///  Explains what the result can and cannot confirm.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn explanation(&self) -> &'static str {
         if self.captured {
             "The game confirmed a capture."
@@ -460,6 +490,11 @@ impl Report {
     /// Converts an instant into saturated milliseconds from this report's origin.
     ///
     ///  Measures how many milliseconds have passed since recording began.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u64` value.
     fn elapsed(&self, now: Instant) -> u64 {
         now.saturating_duration_since(self.origin)
             .as_millis()
@@ -468,6 +503,10 @@ impl Report {
     /// Checks whether the input channel matching the configured move was requested.
     ///
     ///  Tells whether the relevant button was ever requested.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn action_requested(&self) -> bool {
         match self.model.kind {
             CalibrationKind::Attack => self.requests[1].is_some(),
@@ -480,6 +519,10 @@ impl Report {
     /// Checks whether the input channel matching the configured move was mapped.
     ///
     ///  Tells whether the relevant button reached the mapped output.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn action_mapped(&self) -> bool {
         match self.model.kind {
             CalibrationKind::Attack => self.mapped[1],
@@ -492,6 +535,10 @@ impl Report {
     /// Worker thread only. Native frames and wall time are kept separate.
     ///
     ///  Turns the saved calibration into a full readable report.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn format(&self) -> String {
         let mut text = String::with_capacity(3_072);
         let label = match self.first.slot {
@@ -725,6 +772,8 @@ impl Report {
 /// Stores or classifies the sequence end marker used by calibration reports.
 ///
 ///  Remembers how the configured sequence finished.
+/// ### Arguments
+/// - `reason` (`Option<&'static str>`): Represents the reason; the function uses it as input to the operation described above.
 fn note_timeline_end(reason: Option<&'static str>) {
     match reason {
         Some("native_clock_gap") => {
@@ -740,6 +789,11 @@ fn note_timeline_end(reason: Option<&'static str>) {
 /// Computes target-motion frame delta only when target clock evidence matches.
 ///
 ///  Measures animation progress without treating wall time as game time.
+/// ### Arguments
+/// - `a` (`Stamp`): Represents the a; the function uses it as input to the operation described above.
+/// - `b` (`Stamp`): Represents the b; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn target_delta(a: Stamp, b: Stamp) -> Option<f32> {
     let rate = a.target_rate?;
     let other_rate = b.target_rate?;
@@ -761,12 +815,20 @@ fn target_delta(a: Stamp, b: Stamp) -> Option<f32> {
 /// Formats an optional timestamp or returns a stable missing-value label.
 ///
 ///  Displays a time point when known, otherwise says it was not observed.
+/// ### Arguments
+/// - `stamp` (`Option<Stamp>`): Represents the stamp; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 fn point(stamp: Option<Stamp>) -> String {
     stamp.map_or_else(|| "not observed".into(), Stamp::describe)
 }
 /// Formats an optional finite numeric value for a report.
 ///
 ///  Shows a number when available and a placeholder when it is not.
+/// ### Arguments
+/// - `value` (`Option<f32>`): Represents the value being processed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 fn number(value: Option<f32>) -> String {
     value
         .filter(|v| v.is_finite())
@@ -775,6 +837,11 @@ fn number(value: Option<f32>) -> String {
 /// Resolves the canonical button mask for each calibration input channel.
 ///
 ///  Maps a tested move to its jump, attack, grab, special, and shield buttons.
+/// ### Arguments
+/// - `frame` (`CalibrationFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `kind` (`CalibrationKind`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[u32; 5]` value.
 fn channel_masks(frame: CalibrationFrame, kind: CalibrationKind) -> [u32; 5] {
     let grab = if kind == CalibrationKind::Grab {
         frame.grab_button
@@ -812,6 +879,8 @@ impl Recorder {
     /// Creates an idle recorder with no report and an open lifecycle.
     ///
     ///  Starts calibration recording in a clean state.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             active: None,
@@ -821,6 +890,10 @@ impl Recorder {
     /// Reports whether a calibration report is currently being collected.
     ///
     ///  Checks whether calibration tracking is active.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(&self) -> bool {
         self.active.is_some()
     }
@@ -828,6 +901,12 @@ impl Recorder {
     /// distinguishing option changes and animation rewinds.
     ///
     ///  Records what happened during the selected option attempt.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `frame` (`Option<CalibrationFrame>`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+    /// - `fighter` (`(&'static str, i32)`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
+    /// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
+    /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
     pub fn observe(
         &mut self,
         frame: Option<CalibrationFrame>,
@@ -1036,6 +1115,12 @@ impl Recorder {
     /// Records mapper proposal, applied overlay, and final mapped-button evidence.
     ///
     ///  Tracks whether requested inputs reached the game's mapper output.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `proposed` (`u32`): Represents the proposed; the function uses it as input to the operation described above.
+    /// - `applied` (`u32`): Represents the applied; the function uses it as input to the operation described above.
+    /// - `mapped` (`u32`): Represents the mapped; the function uses it as input to the operation described above.
+    /// - `gate` (`&'static str`): Represents the gate; the function uses it as input to the operation described above.
     pub fn mapped(&mut self, proposed: u32, applied: u32, mapped: u32, gate: &'static str) {
         let Some(report) = self.active.as_mut() else {
             return;
@@ -1072,6 +1157,9 @@ impl Recorder {
     /// Completes the current report with a reason and closes the attempt.
     ///
     ///  Ends recording and sends the report to the logger.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `reason` (`&'static str`): Represents the reason; the function uses it as input to the operation described above.
     pub fn stop(&mut self, reason: &'static str) {
         if let Some(mut report) = self.active.take() {
             report.end = reason;
@@ -1082,6 +1170,9 @@ impl Recorder {
     /// Stops any current report and reopens the recorder lifecycle.
     ///
     ///  Clears the completed state so a later option visit can be tracked.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `reason` (`&'static str`): Represents the reason; the function uses it as input to the operation described above.
     pub fn reset(&mut self, reason: &'static str) {
         self.stop(reason);
         self.closed = false;
@@ -1092,6 +1183,8 @@ impl Recorder {
 /// the next battle/fighter after its epoch has been invalidated.
 ///
 ///  Updates the display only if the report still belongs to this session.
+/// ### Arguments
+/// - `report` (`&Report`): Represents the report; the function uses it as input to the operation described above.
 pub fn publish(report: &Report) {
     if report.epoch != EPOCH.load(Ordering::Acquire) {
         return;
@@ -1122,6 +1215,8 @@ pub fn clear() {
 /// Invokes the renderer with the cached card only when its epoch is current.
 ///
 ///  Shows the latest valid calibration card in the menu.
+/// ### Arguments
+/// - `draw` (`impl FnOnce(&CStr)`): Represents the draw; the function uses it as input to the operation described above.
 pub fn with_card(draw: impl FnOnce(&CStr)) {
     if let Ok(card) = CARD.try_lock() {
         if let Some((epoch, card)) = card.as_ref() {
@@ -1150,6 +1245,10 @@ mod tests {
     /// Builds a baseline calibration observation for a selected option.
     ///
     ///  Creates a reusable fighter snapshot for test cases.
+    /// ### Arguments
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `CalibrationFrame` value.
     fn frame(slot: PresetSlot) -> CalibrationFrame {
         let context = GameplayContext {
             held: true,

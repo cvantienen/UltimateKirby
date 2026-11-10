@@ -947,6 +947,7 @@ pub mod status {
     ///
     ///
     ///  Provides the FINAL constant value.
+    ///
     pub const FINAL: i32 = 0x1e0;
 }
 
@@ -1240,6 +1241,10 @@ pub const THROWN: i32 = status::THROWN;
 /// Ordinary jump/fall states only: never recovery, tumble, attack or air dodge.
 ///
 ///  Ordinary jump/fall states only: never recovery, tumble, attack or air dodge.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn jump_or_fall(status: i32) -> bool {
     matches!(
         status,
@@ -1251,6 +1256,10 @@ pub fn jump_or_fall(status: i32) -> bool {
 /// transient LinkModule capture link is absent or uses a move-specific link.
 ///
 ///  Special captures/final victims are not ordinary combat targets, even when a transient LinkModule capture link is absent or uses a move-specific link.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn captured_or_scripted(status: i32) -> bool {
     matches!(status,
         status::CAPTURE_PULLED..=status::THROWN
@@ -1277,6 +1286,10 @@ pub fn captured_or_scripted(status: i32) -> bool {
 /// mash/tech safety. Do not resume an old attack after a stun/capture ends.
 ///
 ///  Abort existing input tapes on forced states, without disabling native mash/tech safety. Do not resume an old attack after a stun/capture ends.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn sequence_interrupted(status: i32) -> bool {
     captured_or_scripted(status)
         || matches!(status,
@@ -1302,6 +1315,10 @@ pub fn sequence_interrupted(status: i32) -> bool {
 /// ordinary grab must not be chosen for their downed/buried/frozen states.
 ///
 ///  These vulnerable bodies may be hit by a configured shield backup, but an ordinary grab must not be chosen for their downed/buried/frozen states.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn ordinary_grab_immune(status: i32) -> bool {
     matches!(
         status,
@@ -1317,6 +1334,11 @@ pub fn ordinary_grab_immune(status: i32) -> bool {
 /// meanings only to the native kind that owns them.
 ///
 ///  Private status values overlap across fighters. Apply these forced-state meanings only to the native kind that owns them.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn fighter_sequence_interrupted(kind: i32, status: i32) -> bool {
     sequence_interrupted(status)
         || fighter_noncombat(kind, status)
@@ -1327,6 +1349,11 @@ pub fn fighter_sequence_interrupted(kind: i32, status: i32) -> bool {
 /// targets, even through a transient missing capture link.
 ///
 ///  Inactive swap forms and known Final Smash actors are not ordinary punish targets, even through a transient missing capture link.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn fighter_noncombat(kind: i32, status: i32) -> bool {
     kind_statuses::noncombat_status(kind, status)
 }

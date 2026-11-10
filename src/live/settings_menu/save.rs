@@ -119,6 +119,10 @@ impl Job {
     /// Copies the fields needed to correlate an eventual completion.
     ///
     ///  Keeps a small record of the save request for its result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Identity` value.
     fn identity(&self) -> Identity {
         Identity {
             kind: self.kind,
@@ -179,6 +183,11 @@ impl ResultMessage {
     /// Constructs a failure completion preserving request correlation fields.
     ///
     ///  Builds an error result that still points to the original request.
+    /// ### Arguments
+    /// - `identity` (`Identity`): Represents the identity; the function uses it as input to the operation described above.
+    /// - `message` (`String`): Represents the message; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn failure(identity: Identity, message: String) -> Self {
         Self {
             choice: None,
@@ -227,6 +236,8 @@ static UI_SAVE_GATE: Mutex<()> = Mutex::new(());
 /// Acquires the short cached-UI edit gate only while no save is active.
 ///
 ///  Lets the display be changed only when a save is not using it.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) fn try_ui_edit() -> Option<std::sync::MutexGuard<'static, ()>> {
     if busy() {
         return None;
@@ -241,6 +252,8 @@ pub(super) fn try_ui_edit() -> Option<std::sync::MutexGuard<'static, ()>> {
 /// Reads the save-in-progress flag with acquire ordering.
 ///
 ///  Checks whether a save is still running.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn busy() -> bool {
     BUSY.load(Ordering::Acquire)
 }
@@ -260,6 +273,8 @@ pub(super) static WORKER_TEST: Mutex<()> = Mutex::new(());
 /// Checks for a published result or an exited worker requiring synthesis.
 ///
 ///  Checks whether the menu has a save result to process.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn has_result() -> bool {
     RESULT_READY.load(Ordering::Acquire)
         || busy()
@@ -272,6 +287,8 @@ pub(super) fn has_result() -> bool {
 /// Joins only a finished worker, consumes its result, and releases the save gate.
 ///
 ///  Collects a completed save without waiting for active disk work.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) fn poll() -> Option<ResultMessage> {
     if !has_result() {
         return None;
@@ -313,6 +330,10 @@ pub(super) fn poll() -> Option<ResultMessage> {
 /// Claims the exclusive save state only for an allowed Training operation.
 ///
 ///  Starts a save only in Training mode and only when none is already active.
+/// ### Arguments
+/// - `training` (`bool`): Represents the training; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn claim_worker(training: bool) -> Result<(), &'static str> {
     if !training {
         return Err("Saving is available only in Training Mode");
@@ -324,6 +345,11 @@ fn claim_worker(training: bool) -> Result<(), &'static str> {
 /// Validates and starts one explicit save, returning immediate status text.
 ///
 ///  Requests a save and tells the menu whether it started.
+/// ### Arguments
+/// - `job` (`Job`): Represents the job; the function uses it as input to the operation described above.
+/// - `training` (`bool`): Represents the training; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 pub(super) fn request(job: Job, training: bool) -> String {
     #[cfg(test)]
     if let Some(operation) = *TEST_OPERATION.lock().unwrap_or_else(|e| e.into_inner()) {
@@ -342,6 +368,12 @@ pub(super) static TEST_OPERATION: Mutex<Option<fn(&Job) -> Result<bool, String>>
 /// Applies the save validation and worker path with an injectable operation.
 ///
 ///  Runs a save request using either real storage or a test substitute.
+/// ### Arguments
+/// - `job` (`Job`): Represents the job; the function uses it as input to the operation described above.
+/// - `training` (`bool`): Represents the training; the function uses it as input to the operation described above.
+/// - `operation` (`fn(&Job) -> Result<bool, String>`): Represents the operation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 fn request_with(job: Job, training: bool, operation: fn(&Job) -> Result<bool, String>) -> String {
     if job.tuning.is_none() && !job.delete {
         if usize::from(job.sequence.len) > kirby_assist_core::sequence_config::MAX_ACTIONS {
@@ -364,6 +396,8 @@ fn request_with(job: Job, training: bool, operation: fn(&Job) -> Result<bool, St
 /// Replaces the result slot before publishing readiness with release ordering.
 ///
 ///  Delivers the finished save message to the menu.
+/// ### Arguments
+/// - `result` (`ResultMessage`): Represents the result being processed; the function uses it as input to the operation described above.
 fn publish(result: ResultMessage) {
     let mut slot = RESULT.lock().unwrap_or_else(|error| error.into_inner());
     *slot = Some(result);
@@ -372,6 +406,11 @@ fn publish(result: ResultMessage) {
 /// Maps the operation outcome and request flags to stable user-facing text.
 ///
 ///  Chooses the message shown for a completed save.
+/// ### Arguments
+/// - `job` (`&Job`): Represents the job; the function uses it as input to the operation described above.
+/// - `outcome` (`&Result<bool, String>`): Represents the outcome; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 fn completion_message(job: &Job, outcome: &Result<bool, String>) -> String {
     match outcome {
         Ok(false) => "Already saved; file unchanged".into(),
@@ -384,6 +423,11 @@ fn completion_message(job: &Job, outcome: &Result<bool, String>) -> String {
 /// Starts a named, stack-sized worker and publishes one correlated result.
 ///
 ///  Runs the file save on its own tracked background thread.
+/// ### Arguments
+/// - `job` (`Job`): Represents the job; the function uses it as input to the operation described above.
+/// - `operation` (`fn(&Job) -> Result<bool, String>`): Represents the operation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn spawn_worker(
     job: Job,
     operation: fn(&Job) -> Result<bool, String>,
@@ -443,6 +487,10 @@ fn spawn_worker(
 /// Publishes committed tuning into the shared in-memory sequence library.
 ///
 ///  Updates the active saved-settings cache after writing tuning.
+/// ### Arguments
+/// - `saved` (`&Mutex<kirby_assist_core::sequence_config::SequenceLibrary>`): Represents the saved; the function uses it as input to the operation described above.
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `tuning` (`kirby_assist_core::fighter_tuning::Tuning`): Represents the tuning; the function uses it as input to the operation described above.
 fn publish_tuning(
     saved: &Mutex<kirby_assist_core::sequence_config::SequenceLibrary>,
     kind: i32,
@@ -457,6 +505,10 @@ fn publish_tuning(
 /// Persists a tuning or recipe job and publishes changed recipe snapshots.
 ///
 ///  Saves the requested settings and updates the in-memory library.
+/// ### Arguments
+/// - `job` (`&Job`): Represents the job; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn write(job: &Job) -> Result<bool, String> {
     if let Some(tuning) = job.tuning {
         let changed = write_tuning_paths(
@@ -492,6 +544,12 @@ fn write(job: &Job) -> Result<bool, String> {
 /// Runs recovery before applying a text transformation to the current file.
 ///
 ///  Repairs an interrupted save before changing the file.
+/// ### Arguments
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// - `temp` (`&Path`): Represents the temp; the function uses it as input to the operation described above.
+/// - `update` (`impl FnOnce(&str) -> Result<String, String>`): Represents the update; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn read_updated(
     path: &Path,
     temp: &Path,
@@ -505,6 +563,14 @@ fn read_updated(
 /// Applies tuning persistence and commits only after validating the full file.
 ///
 ///  Saves fighter settings while preserving existing recipes.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// - `tuning` (`kirby_assist_core::fighter_tuning::Tuning`): Represents the tuning; the function uses it as input to the operation described above.
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// - `temp` (`&Path`): Represents the temp; the function uses it as input to the operation described above.
+/// - `backup` (`&Path`): Represents the backup; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn write_tuning_paths(
     kind: i32,
     tuning: kirby_assist_core::fighter_tuning::Tuning,
@@ -522,6 +588,10 @@ fn write_tuning_paths(
 /// Reads at most the file limit plus one detection byte.
 ///
 ///  Reads the save file safely without allowing an oversized file.
+/// ### Arguments
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
     // Bound the actual read, not only a racy metadata check: FTP/other tools
     // can replace or grow the file between stat and read.
@@ -539,6 +609,13 @@ fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
 /// Test adapter returning only the parsed catalog from a recipe write.
 ///
 ///  Helper used by tests to check the saved recipe catalog.
+/// ### Arguments
+/// - `job` (`&Job`): Represents the job; the function uses it as input to the operation described above.
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// - `temp` (`&Path`): Represents the temp; the function uses it as input to the operation described above.
+/// - `backup_path` (`&Path`): Represents the backup path; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn write_paths(
     job: &Job,
     path: &Path,
@@ -550,6 +627,13 @@ fn write_paths(
 /// Validates and serializes recipe edits, then commits the verified replacement.
 ///
 ///  Saves recipe changes while keeping the previous file recoverable.
+/// ### Arguments
+/// - `job` (`&Job`): Represents the job; the function uses it as input to the operation described above.
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// - `temp` (`&Path`): Represents the temp; the function uses it as input to the operation described above.
+/// - `backup_path` (`&Path`): Represents the backup path; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn write_recipe_paths(
     job: &Job,
     path: &Path,
@@ -584,6 +668,11 @@ fn write_recipe_paths(
 /// Rejects a commit when the live file changed since its initial read.
 ///
 ///  Prevents overwriting changes made by another tool during the save.
+/// ### Arguments
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// - `original` (`&str`): Represents the original; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn ensure_unchanged(path: &Path, original: &str) -> Result<(), String> {
     if read_bounded(path)? == original.as_bytes() {
         Ok(())
@@ -596,6 +685,13 @@ fn ensure_unchanged(path: &Path, original: &str) -> Result<(), String> {
 /// Flushes, closes, and verifies a complete file before it can be renamed.
 ///
 ///  Confirms the saved bytes are really on disk before continuing.
+/// ### Arguments
+/// - `file` (`fs::File`): Represents the file; the function uses it as input to the operation described above.
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// - `bytes` (`&[u8]`): Represents the byte data being processed; the function uses it as input to the operation described above.
+/// - `verify_error` (`&str`): Represents the verify error; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn write_verified(
     mut file: fs::File,
     path: &Path,
@@ -616,6 +712,14 @@ fn write_verified(
 /// Coordinates backup, temporary-file verification, and rollback-safe replacement.
 ///
 ///  Replaces the settings file while keeping the previous version recoverable.
+/// ### Arguments
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// - `temp` (`&Path`): Represents the temp; the function uses it as input to the operation described above.
+/// - `backup_path` (`&Path`): Represents the backup path; the function uses it as input to the operation described above.
+/// - `original` (`&str`): Represents the original; the function uses it as input to the operation described above.
+/// - `updated` (`&str`): Represents the updated; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn commit_paths(
     path: &Path,
     temp: &Path,
@@ -669,6 +773,10 @@ fn commit_paths(
 /// Derives the rollback-marker path associated with a canonical save file.
 ///
 ///  Finds the backup name used to recover an interrupted replacement.
+/// ### Arguments
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `std::path::PathBuf` value.
 fn recovery_path(path: &Path) -> std::path::PathBuf {
     path.with_file_name(format!(
         "{}.menu.rollback",
@@ -678,6 +786,10 @@ fn recovery_path(path: &Path) -> std::path::PathBuf {
 /// Checks path existence while distinguishing absence from filesystem errors.
 ///
 ///  Checks whether a file exists and reports other inspection failures.
+/// ### Arguments
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn exists(path: &Path) -> Result<bool, String> {
     match fs::metadata(path) {
         Ok(_) => Ok(true),
@@ -688,6 +800,10 @@ fn exists(path: &Path) -> Result<bool, String> {
 /// Bounded-reads and validates persisted sequence syntax.
 ///
 ///  Checks that a save file is small enough and has valid contents.
+/// ### Arguments
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn validate_file(path: &Path) -> Result<(), String> {
     let source = String::from_utf8(read_bounded(path)?).map_err(|e| e.to_string())?;
     persist::validate_output(&source)
@@ -697,12 +813,19 @@ fn validate_file(path: &Path) -> Result<(), String> {
 /// Restores or cleans an interrupted replacement before normal use.
 ///
 ///  Finishes recovery after a save was interrupted.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub(super) fn recover() -> Result<(), String> {
     recover_paths(Path::new(PATH), Path::new(TEMP))
 }
 /// Reconciles a rollback marker with the live file and removes stale temporary data.
 ///
 ///  Keeps a valid saved file and restores the original if needed.
+/// ### Arguments
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// - `temp` (`&Path`): Represents the temp; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn recover_paths(path: &Path, temp: &Path) -> Result<(), String> {
     let rollback = recovery_path(path);
     if !exists(&rollback)? {
@@ -730,6 +853,13 @@ fn recover_paths(path: &Path, temp: &Path) -> Result<(), String> {
 /// Replaces the live file, falling back to a recoverable rollback rename when needed.
 ///
 ///  Publishes the new file without losing the previous good copy.
+/// ### Arguments
+/// - `path` (`&Path`): Represents the file path being read or written; the function uses it as input to the operation described above.
+/// - `temp` (`&Path`): Represents the temp; the function uses it as input to the operation described above.
+/// - `original` (`&str`): Represents the original; the function uses it as input to the operation described above.
+/// - `rename` (`F`): Represents the rename; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn replace_file<F>(path: &Path, temp: &Path, original: &str, mut rename: F) -> Result<(), String>
 where
     F: FnMut(&Path, &Path) -> io::Result<()>,
@@ -787,6 +917,8 @@ mod tests {
         /// Creates a unique test directory and returns its owner.
         ///
         ///  Makes a fresh folder for a save test.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         fn new() -> Self {
             let path = std::env::temp_dir().join(format!(
                 "kirby-menu-save-{}-{}",
@@ -801,6 +933,8 @@ mod tests {
         /// Removes the fixture directory and all of its test files.
         ///
         ///  Cleans up the test folder after each test.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
@@ -808,6 +942,8 @@ mod tests {
     /// Builds a representative recipe-save request fixture.
     ///
     ///  Makes a sample save request for tests.
+    /// ### Returns
+    /// Returns the resulting `Job` value.
     fn job() -> Job {
         let catalog=Catalog::parse("[yoshi.roll.grab]\nstart_delay=4\nactions=walk:inward:4:0.5,wait:2,face:opponent,grab:fighter_range").unwrap();
         Job {
@@ -887,6 +1023,10 @@ mod tests {
         /// Test-only save operation that increments [`WRITES`].
         ///
         ///  Fake save action used to check request counts.
+        /// ### Arguments
+        /// - `job` (`&Job`): Represents the job; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
         fn write_once(job: &Job) -> Result<bool, String> {
             assert_eq!(job.sequence.start_delay, 4);
             WRITES.fetch_add(1, Ordering::SeqCst);

@@ -47,6 +47,8 @@ mod assist_handoff {
         ///
         ///
         ///  Creates a new value.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self {
                 owner: None,
@@ -59,6 +61,10 @@ mod assist_handoff {
         ///
         ///
         ///  Checks whether something is waiting to be processed.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn pending(&self) -> bool {
             self.pending
         }
@@ -66,6 +72,14 @@ mod assist_handoff {
         ///
         ///
         ///  Checks the current buttons and updates whether the toggle should activate.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `object` (`u32`): Represents the object; the function uses it as input to the operation described above.
+        /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+        /// - `held` (`bool`): Represents the held; the function uses it as input to the operation described above.
+        /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn sample(&mut self, object: u32, kind: i32, held: bool, c: GameplayContext) -> bool {
             if self.owner != Some((object, kind)) {
                 *self = Self::new();
@@ -125,6 +139,8 @@ mod assist_handoff {
         ///
         ///
         ///  Creates a new value.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self {
                 blocked: 0,
@@ -136,6 +152,15 @@ mod assist_handoff {
         ///
         ///
         ///  Checks the current buttons and updates whether the toggle should activate.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `active` (`bool`): Represents the active; the function uses it as input to the operation described above.
+        /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
+        /// - `guards` (`u32`): Represents the guards; the function uses it as input to the operation described above.
+        /// - `owned` (`u32`): Represents the owned; the function uses it as input to the operation described above.
+        /// - `requested` (`u32`): Represents the requested; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `u32` value.
         pub fn sample(
             &mut self,
             active: bool,
@@ -175,6 +200,10 @@ mod assist_handoff {
         ///
         ///
         ///  Checks whether the button is still held.
+        /// ### Arguments
+        /// - `mask` (`u32`): Represents the mask; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `ButtonTrace` value.
         fn held(mask: u32) -> ButtonTrace {
             ButtonTrace {
                 held: mask,
@@ -319,6 +348,11 @@ pub struct ManualContext {
 /// for manual ledge spacing. Attack recipes bypass this cap explicitly.
 ///
 ///  Preserve fine physical input and crouching while capping horizontal motion for manual ledge spacing. Attack recipes bypass this cap explicitly.
+/// ### Arguments
+/// - `physical` (`[f32; 2]`): Represents the physical; the function uses it as input to the operation described above.
+/// - `maximum` (`f32`): Represents the maximum; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[f32; 2]` value.
 pub fn ledge_walk_stick(physical: [f32; 2], maximum: f32) -> [f32; 2] {
     let base = if maximum.is_finite() {
         maximum.clamp(0.1, 0.45)
@@ -354,6 +388,14 @@ pub fn ledge_walk_stick(physical: [f32; 2], maximum: f32) -> [f32; 2] {
 /// This uses copied motion, not geometry searches or native position writes.
 ///
 ///  Release only outward manual walking input at a known ledge gap. This uses copied motion, not geometry searches or native position writes.
+/// ### Arguments
+/// - `stick` (`[f32; 2]`): Represents the stick; the function uses it as input to the operation described above.
+/// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
+/// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
+/// - `spot` (`crate::ledge_position::LedgeSpot`): Represents the spot; the function uses it as input to the operation described above.
+/// - `stand_distance` (`f32`): Represents the stand distance; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[f32; 2]` value.
 pub fn stop_walk_at_ledge(
     mut stick: [f32; 2],
     position: [f32; 2],
@@ -402,6 +444,13 @@ impl DpadReservation {
     ///
     ///
     ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`u32`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
+    /// - `gameplay` (`bool`): Represents the gameplay; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn sample(&mut self, enabled: u32, physical: u32, gameplay: bool) -> u32 {
         if !gameplay || enabled == 0 {
             *self = Self::default();
@@ -434,6 +483,8 @@ impl Default for TurboSettings {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             walk_strength: 0.45,
@@ -445,6 +496,12 @@ impl Default for TurboSettings {
 /// statuses to force the macro through attacks, grabs, hitstop, or aerial states.
 ///
 ///  Grounded idle/walk/run/turn/crouch states qualify. Do not change game statuses to force the macro through attacks, grabs, hitstop, or aerial states.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
+/// - `stopped` (`bool`): Represents the stopped; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn turbo_movement_allowed(status: i32, situation: i32, stopped: bool) -> bool {
     situation == crate::native_states::situation::GROUND
         && !stopped
@@ -508,6 +565,8 @@ impl DashPivotAssist {
     /// A higher-priority tool must not leave movement queued for handback.
     ///
     ///  A higher-priority tool must not leave movement queued for handback.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel_pending(&mut self) {
         *self = Self::default();
     }
@@ -515,6 +574,15 @@ impl DashPivotAssist {
     ///
     ///
     ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
+    /// - `stopped` (`bool`): Represents the stopped; the function uses it as input to the operation described above.
+    /// - `physical_stick` (`[f32; 2]`): Represents the physical stick; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `TurboOutput` value.
     pub fn sample(
         &mut self,
         tick: i64,
@@ -659,6 +727,16 @@ impl TurboState {
     /// their output; releasing the binding or losing movement eligibility stops.
     ///
     ///  A selected button binding runs one crouch update and one gentle facing-direction walk update per cycle. Duplicate input updates reuse their output; releasing the binding or losing movement eligibility stops.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `settings` (`TurboSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `held` (`bool`): Represents the held; the function uses it as input to the operation described above.
+    /// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
+    /// - `gameplay` (`bool`): Represents the gameplay; the function uses it as input to the operation described above.
+    /// - `can_move` (`bool`): Represents the can move; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `TurboOutput` value.
     pub fn sample_teabag(
         &mut self,
         settings: TurboSettings,
@@ -761,6 +839,10 @@ impl ManualOverlay {
     /// A scheduler-confirmed new tech edge must not inherit that raw held bit.
     ///
     ///  Native Guard can have been removed after raw mapping by an earlier mode. A scheduler-confirmed new tech edge must not inherit that raw held bit.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `mask` (`u32`): Represents the mask; the function uses it as input to the operation described above.
+    /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
     pub fn rearm_tech_guard(&mut self, mask: u32, human: ButtonTrace) {
         self.buttons.rearm_requested(mask, human.previous);
     }
@@ -769,6 +851,13 @@ impl ManualOverlay {
     ///
     ///
     ///  Makes the supplied change.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
+    /// - `physical_stick` (`[f32; 2]`): Represents the physical stick; the function uses it as input to the operation described above.
+    /// - `output` (`TurboOutput`): Represents the output data being produced; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ManualFrame` value.
     pub fn apply(
         &mut self,
         human: ButtonTrace,
@@ -782,6 +871,16 @@ impl ManualOverlay {
     /// Separate chained histories could fabricate edges when ownership changes.
     ///
     ///  Compose an additional hold control through the SAME button history. Separate chained histories could fabricate edges when ownership changes.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
+    /// - `physical_stick` (`[f32; 2]`): Represents the physical stick; the function uses it as input to the operation described above.
+    /// - `output` (`TurboOutput`): Represents the output data being produced; the function uses it as input to the operation described above.
+    /// - `extra_consumed` (`u32`): Represents the extra consumed; the function uses it as input to the operation described above.
+    /// - `requested_buttons` (`u32`): Represents the requested buttons; the function uses it as input to the operation described above.
+    /// - `owned_buttons` (`u32`): Represents the owned buttons; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ManualFrame` value.
     pub fn apply_controls(
         &mut self,
         human: ButtonTrace,
@@ -805,6 +904,17 @@ impl ManualOverlay {
     /// grabs, ledge tapes, native safety and other helpers keep their history.
     ///
     ///  Only Auto react opts into a fresh first horizontal flick. Automatic grabs, ledge tapes, native safety and other helpers keep their history.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
+    /// - `physical_stick` (`[f32; 2]`): Represents the physical stick; the function uses it as input to the operation described above.
+    /// - `output` (`TurboOutput`): Represents the output data being produced; the function uses it as input to the operation described above.
+    /// - `extra_consumed` (`u32`): Represents the extra consumed; the function uses it as input to the operation described above.
+    /// - `requested_buttons` (`u32`): Represents the requested buttons; the function uses it as input to the operation described above.
+    /// - `owned_buttons` (`u32`): Represents the owned buttons; the function uses it as input to the operation described above.
+    /// - `reaction_owned` (`bool`): Represents the reaction owned; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ManualFrame` value.
     pub fn apply_reaction_controls(
         &mut self,
         human: ButtonTrace,
@@ -903,6 +1013,11 @@ impl ManualOverlay {
 /// history must never reappear as a synthetic taunt press/release.
 ///
 ///  Apply consumption after history reconstruction too: old native trigger history must never reappear as a synthetic taunt press/release.
+/// ### Arguments
+/// - `trace` (`ButtonTrace`): Represents the trace; the function uses it as input to the operation described above.
+/// - `mask` (`u32`): Represents the mask; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ButtonTrace` value.
 fn remove_consumed(trace: ButtonTrace, mask: u32) -> ButtonTrace {
     ButtonTrace {
         held: trace.held & !mask,
@@ -922,6 +1037,12 @@ fn remove_consumed(trace: ButtonTrace, mask: u32) -> ButtonTrace {
 /// must retain its ordinary D-pad meaning. Side-taunt filtering is a pair.
 ///
 ///  Filter the mapper RESULT as well as raw inputs. Native mapping can retain repeat/history state beyond the four raw words. Only reserved taunts are removed; this neither adds attack commands nor changes unrelated buttons.
+/// ### Arguments
+/// - `consumed` (`u32`): Represents the consumed; the function uses it as input to the operation described above.
+/// - `requested` (`u32`): Represents the requested; the function uses it as input to the operation described above.
+/// - `owned` (`u32`): Represents the owned; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn sequence_taunt_reservation(consumed: u32, requested: u32, owned: u32) -> u32 {
     let intentional = requested & owned & crate::native_input::MAPPER_DPAD_BUTTONS;
     let sides = if intentional & DPAD_SIDES != 0 {
@@ -934,6 +1055,11 @@ pub fn sequence_taunt_reservation(consumed: u32, requested: u32, owned: u32) -> 
 /// Determines whether reserved taunt inputs must be suppressed.
 ///
 /// Checks whether the reserved taunt buttons should be ignored.
+/// ### Arguments
+/// - `mapped_buttons` (`u32`): Represents the mapped buttons; the function uses it as input to the operation described above.
+/// - `consumed` (`u32`): Represents the consumed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
     let sides = if consumed & DPAD_SIDES != 0 {
         crate::native_input::MAPPED_TAUNT_SIDES
@@ -983,6 +1109,8 @@ impl ManualTakeover {
     ///
     ///
     ///  Creates a new value.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             previous: None,
@@ -994,6 +1122,10 @@ impl ManualTakeover {
     ///
     ///
     ///  Gets the current session generation.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u64` value.
     pub fn epoch(&self) -> u64 {
         self.epoch
     }
@@ -1001,6 +1133,10 @@ impl ManualTakeover {
     ///
     ///
     ///  Gets the chosen stick direction.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `[f32; 2]` value.
     pub fn stick(&self) -> [f32; 2] {
         self.previous
             .map_or([0.; 2], |(_, axes)| [axes[0], axes[1]])
@@ -1009,6 +1145,10 @@ impl ManualTakeover {
     /// Committed automation reads the owner's frozen policy snapshot.
     ///
     ///  Physical gameplay-button/C-stick edges, separate from movement intent. Committed automation reads the owner's frozen policy snapshot.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u64` value.
     pub fn action_epoch(&self) -> u64 {
         self.action_epoch
     }
@@ -1016,6 +1156,10 @@ impl ManualTakeover {
     ///
     ///
     ///  Checks whether shield is being held.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn shield_held(&self) -> bool {
         self.previous
             .is_some_and(|(buttons, _)| buttons & crate::native_input::MAPPER_ZR != 0)
@@ -1024,6 +1168,11 @@ impl ManualTakeover {
     /// the physical stick too; an existing shield still permits OOS actions.
     ///
     ///  Native WAIT can lag a fresh run input. Stationary assists must inspect the physical stick too; an existing shield still permits OOS actions.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn stationary_assist(&self, status: i32) -> bool {
         use crate::native_input::*;
         self.previous.is_some_and(|(buttons, axes)| {
@@ -1051,6 +1200,11 @@ impl ManualTakeover {
     /// C-stick, and strong vertical jump/drop intent keep player priority.
     ///
     ///  Grounded offense may use a held horizontal walk/run input. Native or freshly pressed shield keeps the stricter tilt/roll gate; manual attacks, C-stick, and strong vertical jump/drop intent keep player priority.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn grounded_grab_assist(&self, status: i32) -> bool {
         use crate::native_input::*;
         self.previous.is_some_and(|(buttons, axes)| {
@@ -1073,6 +1227,10 @@ impl ManualTakeover {
     ///
     ///
     ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `sticks` (`[f32; 4]`): Represents the sticks; the function uses it as input to the operation described above.
     pub fn sample(&mut self, buttons: u32, sticks: [f32; 4]) {
         use crate::native_input::*;
         let mask = MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_Y | MAPPER_R | MAPPER_ZR | MAPPER_ZL;

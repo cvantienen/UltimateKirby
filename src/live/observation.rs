@@ -19,6 +19,8 @@ impl FighterObservationGuard {
     /// Acquires the guard with compare-exchange or returns `None` if occupied.
     ///
     ///  Allows one observation at a time and skips nested attempts.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn acquire() -> Option<Self> {
         OBSERVING_FIGHTER
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
@@ -30,6 +32,8 @@ impl Drop for FighterObservationGuard {
     /// Releases the reentrancy flag with release ordering.
     ///
     ///  Lets the next callback observe the fighter after this one ends.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn drop(&mut self) {
         OBSERVING_FIGHTER.store(false, Ordering::Release);
     }
@@ -253,6 +257,15 @@ struct ObservationPolicySnapshot {
 /// Tests locked and nearby targets against the configured ground-rule watch range.
 ///
 ///  Decides whether a rule needs extra ground observations for a nearby target.
+/// ### Arguments
+/// - `ground_watch` (`Option<(f32, f32, bool)>`): Represents the ground watch; the function uses it as input to the operation described above.
+/// - `target_is_locked` (`bool`): Represents the target is locked; the function uses it as input to the operation described above.
+/// - `targets` (`&[Option<kirby_assist_core::roll_read::Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+/// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
+/// - `follow_requested` (`bool`): Represents the follow requested; the function uses it as input to the operation described above.
+/// - `follow` (`Option<&kirby_assist_core::gameplay::Opponent>`): Represents the follow; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn rule_needs_ground_observation(
     ground_watch: Option<(f32, f32, bool)>,
     target_is_locked: bool,
@@ -285,6 +298,11 @@ fn rule_needs_ground_observation(
 /// Determines the observation needs based on the current state and configuration.
 ///
 ///  Chooses which game details this update needs to read.
+/// ### Arguments
+/// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `config` (`&Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ObservationNeeds` value.
 fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
     let trump_held = state
         .settings_menu
@@ -344,6 +362,13 @@ fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
 ///  returning the configuration, setup sequence, and observation needs if available.
 ///
 ///  Checks whether this fighter can be observed and prepares its required queries.
+/// ### Arguments
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// - `session_ticket` (`SessionTicket`): Represents the session ticket; the function uses it as input to the operation described above.
+/// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+/// - `config` (`Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn resolve_observation_setup(
     index: i32,
     session_ticket: SessionTicket,
@@ -369,6 +394,12 @@ fn resolve_observation_setup(
 /// Determines whether manual automatic input is currently blocked for the given fighter and context.
 ///
 ///  Checks whether player input or the current fighter state should pause automatic helpers.
+/// ### Arguments
+/// - `object_id` (`u32`): Represents the object id; the function uses it as input to the operation described above.
+/// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+/// - `context` (`GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn manual_automatic_input_blocked(
     object_id: u32,
     fighter_kind: i32,
@@ -394,6 +425,12 @@ fn manual_automatic_input_blocked(
 /// Captures a snapshot of the observation policy for the given fighter, configuration, and context.
 ///
 ///  Copies the current menu and helper settings before reading native game data.
+/// ### Arguments
+/// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+/// - `manual_automatic_blocked` (`bool`): Represents the manual automatic blocked; the function uses it as input to the operation described above.
+/// - `native_status` (`i32`): Represents the native status; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ObservationPolicySnapshot` value.
 fn snapshot_observation_policy(
     fighter_kind: i32,
     manual_automatic_blocked: bool,
@@ -597,12 +634,23 @@ impl ObservationPublication {
     /// Checks whether this pass still matches the active session and object.
     ///
     ///  Rejects results if the fighter or match changed mid-observation.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn is_current(&self, state: &State) -> bool {
         self.accepts_at(state, self.setup_sequence)
     }
     /// Validates the session plus observation-sequence fence before publication.
     ///
     ///  Prevents an older observation from replacing newer state.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `state` (`&State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+    /// - `sequence` (`u64`): Represents the sequence; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn accepts_at(&self, state: &State, sequence: u64) -> bool {
         state.session.accepts(self.session_ticket)
             && state.mapping_index == Some(self.index)
@@ -618,6 +666,13 @@ impl ObservationPublication {
 /// Refreshes the observation roster if necessary, based on the requested state, active consumer status, and the current publication.
 ///
 ///  Updates the fighter list only when a current helper needs it.
+/// ### Arguments
+/// - `discover_roster` (`bool`): Represents the discover roster; the function uses it as input to the operation described above.
+/// - `needs` (`&ObservationNeeds`): Represents the needs; the function uses it as input to the operation described above.
+/// - `policy` (`&ObservationPolicySnapshot`): Represents the policy; the function uses it as input to the operation described above.
+/// - `own` (`&NativeObservationBasics`): Represents the own; the function uses it as input to the operation described above.
+/// - `flags` (`&AutomaticFlags`): Represents the flags; the function uses it as input to the operation described above.
+/// - `publication` (`&ObservationPublication`): Represents the publication; the function uses it as input to the operation described above.
 unsafe fn refresh_observation_roster(
     discover_roster: bool,
     needs: &ObservationNeeds,
@@ -669,6 +724,14 @@ unsafe fn refresh_observation_roster(
 /// Begins a full observation of a fighter, updating the state with the associated object, fighter kind, and observation sequence. Returns the new observation sequence if successful.
 ///
 ///  Marks this fighter update as the newest observation for the selected controller.
+/// ### Arguments
+/// - `publication` (`&ObservationPublication`): Represents the publication; the function uses it as input to the operation described above.
+/// - `object_id` (`u32`): Represents the object id; the function uses it as input to the operation described above.
+/// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+/// - `native_status` (`i32`): Represents the native status; the function uses it as input to the operation described above.
+/// - `discover_roster` (`bool`): Represents the discover roster; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn begin_full_observation(
     publication: &ObservationPublication,
     object_id: u32,
@@ -709,6 +772,11 @@ fn begin_full_observation(
 /// Admits a fighter observation, validating the object and controller index, and updating the state with the observation if successful. Returns the fighter observation if applicable.
 ///
 ///  Confirms the fighter and controller match before starting an observation.
+/// ### Arguments
+/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+/// - `discover_roster` (`bool`): Represents the discover roster; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn admit_fighter_observation(
     object: *mut game::Object,
     discover_roster: bool,
@@ -880,6 +948,10 @@ impl NativeObservationBasics {
     /// The pose every `GameplayContext` of this observation starts from.
     ///
     ///  Creates a shared starting point for the fighter's gameplay checks.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `GameplayContext` value.
     fn gameplay_context(&self) -> GameplayContext {
         GameplayContext {
             gameplay: true,
@@ -896,6 +968,14 @@ impl NativeObservationBasics {
 /// Observes the basic native state of a fighter, including status, situation, motion details, and input blocking information. Returns a `NativeObservationBasics` struct with the observed values.
 ///
 ///  Copies the fighter's current status and animation details.
+/// ### Arguments
+/// - `reads` (`&frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
+/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+/// - `object_id` (`u32`): Represents the object id; the function uses it as input to the operation described above.
+/// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+/// - `config` (`&Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `NativeObservationBasics` value.
 unsafe fn observe_native_basics(
     reads: &frame::FrameReads,
     object: *mut game::Object,
@@ -930,6 +1010,14 @@ const INPUT_DELAY: f32 = 0.0;
 /// Observes the tech state of a fighter, including clatter, auto-tech settings, and floor motion history. Returns a `TechObservation` struct with the observed values.
 ///
 ///  Gathers the timing and floor facts used by tech assistance.
+/// ### Arguments
+/// - `reads` (`&frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
+/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+/// - `stopped` (`bool`): Represents the stopped; the function uses it as input to the operation described above.
+/// - `config` (`&Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// - `analysis_settings` (`kirby_assist_core::fighter_tuning::Tuning`): Represents the analysis settings; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `TechObservation` value.
 unsafe fn observe_tech_state(
     reads: &frame::FrameReads,
     object: *mut game::Object,
@@ -998,6 +1086,10 @@ unsafe fn observe_tech_state(
 /// Statuses with no playable fighter: the observation is cancelled, not sampled.
 ///
 ///  Checks whether the fighter is in a state where helpers should stop.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn out_of_play(status: i32) -> bool {
     matches!(
         status,
@@ -1136,6 +1228,9 @@ struct Pass<'a> {
 /// Observes the fighter's state, including native reads and session validation. This function never changes fighter status and ensures that the session is revalidated because native reads can re-enter hooks.
 ///
 ///  Reads the fighter and opponent state, then ignores results if the match changed during those reads.
+/// ### Arguments
+/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+/// - `discover_roster` (`bool`): Represents the discover roster; the function uses it as input to the operation described above.
 pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let Some(config) = CONFIG.get().map(Box::as_ref) else {
         return;
@@ -1241,6 +1336,15 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
 /// from the policy snapshot and the fighter's own pose.
 ///
 ///  Calculates which automatic checks and target ranges apply to this fighter.
+/// ### Arguments
+/// - `reads` (`&frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
+/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+/// - `config` (`&Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+/// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+/// - `own` (`&NativeObservationBasics`): Represents the own; the function uses it as input to the operation described above.
+/// - `policy` (`&ObservationPolicySnapshot`): Represents the policy; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `AutomaticFlags` value.
 unsafe fn derive_automatic_flags(
     reads: &frame::FrameReads,
     object: *mut game::Object,
@@ -1433,6 +1537,10 @@ type ReflectObservation = (
 /// must happen. No `STATE` lock is held across a native read.
 ///
 ///  Gathers the game facts first so helper decisions can happen afterward.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `Collected` value.
 unsafe fn collect_observations(p: &Pass) -> Collected {
     let Pass {
         reads,
@@ -1517,6 +1625,10 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
 /// The one bounded rule-target pass: own context, nearby targets and the followed actor.
 ///
 ///  Finds nearby opponents for reaction rules using a limited scan.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
     let Pass {
         reads,
@@ -1668,6 +1780,11 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
 /// candidate. Ordinary fighter recipes never depend on Up-B availability.
 ///
 ///  Checks whether nearby reaction rules can start their chosen actions.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `rule_observation` (`Option<RuleObservation>`): Represents the rule observation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `[bool; 3]` value.
 unsafe fn collect_simple_readiness(
     p: &Pass,
     rule_observation: Option<RuleObservation>,
@@ -1696,6 +1813,11 @@ unsafe fn collect_simple_readiness(
 /// Returns shield-ready, can-grab, can-jump and can-up-special.
 ///
 ///  Checks out-of-shield actions only when an opponent or active response makes the check useful.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `rule_observation` (`Option<RuleObservation>`): Represents the rule observation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `(bool, bool, bool, bool)` value.
 unsafe fn collect_oos_readiness(
     p: &Pass,
     rule_observation: Option<RuleObservation>,
@@ -1808,6 +1930,10 @@ type LedgeObservation = (
 ///
 /// # Safety
 /// The pass must contain current validated native object references for its lifetime.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `LedgeFacts` value.
 unsafe fn collect_ledge(p: &Pass) -> LedgeFacts {
     let Pass {
         reads,
@@ -2025,6 +2151,10 @@ struct CombatFacts {
 ///
 /// # Safety
 /// Native object references in the pass must remain valid during this synchronous collection.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `CombatFacts` value.
 unsafe fn collect_combat(p: &Pass) -> CombatFacts {
     let Pass {
         reads,
@@ -2122,6 +2252,10 @@ struct PostureFacts {
 ///
 /// # Safety
 /// The pass must contain current validated native object references.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `PostureFacts` value.
 unsafe fn collect_posture(p: &Pass) -> PostureFacts {
     let Pass {
         reads,
@@ -2189,6 +2323,10 @@ unsafe fn collect_posture(p: &Pass) -> PostureFacts {
 ///
 /// # Safety
 /// Native objects must be revalidated and remain live during this query.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn collect_spot_dodge(
     p: &Pass,
 ) -> Option<(
@@ -2301,6 +2439,11 @@ struct DamageFacts {
 ///
 /// # Safety
 /// `p` must refer to the current validated fighter observation.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `outward` (`f32`): Represents the outward; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `DamageFacts` value.
 unsafe fn collect_damage(p: &Pass, outward: f32) -> DamageFacts {
     let Pass {
         reads,
@@ -2363,6 +2506,12 @@ unsafe fn collect_damage(p: &Pass, outward: f32) -> DamageFacts {
 ///
 /// # Safety
 /// Native object accessors must remain valid for this synchronous query.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `oos_readiness` (`(bool, bool, bool, bool)`): Represents the oos readiness; the function uses it as input to the operation described above.
+/// - `guard_threat` (`bool`): Represents the guard threat; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn collect_oos_context(
     p: &Pass,
     oos_readiness: (bool, bool, bool, bool),
@@ -2422,6 +2571,11 @@ unsafe fn collect_oos_context(
 ///
 /// # Safety
 /// The supplied pass must contain a live validated fighter accessor.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `ledge_opponent` (`Option<kirby_assist_core::gameplay::Opponent>`): Represents the ledge opponent; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn collect_neutral_native_activity(
     p: &Pass,
     ledge_opponent: Option<kirby_assist_core::gameplay::Opponent>,
@@ -2455,6 +2609,10 @@ unsafe fn collect_neutral_native_activity(
 /// Reflector observation: the configured mode, the tracked projectile and its threat.
 ///
 ///  Checks the selected reflector setting against the current projectile threat.
+/// ### Arguments
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
     let Pass {
         reads,
@@ -2527,6 +2685,10 @@ impl PublicationNotes {
     /// Formats this observation's diagnostic facts when logging is compiled in.
     ///
     ///  Writes a compact troubleshooting summary for this fighter update.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+    /// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
     fn log(&self, p: &Pass, index: i32) {
         let Pass {
             object_id,
@@ -2556,6 +2718,14 @@ impl PublicationNotes {
 /// Publishes collected facts only after validating session and observation fences.
 ///
 ///  Updates shared helper state only if this observation is still current.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `publication` (`&ObservationPublication`): Represents the publication; the function uses it as input to the operation described above.
+/// - `observation_sequence` (`u64`): Represents the observation sequence; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn publish_observation(
     state: &mut State,
     p: &Pass,
@@ -2645,6 +2815,10 @@ fn publish_observation(
 /// A pending grab hand-off tracks the opponent's native clock for as long as it lasts.
 ///
 ///  Follows the opponent's animation while a queued grab handoff is waiting.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
 fn observe_grab_handoff_clock(state: &mut State, p: &Pass, c: &Collected) {
     let rule_observation = c.rule_observation;
     if state.grab_handoff.pending() {
@@ -2681,6 +2855,9 @@ fn observe_grab_handoff_clock(state: &mut State, p: &Pass, c: &Collected) {
 /// Feeds cached status transitions into policies without repeating native reads.
 ///
 ///  Updates helpers using statuses already observed during this pass.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
 fn observe_known_statuses(state: &mut State, p: &Pass) {
     let Pass {
         reads,
@@ -2730,6 +2907,12 @@ struct Admission {
 /// Applies session, ownership, context, and configuration gates to automatic tools.
 ///
 ///  Decides which automatic helpers may act on the collected observations.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `Admission` value.
 fn admit_automatic(state: &mut State, p: &Pass, c: &Collected) -> Admission {
     let Pass {
         policy:
@@ -2798,6 +2981,11 @@ fn admit_automatic(state: &mut State, p: &Pass, c: &Collected) -> Admission {
 /// defense, its punish, then the OOS/roll-read arbitration.
 ///
 ///  Samples combat reactions in priority order so stronger actions can take precedence.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `a` (`&Admission`): Represents the a; the function uses it as input to the operation described above.
 fn sample_reactions(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     #[cfg(feature = "diagnostic-logging")]
     let _combo_performance = crate::performance::Scope::new(crate::performance::Part::Combo);
@@ -2832,6 +3020,11 @@ fn sample_reactions(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
 /// Advances Kirby's fair follow-up policy using admitted hit observations.
 ///
 ///  Updates the automatic forward-air follow-up state.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `a` (`&Admission`): Represents the a; the function uses it as input to the operation described above.
 fn sample_fair(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         fighter_kind,
@@ -2862,6 +3055,11 @@ fn sample_fair(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
 /// choices. Existing committed owners remain protected by allows().
 ///
 ///  Checks grab defense before starting a new attack or helper action.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `a` (`&Admission`): Represents the a; the function uses it as input to the operation described above.
 fn sample_spot_dodge(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         policy:
@@ -2946,6 +3144,11 @@ fn sample_spot_dodge(state: &mut State, p: &Pass, c: &Collected, a: &Admission) 
 /// Advances the spot-dodge punish policy from current target and action facts.
 ///
 ///  Updates the follow-up after a successful spot dodge.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `a` (`&Admission`): Represents the a; the function uses it as input to the operation described above.
 fn sample_spot_punish(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         config,
@@ -3019,6 +3222,11 @@ fn sample_spot_punish(state: &mut State, p: &Pass, c: &Collected, a: &Admission)
 /// Applies higher-priority ownership and safety gates before grab automation.
 ///
 ///  Cancels or postpones grab assistance when another action must take priority.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `a` (`&Admission`): Represents the a; the function uses it as input to the operation described above.
 fn preempt_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         needs: ObservationNeeds {
@@ -3082,6 +3290,11 @@ fn preempt_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
 /// Samples grab eligibility and handoff state using the current admitted facts.
 ///
 ///  Updates automatic grab assistance from this fighter observation.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `a` (`&Admission`): Represents the a; the function uses it as input to the operation described above.
 fn sample_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         config,
@@ -3172,6 +3385,11 @@ fn sample_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
 /// Advances the roll-read policy from target escape and follow-up observations.
 ///
 ///  Tracks a selected response to an opponent's roll or get-up.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `a` (`&Admission`): Represents the a; the function uses it as input to the operation described above.
 fn sample_roll_read(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         config,
@@ -3243,6 +3461,10 @@ fn sample_roll_read(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
 /// Advances Kirby trip-follow-up state using current target snapshots.
 ///
 ///  Updates Kirby's trip helper from the fighters observed this frame.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
 fn sample_trip(state: &mut State, p: &Pass, c: &Collected) {
     let Pass {
         flags: AutomaticFlags { trip_kirby, .. },
@@ -3280,6 +3502,11 @@ fn sample_trip(state: &mut State, p: &Pass, c: &Collected) {
 /// Publishes the hitstop SDI/DI contexts and marks this input update as evaluated.
 ///
 ///  Makes launch escape information available for the current controller update.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
 fn publish_damage_contexts(state: &mut State, p: &Pass, c: &Collected, tick: i64) {
     let Pass { object_id, .. } = *p;
     let DamageFacts {
@@ -3300,6 +3527,12 @@ fn publish_damage_contexts(state: &mut State, p: &Pass, c: &Collected, tick: i64
 #[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_variables))]
 ///
 ///  Updates tech and mash helpers when the fighter is not frozen by hitstop.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
     let Pass {
         config,
@@ -3461,6 +3694,10 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
 /// Publishes the current manual-control context and input epoch.
 ///
 ///  Makes the player's current action and manual-input state available to helpers.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
 fn publish_manual_context(state: &mut State, p: &Pass, c: &Collected) {
     let Pass {
         own: NativeObservationBasics { stopped, .. },
@@ -3509,6 +3746,13 @@ fn publish_manual_context(state: &mut State, p: &Pass, c: &Collected) {
 #[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_variables))]
 ///
 ///  Updates ledge, ledge-trump, and guard helpers from current observations.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+/// - `policy_tick` (`Option<i64>`): Represents the policy tick; the function uses it as input to the operation described above.
+/// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
 fn sample_ledge(
     state: &mut State,
     p: &Pass,
@@ -3553,6 +3797,8 @@ fn sample_ledge(
 /// Without a ledge observation the ledge/trump/guard policies release their history.
 ///
 ///  Clears ledge-related output when this update has no ledge facts.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
 fn reset_ledge_outputs(state: &mut State) {
     #[cfg(feature = "diagnostic-logging")]
     state.grab_trace.reset("ledge_observation_unavailable");
@@ -3569,6 +3815,12 @@ fn reset_ledge_outputs(state: &mut State) {
 /// Updates ledge-trump timing from the current ledge and edge observations.
 ///
 ///  Checks whether a ledge trump response should be prepared.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `context` (`GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+/// - `edge` (`Option<[f32; 2]>`): Represents the edge; the function uses it as input to the operation described above.
+/// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
 fn sample_trump(
     state: &mut State,
     p: &Pass,
@@ -3615,6 +3867,16 @@ fn sample_trump(
 /// Samples the ledge-trap policy and returns whether it holds the ledge input.
 ///
 ///  Updates a ledge trap and reports whether it still needs the controller.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `context` (`&mut GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+/// - `opponent` (`Option<kirby_assist_core::gameplay::Opponent>`): Represents the opponent being checked; the function uses it as input to the operation described above.
+/// - `spot` (`Option<kirby_assist_core::ledge_position::LedgeSpot>`): Represents the spot; the function uses it as input to the operation described above.
+/// - `previewing` (`bool`): Represents the previewing; the function uses it as input to the operation described above.
+/// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn sample_ledge_response(
     state: &mut State,
     p: &Pass,
@@ -3731,6 +3993,16 @@ fn sample_ledge_response(
 /// Samples automatic positioning against the observed ledge and opponent.
 ///
 ///  Chooses safe positioning input near a ledge.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `context` (`&GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+/// - `opponent` (`Option<kirby_assist_core::gameplay::Opponent>`): Represents the opponent being checked; the function uses it as input to the operation described above.
+/// - `held` (`bool`): Represents the held; the function uses it as input to the operation described above.
+/// - `previewing` (`bool`): Represents the previewing; the function uses it as input to the operation described above.
+/// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn sample_ledge_positioning(
     state: &mut State,
     p: &Pass,
@@ -3798,6 +4070,12 @@ fn sample_ledge_positioning(
 /// Advances defensive guard state using admitted threat and action facts.
 ///
 ///  Updates automatic shield behavior when a threat is approaching.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `context` (`&GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+/// - `held` (`bool`): Represents the held; the function uses it as input to the operation described above.
 fn sample_defensive_guard(
     state: &mut State,
     p: &Pass,
@@ -3882,6 +4160,17 @@ fn sample_defensive_guard(
 #[cfg(feature = "diagnostic-logging")]
 ///
 ///  Publishes troubleshooting data after the ledge helpers run.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
+/// - `context` (`&GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+/// - `opponent` (`Option<kirby_assist_core::gameplay::Opponent>`): Represents the opponent being checked; the function uses it as input to the operation described above.
+/// - `held` (`bool`): Represents the held; the function uses it as input to the operation described above.
+/// - `positioning_action` (`Option<&'static str>`): Represents the positioning action; the function uses it as input to the operation described above.
+/// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+/// - `policy_tick` (`Option<i64>`): Represents the policy tick; the function uses it as input to the operation described above.
+/// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
 fn publish_ledge_diagnostics(
     state: &mut State,
     p: &Pass,
@@ -4057,6 +4346,10 @@ fn publish_ledge_diagnostics(
 /// Advances the reflector policy from the copied projectile threat result.
 ///
 ///  Updates the helper that responds to reflectable projectiles.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `p` (`&Pass`): Represents the p; the function uses it as input to the operation described above.
+/// - `c` (`&Collected`): Represents the c; the function uses it as input to the operation described above.
 fn sample_reflect(state: &mut State, p: &Pass, c: &Collected) {
     let Pass {
         tech_obs: TechObservation { clatter, tech, .. },

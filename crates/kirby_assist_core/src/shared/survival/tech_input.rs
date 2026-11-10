@@ -131,20 +131,32 @@ pub struct TechContext {
 impl TechContext {
     /// A forecast contact only counts when it is finite and not already past.
     ///
-///  A forecast contact only counts when it is finite and not already past.
+    ///  A forecast contact only counts when it is finite and not already past.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn forecast_contact(&self) -> Option<f32> {
         self.contact_in.filter(|c| c.is_finite() && *c >= 0.)
     }
     /// Returns the `input_lead` result.
     ///
     ///
-///  Gets the input lead result.
+    ///  Gets the input lead result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     fn input_lead(&self) -> f32 {
         self.input_delay.clamp(0., MAX_INPUT_DELAY_FRAMES)
     }
     /// Forecast contact time minus the clamped input delay.
     ///
-///  Forecast contact time minus the clamped input delay.
+    ///  Forecast contact time minus the clamped input delay.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn contact_lead(&self) -> Option<f32> {
         self.forecast_contact()
             .map(|contact| contact - self.input_lead())
@@ -168,7 +180,11 @@ impl TechOutput {
     /// Canonical Shield and Grab can both produce mapped Guard. Jump, attack,
     /// special and movement remain manual; preparation never owns a whole tape.
     ///
-///  Canonical Shield and Grab can both produce mapped Guard. Jump, attack, special and movement remain manual; preparation never owns a whole tape.
+    ///  Canonical Shield and Grab can both produce mapped Guard. Jump, attack, special and movement remain manual; preparation never owns a whole tape.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn owned_buttons(self) -> u32 {
         if self.owns_guard {
             crate::native_input::SEQUENCE_GUARD_INPUTS
@@ -181,6 +197,11 @@ impl TechOutput {
 /// flick filtering. Only the selected native-eligible safety request calls this.
 ///
 ///  Final simulated controller Guard, after the original mapper's binding and flick filtering. Only the selected native-eligible safety request calls this.
+/// ### Arguments
+/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+/// - `output` (`TechOutput`): Represents the output data being produced; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 pub fn mapped_guard(buttons: u32, output: TechOutput) -> u32 {
     use crate::native_input::{MAPPED_CATCH, MAPPED_GUARD, MAPPED_GUARD_HOLD};
     let buttons = if output.owns_guard {
@@ -264,7 +285,11 @@ struct Delivery {
 impl Delivery {
     /// Count a native clock change since the last receipt observation.
     ///
-///  Count a native clock change since the last receipt observation.
+    ///  Count a native clock change since the last receipt observation.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `ctx` (`TechContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `reaction` (`Option<f32>`): Represents the reaction; the function uses it as input to the operation described above.
     fn observe(&mut self, ctx: TechContext, reaction: Option<f32>) {
         let previous = self.stamp;
         let changed = previous.status != ctx.status
@@ -282,7 +307,11 @@ impl TechInput {
     /// A fresh edge due by the first movement frame cannot wait behind launch
     /// DI. Release-only ownership still yields to DI, which releases Guard too.
     ///
-///  A fresh edge due by the first movement frame cannot wait behind launch DI. Release-only ownership still yields to DI, which releases Guard too.
+    ///  A fresh edge due by the first movement frame cannot wait behind launch DI. Release-only ownership still yields to DI, which releases Guard too.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn urgent_press(&self) -> bool {
         self.output.press
             && self.last.is_some_and(|c| {
@@ -296,7 +325,9 @@ impl TechInput {
     }
     /// Cancel a request/receipt while preserving an already spent native lockout.
     ///
-///  Cancel a request/receipt while preserving an already spent native lockout.
+    ///  Cancel a request/receipt while preserving an already spent native lockout.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel_request(&mut self) {
         self.waiting_for_mapper = false;
         self.delivery = None;
@@ -305,26 +336,41 @@ impl TechInput {
     /// Returns an optional `last_observation` value.
     ///
     ///
-///  Gets last observation if it is available.
+    ///  Gets last observation if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn last_observation(&self) -> Option<TechContext> {
         self.last
     }
     /// Returns the `cooldown_remaining` result.
     ///
     ///
-///  Gets the cooldown remaining result.
+    ///  Gets the cooldown remaining result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub fn cooldown_remaining(&self) -> f32 {
         self.cooldown
     }
     /// Begin the no-rapid-tech interval after a mapped or native shield edge.
     ///
-///  Begin the no-rapid-tech interval after a mapped or native shield edge.
+    ///  Begin the no-rapid-tech interval after a mapped or native shield edge.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn start_lockout(&mut self) {
         self.cooldown = f32::from(self.cooldown_setting.max(MIN_TECH_COOLDOWN_FRAMES));
     }
     /// Withdraw any outstanding proposal and publish `output` instead.
     ///
-///  Withdraw any outstanding proposal and publish output instead.
+    ///  Withdraw any outstanding proposal and publish output instead.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `output` (`TechOutput`): Represents the output data being produced; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `TechOutput` value.
     fn hold(&mut self, output: TechOutput) -> TechOutput {
         self.waiting_for_mapper = false;
         self.delivery = None;
@@ -333,7 +379,9 @@ impl TechInput {
     }
     /// Called only after a fresh mapped GUARD edge, never for a policy proposal.
     ///
-///  Called only after a fresh mapped GUARD edge, never for a policy proposal.
+    ///  Called only after a fresh mapped GUARD edge, never for a policy proposal.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn mapped_press(&mut self) {
         if self.waiting_for_mapper && self.output.press {
             self.start_lockout();
@@ -354,7 +402,9 @@ impl TechInput {
     /// A human shield press during tumble also consumes native input timing.
     /// Track it so automation does not immediately press again into its lockout.
     ///
-///  A human shield press during tumble also consumes native input timing. Track it so automation does not immediately press again into its lockout.
+    ///  A human shield press during tumble also consumes native input timing. Track it so automation does not immediately press again into its lockout.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn mapped_human_guard(&mut self) {
         if self.last.is_some_and(|ctx| is_tech_status(ctx.status)) {
             self.start_lockout();
@@ -364,7 +414,15 @@ impl TechInput {
     /// Updates the toggle state from the current button sample and match state.
     ///
     ///
-///  Checks the current buttons and updates whether the toggle should activate.
+    ///  Checks the current buttons and updates whether the toggle should activate.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `takeover` (`bool`): Represents the takeover; the function uses it as input to the operation described above.
+    /// - `cooldown` (`u16`): Represents the cooldown; the function uses it as input to the operation described above.
+    /// - `ctx` (`TechContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `TechOutput` value.
     pub fn sample(
         &mut self,
         enabled: bool,
@@ -377,7 +435,16 @@ impl TechInput {
     /// Native remaining hitstun advances even when the damage pose is frozen.
     /// Use it once, instead of animation progress, with no mapper-poll clock.
     ///
-///  Native remaining hitstun advances even when the damage pose is frozen. Use it once, instead of animation progress, with no mapper-poll clock.
+    ///  Native remaining hitstun advances even when the damage pose is frozen. Use it once, instead of animation progress, with no mapper-poll clock.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `takeover` (`bool`): Represents the takeover; the function uses it as input to the operation described above.
+    /// - `cooldown` (`u16`): Represents the cooldown; the function uses it as input to the operation described above.
+    /// - `ctx` (`TechContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `reaction_remaining` (`Option<f32>`): Represents the reaction remaining; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `TechOutput` value.
     pub fn sample_with_reaction_clock(
         &mut self,
         enabled: bool,
@@ -400,7 +467,18 @@ impl TechInput {
     /// release, mapper delivery and collision refinement, without guessing a
     /// Melee-style twenty-frame window. Lockout begins only on acknowledgment.
     ///
-///  Native windows count the input frame too. Keep a three-frame margin for release, mapper delivery and collision refinement, without guessing a Melee-style twenty-frame window. Lockout begins only on acknowledgment.
+    ///  Native windows count the input frame too. Keep a three-frame margin for release, mapper delivery and collision refinement, without guessing a Melee-style twenty-frame window. Lockout begins only on acknowledgment.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `takeover` (`bool`): Represents the takeover; the function uses it as input to the operation described above.
+    /// - `cooldown` (`u16`): Represents the cooldown; the function uses it as input to the operation described above.
+    /// - `ctx` (`TechContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `reaction_remaining` (`Option<f32>`): Represents the reaction remaining; the function uses it as input to the operation described above.
+    /// - `window` (`u16`): Represents the window; the function uses it as input to the operation described above.
+    /// - `ganon_window` (`u16`): Represents the ganon window; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `TechOutput` value.
     pub fn sample_with_native_window(
         &mut self,
         enabled: bool,
@@ -426,7 +504,19 @@ impl TechInput {
     /// Observe ControlModule's game-visible Guard/GuardHold before releasing a
     /// mapped press, and before treating a held native guard as freshly armed.
     ///
-///  The mapped packet is not yet proof that the fighter consumed Guard. Observe ControlModule's game-visible Guard/GuardHold before releasing a mapped press, and before treating a held native guard as freshly armed.
+    ///  The mapped packet is not yet proof that the fighter consumed Guard. Observe ControlModule's game-visible Guard/GuardHold before releasing a mapped press, and before treating a held native guard as freshly armed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `takeover` (`bool`): Represents the takeover; the function uses it as input to the operation described above.
+    /// - `cooldown` (`u16`): Represents the cooldown; the function uses it as input to the operation described above.
+    /// - `ctx` (`TechContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `reaction_remaining` (`Option<f32>`): Represents the reaction remaining; the function uses it as input to the operation described above.
+    /// - `window` (`u16`): Represents the window; the function uses it as input to the operation described above.
+    /// - `ganon_window` (`u16`): Represents the ganon window; the function uses it as input to the operation described above.
+    /// - `native_guard` (`bool`): Represents the native guard; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `TechOutput` value.
     pub fn sample_with_native_delivery(
         &mut self,
         enabled: bool,
@@ -453,7 +543,19 @@ impl TechInput {
     /// Samples the native.
     ///
     ///
-///  Samples the native.
+    ///  Samples the native.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `takeover` (`bool`): Represents the takeover; the function uses it as input to the operation described above.
+    /// - `cooldown` (`u16`): Represents the cooldown; the function uses it as input to the operation described above.
+    /// - `ctx` (`TechContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `reaction_remaining` (`Option<f32>`): Represents the reaction remaining; the function uses it as input to the operation described above.
+    /// - `window` (`u16`): Represents the window; the function uses it as input to the operation described above.
+    /// - `ganon_window` (`u16`): Represents the ganon window; the function uses it as input to the operation described above.
+    /// - `native_guard` (`Option<bool>`): Represents the native guard; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `TechOutput` value.
     fn sample_native(
         &mut self,
         enabled: bool,
@@ -567,7 +669,13 @@ impl TechInput {
     /// Track native remaining hitstun, which advances even while the damage pose
     /// is frozen. Returns its plausible advance since the previous observation.
     ///
-///  Track native remaining hitstun, which advances even while the damage pose is frozen. Returns its plausible advance since the previous observation.
+    ///  Track native remaining hitstun, which advances even while the damage pose is frozen. Returns its plausible advance since the previous observation.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `ctx` (`&TechContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `remaining` (`Option<f32>`): Represents the remaining; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn advance_reaction_clock(&mut self, ctx: &TechContext, remaining: Option<f32>) -> Option<f32> {
         let remaining = remaining.filter(|v| {
             v.is_finite() && *v > 0. && *v <= MAX_REACTION_REMAINING_FRAMES && is_tumble_status(ctx.status)
@@ -583,7 +691,12 @@ impl TechInput {
 
     /// Spend the lockout by native hitstun progress, else by stable animation progress.
     ///
-///  Spend the lockout by native hitstun progress, else by stable animation progress.
+    ///  Spend the lockout by native hitstun progress, else by stable animation progress.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `ctx` (`&TechContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `reaction_elapsed` (`Option<f32>`): Represents the reaction elapsed; the function uses it as input to the operation described above.
+    /// - `animation_known` (`bool`): Represents the animation known; the function uses it as input to the operation described above.
     fn advance_cooldown(
         &mut self,
         ctx: &TechContext,
@@ -604,7 +717,13 @@ impl TechInput {
     /// native clock advances, abandon unsupported/unconsumed requests and retain
     /// the already mapped press's lockout.
     ///
-///  Bounded game-input receipt of a mapped press: keep requesting while the native clock advances, abandon unsupported/unconsumed requests and retain the already mapped press's lockout.
+    ///  Bounded game-input receipt of a mapped press: keep requesting while the native clock advances, abandon unsupported/unconsumed requests and retain the already mapped press's lockout.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `ctx` (`TechContext`): Represents the ctx; the function uses it as input to the operation described above.
+    /// - `takeover` (`bool`): Represents the takeover; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn continue_delivery(&mut self, ctx: TechContext, takeover: bool) -> Option<TechOutput> {
         // Taking the receipt transfers it out of `self` while it is inspected;
         // only a still-pending delivery is put back below.
@@ -625,6 +744,11 @@ impl TechInput {
 /// Elapsed animation frames between two samples of one stable-rate motion.
 ///
 ///  Elapsed animation frames between two samples of one stable-rate motion.
+/// ### Arguments
+/// - `last` (`&TechContext`): Represents the last; the function uses it as input to the operation described above.
+/// - `ctx` (`&TechContext`): Represents the ctx; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `f32` value.
 fn animation_advance(last: &TechContext, ctx: &TechContext) -> f32 {
     let stable = ctx.status == last.status
         && ctx.motion == last.motion
@@ -651,6 +775,12 @@ fn animation_advance(last: &TechContext, ctx: &TechContext) -> f32 {
 /// The command-grab slam needs a tighter arrival margin than ordinary tumble.
 ///
 ///  The command-grab slam needs a tighter arrival margin than ordinary tumble.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `window` (`u16`): Represents the window; the function uses it as input to the operation described above.
+/// - `ganon_window` (`u16`): Represents the ganon window; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `f32` value.
 fn native_arrival_lead(status: i32, window: u16, ganon_window: u16) -> f32 {
     f32::from(
         crate::flame_choke::passive_window(status, window, ganon_window)

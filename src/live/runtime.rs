@@ -7,6 +7,8 @@ use super::*;
 /// Requires both the master runtime flag and local participant flag to be set.
 ///
 ///  Assistance is allowed only when the mod and this player's session are active.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(crate) fn feature_activity_allowed() -> bool {
     RUNTIME_ENABLED.load(Ordering::Acquire) && LOCAL_PARTICIPANT.load(Ordering::Acquire)
 }
@@ -18,6 +20,10 @@ pub(crate) fn feature_activity_allowed() -> bool {
 /// index and associated fighter still match.
 ///
 ///  Finds the currently verified fighter for the selected controller.
+/// ### Arguments
+/// - `index` (`i32`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) fn mapper_candidate(index: i32) -> Option<u32> {
     if !RUNTIME_ENABLED.load(Ordering::Acquire) || !(0..8).contains(&index) {
         return None;
@@ -39,6 +45,8 @@ pub(super) fn mapper_candidate(index: i32) -> Option<u32> {
 /// and advances the observation sequence while retaining the session.
 ///
 ///  Clears active assistance safely without forgetting the current match.
+/// ### Arguments
+/// - `state` (`&mut State`): Represents the current state of the operation; the function uses it as input to the operation described above.
 fn reset_state(state: &mut State) {
     let mut session = state.session;
     session.update(false);
@@ -82,6 +90,8 @@ pub(super) fn suspend_participation() {
 /// clears shared state, then publishes the requested gate value.
 ///
 ///  Turns assistance off or on outside battle after safely clearing old state.
+/// ### Arguments
+/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
 pub(super) fn set_runtime_enabled(enabled: bool) {
     if MASTER_IN_MATCH.load(Ordering::Acquire) {
         return;

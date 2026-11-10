@@ -27,6 +27,11 @@ impl AssistRuntime {
     /// on scenario re-entry. Missing fighter state releases to fresh human input when available.
     ///
     ///  Call once per simulation frame, using fresh human input rather than the previous merged output. The adapter owns frame counters and resets them on scenario re-entry. Missing fighter state releases to fresh human input when.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `adapter` (`&mut impl GameAdapter`): Represents the adapter; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn process_frame(&self, adapter: &mut impl GameAdapter) -> Option<FrameDecision> {
         // `?` unwraps Some(value), or returns None immediately if a read fails.
         // A missing human input read cannot safely reconstruct physical input;
@@ -93,6 +98,10 @@ mod tests {
         ///
         ///
         ///  Observes the fighter.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn observe_fighter(&self) -> Option<FighterObservation> {
             self.observation
         }
@@ -102,6 +111,10 @@ mod tests {
         ///
         ///
         ///  Reads the human input.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn read_human_input(&self) -> Option<ControllerFrame> {
             self.human
         }
@@ -109,6 +122,9 @@ mod tests {
         ///
         ///
         ///  Writes the merged input.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `frame` (`ControllerFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
         fn write_merged_input(&mut self, frame: ControllerFrame) {
             self.writes.push(frame);
         }
@@ -118,6 +134,10 @@ mod tests {
         ///
         ///
         ///  Reads the context.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn read_context(&self) -> Option<RunContext> {
             self.context
         }
@@ -227,6 +247,8 @@ pub mod runtime_toggle {
         ///
         ///
         ///  Creates a new value.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self {
                 armed: true,
@@ -238,6 +260,8 @@ pub mod runtime_toggle {
         ///
         ///
         ///  Disarms the toggle and clears its timing history.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         pub fn disarm(&mut self) {
             self.armed = false;
             self.held_since = None;
@@ -247,6 +271,13 @@ pub mod runtime_toggle {
         ///
         ///
         ///  Checks the current buttons and updates whether the toggle should activate.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `buttons` (`u64`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+        /// - `in_match` (`bool`): Represents the in match; the function uses it as input to the operation described above.
+        /// - `now` (`Duration`): Represents the current time; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn sample(&mut self, buttons: u64, in_match: bool, now: Duration) -> bool {
             let held = buttons & CHORD;
             if in_match {
@@ -281,6 +312,10 @@ pub mod runtime_toggle {
         ///
         ///
         ///  Turns a millisecond value into a time duration.
+        /// ### Arguments
+        /// - `ms` (`u64`): Represents the ms; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `Duration` value.
         fn at(ms: u64) -> Duration {
             Duration::from_millis(ms)
         }
@@ -359,6 +394,8 @@ pub mod session {
         ///
         ///
         ///  Creates a new value.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self { last_fighter: None }
         }
@@ -366,6 +403,9 @@ pub mod session {
         ///
         ///
         ///  Remembers when a fighter was last seen.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
         pub fn observe(&mut self, now: Instant) {
             self.last_fighter = Some(now);
         }
@@ -373,6 +413,8 @@ pub mod session {
         ///
         ///
         ///  Forgets the last fighter observation.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         pub fn clear(&mut self) {
             self.last_fighter = None;
         }
@@ -380,6 +422,11 @@ pub mod session {
         ///
         ///
         ///  Checks whether the fighter was seen recently.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn fresh(&self, now: Instant) -> bool {
             self.last_fighter.is_some_and(|seen| {
                 now.checked_duration_since(seen)
@@ -419,6 +466,8 @@ pub mod session {
         /// Creates a new match session with default values.
         ///
         ///  Creates a new match session with default values.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self {
                 ready: false,
@@ -428,7 +477,10 @@ pub mod session {
         /// Updates the match session's readiness state.
         /// # Parameters
         /// * `ready` - The new readiness state.
-        /// # Returns
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `ready` (`bool`): Represents the ready; the function uses it as input to the operation described above.
+        /// ### Returns
         /// * `true` if the readiness state changed and cached fighter/controller/overlay state must reset.
         /// * `false` otherwise.
         ///
@@ -442,7 +494,9 @@ pub mod session {
             changed
         }
         /// Returns the current session ticket if the match session is ready.
-        /// # Returns
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
         /// * `Some(SessionTicket)` if the match session is ready.
         /// * `None` otherwise.
         ///
@@ -453,7 +507,10 @@ pub mod session {
         /// Checks if the given session ticket is accepted by the current match session.
         /// # Parameters
         /// * `ticket` - The session ticket to check.
-        /// # Returns
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `ticket` (`SessionTicket`): Represents the ticket; the function uses it as input to the operation described above.
+        /// ### Returns
         /// * `true` if the ticket matches the current session ticket.
         /// * `false` otherwise.
         ///
@@ -556,6 +613,11 @@ pub mod training_test {
     /// Training compatibility applies only when it is installed and in use.
     ///
     ///  Training compatibility applies only when it is installed and in use.
+    /// ### Arguments
+    /// - `installed` (`bool`): Represents the installed; the function uses it as input to the operation described above.
+    /// - `training` (`bool`): Represents the training; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(installed: bool, training: bool) -> bool {
         installed && training
     }
@@ -563,6 +625,11 @@ pub mod training_test {
     /// The overlay chord, Plus, or one of `pad_buttons` held with D-pad up/down.
     ///
     ///  The overlay chord, Plus, or one of padbuttons held with D-pad up/down.
+    /// ### Arguments
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `pad_buttons` (`u32`): Represents the pad buttons; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn shortcut(buttons: u32, pad_buttons: u32) -> bool {
         monitor_chord(buttons)
             || buttons & MAPPER_PLUS != 0
@@ -574,6 +641,12 @@ pub mod training_test {
     /// by a fresh Minus press.
     ///
     ///  Whether the whole controller belongs to Training this frame: a Training shortcut is held, or an earlier handoff (already) has not been ended by a fresh Minus press.
+    /// ### Arguments
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
+    /// - `already` (`bool`): Represents the already; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn passthrough(buttons: u32, pressed: u32, already: bool) -> bool {
         // Persist the handoff across releases: a Training menu/recording can stay
         // open after its shortcut is released. Fresh Minus resumes and toggles ours.
@@ -585,6 +658,10 @@ pub mod training_test {
     /// OS-overlay shortcuts can stay open after release and require a Minus resume.
     ///
     ///  Default ZL+Up/Down save/load is momentary. Menus, recording/playback and OS-overlay shortcuts can stay open after release and require a Minus resume.
+    /// ### Arguments
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn sticky_shortcut(buttons: u32) -> bool {
         shortcut(buttons, MAPPER_B | MAPPER_ZR)
     }
@@ -592,6 +669,10 @@ pub mod training_test {
     /// Minus is the shared menu event in every build, including Training.
     ///
     ///  Minus is the shared menu event in every build, including Training.
+    /// ### Arguments
+    /// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u32` value.
     pub fn policy_buttons(physical: u32) -> u32 {
         physical
     }
@@ -599,6 +680,11 @@ pub mod training_test {
     /// All gameplay features retain the same startup/menu settings in Training.
     ///
     ///  All gameplay features retain the same startup/menu settings in Training.
+    /// ### Arguments
+    /// - `config` (`LiveConfig`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
+    /// - `_test_mode` (`bool`): Represents the test mode; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `LiveConfig` value.
     pub fn settings(config: LiveConfig, _test_mode: bool) -> LiveConfig {
         config
     }

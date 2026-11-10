@@ -276,6 +276,8 @@ pub mod health {
         /// Reads current atomic memory-accounting values.
         ///
         ///  Takes a snapshot of menu memory counts.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         fn read() -> Self {
             Self {
                 profiles: PROFILES.load(Relaxed),
@@ -287,6 +289,11 @@ pub mod health {
         /// Compares counts while intentionally ignoring payload size.
         ///
         ///  Checks whether the number of items stayed the same.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `old` (`Self`): Represents the old; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn same_items(self, old: Self) -> bool {
             (self.profiles, self.recipes, self.drafts) == (old.profiles, old.recipes, old.drafts)
         }
@@ -344,6 +351,8 @@ pub mod health {
         /// Initializes zeroed timing, counter baselines, and streak state.
         ///
         ///  Starts an empty performance report window.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         const fn new() -> Self {
             Self {
                 epoch: 0,
@@ -368,6 +377,9 @@ pub mod health {
         /// Resets interval aggregates and snapshots cumulative counters for deltas.
         ///
         ///  Begins a fresh report period without erasing lifetime counts.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `epoch` (`usize`): Represents the epoch; the function uses it as input to the operation described above.
         fn restart(&mut self, epoch: usize) {
             *self = Self::new();
             self.epoch = epoch;
@@ -382,6 +394,9 @@ pub mod health {
     /// Restarts a window when its diagnostic generation changes.
     ///
     ///  Clears old period totals when performance settings are reset.
+    /// ### Arguments
+    /// - `w` (`&mut Window`): Represents the w; the function uses it as input to the operation described above.
+    /// - `epoch` (`usize`): Represents the epoch; the function uses it as input to the operation described above.
     fn sync_epoch(w: &mut Window, epoch: usize) {
         if w.epoch != epoch {
             w.restart(epoch);
@@ -391,12 +406,17 @@ pub mod health {
     /// Increments one lifetime event counter.
     ///
     ///  Records that a diagnostic event happened once.
+    /// ### Arguments
+    /// - `e` (`Event`): Represents the e; the function uses it as input to the operation described above.
     pub fn event(e: Event) {
         add_event(e, 1);
     }
     /// Adds `n` occurrences to an event's lifetime counter.
     ///
     ///  Adds several occurrences to the event total at once.
+    /// ### Arguments
+    /// - `e` (`Event`): Represents the e; the function uses it as input to the operation described above.
+    /// - `n` (`usize`): Represents the n; the function uses it as input to the operation described above.
     pub fn add_event(e: Event, n: usize) {
         COUNTS[e as usize].fetch_add(n, Relaxed);
     }
@@ -418,6 +438,11 @@ pub mod health {
     /// Publishes current retained-menu counts and updates the payload peak.
     ///
     ///  Updates memory estimates for profiles, recipes, and drafts.
+    /// ### Arguments
+    /// - `profiles` (`usize`): Represents the profiles; the function uses it as input to the operation described above.
+    /// - `recipes` (`usize`): Represents the recipes; the function uses it as input to the operation described above.
+    /// - `drafts` (`usize`): Represents the drafts; the function uses it as input to the operation described above.
+    /// - `bytes` (`usize`): Represents the byte data being processed; the function uses it as input to the operation described above.
     pub fn retained(profiles: usize, recipes: usize, drafts: usize, bytes: usize) {
         PROFILES.store(profiles, Relaxed);
         RECIPES.store(recipes, Relaxed);
@@ -428,6 +453,8 @@ pub mod health {
     /// Publishes current cached-view bytes and updates the view peak.
     ///
     ///  Updates the estimated size of the displayed menu text.
+    /// ### Arguments
+    /// - `bytes` (`usize`): Represents the byte data being processed; the function uses it as input to the operation described above.
     pub fn view_bytes(bytes: usize) {
         VIEW.store(bytes, Relaxed);
         PEAK_VIEW.fetch_max(bytes, Relaxed);
@@ -440,6 +467,8 @@ pub mod health {
         /// Increments active-worker counters and records a save-start event.
         ///
         ///  Marks a save worker as started.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub fn start() -> Self {
             event(Event::SaveStarted);
             let n = ACTIVE.fetch_add(1, Relaxed) + 1;
@@ -451,6 +480,8 @@ pub mod health {
         /// Decrements the active-worker count when the marker is dropped.
         ///
         ///  Marks the save worker as finished.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         fn drop(&mut self) {
             ACTIVE.fetch_sub(1, Relaxed);
         }
@@ -477,6 +508,10 @@ pub mod health {
         /// Starts a sampled lane timer according to the active sampling cadence.
         ///
         ///  Begins timing this operation when it is selected for measurement.
+        /// ### Arguments
+        /// - `lane` (`Lane`): Represents the lane; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub fn new(lane: Lane) -> Self {
             let epoch = super::EPOCH.load(Relaxed);
             let start = if super::enabled() {
@@ -497,6 +532,8 @@ pub mod health {
         /// Accumulates duration only if the timer still matches the active epoch.
         ///
         ///  Adds the measured time to the current report if it is still current.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         fn drop(&mut self) {
             let Some(start) = self.start else {
                 return;
@@ -524,6 +561,8 @@ pub mod health {
     /// Updates callback-gap timing and threshold buckets without blocking.
     ///
     ///  Records how much time passed between plugin draw updates.
+    /// ### Arguments
+    /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
     pub fn draw_tick(now: Instant) {
         if !super::enabled() {
             return;
@@ -553,6 +592,8 @@ pub mod health {
     /// Produces a report after five seconds of data, using try-lock snapshots.
     ///
     ///  Builds a periodic health report when enough data is available.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn report() -> Option<String> {
         if !super::enabled() {
             return None;
@@ -692,6 +733,17 @@ pub mod health {
     /// network delay, whole-process CPU use, GPU load, or a verified memory leak.
     ///
     ///  These warnings point to things to investigate, not proven causes.
+    /// ### Arguments
+    /// - `t` (`&[Timing; LANES]`): Represents the t; the function uses it as input to the operation described above.
+    /// - `calls` (`&[usize; LANES]`): Represents the calls; the function uses it as input to the operation described above.
+    /// - `e` (`&[usize; EVENTS]`): Represents the e; the function uses it as input to the operation described above.
+    /// - `gap` (`u64`): Represents the gap; the function uses it as input to the operation described above.
+    /// - `workers` (`usize`): Represents the workers; the function uses it as input to the operation described above.
+    /// - `queued` (`usize`): Represents the queued; the function uses it as input to the operation described above.
+    /// - `growth` (`u8`): Represents the growth; the function uses it as input to the operation described above.
+    /// - `save_age` (`u8`): Represents the save age; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn review(
         t: &[Timing; LANES],
         calls: &[usize; LANES],
@@ -983,6 +1035,8 @@ impl Counters {
     /// Constructs an empty counter set at epoch zero.
     ///
     ///  Starts a new empty observation timing record.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     const fn new() -> Self {
         Self {
             epoch: 0,
@@ -998,6 +1052,9 @@ impl Counters {
     /// Resets sampled totals when their generation no longer matches.
     ///
     ///  Clears old measurements when diagnostics have been reset.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `epoch` (`usize`): Represents the epoch; the function uses it as input to the operation described above.
     fn sync(&mut self, epoch: usize) {
         if self.epoch != epoch {
             *self = Self::new();
@@ -1027,6 +1084,8 @@ impl Card {
     /// Initializes an empty card slot.
     ///
     ///  Creates a diagnostic card with no report yet.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self(Mutex::new(None))
     }
@@ -1034,6 +1093,11 @@ impl Card {
     /// Publishes owned report text only when its epoch is current both before and under lock.
     ///
     ///  Saves the report only if it still belongs to the current session.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `epoch` (`usize`): Represents the epoch; the function uses it as input to the operation described above.
+    /// - `current` (`&AtomicUsize`): Represents the current; the function uses it as input to the operation described above.
+    /// - `text` (`CString`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
     pub fn publish(&self, epoch: usize, current: &AtomicUsize, text: CString) {
         if epoch != current.load(Ordering::Acquire) {
             return;
@@ -1047,6 +1111,8 @@ impl Card {
     /// Clears the card with a nonblocking lock attempt.
     ///
     ///  Removes the displayed report if the card is not busy.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn clear(&self) {
         if let Ok(mut card) = self.0.try_lock() {
             *card = None;
@@ -1056,6 +1122,12 @@ impl Card {
     /// Calls `draw` only for an available card from the current generation.
     ///
     ///  Displays the report only when it is ready and up to date.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `current` (`&AtomicUsize`): Represents the current; the function uses it as input to the operation described above.
+    /// - `draw` (`impl FnOnce(&CStr)`): Represents the draw; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn show(&self, current: &AtomicUsize, draw: impl FnOnce(&CStr)) -> bool {
         let Ok(card) = self.0.try_lock() else {
             return false;
@@ -1073,6 +1145,10 @@ impl Card {
 /// Clamps a nanosecond `u128` value to the `u64` counter range.
 ///
 ///  Prevents very large durations from overflowing the report counter.
+/// ### Arguments
+/// - `value` (`u128`): Represents the value being processed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u64` value.
 pub fn clamp_u64(value: u128) -> u64 {
     u64::try_from(value).unwrap_or(u64::MAX)
 }
@@ -1080,6 +1156,8 @@ pub fn clamp_u64(value: u128) -> u64 {
 /// Stores a capped label and clears measurements when it changes.
 ///
 ///  Records the player's latency note without changing the game.
+/// ### Arguments
+/// - `index` (`u8`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
 pub fn set_test_latency(index: u8) {
     let index = usize::from(index.min(31));
     if TEST_LATENCY.swap(index, Ordering::Relaxed) != index {
@@ -1089,12 +1167,16 @@ pub fn set_test_latency(index: u8) {
 /// Reads the active diagnostic generation.
 ///
 ///  Gets the current measurement session number.
+/// ### Returns
+/// Returns the resulting `usize` value.
 pub fn context_epoch() -> usize {
     EPOCH.load(Ordering::Relaxed)
 }
 /// Decodes the stored zero-or-one-based latency label into an optional frame count.
 ///
 ///  Gets the manually entered latency label, if set.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn test_latency() -> Option<u8> {
     TEST_LATENCY
         .load(Ordering::Relaxed)
@@ -1104,6 +1186,10 @@ pub fn test_latency() -> Option<u8> {
 /// Formats an optional manual latency label without implying measurement.
 ///
 ///  Turns the chosen latency note into report text.
+/// ### Arguments
+/// - `label` (`Option<u8>`): Represents the label; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting text.
 pub fn latency_text(label: Option<u8>) -> String {
     label.map_or_else(
         || "UNLABELLED".into(),
@@ -1113,12 +1199,16 @@ pub fn latency_text(label: Option<u8>) -> String {
 /// Reads the diagnostics-enabled flag.
 ///
 ///  Checks whether performance diagnostics are turned on.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn enabled() -> bool {
     ENABLED.load(Ordering::Relaxed)
 }
 /// Changes diagnostics enablement and invalidates prior data on transitions.
 ///
 ///  Turns measurements on or off and starts a fresh report period.
+/// ### Arguments
+/// - `on` (`bool`): Represents the on; the function uses it as input to the operation described above.
 pub fn set_enabled(on: bool) {
     if ENABLED.swap(on, Ordering::Relaxed) != on {
         clear();
@@ -1165,6 +1255,8 @@ impl Scope {
     /// Begins one sampled root interval using the fixed 1-in-16 cadence.
     ///
     ///  Starts measuring an occasional complete observation.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub fn root() -> Self {
         let sample = enabled() && TICK.fetch_add(1, Ordering::Relaxed) % 16 == 0;
         SAMPLE.store(sample, Ordering::Relaxed);
@@ -1175,6 +1267,10 @@ impl Scope {
     /// Begins a nested region and swaps its index into ray attribution state.
     ///
     ///  Starts timing one named part of the current observation.
+    /// ### Arguments
+    /// - `part` (`Part`): Represents the part; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub fn new(part: Part) -> Self {
         let start = (enabled() && SAMPLE.load(Ordering::Relaxed)).then(Instant::now);
         let previous = if start.is_some() {
@@ -1195,6 +1291,8 @@ impl Drop for Scope {
     /// Restores the parent region, accumulates sampled time, and closes root sampling.
     ///
     ///  Saves the timing totals and finishes the measurement when this scope ends.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn drop(&mut self) {
         if let Some(start) = self.start {
             let ns = clamp_u64(start.elapsed().as_nanos());
@@ -1273,6 +1371,8 @@ mod tests {
 /// Draws the diagnostic card only while instrumentation is enabled.
 ///
 ///  Shows the latest performance report when diagnostics are on.
+/// ### Arguments
+/// - `draw` (`impl FnOnce(&CStr)`): Represents the draw; the function uses it as input to the operation described above.
 pub fn with_card(draw: impl FnOnce(&CStr)) {
     if enabled() {
         CARD.show(&EPOCH, draw);
@@ -1282,18 +1382,29 @@ pub fn with_card(draw: impl FnOnce(&CStr)) {
 /// Converts accumulated nanoseconds and sample count into a mean in microseconds.
 ///
 ///  Calculates the average measured time.
+/// ### Arguments
+/// - `nanos` (`u64`): Represents the nanos; the function uses it as input to the operation described above.
+/// - `calls` (`u64`): Represents the calls; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `f64` value.
 fn avg_us(nanos: u64, calls: u64) -> f64 {
     nanos as f64 / calls.max(1) as f64 / 1000.0
 }
 /// Converts a nanosecond duration to microseconds.
 ///
 ///  Changes a measured time into report-friendly units.
+/// ### Arguments
+/// - `nanos` (`u64`): Represents the nanos; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `f64` value.
 fn micros(nanos: u64) -> f64 {
     nanos as f64 / 1000.0
 }
 /// Called only by the existing background writer. No extra thread or queue.
 ///
 ///  Builds an observation timing report on the current logging worker.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn observation_report() -> Option<String> {
     if !enabled() {
         return None;
@@ -1381,6 +1492,8 @@ fn observation_report() -> Option<String> {
 /// Combines currently available observation and health report sections.
 ///
 ///  Returns the diagnostic reports that are ready to display.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn report() -> Option<String> {
     match (observation_report(), health::report()) {
         (Some(mut a), Some(b)) => {

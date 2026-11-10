@@ -200,6 +200,10 @@ const DPAD: u32 = DPAD_UP | DPAD_DOWN | DPAD_LEFT | DPAD_RIGHT;
 /// Picker category of a preset action.
 ///
 ///  Picker category of a preset action.
+/// ### Arguments
+/// - `action` (`Action`): Represents the action; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `usize` value.
 fn group(action: Action) -> usize {
     match action {
         Action::Check { .. }
@@ -240,6 +244,11 @@ fn group(action: Action) -> usize {
 /// Returns the `candidates` result.
 ///
 /// Gets the candidates result.
+/// ### Arguments
+/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
+/// - `category` (`usize`): Represents the category; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting items; the vector is empty when there are none.
 pub(super) fn candidates(r: &Recipe, category: usize) -> Vec<usize> {
     let ledge_free = |action: Action| !r.sequence.reaction.active() || !action.needs_ledge();
     if category == SAVED_INPUTS_GROUP {
@@ -256,6 +265,11 @@ pub(super) fn candidates(r: &Recipe, category: usize) -> Vec<usize> {
 /// Returns the `changed_steps` result.
 ///
 /// Gets the changed steps result.
+/// ### Arguments
+/// - `before` (`&Recipe`): Represents the before; the function uses it as input to the operation described above.
+/// - `after` (`&Recipe`): Represents the after; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u32` value.
 fn changed_steps(before: &Recipe, after: &Recipe) -> u32 {
     (0..usize::from(after.sequence.len)).fold(0, |mask, i| {
         if before.sequence.actions[i] != after.sequence.actions[i]
@@ -271,12 +285,22 @@ fn changed_steps(before: &Recipe, after: &Recipe) -> u32 {
 /// Determines whether the `vertical` condition holds.
 ///
 /// Checks whether vertical.
+/// ### Arguments
+/// - `pad` (`u32`): Represents the pad; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn vertical(pad: u32) -> bool {
     pad == DPAD_UP || pad == DPAD_DOWN
 }
 /// Move `item` through `count` entries on Up/Down, wrapping at both ends.
 ///
 ///  Move item through count entries on Up/Down, wrapping at both ends.
+/// ### Arguments
+/// - `item` (`usize`): Represents the item; the function uses it as input to the operation described above.
+/// - `count` (`usize`): Represents the number of items; the function uses it as input to the operation described above.
+/// - `nav` (`u32`): Represents the nav; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `usize` value.
 fn step_item(item: usize, count: usize, nav: u32) -> usize {
     if nav & DPAD_DOWN != 0 {
         cycle(item, count, true)
@@ -289,6 +313,13 @@ fn step_item(item: usize, count: usize, nav: u32) -> usize {
 /// The next group in the given direction that has entries; stays put when none do.
 ///
 ///  The next group in the given direction that has entries; stays put when none do.
+/// ### Arguments
+/// - `group` (`usize`): Represents the group; the function uses it as input to the operation described above.
+/// - `count` (`usize`): Represents the number of items; the function uses it as input to the operation described above.
+/// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
+/// - `has_entries` (`impl Fn(usize) -> bool`): Represents whether it has entries; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `usize` value.
 fn next_group(
     group: usize,
     count: usize,
@@ -308,6 +339,9 @@ fn next_group(
 /// transfers only to another button input.
 ///
 ///  Replacing a move keeps its configured hold. Until-takeover (0 frames) transfers only to another button input.
+/// ### Arguments
+/// - `old` (`Action`): Represents the old; the function uses it as input to the operation described above.
+/// - `new` (`&mut Action`): Represents the new; the function uses it as input to the operation described above.
 fn carry_hold(old: Action, new: &mut Action) {
     let held = match old {
         Action::Input { frames, .. }
@@ -330,7 +364,9 @@ impl RecipeEditor {
     /// Updates the `close_commands` state using the supplied inputs.
     ///
     ///
-///  Updates close commands.
+    ///  Updates close commands.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn close_commands(&mut self) {
         self.modal = None;
         self.return_modal = None;
@@ -342,7 +378,9 @@ impl RecipeEditor {
     /// Clears the copy.
     ///
     ///
-///  Clears the copy.
+    ///  Clears the copy.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn clear_copy(&mut self) {
         self.copy_sources = Vec::new();
         self.copy_templates = Vec::new();
@@ -353,14 +391,24 @@ impl RecipeEditor {
     /// Takes the manage request.
     ///
     ///
-///  Takes the manage request.
+    ///  Takes the manage request.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn take_manage_request(&mut self) -> bool {
         std::mem::take(&mut self.manage_requested)
     }
     /// Copies the step.
     ///
     ///
-///  Copies the step.
+    ///  Copies the step.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn copy_step(&mut self, key: (usize, usize), slot: usize) -> bool {
         let Some(r) = self.recipes.get(&key) else {
             return false;
@@ -378,7 +426,14 @@ impl RecipeEditor {
     /// Determines whether the `paste_step` condition holds.
     ///
     ///
-///  Checks whether paste step.
+    ///  Checks whether paste step.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `after` (`bool`): Represents the after; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn paste_step(&mut self, key: (usize, usize), slot: usize, after: bool) -> bool {
         let Some((action, delay)) = self.step_clipboard else {
             self.last_edit = Some("Copy a step first".into());
@@ -409,14 +464,21 @@ impl RecipeEditor {
     /// Takes the copy request.
     ///
     ///
-///  Takes the copy request.
+    ///  Takes the copy request.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn take_copy_request(&mut self) -> bool {
         std::mem::take(&mut self.copy_requested)
     }
     /// Sets the copy sources.
     ///
     ///
-///  Sets the copy sources.
+    ///  Sets the copy sources.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `sources` (`Vec<CopySource>`): Represents the sources; the function uses it as input to the operation described above.
     pub fn set_copy_sources(&mut self, sources: Vec<CopySource>) {
         self.copy_sources = sources;
         if let Some(Modal::Copy { group, item }) = self.modal.as_mut() {
@@ -433,7 +495,10 @@ impl RecipeEditor {
     /// Sets the copy templates.
     ///
     ///
-///  Sets the copy templates.
+    ///  Sets the copy templates.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `templates` (`&[crate::sequence_config::Template]`): Represents the templates; the function uses it as input to the operation described above.
     pub fn set_copy_templates(&mut self, templates: &[crate::sequence_config::Template]) {
         self.copy_templates = templates.iter().map(|t| t.name.clone()).collect();
         if let Some(Modal::Copy { group, item }) = self.modal.as_mut() {
@@ -446,7 +511,12 @@ impl RecipeEditor {
     /// Copies the sources in.
     ///
     ///
-///  Copies the sources in.
+    ///  Copies the sources in.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `group` (`usize`): Represents the group; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `impl Iterator<Item = &CopySource>` value.
     fn copy_sources_in(&self, group: usize) -> impl Iterator<Item = &CopySource> {
         self.copy_sources
             .iter()
@@ -455,7 +525,12 @@ impl RecipeEditor {
     /// Copies the count.
     ///
     ///
-///  Copies the count.
+    ///  Copies the count.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `group` (`usize`): Represents the group; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `usize` value.
     fn copy_count(&self, group: usize) -> usize {
         if group == TEMPLATE_GROUP {
             self.copy_templates.len()
@@ -466,14 +541,24 @@ impl RecipeEditor {
     /// Takes the template apply.
     ///
     ///
-///  Takes the template apply.
+    ///  Takes the template apply.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn take_template_apply(&mut self) -> Option<usize> {
         self.template_apply.take()
     }
     /// Applies the generic template.
     ///
     ///
-///  Applies the generic template.
+    ///  Applies the generic template.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `destination` (`(usize, usize)`): Represents the destination; the function uses it as input to the operation described above.
+    /// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn apply_generic_template(
         &mut self,
         destination: (usize, usize),
@@ -485,7 +570,11 @@ impl RecipeEditor {
     /// Takes the copy apply.
     ///
     ///
-///  Takes the copy apply.
+    ///  Takes the copy apply.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn take_copy_apply(
         &mut self,
     ) -> Option<(crate::fighter_profiles::presets::PresetSlot, usize)> {
@@ -494,14 +583,23 @@ impl RecipeEditor {
     /// Rejects the copy.
     ///
     ///
-///  Rejects the copy.
+    ///  Rejects the copy.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn reject_copy(&mut self) {
         self.last_edit = Some("Source recipe is no longer available; nothing changed".into());
     }
     /// Applies the template.
     ///
     ///
-///  Applies the template.
+    ///  Applies the template.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `destination` (`(usize, usize)`): Represents the destination; the function uses it as input to the operation described above.
+    /// - `source` (`(usize, usize)`): Represents the source; the function uses it as input to the operation described above.
+    /// - `fallback` (`Sequence`): Represents the fallback; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn apply_template(
         &mut self,
         destination: (usize, usize),
@@ -557,14 +655,23 @@ impl RecipeEditor {
     /// Determines whether the `command_active` condition holds.
     ///
     ///
-///  Checks whether command active.
+    ///  Checks whether command active.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn command_active(&self) -> bool {
         self.modal.is_some()
     }
     /// Returns an optional `focused_field` value.
     ///
     ///
-///  Gets focused field if it is available.
+    ///  Gets focused field if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn focused_field(&self, key: (usize, usize)) -> Option<Field> {
         let r = self.recipes.get(&key)?;
         Some(focus(&fields(r), self.cursor))
@@ -572,13 +679,21 @@ impl RecipeEditor {
     /// Returns an optional `selected_slot` value.
     ///
     ///
-///  Gets selected slot if it is available.
+    ///  Gets selected slot if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn selected_slot(&self, key: (usize, usize)) -> Option<usize> {
         Some(field_slot(self.focused_field(key)?).unwrap_or(0))
     }
     /// Open a tool, restarting the d-pad repeat timer.
     ///
-///  Open a tool, restarting the d-pad repeat timer.
+    ///  Open a tool, restarting the d-pad repeat timer.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `modal` (`Modal`): Represents the modal; the function uses it as input to the operation described above.
     fn open(&mut self, modal: Modal) {
         self.modal = Some(modal);
         self.command_held = 0;
@@ -586,7 +701,9 @@ impl RecipeEditor {
     }
     /// Close the open tool and its parent; copy lists and repeat state are left alone.
     ///
-///  Close the open tool and its parent; copy lists and repeat state are left alone.
+    ///  Close the open tool and its parent; copy lists and repeat state are left alone.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn dismiss(&mut self) {
         self.modal = None;
         self.return_modal = None;
@@ -594,7 +711,11 @@ impl RecipeEditor {
     /// Updates the `open_picker` state using the supplied inputs.
     ///
     ///
-///  Updates open picker.
+    ///  Updates open picker.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
     fn open_picker(&mut self, key: (usize, usize), slot: usize) {
         let Some(r) = self.recipes.get(&key) else {
             return;
@@ -619,7 +740,13 @@ impl RecipeEditor {
     /// Returns an optional `field_index` value.
     ///
     ///
-///  Gets field index if it is available.
+    ///  Gets field index if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `target` (`Field`): Represents the target object or value being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn field_index(&self, key: (usize, usize), target: Field) -> Option<usize> {
         let r = self.recipes.get(&key)?;
         fields(r).iter().position(|f| *f == target)
@@ -627,7 +754,11 @@ impl RecipeEditor {
     /// Updates the `focus_slot` state using the supplied inputs.
     ///
     ///
-///  Updates focus slot.
+    ///  Updates focus slot.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
     fn focus_slot(&mut self, key: (usize, usize), slot: usize) {
         if self.recipes.contains_key(&key) {
             self.cursor = self.field_index(key, Field::Kind(slot)).unwrap_or(0);
@@ -636,7 +767,15 @@ impl RecipeEditor {
     /// Determines whether the `commit_command` condition holds.
     ///
     ///
-///  Checks whether commit command.
+    ///  Checks whether commit command.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `next` (`Recipe`): Represents the next; the function uses it as input to the operation described above.
+    /// - `focus` (`usize`): Represents the focus; the function uses it as input to the operation described above.
+    /// - `message` (`&str`): Represents the message; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn commit_command(
         &mut self,
         key: (usize, usize),
@@ -664,7 +803,12 @@ impl RecipeEditor {
     /// Determines whether the `undo_edit` condition holds.
     ///
     ///
-///  Checks whether undo edit.
+    ///  Checks whether undo edit.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn undo_edit(&mut self, key: (usize, usize)) -> bool {
         if !self.undo.as_ref().is_some_and(|u| u.0 == key) {
             self.last_edit = Some("No previous edit for this recipe".into());
@@ -689,7 +833,14 @@ impl RecipeEditor {
     /// Determines whether the `structural` condition holds.
     ///
     ///
-///  Checks whether structural.
+    ///  Checks whether structural.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `item` (`usize`): Represents the item; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn structural(&mut self, key: (usize, usize), slot: usize, item: usize) -> bool {
         if item == UNDO {
             return self.undo_edit(key);
@@ -738,7 +889,12 @@ impl RecipeEditor {
     /// Determines whether the `command_repeat` condition holds.
     ///
     ///
-///  Checks whether command repeat.
+    ///  Checks whether command repeat.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `pad` (`u32`): Represents the pad; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn command_repeat(&mut self, pad: u32) -> bool {
         if vertical(pad) {
             if self.command_held != pad {
@@ -758,7 +914,14 @@ impl RecipeEditor {
     }
     /// Some = input owned by editor tools, (rebuild UI, recipe changed).
     ///
-///  Some = input owned by editor tools, (rebuild UI, recipe changed).
+    ///  Some = input owned by editor tools, (rebuild UI, recipe changed).
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn command_input(
         &mut self,
         key: (usize, usize),
@@ -779,7 +942,14 @@ impl RecipeEditor {
     }
     /// Shortcuts while no tool is open. Runs every frame: only cheap checks until a press.
     ///
-///  Shortcuts while no tool is open. Runs every frame: only cheap checks until a press.
+    ///  Shortcuts while no tool is open. Runs every frame: only cheap checks until a press.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn idle_input(&mut self, key: (usize, usize), buttons: u32, pressed: u32) -> Option<(bool, bool)> {
         let shoulders = MAPPER_ZL | MAPPER_ZR;
         if buttons & shoulders == shoulders && pressed & shoulders != 0 {
@@ -827,7 +997,13 @@ impl RecipeEditor {
     }
     /// ZL/ZR: previous/next step; from a sequence-level row, the first/last step.
     ///
-///  ZL/ZR: previous/next step; from a sequence-level row, the first/last step.
+    ///  ZL/ZR: previous/next step; from a sequence-level row, the first/last step.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn jump_step(&mut self, key: (usize, usize), forward: bool) -> Option<()> {
         let r = self.recipes.get(&key)?;
         let len = usize::from(r.sequence.len);
@@ -843,7 +1019,15 @@ impl RecipeEditor {
     /// Returns an optional `modal_input` value.
     ///
     ///
-///  Gets modal input if it is available.
+    ///  Gets modal input if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `modal` (`Modal`): Represents the modal; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn modal_input(
         &mut self,
         key: (usize, usize),
@@ -885,7 +1069,15 @@ impl RecipeEditor {
     /// Returns an optional `buttons_modal` value.
     ///
     ///
-///  Gets buttons modal if it is available.
+    ///  Gets buttons modal if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `item` (`usize`): Represents the item; the function uses it as input to the operation described above.
+    /// - `toggle` (`bool`): Represents the toggle; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn buttons_modal(
         &mut self,
         key: (usize, usize),
@@ -920,7 +1112,15 @@ impl RecipeEditor {
     /// Copies the modal.
     ///
     ///
-///  Copies the modal.
+    ///  Copies the modal.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `group` (`usize`): Represents the group; the function uses it as input to the operation described above.
+    /// - `item` (`usize`): Represents the item; the function uses it as input to the operation described above.
+    /// - `confirm` (`bool`): Represents the confirm; the function uses it as input to the operation described above.
+    /// - `nav` (`u32`): Represents the nav; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn copy_modal(
         &mut self,
         group: usize,
@@ -955,7 +1155,16 @@ impl RecipeEditor {
     /// Returns an optional `tools_modal` value.
     ///
     ///
-///  Gets tools modal if it is available.
+    ///  Gets tools modal if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `item` (`usize`): Represents the item; the function uses it as input to the operation described above.
+    /// - `confirm` (`bool`): Represents the confirm; the function uses it as input to the operation described above.
+    /// - `nav` (`u32`): Represents the nav; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn tools_modal(
         &mut self,
         key: (usize, usize),
@@ -1015,7 +1224,17 @@ impl RecipeEditor {
     /// Returns an optional `picker_modal` value.
     ///
     ///
-///  Gets picker modal if it is available.
+    ///  Gets picker modal if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `group` (`usize`): Represents the group; the function uses it as input to the operation described above.
+    /// - `item` (`usize`): Represents the item; the function uses it as input to the operation described above.
+    /// - `confirm` (`bool`): Represents the confirm; the function uses it as input to the operation described above.
+    /// - `nav` (`u32`): Represents the nav; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn picker_modal(
         &mut self,
         key: (usize, usize),
@@ -1045,7 +1264,14 @@ impl RecipeEditor {
     /// Applies the kind.
     ///
     ///
-///  Applies the kind.
+    ///  Applies the kind.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `kind` (`usize`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn apply_kind(&mut self, key: (usize, usize), slot: usize, kind: usize) -> Option<(bool, bool)> {
         let r = self.recipes.get(&key)?;
         if r.kinds[slot] == kind {
@@ -1068,7 +1294,12 @@ impl RecipeEditor {
     /// Returns an optional `command_panel` value.
     ///
     ///
-///  Gets command panel if it is available.
+    ///  Gets command panel if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn command_panel(&self, key: (usize, usize)) -> Option<RecipePanel> {
         let modal = self.modal?;
         let r = self.recipes.get(&key)?;
@@ -1090,7 +1321,12 @@ impl RecipeEditor {
     /// Copies the panel.
     ///
     ///
-///  Copies the panel.
+    ///  Copies the panel.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `panel` (`&mut RecipePanel`): Represents the panel; the function uses it as input to the operation described above.
+    /// - `group` (`usize`): Represents the group; the function uses it as input to the operation described above.
+    /// - `item` (`usize`): Represents the item; the function uses it as input to the operation described above.
     fn copy_panel(&self, panel: &mut RecipePanel, group: usize, item: usize) {
         panel.header.push("COPY RECIPE / GENERIC TEMPLATE".into());
         group_header(panel, COPY_GROUPS, group);
@@ -1121,6 +1357,10 @@ impl RecipeEditor {
 /// Updates the `group_header` state using the supplied inputs.
 ///
 /// Updates group header.
+/// ### Arguments
+/// - `panel` (`&mut RecipePanel`): Represents the panel; the function uses it as input to the operation described above.
+/// - `names` (`&[&str]`): Represents the names; the function uses it as input to the operation described above.
+/// - `group` (`usize`): Represents the group; the function uses it as input to the operation described above.
 fn group_header(panel: &mut RecipePanel, names: &[&str], group: usize) {
     panel.header.push(format!(
         "< {} >  {}/{}",
@@ -1132,6 +1372,11 @@ fn group_header(panel: &mut RecipePanel, names: &[&str], group: usize) {
 /// Updates the `numbered_row` state using the supplied inputs.
 ///
 /// Updates numbered row.
+/// ### Arguments
+/// - `panel` (`&mut RecipePanel`): Represents the panel; the function uses it as input to the operation described above.
+/// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
+/// - `item` (`usize`): Represents the item; the function uses it as input to the operation described above.
+/// - `text` (`impl std::fmt::Display`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
 fn numbered_row(panel: &mut RecipePanel, i: usize, item: usize, text: impl std::fmt::Display) {
     let marker = if i == item { "> " } else { "" };
     panel.body.push(format!("{marker}{:02}  {text}", i + 1));
@@ -1139,6 +1384,11 @@ fn numbered_row(panel: &mut RecipePanel, i: usize, item: usize, text: impl std::
 /// Updates the `buttons_panel` state using the supplied inputs.
 ///
 /// Updates buttons panel.
+/// ### Arguments
+/// - `panel` (`&mut RecipePanel`): Represents the panel; the function uses it as input to the operation described above.
+/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
+/// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// - `item` (`usize`): Represents the item; the function uses it as input to the operation described above.
 fn buttons_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, item: usize) {
     panel
         .header
@@ -1160,6 +1410,11 @@ fn buttons_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, item: usize) 
 /// Updates the `tools_panel` state using the supplied inputs.
 ///
 /// Updates tools panel.
+/// ### Arguments
+/// - `panel` (`&mut RecipePanel`): Represents the panel; the function uses it as input to the operation described above.
+/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
+/// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// - `item` (`usize`): Represents the item; the function uses it as input to the operation described above.
 fn tools_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, item: usize) {
     panel
         .header
@@ -1178,6 +1433,12 @@ fn tools_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, item: usize) {
 /// Updates the `picker_panel` state using the supplied inputs.
 ///
 /// Updates picker panel.
+/// ### Arguments
+/// - `panel` (`&mut RecipePanel`): Represents the panel; the function uses it as input to the operation described above.
+/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
+/// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+/// - `group` (`usize`): Represents the group; the function uses it as input to the operation described above.
+/// - `item` (`usize`): Represents the item; the function uses it as input to the operation described above.
 fn picker_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, group: usize, item: usize) {
     panel
         .header
@@ -1215,7 +1476,9 @@ mod tests {
     /// Returns the `editor` result.
     ///
     ///
-///  Gets the editor result.
+    ///  Gets the editor result.
+    /// ### Returns
+    /// Returns the resulting `RecipeEditor` value.
     fn editor() -> RecipeEditor {
         let source=crate::sequence_config::Catalog::parse("[kirby.x.test]\nstart_delay=2\nwhile_held=true\nactions=hold:a:7,wait:3,hold:b:9,wait:2,hold:r:4").unwrap().entries()[0].sequence;
         let mut e = RecipeEditor::default();
@@ -1225,7 +1488,12 @@ mod tests {
     /// Returns an optional `tap` value.
     ///
     ///
-///  Gets tap if it is available.
+    ///  Gets tap if it is available.
+    /// ### Arguments
+    /// - `e` (`&mut RecipeEditor`): Represents the e; the function uses it as input to the operation described above.
+    /// - `button` (`u32`): Represents the button; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn tap(e: &mut RecipeEditor, button: u32) -> Option<(bool, bool)> {
         e.command_input(KEY, 0, 0);
         e.command_input(KEY, button, button)
@@ -1522,7 +1790,9 @@ mod reaction_copy_tests {
     /// Returns the `editor` result.
     ///
     ///
-///  Gets the editor result.
+    ///  Gets the editor result.
+    /// ### Returns
+    /// Returns the resulting `RecipeEditor` value.
     fn editor() -> RecipeEditor {
         let source = crate::sequence_config::Catalog::parse(
             "[kirby.x.test]\nstart_delay=2\nactions=hold:a:7\n",
@@ -1537,7 +1807,12 @@ mod reaction_copy_tests {
     /// Returns an optional `tap` value.
     ///
     ///
-///  Gets tap if it is available.
+    ///  Gets tap if it is available.
+    /// ### Arguments
+    /// - `e` (`&mut RecipeEditor`): Represents the e; the function uses it as input to the operation described above.
+    /// - `b` (`u32`): Represents the b; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn tap(e: &mut RecipeEditor, b: u32) -> Option<(bool, bool)> {
         e.command_input(KEY, 0, 0);
         e.command_input(KEY, b, b)
@@ -1709,7 +1984,11 @@ mod menu_audit_tests {
     /// Returns the `recipe` result.
     ///
     ///
-///  Gets the recipe result.
+    ///  Gets the recipe result.
+    /// ### Arguments
+    /// - `a` (`&str`): Represents the a; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Sequence` value.
     fn recipe(a: &str) -> Sequence {
         crate::sequence_config::Catalog::parse(&format!(
             "[bowser.attack.test]\nstart_delay=0\nactions={a}\n"
@@ -1721,7 +2000,13 @@ mod menu_audit_tests {
     /// Returns an optional `tap` value.
     ///
     ///
-///  Gets tap if it is available.
+    ///  Gets tap if it is available.
+    /// ### Arguments
+    /// - `e` (`&mut RecipeEditor`): Represents the e; the function uses it as input to the operation described above.
+    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
+    /// - `b` (`u32`): Represents the b; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn tap(e: &mut RecipeEditor, key: (usize, usize), b: u32) -> Option<(bool, bool)> {
         e.command_input(key, 0, 0);
         e.command_input(key, b, b)
@@ -1924,7 +2209,11 @@ mod generic_template_copy_tests {
     /// Returns the `sequence` result.
     ///
     ///
-///  Gets the sequence result.
+    ///  Gets the sequence result.
+    /// ### Arguments
+    /// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Sequence` value.
     fn sequence(source: &str) -> Sequence {
         Catalog::parse(source).unwrap().entries()[0].sequence
     }

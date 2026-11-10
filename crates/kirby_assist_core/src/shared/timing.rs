@@ -18,6 +18,10 @@ const HASH40_CRC32_POLYNOMIAL: u32 = 0xedb88320;
 /// Hash40 motion identifier: CRC32 in the low word, byte length in the high word.
 ///
 ///  Hash40 motion identifier: CRC32 in the low word, byte length in the high word.
+/// ### Arguments
+/// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `u64` value.
 pub const fn motion_hash(name: &str) -> u64 {
     let bytes = name.as_bytes();
     let mut crc = !0u32;
@@ -84,7 +88,12 @@ impl MotionStamp {
     /// * `motion` - The identifier of the motion.
     /// * `frame` - The current frame of the motion.
     /// * `rate` - The playback rate of the motion.
-    /// # Returns
+    /// ### Arguments
+    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+    /// - `motion` (`u64`): Represents the motion being checked; the function uses it as input to the operation described above.
+    /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+    /// - `rate` (`f32`): Represents the rate; the function uses it as input to the operation described above.
+    /// ### Returns
     /// A `MotionStamp` initialized with the provided values.
     ///
     ///  Constructs a new MotionStamp with the given status, motion, frame, and rate. # Parameters  status - The status code of the motion.  motion - The identifier of the motion.  frame - The current frame of the motion.  rate - The.
@@ -98,7 +107,9 @@ impl MotionStamp {
     }
 
     /// Checks if the motion stamp represents a valid and positive playback state.
-    /// # Returns
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
     /// `true` if the frame and rate are finite and the rate is positive, `false` otherwise.
     ///
     ///  Checks if the motion stamp represents a valid and positive playback state. # Returns true if the frame and rate are finite and the rate is positive, false otherwise.
@@ -110,6 +121,11 @@ impl MotionStamp {
 /// Determines whether the `playback_valid` condition holds.
 ///
 /// Checks whether playback valid.
+/// ### Arguments
+/// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `rate` (`f32`): Represents the rate; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn playback_valid(frame: f32, rate: f32) -> bool {
     frame.is_finite() && frame >= 0.0 && rate.is_finite() && rate > 0.0
 }
@@ -118,6 +134,12 @@ fn playback_valid(frame: f32, rate: f32) -> bool {
 /// frame and a finite, positive rate.
 ///
 ///  A usable native animation clock: a known motion with a finite, non-negative frame and a finite, positive rate.
+/// ### Arguments
+/// - `motion` (`u64`): Represents the motion being checked; the function uses it as input to the operation described above.
+/// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+/// - `rate` (`f32`): Represents the rate; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn clock_known(motion: u64, frame: f32, rate: f32) -> bool {
     motion != NO_MOTION_KIND && playback_valid(frame, rate)
 }
@@ -178,6 +200,12 @@ impl MotionProgress {
     /// clocks require a caller decision; they never silently count as progress.
     ///
     ///  Keep each caller's startup/transition policy explicit. Rewinds and invalid clocks require a caller decision; they never silently count as progress.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `initial` (`f32`): Represents the initial; the function uses it as input to the operation described above.
+    /// - `transition` (`f32`): Represents the transition; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn elapsed(self, initial: f32, transition: f32) -> Option<f32> {
         match self {
             Self::Initial => Some(initial),
@@ -193,7 +221,10 @@ impl MotionProgress {
 /// # Parameters
 /// * `previous` - The previous motion stamp, if available.
 /// * `current` - The current motion stamp.
-/// # Returns
+/// ### Arguments
+/// - `previous` (`Option<MotionStamp>`): Represents the previous; the function uses it as input to the operation described above.
+/// - `current` (`MotionStamp`): Represents the current; the function uses it as input to the operation described above.
+/// ### Returns
 /// A `MotionProgress` value representing how the motion has progressed.
 ///
 ///  Computes the progress of a motion given its previous and current stamps. # Parameters  previous - The previous motion stamp, if available.  current - The current motion stamp. # Returns A MotionProgress value representing how.
@@ -226,6 +257,12 @@ pub fn motion_progress(previous: Option<MotionStamp>, current: MotionStamp) -> M
 /// follow the caller's existing bounded-clock cancellation path.
 ///
 ///  Adapter for existing sequence histories. NaN makes an invalid/rewound clock follow the caller's existing bounded-clock cancellation path.
+/// ### Arguments
+/// - `previous` (`Option<(i32, u64, f32, f32)>`): Represents the previous; the function uses it as input to the operation described above.
+/// - `current` (`(i32, u64, f32, f32)`): Represents the current; the function uses it as input to the operation described above.
+/// - `initial` (`f32`): Represents the initial; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `f32` value.
 pub fn motion_elapsed(
     previous: Option<(i32, u64, f32, f32)>,
     current: (i32, u64, f32, f32),
@@ -242,6 +279,11 @@ pub fn motion_elapsed(
 /// `None` means the counter went backwards.
 ///
 ///  For adapters that supply actual simulation-frame numbers, not animation samples. Never mix this counter with mapper ticks or elapsed milliseconds. None means the counter went backwards.
+/// ### Arguments
+/// - `previous` (`Option<u64>`): Represents the previous; the function uses it as input to the operation described above.
+/// - `current` (`u64`): Represents the current; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn simulation_elapsed(previous: Option<u64>, current: u64) -> Option<u64> {
     previous.map_or(Some(0), |old| current.checked_sub(old))
 }
@@ -298,6 +340,13 @@ impl ActiveWindow {
     /// `in_reach` must predict geometry at the SAME time as vulnerability.
     ///
     ///  Earliest modeled contact after input delay, before recovery expires. inreach must predict geometry at the SAME time as vulnerability.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `input_delay` (`f32`): Represents the input delay; the function uses it as input to the operation described above.
+    /// - `recovery` (`RecoveryWindow`): Represents the recovery; the function uses it as input to the operation described above.
+    /// - `in_reach` (`impl FnMut(f32) -> bool`): Represents the in reach; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn first_contact(
         self,
         input_delay: f32,
@@ -386,6 +435,8 @@ impl AnimationClock {
     /// Constructs a new `AnimationClock` with no previous sample and a tick count of zero.
     ///
     ///  Constructs a new AnimationClock with no previous sample and a tick count of zero.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             previous: None,
@@ -396,7 +447,11 @@ impl AnimationClock {
     /// # Parameters
     /// * `sample` - The current animation sample to observe.
     /// * `stopped` - Indicates whether the animation has stopped.
-    /// # Returns
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `sample` (`AnimationSample`): Represents the sample; the function uses it as input to the operation described above.
+    /// - `stopped` (`bool`): Represents the stopped; the function uses it as input to the operation described above.
+    /// ### Returns
     /// An `Option<i64>` representing the current tick count if the state has changed, or `None` if the observation is ignored.
     ///
     ///  Observes a new animation sample and updates the tick count if the state has changed. # Parameters  sample - The current animation sample to observe.  stopped - Indicates whether the animation has stopped. # Returns An.

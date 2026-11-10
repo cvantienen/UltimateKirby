@@ -77,7 +77,11 @@ impl<'a> Source<'a> {
     /// Returns the native identifier of the observed object.
     ///
     ///
-///  Gets the object’s identifier.
+    ///  Gets the object’s identifier.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `&'a str` value.
     pub fn id(&self) -> &'a str {
         match self {
             Self::Draft(d) => &d.id,
@@ -89,7 +93,11 @@ impl<'a> Source<'a> {
     /// Returns the display name associated with the value.
     ///
     ///
-///  Gets the name shown for this value.
+    ///  Gets the name shown for this value.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `&'a str` value.
     pub fn name(&self) -> &'a str {
         match self {
             Self::Draft(d) => &d.name,
@@ -101,7 +109,11 @@ impl<'a> Source<'a> {
     /// Determines whether the `allow_new` condition holds.
     ///
     ///
-///  Checks whether allow new.
+    ///  Checks whether allow new.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn allow_new(&self) -> bool {
         match self {
             Self::Draft(d) => d.new,
@@ -112,7 +124,11 @@ impl<'a> Source<'a> {
     /// Returns an optional `builtin` value.
     ///
     ///
-///  Gets builtin if it is available.
+    ///  Gets builtin if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn builtin(&self) -> Option<Builtin> {
         match self {
             Self::Draft(d) => d.sequence.builtin,
@@ -124,7 +140,11 @@ impl<'a> Source<'a> {
     /// Returns the `sequence` result.
     ///
     ///
-///  Gets the sequence result.
+    ///  Gets the sequence result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Sequence` value.
     pub fn sequence(&self) -> Sequence {
         match self {
             Self::Draft(d) => d.sequence,
@@ -140,6 +160,10 @@ impl<'a> Source<'a> {
 /// A choice without any executable step: nothing to run, test or save as a recipe.
 ///
 ///  A choice without any executable step: nothing to run, test or save as a recipe.
+/// ### Arguments
+/// - `sequence` (`&Sequence`): Represents the sequence; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn is_blank(sequence: &Sequence) -> bool {
     sequence.actions().iter().all(|a| *a == Action::Empty)
 }
@@ -178,7 +202,10 @@ impl RuleScan {
     /// Updates the `add` state using the supplied inputs.
     ///
     ///
-///  Updates add.
+    ///  Updates add.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `rule` (`crate::reaction_rules::Rule`): Represents the scenario rule being added, changed, or checked; the function uses it as input to the operation described above.
     fn add(&mut self, rule: crate::reaction_rules::Rule) {
         use crate::reaction_rules::Trigger;
         if self.simplified && rule.trigger.simple().is_none() {
@@ -201,7 +228,12 @@ impl MenuSelection {
     /// from startup need owned records; unchanged file choices remain borrowed.
     /// Never calls the startup static-reference publisher (which would leak).
     ///
-///  Build a fresh session from the owned saved catalog. Only differences from startup need owned records; unchanged file choices remain borrowed. Never calls the startup static-reference publisher (which would leak).
+    ///  Build a fresh session from the owned saved catalog. Only differences from startup need owned records; unchanged file choices remain borrowed. Never calls the startup static-reference publisher (which would leak).
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `saved` (`&crate::sequence_config::Catalog`): Represents the saved; the function uses it as input to the operation described above.
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
     pub fn load_saved_recipes(
         &mut self,
         presets: &MenuPresets,
@@ -282,7 +314,12 @@ impl MenuSelection {
 
     /// Resolve at most eight tagged recipes only after configuration revisions.
     ///
-///  Resolve at most eight tagged recipes only after configuration revisions.
+    ///  Resolve at most eight tagged recipes only after configuration revisions.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn resolve_reactions(
         &self,
         presets: &MenuPresets,
@@ -314,7 +351,11 @@ impl MenuSelection {
     }
     /// One bounded profile scan on creation/recipe revisions, never idle polls.
     ///
-///  One bounded profile scan on creation/recipe revisions, never idle polls.
+    ///  One bounded profile scan on creation/recipe revisions, never idle polls.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `held` (`u32`): Represents the held; the function uses it as input to the operation described above.
     pub(super) fn refresh_rule_bindings(&mut self, presets: &MenuPresets, held: u32) {
         let mut scan = RuleScan {
             simplified: self.simplified_reactions,
@@ -349,7 +390,11 @@ impl MenuSelection {
     /// Returns the `reaction_enabled_controls` result.
     ///
     ///
-///  Gets the reaction enabled controls result.
+    ///  Gets the reaction enabled controls result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `u8` value.
     pub fn reaction_enabled_controls(&self) -> u8 {
         if self.tuning_page {
             return 0;
@@ -364,20 +409,37 @@ impl MenuSelection {
     /// Returns an optional `draft` value.
     ///
     ///
-///  Gets draft if it is available.
+    ///  Gets draft if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(super) fn draft(&self, slot: PresetSlot, index: usize) -> Option<&catalog::Draft> {
         self.catalog.as_ref()?.drafts.get(&(slot as usize, index))
     }
     /// Returns mutable access to the catalog value.
     ///
     ///
-///  Provides mutable access to catalog.
+    ///  Provides mutable access to catalog.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `&mut catalog::Catalog` value.
     pub(super) fn catalog_mut(&mut self) -> &mut catalog::Catalog {
         self.catalog.get_or_insert_with(Default::default)
     }
     /// Does a live recipe for this slot already provide the built-in action?
     ///
-///  Does a live recipe for this slot already provide the built-in action?
+    ///  Does a live recipe for this slot already provide the built-in action?
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `builtin` (`Builtin`): Represents the builtin; the function uses it as input to the operation described above.
+    /// - `options` (`&[SavedChoice]`): Represents the options; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn builtin_recorded(&self, slot: PresetSlot, builtin: Builtin, options: &[SavedChoice]) -> bool {
         options.iter().any(|c| c.sequence.builtin == Some(builtin))
             || self.catalog.as_ref().is_some_and(|c| {
@@ -389,7 +451,14 @@ impl MenuSelection {
     /// Returns an optional `source` value.
     ///
     ///
-///  Gets source if it is available.
+    ///  Gets source if it is available.
+    /// ### Arguments
+    /// - `self` (`&'a self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&'a MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(super) fn source<'a>(
         &'a self,
         presets: &'a MenuPresets,
@@ -419,7 +488,14 @@ impl MenuSelection {
     }
     /// Resolve only identity for the hot input path; do not copy 32 actions.
     ///
-///  Resolve only identity for the hot input path; do not copy 32 actions.
+    ///  Resolve only identity for the hot input path; do not copy 32 actions.
+    /// ### Arguments
+    /// - `self` (`&'a self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&'a MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn choice_labels<'a>(
         &'a self,
         presets: &'a MenuPresets,
@@ -433,7 +509,14 @@ impl MenuSelection {
     /// Returns an optional `choice` value.
     ///
     ///
-///  Gets choice if it is available.
+    ///  Gets choice if it is available.
+    /// ### Arguments
+    /// - `self` (`&'a self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&'a MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn choice<'a>(
         &'a self,
         presets: &'a MenuPresets,
@@ -450,13 +533,23 @@ impl MenuSelection {
     /// Determines whether the `managing` condition holds.
     ///
     ///
-///  Checks whether managing.
+    ///  Checks whether managing.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn managing(&self) -> bool {
         self.catalog.as_ref().is_some_and(|c| c.active())
     }
     /// One past the highest choice index of a slot, templates and added drafts included.
     ///
-///  One past the highest choice index of a slot, templates and added drafts included.
+    ///  One past the highest choice index of a slot, templates and added drafts included.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `usize` value.
     pub(super) fn choice_end(&self, presets: &MenuPresets, slot: PresetSlot) -> usize {
         let base = presets.list(slot).options.len() + slot.templates();
         let slot_key = slot as usize;
@@ -468,7 +561,13 @@ impl MenuSelection {
     /// Returns the `all_choices` result.
     ///
     ///
-///  Gets the all choices result.
+    ///  Gets the all choices result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting items; the vector is empty when there are none.
     pub(super) fn all_choices(&self, presets: &MenuPresets, slot: PresetSlot) -> Vec<usize> {
         (0..self.choice_end(presets, slot))
             .filter(|i| self.source(presets, slot, *i).is_some())
@@ -477,7 +576,14 @@ impl MenuSelection {
     /// Returns an optional `recipe_snapshot` value.
     ///
     ///
-///  Gets recipe snapshot if it is available.
+    ///  Gets recipe snapshot if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn recipe_snapshot(
         &self,
         presets: &MenuPresets,
@@ -493,7 +599,13 @@ impl MenuSelection {
     /// Returns the `visible_choices` result.
     ///
     ///
-///  Gets the visible choices result.
+    ///  Gets the visible choices result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting items; the vector is empty when there are none.
     pub(super) fn visible_choices(&self, presets: &MenuPresets, slot: PresetSlot) -> Vec<usize> {
         self.all_choices(presets, slot)
             .into_iter()
@@ -506,7 +618,13 @@ impl MenuSelection {
     /// Returns the `template_sources` result.
     ///
     ///
-///  Gets the template sources result.
+    ///  Gets the template sources result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `destination` (`(usize, usize)`): Represents the destination; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting items; the vector is empty when there are none.
     pub(super) fn template_sources(
         &self,
         presets: &MenuPresets,
@@ -543,7 +661,14 @@ impl MenuSelection {
     /// Determines whether the `quick_choice` condition holds.
     ///
     ///
-///  Checks whether quick choice.
+    ///  Checks whether quick choice.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn quick_choice(&self, presets: &MenuPresets, slot: PresetSlot, index: usize) -> bool {
         self.source(presets, slot, index).is_some_and(|source| {
             source.builtin().is_some()
@@ -558,7 +683,13 @@ impl MenuSelection {
     }
     /// Choices the compact page cycles: the unedited blank template stays hidden.
     ///
-///  Choices the compact page cycles: the unedited blank template stays hidden.
+    ///  Choices the compact page cycles: the unedited blank template stays hidden.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting items; the vector is empty when there are none.
     fn quick_choices(&self, presets: &MenuPresets, slot: PresetSlot) -> Vec<usize> {
         let mut visible = self.visible_choices(presets, slot);
         visible.retain(|i| self.quick_choice(presets, slot, *i));
@@ -567,7 +698,13 @@ impl MenuSelection {
     /// Returns the `choice_position` result.
     ///
     ///
-///  Gets the choice position result.
+    ///  Gets the choice position result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `(usize, usize)` value.
     pub fn choice_position(&self, presets: &MenuPresets, slot: PresetSlot) -> (usize, usize) {
         let visible = if self.quick_menu {
             self.quick_choices(presets, slot)
@@ -585,7 +722,14 @@ impl MenuSelection {
     /// Returns the `cycle_choice` result.
     ///
     ///
-///  Gets the cycle choice result.
+    ///  Gets the cycle choice result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `usize` value.
     pub(super) fn cycle_choice(
         &self,
         presets: &MenuPresets,
@@ -598,7 +742,14 @@ impl MenuSelection {
     /// Returns the `cycle_quick_choice` result.
     ///
     ///
-///  Gets the cycle quick choice result.
+    ///  Gets the cycle quick choice result.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `usize` value.
     pub(super) fn cycle_quick_choice(
         &self,
         presets: &MenuPresets,
@@ -621,7 +772,14 @@ impl MenuSelection {
     /// Returns the `cycle_visible_choices` result.
     ///
     ///
-///  Gets the cycle visible choices result.
+    ///  Gets the cycle visible choices result.
+    /// ### Arguments
+    /// - `visible` (`&[usize]`): Represents the visible; the function uses it as input to the operation described above.
+    /// - `current` (`usize`): Represents the current; the function uses it as input to the operation described above.
+    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
+    /// - `missing_index` (`usize`): Represents the missing index; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `usize` value.
     fn cycle_visible_choices(
         visible: &[usize],
         current: usize,
@@ -637,13 +795,28 @@ impl MenuSelection {
     /// Returns an optional `name_override` value.
     ///
     ///
-///  Gets name override if it is available.
+    ///  Gets name override if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn name_override(&self, slot: PresetSlot, index: usize) -> Option<&str> {
         self.draft(slot, index).map(|d| d.name.as_str())
     }
     /// Editing a different recipe must not make a completed snapshot look stale.
     ///
-///  Editing a different recipe must not make a completed snapshot look stale.
+    ///  Editing a different recipe must not make a completed snapshot look stale.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
+    /// - `name` (`Option<&str>`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn saved_recipe_matches(
         &self,
         presets: &MenuPresets,
@@ -669,7 +842,11 @@ impl MenuSelection {
     /// Marks the recipe saved.
     ///
     ///
-///  Marks the recipe saved.
+    ///  Marks the recipe saved.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
     pub fn mark_recipe_saved(&mut self, slot: PresetSlot, index: usize) {
         if let Some(editor) = self.editor.as_mut() {
             editor.mark_saved((slot as usize, index));
@@ -685,7 +862,13 @@ impl MenuSelection {
     /// Updates the `complete_file_save` state using the supplied inputs.
     ///
     ///
-///  Updates complete file save.
+    ///  Updates complete file save.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// - `deleted` (`bool`): Represents the deleted; the function uses it as input to the operation described above.
     pub fn complete_file_save(
         &mut self,
         presets: &MenuPresets,
@@ -699,7 +882,15 @@ impl MenuSelection {
     /// Promote the acknowledged worker snapshot, never a newer unsaved edit or
     /// the immutable startup recipe. Completion can arrive after leaving Training.
     ///
-///  Promote the acknowledged worker snapshot, never a newer unsaved edit or the immutable startup recipe. Completion can arrive after leaving Training.
+    ///  Promote the acknowledged worker snapshot, never a newer unsaved edit or the immutable startup recipe. Completion can arrive after leaving Training.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// - `deleted` (`bool`): Represents the deleted; the function uses it as input to the operation described above.
+    /// - `snapshot` (`Option<Sequence>`): Represents the snapshot; the function uses it as input to the operation described above.
+    /// - `name` (`Option<&str>`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
     pub fn complete_saved_snapshot(
         &mut self,
         presets: &MenuPresets,
@@ -745,7 +936,12 @@ impl MenuSelection {
     /// Updates the `complete_deletion` state using the supplied inputs.
     ///
     ///
-///  Updates complete deletion.
+    ///  Updates complete deletion.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
     fn complete_deletion(&mut self, presets: &MenuPresets, slot: PresetSlot, index: usize) {
         let key = (slot as usize, index);
         // A Custom saved at the template's index becomes a blank reusable
@@ -777,7 +973,10 @@ impl MenuSelection {
     /// drafts (including invalid drafts) and any clean editor differing from its
     /// base; a late save acknowledgement will promote that base first.
     ///
-///  Drop Training-only tools once per scene transition. Retain unfinished drafts (including invalid drafts) and any clean editor differing from its base; a late save acknowledgement will promote that base first.
+    ///  Drop Training-only tools once per scene transition. Retain unfinished drafts (including invalid drafts) and any clean editor differing from its base; a late save acknowledgement will promote that base first.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
     pub fn release_training_tools(&mut self, presets: &MenuPresets) {
         let Some(mut editor) = self.editor.take() else {
             return;
@@ -799,7 +998,12 @@ impl MenuSelection {
     /// Updates the `manage_input` state using the supplied inputs.
     ///
     ///
-///  Updates manage input.
+    ///  Updates manage input.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
     pub(super) fn manage_input(&mut self, presets: &MenuPresets, buttons: u32, pressed: u32) {
         let Some(slot) = self.row.slot() else {
             return;
@@ -880,7 +1084,13 @@ impl MenuSelection {
     }
     /// Why another option cannot be added to this row, if it cannot.
     ///
-///  Why another option cannot be added to this row, if it cannot.
+    ///  Why another option cannot be added to this row, if it cannot.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn add_refusal(&self, presets: &MenuPresets, slot: PresetSlot) -> Option<String> {
         if let Some((row, _)) = self.mode_editor_origin.as_ref() {
             if self.auto_mode_events(*row).is_some() {
@@ -909,7 +1119,14 @@ impl MenuSelection {
     }
     /// First unused `menu_added_N` id at or after `serial`, with the serial it used.
     ///
-///  First unused menuaddedN id at or after serial, with the serial it used.
+    ///  First unused menuaddedN id at or after serial, with the serial it used.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `serial` (`usize`): Represents the serial; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `(String, usize)` value.
     fn fresh_choice_id(&self, presets: &MenuPresets, slot: PresetSlot, mut serial: usize) -> (String, usize) {
         let options = presets.list(slot).options;
         let slot_key = slot as usize;
@@ -930,7 +1147,14 @@ impl MenuSelection {
     /// Adds the choice.
     ///
     ///
-///  Adds the choice.
+    ///  Adds the choice.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
+    /// - `current` (`&catalog::Draft`): Represents the current; the function uses it as input to the operation described above.
+    /// - `copy` (`bool`): Represents the copy; the function uses it as input to the operation described above.
     fn add_choice(
         &mut self,
         presets: &MenuPresets,
@@ -988,7 +1212,11 @@ impl MenuSelection {
     /// Updates the `open_editor` state using the supplied inputs.
     ///
     ///
-///  Updates open editor.
+    ///  Updates open editor.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
     pub(super) fn open_editor(&mut self, presets: &MenuPresets, slot: PresetSlot) {
         self.mode_rule_list = false;
         let index = self.choices[slot as usize];

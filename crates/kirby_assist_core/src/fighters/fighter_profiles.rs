@@ -119,6 +119,10 @@ pub mod presets {
         ///
         ///
         ///  Gets the assigned button.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `u32` value.
         pub fn button(self) -> u32 {
             use crate::{manual_controls::*, native_input::*};
             match self {
@@ -137,6 +141,10 @@ pub mod presets {
         ///
         ///
         ///  Checks whether button.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn is_button(self) -> bool {
             self as usize >= Self::X as usize
         }
@@ -144,6 +152,11 @@ pub mod presets {
         ///
         ///
         ///  Holds the default index value.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `saved` (`usize`): Represents the saved; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `usize` value.
         pub fn default_index(self, saved: usize) -> usize {
             saved
                 + if self.is_button() {
@@ -156,6 +169,10 @@ pub mod presets {
         ///
         ///
         ///  Gets how many choices can fit in the slot.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `usize` value.
         pub fn max_choices(self) -> usize {
             32
         }
@@ -163,6 +180,10 @@ pub mod presets {
         ///
         ///
         ///  Gets the available recipe templates.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `usize` value.
         pub fn templates(self) -> usize {
             if self.is_button() {
                 5 // Normal + custom recipe + three native helpers.
@@ -197,6 +218,12 @@ pub mod presets {
         ///
         ///
         ///  Gets the value read from the configuration file.
+        /// ### Arguments
+        /// - `id` (`&'static str`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
+        /// - `name` (`&'static str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
+        /// - `sequence` (`&'static crate::sequence_config::Sequence`): Represents the sequence; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub(crate) fn file(
             id: &'static str,
             name: &'static str,
@@ -227,6 +254,10 @@ pub mod presets {
         ///
         ///
         ///  Creates a new value.
+        /// ### Arguments
+        /// - `options` (`&'static [SavedChoice]`): Represents the options; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn new(options: &'static [SavedChoice]) -> Self {
             Self {
                 selected: 0,
@@ -257,6 +288,8 @@ pub mod presets {
         ///
         ///
         ///  Returns the default value for this type.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         fn default() -> Self {
             Self::EMPTY
         }
@@ -274,6 +307,11 @@ pub mod presets {
         ///
         ///
         ///  Gets the items in the list.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `&SavedList` value.
         pub fn list(&self, slot: PresetSlot) -> &SavedList {
             &self.lists[slot as usize]
         }
@@ -294,6 +332,10 @@ pub mod spacing {
     /// The UI resolves these when its cached snapshot changes, never per game frame.
     ///
     ///  Compact display aliases only. IDs, handlers and timing stay unchanged. The UI resolves these when its cached snapshot changes, never per game frame.
+    /// ### Arguments
+    /// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn menu_name(name: &str) -> &str {
         match name {
             "Down tilt" => "Dtilt",
@@ -351,6 +393,12 @@ pub mod spacing {
     /// Fighter kind is the resolved profile kind, so fallback profiles stay coherent.
     ///
     ///  An empty hint deliberately leaves grabs, shield and automatic roll approaches alone: their starting distance is not the move's final striking distance. Fighter kind is the resolved profile kind, so fallback profiles stay coherent.
+    /// ### Arguments
+    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn hint(fighter_kind: i32, slot: PresetSlot, choice: &str) -> &'static str {
         // Missile roll choices deliberately stay back instead of using the roll
         // approach, so retain their ranged hint even in that row.
@@ -406,6 +454,10 @@ pub mod spacing {
     ///
     ///
     ///  Gets the note about neutral air.
+    /// ### Arguments
+    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn nair_hint(fighter_kind: i32) -> &'static str {
         match fighter_kind {
             kind::LITTLE_MAC => "~touching", // Little Mac's intentionally tiny aerial.
@@ -437,6 +489,10 @@ pub mod spacing {
     ///
     ///
     ///  Gets the note about down tilt.
+    /// ### Arguments
+    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn down_tilt_hint(fighter_kind: i32) -> &'static str {
         match fighter_kind {
             kind::DONKEY_KONG
@@ -474,6 +530,10 @@ pub mod spacing {
     ///
     ///
     ///  Gets the note about forward tilt.
+    /// ### Arguments
+    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn forward_tilt_hint(fighter_kind: i32) -> &'static str {
         match fighter_kind {
             kind::DONKEY_KONG
@@ -501,6 +561,10 @@ pub mod spacing {
     ///
     ///
     ///  Gets the note about short-hop down air.
+    /// ### Arguments
+    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     fn short_hop_dair_hint(fighter_kind: i32) -> &'static str {
         match fighter_kind {
             kind::DARK_SAMUS
@@ -582,7 +646,9 @@ macro_rules! fighter_profiles {
                 /// Returns the profile associated with the fighter identity.
                 ///
                 ///
-///  Gets the fighter’s profile.
+                ///  Gets the fighter’s profile.
+                /// ### Returns
+                /// Returns the resulting `super::FighterProfile` value.
                 pub fn profile() -> super::FighterProfile {
                     let kind = crate::fighter_kinds::$kind;
                     super::FighterProfile {
@@ -738,6 +804,10 @@ impl FighterGrabData {
     /// Resolve simple grab facts from this fighter's canonical data row.
     ///
     ///  Resolve simple grab facts from this fighter's canonical data row.
+    /// ### Arguments
+    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub fn from_kind(kind: i32) -> Self {
         let grab = |status| crate::fighter_data::ordinary_grab(kind, status);
         let standing = grab(crate::native_states::CATCH);
@@ -795,6 +865,8 @@ impl Default for LedgeResponses {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             neutral_getup: true,
@@ -836,6 +908,10 @@ impl FighterProfile {
     /// Full-roster facts are available regardless of this fighter's match role.
     ///
     ///  Full-roster facts are available regardless of this fighter's match role.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn fighter_data(&self) -> Option<&'static crate::fighter_data::FighterData> {
         crate::fighter_data::fighter(self.fighter_kind)
     }
@@ -843,6 +919,11 @@ impl FighterProfile {
     ///
     ///
     ///  Makes the supplied change.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `AssistSettings` value.
     pub fn apply(&self, mut settings: AssistSettings) -> AssistSettings {
         settings.implementation =
             crate::ledge_trap::ResponseImplementation::for_kind(self.fighter_kind);
@@ -874,6 +955,8 @@ impl Default for FighterProfiles {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         // Keep the constructor table in read-only storage and build one profile
         // at a time. A [FighterProfile; 77] temporary exceeded the native 64 KiB
@@ -908,6 +991,9 @@ impl FighterProfiles {
     /// Runtime uses owned selected-fighter records instead of leaking all tapes.
     ///
     ///  Share inert Training templates without expanding fighter-specific menus. Runtime uses owned selected-fighter records instead of leaking all tapes.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `templates` (`&[crate::sequence_config::Template]`): Represents the templates; the function uses it as input to the operation described above.
     pub fn add_sequence_templates(&mut self, templates: &[crate::sequence_config::Template]) {
         if templates.is_empty() {
             return;
@@ -923,6 +1009,11 @@ impl FighterProfiles {
     /// The file/section/list caps bound this retained memory. Never call per frame.
     ///
     ///  Startup only. Freeze the file-authored menus into process-lifetime storage so all existing borrowed catalog consumers stay allocation-free. The file/section/list caps bound this retained memory. Never call per frame.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `catalog` (`&crate::sequence_config::Catalog`): Represents the catalog; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn add_sequence_choices(
         &mut self,
         catalog: &crate::sequence_config::Catalog,
@@ -976,6 +1067,10 @@ impl FighterProfiles {
     /// Check programmer-supplied catalog edits once before installing hooks.
     ///
     ///  Check programmer-supplied catalog edits once before installing hooks.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn validate(&self) -> Result<(), String> {
         if !self.profiles.contains_key(&6) {
             return Err("Kirby identity/fighter-data profile is missing".into());
@@ -1052,6 +1147,11 @@ impl FighterProfiles {
     ///
     ///
     ///  Gets the fighter’s profile.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn profile(&self, fighter_kind: i32) -> Option<&FighterProfile> {
         // Native playable kinds are 0..FIGHTER_KIND_TERM (0x5e), exclusive.
         // Missing/invalid identities are inert; never substitute another fighter's
@@ -1066,6 +1166,12 @@ impl FighterProfiles {
     /// None still covers startup before a valid fighter is observed.
     ///
     ///  Use only the requested fighter identity and its loaded file catalog. None still covers startup before a valid fighter is observed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `fighter_kind` (`Option<i32>`): Represents the fighter kind; the function uses it as input to the operation described above.
+    /// - `base` (`AssistSettings`): Represents the base; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `AssistSettings` value.
     pub fn settings_for_fighter(
         &self,
         fighter_kind: Option<i32>,

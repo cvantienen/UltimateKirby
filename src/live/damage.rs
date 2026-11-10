@@ -18,6 +18,15 @@ pub(super) type GeometryCache = (u32, u64, Option<BlastZone>);
 ///
 /// # Safety
 /// The object pointer must be valid for the duration of the native reads.
+/// ### Arguments
+/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
+/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+/// - `object_id` (`u32`): Represents the object id; the function uses it as input to the operation described above.
+/// - `damage_stop` (`bool`): Represents the damage stop; the function uses it as input to the operation described above.
+/// - `remaining` (`u64`): Represents the remaining; the function uses it as input to the operation described above.
+/// - `cached` (`Option<GeometryCache>`): Represents the cached; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `(Option<GeometryCache>, Option<Trajectory>)` value.
 pub(super) unsafe fn observe(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,

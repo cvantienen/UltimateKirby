@@ -18,6 +18,11 @@ pub mod layout {
     ///
     ///
     ///  Prepares the catalog for saving.
+    /// ### Arguments
+    /// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
+    /// - `updated` (`String`): Represents the updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn for_save(source: &str, updated: String) -> Result<String, String> {
         if source
             .lines()
@@ -32,6 +37,10 @@ pub mod layout {
     /// Keep property bytes and per-category choice order; only move whole sections.
     ///
     ///  Keep property bytes and per-category choice order; only move whole sections.
+    /// ### Arguments
+    /// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn organize(source: &str) -> Result<String, String> {
         let lines: Vec<_> = source.lines().collect();
         let mut clean = String::new();
@@ -145,6 +154,10 @@ pub mod layout {
     ///
     ///
     ///  Gets assist group if it is available.
+    /// ### Arguments
+    /// - `body` (`&str`): Represents the body; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn assist_group(body: &str) -> Option<(usize, &'static str)> {
         let token = body.lines().find_map(|line| {
             let (key, value) = line.split('#').next()?.split_once('=')?;
@@ -177,6 +190,10 @@ pub mod layout {
     ///
     ///
     ///  Returns where this value belongs in the ordering.
+    /// ### Arguments
+    /// - `slot` (`&str`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `usize` value.
     fn rank(slot: &str) -> usize {
         [
             "settings",
@@ -336,6 +353,10 @@ mod library {
         ///
         ///
         ///  Packs the value into a smaller representation.
+        /// ### Arguments
+        /// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         fn pack(sequence: Sequence) -> Self {
             Self {
                 actions: sequence.actions().into(),
@@ -353,6 +374,10 @@ mod library {
         ///
         ///
         ///  Unpacks the value into its parts.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `Sequence` value.
         fn expand(&self) -> Sequence {
             let mut sequence = Sequence {
                 len: self.actions.len() as u8,
@@ -457,6 +482,10 @@ mod library {
         ///
         ///
         ///  Constructs a value from the catalog.
+        /// ### Arguments
+        /// - `catalog` (`Catalog`): Represents the catalog; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub fn from_catalog(catalog: Catalog) -> Self {
             let mut library = Self {
                 entries: catalog.entries.len(),
@@ -488,6 +517,10 @@ mod library {
         ///
         ///
         ///  Counts the stored items.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `usize` value.
         pub fn len(&self) -> usize {
             self.entries
         }
@@ -495,6 +528,10 @@ mod library {
         ///
         ///
         ///  Checks whether empty.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn is_empty(&self) -> bool {
             self.entries == 0
         }
@@ -502,6 +539,11 @@ mod library {
         ///
         ///
         ///  Gets the fighter entries result.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `usize` value.
         pub fn fighter_entries(&self, kind: i32) -> usize {
             self.fighters.get(&kind).map_or(0, |f| f.entries.len())
         }
@@ -509,6 +551,11 @@ mod library {
         /// by the identity registry; no other fighter is expanded or scanned here.
         ///
         ///  Creation/change-of-fighter only. Generic templates are shared separately by the identity registry; no other fighter is expanded or scanned here.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `Catalog` value.
         pub fn for_fighter(&self, kind: i32) -> Catalog {
             let entries = self.fighters.get(&kind).map_or_else(Vec::new, |fighter| {
                 fighter
@@ -539,6 +586,10 @@ mod library {
         /// Useful for startup diagnostics/host checks, never needed by frame policy.
         ///
         ///  Useful for startup diagnostics/host checks, never needed by frame policy.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `usize` value.
         pub fn action_slots(&self) -> usize {
             self.fighters
                 .values()
@@ -663,6 +714,10 @@ impl Direction {
     /// Canonical spelling, as written by saves.
     ///
     ///  Canonical spelling, as written by saves.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn token(self) -> &'static str {
         Self::TOKENS[self as usize].1[0]
     }
@@ -671,6 +726,10 @@ impl Direction {
     ///
     ///
     ///  Turns the token into the value it names.
+    /// ### Arguments
+    /// - `token` (`&str`): Represents the token; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn from_token(token: &str) -> Option<Self> {
         Self::TOKENS
             .iter()
@@ -682,6 +741,10 @@ impl Direction {
     /// recipes have none.
     ///
     ///  Directions resolved against saved ledge geometry; onstage reaction recipes have none.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_ledge(self) -> bool {
         matches!(
             self,
@@ -693,6 +756,10 @@ impl Direction {
     ///
     ///
     ///  Gets the text shown for this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn label(self) -> &'static str {
         match self {
             Self::Opponent => "Opponent",
@@ -816,6 +883,10 @@ impl Condition {
     ///
     ///
     ///  Gets the text form used when saving this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn token(self) -> &'static str {
         match self {
             Self::SelfGrounded => "self_grounded",
@@ -834,6 +905,10 @@ impl Condition {
     ///
     ///
     ///  Turns the token into the value it names.
+    /// ### Arguments
+    /// - `token` (`&str`): Represents the token; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn from_token(token: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|c| c.token() == token)
     }
@@ -841,6 +916,10 @@ impl Condition {
     ///
     ///
     ///  Checks whether this action needs an opponent.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_enemy(self) -> bool {
         !matches!(self, Self::SelfGrounded | Self::SelfAirborne)
     }
@@ -848,6 +927,10 @@ impl Condition {
     ///
     ///
     ///  Checks whether distance.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn has_distance(self) -> bool {
         matches!(self, Self::EnemyWithin | Self::EnemyOutside)
     }
@@ -884,6 +967,10 @@ impl InputReference {
     ///
     ///
     ///  Gets the text form used when saving this value.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting text.
     pub fn token(self) -> &'static str {
         match self {
             Self::Screen => "screen",
@@ -895,6 +982,10 @@ impl InputReference {
     ///
     ///
     ///  Reads the source and checks that it is valid.
+    /// ### Arguments
+    /// - `s` (`&str`): Represents the s; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn parse(s: &str) -> Result<Self, String> {
         Self::ALL
             .into_iter()
@@ -1297,6 +1388,10 @@ impl Action {
     /// Onstage reaction recipes have no saved ledge geometry.
     ///
     ///  Onstage reaction recipes have no saved ledge geometry.
+    /// ### Arguments
+    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_ledge(self) -> bool {
         match self {
             Self::IfFacingLedge { .. } | Self::LedgePosition { .. } => true,
@@ -1368,6 +1463,8 @@ impl Default for Sequence {
     ///
     ///
     ///  Returns the default value for this type.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             actions: [Action::Empty; MAX_ACTIONS],
@@ -1388,6 +1485,10 @@ impl Sequence {
     ///
     ///
     ///  Gets the actions in the input.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `&[Action]` value.
     pub fn actions(&self) -> &[Action] {
         &self.actions[..usize::from(self.len)]
     }
@@ -1499,6 +1600,13 @@ mod tests {
     ///
     ///
     ///  Builds the input action described by the arguments.
+    /// ### Arguments
+    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
+    /// - `stick` (`[f32; 2]`): Represents the stick; the function uses it as input to the operation described above.
+    /// - `frames` (`u8`): Represents the number of frames; the function uses it as input to the operation described above.
+    /// - `relative` (`bool`): Represents the relative; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Action` value.
     fn input(buttons: u32, stick: [f32; 2], frames: u8, relative: bool) -> Action {
         Action::Input {
             buttons,
@@ -1512,6 +1620,10 @@ mod tests {
     ///
     ///
     ///  Reads the source and checks that it is valid.
+    /// ### Arguments
+    /// - `actions` (`&str`): Represents the actions; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `Sequence` value.
     fn parse(actions: &str) -> Sequence {
         Catalog::parse(&format!(
             "[kirby.drop.custom]\nstart_delay=0\nactions = {actions}"
@@ -1890,6 +2002,11 @@ pub mod sequence {
         ///
         ///
         ///  Gets the hold result.
+        /// ### Arguments
+        /// - `frames` (`u16`): Represents the number of frames; the function uses it as input to the operation described above.
+        /// - `recipe` (`InputRecipe`): Represents the input recipe to use; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn hold(frames: u16, recipe: InputRecipe) -> Self {
             Self { frames, recipe }
         }
@@ -1898,6 +2015,10 @@ pub mod sequence {
         ///
         ///
         ///  Gets the wait result.
+        /// ### Arguments
+        /// - `frames` (`u16`): Represents the number of frames; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn wait(frames: u16) -> Self {
             Self::hold(frames, InputRecipe::NONE)
         }
@@ -1920,6 +2041,11 @@ pub mod sequence {
         /// Returns None when finished. Zero-length steps are skipped.
         ///
         ///  Returns None when finished. Zero-length steps are skipped.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `frame` (`u32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn recipe_at(&self, mut frame: u32) -> Option<InputRecipe> {
             // Subtract whole step durations until `frame` lies inside a step.
             // This stateless lookup can be restarted by supplying frame zero again.
@@ -2086,6 +2212,11 @@ pub mod sequence {
         ///
         ///
         ///  Creates a new value.
+        /// ### Arguments
+        /// - `steps` (`&'a [ConfirmedStep]`): Represents the steps; the function uses it as input to the operation described above.
+        /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub fn new(steps: &'a [ConfirmedStep], target: u32) -> Self {
             Self {
                 steps,
@@ -2107,6 +2238,10 @@ pub mod sequence {
         ///
         ///
         ///  Gets the current state.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `SequenceState` value.
         pub fn state(&self) -> SequenceState {
             self.state
         }
@@ -2115,6 +2250,11 @@ pub mod sequence {
         ///
         ///
         ///  Checks the current buttons and updates whether the toggle should activate.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `observation` (`SequenceObservation`): Represents the observation; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `InputRecipe` value.
         pub fn sample(&mut self, observation: SequenceObservation) -> InputRecipe {
             // Cancellation wins over the duplicate-frame cache, including damage
             // or target reassignment between callbacks in the same simulation frame.

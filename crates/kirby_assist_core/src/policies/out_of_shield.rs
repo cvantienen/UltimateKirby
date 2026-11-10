@@ -11,6 +11,10 @@ mod shield_up_b;
 /// Returns the `copied_target` result.
 ///
 /// Gets the copied target result.
+/// ### Arguments
+/// - `target` (`&ObservedTarget`): Represents the target object or value being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `Opponent` value.
 fn copied_target(target: &ObservedTarget) -> Opponent {
     target.opponent(crate::native_states::situation::GROUND, None)
 }
@@ -18,6 +22,12 @@ fn copied_target(target: &ObservedTarget) -> Opponent {
 /// The locked target: live follow facts first, else the copied snapshot.
 ///
 ///  The locked target: live follow facts first, else the copied snapshot.
+/// ### Arguments
+/// - `id` (`Option<u32>`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
+/// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
+/// - `targets` (`&[Option<ObservedTarget>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) fn locked_enemy(
     id: Option<u32>,
     follow: Option<Opponent>,
@@ -35,6 +45,13 @@ pub(super) fn locked_enemy(
 /// The horizontally nearest acceptable fighter; snapshot targets precede `follow`.
 ///
 ///  The horizontally nearest acceptable fighter; snapshot targets precede follow.
+/// ### Arguments
+/// - `origin` (`f32`): Represents the origin; the function uses it as input to the operation described above.
+/// - `targets` (`&[Option<ObservedTarget>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+/// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
+/// - `accept` (`impl FnMut(Opponent) -> bool`): Represents the accept; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) fn nearest_enemy(
     origin: f32,
     targets: &[Option<ObservedTarget>; 8],
@@ -57,6 +74,13 @@ pub(super) fn nearest_enemy(
 /// Determines whether the `target_within_range` condition holds.
 ///
 /// Checks whether target within range.
+/// ### Arguments
+/// - `origin` (`[f32; 2]`): Represents the origin; the function uses it as input to the operation described above.
+/// - `target` (`[f32; 2]`): Represents the target object or value being checked; the function uses it as input to the operation described above.
+/// - `range` (`f32`): Represents the range; the function uses it as input to the operation described above.
+/// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn target_within_range(
     origin: [f32; 2],
     target: [f32; 2],
@@ -78,6 +102,10 @@ pub(super) fn target_within_range(
 /// Retained stationary gate for incoming-grab avoidance and legacy reactions.
 ///
 ///  Retained stationary gate for incoming-grab avoidance and legacy reactions.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn stationary_grab_state(status: i32) -> bool {
     matches!(
         status,
@@ -90,6 +118,10 @@ pub fn stationary_grab_state(status: i32) -> bool {
 /// transitions permit it. Attack recovery, shield drop/stun and air stay out.
 ///
 ///  Ground locomotion, crouch and ordinary landing may grab as soon as native transitions permit it. Attack recovery, shield drop/stun and air stay out.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn ground_grab_state(status: i32) -> bool {
     matches!(
         status,
@@ -100,6 +132,11 @@ pub fn ground_grab_state(status: i32) -> bool {
 /// moving/landing actors send Grab immediately, without first easing the stick.
 ///
 ///  Existing idle assistance retains its one delivered approach pulse. Already moving/landing actors send Grab immediately, without first easing the stick.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `velocity_x` (`f32`): Represents the velocity x; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn automatic_grab_needs_approach(status: i32, velocity_x: f32) -> bool {
     status == crate::native_states::status::WAIT
         && velocity_x.is_finite()
@@ -109,6 +146,11 @@ pub fn automatic_grab_needs_approach(status: i32, velocity_x: f32) -> bool {
 /// dash-catch readiness; no pivot input or native status is forced.
 ///
 ///  Held guard permits direct shield grab. Ground movement can use standing or dash-catch readiness; no pivot input or native status is forced.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `enabled` (`impl FnMut(i32) -> bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn automatic_grab_ready(status: i32, enabled: impl FnMut(i32) -> bool) -> bool {
     automatic_grab_ready_with_shield(
         status,
@@ -123,6 +165,12 @@ pub fn automatic_grab_ready(status: i32, enabled: impl FnMut(i32) -> bool) -> bo
 /// its direct grab must never borrow dash-catch readiness from locomotion.
 ///
 ///  A fresh physical shield press counts before the native status catches up; its direct grab must never borrow dash-catch readiness from locomotion.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `shielded` (`bool`): Represents the shielded; the function uses it as input to the operation described above.
+/// - `enabled` (`impl FnMut(i32) -> bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn automatic_grab_ready_with_shield(
     status: i32,
     shielded: bool,
@@ -142,6 +190,10 @@ pub fn automatic_grab_ready_with_shield(
 /// Native vulnerability, capture links, front side and range are separate gates.
 ///
 ///  Unshielded automatic grabs require observed enemy shield startup/hold/damage. Native vulnerability, capture links, front side and range are separate gates.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn automatic_grab_target_status(status: i32) -> bool {
     matches!(
         status,
@@ -155,6 +207,11 @@ pub fn automatic_grab_target_status(status: i32) -> bool {
 /// them instead. Current vulnerability/capture links and reach are checked too.
 ///
 ///  Shield grabs may punish ordinary hittable opponents without enemy shield. Downed/tripped bodies cannot be ordinary-grab targets; shield Up-B may hit them instead. Current vulnerability/capture links and reach are checked too.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `shielded` (`bool`): Represents the shielded; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn automatic_grab_target_status_with_shield(status: i32, shielded: bool) -> bool {
     if shielded {
         automatic_shield_target_status(status)
@@ -167,6 +224,10 @@ pub fn automatic_grab_target_status_with_shield(status: i32, shielded: bool) -> 
 /// captures, ledge visits and noncombat states outside the ordinary OOS policy.
 ///
 ///  Up-B may hit a vulnerable downed opponent that cannot be grabbed. Keep captures, ledge visits and noncombat states outside the ordinary OOS policy.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn automatic_shield_target_status(status: i32) -> bool {
     crate::reaction_rules::automatic_target_available(status)
 }
@@ -175,6 +236,12 @@ pub fn automatic_shield_target_status(status: i32) -> bool {
 /// the attack together. Movement/ordinary attacks keep the tape's neutral drop.
 ///
 ///  Keep guard for a direct OOS input, rather than requesting shield release and the attack together. Movement/ordinary attacks keep the tape's neutral drop.
+/// ### Arguments
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `out` (`ControllerOutput`): Represents the out; the function uses it as input to the operation described above.
+/// - `right` (`[f32; 2]`): Represents the right; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ControllerOutput` value.
 pub(crate) fn direct_shield_input(
     status: i32,
     mut out: ControllerOutput,
@@ -385,6 +452,8 @@ impl OutOfShield {
     ///
     ///
     ///  Creates a new value.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             object: None,
@@ -406,6 +475,9 @@ impl OutOfShield {
     ///
     ///
     ///  Updates bind actor.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
     fn bind_actor(&mut self, c: Context) {
         if self.object != Some(c.object) || self.kind != Some(c.kind) {
             *self = Self::default();
@@ -418,6 +490,9 @@ impl OutOfShield {
     ///
     ///
     ///  Observes the statuses.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `known` (`&[Option<(u32, i32)>; N]`): Represents the known; the function uses it as input to the operation described above.
     pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         self.simple.observe_statuses(known);
     }
@@ -425,6 +500,10 @@ impl OutOfShield {
     ///
     ///
     ///  Gets the chosen target.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn target(&self) -> Option<u32> {
         self.simple
             .target()
@@ -436,6 +515,8 @@ impl OutOfShield {
     ///
     ///
     ///  Cancels the pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel_pending(&mut self) {
         self.response.cancel();
         self.configured_response = false;
@@ -451,6 +532,8 @@ impl OutOfShield {
     /// only its bounded receipt so a competing script cannot turn it into Up-B.
     ///
     ///  Ledge/manual takeover releases inputs immediately. Delivered R retains only its bounded receipt so a competing script cannot turn it into Up-B.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn suspend_automatic(&mut self) {
         self.shield_up_b.cancel();
         self.response.suspend();
@@ -464,6 +547,10 @@ impl OutOfShield {
     /// Acknowledge only an input packet actually passed to the native mapper.
     ///
     ///  Acknowledge only an input packet actually passed to the native mapper.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_grab(&mut self, tick: i64, target: u32) {
         self.simple.mapped_grab(tick, target);
         if self.configured_response {
@@ -474,6 +561,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether configured committed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn configured_committed(&self) -> bool {
         self.configured_response
     }
@@ -481,6 +572,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether ground.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_ground(&self) -> bool {
         self.configured_response && self.response.needs_ground()
     }
@@ -488,6 +583,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether attack hold.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn attack_hold(&self) -> bool {
         self.response.attack_hold()
     }
@@ -495,6 +594,10 @@ impl OutOfShield {
     ///
     ///
     ///  Gets right stick if it is available.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         if self.configured_response {
             self.response.right_stick()
@@ -508,6 +611,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether walking.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn walking(&self) -> bool {
         self.response.walking()
     }
@@ -515,6 +622,17 @@ impl OutOfShield {
     ///
     ///
     ///  Samples the simple.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `context` (`crate::gameplay::GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+    /// - `targets` (`[Option<crate::roll_read::Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+    /// - `attacker` (`Option<crate::gameplay::Opponent>`): Represents the attacker; the function uses it as input to the operation described above.
+    /// - `close` (`f32`): Represents the close; the function uses it as input to the operation described above.
+    /// - `_legacy_far` (`f32`): Represents the legacy far; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample_simple(
         &mut self,
         allowed: bool,
@@ -533,6 +651,17 @@ impl OutOfShield {
     /// No new delay: this only rejects projected misses before pressing Grab.
     ///
     ///  The live adapter supplies this fighter's resolved standing/shield startup. No new delay: this only rejects projected misses before pressing Grab.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `context` (`crate::gameplay::GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+    /// - `targets` (`[Option<crate::roll_read::Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+    /// - `attacker` (`Option<crate::gameplay::Opponent>`): Represents the attacker; the function uses it as input to the operation described above.
+    /// - `range` (`f32`): Represents the range; the function uses it as input to the operation described above.
+    /// - `startup` (`Option<f32>`): Represents the startup; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample_simple_timed(
         &mut self,
         allowed: bool,
@@ -569,6 +698,19 @@ impl OutOfShield {
     /// R during ground movement/landing, or one idle approach pulse then R.
     ///
     ///  Front vulnerable-target grab (enemy shield required only when unshielded): direct neutral-axis R in shield, immediate R during ground movement/landing, or one idle approach pulse then R.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `context` (`crate::gameplay::GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+    /// - `targets` (`[Option<crate::roll_read::Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+    /// - `follow` (`Option<crate::gameplay::Opponent>`): Represents the follow; the function uses it as input to the operation described above.
+    /// - `shielded` (`bool`): Represents the shielded; the function uses it as input to the operation described above.
+    /// - `close` (`f32`): Represents the close; the function uses it as input to the operation described above.
+    /// - `approach` (`f32`): Represents the approach; the function uses it as input to the operation described above.
+    /// - `startup` (`Option<f32>`): Represents the startup; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample_automatic(
         &mut self,
         allowed: bool,
@@ -602,6 +744,12 @@ impl OutOfShield {
     /// manual turning-away cancellation. Shield grabs already use neutral axes.
     ///
     ///  Neutralize the stick during unshielded Grab delivery while preserving manual turning-away cancellation. Shield grabs already use neutral axes.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `output` (`ControllerOutput`): Represents the output data being produced; the function uses it as input to the operation described above.
+    /// - `physical` (`[f32; 2]`): Represents the physical; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn with_grab_movement(
         &mut self,
         mut output: ControllerOutput,
@@ -622,6 +770,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether unshielded grab started.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn unshielded_grab_started(&self) -> bool {
         self.simple.unshielded_grab_started()
     }
@@ -629,6 +781,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether shield up b pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn shield_up_b_pending(&self) -> bool {
         self.shield_up_b.active() || self.configured_response && self.response.automatic_up_b()
     }
@@ -636,6 +792,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether up b delivery started.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn up_b_delivery_started(&self) -> bool {
         self.shield_up_b.delivery_started()
             || self.configured_response && self.response.up_b_delivery_started()
@@ -644,6 +804,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether up b receipt pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn up_b_receipt_pending(&self) -> bool {
         self.shield_up_b.receipt_pending()
             || self.configured_response && self.response.up_b_receipt_pending()
@@ -652,6 +816,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether awaiting up b.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn awaiting_up_b(&self) -> bool {
         self.shield_up_b.awaiting() || self.configured_response && self.response.awaiting_up_b()
     }
@@ -659,6 +827,10 @@ impl OutOfShield {
     ///
     ///
     ///  Updates attempted up special.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
         if self.configured_response {
             self.response.attempted_up_special(tick, target);
@@ -670,6 +842,10 @@ impl OutOfShield {
     ///
     ///
     ///  Updates mapped up special.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
         if self.configured_response {
             self.response.mapped_up_special(tick, target);
@@ -681,6 +857,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether grab delivery pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn grab_delivery_pending(&self) -> bool {
         self.simple.delivery_pending() || self.response.grab_delivery_pending()
     }
@@ -688,6 +868,9 @@ impl OutOfShield {
     ///
     ///
     ///  Updates delivery tick.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn delivery_tick(&mut self, tick: i64) {
         self.shield_up_b.delivery_tick(tick);
         self.simple.delivery_tick(tick);
@@ -697,6 +880,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether automatic grab pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn automatic_grab_pending(&self) -> bool {
         self.simple.active() && !self.configured_response && !self.configured_settling
     }
@@ -704,6 +891,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether approach pending.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn approach_pending(&self) -> bool {
         self.simple.approach_pending()
     }
@@ -711,6 +902,10 @@ impl OutOfShield {
     ///
     ///
     ///  Checks whether approach active.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn approach_active(&self) -> bool {
         self.simple.approach_active()
     }
@@ -718,6 +913,10 @@ impl OutOfShield {
     ///
     ///
     ///  Updates mapped approach.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_approach(&mut self, tick: i64, target: u32) {
         self.simple.mapped_approach(tick, target);
     }
@@ -725,6 +924,17 @@ impl OutOfShield {
     ///
     ///
     ///  Samples the configured.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+    /// - `rules` (`Option<&crate::reaction_rules::Resolved>`): Represents the rules; the function uses it as input to the operation described above.
+    /// - `settings` (`crate::settings::AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
+    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
+    /// - `context` (`crate::gameplay::GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
+    /// - `target` (`Option<Target>`): Represents the target object or value being checked; the function uses it as input to the operation described above.
+    /// - `follow` (`Option<crate::gameplay::Opponent>`): Represents the follow; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `ControllerOutput` value.
     pub fn sample_configured(
         &mut self,
         enabled: bool,

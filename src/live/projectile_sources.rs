@@ -43,6 +43,8 @@ impl Sources {
     /// Constructs an empty fixed-capacity tracker with generation zero.
     ///
     ///  Starts a projectile tracker with no remembered attacks.
+    /// ### Returns
+    /// Returns a `Self` value representing the result of the operation.
     pub(super) const fn new() -> Self {
         Self {
             records: [const { AtomicU64::new(EMPTY) }; CAPACITY],
@@ -56,6 +58,9 @@ impl Sources {
     ///
     ///  Remembers this projectile attack, including when an object ID
     /// is reused for a later attack.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
     pub(super) fn remember(&self, id: u32) {
         if !matches!(
             id >> 28,
@@ -89,6 +94,10 @@ impl Sources {
     /// Loads each packed atomic record into a copied optional key array.
     ///
     ///  Returns a safe snapshot of the projectiles remembered right now.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `[Option<ProjectileKey>; CAPACITY]` value.
     pub(super) fn snapshot(&self) -> [Option<ProjectileKey>; CAPACITY] {
         std::array::from_fn(|index| {
             let record = self.records[index].load(Ordering::Relaxed);
@@ -103,6 +112,9 @@ impl Sources {
     /// erasing a concurrently replaced record.
     ///
     ///  Forgets the matching projectile only if its slot has not changed.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
     pub(super) fn forget(&self, id: u32) {
         for slot in &self.records {
             let old = slot.load(Ordering::Relaxed);
@@ -122,6 +134,8 @@ impl Sources {
     ///
     ///  Clears remembered projectiles but keeps new attacks distinct
     /// from old receipts.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub(super) fn clear(&self) {
         for slot in &self.records {
             slot.store(EMPTY, Ordering::Relaxed);

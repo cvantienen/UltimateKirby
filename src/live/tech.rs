@@ -31,6 +31,14 @@ mod flame_choke {
     ///
     /// # Safety
     /// `object` must remain a valid fighter accessor for the native reads.
+    /// ### Arguments
+    /// - `reads` (`&super::super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// - `assessment` (`&mut TechAssessment`): Represents the assessment; the function uses it as input to the operation described above.
+    /// - `stopped` (`bool`): Represents the stopped; the function uses it as input to the operation described above.
+    /// - `victim_stop` (`bool`): Represents the victim stop; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(super) unsafe fn assess_capture(
         reads: &super::super::frame::FrameReads,
         object: *mut game::Object,
@@ -79,6 +87,11 @@ mod flame_choke {
     ///
     /// # Safety
     /// `object` must be a live victim object; any linked captor is revalidated by ID.
+    /// ### Arguments
+    /// - `reads` (`&super::super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
+    /// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     unsafe fn timing(
         reads: &super::super::frame::FrameReads,
         object: *mut game::Object,
@@ -189,6 +202,9 @@ impl TechAssessment {
     /// Marks contact as immediate using remaining hitstop as the estimate.
     ///
     ///  Records that the landing/contact is happening now.
+    /// ### Arguments
+    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// - `reason` (`&'static str`): Represents the reason; the function uses it as input to the operation described above.
     fn contact_now(&mut self, reason: &'static str) {
         self.contact_in = Some(self.remaining_stop as f32);
         self.prepare_guard = true;
@@ -199,6 +215,11 @@ impl TechAssessment {
 /// Pinned common.prc integer parameters, read without changing native timing.
 ///
 ///  Reads the game's timing settings and substitutes safe defaults when values are invalid.
+/// ### Arguments
+/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+/// - `fallback` (`u16`): Represents the fallback; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `(u16, u16, u16)` value.
 pub(super) unsafe fn native_timing(object: *mut game::Object, fallback: u16) -> (u16, u16, u16) {
     let bounded = |value: i32, fallback: u16| {
         u16::try_from(value)
@@ -231,6 +252,17 @@ pub(super) unsafe fn native_timing(object: *mut game::Object, fallback: u16) -> 
 /// on the host and tuned without scattering geometry through native FFI code.
 ///
 ///  Checks native fighter state and estimates whether the fighter can tech a landing.
+/// ### Arguments
+/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
+/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+/// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+/// - `stopped` (`bool`): Represents the stopped; the function uses it as input to the operation described above.
+/// - `input_delay` (`f32`): Represents the input delay; the function uses it as input to the operation described above.
+/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+/// - `floor_motion` (`&mut FloorMotionHistory`): Represents the floor motion; the function uses it as input to the operation described above.
+/// - `body` (`kirby_assist_core::tech_prediction::Body`): Represents the body; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `TechAssessment` value.
 pub(super) unsafe fn assess_tech(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,
@@ -507,6 +539,18 @@ pub(super) unsafe fn assess_tech(
 ///
 /// # Safety
 /// `object` must be a live fighter accessor for the duration of native reads.
+/// ### Arguments
+/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
+/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
+/// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+/// - `stopped` (`bool`): Represents the stopped; the function uses it as input to the operation described above.
+/// - `input_delay` (`f32`): Represents the input delay; the function uses it as input to the operation described above.
+/// - `floor_motion` (`&mut FloorMotionHistory`): Represents the floor motion; the function uses it as input to the operation described above.
+/// - `body` (`kirby_assist_core::tech_prediction::Body`): Represents the body; the function uses it as input to the operation described above.
+/// - `surfaces` (`[bool; 3]`): Represents the surfaces; the function uses it as input to the operation described above.
+/// - `assessment` (`TechAssessment`): Represents the assessment; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `TechAssessment` value.
 unsafe fn predict_contact(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,

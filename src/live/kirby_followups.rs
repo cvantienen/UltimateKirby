@@ -13,6 +13,10 @@ use kirby_assist_core::{
 /// Compares a native fighter-kind value with Kirby's catalog ID.
 ///
 ///  Tells whether the observed fighter is Kirby.
+/// ### Arguments
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn is_kirby(kind: i32) -> bool {
     kind == kirby_assist_core::fighter_kinds::KIRBY
 }
@@ -21,6 +25,12 @@ pub(super) fn is_kirby(kind: i32) -> bool {
 /// and the fighter kind is Kirby.
 ///
 ///  Allows the trip helper only for enabled Kirby play.
+/// ### Arguments
+/// - `suspended` (`bool`): Represents the suspended; the function uses it as input to the operation described above.
+/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn trip_enabled(suspended: bool, enabled: bool, kind: i32) -> bool {
     !suspended && enabled && is_kirby(kind)
 }
@@ -28,6 +38,12 @@ pub(super) fn trip_enabled(suspended: bool, enabled: bool, kind: i32) -> bool {
 /// Admits trip watching for enabled side/down tilts or a queued follow-up.
 ///
 ///  Watches for a trip during those attacks or when one is already queued.
+/// ### Arguments
+/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `queued` (`bool`): Represents the queued; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn trip_watch(enabled: bool, status: i32, queued: bool) -> bool {
     enabled && (matches!(status, status::ATTACK_S3 | status::ATTACK_LW3) || queued)
 }
@@ -35,6 +51,10 @@ pub(super) fn trip_watch(enabled: bool, status: i32, queued: bool) -> bool {
 /// Reads the core trip-follow-up watch state when one exists.
 ///
 ///  Checks whether trip follow-up tracking is currently active.
+/// ### Arguments
+/// - `state` (`&Option<TripFollowup>`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn watching(state: &Option<TripFollowup>) -> bool {
     state.as_ref().is_some_and(TripFollowup::watching)
 }
@@ -42,6 +62,10 @@ pub(super) fn watching(state: &Option<TripFollowup>) -> bool {
 /// Reads the core forward-air follow-up active state when one exists.
 ///
 ///  Checks whether forward-air follow-up tracking is active.
+/// ### Arguments
+/// - `state` (`&Option<FairFollowup>`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn fair_active(state: &Option<FairFollowup>) -> bool {
     state.as_ref().is_some_and(FairFollowup::active)
 }
@@ -91,6 +115,12 @@ pub(super) struct Observation {
 /// Builds a trip-policy context from the observation and target snapshot.
 ///
 ///  Packages what trip assistance needs to decide what to do next.
+/// ### Arguments
+/// - `observation` (`&Observation`): Represents the observation; the function uses it as input to the operation described above.
+/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+/// - `targets` (`[Option<TripTarget>; 8]`): Represents the targets; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `TripContext` value.
 pub(super) fn trip_context(
     observation: &Observation,
     enabled: bool,
@@ -113,6 +143,12 @@ pub(super) fn trip_context(
 /// the supplied hit window.
 ///
 ///  Packages the fighter's current attack state and whether a hit happened.
+/// ### Arguments
+/// - `observation` (`&Observation`): Represents the observation; the function uses it as input to the operation described above.
+/// - `hit_window` (`bool`): Represents the hit window; the function uses it as input to the operation described above.
+/// - `hit` (`impl FnOnce() -> bool`): Represents the hit; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `FairContext` value.
 pub(super) fn fair_context(
     observation: &Observation,
     hit_window: bool,
@@ -136,6 +172,14 @@ pub(super) fn fair_context(
 /// or its landing status when assistance is not suspended.
 ///
 ///  Decides when the forward-air helper is allowed to watch for a hit.
+/// ### Arguments
+/// - `suspended` (`bool`): Represents the suspended; the function uses it as input to the operation described above.
+/// - `is_kirby` (`bool`): Represents whether kirby; the function uses it as input to the operation described above.
+/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
+/// - `motion` (`u64`): Represents the motion being checked; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn fair_hit_window(
     suspended: bool,
     is_kirby: bool,
@@ -154,6 +198,14 @@ pub(super) fn fair_hit_window(
 /// controller output.
 ///
 ///  Advances Kirby's forward-air helper or resets it when disabled.
+/// ### Arguments
+/// - `state` (`&mut Option<FairFollowup>`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+/// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+/// - `context` (`FairContext`): Represents the current execution context; the function uses it as input to the operation described above.
+/// - `velocity_y` (`f32`): Represents the velocity y; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ControllerOutput` value.
 pub(super) fn fair(
     state: &mut Option<FairFollowup>,
     enabled: bool,
@@ -175,6 +227,13 @@ pub(super) fn fair(
 /// controller output.
 ///
 ///  Advances Kirby's trip helper or resets it when disabled.
+/// ### Arguments
+/// - `state` (`&mut Option<TripFollowup>`): Represents the current state of the operation; the function uses it as input to the operation described above.
+/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
+/// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
+/// - `context` (`TripContext`): Represents the current execution context; the function uses it as input to the operation described above.
+/// ### Returns
+/// Returns the resulting `ControllerOutput` value.
 pub(super) fn trip(
     state: &mut Option<TripFollowup>,
     enabled: bool,

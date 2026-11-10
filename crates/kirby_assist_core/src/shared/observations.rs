@@ -40,7 +40,10 @@ pub mod battle_objects {
 
     /// Recieves a mutable reference to a fighter roster and a fighter ID to append.
     ///
-///  Recieves a mutable reference to a fighter roster and a fighter ID to append.
+    ///  Recieves a mutable reference to a fighter roster and a fighter ID to append.
+    /// ### Arguments
+    /// - `roster` (`&mut FightersInGame`): Represents the roster; the function uses it as input to the operation described above.
+    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
     pub fn append_fighter(roster: &mut FightersInGame, id: u32) {
         // Ignore invalid IDs or duplicates.
         if id >> BITSHIFT_CATEGORY != OBJECT_CATEGORY_FIGHTER || roster.contains(&Some(id)) {
@@ -54,7 +57,11 @@ pub mod battle_objects {
     /// Extra actors must not turn roster ordinals into indices of eight-slot
     /// policy arrays. Keep the nearest relevant candidates when those arrays fill.
     ///
-///  Extra actors must not turn roster ordinals into indices of eight-slot policy arrays. Keep the nearest relevant candidates when those arrays fill.
+    ///  Extra actors must not turn roster ordinals into indices of eight-slot policy arrays. Keep the nearest relevant candidates when those arrays fill.
+    /// ### Arguments
+    /// - `targets` (`&mut [Option<T>; N]`): Represents the targets; the function uses it as input to the operation described above.
+    /// - `candidate` (`T`): Represents the candidate; the function uses it as input to the operation described above.
+    /// - `distance` (`impl Fn(T) -> f32`): Represents the distance; the function uses it as input to the operation described above.
     pub fn insert_nearest<T: Copy, const N: usize>(
         targets: &mut [Option<T>; N],
         candidate: T,
@@ -84,69 +91,30 @@ pub mod battle_objects {
     /// Returns the `distance_squared` result.
     ///
     ///
-///  Gets the distance squared result.
+    ///  Gets the distance squared result.
+    /// ### Arguments
+    /// - `from` (`[f32; 2]`): Represents the from; the function uses it as input to the operation described above.
+    /// - `to` (`[f32; 2]`): Represents the to; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns the resulting `f32` value.
     pub fn distance_squared(from: [f32; 2], to: [f32; 2]) -> f32 {
         (to[0] - from[0]).powi(2) + (to[1] - from[1]).powi(2)
     }
 
-    /// Defines the available `ObjectCategory` cases.
-    ///
-    ///
-///  Lists the available ObjectCategory choices.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    #[repr(u32)]
-    pub enum ObjectCategory {
-        /// Represents the `Fighter` case of `ObjectCategory`.
-        ///
-        ///
-///  Represents the Fighter option in ObjectCategory.
-        Fighter = OBJECT_CATEGORY_FIGHTER,
-        /// Represents the `Weapon` case of `ObjectCategory`.
-        ///
-        ///
-///  Represents the Weapon option in ObjectCategory.
-        Weapon = OBJECT_CATEGORY_WEAPON,
-        /// Represents the `Item` case of `ObjectCategory`.
-        ///
-        ///
-///  Represents the Item option in ObjectCategory.
-        Item = OBJECT_CATEGORY_ITEM,
-        // ...
-    }
-
-    impl ObjectCategory {
-        /// Constructs a value from the id.
-        ///
-        ///
-///  Constructs a value from the id.
-        pub const fn from_id(id: u32) -> Option<Self> {
-            match id >> BITSHIFT_CATEGORY {
-                OBJECT_CATEGORY_FIGHTER => Some(Self::Fighter),
-                OBJECT_CATEGORY_WEAPON => Some(Self::Weapon),
-                OBJECT_CATEGORY_ITEM => Some(Self::Item),
-                _ => None,
+    /// Returns whether an object ID represents a weapon or item projectile.
+    pub fn is_projectile(id: u32, kind: i32, status: i32) -> bool {
+        match id >> BITSHIFT_CATEGORY {
+            OBJECT_CATEGORY_WEAPON => {
+                kind != WEAPON_KIND_ROSETTA_TICO
+                    && !(kind == WEAPON_KIND_PIKMIN_PIKMIN
+                        && matches!(
+                            status,
+                            crate::native_states::status::LANDING_LIGHT
+                                ..=crate::native_states::status::LANDING_FALL_SPECIAL
+                        ))
             }
-        }
-        /// check to ensure the weapon is not a non-projectile type like Rosetta & Tico,
-        /// and that Pikmin are not already attached or in a landing state
-        ///
-///  check to ensure the weapon is not a non-projectile type like Rosetta & Tico, and that Pikmin are not already attached or in a landing state.
-        pub fn is_projectile(id: u32, kind: i32, status: i32) -> bool {
-            match Self::from_id(id) {
-                Some(Self::Weapon) => {
-                    kind != WEAPON_KIND_ROSETTA_TICO
-                        && !(kind == WEAPON_KIND_PIKMIN_PIKMIN
-                            && matches!(
-                                status,
-                                crate::native_states::status::LANDING_LIGHT
-                                    ..=crate::native_states::status::LANDING_FALL_SPECIAL
-                            ))
-                }
-
-                Some(Self::Item) => true,
-
-                _ => false,
-            }
+            OBJECT_CATEGORY_ITEM => true,
+            _ => false,
         }
     }
 
@@ -171,7 +139,10 @@ pub mod battle_objects {
         /// Records the time of the latest fighter observation.
         ///
         ///
-///  Remembers when a fighter was last seen.
+        ///  Remembers when a fighter was last seen.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `direction` (`f32`): Represents the direction; the function uses it as input to the operation described above.
         pub fn observe(&mut self, direction: f32) {
             if !direction.is_finite() || self.side.is_some_and(|side| side != direction) {
                 self.conflict = true;
@@ -181,7 +152,11 @@ pub mod battle_objects {
         /// Returns an optional `direction` value.
         ///
         ///
-///  Gets direction if it is available.
+        ///  Gets direction if it is available.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn direction(&self) -> Option<f32> {
             if self.conflict {
                 None
@@ -191,6 +166,7 @@ pub mod battle_objects {
         }
     }
 }
+
 pub mod gameplay {
     //! Shared gameplay observations and controller-input requests.
     //!
@@ -231,7 +207,13 @@ pub mod gameplay {
     ///
     /// Invalid or past deadlines remain unknown instead of being treated as ready.
     ///
-///  Convert an animation-frame deadline into game-frame time. Invalid or past deadlines remain unknown instead of being treated as ready.
+    ///  Convert an animation-frame deadline into game-frame time. Invalid or past deadlines remain unknown instead of being treated as ready.
+    /// ### Arguments
+    /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+    /// - `deadline` (`f32`): Represents the deadline; the function uses it as input to the operation described above.
+    /// - `rate` (`f32`): Represents the rate; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn frames_until(frame: f32, deadline: f32, rate: f32) -> Option<f32> {
         if !frame.is_finite()
             || frame < 0.0
@@ -266,7 +248,12 @@ pub mod gameplay {
         /// Constructs a new value with the type’s initial state.
         ///
         ///
-///  Creates a new value.
+        ///  Creates a new value.
+        /// ### Arguments
+        /// - `gravity` (`f32`): Represents the gravity; the function uses it as input to the operation described above.
+        /// - `terminal_speed` (`f32`): Represents the terminal speed; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn new(gravity: f32, terminal_speed: f32) -> Option<Self> {
             (gravity.is_finite()
                 && (0.001..=2.0).contains(&gravity)
@@ -281,7 +268,14 @@ pub mod gameplay {
 
     /// Return time to the earlier animation end or native cancel deadline.
     ///
-///  Return time to the earlier animation end or native cancel deadline.
+    ///  Return time to the earlier animation end or native cancel deadline.
+    /// ### Arguments
+    /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
+    /// - `end` (`f32`): Represents the end; the function uses it as input to the operation described above.
+    /// - `cancel` (`f32`): Represents the cancel; the function uses it as input to the operation described above.
+    /// - `rate` (`f32`): Represents the rate; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn recovery_frames(frame: f32, end: f32, cancel: f32, rate: f32) -> Option<f32> {
         let end = frames_until(frame, end, rate)?;
         if cancel.is_finite() && cancel > 0.0 {
@@ -549,14 +543,26 @@ pub mod observation {
     /// Input proposals belong to exactly one selected-controller update. Wall-clock
     /// freshness is only a secondary timeout; it cannot make an old packet current.
     ///
-///  Input proposals belong to exactly one selected-controller update. Wall-clock freshness is only a secondary timeout; it cannot make an old packet current.
+    ///  Input proposals belong to exactly one selected-controller update. Wall-clock freshness is only a secondary timeout; it cannot make an old packet current.
+    /// ### Arguments
+    /// - `evaluated` (`Option<i64>`): Represents the evaluated; the function uses it as input to the operation described above.
+    /// - `current` (`i64`): Represents the current; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn input_update_current(evaluated: Option<i64>, current: i64) -> bool {
         evaluated == Some(current)
     }
 
     /// Reject setup that began before a settings/cancellation fence or mapper update.
     ///
-///  Reject setup that began before a settings/cancellation fence or mapper update.
+    ///  Reject setup that began before a settings/cancellation fence or mapper update.
+    /// ### Arguments
+    /// - `captured_sequence` (`u64`): Represents the captured sequence; the function uses it as input to the operation described above.
+    /// - `current_sequence` (`u64`): Represents the current sequence; the function uses it as input to the operation described above.
+    /// - `captured_tick` (`i64`): Represents the captured tick; the function uses it as input to the operation described above.
+    /// - `current_tick` (`i64`): Represents the current tick; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn observation_inputs_current(
         captured_sequence: u64,
         current_sequence: u64,
@@ -582,21 +588,34 @@ pub mod observation {
         /// Constructs a new value with the type’s initial state.
         ///
         ///
-///  Creates a new value.
+        ///  Creates a new value.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self { discovered: None }
         }
         /// Determines whether the `needed` condition holds.
         ///
         ///
-///  Checks whether needed.
+        ///  Checks whether needed.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+        /// - `evaluated` (`bool`): Represents the evaluated; the function uses it as input to the operation described above.
+        /// - `discover` (`bool`): Represents the discover; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn needed(&self, tick: i64, evaluated: bool, discover: bool) -> bool {
             !evaluated || (discover && self.discovered != Some(tick))
         }
         /// Updates the `complete` state using the supplied inputs.
         ///
         ///
-///  Updates complete.
+        ///  Updates complete.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
+        /// - `discover` (`bool`): Represents the discover; the function uses it as input to the operation described above.
         pub fn complete(&mut self, tick: i64, discover: bool) {
             if discover {
                 self.discovered = Some(tick);
@@ -605,7 +624,9 @@ pub mod observation {
         /// Clears the remembered fighter observation.
         ///
         ///
-///  Forgets the last fighter observation.
+        ///  Forgets the last fighter observation.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         pub fn clear(&mut self) {
             self.discovered = None;
         }
@@ -636,7 +657,15 @@ pub mod observation {
         /// Returns the `read` result.
         ///
         ///
-///  Gets the read result.
+        ///  Gets the read result.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `object` (`u32`): Represents the object; the function uses it as input to the operation described above.
+        /// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
+        /// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
+        /// - `query` (`impl FnOnce() -> [bool; 2]`): Represents the query; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `[bool; 2]` value.
         pub fn read(
             &self,
             object: u32,
@@ -801,7 +830,11 @@ pub mod observation {
         /// Returns an optional `int` value.
         ///
         ///
-///  Gets int if it is available.
+        ///  Gets int if it is available.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn int(self) -> Option<i32> {
             match self {
                 Self::Int(value) => Some(value),
@@ -811,7 +844,11 @@ pub mod observation {
         /// Returns the motion value when the observation contains one.
         ///
         ///
-///  Gets the motion value if it is available.
+        ///  Gets the motion value if it is available.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn motion(self) -> Option<u64> {
             match self {
                 Self::Motion(value) => Some(value),
@@ -821,7 +858,11 @@ pub mod observation {
         /// Returns the floating-point value when the fact contains one.
         ///
         ///
-///  Gets the number if this fact stores one.
+        ///  Gets the number if this fact stores one.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn float(self) -> Option<f32> {
             match self {
                 Self::Float(value) => Some(value),
@@ -869,7 +910,9 @@ pub mod observation {
     impl<const N: usize> Default for ObservationSnapshotSized<N> {
         /// Observation snapshot for a fixed number of fighters. Stores copied facts and identities for passive analysis.
         ///
-///  Observation snapshot for a fixed number of fighters. Stores copied facts and identities for passive analysis.
+        ///  Observation snapshot for a fixed number of fighters. Stores copied facts and identities for passive analysis.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         fn default() -> Self {
             Self {
                 last: Cell::new(None),
@@ -884,7 +927,12 @@ pub mod observation {
         /// A copied motion clock from an already observed other fighter. No native
         /// calls or additional roster scan; passive frozen poses cannot time a tail.
         ///
-///  A copied motion clock from an already observed other fighter. No native calls or additional roster scan; passive frozen poses cannot time a tail.
+        ///  A copied motion clock from an already observed other fighter. No native calls or additional roster scan; passive frozen poses cannot time a tail.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `own` (`u32`): Represents the own; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn known_progress_clock(&self, own: u32) -> Option<(u32, i32, u64, f32, f32)> {
             self.fighters.iter().find_map(|f| {
                 let id = f.id.get().filter(|id| *id != own)?;
@@ -911,7 +959,11 @@ pub mod observation {
         /// Already-read statuses only: no native calls, eager reads or allocation.
         /// Event consumers can distinguish a known end from a missing observation.
         ///
-///  Already-read statuses only: no native calls, eager reads or allocation. Event consumers can distinguish a known end from a missing observation.
+        ///  Already-read statuses only: no native calls, eager reads or allocation. Event consumers can distinguish a known end from a missing observation.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `[Option<(u32, i32)>; N]` value.
         pub fn known_statuses(&self) -> [Option<(u32, i32)>; N] {
             std::array::from_fn(|i| {
                 let entry = &self.fighters[i];
@@ -922,7 +974,14 @@ pub mod observation {
         /// Most consumers read several fields from the same fighter in a row.
         /// This cursor only speeds slot lookup; fact lifetime/overflow stay exact.
         ///
-///  Most consumers read several fields from the same fighter in a row. This cursor only speeds slot lookup; fact lifetime/overflow stay exact.
+        ///  Most consumers read several fields from the same fighter in a row. This cursor only speeds slot lookup; fact lifetime/overflow stay exact.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
+        /// - `field` (`Field`): Represents the field; the function uses it as input to the operation described above.
+        /// - `read` (`impl FnOnce() -> Fact`): Represents the read; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `Fact` value.
         pub fn read(&self, id: u32, field: Field, read: impl FnOnce() -> Fact) -> Fact {
             let index = self
                 .last
@@ -961,7 +1020,9 @@ pub mod observation {
         /// Returns the default value for this type.
         ///
         ///
-///  Returns the default value for this type.
+        ///  Returns the default value for this type.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         fn default() -> Self {
             Self {
                 value: Cell::new(None),
@@ -972,7 +1033,12 @@ pub mod observation {
         /// Returns an optional `read` value.
         ///
         ///
-///  Gets read if it is available.
+        ///  Gets read if it is available.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `query` (`impl FnOnce() -> Option<[Option<u32>; N]>`): Represents the query; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn read(
             &self,
             query: impl FnOnce() -> Option<[Option<u32>; N]>,
@@ -992,7 +1058,15 @@ pub(crate) mod projectile_geometry {
 
     /// Computes the earliest time of intersection between a swept capsule and an axis-aligned bounding box.
     ///
-///  Computes the earliest time of intersection between a swept capsule and an axis-aligned bounding box.
+    ///  Computes the earliest time of intersection between a swept capsule and an axis-aligned bounding box.
+    /// ### Arguments
+    /// - `hit` (`Hitbox`): Represents the hit; the function uses it as input to the operation described above.
+    /// - `body_lo` (`[f32; 3]`): Represents the body lo; the function uses it as input to the operation described above.
+    /// - `body_hi` (`[f32; 3]`): Represents the body hi; the function uses it as input to the operation described above.
+    /// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
+    /// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
+    /// ### Returns
+    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(crate) fn swept_capsule_aabb(
         hit: Hitbox,
         body_lo: [f32; 3],
@@ -1042,7 +1116,7 @@ pub mod state {
 
     /// simple label that tells the generic assist engine what it knows about the fighter
     /// It allows the engine to differentiate between known fighters, unknown fighters, and Kirby specifically.
-    /// *** 
+    /// ***
     /// Need to analyse more, may be extended in the future to include other specific fighters and unique modes/modifiers.
     ///
 ///  simple label that tells the generic assist engine what it knows about the fighter It allows the engine to differentiate between known fighters, unknown fighters, and Kirby specifically.  Need to analyse more, may be extended.
@@ -1135,7 +1209,11 @@ pub mod state {
     impl Scenario {
         /// Lower values have higher precedence when multiple samples are active.
         ///
-///  Lower values have higher precedence when multiple samples are active.
+        ///  Lower values have higher precedence when multiple samples are active.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns the resulting `u8` value.
         pub const fn priority(self) -> u8 {
             match self {
                 Self::Tech => 0,
@@ -1184,7 +1262,12 @@ pub mod state {
         /// Constructs a new value with the type’s initial state.
         ///
         ///
-///  Creates a new value.
+        ///  Creates a new value.
+        /// ### Arguments
+        /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
+        /// - `frames_active` (`u32`): Represents the frames active; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn new(scenario: Scenario, frames_active: u32) -> Self {
             Self {
                 scenario,
@@ -1224,7 +1307,12 @@ pub mod state {
         /// Returns the `one` result.
         ///
         ///
-///  Gets the one result.
+        ///  Gets the one result.
+        /// ### Arguments
+        /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
+        /// - `frames_active` (`u32`): Represents the frames active; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         pub const fn one(scenario: Scenario, frames_active: u32) -> Self {
             Self {
                 active: [
@@ -1240,7 +1328,11 @@ pub mod state {
         /// Returns an optional `highest_priority` value.
         ///
         ///
-///  Gets highest priority if it is available.
+        ///  Gets highest priority if it is available.
+        /// ### Arguments
+        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn highest_priority(self) -> Option<ScenarioSample> {
             self.active
                 .into_iter()
@@ -1253,7 +1345,9 @@ pub mod state {
         /// Returns the default value for this type.
         ///
         ///
-///  Returns the default value for this type.
+        ///  Returns the default value for this type.
+        /// ### Returns
+        /// Returns a `Self` value representing the result of the operation.
         fn default() -> Self {
             Self::EMPTY
         }
@@ -1287,7 +1381,11 @@ pub mod state {
         /// Observes the fighter.
         ///
         ///
-///  Observes the fighter.
+        ///  Observes the fighter.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn observe_fighter(&self) -> Option<FighterObservation>;
     }
 
@@ -1300,12 +1398,19 @@ pub mod state {
         /// Reads the human input.
         ///
         ///
-///  Reads the human input.
+        ///  Reads the human input.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn read_human_input(&self) -> Option<ControllerFrame>;
         /// Writes the merged input.
         ///
         ///
-///  Writes the merged input.
+        ///  Writes the merged input.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// - `frame` (`ControllerFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
         fn write_merged_input(&mut self, frame: ControllerFrame);
     }
 
@@ -1317,7 +1422,11 @@ pub mod state {
         /// Reads the context.
         ///
         ///
-///  Reads the context.
+        ///  Reads the context.
+        /// ### Arguments
+        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+        /// ### Returns
+        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn read_context(&self) -> Option<RunContext>;
     }
 
