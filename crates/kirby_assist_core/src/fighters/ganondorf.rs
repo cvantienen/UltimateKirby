@@ -1,29 +1,34 @@
 //! Read-only grounded Flame Choke release and contact timing.
 use crate::native_states::status;
 
-/// Technical: Defines the `CATCHED_GANON` constant used by this module.
+/// Defines the `CATCHED_GANON` constant used by this module.
 ///
-/// Plain English: Provides the CATCHED GANON constant value.
+///
+///  Provides the CATCHED GANON constant value.
 pub const CATCHED_GANON: i32 = status::CATCHED_GANON;
-/// Technical: Defines the `CATCHED_AIR_END_GANON` constant used by this module.
+/// Defines the `CATCHED_AIR_END_GANON` constant used by this module.
 ///
-/// Plain English: Provides the CATCHED AIR END GANON constant value.
+///
+///  Provides the CATCHED AIR END GANON constant value.
 pub const CATCHED_AIR_END_GANON: i32 = status::CATCHED_AIR_END_GANON;
-/// Technical: Sets the default value for ganon passive trigger frame.
+/// Sets the default value for ganon passive trigger frame.
 ///
-/// Plain English: Holds the DEFAULT GANON PASSIVE TRIGGER FRAME value.
+///
+///  Holds the DEFAULT GANON PASSIVE TRIGGER FRAME value.
 pub const DEFAULT_GANON_PASSIVE_TRIGGER_FRAME: u16 = 7;
 
-/// Technical: Classifies the current guard-lockout status.
+/// Classifies the current guard-lockout status.
 ///
-/// Plain English: Checks the current guard lockout.
+///
+///  Checks the current guard lockout.
 pub(crate) fn guard_lockout_status(status: i32) -> bool {
     matches!(status, CATCHED_GANON | CATCHED_AIR_END_GANON)
 }
 
-/// Technical: Returns the remaining passive-tech window.
+/// Returns the remaining passive-tech window.
 ///
-/// Plain English: Gets the time left to tech.
+///
+///  Gets the time left to tech.
 pub(crate) fn passive_window(status: i32, normal: u16, ganon: u16) -> u16 {
     if status == CATCHED_GANON {
         ganon
@@ -34,7 +39,8 @@ pub(crate) fn passive_window(status: i32, normal: u16, ganon: u16) -> u16 {
 
 /// The release status is shared by grounded and aerial Flame Choke. Only the
 /// grounded capture immediately preceding it identifies a techable release.
-/// Plain English: The release status is shared by grounded and aerial Flame Choke. Only the grounded capture immediately preceding it identifies a techable release.
+///
+///  The release status is shared by grounded and aerial Flame Choke. Only the grounded capture immediately preceding it identifies a techable release.
 pub fn grounded_ganon_release(status: i32, previous_status: i32) -> bool {
     status == CATCHED_AIR_END_GANON && previous_status == CATCHED_GANON
 }
@@ -43,7 +49,8 @@ pub fn grounded_ganon_release(status: i32, previous_status: i32) -> bool {
 /// Vanilla game_specials applies its throw at native motion frame 31:
 /// <https://github.com/WuBoytH/SSBU-Dumped-Scripts/blob/main/smashline/lua2cpp_ganon/ganon/SpecialS.txt>
 /// The caller must resolve the actual capture link, not a nearby Ganondorf.
-/// Plain English: Grounded Flame Choke uses a capture status, not damage-fly or a falling ray. Vanilla gamespecials applies its throw at native motion frame 31.
+///
+///  Grounded Flame Choke uses a capture status, not damage-fly or a falling ray. Vanilla gamespecials applies its throw at native motion frame 31.
 pub fn grounded_ganon_contact_in(
     victim_status: i32,
     captor_kind: i32,

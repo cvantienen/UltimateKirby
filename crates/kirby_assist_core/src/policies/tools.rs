@@ -9,19 +9,22 @@ use crate::{ButtonSet, InputRecipe, RuleTiming, Scenario, ScenarioRule};
 /// The adapter must report the actionable window, not just general tumble.
 /// # Fields
 /// * `timing` - The timing rule for when to press shield.
-/// Plain English: Press shield when the adapter reports a tech opportunity. The adapter must report the actionable window, not just general tumble. # Fields  timing - The timing rule for when to press shield.
+///
+///  Press shield when the adapter reports a tech opportunity. The adapter must report the actionable window, not just general tumble. # Fields  timing - The timing rule for when to press shield.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AutoTech {
-    /// Technical: Stores the `timing` value in `AutoTech` as `RuleTiming`.
+    /// Stores the `timing` value in `AutoTech` as `RuleTiming`.
     ///
-    /// Plain English: Holds the timing value used by AutoTech.
+    ///
+///  Holds the timing value used by AutoTech.
     pub timing: RuleTiming,
 }
 
 impl Default for AutoTech {
-    /// Technical: Returns the default value for this type.
+    /// Returns the default value for this type.
     ///
-    /// Plain English: Returns the default value for this type.
+    ///
+///  Returns the default value for this type.
     fn default() -> Self {
         Self {
             timing: RuleTiming::IMMEDIATELY_ONCE,
@@ -35,7 +38,8 @@ impl AutoTech {
     /// Constructs a `ScenarioRule` for the auto-tech preset based on the current timing.
     /// # Returns
     /// A `ScenarioRule` configured for the auto-tech preset.
-    /// Plain English: Constructs a ScenarioRule for the auto-tech preset based on the current timing. # Returns A ScenarioRule configured for the auto-tech preset.
+    ///
+///  Constructs a ScenarioRule for the auto-tech preset based on the current timing. # Returns A ScenarioRule configured for the auto-tech preset.
     pub const fn rule(self) -> ScenarioRule {
         ScenarioRule::controller(
             Scenario::Tech,
@@ -52,22 +56,26 @@ impl AutoTech {
 /// # Fields
 /// * `buttons` - The set of buttons to pulse.
 /// * `interval_frames` - The interval in frames between pulses.
-/// Plain English: Repeated button pulses while trapped in a mashable/clatter state. A pulse interval of at least two frames leaves an assist-release gap. preset: liveinput.rs translates its selected Clatter decision into a left-stick cycle.
+///
+///  Repeated button pulses while trapped in a mashable/clatter state. A pulse interval of at least two frames leaves an assist-release gap. preset: liveinput.rs translates its selected Clatter decision into a left-stick cycle.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AutoMash {
-    /// Technical: Stores the `buttons` value in `AutoMash` as `ButtonSet`.
+    /// Stores the `buttons` value in `AutoMash` as `ButtonSet`.
     ///
-    /// Plain English: Holds the buttons value used by AutoMash.
+    ///
+///  Holds the buttons value used by AutoMash.
     pub buttons: ButtonSet,
-    /// Technical: Stores the `interval_frames` value in `AutoMash` as `u16`.
+    /// Stores the `interval_frames` value in `AutoMash` as `u16`.
     ///
-    /// Plain English: Sets the interval frames timing for AutoMash.
+    ///
+///  Sets the interval frames timing for AutoMash.
     pub interval_frames: u16,
 }
 
 impl Default for AutoMash {
     /// Constructs the default auto-mash preset with standard buttons(attack) and interval(3).
-    /// Plain English: Constructs the default auto-mash preset with standard buttons(attack) and interval(3).
+    ///
+///  Constructs the default auto-mash preset with standard buttons(attack) and interval(3).
     fn default() -> Self {
         Self {
             buttons: ButtonSet::ATTACK,
@@ -80,7 +88,8 @@ impl AutoMash {
     /// Constructs a `ScenarioRule` for the auto-mash preset based on the current buttons and interval.
     /// # Returns
     /// A `ScenarioRule` configured for the auto-mash preset.
-    /// Plain English: Constructs a ScenarioRule for the auto-mash preset based on the current buttons and interval. # Returns A ScenarioRule configured for the auto-mash preset.
+    ///
+///  Constructs a ScenarioRule for the auto-mash preset based on the current buttons and interval. # Returns A ScenarioRule configured for the auto-mash preset.
     pub fn rule(self) -> ScenarioRule {
         ScenarioRule::controller(
             Scenario::Clatter,
@@ -103,9 +112,10 @@ mod tests {
         FighterObservation, InputPermissions, RunContext, ScenarioSample,
     };
 
-    /// Technical: Regression test for `tools_obey_priority_release_gaps_and_independent_toggles`.
+    /// Regression test for `tools_obey_priority_release_gaps_and_independent_toggles`.
     ///
-    /// Plain English: Checks that tools obey priority release gaps and independent toggles.
+    ///
+///  Checks that tools obey priority release gaps and independent toggles.
     #[test]
     fn tools_obey_priority_release_gaps_and_independent_toggles() {
         let mut config = AssistConfig {
@@ -166,9 +176,10 @@ mod tests {
         );
     }
 
-    /// Technical: Regression test for `mash_always_leaves_a_release_frame`.
+    /// Regression test for `mash_always_leaves_a_release_frame`.
     ///
-    /// Plain English: Checks that mash always leaves a release frame.
+    ///
+///  Checks that mash always leaves a release frame.
     #[test]
     fn mash_always_leaves_a_release_frame() {
         for interval in [0, 1, 2] {

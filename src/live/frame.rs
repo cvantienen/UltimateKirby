@@ -7,30 +7,37 @@ use crate::game_ffi as game;
 use kirby_assist_core::observation::{
     Fact, Field, GroundSupportSnapshot, ObservationSnapshotSized, RosterSnapshot,
 };
-/// Technical: Holds short-lived caches shared by policies during one accepted
+/// Holds short-lived caches shared by policies during one accepted
 /// native observation; never persists a native accessor pointer.
-/// Plain English: Keeps repeated reads consistent while one game update is processed.
+///
+///  Keeps repeated reads consistent while one game update is processed.
 #[derive(Default)]
 pub(super) struct FrameReads {
-    /// Technical: Bounded cache of copied native facts keyed by object and field.
-    /// Plain English: Avoids rereading the same fighter value during one observation.
+    /// Bounded cache of copied native facts keyed by object and field.
+    ///
+    ///  Avoids rereading the same fighter value during one observation.
     facts: ObservationSnapshotSized<16>,
-    /// Technical: Per-observation cache of swept ground-support probes.
-    /// Plain English: Reuses ground checks while processing this update.
+    /// Per-observation cache of swept ground-support probes.
+    ///
+    ///  Reuses ground checks while processing this update.
     ground: GroundSupportSnapshot,
-    /// Technical: Per-observation cache of copied fighter-roster IDs.
-    /// Plain English: Shares the current fighter list among this update's policies.
+    /// Per-observation cache of copied fighter-roster IDs.
+    ///
+    ///  Shares the current fighter list among this update's policies.
     roster: RosterSnapshot<16>,
-    /// Technical: Lazily cached reserved damage launch vector for one object.
-    /// Plain English: Keeps repeated launch-speed reads consistent for this update.
+    /// Lazily cached reserved damage launch vector for one object.
+    ///
+    ///  Keeps repeated launch-speed reads consistent for this update.
     damage_launch: std::cell::Cell<Option<(u32, [f32; 2])>>,
-    /// Technical: Lazily cached validated ground-brake parameter for one object.
-    /// Plain English: Reads the fighter's braking value at most once this update.
+    /// Lazily cached validated ground-brake parameter for one object.
+    ///
+    ///  Reads the fighter's braking value at most once this update.
     ground_brake: std::cell::Cell<Option<(u32, Option<f32>)>>,
 }
 impl FrameReads {
-    /// Technical: Caches whether either capture-related link slot is active.
-    /// Plain English: Checks whether the fighter is being held by a capture link.
+    /// Caches whether either capture-related link slot is active.
+    ///
+    ///  Checks whether the fighter is being held by a capture link.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of this read.
@@ -45,13 +52,15 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Returns copied object/status pairs already present in the fact cache.
-    /// Plain English: Lists status values this update has already read.
+    /// Returns copied object/status pairs already present in the fact cache.
+    ///
+    ///  Lists status values this update has already read.
     pub fn known_statuses(&self) -> [Option<(u32, i32)>; 16] {
         self.facts.known_statuses()
     }
-    /// Technical: Converts a cached status/motion/frame/rate tuple into a guard clock.
-    /// Plain English: Builds a reusable animation timer from facts already observed.
+    /// Converts a cached status/motion/frame/rate tuple into a guard clock.
+    ///
+    ///  Builds a reusable animation timer from facts already observed.
     pub fn known_guard_clock(
         &self,
         own: u32,
@@ -73,8 +82,9 @@ impl FrameReads {
     }
     /// Share copied roster IDs only within this accepted observation. Every
     /// consumer still revalidates native identity/team before reading fighters.
-    /// Technical: Lazily obtains the roster snapshot stored in shared callback state.
-    /// Plain English: Reuses the roster list for this update; later reads still check it.
+    /// Lazily obtains the roster snapshot stored in shared callback state.
+    ///
+    ///  Reuses the roster list for this update; later reads still check it.
     pub fn roster(&self) -> Option<kirby_assist_core::battle_objects::FightersInGame> {
         self.roster.read(|| {
             super::STATE
@@ -85,8 +95,9 @@ impl FrameReads {
     }
     /// Both sequence entry points use the same fighter braking parameter.
     /// Lazy and local to this observation; no extra reads for Drift-only tapes.
-    /// Technical: Reads and validates the fighter ground-brake parameter once per object.
-    /// Plain English: Gets a usable braking value only when a sequence needs it.
+    /// Reads and validates the fighter ground-brake parameter once per object.
+    ///
+    ///  Gets a usable braking value only when a sequence needs it.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of this read.
@@ -101,8 +112,9 @@ impl FrameReads {
         value
     }
     /// Reserved launch vector during victim hitstop; shared by DI and tech prediction.
-    /// Technical: Caches the native reserved X/Y damage speeds for this observation.
-    /// Plain English: Gets the fighter's launch direction and speed for prediction.
+    /// Caches the native reserved X/Y damage speeds for this observation.
+    ///
+    ///  Gets the fighter's launch direction and speed for prediction.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of this read.
@@ -124,8 +136,9 @@ impl FrameReads {
         self.damage_launch.set(Some((id, velocity)));
         velocity
     }
-    /// Technical: Caches and returns the two swept support results for the supplied path.
-    /// Plain English: Checks whether the fighter's possible movement stays over ground.
+    /// Caches and returns the two swept support results for the supplied path.
+    ///
+    ///  Checks whether the fighter's possible movement stays over ground.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the probe.
@@ -140,8 +153,9 @@ impl FrameReads {
             super::observations::ground_support(object, position, vx)
         })
     }
-    /// Technical: Reads or reuses the native fighter-kind fact for this object.
-    /// Plain English: Gets which character this fighter is.
+    /// Reads or reuses the native fighter-kind fact for this object.
+    ///
+    ///  Gets which character this fighter is.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -155,8 +169,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses the object's native status ID.
-    /// Plain English: Gets the fighter's current action/state.
+    /// Reads or reuses the object's native status ID.
+    ///
+    ///  Gets the fighter's current action/state.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -170,8 +185,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses the object's native situation ID.
-    /// Plain English: Gets whether the fighter is grounded, airborne, or elsewhere.
+    /// Reads or reuses the object's native situation ID.
+    ///
+    ///  Gets whether the fighter is grounded, airborne, or elsewhere.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -184,8 +200,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses the native motion hash.
-    /// Plain English: Identifies the animation playing now.
+    /// Reads or reuses the native motion hash.
+    ///
+    ///  Identifies the animation playing now.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -198,8 +215,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses the fractional frame within the native motion.
-    /// Plain English: Shows how far the current animation has progressed.
+    /// Reads or reuses the fractional frame within the native motion.
+    ///
+    ///  Shows how far the current animation has progressed.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -213,8 +231,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses the native motion playback rate.
-    /// Plain English: Shows how quickly the current animation is running.
+    /// Reads or reuses the native motion playback rate.
+    ///
+    ///  Shows how quickly the current animation is running.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -228,8 +247,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses the object's horizontal position.
-    /// Plain English: Gets the fighter's left/right location.
+    /// Reads or reuses the object's horizontal position.
+    ///
+    ///  Gets the fighter's left/right location.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -243,8 +263,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses the object's vertical position.
-    /// Plain English: Gets the fighter's height above or below the stage.
+    /// Reads or reuses the object's vertical position.
+    ///
+    ///  Gets the fighter's height above or below the stage.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -258,8 +279,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses the object's facing direction.
-    /// Plain English: Gets which way the fighter is facing.
+    /// Reads or reuses the object's facing direction.
+    ///
+    ///  Gets which way the fighter is facing.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -273,8 +295,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses the object's native team identifier.
-    /// Plain English: Gets which team the object belongs to.
+    /// Reads or reuses the object's native team identifier.
+    ///
+    ///  Gets which team the object belongs to.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -288,8 +311,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses the object's native stop flag.
-    /// Plain English: Checks whether the game has frozen this object.
+    /// Reads or reuses the object's native stop flag.
+    ///
+    ///  Checks whether the game has frozen this object.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -303,8 +327,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses the native end frame for the current motion.
-    /// Plain English: Gets the configured final frame of the animation.
+    /// Reads or reuses the native end frame for the current motion.
+    ///
+    ///  Gets the configured final frame of the animation.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -317,8 +342,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses horizontal speed across all kinetic reserves.
-    /// Plain English: Gets the fighter's overall left/right speed.
+    /// Reads or reuses horizontal speed across all kinetic reserves.
+    ///
+    ///  Gets the fighter's overall left/right speed.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -331,8 +357,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads or reuses vertical speed across all kinetic reserves.
-    /// Plain English: Gets the fighter's overall up/down speed.
+    /// Reads or reuses vertical speed across all kinetic reserves.
+    ///
+    ///  Gets the fighter's overall up/down speed.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.
@@ -345,8 +372,9 @@ impl FrameReads {
             _ => unreachable!("snapshot field type"),
         }
     }
-    /// Technical: Reads a requested previous status, caching the latest-history entry.
-    /// Plain English: Gets the earlier action from the fighter's status history.
+    /// Reads a requested previous status, caching the latest-history entry.
+    ///
+    ///  Gets the earlier action from the fighter's status history.
     ///
     /// # Safety
     /// `object` must be a live native object for the duration of the read.

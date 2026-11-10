@@ -1,28 +1,33 @@
 //! Small revision-built observation metadata; no per-poll tape copies/scans.
 use super::*;
 
-/// Technical: Defines the `SimpleStart` data structure.
+/// Defines the `SimpleStart` data structure.
 ///
-/// Plain English: Holds the data for SimpleStart.
+///
+///  Holds the data for SimpleStart.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SimpleStart {
-    /// Technical: Stores the `distance` value in `SimpleStart` as `f32`.
+    /// Stores the `distance` value in `SimpleStart` as `f32`.
     ///
-    /// Plain English: Holds the distance value used by SimpleStart.
+    ///
+///  Holds the distance value used by SimpleStart.
     pub distance: f32,
-    /// Technical: Stores the `height` value in `SimpleStart` as `f32`.
+    /// Stores the `height` value in `SimpleStart` as `f32`.
     ///
-    /// Plain English: Holds the height value used by SimpleStart.
+    ///
+///  Holds the height value used by SimpleStart.
     pub height: f32,
-    /// Technical: Stores the `up_special` value in `SimpleStart` as `bool`.
+    /// Stores the `up_special` value in `SimpleStart` as `bool`.
     ///
-    /// Plain English: Holds the up special value used by SimpleStart.
+    ///
+///  Holds the up special value used by SimpleStart.
     pub up_special: bool,
 }
 
-/// Technical: Determines whether ground.
+/// Determines whether ground.
 ///
-/// Plain English: Checks whether ground.
+///
+///  Checks whether ground.
 pub(super) fn needs_ground(sequence: &Sequence) -> bool {
     sequence.actions().iter().any(|action| {
         matches!(
@@ -39,22 +44,25 @@ pub(super) fn needs_ground(sequence: &Sequence) -> bool {
 }
 
 impl Resolved {
-    /// Technical: Determines whether the `automatic_needs_up_special` condition holds.
+    /// Determines whether the `automatic_needs_up_special` condition holds.
     ///
-    /// Plain English: Checks whether automatic needs up special.
+    ///
+///  Checks whether automatic needs up special.
     pub fn automatic_needs_up_special(&self, enabled_events: u8) -> bool {
         self.automatic_up_special & enabled_events != 0
     }
-    /// Technical: Returns an optional `simple_starts` value.
+    /// Returns an optional `simple_starts` value.
     ///
-    /// Plain English: Gets simple starts if it is available.
+    ///
+///  Gets simple starts if it is available.
     pub fn simple_starts(&self) -> [Option<SimpleStart>; 3] {
         self.simple_starts
     }
 
     /// Automatic grabs, their backup and grab-dodge punishment have independent
     /// switches. Their movement checks must not depend on Auto-react's toggle.
-    /// Plain English: Automatic grabs, their backup and grab-dodge punishment have independent switches. Their movement checks must not depend on Auto-react's toggle.
+    ///
+///  Automatic grabs, their backup and grab-dodge punishment have independent switches. Their movement checks must not depend on Auto-react's toggle.
     pub fn automatic_ground_watch(&self, enabled_events: u8) -> Option<(f32, f32)> {
         if enabled_events == 0 {
             return None;
@@ -76,7 +84,8 @@ impl Resolved {
 /// Native Up-B availability remains specific to Up-B recipes. Ordinary custom
 /// responses use grounded control readiness, with a lazy shield-readiness query
 /// only for an in-range candidate. All native queries happen before STATE locks.
-/// Plain English: Native Up-B availability remains specific to Up-B recipes. Ordinary custom responses use grounded control readiness, with a lazy shield-readiness query only for an in-range candidate. All native queries happen before STATE locks.
+///
+///  Native Up-B availability remains specific to Up-B recipes. Ordinary custom responses use grounded control readiness, with a lazy shield-readiness query only for an in-range candidate. All native queries happen before STATE locks.
 pub fn simple_readiness(
     starts: [Option<SimpleStart>; 3],
     c: GameplayContext,
@@ -128,7 +137,8 @@ pub fn simple_readiness(
 
 /// No engine is created for an unconfigured fighter/event group. Existing
 /// engines are borrowed in place instead of taken and rebuilt every poll.
-/// Plain English: No engine is created for an unconfigured fighter/event group. Existing engines are borrowed in place instead of taken and rebuilt every poll.
+///
+///  No engine is created for an unconfigured fighter/event group. Existing engines are borrowed in place instead of taken and rebuilt every poll.
 pub fn sample_optional_simple(
     engine: &mut Option<Box<Engine>>,
     allowed: bool,

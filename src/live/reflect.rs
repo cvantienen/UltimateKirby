@@ -5,15 +5,16 @@
 //! Plain English: This module checks nearby projectiles and prepares a reflection
 //! response without changing game state.
 use crate::game_ffi as game;
+use kirby_assist_core::battle_objects::ObjectCategory;
 use kirby_assist_core::{
     autopilot_guard::Hitbox,
     projectile_reflect::{self as policy, Config, Context, Threat},
     timing::AnimationSample,
 };
-use kirby_assist_core::battle_objects::ObjectCategory;
-/// Technical: Builds a copied projectile-reflection context from live observations
+/// Builds a copied projectile-reflection context from live observations
 /// and bounded active-hitbox geometry.
-/// Plain English: Checks nearby remembered projectiles and returns any safe response proposal.
+///
+///  Checks nearby remembered projectiles and returns any safe response proposal.
 ///
 /// # Safety
 /// Native object pointers must remain valid for each read; the function retains none.
@@ -140,15 +141,14 @@ pub(super) unsafe fn observe(
             // Pikmin have a special status that needs to be checked to determine if they are projectiles.
             let source_status =
                 if source_kind == kirby_assist_core::battle_objects::WEAPON_KIND_PIKMIN_PIKMIN {
-                    reads.status_kind(object)    
+                    reads.status_kind(object)
                 } else {
                     // For non-Pikmin weapons, the source status is set to 0.
                     // Non-Pikmin weapons do not have a special status for projectile determination.
                     // Using 0 is appropriate because the special status is only relevant for Pikmin weapons.
                     0
                 };
-            if !ObjectCategory::is_projectile(id, source_kind, source_status)
-            {
+            if !ObjectCategory::is_projectile(id, source_kind, source_status) {
                 continue;
             }
         }

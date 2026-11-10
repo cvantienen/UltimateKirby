@@ -10,52 +10,62 @@ use crate::manual_controls::TurboSettings;
 use crate::settings::AssistSettings;
 use std::str::FromStr;
 
-/// Technical: Sets the default value for tech cooldown frames.
+/// Sets the default value for tech cooldown frames.
 ///
-/// Plain English: Holds the DEFAULT TECH COOLDOWN FRAMES value.
+///
+///  Holds the DEFAULT TECH COOLDOWN FRAMES value.
 const DEFAULT_TECH_COOLDOWN_FRAMES: u16 = 40;
-/// Technical: Sets the default value for collision lookahead frames.
+/// Sets the default value for collision lookahead frames.
 ///
-/// Plain English: Holds the DEFAULT COLLISION LOOKAHEAD FRAMES value.
+///
+///  Holds the DEFAULT COLLISION LOOKAHEAD FRAMES value.
 const DEFAULT_COLLISION_LOOKAHEAD_FRAMES: f32 = 3.0;
 
 #[derive(Clone, Copy, Debug)]
 // These are Copy values, so each callback can take a stable settings snapshot.
 // Fields named "frames" in the text config count observed mapper updates; their
 // relationship to the simulation clock still depends on the live input cadence.
-/// Technical: Defines the `LiveSettings` data structure.
+/// Defines the `LiveSettings` data structure.
 ///
-/// Plain English: Holds the data for LiveSettings.
+///
+///  Holds the data for LiveSettings.
 pub struct LiveSettings {
-    /// Technical: Stores whether `LiveSettings` is enabled.
+    /// Stores whether `LiveSettings` is enabled.
     ///
-    /// Plain English: Turns assistance on or off.
+    ///
+    ///  Turns assistance on or off.
     pub enabled: bool,
-    /// Technical: Stores the `auto_mash` value in `LiveSettings` as `bool`.
+    /// Stores the `auto_mash` value in `LiveSettings` as `bool`.
     ///
-    /// Plain English: Holds the auto mash value used by LiveSettings.
+    ///
+    ///  Holds the auto mash value used by LiveSettings.
     pub auto_mash: bool,
-    /// Technical: Stores the `auto_tech` value in `LiveSettings` as `bool`.
+    /// Stores the `auto_tech` value in `LiveSettings` as `bool`.
     ///
-    /// Plain English: Holds the auto tech value used by LiveSettings.
+    ///
+    ///  Holds the auto tech value used by LiveSettings.
     pub auto_tech: bool,
     /// Enables extra diagnostic messages, not all logging in the plugin.
-    /// Plain English: Enables extra diagnostic messages, not all logging in the plugin.
+    ///
+    ///  Enables extra diagnostic messages, not all logging in the plugin.
     pub tech_debug: bool,
     /// Permit temporary releases of the active tool's owned physical buttons.
-    /// Plain English: Permit temporary releases of the active tool's owned physical buttons.
+    ///
+    ///  Permit temporary releases of the active tool's owned physical buttons.
     pub takeover: bool,
     /// Limits repeated ZR requests; does not change the game's own lockout.
-    /// Plain English: Limits repeated ZR requests; does not change the game's own lockout.
+    ///
+    ///  Limits repeated ZR requests; does not change the game's own lockout.
     pub tech_cooldown: u16,
 }
 
 // Defaults are used when the SD config is absent. The supplied deployment file
 // intentionally enables takeover and extra diagnostic details.
 impl Default for LiveSettings {
-    /// Technical: Returns the default value for this type.
+    /// Returns the default value for this type.
     ///
-    /// Plain English: Returns the default value for this type.
+    ///
+    ///  Returns the default value for this type.
     fn default() -> Self {
         Self {
             enabled: true,
@@ -70,60 +80,74 @@ impl Default for LiveSettings {
 
 /// Startup configuration shared with the Switch plugin. Unknown keys and
 /// invalid values reject the configuration instead of silently enabling tools.
-/// Plain English: Startup configuration shared with the Switch plugin. Unknown keys and invalid values reject the configuration instead of silently enabling tools.
+///
+///  Startup configuration shared with the Switch plugin. Unknown keys and invalid values reject the configuration instead of silently enabling tools.
 #[derive(Clone, Copy, Debug)]
 pub struct LiveConfig {
     /// L-held approximate defense against nearby active fighter attacks.
-    /// Plain English: L-held approximate defense against nearby active fighter attacks.
+    ///
+    ///  L-held approximate defense against nearby active fighter attacks.
     pub autopilot_shield: bool,
-    /// Technical: Stores the `down_tilt_trip_smash` value in `LiveConfig` as `bool`.
+    /// Stores the `down_tilt_trip_smash` value in `LiveConfig` as `bool`.
     ///
-    /// Plain English: Holds the down tilt trip smash value used by LiveConfig.
+    ///
+    ///  Holds the down tilt trip smash value used by LiveConfig.
     pub down_tilt_trip_smash: bool,
-    /// Technical: Stores the `kirby_fair1_smash` value in `LiveConfig` as `bool`.
+    /// Stores the `kirby_fair1_smash` value in `LiveConfig` as `bool`.
     ///
-    /// Plain English: Holds the kirby fair1 smash value used by LiveConfig.
+    ///
+    ///  Holds the kirby fair1 smash value used by LiveConfig.
     pub kirby_fair1_smash: bool,
-    /// Technical: Stores the `auto_sdi` value in `LiveConfig` as `bool`.
+    /// Stores the `auto_sdi` value in `LiveConfig` as `bool`.
     ///
-    /// Plain English: Holds the auto sdi value used by LiveConfig.
+    ///
+    ///  Holds the auto sdi value used by LiveConfig.
     pub auto_sdi: bool,
-    /// Technical: Stores the `auto_di` value in `LiveConfig` as `crate::auto_di::Settings`.
+    /// Stores the `auto_di` value in `LiveConfig` as `crate::auto_di::Settings`.
     ///
-    /// Plain English: Holds the auto di value used by LiveConfig.
+    ///
+    ///  Holds the auto di value used by LiveConfig.
     pub auto_di: crate::auto_di::Settings,
-    /// Technical: Stores the `auto_spot_dodge` value in `LiveConfig` as `bool`.
+    /// Stores the `auto_spot_dodge` value in `LiveConfig` as `bool`.
     ///
-    /// Plain English: Holds the auto spot dodge value used by LiveConfig.
+    ///
+    ///  Holds the auto spot dodge value used by LiveConfig.
     pub auto_spot_dodge: bool,
-    /// Technical: Stores the `controls` value in `LiveConfig` as `LiveSettings`.
+    /// Stores the `controls` value in `LiveConfig` as `LiveSettings`.
     ///
-    /// Plain English: Holds the controls value used by LiveConfig.
+    ///
+    ///  Holds the controls value used by LiveConfig.
     pub controls: LiveSettings,
-    /// Technical: Stores the `control_layout` value in `LiveConfig` as `crate::native_input::ControlLayout`.
+    /// Stores the `control_layout` value in `LiveConfig` as `crate::native_input::ControlLayout`.
     ///
-    /// Plain English: Holds the control layout value used by LiveConfig.
+    ///
+    ///  Holds the control layout value used by LiveConfig.
     pub control_layout: crate::native_input::ControlLayout,
     /// Facing-direction creep strength for the selected Turbo t-bag binding.
-    /// Plain English: Facing-direction creep strength for the selected Turbo t-bag binding.
-    pub turbo: TurboSettings,
-    /// Technical: Stores the `assist` value in `LiveConfig` as `AssistSettings`.
     ///
-    /// Plain English: Holds the assist value used by LiveConfig.
+    ///  Facing-direction creep strength for the selected Turbo t-bag binding.
+    pub turbo: TurboSettings,
+    /// Stores the `assist` value in `LiveConfig` as `AssistSettings`.
+    ///
+    ///
+    ///  Holds the assist value used by LiveConfig.
     pub assist: AssistSettings,
     /// Local physical controller number: 0 = Player 1. Its game mapper slot
     /// is discovered dynamically; battle participant position is irrelevant.
-    /// Plain English: Local physical controller number: 0 = Player 1. Its game mapper slot is discovered dynamically; battle participant position is irrelevant.
+    ///
+    ///  Local physical controller number: 0 = Player 1. Its game mapper slot is discovered dynamically; battle participant position is irrelevant.
     pub player_index: u32,
     /// Linear velocity horizon for collision rays; not a complete physics model.
-    /// Plain English: Linear velocity horizon for collision rays; not a complete physics model.
+    ///
+    ///  Linear velocity horizon for collision rays; not a complete physics model.
     pub lookahead: f32,
 }
 
 impl Default for LiveConfig {
-    /// Technical: Returns the default value for this type.
+    /// Returns the default value for this type.
     ///
-    /// Plain English: Returns the default value for this type.
+    ///
+    ///  Returns the default value for this type.
     fn default() -> Self {
         Self {
             autopilot_shield: true,
@@ -142,48 +166,56 @@ impl Default for LiveConfig {
     }
 }
 
-/// Technical: Returns the `invalid_line` result.
+/// Returns the `invalid_line` result.
 ///
-/// Plain English: Gets the invalid line result.
+///
+///  Gets the invalid line result.
 fn invalid_line(line_number: usize, line: &str) -> String {
     format!("invalid config line {line_number}: {line}")
 }
 
 /// One `key = value` line. Every malformed value reports the same line-numbered
 /// message, so each key only names its destination field.
-/// Plain English: One key = value line. Every malformed value reports the same line-numbered message, so each key only names its destination field.
+///
+///  One key = value line. Every malformed value reports the same line-numbered message, so each key only names its destination field.
 struct Setting<'a> {
-    /// Technical: Stores the `line_number` value in `Setting` as `usize`.
+    /// Stores the `line_number` value in `Setting` as `usize`.
     ///
-    /// Plain English: Holds the line number value used by Setting.
+    ///
+    ///  Holds the line number value used by Setting.
     line_number: usize,
-    /// Technical: Stores the `line` value in `Setting` as `&'a str`.
+    /// Stores the `line` value in `Setting` as `&'a str`.
     ///
-    /// Plain English: Holds the line value used by Setting.
+    ///
+    ///  Holds the line value used by Setting.
     line: &'a str,
-    /// Technical: Stores the `value` value in `Setting` as `&'a str`.
+    /// Stores the `value` value in `Setting` as `&'a str`.
     ///
-    /// Plain English: Holds the value value used by Setting.
+    ///
+    ///  Holds the value value used by Setting.
     value: &'a str,
 }
 
 impl Setting<'_> {
-    /// Technical: Returns the `invalid` result.
+    /// Returns the `invalid` result.
     ///
-    /// Plain English: Gets the invalid result.
+    ///
+    ///  Gets the invalid result.
     fn invalid(&self) -> String {
         invalid_line(self.line_number, self.line)
     }
 
     /// The destination type decides whether this is a bool, integer or float.
-    /// Plain English: The destination type decides whether this is a bool, integer or float.
+    ///
+    ///  The destination type decides whether this is a bool, integer or float.
     fn parse<T: FromStr>(&self) -> Result<T, String> {
         self.value.parse().map_err(|_| self.invalid())
     }
 
-    /// Technical: Stores the supplied value.
+    /// Stores the supplied value.
     ///
-    /// Plain English: Sets the value.
+    ///
+    ///  Sets the value.
     fn set<T: FromStr>(&self, field: &mut T) -> Result<(), String> {
         *field = self.parse()?;
         Ok(())
@@ -191,14 +223,16 @@ impl Setting<'_> {
 
     /// Older SD files carry values that no longer do anything; keep rejecting
     /// malformed ones so a typo is still reported.
-    /// Plain English: Older SD files carry values that no longer do anything; keep rejecting malformed ones so a typo is still reported.
+    ///
+    ///  Older SD files carry values that no longer do anything; keep rejecting malformed ones so a typo is still reported.
     fn accept<T: FromStr>(&self) -> Result<(), String> {
         self.parse::<T>().map(drop)
     }
 
-    /// Technical: Returns the `choice` result.
+    /// Returns the `choice` result.
     ///
-    /// Plain English: Gets the choice result.
+    ///
+    ///  Gets the choice result.
     fn choice<T: Copy>(&self, options: &[(&str, T)], ignore_case: bool) -> Result<T, String> {
         options
             .iter()
@@ -216,59 +250,70 @@ impl Setting<'_> {
 
 /// Retired controls are still parsed and validated so older SD config files
 /// remain loadable, but they no longer affect live policy.
-/// Plain English: Retired controls are still parsed and validated so older SD config files remain loadable, but they no longer affect live policy.
+///
+///  Retired controls are still parsed and validated so older SD config files remain loadable, but they no longer affect live policy.
 #[derive(Default)]
 struct RetiredSettings {
-    /// Technical: Stores the `roll_range` value in `RetiredSettings` as `Option<f32>`.
+    /// Stores the `roll_range` value in `RetiredSettings` as `Option<f32>`.
     ///
-    /// Plain English: Optionally stores the roll range for RetiredSettings; it may be absent.
+    ///
+    ///  Optionally stores the roll range for RetiredSettings; it may be absent.
     roll_range: Option<f32>,
     /// Outer `None`: key absent. Inner `None`: the literal `auto`.
-    /// Plain English: Outer None: key absent. Inner None: the literal auto.
+    ///
+    ///  Outer None: key absent. Inner None: the literal auto.
     roll_distance: Option<Option<f32>>,
-    /// Technical: Stores the `tilt_range` value in `RetiredSettings` as `Option<f32>`.
+    /// Stores the `tilt_range` value in `RetiredSettings` as `Option<f32>`.
     ///
-    /// Plain English: Optionally stores the tilt range for RetiredSettings; it may be absent.
+    ///
+    ///  Optionally stores the tilt range for RetiredSettings; it may be absent.
     tilt_range: Option<f32>,
-    /// Technical: Stores the `grab_range` value in `RetiredSettings` as `Option<f32>`.
+    /// Stores the `grab_range` value in `RetiredSettings` as `Option<f32>`.
     ///
-    /// Plain English: Optionally stores the grab range for RetiredSettings; it may be absent.
+    ///
+    ///  Optionally stores the grab range for RetiredSettings; it may be absent.
     grab_range: Option<f32>,
-    /// Technical: Stores the `anti_air_range` value in `RetiredSettings` as `Option<f32>`.
+    /// Stores the `anti_air_range` value in `RetiredSettings` as `Option<f32>`.
     ///
-    /// Plain English: Optionally stores the anti air range for RetiredSettings; it may be absent.
+    ///
+    ///  Optionally stores the anti air range for RetiredSettings; it may be absent.
     anti_air_range: Option<f32>,
-    /// Technical: Stores the `anti_air_height` value in `RetiredSettings` as `Option<f32>`.
+    /// Stores the `anti_air_height` value in `RetiredSettings` as `Option<f32>`.
     ///
-    /// Plain English: Optionally stores the anti air height for RetiredSettings; it may be absent.
+    ///
+    ///  Optionally stores the anti air height for RetiredSettings; it may be absent.
     anti_air_height: Option<f32>,
-    /// Technical: Stores the `turbo_phase_frames` value in `RetiredSettings` as `Option<u16>`.
+    /// Stores the `turbo_phase_frames` value in `RetiredSettings` as `Option<u16>`.
     ///
-    /// Plain English: Sets the turbo phase frames timing for RetiredSettings.
+    ///
+    ///  Sets the turbo phase frames timing for RetiredSettings.
     turbo_phase_frames: Option<u16>,
 }
 
 // Validate after parsing so all paths share the same bounds. Floating point
 // parsing accepts NaN/infinity, hence is_finite in addition to range checks.
 // To expose a wider range, verify the consuming policy first.
-/// Technical: Determines whether the `finite_in` condition holds.
+/// Determines whether the `finite_in` condition holds.
 ///
-/// Plain English: Checks whether finite in.
+///
+///  Checks whether finite in.
 fn finite_in(value: f32, min: f32, max: f32) -> bool {
     value.is_finite() && (min..=max).contains(&value)
 }
 
-/// Technical: Determines whether the `retired_in` condition holds.
+/// Determines whether the `retired_in` condition holds.
 ///
-/// Plain English: Checks whether retired in.
+///
+///  Checks whether retired in.
 fn retired_in(value: Option<f32>, min: f32, max: f32) -> bool {
     value.is_none_or(|value| finite_in(value, min, max))
 }
 
 impl LiveConfig {
-    /// Technical: Parses the supplied source into the module’s validated representation.
+    /// Parses the supplied source into the module’s validated representation.
     ///
-    /// Plain English: Reads the source and checks that it is valid.
+    ///
+    ///  Reads the source and checks that it is valid.
     pub fn parse(contents: &str) -> Result<Self, String> {
         // Start from Rust defaults, then replace only keys present in the file.
         // `?` propagates Err immediately: no partially parsed config is installed.
@@ -296,9 +341,10 @@ impl LiveConfig {
 
     // To expose a new setting, add its field/default, a match arm here, range
     // validation below, a deployment config comment, and parser/policy tests.
-    /// Technical: Applies the supplied configuration or action.
+    /// Applies the supplied configuration or action.
     ///
-    /// Plain English: Makes the supplied change.
+    ///
+    ///  Makes the supplied change.
     fn apply(
         &mut self,
         retired: &mut RetiredSettings,
@@ -416,9 +462,10 @@ impl LiveConfig {
         Ok(())
     }
 
-    /// Technical: Returns the `validate` result.
+    /// Returns the `validate` result.
     ///
-    /// Plain English: Gets the validate result.
+    ///
+    ///  Gets the validate result.
     fn validate(&self, retired: &RetiredSettings) -> Result<(), String> {
         let assist = &self.assist;
         if !finite_in(assist.walk_strength, 0.1, 0.45) || !retired_in(retired.roll_range, 1.0, 20.0)

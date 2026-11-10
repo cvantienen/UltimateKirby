@@ -2,21 +2,25 @@
 //! Callers supply measured deadlines and geometry; unknown protection never
 //! silently becomes vulnerability. Animation end is only a recovery estimate.
 
-/// Technical: Defines the `NO_MOTION_KIND` constant used by this module.
+/// Defines the `NO_MOTION_KIND` constant used by this module.
 ///
-/// Plain English: Provides the NO MOTION KIND constant value.
+///
+///  Provides the NO MOTION KIND constant value.
 pub const NO_MOTION_KIND: u64 = 0;
-/// Technical: Defines the `MOTION_ATTACK_AIR_F` constant used by this module.
+/// Defines the `MOTION_ATTACK_AIR_F` constant used by this module.
 ///
-/// Plain English: Provides the MOTION ATTACK AIR F constant value.
+///
+///  Provides the MOTION ATTACK AIR F constant value.
 pub const MOTION_ATTACK_AIR_F: u64 = 0xc3495ada5;
-/// Technical: Defines the `HASH40_CRC32_POLYNOMIAL` constant used by this module.
+/// Defines the `HASH40_CRC32_POLYNOMIAL` constant used by this module.
 ///
-/// Plain English: Provides the HASH40 CRC32 POLYNOMIAL constant value.
+///
+///  Provides the HASH40 CRC32 POLYNOMIAL constant value.
 const HASH40_CRC32_POLYNOMIAL: u32 = 0xedb88320;
 
 /// Hash40 motion identifier: CRC32 in the low word, byte length in the high word.
-/// Plain English: Hash40 motion identifier: CRC32 in the low word, byte length in the high word.
+///
+///  Hash40 motion identifier: CRC32 in the low word, byte length in the high word.
 pub const fn motion_hash(name: &str) -> u64 {
     let bytes = name.as_bytes();
     let mut crc = !0u32;
@@ -33,9 +37,10 @@ pub const fn motion_hash(name: &str) -> u64 {
     ((bytes.len() as u64) << 32) | (!crc) as u64
 }
 
-/// Technical: Determines whether the `same_motion_event` condition holds.
+/// Determines whether the `same_motion_event` condition holds.
 ///
-/// Plain English: Checks whether same motion event.
+///
+///  Checks whether same motion event.
 #[inline]
 pub(crate) fn same_motion_event(
     previous: (u32, i32, u64, f32),
@@ -50,24 +55,29 @@ pub(crate) fn same_motion_event(
 /// Common classification of observed motion progress, not an engine frame timer.
 /// Callers retain their existing first-sample, transition and timeout policies.
 /// No wall-clock delay, learned compensation or extra waiting is introduced.
-/// Plain English: Common classification of observed motion progress, not an engine frame timer. Callers retain their existing first-sample, transition and timeout policies. No wall-clock delay, learned compensation or extra waiting is introduced.
+///
+///  Common classification of observed motion progress, not an engine frame timer. Callers retain their existing first-sample, transition and timeout policies. No wall-clock delay, learned compensation or extra waiting is introduced.
 #[derive(Clone, Copy, Debug)]
 pub struct MotionStamp {
-    /// Technical: Stores the `status` value in `MotionStamp` as `i32`.
+    /// Stores the `status` value in `MotionStamp` as `i32`.
     ///
-    /// Plain English: Holds the status value used by MotionStamp.
+    ///
+    ///  Holds the status value used by MotionStamp.
     pub status: i32,
-    /// Technical: Stores the `motion` value in `MotionStamp` as `u64`.
+    /// Stores the `motion` value in `MotionStamp` as `u64`.
     ///
-    /// Plain English: Holds the motion value used by MotionStamp.
+    ///
+    ///  Holds the motion value used by MotionStamp.
     pub motion: u64,
-    /// Technical: Stores the `frame` value in `MotionStamp` as `f32`.
+    /// Stores the `frame` value in `MotionStamp` as `f32`.
     ///
-    /// Plain English: Holds the frame value used by MotionStamp.
+    ///
+    ///  Holds the frame value used by MotionStamp.
     pub frame: f32,
-    /// Technical: Stores the `rate` value in `MotionStamp` as `f32`.
+    /// Stores the `rate` value in `MotionStamp` as `f32`.
     ///
-    /// Plain English: Holds the rate value used by MotionStamp.
+    ///
+    ///  Holds the rate value used by MotionStamp.
     pub rate: f32,
 }
 
@@ -80,7 +90,8 @@ impl MotionStamp {
     /// * `rate` - The playback rate of the motion.
     /// # Returns
     /// A `MotionStamp` initialized with the provided values.
-    /// Plain English: Constructs a new MotionStamp with the given status, motion, frame, and rate. # Parameters  status - The status code of the motion.  motion - The identifier of the motion.  frame - The current frame of the motion.  rate - The.
+    ///
+    ///  Constructs a new MotionStamp with the given status, motion, frame, and rate. # Parameters  status - The status code of the motion.  motion - The identifier of the motion.  frame - The current frame of the motion.  rate - The.
     pub fn new(status: i32, motion: u64, frame: f32, rate: f32) -> Self {
         Self {
             status,
@@ -93,22 +104,25 @@ impl MotionStamp {
     /// Checks if the motion stamp represents a valid and positive playback state.
     /// # Returns
     /// `true` if the frame and rate are finite and the rate is positive, `false` otherwise.
-    /// Plain English: Checks if the motion stamp represents a valid and positive playback state. # Returns true if the frame and rate are finite and the rate is positive, false otherwise.
+    ///
+    ///  Checks if the motion stamp represents a valid and positive playback state. # Returns true if the frame and rate are finite and the rate is positive, false otherwise.
     pub fn valid(self) -> bool {
         playback_valid(self.frame, self.rate)
     }
 }
 
-/// Technical: Determines whether the `playback_valid` condition holds.
+/// Determines whether the `playback_valid` condition holds.
 ///
-/// Plain English: Checks whether playback valid.
+///
+///  Checks whether playback valid.
 fn playback_valid(frame: f32, rate: f32) -> bool {
     frame.is_finite() && frame >= 0.0 && rate.is_finite() && rate > 0.0
 }
 
 /// A usable native animation clock: a known motion with a finite, non-negative
 /// frame and a finite, positive rate.
-/// Plain English: A usable native animation clock: a known motion with a finite, non-negative frame and a finite, positive rate.
+///
+///  A usable native animation clock: a known motion with a finite, non-negative frame and a finite, positive rate.
 pub fn clock_known(motion: u64, frame: f32, rate: f32) -> bool {
     motion != NO_MOTION_KIND && playback_valid(frame, rate)
 }
@@ -122,44 +136,53 @@ pub fn clock_known(motion: u64, frame: f32, rate: f32) -> bool {
 /// * `Transition` - The motion has changed to a different status or motion.
 /// * `Rewind` - The motion has moved backward in time.
 /// * `Invalid` - The motion is in an invalid state.
-/// Plain English: Represents the progress of a motion relative to its previous state. This enum helps track whether a motion has just started, repeated, advanced, transitioned, rewound, or become invalid. # Variants  Initial - The motion has.
+///
+///  Represents the progress of a motion relative to its previous state. This enum helps track whether a motion has just started, repeated, advanced, transitioned, rewound, or become invalid. # Variants  Initial - The motion has.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MotionProgress {
-    /// Technical: Represents the `Initial` case of `MotionProgress`.
+    /// Represents the `Initial` case of `MotionProgress`.
     ///
-    /// Plain English: Represents the Initial option in MotionProgress.
+    ///
+    ///  Represents the Initial option in MotionProgress.
     Initial,
-    /// Technical: Represents the `Duplicate` case of `MotionProgress`.
+    /// Represents the `Duplicate` case of `MotionProgress`.
     ///
-    /// Plain English: Represents the Duplicate option in MotionProgress.
+    ///
+    ///  Represents the Duplicate option in MotionProgress.
     Duplicate,
-    /// Technical: Represents the `Advanced` case of `MotionProgress`.
+    /// Represents the `Advanced` case of `MotionProgress`.
     ///
-    /// Plain English: Represents the Advanced option in MotionProgress.
+    ///
+    ///  Represents the Advanced option in MotionProgress.
     Advanced(
-        /// Technical: Carries the amount of animation progress in `MotionProgress`.
+        /// Carries the amount of animation progress in `MotionProgress`.
         ///
-        /// Plain English: Holds the amount of animation progress for this `MotionProgress` choice.
+        ///
+        ///  Holds the amount of animation progress for this `MotionProgress` choice.
         f32,
     ),
-    /// Technical: Represents the `Transition` case of `MotionProgress`.
+    /// Represents the `Transition` case of `MotionProgress`.
     ///
-    /// Plain English: Represents the Transition option in MotionProgress.
+    ///
+    ///  Represents the Transition option in MotionProgress.
     Transition,
-    /// Technical: Represents the `Rewind` case of `MotionProgress`.
+    /// Represents the `Rewind` case of `MotionProgress`.
     ///
-    /// Plain English: Represents the Rewind option in MotionProgress.
+    ///
+    ///  Represents the Rewind option in MotionProgress.
     Rewind,
-    /// Technical: Represents the `Invalid` case of `MotionProgress`.
+    /// Represents the `Invalid` case of `MotionProgress`.
     ///
-    /// Plain English: Represents the Invalid option in MotionProgress.
+    ///
+    ///  Represents the Invalid option in MotionProgress.
     Invalid,
 }
 
 impl MotionProgress {
     /// Keep each caller's startup/transition policy explicit. Rewinds and invalid
     /// clocks require a caller decision; they never silently count as progress.
-    /// Plain English: Keep each caller's startup/transition policy explicit. Rewinds and invalid clocks require a caller decision; they never silently count as progress.
+    ///
+    ///  Keep each caller's startup/transition policy explicit. Rewinds and invalid clocks require a caller decision; they never silently count as progress.
     pub fn elapsed(self, initial: f32, transition: f32) -> Option<f32> {
         match self {
             Self::Initial => Some(initial),
@@ -177,7 +200,8 @@ impl MotionProgress {
 /// * `current` - The current motion stamp.
 /// # Returns
 /// A `MotionProgress` value representing how the motion has progressed.
-/// Plain English: Computes the progress of a motion given its previous and current stamps. # Parameters  previous - The previous motion stamp, if available.  current - The current motion stamp. # Returns A MotionProgress value representing how.
+///
+///  Computes the progress of a motion given its previous and current stamps. # Parameters  previous - The previous motion stamp, if available.  current - The current motion stamp. # Returns A MotionProgress value representing how.
 pub fn motion_progress(previous: Option<MotionStamp>, current: MotionStamp) -> MotionProgress {
     if !current.valid() {
         return MotionProgress::Invalid;
@@ -205,7 +229,8 @@ pub fn motion_progress(previous: Option<MotionStamp>, current: MotionStamp) -> M
 
 /// Adapter for existing sequence histories. NaN makes an invalid/rewound clock
 /// follow the caller's existing bounded-clock cancellation path.
-/// Plain English: Adapter for existing sequence histories. NaN makes an invalid/rewound clock follow the caller's existing bounded-clock cancellation path.
+///
+///  Adapter for existing sequence histories. NaN makes an invalid/rewound clock follow the caller's existing bounded-clock cancellation path.
 pub fn motion_elapsed(
     previous: Option<(i32, u64, f32, f32)>,
     current: (i32, u64, f32, f32),
@@ -220,53 +245,64 @@ pub fn motion_elapsed(
 /// For adapters that supply actual simulation-frame numbers, not animation
 /// samples. Never mix this counter with mapper ticks or elapsed milliseconds.
 /// `None` means the counter went backwards.
-/// Plain English: For adapters that supply actual simulation-frame numbers, not animation samples. Never mix this counter with mapper ticks or elapsed milliseconds. None means the counter went backwards.
+///
+///  For adapters that supply actual simulation-frame numbers, not animation samples. Never mix this counter with mapper ticks or elapsed milliseconds. None means the counter went backwards.
 pub fn simulation_elapsed(previous: Option<u64>, current: u64) -> Option<u64> {
     previous.map_or(Some(0), |old| current.checked_sub(old))
 }
 
 /// Inclusive range of attack frames, counted from 1, whose hitbox is active.
-/// Plain English: Inclusive range of attack frames, counted from 1, whose hitbox is active.
+///
+///  Inclusive range of attack frames, counted from 1, whose hitbox is active.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActiveWindow {
-    /// Technical: Stores the `first` value in `ActiveWindow` as `u16`.
+    /// Stores the `first` value in `ActiveWindow` as `u16`.
     ///
-    /// Plain English: Holds the first value used by ActiveWindow.
+    ///
+    ///  Holds the first value used by ActiveWindow.
     pub first: u16,
-    /// Technical: Stores the `last` value in `ActiveWindow` as `u16`.
+    /// Stores the `last` value in `ActiveWindow` as `u16`.
     ///
-    /// Plain English: Holds the last value used by ActiveWindow.
+    ///
+    ///  Holds the last value used by ActiveWindow.
     pub last: u16,
 }
 
 /// How long a target stays protected and when it can act again, in game frames.
-/// Plain English: How long a target stays protected and when it can act again, in game frames.
+///
+///  How long a target stays protected and when it can act again, in game frames.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RecoveryWindow {
     /// Some(0) means vulnerable now; None means unknown.
-    /// Plain English: Some(0) means vulnerable now; None means unknown.
+    ///
+    ///  Some(0) means vulnerable now; None means unknown.
     pub vulnerable_in: Option<f32>,
     /// Exclusive deadline: at this time the target may choose a defense.
-    /// Plain English: Exclusive deadline: at this time the target may choose a defense.
+    ///
+    ///  Exclusive deadline: at this time the target may choose a defense.
     pub actionable_in: Option<f32>,
 }
 /// Represents a predicted contact with the target.
-/// Plain English: Represents a predicted contact with the target.
+///
+///  Represents a predicted contact with the target.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PredictedContact {
-    /// Technical: Stores the `in_frames` value in `PredictedContact` as `f32`.
+    /// Stores the `in_frames` value in `PredictedContact` as `f32`.
     ///
-    /// Plain English: Sets the in frames timing for PredictedContact.
+    ///
+    ///  Sets the in frames timing for PredictedContact.
     pub in_frames: f32,
     /// None means that an inescapable recovery window was not established.
-    /// Plain English: None means that an inescapable recovery window was not established.
+    ///
+    ///  None means that an inescapable recovery window was not established.
     pub recovery_margin: Option<f32>,
 }
 
 impl ActiveWindow {
     /// Earliest modeled contact after input delay, before recovery expires.
     /// `in_reach` must predict geometry at the SAME time as vulnerability.
-    /// Plain English: Earliest modeled contact after input delay, before recovery expires. inreach must predict geometry at the SAME time as vulnerability.
+    ///
+    ///  Earliest modeled contact after input delay, before recovery expires. inreach must predict geometry at the SAME time as vulnerability.
     pub fn first_contact(
         self,
         input_delay: f32,
@@ -301,27 +337,33 @@ impl ActiveWindow {
 
 /// Deduplicate native animation progress for input schedulers. This is NOT a
 /// global simulation clock: missing/frozen animation data cannot prove a frame.
-/// Plain English: Deduplicate native animation progress for input schedulers. This is NOT a global simulation clock: missing/frozen animation data cannot prove a frame.
+///
+///  Deduplicate native animation progress for input schedulers. This is NOT a global simulation clock: missing/frozen animation data cannot prove a frame.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AnimationSample {
-    /// Technical: Stores the `object` value in `AnimationSample` as `u32`.
+    /// Stores the `object` value in `AnimationSample` as `u32`.
     ///
-    /// Plain English: Holds the object value used by AnimationSample.
+    ///
+    ///  Holds the object value used by AnimationSample.
     pub object: u32,
-    /// Technical: Stores the `status` value in `AnimationSample` as `i32`.
+    /// Stores the `status` value in `AnimationSample` as `i32`.
     ///
-    /// Plain English: Holds the status value used by AnimationSample.
+    ///
+    ///  Holds the status value used by AnimationSample.
     pub status: i32,
-    /// Technical: Stores the `kind` value in `AnimationSample` as `u64`.
+    /// Stores the `kind` value in `AnimationSample` as `u64`.
     ///
-    /// Plain English: Holds the kind value used by AnimationSample.
+    ///
+    ///  Holds the kind value used by AnimationSample.
     pub kind: u64,
-    /// Technical: Stores the `frame` value in `AnimationSample` as `f32`.
+    /// Stores the `frame` value in `AnimationSample` as `f32`.
     ///
-    /// Plain English: Holds the frame value used by AnimationSample.
+    ///
+    ///  Holds the frame value used by AnimationSample.
     pub frame: f32,
     /// A native advancing timer for frozen poses, e.g. remaining clatter time.
-    /// Plain English: A native advancing timer for frozen poses, e.g. remaining clatter time.
+    ///
+    ///  A native advancing timer for frozen poses, e.g. remaining clatter time.
     pub auxiliary: f32,
 }
 
@@ -329,22 +371,26 @@ pub struct AnimationSample {
 /// # Fields
 /// * `previous` - The previous observed animation sample, if any.
 /// * `tick` - The current tick count representing the number of unique states observed.
-/// Plain English: Tracks the progression of animation samples and assigns a tick count to each unique state. # Fields  previous - The previous observed animation sample, if any.  tick - The current tick count representing the number of unique.
+///
+///  Tracks the progression of animation samples and assigns a tick count to each unique state. # Fields  previous - The previous observed animation sample, if any.  tick - The current tick count representing the number of unique.
 #[derive(Default)]
 pub struct AnimationClock {
-    /// Technical: Stores the `previous` value in `AnimationClock` as `Option<AnimationSample>`.
+    /// Stores the `previous` value in `AnimationClock` as `Option<AnimationSample>`.
     ///
-    /// Plain English: Optionally stores the previous for AnimationClock; it may be absent.
+    ///
+    ///  Optionally stores the previous for AnimationClock; it may be absent.
     previous: Option<AnimationSample>,
-    /// Technical: Stores the `tick` value in `AnimationClock` as `i64`.
+    /// Stores the `tick` value in `AnimationClock` as `i64`.
     ///
-    /// Plain English: Holds the tick value used by AnimationClock.
+    ///
+    ///  Holds the tick value used by AnimationClock.
     tick: i64,
 }
 
 impl AnimationClock {
     /// Constructs a new `AnimationClock` with no previous sample and a tick count of zero.
-    /// Plain English: Constructs a new AnimationClock with no previous sample and a tick count of zero.
+    ///
+    ///  Constructs a new AnimationClock with no previous sample and a tick count of zero.
     pub const fn new() -> Self {
         Self {
             previous: None,
@@ -357,9 +403,11 @@ impl AnimationClock {
     /// * `stopped` - Indicates whether the animation has stopped.
     /// # Returns
     /// An `Option<i64>` representing the current tick count if the state has changed, or `None` if the observation is ignored.
-    /// Plain English: Observes a new animation sample and updates the tick count if the state has changed. # Parameters  sample - The current animation sample to observe.  stopped - Indicates whether the animation has stopped. # Returns An.
+    ///
+    ///  Observes a new animation sample and updates the tick count if the state has changed. # Parameters  sample - The current animation sample to observe.  stopped - Indicates whether the animation has stopped. # Returns An.
     pub fn observe(&mut self, sample: AnimationSample, stopped: bool) -> Option<i64> {
-        if stopped || !clock_known(sample.kind, sample.frame, 1.0) || !sample.auxiliary.is_finite() {
+        if stopped || !clock_known(sample.kind, sample.frame, 1.0) || !sample.auxiliary.is_finite()
+        {
             return None;
         }
         let stamp = |s: AnimationSample| MotionStamp::new(s.status, s.kind, s.frame, 1.0);
@@ -380,9 +428,10 @@ impl AnimationClock {
 mod tests {
     use super::*;
 
-    /// Technical: Regression test for `motion_event_continuation_does_not_accept_rewinds_or_nan`.
+    /// Regression test for `motion_event_continuation_does_not_accept_rewinds_or_nan`.
     ///
-    /// Plain English: Checks that motion event continuation does not accept rewinds or nan.
+    ///
+    ///  Checks that motion event continuation does not accept rewinds or nan.
     #[test]
     fn motion_event_continuation_does_not_accept_rewinds_or_nan() {
         let previous = (7, 2, 3, 5.0);
@@ -396,9 +445,10 @@ mod tests {
         assert!(!same_motion_event(previous, (7, 2, 4, 6.0)));
     }
 
-    /// Technical: Regression test for `contact_uses_same_frame_for_geometry_protection_delay_and_recovery`.
+    /// Regression test for `contact_uses_same_frame_for_geometry_protection_delay_and_recovery`.
     ///
-    /// Plain English: Checks that contact uses same frame for geometry protection delay and recovery.
+    ///
+    ///  Checks that contact uses same frame for geometry protection delay and recovery.
     #[test]
     fn contact_uses_same_frame_for_geometry_protection_delay_and_recovery() {
         let active = ActiveWindow { first: 6, last: 12 };
@@ -441,9 +491,10 @@ mod tests {
         }
     }
 
-    /// Technical: Regression test for `clock_reuses_polls_freezes_in_stop_and_accepts_loops_and_identity_changes`.
+    /// Regression test for `clock_reuses_polls_freezes_in_stop_and_accepts_loops_and_identity_changes`.
     ///
-    /// Plain English: Checks that clock reuses polls freezes in stop and accepts loops and identity changes.
+    ///
+    ///  Checks that clock reuses polls freezes in stop and accepts loops and identity changes.
     #[test]
     fn clock_reuses_polls_freezes_in_stop_and_accepts_loops_and_identity_changes() {
         let mut clock = AnimationClock::default();
@@ -492,9 +543,10 @@ mod tests {
             None
         );
     }
-    /// Technical: Regression test for `native_timer_advances_mash_in_a_frozen_pose_without_counting_mapper_polls`.
+    /// Regression test for `native_timer_advances_mash_in_a_frozen_pose_without_counting_mapper_polls`.
     ///
-    /// Plain English: Checks that native timer advances mash in a frozen pose without counting mapper polls.
+    ///
+    ///  Checks that native timer advances mash in a frozen pose without counting mapper polls.
     #[test]
     fn native_timer_advances_mash_in_a_frozen_pose_without_counting_mapper_polls() {
         let mut clock = AnimationClock::default();
@@ -529,4 +581,3 @@ mod tests {
         );
     }
 }
-

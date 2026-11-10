@@ -8,9 +8,10 @@ use crate::sequence_config::{
     MAX_SEQUENCE_FRAME_COUNT,
 };
 
-/// Technical: Returns the `push` result.
+/// Returns the `push` result.
 ///
-/// Plain English: Gets the push result.
+///
+///  Gets the push result.
 fn push(sequence: &mut Sequence, action: Action) -> Result<(), String> {
     if usize::from(sequence.len) == MAX_ACTIONS {
         return Err(format!(
@@ -22,9 +23,10 @@ fn push(sequence: &mut Sequence, action: Action) -> Result<(), String> {
     Ok(())
 }
 
-/// Technical: Parses the actions.
+/// Parses the actions.
 ///
-/// Plain English: Parses the actions.
+///
+///  Parses the actions.
 pub(super) fn parse_actions(value: &str, line: usize) -> Result<Sequence, String> {
     let mut result = Sequence::default();
     for token in value.split(',').map(str::trim) {
@@ -38,7 +40,8 @@ pub(super) fn parse_actions(value: &str, line: usize) -> Result<Sequence, String
 }
 
 /// Flat facing blocks are deliberately bounded and cannot nest.
-/// Plain English: Flat facing blocks are deliberately bounded and cannot nest.
+///
+///  Flat facing blocks are deliberately bounded and cannot nest.
 pub fn validate_facing_blocks(actions: &[Action]) -> Result<(), String> {
     let mut open = false;
     let mut otherwise = false;
@@ -74,9 +77,10 @@ pub fn validate_facing_blocks(actions: &[Action]) -> Result<(), String> {
     Ok(())
 }
 
-/// Technical: Constructs a parsed input action from the supplied arguments.
+/// Constructs a parsed input action from the supplied arguments.
 ///
-/// Plain English: Builds the input action described by the arguments.
+///
+///  Builds the input action described by the arguments.
 fn input(buttons: u32, stick: [f32; 2], frames: u8, relative: bool) -> Action {
     Action::Input {
         buttons,
@@ -88,36 +92,42 @@ fn input(buttons: u32, stick: [f32; 2], frames: u8, relative: bool) -> Action {
 
 /// One colon-separated action token after alias normalization. Every accessor
 /// reports failures against the author's original text.
-/// Plain English: One colon-separated action token after alias normalization. Every accessor reports failures against the author's original text.
+///
+///  One colon-separated action token after alias normalization. Every accessor reports failures against the author's original text.
 struct Args<'a> {
-    /// Technical: Stores the `token` value in `Args` as `&'a str`.
+    /// Stores the `token` value in `Args` as `&'a str`.
     ///
-    /// Plain English: Holds the token value used by Args.
+    ///
+///  Holds the token value used by Args.
     token: &'a str,
-    /// Technical: Stores the `parts` value in `Args` as `Vec<&'a str>`.
+    /// Stores the `parts` value in `Args` as `Vec<&'a str>`.
     ///
-    /// Plain English: Holds the parts value used by Args.
+    ///
+///  Holds the parts value used by Args.
     parts: Vec<&'a str>,
 }
 
 impl Args<'_> {
-    /// Technical: Returns the number of stored elements.
+    /// Returns the number of stored elements.
     ///
-    /// Plain English: Counts the stored items.
+    ///
+///  Counts the stored items.
     fn len(&self) -> usize {
         self.parts.len()
     }
 
-    /// Technical: Returns the `invalid` result.
+    /// Returns the `invalid` result.
     ///
-    /// Plain English: Gets the invalid result.
+    ///
+///  Gets the invalid result.
     fn invalid(&self) -> String {
         format!("invalid action {}", self.token)
     }
 
-    /// Technical: Returns the `exact` result.
+    /// Returns the `exact` result.
     ///
-    /// Plain English: Gets the exact result.
+    ///
+///  Gets the exact result.
     fn exact(&self, count: usize) -> Result<(), String> {
         if self.len() == count {
             Ok(())
@@ -126,9 +136,10 @@ impl Args<'_> {
         }
     }
 
-    /// Technical: Returns the `at_most` result.
+    /// Returns the `at_most` result.
     ///
-    /// Plain English: Gets the at most result.
+    ///
+///  Gets the at most result.
     fn at_most(&self, count: usize) -> Result<(), String> {
         if self.len() <= count {
             Ok(())
@@ -137,16 +148,18 @@ impl Args<'_> {
         }
     }
 
-    /// Technical: Returns the floating-point value when the fact contains one.
+    /// Returns the floating-point value when the fact contains one.
     ///
-    /// Plain English: Gets the number if this fact stores one.
+    ///
+///  Gets the number if this fact stores one.
     fn float(&self, index: usize, min: f32, max: f32) -> Result<f32, String> {
         parse_float(self.parts[index], min, max, self.token)
     }
 
-    /// Technical: Returns the `float_or` result.
+    /// Returns the `float_or` result.
     ///
-    /// Plain English: Gets the float or result.
+    ///
+///  Gets the float or result.
     fn float_or(&self, index: usize, default: f32, min: f32, max: f32) -> Result<f32, String> {
         if index < self.len() {
             self.float(index, min, max)
@@ -156,7 +169,8 @@ impl Args<'_> {
     }
 
     /// Left- or right-stick pair at `index` and `index + 1`.
-    /// Plain English: Left- or right-stick pair at index and index + 1.
+    ///
+///  Left- or right-stick pair at index and index + 1.
     fn stick(&self, index: usize) -> Result<[f32; 2], String> {
         Ok([
             self.float(index, -1.0, 1.0)?,
@@ -164,9 +178,10 @@ impl Args<'_> {
         ])
     }
 
-    /// Technical: Returns the `frames_or` result.
+    /// Returns the `frames_or` result.
     ///
-    /// Plain English: Gets the frames or result.
+    ///
+///  Gets the frames or result.
     fn frames_or(&self, index: usize, default: u8) -> Result<u8, String> {
         self.parts
             .get(index)
@@ -174,7 +189,8 @@ impl Args<'_> {
     }
 
     /// Input hold length: 1..255 native frames.
-    /// Plain English: Input hold length: 1..255 native frames.
+    ///
+///  Input hold length: 1..255 native frames.
     fn duration(&self, index: usize, default: u8) -> Result<u8, String> {
         match self.frames_or(index, default)? {
             0 => Err(format!("{}: input duration must be 1..255", self.token)),
@@ -182,31 +198,35 @@ impl Args<'_> {
         }
     }
 
-    /// Technical: Returns the `buttons` result.
+    /// Returns the `buttons` result.
     ///
-    /// Plain English: Gets the buttons result.
+    ///
+///  Gets the buttons result.
     fn buttons(&self, index: usize) -> Result<u32, String> {
         buttons(self.parts[index])
     }
 
-    /// Technical: Returns the `direction` result.
+    /// Returns the `direction` result.
     ///
-    /// Plain English: Gets the direction result.
+    ///
+///  Gets the direction result.
     fn direction(&self, index: usize) -> Result<Direction, String> {
         Direction::from_token(self.parts[index])
             .ok_or_else(|| format!("invalid direction in {}", self.token))
     }
 
-    /// Technical: Returns the `reference` result.
+    /// Returns the `reference` result.
     ///
-    /// Plain English: Gets the reference result.
+    ///
+///  Gets the reference result.
     fn reference(&self, index: usize) -> Result<InputReference, String> {
         InputReference::parse(self.parts.get(index).copied().unwrap_or("screen"))
     }
 }
 
 /// Canonical single-letter names plus the long aliases accepted in `+` lists.
-/// Plain English: Canonical single-letter names plus the long aliases accepted in + lists.
+///
+///  Canonical single-letter names plus the long aliases accepted in + lists.
 fn buttons(value: &str) -> Result<u32, String> {
     let mut mask = 0;
     for button in value.split('+') {
@@ -224,7 +244,8 @@ fn buttons(value: &str) -> Result<u32, String> {
 
 /// Rewrite the spelled-out shortcuts that are not simple aliases of one token
 /// into the canonical `name:arg` layout used by the dispatcher below.
-/// Plain English: Rewrite the spelled-out shortcuts that are not simple aliases of one token into the canonical name:arg layout used by the dispatcher below.
+///
+///  Rewrite the spelled-out shortcuts that are not simple aliases of one token into the canonical name:arg layout used by the dispatcher below.
 fn normalize(token: &str) -> String {
     let normalized = token
         .split(':')
@@ -255,9 +276,10 @@ fn normalize(token: &str) -> String {
     }
 }
 
-/// Technical: Parses the action.
+/// Parses the action.
 ///
-/// Plain English: Parses the action.
+///
+///  Parses the action.
 fn parse_action(token: &str, sequence: &mut Sequence) -> Result<(), String> {
     let normalized = normalize(token);
     let args = Args {
@@ -353,23 +375,26 @@ fn parse_action(token: &str, sequence: &mut Sequence) -> Result<(), String> {
 }
 
 /// Zero-argument markers such as `end_facing`.
-/// Plain English: Zero-argument markers such as endfacing.
+///
+///  Zero-argument markers such as endfacing.
 fn marker(args: &Args, action: Action) -> Result<Action, String> {
     args.exact(1)?;
     Ok(action)
 }
 
-/// Technical: Returns the `wait` result.
+/// Returns the `wait` result.
 ///
-/// Plain English: Gets the wait result.
+///
+///  Gets the wait result.
 fn wait(args: &Args) -> Result<Action, String> {
     args.at_most(2)?;
     Ok(Action::Wait(args.frames_or(1, 1)?))
 }
 
-/// Technical: Returns the `check` result.
+/// Returns the `check` result.
 ///
-/// Plain English: Gets the check result.
+///
+///  Gets the check result.
 fn check(args: &Args) -> Result<Action, String> {
     let condition = args
         .parts
@@ -392,9 +417,10 @@ fn check(args: &Args) -> Result<Action, String> {
     })
 }
 
-/// Technical: Returns the `tap` result.
+/// Returns the `tap` result.
 ///
-/// Plain English: Gets the tap result.
+///
+///  Gets the tap result.
 fn tap(args: &Args) -> Result<Action, String> {
     args.exact(7)?;
     let frames = parse_frames(args.parts[6])
@@ -412,9 +438,10 @@ fn tap(args: &Args) -> Result<Action, String> {
     })
 }
 
-/// Technical: Returns the `press` result.
+/// Returns the `press` result.
 ///
-/// Plain English: Gets the press result.
+///
+///  Gets the press result.
 fn press(args: &Args) -> Result<Action, String> {
     if args.len() != 2 && args.len() != 3 {
         return Err("use press:BUTTONS[:FRAMES] or hold:BUTTONS:FRAMES".into());
@@ -422,9 +449,10 @@ fn press(args: &Args) -> Result<Action, String> {
     Ok(input(args.buttons(1)?, [0.0; 2], args.duration(2, 1)?, false))
 }
 
-/// Technical: Returns the `controller_input` result.
+/// Returns the `controller_input` result.
 ///
-/// Plain English: Gets the controller input result.
+///
+///  Gets the controller input result.
 fn controller_input(args: &Args) -> Result<Action, String> {
     if !(7..=9).contains(&args.len()) {
         return Err(
@@ -441,9 +469,10 @@ fn controller_input(args: &Args) -> Result<Action, String> {
     })
 }
 
-/// Technical: Returns the `opponent_input` result.
+/// Returns the `opponent_input` result.
 ///
-/// Plain English: Gets the opponent input result.
+///
+///  Gets the opponent input result.
 fn opponent_input(args: &Args) -> Result<Action, String> {
     args.exact(5)?;
     Ok(Action::OpponentInput {
@@ -453,9 +482,10 @@ fn opponent_input(args: &Args) -> Result<Action, String> {
     })
 }
 
-/// Technical: Returns the `hold_until_manual` result.
+/// Returns the `hold_until_manual` result.
 ///
-/// Plain English: Gets the hold until manual result.
+///
+///  Gets the hold until manual result.
 fn hold_until_manual(args: &Args) -> Result<Action, String> {
     args.exact(4)?;
     let held = args.buttons(1)?;
@@ -470,9 +500,10 @@ fn hold_until_manual(args: &Args) -> Result<Action, String> {
     ))
 }
 
-/// Technical: Returns the `walk` result.
+/// Returns the `walk` result.
 ///
-/// Plain English: Gets the walk result.
+///
+///  Gets the walk result.
 fn walk(args: &Args) -> Result<Action, String> {
     if args.len() != 4 && args.len() != 5 {
         return Err("use walk:DIRECTION:UNITS:STRENGTH[:MIN_GAP]".into());
@@ -494,9 +525,10 @@ fn walk(args: &Args) -> Result<Action, String> {
     })
 }
 
-/// Technical: Runs the to ledge.
+/// Runs the to ledge.
 ///
-/// Plain English: Runs the to ledge.
+///
+///  Runs the to ledge.
 fn run_to_ledge(args: &Args) -> Result<Action, String> {
     if !(3..=6).contains(&args.len()) {
         return Err(
@@ -516,9 +548,10 @@ fn run_to_ledge(args: &Args) -> Result<Action, String> {
     })
 }
 
-/// Technical: Returns the `approach` result.
+/// Returns the `approach` result.
 ///
-/// Plain English: Gets the approach result.
+///
+///  Gets the approach result.
 fn approach(args: &Args) -> Result<Action, String> {
     args.exact(4)?;
     let airborne = args.parts[0] == "drift_to_opponent";
@@ -530,9 +563,10 @@ fn approach(args: &Args) -> Result<Action, String> {
     })
 }
 
-/// Technical: Returns the `range_check` result.
+/// Returns the `range_check` result.
 ///
-/// Plain English: Gets the range check result.
+///
+///  Gets the range check result.
 fn range_check(value: &str, token: &str) -> Result<RangeCheck, String> {
     Ok(match value {
         "ignore" => RangeCheck::Ignore,
@@ -543,7 +577,8 @@ fn range_check(value: &str, token: &str) -> Result<RangeCheck, String> {
 }
 
 /// `grab[:RANGE]`: an optional range gate followed by one R press.
-/// Plain English: grab[:RANGE]: an optional range gate followed by one R press.
+///
+///  grab[:RANGE]: an optional range gate followed by one R press.
 fn grab(args: &Args, sequence: &mut Sequence) -> Result<(), String> {
     args.at_most(2)?;
     let range = match args.parts.get(1).copied().unwrap_or("ignore") {
@@ -560,7 +595,8 @@ fn grab(args: &Args, sequence: &mut Sequence) -> Result<(), String> {
 
 /// Shortcut names (`jab`, `up_b`, `short_hop_nair`, ...) that expand to a
 /// facing-relative input. Returns the buttons and unit stick direction.
-/// Plain English: Shortcut names (jab, upb, shorthopnair, ...) that expand to a facing-relative input. Returns the buttons and unit stick direction.
+///
+///  Shortcut names (jab, upb, shorthopnair, ...) that expand to a facing-relative input. Returns the buttons and unit stick direction.
 fn named_input(name: &str) -> Option<(u32, [f32; 2])> {
     Some(match name {
         "short_hop" | "shorthop" | "jump" => (X, [0.0; 2]),
@@ -593,7 +629,8 @@ fn named_input(name: &str) -> Option<(u32, [f32; 2])> {
 }
 
 /// Only the documented aerial spellings may take the `short_hop_` prefix.
-/// Plain English: Only the documented aerial spellings may take the shorthop prefix.
+///
+///  Only the documented aerial spellings may take the shorthop prefix.
 fn pairs_with_short_hop(name: &str) -> bool {
     matches!(
         name,
@@ -612,7 +649,8 @@ fn pairs_with_short_hop(name: &str) -> bool {
 
 /// The catch-all action family: optional `turnaround_` / `short_hop_` prefixes
 /// around a shortcut name, `:FRAMES` and `:STRENGTH` suffixes.
-/// Plain English: The catch-all action family: optional turnaround / shorthop prefixes around a shortcut name, :FRAMES and :STRENGTH suffixes.
+///
+///  The catch-all action family: optional turnaround / shorthop prefixes around a shortcut name, :FRAMES and :STRENGTH suffixes.
 fn named_move(args: &Args, sequence: &mut Sequence) -> Result<(), String> {
     args.at_most(3)?;
     let mut name = args.parts[0];
@@ -655,7 +693,8 @@ fn named_move(args: &Args, sequence: &mut Sequence) -> Result<(), String> {
 }
 
 /// Long button spellings; the canonical letters come from `BUTTON_TOKENS`.
-/// Plain English: Long button spellings; the canonical letters come from BUTTONTOKENS.
+///
+///  Long button spellings; the canonical letters come from BUTTONTOKENS.
 fn button_alias(name: &str) -> Option<u32> {
     Some(match name {
         "attack" => A,
@@ -668,9 +707,10 @@ fn button_alias(name: &str) -> Option<u32> {
     })
 }
 
-/// Technical: Parses the float.
+/// Parses the float.
 ///
-/// Plain English: Parses the float.
+///
+///  Parses the float.
 fn parse_float(value: &str, min: f32, max: f32, token: &str) -> Result<f32, String> {
     let value = value
         .strip_suffix("_units")
@@ -691,9 +731,10 @@ fn parse_float(value: &str, min: f32, max: f32, token: &str) -> Result<f32, Stri
     }
 }
 
-/// Technical: Parses the u 8.
+/// Parses the u 8.
 ///
-/// Plain English: Parses the u8.
+///
+///  Parses the u8.
 fn parse_u8(value: &str, token: &str) -> Result<u8, String> {
     let value = value.strip_prefix("until_motion_frame_").unwrap_or(value);
     let value = value
@@ -706,7 +747,8 @@ fn parse_u8(value: &str, token: &str) -> Result<u8, String> {
 }
 
 /// Whole-action frame budgets (taps, movement timeouts): 1..=3600.
-/// Plain English: Whole-action frame budgets (taps, movement timeouts): 1..=3600.
+///
+///  Whole-action frame budgets (taps, movement timeouts): 1..=3600.
 fn parse_frames(value: &str) -> Option<u16> {
     value
         .parse::<u16>()
@@ -718,16 +760,18 @@ fn parse_frames(value: &str) -> Option<u16> {
 mod tests {
     use super::*;
 
-    /// Technical: Parses the supplied source into the module’s validated representation.
+    /// Parses the supplied source into the module’s validated representation.
     ///
-    /// Plain English: Reads the source and checks that it is valid.
+    ///
+///  Reads the source and checks that it is valid.
     fn parse(text: &str) -> Result<Vec<Action>, String> {
         parse_actions(text, 1).map(|sequence| sequence.actions().to_vec())
     }
 
-    /// Technical: Regression test for `shortcuts_expand_to_the_documented_inputs`.
+    /// Regression test for `shortcuts_expand_to_the_documented_inputs`.
     ///
-    /// Plain English: Checks that shortcuts expand to the documented inputs.
+    ///
+///  Checks that shortcuts expand to the documented inputs.
     #[test]
     fn shortcuts_expand_to_the_documented_inputs() {
         let facing = |buttons, stick, frames| input(buttons, stick, frames, true);
@@ -773,9 +817,10 @@ mod tests {
         }
     }
 
-    /// Technical: Regression test for `rejected_tokens_report_the_original_wording`.
+    /// Regression test for `rejected_tokens_report_the_original_wording`.
     ///
-    /// Plain English: Checks that rejected tokens report the original wording.
+    ///
+///  Checks that rejected tokens report the original wording.
     #[test]
     fn rejected_tokens_report_the_original_wording() {
         for (text, error) in [
@@ -817,9 +862,10 @@ mod tests {
         }
     }
 
-    /// Technical: Regression test for `the_action_budget_is_checked_after_each_expansion`.
+    /// Regression test for `the_action_budget_is_checked_after_each_expansion`.
     ///
-    /// Plain English: Checks that the action budget is checked after each expansion.
+    ///
+///  Checks that the action budget is checked after each expansion.
     #[test]
     fn the_action_budget_is_checked_after_each_expansion() {
         let full = "wait:1,".repeat(MAX_ACTIONS - 1);

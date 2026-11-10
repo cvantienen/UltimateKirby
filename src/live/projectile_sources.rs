@@ -8,34 +8,41 @@ use kirby_assist_core::projectile_reflect::ProjectileKey;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 
 /// Represents an empty record for projectile sources.
-/// Technical: Sentinel used for unused slots in the packed atomic record array.
-/// Plain English: This special value means a slot has no projectile.
+/// Sentinel used for unused slots in the packed atomic record array.
+///
+///  This special value means a slot has no projectile.
 const EMPTY: u64 = u64::MAX;
 /// The maximum number of projectile sources that can be tracked.
-/// Technical: Number of fixed atomic slots in [`Sources`].
-/// Plain English: The tracker can remember up to 32 projectiles at once.
+/// Number of fixed atomic slots in [`Sources`].
+///
+///  The tracker can remember up to 32 projectiles at once.
 const CAPACITY: usize = 32;
 
 /// Tracks projectile sources with bounded capacity and atomic coherence.
-/// Technical: Fixed-capacity tracker whose packed atomic records pair each object ID
+/// Fixed-capacity tracker whose packed atomic records pair each object ID
 /// with the generation of its observed attack.
-/// Plain English: Remembers recent projectile attacks without allocating or storing
+///
+///  Remembers recent projectile attacks without allocating or storing
 /// pointers into the game.
 pub(super) struct Sources {
-    /// Technical: Packed object-ID/generation records; `EMPTY` marks vacant slots.
-    /// Plain English: These slots hold the remembered projectile identities.
+    /// Packed object-ID/generation records; `EMPTY` marks vacant slots.
+    ///
+    ///  These slots hold the remembered projectile identities.
     records: [AtomicU64; CAPACITY],
-    /// Technical: Round-robin replacement cursor used when all records are occupied.
-    /// Plain English: Chooses which old entry to replace when the tracker is full.
+    /// Round-robin replacement cursor used when all records are occupied.
+    ///
+    ///  Chooses which old entry to replace when the tracker is full.
     next: AtomicUsize,
-    /// Technical: Monotonic wrapping counter assigned to observed attack records.
-    /// Plain English: Distinguishes a new attack from an older attack by the same object.
+    /// Monotonic wrapping counter assigned to observed attack records.
+    ///
+    ///  Distinguishes a new attack from an older attack by the same object.
     generation: AtomicU32,
 }
 impl Sources {
     /// Creates a new instance of `Sources` with empty records and initial generation.
-    /// Technical: Constructs an empty fixed-capacity tracker with generation zero.
-    /// Plain English: Starts a projectile tracker with no remembered attacks.
+    /// Constructs an empty fixed-capacity tracker with generation zero.
+    ///
+    ///  Starts a projectile tracker with no remembered attacks.
     pub(super) const fn new() -> Self {
         Self {
             records: [const { AtomicU64::new(EMPTY) }; CAPACITY],
@@ -44,9 +51,10 @@ impl Sources {
         }
     }
     /// Remembers a projectile source by its ID, updating the generation if necessary.
-    /// Technical: Validates weapon/item category, advances the attack generation,
+    /// Validates weapon/item category, advances the attack generation,
     /// and updates an existing slot or inserts/replaces one.
-    /// Plain English: Remembers this projectile attack, including when an object ID
+    ///
+    ///  Remembers this projectile attack, including when an object ID
     /// is reused for a later attack.
     pub(super) fn remember(&self, id: u32) {
         if !matches!(
@@ -78,8 +86,9 @@ impl Sources {
         self.records[index].store(record, Ordering::Relaxed);
     }
     /// Returns a snapshot of the current projectile sources as an array of `Option<ProjectileKey>`.
-    /// Technical: Loads each packed atomic record into a copied optional key array.
-    /// Plain English: Returns a safe snapshot of the projectiles remembered right now.
+    /// Loads each packed atomic record into a copied optional key array.
+    ///
+    ///  Returns a safe snapshot of the projectiles remembered right now.
     pub(super) fn snapshot(&self) -> [Option<ProjectileKey>; CAPACITY] {
         std::array::from_fn(|index| {
             let record = self.records[index].load(Ordering::Relaxed);
@@ -90,9 +99,10 @@ impl Sources {
         })
     }
     /// Forgets a projectile source by its ID, marking its slot as empty.
-    /// Technical: Uses compare-exchange to clear the first matching ID without
+    /// Uses compare-exchange to clear the first matching ID without
     /// erasing a concurrently replaced record.
-    /// Plain English: Forgets the matching projectile only if its slot has not changed.
+    ///
+    ///  Forgets the matching projectile only if its slot has not changed.
     pub(super) fn forget(&self, id: u32) {
         for slot in &self.records {
             let old = slot.load(Ordering::Relaxed);
@@ -107,9 +117,10 @@ impl Sources {
         }
     }
     /// Clears all projectile sources, resetting the next index but preserving the generation.
-    /// Technical: Marks every slot empty and resets the replacement cursor while
+    /// Marks every slot empty and resets the replacement cursor while
     /// deliberately retaining the generation counter.
-    /// Plain English: Clears remembered projectiles but keeps new attacks distinct
+    ///
+    ///  Clears remembered projectiles but keeps new attacks distinct
     /// from old receipts.
     pub(super) fn clear(&self) {
         for slot in &self.records {

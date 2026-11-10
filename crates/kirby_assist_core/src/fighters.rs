@@ -10,7 +10,8 @@ pub mod kirby;
 pub mod native_states;
 
 /// Native facing is ±1; anything else is an unreadable observation.
-/// Plain English: Native facing is ±1; anything else is an unreadable observation.
+///
+///  Native facing is ±1; anything else is an unreadable observation.
 pub(crate) fn valid_facing(facing: f32) -> bool {
     facing.is_finite() && facing.abs() >= 0.5
 }

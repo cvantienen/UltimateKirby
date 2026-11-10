@@ -9,15 +9,18 @@ use kirby_assist_core::{
     sequence_config::{Catalog, SequenceLibrary, MAX_FILE_BYTES},
 };
 
-/// Technical: SD-card path for the legacy/shared live settings file.
-/// Plain English: Where the plugin looks for the user's main configuration.
+/// SD-card path for the legacy/shared live settings file.
+///
+///  Where the plugin looks for the user's main configuration.
 const CONFIG_PATH: &str = "sd:/ultimate/kirby_assist/config.txt";
-/// Technical: SD-card path for the optional sequence catalog.
-/// Plain English: Where the plugin looks for user-defined sequences.
+/// SD-card path for the optional sequence catalog.
+///
+///  Where the plugin looks for user-defined sequences.
 const SEQUENCES_PATH: &str = "sd:/ultimate/kirby_assist/sequences.txt";
 /// Type alias for the loaded configuration, including the live config, fighter profiles, and sequence library.
-/// Technical: Groups the validated settings, fighter profile catalog, and sequence library.
-/// Plain English: This is the complete set of configuration data the plugin needs.
+/// Groups the validated settings, fighter profile catalog, and sequence library.
+///
+///  This is the complete set of configuration data the plugin needs.
 type LoadedConfig = (Box<LiveConfig>, FighterProfiles, SequenceLibrary);
 
 // Full saved catalogs can exceed the native loader's 64 KiB stack when nested
@@ -25,8 +28,9 @@ type LoadedConfig = (Box<LiveConfig>, FighterProfiles, SequenceLibrary);
 // installing any hooks. Its stack and thread are released after loading.
 /// Loads the configuration from the SD card, including the live config, fighter profiles, and sequence library.
 /// Returns an error if the configuration cannot be loaded.
-/// Technical: Runs the loader on a dedicated, enlarged stack and joins it before returning.
-/// Plain English: It safely loads startup files using extra stack space, then returns the result.
+/// Runs the loader on a dedicated, enlarged stack and joins it before returning.
+///
+///  It safely loads startup files using extra stack space, then returns the result.
 #[inline(never)]
 pub(super) fn load_config() -> Result<LoadedConfig, String> {
     std::thread::Builder::new()
@@ -40,9 +44,10 @@ pub(super) fn load_config() -> Result<LoadedConfig, String> {
 
 /// Returning the large Copy config inline would retain config-sized slots on
 /// the caller's small loader stack. This box is freed after publication.
-/// Technical: Performs file recovery, catalog parsing, configuration parsing,
+/// Performs file recovery, catalog parsing, configuration parsing,
 /// and runtime-profile preparation on the loader worker.
-/// Plain English: The worker reads the files and packages their validated settings.
+///
+///  The worker reads the files and packages their validated settings.
 #[inline(never)]
 fn load_on_worker() -> Result<LoadedConfig, String> {
     super::settings_menu::recover_saved_file()?;
@@ -76,9 +81,10 @@ fn load_on_worker() -> Result<LoadedConfig, String> {
 
 /// Prepares the runtime configuration, including fighter profiles and sequence library.
 /// Returns the loaded configuration or an error if preparation fails.
-/// Technical: Validates the profiles and build-filtered catalog, attaches shared
+/// Validates the profiles and build-filtered catalog, attaches shared
 /// templates, and boxes the live configuration.
-/// Plain English: It checks that the loaded choices are usable and prepares them for play.
+///
+///  It checks that the loaded choices are usable and prepares them for play.
 fn prepare_runtime(config: LiveConfig, sequences: Catalog) -> Result<LoadedConfig, String> {
     let mut profiles = FighterProfiles::default();
     profiles.validate()?;
@@ -95,12 +101,14 @@ fn prepare_runtime(config: LiveConfig, sequences: Catalog) -> Result<LoadedConfi
 }
 
 #[cfg(test)]
-/// Technical: Host-side startup configuration regression tests.
-/// Plain English: Checks that configuration preparation preserves compact templates.
+/// Host-side startup configuration regression tests.
+///
+///  Checks that configuration preparation preserves compact templates.
 mod tests {
     use super::*;
-    /// Technical: Verifies shared templates remain shared and unrelated menus stay unexpanded.
-    /// Plain English: Guards against startup building full menus for every character.
+    /// Verifies shared templates remain shared and unrelated menus stay unexpanded.
+    ///
+    ///  Guards against startup building full menus for every character.
     #[test]
     fn startup_keeps_shared_templates_but_never_expands_other_fighter_menus() {
         let catalog=Catalog::parse("[template.defend]\nstart_delay=0\nactions=shield:4\n[bowser.roll.spin]\nstart_delay=0\nreaction=auto_roll:30:12\nactions=up_b:4,drift:opponent:1:69\n[lucina.neutral.poke]\nstart_delay=23\nactions=forward_tilt:1\n").unwrap();

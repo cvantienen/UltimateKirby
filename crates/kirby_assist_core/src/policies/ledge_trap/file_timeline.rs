@@ -15,212 +15,261 @@ use crate::sequence_config::{
     Action, Condition, Direction, InputReference, RangeCheck, Sequence, MAX_ACTIONS,
 };
 
-/// Technical: Defines the `Timeline` data structure.
+/// Defines the `Timeline` data structure.
 ///
-/// Plain English: Holds the data for Timeline.
+///
+///  Holds the data for Timeline.
 pub struct Timeline {
-    /// Technical: Stores the `sequence` value in `Timeline` as `Sequence`.
+    /// Stores the `sequence` value in `Timeline` as `Sequence`.
     ///
-    /// Plain English: Holds the sequence value used by Timeline.
+    ///
+///  Holds the sequence value used by Timeline.
     sequence: Sequence,
-    /// Technical: Stores the `cursor` value in `Timeline` as `u8`.
+    /// Stores the `cursor` value in `Timeline` as `u8`.
     ///
-    /// Plain English: Holds the cursor value used by Timeline.
+    ///
+///  Holds the cursor value used by Timeline.
     cursor: u8,
-    /// Technical: Stores the `clock` value in `Timeline` as `NativeAttempt`.
+    /// Stores the `clock` value in `Timeline` as `NativeAttempt`.
     ///
-    /// Plain English: Holds the clock value used by Timeline.
+    ///
+///  Holds the clock value used by Timeline.
     clock: NativeAttempt,
-    /// Technical: Stores the `step_start` value in `Timeline` as `f32`.
+    /// Stores the `step_start` value in `Timeline` as `f32`.
     ///
-    /// Plain English: Holds the step start value used by Timeline.
+    ///
+///  Holds the step start value used by Timeline.
     step_start: f32,
-    /// Technical: Stores the `entered` value in `Timeline` as `bool`.
+    /// Stores the `entered` value in `Timeline` as `bool`.
     ///
-    /// Plain English: Holds the entered value used by Timeline.
+    ///
+///  Holds the entered value used by Timeline.
     entered: bool,
-    /// Technical: Stores the `direction` value in `Timeline` as `f32`.
+    /// Stores the `direction` value in `Timeline` as `f32`.
     ///
-    /// Plain English: Holds the direction value used by Timeline.
+    ///
+///  Holds the direction value used by Timeline.
     direction: f32,
-    /// Technical: Stores the `cstick_direction` value in `Timeline` as `f32`.
+    /// Stores the `cstick_direction` value in `Timeline` as `f32`.
     ///
-    /// Plain English: Holds the cstick direction value used by Timeline.
+    ///
+///  Holds the cstick direction value used by Timeline.
     cstick_direction: f32,
-    /// Technical: Stores the `origin` value in `Timeline` as `f32`.
+    /// Stores the `origin` value in `Timeline` as `f32`.
     ///
-    /// Plain English: Holds the origin value used by Timeline.
+    ///
+///  Holds the origin value used by Timeline.
     origin: f32,
-    /// Technical: Stores the `enemy` value in `Timeline` as `Opponent`.
+    /// Stores the `enemy` value in `Timeline` as `Opponent`.
     ///
-    /// Plain English: Holds the enemy value used by Timeline.
+    ///
+///  Holds the enemy value used by Timeline.
     enemy: Opponent,
-    /// Technical: Stores the `done` value in `Timeline` as `bool`.
+    /// Stores the `done` value in `Timeline` as `bool`.
     ///
-    /// Plain English: Holds the done value used by Timeline.
+    ///
+///  Holds the done value used by Timeline.
     done: bool,
-    /// Technical: Stores the `output` value in `Timeline` as `ControllerOutput`.
+    /// Stores the `output` value in `Timeline` as `ControllerOutput`.
     ///
-    /// Plain English: Holds the output value used by Timeline.
+    ///
+///  Holds the output value used by Timeline.
     output: ControllerOutput,
-    /// Technical: Stores the `spatial_steps` value in `Timeline` as `u32`.
+    /// Stores the `spatial_steps` value in `Timeline` as `u32`.
     ///
-    /// Plain English: Holds the spatial steps value used by Timeline.
+    ///
+///  Holds the spatial steps value used by Timeline.
     spatial_steps: u32,
-    /// Technical: Stores the `ground_steps` value in `Timeline` as `u32`.
+    /// Stores the `ground_steps` value in `Timeline` as `u32`.
     ///
-    /// Plain English: Holds the ground steps value used by Timeline.
+    ///
+///  Holds the ground steps value used by Timeline.
     ground_steps: u32,
-    /// Technical: Stores the `right_stick` value in `Timeline` as `[f32; 2]`.
+    /// Stores the `right_stick` value in `Timeline` as `[f32; 2]`.
     ///
-    /// Plain English: Stores the right stick collection for Timeline.
+    ///
+///  Stores the right stick collection for Timeline.
     right_stick: [f32; 2],
-    /// Technical: Stores the `blocked` value in `Timeline` as `bool`.
+    /// Stores the `blocked` value in `Timeline` as `bool`.
     ///
-    /// Plain English: Holds the blocked value used by Timeline.
+    ///
+///  Holds the blocked value used by Timeline.
     blocked: bool,
-    /// Technical: Stores the `ledge_facing` value in `Timeline` as `Option<bool>`.
+    /// Stores the `ledge_facing` value in `Timeline` as `Option<bool>`.
     ///
-    /// Plain English: Optionally stores the ledge facing for Timeline; it may be absent.
+    ///
+///  Optionally stores the ledge facing for Timeline; it may be absent.
     ledge_facing: Option<bool>,
-    /// Technical: Stores the `facing_captured` value in `Timeline` as `bool`.
+    /// Stores the `facing_captured` value in `Timeline` as `bool`.
     ///
-    /// Plain English: Holds the facing captured value used by Timeline.
+    ///
+///  Holds the facing captured value used by Timeline.
     facing_captured: bool,
-    /// Technical: Stores the `manual_epoch` value in `Timeline` as `u64`.
+    /// Stores the `manual_epoch` value in `Timeline` as `u64`.
     ///
-    /// Plain English: Holds the manual epoch value used by Timeline.
+    ///
+///  Holds the manual epoch value used by Timeline.
     manual_epoch: u64,
-    /// Technical: Stores the `shield_handoff` value in `Timeline` as `bool`.
+    /// Stores the `shield_handoff` value in `Timeline` as `bool`.
     ///
-    /// Plain English: Holds the shield handoff value used by Timeline.
+    ///
+///  Holds the shield handoff value used by Timeline.
     shield_handoff: bool,
-    /// Technical: Stores the `continuous_progress` value in `Timeline` as `bool`.
+    /// Stores the `continuous_progress` value in `Timeline` as `bool`.
     ///
-    /// Plain English: Holds the continuous progress value used by Timeline.
+    ///
+///  Holds the continuous progress value used by Timeline.
     continuous_progress: bool,
-    /// Technical: Stores the `grounded_automatic_actions` value in `Timeline` as `bool`.
+    /// Stores the `grounded_automatic_actions` value in `Timeline` as `bool`.
     ///
-    /// Plain English: Holds the grounded automatic actions value used by Timeline.
+    ///
+///  Holds the grounded automatic actions value used by Timeline.
     grounded_automatic_actions: bool,
-    /// Technical: Stores the `automatic_ground_steps` value in `Timeline` as `u32`.
+    /// Stores the `automatic_ground_steps` value in `Timeline` as `u32`.
     ///
-    /// Plain English: Holds the automatic ground steps value used by Timeline.
+    ///
+///  Holds the automatic ground steps value used by Timeline.
     automatic_ground_steps: u32,
-    /// Technical: Stores the `facing_jumps` value in `Timeline` as `[u8; MAX_ACTIONS]`.
+    /// Stores the `facing_jumps` value in `Timeline` as `[u8; MAX_ACTIONS]`.
     ///
-    /// Plain English: Stores the facing jumps collection for Timeline.
+    ///
+///  Stores the facing jumps collection for Timeline.
     facing_jumps: [u8; MAX_ACTIONS],
-    /// Technical: Stores the `end_reason` value in `Timeline` as `Option<&'static str>`.
+    /// Stores the `end_reason` value in `Timeline` as `Option<&'static str>`.
     ///
-    /// Plain English: Optionally stores the end reason for Timeline; it may be absent.
+    ///
+///  Optionally stores the end reason for Timeline; it may be absent.
     #[cfg(feature = "diagnostic-logging")]
     pub(super) end_reason: Option<&'static str>,
 }
 
 /// One observation shared by every step handler of a sample.
-/// Plain English: One observation shared by every step handler of a sample.
+///
+///  One observation shared by every step handler of a sample.
 #[derive(Clone, Copy)]
 struct Frame {
-    /// Technical: Stores the `ctx` value in `Frame` as `GameplayContext`.
+    /// Stores the `ctx` value in `Frame` as `GameplayContext`.
     ///
-    /// Plain English: Holds the ctx value used by Frame.
+    ///
+///  Holds the ctx value used by Frame.
     ctx: GameplayContext,
     /// Last known state of the tracked opponent.
-    /// Plain English: Last known state of the tracked opponent.
+    ///
+///  Last known state of the tracked opponent.
     enemy: Opponent,
     /// The tracked opponent as observed on this very poll, if usable.
-    /// Plain English: The tracked opponent as observed on this very poll, if usable.
+    ///
+///  The tracked opponent as observed on this very poll, if usable.
     fresh: Option<Opponent>,
-    /// Technical: Stores the `anchor` value in `Frame` as `Option<[f32; 2]>`.
+    /// Stores the `anchor` value in `Frame` as `Option<[f32; 2]>`.
     ///
-    /// Plain English: Optionally stores the anchor for Frame; it may be absent.
+    ///
+///  Optionally stores the anchor for Frame; it may be absent.
     anchor: Option<[f32; 2]>,
-    /// Technical: Stores the `inward` value in `Frame` as `f32`.
+    /// Stores the `inward` value in `Frame` as `f32`.
     ///
-    /// Plain English: Holds the inward value used by Frame.
+    ///
+///  Holds the inward value used by Frame.
     inward: f32,
-    /// Technical: Stores the `grab_reach` value in `Frame` as `f32`.
+    /// Stores the `grab_reach` value in `Frame` as `f32`.
     ///
-    /// Plain English: Holds the grab reach value used by Frame.
+    ///
+///  Holds the grab reach value used by Frame.
     grab_reach: f32,
     /// Native frames since the tape started (rebased by each `while_held` loop).
-    /// Plain English: Native frames since the tape started (rebased by each whileheld loop).
+    ///
+///  Native frames since the tape started (rebased by each whileheld loop).
     now: f32,
     /// Native frames the current action has been running.
-    /// Plain English: Native frames the current action has been running.
+    ///
+///  Native frames the current action has been running.
     elapsed: f32,
 }
 impl Frame {
-    /// Technical: Determines whether the `grounded` condition holds.
+    /// Determines whether the `grounded` condition holds.
     ///
-    /// Plain English: Checks whether grounded.
+    ///
+///  Checks whether grounded.
     fn grounded(&self) -> bool {
         self.ctx.situation == situation::GROUND
     }
-    /// Technical: Returns the `enemy_dx` result.
+    /// Returns the `enemy_dx` result.
     ///
-    /// Plain English: Gets the enemy dx result.
+    ///
+///  Gets the enemy dx result.
     fn enemy_dx(&self) -> f32 {
         self.enemy.position[0] - self.ctx.position[0]
     }
-    /// Technical: Determines whether the `safe_ground` condition holds.
+    /// Determines whether the `safe_ground` condition holds.
     ///
-    /// Plain English: Checks whether safe ground.
+    ///
+///  Checks whether safe ground.
     fn safe_ground(&self, toward_positive: bool) -> bool {
         self.ctx.safe_ground[usize::from(toward_positive)]
     }
-    /// Technical: Returns the `direction` result.
+    /// Returns the `direction` result.
     ///
-    /// Plain English: Gets the direction result.
+    ///
+///  Gets the direction result.
     fn direction(&self, d: Direction) -> f32 {
         direction(d, self.ctx, self.enemy, self.anchor, self.inward)
     }
 }
 
 /// What one action asks of the transition loop.
-/// Plain English: What one action asks of the transition loop.
+///
+///  What one action asks of the transition loop.
 enum Step {
     /// Satisfied: begin the next action at this native time, in this sample.
-    /// Plain English: Satisfied: begin the next action at this native time, in this sample.
+    ///
+///  Satisfied: begin the next action at this native time, in this sample.
     Advance(
-        /// Technical: Carries the amount of motion progress to advance in `Step`.
+        /// Carries the amount of motion progress to advance in `Step`.
         ///
-        /// Plain English: Holds the amount of motion progress to advance for this `Step` choice.
+        ///
+///  Holds the amount of motion progress to advance for this `Step` choice.
         f32,
     ),
     /// Branch to a compiled destination at the current time.
-    /// Plain English: Branch to a compiled destination at the current time.
+    ///
+///  Branch to a compiled destination at the current time.
     Goto(
-        /// Technical: Carries the target step index in `Step`.
+        /// Carries the target step index in `Step`.
         ///
-        /// Plain English: Holds the target step index for this `Step` choice.
+        ///
+///  Holds the target step index for this `Step` choice.
         u8,
     ),
-    /// Technical: Represents the `Output` case of `Step`.
+    /// Represents the `Output` case of `Step`.
     ///
-    /// Plain English: Represents the Output option in Step.
+    ///
+///  Represents the Output option in Step.
     Output(
-        /// Technical: Carries the controller output to send in `Step`.
+        /// Carries the controller output to send in `Step`.
         ///
-        /// Plain English: Holds the controller output to send for this `Step` choice.
+        ///
+///  Holds the controller output to send for this `Step` choice.
         ControllerOutput,
     ),
-    /// Technical: Represents the `End` case of `Step`.
+    /// Represents the `End` case of `Step`.
     ///
-    /// Plain English: Represents the End option in Step.
+    ///
+///  Represents the End option in Step.
     End(
-        /// Technical: Carries the end marker label in `Step`.
+        /// Carries the end marker label in `Step`.
         ///
-        /// Plain English: Holds the end marker label for this `Step` choice.
+        ///
+///  Holds the end marker label for this `Step` choice.
         &'static str,
     ),
     /// End the tape and hand this very sample back to physical input.
-    /// Plain English: End the tape and hand this very sample back to physical input.
+    ///
+///  End the tape and hand this very sample back to physical input.
     Release(
-        /// Technical: Carries the release marker label in `Step`.
+        /// Carries the release marker label in `Step`.
         ///
-        /// Plain English: Holds the release marker label for this `Step` choice.
+        ///
+///  Holds the release marker label for this `Step` choice.
         &'static str,
     ),
 }
@@ -228,7 +277,8 @@ enum Step {
 impl Timeline {
     /// Only automatic tapes reject a pending Grab/Up-B after manual takeoff.
     /// Classify once at acquisition; the per-observation test is a bit mask.
-    /// Plain English: Only automatic tapes reject a pending Grab/Up-B after manual takeoff. Classify once at acquisition; the per-observation test is a bit mask.
+    ///
+///  Only automatic tapes reject a pending Grab/Up-B after manual takeoff. Classify once at acquisition; the per-observation test is a bit mask.
     pub fn guard_automatic_ground_actions(&mut self) {
         self.grounded_automatic_actions = true;
         self.automatic_ground_steps = step_mask(self.sequence.actions(), |a| {
@@ -240,13 +290,15 @@ impl Timeline {
     /// Auto react retains delivered holds across a short observation gap. At
     /// a crossed boundary, start the next input now with its full frame budget.
     /// Never burst unseen actions to catch up; ordinary ledge tapes stay strict.
-    /// Plain English: Auto react retains delivered holds across a short observation gap. At a crossed boundary, start the next input now with its full frame budget. Never burst unseen actions to catch up; ordinary ledge tapes stay strict.
+    ///
+///  Auto react retains delivered holds across a short observation gap. At a crossed boundary, start the next input now with its full frame budget. Never burst unseen actions to catch up; ordinary ledge tapes stay strict.
     pub fn allow_continuous_progress(&mut self) {
         self.continuous_progress = true;
     }
     /// A late native receipt resumes AFTER the already delivered initial B.
     /// Keep the total timeout clock and grant the next authored step its full budget.
-    /// Plain English: A late native receipt resumes AFTER the already delivered initial B. Keep the total timeout clock and grant the next authored step its full budget.
+    ///
+///  A late native receipt resumes AFTER the already delivered initial B. Keep the total timeout clock and grant the next authored step its full budget.
     pub fn confirm_initial_up_b(&mut self, ctx: GameplayContext, enemy: Opponent) {
         self.clock
             .advance_pause(ctx, Some(enemy), self.sequence.timeout);
@@ -255,9 +307,10 @@ impl Timeline {
         self.output = ControllerOutput::default();
         self.right_stick = [0.; 2];
     }
-    /// Technical: Constructs a new value with the type’s initial state.
+    /// Constructs a new value with the type’s initial state.
     ///
-    /// Plain English: Creates a new value.
+    ///
+///  Creates a new value.
     pub fn new(sequence: Sequence, enemy: Opponent) -> Self {
         let actions = sequence.actions();
         Self {
@@ -288,21 +341,24 @@ impl Timeline {
             output: ControllerOutput::default(),
         }
     }
-    /// Technical: Determines whether ground.
+    /// Determines whether ground.
     ///
-    /// Plain English: Checks whether ground.
+    ///
+///  Checks whether ground.
     pub fn needs_ground(&self) -> bool {
         steps_remain(self.ground_steps, self.cursor)
     }
-    /// Technical: Determines whether the `finished` condition holds.
+    /// Determines whether the `finished` condition holds.
     ///
-    /// Plain English: Checks whether finished.
+    ///
+///  Checks whether finished.
     pub fn finished(&self) -> bool {
         self.done
     }
-    /// Technical: Determines whether the `walking` condition holds.
+    /// Determines whether the `walking` condition holds.
     ///
-    /// Plain English: Checks whether walking.
+    ///
+///  Checks whether walking.
     pub fn walking(&self) -> bool {
         !self.done
             && matches!(
@@ -318,7 +374,8 @@ impl Timeline {
     }
     /// Optional analog-only tail, eligible for explicit manual handback by the
     /// automatic reaction owner. Literal ledge/button playback stays unchanged.
-    /// Plain English: Optional analog-only tail, eligible for explicit manual handback by the automatic reaction owner. Literal ledge/button playback stays unchanged.
+    ///
+///  Optional analog-only tail, eligible for explicit manual handback by the automatic reaction owner. Literal ledge/button playback stays unchanged.
     pub fn drifting(&self) -> bool {
         !self.done
             && self.entered
@@ -326,7 +383,8 @@ impl Timeline {
             && matches!(self.current(), Some(Action::Drift { .. }))
     }
     /// A literal neutral A hold, while this timeline still requests that input.
-    /// Plain English: A literal neutral A hold, while this timeline still requests that input.
+    ///
+///  A literal neutral A hold, while this timeline still requests that input.
     pub fn attack_hold(&self) -> bool {
         !self.done
             && self.entered
@@ -335,30 +393,34 @@ impl Timeline {
                 l.buttons == MAPPER_A && l.stick == [0.; 2] && l.cstick == [0.; 2] && l.hold > 1
             })
     }
-    /// Technical: Returns the `right_stick` result.
+    /// Returns the `right_stick` result.
     ///
-    /// Plain English: Gets the right stick result.
+    ///
+///  Gets the right stick result.
     pub fn right_stick(&self) -> [f32; 2] {
         self.right_stick
     }
-    /// Technical: Determines whether the `inputs_only` condition holds.
+    /// Determines whether the `inputs_only` condition holds.
     ///
-    /// Plain English: Checks whether inputs only.
+    ///
+///  Checks whether inputs only.
     pub fn inputs_only(&self) -> bool {
         !steps_remain(self.spatial_steps, self.cursor)
     }
-    /// Technical: Returns an optional `current` value.
+    /// Returns an optional `current` value.
     ///
-    /// Plain English: Gets current if it is available.
+    ///
+///  Gets current if it is available.
     fn current(&self) -> Option<Action> {
         self.sequence
             .actions()
             .get(usize::from(self.cursor))
             .copied()
     }
-    /// Technical: Completes the active operation and records its final state.
+    /// Completes the active operation and records its final state.
     ///
-    /// Plain English: Finishes the current operation.
+    ///
+///  Finishes the current operation.
     fn finish(&mut self, _reason: &'static str) -> ControllerOutput {
         #[cfg(feature = "diagnostic-logging")]
         {
@@ -371,30 +433,34 @@ impl Timeline {
     }
     /// End the tape and return control now, rather than blanking one more
     /// packet of buffered human inputs.
-    /// Plain English: End the tape and return control now, rather than blanking one more packet of buffered human inputs.
+    ///
+///  End the tape and return control now, rather than blanking one more packet of buffered human inputs.
     fn release(&mut self, reason: &'static str) -> ControllerOutput {
         self.finish(reason);
         self.output = ControllerOutput::default();
         self.output
     }
-    /// Technical: Updates the `goto` state using the supplied inputs.
+    /// Updates the `goto` state using the supplied inputs.
     ///
-    /// Plain English: Updates goto.
+    ///
+///  Updates goto.
     fn goto(&mut self, cursor: u8, start: f32) {
         self.cursor = cursor;
         self.step_start = start;
         self.entered = false;
         self.blocked = false;
     }
-    /// Technical: Updates the `next` state using the supplied inputs.
+    /// Updates the `next` state using the supplied inputs.
     ///
-    /// Plain English: Updates next.
+    ///
+///  Updates next.
     fn next(&mut self, start: f32) {
         self.goto(self.cursor + 1, start);
     }
-    /// Technical: Updates the toggle state from the current button sample and match state.
+    /// Updates the toggle state from the current button sample and match state.
     ///
-    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
+    ///
+///  Checks the current buttons and updates whether the toggle should activate.
     #[inline(always)]
     pub fn sample(
         &mut self,
@@ -435,9 +501,10 @@ impl Timeline {
             out
         }
     }
-    /// Technical: Samples the inner.
+    /// Samples the inner.
     ///
-    /// Plain English: Samples the inner.
+    ///
+///  Samples the inner.
     fn sample_inner(
         &mut self,
         settings: AssistSettings,
@@ -493,7 +560,8 @@ impl Timeline {
     }
     /// Scope and ownership checks that end the tape (or keep an until-manual
     /// hold) before this observation advances the clock.
-    /// Plain English: Scope and ownership checks that end the tape (or keep an until-manual hold) before this observation advances the clock.
+    ///
+///  Scope and ownership checks that end the tape (or keep an until-manual hold) before this observation advances the clock.
     fn gate(&mut self, fighter_kind: i32, ctx: GameplayContext) -> Option<ControllerOutput> {
         // Death, ordinary capture and hitstun end this visit. Attack recovery,
         // jump squat, air states, shield and special phases do not gate inputs.
@@ -534,7 +602,8 @@ impl Timeline {
     }
     /// End the tape when the native clock is invalid, timed out, or jumped by
     /// more than one observation can account for.
-    /// Plain English: End the tape when the native clock is invalid, timed out, or jumped by more than one observation can account for.
+    ///
+///  End the tape when the native clock is invalid, timed out, or jumped by more than one observation can account for.
     fn clock_fault(&mut self, before: f32, now: f32) -> Option<&'static str> {
         if self.clock.expired {
             return Some("clock_invalid_or_timeout");
@@ -543,7 +612,8 @@ impl Timeline {
     }
     /// Whether the current step can absorb a native-clock jump of more than one
     /// frame between observations.
-    /// Plain English: Whether the current step can absorb a native-clock jump of more than one frame between observations.
+    ///
+///  Whether the current step can absorb a native-clock jump of more than one frame between observations.
     fn gap_tolerated(&mut self, before: f32, now: f32) -> bool {
         let current = self.current();
         let hold_end = |frames: u8, start: f32| start + f32::from(frames);
@@ -594,9 +664,10 @@ impl Timeline {
         let waiting_predicate = self.entered && current.is_some_and(is_waiting_predicate);
         inside_hold || inside_continuous || resume_boundary || waiting_handoff || waiting_predicate
     }
-    /// Technical: Returns the `stopped_output` result.
+    /// Returns the `stopped_output` result.
     ///
-    /// Plain English: Gets the stopped output result.
+    ///
+///  Gets the stopped output result.
     fn stopped_output(&mut self, ctx: GameplayContext, now: f32) -> ControllerOutput {
         if now >= f32::from(self.sequence.start_delay)
             && matches!(self.current(), Some(Action::ShieldUntilBlock(_)))
@@ -606,16 +677,18 @@ impl Timeline {
         }
         self.output
     }
-    /// Technical: Returns the `hold_neutral` result.
+    /// Returns the `hold_neutral` result.
     ///
-    /// Plain English: Gets the hold neutral result.
+    ///
+///  Gets the hold neutral result.
     fn hold_neutral(&mut self) -> ControllerOutput {
         self.output = neutral();
         self.output
     }
     /// At most MAX_ACTIONS transitions, including zero-waits and already
     /// satisfied spatial conditions. No unbounded per-frame interpreter loop.
-    /// Plain English: At most MAXACTIONS transitions, including zero-waits and already satisfied spatial conditions. No unbounded per-frame interpreter loop.
+    ///
+///  At most MAXACTIONS transitions, including zero-waits and already satisfied spatial conditions. No unbounded per-frame interpreter loop.
     fn advance(&mut self, mut f: Frame) -> ControllerOutput {
         for _ in 0..=MAX_ACTIONS {
             let Some(action) = self.current() else {
@@ -669,7 +742,8 @@ impl Timeline {
     }
     /// A `while_held` tape repeats after its last action: rebase the native
     /// clock to the loop start so no extra frame is spent between repetitions.
-    /// Plain English: A whileheld tape repeats after its last action: rebase the native clock to the loop start so no extra frame is spent between repetitions.
+    ///
+///  A whileheld tape repeats after its last action: rebase the native clock to the loop start so no extra frame is spent between repetitions.
     fn rewind_loop(&mut self, f: &mut Frame) -> bool {
         if !(self.sequence.while_held
             && self.step_start > 0.0
@@ -687,7 +761,8 @@ impl Timeline {
         true
     }
     /// Parameter and geometry preconditions of an action about to run.
-    /// Plain English: Parameter and geometry preconditions of an action about to run.
+    ///
+///  Parameter and geometry preconditions of an action about to run.
     fn invalid_step(&self, action: Action, f: &Frame) -> Option<&'static str> {
         if let Action::LedgePosition {
             offset,
@@ -714,7 +789,8 @@ impl Timeline {
             .then_some("saved_ledge_unavailable")
     }
     /// Capture per-action references once, at the observation that starts it.
-    /// Plain English: Capture per-action references once, at the observation that starts it.
+    ///
+///  Capture per-action references once, at the observation that starts it.
     fn enter(&mut self, action: Action, f: &Frame) -> Option<&'static str> {
         self.entered = true;
         self.manual_epoch = f.ctx.manual_input_epoch;
@@ -761,9 +837,10 @@ impl Timeline {
         };
         None
     }
-    /// Technical: Runs the step.
+    /// Runs the step.
     ///
-    /// Plain English: Runs the step.
+    ///
+///  Runs the step.
     fn run_step(&mut self, action: Action, f: &Frame) -> Step {
         match action {
             Action::Empty | Action::EndFacing => Step::Advance(f.now),
@@ -902,9 +979,10 @@ impl Timeline {
             Action::Range(range) => self.step_range(range, f),
         }
     }
-    /// Technical: Returns the `step_tap` result.
+    /// Returns the `step_tap` result.
     ///
-    /// Plain English: Gets the step tap result.
+    ///
+///  Gets the step tap result.
     fn step_tap(
         &self,
         buttons: u32,
@@ -926,9 +1004,10 @@ impl Timeline {
             neutral()
         })
     }
-    /// Technical: Returns the `step_controller` result.
+    /// Returns the `step_controller` result.
     ///
-    /// Plain English: Gets the step controller result.
+    ///
+///  Gets the step controller result.
     fn step_controller(
         &mut self,
         buttons: u32,
@@ -949,9 +1028,10 @@ impl Timeline {
             cstick,
         ))
     }
-    /// Technical: Returns the `step_run` result.
+    /// Returns the `step_run` result.
     ///
-    /// Plain English: Gets the step run result.
+    ///
+///  Gets the step run result.
     fn step_run(&self, units: f32, f: &Frame) -> Step {
         if self.direction == 0.0 || (f.ctx.position[0] - self.origin) * self.direction >= units {
             Step::Advance(f.now)
@@ -961,9 +1041,10 @@ impl Timeline {
             Step::Output(controls([self.direction, 0.0], 0))
         }
     }
-    /// Technical: Returns the `step_chase` result.
+    /// Returns the `step_chase` result.
     ///
-    /// Plain English: Gets the step chase result.
+    ///
+///  Gets the step chase result.
     fn step_chase(&self, strength: f32, frames: u8, f: &Frame) -> Step {
         if self.origin == 0. {
             return Step::Advance(f.now);
@@ -977,9 +1058,10 @@ impl Timeline {
         }
         Step::Output(controls([dx.signum() * strength, 0.], 0))
     }
-    /// Technical: Returns the `step_approach` result.
+    /// Returns the `step_approach` result.
     ///
-    /// Plain English: Gets the step approach result.
+    ///
+///  Gets the step approach result.
     fn step_approach(airborne: bool, strength: f32, frames: u8, gap: f32, f: &Frame) -> Step {
         let dx = f.enemy_dx();
         if dx.abs() <= gap || f.elapsed >= f32::from(frames) {
@@ -997,20 +1079,23 @@ impl Timeline {
     }
     /// End of a plain timed hold: the next action starts exactly on the
     /// boundary, not at the (possibly later) observation.
-    /// Plain English: End of a plain timed hold: the next action starts exactly on the boundary, not at the (possibly later) observation.
+    ///
+///  End of a plain timed hold: the next action starts exactly on the boundary, not at the (possibly later) observation.
     fn hold_ended(&self, f: &Frame, frames: impl Into<f32>) -> Option<Step> {
         let frames = frames.into();
         (f.elapsed >= frames).then(|| Step::Advance(self.step_start + frames))
     }
-    /// Technical: Returns an optional `facing_jump` value.
+    /// Returns an optional `facing_jump` value.
     ///
-    /// Plain English: Gets facing jump if it is available.
+    ///
+///  Gets facing jump if it is available.
     fn facing_jump(&self) -> Option<u8> {
         Some(self.facing_jumps[usize::from(self.cursor)]).filter(|jump| *jump != u8::MAX)
     }
-    /// Technical: Returns the `branch` result.
+    /// Returns the `branch` result.
     ///
-    /// Plain English: Gets the branch result.
+    ///
+///  Gets the branch result.
     fn branch(&self, away: bool, toward: Option<bool>, missing: &'static str, now: f32) -> Step {
         let Some(jump) = self.facing_jump() else {
             return Step::End("invalid_facing_block");
@@ -1021,9 +1106,10 @@ impl Timeline {
             Some(_) => Step::Goto(jump),
         }
     }
-    /// Technical: Returns the `step_input` result.
+    /// Returns the `step_input` result.
     ///
-    /// Plain English: Gets the step input result.
+    ///
+///  Gets the step input result.
     fn step_input(
         &self,
         buttons: u32,
@@ -1048,9 +1134,10 @@ impl Timeline {
             [0.; 2],
         ))
     }
-    /// Technical: Returns the `step_face` result.
+    /// Returns the `step_face` result.
     ///
-    /// Plain English: Gets the step face result.
+    ///
+///  Gets the step face result.
     fn step_face(&mut self, d: Direction, f: &Frame) -> Step {
         // Opponent/ledge references remain absolute targets. A
         // crossing while native recovery prevents turning must not
@@ -1074,15 +1161,17 @@ impl Timeline {
         }
     }
     /// Shared stop conditions of ground locomotion toward `self.direction`.
-    /// Plain English: Shared stop conditions of ground locomotion toward self.direction.
+    ///
+///  Shared stop conditions of ground locomotion toward self.direction.
     fn walk_blocked(&self, f: &Frame) -> bool {
         f.elapsed >= f32::from(self.sequence.spatial_timeout)
             || !f.grounded()
             || !f.safe_ground(self.direction > 0.0)
     }
-    /// Technical: Returns the `step_walk` result.
+    /// Returns the `step_walk` result.
     ///
-    /// Plain English: Gets the step walk result.
+    ///
+///  Gets the step walk result.
     fn step_walk(&self, units: f32, strength: f32, min_gap: Option<f32>, f: &Frame) -> Step {
         let dir = self.direction;
         let distance = (f.ctx.position[0] - self.origin) * dir;
@@ -1104,9 +1193,10 @@ impl Timeline {
             Step::Output(controls([dir * strength, 0.0], 0))
         }
     }
-    /// Technical: Returns the `step_ledge_position` result.
+    /// Returns the `step_ledge_position` result.
     ///
-    /// Plain English: Gets the step ledge position result.
+    ///
+///  Gets the step ledge position result.
     fn step_ledge_position(
         &self,
         strength: f32,
@@ -1140,9 +1230,10 @@ impl Timeline {
         };
         Step::Output(controls([dir * input, 0.], 0))
     }
-    /// Technical: Returns the `step_range` result.
+    /// Returns the `step_range` result.
     ///
-    /// Plain English: Gets the step range result.
+    ///
+///  Gets the step range result.
     fn step_range(&self, range: RangeCheck, f: &Frame) -> Step {
         let max = match range {
             RangeCheck::Ignore => f32::MAX,
@@ -1174,7 +1265,8 @@ impl Timeline {
 }
 
 /// Bit `i` is set when `pred` holds for action `i`.
-/// Plain English: Bit i is set when pred holds for action i.
+///
+///  Bit i is set when pred holds for action i.
 fn step_mask(actions: &[Action], pred: impl Fn(&Action) -> bool) -> u32 {
     actions
         .iter()
@@ -1183,13 +1275,15 @@ fn step_mask(actions: &[Action], pred: impl Fn(&Action) -> bool) -> u32 {
         .fold(0, |mask, (index, _)| mask | 1 << index)
 }
 /// Whether any marked step is at or after the cursor.
-/// Plain English: Whether any marked step is at or after the cursor.
+///
+///  Whether any marked step is at or after the cursor.
 fn steps_remain(mask: u32, cursor: u8) -> bool {
     mask.checked_shr(u32::from(cursor))
         .is_some_and(|rest| rest != 0)
 }
 /// Steps that read the opponent or ground observations.
-/// Plain English: Steps that read the opponent or ground observations.
+///
+///  Steps that read the opponent or ground observations.
 fn is_spatial(action: &Action) -> bool {
     use InputReference::Opponent as Reference;
     matches!(
@@ -1214,9 +1308,10 @@ fn is_spatial(action: &Action) -> bool {
             }
     ) || matches!(action, Action::Check { condition, .. } if condition.needs_enemy())
 }
-/// Technical: Determines whether the `moves_on_ground` condition holds.
+/// Determines whether the `moves_on_ground` condition holds.
 ///
-/// Plain English: Checks whether moves on ground.
+///
+///  Checks whether moves on ground.
 fn moves_on_ground(action: &Action) -> bool {
     matches!(
         action,
@@ -1230,9 +1325,10 @@ fn moves_on_ground(action: &Action) -> bool {
             }
     )
 }
-/// Technical: Determines whether saved ledge.
+/// Determines whether saved ledge.
 ///
-/// Plain English: Checks whether saved ledge.
+///
+///  Checks whether saved ledge.
 fn needs_saved_ledge(action: Action) -> bool {
     let saved = |d| matches!(d, Direction::SavedLedge | Direction::AwayFromLedge);
     match action {
@@ -1245,7 +1341,8 @@ fn needs_saved_ledge(action: Action) -> bool {
     }
 }
 /// Steps that wait on live native facts and are re-evaluated every poll.
-/// Plain English: Steps that wait on live native facts and are re-evaluated every poll.
+///
+///  Steps that wait on live native facts and are re-evaluated every poll.
 fn is_predicate(action: Action) -> bool {
     is_waiting_predicate(action)
         || matches!(
@@ -1258,7 +1355,8 @@ fn is_predicate(action: Action) -> bool {
         )
 }
 /// Predicates with no scheduled input boundary a observation gap could miss.
-/// Plain English: Predicates with no scheduled input boundary a observation gap could miss.
+///
+///  Predicates with no scheduled input boundary a observation gap could miss.
 fn is_waiting_predicate(action: Action) -> bool {
     matches!(
         action,
@@ -1270,7 +1368,8 @@ fn is_waiting_predicate(action: Action) -> bool {
     )
 }
 /// A spatial action whose goal already holds performs no input at all.
-/// Plain English: A spatial action whose goal already holds performs no input at all.
+///
+///  A spatial action whose goal already holds performs no input at all.
 fn satisfied_on_entry(action: Action, f: &Frame) -> bool {
     match action {
         Action::Face(d) => facing_satisfied(f.ctx, f.direction(d)),
@@ -1285,36 +1384,43 @@ fn satisfied_on_entry(action: Action, f: &Frame) -> bool {
         _ => false,
     }
 }
-/// Technical: Determines whether the `facing_satisfied` condition holds.
+/// Determines whether the `facing_satisfied` condition holds.
 ///
-/// Plain English: Checks whether facing satisfied.
+///
+///  Checks whether facing satisfied.
 fn facing_satisfied(ctx: GameplayContext, desired: f32) -> bool {
     desired == 0. || ctx.facing * desired > 0.5
 }
 
 /// Literal controller content of an input action.
-/// Plain English: Literal controller content of an input action.
+///
+///  Literal controller content of an input action.
 #[derive(Clone, Copy)]
 struct Literal {
-    /// Technical: Stores the `buttons` value in `Literal` as `u32`.
+    /// Stores the `buttons` value in `Literal` as `u32`.
     ///
-    /// Plain English: Holds the buttons value used by Literal.
+    ///
+///  Holds the buttons value used by Literal.
     buttons: u32,
-    /// Technical: Stores the `stick` value in `Literal` as `[f32; 2]`.
+    /// Stores the `stick` value in `Literal` as `[f32; 2]`.
     ///
-    /// Plain English: Stores the stick collection for Literal.
+    ///
+///  Stores the stick collection for Literal.
     stick: [f32; 2],
-    /// Technical: Stores the `cstick` value in `Literal` as `[f32; 2]`.
+    /// Stores the `cstick` value in `Literal` as `[f32; 2]`.
     ///
-    /// Plain English: Stores the cstick collection for Literal.
+    ///
+///  Stores the cstick collection for Literal.
     cstick: [f32; 2],
     /// Frames (or tap pulse width) the content is held.
-    /// Plain English: Frames (or tap pulse width) the content is held.
+    ///
+///  Frames (or tap pulse width) the content is held.
     hold: u16,
 }
-/// Technical: Returns an optional `literal` value.
+/// Returns an optional `literal` value.
 ///
-/// Plain English: Gets literal if it is available.
+///
+///  Gets literal if it is available.
 fn literal(action: Action) -> Option<Literal> {
     let (buttons, stick, cstick, hold) = match action {
         Action::Input {
@@ -1354,9 +1460,10 @@ fn literal(action: Action) -> Option<Literal> {
 
 // Compile flat branch destinations once. Executing a condition is one bounded
 // lookup; no per-frame scan, allocation or synthetic input frame is needed.
-/// Technical: Returns the `facing_jumps` result.
+/// Returns the `facing_jumps` result.
 ///
-/// Plain English: Gets the facing jumps result.
+///
+///  Gets the facing jumps result.
 fn facing_jumps(actions: &[Action]) -> [u8; MAX_ACTIONS] {
     let mut jumps = [u8::MAX; MAX_ACTIONS];
     let mut open = None;
@@ -1388,15 +1495,17 @@ fn facing_jumps(actions: &[Action]) -> [u8; MAX_ACTIONS] {
     jumps
 }
 /// Distance a grounded fighter coasts to rest while braking from `speed`.
-/// Plain English: Distance a grounded fighter coasts to rest while braking from speed.
+///
+///  Distance a grounded fighter coasts to rest while braking from speed.
 fn stopping_distance(ctx: GameplayContext, speed: f32) -> f32 {
     ctx.ground_brake
         .filter(|b| b.is_finite() && *b > 0.)
         .map_or(0., |b| speed * speed / (2. * b))
 }
-/// Technical: Determines whether the `ledge_arrived` condition holds.
+/// Determines whether the `ledge_arrived` condition holds.
 ///
-/// Plain English: Checks whether ledge arrived.
+///
+///  Checks whether ledge arrived.
 fn ledge_arrived(ctx: GameplayContext, goal: f32, tolerance: f32, brake: f32) -> bool {
     if (ctx.position[0] - goal).abs() > tolerance || !ctx.velocity[0].is_finite() {
         return false;
@@ -1411,9 +1520,10 @@ fn ledge_arrived(ctx: GameplayContext, goal: f32, tolerance: f32, brake: f32) ->
                     <= tolerance
             })
 }
-/// Technical: Returns an optional `ledge_goal` value.
+/// Returns an optional `ledge_goal` value.
 ///
-/// Plain English: Gets ledge goal if it is available.
+///
+///  Gets ledge goal if it is available.
 fn ledge_goal(
     ctx: GameplayContext,
     anchor: Option<[f32; 2]>,
@@ -1439,9 +1549,10 @@ fn ledge_goal(
     let goal = anchor[0] + side * offset;
     goal.is_finite().then_some(goal)
 }
-/// Technical: Returns the `shield_grab_input` result.
+/// Returns the `shield_grab_input` result.
 ///
-/// Plain English: Gets the shield grab input result.
+///
+///  Gets the shield grab input result.
 fn shield_grab_input(status: i32, out: ControllerOutput, right: [f32; 2]) -> ControllerOutput {
     if out.requested & MAPPER_R != 0 {
         crate::out_of_shield::direct_shield_input(status, out, right)
@@ -1449,15 +1560,17 @@ fn shield_grab_input(status: i32, out: ControllerOutput, right: [f32; 2]) -> Con
         out
     }
 }
-/// Technical: Determines whether the `shielding` condition holds.
+/// Determines whether the `shielding` condition holds.
 ///
-/// Plain English: Checks whether shielding.
+///
+///  Checks whether shielding.
 fn shielding(status: i32) -> bool {
     matches!(status, GUARD_ON | GUARD | GUARD_DAMAGE)
 }
-/// Technical: Determines whether the `condition_met` condition holds.
+/// Determines whether the `condition_met` condition holds.
 ///
-/// Plain English: Checks whether condition met.
+///
+///  Checks whether condition met.
 fn condition_met(
     condition: Condition,
     ctx: GameplayContext,
@@ -1486,9 +1599,10 @@ fn condition_met(
     }
 }
 // Native statuses: guard-on, guard, guard-off, guard-damage. No new queries.
-/// Technical: Determines whether the `shield_handoff_needed` condition holds.
+/// Determines whether the `shield_handoff_needed` condition holds.
 ///
-/// Plain English: Checks whether shield handoff needed.
+///
+///  Checks whether shield handoff needed.
 fn shield_handoff_needed(action: Action, status: i32, ground: i32) -> bool {
     if ground != situation::GROUND || !(GUARD_ON..=GUARD_DAMAGE).contains(&status) {
         return false;
@@ -1529,9 +1643,10 @@ fn shield_handoff_needed(action: Action, status: i32, ground: i32) -> bool {
         || cstick[1] > 0.5;
     !direct
 }
-/// Technical: Returns the `cstick_buttons` result.
+/// Returns the `cstick_buttons` result.
 ///
-/// Plain English: Gets the cstick buttons result.
+///
+///  Gets the cstick buttons result.
 fn cstick_buttons(stick: [f32; 2]) -> u32 {
     (if stick[0] > 0. {
         MAPPER_RIGHT_STICK_RIGHT
@@ -1547,9 +1662,10 @@ fn cstick_buttons(stick: [f32; 2]) -> u32 {
         0
     })
 }
-/// Technical: Returns the `controls` result.
+/// Returns the `controls` result.
 ///
-/// Plain English: Gets the controls result.
+///
+///  Gets the controls result.
 fn controls(stick: [f32; 2], requested: u32) -> ControllerOutput {
     ControllerOutput {
         consume_trigger: true,
@@ -1559,36 +1675,41 @@ fn controls(stick: [f32; 2], requested: u32) -> ControllerOutput {
         ..ControllerOutput::default()
     }
 }
-/// Technical: Returns the `neutral` result.
+/// Returns the `neutral` result.
 ///
-/// Plain English: Gets the neutral result.
+///
+///  Gets the neutral result.
 fn neutral() -> ControllerOutput {
     controls([0.0; 2], 0)
 }
-/// Technical: Returns the `guard_hold` result.
+/// Returns the `guard_hold` result.
 ///
-/// Plain English: Gets the guard hold result.
+///
+///  Gets the guard hold result.
 fn guard_hold() -> ControllerOutput {
     controls([0.0; 2], MAPPER_ZR)
 }
 /// Whether the fighter faces `target_x`; unknown when level with it or when
 /// the facing is not a real left/right.
-/// Plain English: Whether the fighter faces targetx; unknown when level with it or when the facing is not a real left/right.
+///
+///  Whether the fighter faces targetx; unknown when level with it or when the facing is not a real left/right.
 fn facing_toward(ctx: GameplayContext, target_x: f32) -> Option<bool> {
     let dot = (target_x - ctx.position[0]) * ctx.facing;
     (dot.is_finite() && ctx.facing.abs() >= 0.5 && dot.abs() > 0.001).then_some(dot > 0.0)
 }
-/// Technical: Returns an optional `facing_saved_ledge` value.
+/// Returns an optional `facing_saved_ledge` value.
 ///
-/// Plain English: Gets facing saved ledge if it is available.
+///
+///  Gets facing saved ledge if it is available.
 fn facing_saved_ledge(ctx: GameplayContext, anchor: Option<[f32; 2]>) -> Option<bool> {
     let anchor = anchor.filter(|p| finite2(*p))?;
     facing_toward(ctx, anchor[0])
 }
 
-/// Technical: Returns the `direction` result.
+/// Returns the `direction` result.
 ///
-/// Plain English: Gets the direction result.
+///
+///  Gets the direction result.
 fn direction(
     d: Direction,
     ctx: GameplayContext,

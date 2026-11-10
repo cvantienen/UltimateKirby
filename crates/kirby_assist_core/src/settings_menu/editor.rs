@@ -14,9 +14,10 @@ use presentation::{field_slot, field_value, fields, recipe_panel, Field};
 #[cfg(test)]
 use presentation::{schedule_summary, scheduled_frames};
 
-/// Technical: Builds the lookup key for the observed state.
+/// Builds the lookup key for the observed state.
 ///
-/// Plain English: Creates the key used to find this state.
+///
+///  Creates the key used to find this state.
 const fn key(buttons: u32, x: f32, y: f32, frames: u8) -> Action {
     Action::Input {
         buttons,
@@ -25,9 +26,10 @@ const fn key(buttons: u32, x: f32, y: f32, frames: u8) -> Action {
         relative: true,
     }
 }
-/// Technical: Defines the `PRESETS` constant used by this module.
+/// Defines the `PRESETS` constant used by this module.
 ///
-/// Plain English: Provides the PRESETS constant value.
+///
+///  Provides the PRESETS constant value.
 const PRESETS: &[(&str, Action)] = &[
     ("Empty", Action::Empty),
     ("Short hop", key(MAPPER_X, 0., 0., 1)),
@@ -251,9 +253,10 @@ const PRESETS: &[(&str, Action)] = &[
         },
     ),
 ];
-/// Technical: Defines the `TAP_BUTTONS` constant used by this module.
+/// Defines the `TAP_BUTTONS` constant used by this module.
 ///
-/// Plain English: Provides the TAP BUTTONS constant value.
+///
+///  Provides the TAP BUTTONS constant value.
 const TAP_BUTTONS: &[(u32, [f32; 2], &str)] = &[
     (MAPPER_A, [0., 0.], "A"),
     (MAPPER_B, [0., 0.], "B"),
@@ -261,9 +264,10 @@ const TAP_BUTTONS: &[(u32, [f32; 2], &str)] = &[
     (MAPPER_A, [0., 0.6], "Up tilt"),
     (MAPPER_A, [0., -0.6], "Down tilt"),
 ];
-/// Technical: Defines the `DIRECTIONS` constant used by this module.
+/// Defines the `DIRECTIONS` constant used by this module.
 ///
-/// Plain English: Provides the DIRECTIONS constant value.
+///
+///  Provides the DIRECTIONS constant value.
 const DIRECTIONS: [D; 8] = [
     D::Opponent,
     D::AwayFromOpponent,
@@ -275,9 +279,10 @@ const DIRECTIONS: [D; 8] = [
     D::AwayFromLedge,
 ];
 
-/// Technical: Returns an optional `preset_kind` value.
+/// Returns an optional `preset_kind` value.
 ///
-/// Plain English: Gets preset kind if it is available.
+///
+///  Gets preset kind if it is available.
 fn preset_kind(action: Action) -> Option<usize> {
     // Keep an edited action in its preset so users can keep editing its fields.
     PRESETS
@@ -290,9 +295,10 @@ fn preset_kind(action: Action) -> Option<usize> {
         })
 }
 
-/// Technical: Determines whether the `same_preset_shape` condition holds.
+/// Determines whether the `same_preset_shape` condition holds.
 ///
-/// Plain English: Checks whether same preset shape.
+///
+///  Checks whether same preset shape.
 fn same_preset_shape(action: Action, preset: Action) -> bool {
     match (action, preset) {
         (
@@ -355,44 +361,53 @@ fn same_preset_shape(action: Action, preset: Action) -> bool {
     }
 }
 
-/// Technical: Defines the `Recipe` data structure.
+/// Defines the `Recipe` data structure.
 ///
-/// Plain English: Holds the data for Recipe.
+///
+///  Holds the data for Recipe.
 #[derive(Clone)]
 struct Recipe {
-    /// Technical: Stores the `button_recipe` value in `Recipe` as `bool`.
+    /// Stores the `button_recipe` value in `Recipe` as `bool`.
     ///
-    /// Plain English: Holds the button recipe value used by Recipe.
+    ///
+///  Holds the button recipe value used by Recipe.
     button_recipe: bool,
-    /// Technical: Stores the `sequence` value in `Recipe` as `Sequence`.
+    /// Stores the `sequence` value in `Recipe` as `Sequence`.
     ///
-    /// Plain English: Holds the sequence value used by Recipe.
+    ///
+///  Holds the sequence value used by Recipe.
     sequence: Sequence,
-    /// Technical: Stores the `before` value in `Recipe` as `[u8; MAX_ACTIONS]`.
+    /// Stores the `before` value in `Recipe` as `[u8; MAX_ACTIONS]`.
     ///
-    /// Plain English: Stores the before collection for Recipe.
+    ///
+///  Stores the before collection for Recipe.
     before: [u8; MAX_ACTIONS],
-    /// Technical: Stores the `kinds` value in `Recipe` as `[usize; MAX_ACTIONS]`.
+    /// Stores the `kinds` value in `Recipe` as `[usize; MAX_ACTIONS]`.
     ///
-    /// Plain English: Stores the kinds collection for Recipe.
+    ///
+///  Stores the kinds collection for Recipe.
     kinds: [usize; MAX_ACTIONS],
-    /// Technical: Stores the `imported` value in `Recipe` as `Vec<Action>`.
+    /// Stores the `imported` value in `Recipe` as `Vec<Action>`.
     ///
-    /// Plain English: Holds the imported value used by Recipe.
+    ///
+///  Holds the imported value used by Recipe.
     imported: Vec<Action>,
-    /// Technical: Stores the `edited` value in `Recipe` as `u32`.
+    /// Stores the `edited` value in `Recipe` as `u32`.
     ///
-    /// Plain English: Holds the edited value used by Recipe.
+    ///
+///  Holds the edited value used by Recipe.
     edited: u32,
-    /// Technical: Stores the `modified` value in `Recipe` as `bool`.
+    /// Stores the `modified` value in `Recipe` as `bool`.
     ///
-    /// Plain English: Holds the modified value used by Recipe.
+    ///
+///  Holds the modified value used by Recipe.
     modified: bool,
 }
 impl Recipe {
-    /// Technical: Constructs a new value with the type’s initial state.
+    /// Constructs a new value with the type’s initial state.
     ///
-    /// Plain English: Creates a new value.
+    ///
+///  Creates a new value.
     fn new(mut sequence: Sequence) -> Self {
         // Present file Wait steps as delays, preserving their exact frame total.
         let original = sequence;
@@ -436,7 +451,8 @@ impl Recipe {
         recipe
     }
     /// Picker index for an action: its preset, else its (deduplicated) saved-input entry.
-    /// Plain English: Picker index for an action: its preset, else its (deduplicated) saved-input entry.
+    ///
+///  Picker index for an action: its preset, else its (deduplicated) saved-input entry.
     fn kind_for(&mut self, action: Action) -> usize {
         preset_kind(action).unwrap_or_else(|| {
             let index = self
@@ -450,18 +466,20 @@ impl Recipe {
             PRESETS.len() + index
         })
     }
-    /// Technical: Returns the `action_for` result.
+    /// Returns the `action_for` result.
     ///
-    /// Plain English: Gets the action for result.
+    ///
+///  Gets the action for result.
     fn action_for(&self, kind: usize) -> Action {
         match PRESETS.get(kind) {
             Some((_, preset)) => *preset,
             None => self.imported[kind - PRESETS.len()],
         }
     }
-    /// Technical: Advances the state machine by one step.
+    /// Advances the state machine by one step.
     ///
-    /// Plain English: Moves the state machine to its next step.
+    ///
+///  Moves the state machine to its next step.
     fn step(&self, slot: usize) -> (Action, u8, usize) {
         (
             self.sequence.actions[slot],
@@ -469,22 +487,25 @@ impl Recipe {
             self.kinds[slot],
         )
     }
-    /// Technical: Sets the step.
+    /// Sets the step.
     ///
-    /// Plain English: Sets the step.
+    ///
+///  Sets the step.
     fn set_step(&mut self, slot: usize, (action, delay, kind): (Action, u8, usize)) {
         self.sequence.actions[slot] = action;
         self.before[slot] = delay;
         self.kinds[slot] = kind;
     }
     /// A slot with neither an action nor a delay; the only kind that may be dropped for room.
-    /// Plain English: A slot with neither an action nor a delay; the only kind that may be dropped for room.
+    ///
+///  A slot with neither an action nor a delay; the only kind that may be dropped for room.
     fn unused(&self, slot: usize) -> bool {
         self.sequence.actions[slot] == Action::Empty && self.before[slot] == 0
     }
     /// Insert before `at`, shifting later steps down. `reuse_last` lets an unused final
     /// slot make room when all slots are taken. False (and unchanged) when full.
-    /// Plain English: Insert before at, shifting later steps down. reuselast lets an unused final slot make room when all slots are taken. False (and unchanged) when full.
+    ///
+///  Insert before at, shifting later steps down. reuselast lets an unused final slot make room when all slots are taken. False (and unchanged) when full.
     fn insert_step(&mut self, at: usize, step: (Action, u8, usize), reuse_last: bool) -> bool {
         let mut len = usize::from(self.sequence.len);
         if len == MAX_ACTIONS && reuse_last && self.unused(len - 1) {
@@ -501,7 +522,8 @@ impl Recipe {
         true
     }
     /// Remove a step, shifting later ones up; at least one slot always remains.
-    /// Plain English: Remove a step, shifting later ones up; at least one slot always remains.
+    ///
+///  Remove a step, shifting later ones up; at least one slot always remains.
     fn remove_step(&mut self, slot: usize) {
         let len = usize::from(self.sequence.len);
         for i in slot..len - 1 {
@@ -510,9 +532,10 @@ impl Recipe {
         self.set_step(len - 1, (Action::Empty, 0, 0));
         self.sequence.len = len.saturating_sub(1).max(1) as u8;
     }
-    /// Technical: Returns an optional `compile` value.
+    /// Returns an optional `compile` value.
     ///
-    /// Plain English: Gets compile if it is available.
+    ///
+///  Gets compile if it is available.
     fn compile(&self) -> Option<Sequence> {
         let mut result = Sequence {
             len: 0,
@@ -533,9 +556,10 @@ impl Recipe {
         Some(result)
     }
 }
-/// Technical: Returns the `action_name` result.
+/// Returns the `action_name` result.
 ///
-/// Plain English: Gets the action name result.
+///
+///  Gets the action name result.
 fn action_name(r: &Recipe, i: usize) -> String {
     let action = r.sequence.actions[i];
     if let Some((name, preset)) = PRESETS.get(r.kinds[i]) {
@@ -563,9 +587,10 @@ fn action_name(r: &Recipe, i: usize) -> String {
     }
     describe_action(action)
 }
-/// Technical: Defines the `INPUT_BUTTONS` constant used by this module.
+/// Defines the `INPUT_BUTTONS` constant used by this module.
 ///
-/// Plain English: Provides the INPUT BUTTONS constant value.
+///
+///  Provides the INPUT BUTTONS constant value.
 const INPUT_BUTTONS: &[(u32, &str)] = &[
     (MAPPER_A, "A"),
     (MAPPER_B, "B"),
@@ -576,9 +601,10 @@ const INPUT_BUTTONS: &[(u32, &str)] = &[
     (MAPPER_ZL, "ZL"),
     (MAPPER_ZR, "ZR"),
 ];
-/// Technical: Returns mutable access to the buttons value.
+/// Returns mutable access to the buttons value.
 ///
-/// Plain English: Provides mutable access to buttons.
+///
+///  Provides mutable access to buttons.
 fn buttons_mut(a: &mut Action) -> Option<&mut u32> {
     match a {
         Action::Input { buttons, .. }
@@ -587,14 +613,16 @@ fn buttons_mut(a: &mut Action) -> Option<&mut u32> {
         _ => None,
     }
 }
-/// Technical: Returns an optional `input_buttons` value.
+/// Returns an optional `input_buttons` value.
 ///
-/// Plain English: Gets input buttons if it is available.
+///
+///  Gets input buttons if it is available.
 fn input_buttons(mut a: Action) -> Option<u32> {
     buttons_mut(&mut a).map(|buttons| *buttons)
 }
 /// Button names joined by `+`; bits the picker cannot name stay visible as hex.
-/// Plain English: Button names joined by +; bits the picker cannot name stay visible as hex.
+///
+///  Button names joined by +; bits the picker cannot name stay visible as hex.
 fn buttons_text(mask: u32, none: &str) -> String {
     let mut text = String::new();
     let mut push = |part: std::fmt::Arguments| {
@@ -619,9 +647,10 @@ fn buttons_text(mask: u32, none: &str) -> String {
         text
     }
 }
-/// Technical: Returns the `input_reference` result.
+/// Returns the `input_reference` result.
 ///
-/// Plain English: Gets the input reference result.
+///
+///  Gets the input reference result.
 fn input_reference(a: Action, right: bool) -> IR {
     match a {
         Action::Controller {
@@ -640,9 +669,10 @@ fn input_reference(a: Action, right: bool) -> IR {
         _ => IR::Screen,
     }
 }
-/// Technical: Sets the input reference.
+/// Sets the input reference.
 ///
-/// Plain English: Sets the input reference.
+///
+///  Sets the input reference.
 fn set_input_reference(a: &mut Action, r: IR, right: bool) {
     match a {
         Action::Controller {
@@ -685,9 +715,10 @@ fn set_input_reference(a: &mut Action, r: IR, right: bool) {
         _ => {}
     }
 }
-/// Technical: Returns the `describe_input` result.
+/// Returns the `describe_input` result.
 ///
-/// Plain English: Gets the describe input result.
+///
+///  Gets the describe input result.
 fn describe_input(buttons: u32, stick: [f32; 2], reference: &str, frames: u8) -> String {
     let mut text = format!(
         "{} | X:{:.0}% Y:{:.0}% ({reference}) | ",
@@ -702,9 +733,10 @@ fn describe_input(buttons: u32, stick: [f32; 2], reference: &str, frames: u8) ->
     }
     text
 }
-/// Technical: Returns the `describe_action` result.
+/// Returns the `describe_action` result.
 ///
-/// Plain English: Gets the describe action result.
+///
+///  Gets the describe action result.
 fn describe_action(action: Action) -> String {
     match action {
         Action::Controller{buttons,stick,cstick,reference,cstick_reference,frames}=>format!("{} | Left {:.0}%/{:.0}% {} | Right {:.0}%/{:.0}% {} | {frames}f",buttons_text(buttons, "None (stick only)"),stick[0]*100.,stick[1]*100.,reference.token(),cstick[0]*100.,cstick[1]*100.,cstick_reference.token()),
@@ -719,19 +751,22 @@ fn describe_action(action: Action) -> String {
     }
 }
 /// The field under the cursor; the cursor may lag behind a field list that shrank.
-/// Plain English: The field under the cursor; the cursor may lag behind a field list that shrank.
+///
+///  The field under the cursor; the cursor may lag behind a field list that shrank.
 fn focus(fields: &[Field], cursor: usize) -> Field {
     fields[cursor.min(fields.len() - 1)]
 }
-/// Technical: Advances the state machine by one step.
+/// Advances the state machine by one step.
 ///
-/// Plain English: Moves the state machine to its next step.
+///
+///  Moves the state machine to its next step.
 fn step(v: f32, delta: f32, min: f32, max: f32) -> f32 {
     ((v + delta).clamp(min, max) * 100.).round() / 100.
 }
-/// Technical: Updates the `byte` state using the supplied inputs.
+/// Updates the `byte` state using the supplied inputs.
 ///
-/// Plain English: Updates byte.
+///
+///  Updates byte.
 fn byte(v: &mut u8, up: bool, min: u8) {
     *v = if up {
         v.saturating_add(1)
@@ -740,7 +775,8 @@ fn byte(v: &mut u8, up: bool, min: u8) {
     };
 }
 /// 16-bit frame counts share one ceiling.
-/// Plain English: 16-bit frame counts share one ceiling.
+///
+///  16-bit frame counts share one ceiling.
 fn wide(v: &mut u16, up: bool, min: u16) {
     *v = if up {
         v.saturating_add(1).min(3600)
@@ -748,9 +784,10 @@ fn wide(v: &mut u16, up: bool, min: u16) {
         v.saturating_sub(1).max(min)
     };
 }
-/// Technical: Updates the `direction` state using the supplied inputs.
+/// Updates the `direction` state using the supplied inputs.
 ///
-/// Plain English: Updates direction.
+///
+///  Updates direction.
 fn direction(v: &mut D, up: bool, onstage: bool) {
     let mut i = DIRECTIONS.iter().position(|d| d == v).unwrap_or(0);
     for _ in 0..DIRECTIONS.len() {
@@ -764,7 +801,8 @@ fn direction(v: &mut D, up: bool, onstage: bool) {
 // Each editable parameter has exactly one accessor; editing, display and
 // validation all read the same location so they cannot drift apart.
 /// The action's main duration in frames and its lowest allowed value.
-/// Plain English: The action's main duration in frames and its lowest allowed value.
+///
+///  The action's main duration in frames and its lowest allowed value.
 fn frames_mut(a: &mut Action) -> Option<(&mut u8, u8)> {
     match a {
         Action::Input { frames, .. }
@@ -779,15 +817,17 @@ fn frames_mut(a: &mut Action) -> Option<(&mut u8, u8)> {
         _ => None,
     }
 }
-/// Technical: Returns the configured frame count.
+/// Returns the configured frame count.
 ///
-/// Plain English: Gets the number of frames.
+///
+///  Gets the number of frames.
 fn frames(mut a: Action) -> Option<u8> {
     frames_mut(&mut a).map(|(frames, _)| *frames)
 }
-/// Technical: Returns mutable access to the stick value.
+/// Returns mutable access to the stick value.
 ///
-/// Plain English: Provides mutable access to stick.
+///
+///  Provides mutable access to stick.
 fn stick_mut(a: &mut Action) -> Option<&mut [f32; 2]> {
     match a {
         Action::Input { stick, .. }
@@ -797,9 +837,10 @@ fn stick_mut(a: &mut Action) -> Option<&mut [f32; 2]> {
         _ => None,
     }
 }
-/// Technical: Returns mutable access to the direction value.
+/// Returns mutable access to the direction value.
 ///
-/// Plain English: Provides mutable access to direction.
+///
+///  Provides mutable access to direction.
 fn direction_mut(a: &mut Action) -> Option<&mut D> {
     match a {
         Action::Face(d)
@@ -810,28 +851,34 @@ fn direction_mut(a: &mut Action) -> Option<&mut D> {
     }
 }
 /// A bounded number edited in steps of `scale` per button press.
-/// Plain English: A bounded number edited in steps of scale per button press.
+///
+///  A bounded number edited in steps of scale per button press.
 struct Scalar<'a> {
-    /// Technical: Stores the `value` value in `Scalar` as `&'a mut f32`.
+    /// Stores the `value` value in `Scalar` as `&'a mut f32`.
     ///
-    /// Plain English: Holds the value value used by Scalar.
+    ///
+///  Holds the value value used by Scalar.
     value: &'a mut f32,
-    /// Technical: Stores the `min` value in `Scalar` as `f32`.
+    /// Stores the `min` value in `Scalar` as `f32`.
     ///
-    /// Plain English: Holds the min value used by Scalar.
+    ///
+///  Holds the min value used by Scalar.
     min: f32,
-    /// Technical: Stores the `max` value in `Scalar` as `f32`.
+    /// Stores the `max` value in `Scalar` as `f32`.
     ///
-    /// Plain English: Holds the max value used by Scalar.
+    ///
+///  Holds the max value used by Scalar.
     max: f32,
-    /// Technical: Stores the `scale` value in `Scalar` as `f32`.
+    /// Stores the `scale` value in `Scalar` as `f32`.
     ///
-    /// Plain English: Holds the scale value used by Scalar.
+    ///
+///  Holds the scale value used by Scalar.
     scale: f32,
 }
-/// Technical: Returns mutable access to the scalar value.
+/// Returns mutable access to the scalar value.
 ///
-/// Plain English: Provides mutable access to scalar.
+///
+///  Provides mutable access to scalar.
 fn scalar_mut(a: &mut Action, field: Field) -> Option<Scalar<'_>> {
     let (value, min, max, scale) = match (a, field) {
         (Action::Controller { cstick, .. }, Field::CX(_)) => (&mut cstick[0], -1., 1., 0.01),
@@ -871,15 +918,17 @@ fn scalar_mut(a: &mut Action, field: Field) -> Option<Scalar<'_>> {
         scale,
     })
 }
-/// Technical: Returns an optional `scalar` value.
+/// Returns an optional `scalar` value.
 ///
-/// Plain English: Gets scalar if it is available.
+///
+///  Gets scalar if it is available.
 fn scalar(mut a: Action, field: Field) -> Option<f32> {
     scalar_mut(&mut a, field).map(|s| *s.value)
 }
-/// Technical: Updates the `cycle_tap_input` state using the supplied inputs.
+/// Updates the `cycle_tap_input` state using the supplied inputs.
 ///
-/// Plain English: Updates cycle tap input.
+///
+///  Updates cycle tap input.
 fn cycle_tap_input(action: &mut Action, up: bool) {
     let Action::Tap {
         buttons,
@@ -901,9 +950,10 @@ fn cycle_tap_input(action: &mut Action, up: bool) {
     (*buttons, *stick, _) = TAP_BUTTONS[index];
     *hold = 1;
 }
-/// Technical: Updates the `adjust_action` state using the supplied inputs.
+/// Updates the `adjust_action` state using the supplied inputs.
 ///
-/// Plain English: Updates adjust action.
+///
+///  Updates adjust action.
 fn adjust_action(action: &mut Action, field: Field, up: bool, onstage: bool) {
     let delta = if up { 1. } else { -1. };
     match (&mut *action, field) {
@@ -952,27 +1002,32 @@ fn adjust_action(action: &mut Action, field: Field, up: bool, onstage: bool) {
         }
     }
 }
-/// Technical: Defines the `CopySource` data structure.
+/// Defines the `CopySource` data structure.
 ///
-/// Plain English: Holds the data for CopySource.
+///
+///  Holds the data for CopySource.
 pub(super) struct CopySource {
-    /// Technical: Stores the `slot` value in `CopySource` as `super::PresetSlot`.
+    /// Stores the `slot` value in `CopySource` as `super::PresetSlot`.
     ///
-    /// Plain English: Holds the slot value used by CopySource.
+    ///
+///  Holds the slot value used by CopySource.
     pub slot: super::PresetSlot,
-    /// Technical: Stores the `index` value in `CopySource` as `usize`.
+    /// Stores the `index` value in `CopySource` as `usize`.
     ///
-    /// Plain English: Holds the index value used by CopySource.
+    ///
+///  Holds the index value used by CopySource.
     pub index: usize,
-    /// Technical: Stores the `name` value in `CopySource` as `String`.
+    /// Stores the `name` value in `CopySource` as `String`.
     ///
-    /// Plain English: Holds the name value used by CopySource.
+    ///
+///  Holds the name value used by CopySource.
     pub name: String,
 }
 
-/// Technical: Updates the `adjust_reference` state using the supplied inputs.
+/// Updates the `adjust_reference` state using the supplied inputs.
 ///
-/// Plain English: Updates adjust reference.
+///
+///  Updates adjust reference.
 fn adjust_reference(recipe: &mut Recipe, index: usize, right: bool, up: bool) {
     let old = input_reference(recipe.sequence.actions[index], right);
     let current = IR::ALL.iter().position(|value| *value == old).unwrap_or(0);
@@ -980,18 +1035,20 @@ fn adjust_reference(recipe: &mut Recipe, index: usize, right: bool, up: bool) {
     set_input_reference(&mut recipe.sequence.actions[index], IR::ALL[next], right);
 }
 
-/// Technical: Updates the `adjust_action_kind` state using the supplied inputs.
+/// Updates the `adjust_action_kind` state using the supplied inputs.
 ///
-/// Plain English: Updates adjust action kind.
+///
+///  Updates adjust action kind.
 fn adjust_action_kind(recipe: &mut Recipe, index: usize, up: bool) {
     let count = PRESETS.len() + recipe.imported.len();
     recipe.kinds[index] = cycle(recipe.kinds[index], count, up);
     recipe.sequence.actions[index] = recipe.action_for(recipe.kinds[index]);
 }
 
-/// Technical: Toggles the shield hold.
+/// Toggles the shield hold.
 ///
-/// Plain English: Toggles the shield hold.
+///
+///  Toggles the shield hold.
 fn toggle_shield_hold(recipe: &mut Recipe, index: usize) {
     match &mut recipe.sequence.actions[index] {
         Action::Input { frames, .. } => *frames = if *frames == 0 { 4 } else { 0 },
@@ -1004,9 +1061,10 @@ fn toggle_shield_hold(recipe: &mut Recipe, index: usize) {
     }
 }
 
-/// Technical: Updates the `adjust_slots` state using the supplied inputs.
+/// Updates the `adjust_slots` state using the supplied inputs.
 ///
-/// Plain English: Updates adjust slots.
+///
+///  Updates adjust slots.
 fn adjust_slots(recipe: &mut Recipe, up: bool) {
     let len = usize::from(recipe.sequence.len);
     if up && len < MAX_ACTIONS {
@@ -1016,9 +1074,10 @@ fn adjust_slots(recipe: &mut Recipe, up: bool) {
     }
 }
 
-/// Technical: Determines whether the `adjust_field` condition holds.
+/// Determines whether the `adjust_field` condition holds.
 ///
-/// Plain English: Checks whether adjust field.
+///
+///  Checks whether adjust field.
 fn adjust_field(recipe: &mut Recipe, field: Field, up: bool, onstage: bool) -> bool {
     match field {
         Field::Reaction(0) => {
@@ -1050,80 +1109,98 @@ fn adjust_field(recipe: &mut Recipe, field: Field, up: bool, onstage: bool) -> b
     true
 }
 
-/// Technical: Defines the `RecipeEditor` data structure.
+/// Defines the `RecipeEditor` data structure.
 ///
-/// Plain English: Holds the data for RecipeEditor.
+///
+///  Holds the data for RecipeEditor.
 #[derive(Default)]
 pub(super) struct RecipeEditor {
-    /// Technical: Stores the `modal` value in `RecipeEditor` as `Option<commands::Modal>`.
+    /// Stores the `modal` value in `RecipeEditor` as `Option<commands::Modal>`.
     ///
-    /// Plain English: Optionally stores the modal for RecipeEditor; it may be absent.
+    ///
+///  Optionally stores the modal for RecipeEditor; it may be absent.
     modal: Option<commands::Modal>,
-    /// Technical: Stores the `return_modal` value in `RecipeEditor` as `Option<commands::Modal>`.
+    /// Stores the `return_modal` value in `RecipeEditor` as `Option<commands::Modal>`.
     ///
-    /// Plain English: Optionally stores the return modal for RecipeEditor; it may be absent.
+    ///
+///  Optionally stores the return modal for RecipeEditor; it may be absent.
     return_modal: Option<commands::Modal>,
-    /// Technical: Stores the `step_clipboard` value in `RecipeEditor` as `Option<(Action`.
+    /// Stores the `step_clipboard` value in `RecipeEditor` as `Option<(Action`.
     ///
-    /// Plain English: Optionally stores the step clipboard for RecipeEditor; it may be absent.
+    ///
+///  Optionally stores the step clipboard for RecipeEditor; it may be absent.
     step_clipboard: Option<(Action, u8)>,
-    /// Technical: Stores the `manage_requested` value in `RecipeEditor` as `bool`.
+    /// Stores the `manage_requested` value in `RecipeEditor` as `bool`.
     ///
-    /// Plain English: Holds the manage requested value used by RecipeEditor.
+    ///
+///  Holds the manage requested value used by RecipeEditor.
     manage_requested: bool,
-    /// Technical: Stores the `copy_sources` value in `RecipeEditor` as `Vec<CopySource>`.
+    /// Stores the `copy_sources` value in `RecipeEditor` as `Vec<CopySource>`.
     ///
-    /// Plain English: Holds the copy sources value used by RecipeEditor.
+    ///
+///  Holds the copy sources value used by RecipeEditor.
     copy_sources: Vec<CopySource>,
-    /// Technical: Stores the `copy_templates` value in `RecipeEditor` as `Vec<String>`.
+    /// Stores the `copy_templates` value in `RecipeEditor` as `Vec<String>`.
     ///
-    /// Plain English: Holds the copy templates value used by RecipeEditor.
+    ///
+///  Holds the copy templates value used by RecipeEditor.
     copy_templates: Vec<String>,
-    /// Technical: Stores the `template_apply` value in `RecipeEditor` as `Option<usize>`.
+    /// Stores the `template_apply` value in `RecipeEditor` as `Option<usize>`.
     ///
-    /// Plain English: Optionally stores the template apply for RecipeEditor; it may be absent.
+    ///
+///  Optionally stores the template apply for RecipeEditor; it may be absent.
     template_apply: Option<usize>,
-    /// Technical: Stores the `copy_requested` value in `RecipeEditor` as `bool`.
+    /// Stores the `copy_requested` value in `RecipeEditor` as `bool`.
     ///
-    /// Plain English: Holds the copy requested value used by RecipeEditor.
+    ///
+///  Holds the copy requested value used by RecipeEditor.
     copy_requested: bool,
-    /// Technical: Stores the `copy_apply` value in `RecipeEditor` as `Option<(super::PresetSlot`.
+    /// Stores the `copy_apply` value in `RecipeEditor` as `Option<(super::PresetSlot`.
     ///
-    /// Plain English: Optionally stores the copy apply for RecipeEditor; it may be absent.
+    ///
+///  Optionally stores the copy apply for RecipeEditor; it may be absent.
     copy_apply: Option<(super::PresetSlot, usize)>,
-    /// Technical: Stores the `command_held` value in `RecipeEditor` as `u32`.
+    /// Stores the `command_held` value in `RecipeEditor` as `u32`.
     ///
-    /// Plain English: Holds the command held value used by RecipeEditor.
+    ///
+///  Holds the command held value used by RecipeEditor.
     command_held: u32,
-    /// Technical: Stores the `command_ticks` value in `RecipeEditor` as `u16`.
+    /// Stores the `command_ticks` value in `RecipeEditor` as `u16`.
     ///
-    /// Plain English: Holds the command ticks value used by RecipeEditor.
+    ///
+///  Holds the command ticks value used by RecipeEditor.
     command_ticks: u16,
-    /// Technical: Stores the `undo` value in `RecipeEditor` as `Option<Box<((usize`.
+    /// Stores the `undo` value in `RecipeEditor` as `Option<Box<((usize`.
     ///
-    /// Plain English: Optionally stores the undo for RecipeEditor; it may be absent.
+    ///
+///  Optionally stores the undo for RecipeEditor; it may be absent.
     undo: Option<Box<((usize, usize), Recipe)>>,
-    /// Technical: Stores the `recipes` value in `RecipeEditor` as `BTreeMap<(usize`.
+    /// Stores the `recipes` value in `RecipeEditor` as `BTreeMap<(usize`.
     ///
-    /// Plain English: Holds the recipes value used by RecipeEditor.
+    ///
+///  Holds the recipes value used by RecipeEditor.
     recipes: BTreeMap<(usize, usize), Recipe>,
-    /// Technical: Stores the `cursor` value in `RecipeEditor` as `usize`.
+    /// Stores the `cursor` value in `RecipeEditor` as `usize`.
     ///
-    /// Plain English: Holds the cursor value used by RecipeEditor.
+    ///
+///  Holds the cursor value used by RecipeEditor.
     pub cursor: usize,
-    /// Technical: Stores the `limited` value in `RecipeEditor` as `bool`.
+    /// Stores the `limited` value in `RecipeEditor` as `bool`.
     ///
-    /// Plain English: Holds the limited value used by RecipeEditor.
+    ///
+///  Holds the limited value used by RecipeEditor.
     pub limited: bool,
-    /// Technical: Stores the `last_edit` value in `RecipeEditor` as `Option<String>`.
+    /// Stores the `last_edit` value in `RecipeEditor` as `Option<String>`.
     ///
-    /// Plain English: Optionally stores the last edit for RecipeEditor; it may be absent.
+    ///
+///  Optionally stores the last edit for RecipeEditor; it may be absent.
     last_edit: Option<String>,
 }
 impl RecipeEditor {
-    /// Technical: Returns the `retained` result.
+    /// Returns the `retained` result.
     ///
-    /// Plain English: Gets the retained result.
+    ///
+///  Gets the retained result.
     #[cfg(feature = "diagnostic-logging")]
     pub(super) fn retained(&self) -> (usize, usize) {
         let bytes = std::mem::size_of::<Self>()
@@ -1154,31 +1231,35 @@ impl RecipeEditor {
                 .sum::<usize>();
         (self.recipes.len(), bytes)
     }
-    /// Technical: Returns the `preview_panel` result.
+    /// Returns the `preview_panel` result.
     ///
-    /// Plain English: Gets the preview panel result.
+    ///
+///  Gets the preview panel result.
     pub fn preview_panel(sequence: Sequence) -> super::RecipePanel {
         let recipe = Recipe::new(sequence);
         recipe_panel(&recipe, &fields(&recipe), None, false, None)
     }
-    /// Technical: Determines whether the `has` condition holds.
+    /// Determines whether the `has` condition holds.
     ///
-    /// Plain English: Checks whether has.
+    ///
+///  Checks whether has.
     pub fn has(&self, key: (usize, usize)) -> bool {
         self.recipes.contains_key(&key)
     }
-    /// Technical: Returns the `custom` result.
+    /// Returns the `custom` result.
     ///
-    /// Plain English: Gets the custom result.
+    ///
+///  Gets the custom result.
     pub fn custom() -> Sequence {
         Sequence {
             len: 6,
             ..Sequence::default()
         }
     }
-    /// Technical: Updates the `ensure` state using the supplied inputs.
+    /// Updates the `ensure` state using the supplied inputs.
     ///
-    /// Plain English: Updates ensure.
+    ///
+///  Updates ensure.
     pub fn ensure(&mut self, key: (usize, usize), source: Sequence) {
         self.close_commands();
         self.recipes.entry(key).or_insert_with(|| {
@@ -1190,33 +1271,37 @@ impl RecipeEditor {
         self.limited = false;
         self.last_edit = None;
     }
-    /// Technical: Determines whether the `edited` condition holds.
+    /// Determines whether the `edited` condition holds.
     ///
-    /// Plain English: Checks whether edited.
+    ///
+///  Checks whether edited.
     pub fn edited(&self, key: (usize, usize)) -> bool {
         self.recipes.get(&key).is_some_and(|r| r.modified)
     }
-    /// Technical: Marks the saved.
+    /// Marks the saved.
     ///
-    /// Plain English: Marks the saved.
+    ///
+///  Marks the saved.
     pub fn mark_saved(&mut self, key: (usize, usize)) {
         if let Some(r) = self.recipes.get_mut(&key) {
             r.modified = false;
             r.edited = 0;
         }
     }
-    /// Technical: Updates the `release_tools` state using the supplied inputs.
+    /// Updates the `release_tools` state using the supplied inputs.
     ///
-    /// Plain English: Updates release tools.
+    ///
+///  Updates release tools.
     pub fn release_tools(&mut self) {
         self.close_commands();
         self.undo = None;
         self.step_clipboard = None;
         self.last_edit = None;
     }
-    /// Technical: Retains the recipes.
+    /// Retains the recipes.
     ///
-    /// Plain English: Retains the recipes.
+    ///
+///  Retains the recipes.
     pub fn retain_recipes(
         &mut self,
         mut retain: impl FnMut((usize, usize), Option<Sequence>, bool) -> bool,
@@ -1224,15 +1309,17 @@ impl RecipeEditor {
         self.recipes
             .retain(|key, recipe| retain(*key, recipe.compile(), recipe.modified));
     }
-    /// Technical: Checks whether empty.
+    /// Checks whether empty.
     ///
-    /// Plain English: Checks whether empty.
+    ///
+///  Checks whether empty.
     pub fn is_empty(&self) -> bool {
         self.recipes.is_empty()
     }
-    /// Technical: Updates the `discard` state using the supplied inputs.
+    /// Updates the `discard` state using the supplied inputs.
     ///
-    /// Plain English: Updates discard.
+    ///
+///  Updates discard.
     pub fn discard(&mut self, key: (usize, usize)) {
         self.clear_copy();
         if self.undo.as_ref().is_some_and(|u| u.0 == key) {
@@ -1242,29 +1329,33 @@ impl RecipeEditor {
         self.return_modal = None;
         self.recipes.remove(&key);
     }
-    /// Technical: Returns an optional `while_held` value.
+    /// Returns an optional `while_held` value.
     ///
-    /// Plain English: Gets while held if it is available.
+    ///
+///  Gets while held if it is available.
     pub fn while_held(&self, key: (usize, usize)) -> Option<bool> {
         self.recipes.get(&key).map(|r| r.sequence.while_held)
     }
-    /// Technical: Returns an optional `compiled` value.
+    /// Returns an optional `compiled` value.
     ///
-    /// Plain English: Gets compiled if it is available.
+    ///
+///  Gets compiled if it is available.
     pub fn compiled(&self, key: (usize, usize)) -> Option<Sequence> {
         self.recipes.get(&key).and_then(Recipe::compile)
     }
-    /// Technical: Updates the `navigate` state using the supplied inputs.
+    /// Updates the `navigate` state using the supplied inputs.
     ///
-    /// Plain English: Updates navigate.
+    ///
+///  Updates navigate.
     pub fn navigate(&mut self, key: (usize, usize), down: bool) {
         if let Some(r) = self.recipes.get(&key) {
             self.cursor = cycle(self.cursor, fields(r).len(), down);
         }
     }
-    /// Technical: Determines whether the `repeatable` condition holds.
+    /// Determines whether the `repeatable` condition holds.
     ///
-    /// Plain English: Checks whether repeatable.
+    ///
+///  Checks whether repeatable.
     pub fn repeatable(&self, key: (usize, usize)) -> bool {
         self.recipes.get(&key).is_some_and(|r| {
             !matches!(
@@ -1282,9 +1373,10 @@ impl RecipeEditor {
             )
         })
     }
-    /// Technical: Determines whether the `adjust` condition holds.
+    /// Determines whether the `adjust` condition holds.
     ///
-    /// Plain English: Checks whether adjust.
+    ///
+///  Checks whether adjust.
     pub fn adjust(&mut self, key: (usize, usize), up: bool) -> bool {
         let Some(r) = self.recipes.get_mut(&key) else {
             return false;
@@ -1323,15 +1415,17 @@ impl RecipeEditor {
         }
         changed
     }
-    /// Technical: Determines whether the `reference_visible` condition holds.
+    /// Determines whether the `reference_visible` condition holds.
     ///
-    /// Plain English: Checks whether reference visible.
+    ///
+///  Checks whether reference visible.
     pub(super) fn reference_visible(&self) -> bool {
         matches!(self.modal, None | Some(commands::Modal::Picker { .. }))
     }
-    /// Technical: Returns an optional `reference_label` value.
+    /// Returns an optional `reference_label` value.
     ///
-    /// Plain English: Gets reference label if it is available.
+    ///
+///  Gets reference label if it is available.
     pub(super) fn reference_label(&self, key: (usize, usize)) -> Option<&'static str> {
         let r = self.recipes.get(&key)?;
         if let Some(commands::Modal::Picker { group, item, .. }) = self.modal {
@@ -1356,9 +1450,10 @@ impl RecipeEditor {
             _ => None,
         }
     }
-    /// Technical: Returns the `panel` result.
+    /// Returns the `panel` result.
     ///
-    /// Plain English: Gets the panel result.
+    ///
+///  Gets the panel result.
     pub fn panel(&self, key: (usize, usize), editing: bool) -> super::RecipePanel {
         if editing {
             if let Some(panel) = self.command_panel(key) {
@@ -1389,9 +1484,10 @@ impl RecipeEditor {
         }
         panel
     }
-    /// Technical: Returns the `lines` result.
+    /// Returns the `lines` result.
     ///
-    /// Plain English: Gets the lines result.
+    ///
+///  Gets the lines result.
     #[cfg(test)]
     pub fn lines(&self, key: (usize, usize)) -> Vec<String> {
         self.panel(key, true).into_lines()
@@ -1409,9 +1505,10 @@ mod tests {
         settings_menu::{MenuSelection, MENU_STICK_CLICK},
     };
 
-    /// Technical: Regression test for `edited_actions_keep_their_matching_preset_kind`.
+    /// Regression test for `edited_actions_keep_their_matching_preset_kind`.
     ///
-    /// Plain English: Checks that edited actions keep their matching preset kind.
+    ///
+///  Checks that edited actions keep their matching preset kind.
     #[test]
     fn edited_actions_keep_their_matching_preset_kind() {
         let forward_tilt = PRESETS
@@ -1436,9 +1533,10 @@ mod tests {
         ));
     }
 
-    /// Technical: Returns the `presets` result.
+    /// Returns the `presets` result.
     ///
-    /// Plain English: Gets the presets result.
+    ///
+///  Gets the presets result.
     fn presets() -> crate::fighter_profiles::presets::MenuPresets {
         let file = crate::sequence_config::Catalog::parse(
             "[kirby.neutral.first]\nstart_delay=0\nactions=short_hop,wait:2,nair",
@@ -1448,9 +1546,10 @@ mod tests {
         p.add_sequence_choices(&file).unwrap();
         p.profile(6).unwrap().menu_options
     }
-    /// Technical: Updates the `tap` state using the supplied inputs.
+    /// Updates the `tap` state using the supplied inputs.
     ///
-    /// Plain English: Updates tap.
+    ///
+///  Updates tap.
     fn tap(
         menu: &mut MenuSelection,
         p: &crate::fighter_profiles::presets::MenuPresets,
@@ -1459,9 +1558,10 @@ mod tests {
         menu.input(0, p);
         menu.input(button, p);
     }
-    /// Technical: Copies the menu can template a button into ledge without changing source or name.
+    /// Copies the menu can template a button into ledge without changing source or name.
     ///
-    /// Plain English: Checks that copy menu can template a button into ledge without changing source or name.
+    ///
+///  Checks that copy menu can template a button into ledge without changing source or name.
     #[test]
     fn copy_menu_can_template_a_button_into_ledge_without_changing_source_or_name() {
         let file=crate::sequence_config::Catalog::parse("[kirby.neutral.target]\nname=Keep my name\nstart_delay=0\nactions=grab\n[kirby.x.source]\nname=Nice down smash\ndefault=true\nstart_delay=3\ntimeout=700\nspatial_timeout=80\nwhile_held=true\nactions=wait:2,down_smash:4").unwrap();
@@ -1505,9 +1605,10 @@ mod tests {
         assert!(!m.save_requested);
         assert_eq!(e.copy_sources.capacity(), 0);
     }
-    /// Technical: Regression test for `editor_tools_consume_controls_cancel_safely_and_do_not_rebuild_while_idle`.
+    /// Regression test for `editor_tools_consume_controls_cancel_safely_and_do_not_rebuild_while_idle`.
     ///
-    /// Plain English: Checks that editor tools consume controls cancel safely and do not rebuild while idle.
+    ///
+///  Checks that editor tools consume controls cancel safely and do not rebuild while idle.
     #[test]
     fn editor_tools_consume_controls_cancel_safely_and_do_not_rebuild_while_idle() {
         let p = presets();
@@ -1547,9 +1648,10 @@ mod tests {
         assert_eq!(menu.input(MAPPER_ZR, &p) & MAPPER_ZR, 0);
     }
 
-    /// Technical: Regression test for `modified_save_explains_rejection_in_editor_and_tools_without_losing_edits`.
+    /// Regression test for `modified_save_explains_rejection_in_editor_and_tools_without_losing_edits`.
     ///
-    /// Plain English: Checks that modified save explains rejection in editor and tools without losing edits.
+    ///
+///  Checks that modified save explains rejection in editor and tools without losing edits.
     #[test]
     fn modified_save_explains_rejection_in_editor_and_tools_without_losing_edits() {
         let p = presets();
@@ -1579,9 +1681,10 @@ mod tests {
             assert!(menu.save_requested);
         }
     }
-    /// Technical: Regression test for `button_activation_is_editable_and_not_exposed_for_ledge_recipes`.
+    /// Regression test for `button_activation_is_editable_and_not_exposed_for_ledge_recipes`.
     ///
-    /// Plain English: Checks that button activation is editable and not exposed for ledge recipes.
+    ///
+///  Checks that button activation is editable and not exposed for ledge recipes.
     #[test]
     fn button_activation_is_editable_and_not_exposed_for_ledge_recipes() {
         let mut e = RecipeEditor::default();
@@ -1605,9 +1708,10 @@ mod tests {
             .join(" ")
             .contains("Loop while held"));
     }
-    /// Technical: Regression test for `repeated_tap_picker_has_only_buttons_and_tilts_with_gap_and_total_fields`.
+    /// Regression test for `repeated_tap_picker_has_only_buttons_and_tilts_with_gap_and_total_fields`.
     ///
-    /// Plain English: Checks that repeated tap picker has only buttons and tilts with gap and total fields.
+    ///
+///  Checks that repeated tap picker has only buttons and tilts with gap and total fields.
     #[test]
     fn repeated_tap_picker_has_only_buttons_and_tilts_with_gap_and_total_fields() {
         let source = crate::sequence_config::Catalog::parse(
@@ -1650,9 +1754,10 @@ mod tests {
         ));
         assert!(e.panel(key, true).body.join(" ").contains("every 13f"));
     }
-    /// Technical: Regression test for `condition_fields_roundtrip_and_slot_growth_cannot_erase_actions`.
+    /// Regression test for `condition_fields_roundtrip_and_slot_growth_cannot_erase_actions`.
     ///
-    /// Plain English: Checks that condition fields roundtrip and slot growth cannot erase actions.
+    ///
+///  Checks that condition fields roundtrip and slot growth cannot erase actions.
     #[test]
     fn condition_fields_roundtrip_and_slot_growth_cannot_erase_actions() {
         let source = crate::sequence_config::Catalog::parse(
@@ -1709,9 +1814,10 @@ mod tests {
             ]
         );
     }
-    /// Technical: Regression test for `schedule_shows_input_frames_with_one_based_recognition_and_preserves_recipe`.
+    /// Regression test for `schedule_shows_input_frames_with_one_based_recognition_and_preserves_recipe`.
     ///
-    /// Plain English: Checks that schedule shows input frames with one based recognition and preserves recipe.
+    ///
+///  Checks that schedule shows input frames with one based recognition and preserves recipe.
     #[test]
     fn schedule_shows_input_frames_with_one_based_recognition_and_preserves_recipe() {
         let source = crate::sequence_config::Catalog::parse(
@@ -1738,9 +1844,10 @@ mod tests {
         assert!(header.contains("timeout 6f"));
         assert!(!header.contains("done F"));
     }
-    /// Technical: Regression test for `schedule_never_claims_exact_frames_after_a_spatial_or_block_check`.
+    /// Regression test for `schedule_never_claims_exact_frames_after_a_spatial_or_block_check`.
     ///
-    /// Plain English: Checks that schedule never claims exact frames after a spatial or block check.
+    ///
+///  Checks that schedule never claims exact frames after a spatial or block check.
     #[test]
     fn schedule_never_claims_exact_frames_after_a_spatial_or_block_check() {
         let source = crate::sequence_config::Catalog::parse(
@@ -1757,9 +1864,10 @@ mod tests {
         assert!(text.contains("after checks"));
         assert!(!panel.header.join(" ").contains("done F"));
     }
-    /// Technical: Regression test for `imported_input_is_descriptive_and_can_be_reselected_after_cycling`.
+    /// Regression test for `imported_input_is_descriptive_and_can_be_reselected_after_cycling`.
     ///
-    /// Plain English: Checks that imported input is descriptive and can be reselected after cycling.
+    ///
+///  Checks that imported input is descriptive and can be reselected after cycling.
     #[test]
     fn imported_input_is_descriptive_and_can_be_reselected_after_cycling() {
         let action = Action::Input {
@@ -1787,9 +1895,10 @@ mod tests {
         }
         assert_eq!(editor.compiled(key).unwrap().actions(), &[action]);
     }
-    /// Technical: Regression test for `conditional_range_choices_keep_distinct_names_and_controls`.
+    /// Regression test for `conditional_range_choices_keep_distinct_names_and_controls`.
     ///
-    /// Plain English: Checks that conditional range choices keep distinct names and controls.
+    ///
+///  Checks that conditional range choices keep distinct names and controls.
     #[test]
     fn conditional_range_choices_keep_distinct_names_and_controls() {
         let mut source = Sequence::default();
@@ -1809,9 +1918,10 @@ mod tests {
         assert!(fs.iter().any(|f| matches!(f, Field::Duration(2))));
         assert_eq!(r.compile().unwrap().actions(), source.actions());
     }
-    /// Technical: Regression test for `button_hold_duration_changes_only_the_input_hold`.
+    /// Regression test for `button_hold_duration_changes_only_the_input_hold`.
     ///
-    /// Plain English: Checks that button hold duration changes only the input hold.
+    ///
+///  Checks that button hold duration changes only the input hold.
     #[test]
     fn button_hold_duration_changes_only_the_input_hold() {
         let mut source = Sequence::default();
@@ -1832,9 +1942,10 @@ mod tests {
         assert_eq!(result.start_delay, 0);
         assert!(editor.lines(key).join("\n").contains("Hold input: 10f"));
     }
-    /// Technical: Regression test for `full_sequence_panel_retains_all_moves_settings_and_exact_focus`.
+    /// Regression test for `full_sequence_panel_retains_all_moves_settings_and_exact_focus`.
     ///
-    /// Plain English: Checks that full sequence panel retains all moves settings and exact focus.
+    ///
+///  Checks that full sequence panel retains all moves settings and exact focus.
     #[test]
     fn full_sequence_panel_retains_all_moves_settings_and_exact_focus() {
         let mut sequence = RecipeEditor::custom();
@@ -1864,9 +1975,10 @@ mod tests {
             "only the focused step expands its settings"
         );
     }
-    /// Technical: Regression test for `numbered_slot_overview_keeps_hidden_edits_visible_and_marks_saved_state`.
+    /// Regression test for `numbered_slot_overview_keeps_hidden_edits_visible_and_marks_saved_state`.
     ///
-    /// Plain English: Checks that numbered slot overview keeps hidden edits visible and marks saved state.
+    ///
+///  Checks that numbered slot overview keeps hidden edits visible and marks saved state.
     #[test]
     fn numbered_slot_overview_keeps_hidden_edits_visible_and_marks_saved_state() {
         let mut e = RecipeEditor::default();
@@ -1890,9 +2002,10 @@ mod tests {
         assert!(!e.edited(key));
         assert!(!e.lines(key).join("\n").contains("01  Short hop *"));
     }
-    /// Technical: Regression test for `training_reference_tracks_focused_move_and_picker_without_changing_recipe`.
+    /// Regression test for `training_reference_tracks_focused_move_and_picker_without_changing_recipe`.
     ///
-    /// Plain English: Checks that training reference tracks focused move and picker without changing recipe.
+    ///
+///  Checks that training reference tracks focused move and picker without changing recipe.
     #[test]
     fn training_reference_tracks_focused_move_and_picker_without_changing_recipe() {
         let p = presets();
@@ -1963,9 +2076,10 @@ mod tests {
         assert!(!menu.recipe_panel(&p).header.join(" ").contains("REF "));
     }
 
-    /// Technical: Saves the wait consumes inputs without hidden edits or held save replay.
+    /// Saves the wait consumes inputs without hidden edits or held save replay.
     ///
-    /// Plain English: Checks that save wait consumes inputs without hidden edits or held save replay.
+    ///
+///  Checks that save wait consumes inputs without hidden edits or held save replay.
     #[test]
     fn save_wait_consumes_inputs_without_hidden_edits_or_held_save_replay() {
         let p = presets();
@@ -1993,9 +2107,10 @@ mod tests {
         assert!(menu.save_requested);
     }
 
-    /// Technical: Regression test for `menu_save_is_editor_only_once_per_press_and_cancels_preview`.
+    /// Regression test for `menu_save_is_editor_only_once_per_press_and_cancels_preview`.
     ///
-    /// Plain English: Checks that menu save is editor only once per press and cancels preview.
+    ///
+///  Checks that menu save is editor only once per press and cancels preview.
     #[test]
     fn menu_save_is_editor_only_once_per_press_and_cancels_preview() {
         let p = presets();
@@ -2021,9 +2136,10 @@ mod tests {
         menu.reset_inputs();
         assert!(!menu.save_requested);
     }
-    /// Technical: Regression test for `menu_preview_button_is_one_shot_consumed_and_menu_changes_cancel`.
+    /// Regression test for `menu_preview_button_is_one_shot_consumed_and_menu_changes_cancel`.
     ///
-    /// Plain English: Checks that menu preview button is one shot consumed and menu changes cancel.
+    ///
+///  Checks that menu preview button is one shot consumed and menu changes cancel.
     #[test]
     fn menu_preview_button_is_one_shot_consumed_and_menu_changes_cancel() {
         let p = presets();
@@ -2067,9 +2183,10 @@ mod tests {
         menu.input(0, &p);
         assert_eq!(menu.input(MAPPER_X, &p) & MAPPER_X, 0);
     }
-    /// Technical: Regression test for `recipe_editor_numeric_hold_accelerates_and_release_resets`.
+    /// Regression test for `recipe_editor_numeric_hold_accelerates_and_release_resets`.
     ///
-    /// Plain English: Checks that recipe editor numeric hold accelerates and release resets.
+    ///
+///  Checks that recipe editor numeric hold accelerates and release resets.
     #[test]
     fn recipe_editor_numeric_hold_accelerates_and_release_resets() {
         let p = presets();
@@ -2108,9 +2225,10 @@ mod tests {
         }
         assert_eq!(menu.recipe_revision, revision);
     }
-    /// Technical: Regression test for `recipe_editor_file_waits_become_delays_without_losing_frames`.
+    /// Regression test for `recipe_editor_file_waits_become_delays_without_losing_frames`.
     ///
-    /// Plain English: Checks that recipe editor file waits become delays without losing frames.
+    ///
+///  Checks that recipe editor file waits become delays without losing frames.
     #[test]
     fn recipe_editor_file_waits_become_delays_without_losing_frames() {
         let mut source = Sequence::default();
@@ -2136,9 +2254,10 @@ mod tests {
         assert!(!lines.contains("Slot "));
         assert!(lines.contains("Delay:"));
     }
-    /// Technical: Regression test for `recipe_editor_changes_next_attempt_delay_without_touching_file_or_old_snapshot`.
+    /// Regression test for `recipe_editor_changes_next_attempt_delay_without_touching_file_or_old_snapshot`.
     ///
-    /// Plain English: Checks that recipe editor changes next attempt delay without touching file or old snapshot.
+    ///
+///  Checks that recipe editor changes next attempt delay without touching file or old snapshot.
     #[test]
     fn recipe_editor_changes_next_attempt_delay_without_touching_file_or_old_snapshot() {
         let p = presets();
@@ -2166,9 +2285,10 @@ mod tests {
         assert!(!menu.recipe_editing);
         assert!(menu.recipe_modified(PresetSlot::Neutral));
     }
-    /// Technical: Regression test for `recipe_editor_custom_slots_swap_actions_and_insert_exact_delays`.
+    /// Regression test for `recipe_editor_custom_slots_swap_actions_and_insert_exact_delays`.
     ///
-    /// Plain English: Checks that recipe editor custom slots swap actions and insert exact delays.
+    ///
+///  Checks that recipe editor custom slots swap actions and insert exact delays.
     #[test]
     fn recipe_editor_custom_slots_swap_actions_and_insert_exact_delays() {
         let p = presets();
@@ -2214,9 +2334,10 @@ mod tests {
             ]
         );
     }
-    /// Technical: Regression test for `recipe_editor_movement_bounds_and_expansion_limit_keep_valid_snapshots`.
+    /// Regression test for `recipe_editor_movement_bounds_and_expansion_limit_keep_valid_snapshots`.
     ///
-    /// Plain English: Checks that recipe editor movement bounds and expansion limit keep valid snapshots.
+    ///
+///  Checks that recipe editor movement bounds and expansion limit keep valid snapshots.
     #[test]
     fn recipe_editor_movement_bounds_and_expansion_limit_keep_valid_snapshots() {
         let mut e = RecipeEditor::default();
@@ -2261,9 +2382,10 @@ mod tests {
         assert!(e.limited);
         assert_eq!(e.compiled((0, 1)).unwrap(), full);
     }
-    /// Technical: Regression test for `menu_edited_a_hold_continues_after_jab_into_the_next_action`.
+    /// Regression test for `menu_edited_a_hold_continues_after_jab_into_the_next_action`.
     ///
-    /// Plain English: Checks that menu edited a hold continues after jab into the next action.
+    ///
+///  Checks that menu edited a hold continues after jab into the next action.
     #[test]
     fn menu_edited_a_hold_continues_after_jab_into_the_next_action() {
         use crate::{
@@ -2354,9 +2476,10 @@ mod tests {
 mod reaction_editor_tests {
     use super::*;
     use crate::{fighter_profiles::presets::PresetSlot, settings_menu::MenuSelection};
-    /// Technical: Regression test for `assist_editor_tunes_roll_conditions_without_moving_rule_to_manual_choices`.
+    /// Regression test for `assist_editor_tunes_roll_conditions_without_moving_rule_to_manual_choices`.
     ///
-    /// Plain English: Checks that assist editor tunes roll conditions without moving rule to manual choices.
+    ///
+///  Checks that assist editor tunes roll conditions without moving rule to manual choices.
     #[test]
     fn assist_editor_tunes_roll_conditions_without_moving_rule_to_manual_choices() {
         let source = crate::sequence_config::Catalog::parse(
@@ -2404,9 +2527,10 @@ mod reaction_editor_tests {
             crate::reaction_rules::Trigger::Roll
         );
     }
-    /// Technical: Regression test for `facing_block_editor_preserves_marker_names_and_roundtrip`.
+    /// Regression test for `facing_block_editor_preserves_marker_names_and_roundtrip`.
     ///
-    /// Plain English: Checks that facing block editor preserves marker names and roundtrip.
+    ///
+///  Checks that facing block editor preserves marker names and roundtrip.
     #[test]
     fn facing_block_editor_preserves_marker_names_and_roundtrip() {
         let c=crate::sequence_config::Catalog::parse("[yoshi.neutral.test]\nstart_delay=0\nactions=if_facing_ledge, a:4, end_facing, if_back_to_ledge, b:4, end_facing").unwrap();
@@ -2429,9 +2553,10 @@ mod reaction_editor_tests {
         assert_eq!(d, D::Opponent);
     }
 
-    /// Technical: Regression test for `shield_hold_selector_round_trips_without_losing_neighbor_actions`.
+    /// Regression test for `shield_hold_selector_round_trips_without_losing_neighbor_actions`.
     ///
-    /// Plain English: Checks that shield hold selector round trips without losing neighbor actions.
+    ///
+///  Checks that shield hold selector round trips without losing neighbor actions.
     #[test]
     fn shield_hold_selector_round_trips_without_losing_neighbor_actions() {
         let source = crate::sequence_config::Catalog::parse(
@@ -2469,9 +2594,10 @@ mod reaction_editor_tests {
         ));
     }
 
-    /// Technical: Regression test for `imported_opponent_input_keeps_target_axes_and_duration_editable`.
+    /// Regression test for `imported_opponent_input_keeps_target_axes_and_duration_editable`.
     ///
-    /// Plain English: Checks that imported opponent input keeps target axes and duration editable.
+    ///
+///  Checks that imported opponent input keeps target axes and duration editable.
     #[test]
     fn imported_opponent_input_keeps_target_axes_and_duration_editable() {
         let source = crate::sequence_config::Catalog::parse(
@@ -2503,9 +2629,10 @@ mod reaction_editor_tests {
         );
     }
 
-    /// Technical: Regression test for `assist_ground_only_switch_preserves_other_recipe_fields`.
+    /// Regression test for `assist_ground_only_switch_preserves_other_recipe_fields`.
     ///
-    /// Plain English: Checks that assist ground only switch preserves other recipe fields.
+    ///
+///  Checks that assist ground only switch preserves other recipe fields.
     #[test]
     fn assist_ground_only_switch_preserves_other_recipe_fields() {
         let source=crate::sequence_config::Catalog::parse("[bowser.roll.test]\nstart_delay=0\nreaction=roll_vulnerable:grounded:0:24:10:any:1\nactions=up_b:3\n").unwrap().entries()[0].sequence;
@@ -2527,9 +2654,10 @@ mod reaction_editor_tests {
         assert!(!editor.compiled(key).unwrap().ground_only);
     }
 
-    /// Technical: Regression test for `both_controller_sticks_and_references_are_editable_and_keep_saved_payload`.
+    /// Regression test for `both_controller_sticks_and_references_are_editable_and_keep_saved_payload`.
     ///
-    /// Plain English: Checks that both controller sticks and references are editable and keep saved payload.
+    ///
+///  Checks that both controller sticks and references are editable and keep saved payload.
     #[test]
     fn both_controller_sticks_and_references_are_editable_and_keep_saved_payload() {
         let source = crate::sequence_config::Catalog::parse(
@@ -2568,9 +2696,10 @@ mod reaction_editor_tests {
         ));
     }
 
-    /// Technical: Regression test for `invalid_draft_never_falls_back_to_the_old_recipe_snapshot`.
+    /// Regression test for `invalid_draft_never_falls_back_to_the_old_recipe_snapshot`.
     ///
-    /// Plain English: Checks that invalid draft never falls back to the old recipe snapshot.
+    ///
+///  Checks that invalid draft never falls back to the old recipe snapshot.
     #[test]
     fn invalid_draft_never_falls_back_to_the_old_recipe_snapshot() {
         let catalog = crate::sequence_config::Catalog::parse(
@@ -2601,9 +2730,10 @@ mod reaction_editor_tests {
             "an older saved recipe exists but must not be saved instead"
         );
     }
-    /// Technical: Regression test for `rapid_axis_edits_across_drafts_compile_and_serialize_the_exact_snapshot`.
+    /// Regression test for `rapid_axis_edits_across_drafts_compile_and_serialize_the_exact_snapshot`.
     ///
-    /// Plain English: Checks that rapid axis edits across drafts compile and serialize the exact snapshot.
+    ///
+///  Checks that rapid axis edits across drafts compile and serialize the exact snapshot.
     #[test]
     fn rapid_axis_edits_across_drafts_compile_and_serialize_the_exact_snapshot() {
         let mut e = RecipeEditor::default();
@@ -2654,9 +2784,10 @@ mod reaction_editor_tests {
 #[cfg(test)]
 mod ledge_position_branch_editor_tests {
     use super::*;
-    /// Technical: Regression test for `positioning_fields_edit_and_save_without_converting_to_an_imported_action`.
+    /// Regression test for `positioning_fields_edit_and_save_without_converting_to_an_imported_action`.
     ///
-    /// Plain English: Checks that positioning fields edit and save without converting to an imported action.
+    ///
+///  Checks that positioning fields edit and save without converting to an imported action.
     #[test]
     fn positioning_fields_edit_and_save_without_converting_to_an_imported_action() {
         let c = crate::sequence_config::Catalog::parse(
@@ -2718,9 +2849,10 @@ mod ledge_position_branch_editor_tests {
             assert!(panel.contains(label), "{label}");
         }
     }
-    /// Technical: Regression test for `opponent_branch_controls_are_zero_time_and_keep_single_branch_timing_label`.
+    /// Regression test for `opponent_branch_controls_are_zero_time_and_keep_single_branch_timing_label`.
     ///
-    /// Plain English: Checks that opponent branch controls are zero time and keep single branch timing label.
+    ///
+///  Checks that opponent branch controls are zero time and keep single branch timing label.
     #[test]
     fn opponent_branch_controls_are_zero_time_and_keep_single_branch_timing_label() {
         let cat=crate::sequence_config::Catalog::parse("[bowser.attack.test]\nstart_delay=0\nactions=if_facing_opponent,input:a:0:0:1,else_facing,input:b:0:0:1,end_facing\n").unwrap();

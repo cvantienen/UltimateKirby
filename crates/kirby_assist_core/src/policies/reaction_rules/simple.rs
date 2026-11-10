@@ -1,9 +1,10 @@
 //! One committed response, no vulnerability/priority/crossing decisions.
 use super::*;
 use crate::move_input::{finite_positions, UpBVerdict};
-/// Technical: Returns an optional `event` value.
+/// Returns an optional `event` value.
 ///
-/// Plain English: Gets event if it is available.
+///
+///  Gets event if it is available.
 pub fn event(status: i32) -> Option<usize> {
     match status {
         crate::native_states::ESCAPE_F | crate::native_states::ESCAPE_B => Some(0),
@@ -12,9 +13,10 @@ pub fn event(status: i32) -> Option<usize> {
         _ => None,
     }
 }
-/// Technical: Determines whether the `starts_up_b` condition holds.
+/// Determines whether the `starts_up_b` condition holds.
 ///
-/// Plain English: Checks whether starts up b.
+///
+///  Checks whether starts up b.
 pub(super) fn starts_up_b(sequence: &Sequence) -> bool {
     matches!(sequence.actions().first(),
         Some(crate::sequence_config::Action::Input{buttons,stick,..}
@@ -23,16 +25,18 @@ pub(super) fn starts_up_b(sequence: &Sequence) -> bool {
             if *buttons==crate::native_input::MAPPER_B && stick[1]>0.5)
 }
 impl Engine {
-    /// Technical: Observes the simple events.
+    /// Observes the simple events.
     ///
-    /// Plain English: Observes the simple events.
+    ///
+///  Observes the simple events.
     pub(super) fn observe_simple_events(&mut self, targets: &[Option<Target>; 8]) {
         self.observe_events(targets, None, |t| event(t.status).is_some());
     }
 
-    /// Technical: Returns an optional `simple_candidate` value.
+    /// Returns an optional `simple_candidate` value.
     ///
-    /// Plain English: Gets simple candidate if it is available.
+    ///
+///  Gets simple candidate if it is available.
     fn simple_candidate<'a>(
         &self,
         rules: &'a Resolved,
@@ -87,7 +91,8 @@ impl Engine {
     }
     /// Only a usable immediate Up-B may replace an unaccepted automatic grab.
     /// This does not consume an event, advance a tape or bypass native readiness.
-    /// Plain English: Only a usable immediate Up-B may replace an unaccepted automatic grab. This does not consume an event, advance a tape or bypass native readiness.
+    ///
+///  Only a usable immediate Up-B may replace an unaccepted automatic grab. This does not consume an event, advance a tape or bypass native readiness.
     fn prefers_simple_up_b(
         &self,
         rules: &Resolved,
@@ -109,7 +114,8 @@ impl Engine {
     }
     /// Yield an uncommitted grab or a committed approach before R is delivered.
     /// The caller clears cached grab output before sampling the reaction.
-    /// Plain English: Yield an uncommitted grab or a committed approach before R is delivered. The caller clears cached grab output before sampling the reaction.
+    ///
+///  Yield an uncommitted grab or a committed approach before R is delivered. The caller clears cached grab output before sampling the reaction.
     pub fn preempt_automatic_grab(
         &self,
         allowed: bool,
@@ -142,9 +148,10 @@ impl Engine {
         }
         true
     }
-    /// Technical: Samples the simple.
+    /// Samples the simple.
     ///
-    /// Plain English: Samples the simple.
+    ///
+///  Samples the simple.
     pub fn sample_simple(
         &mut self,
         allowed: bool,
@@ -157,7 +164,8 @@ impl Engine {
         self.sample_simple_ready(allowed, rules, settings, c, targets, follow, [c.can_act; 3])
     }
     /// Drop any tape and treat every remembered event as answered.
-    /// Plain English: Drop any tape and treat every remembered event as answered.
+    ///
+///  Drop any tape and treat every remembered event as answered.
     fn consume_and_cancel(&mut self) -> ControllerOutput {
         self.cancel();
         for track in self.tracks.iter_mut().flatten() {
@@ -165,9 +173,10 @@ impl Engine {
         }
         ControllerOutput::default()
     }
-    /// Technical: Samples the simple ready.
+    /// Samples the simple ready.
     ///
-    /// Plain English: Samples the simple ready.
+    ///
+///  Samples the simple ready.
     pub fn sample_simple_ready(
         &mut self,
         allowed: bool,
@@ -246,7 +255,8 @@ impl Engine {
     /// Commit the nearest ready, unconsumed event. Only a selected event is
     /// consumed; there is no delayed response, so admission still requires a
     /// live event and readiness now.
-    /// Plain English: Commit the nearest ready, unconsumed event. Only a selected event is consumed; there is no delayed response, so admission still requires a live event and readiness now.
+    ///
+///  Commit the nearest ready, unconsumed event. Only a selected event is consumed; there is no delayed response, so admission still requires a live event and readiness now.
     fn admit_simple(
         &mut self,
         rules: &Resolved,
@@ -293,7 +303,8 @@ impl Engine {
     }
     /// Native confirmation and lifecycle of an automatic direct Up-B; false
     /// when this sample must emit nothing.
-    /// Plain English: Native confirmation and lifecycle of an automatic direct Up-B; false when this sample must emit nothing.
+    ///
+///  Native confirmation and lifecycle of an automatic direct Up-B; false when this sample must emit nothing.
     fn advance_up_b(
         &mut self,
         settings: AssistSettings,

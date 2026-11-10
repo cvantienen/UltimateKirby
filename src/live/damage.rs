@@ -6,13 +6,15 @@
 //! storing game-owned pointers.
 use crate::game_ffi as game;
 use kirby_assist_core::auto_di::{BlastZone, Trajectory};
-/// Technical: Cache key containing the object id, damage-stop countdown, and copied blast-zone geometry.
-/// Plain English: Remembers the stage bounds already read for this launched fighter.
+/// Cache key containing the object id, damage-stop countdown, and copied blast-zone geometry.
+///
+///  Remembers the stage bounds already read for this launched fighter.
 pub(super) type GeometryCache = (u32, u64, Option<BlastZone>);
 /// Observes the damage environment for a given object, caching geometry and computing trajectory if applicable.
-/// Technical: Reuses matching cached blast-zone bounds and computes trajectory data
+/// Reuses matching cached blast-zone bounds and computes trajectory data
 /// only during the bounded damage-stop observation window.
-/// Plain English: Estimates the launch path while avoiding unnecessary native reads.
+///
+///  Estimates the launch path while avoiding unnecessary native reads.
 ///
 /// # Safety
 /// The object pointer must be valid for the duration of the native reads.

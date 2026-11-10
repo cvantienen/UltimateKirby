@@ -18,36 +18,46 @@ pub mod health {
     };
 
     #[derive(Clone, Copy)]
-    /// Technical: Category index for timing measurements in health reports.
-    /// Plain English: Names the kind of work whose time is counted.
+    /// Category index for timing measurements in health reports.
+    ///
+    ///  Names the kind of work whose time is counted.
     pub enum Lane {
-        /// Technical: Complete accepted mapping callback, including native game work.
-        /// Plain English: Time for the whole controller-mapping callback.
+        /// Complete accepted mapping callback, including native game work.
+        ///
+        ///  Time for the whole controller-mapping callback.
         Mapping,
-        /// Technical: Menu input and cached-view update lane.
-        /// Plain English: Time spent handling menu input.
+        /// Menu input and cached-view update lane.
+        ///
+        ///  Time spent handling menu input.
         MenuInput,
-        /// Technical: Menu text construction lane.
-        /// Plain English: Time spent rebuilding menu labels.
+        /// Menu text construction lane.
+        ///
+        ///  Time spent rebuilding menu labels.
         MenuBuild,
-        /// Technical: Mod draw callback lane, excluding external renderer work.
-        /// Plain English: Time spent in the plugin's drawing callback.
+        /// Mod draw callback lane, excluding external renderer work.
+        ///
+        ///  Time spent in the plugin's drawing callback.
         Draw,
-        /// Technical: Explicit save worker lane.
-        /// Plain English: Time spent saving settings.
+        /// Explicit save worker lane.
+        ///
+        ///  Time spent saving settings.
         Save,
-        /// Technical: Diagnostic log flush lane.
-        /// Plain English: Time spent flushing log files.
+        /// Diagnostic log flush lane.
+        ///
+        ///  Time spent flushing log files.
         LogFlush,
-        /// Technical: Diagnostic report formatting and write-batch lane.
-        /// Plain English: Time spent preparing and writing diagnostic reports.
+        /// Diagnostic report formatting and write-batch lane.
+        ///
+        ///  Time spent preparing and writing diagnostic reports.
         LogWork,
     }
-    /// Technical: Number of lanes represented by [`Lane`].
-    /// Plain English: How many types of work the health recorder tracks.
+    /// Number of lanes represented by [`Lane`].
+    ///
+    ///  How many types of work the health recorder tracks.
     const LANES: usize = 7;
-    /// Technical: Display label corresponding to each timing lane index.
-    /// Plain English: Names shown beside timing measurements.
+    /// Display label corresponding to each timing lane index.
+    ///
+    ///  Names shown beside timing measurements.
     const LABELS: [&str; LANES] = [
         "Mapping hook (includes game + observations)",
         "Menu input / cache update",
@@ -57,73 +67,95 @@ pub mod health {
         "Diagnostic log flush",
         "Diagnostic formatting/write batch",
     ];
-    /// Technical: Lifetime invocation counters indexed by lane.
-    /// Plain English: Counts how often each kind of work runs.
+    /// Lifetime invocation counters indexed by lane.
+    ///
+    ///  Counts how often each kind of work runs.
     static CALLS: [AtomicUsize; LANES] = [const { AtomicUsize::new(0) }; LANES];
     #[derive(Clone, Copy)]
-    /// Technical: Counted diagnostic event categories used by health windows.
-    /// Plain English: Names notable events the report keeps count of.
+    /// Counted diagnostic event categories used by health windows.
+    ///
+    ///  Names notable events the report keeps count of.
     pub enum Event {
-        /// Technical: A menu snapshot publication was attempted.
-        /// Plain English: The menu view was updated.
+        /// A menu snapshot publication was attempted.
+        ///
+        ///  The menu view was updated.
         MenuPublish,
-        /// Technical: Menu strings were rebuilt.
-        /// Plain English: The plugin regenerated menu text.
+        /// Menu strings were rebuilt.
+        ///
+        ///  The plugin regenerated menu text.
         MenuBuild,
-        /// Technical: A menu publication had to retry due to lock contention.
-        /// Plain English: A menu update could not proceed right away.
+        /// A menu publication had to retry due to lock contention.
+        ///
+        ///  A menu update could not proceed right away.
         MenuRetry,
-        /// Technical: Settings were resolved for a sequence or recipe.
-        /// Plain English: The plugin looked up settings for a selected move.
+        /// Settings were resolved for a sequence or recipe.
+        ///
+        ///  The plugin looked up settings for a selected move.
         Resolve,
-        /// Technical: The selected fighter/profile changed.
-        /// Plain English: The player switched to a different character.
+        /// The selected fighter/profile changed.
+        ///
+        ///  The player switched to a different character.
         FighterChange,
-        /// Technical: Match-scoped state was reset.
-        /// Plain English: The plugin cleared state for a match transition.
+        /// Match-scoped state was reset.
+        ///
+        ///  The plugin cleared state for a match transition.
         StateReset,
-        /// Technical: A save worker began processing a save request.
-        /// Plain English: A settings save started.
+        /// A save worker began processing a save request.
+        ///
+        ///  A settings save started.
         SaveStarted,
-        /// Technical: A save worker completed successfully.
-        /// Plain English: A settings save finished.
+        /// A save worker completed successfully.
+        ///
+        ///  A settings save finished.
         SaveCompleted,
-        /// Technical: A save worker failed.
-        /// Plain English: A settings save did not succeed.
+        /// A save worker failed.
+        ///
+        ///  A settings save did not succeed.
         SaveFailed,
-        /// Technical: A diagnostic message was dropped from the bounded queue.
-        /// Plain English: A log message could not fit in the waiting queue.
+        /// A diagnostic message was dropped from the bounded queue.
+        ///
+        ///  A log message could not fit in the waiting queue.
         LogDropped,
-        /// Technical: A local observation pass was entered.
-        /// Plain English: The plugin started checking fighter state.
+        /// A local observation pass was entered.
+        ///
+        ///  The plugin started checking fighter state.
         Observation,
-        /// Technical: A duplicate observation was skipped.
-        /// Plain English: A repeated state check was avoided.
+        /// A duplicate observation was skipped.
+        ///
+        ///  A repeated state check was avoided.
         ObservationReuse,
-        /// Technical: A fighter roster scan was performed.
-        /// Plain English: The plugin listed the current fighters.
+        /// A fighter roster scan was performed.
+        ///
+        ///  The plugin listed the current fighters.
         RosterScan,
-        /// Technical: A complete local policy evaluation was performed.
-        /// Plain English: All active helper checks were run.
+        /// A complete local policy evaluation was performed.
+        ///
+        ///  All active helper checks were run.
         FullObservation,
-        /// Technical: A collected observation failed publication freshness checks.
-        /// Plain English: Old fighter data was discarded instead of being used.
+        /// A collected observation failed publication freshness checks.
+        ///
+        ///  Old fighter data was discarded instead of being used.
         PublicationDiscard,
-        /// Technical: One or more requests expired due to staleness.
-        /// Plain English: A helper request was too old to use.
+        /// One or more requests expired due to staleness.
+        ///
+        ///  A helper request was too old to use.
         InputExpired,
-        /// Technical: A sequence was canceled after a native animation-clock gap.
-        /// Plain English: A sequence stopped because the fighter's timing jumped.
+        /// A sequence was canceled after a native animation-clock gap.
+        ///
+        ///  A sequence stopped because the fighter's timing jumped.
         TimelineGap,
-        /// Technical: A sequence was canceled because its motion clock was invalid or timed out.
-        /// Plain English: A sequence stopped because its animation timing was unusable.
+        /// A sequence was canceled because its motion clock was invalid or timed out.
+        ///
+        ///  A sequence stopped because its animation timing was unusable.
         TimelineClockAbort,
     }
-    /// Technical: Number of event categories represented by [`Event`].
-    /// Plain English: How many event types the report counts.
+    /// Number of event categories represented by [`Event`].
+    ///
+    ///  How many event types the report counts.
     const EVENTS: usize = 18;
-    /// Technical: Human-readable event labels matching the enum discriminants.
-    /// Plain English: Names shown beside the event totals.
+    /// Human-readable event labels matching the enum discriminants.
+    ///
+    ///  Names shown beside the event totals.
     const EVENT_NAMES: [&str; EVENTS] = [
         "menu publish attempts",
         "menu text rebuilds",
@@ -144,82 +176,106 @@ pub mod health {
         "sequence cancellations: native clock gap",
         "sequence cancellations: invalid clock/timeout",
     ];
-    /// Technical: Lifetime atomic counters indexed by event discriminant.
-    /// Plain English: Running totals for each diagnostic event.
+    /// Lifetime atomic counters indexed by event discriminant.
+    ///
+    ///  Running totals for each diagnostic event.
     static COUNTS: [AtomicUsize; EVENTS] = [const { AtomicUsize::new(0) }; EVENTS];
-    /// Technical: Current approximate logger-queue occupancy.
-    /// Plain English: How many log messages are currently waiting.
+    /// Current approximate logger-queue occupancy.
+    ///
+    ///  How many log messages are currently waiting.
     static DEPTH: AtomicUsize = AtomicUsize::new(0);
-    /// Technical: Maximum queue occupancy observed in the active epoch.
-    /// Plain English: The highest number of waiting log messages seen.
+    /// Maximum queue occupancy observed in the active epoch.
+    ///
+    ///  The highest number of waiting log messages seen.
     static PEAK_DEPTH: AtomicUsize = AtomicUsize::new(0);
-    /// Technical: Number of active save/report workers.
-    /// Plain English: How many background workers are running now.
+    /// Number of active save/report workers.
+    ///
+    ///  How many background workers are running now.
     static ACTIVE: AtomicUsize = AtomicUsize::new(0);
-    /// Technical: Maximum active-worker count observed.
-    /// Plain English: The most background workers that ran at once.
+    /// Maximum active-worker count observed.
+    ///
+    ///  The most background workers that ran at once.
     static PEAK_ACTIVE: AtomicUsize = AtomicUsize::new(0);
-    /// Technical: Current retained profile count supplied by menu accounting.
-    /// Plain English: How many fighter profiles are retained.
+    /// Current retained profile count supplied by menu accounting.
+    ///
+    ///  How many fighter profiles are retained.
     static PROFILES: AtomicUsize = AtomicUsize::new(0);
-    /// Technical: Current retained editor-recipe count.
-    /// Plain English: How many saved editor recipes are retained.
+    /// Current retained editor-recipe count.
+    ///
+    ///  How many saved editor recipes are retained.
     static RECIPES: AtomicUsize = AtomicUsize::new(0);
-    /// Technical: Current retained draft count.
-    /// Plain English: How many unsaved drafts are retained.
+    /// Current retained draft count.
+    ///
+    ///  How many unsaved drafts are retained.
     static DRAFTS: AtomicUsize = AtomicUsize::new(0);
-    /// Technical: Current estimated owned payload bytes.
-    /// Plain English: Approximate memory used by saved menu data.
+    /// Current estimated owned payload bytes.
+    ///
+    ///  Approximate memory used by saved menu data.
     static RETAINED: AtomicUsize = AtomicUsize::new(0);
-    /// Technical: Peak estimated retained payload bytes.
-    /// Plain English: Largest saved-menu memory estimate seen.
+    /// Peak estimated retained payload bytes.
+    ///
+    ///  Largest saved-menu memory estimate seen.
     static PEAK_RETAINED: AtomicUsize = AtomicUsize::new(0);
-    /// Technical: Current cached view payload bytes.
-    /// Plain English: Approximate memory used by the current menu display.
+    /// Current cached view payload bytes.
+    ///
+    ///  Approximate memory used by the current menu display.
     static VIEW: AtomicUsize = AtomicUsize::new(0);
-    /// Technical: Peak cached view payload bytes.
-    /// Plain English: Largest menu-display memory estimate seen.
+    /// Peak cached view payload bytes.
+    ///
+    ///  Largest menu-display memory estimate seen.
     static PEAK_VIEW: AtomicUsize = AtomicUsize::new(0);
-    /// Technical: Number of timing/window updates skipped due to lock contention.
-    /// Plain English: Counts diagnostic samples missed because state was busy.
+    /// Number of timing/window updates skipped due to lock contention.
+    ///
+    ///  Counts diagnostic samples missed because state was busy.
     static MISSED: AtomicUsize = AtomicUsize::new(0);
     #[derive(Clone, Copy, Default)]
-    /// Technical: Accumulated timing statistics for one lane.
-    /// Plain English: Stores sample count and elapsed time for one kind of work.
+    /// Accumulated timing statistics for one lane.
+    ///
+    ///  Stores sample count and elapsed time for one kind of work.
     struct Timing {
-        /// Technical: Number of sampled executions.
-        /// Plain English: How many timing samples were recorded.
+        /// Number of sampled executions.
+        ///
+        ///  How many timing samples were recorded.
         samples: u64,
-        /// Technical: Saturating sum of sampled nanoseconds.
-        /// Plain English: Total time across recorded samples.
+        /// Saturating sum of sampled nanoseconds.
+        ///
+        ///  Total time across recorded samples.
         nanos: u64,
-        /// Technical: Maximum sampled duration in nanoseconds.
-        /// Plain English: Longest sample recorded.
+        /// Maximum sampled duration in nanoseconds.
+        ///
+        ///  Longest sample recorded.
         max: u64,
-        /// Technical: Count of samples lasting at least one millisecond.
-        /// Plain English: How many samples took one millisecond or longer.
+        /// Count of samples lasting at least one millisecond.
+        ///
+        ///  How many samples took one millisecond or longer.
         over_ms: u64,
     }
     #[derive(Clone, Copy, Default)]
-    /// Technical: Snapshot of retained menu counts and payload estimate.
-    /// Plain English: Current counts and estimated size of saved menu data.
+    /// Snapshot of retained menu counts and payload estimate.
+    ///
+    ///  Current counts and estimated size of saved menu data.
     struct Memory {
-        /// Technical: Retained profile count.
-        /// Plain English: Number of profiles kept in memory.
+        /// Retained profile count.
+        ///
+        ///  Number of profiles kept in memory.
         profiles: usize,
-        /// Technical: Retained editor recipe count.
-        /// Plain English: Number of recipes kept in memory.
+        /// Retained editor recipe count.
+        ///
+        ///  Number of recipes kept in memory.
         recipes: usize,
-        /// Technical: Retained draft count.
-        /// Plain English: Number of drafts kept in memory.
+        /// Retained draft count.
+        ///
+        ///  Number of drafts kept in memory.
         drafts: usize,
-        /// Technical: Estimated owned payload bytes.
-        /// Plain English: Approximate memory used by those items.
+        /// Estimated owned payload bytes.
+        ///
+        ///  Approximate memory used by those items.
         bytes: usize,
     }
     impl Memory {
-        /// Technical: Reads current atomic memory-accounting values.
-        /// Plain English: Takes a snapshot of menu memory counts.
+        /// Reads current atomic memory-accounting values.
+        ///
+        ///  Takes a snapshot of menu memory counts.
         fn read() -> Self {
             Self {
                 profiles: PROFILES.load(Relaxed),
@@ -228,52 +284,66 @@ pub mod health {
                 bytes: RETAINED.load(Relaxed),
             }
         }
-        /// Technical: Compares counts while intentionally ignoring payload size.
-        /// Plain English: Checks whether the number of items stayed the same.
+        /// Compares counts while intentionally ignoring payload size.
+        ///
+        ///  Checks whether the number of items stayed the same.
         fn same_items(self, old: Self) -> bool {
             (self.profiles, self.recipes, self.drafts) == (old.profiles, old.recipes, old.drafts)
         }
     }
-    /// Technical: Rolling interval data and lifetime-counter baselines for a health report.
-    /// Plain English: Holds the measurements and previous totals used to make each report.
+    /// Rolling interval data and lifetime-counter baselines for a health report.
+    ///
+    ///  Holds the measurements and previous totals used to make each report.
     struct Window {
-        /// Technical: Diagnostic generation to which this rolling window belongs.
-        /// Plain English: Which enabled measurement period these numbers describe.
+        /// Diagnostic generation to which this rolling window belongs.
+        ///
+        ///  Which enabled measurement period these numbers describe.
         epoch: usize,
-        /// Technical: Start time of the current aggregate interval.
-        /// Plain English: When this report window began.
+        /// Start time of the current aggregate interval.
+        ///
+        ///  When this report window began.
         since: Option<Instant>,
-        /// Technical: Per-lane sampled duration aggregates.
-        /// Plain English: Timing totals for each kind of work.
+        /// Per-lane sampled duration aggregates.
+        ///
+        ///  Timing totals for each kind of work.
         timing: [Timing; LANES],
-        /// Technical: Most recent draw-callback timestamp.
-        /// Plain English: When the last plugin draw callback ran.
+        /// Most recent draw-callback timestamp.
+        ///
+        ///  When the last plugin draw callback ran.
         last_draw: Option<Instant>,
-        /// Technical: Largest observed interval between draw callbacks in microseconds.
-        /// Plain English: Longest pause between two plugin draw updates.
+        /// Largest observed interval between draw callbacks in microseconds.
+        ///
+        ///  Longest pause between two plugin draw updates.
         draw_gap_max: u64,
-        /// Technical: Counts of draw gaps exceeding 25, 50, and 100 milliseconds.
-        /// Plain English: How often drawing updates were widely spaced.
+        /// Counts of draw gaps exceeding 25, 50, and 100 milliseconds.
+        ///
+        ///  How often drawing updates were widely spaced.
         gaps: [u64; 3],
-        /// Technical: Lifetime lane counters captured at the previous window boundary.
-        /// Plain English: Earlier call totals used to calculate new activity.
+        /// Lifetime lane counters captured at the previous window boundary.
+        ///
+        ///  Earlier call totals used to calculate new activity.
         last_calls: [usize; LANES],
-        /// Technical: Lifetime event counters captured at the previous window boundary.
-        /// Plain English: Earlier event totals used to calculate new activity.
+        /// Lifetime event counters captured at the previous window boundary.
+        ///
+        ///  Earlier event totals used to calculate new activity.
         last_events: [usize; EVENTS],
-        /// Technical: Previous memory snapshot for growth comparison.
-        /// Plain English: Earlier menu memory counts used to check for unexplained growth.
+        /// Previous memory snapshot for growth comparison.
+        ///
+        ///  Earlier menu memory counts used to check for unexplained growth.
         memory: Option<Memory>,
-        /// Technical: Consecutive windows with stable counts and increasing payload.
-        /// Plain English: How many report periods showed unexplained memory growth.
+        /// Consecutive windows with stable counts and increasing payload.
+        ///
+        ///  How many report periods showed unexplained memory growth.
         growth_streak: u8,
-        /// Technical: Consecutive windows with active save workers but no completion/failure.
-        /// Plain English: How long a save worker has appeared stuck.
+        /// Consecutive windows with active save workers but no completion/failure.
+        ///
+        ///  How long a save worker has appeared stuck.
         save_streak: u8,
     }
     impl Window {
-        /// Technical: Initializes zeroed timing, counter baselines, and streak state.
-        /// Plain English: Starts an empty performance report window.
+        /// Initializes zeroed timing, counter baselines, and streak state.
+        ///
+        ///  Starts an empty performance report window.
         const fn new() -> Self {
             Self {
                 epoch: 0,
@@ -295,8 +365,9 @@ pub mod health {
             }
         }
         /// Start an empty window; lifetime counters stay, only their baselines move.
-        /// Technical: Resets interval aggregates and snapshots cumulative counters for deltas.
-        /// Plain English: Begins a fresh report period without erasing lifetime counts.
+        /// Resets interval aggregates and snapshots cumulative counters for deltas.
+        ///
+        ///  Begins a fresh report period without erasing lifetime counts.
         fn restart(&mut self, epoch: usize) {
             *self = Self::new();
             self.epoch = epoch;
@@ -304,42 +375,49 @@ pub mod health {
             self.last_events = std::array::from_fn(|i| COUNTS[i].load(Relaxed));
         }
     }
-    /// Technical: Protects the current bounded health-report aggregation window.
-    /// Plain English: Holds the timing totals being collected for the next report.
+    /// Protects the current bounded health-report aggregation window.
+    ///
+    ///  Holds the timing totals being collected for the next report.
     static WINDOW: Mutex<Window> = Mutex::new(Window::new());
-    /// Technical: Restarts a window when its diagnostic generation changes.
-    /// Plain English: Clears old period totals when performance settings are reset.
+    /// Restarts a window when its diagnostic generation changes.
+    ///
+    ///  Clears old period totals when performance settings are reset.
     fn sync_epoch(w: &mut Window, epoch: usize) {
         if w.epoch != epoch {
             w.restart(epoch);
         }
     }
 
-    /// Technical: Increments one lifetime event counter.
-    /// Plain English: Records that a diagnostic event happened once.
+    /// Increments one lifetime event counter.
+    ///
+    ///  Records that a diagnostic event happened once.
     pub fn event(e: Event) {
         add_event(e, 1);
     }
-    /// Technical: Adds `n` occurrences to an event's lifetime counter.
-    /// Plain English: Adds several occurrences to the event total at once.
+    /// Adds `n` occurrences to an event's lifetime counter.
+    ///
+    ///  Adds several occurrences to the event total at once.
     pub fn add_event(e: Event, n: usize) {
         COUNTS[e as usize].fetch_add(n, Relaxed);
     }
     /// Reservations precede try_send so a fast receiver cannot underflow the gauge.
     /// Occupancy is approximate during handoff and capped at the actual channel limit.
-    /// Technical: Reserves one approximate queue slot and updates the capped peak.
-    /// Plain English: Counts a message before it is handed to the logger queue.
+    /// Reserves one approximate queue slot and updates the capped peak.
+    ///
+    ///  Counts a message before it is handed to the logger queue.
     pub fn queue_enter() {
         let n = DEPTH.fetch_add(1, Relaxed) + 1;
         PEAK_DEPTH.fetch_max(n.min(128), Relaxed);
     }
-    /// Technical: Releases one previously reserved queue slot.
-    /// Plain English: Removes a message from the waiting-count estimate.
+    /// Releases one previously reserved queue slot.
+    ///
+    ///  Removes a message from the waiting-count estimate.
     pub fn queue_leave() {
         DEPTH.fetch_sub(1, Relaxed);
     }
-    /// Technical: Publishes current retained-menu counts and updates the payload peak.
-    /// Plain English: Updates memory estimates for profiles, recipes, and drafts.
+    /// Publishes current retained-menu counts and updates the payload peak.
+    ///
+    ///  Updates memory estimates for profiles, recipes, and drafts.
     pub fn retained(profiles: usize, recipes: usize, drafts: usize, bytes: usize) {
         PROFILES.store(profiles, Relaxed);
         RECIPES.store(recipes, Relaxed);
@@ -347,18 +425,21 @@ pub mod health {
         RETAINED.store(bytes, Relaxed);
         PEAK_RETAINED.fetch_max(bytes, Relaxed);
     }
-    /// Technical: Publishes current cached-view bytes and updates the view peak.
-    /// Plain English: Updates the estimated size of the displayed menu text.
+    /// Publishes current cached-view bytes and updates the view peak.
+    ///
+    ///  Updates the estimated size of the displayed menu text.
     pub fn view_bytes(bytes: usize) {
         VIEW.store(bytes, Relaxed);
         PEAK_VIEW.fetch_max(bytes, Relaxed);
     }
-    /// Technical: RAII marker for a currently active background worker.
-    /// Plain English: Counts a save worker while it is running.
+    /// RAII marker for a currently active background worker.
+    ///
+    ///  Counts a save worker while it is running.
     pub struct Worker;
     impl Worker {
-        /// Technical: Increments active-worker counters and records a save-start event.
-        /// Plain English: Marks a save worker as started.
+        /// Increments active-worker counters and records a save-start event.
+        ///
+        ///  Marks a save worker as started.
         pub fn start() -> Self {
             event(Event::SaveStarted);
             let n = ACTIVE.fetch_add(1, Relaxed) + 1;
@@ -367,29 +448,35 @@ pub mod health {
         }
     }
     impl Drop for Worker {
-        /// Technical: Decrements the active-worker count when the marker is dropped.
-        /// Plain English: Marks the save worker as finished.
+        /// Decrements the active-worker count when the marker is dropped.
+        ///
+        ///  Marks the save worker as finished.
         fn drop(&mut self) {
             ACTIVE.fetch_sub(1, Relaxed);
         }
     }
 
-    /// Technical: RAII timer for a sampled health-report lane.
-    /// Plain English: Measures one piece of plugin work when sampling is enabled.
+    /// RAII timer for a sampled health-report lane.
+    ///
+    ///  Measures one piece of plugin work when sampling is enabled.
     pub struct Trace {
-        /// Technical: Timing-lane index recorded by this guard.
-        /// Plain English: Which kind of work this timer measures.
+        /// Timing-lane index recorded by this guard.
+        ///
+        ///  Which kind of work this timer measures.
         lane: usize,
-        /// Technical: Diagnostic generation captured at timer creation.
-        /// Plain English: Prevents an old timer from entering a newer report period.
+        /// Diagnostic generation captured at timer creation.
+        ///
+        ///  Prevents an old timer from entering a newer report period.
         epoch: usize,
-        /// Technical: Start instant for sampled timing, absent when not selected.
-        /// Plain English: When this measured operation began, if it was sampled.
+        /// Start instant for sampled timing, absent when not selected.
+        ///
+        ///  When this measured operation began, if it was sampled.
         start: Option<Instant>,
     }
     impl Trace {
-        /// Technical: Starts a sampled lane timer according to the active sampling cadence.
-        /// Plain English: Begins timing this operation when it is selected for measurement.
+        /// Starts a sampled lane timer according to the active sampling cadence.
+        ///
+        ///  Begins timing this operation when it is selected for measurement.
         pub fn new(lane: Lane) -> Self {
             let epoch = super::EPOCH.load(Relaxed);
             let start = if super::enabled() {
@@ -407,8 +494,9 @@ pub mod health {
         }
     }
     impl Drop for Trace {
-        /// Technical: Accumulates duration only if the timer still matches the active epoch.
-        /// Plain English: Adds the measured time to the current report if it is still current.
+        /// Accumulates duration only if the timer still matches the active epoch.
+        ///
+        ///  Adds the measured time to the current report if it is still current.
         fn drop(&mut self) {
             let Some(start) = self.start else {
                 return;
@@ -433,8 +521,9 @@ pub mod health {
             }
         }
     }
-    /// Technical: Updates callback-gap timing and threshold buckets without blocking.
-    /// Plain English: Records how much time passed between plugin draw updates.
+    /// Updates callback-gap timing and threshold buckets without blocking.
+    ///
+    ///  Records how much time passed between plugin draw updates.
     pub fn draw_tick(now: Instant) {
         if !super::enabled() {
             return;
@@ -453,15 +542,17 @@ pub mod health {
             MISSED.fetch_add(1, Relaxed);
         }
     }
-    /// Technical: Restarts the aggregate window while preserving lifetime atomics.
-    /// Plain English: Clears the current report period but keeps overall event totals.
+    /// Restarts the aggregate window while preserving lifetime atomics.
+    ///
+    ///  Clears the current report period but keeps overall event totals.
     pub fn clear_window() {
         if let Ok(mut w) = WINDOW.try_lock() {
             w.restart(super::EPOCH.load(Relaxed));
         }
     }
-    /// Technical: Produces a report after five seconds of data, using try-lock snapshots.
-    /// Plain English: Builds a periodic health report when enough data is available.
+    /// Produces a report after five seconds of data, using try-lock snapshots.
+    ///
+    ///  Builds a periodic health report when enough data is available.
     pub fn report() -> Option<String> {
         if !super::enabled() {
             return None;
@@ -470,7 +561,18 @@ pub mod health {
         let epoch = super::EPOCH.load(Relaxed);
         let memory = Memory::read();
         let workers = ACTIVE.load(Relaxed);
-        let (timing, calls, delta, events, event_delta, gap, gaps, elapsed, growth_streak, save_streak) = {
+        let (
+            timing,
+            calls,
+            delta,
+            events,
+            event_delta,
+            gap,
+            gaps,
+            elapsed,
+            growth_streak,
+            save_streak,
+        ) = {
             let mut w = WINDOW.try_lock().ok()?;
             if epoch != super::EPOCH.load(Relaxed) {
                 return None;
@@ -482,7 +584,8 @@ pub mod health {
             }
             let calls = std::array::from_fn::<_, LANES, _>(|i| CALLS[i].load(Relaxed));
             let events = std::array::from_fn::<_, EVENTS, _>(|i| COUNTS[i].load(Relaxed));
-            let delta = std::array::from_fn::<_, LANES, _>(|i| calls[i].wrapping_sub(w.last_calls[i]));
+            let delta =
+                std::array::from_fn::<_, LANES, _>(|i| calls[i].wrapping_sub(w.last_calls[i]));
             let event_delta =
                 std::array::from_fn::<_, EVENTS, _>(|i| events[i].wrapping_sub(w.last_events[i]));
             let unexplained_growth = w
@@ -587,7 +690,8 @@ pub mod health {
 
     /// Worker-only investigation hints. Thresholds are not a diagnosis of heat,
     /// network delay, whole-process CPU use, GPU load, or a verified memory leak.
-    /// Plain English: These warnings point to things to investigate, not proven causes.
+    ///
+    ///  These warnings point to things to investigate, not proven causes.
     fn review(
         t: &[Timing; LANES],
         calls: &[usize; LANES],
@@ -632,7 +736,8 @@ pub mod health {
                 "The mod draw callback exceeded 2ms. This excludes the rest of the renderer.",
             );
         }
-        if t[Lane::LogFlush as usize].max >= 5_000_000 || t[Lane::LogWork as usize].max >= 5_000_000 {
+        if t[Lane::LogFlush as usize].max >= 5_000_000 || t[Lane::LogWork as usize].max >= 5_000_000
+        {
             flag("LOGGER_COST","A diagnostic write/format batch exceeded 5ms on its worker. Logging may affect the test; silent excludes it.");
         }
         if workers > 1 || save_age >= 2 {
@@ -654,8 +759,9 @@ pub mod health {
     }
 
     #[cfg(test)]
-    /// Technical: Exercises health-window collection and reset behavior for unit tests.
-    /// Plain English: Sets up sample data and checks that the report is produced and cleared.
+    /// Exercises health-window collection and reset behavior for unit tests.
+    ///
+    ///  Sets up sample data and checks that the report is produced and cleared.
     pub(super) fn exercise_report() {
         retained(2, 3, 4, 500);
         view_bytes(100);
@@ -686,13 +792,15 @@ pub mod health {
     }
 
     #[cfg(test)]
-    /// Technical: Regressions for health-triage criteria and their diagnostic limitations.
-    /// Plain English: Checks warnings are useful without claiming more than the data proves.
+    /// Regressions for health-triage criteria and their diagnostic limitations.
+    ///
+    ///  Checks warnings are useful without claiming more than the data proves.
     mod triage_tests {
         use super::*;
         #[test]
-        /// Technical: Verifies distinct event and timing thresholds produce their labeled flags.
-        /// Plain English: Checks several separate problems are reported with the right hints.
+        /// Verifies distinct event and timing thresholds produce their labeled flags.
+        ///
+        ///  Checks several separate problems are reported with the right hints.
         fn flags_separate_expiry_reprocessing_logger_and_growth_from_proof_of_heat() {
             let mut t = [Timing::default(); LANES];
             let mut calls = [0; LANES];
@@ -718,8 +826,9 @@ pub mod health {
             assert!(text.contains("not proof"));
         }
         #[test]
-        /// Technical: Verifies a quiet interval does not imply health and thresholds are contextual.
-        /// Plain English: Checks the report avoids declaring the whole system healthy.
+        /// Verifies a quiet interval does not imply health and thresholds are contextual.
+        ///
+        ///  Checks the report avoids declaring the whole system healthy.
         fn quiet_window_does_not_claim_system_health_and_expected_edits_need_context() {
             let text = review(
                 &[Timing::default(); LANES],
@@ -748,45 +857,58 @@ use std::{
 };
 
 #[derive(Clone, Copy)]
-/// Technical: Index for nested observation-timing regions and their counters.
-/// Plain English: Names the parts of fighter observation that can be timed.
+/// Index for nested observation-timing regions and their counters.
+///
+///  Names the parts of fighter observation that can be timed.
 pub enum Part {
-    /// Technical: Outer aggregate covering all local-observation work.
-    /// Plain English: Total time for the complete local observation.
+    /// Outer aggregate covering all local-observation work.
+    ///
+    ///  Total time for the complete local observation.
     Total,
-    /// Technical: Tech prediction sub-region.
-    /// Plain English: Time used to predict tech timing.
+    /// Tech prediction sub-region.
+    ///
+    ///  Time used to predict tech timing.
     Tech,
-    /// Technical: Ledge tracking and setup sub-region.
-    /// Plain English: Time spent checking ledge state.
+    /// Ledge tracking and setup sub-region.
+    ///
+    ///  Time spent checking ledge state.
     Ledge,
-    /// Technical: Incoming attack defense sub-region.
-    /// Plain English: Time spent checking how to defend from attacks.
+    /// Incoming attack defense sub-region.
+    ///
+    ///  Time spent checking how to defend from attacks.
     Shield,
-    /// Technical: Floor-support observation sub-region.
-    /// Plain English: Time spent checking the fighter's floor support.
+    /// Floor-support observation sub-region.
+    ///
+    ///  Time spent checking the fighter's floor support.
     Ground,
-    /// Technical: Roll detection sub-region.
-    /// Plain English: Time spent checking for rolls.
+    /// Roll detection sub-region.
+    ///
+    ///  Time spent checking for rolls.
     Roll,
-    /// Technical: Grab detection sub-region.
-    /// Plain English: Time spent checking for grabs.
+    /// Grab detection sub-region.
+    ///
+    ///  Time spent checking for grabs.
     Grabs,
-    /// Technical: Opponent-facing helper sub-region.
-    /// Plain English: Time spent checking the opponent-facing helper.
+    /// Opponent-facing helper sub-region.
+    ///
+    ///  Time spent checking the opponent-facing helper.
     Posture,
-    /// Technical: Trip and attacker-target sub-region.
-    /// Plain English: Time spent checking trip and attacker targets.
+    /// Trip and attacker-target sub-region.
+    ///
+    ///  Time spent checking trip and attacker targets.
     Trip,
-    /// Technical: Combo decision sub-region.
-    /// Plain English: Time spent checking combo decisions.
+    /// Combo decision sub-region.
+    ///
+    ///  Time spent checking combo decisions.
     Combo,
 }
-/// Technical: Number of distinct observation regions through [`Part::Combo`].
-/// Plain English: How many types of observation work are tracked.
+/// Number of distinct observation regions through [`Part::Combo`].
+///
+///  How many types of observation work are tracked.
 const N: usize = Part::Combo as usize + 1;
-/// Technical: Display label matching each observation region index.
-/// Plain English: Names used in observation timing reports.
+/// Display label matching each observation region index.
+///
+///  Names used in observation timing reports.
 const LABELS: [&str; N] = [
     "All local observation work",
     "Tech prediction",
@@ -799,53 +921,68 @@ const LABELS: [&str; N] = [
     "Trip / attacker targets",
     "Combo decisions",
 ];
-/// Technical: Manually supplied external-latency label, stored as zero-or-one-based frames.
-/// Plain English: A player-entered label for external input delay.
+/// Manually supplied external-latency label, stored as zero-or-one-based frames.
+///
+///  A player-entered label for external input delay.
 static TEST_LATENCY: AtomicUsize = AtomicUsize::new(0);
-/// Technical: Enables optional diagnostic instrumentation.
-/// Plain English: Turns performance measurements on or off.
+/// Enables optional diagnostic instrumentation.
+///
+///  Turns performance measurements on or off.
 static ENABLED: AtomicBool = AtomicBool::new(false);
-/// Technical: Indicates that the current root observation was selected for sampling.
-/// Plain English: Marks whether this observation should be measured.
+/// Indicates that the current root observation was selected for sampling.
+///
+///  Marks whether this observation should be measured.
 static SAMPLE: AtomicBool = AtomicBool::new(false);
-/// Technical: Monotonic invocation counter used for one-in-sixteen sampling.
-/// Plain English: Picks occasional observations to measure.
+/// Monotonic invocation counter used for one-in-sixteen sampling.
+///
+///  Picks occasional observations to measure.
 static TICK: AtomicUsize = AtomicUsize::new(0);
-/// Technical: Current nested observation region index for ray attribution.
-/// Plain English: Tracks which observation section is currently running.
+/// Current nested observation region index for ray attribution.
+///
+///  Tracks which observation section is currently running.
 static CURRENT: AtomicUsize = AtomicUsize::new(0);
-/// Technical: Generation counter invalidating measurements and cards across resets.
-/// Plain English: Distinguishes current diagnostics from earlier sessions.
+/// Generation counter invalidating measurements and cards across resets.
+///
+///  Distinguishes current diagnostics from earlier sessions.
 static EPOCH: AtomicUsize = AtomicUsize::new(0);
 #[derive(Clone, Copy)]
-/// Technical: Fixed-size sampled observation timing and ray counters for one epoch.
-/// Plain English: Stores performance totals for the current measurement period.
+/// Fixed-size sampled observation timing and ray counters for one epoch.
+///
+///  Stores performance totals for the current measurement period.
 struct Counters {
-    /// Technical: Diagnostic generation to which these counters belong.
-    /// Plain English: Which measurement session these totals describe.
+    /// Diagnostic generation to which these counters belong.
+    ///
+    ///  Which measurement session these totals describe.
     epoch: usize,
-    /// Technical: Sampled invocation count for each observation part.
-    /// Plain English: How many measured calls each part had.
+    /// Sampled invocation count for each observation part.
+    ///
+    ///  How many measured calls each part had.
     calls: [u64; N],
-    /// Technical: Saturating-compatible accumulated nanoseconds per part.
-    /// Plain English: Total measured time for each part.
+    /// Saturating-compatible accumulated nanoseconds per part.
+    ///
+    ///  Total measured time for each part.
     nanos: [u64; N],
-    /// Technical: Maximum sampled duration in nanoseconds per part.
-    /// Plain English: Longest measured call for each part.
+    /// Maximum sampled duration in nanoseconds per part.
+    ///
+    ///  Longest measured call for each part.
     max: [u64; N],
-    /// Technical: Raycast/geometry observation count attributed to each part.
-    /// Plain English: How many ray checks happened in each part.
+    /// Raycast/geometry observation count attributed to each part.
+    ///
+    ///  How many ray checks happened in each part.
     rays: [u64; N],
-    /// Technical: Most recent sampled observation completion time.
-    /// Plain English: When the latest measured observation ended.
+    /// Most recent sampled observation completion time.
+    ///
+    ///  When the latest measured observation ended.
     seen: Option<Instant>,
-    /// Technical: Start time of the current report interval.
-    /// Plain English: When this timing report window began.
+    /// Start time of the current report interval.
+    ///
+    ///  When this timing report window began.
     since: Option<Instant>,
 }
 impl Counters {
-    /// Technical: Constructs an empty counter set at epoch zero.
-    /// Plain English: Starts a new empty observation timing record.
+    /// Constructs an empty counter set at epoch zero.
+    ///
+    ///  Starts a new empty observation timing record.
     const fn new() -> Self {
         Self {
             epoch: 0,
@@ -858,8 +995,9 @@ impl Counters {
         }
     }
     /// Start a fresh window if the counters belong to an older epoch.
-    /// Technical: Resets sampled totals when their generation no longer matches.
-    /// Plain English: Clears old measurements when diagnostics have been reset.
+    /// Resets sampled totals when their generation no longer matches.
+    ///
+    ///  Clears old measurements when diagnostics have been reset.
     fn sync(&mut self, epoch: usize) {
         if self.epoch != epoch {
             *self = Self::new();
@@ -867,26 +1005,35 @@ impl Counters {
         }
     }
 }
-/// Technical: Protects the fixed-size observation timing snapshot.
-/// Plain English: Holds the current timing totals.
+/// Protects the fixed-size observation timing snapshot.
+///
+///  Holds the current timing totals.
 static STATS: Mutex<Counters> = Mutex::new(Counters::new());
-/// Technical: Shared epoch-tagged diagnostic card shown by the renderer.
-/// Plain English: Stores the latest diagnostic report for display.
+/// Shared epoch-tagged diagnostic card shown by the renderer.
+///
+///  Stores the latest diagnostic report for display.
 static CARD: Card = Card::new();
 
 /// Text card tagged with the epoch that produced it. The logger worker publishes;
 /// drawing only try-locks, so it never waits and never shows an older epoch.
-/// Plain English: The background logger can update this report card without making drawing wait.
-pub struct Card(#[doc = "Technical: Optional report text paired with the generation that produced it."] #[doc = "Plain English: The report text and its session number, when one is ready."] pub(crate) Mutex<Option<(usize, CString)>>);
+///
+///  The background logger can update this report card without making drawing wait.
+pub struct Card(
+    #[doc = "Technical: Optional report text paired with the generation that produced it."]
+    #[doc = "Plain English: The report text and its session number, when one is ready."]
+    pub(crate) Mutex<Option<(usize, CString)>>,
+);
 impl Card {
-    /// Technical: Initializes an empty card slot.
-    /// Plain English: Creates a diagnostic card with no report yet.
+    /// Initializes an empty card slot.
+    ///
+    ///  Creates a diagnostic card with no report yet.
     pub const fn new() -> Self {
         Self(Mutex::new(None))
     }
     /// Keep `text` only while `current` still names `epoch`, re-checked under the lock.
-    /// Technical: Publishes owned report text only when its epoch is current both before and under lock.
-    /// Plain English: Saves the report only if it still belongs to the current session.
+    /// Publishes owned report text only when its epoch is current both before and under lock.
+    ///
+    ///  Saves the report only if it still belongs to the current session.
     pub fn publish(&self, epoch: usize, current: &AtomicUsize, text: CString) {
         if epoch != current.load(Ordering::Acquire) {
             return;
@@ -897,16 +1044,18 @@ impl Card {
             }
         }
     }
-    /// Technical: Clears the card with a nonblocking lock attempt.
-    /// Plain English: Removes the displayed report if the card is not busy.
+    /// Clears the card with a nonblocking lock attempt.
+    ///
+    ///  Removes the displayed report if the card is not busy.
     pub fn clear(&self) {
         if let Ok(mut card) = self.0.try_lock() {
             *card = None;
         }
     }
     /// Draw the card if it is free and belongs to the current epoch.
-    /// Technical: Calls `draw` only for an available card from the current generation.
-    /// Plain English: Displays the report only when it is ready and up to date.
+    /// Calls `draw` only for an available card from the current generation.
+    ///
+    ///  Displays the report only when it is ready and up to date.
     pub fn show(&self, current: &AtomicUsize, draw: impl FnOnce(&CStr)) -> bool {
         let Ok(card) = self.0.try_lock() else {
             return false;
@@ -921,55 +1070,63 @@ impl Card {
     }
 }
 /// Saturating conversion for elapsed-time counters.
-/// Technical: Clamps a nanosecond `u128` value to the `u64` counter range.
-/// Plain English: Prevents very large durations from overflowing the report counter.
+/// Clamps a nanosecond `u128` value to the `u64` counter range.
+///
+///  Prevents very large durations from overflowing the report counter.
 pub fn clamp_u64(value: u128) -> u64 {
     u64::try_from(value).unwrap_or(u64::MAX)
 }
 /// Manual label for Training Modpack trials; never changes input delay.
-/// Technical: Stores a capped label and clears measurements when it changes.
-/// Plain English: Records the player's latency note without changing the game.
+/// Stores a capped label and clears measurements when it changes.
+///
+///  Records the player's latency note without changing the game.
 pub fn set_test_latency(index: u8) {
     let index = usize::from(index.min(31));
     if TEST_LATENCY.swap(index, Ordering::Relaxed) != index {
         clear();
     }
 }
-/// Technical: Reads the active diagnostic generation.
-/// Plain English: Gets the current measurement session number.
+/// Reads the active diagnostic generation.
+///
+///  Gets the current measurement session number.
 pub fn context_epoch() -> usize {
     EPOCH.load(Ordering::Relaxed)
 }
-/// Technical: Decodes the stored zero-or-one-based latency label into an optional frame count.
-/// Plain English: Gets the manually entered latency label, if set.
+/// Decodes the stored zero-or-one-based latency label into an optional frame count.
+///
+///  Gets the manually entered latency label, if set.
 pub fn test_latency() -> Option<u8> {
     TEST_LATENCY
         .load(Ordering::Relaxed)
         .checked_sub(1)
         .map(|n| n as u8)
 }
-/// Technical: Formats an optional manual latency label without implying measurement.
-/// Plain English: Turns the chosen latency note into report text.
+/// Formats an optional manual latency label without implying measurement.
+///
+///  Turns the chosen latency note into report text.
 pub fn latency_text(label: Option<u8>) -> String {
     label.map_or_else(
         || "UNLABELLED".into(),
         |n| format!("external +{n}f (manual label, not measured)"),
     )
 }
-/// Technical: Reads the diagnostics-enabled flag.
-/// Plain English: Checks whether performance diagnostics are turned on.
+/// Reads the diagnostics-enabled flag.
+///
+///  Checks whether performance diagnostics are turned on.
 pub fn enabled() -> bool {
     ENABLED.load(Ordering::Relaxed)
 }
-/// Technical: Changes diagnostics enablement and invalidates prior data on transitions.
-/// Plain English: Turns measurements on or off and starts a fresh report period.
+/// Changes diagnostics enablement and invalidates prior data on transitions.
+///
+///  Turns measurements on or off and starts a fresh report period.
 pub fn set_enabled(on: bool) {
     if ENABLED.swap(on, Ordering::Relaxed) != on {
         clear();
     }
 }
-/// Technical: Advances the epoch and clears sample, counter, and card state nonblockingly.
-/// Plain English: Resets performance measurements and removes stale report text.
+/// Advances the epoch and clears sample, counter, and card state nonblockingly.
+///
+///  Resets performance measurements and removes stale report text.
 pub fn clear() {
     EPOCH.fetch_add(1, Ordering::Relaxed);
     SAMPLE.store(false, Ordering::Relaxed);
@@ -979,28 +1136,35 @@ pub fn clear() {
     }
     CARD.clear();
 }
-/// Technical: RAII region timer that attributes sampled observation work to a part.
-/// Plain English: Measures a selected section of fighter observation when sampling is active.
+/// RAII region timer that attributes sampled observation work to a part.
+///
+///  Measures a selected section of fighter observation when sampling is active.
 pub struct Scope {
-    /// Technical: Diagnostic generation captured when this scope started.
-    /// Plain English: Prevents old timing work appearing in a newer report.
+    /// Diagnostic generation captured when this scope started.
+    ///
+    ///  Prevents old timing work appearing in a newer report.
     epoch: usize,
-    /// Technical: Region index whose duration and rays this scope accumulates.
-    /// Plain English: Which observation section this timer represents.
+    /// Region index whose duration and rays this scope accumulates.
+    ///
+    ///  Which observation section this timer represents.
     part: usize,
-    /// Technical: Previously active nested region restored when this scope drops.
-    /// Plain English: Remembers the section that was running before this one.
+    /// Previously active nested region restored when this scope drops.
+    ///
+    ///  Remembers the section that was running before this one.
     previous: usize,
-    /// Technical: Start instant when selected for sampling, otherwise absent.
-    /// Plain English: When the measured section began, if it was sampled.
+    /// Start instant when selected for sampling, otherwise absent.
+    ///
+    ///  When the measured section began, if it was sampled.
     start: Option<Instant>,
-    /// Technical: Marks the outer scope responsible for ending the sampling window.
-    /// Plain English: Shows whether this timer started the overall measurement.
+    /// Marks the outer scope responsible for ending the sampling window.
+    ///
+    ///  Shows whether this timer started the overall measurement.
     root: bool,
 }
 impl Scope {
-    /// Technical: Begins one sampled root interval using the fixed 1-in-16 cadence.
-    /// Plain English: Starts measuring an occasional complete observation.
+    /// Begins one sampled root interval using the fixed 1-in-16 cadence.
+    ///
+    ///  Starts measuring an occasional complete observation.
     pub fn root() -> Self {
         let sample = enabled() && TICK.fetch_add(1, Ordering::Relaxed) % 16 == 0;
         SAMPLE.store(sample, Ordering::Relaxed);
@@ -1008,8 +1172,9 @@ impl Scope {
         scope.root = true;
         scope
     }
-    /// Technical: Begins a nested region and swaps its index into ray attribution state.
-    /// Plain English: Starts timing one named part of the current observation.
+    /// Begins a nested region and swaps its index into ray attribution state.
+    ///
+    ///  Starts timing one named part of the current observation.
     pub fn new(part: Part) -> Self {
         let start = (enabled() && SAMPLE.load(Ordering::Relaxed)).then(Instant::now);
         let previous = if start.is_some() {
@@ -1027,8 +1192,9 @@ impl Scope {
     }
 }
 impl Drop for Scope {
-    /// Technical: Restores the parent region, accumulates sampled time, and closes root sampling.
-    /// Plain English: Saves the timing totals and finishes the measurement when this scope ends.
+    /// Restores the parent region, accumulates sampled time, and closes root sampling.
+    ///
+    ///  Saves the timing totals and finishes the measurement when this scope ends.
     fn drop(&mut self) {
         if let Some(start) = self.start {
             let ns = clamp_u64(start.elapsed().as_nanos());
@@ -1050,8 +1216,9 @@ impl Drop for Scope {
         }
     }
 }
-/// Technical: Attributes one sampled ray observation to the currently nested region.
-/// Plain English: Counts a ray check for whichever observation section is running.
+/// Attributes one sampled ray observation to the currently nested region.
+///
+///  Counts a ray check for whichever observation section is running.
 pub fn ray() {
     if enabled() && SAMPLE.load(Ordering::Relaxed) {
         if let Ok(mut stats) = STATS.try_lock() {
@@ -1062,13 +1229,15 @@ pub fn ray() {
 }
 
 #[cfg(test)]
-/// Technical: End-to-end regressions for opt-in timing, report generation, and stale-card clearing.
-/// Plain English: Tests that diagnostics appear when enabled and disappear when reset.
+/// End-to-end regressions for opt-in timing, report generation, and stale-card clearing.
+///
+///  Tests that diagnostics appear when enabled and disappear when reset.
 mod tests {
     use super::*;
     #[test]
-    /// Technical: Exercises sampling enablement, report thresholds, epoch reset, and card freshness.
-    /// Plain English: Checks measured reports work and old reports are not shown after a reset.
+    /// Exercises sampling enablement, report thresholds, epoch reset, and card freshness.
+    ///
+    ///  Checks measured reports work and old reports are not shown after a reset.
     fn opt_in_sampling_reports_and_clears_without_stale_cards() {
         set_enabled(false);
         {
@@ -1101,26 +1270,30 @@ mod tests {
         set_enabled(false);
     }
 }
-/// Technical: Draws the diagnostic card only while instrumentation is enabled.
-/// Plain English: Shows the latest performance report when diagnostics are on.
+/// Draws the diagnostic card only while instrumentation is enabled.
+///
+///  Shows the latest performance report when diagnostics are on.
 pub fn with_card(draw: impl FnOnce(&CStr)) {
     if enabled() {
         CARD.show(&EPOCH, draw);
     }
 }
 /// Mean and peak helpers for nanosecond counters, reported in microseconds.
-/// Technical: Converts accumulated nanoseconds and sample count into a mean in microseconds.
-/// Plain English: Calculates the average measured time.
+/// Converts accumulated nanoseconds and sample count into a mean in microseconds.
+///
+///  Calculates the average measured time.
 fn avg_us(nanos: u64, calls: u64) -> f64 {
     nanos as f64 / calls.max(1) as f64 / 1000.0
 }
-/// Technical: Converts a nanosecond duration to microseconds.
-/// Plain English: Changes a measured time into report-friendly units.
+/// Converts a nanosecond duration to microseconds.
+///
+///  Changes a measured time into report-friendly units.
 fn micros(nanos: u64) -> f64 {
     nanos as f64 / 1000.0
 }
 /// Called only by the existing background writer. No extra thread or queue.
-/// Plain English: Builds an observation timing report on the current logging worker.
+///
+///  Builds an observation timing report on the current logging worker.
 fn observation_report() -> Option<String> {
     if !enabled() {
         return None;
@@ -1205,8 +1378,9 @@ fn observation_report() -> Option<String> {
 }
 
 /// Existing logger worker is the only report formatter/writer.
-/// Technical: Combines currently available observation and health report sections.
-/// Plain English: Returns the diagnostic reports that are ready to display.
+/// Combines currently available observation and health report sections.
+///
+///  Returns the diagnostic reports that are ready to display.
 pub fn report() -> Option<String> {
     match (observation_report(), health::report()) {
         (Some(mut a), Some(b)) => {

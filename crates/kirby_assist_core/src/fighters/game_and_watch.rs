@@ -9,90 +9,110 @@ use crate::{
     timing::{AnimationClock, AnimationSample},
 };
 
-/// Technical: Defines the `REFLECT_CONTACT_SAFETY_MARGIN_FRAMES` constant used by this module.
+/// Defines the `REFLECT_CONTACT_SAFETY_MARGIN_FRAMES` constant used by this module.
 ///
-/// Plain English: Provides the REFLECT CONTACT SAFETY MARGIN FRAMES constant value.
+///
+///  Provides the REFLECT CONTACT SAFETY MARGIN FRAMES constant value.
 const REFLECT_CONTACT_SAFETY_MARGIN_FRAMES: f32 = 2.0;
-/// Technical: Sets the upper bound for projectile radius.
+/// Sets the upper bound for projectile radius.
 ///
-/// Plain English: Holds the MAX PROJECTILE RADIUS value.
+///
+///  Holds the MAX PROJECTILE RADIUS value.
 const MAX_PROJECTILE_RADIUS: f32 = 100.0;
-/// Technical: Sets the upper bound for reflector horizon frames.
+/// Sets the upper bound for reflector horizon frames.
 ///
-/// Plain English: Holds the MAX REFLECTOR HORIZON FRAMES value.
+///
+///  Holds the MAX REFLECTOR HORIZON FRAMES value.
 const MAX_REFLECTOR_HORIZON_FRAMES: f32 = 40.0;
-/// Technical: Sets the upper bound for receipt poll count.
+/// Sets the upper bound for receipt poll count.
 ///
-/// Plain English: Holds the MAX RECEIPT POLL COUNT value.
+///
+///  Holds the MAX RECEIPT POLL COUNT value.
 const MAX_RECEIPT_POLL_COUNT: u8 = 24;
-/// Technical: Sets the upper bound for unconfirmed reflect frames.
+/// Sets the upper bound for unconfirmed reflect frames.
 ///
-/// Plain English: Holds the MAX UNCONFIRMED REFLECT FRAMES value.
+///
+///  Holds the MAX UNCONFIRMED REFLECT FRAMES value.
 const MAX_UNCONFIRMED_REFLECT_FRAMES: f32 = 24.0;
-/// Technical: Sets the lower bound for reflect retry interval frames.
+/// Sets the lower bound for reflect retry interval frames.
 ///
-/// Plain English: Holds the MIN REFLECT RETRY INTERVAL FRAMES value.
+///
+///  Holds the MIN REFLECT RETRY INTERVAL FRAMES value.
 const MIN_REFLECT_RETRY_INTERVAL_FRAMES: f32 = 2.0;
-/// Technical: Sets the upper bound for turning frames.
+/// Sets the upper bound for turning frames.
 ///
-/// Plain English: Holds the MAX TURNING FRAMES value.
+///
+///  Holds the MAX TURNING FRAMES value.
 const MAX_TURNING_FRAMES: f32 = 2.0;
-/// Technical: Sets the upper bound for unsent reflect frames.
+/// Sets the upper bound for unsent reflect frames.
 ///
-/// Plain English: Holds the MAX UNSENT REFLECT FRAMES value.
+///
+///  Holds the MAX UNSENT REFLECT FRAMES value.
 const MAX_UNSENT_REFLECT_FRAMES: f32 = 4.0;
-/// Technical: Defines the `TURNING_REFLECT_STARTUP_EXTRA_FRAMES` constant used by this module.
+/// Defines the `TURNING_REFLECT_STARTUP_EXTRA_FRAMES` constant used by this module.
 ///
-/// Plain English: Provides the TURNING REFLECT STARTUP EXTRA FRAMES constant value.
+///
+///  Provides the TURNING REFLECT STARTUP EXTRA FRAMES constant value.
 const TURNING_REFLECT_STARTUP_EXTRA_FRAMES: f32 = 1.0;
 /// Recently attempted shots remembered so a missed/consumed shot is not retried.
-/// Plain English: Recently attempted shots remembered so a missed/consumed shot is not retried.
+///
+///  Recently attempted shots remembered so a missed/consumed shot is not retried.
 const ATTEMPT_MEMORY: usize = 32;
 
-/// Technical: Defines the `GAMEWATCH` constant used by this module.
+/// Defines the `GAMEWATCH` constant used by this module.
 ///
-/// Plain English: Provides the GAMEWATCH constant value.
+///
+///  Provides the GAMEWATCH constant value.
 pub const GAMEWATCH: i32 = crate::fighter_kinds::MR_GAME_AND_WATCH;
 /// Adding a fighter requires a verified native move/resource adapter too.
-/// Plain English: Adding a fighter requires a verified native move/resource adapter too.
+///
+///  Adding a fighter requires a verified native move/resource adapter too.
 pub fn supports(kind: i32) -> bool {
     kind == GAMEWATCH
 }
 
-/// Technical: Defines the `Config` data structure.
+/// Defines the `Config` data structure.
 ///
-/// Plain English: Holds the data for Config.
+///
+///  Holds the data for Config.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Config {
-    /// Technical: Stores the `startup` value in `Config` as `f32`.
+    /// Stores the `startup` value in `Config` as `f32`.
     ///
-    /// Plain English: Holds the startup value used by Config.
+    ///
+///  Holds the startup value used by Config.
     pub startup: f32,
-    /// Technical: Stores the `margin` value in `Config` as `f32`.
+    /// Stores the `margin` value in `Config` as `f32`.
     ///
-    /// Plain English: Holds the margin value used by Config.
+    ///
+///  Holds the margin value used by Config.
     pub margin: f32,
-    /// Technical: Stores the `max_hold` value in `Config` as `f32`.
+    /// Stores the `max_hold` value in `Config` as `f32`.
     ///
-    /// Plain English: Holds the max hold value used by Config.
+    ///
+///  Holds the max hold value used by Config.
     pub max_hold: f32,
-    /// Technical: Stores the `half_width` value in `Config` as `f32`.
+    /// Stores the `half_width` value in `Config` as `f32`.
     ///
-    /// Plain English: Holds the half width value used by Config.
+    ///
+///  Holds the half width value used by Config.
     pub half_width: f32,
-    /// Technical: Stores the `height` value in `Config` as `f32`.
+    /// Stores the `height` value in `Config` as `f32`.
     ///
-    /// Plain English: Holds the height value used by Config.
+    ///
+///  Holds the height value used by Config.
     pub height: f32,
-    /// Technical: Stores the `half_depth` value in `Config` as `f32`.
+    /// Stores the `half_depth` value in `Config` as `f32`.
     ///
-    /// Plain English: Holds the half depth value used by Config.
+    ///
+///  Holds the half depth value used by Config.
     pub half_depth: f32,
 }
 impl Config {
-    /// Technical: Returns the profile data for the requested fighter.
+    /// Returns the profile data for the requested fighter.
     ///
-    /// Plain English: Gets the data for this fighter.
+    ///
+///  Gets the data for this fighter.
     pub fn for_fighter(kind: i32, values: Tuning) -> Option<Self> {
         // Explicit saved configuration, never a global/cross-fighter fallback.
         if !supports(kind) || values.0[tuning::REFLECT_DEFAULT].is_none() {
@@ -109,17 +129,19 @@ impl Config {
             half_depth: values.get(tuning::REFLECT_HALF_DEPTH),
         })
     }
-    /// Technical: Returns the prediction horizon used by the policy.
+    /// Returns the prediction horizon used by the policy.
     ///
-    /// Plain English: Gets how far ahead the policy looks.
+    ///
+///  Gets how far ahead the policy looks.
     pub fn horizon(self) -> f32 {
         self.startup + self.margin + REFLECT_CONTACT_SAFETY_MARGIN_FRAMES
     }
 }
 
-/// Technical: Checks whether the fighter can move in the observed state.
+/// Checks whether the fighter can move in the observed state.
 ///
-/// Plain English: Checks whether the fighter can move.
+///
+///  Checks whether the fighter can move.
 pub fn movable(status: i32, situation: i32) -> bool {
     match situation {
         crate::native_states::situation::GROUND => {
@@ -130,9 +152,10 @@ pub fn movable(status: i32, situation: i32) -> bool {
         _ => false,
     }
 }
-/// Technical: Classifies the value into its bounded bucket.
+/// Classifies the value into its bounded bucket.
 ///
-/// Plain English: Groups the value into a range.
+///
+///  Groups the value into a range.
 pub fn bucket(status: i32) -> bool {
     matches!(
         status,
@@ -142,46 +165,55 @@ pub fn bucket(status: i32) -> bool {
     )
 }
 
-/// Technical: Defines the `Threat` data structure.
+/// Defines the `Threat` data structure.
 ///
-/// Plain English: Holds the data for Threat.
+///
+///  Holds the data for Threat.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Threat {
-    /// Technical: Stores the `id` value in `Threat` as `u32`.
+    /// Stores the `id` value in `Threat` as `u32`.
     ///
-    /// Plain English: Holds the id value used by Threat.
+    ///
+///  Holds the id value used by Threat.
     pub id: u32,
-    /// Technical: Stores the `generation` value in `Threat` as `u32`.
+    /// Stores the `generation` value in `Threat` as `u32`.
     ///
-    /// Plain English: Holds the generation value used by Threat.
+    ///
+///  Holds the generation value used by Threat.
     pub generation: u32,
-    /// Technical: Stores the `in_frames` value in `Threat` as `f32`.
+    /// Stores the `in_frames` value in `Threat` as `f32`.
     ///
-    /// Plain English: Sets the in frames timing for Threat.
+    ///
+///  Sets the in frames timing for Threat.
     pub in_frames: f32,
-    /// Technical: Stores the `direction` value in `Threat` as `f32`.
+    /// Stores the `direction` value in `Threat` as `f32`.
     ///
-    /// Plain English: Holds the direction value used by Threat.
+    ///
+///  Holds the direction value used by Threat.
     pub direction: f32,
 }
 /// A new native ATTACK on a reused object is a fresh opportunity, not the
 /// previous shot. No wall-clock cooldown or permanent object-ID blacklist.
-/// Plain English: A new native ATTACK on a reused object is a fresh opportunity, not the previous shot. No wall-clock cooldown or permanent object-ID blacklist.
+///
+///  A new native ATTACK on a reused object is a fresh opportunity, not the previous shot. No wall-clock cooldown or permanent object-ID blacklist.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProjectileKey {
-    /// Technical: Stores the `id` value in `ProjectileKey` as `u32`.
+    /// Stores the `id` value in `ProjectileKey` as `u32`.
     ///
-    /// Plain English: Holds the id value used by ProjectileKey.
+    ///
+///  Holds the id value used by ProjectileKey.
     pub id: u32,
-    /// Technical: Stores the `generation` value in `ProjectileKey` as `u32`.
+    /// Stores the `generation` value in `ProjectileKey` as `u32`.
     ///
-    /// Plain English: Holds the generation value used by ProjectileKey.
+    ///
+///  Holds the generation value used by ProjectileKey.
     pub generation: u32,
 }
 impl Threat {
-    /// Technical: Builds the lookup key for the observed state.
+    /// Builds the lookup key for the observed state.
     ///
-    /// Plain English: Creates the key used to find this state.
+    ///
+///  Creates the key used to find this state.
     fn key(self) -> ProjectileKey {
         ProjectileKey {
             id: self.id,
@@ -193,7 +225,8 @@ impl Threat {
 /// Swept capsule AABB against a configurable body envelope. Continuous slab
 /// intersections cannot skip a fast straight projectile between frame samples.
 /// Bounds are estimates, not a claim about the native reflector's hitbox.
-/// Plain English: Swept capsule AABB against a configurable body envelope. Continuous slab intersections cannot skip a fast straight projectile between frame samples. Bounds are estimates, not a claim about the native reflector's hitbox.
+///
+///  Swept capsule AABB against a configurable body envelope. Continuous slab intersections cannot skip a fast straight projectile between frame samples. Bounds are estimates, not a claim about the native reflector's hitbox.
 pub fn predict(
     config: Config,
     origin: [f32; 3],
@@ -264,102 +297,124 @@ pub fn predict(
     })
 }
 
-/// Technical: Defines the `Context` data structure.
+/// Defines the `Context` data structure.
 ///
-/// Plain English: Holds the data for Context.
+///
+///  Holds the data for Context.
 #[derive(Clone, Copy)]
 pub struct Context {
-    /// Technical: Stores the `kind` value in `Context` as `i32`.
+    /// Stores the `kind` value in `Context` as `i32`.
     ///
-    /// Plain English: Holds the kind value used by Context.
+    ///
+///  Holds the kind value used by Context.
     pub kind: i32,
-    /// Technical: Stores the `situation` value in `Context` as `i32`.
+    /// Stores the `situation` value in `Context` as `i32`.
     ///
-    /// Plain English: Holds the situation value used by Context.
+    ///
+///  Holds the situation value used by Context.
     pub situation: i32,
-    /// Technical: Stores the `facing` value in `Context` as `f32`.
+    /// Stores the `facing` value in `Context` as `f32`.
     ///
-    /// Plain English: Holds the facing value used by Context.
+    ///
+///  Holds the facing value used by Context.
     pub facing: f32,
-    /// Technical: Stores the `can_special` value in `Context` as `bool`.
+    /// Stores the `can_special` value in `Context` as `bool`.
     ///
-    /// Plain English: Holds the can special value used by Context.
+    ///
+///  Holds the can special value used by Context.
     pub can_special: bool,
-    /// Technical: Stores the `gauge` value in `Context` as `f32`.
+    /// Stores the `gauge` value in `Context` as `f32`.
     ///
-    /// Plain English: Holds the gauge value used by Context.
+    ///
+///  Holds the gauge value used by Context.
     pub gauge: f32,
-    /// Technical: Stores the `stopped` value in `Context` as `bool`.
+    /// Stores the `stopped` value in `Context` as `bool`.
     ///
-    /// Plain English: Holds the stopped value used by Context.
+    ///
+///  Holds the stopped value used by Context.
     pub stopped: bool,
-    /// Technical: Stores the `animation` value in `Context` as `AnimationSample`.
+    /// Stores the `animation` value in `Context` as `AnimationSample`.
     ///
-    /// Plain English: Holds the animation value used by Context.
+    ///
+///  Holds the animation value used by Context.
     pub animation: AnimationSample,
 }
 /// One current input owner. Delivered/expired attempts remember their native
 /// attack generation. Losing arbitration does not consume an unseen attack;
 /// a fresh shot on the same object can rearm on the first legal observation.
-/// Plain English: One current input owner. Delivered/expired attempts remember their native attack generation. Losing arbitration does not consume an unseen attack; a fresh shot on the same object can rearm on the first legal observation.
+///
+///  One current input owner. Delivered/expired attempts remember their native attack generation. Losing arbitration does not consume an unseen attack; a fresh shot on the same object can rearm on the first legal observation.
 pub struct Reflector {
-    /// Technical: Stores the `clock` value in `Reflector` as `AnimationClock`.
+    /// Stores the `clock` value in `Reflector` as `AnimationClock`.
     ///
-    /// Plain English: Holds the clock value used by Reflector.
+    ///
+///  Holds the clock value used by Reflector.
     clock: AnimationClock,
-    /// Technical: Stores the `target` value in `Reflector` as `Option<ProjectileKey>`.
+    /// Stores the `target` value in `Reflector` as `Option<ProjectileKey>`.
     ///
-    /// Plain English: Optionally stores the target for Reflector; it may be absent.
+    ///
+///  Optionally stores the target for Reflector; it may be absent.
     target: Option<ProjectileKey>,
-    /// Technical: Stores the `began` value in `Reflector` as `i64`.
+    /// Stores the `began` value in `Reflector` as `i64`.
     ///
-    /// Plain English: Holds the began value used by Reflector.
+    ///
+///  Holds the began value used by Reflector.
     began: i64,
-    /// Technical: Stores the `turning` value in `Reflector` as `bool`.
+    /// Stores the `turning` value in `Reflector` as `bool`.
     ///
-    /// Plain English: Holds the turning value used by Reflector.
+    ///
+///  Holds the turning value used by Reflector.
     turning: bool,
-    /// Technical: Stores the `sent` value in `Reflector` as `bool`.
+    /// Stores the `sent` value in `Reflector` as `bool`.
     ///
-    /// Plain English: Holds the sent value used by Reflector.
+    ///
+///  Holds the sent value used by Reflector.
     sent: bool,
-    /// Technical: Stores the `confirmed` value in `Reflector` as `bool`.
+    /// Stores the `confirmed` value in `Reflector` as `bool`.
     ///
-    /// Plain English: Holds the confirmed value used by Reflector.
+    ///
+///  Holds the confirmed value used by Reflector.
     confirmed: bool,
-    /// Technical: Stores the `delivery` value in `Reflector` as `crate::move_input::DeliveryBudget`.
+    /// Stores the `delivery` value in `Reflector` as `crate::move_input::DeliveryBudget`.
     ///
-    /// Plain English: Holds the delivery value used by Reflector.
+    ///
+///  Holds the delivery value used by Reflector.
     delivery: crate::move_input::DeliveryBudget,
-    /// Technical: Stores the `receipt_polls` value in `Reflector` as `u8`.
+    /// Stores the `receipt_polls` value in `Reflector` as `u8`.
     ///
-    /// Plain English: Holds the receipt polls value used by Reflector.
+    ///
+///  Holds the receipt polls value used by Reflector.
     receipt_polls: u8,
-    /// Technical: Stores the `last_poll` value in `Reflector` as `Option<i64>`.
+    /// Stores the `last_poll` value in `Reflector` as `Option<i64>`.
     ///
-    /// Plain English: Optionally stores the last poll for Reflector; it may be absent.
+    ///
+///  Optionally stores the last poll for Reflector; it may be absent.
     last_poll: Option<i64>,
-    /// Technical: Stores the `attempted` value in `Reflector` as `[Option<ProjectileKey>; ATTEMPT_MEMORY]`.
+    /// Stores the `attempted` value in `Reflector` as `[Option<ProjectileKey>; ATTEMPT_MEMORY]`.
     ///
-    /// Plain English: Stores the attempted collection for Reflector.
+    ///
+///  Stores the attempted collection for Reflector.
     attempted: [Option<ProjectileKey>; ATTEMPT_MEMORY],
-    /// Technical: Stores the `next` value in `Reflector` as `usize`.
+    /// Stores the `next` value in `Reflector` as `usize`.
     ///
-    /// Plain English: Holds the next value used by Reflector.
+    ///
+///  Holds the next value used by Reflector.
     next: usize,
 }
 impl Default for Reflector {
-    /// Technical: Returns the default value for this type.
+    /// Returns the default value for this type.
     ///
-    /// Plain English: Returns the default value for this type.
+    ///
+///  Returns the default value for this type.
     fn default() -> Self {
         Self::new()
     }
 }
 impl Reflector {
-    /// Technical: Constructs a new value with the type’s initial state.
+    /// Constructs a new value with the type’s initial state.
     ///
-    /// Plain English: Creates a new value.
+    ///
+///  Creates a new value.
     pub const fn new() -> Self {
         Self {
             clock: AnimationClock::new(),
@@ -375,21 +430,24 @@ impl Reflector {
             next: 0,
         }
     }
-    /// Technical: Checks whether the feature is active.
+    /// Checks whether the feature is active.
     ///
-    /// Plain English: Checks whether the feature is on.
+    ///
+///  Checks whether the feature is on.
     pub fn active(&self) -> bool {
         self.target.is_some()
     }
-    /// Technical: Returns the selected target observation.
+    /// Returns the selected target observation.
     ///
-    /// Plain English: Gets the chosen target.
+    ///
+///  Gets the chosen target.
     pub fn target(&self) -> Option<u32> {
         self.target.map(|key| key.id)
     }
-    /// Technical: Stores the latest eligible target observation.
+    /// Stores the latest eligible target observation.
     ///
-    /// Plain English: Remembers the target that can be used next.
+    ///
+///  Remembers the target that can be used next.
     fn remember_target(&mut self) {
         if let Some(id) = self
             .target
@@ -399,9 +457,10 @@ impl Reflector {
             self.next = self.next.wrapping_add(1);
         }
     }
-    /// Technical: Cancels the pending operation and clears its state.
+    /// Cancels the pending operation and clears its state.
     ///
-    /// Plain English: Stops the operation that was waiting.
+    ///
+///  Stops the operation that was waiting.
     pub fn cancel(&mut self) {
         self.target = None;
         self.turning = false;
@@ -411,15 +470,17 @@ impl Reflector {
         self.receipt_polls = 0;
         self.last_poll = None;
     }
-    /// Technical: Aborts the active sequence and resets its progress.
+    /// Aborts the active sequence and resets its progress.
     ///
-    /// Plain English: Stops the sequence and starts it over.
+    ///
+///  Stops the sequence and starts it over.
     fn abort(&mut self) -> ControllerOutput {
         self.cancel();
         ControllerOutput::default()
     }
     /// Abort, remembering the target when a receipt poll already counted against it.
-    /// Plain English: Abort, remembering the target when a receipt poll already counted against it.
+    ///
+///  Abort, remembering the target when a receipt poll already counted against it.
     fn abort_polled(&mut self) -> ControllerOutput {
         if self.receipt_polls > 0 {
             self.remember_target();
@@ -428,7 +489,8 @@ impl Reflector {
     }
     /// Last-resort receipt fence when BOTH native animation and projectile
     /// clocks are unavailable/frozen. This never advances a move or adds input.
-    /// Plain English: Last-resort receipt fence when BOTH native animation and projectile clocks are unavailable/frozen. This never advances a move or adds input.
+    ///
+///  Last-resort receipt fence when BOTH native animation and projectile clocks are unavailable/frozen. This never advances a move or adds input.
     pub fn poll_receipt(&mut self, tick: i64) {
         if self.target.is_some() && !self.confirmed && self.last_poll != Some(tick) {
             self.last_poll = Some(tick);
@@ -439,9 +501,10 @@ impl Reflector {
             }
         }
     }
-    /// Technical: Checks whether the requested input was acknowledged by the mapper.
+    /// Checks whether the requested input was acknowledged by the mapper.
     ///
-    /// Plain English: Checks whether the controller mapping accepted the input.
+    ///
+///  Checks whether the controller mapping accepted the input.
     pub fn mapped(&mut self, tick: i64) {
         if self.target.is_some() {
             self.delivery.mapped(tick);
@@ -451,9 +514,10 @@ impl Reflector {
             }
         }
     }
-    /// Technical: Updates the toggle state from the current button sample and match state.
+    /// Updates the toggle state from the current button sample and match state.
     ///
-    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
+    ///
+///  Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         allowed: bool,
@@ -558,7 +622,8 @@ impl Reflector {
     /// Whether a new reflect started now covers this shot: Game & Watch can
     /// act, the shot is a fresh attempt, and it arrives inside the startup
     /// window (a turn-around costs extra startup and keeps a larger margin).
-    /// Plain English: Whether a new reflect started now covers this shot: Game & Watch can act, the shot is a fresh attempt, and it arrives inside the startup window (a turn-around costs extra startup and keeps a larger margin).
+    ///
+///  Whether a new reflect started now covers this shot: Game & Watch can act, the shot is a fresh attempt, and it arrives inside the startup window (a turn-around costs extra startup and keeps a larger margin).
     fn admissible(&self, config: Config, c: Context, threat: Threat, facing: bool) -> bool {
         let (extra_startup, extra_margin) = if facing {
             (0., 0.)

@@ -5,7 +5,8 @@ use crate::settings::AssistSettings;
 
 /// Default close/approach automatic-grab ranges: the standing range, and that
 /// range scaled by the fighter's dash-grab/standing-grab reach ratio.
-/// Plain English: Default close/approach automatic-grab ranges: the standing range, and that range scaled by the fighter's dash-grab/standing-grab reach ratio.
+///
+///  Default close/approach automatic-grab ranges: the standing range, and that range scaled by the fighter's dash-grab/standing-grab reach ratio.
 fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
     if !standing.is_finite() || standing <= 0. {
         return (0., 0.);
@@ -23,9 +24,10 @@ fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
     (standing, standing * dash / base)
 }
 
-/// Technical: Returns the default down-tilt facing adjustment.
+/// Returns the default down-tilt facing adjustment.
 ///
-/// Plain English: Gets the default facing for down tilt.
+///
+///  Gets the default facing for down tilt.
 fn tilt_turn_down_default(kind: i32) -> bool {
     matches!(
         kind,
@@ -38,13 +40,15 @@ mod schema {
     //!
     //! The index order is shared by saved configuration, menu rendering, and
     //! runtime policy values. Keep each key, label, and hint at the same index.
-    /// Technical: Defines the `COUNT` constant used by this module.
+    /// Defines the `COUNT` constant used by this module.
     ///
-    /// Plain English: Provides the COUNT constant value.
+    ///
+///  Provides the COUNT constant value.
     pub const COUNT: usize = 54;
-    /// Technical: Defines the `KEYS` constant used by this module.
+    /// Defines the `KEYS` constant used by this module.
     ///
-    /// Plain English: Provides the KEYS constant value.
+    ///
+///  Provides the KEYS constant value.
     pub const KEYS: [&str; COUNT] = [
         "walk_strength",
         "grab_range",
@@ -102,9 +106,10 @@ mod schema {
         "tilt_turn_up",
     ];
 
-    /// Technical: Defines the `LABELS` constant used by this module.
+    /// Defines the `LABELS` constant used by this module.
     ///
-    /// Plain English: Provides the LABELS constant value.
+    ///
+///  Provides the LABELS constant value.
     pub const LABELS: [&str; COUNT] = [
         "Walking stick %",
         "Grab reach estimate",
@@ -162,9 +167,10 @@ mod schema {
         "Tilt face: up",
     ];
 
-    /// Technical: Defines the `HINTS` constant used by this module.
+    /// Defines the `HINTS` constant used by this module.
     ///
-    /// Plain English: Provides the HINTS constant value.
+    ///
+///  Provides the HINTS constant value.
     pub const HINTS: [&str; COUNT] = [
         "Walking baseline uses the original curve: slightly lower at partial stick, 50% at full horizontal stick. Recipes keep their own strengths.",
         "Your grab reach estimate for recipes, legacy grab and Yoshi chase helpers. Saved attacker overrides also feed ordinary-grab threat estimates. Never extends hitboxes.",
@@ -222,271 +228,337 @@ mod schema {
         "Aim physical up C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.",
     ];
 
-    /// Technical: Defines the `TILT_TURN_DOWN` constant used by this module.
+    /// Defines the `TILT_TURN_DOWN` constant used by this module.
     ///
-    /// Plain English: Provides the TILT TURN DOWN constant value.
+    ///
+///  Provides the TILT TURN DOWN constant value.
     pub const TILT_TURN_DOWN: usize = 51;
-    /// Technical: Defines the `TILT_TURN_FORWARD` constant used by this module.
+    /// Defines the `TILT_TURN_FORWARD` constant used by this module.
     ///
-    /// Plain English: Provides the TILT TURN FORWARD constant value.
+    ///
+///  Provides the TILT TURN FORWARD constant value.
     pub const TILT_TURN_FORWARD: usize = 52;
-    /// Technical: Defines the `TILT_TURN_UP` constant used by this module.
+    /// Defines the `TILT_TURN_UP` constant used by this module.
     ///
-    /// Plain English: Provides the TILT TURN UP constant value.
+    ///
+///  Provides the TILT TURN UP constant value.
     pub const TILT_TURN_UP: usize = 53;
-    /// Technical: Defines the `REFLECT_DEFAULT` constant used by this module.
+    /// Defines the `REFLECT_DEFAULT` constant used by this module.
     ///
-    /// Plain English: Provides the REFLECT DEFAULT constant value.
+    ///
+///  Provides the REFLECT DEFAULT constant value.
     pub const REFLECT_DEFAULT: usize = 44;
-    /// Technical: Defines the `REFLECT_STARTUP` constant used by this module.
+    /// Defines the `REFLECT_STARTUP` constant used by this module.
     ///
-    /// Plain English: Provides the REFLECT STARTUP constant value.
+    ///
+///  Provides the REFLECT STARTUP constant value.
     pub const REFLECT_STARTUP: usize = 45;
-    /// Technical: Defines the `REFLECT_MARGIN` constant used by this module.
+    /// Defines the `REFLECT_MARGIN` constant used by this module.
     ///
-    /// Plain English: Provides the REFLECT MARGIN constant value.
+    ///
+///  Provides the REFLECT MARGIN constant value.
     pub const REFLECT_MARGIN: usize = 46;
-    /// Technical: Defines the `REFLECT_MAX_HOLD` constant used by this module.
+    /// Defines the `REFLECT_MAX_HOLD` constant used by this module.
     ///
-    /// Plain English: Provides the REFLECT MAX HOLD constant value.
+    ///
+///  Provides the REFLECT MAX HOLD constant value.
     pub const REFLECT_MAX_HOLD: usize = 47;
-    /// Technical: Defines the `REFLECT_HALF_WIDTH` constant used by this module.
+    /// Defines the `REFLECT_HALF_WIDTH` constant used by this module.
     ///
-    /// Plain English: Provides the REFLECT HALF WIDTH constant value.
+    ///
+///  Provides the REFLECT HALF WIDTH constant value.
     pub const REFLECT_HALF_WIDTH: usize = 48;
-    /// Technical: Defines the `REFLECT_HEIGHT` constant used by this module.
+    /// Defines the `REFLECT_HEIGHT` constant used by this module.
     ///
-    /// Plain English: Provides the REFLECT HEIGHT constant value.
+    ///
+///  Provides the REFLECT HEIGHT constant value.
     pub const REFLECT_HEIGHT: usize = 49;
-    /// Technical: Defines the `REFLECT_HALF_DEPTH` constant used by this module.
+    /// Defines the `REFLECT_HALF_DEPTH` constant used by this module.
     ///
-    /// Plain English: Provides the REFLECT HALF DEPTH constant value.
+    ///
+///  Provides the REFLECT HALF DEPTH constant value.
     pub const REFLECT_HALF_DEPTH: usize = 50;
-    /// Technical: Defines the `SHIELD_SCAN_X` constant used by this module.
+    /// Defines the `SHIELD_SCAN_X` constant used by this module.
     ///
-    /// Plain English: Provides the SHIELD SCAN X constant value.
+    ///
+///  Provides the SHIELD SCAN X constant value.
     pub const SHIELD_SCAN_X: usize = 40;
-    /// Technical: Defines the `SHIELD_SCAN_Y` constant used by this module.
+    /// Defines the `SHIELD_SCAN_Y` constant used by this module.
     ///
-    /// Plain English: Provides the SHIELD SCAN Y constant value.
+    ///
+///  Provides the SHIELD SCAN Y constant value.
     pub const SHIELD_SCAN_Y: usize = 41;
-    /// Technical: Defines the `AUTO_GRAB_CLOSE` constant used by this module.
+    /// Defines the `AUTO_GRAB_CLOSE` constant used by this module.
     ///
-    /// Plain English: Provides the AUTO GRAB CLOSE constant value.
+    ///
+///  Provides the AUTO GRAB CLOSE constant value.
     pub const AUTO_GRAB_CLOSE: usize = 42;
-    /// Technical: Defines the `AUTO_GRAB_FAR` constant used by this module.
+    /// Defines the `AUTO_GRAB_FAR` constant used by this module.
     ///
-    /// Plain English: Provides the AUTO GRAB FAR constant value.
+    ///
+///  Provides the AUTO GRAB FAR constant value.
     pub const AUTO_GRAB_FAR: usize = 43;
-    /// Technical: Defines the `SHIELD_WARNING_X` constant used by this module.
+    /// Defines the `SHIELD_WARNING_X` constant used by this module.
     ///
-    /// Plain English: Provides the SHIELD WARNING X constant value.
+    ///
+///  Provides the SHIELD WARNING X constant value.
     pub const SHIELD_WARNING_X: usize = 14;
-    /// Technical: Defines the `SHIELD_WARNING_Y` constant used by this module.
+    /// Defines the `SHIELD_WARNING_Y` constant used by this module.
     ///
-    /// Plain English: Provides the SHIELD WARNING Y constant value.
+    ///
+///  Provides the SHIELD WARNING Y constant value.
     pub const SHIELD_WARNING_Y: usize = 15;
-    /// Technical: Defines the `SHIELD_BODY_HALF_WIDTH` constant used by this module.
+    /// Defines the `SHIELD_BODY_HALF_WIDTH` constant used by this module.
     ///
-    /// Plain English: Provides the SHIELD BODY HALF WIDTH constant value.
+    ///
+///  Provides the SHIELD BODY HALF WIDTH constant value.
     pub const SHIELD_BODY_HALF_WIDTH: usize = 16;
-    /// Technical: Defines the `SHIELD_BODY_HEIGHT` constant used by this module.
+    /// Defines the `SHIELD_BODY_HEIGHT` constant used by this module.
     ///
-    /// Plain English: Provides the SHIELD BODY HEIGHT constant value.
+    ///
+///  Provides the SHIELD BODY HEIGHT constant value.
     pub const SHIELD_BODY_HEIGHT: usize = 17;
-    /// Technical: Defines the `SHIELD_BODY_HALF_DEPTH` constant used by this module.
+    /// Defines the `SHIELD_BODY_HALF_DEPTH` constant used by this module.
     ///
-    /// Plain English: Provides the SHIELD BODY HALF DEPTH constant value.
+    ///
+///  Provides the SHIELD BODY HALF DEPTH constant value.
     pub const SHIELD_BODY_HALF_DEPTH: usize = 18;
-    /// Technical: Defines the `SHIELD_FORECAST` constant used by this module.
+    /// Defines the `SHIELD_FORECAST` constant used by this module.
     ///
-    /// Plain English: Provides the SHIELD FORECAST constant value.
+    ///
+///  Provides the SHIELD FORECAST constant value.
     pub const SHIELD_FORECAST: usize = 19;
-    /// Technical: Defines the `SHIELD_HOLD` constant used by this module.
+    /// Defines the `SHIELD_HOLD` constant used by this module.
     ///
-    /// Plain English: Provides the SHIELD HOLD constant value.
+    ///
+///  Provides the SHIELD HOLD constant value.
     pub const SHIELD_HOLD: usize = 20;
-    /// Technical: Defines the `GRAB_DODGE_PADDING` constant used by this module.
+    /// Defines the `GRAB_DODGE_PADDING` constant used by this module.
     ///
-    /// Plain English: Provides the GRAB DODGE PADDING constant value.
+    ///
+///  Provides the GRAB DODGE PADDING constant value.
     pub const GRAB_DODGE_PADDING: usize = 21;
-    /// Technical: Defines the `GRAB_DODGE_HEIGHT` constant used by this module.
+    /// Defines the `GRAB_DODGE_HEIGHT` constant used by this module.
     ///
-    /// Plain English: Provides the GRAB DODGE HEIGHT constant value.
+    ///
+///  Provides the GRAB DODGE HEIGHT constant value.
     pub const GRAB_DODGE_HEIGHT: usize = 22;
-    /// Technical: Defines the `TECH_HALF_WIDTH` constant used by this module.
+    /// Defines the `TECH_HALF_WIDTH` constant used by this module.
     ///
-    /// Plain English: Provides the TECH HALF WIDTH constant value.
+    ///
+///  Provides the TECH HALF WIDTH constant value.
     pub const TECH_HALF_WIDTH: usize = 23;
-    /// Technical: Defines the `TECH_FLOOR_ORIGIN` constant used by this module.
+    /// Defines the `TECH_FLOOR_ORIGIN` constant used by this module.
     ///
-    /// Plain English: Provides the TECH FLOOR ORIGIN constant value.
+    ///
+///  Provides the TECH FLOOR ORIGIN constant value.
     pub const TECH_FLOOR_ORIGIN: usize = 24;
-    /// Technical: Defines the `TECH_WALL_LOW` constant used by this module.
+    /// Defines the `TECH_WALL_LOW` constant used by this module.
     ///
-    /// Plain English: Provides the TECH WALL LOW constant value.
+    ///
+///  Provides the TECH WALL LOW constant value.
     pub const TECH_WALL_LOW: usize = 25;
-    /// Technical: Defines the `TECH_WALL_MID` constant used by this module.
+    /// Defines the `TECH_WALL_MID` constant used by this module.
     ///
-    /// Plain English: Provides the TECH WALL MID constant value.
+    ///
+///  Provides the TECH WALL MID constant value.
     pub const TECH_WALL_MID: usize = 26;
-    /// Technical: Defines the `TECH_WALL_HIGH` constant used by this module.
+    /// Defines the `TECH_WALL_HIGH` constant used by this module.
     ///
-    /// Plain English: Provides the TECH WALL HIGH constant value.
+    ///
+///  Provides the TECH WALL HIGH constant value.
     pub const TECH_WALL_HIGH: usize = 27;
-    /// Technical: Defines the `TECH_CEILING_ORIGIN` constant used by this module.
+    /// Defines the `TECH_CEILING_ORIGIN` constant used by this module.
     ///
-    /// Plain English: Provides the TECH CEILING ORIGIN constant value.
+    ///
+///  Provides the TECH CEILING ORIGIN constant value.
     pub const TECH_CEILING_ORIGIN: usize = 28;
-    /// Technical: Defines the `TECH_FLOOR_PADDING` constant used by this module.
+    /// Defines the `TECH_FLOOR_PADDING` constant used by this module.
     ///
-    /// Plain English: Provides the TECH FLOOR PADDING constant value.
+    ///
+///  Provides the TECH FLOOR PADDING constant value.
     pub const TECH_FLOOR_PADDING: usize = 29;
-    /// Technical: Defines the `TECH_CEILING_PADDING` constant used by this module.
+    /// Defines the `TECH_CEILING_PADDING` constant used by this module.
     ///
-    /// Plain English: Provides the TECH CEILING PADDING constant value.
+    ///
+///  Provides the TECH CEILING PADDING constant value.
     pub const TECH_CEILING_PADDING: usize = 30;
-    /// Technical: Defines the `PUNISH_DOWN_REACH` constant used by this module.
+    /// Defines the `PUNISH_DOWN_REACH` constant used by this module.
     ///
-    /// Plain English: Provides the PUNISH DOWN REACH constant value.
+    ///
+///  Provides the PUNISH DOWN REACH constant value.
     pub const PUNISH_DOWN_REACH: usize = 31;
-    /// Technical: Defines the `PUNISH_FORWARD_REACH` constant used by this module.
+    /// Defines the `PUNISH_FORWARD_REACH` constant used by this module.
     ///
-    /// Plain English: Provides the PUNISH FORWARD REACH constant value.
+    ///
+///  Provides the PUNISH FORWARD REACH constant value.
     pub const PUNISH_FORWARD_REACH: usize = 32;
-    /// Technical: Defines the `PUNISH_HEIGHT` constant used by this module.
+    /// Defines the `PUNISH_HEIGHT` constant used by this module.
     ///
-    /// Plain English: Provides the PUNISH HEIGHT constant value.
+    ///
+///  Provides the PUNISH HEIGHT constant value.
     pub const PUNISH_HEIGHT: usize = 33;
-    /// Technical: Defines the `ROLL_SMASH_HEIGHT` constant used by this module.
+    /// Defines the `ROLL_SMASH_HEIGHT` constant used by this module.
     ///
-    /// Plain English: Provides the ROLL SMASH HEIGHT constant value.
+    ///
+///  Provides the ROLL SMASH HEIGHT constant value.
     pub const ROLL_SMASH_HEIGHT: usize = 34;
-    /// Technical: Defines the `ROLL_SMASH_WATCH` constant used by this module.
+    /// Defines the `ROLL_SMASH_WATCH` constant used by this module.
     ///
-    /// Plain English: Provides the ROLL SMASH WATCH constant value.
+    ///
+///  Provides the ROLL SMASH WATCH constant value.
     pub const ROLL_SMASH_WATCH: usize = 35;
-    /// Technical: Defines the `ROLL_GRAB_HEIGHT` constant used by this module.
+    /// Defines the `ROLL_GRAB_HEIGHT` constant used by this module.
     ///
-    /// Plain English: Provides the ROLL GRAB HEIGHT constant value.
+    ///
+///  Provides the ROLL GRAB HEIGHT constant value.
     pub const ROLL_GRAB_HEIGHT: usize = 36;
-    /// Technical: Defines the `ROLL_GRAB_WATCH` constant used by this module.
+    /// Defines the `ROLL_GRAB_WATCH` constant used by this module.
     ///
-    /// Plain English: Provides the ROLL GRAB WATCH constant value.
+    ///
+///  Provides the ROLL GRAB WATCH constant value.
     pub const ROLL_GRAB_WATCH: usize = 37;
-    /// Technical: Defines the `CROUCH_RANGE` constant used by this module.
+    /// Defines the `CROUCH_RANGE` constant used by this module.
     ///
-    /// Plain English: Provides the CROUCH RANGE constant value.
+    ///
+///  Provides the CROUCH RANGE constant value.
     pub const CROUCH_RANGE: usize = 38;
-    /// Technical: Defines the `CROUCH_HEIGHT` constant used by this module.
+    /// Defines the `CROUCH_HEIGHT` constant used by this module.
     ///
-    /// Plain English: Provides the CROUCH HEIGHT constant value.
+    ///
+///  Provides the CROUCH HEIGHT constant value.
     pub const CROUCH_HEIGHT: usize = 39;
-    /// Technical: Defines the `WALK_STRENGTH` constant used by this module.
+    /// Defines the `WALK_STRENGTH` constant used by this module.
     ///
-    /// Plain English: Provides the WALK STRENGTH constant value.
+    ///
+///  Provides the WALK STRENGTH constant value.
     pub const WALK_STRENGTH: usize = 0;
-    /// Technical: Defines the `GRAB_RANGE` constant used by this module.
+    /// Defines the `GRAB_RANGE` constant used by this module.
     ///
-    /// Plain English: Provides the GRAB RANGE constant value.
+    ///
+///  Provides the GRAB RANGE constant value.
     pub const GRAB_RANGE: usize = 1;
-    /// Technical: Defines the `HORIZONTAL_RANGE` constant used by this module.
+    /// Defines the `HORIZONTAL_RANGE` constant used by this module.
     ///
-    /// Plain English: Provides the HORIZONTAL RANGE constant value.
+    ///
+///  Provides the HORIZONTAL RANGE constant value.
     pub const HORIZONTAL_RANGE: usize = 2;
-    /// Technical: Defines the `VERTICAL_RANGE` constant used by this module.
+    /// Defines the `VERTICAL_RANGE` constant used by this module.
     ///
-    /// Plain English: Provides the VERTICAL RANGE constant value.
+    ///
+///  Provides the VERTICAL RANGE constant value.
     pub const VERTICAL_RANGE: usize = 3;
-    /// Technical: Defines the `FOLLOW_RANGE` constant used by this module.
+    /// Defines the `FOLLOW_RANGE` constant used by this module.
     ///
-    /// Plain English: Provides the FOLLOW RANGE constant value.
+    ///
+///  Provides the FOLLOW RANGE constant value.
     pub const FOLLOW_RANGE: usize = 4;
-    /// Technical: Defines the `FOLLOW_VERTICAL_RANGE` constant used by this module.
+    /// Defines the `FOLLOW_VERTICAL_RANGE` constant used by this module.
     ///
-    /// Plain English: Provides the FOLLOW VERTICAL RANGE constant value.
+    ///
+///  Provides the FOLLOW VERTICAL RANGE constant value.
     pub const FOLLOW_VERTICAL_RANGE: usize = 5;
-    /// Technical: Defines the `STAND_DISTANCE` constant used by this module.
+    /// Defines the `STAND_DISTANCE` constant used by this module.
     ///
-    /// Plain English: Provides the STAND DISTANCE constant value.
+    ///
+///  Provides the STAND DISTANCE constant value.
     pub const STAND_DISTANCE: usize = 6;
-    /// Technical: Defines the `MOVE_STRENGTH` constant used by this module.
+    /// Defines the `MOVE_STRENGTH` constant used by this module.
     ///
-    /// Plain English: Provides the MOVE STRENGTH constant value.
+    ///
+///  Provides the MOVE STRENGTH constant value.
     pub const MOVE_STRENGTH: usize = 7;
-    /// Technical: Defines the `MANUAL_SPACING` constant used by this module.
+    /// Defines the `MANUAL_SPACING` constant used by this module.
     ///
-    /// Plain English: Provides the MANUAL SPACING constant value.
+    ///
+///  Provides the MANUAL SPACING constant value.
     pub const MANUAL_SPACING: usize = 8;
-    /// Technical: Defines the `AUTO_POSITION` constant used by this module.
+    /// Defines the `AUTO_POSITION` constant used by this module.
     ///
-    /// Plain English: Provides the AUTO POSITION constant value.
+    ///
+///  Provides the AUTO POSITION constant value.
     pub const AUTO_POSITION: usize = 9;
-    /// Technical: Defines the `USE_RANGE_LIMITS` constant used by this module.
+    /// Defines the `USE_RANGE_LIMITS` constant used by this module.
     ///
-    /// Plain English: Provides the USE RANGE LIMITS constant value.
+    ///
+///  Provides the USE RANGE LIMITS constant value.
     pub const USE_RANGE_LIMITS: usize = 10;
-    /// Technical: Defines the `GRAB_DODGE_DEFAULT` constant used by this module.
+    /// Defines the `GRAB_DODGE_DEFAULT` constant used by this module.
     ///
-    /// Plain English: Provides the GRAB DODGE DEFAULT constant value.
+    ///
+///  Provides the GRAB DODGE DEFAULT constant value.
     pub const GRAB_DODGE_DEFAULT: usize = 11;
-    /// Technical: Defines the `OUT_OF_SHIELD_DEFAULT` constant used by this module.
+    /// Defines the `OUT_OF_SHIELD_DEFAULT` constant used by this module.
     ///
-    /// Plain English: Provides the OUT OF SHIELD DEFAULT constant value.
+    ///
+///  Provides the OUT OF SHIELD DEFAULT constant value.
     pub const OUT_OF_SHIELD_DEFAULT: usize = 12;
-    /// Technical: Defines the `GRAB_DODGE_LOOKAHEAD` constant used by this module.
+    /// Defines the `GRAB_DODGE_LOOKAHEAD` constant used by this module.
     ///
-    /// Plain English: Provides the GRAB DODGE LOOKAHEAD constant value.
+    ///
+///  Provides the GRAB DODGE LOOKAHEAD constant value.
     pub const GRAB_DODGE_LOOKAHEAD: usize = 13;
 }
 
-/// Technical: Sets the lower bound for gamewatch reflect startup frames.
+/// Sets the lower bound for gamewatch reflect startup frames.
 ///
-/// Plain English: Holds the MIN GAMEWATCH REFLECT STARTUP FRAMES value.
+///
+///  Holds the MIN GAMEWATCH REFLECT STARTUP FRAMES value.
 pub const MIN_GAMEWATCH_REFLECT_STARTUP_FRAMES: f32 = 6.0;
-/// Technical: Sets the lower bound for grab dodge lookahead frames.
+/// Sets the lower bound for grab dodge lookahead frames.
 ///
-/// Plain English: Holds the MIN GRAB DODGE LOOKAHEAD FRAMES value.
+///
+///  Holds the MIN GRAB DODGE LOOKAHEAD FRAMES value.
 pub const MIN_GRAB_DODGE_LOOKAHEAD_FRAMES: f32 = 1.0;
-/// Technical: Sets the upper bound for grab dodge lookahead frames.
+/// Sets the upper bound for grab dodge lookahead frames.
 ///
-/// Plain English: Holds the MAX GRAB DODGE LOOKAHEAD FRAMES value.
+///
+///  Holds the MAX GRAB DODGE LOOKAHEAD FRAMES value.
 pub const MAX_GRAB_DODGE_LOOKAHEAD_FRAMES: f32 = 8.0;
-/// Technical: Sets the default value for grab dodge padding.
+/// Sets the default value for grab dodge padding.
 ///
-/// Plain English: Holds the DEFAULT GRAB DODGE PADDING value.
+///
+///  Holds the DEFAULT GRAB DODGE PADDING value.
 pub const DEFAULT_GRAB_DODGE_PADDING: f32 = 2.0;
-/// Technical: Sets the upper bound for grab dodge padding.
+/// Sets the upper bound for grab dodge padding.
 ///
-/// Plain English: Holds the MAX GRAB DODGE PADDING value.
+///
+///  Holds the MAX GRAB DODGE PADDING value.
 pub const MAX_GRAB_DODGE_PADDING: f32 = 30.0;
-/// Technical: Sets the default value for grab dodge height.
+/// Sets the default value for grab dodge height.
 ///
-/// Plain English: Holds the DEFAULT GRAB DODGE HEIGHT value.
+///
+///  Holds the DEFAULT GRAB DODGE HEIGHT value.
 pub const DEFAULT_GRAB_DODGE_HEIGHT: f32 = 8.0;
-/// Technical: Sets the upper bound for grab dodge height.
+/// Sets the upper bound for grab dodge height.
 ///
-/// Plain English: Holds the MAX GRAB DODGE HEIGHT value.
+///
+///  Holds the MAX GRAB DODGE HEIGHT value.
 pub const MAX_GRAB_DODGE_HEIGHT: f32 = 60.0;
-/// Technical: Sets the default value for reflect margin frames.
+/// Sets the default value for reflect margin frames.
 ///
-/// Plain English: Holds the DEFAULT REFLECT MARGIN FRAMES value.
+///
+///  Holds the DEFAULT REFLECT MARGIN FRAMES value.
 const DEFAULT_REFLECT_MARGIN_FRAMES: f32 = 2.0;
-/// Technical: Sets the default value for reflect max hold frames.
+/// Sets the default value for reflect max hold frames.
 ///
-/// Plain English: Holds the DEFAULT REFLECT MAX HOLD FRAMES value.
+///
+///  Holds the DEFAULT REFLECT MAX HOLD FRAMES value.
 const DEFAULT_REFLECT_MAX_HOLD_FRAMES: f32 = 45.0;
-/// Technical: Sets the default value for reflect half width.
+/// Sets the default value for reflect half width.
 ///
-/// Plain English: Holds the DEFAULT REFLECT HALF WIDTH value.
+///
+///  Holds the DEFAULT REFLECT HALF WIDTH value.
 const DEFAULT_REFLECT_HALF_WIDTH: f32 = 5.0;
-/// Technical: Sets the default value for reflect height.
+/// Sets the default value for reflect height.
 ///
-/// Plain English: Holds the DEFAULT REFLECT HEIGHT value.
+///
+///  Holds the DEFAULT REFLECT HEIGHT value.
 const DEFAULT_REFLECT_HEIGHT: f32 = 16.0;
-/// Technical: Sets the default value for reflect half depth.
+/// Sets the default value for reflect half depth.
 ///
-/// Plain English: Holds the DEFAULT REFLECT HALF DEPTH value.
+///
+///  Holds the DEFAULT REFLECT HALF DEPTH value.
 const DEFAULT_REFLECT_HALF_DEPTH: f32 = 5.0;
 
 pub use schema::*;
@@ -494,7 +566,8 @@ pub use schema::*;
 /// Fixed fallback for every override that has one, shared by the runtime reads
 /// (`Tuning::get`) and the menu display (`Tuning::values`) so they cannot drift.
 /// Rows derived from settings or the fighter kind are filled in by `values`.
-/// Plain English: Fixed fallback for every override that has one, shared by the runtime reads (Tuning::get) and the menu display (Tuning::values) so they cannot drift. Rows derived from settings or the fighter kind are filled in by values.
+///
+///  Fixed fallback for every override that has one, shared by the runtime reads (Tuning::get) and the menu display (Tuning::values) so they cannot drift. Rows derived from settings or the fighter kind are filled in by values.
 const DEFAULTS: [f32; COUNT] = {
     let mut d = [0.; COUNT];
     d[GRAB_DODGE_DEFAULT] = 1.;
@@ -534,77 +607,89 @@ const DEFAULTS: [f32; COUNT] = {
     d
 };
 
-/// Technical: Defines the `Tuning` data structure.
+/// Defines the `Tuning` data structure.
 ///
-/// Plain English: Holds the data for Tuning.
+///
+///  Holds the data for Tuning.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tuning(
-    /// Technical: Per-field optional tuning overrides in schema order.
+    /// Per-field optional tuning overrides in schema order.
     ///
-    /// Plain English: Stores only the fighter settings that should differ from their defaults.
+    ///
+///  Stores only the fighter settings that should differ from their defaults.
     pub [Option<f32>; COUNT],
 );
-/// Technical: Defines the `Values` data structure.
+/// Defines the `Values` data structure.
 ///
-/// Plain English: Holds the data for Values.
+///
+///  Holds the data for Values.
 #[derive(Clone, Copy)]
 pub struct Values(
-    /// Technical: Fully resolved tuning values in schema order.
+    /// Fully resolved tuning values in schema order.
     ///
-    /// Plain English: Stores the actual numeric value for every tuning setting.
+    ///
+///  Stores the actual numeric value for every tuning setting.
     pub [f32; COUNT],
 );
 impl Default for Values {
-    /// Technical: Returns the default value for this type.
+    /// Returns the default value for this type.
     ///
-    /// Plain English: Returns the default value for this type.
+    ///
+///  Returns the default value for this type.
     fn default() -> Self {
         Self([0.; COUNT])
     }
 }
 impl std::ops::Deref for Values {
-    /// Technical: Defines `Target` as a type alias.
+    /// Defines `Target` as a type alias.
     ///
-    /// Plain English: Holds the Target value.
+    ///
+///  Holds the Target value.
     type Target = [f32; COUNT];
-    /// Technical: Exposes the wrapped value through the `Deref` implementation.
+    /// Exposes the wrapped value through the `Deref` implementation.
     ///
-    /// Plain English: Lets callers use the wrapped value directly.
+    ///
+///  Lets callers use the wrapped value directly.
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 impl std::ops::DerefMut for Values {
-    /// Technical: Returns mutable access to the deref value.
+    /// Returns mutable access to the deref value.
     ///
-    /// Plain English: Provides mutable access to deref.
+    ///
+///  Provides mutable access to deref.
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 impl Default for Tuning {
-    /// Technical: Returns the default value for this type.
+    /// Returns the default value for this type.
     ///
-    /// Plain English: Returns the default value for this type.
+    ///
+///  Returns the default value for this type.
     fn default() -> Self {
         Self([None; COUNT])
     }
 }
 impl Tuning {
-    /// Technical: Returns the wrapped value.
+    /// Returns the wrapped value.
     ///
-    /// Plain English: Gets the stored value.
+    ///
+///  Gets the stored value.
     pub fn value(&self, i: usize, fallback: f32) -> f32 {
         self.0[i].unwrap_or(fallback)
     }
     /// The override, or this row's shared fixed default.
-    /// Plain English: The override, or this row's shared fixed default.
+    ///
+///  The override, or this row's shared fixed default.
     pub fn get(&self, i: usize) -> f32 {
         self.value(i, DEFAULTS[i])
     }
-    /// Technical: Returns the configured frame count.
+    /// Returns the configured frame count.
     ///
-    /// Plain English: Gets the number of frames.
+    ///
+///  Gets the number of frames.
     pub fn frames(i: usize) -> bool {
         matches!(
             i,
@@ -618,7 +703,8 @@ impl Tuning {
     }
     /// Menu rows shown for this fighter: reflect rows need a supported reflector,
     /// the legacy punish/roll rows are hidden, and crouch rows are Kirby-only.
-    /// Plain English: Menu rows shown for this fighter: reflect rows need a supported reflector, the legacy punish/roll rows are hidden, and crouch rows are Kirby-only.
+    ///
+///  Menu rows shown for this fighter: reflect rows need a supported reflector, the legacy punish/roll rows are hidden, and crouch rows are Kirby-only.
     pub fn visible(kind: i32, i: usize) -> bool {
         match i {
             REFLECT_DEFAULT..=REFLECT_HALF_DEPTH => crate::projectile_reflect::supports(kind),
@@ -627,17 +713,19 @@ impl Tuning {
             _ => i < COUNT,
         }
     }
-    /// Technical: Checks whether bool.
+    /// Checks whether bool.
     ///
-    /// Plain English: Checks whether bool.
+    ///
+///  Checks whether bool.
     pub fn is_bool(i: usize) -> bool {
         (MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT).contains(&i)
             || i == REFLECT_DEFAULT
             || (TILT_TURN_DOWN..=TILT_TURN_UP).contains(&i)
     }
-    /// Technical: Returns the configured tilt-turn behavior.
+    /// Returns the configured tilt-turn behavior.
     ///
-    /// Plain English: Gets the tilt-turn setting.
+    ///
+///  Gets the tilt-turn setting.
     pub fn tilt_turn(self, kind: i32) -> crate::posture::TiltSettings {
         crate::posture::TiltSettings {
             down: self.value(TILT_TURN_DOWN, f32::from(tilt_turn_down_default(kind))) == 1.0,
@@ -645,33 +733,38 @@ impl Tuning {
             up: self.get(TILT_TURN_UP) == 1.0,
         }
     }
-    /// Technical: Returns the default grab-dodge setting.
+    /// Returns the default grab-dodge setting.
     ///
-    /// Plain English: Gets the standard grab-dodge setting.
+    ///
+///  Gets the standard grab-dodge setting.
     pub fn grab_dodge_default(self, base: bool) -> bool {
         self.0[GRAB_DODGE_DEFAULT].map_or(base, |x| x == 1.0)
     }
-    /// Technical: Returns the default out-of-shield setting.
+    /// Returns the default out-of-shield setting.
     ///
-    /// Plain English: Gets the standard out-of-shield setting.
+    ///
+///  Gets the standard out-of-shield setting.
     pub fn oos_default(self) -> bool {
         self.get(OUT_OF_SHIELD_DEFAULT) == 1.0
     }
-    /// Technical: Returns the configured dodge lookahead.
+    /// Returns the configured dodge lookahead.
     ///
-    /// Plain English: Gets how far ahead the dodge check looks.
+    ///
+///  Gets how far ahead the dodge check looks.
     pub fn dodge_lookahead(self) -> f32 {
         self.get(GRAB_DODGE_LOOKAHEAD)
     }
-    /// Technical: Returns the configured automatic-grab range.
+    /// Returns the configured automatic-grab range.
     ///
-    /// Plain English: Gets how close a target must be for the automatic grab.
+    ///
+///  Gets how close a target must be for the automatic grab.
     pub fn auto_grab_range(&self, kind: i32, standing: f32) -> f32 {
         self.auto_grab_ranges(kind, standing).0
     }
-    /// Technical: Returns the per-fighter automatic-grab ranges.
+    /// Returns the per-fighter automatic-grab ranges.
     ///
-    /// Plain English: Gets the automatic-grab ranges for the fighters.
+    ///
+///  Gets the automatic-grab ranges for the fighters.
     pub fn auto_grab_ranges(&self, kind: i32, standing: f32) -> (f32, f32) {
         let (close, far) = match (self.0[AUTO_GRAB_CLOSE], self.0[AUTO_GRAB_FAR]) {
             (Some(close), Some(far)) => (close, far),
@@ -682,9 +775,10 @@ impl Tuning {
         };
         (close, far.max(close))
     }
-    /// Technical: Returns the shield observation used by the response.
+    /// Returns the shield observation used by the response.
     ///
-    /// Plain English: Gets the observed shield data.
+    ///
+///  Gets the observed shield data.
     pub fn shield(&self) -> crate::autopilot_guard::Envelope {
         crate::autopilot_guard::Envelope {
             scan_x: self.get(SHIELD_SCAN_X),
@@ -697,9 +791,10 @@ impl Tuning {
             forecast: self.get(SHIELD_FORECAST),
         }
     }
-    /// Technical: Returns the body area used for tech prediction.
+    /// Returns the body area used for tech prediction.
     ///
-    /// Plain English: Gets the body area used to estimate a tech.
+    ///
+///  Gets the body area used to estimate a tech.
     pub fn tech_body(&self) -> crate::tech_prediction::Body {
         crate::tech_prediction::Body {
             half_width: self.get(TECH_HALF_WIDTH),
@@ -714,9 +809,10 @@ impl Tuning {
             ceiling_padding: self.get(TECH_CEILING_PADDING),
         }
     }
-    /// Technical: Returns the geometric bounds for the observed object.
+    /// Returns the geometric bounds for the observed object.
     ///
-    /// Plain English: Gets the object’s bounds.
+    ///
+///  Gets the object’s bounds.
     pub fn bounds(i: usize) -> (f32, f32, f32) {
         if Self::is_bool(i) {
             return (0., 1., 1.);
@@ -755,9 +851,10 @@ impl Tuning {
             _ => (1.0, 150.0, 0.5),
         }
     }
-    /// Technical: Stores the supplied value.
+    /// Stores the supplied value.
     ///
-    /// Plain English: Sets the value.
+    ///
+///  Sets the value.
     pub fn set(&mut self, key: &str, text: &str) -> Result<(), String> {
         let i = KEYS
             .iter()
@@ -783,9 +880,10 @@ impl Tuning {
         self.0[i] = Some(value);
         Ok(())
     }
-    /// Technical: Returns the resolved tuning values.
+    /// Returns the resolved tuning values.
     ///
-    /// Plain English: Gets the actual tuning values.
+    ///
+///  Gets the actual tuning values.
     pub fn values(s: AssistSettings) -> Values {
         let mut values = DEFAULTS;
         values[WALK_STRENGTH] = s.walk_strength;
@@ -815,9 +913,10 @@ impl Tuning {
         values[TILT_TURN_DOWN] = f32::from(tilt_turn_down_default(s.fighter_kind));
         Values(values)
     }
-    /// Technical: Applies the supplied configuration or action.
+    /// Applies the supplied configuration or action.
     ///
-    /// Plain English: Makes the supplied change.
+    ///
+///  Makes the supplied change.
     pub fn apply(self, mut s: AssistSettings) -> AssistSettings {
         let v = self.0;
         let set = |slot: usize, target: &mut f32| {
@@ -850,13 +949,15 @@ impl Tuning {
 mod tests {
     use super::*;
     use crate::sequence_config::{persist, Catalog};
-    /// Technical: Defines the `SOURCE` constant used by this module.
+    /// Defines the `SOURCE` constant used by this module.
     ///
-    /// Plain English: Provides the SOURCE constant value.
+    ///
+///  Provides the SOURCE constant value.
     const SOURCE: &str = "# keep recipes\n[kirby.neutral.nair]\nstart_delay=0\nactions=nair\n[yoshi.neutral.grab]\nstart_delay=0\nactions=grab:fighter_range\n";
-    /// Technical: Regression test for `saved_overrides_are_per_fighter_and_preserve_recipes`.
+    /// Regression test for `saved_overrides_are_per_fighter_and_preserve_recipes`.
     ///
-    /// Plain English: Checks that saved overrides are per fighter and preserve recipes.
+    ///
+///  Checks that saved overrides are per fighter and preserve recipes.
     #[test]
     fn saved_overrides_are_per_fighter_and_preserve_recipes() {
         let mut tuning = Tuning::default();
@@ -896,9 +997,10 @@ mod tests {
             Tuning::default()
         );
     }
-    /// Technical: Regression test for `invalid_settings_reject_before_loading`.
+    /// Regression test for `invalid_settings_reject_before_loading`.
     ///
-    /// Plain English: Checks that invalid settings reject before loading.
+    ///
+///  Checks that invalid settings reject before loading.
     #[test]
     fn invalid_settings_reject_before_loading() {
         for text in [
@@ -916,9 +1018,10 @@ mod tests {
         }
         assert!(Catalog::parse("[yoshi.settings]\n[yoshi.settings]\n").is_err());
     }
-    /// Technical: Regression test for `applied_values_change_decisions_and_inputs_only`.
+    /// Regression test for `applied_values_change_decisions_and_inputs_only`.
     ///
-    /// Plain English: Checks that applied values change decisions and inputs only.
+    ///
+///  Checks that applied values change decisions and inputs only.
     #[test]
     fn applied_values_change_decisions_and_inputs_only() {
         let base = AssistSettings::default();

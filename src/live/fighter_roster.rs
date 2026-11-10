@@ -5,12 +5,13 @@
 //! Plain English: This module identifies the fighters in the match and confirms
 //! which one belongs to a human-controlled player.
 use super::{active_fighter_manager, fighter_manager_instance, game, game_entry_id};
-use kirby_assist_core::battle_objects::{append_fighter, FightersInGame, FIGHTER_CAPACITY};
 use kirby_assist_core::battle_objects::BITSHIFT_CATEGORY;
+use kirby_assist_core::battle_objects::{append_fighter, FightersInGame, FIGHTER_CAPACITY};
 
-/// Technical: Copies the active fighter IDs from the manager and adds valid
+/// Copies the active fighter IDs from the manager and adds valid
 /// Ice Climbers partners to the fixed-capacity roster.
-/// Plain English: Lists the active fighters without retaining pointers to them.
+///
+///  Lists the active fighters without retaining pointers to them.
 pub(crate) unsafe fn fighter_ids() -> Option<FightersInGame> {
     let manager = active_fighter_manager()?;
     let count = game::entry_count(manager);
@@ -44,9 +45,10 @@ pub(crate) unsafe fn fighter_ids() -> Option<FightersInGame> {
 }
 
 /// appends fighters and their Ice Climber partners to the list of fighters in the game.
-/// Technical: Validates the partner's category, active object identity, entry,
+/// Validates the partner's category, active object identity, entry,
 /// and complementary Popo/Nana kind before appending it.
-/// Plain English: Adds an Ice Climber partner only when it is confirmed to belong
+///
+///  Adds an Ice Climber partner only when it is confirmed to belong
 /// to the same pair.
 ///
 /// # Safety
@@ -92,8 +94,9 @@ unsafe fn append_partner(
 }
 
 /// Validate local fighter identity and its callback-discovered controller route.
-/// Technical: Rejects invalid objects, non-current Ice Climbers actors, and CPU entries.
-/// Plain English: Checks that this fighter is the active human player's fighter.
+/// Rejects invalid objects, non-current Ice Climbers actors, and CPU entries.
+///
+///  Checks that this fighter is the active human player's fighter.
 ///
 /// # Safety
 /// The object pointer must be valid for the native reads in this call.
@@ -124,9 +127,10 @@ pub(crate) unsafe fn human_fighter(object: *mut game::Object) -> bool {
     !information.is_null() && !game::is_cpu(information)
 }
 
-/// Technical: Confirms a fighter ID and controller index against the active native
+/// Confirms a fighter ID and controller index against the active native
 /// object and human-entry checks.
-/// Plain English: Verifies that a controller route really belongs to a human fighter.
+///
+///  Verifies that a controller route really belongs to a human fighter.
 ///
 /// # Safety
 /// Native game state referenced by the ID must remain valid during this call.

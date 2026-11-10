@@ -16,84 +16,109 @@ use std::{
     },
 };
 
-/// Technical: Canonical saved sequence and tuning file path.
-/// Plain English: The file where user settings and recipes are stored.
+/// Canonical saved sequence and tuning file path.
+///
+///  The file where user settings and recipes are stored.
 const PATH: &str = "sd:/ultimate/kirby_assist/sequences.txt";
-/// Technical: Exclusive temporary path used while writing a replacement.
-/// Plain English: The temporary file used to prepare a save safely.
+/// Exclusive temporary path used while writing a replacement.
+///
+///  The temporary file used to prepare a save safely.
 const TEMP: &str = "sd:/ultimate/kirby_assist/sequences.txt.menu.tmp";
-/// Technical: Verified recovery copy retained while replacing the canonical file.
-/// Plain English: A backup kept in case the save is interrupted.
+/// Verified recovery copy retained while replacing the canonical file.
+///
+///  A backup kept in case the save is interrupted.
 const BACKUP: &str = "sd:/ultimate/kirby_assist/sequences.txt.menu.bak";
-/// Technical: Stack allocation reserved for the save worker thread.
-/// Plain English: Extra stack space provided to the background save worker.
+/// Stack allocation reserved for the save worker thread.
+///
+///  Extra stack space provided to the background save worker.
 const WORKER_STACK_BYTES: usize = 2 * 1024 * 1024;
-/// Technical: Switch filesystem error code for an already-existing file.
-/// Plain English: The platform code used when the temporary file already exists.
+/// Switch filesystem error code for an already-existing file.
+///
+///  The platform code used when the temporary file already exists.
 const RAW_OS_ERROR_ALREADY_EXISTS: i32 = 0x402;
-/// Technical: Immutable request data captured for one explicit save operation.
-/// Plain English: Everything the background worker needs to save one menu edit.
+/// Immutable request data captured for one explicit save operation.
+///
+///  Everything the background worker needs to save one menu edit.
 pub(super) struct Job {
-    /// Technical: Native fighter kind associated with this request.
-    /// Plain English: The fighter whose settings are being saved.
+    /// Native fighter kind associated with this request.
+    ///
+    ///  The fighter whose settings are being saved.
     pub kind: i32,
-    /// Technical: Preset category containing the selected choice.
-    /// Plain English: Which recipe slot is being saved.
+    /// Preset category containing the selected choice.
+    ///
+    ///  Which recipe slot is being saved.
     pub slot: PresetSlot,
-    /// Technical: Index of the selected preset in the category.
-    /// Plain English: Which choice in that slot is being changed.
+    /// Index of the selected preset in the category.
+    ///
+    ///  Which choice in that slot is being changed.
     pub index: usize,
-    /// Technical: Recipe revision captured when the request was created.
-    /// Plain English: The menu version that requested the save.
+    /// Recipe revision captured when the request was created.
+    ///
+    ///  The menu version that requested the save.
     pub revision: u64,
-    /// Technical: Stable catalog identifier used to revalidate the selected recipe.
-    /// Plain English: The recipe's identity, so a later save cannot affect the wrong choice.
+    /// Stable catalog identifier used to revalidate the selected recipe.
+    ///
+    ///  The recipe's identity, so a later save cannot affect the wrong choice.
     pub choice: String,
-    /// Technical: Optional persisted display-name override.
-    /// Plain English: A custom name for this recipe, if it has one.
+    /// Optional persisted display-name override.
+    ///
+    ///  A custom name for this recipe, if it has one.
     pub name: Option<String>,
-    /// Technical: Whether this request removes rather than updates the recipe.
-    /// Plain English: Whether this save deletes the selected recipe.
+    /// Whether this request removes rather than updates the recipe.
+    ///
+    ///  Whether this save deletes the selected recipe.
     pub delete: bool,
-    /// Technical: Whether a successful update should set the startup default.
-    /// Plain English: Whether the saved recipe should become the default choice.
+    /// Whether a successful update should set the startup default.
+    ///
+    ///  Whether the saved recipe should become the default choice.
     pub make_default: bool,
-    /// Technical: Whether the selected catalog entry may be created by persistence.
-    /// Plain English: Whether saving may add a new recipe entry.
+    /// Whether the selected catalog entry may be created by persistence.
+    ///
+    ///  Whether saving may add a new recipe entry.
     pub allow_new: bool,
-    /// Technical: Value snapshot of the recipe to persist.
-    /// Plain English: The recipe contents captured for this save.
+    /// Value snapshot of the recipe to persist.
+    ///
+    ///  The recipe contents captured for this save.
     pub sequence: Sequence,
-    /// Technical: Optional fighter-tuning payload; present for tuning-only jobs.
-    /// Plain English: Updated fighter settings, when this save is for tuning.
+    /// Optional fighter-tuning payload; present for tuning-only jobs.
+    ///
+    ///  Updated fighter settings, when this save is for tuning.
     pub tuning: Option<kirby_assist_core::fighter_tuning::Tuning>,
 }
 /// What a result must report when its worker cannot deliver one itself.
-/// Plain English: Information used to describe a save that stopped unexpectedly.
+///
+///  Information used to describe a save that stopped unexpectedly.
 #[derive(Clone, Copy)]
 struct Identity {
-    /// Technical: Fighter kind retained for a fallback failure message.
-    /// Plain English: Which fighter the failed save belonged to.
+    /// Fighter kind retained for a fallback failure message.
+    ///
+    ///  Which fighter the failed save belonged to.
     kind: i32,
-    /// Technical: Preset category retained for a fallback failure message.
-    /// Plain English: Which recipe slot the failed save belonged to.
+    /// Preset category retained for a fallback failure message.
+    ///
+    ///  Which recipe slot the failed save belonged to.
     slot: PresetSlot,
-    /// Technical: Selected catalog index retained for result correlation.
-    /// Plain English: Which menu choice the failed save referred to.
+    /// Selected catalog index retained for result correlation.
+    ///
+    ///  Which menu choice the failed save referred to.
     index: usize,
-    /// Technical: Source revision retained to reject stale completion application.
-    /// Plain English: Which menu version requested the failed save.
+    /// Source revision retained to reject stale completion application.
+    ///
+    ///  Which menu version requested the failed save.
     revision: u64,
-    /// Technical: Whether the request represented deletion.
-    /// Plain English: Whether the failed operation was a delete.
+    /// Whether the request represented deletion.
+    ///
+    ///  Whether the failed operation was a delete.
     delete: bool,
-    /// Technical: Optional tuning payload identity.
-    /// Plain English: The fighter tuning associated with this operation, if any.
+    /// Optional tuning payload identity.
+    ///
+    ///  The fighter tuning associated with this operation, if any.
     tuning: Option<kirby_assist_core::fighter_tuning::Tuning>,
 }
 impl Job {
-    /// Technical: Copies the fields needed to correlate an eventual completion.
-    /// Plain English: Keeps a small record of the save request for its result.
+    /// Copies the fields needed to correlate an eventual completion.
+    ///
+    ///  Keeps a small record of the save request for its result.
     fn identity(&self) -> Identity {
         Identity {
             kind: self.kind,
@@ -105,43 +130,55 @@ impl Job {
         }
     }
 }
-/// Technical: Completion payload returned from the worker to the menu owner.
-/// Plain English: The outcome message and saved data the menu applies after a save.
+/// Completion payload returned from the worker to the menu owner.
+///
+///  The outcome message and saved data the menu applies after a save.
 pub(super) struct ResultMessage {
-    /// Technical: Stable catalog identifier of the completed recipe, if applicable.
-    /// Plain English: The recipe name-key the result applies to.
+    /// Stable catalog identifier of the completed recipe, if applicable.
+    ///
+    ///  The recipe name-key the result applies to.
     pub choice: Option<String>,
-    /// Technical: Native fighter kind associated with the completed request.
-    /// Plain English: Which fighter was being saved.
+    /// Native fighter kind associated with the completed request.
+    ///
+    ///  Which fighter was being saved.
     pub kind: i32,
-    /// Technical: Preset category associated with the completed request.
-    /// Plain English: Which recipe slot was saved.
+    /// Preset category associated with the completed request.
+    ///
+    ///  Which recipe slot was saved.
     pub slot: PresetSlot,
-    /// Technical: Catalog index associated with the completed request.
-    /// Plain English: Which choice in that slot was saved.
+    /// Catalog index associated with the completed request.
+    ///
+    ///  Which choice in that slot was saved.
     pub index: usize,
-    /// Technical: Source recipe revision associated with the completed request.
-    /// Plain English: Which menu version started the save.
+    /// Source recipe revision associated with the completed request.
+    ///
+    ///  Which menu version started the save.
     pub revision: u64,
-    /// Technical: User-facing completion or failure status.
-    /// Plain English: The message shown after the save finishes.
+    /// User-facing completion or failure status.
+    ///
+    ///  The message shown after the save finishes.
     pub message: String,
-    /// Technical: Whether the file operation completed successfully.
-    /// Plain English: Whether the save worked.
+    /// Whether the file operation completed successfully.
+    ///
+    ///  Whether the save worked.
     pub success: bool,
-    /// Technical: Whether the operation deleted the selected recipe.
-    /// Plain English: Whether the save removed a recipe.
+    /// Whether the operation deleted the selected recipe.
+    ///
+    ///  Whether the save removed a recipe.
     pub deleted: bool,
-    /// Technical: Successful recipe snapshot used to reconcile current edits.
-    /// Plain English: The recipe contents that were actually saved.
+    /// Successful recipe snapshot used to reconcile current edits.
+    ///
+    ///  The recipe contents that were actually saved.
     pub snapshot: Option<(Sequence, Option<String>)>,
-    /// Technical: Optional tuning payload associated with the operation.
-    /// Plain English: The fighter tuning that was saved, if this was a tuning save.
+    /// Optional tuning payload associated with the operation.
+    ///
+    ///  The fighter tuning that was saved, if this was a tuning save.
     pub tuning: Option<kirby_assist_core::fighter_tuning::Tuning>,
 }
 impl ResultMessage {
-    /// Technical: Constructs a failure completion preserving request correlation fields.
-    /// Plain English: Builds an error result that still points to the original request.
+    /// Constructs a failure completion preserving request correlation fields.
+    ///
+    ///  Builds an error result that still points to the original request.
     fn failure(identity: Identity, message: String) -> Self {
         Self {
             choice: None,
@@ -160,29 +197,36 @@ impl ResultMessage {
 // No pending snapshots/queue: explicit Training saves start one temporary
 // worker immediately. Retain its handle until exit; never detach a live
 // Switch worker. A second save waits until completion is consumed.
-/// Technical: Serializes explicit save requests across worker creation and result consumption.
-/// Plain English: Prevents overlapping saves.
+/// Serializes explicit save requests across worker creation and result consumption.
+///
+///  Prevents overlapping saves.
 static BUSY: AtomicBool = AtomicBool::new(false);
-/// Technical: Join handle and request identity retained until worker teardown.
-/// Plain English: Keeps the save thread tracked until it has fully stopped.
+/// Join handle and request identity retained until worker teardown.
+///
+///  Keeps the save thread tracked until it has fully stopped.
 struct Worker {
-    /// Technical: Join handle used to confirm worker termination without blocking on active work.
-    /// Plain English: Lets the menu check when the save thread has ended.
+    /// Join handle used to confirm worker termination without blocking on active work.
+    ///
+    ///  Lets the menu check when the save thread has ended.
     handle: std::thread::JoinHandle<()>,
-    /// Technical: Request identity used if the worker exits without publishing a result.
-    /// Plain English: Details needed to report an unexpected save-thread exit.
+    /// Request identity used if the worker exits without publishing a result.
+    ///
+    ///  Details needed to report an unexpected save-thread exit.
     identity: Identity,
 }
-/// Technical: Owns the sole current save worker until its join completes.
-/// Plain English: Stores the save thread that is currently running.
+/// Owns the sole current save worker until its join completes.
+///
+///  Stores the save thread that is currently running.
 static WORKER: Mutex<Option<Worker>> = Mutex::new(None);
 // Only explicit saves and cached-text replacement use this gate; never inputs,
 // detection or drawing. Check BUSY under the gate to close the start/rebuild race.
-/// Technical: Serializes explicit saves with cached-view replacement.
-/// Plain English: Coordinates saves with menu text changes.
+/// Serializes explicit saves with cached-view replacement.
+///
+///  Coordinates saves with menu text changes.
 static UI_SAVE_GATE: Mutex<()> = Mutex::new(());
-/// Technical: Acquires the short cached-UI edit gate only while no save is active.
-/// Plain English: Lets the display be changed only when a save is not using it.
+/// Acquires the short cached-UI edit gate only while no save is active.
+///
+///  Lets the display be changed only when a save is not using it.
 pub(super) fn try_ui_edit() -> Option<std::sync::MutexGuard<'static, ()>> {
     if busy() {
         return None;
@@ -194,23 +238,28 @@ pub(super) fn try_ui_edit() -> Option<std::sync::MutexGuard<'static, ()>> {
         Some(guard)
     }
 }
-/// Technical: Reads the save-in-progress flag with acquire ordering.
-/// Plain English: Checks whether a save is still running.
+/// Reads the save-in-progress flag with acquire ordering.
+///
+///  Checks whether a save is still running.
 pub(super) fn busy() -> bool {
     BUSY.load(Ordering::Acquire)
 }
-/// Technical: Signals that a result is available in [`RESULT`].
-/// Plain English: Marks that a completed save message is waiting.
+/// Signals that a result is available in [`RESULT`].
+///
+///  Marks that a completed save message is waiting.
 static RESULT_READY: AtomicBool = AtomicBool::new(false);
-/// Technical: Holds the single published completion message for the UI thread.
-/// Plain English: Stores the result that the menu will read next.
+/// Holds the single published completion message for the UI thread.
+///
+///  Stores the result that the menu will read next.
 static RESULT: Mutex<Option<ResultMessage>> = Mutex::new(None);
 #[cfg(test)]
-/// Technical: Serializes tests that access the process-wide worker state.
-/// Plain English: Prevents concurrent save tests from sharing state.
+/// Serializes tests that access the process-wide worker state.
+///
+///  Prevents concurrent save tests from sharing state.
 pub(super) static WORKER_TEST: Mutex<()> = Mutex::new(());
-/// Technical: Checks for a published result or an exited worker requiring synthesis.
-/// Plain English: Checks whether the menu has a save result to process.
+/// Checks for a published result or an exited worker requiring synthesis.
+///
+///  Checks whether the menu has a save result to process.
 pub(super) fn has_result() -> bool {
     RESULT_READY.load(Ordering::Acquire)
         || busy()
@@ -220,8 +269,9 @@ pub(super) fn has_result() -> bool {
                     .is_some_and(|worker| worker.handle.is_finished())
             })
 }
-/// Technical: Joins only a finished worker, consumes its result, and releases the save gate.
-/// Plain English: Collects a completed save without waiting for active disk work.
+/// Joins only a finished worker, consumes its result, and releases the save gate.
+///
+///  Collects a completed save without waiting for active disk work.
 pub(super) fn poll() -> Option<ResultMessage> {
     if !has_result() {
         return None;
@@ -260,8 +310,9 @@ pub(super) fn poll() -> Option<ResultMessage> {
     }
     result
 }
-/// Technical: Claims the exclusive save state only for an allowed Training operation.
-/// Plain English: Starts a save only in Training mode and only when none is already active.
+/// Claims the exclusive save state only for an allowed Training operation.
+///
+///  Starts a save only in Training mode and only when none is already active.
 fn claim_worker(training: bool) -> Result<(), &'static str> {
     if !training {
         return Err("Saving is available only in Training Mode");
@@ -270,8 +321,9 @@ fn claim_worker(training: bool) -> Result<(), &'static str> {
         .map(|_| ())
         .map_err(|_| "Save in progress; retry when it finishes")
 }
-/// Technical: Validates and starts one explicit save, returning immediate status text.
-/// Plain English: Requests a save and tells the menu whether it started.
+/// Validates and starts one explicit save, returning immediate status text.
+///
+///  Requests a save and tells the menu whether it started.
 pub(super) fn request(job: Job, training: bool) -> String {
     #[cfg(test)]
     if let Some(operation) = *TEST_OPERATION.lock().unwrap_or_else(|e| e.into_inner()) {
@@ -282,12 +334,14 @@ pub(super) fn request(job: Job, training: bool) -> String {
 // Host adapter regressions exercise real Y input/worker/completion routing
 // without accessing an SD path. Absent from production builds.
 #[cfg(test)]
-/// Technical: Allows tests to substitute filesystem operations without touching the SD path.
-/// Plain English: Gives tests a safe fake save operation.
+/// Allows tests to substitute filesystem operations without touching the SD path.
+///
+///  Gives tests a safe fake save operation.
 pub(super) static TEST_OPERATION: Mutex<Option<fn(&Job) -> Result<bool, String>>> =
     Mutex::new(None);
-/// Technical: Applies the save validation and worker path with an injectable operation.
-/// Plain English: Runs a save request using either real storage or a test substitute.
+/// Applies the save validation and worker path with an injectable operation.
+///
+///  Runs a save request using either real storage or a test substitute.
 fn request_with(job: Job, training: bool, operation: fn(&Job) -> Result<bool, String>) -> String {
     if job.tuning.is_none() && !job.delete {
         if usize::from(job.sequence.len) > kirby_assist_core::sequence_config::MAX_ACTIONS {
@@ -307,15 +361,17 @@ fn request_with(job: Job, training: bool, operation: fn(&Job) -> Result<bool, St
     *worker = spawn_worker(job, operation).map(|handle| Worker { handle, identity });
     "Saving now; keep Smash open until complete".into()
 }
-/// Technical: Replaces the result slot before publishing readiness with release ordering.
-/// Plain English: Delivers the finished save message to the menu.
+/// Replaces the result slot before publishing readiness with release ordering.
+///
+///  Delivers the finished save message to the menu.
 fn publish(result: ResultMessage) {
     let mut slot = RESULT.lock().unwrap_or_else(|error| error.into_inner());
     *slot = Some(result);
     RESULT_READY.store(true, Ordering::Release);
 }
-/// Technical: Maps the operation outcome and request flags to stable user-facing text.
-/// Plain English: Chooses the message shown for a completed save.
+/// Maps the operation outcome and request flags to stable user-facing text.
+///
+///  Chooses the message shown for a completed save.
 fn completion_message(job: &Job, outcome: &Result<bool, String>) -> String {
     match outcome {
         Ok(false) => "Already saved; file unchanged".into(),
@@ -325,8 +381,9 @@ fn completion_message(job: &Job, outcome: &Result<bool, String>) -> String {
         Err(error) => format!("Save failed: {error}"),
     }
 }
-/// Technical: Starts a named, stack-sized worker and publishes one correlated result.
-/// Plain English: Runs the file save on its own tracked background thread.
+/// Starts a named, stack-sized worker and publishes one correlated result.
+///
+///  Runs the file save on its own tracked background thread.
 fn spawn_worker(
     job: Job,
     operation: fn(&Job) -> Result<bool, String>,
@@ -383,8 +440,9 @@ fn spawn_worker(
     }
 }
 
-/// Technical: Publishes committed tuning into the shared in-memory sequence library.
-/// Plain English: Updates the active saved-settings cache after writing tuning.
+/// Publishes committed tuning into the shared in-memory sequence library.
+///
+///  Updates the active saved-settings cache after writing tuning.
 fn publish_tuning(
     saved: &Mutex<kirby_assist_core::sequence_config::SequenceLibrary>,
     kind: i32,
@@ -396,8 +454,9 @@ fn publish_tuning(
         .tuning
         .insert(kind, tuning);
 }
-/// Technical: Persists a tuning or recipe job and publishes changed recipe snapshots.
-/// Plain English: Saves the requested settings and updates the in-memory library.
+/// Persists a tuning or recipe job and publishes changed recipe snapshots.
+///
+///  Saves the requested settings and updates the in-memory library.
 fn write(job: &Job) -> Result<bool, String> {
     if let Some(tuning) = job.tuning {
         let changed = write_tuning_paths(
@@ -430,8 +489,9 @@ fn write(job: &Job) -> Result<bool, String> {
     Ok(true)
 }
 /// Recover an interrupted save, then read the live file and apply `update`.
-/// Technical: Runs recovery before applying a text transformation to the current file.
-/// Plain English: Repairs an interrupted save before changing the file.
+/// Runs recovery before applying a text transformation to the current file.
+///
+///  Repairs an interrupted save before changing the file.
 fn read_updated(
     path: &Path,
     temp: &Path,
@@ -442,8 +502,9 @@ fn read_updated(
     let updated = update(&original)?;
     Ok((original, updated))
 }
-/// Technical: Applies tuning persistence and commits only after validating the full file.
-/// Plain English: Saves fighter settings while preserving existing recipes.
+/// Applies tuning persistence and commits only after validating the full file.
+///
+///  Saves fighter settings while preserving existing recipes.
 fn write_tuning_paths(
     kind: i32,
     tuning: kirby_assist_core::fighter_tuning::Tuning,
@@ -458,8 +519,9 @@ fn write_tuning_paths(
     })?;
     commit_paths(path, temp, backup, &original, &updated)
 }
-/// Technical: Reads at most the file limit plus one detection byte.
-/// Plain English: Reads the save file safely without allowing an oversized file.
+/// Reads at most the file limit plus one detection byte.
+///
+///  Reads the save file safely without allowing an oversized file.
 fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
     // Bound the actual read, not only a racy metadata check: FTP/other tools
     // can replace or grow the file between stat and read.
@@ -474,8 +536,9 @@ fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
     Ok(data)
 }
 #[cfg(test)]
-/// Technical: Test adapter returning only the parsed catalog from a recipe write.
-/// Plain English: Helper used by tests to check the saved recipe catalog.
+/// Test adapter returning only the parsed catalog from a recipe write.
+///
+///  Helper used by tests to check the saved recipe catalog.
 fn write_paths(
     job: &Job,
     path: &Path,
@@ -484,8 +547,9 @@ fn write_paths(
 ) -> Result<kirby_assist_core::sequence_config::Catalog, String> {
     write_recipe_paths(job, path, temp, backup_path).map(|(catalog, _)| catalog)
 }
-/// Technical: Validates and serializes recipe edits, then commits the verified replacement.
-/// Plain English: Saves recipe changes while keeping the previous file recoverable.
+/// Validates and serializes recipe edits, then commits the verified replacement.
+///
+///  Saves recipe changes while keeping the previous file recoverable.
 fn write_recipe_paths(
     job: &Job,
     path: &Path,
@@ -517,8 +581,9 @@ fn write_recipe_paths(
     let changed = commit_paths(path, temp, backup_path, &original, &updated)?;
     Ok((saved_catalog, changed))
 }
-/// Technical: Rejects a commit when the live file changed since its initial read.
-/// Plain English: Prevents overwriting changes made by another tool during the save.
+/// Rejects a commit when the live file changed since its initial read.
+///
+///  Prevents overwriting changes made by another tool during the save.
 fn ensure_unchanged(path: &Path, original: &str) -> Result<(), String> {
     if read_bounded(path)? == original.as_bytes() {
         Ok(())
@@ -528,8 +593,9 @@ fn ensure_unchanged(path: &Path, original: &str) -> Result<(), String> {
 }
 /// Write through an already opened file, close the native handle, then read the
 /// bytes back before any rename or later step relies on them.
-/// Technical: Flushes, closes, and verifies a complete file before it can be renamed.
-/// Plain English: Confirms the saved bytes are really on disk before continuing.
+/// Flushes, closes, and verifies a complete file before it can be renamed.
+///
+///  Confirms the saved bytes are really on disk before continuing.
 fn write_verified(
     mut file: fs::File,
     path: &Path,
@@ -547,8 +613,9 @@ fn write_verified(
 }
 /// Replace the live file with `updated`, keeping a verified backup of `original`.
 /// Returns false, touching no file, when the update changes nothing.
-/// Technical: Coordinates backup, temporary-file verification, and rollback-safe replacement.
-/// Plain English: Replaces the settings file while keeping the previous version recoverable.
+/// Coordinates backup, temporary-file verification, and rollback-safe replacement.
+///
+///  Replaces the settings file while keeping the previous version recoverable.
 fn commit_paths(
     path: &Path,
     temp: &Path,
@@ -599,16 +666,18 @@ fn commit_paths(
     result.map(|()| true)
 }
 
-/// Technical: Derives the rollback-marker path associated with a canonical save file.
-/// Plain English: Finds the backup name used to recover an interrupted replacement.
+/// Derives the rollback-marker path associated with a canonical save file.
+///
+///  Finds the backup name used to recover an interrupted replacement.
 fn recovery_path(path: &Path) -> std::path::PathBuf {
     path.with_file_name(format!(
         "{}.menu.rollback",
         path.file_name().unwrap_or_default().to_string_lossy()
     ))
 }
-/// Technical: Checks path existence while distinguishing absence from filesystem errors.
-/// Plain English: Checks whether a file exists and reports other inspection failures.
+/// Checks path existence while distinguishing absence from filesystem errors.
+///
+///  Checks whether a file exists and reports other inspection failures.
 fn exists(path: &Path) -> Result<bool, String> {
     match fs::metadata(path) {
         Ok(_) => Ok(true),
@@ -616,21 +685,24 @@ fn exists(path: &Path) -> Result<bool, String> {
         Err(e) => Err(format!("Cannot inspect {}: {e}", path.display())),
     }
 }
-/// Technical: Bounded-reads and validates persisted sequence syntax.
-/// Plain English: Checks that a save file is small enough and has valid contents.
+/// Bounded-reads and validates persisted sequence syntax.
+///
+///  Checks that a save file is small enough and has valid contents.
 fn validate_file(path: &Path) -> Result<(), String> {
     let source = String::from_utf8(read_bounded(path)?).map_err(|e| e.to_string())?;
     persist::validate_output(&source)
 }
 /// Startup/next-save recovery is inactive unless an interrupted replacement
 /// left our rollback marker. A valid published file always wins over the old one.
-/// Technical: Restores or cleans an interrupted replacement before normal use.
-/// Plain English: Finishes recovery after a save was interrupted.
+/// Restores or cleans an interrupted replacement before normal use.
+///
+///  Finishes recovery after a save was interrupted.
 pub(super) fn recover() -> Result<(), String> {
     recover_paths(Path::new(PATH), Path::new(TEMP))
 }
-/// Technical: Reconciles a rollback marker with the live file and removes stale temporary data.
-/// Plain English: Keeps a valid saved file and restores the original if needed.
+/// Reconciles a rollback marker with the live file and removes stale temporary data.
+///
+///  Keeps a valid saved file and restores the original if needed.
 fn recover_paths(path: &Path, temp: &Path) -> Result<(), String> {
     let rollback = recovery_path(path);
     if !exists(&rollback)? {
@@ -655,8 +727,9 @@ fn recover_paths(path: &Path, temp: &Path) -> Result<(), String> {
     let _ = fs::remove_file(temp);
     Ok(())
 }
-/// Technical: Replaces the live file, falling back to a recoverable rollback rename when needed.
-/// Plain English: Publishes the new file without losing the previous good copy.
+/// Replaces the live file, falling back to a recoverable rollback rename when needed.
+///
+///  Publishes the new file without losing the previous good copy.
 fn replace_file<F>(path: &Path, temp: &Path, original: &str, mut rename: F) -> Result<(), String>
 where
     F: FnMut(&Path, &Path) -> io::Result<()>,
@@ -692,23 +765,28 @@ where
 }
 
 #[cfg(test)]
-/// Technical: Filesystem-independent host regressions for save and recovery invariants.
-/// Plain English: Tests that saves, backups, and recovery behave correctly.
+/// Filesystem-independent host regressions for save and recovery invariants.
+///
+///  Tests that saves, backups, and recovery behave correctly.
 mod tests {
     use super::*;
     use kirby_assist_core::sequence_config::Catalog;
-    /// Technical: Unique directory suffix counter for isolated test fixtures.
-    /// Plain English: Gives each test folder a different name.
+    /// Unique directory suffix counter for isolated test fixtures.
+    ///
+    ///  Gives each test folder a different name.
     static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    /// Technical: Minimal multi-fighter catalog fixture used by persistence tests.
-    /// Plain English: Sample saved recipes used to test file changes.
+    /// Minimal multi-fighter catalog fixture used by persistence tests.
+    ///
+    ///  Sample saved recipes used to test file changes.
     const SOURCE: &str = "# custom catalog\n[yoshi.roll.grab]\nname = Tongue grab\nstart_delay=0\ndefault=true\nactions=grab\n\n[kirby.roll.other]\nstart_delay=0\nactions=a\n";
-    /// Technical: RAII-owned temporary directory for one persistence regression.
-    /// Plain English: Test files are removed when this fixture goes away.
+    /// RAII-owned temporary directory for one persistence regression.
+    ///
+    ///  Test files are removed when this fixture goes away.
     struct Directory(std::path::PathBuf);
     impl Directory {
-        /// Technical: Creates a unique test directory and returns its owner.
-        /// Plain English: Makes a fresh folder for a save test.
+        /// Creates a unique test directory and returns its owner.
+        ///
+        ///  Makes a fresh folder for a save test.
         fn new() -> Self {
             let path = std::env::temp_dir().join(format!(
                 "kirby-menu-save-{}-{}",
@@ -720,14 +798,16 @@ mod tests {
         }
     }
     impl Drop for Directory {
-        /// Technical: Removes the fixture directory and all of its test files.
-        /// Plain English: Cleans up the test folder after each test.
+        /// Removes the fixture directory and all of its test files.
+        ///
+        ///  Cleans up the test folder after each test.
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
     }
-    /// Technical: Builds a representative recipe-save request fixture.
-    /// Plain English: Makes a sample save request for tests.
+    /// Builds a representative recipe-save request fixture.
+    ///
+    ///  Makes a sample save request for tests.
     fn job() -> Job {
         let catalog=Catalog::parse("[yoshi.roll.grab]\nstart_delay=4\nactions=walk:inward:4:0.5,wait:2,face:opponent,grab:fighter_range").unwrap();
         Job {
@@ -746,8 +826,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies two fighter-specific edits preserve each other's catalog sections.
-    /// Plain English: Checks that saving one form does not overwrite the other.
+    /// Verifies two fighter-specific edits preserve each other's catalog sections.
+    ///
+    ///  Checks that saving one form does not overwrite the other.
     fn pyra_and_mythra_edits_save_once_without_overwriting_the_other_form() {
         let source = format!(
             "{}\n{}",
@@ -795,14 +876,17 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies initial save proceeds while a concurrent menu refresh remains nonblocking.
-    /// Plain English: Checks that the first save succeeds without freezing menu updates.
+    /// Verifies initial save proceeds while a concurrent menu refresh remains nonblocking.
+    ///
+    ///  Checks that the first save succeeds without freezing menu updates.
     fn first_save_survives_a_concurrent_menu_refresh_without_blocking_input() {
-        /// Technical: Counts injected writes in the concurrent refresh regression.
-        /// Plain English: Tracks how many times the test save operation ran.
+        /// Counts injected writes in the concurrent refresh regression.
+        ///
+        ///  Tracks how many times the test save operation ran.
         static WRITES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        /// Technical: Test-only save operation that increments [`WRITES`].
-        /// Plain English: Fake save action used to check request counts.
+        /// Test-only save operation that increments [`WRITES`].
+        ///
+        ///  Fake save action used to check request counts.
         fn write_once(job: &Job) -> Result<bool, String> {
             assert_eq!(job.sequence.start_delay, 4);
             WRITES.fetch_add(1, Ordering::SeqCst);
@@ -834,8 +918,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies completed workers are joined before UI edits and subsequent saves proceed.
-    /// Plain English: Confirms the menu waits for a save thread to fully finish.
+    /// Verifies completed workers are joined before UI edits and subsequent saves proceed.
+    ///
+    ///  Confirms the menu waits for a save thread to fully finish.
     fn result_cannot_release_ui_or_next_save_until_worker_teardown_finishes() {
         let _guard = WORKER_TEST.lock().unwrap();
         claim_worker(true).unwrap();
@@ -892,8 +977,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies save admission requires Training and rejects overlapping work.
-    /// Plain English: Checks saves only run in Training and do not pile up.
+    /// Verifies save admission requires Training and rejects overlapping work.
+    ///
+    ///  Checks saves only run in Training and do not pile up.
     fn save_is_training_only_and_busy_requests_do_not_accumulate() {
         let _guard = WORKER_TEST.lock().unwrap();
         assert!(!BUSY.load(Ordering::Acquire));
@@ -912,8 +998,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies default updates publish the latest catalog without changing other categories.
-    /// Plain English: Checks that choosing a default keeps unrelated recipes.
+    /// Verifies default updates publish the latest catalog without changing other categories.
+    ///
+    ///  Checks that choosing a default keeps unrelated recipes.
     fn default_save_publishes_latest_catalog_and_preserves_other_categories() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -955,8 +1042,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies success and failure workers exit, publish outcomes, and release admission.
-    /// Plain English: Checks another save can start after either a successful or failed save.
+    /// Verifies success and failure workers exit, publish outcomes, and release admission.
+    ///
+    ///  Checks another save can start after either a successful or failed save.
     fn worker_exits_after_one_job_on_success_and_error_and_allows_the_next_save() {
         let _guard = WORKER_TEST.lock().unwrap();
         for operation in [
@@ -974,8 +1062,9 @@ mod tests {
         }
     }
     #[test]
-    /// Technical: Verifies oversized input is rejected before replacement starts.
-    /// Plain English: Checks a too-large file is left untouched.
+    /// Verifies oversized input is rejected before replacement starts.
+    ///
+    ///  Checks a too-large file is left untouched.
     fn oversized_reads_are_bounded_and_do_not_start_replacement() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -992,8 +1081,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies Switch rename fallback preserves the original and validates publication.
-    /// Plain English: Checks the backup remains safe if replacing a file needs a fallback.
+    /// Verifies Switch rename fallback preserves the original and validates publication.
+    ///
+    ///  Checks the backup remains safe if replacing a file needs a fallback.
     fn switch_style_rename_preserves_original_and_publishes_valid_temp() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1024,8 +1114,9 @@ mod tests {
         assert!(!temp.exists());
     }
     #[test]
-    /// Technical: Verifies failed publication rolls back to the original live file.
-    /// Plain English: Checks a failed save does not lose the old settings.
+    /// Verifies failed publication rolls back to the original live file.
+    ///
+    ///  Checks a failed save does not lose the old settings.
     fn failed_switch_publish_rolls_back_without_losing_original() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1052,8 +1143,9 @@ mod tests {
         assert!(!recovery_path(&path).exists());
     }
     #[test]
-    /// Technical: Verifies startup recovery handles a missing live file and a valid published file.
-    /// Plain English: Checks recovery finishes interrupted saves without discarding valid data.
+    /// Verifies startup recovery handles a missing live file and a valid published file.
+    ///
+    ///  Checks recovery finishes interrupted saves without discarding valid data.
     fn interrupted_switch_save_recovers_missing_live_file_or_keeps_valid_published_file() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1081,8 +1173,9 @@ mod tests {
         assert!(!rollback.exists());
     }
     #[test]
-    /// Technical: Verifies invalid live content prevents recovery from overwriting retained originals.
-    /// Plain English: Checks recovery preserves the backup when the current file is broken.
+    /// Verifies invalid live content prevents recovery from overwriting retained originals.
+    ///
+    ///  Checks recovery preserves the backup when the current file is broken.
     fn recovery_does_not_overwrite_an_invalid_live_file_or_discard_its_original() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1095,8 +1188,9 @@ mod tests {
         assert_eq!(fs::read_to_string(&rollback).unwrap(), SOURCE);
     }
     #[test]
-    /// Technical: Verifies diagnostic rename and delete operations validate and back up the catalog.
-    /// Plain English: Checks rename and delete changes are saved safely.
+    /// Verifies diagnostic rename and delete operations validate and back up the catalog.
+    ///
+    ///  Checks rename and delete changes are saved safely.
     fn diagnostic_rename_and_delete_are_validated_and_backed_up() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1121,8 +1215,9 @@ mod tests {
         assert!(deleted.contains("[kirby.roll.other]"));
     }
     #[test]
-    /// Technical: Verifies a recipe save produces a valid catalog and verified backup.
-    /// Plain English: Checks a saved recipe works and the previous file is backed up.
+    /// Verifies a recipe save produces a valid catalog and verified backup.
+    ///
+    ///  Checks a saved recipe works and the previous file is backed up.
     fn save_writes_valid_recipe_and_verified_backup_preserving_other_sections() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1142,8 +1237,9 @@ mod tests {
         assert!(!temp.exists());
     }
     #[test]
-    /// Technical: Verifies adding a first non-default Y recipe remains valid after reload.
-    /// Plain English: Checks a new Y recipe can be reopened later.
+    /// Verifies adding a first non-default Y recipe remains valid after reload.
+    ///
+    ///  Checks a new Y recipe can be reopened later.
     fn saving_first_nondefault_y_recipe_remains_valid_on_restart() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1177,8 +1273,9 @@ mod tests {
         assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
     }
     #[test]
-    /// Technical: Verifies invalid catalogs and pre-existing temporary files block replacement.
-    /// Plain English: Checks broken data or an occupied temp file cannot replace the save file.
+    /// Verifies invalid catalogs and pre-existing temporary files block replacement.
+    ///
+    ///  Checks broken data or an occupied temp file cannot replace the save file.
     fn invalid_file_or_existing_temp_never_overwrites_live_file() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1197,8 +1294,9 @@ mod tests {
         assert!(!backup.exists());
     }
     #[test]
-    /// Technical: Verifies backup creation failure leaves the live file and cleans owned temporary data.
-    /// Plain English: Checks a failed backup does not damage the current settings.
+    /// Verifies backup creation failure leaves the live file and cleans owned temporary data.
+    ///
+    ///  Checks a failed backup does not damage the current settings.
     fn backup_failure_keeps_live_file_and_cleans_own_temp() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1210,8 +1308,9 @@ mod tests {
         assert!(!temp.exists());
     }
     #[test]
-    /// Technical: Verifies tuning updates use the verified-save path without dropping recipes.
-    /// Plain English: Checks fighter settings can be saved while recipes remain intact.
+    /// Verifies tuning updates use the verified-save path without dropping recipes.
+    ///
+    ///  Checks fighter settings can be saved while recipes remain intact.
     fn fighter_settings_share_verified_save_and_preserve_all_recipes() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1231,8 +1330,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies publishing tuning preserves compact recipes and other fighter entries.
-    /// Plain English: Checks updating one fighter's settings keeps everyone else's data.
+    /// Verifies publishing tuning preserves compact recipes and other fighter entries.
+    ///
+    ///  Checks updating one fighter's settings keeps everyone else's data.
     fn publishing_settings_preserves_compact_recipes_and_other_fighters() {
         let mut original = Catalog::parse(SOURCE).unwrap();
         let mut other = kirby_assist_core::fighter_tuning::Tuning::default();
@@ -1252,8 +1352,9 @@ mod tests {
         assert_eq!(after.tuning[&6], other);
     }
     #[test]
-    /// Technical: Verifies identical serialized output skips replacement for each save type.
-    /// Plain English: Checks unchanged settings do not rewrite files or backups.
+    /// Verifies identical serialized output skips replacement for each save type.
+    ///
+    ///  Checks unchanged settings do not rewrite files or backups.
     fn commit_skips_identical_content_for_every_save_kind_and_keeps_the_backup() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1274,8 +1375,9 @@ mod tests {
         assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
     }
     #[test]
-    /// Technical: Verifies failed tuning backup creation preserves the active file.
-    /// Plain English: Checks fighter settings remain safe if their backup cannot be made.
+    /// Verifies failed tuning backup creation preserves the active file.
+    ///
+    ///  Checks fighter settings remain safe if their backup cannot be made.
     fn settings_backup_failure_preserves_active_file() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1288,8 +1390,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies an unchanged recipe does not replace the file or backup.
-    /// Plain English: Checks saving the same recipe does not rewrite anything.
+    /// Verifies an unchanged recipe does not replace the file or backup.
+    ///
+    ///  Checks saving the same recipe does not rewrite anything.
     fn unchanged_recipe_save_does_not_replace_file_or_backup() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1313,8 +1416,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies long holds and until-takeover actions persist without expansion.
-    /// Plain English: Checks advanced button timing stays compact when saved.
+    /// Verifies long holds and until-takeover actions persist without expansion.
+    ///
+    ///  Checks advanced button timing stays compact when saved.
     fn long_button_holds_and_until_takeover_save_without_expanding_actions() {
         for input in ["hold:b:160", "hold:b:255", "hold_until_manual:b:0:0"] {
             let directory = Directory::new();
@@ -1341,8 +1445,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies a worker exit without publication synthesizes failure and releases the gate.
-    /// Plain English: Checks an unexpectedly stopped save does not leave saving permanently locked.
+    /// Verifies a worker exit without publication synthesizes failure and releases the gate.
+    ///
+    ///  Checks an unexpectedly stopped save does not leave saving permanently locked.
     fn exited_worker_without_a_result_releases_save_gate_and_reports_failure() {
         let _guard = WORKER_TEST.lock().unwrap();
         let mut settings = kirby_assist_core::fighter_tuning::Tuning::default();
@@ -1380,8 +1485,9 @@ mod tests {
         }
     }
     #[test]
-    /// Technical: Verifies malformed snapshots are rejected before worker creation.
-    /// Plain English: Checks invalid recipe data never starts a save.
+    /// Verifies malformed snapshots are rejected before worker creation.
+    ///
+    ///  Checks invalid recipe data never starts a save.
     fn malformed_save_snapshot_is_rejected_before_starting_a_worker() {
         let _guard = WORKER_TEST.lock().unwrap();
         let mut j = job();
@@ -1395,8 +1501,9 @@ mod tests {
         assert!(!busy());
     }
     #[test]
-    /// Technical: Verifies boundary values and invalid axes preserve the existing catalog.
-    /// Plain English: Checks edge-case values cannot damage saved recipes.
+    /// Verifies boundary values and invalid axes preserve the existing catalog.
+    ///
+    ///  Checks edge-case values cannot damage saved recipes.
     fn repeated_boundary_value_saves_and_invalid_axes_preserve_the_file() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1437,8 +1544,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies a full-roster boundary save fits the configured worker stack.
-    /// Plain English: Checks the largest supported catalog can be saved by the worker.
+    /// Verifies a full-roster boundary save fits the configured worker stack.
+    ///
+    ///  Checks the largest supported catalog can be saved by the worker.
     fn full_catalog_boundary_save_fits_the_actual_worker_stack() {
         std::thread::Builder::new().stack_size(WORKER_STACK_BYTES).spawn(|| {
             let source=include_str!("../../../deployment/ultimate/kirby_assist/assembled/sequences.txt");
@@ -1455,8 +1563,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies full-roster edit, default, copy, delete, and settings round trips.
-    /// Plain English: Checks all major menu save actions survive reload.
+    /// Verifies full-roster edit, default, copy, delete, and settings round trips.
+    ///
+    ///  Checks all major menu save actions survive reload.
     fn current_full_roster_edits_defaults_copies_deletes_and_settings_round_trip() {
         std::thread::Builder::new()
             .stack_size(WORKER_STACK_BYTES)
@@ -1571,8 +1680,9 @@ mod tests {
     }
 
     #[test]
-    /// Technical: Verifies a default recipe save captures the latest actions, timing, name, and loop.
-    /// Plain English: Checks the default save includes the player's newest edits.
+    /// Verifies a default recipe save captures the latest actions, timing, name, and loop.
+    ///
+    ///  Checks the default save includes the player's newest edits.
     fn button_default_save_keeps_latest_edited_actions_timing_name_and_loop() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");

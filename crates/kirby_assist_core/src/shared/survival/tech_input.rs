@@ -7,151 +7,185 @@
 //! See src/live/tech.rs for native detection and tech_prediction.rs for geometry.
 pub use crate::flame_choke::DEFAULT_GANON_PASSIVE_TRIGGER_FRAME;
 use crate::tech_prediction::{is_tech_status, is_tumble_status};
-/// Technical: Sets the default value for passive trigger frame.
+/// Sets the default value for passive trigger frame.
 ///
-/// Plain English: Holds the DEFAULT PASSIVE TRIGGER FRAME value.
+///
+///  Holds the DEFAULT PASSIVE TRIGGER FRAME value.
 pub const DEFAULT_PASSIVE_TRIGGER_FRAME: u16 = 12;
-/// Technical: Sets the upper bound for input delay frames.
+/// Sets the upper bound for input delay frames.
 ///
-/// Plain English: Holds the MAX INPUT DELAY FRAMES value.
+///
+///  Holds the MAX INPUT DELAY FRAMES value.
 pub const MAX_INPUT_DELAY_FRAMES: f32 = 12.0;
-/// Technical: Sets the upper bound for reaction remaining frames.
+/// Sets the upper bound for reaction remaining frames.
 ///
-/// Plain English: Holds the MAX REACTION REMAINING FRAMES value.
+///
+///  Holds the MAX REACTION REMAINING FRAMES value.
 pub const MAX_REACTION_REMAINING_FRAMES: f32 = 1200.0;
-/// Technical: Sets the lower bound for tech cooldown frames.
+/// Sets the lower bound for tech cooldown frames.
 ///
-/// Plain English: Holds the MIN TECH COOLDOWN FRAMES value.
+///
+///  Holds the MIN TECH COOLDOWN FRAMES value.
 pub const MIN_TECH_COOLDOWN_FRAMES: u16 = 2;
-/// Technical: Sets the upper bound for hitstop observation frames.
+/// Sets the upper bound for hitstop observation frames.
 ///
-/// Plain English: Holds the MAX HITSTOP OBSERVATION FRAMES value.
+///
+///  Holds the MAX HITSTOP OBSERVATION FRAMES value.
 const MAX_HITSTOP_OBSERVATION_FRAMES: u64 = 120;
-/// Technical: Sets the upper bound for reaction clock advance frames.
+/// Sets the upper bound for reaction clock advance frames.
 ///
-/// Plain English: Holds the MAX REACTION CLOCK ADVANCE FRAMES value.
+///
+///  Holds the MAX REACTION CLOCK ADVANCE FRAMES value.
 const MAX_REACTION_CLOCK_ADVANCE_FRAMES: f32 = 4.0;
-/// Technical: Defines the `STABLE_ANIMATION_RATE_EPSILON` constant used by this module.
+/// Defines the `STABLE_ANIMATION_RATE_EPSILON` constant used by this module.
 ///
-/// Plain English: Provides the STABLE ANIMATION RATE EPSILON constant value.
+///
+///  Provides the STABLE ANIMATION RATE EPSILON constant value.
 const STABLE_ANIMATION_RATE_EPSILON: f32 = 0.001;
-/// Technical: Sets the upper bound for animation clock advance frames.
+/// Sets the upper bound for animation clock advance frames.
 ///
-/// Plain English: Holds the MAX ANIMATION CLOCK ADVANCE FRAMES value.
+///
+///  Holds the MAX ANIMATION CLOCK ADVANCE FRAMES value.
 const MAX_ANIMATION_CLOCK_ADVANCE_FRAMES: f32 = 4.0;
-/// Technical: Sets the lower bound for native tech window frames.
+/// Sets the lower bound for native tech window frames.
 ///
-/// Plain English: Holds the MIN NATIVE TECH WINDOW FRAMES value.
+///
+///  Holds the MIN NATIVE TECH WINDOW FRAMES value.
 const MIN_NATIVE_TECH_WINDOW_FRAMES: u16 = 2;
-/// Technical: Sets the upper bound for native tech window frames.
+/// Sets the upper bound for native tech window frames.
 ///
-/// Plain English: Holds the MAX NATIVE TECH WINDOW FRAMES value.
+///
+///  Holds the MAX NATIVE TECH WINDOW FRAMES value.
 const MAX_NATIVE_TECH_WINDOW_FRAMES: u16 = 60;
-/// Technical: Defines the `TECH_WINDOW_SAFETY_MARGIN_FRAMES` constant used by this module.
+/// Defines the `TECH_WINDOW_SAFETY_MARGIN_FRAMES` constant used by this module.
 ///
-/// Plain English: Provides the TECH WINDOW SAFETY MARGIN FRAMES constant value.
+///
+///  Provides the TECH WINDOW SAFETY MARGIN FRAMES constant value.
 const TECH_WINDOW_SAFETY_MARGIN_FRAMES: u16 = 3;
-/// Technical: Sets the lower bound for tech arrival lead frames.
+/// Sets the lower bound for tech arrival lead frames.
 ///
-/// Plain English: Holds the MIN TECH ARRIVAL LEAD FRAMES value.
+///
+///  Holds the MIN TECH ARRIVAL LEAD FRAMES value.
 const MIN_TECH_ARRIVAL_LEAD_FRAMES: u16 = 1;
-/// Technical: Defines the `NEAR_CONTACT_EXTRA_MARGIN_FRAMES` constant used by this module.
+/// Defines the `NEAR_CONTACT_EXTRA_MARGIN_FRAMES` constant used by this module.
 ///
-/// Plain English: Provides the NEAR CONTACT EXTRA MARGIN FRAMES constant value.
+///
+///  Provides the NEAR CONTACT EXTRA MARGIN FRAMES constant value.
 const NEAR_CONTACT_EXTRA_MARGIN_FRAMES: f32 = 2.0;
-/// Technical: Defines the `URGENT_CONTACT_LEAD_FRAMES` constant used by this module.
+/// Defines the `URGENT_CONTACT_LEAD_FRAMES` constant used by this module.
 ///
-/// Plain English: Provides the URGENT CONTACT LEAD FRAMES constant value.
+///
+///  Provides the URGENT CONTACT LEAD FRAMES constant value.
 const URGENT_CONTACT_LEAD_FRAMES: f32 = 1.25;
-/// Technical: Sets the upper bound for guard preparation advances.
+/// Sets the upper bound for guard preparation advances.
 ///
-/// Plain English: Holds the MAX GUARD PREPARATION ADVANCES value.
+///
+///  Holds the MAX GUARD PREPARATION ADVANCES value.
 const MAX_GUARD_PREPARATION_ADVANCES: u8 = 3;
-/// Technical: Defines the `TechContext` data structure.
+/// Defines the `TechContext` data structure.
 ///
-/// Plain English: Holds the data for TechContext.
+///
+///  Holds the data for TechContext.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TechContext {
-    /// Technical: Stores the `object` value in `TechContext` as `u32`.
+    /// Stores the `object` value in `TechContext` as `u32`.
     ///
-    /// Plain English: Holds the object value used by TechContext.
+    ///
+///  Holds the object value used by TechContext.
     pub object: u32,
-    /// Technical: Stores the `status` value in `TechContext` as `i32`.
+    /// Stores the `status` value in `TechContext` as `i32`.
     ///
-    /// Plain English: Holds the status value used by TechContext.
+    ///
+///  Holds the status value used by TechContext.
     pub status: i32,
-    /// Technical: Stores the `motion` value in `TechContext` as `u64`.
+    /// Stores the `motion` value in `TechContext` as `u64`.
     ///
-    /// Plain English: Holds the motion value used by TechContext.
+    ///
+///  Holds the motion value used by TechContext.
     pub motion: u64,
-    /// Technical: Stores the `frame` value in `TechContext` as `f32`.
+    /// Stores the `frame` value in `TechContext` as `f32`.
     ///
-    /// Plain English: Holds the frame value used by TechContext.
+    ///
+///  Holds the frame value used by TechContext.
     pub frame: f32,
-    /// Technical: Stores the `rate` value in `TechContext` as `f32`.
+    /// Stores the `rate` value in `TechContext` as `f32`.
     ///
-    /// Plain English: Holds the rate value used by TechContext.
+    ///
+///  Holds the rate value used by TechContext.
     pub rate: f32,
-    /// Technical: Stores the `stopped` value in `TechContext` as `bool`.
+    /// Stores the `stopped` value in `TechContext` as `bool`.
     ///
-    /// Plain English: Holds the stopped value used by TechContext.
+    ///
+///  Holds the stopped value used by TechContext.
     pub stopped: bool,
-    /// Technical: Stores the `remaining_stop` value in `TechContext` as `u64`.
+    /// Stores the `remaining_stop` value in `TechContext` as `u64`.
     ///
-    /// Plain English: Holds the remaining stop value used by TechContext.
+    ///
+///  Holds the remaining stop value used by TechContext.
     pub remaining_stop: u64,
-    /// Technical: Stores the `contact_in` value in `TechContext` as `Option<f32>`.
+    /// Stores the `contact_in` value in `TechContext` as `Option<f32>`.
     ///
-    /// Plain English: Optionally stores the contact in for TechContext; it may be absent.
+    ///
+///  Optionally stores the contact in for TechContext; it may be absent.
     pub contact_in: Option<f32>,
-    /// Technical: Stores the `input_delay` value in `TechContext` as `f32`.
+    /// Stores the `input_delay` value in `TechContext` as `f32`.
     ///
-    /// Plain English: Holds the input delay value used by TechContext.
+    ///
+///  Holds the input delay value used by TechContext.
     pub input_delay: f32,
-    /// Technical: Stores the `previous_guard` value in `TechContext` as `bool`.
+    /// Stores the `previous_guard` value in `TechContext` as `bool`.
     ///
-    /// Plain English: Holds the previous guard value used by TechContext.
+    ///
+///  Holds the previous guard value used by TechContext.
     pub previous_guard: bool,
     /// Native adapter verified that guard cannot become an ordinary air dodge.
     /// Prepare release before imminent contact, without pressing shield early.
-    /// Plain English: Native adapter verified that guard cannot become an ordinary air dodge. Prepare release before imminent contact, without pressing shield early.
+    ///
+///  Native adapter verified that guard cannot become an ordinary air dodge. Prepare release before imminent contact, without pressing shield early.
     pub prepare_guard: bool,
 }
 impl TechContext {
     /// A forecast contact only counts when it is finite and not already past.
-    /// Plain English: A forecast contact only counts when it is finite and not already past.
+    ///
+///  A forecast contact only counts when it is finite and not already past.
     fn forecast_contact(&self) -> Option<f32> {
         self.contact_in.filter(|c| c.is_finite() && *c >= 0.)
     }
-    /// Technical: Returns the `input_lead` result.
+    /// Returns the `input_lead` result.
     ///
-    /// Plain English: Gets the input lead result.
+    ///
+///  Gets the input lead result.
     fn input_lead(&self) -> f32 {
         self.input_delay.clamp(0., MAX_INPUT_DELAY_FRAMES)
     }
     /// Forecast contact time minus the clamped input delay.
-    /// Plain English: Forecast contact time minus the clamped input delay.
+    ///
+///  Forecast contact time minus the clamped input delay.
     fn contact_lead(&self) -> Option<f32> {
         self.forecast_contact()
             .map(|contact| contact - self.input_lead())
     }
 }
-/// Technical: Defines the `TechOutput` data structure.
+/// Defines the `TechOutput` data structure.
 ///
-/// Plain English: Holds the data for TechOutput.
+///
+///  Holds the data for TechOutput.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TechOutput {
     /// Ask for a fresh shield press, rather than writing a tech status.
-    /// Plain English: Ask for a fresh shield press, rather than writing a tech status.
+    ///
+///  Ask for a fresh shield press, rather than writing a tech status.
     pub press: bool,
     /// Allow replacing physical shield aliases, including a release sample.
-    /// Plain English: Allow replacing physical shield aliases, including a release sample.
+    ///
+///  Allow replacing physical shield aliases, including a release sample.
     pub owns_guard: bool,
 }
 impl TechOutput {
     /// Canonical Shield and Grab can both produce mapped Guard. Jump, attack,
     /// special and movement remain manual; preparation never owns a whole tape.
-    /// Plain English: Canonical Shield and Grab can both produce mapped Guard. Jump, attack, special and movement remain manual; preparation never owns a whole tape.
+    ///
+///  Canonical Shield and Grab can both produce mapped Guard. Jump, attack, special and movement remain manual; preparation never owns a whole tape.
     pub fn owned_buttons(self) -> u32 {
         if self.owns_guard {
             crate::native_input::SEQUENCE_GUARD_INPUTS
@@ -162,7 +196,8 @@ impl TechOutput {
 }
 /// Final simulated controller Guard, after the original mapper's binding and
 /// flick filtering. Only the selected native-eligible safety request calls this.
-/// Plain English: Final simulated controller Guard, after the original mapper's binding and flick filtering. Only the selected native-eligible safety request calls this.
+///
+///  Final simulated controller Guard, after the original mapper's binding and flick filtering. Only the selected native-eligible safety request calls this.
 pub fn mapped_guard(buttons: u32, output: TechOutput) -> u32 {
     use crate::native_input::{MAPPED_CATCH, MAPPED_GUARD, MAPPED_GUARD_HOLD};
     let buttons = if output.owns_guard {
@@ -176,65 +211,79 @@ pub fn mapped_guard(buttons: u32, output: TechOutput) -> u32 {
         buttons
     }
 }
-/// Technical: Defines the `TechInput` data structure.
+/// Defines the `TechInput` data structure.
 ///
-/// Plain English: Holds the data for TechInput.
+///
+///  Holds the data for TechInput.
 #[derive(Default)]
 pub struct TechInput {
-    /// Technical: Stores the `last` value in `TechInput` as `Option<TechContext>`.
+    /// Stores the `last` value in `TechInput` as `Option<TechContext>`.
     ///
-    /// Plain English: Optionally stores the last for TechInput; it may be absent.
+    ///
+///  Optionally stores the last for TechInput; it may be absent.
     last: Option<TechContext>,
-    /// Technical: Stores the `output` value in `TechInput` as `TechOutput`.
+    /// Stores the `output` value in `TechInput` as `TechOutput`.
     ///
-    /// Plain English: Holds the output value used by TechInput.
+    ///
+///  Holds the output value used by TechInput.
     output: TechOutput,
-    /// Technical: Stores the `waiting_for_mapper` value in `TechInput` as `bool`.
+    /// Stores the `waiting_for_mapper` value in `TechInput` as `bool`.
     ///
-    /// Plain English: Holds the waiting for mapper value used by TechInput.
+    ///
+///  Holds the waiting for mapper value used by TechInput.
     waiting_for_mapper: bool,
-    /// Technical: Stores the `cooldown` value in `TechInput` as `f32`.
+    /// Stores the `cooldown` value in `TechInput` as `f32`.
     ///
-    /// Plain English: Holds the cooldown value used by TechInput.
+    ///
+///  Holds the cooldown value used by TechInput.
     cooldown: f32,
-    /// Technical: Stores the `cooldown_setting` value in `TechInput` as `u16`.
+    /// Stores the `cooldown_setting` value in `TechInput` as `u16`.
     ///
-    /// Plain English: Holds the cooldown setting value used by TechInput.
+    ///
+///  Holds the cooldown setting value used by TechInput.
     cooldown_setting: u16,
-    /// Technical: Stores the `reaction_remaining` value in `TechInput` as `Option<f32>`.
+    /// Stores the `reaction_remaining` value in `TechInput` as `Option<f32>`.
     ///
-    /// Plain English: Optionally stores the reaction remaining for TechInput; it may be absent.
+    ///
+///  Optionally stores the reaction remaining for TechInput; it may be absent.
     reaction_remaining: Option<f32>,
-    /// Technical: Stores the `native_guard` value in `TechInput` as `Option<bool>`.
+    /// Stores the `native_guard` value in `TechInput` as `Option<bool>`.
     ///
-    /// Plain English: Optionally stores the native guard for TechInput; it may be absent.
+    ///
+///  Optionally stores the native guard for TechInput; it may be absent.
     native_guard: Option<bool>,
-    /// Technical: Stores the `delivery` value in `TechInput` as `Option<Delivery>`.
+    /// Stores the `delivery` value in `TechInput` as `Option<Delivery>`.
     ///
-    /// Plain English: Optionally stores the delivery for TechInput; it may be absent.
+    ///
+///  Optionally stores the delivery for TechInput; it may be absent.
     delivery: Option<Delivery>,
 }
-/// Technical: Defines the `Delivery` data structure.
+/// Defines the `Delivery` data structure.
 ///
-/// Plain English: Holds the data for Delivery.
+///
+///  Holds the data for Delivery.
 #[derive(Clone, Copy)]
 struct Delivery {
-    /// Technical: Stores the `stamp` value in `Delivery` as `TechContext`.
+    /// Stores the `stamp` value in `Delivery` as `TechContext`.
     ///
-    /// Plain English: Holds the stamp value used by Delivery.
+    ///
+///  Holds the stamp value used by Delivery.
     stamp: TechContext,
-    /// Technical: Stores the `reaction` value in `Delivery` as `Option<f32>`.
+    /// Stores the `reaction` value in `Delivery` as `Option<f32>`.
     ///
-    /// Plain English: Optionally stores the reaction for Delivery; it may be absent.
+    ///
+///  Optionally stores the reaction for Delivery; it may be absent.
     reaction: Option<f32>,
-    /// Technical: Stores the `advances` value in `Delivery` as `u8`.
+    /// Stores the `advances` value in `Delivery` as `u8`.
     ///
-    /// Plain English: Holds the advances value used by Delivery.
+    ///
+///  Holds the advances value used by Delivery.
     advances: u8,
 }
 impl Delivery {
     /// Count a native clock change since the last receipt observation.
-    /// Plain English: Count a native clock change since the last receipt observation.
+    ///
+///  Count a native clock change since the last receipt observation.
     fn observe(&mut self, ctx: TechContext, reaction: Option<f32>) {
         let previous = self.stamp;
         let changed = previous.status != ctx.status
@@ -251,7 +300,8 @@ impl Delivery {
 impl TechInput {
     /// A fresh edge due by the first movement frame cannot wait behind launch
     /// DI. Release-only ownership still yields to DI, which releases Guard too.
-    /// Plain English: A fresh edge due by the first movement frame cannot wait behind launch DI. Release-only ownership still yields to DI, which releases Guard too.
+    ///
+///  A fresh edge due by the first movement frame cannot wait behind launch DI. Release-only ownership still yields to DI, which releases Guard too.
     pub fn urgent_press(&self) -> bool {
         self.output.press
             && self.last.is_some_and(|c| {
@@ -264,31 +314,36 @@ impl TechInput {
             })
     }
     /// Cancel a request/receipt while preserving an already spent native lockout.
-    /// Plain English: Cancel a request/receipt while preserving an already spent native lockout.
+    ///
+///  Cancel a request/receipt while preserving an already spent native lockout.
     pub fn cancel_request(&mut self) {
         self.waiting_for_mapper = false;
         self.delivery = None;
         self.output = TechOutput::default();
     }
-    /// Technical: Returns an optional `last_observation` value.
+    /// Returns an optional `last_observation` value.
     ///
-    /// Plain English: Gets last observation if it is available.
+    ///
+///  Gets last observation if it is available.
     pub fn last_observation(&self) -> Option<TechContext> {
         self.last
     }
-    /// Technical: Returns the `cooldown_remaining` result.
+    /// Returns the `cooldown_remaining` result.
     ///
-    /// Plain English: Gets the cooldown remaining result.
+    ///
+///  Gets the cooldown remaining result.
     pub fn cooldown_remaining(&self) -> f32 {
         self.cooldown
     }
     /// Begin the no-rapid-tech interval after a mapped or native shield edge.
-    /// Plain English: Begin the no-rapid-tech interval after a mapped or native shield edge.
+    ///
+///  Begin the no-rapid-tech interval after a mapped or native shield edge.
     fn start_lockout(&mut self) {
         self.cooldown = f32::from(self.cooldown_setting.max(MIN_TECH_COOLDOWN_FRAMES));
     }
     /// Withdraw any outstanding proposal and publish `output` instead.
-    /// Plain English: Withdraw any outstanding proposal and publish output instead.
+    ///
+///  Withdraw any outstanding proposal and publish output instead.
     fn hold(&mut self, output: TechOutput) -> TechOutput {
         self.waiting_for_mapper = false;
         self.delivery = None;
@@ -296,7 +351,8 @@ impl TechInput {
         output
     }
     /// Called only after a fresh mapped GUARD edge, never for a policy proposal.
-    /// Plain English: Called only after a fresh mapped GUARD edge, never for a policy proposal.
+    ///
+///  Called only after a fresh mapped GUARD edge, never for a policy proposal.
     pub fn mapped_press(&mut self) {
         if self.waiting_for_mapper && self.output.press {
             self.start_lockout();
@@ -316,16 +372,18 @@ impl TechInput {
     }
     /// A human shield press during tumble also consumes native input timing.
     /// Track it so automation does not immediately press again into its lockout.
-    /// Plain English: A human shield press during tumble also consumes native input timing. Track it so automation does not immediately press again into its lockout.
+    ///
+///  A human shield press during tumble also consumes native input timing. Track it so automation does not immediately press again into its lockout.
     pub fn mapped_human_guard(&mut self) {
         if self.last.is_some_and(|ctx| is_tech_status(ctx.status)) {
             self.start_lockout();
             self.hold(TechOutput::default());
         }
     }
-    /// Technical: Updates the toggle state from the current button sample and match state.
+    /// Updates the toggle state from the current button sample and match state.
     ///
-    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
+    ///
+///  Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         enabled: bool,
@@ -337,7 +395,8 @@ impl TechInput {
     }
     /// Native remaining hitstun advances even when the damage pose is frozen.
     /// Use it once, instead of animation progress, with no mapper-poll clock.
-    /// Plain English: Native remaining hitstun advances even when the damage pose is frozen. Use it once, instead of animation progress, with no mapper-poll clock.
+    ///
+///  Native remaining hitstun advances even when the damage pose is frozen. Use it once, instead of animation progress, with no mapper-poll clock.
     pub fn sample_with_reaction_clock(
         &mut self,
         enabled: bool,
@@ -359,7 +418,8 @@ impl TechInput {
     /// Native windows count the input frame too. Keep a three-frame margin for
     /// release, mapper delivery and collision refinement, without guessing a
     /// Melee-style twenty-frame window. Lockout begins only on acknowledgment.
-    /// Plain English: Native windows count the input frame too. Keep a three-frame margin for release, mapper delivery and collision refinement, without guessing a Melee-style twenty-frame window. Lockout begins only on acknowledgment.
+    ///
+///  Native windows count the input frame too. Keep a three-frame margin for release, mapper delivery and collision refinement, without guessing a Melee-style twenty-frame window. Lockout begins only on acknowledgment.
     pub fn sample_with_native_window(
         &mut self,
         enabled: bool,
@@ -384,7 +444,8 @@ impl TechInput {
     /// The mapped packet is not yet proof that the fighter consumed Guard.
     /// Observe ControlModule's game-visible Guard/GuardHold before releasing a
     /// mapped press, and before treating a held native guard as freshly armed.
-    /// Plain English: The mapped packet is not yet proof that the fighter consumed Guard. Observe ControlModule's game-visible Guard/GuardHold before releasing a mapped press, and before treating a held native guard as freshly armed.
+    ///
+///  The mapped packet is not yet proof that the fighter consumed Guard. Observe ControlModule's game-visible Guard/GuardHold before releasing a mapped press, and before treating a held native guard as freshly armed.
     pub fn sample_with_native_delivery(
         &mut self,
         enabled: bool,
@@ -408,9 +469,10 @@ impl TechInput {
             Some(native_guard),
         )
     }
-    /// Technical: Samples the native.
+    /// Samples the native.
     ///
-    /// Plain English: Samples the native.
+    ///
+///  Samples the native.
     fn sample_native(
         &mut self,
         enabled: bool,
@@ -523,7 +585,8 @@ impl TechInput {
 
     /// Track native remaining hitstun, which advances even while the damage pose
     /// is frozen. Returns its plausible advance since the previous observation.
-    /// Plain English: Track native remaining hitstun, which advances even while the damage pose is frozen. Returns its plausible advance since the previous observation.
+    ///
+///  Track native remaining hitstun, which advances even while the damage pose is frozen. Returns its plausible advance since the previous observation.
     fn advance_reaction_clock(&mut self, ctx: &TechContext, remaining: Option<f32>) -> Option<f32> {
         let remaining = remaining.filter(|v| {
             v.is_finite() && *v > 0. && *v <= MAX_REACTION_REMAINING_FRAMES && is_tumble_status(ctx.status)
@@ -538,7 +601,8 @@ impl TechInput {
     }
 
     /// Spend the lockout by native hitstun progress, else by stable animation progress.
-    /// Plain English: Spend the lockout by native hitstun progress, else by stable animation progress.
+    ///
+///  Spend the lockout by native hitstun progress, else by stable animation progress.
     fn advance_cooldown(
         &mut self,
         ctx: &TechContext,
@@ -558,7 +622,8 @@ impl TechInput {
     /// Bounded game-input receipt of a mapped press: keep requesting while the
     /// native clock advances, abandon unsupported/unconsumed requests and retain
     /// the already mapped press's lockout.
-    /// Plain English: Bounded game-input receipt of a mapped press: keep requesting while the native clock advances, abandon unsupported/unconsumed requests and retain the already mapped press's lockout.
+    ///
+///  Bounded game-input receipt of a mapped press: keep requesting while the native clock advances, abandon unsupported/unconsumed requests and retain the already mapped press's lockout.
     fn continue_delivery(&mut self, ctx: TechContext, takeover: bool) -> Option<TechOutput> {
         // Taking the receipt transfers it out of `self` while it is inspected;
         // only a still-pending delivery is put back below.
@@ -577,7 +642,8 @@ impl TechInput {
 }
 
 /// Elapsed animation frames between two samples of one stable-rate motion.
-/// Plain English: Elapsed animation frames between two samples of one stable-rate motion.
+///
+///  Elapsed animation frames between two samples of one stable-rate motion.
 fn animation_advance(last: &TechContext, ctx: &TechContext) -> f32 {
     let stable = ctx.status == last.status
         && ctx.motion == last.motion
@@ -602,7 +668,8 @@ fn animation_advance(last: &TechContext, ctx: &TechContext) -> f32 {
 }
 
 /// The command-grab slam needs a tighter arrival margin than ordinary tumble.
-/// Plain English: The command-grab slam needs a tighter arrival margin than ordinary tumble.
+///
+///  The command-grab slam needs a tighter arrival margin than ordinary tumble.
 fn native_arrival_lead(status: i32, window: u16, ganon_window: u16) -> f32 {
     f32::from(
         crate::flame_choke::passive_window(status, window, ganon_window)

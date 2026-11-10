@@ -34,78 +34,102 @@ macro_rules! log {
 // live in children. `pub(super)` exposes a helper only to this module's family.
 // Keep these child declarations together so the integration's file layout is
 // visible before its imports and runtime implementation.
-/// Technical: Tracks bounded copied IDs for attacks that may be projectiles.
-/// Plain English: Remembers recent projectiles for read-only threat checks.
+/// Tracks bounded copied IDs for attacks that may be projectiles.
+///
+///  Remembers recent projectiles for read-only threat checks.
 mod attack_sources;
-/// Technical: Loads and validates startup configuration before hook installation.
-/// Plain English: Reads the user's saved settings when the plugin starts.
+/// Loads and validates startup configuration before hook installation.
+///
+///  Reads the user's saved settings when the plugin starts.
 mod config;
-/// Technical: Defines the native controller layout and mapper restoration helpers.
-/// Plain English: Saves and restores the player's controller data around mapping.
+/// Defines the native controller layout and mapper restoration helpers.
+///
+///  Saves and restores the player's controller data around mapping.
 mod controller;
-/// Technical: Builds cached blast-zone and trajectory observations during damage stop.
-/// Plain English: Estimates where a launched fighter may travel.
+/// Builds cached blast-zone and trajectory observations during damage stop.
+///
+///  Estimates where a launched fighter may travel.
 mod damage;
-/// Technical: Caches copied native facts for one synchronous observation.
-/// Plain English: Avoids repeating game reads during a single update.
+/// Caches copied native facts for one synchronous observation.
+///
+///  Avoids repeating game reads during a single update.
 mod frame;
-/// Technical: Adapts Kirby observations to trip and forward-air follow-up policies.
-/// Plain English: Runs Kirby-specific follow-up checks.
+/// Adapts Kirby observations to trip and forward-air follow-up policies.
+///
+///  Runs Kirby-specific follow-up checks.
 mod kirby_followups;
-/// Technical: Contains pinned native parameter-table and key identifiers.
-/// Plain English: Names game tuning values that the plugin reads.
+/// Contains pinned native parameter-table and key identifiers.
+///
+///  Names game tuning values that the plugin reads.
 mod native_params {
-    /// Technical: Native common-parameter table identifier.
-    /// Plain English: Selects the game's shared parameter table.
+    /// Native common-parameter table identifier.
+    ///
+    ///  Selects the game's shared parameter table.
     pub(super) const PARAM_COMMON: u64 = 0x6e5ec7051;
-    /// Technical: Native ground-braking parameter key.
-    /// Plain English: Identifies the fighter's ground braking value.
+    /// Native ground-braking parameter key.
+    ///
+    ///  Identifies the fighter's ground braking value.
     pub(super) const PARAM_GROUND_BRAKE: u64 = 0x0c8cc9db76;
-    /// Technical: Native vertical air-acceleration parameter key.
-    /// Plain English: Identifies how quickly a fighter accelerates downward.
+    /// Native vertical air-acceleration parameter key.
+    ///
+    ///  Identifies how quickly a fighter accelerates downward.
     pub(super) const PARAM_AIR_ACCEL_Y: u64 = 0xba18057d9;
-    /// Technical: Native stable vertical air-speed parameter key.
-    /// Plain English: Identifies the fighter's usual maximum fall speed.
+    /// Native stable vertical air-speed parameter key.
+    ///
+    ///  Identifies the fighter's usual maximum fall speed.
     pub(super) const PARAM_AIR_SPEED_Y_STABLE: u64 = 0x12ec5626fe;
-    /// Technical: Native damage-fly-top gravity parameter key.
-    /// Plain English: Identifies gravity used by the upward launch state.
+    /// Native damage-fly-top gravity parameter key.
+    ///
+    ///  Identifies gravity used by the upward launch state.
     pub(super) const PARAM_DAMAGE_FLY_TOP_GRAVITY: u64 = 0x1a58828323;
-    /// Technical: Native damage-fly-top terminal-speed parameter key.
-    /// Plain English: Identifies the fall-speed limit used by the upward launch state.
+    /// Native damage-fly-top terminal-speed parameter key.
+    ///
+    ///  Identifies the fall-speed limit used by the upward launch state.
     pub(super) const PARAM_DAMAGE_FLY_TOP_TERMINAL_SPEED: u64 = 0x1d71e21b0b;
-    /// Technical: Native no-rapid-frame parameter key.
-    /// Plain English: Identifies the game's no-rapid-input timing value.
+    /// Native no-rapid-frame parameter key.
+    ///
+    ///  Identifies the game's no-rapid-input timing value.
     pub(super) const PARAM_NO_RAPID_FRAME_VALUE: u64 = 0x14459066dd;
-    /// Technical: Native passive-tech trigger-frame parameter key.
-    /// Plain English: Identifies when the game accepts a passive tech.
+    /// Native passive-tech trigger-frame parameter key.
+    ///
+    ///  Identifies when the game accepts a passive tech.
     pub(super) const PARAM_PASSIVE_TRIGGER_FRAME: u64 = 0x15ba3cdb02;
-    /// Technical: Native Ganondorf side-special passive-trigger parameter key.
-    /// Plain English: Identifies Ganondorf's special tech timing value.
+    /// Native Ganondorf side-special passive-trigger parameter key.
+    ///
+    ///  Identifies Ganondorf's special tech timing value.
     pub(super) const PARAM_GANON_SPECIAL_S_PASSIVE_TRIGGER_FRAME: u64 = 0x2535742c20;
 }
-/// Technical: Supplies mapper callback admission and temporary input overlays.
-/// Plain English: Adds assistance to the selected controller's mapped input.
+/// Supplies mapper callback admission and temporary input overlays.
+///
+///  Adds assistance to the selected controller's mapped input.
 mod mapper;
-/// Technical: Coordinates full fighter observation and policy publication.
-/// Plain English: Watches the player's fighter and updates assistance decisions.
+/// Coordinates full fighter observation and policy publication.
+///
+///  Watches the player's fighter and updates assistance decisions.
 mod observation;
-/// Technical: Implements bounded read-only native queries for fighters and stage geometry.
-/// Plain English: Finds nearby players, threats, and stage details.
+/// Implements bounded read-only native queries for fighters and stage geometry.
+///
+///  Finds nearby players, threats, and stage details.
 mod observations;
-/// Technical: Adapts copied attack geometry to the core projectile-reflection policy.
-/// Plain English: Checks whether a projectile can be safely reflected.
+/// Adapts copied attack geometry to the core projectile-reflection policy.
+///
+///  Checks whether a projectile can be safely reflected.
 mod reflect;
-/// Technical: Owns runtime gates and local-session teardown.
-/// Plain English: Pauses, resumes, and clears local assistance state.
+/// Owns runtime gates and local-session teardown.
+///
+///  Pauses, resumes, and clears local assistance state.
 mod runtime;
-/// Technical: Manages in-game settings state and saved menu interactions.
-/// Plain English: Handles the plugin's settings menus.
+/// Manages in-game settings state and saved menu interactions.
+///
+///  Handles the plugin's settings menus.
 mod settings_menu;
-/// Technical: Stores callback-shared session and policy state.
-/// Plain English: Holds the current match's active helper data.
+/// Stores callback-shared session and policy state.
+///
+///  Holds the current match's active helper data.
 mod state;
-/// Technical: Combines native tech eligibility observations with prediction.
-/// Plain English: Checks whether a fighter may be able to tech a landing.
+/// Combines native tech eligibility observations with prediction.
+///
+///  Checks whether a fighter may be able to tech a landing.
 mod tech;
 
 use config::load_config;
@@ -117,8 +141,9 @@ use runtime::set_runtime_enabled;
 use state::State;
 use tech::assess_tech;
 
-/// Technical: Coordinates Training Modpack input handoff and passthrough state.
-/// Plain English: Lets the training mod temporarily use the controller.
+/// Coordinates Training Modpack input handoff and passthrough state.
+///
+///  Lets the training mod temporarily use the controller.
 mod training;
 
 use crate::game_ffi as game;
@@ -159,37 +184,46 @@ use std::{
 // Never fall back to a hard-coded address on a different executable.
 // Recognition lives in the host-testable mapper_hook module, including the
 // known Skyline entry patches. Resolve once; install after plugin startup.
-/// Technical: One-shot gate for installing the native mapper hook.
-/// Plain English: Prevents the mapper hook from being installed more than once.
+/// One-shot gate for installing the native mapper hook.
+///
+///  Prevents the mapper hook from being installed more than once.
 static MAPPER_INSTALLED: AtomicBool = AtomicBool::new(false);
-/// Technical: Records whether the supported Training Modpack signature was found.
-/// Plain English: Indicates whether the training add-on is installed.
+/// Records whether the supported Training Modpack signature was found.
+///
+///  Indicates whether the training add-on is installed.
 static TRAINING_MODPACK_PRESENT: AtomicBool = AtomicBool::new(false);
-/// Technical: Marks controller passthrough while the training mod owns input.
-/// Plain English: Shows that Kirby Assist is currently yielding controller input.
+/// Marks controller passthrough while the training mod owns input.
+///
+///  Shows that Kirby Assist is currently yielding controller input.
 static TRAINING_PASSTHROUGH: AtomicBool = AtomicBool::new(false);
-/// Technical: Distinguishes modal-menu handoff from ordinary training shortcuts.
-/// Plain English: Remembers whether the settings menu must reopen after handoff.
+/// Distinguishes modal-menu handoff from ordinary training shortcuts.
+///
+///  Remembers whether the settings menu must reopen after handoff.
 static TRAINING_MODAL_HANDOFF: AtomicBool = AtomicBool::new(false);
 // Startup config authorizes the plugin installation. This runtime gate can be
 // toggled only outside battle with Plus+Minus and leaves one tiny UI/HID check
 // alive so a fully disabled mod can be re-enabled without restarting Smash.
-/// Technical: Master local runtime gate, changed only outside battle.
-/// Plain English: Turns Kirby Assist on or off for the local player.
+/// Master local runtime gate, changed only outside battle.
+///
+///  Turns Kirby Assist on or off for the local player.
 static RUNTIME_ENABLED: AtomicBool = AtomicBool::new(true);
-/// Technical: Latches whether native observations indicate an active match/intro.
-/// Plain English: Prevents the master switch from changing during a match.
+/// Latches whether native observations indicate an active match/intro.
+///
+///  Prevents the master switch from changing during a match.
 static MASTER_IN_MATCH: AtomicBool = AtomicBool::new(false);
-/// Technical: Requests a one-shot master-player presence update.
-/// Plain English: Asks the next eligible callback to refresh match presence.
+/// Requests a one-shot master-player presence update.
+///
+///  Asks the next eligible callback to refresh match presence.
 static MASTER_PULSE_REQUESTED: AtomicBool = AtomicBool::new(true);
-/// Technical: Recent master menu/match presence used to conservatively lock toggles.
-/// Plain English: Keeps the match lock alive across pause or intro transitions.
+/// Recent master menu/match presence used to conservatively lock toggles.
+///
+///  Keeps the match lock alive across pause or intro transitions.
 static MASTER_PRESENCE: Mutex<kirby_assist_core::session::MenuPresence> =
     Mutex::new(kirby_assist_core::session::MenuPresence::new());
 
-/// Technical: Refreshes the conservative match lock from Ready-Go and recent presence.
-/// Plain English: Updates whether the master switch must stay locked.
+/// Refreshes the conservative match lock from Ready-Go and recent presence.
+///
+///  Updates whether the master switch must stay locked.
 fn refresh_master_match_lock(ready_go: Option<bool>) {
     // Paused matches retain GO; intro callbacks supply a short conservative
     // lease before GO. No assist observation/state is required while OFF.
@@ -203,59 +237,73 @@ fn refresh_master_match_lock(ready_go: Option<bool>) {
 // OnceLock publishes one immutable startup config. The Mutex protects mutable
 // controller/policy history shared by callbacks; never call game APIs while
 // holding it, since a native call can re-enter another hooked function.
-/// Technical: Resolved executable offset for the supported native mapper hook.
-/// Plain English: Stores where the game's controller-mapping function was found.
+/// Resolved executable offset for the supported native mapper hook.
+///
+///  Stores where the game's controller-mapping function was found.
 static MAPPING_OFFSET: AtomicUsize = AtomicUsize::new(0);
 #[cfg(feature = "diagnostic-logging")]
-/// Technical: Number of attack slots sampled by diagnostic comparison paths.
-/// Plain English: Bounds diagnostic reads to the game's eight attack slots.
+/// Number of attack slots sampled by diagnostic comparison paths.
+///
+///  Bounds diagnostic reads to the game's eight attack slots.
 const ATTACK_SLOT_COUNT: i32 = 8;
 #[cfg(feature = "diagnostic-logging")]
-/// Technical: Diagnostic count of mapper callbacks observed.
-/// Plain English: Counts controller-mapping calls for reports.
+/// Diagnostic count of mapper callbacks observed.
+///
+///  Counts controller-mapping calls for reports.
 static SEEN_MAPPERS: AtomicUsize = AtomicUsize::new(0);
 #[cfg(feature = "diagnostic-logging")]
-/// Technical: Diagnostic count of controller-route mismatches.
-/// Plain English: Counts cases where the selected controller route disagreed.
+/// Diagnostic count of controller-route mismatches.
+///
+///  Counts cases where the selected controller route disagreed.
 static ROUTE_MISMATCHES: AtomicUsize = AtomicUsize::new(0);
 #[cfg(feature = "diagnostic-logging")]
-/// Technical: Prevents repeated logs for an unavailable route.
-/// Plain English: Limits the missing-route warning to one report.
+/// Prevents repeated logs for an unavailable route.
+///
+///  Limits the missing-route warning to one report.
 static ROUTE_UNAVAILABLE_LOGGED: AtomicBool = AtomicBool::new(false);
 #[cfg(feature = "diagnostic-logging")]
-/// Technical: Remaining diagnostic polls for manual-grab comparison.
-/// Plain English: Limits how long manual-grab details are sampled.
+/// Remaining diagnostic polls for manual-grab comparison.
+///
+///  Limits how long manual-grab details are sampled.
 static MANUAL_GRAB_COMPARISON_POLLS: AtomicUsize = AtomicUsize::new(8);
 #[cfg(feature = "diagnostic-logging")]
-/// Technical: Remaining diagnostic polls for automatic-grab comparison.
-/// Plain English: Limits how long automatic-grab details are sampled.
+/// Remaining diagnostic polls for automatic-grab comparison.
+///
+///  Limits how long automatic-grab details are sampled.
 static AUTOMATIC_GRAB_COMPARISON_POLLS: AtomicUsize = AtomicUsize::new(8);
-/// Technical: Resolved native fighter-manager slot/address value.
-/// Plain English: Stores the manager location used for read-only roster queries.
+/// Resolved native fighter-manager slot/address value.
+///
+///  Stores the manager location used for read-only roster queries.
 static MANAGER_SLOT: AtomicUsize = AtomicUsize::new(0);
-/// Technical: Immutable boxed startup configuration published once.
-/// Plain English: Stores settings loaded when the plugin starts.
+/// Immutable boxed startup configuration published once.
+///
+///  Stores settings loaded when the plugin starts.
 static CONFIG: OnceLock<Box<Config>> = OnceLock::new();
-/// Technical: Immutable validated fighter-profile catalog.
-/// Plain English: Stores character-specific options and profile data.
+/// Immutable validated fighter-profile catalog.
+///
+///  Stores character-specific options and profile data.
 static PROFILES: OnceLock<FighterProfiles> = OnceLock::new();
-/// Technical: Mutex-protected sequence library, updated only by explicit saves.
-/// Plain English: Holds configured sequences shared with the settings menu.
+/// Mutex-protected sequence library, updated only by explicit saves.
+///
+///  Holds configured sequences shared with the settings menu.
 static SEQUENCES: OnceLock<Mutex<kirby_assist_core::sequence_config::SequenceLibrary>> =
     OnceLock::new();
 /// Explicit saves replace compact definitions without publishing static menus.
-/// Technical: Marks the sequence library as changed by an explicit save.
-/// Plain English: Tells readers that saved sequence choices were updated.
+/// Marks the sequence library as changed by an explicit save.
+///
+///  Tells readers that saved sequence choices were updated.
 static SEQUENCES_UPDATED: AtomicBool = AtomicBool::new(false);
 // STATE.lock() yields a guard. Rust releases the lock when the guard leaves
 // its scope (`}`); explicit small scopes below let us copy values, unlock, query
 // the game, then lock again to publish results. `if let Ok` skips poisoned locks
 // instead of panicking inside a native callback.
-/// Technical: Protects mutable callback-shared session and policy state.
-/// Plain English: Keeps the current helper state consistent between callbacks.
+/// Protects mutable callback-shared session and policy state.
+///
+///  Keeps the current helper state consistent between callbacks.
 static STATE: Mutex<State> = Mutex::new(State::new());
-/// Technical: Applies current menu diagnostic options to the background recorder.
-/// Plain English: Turns selected performance reports on or off.
+/// Applies current menu diagnostic options to the background recorder.
+///
+///  Turns selected performance reports on or off.
 fn sync_diagnostic_options() {
     #[cfg(feature = "diagnostic-logging")]
     {
@@ -272,36 +320,42 @@ fn sync_diagnostic_options() {
         crate::performance::set_enabled(perf);
     }
 }
-/// Technical: Synchronizes performance settings before returning the config unchanged.
-/// Plain English: Updates diagnostics and passes the same settings onward.
+/// Synchronizes performance settings before returning the config unchanged.
+///
+///  Updates diagnostics and passes the same settings onward.
 fn diagnostic_config(config: Config) -> Config {
     sync_diagnostic_options();
     config
 }
 // Only a freshly revalidated selected-controller route may authorize gameplay,
 // UI telemetry or projectile tracking. Native ownership discovery stays read-only.
-/// Technical: Indicates that a fresh selected-controller route authorizes local work.
-/// Plain English: Shows whether this controller currently belongs to an active player session.
+/// Indicates that a fresh selected-controller route authorizes local work.
+///
+///  Shows whether this controller currently belongs to an active player session.
 static LOCAL_PARTICIPANT: AtomicBool = AtomicBool::new(false);
 pub(crate) use runtime::feature_activity_allowed;
 // Same-update proposals also have a wall-clock timeout. A timestamp alone
 // never authorizes replay into a later selected-controller update.
-/// Technical: Maximum age of a published input request before it expires.
-/// Plain English: Old assistance requests stop being used after 35 milliseconds.
+/// Maximum age of a published input request before it expires.
+///
+///  Old assistance requests stop being used after 35 milliseconds.
 const REQUEST_LIFETIME: Duration = Duration::from_millis(35);
 // A longer gap between valid fighter observations marks a loading transition,
 // even when the manager singleton stays allocated across online scenes.
-/// Technical: Maximum accepted gap between observations in one session.
-/// Plain English: A player session is considered stale after 250 milliseconds.
+/// Maximum accepted gap between observations in one session.
+///
+///  A player session is considered stale after 250 milliseconds.
 const SESSION_OBSERVATION_GAP: Duration = Duration::from_millis(250);
 // Online scheduling may separate controller sampling from fighter callbacks.
 // Proposals still require a current evaluation and expire at 35 ms.
-/// Technical: Maximum age of a controller sample retained for session state.
-/// Plain English: Controller data older than 250 milliseconds is discarded.
+/// Maximum age of a controller sample retained for session state.
+///
+///  Controller data older than 250 milliseconds is discarded.
 const CONTROLLER_SAMPLE_LIFETIME: Duration = Duration::from_millis(250);
 /// Resolution copies small typed values; no JSON parsing or file I/O occurs here.
-/// Technical: Resolves the selected fighter's profile settings over the supplied defaults.
-/// Plain English: Gets the configured options for a character, or shared defaults.
+/// Resolves the selected fighter's profile settings over the supplied defaults.
+///
+///  Gets the configured options for a character, or shared defaults.
 fn settings_for_fighter(kind: Option<i32>, base: AssistSettings) -> AssistSettings {
     PROFILES.get().map_or(
         AssistSettings {
@@ -314,8 +368,9 @@ fn settings_for_fighter(kind: Option<i32>, base: AssistSettings) -> AssistSettin
 
 /// Acquires a live match ticket for the current session,
 /// if available. Returns `None` if the ticket cannot be acquired.
-/// Technical: Expires stale match state before requesting a fresh session ticket.
-/// Plain English: Confirms the current session is still valid before assistance proceeds.
+/// Expires stale match state before requesting a fresh session ticket.
+///
+///  Confirms the current session is still valid before assistance proceeds.
 unsafe fn live_match_ticket() -> Option<SessionTicket> {
     let mut state = STATE.lock().ok()?;
     if state
@@ -330,9 +385,10 @@ unsafe fn live_match_ticket() -> Option<SessionTicket> {
 // works whether the SDK uses single-state or bulk HID reads; no HID hook is
 // required. Restore the physical structure after mapping to avoid feedback.
 #[skyline::hook(offset = MAPPING_OFFSET.load(Ordering::Relaxed))]
-/// Technical: Temporarily overlays accepted assistance on native controller data,
+/// Temporarily overlays accepted assistance on native controller data,
 /// chains the mapper, then restores physical state.
-/// Plain English: Adds helper input for one mapping call and restores the player's input.
+///
+///  Adds helper input for one mapping call and restores the player's input.
 ///
 /// # Safety
 /// Native arguments must match the pinned mapper ABI (ABI stands for Application Binary Interface) and point to live mapping data.
@@ -395,8 +451,9 @@ unsafe fn map_controls(
 // Category 0 is FIGHTER_PAD_COMMAND_CATEGORY1. This observes game state only:
 // it returns the game's flags unchanged and never ORs command/action flags.
 #[skyline::hook(replace = game_command_flags)]
-/// Technical: Chains the native command-flag function and observes eligible fighter callbacks.
-/// Plain English: Leaves the game's flags unchanged while using the callback to update assistance.
+/// Chains the native command-flag function and observes eligible fighter callbacks.
+///
+///  Leaves the game's flags unchanged while using the callback to update assistance.
 ///
 /// # Safety
 /// `object` must follow the native command callback ABI; the trampoline must be valid.
@@ -419,7 +476,8 @@ unsafe fn observe_commands(object: *mut game::Object, category: i32) -> i32 {
 }
 
 /// Observes the presence of the master player, updating internal state and timestamps as necessary.
-/// Plain English: Uses existing manager observations to remember when the master player is in a match.
+///
+///  Uses existing manager observations to remember when the master player is in a match.
 unsafe fn observe_master_presence(object: *mut game::Object) {
     if !MASTER_PULSE_REQUESTED.swap(false, Ordering::Relaxed) {
         return;
@@ -436,7 +494,8 @@ unsafe fn observe_master_presence(object: *mut game::Object) {
     }
 }
 /// Installs the control mapper hook if the necessary conditions are met, ensuring it is only installed once.
-/// Plain English: Installs the input hook once the plugin has enough information to use it.
+///
+///  Installs the input hook once the plugin has enough information to use it.
 unsafe fn install_mapper_if_ready() {
     if MAPPING_OFFSET.load(Ordering::Relaxed) != 0 && !MAPPER_INSTALLED.swap(true, Ordering::AcqRel)
     {
@@ -451,15 +510,17 @@ unsafe fn install_mapper_if_ready() {
 // Declares the external C function for retrieving game command flags for a given object and category.
 extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind40ControlModule__get_command_flag_cat_implEPNS_26BattleObjectModuleAccessorEi"]
-    /// Technical: Native command-flag query used by the read-only callback hook.
-    /// Plain English: Reads the game's current command flags for an object.
+    /// Native command-flag query used by the read-only callback hook.
+    ///
+    ///  Reads the game's current command flags for an object.
     fn game_command_flags(object: *mut game::Object, category: i32) -> i32;
 }
 // Publish only the existing box pointer on the small native loader stack.
 // Expanded button slots must not create config-sized OnceLock move frames.
 #[inline(never)]
-/// Technical: Publishes the boxed immutable configuration without moving its contents.
-/// Plain English: Makes startup settings available to callbacks safely.
+/// Publishes the boxed immutable configuration without moving its contents.
+///
+///  Makes startup settings available to callbacks safely.
 fn publish_startup_config(config: Box<Config>) {
     let _ = CONFIG.set(config);
 }
@@ -467,9 +528,10 @@ fn publish_startup_config(config: Box<Config>) {
 // Startup is deliberately sequential: prepare diagnostics, parse config, locate
 // exactly one supported mapper, resolve the manager, THEN install hooks. A failed
 // prerequisite exits without installing a partially configured set of hooks.
-/// Technical: Loads catalogs, validates executable bindings, resolves managers,
+/// Loads catalogs, validates executable bindings, resolves managers,
 /// then installs required hooks in dependency order.
-/// Plain English: Starts the plugin only after its settings and compatibility checks pass.
+///
+///  Starts the plugin only after its settings and compatibility checks pass.
 pub fn install() {
     // Silent builds only READ configuration: no directory/file creation or
     // console output is compiled into this plugin's normal startup path.

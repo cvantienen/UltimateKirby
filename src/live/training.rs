@@ -18,9 +18,10 @@ use std::{sync::atomic::Ordering, time::Instant};
 /// # Returns
 /// * `true` if passthrough mode was successfully entered.
 /// * `false` otherwise.
-/// Technical: Detects the passthrough shortcut and records the physical controller
+/// Detects the passthrough shortcut and records the physical controller
 /// state needed to resume the active session.
-/// Plain English: It hands input to the training mod when its shortcut is pressed.
+///
+///  It hands input to the training mod when its shortcut is pressed.
 pub(super) fn enter_passthrough(physical: ButtonTrace, index: i32, layout: ControlLayout) -> bool {
     if !training_test::passthrough(
         physical.held,
@@ -63,9 +64,10 @@ pub(super) fn enter_passthrough(physical: ButtonTrace, index: i32, layout: Contr
 /// Finishes the training passthrough mode, restoring the appropriate state based on the training test mode.
 /// # Parameters
 /// * `training_test_mode` - Indicates whether the training test mode is active.
-/// Technical: Ends passthrough and either resumes saved state or requests the
+/// Ends passthrough and either resumes saved state or requests the
 /// settings menu according to the handoff mode.
-/// Plain English: It returns control to Kirby Assist after the training shortcut ends.
+///
+///  It returns control to Kirby Assist after the training shortcut ends.
 pub(super) fn finish_passthrough(training_test_mode: bool) {
     if TRAINING_PASSTHROUGH.swap(false, Ordering::Relaxed) {
         let was_modal = TRAINING_MODAL_HANDOFF.swap(false, Ordering::Relaxed);

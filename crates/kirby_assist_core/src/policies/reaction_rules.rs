@@ -6,9 +6,10 @@ use crate::{
     sequence_config::{Action, Sequence},
     settings::AssistSettings,
 };
-/// Technical: Determines whether the `starts_direct_up_b` condition holds.
+/// Determines whether the `starts_direct_up_b` condition holds.
 ///
-/// Plain English: Checks whether starts direct up b.
+///
+///  Checks whether starts direct up b.
 pub fn starts_direct_up_b(sequence: &Sequence) -> bool {
     simple::starts_up_b(sequence)
 }
@@ -22,7 +23,8 @@ pub use scope::{
 };
 /// An automatic reaction tape: delivered holds survive observation gaps and a
 /// pending Grab/Up-B is rejected after manual takeoff.
-/// Plain English: An automatic reaction tape: delivered holds survive observation gaps and a pending Grab/Up-B is rejected after manual takeoff.
+///
+///  An automatic reaction tape: delivered holds survive observation gaps and a pending Grab/Up-B is rejected after manual takeoff.
 pub(crate) fn automatic_plan(sequence: Sequence, enemy: Opponent) -> InputTimeline {
     let mut plan = InputTimeline::new(sequence, enemy);
     plan.allow_continuous_progress();
@@ -30,19 +32,23 @@ pub(crate) fn automatic_plan(sequence: Sequence, enemy: Opponent) -> InputTimeli
     plan
 }
 /// Per-actor memory of a native event that may already have been answered.
-/// Plain English: Per-actor memory of a native event that may already have been answered.
+///
+///  Per-actor memory of a native event that may already have been answered.
 pub(crate) trait Tracked: Copy {
-    /// Technical: Returns the native identifier of the observed object.
+    /// Returns the native identifier of the observed object.
     ///
-    /// Plain English: Gets the object’s identifier.
+    ///
+///  Gets the object’s identifier.
     fn id(&self) -> u32;
-    /// Technical: Returns an optional `status` value.
+    /// Returns an optional `status` value.
     ///
-    /// Plain English: Gets status if it is available.
+    ///
+///  Gets status if it is available.
     fn status(&self) -> i32;
 }
 /// Positive status evidence that an actor left its remembered event.
-/// Plain English: Positive status evidence that an actor left its remembered event.
+///
+///  Positive status evidence that an actor left its remembered event.
 pub(crate) fn forget_ended<T: Tracked, const N: usize>(
     tracks: &mut [Option<T>],
     known: &[Option<(u32, i32)>; N],
@@ -60,7 +66,8 @@ pub(crate) fn forget_ended<T: Tracked, const N: usize>(
 }
 /// Missing samples are not evidence of a new event: keep selected memories of
 /// actors absent from this poll in spare slots until a different status is seen.
-/// Plain English: Missing samples are not evidence of a new event: keep selected memories of actors absent from this poll in spare slots until a different status is seen.
+///
+///  Missing samples are not evidence of a new event: keep selected memories of actors absent from this poll in spare slots until a different status is seen.
 pub(crate) fn retain_missing<T: Tracked>(
     tracks: &mut [Option<T>],
     old: impl IntoIterator<Item = T>,
@@ -80,133 +87,164 @@ pub(crate) fn retain_missing<T: Tracked>(
         }
     }
 }
-/// Technical: Sets the upper bound for rules per mode.
+/// Sets the upper bound for rules per mode.
 ///
-/// Plain English: Holds the MAX RULES PER MODE value.
+///
+///  Holds the MAX RULES PER MODE value.
 pub const MAX_RULES_PER_MODE: usize = 8;
-/// Technical: Sets the upper bound for rules.
+/// Sets the upper bound for rules.
 ///
-/// Plain English: Holds the MAX RULES value.
+///
+///  Holds the MAX RULES value.
 pub const MAX_RULES: usize = MAX_RULES_PER_MODE * 7;
-/// Technical: Defines the available `Trigger` cases.
+/// Defines the available `Trigger` cases.
 ///
-/// Plain English: Lists the available Trigger choices.
+///
+///  Lists the available Trigger choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Trigger {
     #[default]
-    /// Technical: Represents the `Off` case of `Trigger`.
+    /// Represents the `Off` case of `Trigger`.
     ///
-    /// Plain English: Represents the Off option in Trigger.
+    ///
+///  Represents the Off option in Trigger.
     Off,
-    /// Technical: Represents the `Roll` case of `Trigger`.
+    /// Represents the `Roll` case of `Trigger`.
     ///
-    /// Plain English: Represents the Roll option in Trigger.
+    ///
+///  Represents the Roll option in Trigger.
     Roll,
-    /// Technical: Represents the `Crossed` case of `Trigger`.
+    /// Represents the `Crossed` case of `Trigger`.
     ///
-    /// Plain English: Represents the Crossed option in Trigger.
+    ///
+///  Represents the Crossed option in Trigger.
     Crossed,
-    /// Technical: Represents the `Vulnerable` case of `Trigger`.
+    /// Represents the `Vulnerable` case of `Trigger`.
     ///
-    /// Plain English: Represents the Vulnerable option in Trigger.
+    ///
+///  Represents the Vulnerable option in Trigger.
     Vulnerable,
-    /// Technical: Represents the `CrossVulnerable` case of `Trigger`.
+    /// Represents the `CrossVulnerable` case of `Trigger`.
     ///
-    /// Plain English: Represents the CrossVulnerable option in Trigger.
+    ///
+///  Represents the CrossVulnerable option in Trigger.
     CrossVulnerable,
-    /// Technical: Represents the `ShieldHit` case of `Trigger`.
+    /// Represents the `ShieldHit` case of `Trigger`.
     ///
-    /// Plain English: Represents the ShieldHit option in Trigger.
+    ///
+///  Represents the ShieldHit option in Trigger.
     ShieldHit,
-    /// Technical: Represents the `GrabDodged` case of `Trigger`.
+    /// Represents the `GrabDodged` case of `Trigger`.
     ///
-    /// Plain English: Represents the GrabDodged option in Trigger.
+    ///
+///  Represents the GrabDodged option in Trigger.
     GrabDodged,
-    /// Technical: Represents the `LedgeRegrab` case of `Trigger`.
+    /// Represents the `LedgeRegrab` case of `Trigger`.
     ///
-    /// Plain English: Represents the LedgeRegrab option in Trigger.
+    ///
+///  Represents the LedgeRegrab option in Trigger.
     LedgeRegrab,
-    /// Technical: Represents the `SpotDodge` case of `Trigger`.
+    /// Represents the `SpotDodge` case of `Trigger`.
     ///
-    /// Plain English: Represents the SpotDodge option in Trigger.
+    ///
+///  Represents the SpotDodge option in Trigger.
     SpotDodge,
-    /// Technical: Represents the `EnemyShield` case of `Trigger`.
+    /// Represents the `EnemyShield` case of `Trigger`.
     ///
-    /// Plain English: Represents the EnemyShield option in Trigger.
+    ///
+///  Represents the EnemyShield option in Trigger.
     EnemyShield,
-    /// Technical: Represents the `ShieldRoll` case of `Trigger`.
+    /// Represents the `ShieldRoll` case of `Trigger`.
     ///
-    /// Plain English: Represents the ShieldRoll option in Trigger.
+    ///
+///  Represents the ShieldRoll option in Trigger.
     ShieldRoll,
-    /// Technical: Represents the `ShieldCross` case of `Trigger`.
+    /// Represents the `ShieldCross` case of `Trigger`.
     ///
-    /// Plain English: Represents the ShieldCross option in Trigger.
+    ///
+///  Represents the ShieldCross option in Trigger.
     ShieldCross,
-    /// Technical: Represents the `ShieldVulnerable` case of `Trigger`.
+    /// Represents the `ShieldVulnerable` case of `Trigger`.
     ///
-    /// Plain English: Represents the ShieldVulnerable option in Trigger.
+    ///
+///  Represents the ShieldVulnerable option in Trigger.
     ShieldVulnerable,
-    /// Technical: Represents the `ShieldCrossVulnerable` case of `Trigger`.
+    /// Represents the `ShieldCrossVulnerable` case of `Trigger`.
     ///
-    /// Plain English: Represents the ShieldCrossVulnerable option in Trigger.
+    ///
+///  Represents the ShieldCrossVulnerable option in Trigger.
     ShieldCrossVulnerable,
-    /// Technical: Represents the `ShieldAway` case of `Trigger`.
+    /// Represents the `ShieldAway` case of `Trigger`.
     ///
-    /// Plain English: Represents the ShieldAway option in Trigger.
+    ///
+///  Represents the ShieldAway option in Trigger.
     ShieldAway,
-    /// Technical: Represents the `ShieldAwayVulnerable` case of `Trigger`.
+    /// Represents the `ShieldAwayVulnerable` case of `Trigger`.
     ///
-    /// Plain English: Represents the ShieldAwayVulnerable option in Trigger.
+    ///
+///  Represents the ShieldAwayVulnerable option in Trigger.
     ShieldAwayVulnerable,
-    /// Technical: Represents the `ShieldPressureVulnerable` case of `Trigger`.
+    /// Represents the `ShieldPressureVulnerable` case of `Trigger`.
     ///
-    /// Plain English: Represents the ShieldPressureVulnerable option in Trigger.
+    ///
+///  Represents the ShieldPressureVulnerable option in Trigger.
     ShieldPressureVulnerable,
-    /// Technical: Represents the `ShieldHitVulnerable` case of `Trigger`.
+    /// Represents the `ShieldHitVulnerable` case of `Trigger`.
     ///
-    /// Plain English: Represents the ShieldHitVulnerable option in Trigger.
+    ///
+///  Represents the ShieldHitVulnerable option in Trigger.
     ShieldHitVulnerable,
-    /// Technical: Represents the `GrabDodgedVulnerable` case of `Trigger`.
+    /// Represents the `GrabDodgedVulnerable` case of `Trigger`.
     ///
-    /// Plain English: Represents the GrabDodgedVulnerable option in Trigger.
+    ///
+///  Represents the GrabDodgedVulnerable option in Trigger.
     GrabDodgedVulnerable,
-    /// Technical: Represents the `SpotDodgeAny` case of `Trigger`.
+    /// Represents the `SpotDodgeAny` case of `Trigger`.
     ///
-    /// Plain English: Represents the SpotDodgeAny option in Trigger.
+    ///
+///  Represents the SpotDodgeAny option in Trigger.
     SpotDodgeAny,
-    /// Technical: Represents the `AutoRoll` case of `Trigger`.
+    /// Represents the `AutoRoll` case of `Trigger`.
     ///
-    /// Plain English: Represents the AutoRoll option in Trigger.
+    ///
+///  Represents the AutoRoll option in Trigger.
     AutoRoll,
-    /// Technical: Represents the `AutoSpot` case of `Trigger`.
+    /// Represents the `AutoSpot` case of `Trigger`.
     ///
-    /// Plain English: Represents the AutoSpot option in Trigger.
+    ///
+///  Represents the AutoSpot option in Trigger.
     AutoSpot,
-    /// Technical: Represents the `AutoAir` case of `Trigger`.
+    /// Represents the `AutoAir` case of `Trigger`.
     ///
-    /// Plain English: Represents the AutoAir option in Trigger.
+    ///
+///  Represents the AutoAir option in Trigger.
     AutoAir,
-    /// Technical: Represents the `AutoGrab` case of `Trigger`.
+    /// Represents the `AutoGrab` case of `Trigger`.
     ///
-    /// Plain English: Represents the AutoGrab option in Trigger.
+    ///
+///  Represents the AutoGrab option in Trigger.
     AutoGrab,
-    /// Technical: Represents the `AutoShieldGrab` case of `Trigger`.
+    /// Represents the `AutoShieldGrab` case of `Trigger`.
     ///
-    /// Plain English: Represents the AutoShieldGrab option in Trigger.
+    ///
+///  Represents the AutoShieldGrab option in Trigger.
     AutoShieldGrab,
-    /// Technical: Represents the `AutoGrabDodged` case of `Trigger`.
+    /// Represents the `AutoGrabDodged` case of `Trigger`.
     ///
-    /// Plain English: Represents the AutoGrabDodged option in Trigger.
+    ///
+///  Represents the AutoGrabDodged option in Trigger.
     AutoGrabDodged,
-    /// Technical: Represents the `AutoShieldBackup` case of `Trigger`.
+    /// Represents the `AutoShieldBackup` case of `Trigger`.
     ///
-    /// Plain English: Represents the AutoShieldBackup option in Trigger.
+    ///
+///  Represents the AutoShieldBackup option in Trigger.
     AutoShieldBackup,
 }
 impl Trigger {
-    /// Technical: Defines the `AUTO_EVENTS` constant used by this module.
+    /// Defines the `AUTO_EVENTS` constant used by this module.
     ///
-    /// Plain English: Provides the AUTO EVENTS constant value.
+    ///
+///  Provides the AUTO EVENTS constant value.
     pub const AUTO_EVENTS: [Self; 7] = [
         Self::AutoRoll,
         Self::AutoSpot,
@@ -216,9 +254,10 @@ impl Trigger {
         Self::AutoGrabDodged,
         Self::AutoShieldBackup,
     ];
-    /// Technical: Returns the `auto_name` result.
+    /// Returns the `auto_name` result.
     ///
-    /// Plain English: Gets the auto name result.
+    ///
+///  Gets the auto name result.
     pub fn auto_name(self) -> &'static str {
         match self {
             Self::AutoRoll => "Roll",
@@ -232,9 +271,10 @@ impl Trigger {
         }
     }
 
-    /// Technical: Defines the `ALL` constant used by this module.
+    /// Defines the `ALL` constant used by this module.
     ///
-    /// Plain English: Provides the ALL constant value.
+    ///
+///  Provides the ALL constant value.
     pub const ALL: [Self; 27] = [
         Self::Off,
         Self::Roll,
@@ -264,9 +304,10 @@ impl Trigger {
         Self::AutoGrabDodged,
         Self::AutoShieldBackup,
     ];
-    /// Technical: Returns the `family` result.
+    /// Returns the `family` result.
     ///
-    /// Plain English: Gets the family result.
+    ///
+///  Gets the family result.
     pub fn family(self) -> usize {
         match self {
             t if t.simple().is_some() => 6,
@@ -278,9 +319,10 @@ impl Trigger {
             _ => 0,
         }
     }
-    /// Technical: Returns an optional `simple` value.
+    /// Returns an optional `simple` value.
     ///
-    /// Plain English: Gets simple if it is available.
+    ///
+///  Gets simple if it is available.
     pub fn simple(self) -> Option<usize> {
         match self {
             Self::AutoRoll => Some(0),
@@ -293,9 +335,10 @@ impl Trigger {
             _ => None,
         }
     }
-    /// Technical: Determines whether the `shield_pressure` condition holds.
+    /// Determines whether the `shield_pressure` condition holds.
     ///
-    /// Plain English: Checks whether shield pressure.
+    ///
+///  Checks whether shield pressure.
     pub fn shield_pressure(self) -> bool {
         matches!(
             self,
@@ -309,9 +352,10 @@ impl Trigger {
                 | Self::ShieldPressureVulnerable
         )
     }
-    /// Technical: Defines the `SHIELD_EVENTS` constant used by this module.
+    /// Defines the `SHIELD_EVENTS` constant used by this module.
     ///
-    /// Plain English: Provides the SHIELD EVENTS constant value.
+    ///
+///  Provides the SHIELD EVENTS constant value.
     pub const SHIELD_EVENTS: [Self; 8] = [
         Self::EnemyShield,
         Self::ShieldRoll,
@@ -322,9 +366,10 @@ impl Trigger {
         Self::ShieldAwayVulnerable,
         Self::ShieldPressureVulnerable,
     ];
-    /// Technical: Determines whether the `defensive` condition holds.
+    /// Determines whether the `defensive` condition holds.
     ///
-    /// Plain English: Checks whether defensive.
+    ///
+///  Checks whether defensive.
     pub fn defensive(self) -> bool {
         self.shield_pressure()
             || matches!(
@@ -338,9 +383,10 @@ impl Trigger {
                     | Self::SpotDodgeAny
             )
     }
-    /// Technical: Determines whether the `event_matches` condition holds.
+    /// Determines whether the `event_matches` condition holds.
     ///
-    /// Plain English: Checks whether event matches.
+    ///
+///  Checks whether event matches.
     pub fn event_matches(self, event: Self) -> bool {
         self == event
             || matches!(
@@ -350,9 +396,10 @@ impl Trigger {
                     | (Self::SpotDodgeAny, Self::SpotDodge)
             )
     }
-    /// Technical: Determines whether vulnerable.
+    /// Determines whether vulnerable.
     ///
-    /// Plain English: Checks whether vulnerable.
+    ///
+///  Checks whether vulnerable.
     pub fn needs_vulnerable(self) -> bool {
         matches!(
             self,
@@ -362,9 +409,10 @@ impl Trigger {
                 | Self::ShieldPressureVulnerable
         )
     }
-    /// Technical: Returns the `events` result.
+    /// Returns the `events` result.
     ///
-    /// Plain English: Gets the events result.
+    ///
+///  Gets the events result.
     pub fn events(self) -> &'static [Self] {
         match self.family() {
             6 => &Self::AUTO_EVENTS,
@@ -381,9 +429,10 @@ impl Trigger {
             _ => &Self::SHIELD_EVENTS,
         }
     }
-    /// Technical: Returns the serialized token for the value.
+    /// Returns the serialized token for the value.
     ///
-    /// Plain English: Gets the text form used when saving this value.
+    ///
+///  Gets the text form used when saving this value.
     pub fn token(self) -> &'static str {
         match self {
             Self::AutoGrab => "auto_grab",
@@ -416,45 +465,54 @@ impl Trigger {
         }
     }
 }
-/// Technical: Defines the available `SelfState` cases.
+/// Defines the available `SelfState` cases.
 ///
-/// Plain English: Lists the available SelfState choices.
+///
+///  Lists the available SelfState choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SelfState {
     #[default]
-    /// Technical: Represents the `Any` case of `SelfState`.
+    /// Represents the `Any` case of `SelfState`.
     ///
-    /// Plain English: Represents the Any option in SelfState.
+    ///
+///  Represents the Any option in SelfState.
     Any,
-    /// Technical: Represents the `Grounded` case of `SelfState`.
+    /// Represents the `Grounded` case of `SelfState`.
     ///
-    /// Plain English: Represents the Grounded option in SelfState.
+    ///
+///  Represents the Grounded option in SelfState.
     Grounded,
-    /// Technical: Represents the `Airborne` case of `SelfState`.
+    /// Represents the `Airborne` case of `SelfState`.
     ///
-    /// Plain English: Represents the Airborne option in SelfState.
+    ///
+///  Represents the Airborne option in SelfState.
     Airborne,
-    /// Technical: Represents the `Standing` case of `SelfState`.
+    /// Represents the `Standing` case of `SelfState`.
     ///
-    /// Plain English: Represents the Standing option in SelfState.
+    ///
+///  Represents the Standing option in SelfState.
     Standing,
-    /// Technical: Represents the `Walking` case of `SelfState`.
+    /// Represents the `Walking` case of `SelfState`.
     ///
-    /// Plain English: Represents the Walking option in SelfState.
+    ///
+///  Represents the Walking option in SelfState.
     Walking,
-    /// Technical: Represents the `Running` case of `SelfState`.
+    /// Represents the `Running` case of `SelfState`.
     ///
-    /// Plain English: Represents the Running option in SelfState.
+    ///
+///  Represents the Running option in SelfState.
     Running,
-    /// Technical: Represents the `Shielding` case of `SelfState`.
+    /// Represents the `Shielding` case of `SelfState`.
     ///
-    /// Plain English: Represents the Shielding option in SelfState.
+    ///
+///  Represents the Shielding option in SelfState.
     Shielding,
 }
 impl SelfState {
-    /// Technical: Defines the `ALL` constant used by this module.
+    /// Defines the `ALL` constant used by this module.
     ///
-    /// Plain English: Provides the ALL constant value.
+    ///
+///  Provides the ALL constant value.
     pub const ALL: [Self; 7] = [
         Self::Any,
         Self::Grounded,
@@ -464,9 +522,10 @@ impl SelfState {
         Self::Running,
         Self::Shielding,
     ];
-    /// Technical: Returns the serialized token for the value.
+    /// Returns the serialized token for the value.
     ///
-    /// Plain English: Gets the text form used when saving this value.
+    ///
+///  Gets the text form used when saving this value.
     pub fn token(self) -> &'static str {
         match self {
             Self::Any => "any",
@@ -478,9 +537,10 @@ impl SelfState {
             Self::Shielding => "shielding",
         }
     }
-    /// Technical: Determines whether the `matches` condition holds.
+    /// Determines whether the `matches` condition holds.
     ///
-    /// Plain English: Checks whether matches.
+    ///
+///  Checks whether matches.
     pub(crate) fn matches(self, c: GameplayContext) -> bool {
         match self {
             Self::Any => true,
@@ -514,33 +574,39 @@ impl SelfState {
         }
     }
 }
-/// Technical: Defines the available `Side` cases.
+/// Defines the available `Side` cases.
 ///
-/// Plain English: Lists the available Side choices.
+///
+///  Lists the available Side choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Side {
     #[default]
-    /// Technical: Represents the `Any` case of `Side`.
+    /// Represents the `Any` case of `Side`.
     ///
-    /// Plain English: Represents the Any option in Side.
+    ///
+///  Represents the Any option in Side.
     Any,
-    /// Technical: Represents the `Front` case of `Side`.
+    /// Represents the `Front` case of `Side`.
     ///
-    /// Plain English: Represents the Front option in Side.
+    ///
+///  Represents the Front option in Side.
     Front,
-    /// Technical: Represents the `Behind` case of `Side`.
+    /// Represents the `Behind` case of `Side`.
     ///
-    /// Plain English: Represents the Behind option in Side.
+    ///
+///  Represents the Behind option in Side.
     Behind,
 }
 impl Side {
-    /// Technical: Defines the `ALL` constant used by this module.
+    /// Defines the `ALL` constant used by this module.
     ///
-    /// Plain English: Provides the ALL constant value.
+    ///
+///  Provides the ALL constant value.
     pub const ALL: [Self; 3] = [Self::Any, Self::Front, Self::Behind];
-    /// Technical: Returns the serialized token for the value.
+    /// Returns the serialized token for the value.
     ///
-    /// Plain English: Gets the text form used when saving this value.
+    ///
+///  Gets the text form used when saving this value.
     pub fn token(self) -> &'static str {
         match self {
             Self::Any => "any",
@@ -550,43 +616,52 @@ impl Side {
     }
 }
 /// Activation group, independent of trigger conditions and response actions.
-/// Plain English: Activation group, independent of trigger conditions and response actions.
+///
+///  Activation group, independent of trigger conditions and response actions.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Control {
     #[default]
-    /// Technical: Represents the `Menu` case of `Control`.
+    /// Represents the `Menu` case of `Control`.
     ///
-    /// Plain English: Represents the Menu option in Control.
+    ///
+///  Represents the Menu option in Control.
     Menu,
-    /// Technical: Represents the `ToggleX` case of `Control`.
+    /// Represents the `ToggleX` case of `Control`.
     ///
-    /// Plain English: Represents the ToggleX option in Control.
+    ///
+///  Represents the ToggleX option in Control.
     ToggleX,
-    /// Technical: Represents the `ToggleY` case of `Control`.
+    /// Represents the `ToggleY` case of `Control`.
     ///
-    /// Plain English: Represents the ToggleY option in Control.
+    ///
+///  Represents the ToggleY option in Control.
     ToggleY,
-    /// Technical: Represents the `ToggleUp` case of `Control`.
+    /// Represents the `ToggleUp` case of `Control`.
     ///
-    /// Plain English: Represents the ToggleUp option in Control.
+    ///
+///  Represents the ToggleUp option in Control.
     ToggleUp,
-    /// Technical: Represents the `ToggleDown` case of `Control`.
+    /// Represents the `ToggleDown` case of `Control`.
     ///
-    /// Plain English: Represents the ToggleDown option in Control.
+    ///
+///  Represents the ToggleDown option in Control.
     ToggleDown,
-    /// Technical: Represents the `ToggleLeft` case of `Control`.
+    /// Represents the `ToggleLeft` case of `Control`.
     ///
-    /// Plain English: Represents the ToggleLeft option in Control.
+    ///
+///  Represents the ToggleLeft option in Control.
     ToggleLeft,
-    /// Technical: Represents the `ToggleRight` case of `Control`.
+    /// Represents the `ToggleRight` case of `Control`.
     ///
-    /// Plain English: Represents the ToggleRight option in Control.
+    ///
+///  Represents the ToggleRight option in Control.
     ToggleRight,
 }
 impl Control {
-    /// Technical: Defines the `ALL` constant used by this module.
+    /// Defines the `ALL` constant used by this module.
     ///
-    /// Plain English: Provides the ALL constant value.
+    ///
+///  Provides the ALL constant value.
     pub const ALL: [Self; 7] = [
         Self::Menu,
         Self::ToggleX,
@@ -596,15 +671,17 @@ impl Control {
         Self::ToggleLeft,
         Self::ToggleRight,
     ];
-    /// Technical: Tests whether the requested bit is set in the value.
+    /// Tests whether the requested bit is set in the value.
     ///
-    /// Plain English: Checks whether this bit is on.
+    ///
+///  Checks whether this bit is on.
     pub fn bit(self) -> u8 {
         1 << self as u8
     }
-    /// Technical: Returns the serialized token for the value.
+    /// Returns the serialized token for the value.
     ///
-    /// Plain English: Gets the text form used when saving this value.
+    ///
+///  Gets the text form used when saving this value.
     pub fn token(self) -> &'static str {
         match self {
             Self::Menu => "menu",
@@ -616,9 +693,10 @@ impl Control {
             Self::ToggleRight => "toggle_right",
         }
     }
-    /// Technical: Returns the display label for the value.
+    /// Returns the display label for the value.
     ///
-    /// Plain English: Gets the text shown for this value.
+    ///
+///  Gets the text shown for this value.
     pub fn label(self) -> &'static str {
         match self {
             Self::Menu => "Menu",
@@ -630,9 +708,10 @@ impl Control {
             Self::ToggleRight => "Toggle D-pad Right",
         }
     }
-    /// Technical: Returns the button associated with the binding.
+    /// Returns the button associated with the binding.
     ///
-    /// Plain English: Gets the assigned button.
+    ///
+///  Gets the assigned button.
     pub fn button(self) -> u32 {
         use crate::{manual_controls::*, native_input::*};
         match self {
@@ -646,48 +725,58 @@ impl Control {
         }
     }
 }
-/// Technical: Defines the `Rule` data structure.
+/// Defines the `Rule` data structure.
 ///
-/// Plain English: Holds the data for Rule.
+///
+///  Holds the data for Rule.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rule {
-    /// Technical: Stores the `trigger` value in `Rule` as `Trigger`.
+    /// Stores the `trigger` value in `Rule` as `Trigger`.
     ///
-    /// Plain English: Holds the trigger value used by Rule.
+    ///
+///  Holds the trigger value used by Rule.
     pub trigger: Trigger,
-    /// Technical: Stores the `state` value in `Rule` as `SelfState`.
+    /// Stores the `state` value in `Rule` as `SelfState`.
     ///
-    /// Plain English: Holds the state value used by Rule.
+    ///
+///  Holds the state value used by Rule.
     pub state: SelfState,
-    /// Technical: Stores the `min` value in `Rule` as `f32`.
+    /// Stores the `min` value in `Rule` as `f32`.
     ///
-    /// Plain English: Holds the min value used by Rule.
+    ///
+///  Holds the min value used by Rule.
     pub min: f32,
-    /// Technical: Stores the `max` value in `Rule` as `f32`.
+    /// Stores the `max` value in `Rule` as `f32`.
     ///
-    /// Plain English: Holds the max value used by Rule.
+    ///
+///  Holds the max value used by Rule.
     pub max: f32,
-    /// Technical: Stores the `height` value in `Rule` as `f32`.
+    /// Stores the `height` value in `Rule` as `f32`.
     ///
-    /// Plain English: Holds the height value used by Rule.
+    ///
+///  Holds the height value used by Rule.
     pub height: f32,
-    /// Technical: Stores the `side` value in `Rule` as `Side`.
+    /// Stores the `side` value in `Rule` as `Side`.
     ///
-    /// Plain English: Holds the side value used by Rule.
+    ///
+///  Holds the side value used by Rule.
     pub side: Side,
-    /// Technical: Stores the `priority` value in `Rule` as `u8`.
+    /// Stores the `priority` value in `Rule` as `u8`.
     ///
-    /// Plain English: Holds the priority value used by Rule.
+    ///
+///  Holds the priority value used by Rule.
     pub priority: u8,
-    /// Technical: Stores the `control` value in `Rule` as `Control`.
+    /// Stores the `control` value in `Rule` as `Control`.
     ///
-    /// Plain English: Holds the control value used by Rule.
+    ///
+///  Holds the control value used by Rule.
     pub control: Control,
 }
 impl Default for Rule {
-    /// Technical: Returns the default value for this type.
+    /// Returns the default value for this type.
     ///
-    /// Plain English: Returns the default value for this type.
+    ///
+///  Returns the default value for this type.
     fn default() -> Self {
         Self {
             trigger: Trigger::Off,
@@ -702,15 +791,17 @@ impl Default for Rule {
     }
 }
 impl Rule {
-    /// Technical: Checks whether the feature is active.
+    /// Checks whether the feature is active.
     ///
-    /// Plain English: Checks whether the feature is on.
+    ///
+///  Checks whether the feature is on.
     pub fn active(self) -> bool {
         self.trigger != Trigger::Off
     }
     /// The first failing self-state/range/height/side gate for a target at
     /// `target`, in the order shown as feedback. Non-finite geometry never fits.
-    /// Plain English: The first failing self-state/range/height/side gate for a target at target, in the order shown as feedback. Non-finite geometry never fits.
+    ///
+///  The first failing self-state/range/height/side gate for a target at target, in the order shown as feedback. Non-finite geometry never fits.
     pub(crate) fn rejects(self, c: GameplayContext, target: [f32; 2]) -> Option<Feedback> {
         if !self.state.matches(c) {
             return Some(Feedback::State);
@@ -731,9 +822,10 @@ impl Rule {
         }
         None
     }
-    /// Technical: Returns the `field` result.
+    /// Returns the `field` result.
     ///
-    /// Plain English: Gets the field result.
+    ///
+///  Gets the field result.
     pub fn field(self, n: u8) -> String {
         match n {
             0 => format!(
@@ -792,13 +884,15 @@ impl Rule {
             ),
         }
     }
-    /// Technical: Updates the `adjust` state using the supplied inputs.
+    /// Updates the `adjust` state using the supplied inputs.
     ///
-    /// Plain English: Updates adjust.
+    ///
+///  Updates adjust.
     pub fn adjust(&mut self, n: u8, up: bool) {
-        /// Technical: Advances the selected choice to the next value.
+        /// Advances the selected choice to the next value.
         ///
-        /// Plain English: Moves to the next choice.
+        ///
+///  Moves to the next choice.
         fn cycle<T: Copy + PartialEq>(v: &mut T, all: &[T], up: bool) {
             let i = all.iter().position(|x| x == v).unwrap_or(0);
             *v = all[(i + if up { 1 } else { all.len() - 1 }) % all.len()]
@@ -830,9 +924,10 @@ impl Rule {
             }
         }
     }
-    /// Technical: Returns the `validate` result.
+    /// Returns the `validate` result.
     ///
-    /// Plain English: Gets the validate result.
+    ///
+///  Gets the validate result.
     pub fn validate(self) -> Result<(), String> {
         if (self.trigger.defensive() || self.trigger.simple().is_some())
             && self.control != Control::Menu
@@ -853,9 +948,10 @@ impl Rule {
             Ok(())
         }
     }
-    /// Technical: Parses the supplied source into the module’s validated representation.
+    /// Parses the supplied source into the module’s validated representation.
     ///
-    /// Plain English: Reads the source and checks that it is valid.
+    ///
+///  Reads the source and checks that it is valid.
     pub fn parse(s: &str) -> Result<Self, String> {
         let p: Vec<_> = s.trim().split(':').collect();
         if p.len() == 3 {
@@ -918,9 +1014,10 @@ impl Rule {
             r
         })
     }
-    /// Technical: Returns the serialized token for the value.
+    /// Returns the serialized token for the value.
     ///
-    /// Plain English: Gets the text form used when saving this value.
+    ///
+///  Gets the text form used when saving this value.
     pub fn token(self) -> String {
         if self.trigger.simple().is_some() {
             return format!("{}:{}:{}", self.trigger.token(), self.max, self.height);
@@ -942,9 +1039,10 @@ impl Rule {
         }
     }
 }
-/// Technical: Validates the response.
+/// Validates the response.
 ///
-/// Plain English: Validates the response.
+///
+///  Validates the response.
 pub fn validate_response(s: Sequence) -> Result<(), String> {
     s.reaction.validate()?;
     crate::sequence_config::validate_facing_blocks(s.actions())?;
@@ -959,69 +1057,84 @@ pub fn validate_response(s: Sequence) -> Result<(), String> {
     }
     Ok(())
 }
-/// Technical: Defines the `Candidate` data structure.
+/// Defines the `Candidate` data structure.
 ///
-/// Plain English: Holds the data for Candidate.
+///
+///  Holds the data for Candidate.
 #[derive(Clone, Copy)]
 pub struct Candidate {
-    /// Technical: Stores the `slot` value in `Candidate` as `usize`.
+    /// Stores the `slot` value in `Candidate` as `usize`.
     ///
-    /// Plain English: Holds the slot value used by Candidate.
+    ///
+///  Holds the slot value used by Candidate.
     pub slot: usize,
-    /// Technical: Stores the `index` value in `Candidate` as `usize`.
+    /// Stores the `index` value in `Candidate` as `usize`.
     ///
-    /// Plain English: Holds the index value used by Candidate.
+    ///
+///  Holds the index value used by Candidate.
     pub index: usize,
-    /// Technical: Stores the `sequence` value in `Candidate` as `Sequence`.
+    /// Stores the `sequence` value in `Candidate` as `Sequence`.
     ///
-    /// Plain English: Holds the sequence value used by Candidate.
+    ///
+///  Holds the sequence value used by Candidate.
     pub sequence: Sequence,
 }
-/// Technical: Defines the `Resolved` data structure.
+/// Defines the `Resolved` data structure.
 ///
-/// Plain English: Holds the data for Resolved.
+///
+///  Holds the data for Resolved.
 pub struct Resolved {
-    /// Technical: Stores the `rules` value in `Resolved` as `Vec<Option<Candidate>>`.
+    /// Stores the `rules` value in `Resolved` as `Vec<Option<Candidate>>`.
     ///
-    /// Plain English: Stores the configured scenario rules in fixed-size slots.
+    ///
+///  Stores the configured scenario rules in fixed-size slots.
     pub rules: Vec<Option<Candidate>>,
-    /// Technical: Stores the `len` value in `Resolved` as `usize`.
+    /// Stores the `len` value in `Resolved` as `usize`.
     ///
-    /// Plain English: Holds the len value used by Resolved.
+    ///
+///  Holds the len value used by Resolved.
     pub len: usize,
-    /// Technical: Stores the `controls` value in `Resolved` as `u8`.
+    /// Stores the `controls` value in `Resolved` as `u8`.
     ///
-    /// Plain English: Holds the controls value used by Resolved.
+    ///
+///  Holds the controls value used by Resolved.
     pub controls: u8,
-    /// Technical: Stores the `enabled_controls` value in `Resolved` as `u8`.
+    /// Stores the `enabled_controls` value in `Resolved` as `u8`.
     ///
-    /// Plain English: Holds the enabled controls value used by Resolved.
+    ///
+///  Holds the enabled controls value used by Resolved.
     pub enabled_controls: u8,
-    /// Technical: Stores the `defense_mask` value in `Resolved` as `u32`.
+    /// Stores the `defense_mask` value in `Resolved` as `u32`.
     ///
-    /// Plain English: Holds the defense mask value used by Resolved.
+    ///
+///  Holds the defense mask value used by Resolved.
     defense_mask: u32,
-    /// Technical: Stores the `simple` value in `Resolved` as `Option<Box<[Option<Sequence>; 7]>>`.
+    /// Stores the `simple` value in `Resolved` as `Option<Box<[Option<Sequence>; 7]>>`.
     ///
-    /// Plain English: Optionally stores the simple for Resolved; it may be absent.
+    ///
+///  Optionally stores the simple for Resolved; it may be absent.
     simple: Option<Box<[Option<Sequence>; 7]>>,
-    /// Technical: Stores the `simple_starts` value in `Resolved` as `[Option<SimpleStart>; 3]`.
+    /// Stores the `simple_starts` value in `Resolved` as `[Option<SimpleStart>; 3]`.
     ///
-    /// Plain English: Stores the simple starts collection for Resolved.
+    ///
+///  Stores the simple starts collection for Resolved.
     simple_starts: [Option<SimpleStart>; 3],
-    /// Technical: Stores the `automatic_ground` value in `Resolved` as `[Option<(f32`.
+    /// Stores the `automatic_ground` value in `Resolved` as `[Option<(f32`.
     ///
-    /// Plain English: Stores the automatic ground collection for Resolved.
+    ///
+///  Stores the automatic ground collection for Resolved.
     automatic_ground: [Option<(f32, f32)>; 7],
-    /// Technical: Stores the `automatic_up_special` value in `Resolved` as `u8`.
+    /// Stores the `automatic_up_special` value in `Resolved` as `u8`.
     ///
-    /// Plain English: Holds the automatic up special value used by Resolved.
+    ///
+///  Holds the automatic up special value used by Resolved.
     automatic_up_special: u8,
 }
 impl Default for Resolved {
-    /// Technical: Returns the default value for this type.
+    /// Returns the default value for this type.
     ///
-    /// Plain English: Returns the default value for this type.
+    ///
+///  Returns the default value for this type.
     fn default() -> Self {
         Self {
             rules: Vec::new(),
@@ -1037,24 +1150,27 @@ impl Default for Resolved {
     }
 }
 impl Resolved {
-    /// Technical: Returns an optional `simple_sequence` value.
+    /// Returns an optional `simple_sequence` value.
     ///
-    /// Plain English: Gets simple sequence if it is available.
+    ///
+///  Gets simple sequence if it is available.
     pub fn simple_sequence(&self, index: usize) -> Option<&Sequence> {
         self.simple
             .as_ref()
             .and_then(|s| s.get(index))
             .and_then(Option::as_ref)
     }
-    /// Technical: Checks whether simple events.
+    /// Checks whether simple events.
     ///
-    /// Plain English: Checks whether simple events.
+    ///
+///  Checks whether simple events.
     pub fn has_simple_events(&self) -> bool {
         (0..3).any(|i| self.simple_sequence(i).is_some())
     }
-    /// Technical: Checks whether defense.
+    /// Checks whether defense.
     ///
-    /// Plain English: Checks whether defense.
+    ///
+///  Checks whether defense.
     pub fn has_defense(&self, trigger: Trigger) -> bool {
         let alias = match trigger {
             Trigger::ShieldHit => 1 << Trigger::ShieldHitVulnerable as u8,
@@ -1064,15 +1180,17 @@ impl Resolved {
         };
         self.defense_mask & ((1 << trigger as u8) | alias) != 0
     }
-    /// Technical: Sets the enabled controls.
+    /// Sets the enabled controls.
     ///
-    /// Plain English: Sets the enabled controls.
+    ///
+///  Sets the enabled controls.
     pub fn set_enabled_controls(&mut self, controls: u8) {
         self.enabled_controls = controls;
     }
-    /// Technical: Returns the `add` result.
+    /// Returns the `add` result.
     ///
-    /// Plain English: Gets the add result.
+    ///
+///  Gets the add result.
     pub fn add(&mut self, c: Candidate) -> Result<(), String> {
         if !c.sequence.reaction.active() {
             return Ok(());
@@ -1130,66 +1248,80 @@ impl Resolved {
         Ok(())
     }
 }
-/// Technical: Defines the available `Feedback` cases.
+/// Defines the available `Feedback` cases.
 ///
-/// Plain English: Lists the available Feedback choices.
+///
+///  Lists the available Feedback choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Feedback {
     #[default]
-    /// Technical: Represents the `Watching` case of `Feedback`.
+    /// Represents the `Watching` case of `Feedback`.
     ///
-    /// Plain English: Represents the Watching option in Feedback.
+    ///
+///  Represents the Watching option in Feedback.
     Watching,
-    /// Technical: Represents the `State` case of `Feedback`.
+    /// Represents the `State` case of `Feedback`.
     ///
-    /// Plain English: Represents the State option in Feedback.
+    ///
+///  Represents the State option in Feedback.
     State,
-    /// Technical: Represents the `Range` case of `Feedback`.
+    /// Represents the `Range` case of `Feedback`.
     ///
-    /// Plain English: Represents the Range option in Feedback.
+    ///
+///  Represents the Range option in Feedback.
     Range,
-    /// Technical: Represents the `Height` case of `Feedback`.
+    /// Represents the `Height` case of `Feedback`.
     ///
-    /// Plain English: Represents the Height option in Feedback.
+    ///
+///  Represents the Height option in Feedback.
     Height,
-    /// Technical: Represents the `Side` case of `Feedback`.
+    /// Represents the `Side` case of `Feedback`.
     ///
-    /// Plain English: Represents the Side option in Feedback.
+    ///
+///  Represents the Side option in Feedback.
     Side,
-    /// Technical: Represents the `Crossing` case of `Feedback`.
+    /// Represents the `Crossing` case of `Feedback`.
     ///
-    /// Plain English: Represents the Crossing option in Feedback.
+    ///
+///  Represents the Crossing option in Feedback.
     Crossing,
-    /// Technical: Represents the `Invulnerable` case of `Feedback`.
+    /// Represents the `Invulnerable` case of `Feedback`.
     ///
-    /// Plain English: Represents the Invulnerable option in Feedback.
+    ///
+///  Represents the Invulnerable option in Feedback.
     Invulnerable,
-    /// Technical: Represents the `Matched` case of `Feedback`.
+    /// Represents the `Matched` case of `Feedback`.
     ///
-    /// Plain English: Represents the Matched option in Feedback.
+    ///
+///  Represents the Matched option in Feedback.
     Matched(
-        /// Technical: Carries the index of the matched rule in `Feedback`.
+        /// Carries the index of the matched rule in `Feedback`.
         ///
-        /// Plain English: Holds the index of the matched rule for this `Feedback` choice.
+        ///
+///  Holds the index of the matched rule for this `Feedback` choice.
         u8,
     ),
-    /// Technical: Represents the `Cancelled` case of `Feedback`.
+    /// Represents the `Cancelled` case of `Feedback`.
     ///
-    /// Plain English: Represents the Cancelled option in Feedback.
+    ///
+///  Represents the Cancelled option in Feedback.
     Cancelled,
-    /// Technical: Represents the `MissingTarget` case of `Feedback`.
+    /// Represents the `MissingTarget` case of `Feedback`.
     ///
-    /// Plain English: Represents the MissingTarget option in Feedback.
+    ///
+///  Represents the MissingTarget option in Feedback.
     MissingTarget,
-    /// Technical: Represents the `Finished` case of `Feedback`.
+    /// Represents the `Finished` case of `Feedback`.
     ///
-    /// Plain English: Represents the Finished option in Feedback.
+    ///
+///  Represents the Finished option in Feedback.
     Finished,
 }
 impl Feedback {
-    /// Technical: Returns the display label for the value.
+    /// Returns the display label for the value.
     ///
-    /// Plain English: Gets the text shown for this value.
+    ///
+///  Gets the text shown for this value.
     pub fn label(self) -> &'static str {
         match self {
             Self::Watching => "watching rolls",
@@ -1206,44 +1338,53 @@ impl Feedback {
         }
     }
 }
-/// Technical: Defines the `Track` data structure.
+/// Defines the `Track` data structure.
 ///
-/// Plain English: Holds the data for Track.
+///
+///  Holds the data for Track.
 #[derive(Clone, Copy)]
 struct Track {
-    /// Technical: Stores the `id` value in `Track` as `u32`.
+    /// Stores the `id` value in `Track` as `u32`.
     ///
-    /// Plain English: Holds the id value used by Track.
+    ///
+///  Holds the id value used by Track.
     id: u32,
-    /// Technical: Stores the `status` value in `Track` as `i32`.
+    /// Stores the `status` value in `Track` as `i32`.
     ///
-    /// Plain English: Holds the status value used by Track.
+    ///
+///  Holds the status value used by Track.
     status: i32,
-    /// Technical: Stores the `motion` value in `Track` as `u64`.
+    /// Stores the `motion` value in `Track` as `u64`.
     ///
-    /// Plain English: Holds the motion value used by Track.
+    ///
+///  Holds the motion value used by Track.
     motion: u64,
-    /// Technical: Stores the `frame` value in `Track` as `f32`.
+    /// Stores the `frame` value in `Track` as `f32`.
     ///
-    /// Plain English: Holds the frame value used by Track.
+    ///
+///  Holds the frame value used by Track.
     frame: f32,
-    /// Technical: Stores the `dx` value in `Track` as `f32`.
+    /// Stores the `dx` value in `Track` as `f32`.
     ///
-    /// Plain English: Holds the dx value used by Track.
+    ///
+///  Holds the dx value used by Track.
     dx: f32,
-    /// Technical: Stores the `crossed` value in `Track` as `bool`.
+    /// Stores the `crossed` value in `Track` as `bool`.
     ///
-    /// Plain English: Holds the crossed value used by Track.
+    ///
+///  Holds the crossed value used by Track.
     crossed: bool,
-    /// Technical: Stores the `used` value in `Track` as `bool`.
+    /// Stores the `used` value in `Track` as `bool`.
     ///
-    /// Plain English: Holds the used value used by Track.
+    ///
+///  Holds the used value used by Track.
     used: bool,
 }
 impl Track {
-    /// Technical: Determines whether the `continues` condition holds.
+    /// Determines whether the `continues` condition holds.
     ///
-    /// Plain English: Checks whether continues.
+    ///
+///  Checks whether continues.
     fn continues(&self, target: &Target) -> bool {
         crate::timing::same_motion_event(
             (self.id, self.status, self.motion, self.frame),
@@ -1252,147 +1393,172 @@ impl Track {
     }
 }
 impl Tracked for Track {
-    /// Technical: Returns the native identifier of the observed object.
+    /// Returns the native identifier of the observed object.
     ///
-    /// Plain English: Gets the object’s identifier.
+    ///
+///  Gets the object’s identifier.
     fn id(&self) -> u32 {
         self.id
     }
-    /// Technical: Returns the `status` result.
+    /// Returns the `status` result.
     ///
-    /// Plain English: Gets the status result.
+    ///
+///  Gets the status result.
     fn status(&self) -> i32 {
         self.status
     }
 }
-/// Technical: Defines the `Engine` data structure.
+/// Defines the `Engine` data structure.
 ///
-/// Plain English: Holds the data for Engine.
+///
+///  Holds the data for Engine.
 #[derive(Default)]
 pub struct Engine {
-    /// Technical: Stores the `tracks` value in `Engine` as `[Option<Track>; crate::battle_objects::FIGHTER_CAPACITY]`.
+    /// Stores the `tracks` value in `Engine` as `[Option<Track>; crate::battle_objects::FIGHTER_CAPACITY]`.
     ///
-    /// Plain English: Stores the tracks collection for Engine.
+    ///
+///  Stores the tracks collection for Engine.
     tracks: [Option<Track>; crate::battle_objects::FIGHTER_CAPACITY],
-    /// Technical: Stores the `plan` value in `Engine` as `Option<InputTimeline>`.
+    /// Stores the `plan` value in `Engine` as `Option<InputTimeline>`.
     ///
-    /// Plain English: Optionally stores the plan for Engine; it may be absent.
+    ///
+///  Optionally stores the plan for Engine; it may be absent.
     plan: Option<InputTimeline>,
-    /// Technical: Stores the `target` value in `Engine` as `Option<u32>`.
+    /// Stores the `target` value in `Engine` as `Option<u32>`.
     ///
-    /// Plain English: Optionally stores the target for Engine; it may be absent.
+    ///
+///  Optionally stores the target for Engine; it may be absent.
     target: Option<u32>,
-    /// Technical: Stores the `feedback` value in `Engine` as `Feedback`.
+    /// Stores the `feedback` value in `Engine` as `Feedback`.
     ///
-    /// Plain English: Holds the feedback value used by Engine.
+    ///
+///  Holds the feedback value used by Engine.
     pub feedback: Feedback,
-    /// Technical: Stores the `last_priority` value in `Engine` as `Option<u8>`.
+    /// Stores the `last_priority` value in `Engine` as `Option<u8>`.
     ///
-    /// Plain English: Optionally stores the last priority for Engine; it may be absent.
+    ///
+///  Optionally stores the last priority for Engine; it may be absent.
     pub last_priority: Option<u8>,
-    /// Technical: Stores the `active_control` value in `Engine` as `Option<Control>`.
+    /// Stores the `active_control` value in `Engine` as `Option<Control>`.
     ///
-    /// Plain English: Optionally stores the active control for Engine; it may be absent.
+    ///
+///  Optionally stores the active control for Engine; it may be absent.
     active_control: Option<Control>,
-    /// Technical: Stores the `up_b` value in `Engine` as `crate::move_input::UpBFlow`.
+    /// Stores the `up_b` value in `Engine` as `crate::move_input::UpBFlow`.
     ///
-    /// Plain English: Holds the up b value used by Engine.
+    ///
+///  Holds the up b value used by Engine.
     up_b: crate::move_input::UpBFlow,
 }
 impl Engine {
-    /// Technical: Observes the statuses.
+    /// Observes the statuses.
     ///
-    /// Plain English: Observes the statuses.
+    ///
+///  Observes the statuses.
     pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         forget_ended(&mut self.tracks, known);
     }
-    /// Technical: Returns the selected target observation.
+    /// Returns the selected target observation.
     ///
-    /// Plain English: Gets the chosen target.
+    ///
+///  Gets the chosen target.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
-    /// Technical: Checks whether an input owner has committed the action.
+    /// Checks whether an input owner has committed the action.
     ///
-    /// Plain English: Checks whether the action has been committed.
+    ///
+///  Checks whether the action has been committed.
     pub fn committed(&self) -> bool {
         self.plan.is_some()
     }
-    /// Technical: Determines whether the `direct_up_b` condition holds.
+    /// Determines whether the `direct_up_b` condition holds.
     ///
-    /// Plain English: Checks whether direct up b.
+    ///
+///  Checks whether direct up b.
     pub fn direct_up_b(&self) -> bool {
         self.up_b.armed() && self.plan.is_some()
     }
-    /// Technical: Determines whether the `up_b_delivery_started` condition holds.
+    /// Determines whether the `up_b_delivery_started` condition holds.
     ///
-    /// Plain English: Checks whether up b delivery started.
+    ///
+///  Checks whether up b delivery started.
     pub fn up_b_delivery_started(&self) -> bool {
         self.direct_up_b() && self.up_b.started()
     }
-    /// Technical: Updates the `attempted_up_special` state using the supplied inputs.
+    /// Updates the `attempted_up_special` state using the supplied inputs.
     ///
-    /// Plain English: Updates attempted up special.
+    ///
+///  Updates attempted up special.
     pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
         if self.direct_up_b() && self.target == Some(target) {
             self.up_b.attempted(tick);
         }
     }
-    /// Technical: Updates the `mapped_up_special` state using the supplied inputs.
+    /// Updates the `mapped_up_special` state using the supplied inputs.
     ///
-    /// Plain English: Updates mapped up special.
+    ///
+///  Updates mapped up special.
     pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
         if self.direct_up_b() && self.target == Some(target) {
             self.up_b.mapped(tick);
         }
     }
-    /// Technical: Determines whether the `up_b_receipt_pending` condition holds.
+    /// Determines whether the `up_b_receipt_pending` condition holds.
     ///
-    /// Plain English: Checks whether up b receipt pending.
+    ///
+///  Checks whether up b receipt pending.
     pub fn up_b_receipt_pending(&self) -> bool {
         self.direct_up_b() && self.up_b.receipt_pending()
     }
-    /// Technical: Determines whether the `awaiting_up_b` condition holds.
+    /// Determines whether the `awaiting_up_b` condition holds.
     ///
-    /// Plain English: Checks whether awaiting up b.
+    ///
+///  Checks whether awaiting up b.
     pub fn awaiting_up_b(&self) -> bool {
         self.direct_up_b() && self.up_b.awaiting()
     }
-    /// Technical: Updates the `delivery_tick` state using the supplied inputs.
+    /// Updates the `delivery_tick` state using the supplied inputs.
     ///
-    /// Plain English: Updates delivery tick.
+    ///
+///  Updates delivery tick.
     pub fn delivery_tick(&mut self, tick: i64) {
         if self.direct_up_b() {
             self.up_b.tick(tick);
         }
     }
-    /// Technical: Determines whether ground.
+    /// Determines whether ground.
     ///
-    /// Plain English: Checks whether ground.
+    ///
+///  Checks whether ground.
     pub fn needs_ground(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::needs_ground)
     }
-    /// Technical: Returns an optional `right_stick` value.
+    /// Returns an optional `right_stick` value.
     ///
-    /// Plain English: Gets right stick if it is available.
+    ///
+///  Gets right stick if it is available.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         self.plan.as_ref().map(InputTimeline::right_stick)
     }
-    /// Technical: Determines whether the `walking` condition holds.
+    /// Determines whether the `walking` condition holds.
     ///
-    /// Plain English: Checks whether walking.
+    ///
+///  Checks whether walking.
     pub fn walking(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::walking)
     }
-    /// Technical: Determines whether the `attack_hold` condition holds.
+    /// Determines whether the `attack_hold` condition holds.
     ///
-    /// Plain English: Checks whether attack hold.
+    ///
+///  Checks whether attack hold.
     pub fn attack_hold(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::attack_hold)
     }
-    /// Technical: Cancels the pending operation and clears its state.
+    /// Cancels the pending operation and clears its state.
     ///
-    /// Plain English: Stops the operation that was waiting.
+    ///
+///  Stops the operation that was waiting.
     pub fn cancel(&mut self) {
         self.plan = None;
         self.target = None;
@@ -1403,7 +1569,8 @@ impl Engine {
     /// Rebuild the per-slot event memory from this poll. A consumed event whose
     /// actor is missing stays consumed until a different status is observed.
     /// `origin_x` additionally follows each target's side and roll crossing.
-    /// Plain English: Rebuild the per-slot event memory from this poll. A consumed event whose actor is missing stays consumed until a different status is observed. originx additionally follows each target's side and roll crossing.
+    ///
+///  Rebuild the per-slot event memory from this poll. A consumed event whose actor is missing stays consumed until a different status is observed. originx additionally follows each target's side and roll crossing.
     fn observe_events(
         &mut self,
         targets: &[Option<Target>; 8],
@@ -1443,9 +1610,10 @@ impl Engine {
             |p| p.used,
         );
     }
-    /// Technical: Updates the toggle state from the current button sample and match state.
+    /// Updates the toggle state from the current button sample and match state.
     ///
-    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
+    ///
+///  Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         allowed: bool,
@@ -1492,7 +1660,8 @@ impl Engine {
         out
     }
     /// Commit the first priority-ordered rule that matches an unconsumed roll.
-    /// Plain English: Commit the first priority-ordered rule that matches an unconsumed roll.
+    ///
+///  Commit the first priority-ordered rule that matches an unconsumed roll.
     fn start_matching_roll(
         &mut self,
         rules: &Resolved,
@@ -1554,9 +1723,10 @@ mod tests {
         native_input::*,
         sequence_config::{persist, Catalog},
     };
-    /// Technical: Returns the `sequence` result.
+    /// Returns the `sequence` result.
     ///
-    /// Plain English: Gets the sequence result.
+    ///
+///  Gets the sequence result.
     fn sequence(trigger: &str, actions: &str) -> Sequence {
         Catalog::parse(&format!(
             "[yoshi.roll.rule]\nstart_delay=0\nreaction={trigger}\nactions={actions}\n"
@@ -1565,9 +1735,10 @@ mod tests {
         .entries()[0]
             .sequence
     }
-    /// Technical: Returns the `context` result.
+    /// Returns the `context` result.
     ///
-    /// Plain English: Gets the context result.
+    ///
+///  Gets the context result.
     fn context(frame: f32) -> GameplayContext {
         GameplayContext {
             held: true,
@@ -1583,9 +1754,10 @@ mod tests {
             ..GameplayContext::default()
         }
     }
-    /// Technical: Returns the selected target observation.
+    /// Returns the selected target observation.
     ///
-    /// Plain English: Gets the chosen target.
+    ///
+///  Gets the chosen target.
     fn target(frame: f32, x: f32) -> Target {
         Target {
             id: 7,
@@ -1599,9 +1771,10 @@ mod tests {
             actionable_in: Some(5.),
         }
     }
-    /// Technical: Regression test for `event_identity_requires_matching_motion_status_and_nonrewound_frame`.
+    /// Regression test for `event_identity_requires_matching_motion_status_and_nonrewound_frame`.
     ///
-    /// Plain English: Checks that event identity requires matching motion status and nonrewound frame.
+    ///
+///  Checks that event identity requires matching motion status and nonrewound frame.
     #[test]
     fn event_identity_requires_matching_motion_status_and_nonrewound_frame() {
         let target = target(5., 1.);
@@ -1638,9 +1811,10 @@ mod tests {
         }));
     }
 
-    /// Technical: Regression test for `simple_tracking_retains_consumed_missing_actor_until_status_changes`.
+    /// Regression test for `simple_tracking_retains_consumed_missing_actor_until_status_changes`.
     ///
-    /// Plain English: Checks that simple tracking retains consumed missing actor until status changes.
+    ///
+///  Checks that simple tracking retains consumed missing actor until status changes.
     #[test]
     fn simple_tracking_retains_consumed_missing_actor_until_status_changes() {
         let mut engine = Engine::default();
@@ -1671,9 +1845,10 @@ mod tests {
         engine.observe_simple_events(&targets);
         assert!(!engine.tracks.iter().flatten().any(|t| t.id == first.id));
     }
-    /// Technical: Returns the `resolved` result.
+    /// Returns the `resolved` result.
     ///
-    /// Plain English: Gets the resolved result.
+    ///
+///  Gets the resolved result.
     fn resolved(s: Sequence) -> Resolved {
         let mut r = Resolved::default();
         r.add(Candidate {
@@ -1684,9 +1859,10 @@ mod tests {
         .unwrap();
         r
     }
-    /// Technical: Updates the toggle state from the current button sample and match state.
+    /// Updates the toggle state from the current button sample and match state.
     ///
-    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
+    ///
+///  Checks the current buttons and updates whether the toggle should activate.
     fn sample(e: &mut Engine, r: &Resolved, c: GameplayContext, t: Target) -> ControllerOutput {
         e.sample(
             true,
@@ -1697,9 +1873,10 @@ mod tests {
             None,
         )
     }
-    /// Technical: Regression test for `roll_sequence_in_static_shield_uses_the_real_opponent_clock_from_its_first_sample`.
+    /// Regression test for `roll_sequence_in_static_shield_uses_the_real_opponent_clock_from_its_first_sample`.
     ///
-    /// Plain English: Checks that roll sequence in static shield uses the real opponent clock from its first sample.
+    ///
+///  Checks that roll sequence in static shield uses the real opponent clock from its first sample.
     #[test]
     fn roll_sequence_in_static_shield_uses_the_real_opponent_clock_from_its_first_sample() {
         for repeats in [0, 20] {
@@ -1747,9 +1924,10 @@ mod tests {
             }
         }
     }
-    /// Technical: Regression test for `different_native_roll_motion_does_not_inherit_the_previous_rolls_used_flag`.
+    /// Regression test for `different_native_roll_motion_does_not_inherit_the_previous_rolls_used_flag`.
     ///
-    /// Plain English: Checks that different native roll motion does not inherit the previous rolls used flag.
+    ///
+///  Checks that different native roll motion does not inherit the previous rolls used flag.
     #[test]
     fn different_native_roll_motion_does_not_inherit_the_previous_rolls_used_flag() {
         let rules = resolved(sequence("roll:any:0:20:12:any:1", "up_b:1"));
@@ -1768,9 +1946,10 @@ mod tests {
             MAPPER_B
         );
     }
-    /// Technical: Regression test for `reaction_persists_roundtrip_and_disabling_replaces_old_metadata`.
+    /// Regression test for `reaction_persists_roundtrip_and_disabling_replaces_old_metadata`.
     ///
-    /// Plain English: Checks that reaction persists roundtrip and disabling replaces old metadata.
+    ///
+///  Checks that reaction persists roundtrip and disabling replaces old metadata.
     #[test]
     fn reaction_persists_roundtrip_and_disabling_replaces_old_metadata() {
         let src="[yoshi.roll.rule]\nstart_delay=0\nactions=jab:4\n[kirby.roll.keep]\nstart_delay=0\nactions=grab\n";
@@ -1783,9 +1962,10 @@ mod tests {
         assert!(!off.contains("reaction ="));
         assert!(off.ends_with("[kirby.roll.keep]\nstart_delay=0\nactions=grab\n"));
     }
-    /// Technical: Regression test for `invalid_rules_and_more_than_eight_are_rejected`.
+    /// Regression test for `invalid_rules_and_more_than_eight_are_rejected`.
     ///
-    /// Plain English: Checks that invalid rules and more than eight are rejected.
+    ///
+///  Checks that invalid rules and more than eight are rejected.
     #[test]
     fn invalid_rules_and_more_than_eight_are_rejected() {
         for s in [
@@ -1806,9 +1986,10 @@ mod tests {
             .is_err());
         assert!(validate_response(sequence("roll:any:0:20:12:any:1", "walk:ledge:8:50%")).is_err());
     }
-    /// Technical: Regression test for `one_attempt_per_roll_and_new_roll_rearms`.
+    /// Regression test for `one_attempt_per_roll_and_new_roll_rearms`.
     ///
-    /// Plain English: Checks that one attempt per roll and new roll rearms.
+    ///
+///  Checks that one attempt per roll and new roll rearms.
     #[test]
     fn one_attempt_per_roll_and_new_roll_rearms() {
         let r = resolved(sequence("roll:any:0:20:12:any:1", "jab:1"));
@@ -1824,9 +2005,10 @@ mod tests {
             MAPPER_A
         );
     }
-    /// Technical: Regression test for `crossing_survives_exact_zero_and_priority_chooses_the_first_match`.
+    /// Regression test for `crossing_survives_exact_zero_and_priority_chooses_the_first_match`.
     ///
-    /// Plain English: Checks that crossing survives exact zero and priority chooses the first match.
+    ///
+///  Checks that crossing survives exact zero and priority chooses the first match.
     #[test]
     fn crossing_survives_exact_zero_and_priority_chooses_the_first_match() {
         let r = resolved(sequence("roll_cross:any:0:20:12:any:1", "down_smash:4"));
@@ -1849,9 +2031,10 @@ mod tests {
             MAPPER_B
         );
     }
-    /// Technical: Regression test for `filters_wait_for_native_vulnerability_and_cancel_never_replays`.
+    /// Regression test for `filters_wait_for_native_vulnerability_and_cancel_never_replays`.
     ///
-    /// Plain English: Checks that filters wait for native vulnerability and cancel never replays.
+    ///
+///  Checks that filters wait for native vulnerability and cancel never replays.
     #[test]
     fn filters_wait_for_native_vulnerability_and_cancel_never_replays() {
         let r = resolved(sequence("roll_vulnerable:walking:3:10:5:front:1", "jab:4"));
@@ -1871,9 +2054,10 @@ mod tests {
         c.motion_frame = 4.;
         assert_eq!(sample(&mut e, &r, c, target(4., 5.)).requested, 0);
     }
-    /// Technical: Regression test for `spatial_response_requires_fresh_target_and_no_new_plan_starts_in_stop`.
+    /// Regression test for `spatial_response_requires_fresh_target_and_no_new_plan_starts_in_stop`.
     ///
-    /// Plain English: Checks that spatial response requires fresh target and no new plan starts in stop.
+    ///
+///  Checks that spatial response requires fresh target and no new plan starts in stop.
     #[test]
     fn spatial_response_requires_fresh_target_and_no_new_plan_starts_in_stop() {
         let r = resolved(sequence(
@@ -1898,9 +2082,10 @@ mod tests {
 #[cfg(test)]
 mod combined_trigger_test {
     use super::*;
-    /// Technical: Regression test for `combined_trigger_roundtrips_and_requires_both_crossing_and_vulnerability`.
+    /// Regression test for `combined_trigger_roundtrips_and_requires_both_crossing_and_vulnerability`.
     ///
-    /// Plain English: Checks that combined trigger roundtrips and requires both crossing and vulnerability.
+    ///
+///  Checks that combined trigger roundtrips and requires both crossing and vulnerability.
     #[test]
     fn combined_trigger_roundtrips_and_requires_both_crossing_and_vulnerability() {
         let rule = Rule::parse("roll_cross_vulnerable:grounded:0:20:12:any:1").unwrap();
@@ -1971,9 +2156,10 @@ mod activation_tests {
         fighter_profiles::presets::PresetSlot,
         sequence_config::{persist, Catalog},
     };
-    /// Technical: Regression test for `old_seven_fields_stay_menu_and_all_explicit_controls_roundtrip`.
+    /// Regression test for `old_seven_fields_stay_menu_and_all_explicit_controls_roundtrip`.
     ///
-    /// Plain English: Checks that old seven fields stay menu and all explicit controls roundtrip.
+    ///
+///  Checks that old seven fields stay menu and all explicit controls roundtrip.
     #[test]
     fn old_seven_fields_stay_menu_and_all_explicit_controls_roundtrip() {
         let old = "roll:grounded:0:20:12:any:1";
@@ -1991,9 +2177,10 @@ mod activation_tests {
         }
         assert!(Rule::parse(&format!("{old}:toggle_zr")).is_err());
     }
-    /// Technical: Regression test for `only_enabled_control_groups_can_start_and_disabling_cancels_playback`.
+    /// Regression test for `only_enabled_control_groups_can_start_and_disabling_cancels_playback`.
     ///
-    /// Plain English: Checks that only enabled control groups can start and disabling cancels playback.
+    ///
+///  Checks that only enabled control groups can start and disabling cancels playback.
     #[test]
     fn only_enabled_control_groups_can_start_and_disabling_cancels_playback() {
         let mut seq = Sequence::default();

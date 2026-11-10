@@ -15,55 +15,70 @@ use std::{
     time::{Duration, Instant},
 };
 
-/// Technical: SD-card destination for ordinary diagnostic messages.
-/// Plain English: File where status and action logs are written.
+/// SD-card destination for ordinary diagnostic messages.
+///
+///  File where status and action logs are written.
 const LOG_PATH: &str = "sd:/ultimate/kirby_assist/status.log";
-/// Technical: SD-card destination for performance summaries.
-/// Plain English: Separate file where timing reports are written.
+/// SD-card destination for performance summaries.
+///
+///  Separate file where timing reports are written.
 const PERFORMANCE_PATH: &str = "sd:/ultimate/kirby_assist/performance.log";
-/// Technical: Maximum number of pending messages in the nonblocking sync queue.
-/// Plain English: Bounds how many log messages can wait for the background writer.
+/// Maximum number of pending messages in the nonblocking sync queue.
+///
+///  Bounds how many log messages can wait for the background writer.
 const QUEUE_CAPACITY: usize = 128;
-/// Technical: Receiver timeout and periodic flush interval.
-/// Plain English: The logger checks in and flushes about four times per second.
+/// Receiver timeout and periodic flush interval.
+///
+///  The logger checks in and flushes about four times per second.
 const FLUSH_INTERVAL: Duration = Duration::from_millis(250);
-/// Technical: Typed queue payloads consumed by the background writer.
-/// Plain English: Different kinds of diagnostic reports waiting to be written.
+/// Typed queue payloads consumed by the background writer.
+///
+///  Different kinds of diagnostic reports waiting to be written.
 enum Message {
-    /// Technical: Plain owned diagnostic text.
-    /// Plain English: A regular log line.
+    /// Plain owned diagnostic text.
+    ///
+    ///  A regular log line.
     Text(String),
-    /// Technical: Mode report tagged with the snapshot-cache generation.
-    /// Plain English: A mode summary that can update the menu card if still current.
+    /// Mode report tagged with the snapshot-cache generation.
+    ///
+    ///  A mode summary that can update the menu card if still current.
     Modes(usize, Box<kirby_assist_core::diagnostics::modes::Report>),
-    /// Technical: Owned configuration diagnostic payload.
-    /// Plain English: A settings snapshot queued for logging.
+    /// Owned configuration diagnostic payload.
+    ///
+    ///  A settings snapshot queued for logging.
     Configuration(Box<kirby_assist_core::diagnostics::modes::Configuration>),
-    /// Technical: Owned bounded grab-trace report.
-    /// Plain English: A completed grab troubleshooting report.
+    /// Owned bounded grab-trace report.
+    ///
+    ///  A completed grab troubleshooting report.
     Grab(Box<crate::grab_diagnostics::Report>),
-    /// Technical: Owned ledge calibration report.
-    /// Plain English: A completed calibration troubleshooting report.
+    /// Owned ledge calibration report.
+    ///
+    ///  A completed calibration troubleshooting report.
     Calibration(Box<crate::calibration::Report>),
 }
-/// Technical: One-time sender used by callbacks to enqueue messages without blocking.
-/// Plain English: Lets game callbacks hand logs to the background writer.
+/// One-time sender used by callbacks to enqueue messages without blocking.
+///
+///  Lets game callbacks hand logs to the background writer.
 static SENDER: OnceLock<SyncSender<Message>> = OnceLock::new();
-/// Technical: Counts messages rejected because the bounded queue was full.
-/// Plain English: Tracks log lines that could not be queued in time.
+/// Counts messages rejected because the bounded queue was full.
+///
+///  Tracks log lines that could not be queued in time.
 static DROPPED: AtomicUsize = AtomicUsize::new(0);
 
 // Generation tags prevent a queued report from an old match repopulating the UI.
-/// Technical: Generation counter invalidating stale mode snapshots.
-/// Plain English: Prevents a report from an old match replacing the current card.
+/// Generation counter invalidating stale mode snapshots.
+///
+///  Prevents a report from an old match replacing the current card.
 static SNAPSHOT_EPOCH: AtomicUsize = AtomicUsize::new(0);
 #[cfg(any(feature = "imgui-menu", test))]
-/// Technical: Nonblocking cached card text paired with the generation that created it.
-/// Plain English: Stores the latest mode summary shown in the menu.
+/// Nonblocking cached card text paired with the generation that created it.
+///
+///  Stores the latest mode summary shown in the menu.
 static SNAPSHOT_CARD: std::sync::Mutex<Option<(usize, std::ffi::CString)>> =
     std::sync::Mutex::new(None);
-/// Technical: Advances the cache generation and clears any currently cached card.
-/// Plain English: Hides old diagnostic text after a match or state reset.
+/// Advances the cache generation and clears any currently cached card.
+///
+///  Hides old diagnostic text after a match or state reset.
 pub fn clear_snapshot() {
     SNAPSHOT_EPOCH.fetch_add(1, Ordering::AcqRel);
     #[cfg(any(feature = "imgui-menu", test))]
@@ -72,8 +87,9 @@ pub fn clear_snapshot() {
     }
 }
 #[cfg(any(feature = "imgui-menu", test))]
-/// Technical: Publishes text only if its generation remains current across locking.
-/// Plain English: Caches a report only when it still belongs to the active match.
+/// Publishes text only if its generation remains current across locking.
+///
+///  Caches a report only when it still belongs to the active match.
 fn publish_snapshot(epoch: usize, text: String) {
     if epoch != SNAPSHOT_EPOCH.load(Ordering::Acquire) {
         return;
@@ -87,8 +103,9 @@ fn publish_snapshot(epoch: usize, text: String) {
     }
 }
 #[cfg(any(feature = "imgui-menu", test))]
-/// Technical: Calls `draw` only while a nonblocking lock holds a current cached card.
-/// Plain English: Shows the latest valid summary without making rendering wait.
+/// Calls `draw` only while a nonblocking lock holds a current cached card.
+///
+///  Shows the latest valid summary without making rendering wait.
 pub fn with_snapshot(draw: impl FnOnce(&std::ffi::CStr)) -> bool {
     if let Ok(card) = SNAPSHOT_CARD.try_lock() {
         if let Some((epoch, text)) = card.as_ref() {
@@ -102,8 +119,9 @@ pub fn with_snapshot(draw: impl FnOnce(&std::ffi::CStr)) -> bool {
 }
 
 /// Startup I/O happens before hooks are installed. Gameplay never opens files.
-/// Technical: Creates diagnostic files, starts the bounded channel, and launches its writer.
-/// Plain English: Prepares background logging before gameplay callbacks begin.
+/// Creates diagnostic files, starts the bounded channel, and launches its writer.
+///
+///  Prepares background logging before gameplay callbacks begin.
 pub fn start() {
     if SENDER.get().is_some() {
         return;
@@ -135,37 +153,42 @@ pub fn start() {
     }
 }
 
-/// Technical: Copies borrowed text and queues it for asynchronous output.
-/// Plain English: Sends a log message to be written later.
+/// Copies borrowed text and queues it for asynchronous output.
+///
+///  Sends a log message to be written later.
 pub fn write(message: &str) {
     write_owned(message.to_owned());
 }
 
-/// Technical: Enqueues owned text if the background logger has started.
-/// Plain English: Hands an already-created log message to the writer.
+/// Enqueues owned text if the background logger has started.
+///
+///  Hands an already-created log message to the writer.
 pub fn write_owned(message: String) {
     if let Some(sender) = SENDER.get() {
         enqueue_message(sender, &DROPPED, Message::Text(message));
     }
 }
 
-/// Technical: Transfers a completed grab report into the bounded writer queue.
-/// Plain English: Sends a grab troubleshooting report to the logger.
+/// Transfers a completed grab report into the bounded writer queue.
+///
+///  Sends a grab troubleshooting report to the logger.
 pub fn write_grab(report: crate::grab_diagnostics::Report) {
     if let Some(sender) = SENDER.get() {
         enqueue_message(sender, &DROPPED, Message::Grab(Box::new(report)));
     }
 }
-/// Technical: Transfers a completed calibration report into the bounded writer queue.
-/// Plain English: Sends a calibration report to the logger.
+/// Transfers a completed calibration report into the bounded writer queue.
+///
+///  Sends a calibration report to the logger.
 pub fn write_calibration(report: crate::calibration::Report) {
     if let Some(sender) = SENDER.get() {
         enqueue_message(sender, &DROPPED, Message::Calibration(Box::new(report)));
     }
 }
 
-/// Technical: Queues a mode report tagged for generation-safe card publication.
-/// Plain English: Sends a mode summary to the logger and menu card.
+/// Queues a mode report tagged for generation-safe card publication.
+///
+///  Sends a mode summary to the logger and menu card.
 pub fn write_modes(report: kirby_assist_core::diagnostics::modes::Report) {
     if let Some(sender) = SENDER.get() {
         enqueue_message(
@@ -175,16 +198,18 @@ pub fn write_modes(report: kirby_assist_core::diagnostics::modes::Report) {
         );
     }
 }
-/// Technical: Queues an owned configuration snapshot for asynchronous formatting.
-/// Plain English: Sends current settings details to the logger.
+/// Queues an owned configuration snapshot for asynchronous formatting.
+///
+///  Sends current settings details to the logger.
 pub fn write_configuration(config: kirby_assist_core::diagnostics::modes::Configuration) {
     if let Some(sender) = SENDER.get() {
         enqueue_message(sender, &DROPPED, Message::Configuration(Box::new(config)));
     }
 }
 
-/// Technical: Attempts a nonblocking send and accounts for rejected queue entries.
-/// Plain English: Adds a message if space is available; logging never stalls gameplay.
+/// Attempts a nonblocking send and accounts for rejected queue entries.
+///
+///  Adds a message if space is available; logging never stalls gameplay.
 fn enqueue_message(sender: &SyncSender<Message>, dropped: &AtomicUsize, message: Message) {
     crate::performance::health::queue_enter();
     match sender.try_send(message) {
@@ -198,15 +223,17 @@ fn enqueue_message(sender: &SyncSender<Message>, dropped: &AtomicUsize, message:
     }
 }
 #[cfg(test)]
-/// Technical: Test-only generic variant for verifying bounded queue semantics.
-/// Plain English: Exercises queue behavior without starting the real writer.
+/// Test-only generic variant for verifying bounded queue semantics.
+///
+///  Exercises queue behavior without starting the real writer.
 fn enqueue<T>(sender: &SyncSender<T>, dropped: &AtomicUsize, message: T) {
     if let Err(TrySendError::Full(_)) = sender.try_send(message) {
         dropped.fetch_add(1, Ordering::Relaxed);
     }
 }
-/// Technical: Opens an append-only buffered log and degrades to console on failure.
-/// Plain English: Tries to open a log file without making logging depend on the SD card.
+/// Opens an append-only buffered log and degrades to console on failure.
+///
+///  Tries to open a log file without making logging depend on the SD card.
 fn open_log(path: &str) -> Option<BufWriter<std::fs::File>> {
     match OpenOptions::new().create(true).append(true).open(path) {
         Ok(file) => Some(BufWriter::with_capacity(16 * 1024, file)),
@@ -218,8 +245,9 @@ fn open_log(path: &str) -> Option<BufWriter<std::fs::File>> {
         }
     }
 }
-/// Technical: Flushes a file buffer and disables that file sink if flushing fails.
-/// Plain English: Saves pending log text and falls back to console if the file fails.
+/// Flushes a file buffer and disables that file sink if flushing fails.
+///
+///  Saves pending log text and falls back to console if the file fails.
 fn flush_log(
     file: &mut Option<BufWriter<std::fs::File>>,
     console: &mut BufWriter<std::io::Stdout>,
@@ -234,9 +262,10 @@ fn flush_log(
     }
 }
 
-/// Technical: Drains the bounded queue, formats reports, samples performance,
+/// Drains the bounded queue, formats reports, samples performance,
 /// and periodically flushes output sinks.
-/// Plain English: Writes queued diagnostics in the background, away from gameplay.
+///
+///  Writes queued diagnostics in the background, away from gameplay.
 fn writer_loop(receiver: Receiver<Message>) {
     // Both files share the existing worker; no extra logging thread/queue.
     let mut file = open_log(LOG_PATH);
@@ -294,8 +323,9 @@ fn writer_loop(receiver: Receiver<Message>) {
     }
 }
 
-/// Technical: Dispatches each typed queue message to formatting and output sinks.
-/// Plain English: Turns a queued report into text and writes it.
+/// Dispatches each typed queue message to formatting and output sinks.
+///
+///  Turns a queued report into text and writes it.
 fn output_message(
     file: &mut Option<BufWriter<std::fs::File>>,
     console: &mut BufWriter<std::io::Stdout>,
@@ -320,8 +350,9 @@ fn output_message(
     }
 }
 
-/// Technical: Writes formatted performance data to the dedicated performance log.
-/// Plain English: Keeps timing reports separate from ordinary status logs.
+/// Writes formatted performance data to the dedicated performance log.
+///
+///  Keeps timing reports separate from ordinary status logs.
 fn output_performance(
     file: &mut Option<BufWriter<std::fs::File>>,
     console: &mut BufWriter<std::io::Stdout>,
@@ -330,8 +361,9 @@ fn output_performance(
     output_to(file, console, report, PERFORMANCE_PATH);
 }
 
-/// Technical: Writes ordinary diagnostic text to the status log.
-/// Plain English: Saves one regular status message.
+/// Writes ordinary diagnostic text to the status log.
+///
+///  Saves one regular status message.
 fn output(
     file: &mut Option<BufWriter<std::fs::File>>,
     console: &mut BufWriter<std::io::Stdout>,
@@ -339,8 +371,9 @@ fn output(
 ) {
     output_to(file, console, message, LOG_PATH);
 }
-/// Technical: Writes to console and optional file, retiring a failed file sink.
-/// Plain English: Prints a report and saves it when the file is available.
+/// Writes to console and optional file, retiring a failed file sink.
+///
+///  Prints a report and saves it when the file is available.
 fn output_to(
     file: &mut Option<BufWriter<std::fs::File>>,
     console: &mut BufWriter<std::io::Stdout>,
@@ -360,13 +393,15 @@ fn output_to(
 }
 
 #[cfg(test)]
-/// Technical: Logging queue, report-routing, and stale-snapshot regression tests.
-/// Plain English: Checks that logs stay nonblocking and reports reach the right place.
+/// Logging queue, report-routing, and stale-snapshot regression tests.
+///
+///  Checks that logs stay nonblocking and reports reach the right place.
 mod tests {
     use super::*;
     #[test]
-    /// Technical: Confirms ordinary and performance reports use distinct file paths.
-    /// Plain English: Ensures timing reports do not mix with status logs.
+    /// Confirms ordinary and performance reports use distinct file paths.
+    ///
+    ///  Ensures timing reports do not mix with status logs.
     fn performance_and_ordinary_reports_write_to_separate_files() {
         let unique = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -396,8 +431,9 @@ mod tests {
         std::fs::remove_dir_all(base).unwrap();
     }
     #[test]
-    /// Technical: Confirms stale generations are hidden and rendering uses try-lock.
-    /// Plain English: Ensures old cards disappear and the menu never waits on the logger.
+    /// Confirms stale generations are hidden and rendering uses try-lock.
+    ///
+    ///  Ensures old cards disappear and the menu never waits on the logger.
     fn snapshot_cache_rejects_previous_matches_and_never_blocks_rendering() {
         clear_snapshot();
         let epoch = SNAPSHOT_EPOCH.load(Ordering::Acquire);
@@ -419,8 +455,9 @@ mod tests {
         )));
     }
     #[test]
-    /// Technical: Confirms queue overflow drops the new item without blocking or losing old items.
-    /// Plain English: Checks a full queue does not stall the game or erase earlier messages.
+    /// Confirms queue overflow drops the new item without blocking or losing old items.
+    ///
+    ///  Checks a full queue does not stall the game or erase earlier messages.
     fn full_queue_drops_instead_of_waiting_and_preserves_queued_event() {
         let (sender, receiver) = mpsc::sync_channel::<String>(1);
         let dropped = AtomicUsize::new(0);
@@ -432,8 +469,9 @@ mod tests {
         assert_eq!(receiver.try_recv().unwrap(), "hit confirmed");
     }
     #[test]
-    /// Technical: Confirms sends to a disconnected logger are safely ignored.
-    /// Plain English: Ensures logging failure does not crash or stall gameplay.
+    /// Confirms sends to a disconnected logger are safely ignored.
+    ///
+    ///  Ensures logging failure does not crash or stall gameplay.
     fn disconnected_logger_does_not_panic_or_block_gameplay() {
         let (sender, receiver) = mpsc::sync_channel::<String>(1);
         drop(receiver);

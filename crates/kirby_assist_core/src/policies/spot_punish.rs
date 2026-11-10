@@ -13,28 +13,34 @@ use crate::{
 /// * `motion` - The motion kind of the target.
 /// * `frame` - The frame at which the opportunity was observed.
 /// * `used` - Indicates whether this opportunity has been used.
-/// Plain English: Represents an observed spot-dodge opportunity for a specific target. # Fields  id - The unique identifier of the target.  status - The status of the target.  motion - The motion kind of the target.  frame - The frame at which.
+///
+///  Represents an observed spot-dodge opportunity for a specific target. # Fields  id - The unique identifier of the target.  status - The status of the target.  motion - The motion kind of the target.  frame - The frame at which.
 #[derive(Clone, Copy)]
 struct Seen {
-    /// Technical: Stores the `id` value in `Seen` as `u32`.
+    /// Stores the `id` value in `Seen` as `u32`.
     ///
-    /// Plain English: Holds the id value used by Seen.
+    ///
+///  Holds the id value used by Seen.
     id: u32,
-    /// Technical: Stores the `status` value in `Seen` as `i32`.
+    /// Stores the `status` value in `Seen` as `i32`.
     ///
-    /// Plain English: Holds the status value used by Seen.
+    ///
+///  Holds the status value used by Seen.
     status: i32,
-    /// Technical: Stores the `motion` value in `Seen` as `u64`.
+    /// Stores the `motion` value in `Seen` as `u64`.
     ///
-    /// Plain English: Holds the motion value used by Seen.
+    ///
+///  Holds the motion value used by Seen.
     motion: u64,
-    /// Technical: Stores the `frame` value in `Seen` as `f32`.
+    /// Stores the `frame` value in `Seen` as `f32`.
     ///
-    /// Plain English: Holds the frame value used by Seen.
+    ///
+///  Holds the frame value used by Seen.
     frame: f32,
-    /// Technical: Stores the `used` value in `Seen` as `bool`.
+    /// Stores the `used` value in `Seen` as `bool`.
     ///
-    /// Plain English: Holds the used value used by Seen.
+    ///
+///  Holds the used value used by Seen.
     used: bool,
 }
 
@@ -43,62 +49,73 @@ struct Seen {
 /// * `object` - The current object being tracked.
 /// * `seen` - An array of observed spot-dodge opportunities.
 /// * `response` - The current response being managed.
-/// Plain English: Represents a punisher that tracks observed spot-dodge opportunities and manages responses. # Fields  object - The current object being tracked.  seen - An array of observed spot-dodge opportunities.  response - The current.
+///
+///  Represents a punisher that tracks observed spot-dodge opportunities and manages responses. # Fields  object - The current object being tracked.  seen - An array of observed spot-dodge opportunities.  response - The current.
 #[derive(Default)]
 pub struct Punisher {
-    /// Technical: Stores the `object` value in `Punisher` as `Option<u32>`.
+    /// Stores the `object` value in `Punisher` as `Option<u32>`.
     ///
-    /// Plain English: Optionally stores the object for Punisher; it may be absent.
+    ///
+///  Optionally stores the object for Punisher; it may be absent.
     object: Option<u32>,
-    /// Technical: Stores the `seen` value in `Punisher` as `[Option<Seen>; 8]`.
+    /// Stores the `seen` value in `Punisher` as `[Option<Seen>; 8]`.
     ///
-    /// Plain English: Stores the seen collection for Punisher.
+    ///
+///  Stores the seen collection for Punisher.
     seen: [Option<Seen>; 8],
-    /// Technical: Stores the `response` value in `Punisher` as `Response`.
+    /// Stores the `response` value in `Punisher` as `Response`.
     ///
-    /// Plain English: Holds the response value used by Punisher.
+    ///
+///  Holds the response value used by Punisher.
     response: Response,
 }
 impl Punisher {
-    /// Technical: Returns the selected target observation.
+    /// Returns the selected target observation.
     ///
-    /// Plain English: Gets the chosen target.
+    ///
+///  Gets the chosen target.
     pub fn target(&self) -> Option<u32> {
         self.response.target()
     }
-    /// Technical: Checks whether an input owner has committed the action.
+    /// Checks whether an input owner has committed the action.
     ///
-    /// Plain English: Checks whether the action has been committed.
+    ///
+///  Checks whether the action has been committed.
     pub fn committed(&self) -> bool {
         self.target().is_some()
     }
-    /// Technical: Determines whether ground.
+    /// Determines whether ground.
     ///
-    /// Plain English: Checks whether ground.
+    ///
+///  Checks whether ground.
     pub fn needs_ground(&self) -> bool {
         self.response.needs_ground()
     }
-    /// Technical: Determines whether the `walking` condition holds.
+    /// Determines whether the `walking` condition holds.
     ///
-    /// Plain English: Checks whether walking.
+    ///
+///  Checks whether walking.
     pub fn walking(&self) -> bool {
         self.response.walking()
     }
-    /// Technical: Determines whether the `attack_hold` condition holds.
+    /// Determines whether the `attack_hold` condition holds.
     ///
-    /// Plain English: Checks whether attack hold.
+    ///
+///  Checks whether attack hold.
     pub fn attack_hold(&self) -> bool {
         self.response.attack_hold()
     }
-    /// Technical: Returns an optional `right_stick` value.
+    /// Returns an optional `right_stick` value.
     ///
-    /// Plain English: Gets right stick if it is available.
+    ///
+///  Gets right stick if it is available.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         self.response.right_stick()
     }
-    /// Technical: Cancels the pending.
+    /// Cancels the pending.
     ///
-    /// Plain English: Cancels the pending.
+    ///
+///  Cancels the pending.
     pub fn cancel_pending(&mut self) {
         self.response.cancel();
     }
@@ -113,7 +130,8 @@ impl Punisher {
     /// * `follow` - The opponent to follow, if any.
     /// # Returns
     /// The controller output based on the punisher's state and the current context.
-    /// Plain English: Samples the current gameplay context and updates the punisher's state accordingly. # Parameters  enabled - Indicates whether the punisher is enabled.  object - The current object being tracked.  rules - The resolved reaction.
+    ///
+///  Samples the current gameplay context and updates the punisher's state accordingly. # Parameters  enabled - Indicates whether the punisher is enabled.  object - The current object being tracked.  rules - The resolved reaction.
     pub fn sample(
         &mut self,
         enabled: bool,

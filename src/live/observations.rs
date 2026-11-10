@@ -9,8 +9,9 @@
 //! Plain English: This module gathers nearby game facts that assistance policies use.
 use super::{MANAGER_SLOT, STATE};
 use crate::game_ffi as game;
-/// Technical: Maximum number of attack-geometry entries scanned in one frame.
-/// Plain English: Limits hitbox checks so one update cannot scan too many attacks.
+/// Maximum number of attack-geometry entries scanned in one frame.
+///
+///  Limits hitbox checks so one update cannot scan too many attacks.
 const ATTACK_GEOMETRY_SCAN_BUDGET: usize = 16;
 use kirby_assist_core::battle_objects::ObjectCategory;
 use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
@@ -20,8 +21,9 @@ use kirby_assist_core::ledge_trap::{in_tracking_range, LedgeTrap, CLIFF_CATCH_MO
 use kirby_assist_core::settings::AssistSettings;
 use std::sync::atomic::Ordering;
 
-/// Technical: Tests axis-aligned absolute X/Y deltas against the supplied bounds.
-/// Plain English: Checks whether a target is close enough horizontally and vertically.
+/// Tests axis-aligned absolute X/Y deltas against the supplied bounds.
+///
+///  Checks whether a target is close enough horizontally and vertically.
 pub(super) fn within_observation_range(
     origin: [f32; 2],
     target: [f32; 2],
@@ -31,7 +33,8 @@ pub(super) fn within_observation_range(
 }
 
 /// L shield defense uses the cached roster and bounded remembered weapon/item sources.
-/// Plain English: Checks nearby enemies and remembered projectiles for an incoming attack.
+///
+///  Checks nearby enemies and remembered projectiles for an incoming attack.
 pub(super) unsafe fn incoming_fighter_attack(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
@@ -207,8 +210,9 @@ pub(super) unsafe fn incoming_fighter_attack(
 
 // Fighter instance parameters are read only while ledge assist is observing.
 // Missing/invalid keys stay None; no character-wide gravity constants are invented.
-/// Technical: Reads native vertical air parameters and validates them through `AirPhysics`.
-/// Plain English: Gets usable gravity and fall-speed values for this fighter.
+/// Reads native vertical air parameters and validates them through `AirPhysics`.
+///
+///  Gets usable gravity and fall-speed values for this fighter.
 ///
 /// # Safety
 /// `object` must be a live native fighter object.
@@ -224,8 +228,9 @@ pub(super) unsafe fn native_air_physics(
 // Sample support along each possible ground move. Probe a short swept
 // lookahead, including current momentum, to stop walking across a visible edge.
 // This is intentionally conservative on sloped/moving/passable platforms.
-/// Technical: Sweeps the fighter's candidate ground movement using native floor probes.
-/// Plain English: Checks whether the predicted movement path remains supported by the stage.
+/// Sweeps the fighter's candidate ground movement using native floor probes.
+///
+///  Checks whether the predicted movement path remains supported by the stage.
 ///
 /// # Safety
 /// `object` must be live and valid for the duration of the native probes.
@@ -258,8 +263,9 @@ pub(super) unsafe fn ground_support(
 }
 
 // Reuse callback-discovered IDs; never enumerate a roster from the mapper.
-/// Technical: Resolves and validates an opponent before copying posture/animation facts.
-/// Plain English: Reads a nearby opponent's current position and action safely.
+/// Resolves and validates an opponent before copying posture/animation facts.
+///
+///  Reads a nearby opponent's current position and action safely.
 ///
 /// # Safety
 /// Native manager and object state must remain valid during this synchronous query.
@@ -298,8 +304,9 @@ pub(super) unsafe fn posture_opponent(
     nearest.map(|(_, offset)| offset)
 }
 
-/// Technical: Builds the bounded target snapshot used by combat policies.
-/// Plain English: Collects nearby opponents and their current action details.
+/// Builds the bounded target snapshot used by combat policies.
+///
+///  Collects nearby opponents and their current action details.
 ///
 /// # Safety
 /// Native fighter IDs must be revalidated by this function before each accessor read.
@@ -375,7 +382,8 @@ pub(super) unsafe fn combat_targets(
 
 /// Optional onstage reactions, front grabs and either-side shield fallbacks. Status and
 /// spatial filters precede detailed reads; sixteen copied actor IDs bound the pass.
-/// Plain English: Finds nearby opponents that automatic reactions may respond to.
+///
+///  Finds nearby opponents that automatic reactions may respond to.
 pub(super) unsafe fn rule_targets(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
@@ -532,8 +540,9 @@ pub(super) unsafe fn rule_targets(
     (targets, following)
 }
 
-/// Technical: Updates observation state for a configured reaction-rule follow-up.
-/// Plain English: Tracks a selected follow-up while its target and conditions remain valid.
+/// Updates observation state for a configured reaction-rule follow-up.
+///
+///  Tracks a selected follow-up while its target and conditions remain valid.
 ///
 /// # Safety
 /// Any native objects read by the function must remain valid for this observation.
@@ -587,8 +596,9 @@ unsafe fn rule_follow(
 // `Option<FightersInGame>` has two levels: None means no usable roster;
 // Some(array) can still contain empty slots. Callers use flatten() to visit
 // only present fighter IDs. IDs must be resolved to fresh accessors each time.
-/// Technical: Resolves the cached fighter-manager slot into a current native instance.
-/// Plain English: Finds the manager used to inspect player entries.
+/// Resolves the cached fighter-manager slot into a current native instance.
+///
+///  Finds the manager used to inspect player entries.
 ///
 /// # Safety
 /// The cached slot must originate from the validated manager resolver.
@@ -601,8 +611,9 @@ unsafe fn fighter_manager_instance() -> Option<*mut game::Object> {
     (!manager.is_null()).then_some(manager)
 }
 
-/// Technical: Returns a validated active fighter manager outside the results state.
-/// Plain English: Finds the match manager only while a playable match is active.
+/// Returns a validated active fighter manager outside the results state.
+///
+///  Finds the match manager only while a playable match is active.
 ///
 /// # Safety
 /// Native manager bindings must match the pinned game ABI.
@@ -618,14 +629,16 @@ unsafe fn active_fighter_manager() -> Option<*mut game::Object> {
 /// Menu lifetime only. A retained roster is insufficient on character select:
 /// require GO, or let the caller prove a fresh, local ENTRY callback for intro.
 /// None rejects missing/result/invalid managers without querying fighter data.
-/// Plain English: Confirms whether the match is far enough along to show the in-battle menu.
+///
+///  Confirms whether the match is far enough along to show the in-battle menu.
 pub(super) unsafe fn battle_menu_ready_go() -> Option<bool> {
     let manager = active_fighter_manager()?;
     Some(game::is_ready_go(manager))
 }
 #[path = "fighter_roster.rs"]
-/// Technical: Supplies bounded fighter-ID and local-controller route validation.
-/// Plain English: Finds active fighters and checks which one belongs to the player.
+/// Supplies bounded fighter-ID and local-controller route validation.
+///
+///  Finds active fighters and checks which one belongs to the player.
 mod fighter_roster;
 pub(super) use fighter_roster::{fighter_ids, human_fighter, valid_local_route};
 
@@ -634,8 +647,9 @@ pub(super) use fighter_roster::{fighter_ids, human_fighter, valid_local_route};
 /// Clock-only observation for a committed literal tape whose own pose has zero
 /// motion rate or a held edge-balancing pose. Read the already locked actor; no roster scan, hitbox/physics
 /// lookup, ray query or action-readiness query. Never retain its native pointer.
-/// Technical: Reads animation timing for an already selected ledge target without rescanning the roster.
-/// Plain English: Checks the current animation clock for a ledge recipe already in progress.
+/// Reads animation timing for an already selected ledge target without rescanning the roster.
+///
+///  Checks the current animation clock for a ledge recipe already in progress.
 pub(super) unsafe fn tracked_ledge_clock(reads: &super::frame::FrameReads) -> Option<Opponent> {
     let id = STATE.lock().ok()?.ledge.as_ref()?.observation_target()?;
     if !game::is_active(id) {
@@ -685,8 +699,9 @@ pub(super) unsafe fn tracked_ledge_clock(reads: &super::frame::FrameReads) -> Op
     })
 }
 
-/// Technical: Selects the nearest valid opponent relevant to the current ledge observation.
-/// Plain English: Finds the closest opponent near the player's ledge situation.
+/// Selects the nearest valid opponent relevant to the current ledge observation.
+///
+///  Finds the closest opponent near the player's ledge situation.
 ///
 /// # Safety
 /// Native object accessors are only valid during the current observation.
@@ -872,15 +887,17 @@ pub(super) unsafe fn nearest_ledge_opponent(
 
 extern "C" {
     #[link_name = "\u{1}_ZN3app7fighter20get_fighter_entry_idEj"]
-    /// Technical: Resolves a battle-object ID to its owning native entry ID.
-    /// Plain English: Finds which player slot owns this fighter or partner.
+    /// Resolves a battle-object ID to its owning native entry ID.
+    ///
+    ///  Finds which player slot owns this fighter or partner.
     fn game_entry_id(object_id: u32) -> i32;
 }
 
 /// Bounded ordinary-grab warning pass: existing roster, status filter first.
 /// No hitbox scans, allocated lists or retained game pointers. Command grabs
 /// are excluded until their timing/geometry has a verified model.
-/// Plain English: Finds nearby ordinary grab threats using the already cached fighter roster.
+///
+///  Finds nearby ordinary grab threats using the already cached fighter roster.
 pub(super) unsafe fn grab_targets(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
@@ -903,9 +920,11 @@ pub(super) unsafe fn grab_targets(
             continue;
         };
         let enemy = game::module_accessor(id);
+        // Skip if the enemy is null, the ID doesn't match, or the enemy is on the same team.
         if enemy.is_null() || game::battle_object_id(enemy) != id || reads.team(enemy) == team {
             continue;
         }
+        // Skip if the enemy is not in a grab state or is otherwise unavailable.
         let status = reads.status_kind(enemy);
         if !matches!(
             status,

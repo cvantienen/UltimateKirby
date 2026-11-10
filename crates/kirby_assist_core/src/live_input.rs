@@ -17,58 +17,70 @@ pub use config::{LiveConfig, LiveSettings};
 // These bit positions name Nintendo HID buttons, not Smash's mapper bitfield.
 // Example: A is bit 0 here but bit 5 in native_input.rs. Keep the conversion
 // explicit rather than copying a u64 mask directly into native Controller memory.
-/// Technical: Defines the `HID_A` constant used by this module.
+/// Defines the `HID_A` constant used by this module.
 ///
-/// Plain English: Provides the HID A constant value.
+///
+///  Provides the HID A constant value.
 pub const HID_A: u64 = 1;
-/// Technical: Defines the `HID_B` constant used by this module.
+/// Defines the `HID_B` constant used by this module.
 ///
-/// Plain English: Provides the HID B constant value.
+///
+///  Provides the HID B constant value.
 pub const HID_B: u64 = 1 << 1;
-/// Technical: Defines the `HID_X` constant used by this module.
+/// Defines the `HID_X` constant used by this module.
 ///
-/// Plain English: Provides the HID X constant value.
+///
+///  Provides the HID X constant value.
 pub const HID_X: u64 = 1 << 2;
-/// Technical: Defines the `HID_Y` constant used by this module.
+/// Defines the `HID_Y` constant used by this module.
 ///
-/// Plain English: Provides the HID Y constant value.
+///
+///  Provides the HID Y constant value.
 pub const HID_Y: u64 = 1 << 3;
-/// Technical: Defines the `HID_L` constant used by this module.
+/// Defines the `HID_L` constant used by this module.
 ///
-/// Plain English: Provides the HID L constant value.
+///
+///  Provides the HID L constant value.
 pub const HID_L: u64 = 1 << 6;
-/// Technical: Defines the `HID_R` constant used by this module.
+/// Defines the `HID_R` constant used by this module.
 ///
-/// Plain English: Provides the HID R constant value.
+///
+///  Provides the HID R constant value.
 pub const HID_R: u64 = 1 << 7;
-/// Technical: Defines the `HID_ZL` constant used by this module.
+/// Defines the `HID_ZL` constant used by this module.
 ///
-/// Plain English: Provides the HID ZL constant value.
+///
+///  Provides the HID ZL constant value.
 pub const HID_ZL: u64 = 1 << 8;
-/// Technical: Defines the `HID_ZR` constant used by this module.
+/// Defines the `HID_ZR` constant used by this module.
 ///
-/// Plain English: Provides the HID ZR constant value.
+///
+///  Provides the HID ZR constant value.
 pub const HID_ZR: u64 = 1 << 9;
-/// Technical: Defines the `HID_PLUS` constant used by this module.
+/// Defines the `HID_PLUS` constant used by this module.
 ///
-/// Plain English: Provides the HID PLUS constant value.
+///
+///  Provides the HID PLUS constant value.
 pub const HID_PLUS: u64 = 1 << 10;
-/// Technical: Defines the `HID_MINUS` constant used by this module.
+/// Defines the `HID_MINUS` constant used by this module.
 ///
-/// Plain English: Provides the HID MINUS constant value.
+///
+///  Provides the HID MINUS constant value.
 pub const HID_MINUS: u64 = 1 << 11;
 // Limit which bits the request utilities may affect; Plus/Minus are excluded.
-/// Technical: Defines the `ASSIST_BUTTONS` constant used by this module.
+/// Defines the `ASSIST_BUTTONS` constant used by this module.
 ///
-/// Plain English: Provides the ASSIST BUTTONS constant value.
+///
+///  Provides the ASSIST BUTTONS constant value.
 pub const ASSIST_BUTTONS: u64 = HID_A | HID_B | HID_X | HID_Y | HID_L | HID_R | HID_ZL | HID_ZR;
 
 // One full-strength cardinal direction per distinct mashable input update.
 // A 90-degree turn gives a fresh direction without diagonal overlap or a
 // button-mash request. These are normalized left-stick values, not C-stick.
-/// Technical: Defines the `MASH_DIRECTIONS` constant used by this module.
+/// Defines the `MASH_DIRECTIONS` constant used by this module.
 ///
-/// Plain English: Provides the MASH DIRECTIONS constant value.
+///
+///  Provides the MASH DIRECTIONS constant value.
 const MASH_DIRECTIONS: [[f32; 2]; 4] = [
     [1.0, 0.0],  // Right
     [0.0, 1.0],  // Up
@@ -78,25 +90,29 @@ const MASH_DIRECTIONS: [[f32; 2]; 4] = [
 
 // Scenario age resets on exit/re-entry. It is separate from the tech cooldown:
 // a new collision may begin while the previous request is still cooling down.
-/// Technical: Defines the `ScenarioCounter` data structure.
+/// Defines the `ScenarioCounter` data structure.
 ///
-/// Plain English: Holds the data for ScenarioCounter.
+///
+///  Holds the data for ScenarioCounter.
 #[derive(Default)]
 struct ScenarioCounter {
-    /// Technical: Stores the `previous_active` value in `ScenarioCounter` as `bool`.
+    /// Stores the `previous_active` value in `ScenarioCounter` as `bool`.
     ///
-    /// Plain English: Holds the previous active value used by ScenarioCounter.
+    ///
+    ///  Holds the previous active value used by ScenarioCounter.
     previous_active: bool,
-    /// Technical: Stores the `frame` value in `ScenarioCounter` as `u32`.
+    /// Stores the `frame` value in `ScenarioCounter` as `u32`.
     ///
-    /// Plain English: Holds the frame value used by ScenarioCounter.
+    ///
+    ///  Holds the frame value used by ScenarioCounter.
     frame: u32,
 }
 
 impl ScenarioCounter {
-    /// Technical: Applies the incoming state changes to the current value.
+    /// Applies the incoming state changes to the current value.
     ///
-    /// Plain English: Updates the current value with the new state.
+    ///
+    ///  Updates the current value with the new state.
     fn update(&mut self, active: bool) -> u32 {
         self.frame = if active && self.previous_active {
             // Saturation stops at u32::MAX instead of wrapping back to zero
@@ -116,71 +132,84 @@ impl ScenarioCounter {
 // This is the stateful part of live policy. The engine itself is stateless.
 // Keep one instance per selected controller and reset when object identity or
 // input-clock ordering changes; otherwise a respawn could inherit old timing.
-/// Plain English: One session per controller. inputtick must identify the latest native sample consumed by the mapping callback; duplicate callbacks reuse output.
+///
+///  One session per controller. inputtick must identify the latest native sample consumed by the mapping callback; duplicate callbacks reuse output.
 pub struct RawAutoControls {
     // `Option<T>` explicitly represents absence (None) or a value (Some(T)).
     // A changed identity or backwards clock invalidates this entire session.
-    /// Technical: Stores the `identity` value in `RawAutoControls` as `Option<u32>`.
+    /// Stores the `identity` value in `RawAutoControls` as `Option<u32>`.
     ///
-    /// Plain English: Optionally stores the identity for RawAutoControls; it may be absent.
+    ///
+    ///  Optionally stores the identity for RawAutoControls; it may be absent.
     identity: Option<u32>,
-    /// Technical: Stores the `last_tick` value in `RawAutoControls` as `Option<i64>`.
+    /// Stores the `last_tick` value in `RawAutoControls` as `Option<i64>`.
     ///
-    /// Plain English: Optionally stores the last tick for RawAutoControls; it may be absent.
+    ///
+    ///  Optionally stores the last tick for RawAutoControls; it may be absent.
     last_tick: Option<i64>,
-    /// Technical: Stores the `clatter` value in `RawAutoControls` as `ScenarioCounter`.
+    /// Stores the `clatter` value in `RawAutoControls` as `ScenarioCounter`.
     ///
-    /// Plain English: Holds the clatter value used by RawAutoControls.
+    ///
+    ///  Holds the clatter value used by RawAutoControls.
     clatter: ScenarioCounter,
-    /// Technical: Stores the `tech` value in `RawAutoControls` as `ScenarioCounter`.
+    /// Stores the `tech` value in `RawAutoControls` as `ScenarioCounter`.
     ///
-    /// Plain English: Holds the tech value used by RawAutoControls.
+    ///
+    ///  Holds the tech value used by RawAutoControls.
     tech: ScenarioCounter,
     // cooldown counts eligible scheduler updates, not wall-clock milliseconds
     // or the game's internal tech lockout. It prevents our repeated ZR attempts.
-    /// Technical: Stores the `cooldown` value in `RawAutoControls` as `u16`.
+    /// Stores the `cooldown` value in `RawAutoControls` as `u16`.
     ///
-    /// Plain English: Holds the cooldown value used by RawAutoControls.
+    ///
+    ///  Holds the cooldown value used by RawAutoControls.
     cooldown: u16,
-    /// Technical: Stores the `proposed` value in `RawAutoControls` as `u64`.
+    /// Stores the `proposed` value in `RawAutoControls` as `u64`.
     ///
-    /// Plain English: Holds the proposed value used by RawAutoControls.
+    ///
+    ///  Holds the proposed value used by RawAutoControls.
     proposed: u64,
-    /// Technical: Stores the `mash_stick` value in `RawAutoControls` as `Option<[f32; 2]>`.
+    /// Stores the `mash_stick` value in `RawAutoControls` as `Option<[f32; 2]>`.
     ///
-    /// Plain English: Optionally stores the mash stick for RawAutoControls; it may be absent.
+    ///
+    ///  Optionally stores the mash stick for RawAutoControls; it may be absent.
     mash_stick: Option<[f32; 2]>,
-    /// Technical: Stores the `tech_needs_release` value in `RawAutoControls` as `bool`.
+    /// Stores the `tech_needs_release` value in `RawAutoControls` as `bool`.
     ///
-    /// Plain English: Holds the tech needs release value used by RawAutoControls.
+    ///
+    ///  Holds the tech needs release value used by RawAutoControls.
     tech_needs_release: bool,
 }
 
 impl RawAutoControls {
     /// Cached left-stick proposal from the same update as the button result.
     /// None returns ownership to the fresh physical stick immediately.
-    /// Plain English: Cached left-stick proposal from the same update as the button result. None returns ownership to the fresh physical stick immediately.
+    ///
+    ///  Cached left-stick proposal from the same update as the button result. None returns ownership to the fresh physical stick immediately.
     pub fn mash_stick(&self) -> Option<[f32; 2]> {
         self.mash_stick
     }
 
-    /// Technical: Returns the remaining tech cooldown in game frames.
+    /// Returns the remaining tech cooldown in game frames.
     ///
-    /// Plain English: Reports how many frames remain before another tech input.
+    ///
+    ///  Reports how many frames remain before another tech input.
     pub fn tech_cooldown_remaining(&self) -> u16 {
         self.cooldown
     }
 
-    /// Technical: Restores the state to its initial configuration.
+    /// Restores the state to its initial configuration.
     ///
-    /// Plain English: Returns the state to its starting point.
+    ///
+    ///  Returns the state to its starting point.
     pub fn reset(&mut self) {
         *self = Self::default();
     }
 
     /// Stop/unknown native timing releases cached pulses without forgetting
     /// cooldowns. Resuming the same frozen animation must not replay a press.
-    /// Plain English: Stop/unknown native timing releases cached pulses without forgetting cooldowns. Resuming the same frozen animation must not replay a press.
+    ///
+    ///  Stop/unknown native timing releases cached pulses without forgetting cooldowns. Resuming the same frozen animation must not replay a press.
     pub fn pause_inputs(&mut self) {
         self.proposed = 0;
         self.mash_stick = None;
@@ -188,9 +217,10 @@ impl RawAutoControls {
 
     // Convenience entry for host examples that assume the previous ZR output
     // was released. The live adapter calls update_with_buttons with real history.
-    /// Technical: Applies the incoming state changes to the current value.
+    /// Applies the incoming state changes to the current value.
     ///
-    /// Plain English: Updates the current value with the new state.
+    ///
+    ///  Updates the current value with the new state.
     pub fn update(
         &mut self,
         settings: LiveSettings,
@@ -211,7 +241,8 @@ impl RawAutoControls {
 
     /// `previous_buttons` is the last game-visible output, not a continuously
     /// held physical ZR. Only delay tech when a release is actually needed.
-    /// Plain English: previousbuttons is the last game-visible output, not a continuously held physical ZR. Only delay tech when a release is actually needed.
+    ///
+    ///  previousbuttons is the last game-visible output, not a continuously held physical ZR. Only delay tech when a release is actually needed.
     #[allow(clippy::too_many_arguments)]
     pub fn update_with_buttons(
         &mut self,
@@ -337,34 +368,40 @@ impl RawAutoControls {
 /// Keeps repeated reads of one native sample consistent. Only changes button
 /// bits; the live hook's separate overlay handles sticks and leaves connection
 /// flags and the sample ID intact.
-/// Plain English: Legacy HID-sample utility retained for host tests/alternate adapters. The CURRENT Switch plugin uses MapperButtonOverlay from nativeinput.rs; changing this helper alone will not change the installed plugin's output. Keeps.
+///
+///  Legacy HID-sample utility retained for host tests/alternate adapters. The CURRENT Switch plugin uses MapperButtonOverlay from nativeinput.rs; changing this helper alone will not change the installed plugin's output. Keeps.
 #[derive(Default)]
 pub struct HidButtonOverlay {
-    /// Technical: Stores the `last_sample` value in `HidButtonOverlay` as `Option<i64>`.
+    /// Stores the `last_sample` value in `HidButtonOverlay` as `Option<i64>`.
     ///
-    /// Plain English: Optionally stores the last sample for HidButtonOverlay; it may be absent.
+    ///
+    ///  Optionally stores the last sample for HidButtonOverlay; it may be absent.
     last_sample: Option<i64>,
-    /// Technical: Stores the `latched` value in `HidButtonOverlay` as `u64`.
+    /// Stores the `latched` value in `HidButtonOverlay` as `u64`.
     ///
-    /// Plain English: Holds the latched value used by HidButtonOverlay.
+    ///
+    ///  Holds the latched value used by HidButtonOverlay.
     latched: u64,
-    /// Technical: Stores the `owned` value in `HidButtonOverlay` as `u64`.
+    /// Stores the `owned` value in `HidButtonOverlay` as `u64`.
     ///
-    /// Plain English: Holds the owned value used by HidButtonOverlay.
+    ///
+    ///  Holds the owned value used by HidButtonOverlay.
     owned: u64,
 }
 
 impl HidButtonOverlay {
-    /// Technical: Applies the supplied configuration or action.
+    /// Applies the supplied configuration or action.
     ///
-    /// Plain English: Makes the supplied change.
+    ///
+    ///  Makes the supplied change.
     pub fn apply(&mut self, sample: i64, human: u64, requested: u64, connected: bool) -> u64 {
         self.apply_owned(sample, human, requested, 0, connected)
     }
 
-    /// Technical: Applies the owned.
+    /// Applies the owned.
     ///
-    /// Plain English: Applies the owned.
+    ///
+    ///  Applies the owned.
     pub fn apply_owned(
         &mut self,
         sample: i64,
@@ -393,7 +430,8 @@ impl HidButtonOverlay {
 // Scan in 4-byte steps because AArch64 instructions are 4-byte aligned. Returning
 // None on two matches is deliberate: choosing an arbitrary match could hook a
 // different function and corrupt game memory. Never add a guessed fallback.
-/// Plain English: Returns the unique aligned instruction-pattern match, or no supported hook. This deliberately rejects ambiguous matches instead of choosing an address.
+///
+///  Returns the unique aligned instruction-pattern match, or no supported hook. This deliberately rejects ambiguous matches instead of choosing an address.
 pub fn unique_instruction_offset(text: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() || needle.len() > text.len() {
         return None;
@@ -414,85 +452,104 @@ pub mod mapper_hook {
     //! Startup-only recognition of the FIM mapper, including Skyline entry patches.
     //! No fixed game address, pointer dereference, or instruction modification here.
 
-    /// Technical: Defines the `MAPPING_NEEDLE` constant used by this module.
+    /// Defines the `MAPPING_NEEDLE` constant used by this module.
     ///
-    /// Plain English: Provides the MAPPING NEEDLE constant value.
+    ///
+    ///  Provides the MAPPING NEEDLE constant value.
     pub const MAPPING_NEEDLE: &[u8] = &[
-        0xff, 0x03, 0x02, 0xd1, 0xf7, 0x23, 0x00, 0xf9, 0xf6, 0x57, 0x05, 0xa9, 0xf4, 0x4f, 0x06, 0xa9,
-        0xfd, 0x7b, 0x07, 0xa9, 0xfd, 0xc3, 0x01, 0x91, 0x3f, 0x04, 0x00, 0x31, 0xe0, 0x77, 0x00, 0x54,
+        0xff, 0x03, 0x02, 0xd1, 0xf7, 0x23, 0x00, 0xf9, 0xf6, 0x57, 0x05, 0xa9, 0xf4, 0x4f, 0x06,
+        0xa9, 0xfd, 0x7b, 0x07, 0xa9, 0xfd, 0xc3, 0x01, 0x91, 0x3f, 0x04, 0x00, 0x31, 0xe0, 0x77,
+        0x00, 0x54,
     ];
 
-    /// Technical: Defines the `AARCH64_INSTRUCTION_BYTES` constant used by this module.
+    /// Defines the `AARCH64_INSTRUCTION_BYTES` constant used by this module.
     ///
-    /// Plain English: Provides the AARCH64 INSTRUCTION BYTES constant value.
+    ///
+    ///  Provides the AARCH64 INSTRUCTION BYTES constant value.
     const AARCH64_INSTRUCTION_BYTES: usize = 4;
-    /// Technical: Defines the `AARCH64_INSTRUCTION_WORD_BITS` constant used by this module.
+    /// Defines the `AARCH64_INSTRUCTION_WORD_BITS` constant used by this module.
     ///
-    /// Plain English: Provides the AARCH64 INSTRUCTION WORD BITS constant value.
+    ///
+    ///  Provides the AARCH64 INSTRUCTION WORD BITS constant value.
     const AARCH64_INSTRUCTION_WORD_BITS: u32 = 32;
-    /// Technical: Defines the `PATCHED_ENTRY_PREFIX_BYTES` constant used by this module.
+    /// Defines the `PATCHED_ENTRY_PREFIX_BYTES` constant used by this module.
     ///
-    /// Plain English: Provides the PATCHED ENTRY PREFIX BYTES constant value.
+    ///
+    ///  Provides the PATCHED ENTRY PREFIX BYTES constant value.
     const PATCHED_ENTRY_PREFIX_BYTES: usize = 5 * AARCH64_INSTRUCTION_BYTES;
-    /// Technical: Defines the `ENTRY_INSTRUCTION_0_OFFSET_BYTES` constant used by this module.
+    /// Defines the `ENTRY_INSTRUCTION_0_OFFSET_BYTES` constant used by this module.
     ///
-    /// Plain English: Provides the ENTRY INSTRUCTION 0 OFFSET BYTES constant value.
+    ///
+    ///  Provides the ENTRY INSTRUCTION 0 OFFSET BYTES constant value.
     const ENTRY_INSTRUCTION_0_OFFSET_BYTES: usize = 0;
-    /// Technical: Defines the `ENTRY_INSTRUCTION_1_OFFSET_BYTES` constant used by this module.
+    /// Defines the `ENTRY_INSTRUCTION_1_OFFSET_BYTES` constant used by this module.
     ///
-    /// Plain English: Provides the ENTRY INSTRUCTION 1 OFFSET BYTES constant value.
+    ///
+    ///  Provides the ENTRY INSTRUCTION 1 OFFSET BYTES constant value.
     const ENTRY_INSTRUCTION_1_OFFSET_BYTES: usize = AARCH64_INSTRUCTION_BYTES;
-    /// Technical: Defines the `ENTRY_INSTRUCTION_2_OFFSET_BYTES` constant used by this module.
+    /// Defines the `ENTRY_INSTRUCTION_2_OFFSET_BYTES` constant used by this module.
     ///
-    /// Plain English: Provides the ENTRY INSTRUCTION 2 OFFSET BYTES constant value.
+    ///
+    ///  Provides the ENTRY INSTRUCTION 2 OFFSET BYTES constant value.
     const ENTRY_INSTRUCTION_2_OFFSET_BYTES: usize = 2 * AARCH64_INSTRUCTION_BYTES;
-    /// Technical: Defines the `ENTRY_INSTRUCTION_3_OFFSET_BYTES` constant used by this module.
+    /// Defines the `ENTRY_INSTRUCTION_3_OFFSET_BYTES` constant used by this module.
     ///
-    /// Plain English: Provides the ENTRY INSTRUCTION 3 OFFSET BYTES constant value.
+    ///
+    ///  Provides the ENTRY INSTRUCTION 3 OFFSET BYTES constant value.
     const ENTRY_INSTRUCTION_3_OFFSET_BYTES: usize = 3 * AARCH64_INSTRUCTION_BYTES;
-    /// Technical: Defines the `ENTRY_INSTRUCTION_4_OFFSET_BYTES` constant used by this module.
+    /// Defines the `ENTRY_INSTRUCTION_4_OFFSET_BYTES` constant used by this module.
     ///
-    /// Plain English: Provides the ENTRY INSTRUCTION 4 OFFSET BYTES constant value.
+    ///
+    ///  Provides the ENTRY INSTRUCTION 4 OFFSET BYTES constant value.
     const ENTRY_INSTRUCTION_4_OFFSET_BYTES: usize = 4 * AARCH64_INSTRUCTION_BYTES;
-    /// Technical: Defines the `BRANCH_OPCODE_MASK` constant used by this module.
+    /// Defines the `BRANCH_OPCODE_MASK` constant used by this module.
     ///
-    /// Plain English: Provides the BRANCH OPCODE MASK constant value.
+    ///
+    ///  Provides the BRANCH OPCODE MASK constant value.
     const BRANCH_OPCODE_MASK: u32 = 0xfc00_0000;
-    /// Technical: Defines the `BRANCH_OPCODE` constant used by this module.
+    /// Defines the `BRANCH_OPCODE` constant used by this module.
     ///
-    /// Plain English: Provides the BRANCH OPCODE constant value.
+    ///
+    ///  Provides the BRANCH OPCODE constant value.
     const BRANCH_OPCODE: u32 = 0x1400_0000;
-    /// Technical: Defines the `LOAD_X17_LITERAL_OPCODE` constant used by this module.
+    /// Defines the `LOAD_X17_LITERAL_OPCODE` constant used by this module.
     ///
-    /// Plain English: Provides the LOAD X17 LITERAL OPCODE constant value.
+    ///
+    ///  Provides the LOAD X17 LITERAL OPCODE constant value.
     const LOAD_X17_LITERAL_OPCODE: u32 = 0x5800_0051;
-    /// Technical: Defines the `BRANCH_X17_OPCODE` constant used by this module.
+    /// Defines the `BRANCH_X17_OPCODE` constant used by this module.
     ///
-    /// Plain English: Provides the BRANCH X17 OPCODE constant value.
+    ///
+    ///  Provides the BRANCH X17 OPCODE constant value.
     const BRANCH_X17_OPCODE: u32 = 0xd61f_0220;
-    /// Technical: Defines the `NO_OPERATION_OPCODE` constant used by this module.
+    /// Defines the `NO_OPERATION_OPCODE` constant used by this module.
     ///
-    /// Plain English: Provides the NO OPERATION OPCODE constant value.
+    ///
+    ///  Provides the NO OPERATION OPCODE constant value.
     const NO_OPERATION_OPCODE: u32 = 0xd503_201f;
-    /// Technical: Defines the `TEST_BRANCH_PATCH_WORD` constant used by this module.
+    /// Defines the `TEST_BRANCH_PATCH_WORD` constant used by this module.
     ///
-    /// Plain English: Provides the TEST BRANCH PATCH WORD constant value.
+    ///
+    ///  Provides the TEST BRANCH PATCH WORD constant value.
     #[cfg(test)]
     const TEST_BRANCH_PATCH_WORD: u32 = 0x1400_0100;
-    /// Technical: Defines the `TEST_TARGET_LOW_WORD` constant used by this module.
+    /// Defines the `TEST_TARGET_LOW_WORD` constant used by this module.
     ///
-    /// Plain English: Provides the TEST TARGET LOW WORD constant value.
+    ///
+    ///  Provides the TEST TARGET LOW WORD constant value.
     #[cfg(test)]
     const TEST_TARGET_LOW_WORD: u32 = 0x1234_5000;
-    /// Technical: Defines the `TEST_TARGET_HIGH_WORD` constant used by this module.
+    /// Defines the `TEST_TARGET_HIGH_WORD` constant used by this module.
     ///
-    /// Plain English: Provides the TEST TARGET HIGH WORD constant value.
+    ///
+    ///  Provides the TEST TARGET HIGH WORD constant value.
     #[cfg(test)]
     const TEST_TARGET_HIGH_WORD: u32 = 0x71;
 
-    /// Technical: Reads one little-endian AArch64 instruction at the supplied byte offset.
+    /// Reads one little-endian AArch64 instruction at the supplied byte offset.
     ///
-    /// Plain English: Reads one four-byte instruction from the byte buffer.
+    ///
+    ///  Reads one four-byte instruction from the byte buffer.
     fn instruction(bytes: &[u8], offset: usize) -> u32 {
         u32::from_le_bytes(
             bytes[offset..offset + AARCH64_INSTRUCTION_BYTES]
@@ -504,7 +561,8 @@ pub mod mapper_hook {
     /// Accept only the original entry or Skyline's B / LDR+BR entry replacements.
     /// The original bytes after the replaced region must still match. Reject two
     /// candidates even if one is unpatched: silently choosing one is unsafe.
-    /// Plain English: Accept only the original entry or Skyline's B / LDR+BR entry replacements. The original bytes after the replaced region must still match. Reject two candidates even if one is unpatched: silently choosing one is unsafe.
+    ///
+    ///  Accept only the original entry or Skyline's B / LDR+BR entry replacements. The original bytes after the replaced region must still match. Reject two candidates even if one is unpatched: silently choosing one is unsafe.
     pub fn mapper_offset(text: &[u8]) -> Option<usize> {
         if text.len() < MAPPING_NEEDLE.len() {
             return None;
@@ -553,9 +611,10 @@ pub mod mapper_hook {
     mod tests {
         use super::*;
 
-        /// Technical: Builds the patched instruction fixture used by tests.
+        /// Builds the patched instruction fixture used by tests.
         ///
-        /// Plain English: Creates the test instruction bytes.
+        ///
+        ///  Creates the test instruction bytes.
         fn patched(words: &[u32]) -> Vec<u8> {
             let mut bytes = MAPPING_NEEDLE.to_vec();
             for (i, word) in words.iter().enumerate() {
@@ -564,9 +623,10 @@ pub mod mapper_hook {
             bytes
         }
 
-        /// Technical: Regression test for `recognizes_original_and_all_skyline_entry_layouts`.
+        /// Regression test for `recognizes_original_and_all_skyline_entry_layouts`.
         ///
-        /// Plain English: Checks that recognizes original and all skyline entry layouts.
+        ///
+        ///  Checks that recognizes original and all skyline entry layouts.
         #[test]
         fn recognizes_original_and_all_skyline_entry_layouts() {
             for entry in [
@@ -592,9 +652,10 @@ pub mod mapper_hook {
             }
         }
 
-        /// Technical: Regression test for `rejects_ambiguity_damage_null_target_and_unaligned_matches`.
+        /// Regression test for `rejects_ambiguity_damage_null_target_and_unaligned_matches`.
         ///
-        /// Plain English: Checks that rejects ambiguity damage null target and unaligned matches.
+        ///
+        ///  Checks that rejects ambiguity damage null target and unaligned matches.
         #[test]
         fn rejects_ambiguity_damage_null_target_and_unaligned_matches() {
             let mut duplicate = MAPPING_NEEDLE.to_vec();

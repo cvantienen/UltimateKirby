@@ -5,7 +5,8 @@ use super::{color, Snapshot};
 use imgui_api::bindings::*;
 
 /// No tables, measured rows or per-frame string formatting/allocation.
-/// Plain English: Displays the compact list using cached text and minimal drawing work.
+///
+///  Displays the compact list using cached text and minimal drawing work.
 pub(super) unsafe fn draw(view: &Snapshot, display: ImVec2_c, scale: f32) {
     if !view.lightweight {
         return;

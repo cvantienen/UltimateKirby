@@ -4,55 +4,68 @@
 use super::*;
 
 /// Buttons the recipe editor and its tool pickers own while open.
-/// Plain English: Buttons the recipe editor and its tool pickers own while open.
+///
+///  Buttons the recipe editor and its tool pickers own while open.
 const EDITOR_BUTTONS: u32 = MAPPER_A | MAPPER_B | MAPPER_ZL | MAPPER_ZR | MAPPER_R;
 
 /// One controller sample shared by every input phase.
-/// Plain English: One controller sample shared by every input phase.
+///
+///  One controller sample shared by every input phase.
 #[derive(Clone, Copy)]
 struct Sample {
-    /// Technical: Stores the `buttons` value in `Sample` as `u32`.
+    /// Stores the `buttons` value in `Sample` as `u32`.
     ///
-    /// Plain English: Holds the buttons value used by Sample.
+    ///
+///  Holds the buttons value used by Sample.
     buttons: u32,
-    /// Technical: Stores the `pressed` value in `Sample` as `u32`.
+    /// Stores the `pressed` value in `Sample` as `u32`.
     ///
-    /// Plain English: Holds the pressed value used by Sample.
+    ///
+///  Holds the pressed value used by Sample.
     pressed: u32,
     /// Directions this page owns; none on a lightweight page without the L modifier.
-    /// Plain English: Directions this page owns; none on a lightweight page without the L modifier.
+    ///
+///  Directions this page owns; none on a lightweight page without the L modifier.
     directions: u32,
     /// Owned directions currently held.
-    /// Plain English: Owned directions currently held.
+    ///
+///  Owned directions currently held.
     pad: u32,
     /// Direction quarantine as it was before this sample.
-    /// Plain English: Direction quarantine as it was before this sample.
+    ///
+///  Direction quarantine as it was before this sample.
     quarantined: u32,
-    /// Technical: Stores the `toggled` value in `Sample` as `bool`.
+    /// Stores the `toggled` value in `Sample` as `bool`.
     ///
-    /// Plain English: Holds the toggled value used by Sample.
+    ///
+///  Holds the toggled value used by Sample.
     toggled: bool,
-    /// Technical: Stores the `editing` value in `Sample` as `bool`.
+    /// Stores the `editing` value in `Sample` as `bool`.
     ///
-    /// Plain English: Holds the editing value used by Sample.
+    ///
+///  Holds the editing value used by Sample.
     editing: bool,
-    /// Technical: Stores the `allow_editing` value in `Sample` as `bool`.
+    /// Stores the `allow_editing` value in `Sample` as `bool`.
     ///
-    /// Plain English: Holds the allow editing value used by Sample.
+    ///
+///  Holds the allow editing value used by Sample.
     allow_editing: bool,
-    /// Technical: Stores the `light_navigation` value in `Sample` as `bool`.
+    /// Stores the `light_navigation` value in `Sample` as `bool`.
     ///
-    /// Plain English: Holds the light navigation value used by Sample.
+    ///
+///  Holds the light navigation value used by Sample.
     light_navigation: bool,
 }
 impl Sample {
     /// Every phase hides the owned directions plus Minus and R3 from gameplay.
-    /// Plain English: Every phase hides the owned directions plus Minus and R3 from gameplay.
+    ///
+///  Every phase hides the owned directions plus Minus and R3 from gameplay.
     fn consume(&self, extra: u32) -> u32 {
         self.directions | MAPPER_MINUS | MENU_STICK_CLICK | extra
     }
     /// Exactly one owned direction, newly pressed.
-    /// Plain English: Exactly one owned direction, newly pressed.
+    ///
+///  Exactly one owned direction, newly pressed.
     fn pad_pressed(&self) -> bool {
         self.pad.count_ones() == 1 && self.pressed & self.pad != 0
     }
@@ -62,12 +75,14 @@ impl MenuSelection {
     /// Minus opens ledge home or closes. R3 edits; page rows navigate directly.
     /// In Training, visible D-pad belongs to navigation. The lightweight menu
     /// requires the held ledge modifier; otherwise custom D-pad inputs work.
-    /// Plain English: Minus opens ledge home or closes. R3 edits; page rows navigate directly. In Training, visible D-pad belongs to navigation. The lightweight menu requires the held ledge modifier; otherwise custom D-pad inputs work.
+    ///
+///  Minus opens ledge home or closes. R3 edits; page rows navigate directly. In Training, visible D-pad belongs to navigation. The lightweight menu requires the held ledge modifier; otherwise custom D-pad inputs work.
     pub fn input(&mut self, buttons: u32, presets: &MenuPresets) -> u32 {
         self.input_with_editing(buttons, presets, true)
     }
     /// Runtime scene permission; saved recipes and mode/choice controls remain usable.
-    /// Plain English: Runtime scene permission; saved recipes and mode/choice controls remain usable.
+    ///
+///  Runtime scene permission; saved recipes and mode/choice controls remain usable.
     pub fn input_with_editing(
         &mut self,
         buttons: u32,
@@ -131,7 +146,8 @@ impl MenuSelection {
     /// Resolve the scene's layout (Training editor vs lightweight selector) on
     /// the first sample after entry or a scene change. Returns whether leaving
     /// Training cancels tools that were still open.
-    /// Plain English: Resolve the scene's layout (Training editor vs lightweight selector) on the first sample after entry or a scene change. Returns whether leaving Training cancels tools that were still open.
+    ///
+///  Resolve the scene's layout (Training editor vs lightweight selector) on the first sample after entry or a scene change. Returns whether leaving Training cancels tools that were still open.
     fn sync_scene(&mut self, presets: &MenuPresets, allow_editing: bool) -> bool {
         // Battle entry can reuse a selector prepared during the intro/results.
         // Resolve its default from the actual scene, even if layout did not change.
@@ -149,9 +165,10 @@ impl MenuSelection {
         }
         cancel_editor
     }
-    /// Technical: Determines whether the `training_tools_open` condition holds.
+    /// Determines whether the `training_tools_open` condition holds.
     ///
-    /// Plain English: Checks whether training tools open.
+    ///
+///  Checks whether training tools open.
     fn training_tools_open(&self) -> bool {
         self.preview_slot.is_some()
             || self.held_binding.is_some()
@@ -161,9 +178,10 @@ impl MenuSelection {
             || self.managing()
             || self.editor.as_ref().is_some_and(|e| e.command_active())
     }
-    /// Technical: Updates the `change_layout` state using the supplied inputs.
+    /// Updates the `change_layout` state using the supplied inputs.
     ///
-    /// Plain English: Updates change layout.
+    ///
+///  Updates change layout.
     fn change_layout(&mut self, presets: &MenuPresets, allow_editing: bool) {
         self.lightweight = !allow_editing;
         if self.lightweight {
@@ -192,7 +210,8 @@ impl MenuSelection {
     }
     /// Per-sample bookkeeping: clear one-shot outputs, take the button edges and
     /// split the directions this page owns from the ones gameplay keeps.
-    /// Plain English: Per-sample bookkeeping: clear one-shot outputs, take the button edges and split the directions this page owns from the ones gameplay keeps.
+    ///
+///  Per-sample bookkeeping: clear one-shot outputs, take the button edges and split the directions this page owns from the ones gameplay keeps.
     fn begin_sample(
         &mut self,
         presets: &MenuPresets,
@@ -239,7 +258,8 @@ impl MenuSelection {
         }
     }
     /// Minus opens the ledge page, or closes the menu and everything it owns.
-    /// Plain English: Minus opens the ledge page, or closes the menu and everything it owns.
+    ///
+///  Minus opens the ledge page, or closes the menu and everything it owns.
     fn toggle_menu(&mut self) {
         if self.menu_hidden {
             self.open_page(MenuRow::LedgePage);
@@ -260,7 +280,8 @@ impl MenuSelection {
     }
     /// Lightweight R3 switches only between ledge and buttons/assists.
     /// It never allocates an editor or opens list-management tools.
-    /// Plain English: Lightweight R3 switches only between ledge and buttons/assists. It never allocates an editor or opens list-management tools.
+    ///
+///  Lightweight R3 switches only between ledge and buttons/assists. It never allocates an editor or opens list-management tools.
     fn lightweight_page_switch(&mut self, s: &Sample) -> Option<u32> {
         if !(self.lightweight
             && s.editing
@@ -279,7 +300,8 @@ impl MenuSelection {
         Some(s.consume(MAPPER_L | (self.pad_quarantine & MAPPER_DPAD_BUTTONS)))
     }
     /// Assist rule lists and the R+Left/Right rule switch inside a rule editor.
-    /// Plain English: Assist rule lists and the R+Left/Right rule switch inside a rule editor.
+    ///
+///  Assist rule lists and the R+Left/Right rule switch inside a rule editor.
     fn mode_shortcuts(&mut self, presets: &MenuPresets, s: &Sample) -> Option<u32> {
         if !(s.editing && s.allow_editing && !s.toggled) {
             return None;
@@ -309,7 +331,8 @@ impl MenuSelection {
         None
     }
     /// A, R3 or a side press on a page link opens that page.
-    /// Plain English: A, R3 or a side press on a page link opens that page.
+    ///
+///  A, R3 or a side press on a page link opens that page.
     fn page_shortcuts(&mut self, s: &Sample) -> Option<u32> {
         if !s.editing || s.toggled || self.tuning_page {
             return None;
@@ -335,9 +358,10 @@ impl MenuSelection {
         }
         None
     }
-    /// Technical: Returns an optional `tuning_input` value.
+    /// Returns an optional `tuning_input` value.
     ///
-    /// Plain English: Gets tuning input if it is available.
+    ///
+///  Gets tuning input if it is available.
     fn tuning_input(&mut self, s: &Sample) -> Option<u32> {
         if !(s.editing && s.allow_editing && self.tuning_page) {
             return None;
@@ -367,7 +391,8 @@ impl MenuSelection {
         Some(s.consume(MAPPER_L | MAPPER_X | MAPPER_Y))
     }
     /// Next visible fighter-setting row, wrapping; stays put when none is visible.
-    /// Plain English: Next visible fighter-setting row, wrapping; stays put when none is visible.
+    ///
+///  Next visible fighter-setting row, wrapping; stays put when none is visible.
     fn next_tuning_row(&self, forward: bool) -> usize {
         let mut row = self.tuning_row;
         for _ in 0..crate::fighter_tuning::COUNT {
@@ -378,9 +403,10 @@ impl MenuSelection {
         }
         self.tuning_row
     }
-    /// Technical: Updates the `adjust_tuning` state using the supplied inputs.
+    /// Updates the `adjust_tuning` state using the supplied inputs.
     ///
-    /// Plain English: Updates adjust tuning.
+    ///
+///  Updates adjust tuning.
     fn adjust_tuning(&mut self, increase: bool) {
         let i = self.tuning_row;
         let (lo, hi, step) = crate::fighter_tuning::Tuning::bounds(i);
@@ -389,7 +415,8 @@ impl MenuSelection {
         self.recipes_edited("Unsaved fighter settings — Y: Save");
     }
     /// R3 on a compact row opens its recipe editor instead of the compact page.
-    /// Plain English: R3 on a compact row opens its recipe editor instead of the compact page.
+    ///
+///  R3 on a compact row opens its recipe editor instead of the compact page.
     fn arm_recipe_open(&mut self, s: &Sample) {
         if s.editing
             && s.allow_editing
@@ -407,7 +434,8 @@ impl MenuSelection {
     }
 
     /// Up/Down hold-repeat on a compact row; true when a repeat is due.
-    /// Plain English: Up/Down hold-repeat on a compact row; true when a repeat is due.
+    ///
+///  Up/Down hold-repeat on a compact row; true when a repeat is due.
     fn row_repeat(&mut self, pad: u32) -> bool {
         if pad.count_ones() == 1 && pad & (DPAD_UP | DPAD_DOWN) != 0 {
             self.hold.step(pad)
@@ -417,7 +445,8 @@ impl MenuSelection {
         }
     }
     /// The single direction a compact page acts on this sample (press or repeat).
-    /// Plain English: The single direction a compact page acts on this sample (press or repeat).
+    ///
+///  The single direction a compact page acts on this sample (press or repeat).
     fn compact_direction(&mut self, s: &Sample) -> Option<u32> {
         if s.toggled {
             self.hold.reset();
@@ -429,7 +458,8 @@ impl MenuSelection {
     /// The Match-only selector: no preview/editor/save controls; physical face
     /// buttons keep their normal behavior and navigation must not interrupt
     /// held-L ledge work.
-    /// Plain English: The Match-only selector: no preview/editor/save controls; physical face buttons keep their normal behavior and navigation must not interrupt held-L ledge work.
+    ///
+///  The Match-only selector: no preview/editor/save controls; physical face buttons keep their normal behavior and navigation must not interrupt held-L ledge work.
     fn lightweight_page_input(&mut self, presets: &MenuPresets, s: &Sample, bound: u32) -> u32 {
         if s.light_navigation && self.preview_slot.is_some() {
             self.changed();
@@ -459,7 +489,8 @@ impl MenuSelection {
             | ((s.quarantined | self.pad_quarantine) & MAPPER_DPAD_BUTTONS)
     }
     /// The Training compact page: choices per row, L3 test, no editing.
-    /// Plain English: The Training compact page: choices per row, L3 test, no editing.
+    ///
+///  The Training compact page: choices per row, L3 test, no editing.
     fn quick_page_input(&mut self, presets: &MenuPresets, s: &Sample, bound: u32) -> u32 {
         // Ordinary gameplay buttons are not compact-menu controls. A manual
         // action cancels a test so its owned inputs cannot swallow that press.
@@ -496,16 +527,18 @@ impl MenuSelection {
             | s.consume(MENU_L3)
             | ((s.quarantined | self.pad_quarantine) & EDITOR_BUTTONS)
     }
-    /// Technical: Returns the `page_row_after` result.
+    /// Returns the `page_row_after` result.
     ///
-    /// Plain English: Gets the page row after result.
+    ///
+///  Gets the page row after result.
     fn page_row_after(&self, forward: bool) -> MenuRow {
         let rows = self.page_rows();
         let index = rows.iter().position(|r| *r == self.row).unwrap_or(0);
         rows[cycle(index, rows.len(), forward)]
     }
     /// L3 starts, or stops, a test of the selected recipe without opening the editor.
-    /// Plain English: L3 starts, or stops, a test of the selected recipe without opening the editor.
+    ///
+///  L3 starts, or stops, a test of the selected recipe without opening the editor.
     fn toggle_compact_test(&mut self, presets: &MenuPresets) {
         let running = self.preview_slot.is_some();
         self.changed();
@@ -521,7 +554,8 @@ impl MenuSelection {
     }
 
     /// Recipe editor commands, its Back press and the list manager.
-    /// Plain English: Recipe editor commands, its Back press and the list manager.
+    ///
+///  Recipe editor commands, its Back press and the list manager.
     fn editor_input(&mut self, presets: &MenuPresets, s: &Sample) -> Option<u32> {
         if !s.editing {
             return None;
@@ -557,7 +591,8 @@ impl MenuSelection {
         None
     }
     /// Editor-only commands: no allocations or label work on the idle path.
-    /// Plain English: Editor-only commands: no allocations or label work on the idle path.
+    ///
+///  Editor-only commands: no allocations or label work on the idle path.
     fn editor_command_input(&mut self, presets: &MenuPresets, s: &Sample) -> Option<u32> {
         let slot = self.row.slot()?;
         let key = (slot as usize, self.choices[slot as usize]);
@@ -579,7 +614,8 @@ impl MenuSelection {
     }
     /// Carry out what the editor asked of the menu while handling a command;
     /// true when a template rewrote the recipe.
-    /// Plain English: Carry out what the editor asked of the menu while handling a command; true when a template rewrote the recipe.
+    ///
+///  Carry out what the editor asked of the menu while handling a command; true when a template rewrote the recipe.
     fn service_editor_requests(&mut self, presets: &MenuPresets, key: (usize, usize)) -> bool {
         let mut recipe_changed = false;
         if self.editor.as_mut().is_some_and(|e| e.take_copy_request()) {
@@ -623,9 +659,10 @@ impl MenuSelection {
         }
         recipe_changed
     }
-    /// Technical: Returns the `manage_page_input` result.
+    /// Returns the `manage_page_input` result.
     ///
-    /// Plain English: Gets the manage page input result.
+    ///
+///  Gets the manage page input result.
     fn manage_page_input(&mut self, presets: &MenuPresets, s: &Sample) -> u32 {
         let before = self.catalog.as_ref().map_or(0, |c| c.revision);
         self.manage_input(presets, s.buttons, s.pressed);
@@ -641,7 +678,8 @@ impl MenuSelection {
     }
 
     /// Full-page controls: R3 editor toggle, direction navigation, test and save.
-    /// Plain English: Full-page controls: R3 editor toggle, direction navigation, test and save.
+    ///
+///  Full-page controls: R3 editor toggle, direction navigation, test and save.
     fn page_input(&mut self, presets: &MenuPresets, s: &Sample, bound: u32) -> u32 {
         if s.toggled || s.pressed & MENU_STICK_CLICK != 0 {
             self.hold.reset();
@@ -677,9 +715,10 @@ impl MenuSelection {
         }
         self.page_mask(s, bound)
     }
-    /// Technical: Toggles the recipe editor.
+    /// Toggles the recipe editor.
     ///
-    /// Plain English: Toggles the recipe editor.
+    ///
+///  Toggles the recipe editor.
     fn toggle_recipe_editor(&mut self, presets: &MenuPresets) {
         if self.recipe_editing {
             self.mode_cursor_to_current(presets);
@@ -691,7 +730,8 @@ impl MenuSelection {
         }
     }
     /// Y on a built-in action saves it as the startup default; there is no recipe to write.
-    /// Plain English: Y on a built-in action saves it as the startup default; there is no recipe to write.
+    ///
+///  Y on a built-in action saves it as the startup default; there is no recipe to write.
     fn save_builtin_default(&mut self, presets: &MenuPresets, s: &Sample) -> Option<u32> {
         let slot = self.row.slot()?;
         let selected = self.source(presets, slot, self.choices[slot as usize]);
@@ -706,9 +746,10 @@ impl MenuSelection {
         }
         Some(s.consume(MAPPER_Y))
     }
-    /// Technical: Determines whether the `recipe_hold_repeat` condition holds.
+    /// Determines whether the `recipe_hold_repeat` condition holds.
     ///
-    /// Plain English: Checks whether recipe hold repeat.
+    ///
+///  Checks whether recipe hold repeat.
     fn recipe_hold_repeat(&mut self, s: &Sample) -> bool {
         if s.editing
             && self.recipe_editing
@@ -723,7 +764,8 @@ impl MenuSelection {
         }
     }
     /// Left/Right adjust the focused editor field, Up/Down move between fields.
-    /// Plain English: Left/Right adjust the focused editor field, Up/Down move between fields.
+    ///
+///  Left/Right adjust the focused editor field, Up/Down move between fields.
     fn recipe_direction(&mut self, s: &Sample, repeat: bool) {
         let Some(slot) = self.row.slot() else {
             return;
@@ -746,7 +788,8 @@ impl MenuSelection {
     }
     /// Outside the editor one axis moves between rows and the other changes the
     /// row's value; assist pages swap the axes.
-    /// Plain English: Outside the editor one axis moves between rows and the other changes the row's value; assist pages swap the axes.
+    ///
+///  Outside the editor one axis moves between rows and the other changes the row's value; assist pages swap the axes.
     fn page_direction(&mut self, presets: &MenuPresets, s: &Sample) {
         let vertical = s.pad & (DPAD_UP | DPAD_DOWN) != 0;
         let positive = s.pad & (DPAD_DOWN | DPAD_RIGHT) != 0;
@@ -760,7 +803,8 @@ impl MenuSelection {
         self.changed();
     }
     /// X starts or stops a test of the selected recipe.
-    /// Plain English: X starts or stops a test of the selected recipe.
+    ///
+///  X starts or stops a test of the selected recipe.
     fn test_press(&mut self, presets: &MenuPresets, s: &Sample) -> Option<u32> {
         if !(s.editing
             && !s.toggled
@@ -788,7 +832,8 @@ impl MenuSelection {
         None
     }
     /// A clean Y press requests a save when the recipe validates.
-    /// Plain English: A clean Y press requests a save when the recipe validates.
+    ///
+///  A clean Y press requests a save when the recipe validates.
     fn save_press(&mut self, presets: &MenuPresets, s: &Sample) -> Option<u32> {
         if !(s.editing
             && self.recipe_editing
@@ -809,7 +854,8 @@ impl MenuSelection {
         None
     }
     /// Buttons the page consumes after all phases declined the sample.
-    /// Plain English: Buttons the page consumes after all phases declined the sample.
+    ///
+///  Buttons the page consumes after all phases declined the sample.
     fn page_mask(&mut self, s: &Sample, bound: u32) -> u32 {
         if s.editing && self.row.slot().is_some() {
             self.pad_quarantine |= s.buttons & MAPPER_X;

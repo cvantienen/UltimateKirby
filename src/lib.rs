@@ -12,17 +12,20 @@
 // `mod name;` includes name.rs in this crate; it does not start a thread or tool.
 //! Technical: Declares the plugin modules and exposes Skyline's load entry point.
 //! Plain English: This file wires the plugin together and starts it when Smash loads it.
-/// Technical: Declares the narrow native ABI boundary used by the live integration.
-/// Plain English: Provides read-only ways to inspect Smash's native state.
+/// Declares the narrow native ABI boundary used by the live integration.
+///
+///  Provides read-only ways to inspect Smash's native state.
 mod game_ffi;
-/// Technical: Declares the Switch runtime integration and hook orchestration.
-/// Plain English: Connects fighter observations to controller assistance.
+/// Declares the Switch runtime integration and hook orchestration.
+///
+///  Connects fighter observations to controller assistance.
 mod live;
 // The diagnostic logger is absent from silent builds, not just disabled
 // by a setting. Config cannot enable it without rebuilding.
 #[cfg(feature = "diagnostic-logging")]
-/// Technical: Includes optional diagnostic storage and reporting in diagnostic builds.
-/// Plain English: Enables troubleshooting support only when compiled with the feature.
+/// Includes optional diagnostic storage and reporting in diagnostic builds.
+///
+///  Enables troubleshooting support only when compiled with the feature.
 mod diagnostics;
 #[cfg(feature = "diagnostic-logging")]
 use diagnostics::{calibration, grab_diagnostics, logging, performance};
@@ -31,8 +34,9 @@ use diagnostics::{calibration, grab_diagnostics, logging, performance};
 // Adding a tool does not require another main function; extend the core policy
 // and connect its observation/output in `live.rs` instead.
 #[skyline::main(name = "kirby_assist")]
-/// Technical: Initializes the live plugin integration when Skyline loads the module.
-/// Plain English: Skyline calls this once to start Kirby Assist.
+/// Initializes the live plugin integration when Skyline loads the module.
+///
+///  Skyline calls this once to start Kirby Assist.
 pub fn main() {
     live::install();
 }

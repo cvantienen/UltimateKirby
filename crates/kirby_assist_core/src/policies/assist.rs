@@ -13,58 +13,71 @@ use crate::{
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 // An enum is one named alternative at a time. Variants carrying (Scenario)
 // also keep the reason's context, which is useful in tests and diagnostics.
-/// Plain English: Why the engine did or did not propose an action this frame.
+///
+///  Why the engine did or did not propose an action this frame.
 pub enum DecisionStatus {
-    /// Technical: Represents the `Disabled` case of `DecisionStatus`.
+    /// Represents the `Disabled` case of `DecisionStatus`.
     ///
-    /// Plain English: Represents the Disabled option in DecisionStatus.
+    ///
+///  Represents the Disabled option in DecisionStatus.
     Disabled,
-    /// Technical: Represents the `ScopeRejected` case of `DecisionStatus`.
+    /// Represents the `ScopeRejected` case of `DecisionStatus`.
     ///
-    /// Plain English: Represents the ScopeRejected option in DecisionStatus.
+    ///
+///  Represents the ScopeRejected option in DecisionStatus.
     ScopeRejected,
-    /// Technical: Represents the `NoActiveScenario` case of `DecisionStatus`.
+    /// Represents the `NoActiveScenario` case of `DecisionStatus`.
     ///
-    /// Plain English: Represents the NoActiveScenario option in DecisionStatus.
+    ///
+///  Represents the NoActiveScenario option in DecisionStatus.
     NoActiveScenario,
-    /// Technical: Represents the `NoRule` case of `DecisionStatus`.
+    /// Represents the `NoRule` case of `DecisionStatus`.
     ///
-    /// Plain English: Represents the NoRule option in DecisionStatus.
+    ///
+///  Represents the NoRule option in DecisionStatus.
     NoRule(
-        /// Technical: Carries the scenario with no enabled rule in `DecisionStatus`.
+        /// Carries the scenario with no enabled rule in `DecisionStatus`.
         ///
-        /// Plain English: Holds the scenario with no enabled rule for this `DecisionStatus` choice.
+        ///
+///  Holds the scenario with no enabled rule for this `DecisionStatus` choice.
         Scenario,
     ),
-    /// Technical: Represents the `WaitingForTiming` case of `DecisionStatus`.
+    /// Represents the `WaitingForTiming` case of `DecisionStatus`.
     ///
-    /// Plain English: Represents the WaitingForTiming option in DecisionStatus.
+    ///
+///  Represents the WaitingForTiming option in DecisionStatus.
     WaitingForTiming(
-        /// Technical: Carries the scenario waiting for its timing window in `DecisionStatus`.
+        /// Carries the scenario waiting for its timing window in `DecisionStatus`.
         ///
-        /// Plain English: Holds the scenario waiting for its timing window for this `DecisionStatus` choice.
+        ///
+///  Holds the scenario waiting for its timing window for this `DecisionStatus` choice.
         Scenario,
     ),
-    /// Technical: Represents the `ProposedController` case of `DecisionStatus`.
+    /// Represents the `ProposedController` case of `DecisionStatus`.
     ///
-    /// Plain English: Represents the ProposedController option in DecisionStatus.
+    ///
+///  Represents the ProposedController option in DecisionStatus.
     ProposedController(
-        /// Technical: Carries the scenario producing a controller proposal in `DecisionStatus`.
+        /// Carries the scenario producing a controller proposal in `DecisionStatus`.
         ///
-        /// Plain English: Holds the scenario producing a controller proposal for this `DecisionStatus` choice.
+        ///
+///  Holds the scenario producing a controller proposal for this `DecisionStatus` choice.
         Scenario,
     ),
-    /// Technical: Represents the `AwaitingPlaybackBackend` case of `DecisionStatus`.
+    /// Represents the `AwaitingPlaybackBackend` case of `DecisionStatus`.
     ///
-    /// Plain English: Represents the AwaitingPlaybackBackend option in DecisionStatus.
+    ///
+///  Represents the AwaitingPlaybackBackend option in DecisionStatus.
     AwaitingPlaybackBackend {
-        /// Technical: Stores the `scenario` value in `DecisionStatus` as `Scenario`.
+        /// Stores the `scenario` value in `DecisionStatus` as `Scenario`.
         ///
-        /// Plain English: Holds the scenario value used by DecisionStatus.
+        ///
+///  Holds the scenario value used by DecisionStatus.
         scenario: Scenario,
-        /// Technical: Stores the `slot` value in `DecisionStatus` as `RecordingSlot`.
+        /// Stores the `slot` value in `DecisionStatus` as `RecordingSlot`.
         ///
-        /// Plain English: Holds the slot value used by DecisionStatus.
+        ///
+///  Holds the slot value used by DecisionStatus.
         slot: RecordingSlot,
     },
 }
@@ -72,43 +85,51 @@ pub enum DecisionStatus {
 /// A transparent logical result. `proposed` is never written to Smash by this
 /// crate; the platform adapter decides whether and how to use it. The live
 /// policy consumes `recipe`, while generic examples consume `proposed`.
-/// Plain English: A transparent logical result. proposed is never written to Smash by this crate; the platform adapter decides whether and how to use it. The live policy consumes recipe, while generic examples consume proposed.
+///
+///  A transparent logical result. proposed is never written to Smash by this crate; the platform adapter decides whether and how to use it. The live policy consumes recipe, while generic examples consume proposed.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FrameDecision {
-    /// Technical: Stores the `proposed` value in `FrameDecision` as `ControllerFrame`.
+    /// Stores the `proposed` value in `FrameDecision` as `ControllerFrame`.
     ///
-    /// Plain English: Holds the proposed value used by FrameDecision.
+    ///
+///  Holds the proposed value used by FrameDecision.
     pub proposed: ControllerFrame,
-    /// Technical: Stores the `recipe` value in `FrameDecision` as `InputRecipe`.
+    /// Stores the `recipe` value in `FrameDecision` as `InputRecipe`.
     ///
-    /// Plain English: Holds the recipe value used by FrameDecision.
+    ///
+///  Holds the recipe value used by FrameDecision.
     pub recipe: InputRecipe,
-    /// Technical: Stores the `arbitration` value in `FrameDecision` as `Option<ArbitrationResult>`.
+    /// Stores the `arbitration` value in `FrameDecision` as `Option<ArbitrationResult>`.
     ///
-    /// Plain English: Optionally stores the arbitration for FrameDecision; it may be absent.
+    ///
+///  Optionally stores the arbitration for FrameDecision; it may be absent.
     pub arbitration: Option<ArbitrationResult>,
-    /// Technical: Stores the `selected_scenario` value in `FrameDecision` as `Option<Scenario>`.
+    /// Stores the `selected_scenario` value in `FrameDecision` as `Option<Scenario>`.
     ///
-    /// Plain English: Optionally stores the selected scenario for FrameDecision; it may be absent.
+    ///
+///  Optionally stores the selected scenario for FrameDecision; it may be absent.
     pub selected_scenario: Option<Scenario>,
-    /// Technical: Stores the `status` value in `FrameDecision` as `DecisionStatus`.
+    /// Stores the `status` value in `FrameDecision` as `DecisionStatus`.
     ///
-    /// Plain English: Holds the status value used by FrameDecision.
+    ///
+///  Holds the status value used by FrameDecision.
     pub status: DecisionStatus,
 }
 
 /// Stateless policy engine. It deliberately has no Skyline, Smash, HID, or
 /// memory access, making it easy to test and safe to evolve in isolation.
-/// Plain English: Stateless policy engine. It deliberately has no Skyline, Smash, HID, or memory access, making it easy to test and safe to evolve in isolation.
+///
+///  Stateless policy engine. It deliberately has no Skyline, Smash, HID, or memory access, making it easy to test and safe to evolve in isolation.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct AssistEngine;
 
 impl AssistEngine {
     // The early returns preserve the fresh human frame when a prerequisite is
     // missing. Do not accidentally substitute a previous automated frame here.
-    /// Technical: Returns the `evaluate` result.
+    /// Returns the `evaluate` result.
     ///
-    /// Plain English: Gets the evaluate result.
+    ///
+///  Gets the evaluate result.
     pub fn evaluate(
         &self,
         config: AssistConfig,
@@ -173,9 +194,10 @@ impl AssistEngine {
 }
 
 impl FrameDecision {
-    /// Technical: Returns the `unchanged` result.
+    /// Returns the `unchanged` result.
     ///
-    /// Plain English: Gets the unchanged result.
+    ///
+///  Gets the unchanged result.
     const fn unchanged(proposed: ControllerFrame, status: DecisionStatus) -> Self {
         Self {
             proposed,
@@ -198,17 +220,19 @@ mod tests {
         state::{FighterKind, ScenarioSample},
     };
 
-    /// Technical: Defines the `LOCAL_KIRBY` constant used by this module.
+    /// Defines the `LOCAL_KIRBY` constant used by this module.
     ///
-    /// Plain English: Provides the LOCAL KIRBY constant value.
+    ///
+///  Provides the LOCAL KIRBY constant value.
     const LOCAL_KIRBY: RunContext = RunContext {
         is_locally_human_controlled: true,
         fighter: FighterKind::Kirby,
     };
 
-    /// Technical: Defines the `PLAYER_INPUT` constant used by this module.
+    /// Defines the `PLAYER_INPUT` constant used by this module.
     ///
-    /// Plain English: Provides the PLAYER INPUT constant value.
+    ///
+///  Provides the PLAYER INPUT constant value.
     const PLAYER_INPUT: ControllerFrame = ControllerFrame {
         buttons: ButtonSet::JUMP,
         left_stick: StickPosition {
@@ -220,9 +244,10 @@ mod tests {
         right_trigger: 42,
     };
 
-    /// Technical: Returns the `enabled_config` result.
+    /// Returns the `enabled_config` result.
     ///
-    /// Plain English: Gets the enabled config result.
+    ///
+///  Gets the enabled config result.
     fn enabled_config(rule: ScenarioRule) -> AssistConfig {
         let mut config = AssistConfig {
             enabled: true,
@@ -232,9 +257,10 @@ mod tests {
         config
     }
 
-    /// Technical: Regression test for `defaults_are_a_no_op`.
+    /// Regression test for `defaults_are_a_no_op`.
     ///
-    /// Plain English: Checks that defaults are a no op.
+    ///
+///  Checks that defaults are a no op.
     #[test]
     fn defaults_are_a_no_op() {
         let decision = AssistEngine.evaluate(
@@ -249,9 +275,10 @@ mod tests {
         assert_eq!(decision.status, DecisionStatus::Disabled);
     }
 
-    /// Technical: Regression test for `configured_clatter_pulse_proposes_an_additive_input`.
+    /// Regression test for `configured_clatter_pulse_proposes_an_additive_input`.
     ///
-    /// Plain English: Checks that configured clatter pulse proposes an additive input.
+    ///
+///  Checks that configured clatter pulse proposes an additive input.
     #[test]
     fn configured_clatter_pulse_proposes_an_additive_input() {
         let config = enabled_config(ScenarioRule::controller(
@@ -276,9 +303,10 @@ mod tests {
         assert_eq!(decision.proposed.left_stick, PLAYER_INPUT.left_stick);
     }
 
-    /// Technical: Regression test for `higher_priority_scenario_blocks_broader_rule`.
+    /// Regression test for `higher_priority_scenario_blocks_broader_rule`.
     ///
-    /// Plain English: Checks that higher priority scenario blocks broader rule.
+    ///
+///  Checks that higher priority scenario blocks broader rule.
     #[test]
     fn higher_priority_scenario_blocks_broader_rule() {
         let config = enabled_config(ScenarioRule::controller(
@@ -305,9 +333,10 @@ mod tests {
         assert_eq!(decision.proposed, PLAYER_INPUT);
     }
 
-    /// Technical: Regression test for `scope_rejects_other_controllers`.
+    /// Regression test for `scope_rejects_other_controllers`.
     ///
-    /// Plain English: Checks that scope rejects other controllers.
+    ///
+///  Checks that scope rejects other controllers.
     #[test]
     fn scope_rejects_other_controllers() {
         let config = enabled_config(ScenarioRule::controller(
@@ -331,9 +360,10 @@ mod tests {
         assert_eq!(decision.proposed, PLAYER_INPUT);
     }
 
-    /// Technical: Regression test for `playback_rule_stays_inert_without_a_backend`.
+    /// Regression test for `playback_rule_stays_inert_without_a_backend`.
     ///
-    /// Plain English: Checks that playback rule stays inert without a backend.
+    ///
+///  Checks that playback rule stays inert without a backend.
     #[test]
     fn playback_rule_stays_inert_without_a_backend() {
         let config = enabled_config(ScenarioRule::playback(
@@ -359,9 +389,10 @@ mod tests {
         assert_eq!(decision.proposed, PLAYER_INPUT);
     }
 
-    /// Technical: Regression test for `local_fighters_are_allowed_without_a_character_or_game_mode_requirement`.
+    /// Regression test for `local_fighters_are_allowed_without_a_character_or_game_mode_requirement`.
     ///
-    /// Plain English: Checks that local fighters are allowed without a character or game mode requirement.
+    ///
+///  Checks that local fighters are allowed without a character or game mode requirement.
     #[test]
     fn local_fighters_are_allowed_without_a_character_or_game_mode_requirement() {
         for fighter in [FighterKind::Kirby, FighterKind::Other, FighterKind::Unknown] {
