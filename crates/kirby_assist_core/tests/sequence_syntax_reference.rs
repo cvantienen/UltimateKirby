@@ -87,7 +87,8 @@ fn action_aliases_directions_buttons_and_conditions_from_the_parser_are_covered(
         }
     }
     assert!(checked > 70);
-    let condition_source = include_str!("../src/sequence_config.rs")
+    let source = include_str!("../src/sequence_config.rs");
+    let condition_source = source
         .split("impl Condition {")
         .nth(1)
         .unwrap()
@@ -100,6 +101,18 @@ fn action_aliases_directions_buttons_and_conditions_from_the_parser_are_covered(
         .filter_map(|line| line.split('"').nth(1))
     {
         assert!(has_word(token), "missing condition: {token}");
+    }
+    let direction_source = source
+        .split("impl Direction {")
+        .nth(1)
+        .unwrap()
+        .split("];")
+        .next()
+        .unwrap();
+    let directions: Vec<_> = direction_source.split('"').skip(1).step_by(2).collect();
+    assert!(directions.len() >= 20);
+    for token in directions {
+        assert!(has_word(token), "missing direction alias: {token}");
     }
 }
 
@@ -148,17 +161,18 @@ fn all_fighter_keys_and_their_exact_parser_bounds_are_documented() {
 
 #[test]
 fn all_recognized_universal_keys_including_compatibility_aliases_are_documented() {
-    let source = include_str!("../src/live_input.rs");
+    let source = include_str!("../src/live_input/config.rs");
     let source = source
-        .split("match key.trim() {")
+        .split("match key {")
         .nth(1)
         .unwrap()
-        .split("if !config.assist.walk_strength")
+        .split("_ => return Err(setting.invalid())")
         .next()
         .unwrap();
     let mut checked = 0;
     for line in source.lines().filter(|line| {
-        line.starts_with("                    \"") || line.starts_with("                    | \"")
+        let line = line.trim_start();
+        line.starts_with('"') || line.starts_with("| \"")
     }) {
         for key in line
             .split("=>")

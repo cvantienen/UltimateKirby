@@ -54,8 +54,14 @@ fn prepared() -> (FighterProfiles, SettingsMenu, save::ResultMessage, Sequence) 
     let menu = SettingsMenu {
         selections: [(15, selection)].into(),
         kind: Some(15),
-        resolved_recipe_revision: Some(revision),
-        rule_stamp: Some((15, revision)),
+        resolved: ResolvedSettings {
+            recipe_revision: Some(revision),
+            ..Default::default()
+        },
+        rules: RuleCache {
+            stamp: Some((15, revision)),
+            ..Default::default()
+        },
         view_revision: Some(0),
         ..Default::default()
     };
@@ -67,8 +73,8 @@ fn maintenance_acknowledgement_commits_the_first_edit_and_invalidates_runtime_ca
     let _guard = save_test_guard();
     let (profiles, mut menu, result, sequence) = prepared();
     menu.apply_save_result(result, Some(&profiles));
-    assert!(menu.resolved_recipe_revision.is_none());
-    assert!(menu.rule_stamp.is_none() && menu.view_revision.is_none());
+    assert!(menu.resolved.recipe_revision.is_none());
+    assert!(menu.rules.stamp.is_none() && menu.view_revision.is_none());
     let presets = &profiles.profile(15).unwrap().menu_options;
     let selection = menu.selections.get_mut(&15).unwrap();
     assert_eq!(
@@ -151,16 +157,16 @@ fn confirmed_match_end_releases_session_drafts_and_resolved_menu_metadata() {
     let _guard = save_test_guard();
     let (profiles, mut menu, result, _) = prepared();
     menu.apply_save_result(result, Some(&profiles));
-    menu.resolved_preview = Some(PresetSlot::Roll);
+    menu.resolved.preview = Some(PresetSlot::Roll);
     // This fixture's match guard is outside a battle; respawn deliberately
     // remains a separate deferred-cleanup path in production.
     assert!(!super::super::MASTER_IN_MATCH.load(std::sync::atomic::Ordering::Acquire));
     menu.end_match();
     assert!(menu.selections.is_empty());
     assert!(menu.kind.is_none() && menu.auto_mash.is_none());
-    assert!(menu.rule_cache.is_none() && menu.rule_stamp.is_none());
-    assert!(menu.resolved.is_none() && menu.resolved_choices.is_none());
-    assert!(menu.resolved_recipe_revision.is_none() && menu.resolved_preview.is_none());
+    assert!(menu.rules.rules.is_none() && menu.rules.stamp.is_none());
+    assert!(menu.resolved.settings.is_none() && menu.resolved.choices.is_none());
+    assert!(menu.resolved.recipe_revision.is_none() && menu.resolved.preview.is_none());
     assert!(menu.view_revision.is_none());
 }
 

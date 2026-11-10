@@ -518,3 +518,49 @@ fn legacy_roll_window_is_not_a_move_scheduler_anymore() {
         assert!(LiveConfig::parse(&format!("ledge_roll_hit_window_frames={value}")).is_ok());
     }
 }
+
+#[test]
+fn config_errors_name_the_offending_line_and_validation_group() {
+    let error = |source: &str| LiveConfig::parse(source).unwrap_err();
+    assert_eq!(
+        error("enabled = true\n\n# note\nauto_tech = maybe # why"),
+        "invalid config line 4: auto_tech = maybe"
+    );
+    assert_eq!(error("auto_tech"), "invalid config line 1: auto_tech");
+    assert_eq!(error("nope = 1"), "invalid config line 1: nope = 1");
+    for (source, message) in [
+        ("ledge_walk_strength = 0.5", "ledge walk strength must be finite 0.1..0.45; roll smash range 1..20"),
+        ("ledge_roll_smash_range = 21", "ledge walk strength must be finite 0.1..0.45; roll smash range 1..20"),
+        ("ledge_trap_vertical_range = 21", "ledge trap ranges must be finite and 1..20"),
+        ("ledge_grab_range = 0.5", "ledge attack ranges must be finite 1..20"),
+        ("ledge_move_strength = 0", "invalid ledge follow, position, or grab buffer settings"),
+        ("ledge_roll_distance = 1", "ledge_roll_distance must be auto or finite 2..100"),
+        ("ledge_anti_air_height = 0", "anti-air range must be 1..20 and height 1..40"),
+        ("turbo_phase_frames = 11", "turbo_phase_frames must be 1..10"),
+        ("turbo_walk_strength = 0.7", "turbo_walk_strength must be 0.05..0.6"),
+        ("player_index = 8", "player_index must be 0..7; tech_lookahead_frames must be 1..5"),
+        ("auto_di_survival_speed = 31", "auto_di_survival_speed must be finite and 0.1..30"),
+    ] {
+        assert_eq!(error(source), message, "{source}");
+    }
+}
+
+#[test]
+fn config_choices_keep_their_original_case_rules_and_later_keys_win() {
+    use crate::native_input::{MAPPER_L, MAPPER_ZL};
+    assert!(LiveConfig::parse("auto_di_mode = Survival").is_err());
+    assert_eq!(
+        LiveConfig::parse("auto_di_mode = escape").unwrap().auto_di.mode,
+        crate::auto_di::Mode::Escape
+    );
+    for (value, button) in [("l", MAPPER_L), ("Zl", MAPPER_ZL)] {
+        let config = LiveConfig::parse(&format!("ledge_grab_button = {value}")).unwrap();
+        assert_eq!(config.assist.grab_button, button);
+    }
+    assert!(LiveConfig::parse("ledge_roll_distance = AUTO").is_ok());
+    let config = LiveConfig::parse(
+        "ledge_roll_dash_range = 50\nledge_roll_dash_range = 5\ntech_cooldown_frames = 9\ntech_cooldown_frames = 12",
+    )
+    .unwrap();
+    assert_eq!(config.controls.tech_cooldown, 12);
+}

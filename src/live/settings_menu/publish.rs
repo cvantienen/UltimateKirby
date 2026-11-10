@@ -1,4 +1,32 @@
 // Included in the native menu and host tests so both compile this exact publication path.
+fn menu_retry() -> bool {
+    #[cfg(feature = "diagnostic-logging")]
+    crate::performance::health::event(crate::performance::health::Event::MenuRetry);
+    false
+}
+/// Estimated owned payload of one cached view, for the retained-memory gauge.
+#[cfg(feature = "diagnostic-logging")]
+fn snapshot_bytes(v: &Snapshot) -> usize {
+    let lines_bytes = |lines: &Vec<CString>| {
+        lines.capacity() * std::mem::size_of::<CString>()
+            + lines
+                .iter()
+                .map(|s| s.as_bytes_with_nul().len())
+                .sum::<usize>()
+    };
+    std::mem::size_of::<Snapshot>()
+        + v.navigation
+            .as_ref()
+            .map_or(0, |s| s.as_bytes_with_nul().len())
+        + v.values.capacity() * std::mem::size_of::<SavedChoice>()
+        + v.values
+            .iter()
+            .map(|r| r.line.as_bytes_with_nul().len())
+            .sum::<usize>()
+        + lines_bytes(&v.header)
+        + lines_bytes(&v.body)
+        + lines_bytes(&v.footer)
+}
 pub(super) fn publish(
     profile: &FighterProfile,
     selection: &MenuSelection,
@@ -39,14 +67,10 @@ pub(super) fn publish(
         }
     }
     let Some(_save_gate) = super::save::try_ui_edit() else {
-        #[cfg(feature = "diagnostic-logging")]
-        crate::performance::health::event(crate::performance::health::Event::MenuRetry);
-        return false;
+        return menu_retry();
     };
     let Ok(mut view) = VIEW.try_lock() else {
-        #[cfg(feature = "diagnostic-logging")]
-        crate::performance::health::event(crate::performance::health::Event::MenuRetry);
-        return false;
+        return menu_retry();
     };
     DEFERRED_CLEAR.store(false, Ordering::Release);
     #[cfg(feature = "diagnostic-logging")]
@@ -61,26 +85,7 @@ pub(super) fn publish(
     let retired = view.replace(next);
     #[cfg(feature = "diagnostic-logging")]
     if let Some(v) = view.as_ref() {
-        let bytes = std::mem::size_of::<Snapshot>()
-            + v.navigation
-                .as_ref()
-                .map_or(0, |s| s.as_bytes_with_nul().len())
-            + v.values.capacity() * std::mem::size_of::<SavedChoice>()
-            + v.values
-                .iter()
-                .map(|r| r.line.as_bytes_with_nul().len())
-                .sum::<usize>()
-            + [&v.header, &v.body, &v.footer]
-                .into_iter()
-                .map(|lines| {
-                    lines.capacity() * std::mem::size_of::<CString>()
-                        + lines
-                            .iter()
-                            .map(|s| s.as_bytes_with_nul().len())
-                            .sum::<usize>()
-                })
-                .sum::<usize>();
-        crate::performance::health::view_bytes(bytes);
+        crate::performance::health::view_bytes(snapshot_bytes(v));
     }
     drop(view);
     drop(retired);

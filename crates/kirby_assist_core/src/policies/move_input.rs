@@ -1,13 +1,10 @@
 //! Physical-button recipes shared by assists. A must map to Attack and X/ZL
 //! to Jump in Smash's controller setup. These are requests, not status writes.
 //! Native status/motion confirmation remains the caller's acceptance signal.
-use crate::native_input::{MAPPER_A, MAPPER_X, MAPPER_ZL};
+use crate::native_input::{MAPPER_A, MAPPER_X};
 
-pub const SHORT_HOP: u32 = MAPPER_X | MAPPER_ZL;
-pub const FULL_HOP: u32 = MAPPER_X;
 pub const ATTACK: u32 = MAPPER_A;
 pub const SHORT_HOP_ATTACK: u32 = MAPPER_X | MAPPER_A;
-pub const SHORT_HOP_PULSE: u32 = MAPPER_X; // Release at native jump squat.
 /// Acceptance budget, not attack startup or a timing offset. Buffered online
 /// inputs can reach native state after several advancing frames. Keep the
 /// sequence owner alive while waiting, without holding Jump or delaying a
@@ -76,10 +73,158 @@ impl UpBReceipt {
         self.ticks >= 24
     }
 }
-/// Three native frames pressed, one neutral frame, then a fresh edge.
-/// The owner retains its normal reach/recovery gates and acceptance budget.
-pub fn delivery_pressed(age: f32) -> bool {
-    age % 4.0 < 3.0
+/// What an automatic direct Up-B tape must do after this sample's checks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum UpBVerdict {
+    Continue,
+    /// Native startup was just observed: resume the tape after its initial B.
+    Confirm,
+    /// Input-free wait for the delivered B to appear in native status.
+    Wait,
+    Cancel,
+}
+/// One automatic direct Up-B from delivery to native confirmation. Shared by
+/// the Auto-react and configured-defense tapes; the owner keeps the tape, the
+/// target and the plan-presence gate.
+#[derive(Default)]
+pub(crate) struct UpBFlow {
+    armed: bool,
+    /// Configured-defense flow: may begin from, and tolerate, the actor's own
+    /// spot dodge, and confirms native startup even without a mapper receipt.
+    /// Auto-react instead delivers its whole critical B pulse until a receipt
+    /// is pending.
+    defense: bool,
+    started_from_dodge: bool,
+    seen: bool,
+    waiting: bool,
+    epoch: u64,
+    delivery: DeliveryBudget,
+    receipt: UpBReceipt,
+}
+impl UpBFlow {
+    pub const fn new() -> Self {
+        Self {
+            armed: false,
+            defense: false,
+            started_from_dodge: false,
+            seen: false,
+            waiting: false,
+            epoch: 0,
+            delivery: DeliveryBudget::new(),
+            receipt: UpBReceipt::new(),
+        }
+    }
+    pub fn arm(&mut self, c: crate::gameplay::GameplayContext, defense: bool) {
+        *self = Self {
+            armed: true,
+            defense,
+            started_from_dodge: defense && c.status == crate::native_states::ESCAPE,
+            epoch: c.manual_input_epoch,
+            ..Self::new()
+        };
+    }
+    pub fn disarm(&mut self) {
+        *self = Self::new();
+    }
+    pub fn armed(&self) -> bool {
+        self.armed
+    }
+    pub fn started(&self) -> bool {
+        self.armed && (self.seen || self.receipt.sent())
+    }
+    pub fn receipt_pending(&self) -> bool {
+        self.armed && crate::up_b_receipt::pending(self.seen, self.receipt.sent())
+    }
+    pub fn awaiting(&self) -> bool {
+        self.receipt_pending() && self.waiting
+    }
+    /// A mapped packet the game rejected still spends the delivery budget.
+    pub fn attempted(&mut self, tick: i64) {
+        if self.armed && !self.seen {
+            self.delivery.mapped(tick);
+        }
+    }
+    pub fn mapped(&mut self, tick: i64) {
+        if self.armed && !self.seen {
+            self.delivery.mapped(tick);
+            self.receipt.mapped(tick);
+        }
+    }
+    pub fn tick(&mut self, tick: i64) {
+        if self.receipt_pending() {
+            self.receipt.tick(tick);
+        }
+    }
+    pub fn manual_handback(&self, c: crate::gameplay::GameplayContext) -> bool {
+        crate::up_b_receipt::manual_handback(self.armed, self.seen, c, self.epoch)
+    }
+    /// Native confirmation and lifecycle checks before the tape is sampled.
+    pub fn advance(&mut self, c: crate::gameplay::GameplayContext, kind: i32) -> UpBVerdict {
+        use crate::native_states::{status, ESCAPE, ESCAPE_AIR_SLIDE, ESCAPE_F, GUARD_DAMAGE};
+        let native = crate::reaction_rules::automatic_up_b_status(kind, c.status, c.previous_status);
+        let confirm = match crate::up_b_receipt::evaluate(
+            self.seen,
+            native,
+            self.waiting,
+            self.started_from_dodge,
+            c,
+            &self.receipt,
+            &self.delivery,
+        ) {
+            crate::up_b_receipt::ReceiptAction::Confirm => self.defense || self.receipt.sent(),
+            crate::up_b_receipt::ReceiptAction::Cancel => return UpBVerdict::Cancel,
+            crate::up_b_receipt::ReceiptAction::Wait => {
+                self.waiting = true;
+                return UpBVerdict::Wait;
+            }
+            crate::up_b_receipt::ReceiptAction::Continue => false,
+        };
+        self.seen |= native;
+        // A native roll/jump/wrong special is not successful Up-B delivery.
+        // Confirmed Up-B drift also ends once ordinary control resumes.
+        let first_escape = if self.defense { ESCAPE_F } else { ESCAPE };
+        let wrong = matches!(
+            c.status,
+            status::JUMP..=status::FALL_AERIAL
+                | crate::native_states::CATCH..=crate::native_states::THROW
+                | status::SPECIAL_N
+                | status::SPECIAL_S
+                | status::SPECIAL_LW
+        ) || (first_escape..=ESCAPE_AIR_SLIDE).contains(&c.status)
+            || self.defense && c.status == ESCAPE && (!c.can_act || self.seen);
+        let ended = self.seen
+            && (!native
+                || matches!(c.status,status::WAIT..=status::TURN_RUN_BRAKE|status::FALL_SPECIAL|status::LANDING..=GUARD_DAMAGE));
+        let cannot_start = !self.seen
+            && (c.situation != crate::native_states::situation::GROUND
+                || c.stopped
+                || !c.can_act
+                || !(crate::reaction_rules::automatic_start_status(c.status)
+                    || self.defense && c.status == ESCAPE)
+                || self.delivery.exhausted());
+        if wrong || ended || cannot_start {
+            UpBVerdict::Cancel
+        } else if confirm {
+            UpBVerdict::Confirm
+        } else {
+            UpBVerdict::Continue
+        }
+    }
+    /// Never drift before native startup. A delivered packet may keep only a
+    /// bounded, input-free receipt wait; no B is retried.
+    pub fn after_sample(&mut self, manual_drifting: bool, requested: u32) -> UpBVerdict {
+        if !self.armed
+            || !(manual_drifting || !self.seen && requested & crate::native_input::MAPPER_B == 0)
+        {
+            return UpBVerdict::Continue;
+        }
+        if crate::up_b_receipt::pending(self.seen, self.receipt.sent()) {
+            self.waiting = true;
+            UpBVerdict::Wait
+        } else {
+            UpBVerdict::Cancel
+        }
+    }
 }
 /// Less mechanical retry cadence for smash attacks. The caller still sends the
 /// first legal smash immediately; this only controls retries when native startup
@@ -102,6 +247,10 @@ pub fn smash_retry_pressed(age: f32, target: u32) -> bool {
 /// Full automated sequences still suppress competing physical aerials/tilts.
 pub fn blocks_physical_c_stick(owned: u32) -> bool {
     owned & crate::native_input::ASSIST_BUTTONS != 0
+}
+/// Both planar positions are usable measurements.
+pub(crate) fn finite_positions(a: [f32; 2], b: [f32; 2]) -> bool {
+    a.iter().chain(b.iter()).all(|v| v.is_finite())
 }
 pub fn output(stick: [f32; 2], requested: u32) -> crate::gameplay::ControllerOutput {
     crate::gameplay::ControllerOutput {

@@ -1,6 +1,7 @@
 //! Input-only, bounded DI heuristic. No guaranteed KO/combo escape prediction.
 //! Uses launch direction/speed, not guessed percentages or hardcoded stage edges.
 //! DI/LSI reference: rubendal/SSBU-Calculator, js/formulas.js (DI and LSI).
+use super::{is_new_hit, stick_engaged, LAUNCH_DI_FRAMES, MAX_DAMAGE_STOP_DI_FRAMES};
 mod trajectory {
     //! Bounded, collision-free survival forecast. This scores controller inputs;
     //! stage collision, recovery options and the game's KO decision remain native.
@@ -119,38 +120,30 @@ mod trajectory {
                 fall = (fall + self.gravity).min(self.fall_speed);
                 // Upper blast crossings need sufficient remaining vertical launch
                 // speed; do not treat merely drifting above it as an immediate KO.
-                let clearance = (p[0] - self.blast.left)
-                    .min(self.blast.right - p[0])
-                    .min(p[1] - self.blast.bottom)
-                    .min(if velocity[1] >= 2.4 {
-                        self.blast.top - p[1]
-                    } else {
-                        f32::INFINITY
-                    });
+                let upward = velocity[1] >= 2.4;
+                let clearances = |q: [f32; 2]| {
+                    [
+                        q[0] - self.blast.left,
+                        self.blast.right - q[0],
+                        q[1] - self.blast.bottom,
+                        if upward {
+                            self.blast.top - q[1]
+                        } else {
+                            f32::INFINITY
+                        },
+                    ]
+                };
+                let after = clearances(p);
+                let clearance = after.into_iter().fold(f32::INFINITY, f32::min);
                 margin = margin.min(clearance);
                 if clearance <= 0. {
-                    let mut fraction = 1.0_f32;
-                    for (before, after) in [
-                        (previous[0] - self.blast.left, p[0] - self.blast.left),
-                        (self.blast.right - previous[0], self.blast.right - p[0]),
-                        (previous[1] - self.blast.bottom, p[1] - self.blast.bottom),
-                        (
-                            if velocity[1] >= 2.4 {
-                                self.blast.top - previous[1]
-                            } else {
-                                f32::INFINITY
-                            },
-                            if velocity[1] >= 2.4 {
-                                self.blast.top - p[1]
-                            } else {
-                                f32::INFINITY
-                            },
-                        ),
-                    ] {
-                        if after <= 0. && before.is_finite() {
-                            fraction = fraction.min((before / (before - after)).clamp(0., 1.));
-                        }
-                    }
+                    let fraction = clearances(previous)
+                        .into_iter()
+                        .zip(after)
+                        .filter(|(before, after)| *after <= 0. && before.is_finite())
+                        .fold(1.0_f32, |fraction, (before, after)| {
+                            fraction.min((before / (before - after)).clamp(0., 1.))
+                        });
                     return frame as f32 + fraction;
                 }
             }
@@ -164,16 +157,10 @@ mod trajectory {
         trajectory: Trajectory,
     ) -> Option<Decision> {
         // Reuse all launch/config validation and preserve explicit Escape behavior.
-        let fallback = super::choose(settings, c);
         if settings.mode == Mode::Escape || !trajectory.valid() {
-            return fallback;
+            return super::choose(settings, c);
         }
-        if !settings.enabled
-            || !c.launch.iter().all(|v| v.is_finite())
-            || !(0.05..=30.0).contains(&c.launch[0].hypot(c.launch[1]))
-            || !settings.survival_speed.is_finite()
-            || !(0.1..=30.).contains(&settings.survival_speed)
-        {
+        if !super::usable(settings, c.launch) {
             return None;
         }
         let mut best = [0.; 2];
@@ -301,17 +288,19 @@ pub fn predicted_launch(v: [f32; 2], s: [f32; 2]) -> [f32; 2] {
     let (sin, cos) = angle.sin_cos();
     [speed * cos * lsi, speed * sin * lsi]
 }
+/// Settings and launch vector that either DI heuristic may act on.
+fn usable(settings: Settings, launch: [f32; 2]) -> bool {
+    settings.enabled
+        && launch.iter().all(|v| v.is_finite())
+        && (0.05..=30.0).contains(&launch[0].hypot(launch[1]))
+        && settings.survival_speed.is_finite()
+        && (0.1..=30.0).contains(&settings.survival_speed)
+}
 pub fn choose(settings: Settings, c: Context) -> Option<Decision> {
-    let speed = c.launch[0].hypot(c.launch[1]);
-    if !settings.enabled
-        || !c.launch.iter().all(|v| v.is_finite())
-        || !(0.05..=30.0).contains(&speed)
-        || !c.outward.is_finite()
-        || !settings.survival_speed.is_finite()
-        || !(0.1..=30.0).contains(&settings.survival_speed)
-    {
+    if !usable(settings, c.launch) || !c.outward.is_finite() {
         return None;
     }
+    let speed = c.launch[0].hypot(c.launch[1]);
     let away = if c.outward.abs() > 0.5 {
         c.outward.signum()
     } else {
@@ -411,7 +400,7 @@ impl AutoDi {
         trajectory: Option<Trajectory>,
     ) -> Option<[f32; 2]> {
         let fallback = self.sample_exclusive(settings, c);
-        if !settings.enabled || !c.damage_stop || c.remaining > 3 {
+        if !settings.enabled || !c.damage_stop || c.remaining > LAUNCH_DI_FRAMES {
             return fallback;
         }
         if let Some(trajectory) = trajectory.filter(|t| t.valid()) {
@@ -434,25 +423,18 @@ impl AutoDi {
     ) -> Option<[f32; 2]> {
         if !settings.enabled
             || !c.damage_stop
-            || c.remaining > 120
+            || c.remaining > MAX_DAMAGE_STOP_DI_FRAMES
             || !physical.iter().all(|v| v.is_finite())
         {
             *self = Self::default();
             return None;
         }
-        let new_hit = self
-            .last
-            .is_none_or(|(id, left)| id != c.object || c.remaining > left);
-        if new_hit {
-            self.manual = false;
-            self.key = None;
-            self.decision = None;
-            self.stage_key = None;
-            self.stage_decision = None;
+        if is_new_hit(self.last, c.object, c.remaining) {
+            *self = Self::default();
         }
         // A direction already held when the hit connects is still the player's
         // input. Never require a release/re-flick before handing DI back.
-        self.manual |= physical[0].hypot(physical[1]) >= 0.2;
+        self.manual |= stick_engaged(physical);
         self.last = Some((c.object, c.remaining));
         if self.manual {
             return None;
@@ -465,7 +447,7 @@ impl AutoDi {
         // Earlier hitstop belongs to SDI. Hold through the zero-count native
         // damage-stop release observation too: dropping the stick there can
         // erase DI immediately before native damage-vector correction.
-        if c.remaining <= 3 {
+        if c.remaining <= LAUNCH_DI_FRAMES {
             self.decision.map(|d| d.stick)
         } else {
             None

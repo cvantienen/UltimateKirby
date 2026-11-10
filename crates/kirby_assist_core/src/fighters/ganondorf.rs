@@ -1,6 +1,8 @@
 //! Read-only grounded Flame Choke release and contact timing.
-pub const CATCHED_GANON: i32 = 0xbe;
-pub const CATCHED_AIR_END_GANON: i32 = 0xc1;
+use crate::native_states::status;
+
+pub const CATCHED_GANON: i32 = status::CATCHED_GANON;
+pub const CATCHED_AIR_END_GANON: i32 = status::CATCHED_AIR_END_GANON;
 pub const DEFAULT_GANON_PASSIVE_TRIGGER_FRAME: u16 = 7;
 
 pub(crate) fn guard_lockout_status(status: i32) -> bool {

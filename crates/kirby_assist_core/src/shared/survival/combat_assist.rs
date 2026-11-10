@@ -4,8 +4,7 @@
 // Preserve the original public paths for existing callers.
 pub use crate::kirby::{FairContext, FairFollowup, TripContext, TripFollowup, TripTarget};
 
-const MIN_REMAINING_DI_INPUT_FRAMES: u64 = 3;
-const MAX_DAMAGE_STOP_DI_FRAMES: u64 = 120;
+use super::{is_new_hit, stick_engaged, LAUNCH_DI_FRAMES, MAX_DAMAGE_STOP_DI_FRAMES};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SdiContext {
@@ -34,10 +33,8 @@ impl SdiState {
         geometry: Option<([f32; 2], crate::auto_di::BlastZone)>,
         previous: [f32; 2],
     ) -> Option<[f32; 2]> {
-        let new_hit = self
-            .last
-            .is_none_or(|(id, left)| id != ctx.object || ctx.remaining > left);
-        if new_hit && previous[0].hypot(previous[1]) >= 0.2 {
+        let new_hit = is_new_hit(self.last, ctx.object, ctx.remaining);
+        if new_hit && stick_engaged(previous) {
             self.sample_exclusive(enabled, ctx)?;
             self.last_flick = None;
             self.output = Some([0.; 2]);
@@ -90,7 +87,7 @@ impl SdiState {
         // owns a neutral sample between flicks; those outputs are different.
         if !enabled
             || !ctx.damage_stop
-            || ctx.remaining <= MIN_REMAINING_DI_INPUT_FRAMES
+            || ctx.remaining <= LAUNCH_DI_FRAMES
             || ctx.remaining > MAX_DAMAGE_STOP_DI_FRAMES
             || !ctx.input_delay.is_finite()
             || ctx.remaining as f32
@@ -98,25 +95,17 @@ impl SdiState {
                     .input_delay
                     .clamp(0.0, crate::tech_input::MAX_INPUT_DELAY_FRAMES)
                     .ceil()
+            || !physical.iter().all(|axis| axis.is_finite())
         {
             *self = Self::default();
             return None;
         }
-        let physical = if physical.iter().all(|axis| axis.is_finite()) {
-            [physical[0].clamp(-1.0, 1.0), physical[1].clamp(-1.0, 1.0)]
-        } else {
-            *self = Self::default();
-            return None;
-        };
-        let new_hit = self
-            .last
-            .is_none_or(|(id, remaining)| id != ctx.object || ctx.remaining > remaining);
-        if new_hit {
+        if is_new_hit(self.last, ctx.object, ctx.remaining) {
             self.manual_control = false;
             self.last_flick = None;
             self.output = None;
         }
-        self.manual_control |= physical[0].hypot(physical[1]) >= 0.2;
+        self.manual_control |= stick_engaged(physical);
         let key = (ctx.object, ctx.remaining);
         if !ctx.outward.is_finite() || ctx.outward.abs() <= 0.5 {
             self.last = Some(key);

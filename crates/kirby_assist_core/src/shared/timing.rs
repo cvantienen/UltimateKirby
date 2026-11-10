@@ -4,8 +4,24 @@
 
 pub const NO_MOTION_KIND: u64 = 0;
 pub const MOTION_ATTACK_AIR_F: u64 = 0xc3495ada5;
-pub const MOTION_ATTACK_AIR_LW: u64 = 0xd40042152;
 const HASH40_CRC32_POLYNOMIAL: u32 = 0xedb88320;
+
+/// Hash40 motion identifier: CRC32 in the low word, byte length in the high word.
+pub const fn motion_hash(name: &str) -> u64 {
+    let bytes = name.as_bytes();
+    let mut crc = !0u32;
+    let mut index = 0;
+    while index < bytes.len() {
+        crc ^= bytes[index] as u32;
+        let mut bit = 0;
+        while bit < 8 {
+            crc = (crc >> 1) ^ (HASH40_CRC32_POLYNOMIAL & (0u32.wrapping_sub(crc & 1)));
+            bit += 1;
+        }
+        index += 1;
+    }
+    ((bytes.len() as u64) << 32) | (!crc) as u64
+}
 
 #[inline]
 pub(crate) fn same_motion_event(
@@ -51,8 +67,18 @@ impl MotionStamp {
     /// # Returns
     /// `true` if the frame and rate are finite and the rate is positive, `false` otherwise.
     pub fn valid(self) -> bool {
-        self.frame.is_finite() && self.frame >= 0.0 && self.rate.is_finite() && self.rate > 0.0
+        playback_valid(self.frame, self.rate)
     }
+}
+
+fn playback_valid(frame: f32, rate: f32) -> bool {
+    frame.is_finite() && frame >= 0.0 && rate.is_finite() && rate > 0.0
+}
+
+/// A usable native animation clock: a known motion with a finite, non-negative
+/// frame and a finite, positive rate.
+pub fn clock_known(motion: u64, frame: f32, rate: f32) -> bool {
+    motion != NO_MOTION_KIND && playback_valid(frame, rate)
 }
 
 /// Represents the progress of a motion relative to its previous state.
@@ -134,26 +160,19 @@ pub fn motion_elapsed(
 
 /// For adapters that supply actual simulation-frame numbers, not animation
 /// samples. Never mix this counter with mapper ticks or elapsed milliseconds.
+/// `None` means the counter went backwards.
 pub fn simulation_elapsed(previous: Option<u64>, current: u64) -> Option<u64> {
     previous.map_or(Some(0), |old| current.checked_sub(old))
 }
 
-/// Computes the elapsed simulation frames between two timestamps.
-/// # Parameters
-/// * `first` - The first frame of the active window.
-/// * `last` - The last frame of the active window.
-/// # Returns
-/// An `Option<u64>` representing the number of frames elapsed, or `None` if the subtraction would overflow.
+/// Inclusive range of attack frames, counted from 1, whose hitbox is active.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActiveWindow {
     pub first: u16,
     pub last: u16,
 }
 
-/// Represents a window of active frames during which an action can occur.
-/// # Fields
-/// * `vulnerable_in` - The frame at which the target becomes vulnerable.
-/// * `actionable_in` - The frame at which the target can take an action.
+/// How long a target stays protected and when it can act again, in game frames.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RecoveryWindow {
     /// Some(0) means vulnerable now; None means unknown.
@@ -241,12 +260,7 @@ impl AnimationClock {
     /// # Returns
     /// An `Option<i64>` representing the current tick count if the state has changed, or `None` if the observation is ignored.
     pub fn observe(&mut self, sample: AnimationSample, stopped: bool) -> Option<i64> {
-        if stopped
-            || sample.kind == NO_MOTION_KIND
-            || !sample.frame.is_finite()
-            || sample.frame < 0.0
-            || !sample.auxiliary.is_finite()
-        {
+        if stopped || !clock_known(sample.kind, sample.frame, 1.0) || !sample.auxiliary.is_finite() {
             return None;
         }
         let stamp = |s: AnimationSample| MotionStamp::new(s.status, s.kind, s.frame, 1.0);
@@ -405,14 +419,3 @@ mod tests {
     }
 }
 
-/// Hash40 motion identifier, used by ledge-policy regression fixtures.
-pub fn motion_hash(name: &str) -> u64 {
-    let mut crc = !0u32;
-    for byte in name.bytes() {
-        crc ^= u32::from(byte);
-        for _ in 0..8 {
-            crc = (crc >> 1) ^ (HASH40_CRC32_POLYNOMIAL & (0u32.wrapping_sub(crc & 1)));
-        }
-    }
-    ((name.len() as u64) << 32) | u64::from(!crc)
-}

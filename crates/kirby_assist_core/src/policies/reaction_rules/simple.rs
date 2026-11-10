@@ -1,5 +1,6 @@
 //! One committed response, no vulnerability/priority/crossing decisions.
 use super::*;
+use crate::move_input::{finite_positions, UpBVerdict};
 pub fn event(status: i32) -> Option<usize> {
     match status {
         crate::native_states::ESCAPE_F | crate::native_states::ESCAPE_B => Some(0),
@@ -15,53 +16,9 @@ pub(super) fn starts_up_b(sequence: &Sequence) -> bool {
             |crate::sequence_config::Action::Controller{buttons,stick,..})
             if *buttons==crate::native_input::MAPPER_B && stick[1]>0.5)
 }
-pub(super) fn up_b_status(kind: i32, c: GameplayContext) -> bool {
-    automatic_up_b_status(kind, c.status, c.previous_status)
-}
 impl Engine {
     pub(super) fn observe_simple_events(&mut self, targets: &[Option<Target>; 8]) {
-        let old = self.tracks;
-        self.tracks = std::array::from_fn(|i| {
-            targets
-                .get(i)
-                .copied()
-                .flatten()
-                .filter(|t| {
-                    event(t.status).is_some()
-                        && t.frame.is_finite()
-                        && t.frame >= 0.
-                        && t.rate.is_finite()
-                        && t.rate >= 0.
-                        && t.position.iter().all(|v| v.is_finite())
-                })
-                .map(|t| Track {
-                    id: t.id,
-                    status: t.status,
-                    motion: t.motion,
-                    frame: t.frame,
-                    dx: 0.,
-                    crossed: false,
-                    used: old
-                        .iter()
-                        .flatten()
-                        .any(|previous| previous.continues(&t) && previous.used),
-                })
-        });
-        // Fresh actors take current slots first; retain consumed missing actors
-        // in spare slots until a different status confirms their event ended.
-        for previous in old.into_iter().flatten().filter(|p| p.used) {
-            if self.tracks.iter().flatten().any(|t| t.id == previous.id)
-                || targets
-                    .iter()
-                    .flatten()
-                    .any(|t| t.id == previous.id && t.status != previous.status)
-            {
-                continue;
-            }
-            if let Some(empty) = self.tracks.iter_mut().find(|t| t.is_none()) {
-                *empty = Some(previous);
-            }
-        }
+        self.observe_events(targets, None, |t| event(t.status).is_some());
     }
 
     fn simple_candidate<'a>(
@@ -182,6 +139,14 @@ impl Engine {
     ) -> ControllerOutput {
         self.sample_simple_ready(allowed, rules, settings, c, targets, follow, [c.can_act; 3])
     }
+    /// Drop any tape and treat every remembered event as answered.
+    fn consume_and_cancel(&mut self) -> ControllerOutput {
+        self.cancel();
+        for track in self.tracks.iter_mut().flatten() {
+            track.used = true;
+        }
+        ControllerOutput::default()
+    }
     pub fn sample_simple_ready(
         &mut self,
         allowed: bool,
@@ -194,14 +159,9 @@ impl Engine {
     ) -> ControllerOutput {
         if follow.is_some_and(|enemy| {
             !automatic_target_available(enemy.status)
-                && !(self.plan.is_some()
-                    && crate::reaction_rules::automatic_follow_target_available(enemy.status))
+                && !(self.plan.is_some() && automatic_follow_target_available(enemy.status))
         }) {
-            self.cancel();
-            for track in self.tracks.iter_mut().flatten() {
-                track.used = true;
-            }
-            return ControllerOutput::default();
+            return self.consume_and_cancel();
         }
         if !c.gameplay {
             self.cancel();
@@ -213,189 +173,130 @@ impl Engine {
             self.observe_simple_events(&targets);
         }
         if !allowed {
-            self.cancel();
-            for t in self.tracks.iter_mut().flatten() {
-                t.used = true;
-            }
-            return ControllerOutput::default();
+            return self.consume_and_cancel();
         }
-        // Only a selected/cancelled event is consumed. There is no delayed
-        // response: admission still requires a live event and readiness now.
         if self.plan.is_none() {
-            if let Some((i, sequence)) = self.simple_candidate(rules, c, &targets, readiness) {
-                // Copy the winning tape once, not once for every candidate.
-                let mut sequence = *sequence;
-                let t = targets[i].unwrap();
-                if let Some(track) = self
-                    .tracks
-                    .iter_mut()
-                    .flatten()
-                    .find(|track| track.id == t.id)
-                {
-                    track.used = true;
-                }
-                sequence.while_held = false;
-                // Grounded is an admission condition, not a reason to release
-                // ownership halfway through a special move.
-                self.simple_up_b = starts_up_b(&sequence);
-                self.simple_up_b_seen = false;
-                self.simple_manual_epoch = c.manual_input_epoch;
-                self.simple_delivery = Default::default();
-                self.simple_receipt = Default::default();
-                self.simple_waiting = false;
-                if self.simple_up_b {
-                    sequence.ground_only = false;
-                }
-                let enemy = Opponent {
-                    id: t.id,
-                    status: t.status,
-                    // These three event families have known native situations.
-                    // Keep first-frame conditional checks consistent with the
-                    // subsequent read-only follow sample.
-                    situation: if matches!(
-                        t.status,
-                        crate::native_states::ESCAPE_AIR | crate::native_states::ESCAPE_AIR_SLIDE
-                    ) {
-                        2
-                    } else {
-                        0
-                    },
-                    position: t.position,
-                    velocity: [t.velocity_x, 0.],
-                    motion: Some(crate::gameplay::MotionTiming {
-                        kind: t.motion,
-                        frame: t.frame,
-                        rate: t.rate,
-                        remaining: None,
-                    }),
-                    ..Default::default()
-                };
-                self.target = Some(t.id);
-                let mut plan = InputTimeline::new(sequence, enemy);
-                plan.allow_continuous_progress();
-                plan.guard_automatic_ground_actions();
-                self.plan = Some(plan);
+            if let Some(enemy) = self.admit_simple(rules, c, &targets, readiness) {
                 follow = Some(enemy);
             }
         }
-        if self.simple_up_b && self.plan.is_some() {
-            let native = up_b_status(settings.fighter_kind, c);
-            if crate::up_b_receipt::pending(self.simple_up_b_seen, self.simple_receipt.sent()) {
-                if follow.is_none_or(|e| {
-                    Some(e.id) != self.target
-                        || !e
-                            .position
-                            .iter()
-                            .chain(c.position.iter())
-                            .all(|v| v.is_finite())
-                }) {
-                    self.cancel();
-                    return ControllerOutput::default();
-                }
-                match crate::up_b_receipt::evaluate(
-                    self.simple_up_b_seen,
-                    native,
-                    self.simple_waiting,
-                    false,
-                    c,
-                    &self.simple_receipt,
-                    &self.simple_delivery,
-                ) {
-                    crate::up_b_receipt::ReceiptAction::Confirm => {
-                        if let Some(enemy) = follow.filter(|e| Some(e.id) == self.target) {
-                            self.plan.as_mut().unwrap().confirm_initial_up_b(c, enemy);
-                        }
-                    }
-                    crate::up_b_receipt::ReceiptAction::Cancel => {
-                        self.cancel();
-                        return ControllerOutput::default();
-                    }
-                    crate::up_b_receipt::ReceiptAction::Wait => {
-                        self.simple_waiting = true;
-                        return ControllerOutput::default();
-                    }
-                    crate::up_b_receipt::ReceiptAction::Continue => {}
-                }
-            }
-            self.simple_up_b_seen |= native;
-            // A native roll/jump/wrong special is not successful Up-B delivery.
-            // Confirmed Up-B drift also ends once ordinary control resumes.
-            let wrong = matches!(
-                c.status,
-                crate::native_states::status::JUMP..=crate::native_states::status::FALL_AERIAL
-                    | crate::native_states::ESCAPE
-                        ..=crate::native_states::ESCAPE_AIR_SLIDE
-                    | crate::native_states::CATCH..=crate::native_states::THROW
-                    | crate::native_states::status::SPECIAL_N
-                    | crate::native_states::status::SPECIAL_S
-                    | crate::native_states::status::SPECIAL_LW
-            );
-            let ended = self.simple_up_b_seen
-                && matches!(c.status,crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE|crate::native_states::status::FALL_SPECIAL|crate::native_states::status::LANDING..=crate::native_states::GUARD_DAMAGE);
-            if wrong
-                || ended
-                || self.simple_up_b_seen && !native
-                || !self.simple_up_b_seen
-                    && (!c.can_act
-                        || !automatic_start_allowed(c.status, c.situation, c.stopped, false)
-                        || self.simple_delivery.exhausted())
-            {
-                self.cancel();
-                return ControllerOutput::default();
-            }
+        if self.plan.is_none() {
+            return ControllerOutput::default();
         }
-        if let Some(plan) = self.plan.as_mut() {
-            let enemy = follow.filter(|e| Some(e.id) == self.target);
-            if enemy.is_none() {
+        if self.up_b.armed() && !self.advance_up_b(settings, c, follow) {
+            return ControllerOutput::default();
+        }
+        let enemy = follow.filter(|e| Some(e.id) == self.target);
+        let Some(plan) = self.plan.as_mut().filter(|_| enemy.is_some()) else {
+            self.cancel();
+            return ControllerOutput::default();
+        };
+        let manual_drift = self.up_b.manual_handback(c);
+        if manual_drift && plan.drifting() {
+            self.cancel();
+            return ControllerOutput::default();
+        }
+        c.held = true;
+        // Admission required immediate native Up-B readiness. Never reserve
+        // or neutralize controls waiting for our own dodge/shield recovery.
+        let sampled = plan.sample(settings, c, enemy, None, 0.);
+        let output =
+            crate::out_of_shield::direct_shield_input(c.status, sampled, plan.right_stick());
+        // Other fighters keep manual handback on the first drift observation.
+        // Bowser retains the entire tail; never cut the critical B pulse.
+        match self
+            .up_b
+            .after_sample(manual_drift && plan.drifting(), output.requested)
+        {
+            UpBVerdict::Wait => return ControllerOutput::default(),
+            UpBVerdict::Cancel => {
                 self.cancel();
                 return ControllerOutput::default();
             }
-            let manual_drift = crate::up_b_receipt::manual_handback(
-                self.simple_up_b,
-                self.simple_up_b_seen,
-                c,
-                self.simple_manual_epoch,
-            );
-            if manual_drift && plan.drifting() {
-                self.cancel();
-                return ControllerOutput::default();
-            }
-            c.held = true;
-            // Admission required immediate native Up-B readiness. Never reserve
-            // or neutralize controls waiting for our own dodge/shield recovery.
-            let output = crate::out_of_shield::direct_shield_input(
-                c.status,
-                plan.sample(settings, c, enemy, None, 0.),
-                plan.right_stick(),
-            );
-            // Other fighters keep manual handback on the first drift observation.
-            // Bowser retains the entire tail; never cut the critical B pulse.
-            if manual_drift && plan.drifting() {
-                self.cancel();
-                return ControllerOutput::default();
-            }
-            // Never drift before native startup. A delivered Bowser packet may
-            // keep only a bounded, input-free receipt; no B is retried.
-            if self.simple_up_b
-                && !self.simple_up_b_seen
-                && output.requested & crate::native_input::MAPPER_B == 0
-            {
-                if crate::up_b_receipt::pending(self.simple_up_b_seen, self.simple_receipt.sent()) {
-                    self.simple_waiting = true;
-                    return ControllerOutput::default();
-                }
-                self.cancel();
-                return ControllerOutput::default();
-            }
-            if plan.finished() {
-                self.simple_up_b = false;
-                self.simple_up_b_seen = false;
-                self.plan = None;
-                self.target = None;
-            }
-            output
+            UpBVerdict::Continue | UpBVerdict::Confirm => {}
+        }
+        if plan.finished() {
+            self.up_b.disarm();
+            self.plan = None;
+            self.target = None;
+        }
+        output
+    }
+    /// Commit the nearest ready, unconsumed event. Only a selected event is
+    /// consumed; there is no delayed response, so admission still requires a
+    /// live event and readiness now.
+    fn admit_simple(
+        &mut self,
+        rules: &Resolved,
+        c: GameplayContext,
+        targets: &[Option<Target>; 8],
+        readiness: [bool; 3],
+    ) -> Option<Opponent> {
+        let (i, sequence) = self.simple_candidate(rules, c, targets, readiness)?;
+        // Copy the winning tape once, not once for every candidate.
+        let mut sequence = *sequence;
+        let t = targets[i].unwrap();
+        if let Some(track) = self
+            .tracks
+            .iter_mut()
+            .flatten()
+            .find(|track| track.id == t.id)
+        {
+            track.used = true;
+        }
+        sequence.while_held = false;
+        // Grounded is an admission condition, not a reason to release
+        // ownership halfway through a special move.
+        if starts_up_b(&sequence) {
+            sequence.ground_only = false;
+            self.up_b.arm(c, false);
         } else {
-            ControllerOutput::default()
+            self.up_b.disarm();
+        }
+        // These three event families have known native situations. Keep
+        // first-frame conditional checks consistent with the subsequent
+        // read-only follow sample.
+        let situation = if matches!(
+            t.status,
+            crate::native_states::ESCAPE_AIR | crate::native_states::ESCAPE_AIR_SLIDE
+        ) {
+            crate::native_states::situation::AIR
+        } else {
+            crate::native_states::situation::GROUND
+        };
+        let enemy = t.opponent(situation, None);
+        self.target = Some(t.id);
+        self.plan = Some(automatic_plan(sequence, enemy));
+        Some(enemy)
+    }
+    /// Native confirmation and lifecycle of an automatic direct Up-B; false
+    /// when this sample must emit nothing.
+    fn advance_up_b(
+        &mut self,
+        settings: AssistSettings,
+        c: GameplayContext,
+        follow: Option<Opponent>,
+    ) -> bool {
+        let tracked = follow.filter(|e| Some(e.id) == self.target);
+        if self.up_b.receipt_pending()
+            && !tracked.is_some_and(|e| finite_positions(e.position, c.position))
+        {
+            self.cancel();
+            return false;
+        }
+        match self.up_b.advance(c, settings.fighter_kind) {
+            UpBVerdict::Cancel => {
+                self.cancel();
+                false
+            }
+            UpBVerdict::Wait => false,
+            UpBVerdict::Confirm => {
+                if let (Some(plan), Some(enemy)) = (self.plan.as_mut(), tracked) {
+                    plan.confirm_initial_up_b(c, enemy);
+                }
+                true
+            }
+            UpBVerdict::Continue => true,
         }
     }
 }

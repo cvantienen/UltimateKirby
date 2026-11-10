@@ -17,8 +17,55 @@ pub use scope::{
     automatic_start_status, automatic_target_available, automatic_up_b_receipt_status,
     automatic_up_b_status, AutomaticObservationScope,
 };
-pub(crate) fn native_up_b_started(kind: i32, c: GameplayContext) -> bool {
-    simple::up_b_status(kind, c)
+/// An automatic reaction tape: delivered holds survive observation gaps and a
+/// pending Grab/Up-B is rejected after manual takeoff.
+pub(crate) fn automatic_plan(sequence: Sequence, enemy: Opponent) -> InputTimeline {
+    let mut plan = InputTimeline::new(sequence, enemy);
+    plan.allow_continuous_progress();
+    plan.guard_automatic_ground_actions();
+    plan
+}
+/// Per-actor memory of a native event that may already have been answered.
+pub(crate) trait Tracked: Copy {
+    fn id(&self) -> u32;
+    fn status(&self) -> i32;
+}
+/// Positive status evidence that an actor left its remembered event.
+pub(crate) fn forget_ended<T: Tracked, const N: usize>(
+    tracks: &mut [Option<T>],
+    known: &[Option<(u32, i32)>; N],
+) {
+    for track in tracks {
+        if track.is_some_and(|t| {
+            known
+                .iter()
+                .flatten()
+                .any(|(id, status)| *id == t.id() && *status != t.status())
+        }) {
+            *track = None;
+        }
+    }
+}
+/// Missing samples are not evidence of a new event: keep selected memories of
+/// actors absent from this poll in spare slots until a different status is seen.
+pub(crate) fn retain_missing<T: Tracked>(
+    tracks: &mut [Option<T>],
+    old: impl IntoIterator<Item = T>,
+    observed: impl Iterator<Item = (u32, i32)> + Clone,
+    keep: impl Fn(&T) -> bool,
+) {
+    for previous in old.into_iter().filter(|p| keep(p)) {
+        if tracks.iter().flatten().any(|t| t.id() == previous.id())
+            || observed
+                .clone()
+                .any(|(id, status)| id == previous.id() && status != previous.status())
+        {
+            continue;
+        }
+        if let Some(empty) = tracks.iter_mut().find(|t| t.is_none()) {
+            *empty = Some(previous);
+        }
+    }
 }
 pub const MAX_RULES_PER_MODE: usize = 8;
 pub const MAX_RULES: usize = MAX_RULES_PER_MODE * 7;
@@ -401,6 +448,28 @@ impl Rule {
     pub fn active(self) -> bool {
         self.trigger != Trigger::Off
     }
+    /// The first failing self-state/range/height/side gate for a target at
+    /// `target`, in the order shown as feedback. Non-finite geometry never fits.
+    pub(crate) fn rejects(self, c: GameplayContext, target: [f32; 2]) -> Option<Feedback> {
+        if !self.state.matches(c) {
+            return Some(Feedback::State);
+        }
+        let dx = target[0] - c.position[0];
+        let dy = target[1] - c.position[1];
+        if !dx.is_finite() || dx.abs() < self.min || dx.abs() > self.max {
+            return Some(Feedback::Range);
+        }
+        if !dy.is_finite() || dy.abs() > self.height {
+            return Some(Feedback::Height);
+        }
+        let in_front = dx * c.facing;
+        if matches!(self.side, Side::Front) && in_front <= 0.001
+            || matches!(self.side, Side::Behind) && in_front >= -0.001
+        {
+            return Some(Feedback::Side);
+        }
+        None
+    }
     pub fn field(self, n: u8) -> String {
         match n {
             0 => format!(
@@ -617,14 +686,9 @@ pub struct Candidate {
 pub struct Resolved {
     pub rules: Vec<Option<Candidate>>,
     pub len: usize,
-    pub needs_ground: bool,
-    pub ground_distance: f32,
-    pub ground_height: f32,
     pub controls: u8,
     pub enabled_controls: u8,
     defense_mask: u32,
-    defense_needs_ground: bool,
-    defense_watch: [Option<(f32, f32)>; 7],
     simple: Option<Box<[Option<Sequence>; 7]>>,
     simple_starts: [Option<SimpleStart>; 3],
     automatic_ground: [Option<(f32, f32)>; 7],
@@ -635,14 +699,9 @@ impl Default for Resolved {
         Self {
             rules: Vec::new(),
             len: 0,
-            needs_ground: false,
-            ground_distance: 0.,
-            ground_height: 0.,
             controls: 0,
             enabled_controls: Control::Menu.bit(),
             defense_mask: 0,
-            defense_needs_ground: false,
-            defense_watch: [None; 7],
             simple: None,
             simple_starts: [None; 3],
             automatic_ground: [None; 7],
@@ -657,9 +716,6 @@ impl Resolved {
             .and_then(|s| s.get(index))
             .and_then(Option::as_ref)
     }
-    pub fn has_simple(&self) -> bool {
-        self.simple.is_some()
-    }
     pub fn has_simple_events(&self) -> bool {
         (0..3).any(|i| self.simple_sequence(i).is_some())
     }
@@ -672,45 +728,8 @@ impl Resolved {
         };
         self.defense_mask & ((1 << trigger as u8) | alias) != 0
     }
-    pub fn defense_ground(&self) -> bool {
-        self.defense_needs_ground
-    }
-    pub fn defense_watch(&self, trigger: Trigger) -> Option<(f32, f32)> {
-        self.defense_watch[trigger.family()]
-    }
     pub fn set_enabled_controls(&mut self, controls: u8) {
-        if self.enabled_controls != controls {
-            self.enabled_controls = controls;
-            self.rebuild_ground_watch();
-        }
-    }
-    fn rebuild_ground_watch(&mut self) {
-        self.needs_ground = false;
-        self.ground_distance = 0.;
-        self.ground_height = 0.;
-        for c in self.rules.iter().flatten() {
-            if c.sequence.reaction.trigger.defensive()
-                || self.enabled_controls & c.sequence.reaction.control.bit() == 0
-            {
-                continue;
-            }
-            if c.sequence.actions().iter().any(|a| {
-                matches!(
-                    a,
-                    Action::Chase { .. }
-                        | Action::Walk { .. }
-                        | Action::Run { .. }
-                        | Action::Approach {
-                            airborne: false,
-                            ..
-                        }
-                )
-            }) {
-                self.needs_ground = true;
-                self.ground_distance = self.ground_distance.max(c.sequence.reaction.max);
-                self.ground_height = self.ground_height.max(c.sequence.reaction.height);
-            }
-        }
+        self.enabled_controls = controls;
     }
     pub fn add(&mut self, c: Candidate) -> Result<(), String> {
         if !c.sequence.reaction.active() {
@@ -739,14 +758,15 @@ impl Resolved {
                 );
             }
             simple[index] = Some(c.sequence);
-            if starts_direct_up_b(&c.sequence) {
+            let up_special = starts_direct_up_b(&c.sequence);
+            if up_special {
                 self.automatic_up_special |= 1 << index;
             }
             if index < 3 {
                 self.simple_starts[index] = Some(SimpleStart {
                     distance: c.sequence.reaction.max,
                     height: c.sequence.reaction.height,
-                    up_special: starts_direct_up_b(&c.sequence),
+                    up_special,
                 });
             }
             if automatic_watch::needs_ground(&c.sequence) {
@@ -759,30 +779,11 @@ impl Resolved {
             .map_err(|_| "Not enough memory for assist rules")?;
         if c.sequence.reaction.trigger.defensive() {
             self.defense_mask |= 1 << c.sequence.reaction.trigger as u8;
-            let walking = c.sequence.actions().iter().any(|a| {
-                matches!(
-                    a,
-                    Action::Walk { .. }
-                        | Action::Run { .. }
-                        | Action::Approach {
-                            airborne: false,
-                            ..
-                        }
-                )
-            });
-            self.defense_needs_ground |= walking;
-            if walking {
-                let r = c.sequence.reaction;
-                let old = self.defense_watch[r.trigger.family()].unwrap_or((0., 0.));
-                self.defense_watch[r.trigger.family()] =
-                    Some((old.0.max(r.max), old.1.max(r.height)));
-            }
         } else {
             self.controls |= c.sequence.reaction.control.bit();
         }
         self.rules.push(Some(c));
         self.len += 1;
-        self.rebuild_ground_watch();
         self.rules[..self.len].sort_by_key(|x| x.unwrap().sequence.reaction.priority);
         Ok(())
     }
@@ -837,6 +838,14 @@ impl Track {
         )
     }
 }
+impl Tracked for Track {
+    fn id(&self) -> u32 {
+        self.id
+    }
+    fn status(&self) -> i32 {
+        self.status
+    }
+}
 #[derive(Default)]
 pub struct Engine {
     tracks: [Option<Track>; crate::battle_objects::FIGHTER_CAPACITY],
@@ -845,25 +854,11 @@ pub struct Engine {
     pub feedback: Feedback,
     pub last_priority: Option<u8>,
     active_control: Option<Control>,
-    simple_up_b: bool,
-    simple_up_b_seen: bool,
-    simple_manual_epoch: u64,
-    simple_delivery: crate::move_input::DeliveryBudget,
-    simple_receipt: crate::move_input::UpBReceipt,
-    simple_waiting: bool,
+    up_b: crate::move_input::UpBFlow,
 }
 impl Engine {
     pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
-        for track in &mut self.tracks {
-            if track.is_some_and(|t| {
-                known
-                    .iter()
-                    .flatten()
-                    .any(|(id, status)| *id == t.id && *status != t.status)
-            }) {
-                *track = None;
-            }
-        }
+        forget_ended(&mut self.tracks, known);
     }
     pub fn target(&self) -> Option<u32> {
         self.target
@@ -872,32 +867,30 @@ impl Engine {
         self.plan.is_some()
     }
     pub fn direct_up_b(&self) -> bool {
-        self.simple_up_b && self.plan.is_some()
+        self.up_b.armed() && self.plan.is_some()
     }
     pub fn up_b_delivery_started(&self) -> bool {
-        self.direct_up_b() && (self.simple_up_b_seen || self.simple_receipt.sent())
+        self.direct_up_b() && self.up_b.started()
     }
     pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
-        if self.direct_up_b() && !self.simple_up_b_seen && self.target == Some(target) {
-            self.simple_delivery.mapped(tick);
+        if self.direct_up_b() && self.target == Some(target) {
+            self.up_b.attempted(tick);
         }
     }
     pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
-        if self.direct_up_b() && !self.simple_up_b_seen && self.target == Some(target) {
-            self.simple_delivery.mapped(tick);
-            self.simple_receipt.mapped(tick);
+        if self.direct_up_b() && self.target == Some(target) {
+            self.up_b.mapped(tick);
         }
     }
-
     pub fn up_b_receipt_pending(&self) -> bool {
-        self.direct_up_b() && !self.simple_up_b_seen && self.simple_receipt.sent()
+        self.direct_up_b() && self.up_b.receipt_pending()
     }
     pub fn awaiting_up_b(&self) -> bool {
-        self.up_b_receipt_pending() && self.simple_waiting
+        self.direct_up_b() && self.up_b.awaiting()
     }
     pub fn delivery_tick(&mut self, tick: i64) {
-        if self.up_b_receipt_pending() {
-            self.simple_receipt.tick(tick);
+        if self.direct_up_b() {
+            self.up_b.tick(tick);
         }
     }
     pub fn needs_ground(&self) -> bool {
@@ -916,13 +909,50 @@ impl Engine {
         self.plan = None;
         self.target = None;
         self.active_control = None;
-        self.simple_up_b = false;
-        self.simple_up_b_seen = false;
-        self.simple_manual_epoch = 0;
-        self.simple_delivery = Default::default();
-        self.simple_receipt = Default::default();
-        self.simple_waiting = false;
+        self.up_b.disarm();
         self.feedback = Feedback::Cancelled;
+    }
+    /// Rebuild the per-slot event memory from this poll. A consumed event whose
+    /// actor is missing stays consumed until a different status is observed.
+    /// `origin_x` additionally follows each target's side and roll crossing.
+    fn observe_events(
+        &mut self,
+        targets: &[Option<Target>; 8],
+        origin_x: Option<f32>,
+        tracked: impl Fn(&Target) -> bool,
+    ) {
+        let old = self.tracks;
+        self.tracks = std::array::from_fn(|i| {
+            let t = targets.get(i).copied().flatten().filter(|t| {
+                tracked(t)
+                    && t.frame.is_finite()
+                    && t.frame >= 0.
+                    && t.rate.is_finite()
+                    && t.rate >= 0.
+                    && t.position.iter().all(|v| v.is_finite())
+            })?;
+            let prev = old.iter().flatten().find(|p| p.continues(&t));
+            let dx = origin_x.map_or(0., |x| t.position[0] - x);
+            Some(Track {
+                id: t.id,
+                status: t.status,
+                motion: t.motion,
+                frame: t.frame,
+                dx: if dx.abs() > 0.001 {
+                    dx
+                } else {
+                    prev.map_or(dx, |p| p.dx)
+                },
+                crossed: origin_x.is_some() && prev.is_some_and(|p| p.crossed || p.dx * dx < 0.),
+                used: prev.is_some_and(|p| p.used),
+            })
+        });
+        retain_missing(
+            &mut self.tracks,
+            old.into_iter().flatten(),
+            targets.iter().flatten().map(|t| (t.id, t.status)),
+            |p| p.used,
+        );
     }
     pub fn sample(
         &mut self,
@@ -933,35 +963,9 @@ impl Engine {
         targets: [Option<Target>; 8],
         mut follow: Option<Opponent>,
     ) -> ControllerOutput {
-        let old = self.tracks;
-        for (i, t) in targets.iter().enumerate() {
-            self.tracks[i] = t
-                .filter(|t| {
-                    matches!(t.status, ESCAPE_F | ESCAPE_B)
-                        && t.frame.is_finite()
-                        && t.frame >= 0.
-                        && t.rate.is_finite()
-                        && t.rate > 0.
-                        && t.position.iter().all(|v| v.is_finite())
-                })
-                .map(|t| {
-                    let dx = t.position[0] - c.position[0];
-                    let prev = old.iter().flatten().find(|p| p.continues(&t));
-                    Track {
-                        id: t.id,
-                        status: t.status,
-                        motion: t.motion,
-                        frame: t.frame,
-                        dx: if dx.abs() > 0.001 {
-                            dx
-                        } else {
-                            prev.map_or(dx, |p| p.dx)
-                        },
-                        crossed: prev.is_some_and(|p| p.crossed || p.dx * dx < 0.),
-                        used: prev.is_some_and(|p| p.used),
-                    }
-                });
-        }
+        self.observe_events(&targets, Some(c.position[0]), |t| {
+            matches!(t.status, ESCAPE_F | ESCAPE_B) && t.rate > 0.
+        });
         if !allowed
             || self
                 .active_control
@@ -975,98 +979,75 @@ impl Engine {
             return ControllerOutput::default();
         }
         if self.plan.is_none() && !c.stopped {
-            self.feedback = Feedback::Watching;
-            'rules: for candidate in rules.rules.iter().flatten() {
-                let r = candidate.sequence.reaction;
-                if r.trigger.defensive() || rules.enabled_controls & r.control.bit() == 0 {
-                    continue;
-                }
-                for (i, t) in targets.iter().enumerate() {
-                    let (Some(t), Some(track)) = (t, self.tracks[i]) else {
-                        continue;
-                    };
-                    if track.used {
-                        continue;
-                    }
-                    if !r.state.matches(c) {
-                        self.feedback = Feedback::State;
-                        continue;
-                    }
-                    let d = (t.position[0] - c.position[0]).abs();
-                    if d < r.min || d > r.max {
-                        self.feedback = Feedback::Range;
-                        continue;
-                    }
-                    if (t.position[1] - c.position[1]).abs() > r.height {
-                        self.feedback = Feedback::Height;
-                        continue;
-                    }
-                    let side = (t.position[0] - c.position[0]) * c.facing;
-                    if matches!(r.side, Side::Front) && side <= 0.001
-                        || matches!(r.side, Side::Behind) && side >= -0.001
-                    {
-                        self.feedback = Feedback::Side;
-                        continue;
-                    }
-                    if matches!(r.trigger, Trigger::Crossed | Trigger::CrossVulnerable)
-                        && !track.crossed
-                    {
-                        self.feedback = Feedback::Crossing;
-                        continue;
-                    }
-                    if matches!(r.trigger, Trigger::Vulnerable | Trigger::CrossVulnerable)
-                        && !t.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.)
-                    {
-                        self.feedback = Feedback::Invulnerable;
-                        continue;
-                    }
-                    let enemy = Opponent {
-                        id: t.id,
-                        status: t.status,
-                        situation: crate::native_states::situation::GROUND,
-                        position: t.position,
-                        velocity: [t.velocity_x, 0.],
-                        motion: Some(crate::gameplay::MotionTiming {
-                            kind: t.motion,
-                            frame: t.frame,
-                            rate: t.rate,
-                            remaining: t.actionable_in,
-                        }),
-                        vulnerable_in: t.vulnerable_in,
-                        ..Opponent::default()
-                    };
-                    let mut seq = candidate.sequence;
-                    seq.while_held = false;
-                    if follow.is_none() {
-                        follow = Some(enemy);
-                    }
-                    self.plan = Some(InputTimeline::new(seq, enemy));
-                    self.target = Some(t.id);
-                    self.tracks[i].as_mut().unwrap().used = true;
-                    self.feedback = Feedback::Matched(r.priority);
-                    self.last_priority = Some(r.priority);
-                    self.active_control = Some(r.control);
-                    break 'rules;
-                }
-            }
+            self.start_matching_roll(rules, c, &targets, &mut follow);
         }
         c.held = true;
-        if let Some(plan) = self.plan.as_mut() {
-            if !plan.inputs_only() && follow.filter(|e| Some(e.id) == self.target).is_none() {
-                self.cancel();
-                self.feedback = Feedback::MissingTarget;
-                return ControllerOutput::default();
+        let Some(plan) = self.plan.as_mut() else {
+            return ControllerOutput::default();
+        };
+        if !plan.inputs_only() && follow.filter(|e| Some(e.id) == self.target).is_none() {
+            self.cancel();
+            self.feedback = Feedback::MissingTarget;
+            return ControllerOutput::default();
+        }
+        let out = plan.sample(settings, c, follow, None, 0.);
+        if plan.finished() {
+            self.plan = None;
+            self.target = None;
+            self.active_control = None;
+            self.feedback = Feedback::Finished
+        }
+        out
+    }
+    /// Commit the first priority-ordered rule that matches an unconsumed roll.
+    fn start_matching_roll(
+        &mut self,
+        rules: &Resolved,
+        c: GameplayContext,
+        targets: &[Option<Target>; 8],
+        follow: &mut Option<Opponent>,
+    ) {
+        self.feedback = Feedback::Watching;
+        for candidate in rules.rules.iter().flatten() {
+            let r = candidate.sequence.reaction;
+            if r.trigger.defensive() || rules.enabled_controls & r.control.bit() == 0 {
+                continue;
             }
-            let out = plan.sample(settings, c, follow, None, 0.);
-            if plan.finished() {
-                self.plan = None;
-                self.target = None;
-                self.active_control = None;
-                self.feedback = Feedback::Finished
+            for (i, t) in targets.iter().enumerate() {
+                let (Some(t), Some(track)) = (t, self.tracks[i]) else {
+                    continue;
+                };
+                if track.used {
+                    continue;
+                }
+                if let Some(rejected) = r.rejects(c, t.position) {
+                    self.feedback = rejected;
+                    continue;
+                }
+                if matches!(r.trigger, Trigger::Crossed | Trigger::CrossVulnerable)
+                    && !track.crossed
+                {
+                    self.feedback = Feedback::Crossing;
+                    continue;
+                }
+                if matches!(r.trigger, Trigger::Vulnerable | Trigger::CrossVulnerable)
+                    && !t.vulnerable_now()
+                {
+                    self.feedback = Feedback::Invulnerable;
+                    continue;
+                }
+                let enemy = t.opponent(crate::native_states::situation::GROUND, t.actionable_in);
+                let mut seq = candidate.sequence;
+                seq.while_held = false;
+                follow.get_or_insert(enemy);
+                self.plan = Some(InputTimeline::new(seq, enemy));
+                self.target = Some(t.id);
+                self.tracks[i].as_mut().unwrap().used = true;
+                self.feedback = Feedback::Matched(r.priority);
+                self.last_priority = Some(r.priority);
+                self.active_control = Some(r.control);
+                return;
             }
-            out
-        } else {
-            ControllerOutput::default()
         }
     }
 }
@@ -1529,32 +1510,5 @@ mod activation_tests {
             0
         );
         assert!(!e.committed());
-    }
-}
-
-#[cfg(test)]
-mod activation_ground_watch_test {
-    use super::*;
-    #[test]
-    fn disabled_movement_groups_do_not_enable_ground_watch() {
-        let parsed=crate::sequence_config::Catalog::parse("[yoshi.roll.attack]\nstart_delay=0\nreaction=roll:any:0:12:10:any:1\nactions=jab:4\n[yoshi.roll.move]\nstart_delay=0\nreaction=roll:any:0:40:5:any:2:toggle_x\nactions=walk:opponent:4:50%\n").unwrap();
-        let mut resolved = Resolved::default();
-        for (index, e) in parsed.entries().iter().enumerate() {
-            resolved
-                .add(Candidate {
-                    slot: 2,
-                    index,
-                    sequence: e.sequence,
-                })
-                .unwrap();
-        }
-        assert!(!resolved.needs_ground);
-        resolved.set_enabled_controls(Control::ToggleX.bit());
-        assert!(resolved.needs_ground);
-        assert_eq!(resolved.ground_distance, 40.);
-        resolved.set_enabled_controls(Control::Menu.bit());
-        assert!(!resolved.needs_ground);
-        resolved.set_enabled_controls(0);
-        assert!(!resolved.needs_ground);
     }
 }

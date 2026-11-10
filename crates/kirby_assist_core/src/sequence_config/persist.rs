@@ -1,40 +1,15 @@
 //! Explicit-save serialization and surgical catalog edits; never called by execution.
 use super::*;
 
-fn direction(d: Direction) -> &'static str {
-    match d {
-        Direction::Opponent => "opponent",
-        Direction::AwayFromOpponent => "away_from_opponent",
-        Direction::Ledge => "ledge",
-        Direction::Inward => "inward",
-        Direction::Outward => "outward",
-        Direction::Facing => "facing",
-        Direction::Backward => "backward",
-        Direction::SavedLedge => "saved_ledge",
-        Direction::AwayFromLedge => "away_from_ledge",
-    }
-}
-
-const INPUT_BUTTONS: [(u32, &str); 8] = [
-    (crate::native_input::MAPPER_A, "a"),
-    (crate::native_input::MAPPER_B, "b"),
-    (crate::native_input::MAPPER_X, "x"),
-    (crate::native_input::MAPPER_Y, "y"),
-    (crate::native_input::MAPPER_L, "l"),
-    (crate::native_input::MAPPER_R, "r"),
-    (crate::native_input::MAPPER_ZL, "zl"),
-    (crate::native_input::MAPPER_ZR, "zr"),
-];
-
 fn button_names(buttons: u32) -> Result<String, String> {
-    let known = INPUT_BUTTONS
+    let known = BUTTON_TOKENS
         .iter()
         .fold(0, |mask, (button, _)| mask | button);
     if buttons & !known != 0 {
         return Err("This input contains unsupported button bits".into());
     }
 
-    let names = INPUT_BUTTONS
+    let names = BUTTON_TOKENS
         .iter()
         .filter(|(button, _)| buttons & button != 0)
         .map(|(_, name)| *name)
@@ -47,23 +22,41 @@ fn button_names(buttons: u32) -> Result<String, String> {
     })
 }
 
+/// Text of `buttons`/`stick` chords that hold for `frames`; zero frames means
+/// "until the player takes over", which needs at least one button.
+fn input_action(
+    buttons: u32,
+    stick: [f32; 2],
+    frames: u8,
+    relative: bool,
+) -> Result<String, String> {
+    let names = button_names(buttons)?;
+    if frames > 0 {
+        let name = if relative { "facing_input" } else { "input" };
+        return Ok(format!("{name}:{names}:{}:{}:{frames}", stick[0], stick[1]));
+    }
+    if buttons == 0 {
+        return Err("Until-manual hold requires a button".into());
+    }
+    let name = if relative {
+        "facing_hold_until_manual"
+    } else {
+        "hold_until_manual"
+    };
+    Ok(format!("{name}:{names}:{}:{}", stick[0], stick[1]))
+}
+
 fn action(a: Action) -> Result<String, String> {
     Ok(match a {
+        Action::Empty => return Err("Remove empty execution steps before saving".into()),
         Action::IfFacingLedge { away } => {
-            if away {
-                "if_back_to_ledge".into()
-            } else {
-                "if_facing_ledge".into()
-            }
+            (if away { "if_back_to_ledge" } else { "if_facing_ledge" }).into()
         }
         Action::IfFacingOpponent { away } => {
-            if away {
-                "if_back_to_opponent".into()
-            } else {
-                "if_facing_opponent".into()
-            }
+            (if away { "if_back_to_opponent" } else { "if_facing_opponent" }).into()
         }
         Action::ElseFacing => "else_facing".into(),
+        Action::EndFacing => "end_facing".into(),
         Action::LedgePosition {
             offset,
             strength,
@@ -71,19 +64,16 @@ fn action(a: Action) -> Result<String, String> {
             brake,
             frames,
         } => format!("run_to_ledge:{offset}:{strength}:{tolerance}:{brake}:{frames}"),
-        Action::EndFacing => "end_facing".into(),
-        Action::Empty => return Err("Remove empty execution steps before saving".into()),
         Action::Check {
             condition,
             value,
             wait,
-        } => {
-            if condition.has_distance() {
-                format!("check:{}:{value}:{wait}", condition.token())
-            } else {
-                format!("check:{}:{wait}", condition.token())
-            }
+        } if condition.has_distance() => {
+            format!("check:{}:{value}:{wait}", condition.token())
         }
+        Action::Check {
+            condition, wait, ..
+        } => format!("check:{}:{wait}", condition.token()),
         Action::Controller {
             buttons,
             stick,
@@ -95,9 +85,9 @@ fn action(a: Action) -> Result<String, String> {
             if frames == 0 {
                 return Err("Controller input requires a positive hold duration".into());
             }
-            let names = button_names(buttons)?;
             format!(
-                "controller_input:{names}:{}:{}:{}:{}:{frames}:{}:{}",
+                "controller_input:{}:{}:{}:{}:{}:{frames}:{}:{}",
+                button_names(buttons)?,
                 stick[0],
                 stick[1],
                 cstick[0],
@@ -114,41 +104,19 @@ fn action(a: Action) -> Result<String, String> {
             if frames == 0 {
                 return Err("Opponent-relative input requires a positive duration".into());
             }
-            let names = button_names(buttons)?;
-            format!("opponent_input:{names}:{}:{}:{frames}", stick[0], stick[1])
+            format!(
+                "opponent_input:{}:{}:{}:{frames}",
+                button_names(buttons)?,
+                stick[0],
+                stick[1]
+            )
         }
         Action::Input {
             buttons,
             stick,
             frames,
             relative,
-        } => {
-            let names = button_names(buttons)?;
-            if frames == 0 {
-                if buttons == 0 {
-                    return Err("Until-manual hold requires a button".into());
-                }
-                return Ok(format!(
-                    "{}:{}:{}:{}",
-                    if relative {
-                        "facing_hold_until_manual"
-                    } else {
-                        "hold_until_manual"
-                    },
-                    names,
-                    stick[0],
-                    stick[1]
-                ));
-            }
-            format!(
-                "{}:{}:{}:{}:{}",
-                if relative { "facing_input" } else { "input" },
-                names,
-                stick[0],
-                stick[1],
-                frames
-            )
-        }
+        } => input_action(buttons, stick, frames, relative)?,
         Action::Tap {
             buttons,
             stick,
@@ -167,7 +135,7 @@ fn action(a: Action) -> Result<String, String> {
         }
         Action::CStick { stick, frames } => format!("cstick:{}:{}:{frames}", stick[0], stick[1]),
         Action::Wait(n) => format!("wait:{n}"),
-        Action::Face(d) => format!("face:{}", direction(d)),
+        Action::Face(d) => format!("face:{}", d.token()),
         Action::Chase {
             gap,
             strength,
@@ -178,44 +146,36 @@ fn action(a: Action) -> Result<String, String> {
             strength,
             frames,
             gap,
-        } => format!(
-            "{}:{strength}:{frames}:{gap}",
-            if airborne {
+        } => {
+            let name = if airborne {
                 "drift_to_opponent"
             } else {
                 "walk_to_opponent"
-            }
-        ),
+            };
+            format!("{name}:{strength}:{frames}:{gap}")
+        }
         Action::Walk {
-            direction: d,
+            direction,
             units,
             strength,
             min_gap,
         } => {
-            let mut s = format!("walk:{}:{units}:{strength}", direction(d));
+            let mut text = format!("walk:{}:{units}:{strength}", direction.token());
             if let Some(gap) = min_gap {
-                s.push_str(&format!(":{gap}"));
+                text.push_str(&format!(":{gap}"));
             }
-            s
+            text
         }
-        Action::Run {
-            direction: d,
-            units,
-        } => format!("run:{}:{units}", direction(d)),
+        Action::Run { direction, units } => format!("run:{}:{units}", direction.token()),
         Action::Drift {
-            direction: d,
+            direction,
             strength,
             frames,
-        } => format!("drift:{}:{strength}:{frames}", direction(d)),
-        Action::Range(r) => format!(
-            "range:{}",
-            match r {
-                RangeCheck::Ignore => "ignore".into(),
-                RangeCheck::FighterGrabRange => "fighter_range".into(),
-                RangeCheck::FighterGrabRangeInstant => "fighter_range_instant".into(),
-                RangeCheck::Verify(v) => v.to_string(),
-            }
-        ),
+        } => format!("drift:{}:{strength}:{frames}", direction.token()),
+        Action::Range(RangeCheck::Ignore) => "range:ignore".into(),
+        Action::Range(RangeCheck::FighterGrabRange) => "range:fighter_range".into(),
+        Action::Range(RangeCheck::FighterGrabRangeInstant) => "range:fighter_range_instant".into(),
+        Action::Range(RangeCheck::Verify(distance)) => format!("range:{distance}"),
         Action::ShieldUntilManual => "shield_until_manual".into(),
         Action::ShieldUntilBlock(n) => format!("shield_until_block:{n}"),
     })
@@ -765,6 +725,187 @@ mod tests {
         let mut bad = s;
         bad.start_delay = 3601;
         assert!(update(SOURCE, 5, PresetSlot::Roll, "grab", bad, false).is_err());
+    }
+
+    /// Exhaustive on purpose: adding an `Action` variant breaks this match until
+    /// the writer/reader round-trip below also covers it.
+    fn variant_index(action: &Action) -> usize {
+        match action {
+            Action::Empty => 0,
+            Action::Input { .. } => 1,
+            Action::OpponentInput { .. } => 2,
+            Action::Controller { .. } => 3,
+            Action::Tap { .. } => 4,
+            Action::CStick { .. } => 5,
+            Action::Chase { .. } => 6,
+            Action::Wait(_) => 7,
+            Action::Face(_) => 8,
+            Action::IfFacingLedge { .. } => 9,
+            Action::IfFacingOpponent { .. } => 10,
+            Action::ElseFacing => 11,
+            Action::EndFacing => 12,
+            Action::LedgePosition { .. } => 13,
+            Action::Approach { .. } => 14,
+            Action::Walk { .. } => 15,
+            Action::Run { .. } => 16,
+            Action::Drift { .. } => 17,
+            Action::Range(_) => 18,
+            Action::ShieldUntilBlock(_) => 19,
+            Action::ShieldUntilManual => 20,
+            Action::Check { .. } => 21,
+        }
+    }
+
+    #[test]
+    fn every_action_variant_and_direction_roundtrips_through_writer_and_parser() {
+        let directions: Vec<Direction> = Direction::TOKENS.iter().map(|(d, _)| *d).collect();
+        let input = |buttons, stick, frames, relative| Action::Input {
+            buttons,
+            stick,
+            frames,
+            relative,
+        };
+        use crate::native_input::{MAPPER_A as A, MAPPER_B as B, MAPPER_X as X};
+        let mut groups: Vec<Vec<Action>> = vec![
+            vec![
+                input(A | X, [0.3, -0.5], 4, false),
+                input(A | X, [0.3, -0.5], 4, true),
+                input(0, [0.0, 0.0], 2, false),
+                input(A, [1.0, 0.0], 0, false),
+                input(B, [0.0, -1.0], 0, true),
+                Action::OpponentInput {
+                    buttons: B,
+                    stick: [1.0, 0.0],
+                    frames: 8,
+                },
+                Action::Controller {
+                    buttons: A | B,
+                    stick: [0.25, -0.5],
+                    cstick: [0.75, -1.0],
+                    frames: 4,
+                    reference: InputReference::Facing,
+                    cstick_reference: InputReference::Opponent,
+                },
+                Action::Controller {
+                    buttons: 0,
+                    stick: [0.0; 2],
+                    cstick: [0.0; 2],
+                    frames: 255,
+                    reference: InputReference::Screen,
+                    cstick_reference: InputReference::Screen,
+                },
+                Action::Tap {
+                    buttons: A | B,
+                    stick: [0.0, -0.6],
+                    hold: 2,
+                    gap: 3,
+                    frames: 1800,
+                },
+                Action::CStick {
+                    stick: [1.0, 0.0],
+                    frames: 255,
+                },
+                Action::Chase {
+                    gap: 12.5,
+                    strength: 0.5,
+                    frames: 14,
+                },
+                Action::Wait(0),
+                Action::Wait(255),
+                Action::LedgePosition {
+                    offset: 12.5,
+                    strength: 0.65,
+                    tolerance: 1.0,
+                    brake: 6.0,
+                    frames: 180,
+                },
+                Action::Approach {
+                    airborne: false,
+                    strength: 0.5,
+                    frames: 3,
+                    gap: 10.0,
+                },
+                Action::Approach {
+                    airborne: true,
+                    strength: 1.0,
+                    frames: 3,
+                    gap: 0.0,
+                },
+                Action::Range(RangeCheck::Ignore),
+                Action::Range(RangeCheck::Verify(4.5)),
+                Action::Range(RangeCheck::FighterGrabRange),
+                Action::Range(RangeCheck::FighterGrabRangeInstant),
+                Action::ShieldUntilBlock(9),
+                Action::ShieldUntilManual,
+            ],
+            vec![
+                Action::IfFacingLedge { away: false },
+                Action::ElseFacing,
+                Action::EndFacing,
+                Action::IfFacingLedge { away: true },
+                Action::EndFacing,
+                Action::IfFacingOpponent { away: false },
+                Action::ElseFacing,
+                Action::EndFacing,
+                Action::IfFacingOpponent { away: true },
+                Action::EndFacing,
+            ],
+            Condition::ALL
+                .iter()
+                .map(|&condition| Action::Check {
+                    condition,
+                    value: if condition.has_distance() { 12.5 } else { 0.0 },
+                    wait: if condition.has_distance() { 4 } else { 255 },
+                })
+                .collect(),
+            directions.iter().map(|&d| Action::Face(d)).collect(),
+            directions
+                .iter()
+                .map(|&direction| Action::Run {
+                    direction,
+                    units: 4.5,
+                })
+                .collect(),
+            directions
+                .iter()
+                .map(|&direction| Action::Drift {
+                    direction,
+                    strength: 0.25,
+                    frames: 5,
+                })
+                .collect(),
+            directions
+                .iter()
+                .map(|&direction| Action::Walk {
+                    direction,
+                    units: 4.0,
+                    strength: 0.35,
+                    min_gap: (direction == Direction::Opponent).then_some(4.5),
+                })
+                .collect(),
+        ];
+        groups.push(vec![Action::Walk {
+            direction: Direction::Opponent,
+            units: 100.0,
+            strength: 0.95,
+            min_gap: None,
+        }]);
+        let mut covered = std::collections::BTreeSet::from([variant_index(&Action::Empty)]);
+        for group in &groups {
+            let text = group
+                .iter()
+                .map(|a| action(*a).unwrap())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let parsed = Catalog::parse(&format!(
+                "[kirby.neutral.rt]\nstart_delay=0\nactions = {text}\n"
+            ))
+            .unwrap_or_else(|e| panic!("{e}\n{text}"));
+            assert_eq!(parsed.entries()[0].sequence.actions(), &group[..], "{text}");
+            covered.extend(group.iter().map(variant_index));
+        }
+        assert_eq!(covered.len(), 22, "an Action variant is missing from the round trip");
+        assert!(action(Action::Empty).is_err());
     }
 }
 

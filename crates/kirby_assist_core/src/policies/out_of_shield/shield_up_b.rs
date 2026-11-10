@@ -114,37 +114,18 @@ impl ShieldUpB {
                 && super::target_within_range(c.position, e.position, range, height)
         };
         let enemy = if let Some(id) = self.target {
-            follow
-                .filter(|e| e.id == id)
-                .or_else(|| {
-                    targets
+            super::locked_enemy(Some(id), follow, &targets).filter(|e| {
+                if self.receipt_pending() {
+                    e.position
                         .iter()
-                        .flatten()
-                        .find(|t| t.id == id)
-                        .map(|t| super::copied_target(*t))
-                })
-                .filter(|e| {
-                    if self.receipt_pending() {
-                        e.position
-                            .iter()
-                            .chain(c.position.iter())
-                            .all(|v| v.is_finite())
-                    } else {
-                        valid(*e)
-                    }
-                })
+                        .chain(c.position.iter())
+                        .all(|v| v.is_finite())
+                } else {
+                    valid(*e)
+                }
+            })
         } else {
-            targets
-                .iter()
-                .flatten()
-                .map(|t| super::copied_target(*t))
-                .chain(follow)
-                .filter(|e| valid(*e))
-                .min_by(|a, b| {
-                    (a.position[0] - c.position[0])
-                        .abs()
-                        .total_cmp(&(b.position[0] - c.position[0]).abs())
-                })
+            super::nearest_enemy(c.position[0], &targets, follow, valid)
         };
         let Some(enemy) = enemy else {
             self.cancel();

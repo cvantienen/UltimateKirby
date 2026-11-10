@@ -414,6 +414,59 @@ pub enum Direction {
 }
 
 impl Direction {
+    /// Accepted spellings per direction. The first is canonical: it is what
+    /// saves write, so every direction round-trips through the parser.
+    const TOKENS: [(Self, &'static [&'static str]); 9] = [
+        (
+            Self::Opponent,
+            &[
+                "opponent",
+                "enemy",
+                "toward",
+                "towards",
+                "toward_opponent",
+                "towards_opponent",
+                "toward_enemy",
+                "towards_enemy",
+            ],
+        ),
+        (
+            Self::AwayFromOpponent,
+            &["away_from_opponent", "away", "away_from_enemy"],
+        ),
+        (Self::Ledge, &["ledge"]),
+        (Self::Inward, &["inward"]),
+        (Self::Outward, &["outward"]),
+        (Self::Facing, &["facing", "forward"]),
+        (Self::Backward, &["backward", "back"]),
+        (Self::SavedLedge, &["saved_ledge", "toward_saved_ledge"]),
+        (
+            Self::AwayFromLedge,
+            &["away_from_ledge", "away_from_saved_ledge"],
+        ),
+    ];
+
+    /// Canonical spelling, as written by saves.
+    pub fn token(self) -> &'static str {
+        Self::TOKENS[self as usize].1[0]
+    }
+
+    pub fn from_token(token: &str) -> Option<Self> {
+        Self::TOKENS
+            .iter()
+            .find(|(_, spellings)| spellings.contains(&token))
+            .map(|&(direction, _)| direction)
+    }
+
+    /// Directions resolved against saved ledge geometry; onstage reaction
+    /// recipes have none.
+    pub fn needs_ledge(self) -> bool {
+        matches!(
+            self,
+            Self::Ledge | Self::Inward | Self::Outward | Self::SavedLedge | Self::AwayFromLedge
+        )
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Opponent => "Opponent",
@@ -453,6 +506,18 @@ pub enum Condition {
     EnemyOutside,
 }
 impl Condition {
+    pub const ALL: [Self; 10] = [
+        Self::SelfGrounded,
+        Self::SelfAirborne,
+        Self::EnemyGrounded,
+        Self::EnemyAirborne,
+        Self::EnemyShielding,
+        Self::EnemyNotShielding,
+        Self::EnemyInFront,
+        Self::EnemyBehind,
+        Self::EnemyWithin,
+        Self::EnemyOutside,
+    ];
     pub fn token(self) -> &'static str {
         match self {
             Self::SelfGrounded => "self_grounded",
@@ -468,20 +533,7 @@ impl Condition {
         }
     }
     pub fn from_token(token: &str) -> Option<Self> {
-        [
-            Self::SelfGrounded,
-            Self::SelfAirborne,
-            Self::EnemyGrounded,
-            Self::EnemyAirborne,
-            Self::EnemyShielding,
-            Self::EnemyNotShielding,
-            Self::EnemyInFront,
-            Self::EnemyBehind,
-            Self::EnemyWithin,
-            Self::EnemyOutside,
-        ]
-        .into_iter()
-        .find(|c| c.token() == token)
+        Self::ALL.into_iter().find(|c| c.token() == token)
     }
     pub fn needs_enemy(self) -> bool {
         !matches!(self, Self::SelfGrounded | Self::SelfAirborne)
@@ -514,6 +566,18 @@ impl InputReference {
             .ok_or_else(|| "input reference must be screen, facing or opponent".into())
     }
 }
+/// Canonical button spellings, in the order saves list chords.
+const BUTTON_TOKENS: [(u32, &str); 8] = [
+    (crate::native_input::MAPPER_A, "a"),
+    (crate::native_input::MAPPER_B, "b"),
+    (crate::native_input::MAPPER_X, "x"),
+    (crate::native_input::MAPPER_Y, "y"),
+    (crate::native_input::MAPPER_L, "l"),
+    (crate::native_input::MAPPER_R, "r"),
+    (crate::native_input::MAPPER_ZL, "zl"),
+    (crate::native_input::MAPPER_ZR, "zr"),
+];
+
 /// Represents a single action that can be performed by a fighter.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum Action {
@@ -616,42 +680,14 @@ pub enum Action {
 impl Action {
     /// Onstage reaction recipes have no saved ledge geometry.
     pub fn needs_ledge(self) -> bool {
-        matches!(
-            self,
-            Self::IfFacingLedge { .. }
-                | Self::LedgePosition { .. }
-                | Self::Face(
-                    Direction::Ledge
-                        | Direction::Inward
-                        | Direction::Outward
-                        | Direction::SavedLedge
-                        | Direction::AwayFromLedge
-                )
-                | Self::Walk {
-                    direction: Direction::Ledge
-                        | Direction::Inward
-                        | Direction::Outward
-                        | Direction::SavedLedge
-                        | Direction::AwayFromLedge,
-                    ..
-                }
-                | Self::Run {
-                    direction: Direction::Ledge
-                        | Direction::Inward
-                        | Direction::Outward
-                        | Direction::SavedLedge
-                        | Direction::AwayFromLedge,
-                    ..
-                }
-                | Self::Drift {
-                    direction: Direction::Ledge
-                        | Direction::Inward
-                        | Direction::Outward
-                        | Direction::SavedLedge
-                        | Direction::AwayFromLedge,
-                    ..
-                }
-        )
+        match self {
+            Self::IfFacingLedge { .. } | Self::LedgePosition { .. } => true,
+            Self::Face(direction)
+            | Self::Walk { direction, .. }
+            | Self::Run { direction, .. }
+            | Self::Drift { direction, .. } => direction.needs_ledge(),
+            _ => false,
+        }
     }
 }
 /// A sequence of actions that can be executed by a fighter.
@@ -740,6 +776,62 @@ mod tests {
         .entries()[0]
             .sequence
     }
+    #[test]
+    fn direction_spellings_are_unique_and_the_canonical_one_round_trips() {
+        for (index, (direction, spellings)) in Direction::TOKENS.iter().enumerate() {
+            assert_eq!(*direction as usize, index, "TOKENS must follow enum order");
+            assert_eq!(direction.token(), spellings[0]);
+            for spelling in *spellings {
+                assert_eq!(Direction::from_token(spelling), Some(*direction));
+            }
+        }
+        let mut all: Vec<_> = Direction::TOKENS
+            .iter()
+            .flat_map(|(_, spellings)| spellings.iter())
+            .collect();
+        let count = all.len();
+        all.sort();
+        all.dedup();
+        assert_eq!(all.len(), count, "a spelling maps to two directions");
+        assert_eq!(Direction::from_token("sideways"), None);
+    }
+
+    #[test]
+    fn only_saved_ledge_geometry_directions_need_a_ledge() {
+        for (direction, _) in Direction::TOKENS {
+            let needs = !matches!(
+                direction,
+                Direction::Opponent
+                    | Direction::AwayFromOpponent
+                    | Direction::Facing
+                    | Direction::Backward
+            );
+            for action in [
+                Action::Face(direction),
+                Action::Walk {
+                    direction,
+                    units: 1.0,
+                    strength: 0.5,
+                    min_gap: None,
+                },
+                Action::Run {
+                    direction,
+                    units: 1.0,
+                },
+                Action::Drift {
+                    direction,
+                    strength: 0.5,
+                    frames: 1,
+                },
+            ] {
+                assert_eq!(action.needs_ledge(), needs, "{action:?}");
+            }
+        }
+        assert!(Action::IfFacingLedge { away: true }.needs_ledge());
+        assert!(!Action::IfFacingOpponent { away: true }.needs_ledge());
+        assert!(!Action::Wait(1).needs_ledge());
+    }
+
     #[test]
     fn only_universal_bindings_are_ignored_and_fighter_bindings_stay_separate() {
         let source="[universal.x.old]\nold invalid text ignored\n[kirby.x.custom]\nstart_delay=0\nactions=short_hop\n[yoshi.x.custom]\nstart_delay=2\nactions=grab\n[kirby.y.custom]\nstart_delay=1\nactions=shield\n";

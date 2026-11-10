@@ -561,6 +561,6 @@ fn reflector_and_punishes_cannot_own_input_together_and_ledge_off_safety_win() {
     #[cfg(feature = "diagnostic-logging")]
     assert_eq!(
         kirby_assist_core::diagnostics::modes::bit(Owner::Reflect),
-        1 << 16
+        1 << (kirby_assist_core::diagnostics::modes::OWNERS.len() - 1)
     );
 }

@@ -65,11 +65,6 @@ pub mod battle_objects {
         (to[0] - from[0]).powi(2) + (to[1] - from[1]).powi(2)
     }
 
-    /// Articles are not all incoming projectiles. Luma and already attached Pikmin
-    /// cannot be bucketed; native hitbox capability checks still decide all others.
-    pub fn projectile_actor(id: u32, kind: i32, status: i32) -> bool {
-        ObjectCategory::is_projectile(id, kind, status)
-    }
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     #[repr(u32)]
     pub enum ObjectCategory {
@@ -190,20 +185,6 @@ pub mod gameplay {
                 terminal_speed,
             })
         }
-
-        #[allow(dead_code)]
-        pub(crate) fn displacement(self, speed: f32, frames: f32) -> f32 {
-            let mut speed = speed;
-            let mut distance = 0.0;
-            let mut remaining = frames.clamp(0.0, MAX_ANIMATION_FORECAST_FRAMES);
-            while remaining > 0.0 {
-                let step = remaining.min(1.0);
-                distance += speed * step;
-                speed = (speed - self.gravity * step).max(-self.terminal_speed);
-                remaining -= step;
-            }
-            distance
-        }
     }
 
     /// Return time to the earlier animation end or native cancel deadline.
@@ -264,16 +245,16 @@ pub mod gameplay {
         pub status: i32,
         /// The controlled fighter's current situation kind.
         pub situation: i32,
-        /// The controlled fighter's native motion clock distinguishes progress when a target
-        /// holds one animation pose; it is also part of duplicate-observation reuse.
+        /// Current animation frame. Together with the motion kind it distinguishes
+        /// progress when a target holds one pose, and is part of duplicate-observation reuse.
         pub motion_frame: f32,
-        /// The controlled fighter's current motion frame within its animation.
+        /// Current motion (Hash40) identifier.
         pub motion_kind: u64,
-        /// The controlled fighter's current motion kind.
+        /// Current animation rate.
         pub motion_rate: f32,
-        /// The controlled fighter's current motion rate.
+        /// Current position in world coordinates.
         pub position: [f32; 2],
-        /// The controlled fighter's current position in world coordinates.
+        /// Current velocity in world coordinates.
         pub velocity: [f32; 2],
         /// Native ground deceleration; None avoids assuming a stopping distance.
         pub ground_brake: Option<f32>,
@@ -329,6 +310,16 @@ pub mod gameplay {
         pub owned: u32,
         /// Preserve a committed short-hop decision with this cached output until mapped.
         pub native_short_hop: bool,
+    }
+    impl ControllerOutput {
+        /// No proposal; usable in `const` contexts where `Default` is not.
+        pub const NONE: Self = Self {
+            consume_trigger: false,
+            stick: None,
+            requested: 0,
+            owned: 0,
+            native_short_hop: false,
+        };
     }
 }
 pub mod observation {
@@ -432,6 +423,26 @@ pub mod observation {
         Float(f32),
         Bool(bool),
     }
+    impl Fact {
+        fn int(self) -> Option<i32> {
+            match self {
+                Self::Int(value) => Some(value),
+                _ => None,
+            }
+        }
+        fn motion(self) -> Option<u64> {
+            match self {
+                Self::Motion(value) => Some(value),
+                _ => None,
+            }
+        }
+        fn float(self) -> Option<f32> {
+            match self {
+                Self::Float(value) => Some(value),
+                _ => None,
+            }
+        }
+    }
     /// A fighter in the observation snapshot, storing its identity and copied facts.
     struct Fighter {
         id: Cell<Option<u32>>,
@@ -463,9 +474,8 @@ pub mod observation {
         pub fn known_progress_clock(&self, own: u32) -> Option<(u32, i32, u64, f32, f32)> {
             self.fighters.iter().find_map(|f| {
                 let id = f.id.get().filter(|id| *id != own)?;
-                let Fact::Int(status) = f.facts[Field::Status as usize].get()? else {
-                    return None;
-                };
+                let fact = |field: Field| f.facts[field as usize].get();
+                let status = fact(Field::Status)?.int()?;
                 if matches!(
                     status,
                     crate::native_states::GUARD_ON
@@ -473,26 +483,14 @@ pub mod observation {
                         | crate::native_states::status::CLIFF_WAIT
                         | crate::native_states::status::OTTOTTO
                         | crate::native_states::status::OTTOTTO_WAIT
-                ) {
+                ) || fact(Field::Stop) == Some(Fact::Bool(true))
+                {
                     return None;
                 }
-                if f.facts[Field::Stop as usize].get() == Some(Fact::Bool(true)) {
-                    return None;
-                }
-                let Fact::Motion(motion) = f.facts[Field::Motion as usize].get()? else {
-                    return None;
-                };
-                let Fact::Float(frame) = f.facts[Field::Frame as usize].get()? else {
-                    return None;
-                };
-                let Fact::Float(rate) = f.facts[Field::Rate as usize].get()? else {
-                    return None;
-                };
-                (motion != crate::timing::NO_MOTION_KIND
-                    && frame.is_finite()
-                    && frame >= 0.
-                    && rate.is_finite()
-                    && rate > 0.)
+                let motion = fact(Field::Motion)?.motion()?;
+                let frame = fact(Field::Frame)?.float()?;
+                let rate = fact(Field::Rate)?.float()?;
+                crate::timing::clock_known(motion, frame, rate)
                     .then_some((id, status, motion, frame, rate))
             })
         }
@@ -502,10 +500,7 @@ pub mod observation {
             std::array::from_fn(|i| {
                 let entry = &self.fighters[i];
                 let id = entry.id.get()?;
-                match entry.facts[Field::Status as usize].get()? {
-                    Fact::Int(status) => Some((id, status)),
-                    _ => None,
-                }
+                Some((id, entry.facts[Field::Status as usize].get()?.int()?))
             })
         }
         /// Most consumers read several fields from the same fighter in a row.
@@ -713,16 +708,10 @@ pub mod state {
         // Return the sample WITH its age; choosing only its name would lose the
         // timing information needed by delayed/pulsing rules.
         pub fn highest_priority(self) -> Option<ScenarioSample> {
-            let mut best = ScenarioSample::EMPTY;
-            for sample in self.active {
-                if sample.scenario != Scenario::None
-                    && (best.scenario == Scenario::None
-                        || sample.scenario.priority() < best.scenario.priority())
-                {
-                    best = sample;
-                }
-            }
-            (best.scenario != Scenario::None).then_some(best)
+            self.active
+                .into_iter()
+                .filter(|sample| sample.scenario != Scenario::None)
+                .min_by_key(|sample| sample.scenario.priority())
         }
     }
 

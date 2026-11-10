@@ -148,14 +148,18 @@ pub mod health {
                 save_streak: 0,
             }
         }
+        /// Start an empty window; lifetime counters stay, only their baselines move.
+        fn restart(&mut self, epoch: usize) {
+            *self = Self::new();
+            self.epoch = epoch;
+            self.last_calls = std::array::from_fn(|i| CALLS[i].load(Relaxed));
+            self.last_events = std::array::from_fn(|i| COUNTS[i].load(Relaxed));
+        }
     }
     static WINDOW: Mutex<Window> = Mutex::new(Window::new());
     fn sync_epoch(w: &mut Window, epoch: usize) {
         if w.epoch != epoch {
-            *w = Window::new();
-            w.epoch = epoch;
-            w.last_calls = std::array::from_fn(|i| CALLS[i].load(Relaxed));
-            w.last_events = std::array::from_fn(|i| COUNTS[i].load(Relaxed));
+            w.restart(epoch);
         }
     }
 
@@ -227,7 +231,7 @@ pub mod health {
             let Some(start) = self.start else {
                 return;
             };
-            let ns = start.elapsed().as_nanos().min(u64::MAX as u128) as u64;
+            let ns = super::clamp_u64(start.elapsed().as_nanos());
             if !super::enabled() || self.epoch != super::EPOCH.load(Relaxed) {
                 return;
             }
@@ -255,10 +259,7 @@ pub mod health {
             sync_epoch(&mut w, super::EPOCH.load(Relaxed));
             w.since.get_or_insert(now);
             if let Some(last) = w.last_draw.replace(now) {
-                let us = now
-                    .saturating_duration_since(last)
-                    .as_micros()
-                    .min(u64::MAX as u128) as u64;
+                let us = super::clamp_u64(now.saturating_duration_since(last).as_micros());
                 w.draw_gap_max = w.draw_gap_max.max(us);
                 for (i, limit) in [25_000, 50_000, 100_000].into_iter().enumerate() {
                     w.gaps[i] += u64::from(us >= limit);
@@ -270,10 +271,7 @@ pub mod health {
     }
     pub fn clear_window() {
         if let Ok(mut w) = WINDOW.try_lock() {
-            *w = Window::new();
-            w.epoch = super::EPOCH.load(Relaxed);
-            w.last_calls = std::array::from_fn(|i| CALLS[i].load(Relaxed));
-            w.last_events = std::array::from_fn(|i| COUNTS[i].load(Relaxed));
+            w.restart(super::EPOCH.load(Relaxed));
         }
     }
     pub fn report() -> Option<String> {
@@ -562,7 +560,6 @@ pub enum Part {
     Roll,
     Grabs,
     Posture,
-    Jab,
     Trip,
     Combo,
 }
@@ -576,7 +573,6 @@ const LABELS: [&str; N] = [
     "Roll detection",
     "Grab detection",
     "Opponent-facing helper",
-    "Jab-lock targets",
     "Trip / attacker targets",
     "Combo decisions",
 ];
@@ -608,14 +604,62 @@ impl Counters {
             since: None,
         }
     }
+    /// Start a fresh window if the counters belong to an older epoch.
+    fn sync(&mut self, epoch: usize) {
+        if self.epoch != epoch {
+            *self = Self::new();
+            self.epoch = epoch;
+        }
+    }
 }
 static STATS: Mutex<Counters> = Mutex::new(Counters::new());
-static CARD: Mutex<Option<(usize, CString)>> = Mutex::new(None);
+static CARD: Card = Card::new();
+
+/// Text card tagged with the epoch that produced it. The logger worker publishes;
+/// drawing only try-locks, so it never waits and never shows an older epoch.
+pub struct Card(pub(crate) Mutex<Option<(usize, CString)>>);
+impl Card {
+    pub const fn new() -> Self {
+        Self(Mutex::new(None))
+    }
+    /// Keep `text` only while `current` still names `epoch`, re-checked under the lock.
+    pub fn publish(&self, epoch: usize, current: &AtomicUsize, text: CString) {
+        if epoch != current.load(Ordering::Acquire) {
+            return;
+        }
+        if let Ok(mut card) = self.0.lock() {
+            if epoch == current.load(Ordering::Acquire) {
+                *card = Some((epoch, text));
+            }
+        }
+    }
+    pub fn clear(&self) {
+        if let Ok(mut card) = self.0.try_lock() {
+            *card = None;
+        }
+    }
+    /// Draw the card if it is free and belongs to the current epoch.
+    pub fn show(&self, current: &AtomicUsize, draw: impl FnOnce(&CStr)) -> bool {
+        let Ok(card) = self.0.try_lock() else {
+            return false;
+        };
+        match card.as_ref() {
+            Some((epoch, text)) if *epoch == current.load(Ordering::Acquire) => {
+                draw(text);
+                true
+            }
+            _ => false,
+        }
+    }
+}
+/// Saturating conversion for elapsed-time counters.
+pub fn clamp_u64(value: u128) -> u64 {
+    u64::try_from(value).unwrap_or(u64::MAX)
+}
 /// Manual label for Training Modpack trials; never changes input delay.
 pub fn set_test_latency(index: u8) {
-    if TEST_LATENCY.swap(usize::from(index.min(31)), Ordering::Relaxed)
-        != usize::from(index.min(31))
-    {
+    let index = usize::from(index.min(31));
+    if TEST_LATENCY.swap(index, Ordering::Relaxed) != index {
         clear();
     }
 }
@@ -649,9 +693,7 @@ pub fn clear() {
     if let Ok(mut stats) = STATS.try_lock() {
         *stats = Counters::new();
     }
-    if let Ok(mut card) = CARD.try_lock() {
-        *card = None;
-    }
+    CARD.clear();
 }
 pub struct Scope {
     epoch: usize,
@@ -687,14 +729,11 @@ impl Scope {
 impl Drop for Scope {
     fn drop(&mut self) {
         if let Some(start) = self.start {
-            let ns = start.elapsed().as_nanos().min(u64::MAX as u128) as u64;
+            let ns = clamp_u64(start.elapsed().as_nanos());
             CURRENT.store(self.previous, Ordering::Relaxed);
             if enabled() && self.epoch == EPOCH.load(Ordering::Relaxed) {
                 if let Ok(mut stats) = STATS.try_lock() {
-                    if stats.epoch != self.epoch {
-                        *stats = Counters::new();
-                        stats.epoch = self.epoch;
-                    }
+                    stats.sync(self.epoch);
                     stats.calls[self.part] += 1;
                     stats.nanos[self.part] += ns;
                     stats.max[self.part] = stats.max[self.part].max(ns);
@@ -712,11 +751,7 @@ impl Drop for Scope {
 pub fn ray() {
     if enabled() && SAMPLE.load(Ordering::Relaxed) {
         if let Ok(mut stats) = STATS.try_lock() {
-            let epoch = EPOCH.load(Ordering::Relaxed);
-            if stats.epoch != epoch {
-                *stats = Counters::new();
-                stats.epoch = epoch;
-            }
+            stats.sync(EPOCH.load(Ordering::Relaxed));
             stats.rays[CURRENT.load(Ordering::Relaxed).min(N - 1)] += 1;
         }
     }
@@ -759,16 +794,16 @@ mod tests {
     }
 }
 pub fn with_card(draw: impl FnOnce(&CStr)) {
-    if !enabled() {
-        return;
+    if enabled() {
+        CARD.show(&EPOCH, draw);
     }
-    if let Ok(card) = CARD.try_lock() {
-        if let Some((epoch, card)) = card.as_ref() {
-            if *epoch == EPOCH.load(Ordering::Relaxed) {
-                draw(card);
-            }
-        }
-    }
+}
+/// Mean and peak helpers for nanosecond counters, reported in microseconds.
+fn avg_us(nanos: u64, calls: u64) -> f64 {
+    nanos as f64 / calls.max(1) as f64 / 1000.0
+}
+fn micros(nanos: u64) -> f64 {
+    nanos as f64 / 1000.0
 }
 /// Called only by the existing background writer. No extra thread or queue.
 fn observation_report() -> Option<String> {
@@ -787,9 +822,7 @@ fn observation_report() -> Option<String> {
             .is_some_and(|seen| now.duration_since(seen) > Duration::from_secs(2))
         {
             *stats = Counters::new();
-            if let Ok(mut card) = CARD.try_lock() {
-                *card = None;
-            }
+            CARD.clear();
             return None;
         }
         if stats
@@ -804,15 +837,15 @@ fn observation_report() -> Option<String> {
     order.sort_unstable_by_key(|&i| std::cmp::Reverse(snapshot.nanos[i]));
     let mut compact = format!(
         "PERF: 1/16 observations\nLocal avg {:.1}us / peak {:.1}us\n",
-        snapshot.nanos[0] as f64 / snapshot.calls[0].max(1) as f64 / 1000.0,
-        snapshot.max[0] as f64 / 1000.0
+        avg_us(snapshot.nanos[0], snapshot.calls[0]),
+        micros(snapshot.max[0])
     );
     for &i in order.iter().filter(|&&i| snapshot.calls[i] != 0).take(3) {
         let _ = writeln!(
             compact,
             "{}: {:.1}us avg, {} rays",
             LABELS[i],
-            snapshot.nanos[i] as f64 / snapshot.calls[i] as f64 / 1000.0,
+            avg_us(snapshot.nanos[i], snapshot.calls[i]),
             snapshot.rays[i]
         );
     }
@@ -836,8 +869,8 @@ fn observation_report() -> Option<String> {
             LABELS[i],
             gauge,
             share,
-            snapshot.nanos[i] as f64 / calls.max(1) as f64 / 1000.0,
-            snapshot.max[i] as f64 / 1000.0,
+            avg_us(snapshot.nanos[i], calls),
+            micros(snapshot.max[i]),
             calls,
             snapshot.rays[i],
             if calls == 0 {
@@ -850,8 +883,8 @@ fn observation_report() -> Option<String> {
     if !enabled() || epoch != EPOCH.load(Ordering::Relaxed) {
         return None;
     }
-    if let Ok(mut card) = CARD.try_lock() {
-        *card = CString::new(compact).ok().map(|card| (epoch, card));
+    if let Ok(card) = CString::new(compact) {
+        CARD.publish(epoch, &EPOCH, card);
     }
     Some(text)
 }

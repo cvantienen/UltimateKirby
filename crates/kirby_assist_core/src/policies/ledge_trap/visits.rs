@@ -1,8 +1,8 @@
 //! Match-owned ledge memory, independent of temporary input owners and L releases.
 //! Only already-observed opponents are inspected; no roster/geometry queries.
 use super::{
-    is_hanging, AssistSettings, ControllerOutput, GameplayContext, LedgeTrap, Opponent,
-    CLIFF_CLIMB, CLIFF_JUMP3,
+    finite2, finite_opponent, is_hanging, is_ledge_option, AssistSettings, ControllerOutput,
+    GameplayContext, LedgeTrap, Opponent,
 };
 use crate::ledge_position::LedgeSpot;
 
@@ -18,16 +18,13 @@ pub struct LedgeVisits {
     owner: Option<(u32, i32)>,
     visits: [Option<Visit>; 8],
     replace: usize,
-    ledge: Option<(u32, LedgeSpot)>,
+    ledge: Option<LedgeSpot>,
     visit_epoch: u64,
 }
 #[derive(Clone, Copy)]
 struct Observation {
     new_visit: bool,
     allowed: bool,
-}
-fn option(status: i32) -> bool {
-    (CLIFF_CLIMB..=CLIFF_JUMP3).contains(&status)
 }
 impl LedgeVisits {
     pub const fn new() -> Self {
@@ -49,7 +46,7 @@ impl LedgeVisits {
         self.visit_epoch
     }
     pub fn walking_ledge(&self) -> Option<LedgeSpot> {
-        self.ledge.map(|(_, spot)| spot)
+        self.ledge
     }
     fn observe(&mut self, e: Opponent, own: [f32; 2]) -> Observation {
         let index = self
@@ -66,8 +63,9 @@ impl LedgeVisits {
         // A real new cliff state can also reveal a visit whose hang was missed.
         // A standing fighter's sticky previous_status is never a new visit.
         let new_visit = is_hanging(e.status) && old.is_none_or(|v| !is_hanging(v.last_status))
-            || option(e.status)
-                && old.is_none_or(|v| !is_hanging(v.last_status) && !option(v.last_status));
+            || is_ledge_option(e.status)
+                && old
+                    .is_none_or(|v| !is_hanging(v.last_status) && !is_ledge_option(v.last_status));
         let mut visit = old.unwrap_or(Visit {
             id: e.id,
             last_status: e.status,
@@ -87,18 +85,18 @@ impl LedgeVisits {
             visit.armed = true; // First observation of an actual ledge release/drop.
         }
         if is_hanging(e.status) {
-            if let Some(edge) = e.cliff_position.filter(|p| p.iter().all(|v| v.is_finite())) {
+            if let Some(edge) = e.cliff_position.filter(|p| finite2(*p)) {
                 let previous = self
                     .ledge
-                    .filter(|(_, s)| {
+                    .filter(|s| {
                         (s.edge[0] - edge[0]).abs() <= 2.0 && (s.edge[1] - edge[1]).abs() <= 2.0
                     })
-                    .map(|(_, s)| s.inward);
+                    .map(|s| s.inward);
                 let dx = own[0] - edge[0];
                 let inward = previous
                     .or_else(|| (dx.is_finite() && dx.abs() > 0.001).then_some(dx.signum()));
                 if let Some(inward) = inward {
-                    self.ledge = Some((e.id, LedgeSpot { edge, inward }));
+                    self.ledge = Some(LedgeSpot { edge, inward });
                 }
             }
         }
@@ -114,7 +112,6 @@ impl LedgeVisits {
     }
 }
 
-// used to track ledge visits and manage responses per visit
 /// Preserve one response per visit even when this engine is recreated.
 /// Explicit editor previews remain independently repeatable.
 impl LedgeTrap {
@@ -130,12 +127,7 @@ impl LedgeTrap {
             return self.sample(settings, tick, ctx, enemy);
         }
         let observed = enemy
-            .filter(|e| {
-                e.position
-                    .iter()
-                    .chain(e.velocity.iter())
-                    .all(|v| v.is_finite())
-            })
+            .filter(finite_opponent)
             .map(|e| (e, visits.observe(e, ctx.position)));
         if settings.enabled && ctx.held && ctx.gameplay {
             if let Some((e, visit)) = observed {
@@ -167,7 +159,7 @@ mod tests {
     use super::*;
     use crate::ledge_trap::{
         tests::{context, enemy},
-        CLIFF_WAIT,
+        CLIFF_ATTACK, CLIFF_CLIMB, CLIFF_WAIT,
     };
     use crate::{
         fighter_profiles::presets::PresetSlot, native_input::MAPPER_A, sequence_config::Catalog,
@@ -291,6 +283,32 @@ mod tests {
         assert!(t.file_timeline.is_none());
     }
     #[test]
+    fn ledge_attack_seen_without_its_hang_is_still_a_response_visit() {
+        let c = Catalog::parse("[kirby.attack.test]\nstart_delay=0\nactions=y:1").unwrap();
+        let mut s = settings();
+        s.sequence_overrides[PresetSlot::Attack as usize] = Some(c.entries()[0].sequence);
+        let attack = Opponent {
+            previous_status: CLIFF_WAIT,
+            ..enemy(CLIFF_ATTACK, true)
+        };
+        let mut v = LedgeVisits::default();
+        let mut t = LedgeTrap::default();
+        assert_eq!(
+            t.sample_with_visits(&mut v, s, 0, ctx(0.0), Some(attack))
+                .requested,
+            crate::native_input::MAPPER_Y
+        );
+        // The same attack continuing, or following its own hang, is one visit.
+        let epoch = v.visit_epoch();
+        assert!(!v.observe(attack, [0.0; 2]).new_visit);
+        assert_eq!(v.visit_epoch(), epoch);
+        let mut seen_hang = LedgeVisits::default();
+        seen_hang.observe(enemy(CLIFF_WAIT, false), [0.0; 2]);
+        let epoch = seen_hang.visit_epoch();
+        assert!(!seen_hang.observe(attack, [0.0; 2]).new_visit);
+        assert_eq!(seen_hang.visit_epoch(), epoch);
+    }
+    #[test]
     fn walking_anchor_only_comes_from_a_real_observed_hang_and_survives_input_release() {
         let mut v = LedgeVisits::default();
         v.set_owner(1, 6);
@@ -360,7 +378,7 @@ mod preview_tests {
     use super::*;
     use crate::ledge_trap::{
         tests::{context, enemy},
-        CLIFF_WAIT,
+        CLIFF_CLIMB, CLIFF_WAIT,
     };
     use crate::{
         fighter_profiles::presets::PresetSlot, native_input::MAPPER_A, sequence_config::Catalog,

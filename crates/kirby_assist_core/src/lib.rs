@@ -40,7 +40,6 @@ pub use fighters::{
 };
 pub use fighters::game_and_watch as projectile_reflect;
 pub(crate) use fighters::ganondorf as flame_choke;
-pub(crate) use fighters::tuning_defaults as fighter_tuning_defaults;
 pub use policies::{
     assist, autopilot_guard, defense_response, grab_handoff, ledge_position, ledge_trap,
     ledge_trump, move_input, out_of_shield, posture, reaction_rules, shield_pressure, spot_dodge,

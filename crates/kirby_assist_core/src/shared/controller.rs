@@ -65,11 +65,6 @@ pub mod action_owner {
                 Self::Reflect => 35,
             }
         }
-        fn interrupts(self, _current: Self) -> bool {
-            // Priority admits new work; it never replaces an in-flight tape. Native
-            // safety cancels a tape whose gameplay prerequisites have been lost.
-            self == Self::Safety
-        }
         pub fn exclusive(self) -> bool {
             !matches!(self, Self::Defense | Self::Turbo | Self::Posture)
         }
@@ -153,11 +148,7 @@ pub mod action_owner {
             }
         }
         pub fn input_sequence(owner: Owner, owned_buttons: u32) -> Self {
-            Self {
-                owner,
-                present: owned_buttons != 0,
-                committed: owned_buttons != 0,
-            }
+            Self::sequence_receipt(owner, owned_buttons, false)
         }
     }
 
@@ -197,11 +188,14 @@ pub mod action_owner {
                 Owner::Ledge | Owner::Safety | Owner::Defense | Owner::Turbo | Owner::Posture
             )
         }
+        fn unlock(&mut self) {
+            self.locked = None;
+            self.locked_manual = None;
+        }
         /// Release only this owner when native startup/cancellation has ended it.
         pub fn release(&mut self, owner: Owner) {
             if self.locked == Some(owner) {
-                self.locked = None;
-                self.locked_manual = None;
+                self.unlock();
             }
         }
         /// Transfer an explicitly chained response after native confirmation. This
@@ -252,11 +246,16 @@ pub mod action_owner {
         pub fn automatic_suspended(&self) -> bool {
             self.automatic_suspended
         }
+        /// Scope-independent admission gates shared by every owner.
+        fn admissible(&self, owner: Owner) -> bool {
+            (!self.automatic_suspended || !Self::automatic(owner))
+                && (!self.ledge_priority || Self::ledge_compatible(owner))
+        }
+        /// Priority admits new work; it never replaces an in-flight tape. Native
+        /// safety cancels a tape whose gameplay prerequisites have been lost.
         pub fn allows(&self, owner: Owner) -> bool {
             self.locked == Some(owner)
-                || ((!self.automatic_suspended || !Self::automatic(owner))
-                    && (!self.ledge_priority || Self::ledge_compatible(owner))
-                    && self.locked.is_none_or(|current| owner.interrupts(current)))
+                || (self.admissible(owner) && self.locked.is_none_or(|_| owner == Owner::Safety))
         }
 
         /// Check admission after releasing a particular owner without changing state.
@@ -264,14 +263,12 @@ pub mod action_owner {
             if self.locked != Some(releasing) {
                 return self.allows(owner);
             }
-            (!self.automatic_suspended || !Self::automatic(owner))
-                && (!self.ledge_priority || Self::ledge_compatible(owner))
+            self.admissible(owner)
         }
 
         pub fn select(&mut self, valid_scope: bool, intents: &[Intent]) -> Option<Owner> {
             if !valid_scope {
-                self.locked = None;
-                self.locked_manual = None;
+                self.unlock();
                 self.ledge_priority = false;
                 self.automatic_suspended = false;
                 return None;
@@ -281,8 +278,7 @@ pub mod action_owner {
                     .iter()
                     .any(|i| i.owner == owner && i.present && i.committed)
             }) {
-                self.locked = None;
-                self.locked_manual = None;
+                self.unlock();
             }
             let winner = intents
                 .iter()

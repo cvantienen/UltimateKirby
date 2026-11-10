@@ -1,14 +1,14 @@
 //! Cached menu text shared by the native renderer and host rendering tests.
 //! Builds only on content changes; lightweight contains option rows only.
 use kirby_assist_core::{
-    fighter_profiles::{spacing, FighterProfile},
-    settings_menu::{MenuRow, MenuSelection},
+    fighter_profiles::{presets::PresetSlot, spacing, FighterProfile},
+    settings_menu::{MenuRow, MenuSelection, RecipePanel},
 };
 use std::ffi::CString;
 mod text_cache {
     //! Explicit owned C-string copies for cached UI. Never reuse a Vec<String>
     //! allocation as Vec<CString> or transfer the source strings' byte allocations.
-    use std::{borrow::Cow, ffi::CString};
+    use std::ffi::CString;
 
     pub(super) fn copy_text(text: &str) -> Result<Option<CString>, &'static str> {
         if text.as_bytes().contains(&0) {
@@ -27,25 +27,13 @@ mod text_cache {
             .map(Some)
             .map_err(|_| "Invalid menu text")
     }
-    pub(super) fn copy_lines(
-        lines: &[String],
-        show_hints: bool,
-        strip_hints: fn(String) -> Option<String>,
-    ) -> Result<Vec<CString>, &'static str> {
+    pub(super) fn copy_lines(lines: &[String]) -> Result<Vec<CString>, &'static str> {
         let mut cached = Vec::new();
         cached
             .try_reserve_exact(lines.len())
             .map_err(|_| "Not enough memory for menu rows")?;
         for source in lines {
-            let text = if show_hints {
-                Cow::Borrowed(source.as_str())
-            } else {
-                let Some(filtered) = strip_hints(source.clone()) else {
-                    continue;
-                };
-                Cow::Owned(filtered)
-            };
-            if let Some(line) = copy_text(&text)? {
+            if let Some(line) = copy_text(source)? {
                 cached.push(line);
             }
         }
@@ -55,19 +43,15 @@ mod text_cache {
     #[cfg(test)]
     mod tests {
         use super::*;
-        fn strip(s: String) -> Option<String> {
-            (!s.starts_with("Y:")).then_some(s)
-        }
         #[test]
-        fn copies_empty_unicode_error_and_filtered_rows_without_aliasing_sources() {
+        fn copies_empty_unicode_and_error_rows_without_aliasing_sources() {
             let lines = vec![
                 "".into(),
                 "Save failed: SD unavailable (514)".into(),
                 "Saving…".into(),
-                "Y: Save".into(),
                 "invalid\0text".into(),
             ];
-            let result = copy_lines(&lines, false, strip).unwrap();
+            let result = copy_lines(&lines).unwrap();
             assert_eq!(result.len(), 3);
             assert_eq!(result[0].as_bytes_with_nul(), b"\0");
             assert_eq!(result[1].to_str().unwrap(), lines[1]);
@@ -83,7 +67,7 @@ mod text_cache {
         }
         #[test]
         fn repeated_save_status_cache_replacement_does_not_reuse_source_storage() {
-            let mut view = Some(copy_lines(&["Before save".into()], true, strip).unwrap());
+            let mut view = Some(copy_lines(&["Before save".into()]).unwrap());
             for i in 0..2000 {
                 let source = vec![
                     format!("Field {i}"),
@@ -91,7 +75,7 @@ mod text_cache {
                     "Saved to sequences.txt (backup created)".into(),
                     "Save failed: temporary file exists".into(),
                 ];
-                let next = copy_lines(&source, true, strip).unwrap();
+                let next = copy_lines(&source).unwrap();
                 let retired = view.replace(next);
                 drop(source);
                 drop(retired);
@@ -200,120 +184,96 @@ mod row_tests {
     }
 }
 
+fn slot_value(
+    profile: &FighterProfile,
+    selection: &MenuSelection,
+    slot: PresetSlot,
+) -> (String, usize, usize) {
+    let raw_index = selection.choices[slot as usize];
+    let (index, count) = selection.choice_position(&profile.menu_options, slot);
+    let name = selection
+        .choice(&profile.menu_options, slot, raw_index)
+        .map_or_else(
+            || "Unavailable".into(),
+            |v| {
+                format!(
+                    "{}{}",
+                    spacing::menu_name(v.name),
+                    if selection.recipe_modified(slot) {
+                        " *"
+                    } else {
+                        ""
+                    }
+                )
+            },
+        );
+    let name = if slot.is_button() && selection.rule_button_mask & slot.button() != 0 {
+        format!("Toggle rules / saved: {name}")
+    } else {
+        name
+    };
+    (name, index, count)
+}
+
 fn row_value(
     profile: &FighterProfile,
     selection: &MenuSelection,
     row: MenuRow,
     auto_mash: bool,
 ) -> Option<(String, usize, usize)> {
-    Some(if MenuSelection::page_link(row) {
-        ("Open >".to_owned(), 0, 0)
-    } else if let Some(slot) = row.slot() {
-        let raw_index = selection.choices[slot as usize];
-        let (index, count) = selection.choice_position(&profile.menu_options, slot);
-        let name = selection
-            .choice(&profile.menu_options, slot, raw_index)
-            .map_or_else(
-                || "Unavailable".into(),
-                |v| {
-                    format!(
-                        "{}{}",
-                        spacing::menu_name(v.name),
-                        if selection.recipe_modified(slot) {
-                            " *"
-                        } else {
-                            ""
-                        }
-                    )
-                },
-            );
-        let name = if slot.is_button() && selection.rule_button_mask & slot.button() != 0 {
-            format!("Toggle rules / saved: {name}")
-        } else {
-            name
-        };
-        (name, index, count)
-    } else if row == MenuRow::IdleCrouch
-        && selection.y_fighter_kind == kirby_assist_core::fighter_kinds::KIRBY
-    {
-        toggle_value(selection.effective_mode(
-            kirby_assist_core::button_bindings::Mode::IdleCrouch,
-            selection.idle_crouch,
-        ))
-    } else if row == MenuRow::TiltTurn {
-        toggle_value(selection.effective_mode(
-            kirby_assist_core::button_bindings::Mode::TiltTurn,
-            selection.tilt_turn,
-        ))
-    } else if row == MenuRow::AutoReflect {
-        toggle_value(selection.auto_reflect)
-    } else if row == MenuRow::OutOfShield {
-        let enabled = selection.effective_mode(
-            kirby_assist_core::button_bindings::Mode::OutOfShield,
-            selection.out_of_shield,
-        );
-        toggle_value(enabled)
-    } else if matches!(
-        row,
-        MenuRow::SpotPunish | MenuRow::GrabDodge | MenuRow::ShieldPressure
-    ) {
-        let enabled = if row == MenuRow::ShieldPressure {
-            selection.shield_pressure
-        } else if row == MenuRow::SpotPunish {
-            selection.effective_mode(
-                kirby_assist_core::button_bindings::Mode::SpotPunish,
-                selection.spot_punish,
-            )
-        } else {
-            selection.grab_dodge
-        };
-        toggle_value(enabled)
-    } else if row == MenuRow::TestLatency {
-        (
-            if selection.test_latency == 0 {
-                "Unset (label only)".into()
-            } else {
-                format!("External +{}f (label only)", selection.test_latency - 1)
-            },
-            selection.test_latency as usize,
-            32,
-        )
-    } else if row == MenuRow::Performance {
-        toggle_value(selection.performance)
-    } else if row == MenuRow::AutoTech {
-        toggle_value(selection.effective_mode(
-            kirby_assist_core::button_bindings::Mode::AutoTech,
-            selection.auto_tech,
-        ))
-    } else if row == MenuRow::AutoLedge {
-        toggle_value(selection.ledge_mode())
-    } else if row == MenuRow::RollRules {
-        toggle_value(selection.roll_rules)
-    } else if row == MenuRow::AutoMash {
-        toggle_value(auto_mash)
-    } else {
-        return None;
-    })
+    use kirby_assist_core::{button_bindings::Mode, fighter_kinds::KIRBY};
+    if MenuSelection::page_link(row) {
+        return Some(("Open >".to_owned(), 0, 0));
+    }
+    if let Some(slot) = row.slot() {
+        return Some(slot_value(profile, selection, slot));
+    }
+    let toggle = match row {
+        MenuRow::IdleCrouch if selection.y_fighter_kind == KIRBY => {
+            selection.effective_mode(Mode::IdleCrouch, selection.idle_crouch)
+        }
+        MenuRow::TiltTurn => selection.effective_mode(Mode::TiltTurn, selection.tilt_turn),
+        MenuRow::AutoReflect => selection.auto_reflect,
+        MenuRow::OutOfShield => {
+            selection.effective_mode(Mode::OutOfShield, selection.out_of_shield)
+        }
+        MenuRow::ShieldPressure => selection.shield_pressure,
+        MenuRow::SpotPunish => selection.effective_mode(Mode::SpotPunish, selection.spot_punish),
+        MenuRow::GrabDodge => selection.grab_dodge,
+        MenuRow::Performance => selection.performance,
+        MenuRow::AutoTech => selection.effective_mode(Mode::AutoTech, selection.auto_tech),
+        MenuRow::AutoLedge => selection.ledge_mode(),
+        MenuRow::RollRules => selection.roll_rules,
+        MenuRow::AutoMash => auto_mash,
+        MenuRow::TestLatency => {
+            let label = match selection.test_latency {
+                0 => "Unset (label only)".into(),
+                n => format!("External +{}f (label only)", n - 1),
+            };
+            return Some((label, selection.test_latency as usize, 32));
+        }
+        _ => return None,
+    };
+    Some(toggle_value(toggle))
 }
 
-pub(super) fn build(
+/// Rows shown in the single-column list, formatted once per rebuild.
+fn build_values(
     profile: &FighterProfile,
     selection: &MenuSelection,
     auto_mash: bool,
-    generation: u64,
-) -> Result<Snapshot, &'static str> {
+) -> Result<Vec<SavedChoice>, &'static str> {
+    let rows: &[MenuRow] = if selection.assist_rule_page() {
+        &[]
+    } else {
+        selection.display_rows()
+    };
     let mut values = Vec::new();
     values
-        .try_reserve_exact(
-            selection
-                .display_rows()
-                .iter()
-                .filter(|row| selection.row_visible(**row))
-                .count(),
-        )
+        .try_reserve_exact(rows.iter().filter(|r| selection.row_visible(**r)).count())
         .map_err(|_| "Not enough memory for menu rows")?;
-    for &row in selection.display_rows() {
-        if selection.assist_rule_page() || !selection.row_visible(row) {
+    for &row in rows {
+        if !selection.row_visible(row) {
             continue;
         }
         let Some((name, index, count)) = row_value(profile, selection, row, auto_mash) else {
@@ -346,74 +306,85 @@ pub(super) fn build(
         };
         values.push(SavedChoice { row, line, enabled });
     }
-    let row_number = values
-        .iter()
-        .position(|v| v.row == selection.row)
-        .map_or(0, |i| i + 1);
-    let navigation = if selection.lightweight {
-        None
+    Ok(values)
+}
+
+fn navigation_text(
+    profile: &FighterProfile,
+    selection: &MenuSelection,
+    values: &[SavedChoice],
+) -> String {
+    let list = if selection.button_menu {
+        "BUTTON CONFIGS"
     } else {
-        let navigation_text = if selection.assist_rule_page() {
-            format!("{} / ASSIST RULES", profile.name)
-        } else if selection.tuning_page {
-            format!("{} / FIGHTER SETTINGS", profile.name)
-        } else if selection.quick_menu {
-            format!(
-                "{}   /   {}",
-                profile.name,
-                if selection.button_menu {
-                    "BUTTON CONFIGS"
-                } else {
-                    "LEDGE TRAPS"
-                }
-            )
-        } else if selection.modes_menu {
-            format!("{}   /   MODES", profile.name)
-        } else if selection.managing() {
-            format!("{}   /   MANAGE LIST", profile.name)
-        } else if selection.recipe_editing {
-            format!("{}   /   EDIT RECIPE", profile.name)
-        } else {
-            format!(
-                "{}   /   {}   /   {row_number}/{}",
-                profile.name,
-                if selection.button_menu {
-                    "BUTTON CONFIGS"
-                } else {
-                    "LEDGE TRAPS"
-                },
-                values.len()
-            )
-        };
-        Some(text_cache::copy_text(&navigation_text)?.ok_or("Invalid menu heading")?)
+        "LEDGE TRAPS"
     };
-    let panel = if selection.lightweight {
-        kirby_assist_core::settings_menu::RecipePanel::default()
+    let name = profile.name;
+    if selection.assist_rule_page() {
+        format!("{name} / ASSIST RULES")
+    } else if selection.tuning_page {
+        format!("{name} / FIGHTER SETTINGS")
+    } else if selection.quick_menu {
+        format!("{name}   /   {list}")
+    } else if selection.modes_menu {
+        format!("{name}   /   MODES")
+    } else if selection.managing() {
+        format!("{name}   /   MANAGE LIST")
+    } else if selection.recipe_editing {
+        format!("{name}   /   EDIT RECIPE")
+    } else {
+        let row_number = values
+            .iter()
+            .position(|v| v.row == selection.row)
+            .map_or(0, |i| i + 1);
+        format!("{name}   /   {list}   /   {row_number}/{}", values.len())
+    }
+}
+
+fn recipe_panel(profile: &FighterProfile, selection: &MenuSelection) -> RecipePanel {
+    if selection.lightweight {
+        RecipePanel::default()
     } else if selection.tuning_page {
         selection.recipe_panel(&profile.menu_options)
     } else if selection.quick_menu {
-        kirby_assist_core::settings_menu::RecipePanel {
-            header: {
-                let mut lines=Vec::new();
-                if selection.preview_slot.is_some() {lines.push("TEST RUNNING".into());}
-                if let Some(status)=&selection.save_status {lines.push(status.clone());}
-                lines
-            },
-            footer:vec![
+        let mut header = Vec::new();
+        if selection.preview_slot.is_some() {
+            header.push("TEST RUNNING".into());
+        }
+        header.extend(selection.save_status.clone());
+        RecipePanel {
+            header,
+            footer: vec![
                 "Up/Down: row (hold to scroll) | Left/Right: change | R3: open/edit | L3: test | Minus: close".into()
             ],
             ..Default::default()
         }
     } else if selection.modes_menu {
-        kirby_assist_core::settings_menu::RecipePanel::default()
+        RecipePanel::default()
     } else {
         selection.recipe_panel(&profile.menu_options)
-    };
+    }
+}
+
+pub(super) fn build(
+    profile: &FighterProfile,
+    selection: &MenuSelection,
+    auto_mash: bool,
+    generation: u64,
+) -> Result<Snapshot, &'static str> {
+    let values = build_values(profile, selection, auto_mash)?;
     // Lightweight has no heading, editor body or controls footer at all.
+    let navigation = if selection.lightweight {
+        None
+    } else {
+        let text = navigation_text(profile, selection, &values);
+        Some(text_cache::copy_text(&text)?.ok_or("Invalid menu heading")?)
+    };
+    let panel = recipe_panel(profile, selection);
     // Training keeps every original hint and status without text filtering.
-    let header = text_cache::copy_lines(&panel.header, true, Some)?;
-    let body = text_cache::copy_lines(&panel.body, true, Some)?;
-    let footer = text_cache::copy_lines(&panel.footer, true, Some)?;
+    let header = text_cache::copy_lines(&panel.header)?;
+    let body = text_cache::copy_lines(&panel.body)?;
+    let footer = text_cache::copy_lines(&panel.footer)?;
     Ok(Snapshot {
         revision: selection.revision,
         generation,
@@ -438,10 +409,8 @@ pub(super) fn build(
             .map_or(0, |s| selection.choices[s as usize]),
         mode: if selection.managing() {
             2
-        } else if selection.recipe_editing {
-            1
         } else {
-            0
+            u8::from(selection.recipe_editing)
         },
     })
 }

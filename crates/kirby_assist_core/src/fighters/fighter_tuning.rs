@@ -1,72 +1,34 @@
 //! Input-policy overrides only. Never writes native fighter parameters.
-//! `schema.rs` owns the stable menu/file fields; `analysis.rs` groups the
-//! fighter-derived defaults and policy conversions.
+//! `schema` owns the stable menu/file fields; `Tuning` converts them into
+//! policy values with the shared `DEFAULTS` fallbacks.
 use crate::settings::AssistSettings;
-mod analysis {
-    //! Small copied policy values; no native queries or persistent caches.
-    use super::*;
-    pub fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
-        if !standing.is_finite() || standing <= 0. {
-            return (0., 0.);
-        }
-        let Some((base, dash)) = crate::fighter_data::ordinary_grab(kind, crate::native_states::CATCH)
-            .zip(crate::fighter_data::ordinary_grab(
-                kind,
-                crate::native_states::CATCH_DASH,
-            ))
-            .and_then(|(base, dash)| Some((base.reach?, dash.reach?)))
-            .filter(|(base, dash)| *base > 0. && *dash > 0.)
-        else {
-            return (0., 0.);
-        };
-        (standing, standing * dash / base)
+
+/// Default close/approach automatic-grab ranges: the standing range, and that
+/// range scaled by the fighter's dash-grab/standing-grab reach ratio.
+fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
+    if !standing.is_finite() || standing <= 0. {
+        return (0., 0.);
     }
-    impl Tuning {
-        pub fn auto_grab_range(&self, kind: i32, standing: f32) -> f32 {
-            self.value(AUTO_GRAB_CLOSE, default_auto_grab_ranges(kind, standing).0)
-        }
-        pub fn auto_grab_ranges(&self, kind: i32, standing: f32) -> (f32, f32) {
-            if let (Some(close), Some(far)) = (self.0[AUTO_GRAB_CLOSE], self.0[AUTO_GRAB_FAR]) {
-                return (close, far.max(close));
-            }
-            let defaults = default_auto_grab_ranges(kind, standing);
-            let close = self.value(AUTO_GRAB_CLOSE, defaults.0);
-            let far = self.value(AUTO_GRAB_FAR, defaults.1);
-            (close, far.max(close))
-        }
-        pub fn shield(&self) -> crate::autopilot_guard::Envelope {
-            crate::autopilot_guard::Envelope {
-                scan_x: self.value(SHIELD_SCAN_X, 96.),
-                scan_y: self.value(SHIELD_SCAN_Y, 96.),
-                warning_x: self.value(SHIELD_WARNING_X, 24.),
-                warning_y: self.value(SHIELD_WARNING_Y, 28.),
-                half_width: self.value(SHIELD_BODY_HALF_WIDTH, 6.),
-                height: self.value(SHIELD_BODY_HEIGHT, 18.),
-                half_depth: self.value(SHIELD_BODY_HALF_DEPTH, 6.),
-                forecast: self.value(SHIELD_FORECAST, 5.),
-            }
-        }
-        pub fn tech_body(&self) -> crate::tech_prediction::Body {
-            crate::tech_prediction::Body {
-                half_width: self.value(TECH_HALF_WIDTH, 2.5),
-                floor_origin: self.value(TECH_FLOOR_ORIGIN, 1.),
-                wall: [
-                    self.value(TECH_WALL_LOW, 1.),
-                    self.value(TECH_WALL_MID, 3.5),
-                    self.value(TECH_WALL_HIGH, 6.),
-                ],
-                ceiling_origin: self.value(TECH_CEILING_ORIGIN, 5.),
-                floor_padding: self.value(TECH_FLOOR_PADDING, 1.5),
-                ceiling_padding: self.value(TECH_CEILING_PADDING, 2.),
-            }
-        }
-        pub fn legacy_punish(&self, mut c: crate::option_read::Config) -> crate::option_read::Config {
-            c.down_reach = self.value(PUNISH_DOWN_REACH, c.down_reach);
-            c.forward_reach = self.value(PUNISH_FORWARD_REACH, c.forward_reach);
-            c
-        }
-    }
+    let Some((base, dash)) = crate::fighter_data::ordinary_grab(kind, crate::native_states::CATCH)
+        .zip(crate::fighter_data::ordinary_grab(
+            kind,
+            crate::native_states::CATCH_DASH,
+        ))
+        .and_then(|(base, dash)| Some((base.reach?, dash.reach?)))
+        .filter(|(base, dash)| *base > 0. && *dash > 0.)
+    else {
+        return (0., 0.);
+    };
+    (standing, standing * dash / base)
 }
+
+fn tilt_turn_down_default(kind: i32) -> bool {
+    matches!(
+        kind,
+        crate::fighter_kinds::KIRBY | crate::fighter_kinds::YOSHI
+    )
+}
+
 mod schema {
     //! Stable menu and file schema for per-fighter input-policy overrides.
     //!
@@ -307,13 +269,55 @@ pub const DEFAULT_GRAB_DODGE_PADDING: f32 = 2.0;
 pub const MAX_GRAB_DODGE_PADDING: f32 = 30.0;
 pub const DEFAULT_GRAB_DODGE_HEIGHT: f32 = 8.0;
 pub const MAX_GRAB_DODGE_HEIGHT: f32 = 60.0;
-pub const DEFAULT_REFLECT_MARGIN_FRAMES: f32 = 2.0;
-pub const DEFAULT_REFLECT_MAX_HOLD_FRAMES: f32 = 45.0;
-pub const DEFAULT_REFLECT_HALF_WIDTH: f32 = 5.0;
-pub const DEFAULT_REFLECT_HEIGHT: f32 = 16.0;
-pub const DEFAULT_REFLECT_HALF_DEPTH: f32 = 5.0;
+const DEFAULT_REFLECT_MARGIN_FRAMES: f32 = 2.0;
+const DEFAULT_REFLECT_MAX_HOLD_FRAMES: f32 = 45.0;
+const DEFAULT_REFLECT_HALF_WIDTH: f32 = 5.0;
+const DEFAULT_REFLECT_HEIGHT: f32 = 16.0;
+const DEFAULT_REFLECT_HALF_DEPTH: f32 = 5.0;
 
 pub use schema::*;
+
+/// Fixed fallback for every override that has one, shared by the runtime reads
+/// (`Tuning::get`) and the menu display (`Tuning::values`) so they cannot drift.
+/// Rows derived from settings or the fighter kind are filled in by `values`.
+const DEFAULTS: [f32; COUNT] = {
+    let mut d = [0.; COUNT];
+    d[GRAB_DODGE_DEFAULT] = 1.;
+    d[OUT_OF_SHIELD_DEFAULT] = 1.;
+    d[GRAB_DODGE_LOOKAHEAD] = crate::spot_dodge::LOOKAHEAD;
+    d[SHIELD_WARNING_X] = 24.;
+    d[SHIELD_WARNING_Y] = 28.;
+    d[SHIELD_BODY_HALF_WIDTH] = 6.;
+    d[SHIELD_BODY_HEIGHT] = 18.;
+    d[SHIELD_BODY_HALF_DEPTH] = 6.;
+    d[SHIELD_FORECAST] = 5.;
+    d[SHIELD_HOLD] = 4.;
+    d[GRAB_DODGE_PADDING] = DEFAULT_GRAB_DODGE_PADDING;
+    d[GRAB_DODGE_HEIGHT] = DEFAULT_GRAB_DODGE_HEIGHT;
+    d[TECH_HALF_WIDTH] = 2.5;
+    d[TECH_FLOOR_ORIGIN] = 1.;
+    d[TECH_WALL_LOW] = 1.;
+    d[TECH_WALL_MID] = 3.5;
+    d[TECH_WALL_HIGH] = 6.;
+    d[TECH_CEILING_ORIGIN] = 5.;
+    d[TECH_FLOOR_PADDING] = 1.5;
+    d[TECH_CEILING_PADDING] = 2.;
+    d[PUNISH_HEIGHT] = 8.;
+    d[ROLL_SMASH_HEIGHT] = 6.;
+    d[ROLL_SMASH_WATCH] = 64.;
+    d[ROLL_GRAB_HEIGHT] = 4.;
+    d[CROUCH_RANGE] = 45.;
+    d[CROUCH_HEIGHT] = 20.;
+    d[SHIELD_SCAN_X] = 96.;
+    d[SHIELD_SCAN_Y] = 96.;
+    d[REFLECT_STARTUP] = MIN_GAMEWATCH_REFLECT_STARTUP_FRAMES;
+    d[REFLECT_MARGIN] = DEFAULT_REFLECT_MARGIN_FRAMES;
+    d[REFLECT_MAX_HOLD] = DEFAULT_REFLECT_MAX_HOLD_FRAMES;
+    d[REFLECT_HALF_WIDTH] = DEFAULT_REFLECT_HALF_WIDTH;
+    d[REFLECT_HEIGHT] = DEFAULT_REFLECT_HEIGHT;
+    d[REFLECT_HALF_DEPTH] = DEFAULT_REFLECT_HALF_DEPTH;
+    d
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tuning(pub [Option<f32>; COUNT]);
@@ -344,6 +348,10 @@ impl Tuning {
     pub fn value(&self, i: usize, fallback: f32) -> f32 {
         self.0[i].unwrap_or(fallback)
     }
+    /// The override, or this row's shared fixed default.
+    pub fn get(&self, i: usize) -> f32 {
+        self.value(i, DEFAULTS[i])
+    }
     pub fn frames(i: usize) -> bool {
         matches!(
             i,
@@ -355,14 +363,15 @@ impl Tuning {
                 | REFLECT_MAX_HOLD
         )
     }
-    pub fn visible_index(kind: i32, row: usize) -> usize {
-        (row..COUNT)
-            .find(|i| Self::visible(kind, *i))
-            .or_else(|| (0..COUNT).rev().find(|i| Self::visible(kind, *i)))
-            .unwrap_or(WALK_STRENGTH)
-    }
+    /// Menu rows shown for this fighter: reflect rows need a supported reflector,
+    /// the legacy punish/roll rows are hidden, and crouch rows are Kirby-only.
     pub fn visible(kind: i32, i: usize) -> bool {
-        crate::fighter_tuning_defaults::visible(kind, i)
+        match i {
+            REFLECT_DEFAULT..=REFLECT_HALF_DEPTH => crate::projectile_reflect::supports(kind),
+            PUNISH_DOWN_REACH..=ROLL_GRAB_WATCH => false,
+            CROUCH_RANGE..=CROUCH_HEIGHT => kind == crate::fighter_kinds::KIRBY,
+            _ => i < COUNT,
+        }
     }
     pub fn is_bool(i: usize) -> bool {
         (MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT).contains(&i)
@@ -371,36 +380,67 @@ impl Tuning {
     }
     pub fn tilt_turn(self, kind: i32) -> crate::posture::TiltSettings {
         crate::posture::TiltSettings {
-            down: self.value(
-                TILT_TURN_DOWN,
-                if crate::fighter_tuning_defaults::tilt_turn_down(kind) {
-                    1.0
-                } else {
-                    0.0
-                },
-            ) == 1.0,
-            forward: self.value(TILT_TURN_FORWARD, 0.0) == 1.0,
-            up: self.value(TILT_TURN_UP, 0.0) == 1.0,
+            down: self.value(TILT_TURN_DOWN, f32::from(tilt_turn_down_default(kind))) == 1.0,
+            forward: self.get(TILT_TURN_FORWARD) == 1.0,
+            up: self.get(TILT_TURN_UP) == 1.0,
         }
     }
     pub fn grab_dodge_default(self, base: bool) -> bool {
         self.0[GRAB_DODGE_DEFAULT].map_or(base, |x| x == 1.0)
     }
     pub fn oos_default(self) -> bool {
-        self.0[OUT_OF_SHIELD_DEFAULT].unwrap_or(1.0) == 1.0
+        self.get(OUT_OF_SHIELD_DEFAULT) == 1.0
     }
     pub fn dodge_lookahead(self) -> f32 {
-        self.0[GRAB_DODGE_LOOKAHEAD].unwrap_or(crate::spot_dodge::LOOKAHEAD)
+        self.get(GRAB_DODGE_LOOKAHEAD)
+    }
+    pub fn auto_grab_range(&self, kind: i32, standing: f32) -> f32 {
+        self.auto_grab_ranges(kind, standing).0
+    }
+    pub fn auto_grab_ranges(&self, kind: i32, standing: f32) -> (f32, f32) {
+        let (close, far) = match (self.0[AUTO_GRAB_CLOSE], self.0[AUTO_GRAB_FAR]) {
+            (Some(close), Some(far)) => (close, far),
+            (close, far) => {
+                let defaults = default_auto_grab_ranges(kind, standing);
+                (close.unwrap_or(defaults.0), far.unwrap_or(defaults.1))
+            }
+        };
+        (close, far.max(close))
+    }
+    pub fn shield(&self) -> crate::autopilot_guard::Envelope {
+        crate::autopilot_guard::Envelope {
+            scan_x: self.get(SHIELD_SCAN_X),
+            scan_y: self.get(SHIELD_SCAN_Y),
+            warning_x: self.get(SHIELD_WARNING_X),
+            warning_y: self.get(SHIELD_WARNING_Y),
+            half_width: self.get(SHIELD_BODY_HALF_WIDTH),
+            height: self.get(SHIELD_BODY_HEIGHT),
+            half_depth: self.get(SHIELD_BODY_HALF_DEPTH),
+            forecast: self.get(SHIELD_FORECAST),
+        }
+    }
+    pub fn tech_body(&self) -> crate::tech_prediction::Body {
+        crate::tech_prediction::Body {
+            half_width: self.get(TECH_HALF_WIDTH),
+            floor_origin: self.get(TECH_FLOOR_ORIGIN),
+            wall: [
+                self.get(TECH_WALL_LOW),
+                self.get(TECH_WALL_MID),
+                self.get(TECH_WALL_HIGH),
+            ],
+            ceiling_origin: self.get(TECH_CEILING_ORIGIN),
+            floor_padding: self.get(TECH_FLOOR_PADDING),
+            ceiling_padding: self.get(TECH_CEILING_PADDING),
+        }
     }
     pub fn bounds(i: usize) -> (f32, f32, f32) {
+        if Self::is_bool(i) {
+            return (0., 1., 1.);
+        }
         match i {
-            REFLECT_DEFAULT | TILT_TURN_DOWN | TILT_TURN_FORWARD | TILT_TURN_UP => (0., 1., 1.),
             REFLECT_STARTUP => (6., 30., 1.),
             REFLECT_MARGIN => (0., 8., 1.),
             REFLECT_MAX_HOLD => (6., 120., 1.),
-            REFLECT_HALF_WIDTH | REFLECT_HALF_DEPTH => (1., 30., 0.5),
-            REFLECT_HEIGHT => (1., 60., 0.5),
-            MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT => (0.0, 1.0, 1.0),
             GRAB_DODGE_LOOKAHEAD => (
                 MIN_GRAB_DODGE_LOOKAHEAD_FRAMES,
                 MAX_GRAB_DODGE_LOOKAHEAD_FRAMES,
@@ -408,35 +448,26 @@ impl Tuning {
             ),
             WALK_STRENGTH => (0.1, 0.5, 0.01),
             MOVE_STRENGTH => (0.1, 1.0, 0.01),
-            GRAB_RANGE => (1.0, 60.0, 0.5),
-            AUTO_GRAB_CLOSE | AUTO_GRAB_FAR => (0.0, 150.0, 0.5),
-            SHIELD_WARNING_X => (0.0, 100.0, 0.5),
-            SHIELD_WARNING_Y => (0.0, 100.0, 0.5),
-            SHIELD_BODY_HALF_WIDTH => (0.0, 40.0, 0.5),
-            SHIELD_BODY_HEIGHT => (0.0, 60.0, 0.5),
-            SHIELD_BODY_HALF_DEPTH => (0.0, 40.0, 0.5),
-            SHIELD_FORECAST => (0.0, 10.0, 0.5),
-            SHIELD_HOLD => (0.0, 20.0, 0.5),
-            GRAB_DODGE_PADDING => (0.0, 30.0, 0.5),
-            GRAB_DODGE_HEIGHT => (0.0, 60.0, 0.5),
-            TECH_HALF_WIDTH => (0.0, 30.0, 0.5),
-            TECH_FLOOR_ORIGIN => (0.0, 40.0, 0.5),
-            TECH_WALL_LOW => (0.0, 40.0, 0.5),
-            TECH_WALL_MID => (0.0, 40.0, 0.5),
-            TECH_WALL_HIGH => (0.0, 60.0, 0.5),
-            TECH_CEILING_ORIGIN => (0.0, 60.0, 0.5),
-            TECH_FLOOR_PADDING => (0.0, 15.0, 0.5),
-            TECH_CEILING_PADDING => (0.0, 15.0, 0.5),
-            PUNISH_DOWN_REACH => (0.0, 100.0, 0.5),
-            PUNISH_FORWARD_REACH => (0.0, 100.0, 0.5),
-            PUNISH_HEIGHT => (0.0, 60.0, 0.5),
-            ROLL_SMASH_HEIGHT => (0.0, 60.0, 0.5),
-            ROLL_SMASH_WATCH => (0.0, 150.0, 0.5),
-            ROLL_GRAB_HEIGHT => (0.0, 60.0, 0.5),
-            ROLL_GRAB_WATCH => (0.0, 150.0, 0.5),
-            CROUCH_RANGE => (0.0, 150.0, 0.5),
-            CROUCH_HEIGHT => (0.0, 100.0, 0.5),
             SHIELD_SCAN_X | SHIELD_SCAN_Y => (1.0, 300.0, 1.0),
+            GRAB_RANGE => (1.0, 60.0, 0.5),
+            REFLECT_HALF_WIDTH | REFLECT_HALF_DEPTH => (1., 30., 0.5),
+            REFLECT_HEIGHT => (1., 60., 0.5),
+            SHIELD_FORECAST => (0.0, 10.0, 0.5),
+            TECH_FLOOR_PADDING | TECH_CEILING_PADDING => (0.0, 15.0, 0.5),
+            SHIELD_HOLD => (0.0, 20.0, 0.5),
+            GRAB_DODGE_PADDING | TECH_HALF_WIDTH => (0.0, 30.0, 0.5),
+            SHIELD_BODY_HALF_WIDTH
+            | SHIELD_BODY_HALF_DEPTH
+            | TECH_FLOOR_ORIGIN
+            | TECH_WALL_LOW
+            | TECH_WALL_MID => (0.0, 40.0, 0.5),
+            SHIELD_BODY_HEIGHT | GRAB_DODGE_HEIGHT | TECH_WALL_HIGH | TECH_CEILING_ORIGIN
+            | PUNISH_HEIGHT | ROLL_SMASH_HEIGHT | ROLL_GRAB_HEIGHT => (0.0, 60.0, 0.5),
+            SHIELD_WARNING_X | SHIELD_WARNING_Y | PUNISH_DOWN_REACH | PUNISH_FORWARD_REACH
+            | CROUCH_HEIGHT => (0.0, 100.0, 0.5),
+            AUTO_GRAB_CLOSE | AUTO_GRAB_FAR | ROLL_SMASH_WATCH | ROLL_GRAB_WATCH | CROUCH_RANGE => {
+                (0.0, 150.0, 0.5)
+            }
             _ => (1.0, 150.0, 0.5),
         }
     }
@@ -466,7 +497,7 @@ impl Tuning {
         Ok(())
     }
     pub fn values(s: AssistSettings) -> Values {
-        let mut values = [0.0; COUNT];
+        let mut values = DEFAULTS;
         values[WALK_STRENGTH] = s.walk_strength;
         values[GRAB_RANGE] = s.fighter.grab.standing_range;
         values[HORIZONTAL_RANGE] = s.horizontal_range;
@@ -475,82 +506,40 @@ impl Tuning {
         values[FOLLOW_VERTICAL_RANGE] = s.follow_vertical_range;
         values[STAND_DISTANCE] = s.stand_distance;
         values[MOVE_STRENGTH] = s.move_strength;
-        values[MANUAL_SPACING] = if s.manual_spacing { 1.0 } else { 0.0 };
-        values[AUTO_POSITION] = if s.auto_position { 1.0 } else { 0.0 };
-        values[USE_RANGE_LIMITS] = if s.distance_agnostic { 0.0 } else { 1.0 };
-        values[GRAB_DODGE_DEFAULT] = 1.0;
-        values[OUT_OF_SHIELD_DEFAULT] = 1.0;
-        values[GRAB_DODGE_LOOKAHEAD] = crate::spot_dodge::LOOKAHEAD;
-        values[SHIELD_WARNING_X] = 24.0;
-        values[SHIELD_WARNING_Y] = 28.0;
-        values[SHIELD_BODY_HALF_WIDTH] = 6.0;
-        values[SHIELD_BODY_HEIGHT] = 18.0;
-        values[SHIELD_BODY_HALF_DEPTH] = 6.0;
-        values[SHIELD_FORECAST] = 5.0;
-        values[SHIELD_HOLD] = 4.0;
-        values[GRAB_DODGE_PADDING] = DEFAULT_GRAB_DODGE_PADDING;
-        values[GRAB_DODGE_HEIGHT] = DEFAULT_GRAB_DODGE_HEIGHT;
-        values[TECH_HALF_WIDTH] = 2.5;
-        values[TECH_FLOOR_ORIGIN] = 1.0;
-        values[TECH_WALL_LOW] = 1.0;
-        values[TECH_WALL_MID] = 3.5;
-        values[TECH_WALL_HIGH] = 6.0;
-        values[TECH_CEILING_ORIGIN] = 5.0;
-        values[TECH_FLOOR_PADDING] = 1.5;
-        values[TECH_CEILING_PADDING] = 2.0;
-        crate::fighter_tuning_defaults::legacy_ranges(s.fighter_kind, &mut values);
-        values[PUNISH_HEIGHT] = 8.0;
-        values[ROLL_SMASH_HEIGHT] = 6.0;
-        values[ROLL_SMASH_WATCH] = 64.0;
-        values[ROLL_GRAB_HEIGHT] = 4.0;
-        values[CROUCH_RANGE] = 45.0;
-        values[CROUCH_HEIGHT] = 20.0;
-        values[SHIELD_SCAN_X] = 96.0;
-        values[SHIELD_SCAN_Y] = 96.0;
-        let (auto_grab_close, auto_grab_far) =
-            analysis::default_auto_grab_ranges(s.fighter_kind, s.fighter.grab.standing_range);
-        values[AUTO_GRAB_CLOSE] = auto_grab_close;
-        values[AUTO_GRAB_FAR] = auto_grab_far;
-        values[REFLECT_DEFAULT] = 0.0;
-        values[REFLECT_STARTUP] = MIN_GAMEWATCH_REFLECT_STARTUP_FRAMES;
-        values[REFLECT_MARGIN] = DEFAULT_REFLECT_MARGIN_FRAMES;
-        values[REFLECT_MAX_HOLD] = DEFAULT_REFLECT_MAX_HOLD_FRAMES;
-        values[REFLECT_HALF_WIDTH] = DEFAULT_REFLECT_HALF_WIDTH;
-        values[REFLECT_HEIGHT] = DEFAULT_REFLECT_HEIGHT;
-        values[REFLECT_HALF_DEPTH] = DEFAULT_REFLECT_HALF_DEPTH;
-        values[TILT_TURN_DOWN] = if crate::fighter_tuning_defaults::tilt_turn_down(s.fighter_kind) {
-            1.0
+        values[MANUAL_SPACING] = f32::from(s.manual_spacing);
+        values[AUTO_POSITION] = f32::from(s.auto_position);
+        values[USE_RANGE_LIMITS] = f32::from(!s.distance_agnostic);
+        let kirby = s.fighter_kind == crate::fighter_kinds::KIRBY;
+        let yoshi = s.fighter_kind == crate::fighter_kinds::YOSHI;
+        values[PUNISH_DOWN_REACH] = if kirby {
+            14.0
+        } else if yoshi {
+            13.0
         } else {
-            0.0
+            12.0
         };
+        values[PUNISH_FORWARD_REACH] = if kirby { 22.0 } else { 21.0 };
+        values[ROLL_GRAB_WATCH] = if kirby { 32.0 } else { 36.0 };
+        (values[AUTO_GRAB_CLOSE], values[AUTO_GRAB_FAR]) =
+            default_auto_grab_ranges(s.fighter_kind, s.fighter.grab.standing_range);
+        values[TILT_TURN_DOWN] = f32::from(tilt_turn_down_default(s.fighter_kind));
         Values(values)
     }
     pub fn apply(self, mut s: AssistSettings) -> AssistSettings {
         let v = self.0;
-        if let Some(x) = v[WALK_STRENGTH] {
-            s.walk_strength = x;
-        }
-        if let Some(x) = v[GRAB_RANGE] {
-            s.fighter.grab.standing_range = x;
-        }
-        if let Some(x) = v[HORIZONTAL_RANGE] {
-            s.horizontal_range = x;
-        }
-        if let Some(x) = v[VERTICAL_RANGE] {
-            s.vertical_range = x;
-        }
-        if let Some(x) = v[FOLLOW_RANGE] {
-            s.follow_range = x;
-        }
-        if let Some(x) = v[FOLLOW_VERTICAL_RANGE] {
-            s.follow_vertical_range = x;
-        }
-        if let Some(x) = v[STAND_DISTANCE] {
-            s.stand_distance = x;
-        }
-        if let Some(x) = v[MOVE_STRENGTH] {
-            s.move_strength = x;
-        }
+        let set = |slot: usize, target: &mut f32| {
+            if let Some(x) = v[slot] {
+                *target = x;
+            }
+        };
+        set(WALK_STRENGTH, &mut s.walk_strength);
+        set(GRAB_RANGE, &mut s.fighter.grab.standing_range);
+        set(HORIZONTAL_RANGE, &mut s.horizontal_range);
+        set(VERTICAL_RANGE, &mut s.vertical_range);
+        set(FOLLOW_RANGE, &mut s.follow_range);
+        set(FOLLOW_VERTICAL_RANGE, &mut s.follow_vertical_range);
+        set(STAND_DISTANCE, &mut s.stand_distance);
+        set(MOVE_STRENGTH, &mut s.move_strength);
         if let Some(x) = v[MANUAL_SPACING] {
             s.manual_spacing = x == 1.0;
         }

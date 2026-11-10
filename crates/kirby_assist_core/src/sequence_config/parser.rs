@@ -2,6 +2,12 @@
 //!
 //! This code runs during startup or an explicit save, never in the frame loop.
 use super::*;
+use crate::{
+    button_bindings::{Activation, Builtin, Mode, ModeBinding},
+    fighter_tuning::Tuning,
+    reaction_rules::Rule,
+};
+use std::collections::BTreeMap;
 
 mod actions;
 use actions::parse_actions;
@@ -41,305 +47,335 @@ fn classify_section_header(line: &str) -> Option<SectionHeader<'_>> {
     Some(SectionHeader::Entry)
 }
 
-impl Catalog {
-    pub fn parse(source: &str) -> Result<Self, String> {
-        if source.len() as u64 > MAX_FILE_BYTES {
-            return Err("sequence file exceeds 512 KiB".into());
+/// A line without its `#` comment. Every reader and writer of the file uses
+/// this one rule, so they agree on what a header or key line is.
+pub(super) fn strip_comment(line: &str) -> &str {
+    line.split('#').next().unwrap_or("").trim()
+}
+
+/// Section headers that will hold a 32-action recipe.
+fn count_sections(source: &str) -> Result<usize, String> {
+    let count = source
+        .lines()
+        .filter(|line| {
+            matches!(
+                classify_section_header(strip_comment(line)),
+                Some(
+                    SectionHeader::Template {
+                        countable: true,
+                        ..
+                    } | SectionHeader::Entry
+                )
+            )
+        })
+        .take(MAX_ENTRIES + 1)
+        .count();
+    if count > MAX_ENTRIES {
+        return Err(format!(
+            "at most {MAX_ENTRIES} sequence sections are allowed"
+        ));
+    }
+    Ok(count)
+}
+
+/// What the `key = value` lines under the current header mean.
+#[derive(Clone, Copy)]
+enum Body {
+    /// Recipe keys for `Parser::current`; before any header there is none.
+    Recipe,
+    Retired,
+    Universal,
+    Tuning(i32),
+}
+
+/// Keys of a recipe section. Each may appear once per section.
+#[derive(Clone, Copy)]
+enum RecipeKey {
+    Name,
+    Builtin,
+    Mode,
+    Activation,
+    GroundOnly,
+    WhileHeld,
+    Reaction,
+    Actions,
+    Default,
+    StartDelay,
+    Timeout,
+    SpatialTimeout,
+}
+
+impl RecipeKey {
+    fn parse(key: &str) -> Option<Self> {
+        Some(match key {
+            "name" | "label" => Self::Name,
+            "builtin" => Self::Builtin,
+            "mode" => Self::Mode,
+            "activation" => Self::Activation,
+            "ground_only" => Self::GroundOnly,
+            "while_held" => Self::WhileHeld,
+            "reaction" => Self::Reaction,
+            "actions" => Self::Actions,
+            "default" => Self::Default,
+            "start_delay" => Self::StartDelay,
+            "timeout" => Self::Timeout,
+            "spatial_timeout" => Self::SpatialTimeout,
+            _ => return None,
+        })
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Name => "name",
+            Self::Builtin => "builtin",
+            Self::Mode => "mode",
+            Self::Activation => "activation",
+            Self::GroundOnly => "ground_only",
+            Self::WhileHeld => "while_held",
+            Self::Reaction => "reaction",
+            Self::Actions => "actions",
+            Self::Default => "default",
+            Self::StartDelay => "start_delay",
+            Self::Timeout => "timeout",
+            Self::SpatialTimeout => "spatial_timeout",
         }
+    }
+}
+
+fn new_entry(fighter_kind: i32, fighter: String, slot: PresetSlot, choice: String) -> Entry {
+    Entry {
+        fighter_kind,
+        fighter,
+        slot,
+        choice,
+        name: None,
+        default: false,
+        explicit_start: false,
+        sequence: Sequence::default(),
+    }
+}
+
+/// Line-by-line catalog reader. `current` is the recipe being filled in; it is
+/// validated and moved into `entries` when the next header (or EOF) arrives.
+struct Parser {
+    entries: Vec<Entry>,
+    current: Option<(Entry, usize)>,
+    /// `RecipeKey` bits already used by `current`.
+    seen: u16,
+    body: Body,
+    universal: Option<String>,
+    universal_keys: Vec<String>,
+    tuning: BTreeMap<i32, Tuning>,
+    /// Built on first use: most fighters resolve through `fighter_data`.
+    identities: Option<FighterProfiles>,
+}
+
+impl Parser {
+    fn new(sections: usize) -> Result<Self, String> {
         // Entry embeds all 32 actions. Geometric Vec growth temporarily kept
         // both the old and new roster buffers alive during saves. Count headers
         // first, then reserve once and report allocation failure instead of
         // invoking the aborting OOM handler for the largest save allocation.
-        let count = source
-            .lines()
-            .filter(|line| {
-                let line = line.split('#').next().unwrap_or("").trim();
-                matches!(
-                    classify_section_header(line),
-                    Some(
-                        SectionHeader::Template {
-                            countable: true,
-                            ..
-                        } | SectionHeader::Entry
-                    )
-                )
-            })
-            .take(MAX_ENTRIES + 1)
-            .count();
-        if count > MAX_ENTRIES {
-            return Err(format!(
-                "at most {MAX_ENTRIES} sequence sections are allowed"
-            ));
-        }
-        let mut entries: Vec<Entry> = Vec::new();
-        entries.try_reserve_exact(count).map_err(|_| {
+        let mut entries = Vec::new();
+        entries.try_reserve_exact(sections).map_err(|_| {
             "Not enough memory to validate sequences; retry outside battle".to_owned()
         })?;
-        let identities = FighterProfiles::default();
-        let mut current: Option<(Entry, usize)> = None;
-        let mut numeric_keys = Vec::new();
-        let mut retired_buttons = false;
-        let mut universal = None::<String>;
-        let mut universal_section = false;
-        let mut universal_keys = Vec::new();
-        let mut tuning_kind = None;
-        let mut tuning = std::collections::BTreeMap::new();
-        for (index, raw) in source.lines().enumerate() {
-            let line_number = index + 1;
-            let line = raw.split('#').next().unwrap_or("").trim();
-            if line.is_empty() {
-                continue;
+        Ok(Self {
+            entries,
+            current: None,
+            seen: 0,
+            body: Body::Recipe,
+            universal: None,
+            universal_keys: Vec::new(),
+            tuning: BTreeMap::new(),
+            identities: None,
+        })
+    }
+
+    fn begin_entry(&mut self, entry: Entry, line_number: usize) {
+        self.seen = 0;
+        self.current = Some((entry, line_number));
+    }
+
+    fn open_section(
+        &mut self,
+        header: SectionHeader<'_>,
+        line: &str,
+        line_number: usize,
+    ) -> Result<(), String> {
+        finish_entry(&mut self.current, &mut self.entries)?;
+        self.body = match header {
+            SectionHeader::UniversalSettings => {
+                if self.universal.is_some() {
+                    return Err(format!("line {line_number}: duplicate universal settings"));
+                }
+                self.universal = Some(String::new());
+                Body::Universal
             }
-            if let Some(header_kind) = classify_section_header(line) {
-                finish_entry(&mut current, &mut entries)?;
-                tuning_kind = None;
-                retired_buttons = false;
-                universal_section = matches!(header_kind, SectionHeader::UniversalSettings);
-                if universal_section {
-                    if universal.is_some() {
-                        return Err(format!("line {line_number}: duplicate universal settings"));
-                    }
-                    universal = Some(String::new());
-                    continue;
-                }
-                if let SectionHeader::Template { id, .. } = header_kind {
-                    if !valid_id(id)
-                        || entries
-                            .iter()
-                            .any(|e| e.fighter_kind == -1 && e.choice == id)
-                    {
-                        return Err(format!(
-                            "line {line_number}: invalid or duplicate template id {id}"
-                        ));
-                    }
-                    numeric_keys.clear();
-                    current = Some((
-                        Entry {
-                            fighter_kind: -1,
-                            fighter: "template".into(),
-                            slot: PresetSlot::X,
-                            choice: id.into(),
-                            name: None,
-                            default: false,
-                            explicit_start: false,
-                            sequence: Sequence::default(),
-                        },
-                        line_number,
-                    ));
-                    continue;
-                }
-                retired_buttons = matches!(header_kind, SectionHeader::RetiredButtons);
-                if retired_buttons {
-                    continue;
-                }
-                let header = &line[1..line.len() - 1];
-                let mut parts = header.split('.');
-                let fighter = words_id(parts.next().unwrap_or("").trim());
-                let slot = words_id(parts.next().unwrap_or("").trim());
-                let choice = words_id(parts.next().unwrap_or("").trim());
-                if fighter.is_empty()
-                    || slot.is_empty()
-                    || (choice.is_empty() && slot != "settings")
-                    || parts.next().is_some()
-                {
-                    return Err(format!(
-                        "line {line_number}: section must be [fighter.situation.choice_id]"
-                    ));
-                }
-                let fighter_kind = crate::fighter_data::all()
-                    .iter()
-                    .find(|entry| entry.name.eq_ignore_ascii_case(&fighter))
-                    .map(|entry| entry.kind)
-                    .or_else(|| {
-                        (0..crate::fighter_kinds::PLAYABLE_KIND_COUNT).find(|kind| {
-                            identities
-                                .profile(*kind)
-                                .is_some_and(|p| p.fighter_kind == *kind && p.name == fighter)
-                        })
-                    })
-                    .ok_or_else(|| format!("line {line_number}: unknown fighter {fighter}"))?;
-                if slot == "settings" && choice.is_empty() {
-                    if tuning
-                        .insert(fighter_kind, crate::fighter_tuning::Tuning::default())
-                        .is_some()
-                    {
-                        return Err(format!("line {line_number}: duplicate fighter settings"));
-                    }
-                    tuning_kind = Some(fighter_kind);
-                    continue;
-                }
-                let slot = parse_slot(&slot)
-                    .ok_or_else(|| format!("line {line_number}: unknown situation {slot}"))?;
-                if !valid_id(&choice) {
-                    return Err(format!("line {line_number}: invalid choice id {choice}"));
-                }
-                if entries.iter().any(|entry| {
-                    entry.fighter_kind == fighter_kind
-                        && entry.slot == slot
-                        && entry.choice == choice
-                }) {
-                    return Err(format!("line {line_number}: duplicate section {header}"));
-                }
-                numeric_keys.clear();
-                current = Some((
-                    Entry {
-                        fighter_kind,
-                        fighter,
-                        slot,
-                        choice,
-                        name: None,
-                        default: false,
-                        explicit_start: false,
-                        sequence: Sequence::default(),
-                    },
-                    line_number,
-                ));
-                continue;
+            SectionHeader::Template { id, .. } => {
+                self.open_template(id, line_number)?;
+                Body::Recipe
             }
-            if retired_buttons {
-                continue;
+            SectionHeader::RetiredButtons => Body::Retired,
+            SectionHeader::Settings | SectionHeader::Entry => {
+                self.open_fighter_section(line, line_number)?
             }
-            let Some((key, value)) = line.split_once('=') else {
-                return Err(format!("line {line_number}: expected key = value"));
-            };
-            if universal_section {
-                let key = key.trim().to_ascii_lowercase();
-                if universal_keys.contains(&key) {
-                    return Err(format!("line {line_number}: duplicate universal key {key}"));
-                }
-                universal
-                    .as_mut()
-                    .unwrap()
-                    .push_str(&format!("{key} = {}\n", value.trim()));
-                universal_keys.push(key);
-                continue;
-            }
-            if let Some(kind) = tuning_kind {
-                tuning
-                    .get_mut(&kind)
-                    .unwrap()
-                    .set(key.trim(), value.trim())
-                    .map_err(|e| format!("line {line_number}: {e}"))?;
-                continue;
-            }
-            let Some((entry, _)) = current.as_mut() else {
-                return Err(format!(
-                    "line {line_number}: name/actions must follow a section"
-                ));
-            };
-            match key.trim().to_ascii_lowercase().as_str() {
-                "name" | "label" => {
-                    if entry.name.is_some() {
-                        return Err(format!("line {line_number}: duplicate name"));
-                    }
-                    let value = value.trim();
-                    let value = if value.starts_with('"') || value.ends_with('"') {
-                        value
-                            .strip_prefix('"')
-                            .and_then(|v| v.strip_suffix('"'))
-                            .ok_or_else(|| {
-                                format!("line {line_number}: name needs matching quotes")
-                            })?
-                    } else {
-                        value
-                    };
-                    if value.trim().is_empty()
-                        || value.len() > 64
-                        || value.chars().any(char::is_control)
-                    {
-                        return Err(format!("line {line_number}: name must be 1–64 bytes without control characters"));
-                    }
-                    entry.name = Some(value.trim().to_owned());
-                }
-                "builtin" => {
-                    if entry.sequence.builtin.is_some() { return Err(format!("line {line_number}: duplicate builtin")); }
-                    entry.sequence.builtin = Some(crate::button_bindings::Builtin::parse(value.trim())
-                        .ok_or_else(||format!("line {line_number}: unknown built-in button action"))?);
-                }
-                "mode" => {
-                    if entry.sequence.mode.is_some() {return Err(format!("line {line_number}: duplicate mode"));}
-                    let mode=crate::button_bindings::Mode::parse(&words_id(value)).ok_or_else(||format!("line {line_number}: unknown/unimplemented mode {}",value.trim()))?;
-                    entry.sequence.mode=Some(crate::button_bindings::ModeBinding {mode,activation:crate::button_bindings::Activation::Hold});
-                }
-                "activation" => {
-                    if numeric_keys.iter().any(|k|k=="activation") {return Err(format!("line {line_number}: duplicate activation"));}
-                    let Some(binding)=entry.sequence.mode.as_mut() else {return Err(format!("line {line_number}: activation must follow mode"));};
-                    binding.activation=match value.trim() {"hold"=>crate::button_bindings::Activation::Hold,"toggle"=>crate::button_bindings::Activation::Toggle,_=>return Err(format!("line {line_number}: activation must be hold or toggle"))};
-                    numeric_keys.push("activation".into());
-                }
-                "ground_only" => {
-                    if numeric_keys.iter().any(|k|k=="ground_only") { return Err(format!("line {line_number}: duplicate ground_only")); }
-                    entry.sequence.ground_only=match value.trim() {"true"=>true,"false"=>false,_=>return Err(format!("line {line_number}: ground_only must be true or false"))};
-                    numeric_keys.push("ground_only".into());
-                }
-                "while_held" => {
-                    if numeric_keys.iter().any(|k| k=="while_held") { return Err(format!("line {line_number}: duplicate while_held")); }
-                    entry.sequence.while_held = match value.trim() { "true" => true, "false" => false, _ => return Err(format!("line {line_number}: while_held must be true or false")) };
-                    numeric_keys.push("while_held".into());
-                }
-                "reaction" => {
-                    if numeric_keys.iter().any(|k| k=="reaction") {return Err(format!("line {line_number}: duplicate reaction"));}
-                    entry.sequence.reaction=crate::reaction_rules::Rule::parse(value.trim()).map_err(|e|format!("line {line_number}: {e}"))?;
-                    numeric_keys.push("reaction".into());
-                }
-                "actions" => {
-                    if entry.sequence.len != 0 {
-                        return Err(format!("line {line_number}: duplicate actions"));
-                    }
-                    let parsed = parse_actions(value.trim(), line_number)?;
-                    entry.sequence.actions = parsed.actions;
-                    entry.sequence.len = parsed.len;
-                }
-                "default" => {
-                    if numeric_keys.iter().any(|key| key == "default") {
-                        return Err(format!("line {line_number}: duplicate default"));
-                    }
-                    entry.default = match value.trim() { "true" => true, "false" => false, _ => return Err(format!("line {line_number}: default must be true or false")) };
-                    numeric_keys.push("default".to_owned());
-                }
-                "start_delay" | "timeout" | "spatial_timeout" => {
-                    let key = key.trim().to_ascii_lowercase();
-                    if numeric_keys.contains(&key) {
-                        return Err(format!("line {line_number}: duplicate {key}"));
-                    }
-                    let frames: u16 = value.trim().parse()
-                        .map_err(|_| format!("line {line_number}: {key} must be an integer frame count"))?;
-                    let exceeds_frame_limit = frames > super::MAX_SEQUENCE_FRAME_COUNT;
-                    let missing_required_frame = key != "start_delay" && frames == 0;
-                    if exceeds_frame_limit || missing_required_frame {
-                        return Err(format!(
-                            "line {line_number}: {key} must be {}..{}",
-                            if key == "start_delay" { 0 } else { 1 },
-                            super::MAX_SEQUENCE_FRAME_COUNT,
-                        ));
-                    }
-                    match key.as_str() {
-                        "start_delay" => { entry.sequence.start_delay = frames; entry.explicit_start = true; },
-                        "timeout" => entry.sequence.timeout = frames,
-                        _ => entry.sequence.spatial_timeout = frames,
-                    }
-                    numeric_keys.push(key);
-                }
-                _ => {
-                    return Err(format!(
-                        "line {line_number}: supported keys are name, actions, builtin, default, start_delay, timeout, spatial_timeout, while_held, ground_only and reaction"
-                    ))
-                }
-            }
+        };
+        Ok(())
+    }
+
+    fn open_template(&mut self, id: &str, line_number: usize) -> Result<(), String> {
+        if !valid_id(id)
+            || self
+                .entries
+                .iter()
+                .any(|e| e.fighter_kind == -1 && e.choice == id)
+        {
+            return Err(format!(
+                "line {line_number}: invalid or duplicate template id {id}"
+            ));
         }
-        finish_entry(&mut current, &mut entries)?;
-        if let Some(settings) = universal.as_deref() {
+        let entry = new_entry(-1, "template".into(), PresetSlot::X, id.into());
+        self.begin_entry(entry, line_number);
+        Ok(())
+    }
+
+    /// `[fighter.situation.choice_id]` or `[fighter.settings]`.
+    fn open_fighter_section(&mut self, line: &str, line_number: usize) -> Result<Body, String> {
+        let header = &line[1..line.len() - 1];
+        let mut parts = header.split('.');
+        let fighter = words_id(parts.next().unwrap_or(""));
+        let slot = words_id(parts.next().unwrap_or(""));
+        let choice = words_id(parts.next().unwrap_or(""));
+        if fighter.is_empty()
+            || slot.is_empty()
+            || (choice.is_empty() && slot != "settings")
+            || parts.next().is_some()
+        {
+            return Err(format!(
+                "line {line_number}: section must be [fighter.situation.choice_id]"
+            ));
+        }
+        let fighter_kind = self
+            .fighter_kind(&fighter)
+            .ok_or_else(|| format!("line {line_number}: unknown fighter {fighter}"))?;
+        if slot == "settings" && choice.is_empty() {
+            if self.tuning.insert(fighter_kind, Tuning::default()).is_some() {
+                return Err(format!("line {line_number}: duplicate fighter settings"));
+            }
+            return Ok(Body::Tuning(fighter_kind));
+        }
+        let slot = parse_slot(&slot)
+            .ok_or_else(|| format!("line {line_number}: unknown situation {slot}"))?;
+        if !valid_id(&choice) {
+            return Err(format!("line {line_number}: invalid choice id {choice}"));
+        }
+        if self.entries.iter().any(|entry| {
+            entry.fighter_kind == fighter_kind && entry.slot == slot && entry.choice == choice
+        }) {
+            return Err(format!("line {line_number}: duplicate section {header}"));
+        }
+        self.begin_entry(new_entry(fighter_kind, fighter, slot, choice), line_number);
+        Ok(Body::Recipe)
+    }
+
+    fn fighter_kind(&mut self, fighter: &str) -> Option<i32> {
+        crate::fighter_data::all()
+            .iter()
+            .find(|entry| entry.name.eq_ignore_ascii_case(fighter))
+            .map(|entry| entry.kind)
+            .or_else(|| {
+                let identities = self.identities.get_or_insert_with(FighterProfiles::default);
+                (0..crate::fighter_kinds::PLAYABLE_KIND_COUNT).find(|kind| {
+                    identities
+                        .profile(*kind)
+                        .is_some_and(|p| p.fighter_kind == *kind && p.name == fighter)
+                })
+            })
+    }
+
+    fn property(&mut self, line: &str, line_number: usize) -> Result<(), String> {
+        if matches!(self.body, Body::Retired) {
+            return Ok(());
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            return Err(format!("line {line_number}: expected key = value"));
+        };
+        match self.body {
+            Body::Retired => Ok(()),
+            Body::Universal => self.universal_property(key, value, line_number),
+            Body::Tuning(kind) => self
+                .tuning
+                .get_mut(&kind)
+                .expect("settings section registered by its header")
+                .set(key.trim(), value.trim())
+                .map_err(|e| format!("line {line_number}: {e}")),
+            Body::Recipe => self.recipe_property(key, value.trim(), line_number),
+        }
+    }
+
+    fn universal_property(
+        &mut self,
+        key: &str,
+        value: &str,
+        line_number: usize,
+    ) -> Result<(), String> {
+        let key = key.trim().to_ascii_lowercase();
+        if self.universal_keys.contains(&key) {
+            return Err(format!("line {line_number}: duplicate universal key {key}"));
+        }
+        self.universal
+            .as_mut()
+            .expect("universal body follows its header")
+            .push_str(&format!("{key} = {}\n", value.trim()));
+        self.universal_keys.push(key);
+        Ok(())
+    }
+
+    fn recipe_property(
+        &mut self,
+        key: &str,
+        value: &str,
+        line_number: usize,
+    ) -> Result<(), String> {
+        let Some((entry, _)) = self.current.as_mut() else {
+            return Err(format!(
+                "line {line_number}: name/actions must follow a section"
+            ));
+        };
+        let Some(key) = RecipeKey::parse(&key.trim().to_ascii_lowercase()) else {
+            return Err(format!(
+                "line {line_number}: supported keys are name, actions, builtin, default, start_delay, timeout, spatial_timeout, while_held, ground_only and reaction"
+            ));
+        };
+        let bit = 1 << key as u16;
+        if self.seen & bit != 0 {
+            return Err(format!("line {line_number}: duplicate {}", key.name()));
+        }
+        self.seen |= bit;
+        apply_recipe_key(entry, key, value, line_number)
+    }
+
+    fn finish(mut self) -> Result<Catalog, String> {
+        finish_entry(&mut self.current, &mut self.entries)?;
+        self.identities = None;
+        if let Some(settings) = self.universal.as_deref() {
             validate_universal_settings(settings)?;
         }
         let mut templates = Vec::new();
-        entries.retain(|e| {
-            if e.fighter_kind != -1 {
+        self.entries.retain_mut(|entry| {
+            if entry.fighter_kind != -1 {
                 return true;
             }
+            let id = std::mem::take(&mut entry.choice);
+            let name = entry
+                .name
+                .take()
+                .unwrap_or_else(|| id.replace('_', " "));
             templates.push(Template {
-                id: e.choice.clone(),
-                name: e.name.clone().unwrap_or_else(|| e.choice.replace('_', " ")),
-                sequence: e.sequence,
+                id,
+                name,
+                sequence: entry.sequence,
             });
             false
         });
@@ -348,24 +384,153 @@ impl Catalog {
                 "at most {MAX_TEMPLATES} generic templates are allowed"
             ));
         }
-        Ok(Self {
-            entries,
-            tuning,
-            universal,
+        Ok(Catalog {
+            entries: self.entries,
+            tuning: self.tuning,
+            universal: self.universal,
             templates,
         })
+    }
+}
+
+fn apply_recipe_key(
+    entry: &mut Entry,
+    key: RecipeKey,
+    value: &str,
+    line_number: usize,
+) -> Result<(), String> {
+    let sequence = &mut entry.sequence;
+    match key {
+        RecipeKey::Name => entry.name = Some(parse_name(value, line_number)?),
+        RecipeKey::Builtin => {
+            sequence.builtin = Some(
+                Builtin::parse(value)
+                    .ok_or_else(|| format!("line {line_number}: unknown built-in button action"))?,
+            );
+        }
+        RecipeKey::Mode => {
+            let mode = Mode::parse(&words_id(value)).ok_or_else(|| {
+                format!("line {line_number}: unknown/unimplemented mode {value}")
+            })?;
+            sequence.mode = Some(ModeBinding {
+                mode,
+                activation: Activation::Hold,
+            });
+        }
+        RecipeKey::Activation => {
+            let Some(binding) = sequence.mode.as_mut() else {
+                return Err(format!("line {line_number}: activation must follow mode"));
+            };
+            binding.activation = match value {
+                "hold" => Activation::Hold,
+                "toggle" => Activation::Toggle,
+                _ => {
+                    return Err(format!(
+                        "line {line_number}: activation must be hold or toggle"
+                    ))
+                }
+            };
+        }
+        RecipeKey::GroundOnly => sequence.ground_only = parse_flag(key, value, line_number)?,
+        RecipeKey::WhileHeld => sequence.while_held = parse_flag(key, value, line_number)?,
+        RecipeKey::Default => entry.default = parse_flag(key, value, line_number)?,
+        RecipeKey::Reaction => {
+            sequence.reaction =
+                Rule::parse(value).map_err(|e| format!("line {line_number}: {e}"))?;
+        }
+        RecipeKey::Actions => {
+            let parsed = parse_actions(value, line_number)?;
+            sequence.actions = parsed.actions;
+            sequence.len = parsed.len;
+        }
+        RecipeKey::StartDelay | RecipeKey::Timeout | RecipeKey::SpatialTimeout => {
+            let frames = parse_frame_count(key, value, line_number)?;
+            match key {
+                RecipeKey::StartDelay => {
+                    sequence.start_delay = frames;
+                    entry.explicit_start = true;
+                }
+                RecipeKey::Timeout => sequence.timeout = frames,
+                _ => sequence.spatial_timeout = frames,
+            }
+        }
+    }
+    Ok(())
+}
+
+fn parse_name(value: &str, line_number: usize) -> Result<String, String> {
+    let value = if value.starts_with('"') || value.ends_with('"') {
+        value
+            .strip_prefix('"')
+            .and_then(|v| v.strip_suffix('"'))
+            .ok_or_else(|| format!("line {line_number}: name needs matching quotes"))?
+    } else {
+        value
+    };
+    if value.trim().is_empty() || value.len() > 64 || value.chars().any(char::is_control) {
+        return Err(format!(
+            "line {line_number}: name must be 1–64 bytes without control characters"
+        ));
+    }
+    Ok(value.trim().to_owned())
+}
+
+fn parse_flag(key: RecipeKey, value: &str, line_number: usize) -> Result<bool, String> {
+    match value {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => Err(format!(
+            "line {line_number}: {} must be true or false",
+            key.name()
+        )),
+    }
+}
+
+/// `start_delay` may be zero; the timeouts must be at least one frame.
+fn parse_frame_count(key: RecipeKey, value: &str, line_number: usize) -> Result<u16, String> {
+    let name = key.name();
+    let frames: u16 = value
+        .parse()
+        .map_err(|_| format!("line {line_number}: {name} must be an integer frame count"))?;
+    let minimum = u16::from(!matches!(key, RecipeKey::StartDelay));
+    if frames > MAX_SEQUENCE_FRAME_COUNT || frames < minimum {
+        return Err(format!(
+            "line {line_number}: {name} must be {minimum}..{MAX_SEQUENCE_FRAME_COUNT}"
+        ));
+    }
+    Ok(frames)
+}
+
+impl Catalog {
+    pub fn parse(source: &str) -> Result<Self, String> {
+        if source.len() as u64 > MAX_FILE_BYTES {
+            return Err("sequence file exceeds 512 KiB".into());
+        }
+        let mut parser = Parser::new(count_sections(source)?)?;
+        for (index, raw) in source.lines().enumerate() {
+            let line = strip_comment(raw);
+            if line.is_empty() {
+                continue;
+            }
+            match classify_section_header(line) {
+                Some(header) => parser.open_section(header, line, index + 1)?,
+                None => parser.property(line, index + 1)?,
+            }
+        }
+        parser.finish()
     }
 
     pub fn validate(&self, profiles: &FighterProfiles) -> Result<(), String> {
         // Count each row once. The old nested full-catalog scan allocated a
         // temporary row Vec for every section, repeatedly during a single save.
-        let mut rows = std::collections::BTreeMap::<(i32, usize), (usize, usize)>::new();
+        let mut rows = BTreeMap::<(i32, usize), (usize, usize)>::new();
         let mut simple_events = std::collections::BTreeSet::new();
-        let mut rule_counts = std::collections::BTreeMap::<(i32, usize), usize>::new();
+        let mut rule_counts = BTreeMap::<(i32, usize), usize>::new();
         for entry in &self.entries {
             validate_facing_blocks(entry.sequence.actions())?;
             crate::reaction_rules::validate_response(entry.sequence)?;
-            if let Some(event) = entry.sequence.reaction.trigger.simple() {
+            let reaction = entry.sequence.reaction;
+            if let Some(event) = reaction.trigger.simple() {
                 if !simple_events.insert((entry.fighter_kind, event)) {
                     return Err(
                         "Only one auto-react sequence per event per fighter is allowed".into(),
@@ -373,9 +538,9 @@ impl Catalog {
                 }
             }
 
-            if entry.sequence.reaction.active() {
+            if reaction.active() {
                 let count = rule_counts
-                    .entry((entry.fighter_kind, entry.sequence.reaction.trigger.family()))
+                    .entry((entry.fighter_kind, reaction.trigger.family()))
                     .or_default();
                 *count += 1;
                 if *count > crate::reaction_rules::MAX_RULES_PER_MODE {
@@ -394,8 +559,8 @@ impl Catalog {
                     .filter(|profile| profile.fighter_kind == entry.fighter_kind)
                     .ok_or_else(|| format!("{} has no compiled ledge profile", entry.fighter))?;
             }
-            row.0 += usize::from(!entry.sequence.reaction.active());
-            row.1 += usize::from(entry.default && !entry.sequence.reaction.active());
+            row.0 += usize::from(!reaction.active());
+            row.1 += usize::from(entry.default && !reaction.active());
             if row.0 > entry.slot.max_choices() {
                 return Err(format!(
                     "{}.{} exceeds {} menu options",
@@ -440,10 +605,11 @@ impl Catalog {
         if !diagnostic {
             self.entries.retain(|entry| {
                 !entry.choice.starts_with("test")
-                    && !entry
-                        .name
-                        .as_deref()
-                        .is_some_and(|name| name.to_ascii_lowercase().contains("[test]"))
+                    && !entry.name.as_deref().is_some_and(|name| {
+                        name.as_bytes()
+                            .windows(b"[test]".len())
+                            .any(|window| window.eq_ignore_ascii_case(b"[test]"))
+                    })
             });
         }
         self
@@ -497,57 +663,59 @@ fn retired_button_header(line: &str) -> bool {
         .any(|s| slot.eq_ignore_ascii_case(s))
 }
 
+/// Cross-key rules that can only be judged once the whole section is read.
+fn check_entry(entry: &Entry, line: usize) -> Result<(), String> {
+    let sequence = &entry.sequence;
+    if entry.fighter_kind == -1
+        && (entry.default
+            || sequence.mode.is_some()
+            || sequence.builtin.is_some()
+            || sequence.reaction.active()
+            || sequence.while_held)
+    {
+        return Err(format!("line {line}: templates contain actions/timings only, without defaults, modes, builtins, reactions or held activation"));
+    }
+    if let Some(binding) = sequence.mode {
+        if !entry.slot.is_button() || !binding.mode.supports(entry.fighter_kind) {
+            return Err(format!(
+                "line {line}: mode is unavailable for this fighter/button row"
+            ));
+        }
+        if sequence.len != 0 || sequence.start_delay != 0 {
+            return Err(format!(
+                "line {line}: mode bindings cannot contain actions or start delays"
+            ));
+        }
+    }
+    if sequence.builtin.is_some()
+        && (!entry.slot.is_button()
+            || sequence.mode.is_some()
+            || sequence.len != 0
+            || sequence.start_delay != 0
+            || sequence.reaction.active()
+            || sequence.while_held
+            || sequence.ground_only)
+    {
+        return Err(format!("line {line}: builtin requires a button row and cannot contain actions, conditions, delays, loops or modes"));
+    }
+    let plain_recipe = sequence.mode.is_none() && sequence.builtin.is_none();
+    if !entry.explicit_start && plain_recipe {
+        return Err(format!(
+            "line {line}: section requires start_delay = FRAMES (use 0 for immediate input)"
+        ));
+    }
+    if sequence.len == 0 && plain_recipe {
+        return Err(format!("line {line}: section is missing actions"));
+    }
+    Ok(())
+}
+
 fn finish_entry(
     current: &mut Option<(Entry, usize)>,
     entries: &mut Vec<Entry>,
 ) -> Result<(), String> {
     if let Some((entry, line)) = current.take() {
-        if entry.fighter_kind == -1
-            && (entry.default
-                || entry.sequence.mode.is_some()
-                || entry.sequence.builtin.is_some()
-                || entry.sequence.reaction.active()
-                || entry.sequence.while_held)
-        {
-            return Err(format!("line {line}: templates contain actions/timings only, without defaults, modes, builtins, reactions or held activation"));
-        }
-        if let Some(binding) = entry.sequence.mode {
-            if !entry.slot.is_button() || !binding.mode.supports(entry.fighter_kind) {
-                return Err(format!(
-                    "line {line}: mode is unavailable for this fighter/button row"
-                ));
-            }
-            if entry.sequence.len != 0 || entry.sequence.start_delay != 0 {
-                return Err(format!(
-                    "line {line}: mode bindings cannot contain actions or start delays"
-                ));
-            }
-        }
-        if entry.sequence.builtin.is_some()
-            && (!entry.slot.is_button()
-                || entry.sequence.mode.is_some()
-                || entry.sequence.len != 0
-                || entry.sequence.start_delay != 0
-                || entry.sequence.reaction.active()
-                || entry.sequence.while_held
-                || entry.sequence.ground_only)
-        {
-            return Err(format!("line {line}: builtin requires a button row and cannot contain actions, conditions, delays, loops or modes"));
-        }
-        if !entry.explicit_start
-            && entry.sequence.mode.is_none()
-            && entry.sequence.builtin.is_none()
-        {
-            return Err(format!(
-                "line {line}: section requires start_delay = FRAMES (use 0 for immediate input)"
-            ));
-        }
-        if entry.sequence.len == 0
-            && entry.sequence.mode.is_none()
-            && entry.sequence.builtin.is_none()
-        {
-            return Err(format!("line {line}: section is missing actions"));
-        }
+        check_entry(&entry, line)?;
         if entries.len() >= MAX_ENTRIES {
             return Err(format!(
                 "at most {MAX_ENTRIES} sequence sections are allowed"

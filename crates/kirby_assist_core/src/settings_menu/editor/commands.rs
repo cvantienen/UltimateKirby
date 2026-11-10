@@ -2,6 +2,7 @@
 use super::*;
 use crate::ledge_trap::DPAD_DOWN;
 use crate::manual_controls::{DPAD_LEFT, DPAD_RIGHT, DPAD_UP};
+use crate::settings_menu::RecipePanel;
 
 #[derive(Clone, Copy)]
 pub(super) enum Modal {
@@ -38,6 +39,21 @@ const TOOLS: &[&str] = &[
     "Paste step after",
     "Recipe options (rename/delete)",
 ];
+// Positions in `TOOLS`.
+const CHOOSE_ACTION: usize = 0;
+const INSERT_BEFORE: usize = 1;
+const INSERT_AFTER: usize = 2;
+const DUPLICATE: usize = 3;
+const MOVE_UP: usize = 4;
+const MOVE_DOWN: usize = 5;
+const DELETE: usize = 6;
+const UNDO: usize = 7;
+const COPY_RECIPE: usize = 8;
+const COPY_STEP: usize = 9;
+const PASTE_BEFORE: usize = 10;
+const PASTE_AFTER: usize = 11;
+const RECIPE_OPTIONS: usize = 12;
+const NO_ROOM: &str = "All 32 slots are occupied; remove a step first";
 const GROUPS: &[&str] = &[
     "Attacks / aerials / tilts",
     "Jumps / jump attacks",
@@ -49,6 +65,7 @@ const GROUPS: &[&str] = &[
     "Repeated taps",
     "Saved inputs",
 ];
+const SAVED_INPUTS_GROUP: usize = GROUPS.len() - 1;
 const COPY_GROUPS: &[&str] = &[
     "Neutral getup",
     "Ledge jump",
@@ -63,8 +80,10 @@ const COPY_GROUPS: &[&str] = &[
     "D-pad Right",
     "Generic templates",
 ];
-const TEMPLATE_GROUP: usize = 11;
-fn group(action: Action, name: &str) -> usize {
+const TEMPLATE_GROUP: usize = COPY_GROUPS.len() - 1;
+const DPAD: u32 = DPAD_UP | DPAD_DOWN | DPAD_LEFT | DPAD_RIGHT;
+/// Picker category of a preset action.
+fn group(action: Action) -> usize {
     match action {
         Action::Check { .. }
         | Action::Range(_)
@@ -83,7 +102,7 @@ fn group(action: Action, name: &str) -> usize {
         | Action::Approach { .. }
         | Action::Drift { .. } => 4,
         Action::Input { buttons, .. } | Action::OpponentInput { buttons, .. } => {
-            if name.starts_with("Short hop") || name.starts_with("Full hop") {
+            if buttons & MAPPER_X != 0 {
                 1
             } else if buttons == MAPPER_B {
                 2
@@ -102,21 +121,16 @@ fn group(action: Action, name: &str) -> usize {
     }
 }
 pub(super) fn candidates(r: &Recipe, category: usize) -> Vec<usize> {
-    if category == 8 {
+    let ledge_free = |action: Action| !r.sequence.reaction.active() || !action.needs_ledge();
+    if category == SAVED_INPUTS_GROUP {
         return (PRESETS.len()..PRESETS.len() + r.imported.len())
-            .filter(|i| {
-                !r.sequence.reaction.active() || !r.imported[*i - PRESETS.len()].needs_ledge()
-            })
+            .filter(|kind| ledge_free(r.action_for(*kind)))
             .collect();
     }
     PRESETS
         .iter()
         .enumerate()
-        .filter_map(|(i, (name, action))| {
-            (group(*action, name) == category
-                && (!r.sequence.reaction.active() || !action.needs_ledge()))
-            .then_some(i)
-        })
+        .filter_map(|(i, (_, action))| (group(*action) == category && ledge_free(*action)).then_some(i))
         .collect()
 }
 fn changed_steps(before: &Recipe, after: &Recipe) -> u32 {
@@ -130,6 +144,55 @@ fn changed_steps(before: &Recipe, after: &Recipe) -> u32 {
             mask
         }
     })
+}
+fn vertical(pad: u32) -> bool {
+    pad == DPAD_UP || pad == DPAD_DOWN
+}
+/// Move `item` through `count` entries on Up/Down, wrapping at both ends.
+fn step_item(item: usize, count: usize, nav: u32) -> usize {
+    if nav & DPAD_DOWN != 0 {
+        cycle(item, count, true)
+    } else if nav & DPAD_UP != 0 {
+        cycle(item, count, false)
+    } else {
+        item
+    }
+}
+/// The next group in the given direction that has entries; stays put when none do.
+fn next_group(
+    group: usize,
+    count: usize,
+    forward: bool,
+    has_entries: impl Fn(usize) -> bool,
+) -> usize {
+    let mut next = group;
+    for _ in 0..count {
+        next = cycle(next, count, forward);
+        if has_entries(next) {
+            return next;
+        }
+    }
+    group
+}
+/// Replacing a move keeps its configured hold. Until-takeover (0 frames)
+/// transfers only to another button input.
+fn carry_hold(old: Action, new: &mut Action) {
+    let held = match old {
+        Action::Input { frames, .. }
+        | Action::OpponentInput { frames, .. }
+        | Action::Controller { frames, .. } => frames,
+        Action::ShieldUntilManual => 0,
+        _ => return,
+    };
+    match new {
+        Action::Input {
+            buttons, frames, ..
+        } => *frames = if held == 0 && *buttons == 0 { 4 } else { held },
+        Action::OpponentInput { frames, .. } | Action::Controller { frames, .. } => {
+            *frames = if held == 0 { 4 } else { held }
+        }
+        _ => {}
+    }
 }
 impl RecipeEditor {
     pub fn close_commands(&mut self) {
@@ -176,46 +239,14 @@ impl RecipeEditor {
             self.last_edit = Some("This step needs a ledge; choose a ledge recipe".into());
             return false;
         }
-        let mut len = usize::from(next.sequence.len);
         let at = slot + usize::from(after);
-        if len == MAX_ACTIONS
-            && at < len
-            && next.sequence.actions[len - 1] == Action::Empty
-            && next.before[len - 1] == 0
-        {
-            len -= 1;
-        }
-        if len == MAX_ACTIONS {
+        let kind = next.kind_for(action);
+        let reuse_last = at < usize::from(next.sequence.len);
+        if !next.insert_step(at, (action, delay, kind), reuse_last) {
             self.limited = true;
-            self.last_edit = Some("All 32 slots occupied; remove a step first".into());
+            self.last_edit = Some(NO_ROOM.into());
             return false;
         }
-        let mut single = Sequence::default();
-        single.len = 1;
-        single.actions[0] = action;
-        let single = Recipe::new(single);
-        let kind = if single.kinds[0] < PRESETS.len() {
-            single.kinds[0]
-        } else {
-            let index = next
-                .imported
-                .iter()
-                .position(|a| *a == action)
-                .unwrap_or_else(|| {
-                    next.imported.push(action);
-                    next.imported.len() - 1
-                });
-            PRESETS.len() + index
-        };
-        for i in (at..len).rev() {
-            next.sequence.actions[i + 1] = next.sequence.actions[i];
-            next.before[i + 1] = next.before[i];
-            next.kinds[i + 1] = next.kinds[i];
-        }
-        next.sequence.actions[at] = action;
-        next.before[at] = delay;
-        next.kinds[at] = kind;
-        next.sequence.len = (len + 1) as u8;
         self.commit_command(
             key,
             next,
@@ -248,11 +279,16 @@ impl RecipeEditor {
             }
         }
     }
-    fn has_copy_group(&self, group: usize) -> bool {
+    fn copy_sources_in(&self, group: usize) -> impl Iterator<Item = &CopySource> {
+        self.copy_sources
+            .iter()
+            .filter(move |s| s.slot as usize == group)
+    }
+    fn copy_count(&self, group: usize) -> usize {
         if group == TEMPLATE_GROUP {
-            !self.copy_templates.is_empty()
+            self.copy_templates.len()
         } else {
-            self.copy_sources.iter().any(|s| s.slot as usize == group)
+            self.copy_sources_in(group).count()
         }
     }
     pub fn take_template_apply(&mut self) -> Option<usize> {
@@ -293,31 +329,23 @@ impl RecipeEditor {
             .get(&source)
             .cloned()
             .unwrap_or_else(|| Recipe::new(fallback));
-        if next
+        next.sequence.reaction = reaction;
+        let Some(compiled) = next
             .compile()
-            .is_none_or(|s| s.len == 0 || s.mode.is_some())
-        {
+            .filter(|s| s.len != 0 && s.mode.is_none())
+        else {
             self.reject_copy();
             return false;
-        }
-        next.sequence.reaction = reaction;
-        if let Some(compiled) = next.compile() {
-            if let Err(error) = crate::reaction_rules::validate_response(compiled) {
-                self.last_edit = Some(format!("Cannot copy into this recipe: {error}"));
-                return false;
-            }
-        }
-
-        next.button_recipe = destination.0 >= 5;
-        next.sequence.while_held = if next.button_recipe {
-            activation
-        } else {
-            false
         };
+        if let Err(error) = crate::reaction_rules::validate_response(compiled) {
+            self.last_edit = Some(format!("Cannot copy into this recipe: {error}"));
+            return false;
+        }
+        next.button_recipe = destination.0 >= 5;
+        next.sequence.while_held = next.button_recipe && activation;
         if next.sequence == target.sequence && next.before == target.before {
             self.last_edit = Some("Destination already has these actions and timings".into());
-            self.modal = None;
-            self.return_modal = None;
+            self.dismiss();
             self.clear_copy();
             return false;
         }
@@ -328,8 +356,7 @@ impl RecipeEditor {
             "Copied actions and timings; source and destination name unchanged",
         );
         if changed {
-            self.modal = None;
-            self.return_modal = None;
+            self.dismiss();
             self.clear_copy();
         }
         changed
@@ -338,10 +365,23 @@ impl RecipeEditor {
     pub fn command_active(&self) -> bool {
         self.modal.is_some()
     }
-    fn selected_slot(&self, key: (usize, usize)) -> Option<usize> {
+    fn focused_field(&self, key: (usize, usize)) -> Option<Field> {
         let r = self.recipes.get(&key)?;
-        let fs = fields(r);
-        Some(field_slot(fs[self.cursor.min(fs.len() - 1)]).unwrap_or(0))
+        Some(focus(&fields(r), self.cursor))
+    }
+    fn selected_slot(&self, key: (usize, usize)) -> Option<usize> {
+        Some(field_slot(self.focused_field(key)?).unwrap_or(0))
+    }
+    /// Open a tool, restarting the d-pad repeat timer.
+    fn open(&mut self, modal: Modal) {
+        self.modal = Some(modal);
+        self.command_held = 0;
+        self.command_ticks = 0;
+    }
+    /// Close the open tool and its parent; copy lists and repeat state are left alone.
+    fn dismiss(&mut self) {
+        self.modal = None;
+        self.return_modal = None;
     }
     fn open_picker(&mut self, key: (usize, usize), slot: usize) {
         let Some(r) = self.recipes.get(&key) else {
@@ -349,29 +389,28 @@ impl RecipeEditor {
         };
         let kind = r.kinds[slot];
         let category = if kind >= PRESETS.len() {
-            8
+            SAVED_INPUTS_GROUP
         } else {
-            group(PRESETS[kind].1, PRESETS[kind].0)
+            group(PRESETS[kind].1)
         };
         let item = candidates(r, category)
             .iter()
             .position(|k| *k == kind)
             .unwrap_or(0);
         self.return_modal = self.modal.filter(|m| matches!(m, Modal::Tools { .. }));
-        self.modal = Some(Modal::Picker {
+        self.open(Modal::Picker {
             slot,
             group: category,
             item,
         });
-        self.command_held = 0;
-        self.command_ticks = 0;
+    }
+    fn field_index(&self, key: (usize, usize), target: Field) -> Option<usize> {
+        let r = self.recipes.get(&key)?;
+        fields(r).iter().position(|f| *f == target)
     }
     fn focus_slot(&mut self, key: (usize, usize), slot: usize) {
-        if let Some(r) = self.recipes.get(&key) {
-            self.cursor = fields(r)
-                .iter()
-                .position(|f| matches!(f,Field::Kind(i) if *i==slot))
-                .unwrap_or(0);
+        if self.recipes.contains_key(&key) {
+            self.cursor = self.field_index(key, Field::Kind(slot)).unwrap_or(0);
         }
     }
     fn commit_command(
@@ -420,51 +459,30 @@ impl RecipeEditor {
         true
     }
     fn structural(&mut self, key: (usize, usize), slot: usize, item: usize) -> bool {
-        if item == 7 {
+        if item == UNDO {
             return self.undo_edit(key);
         }
         let Some(mut next) = self.recipes.get(&key).cloned() else {
             return false;
         };
-        let mut len = usize::from(next.sequence.len);
-        let focus;
-        match item {
-            1..=3 => {
-                if len == MAX_ACTIONS
-                    && next.sequence.actions[len - 1] == Action::Empty
-                    && next.before[len - 1] == 0
-                    && slot < len - 1
-                {
-                    len -= 1;
-                }
-                if len == MAX_ACTIONS {
-                    self.limited = true;
-                    self.last_edit = Some("All 32 slots are occupied; remove a step first".into());
-                    return false;
-                }
-                let at = if item == 1 { slot } else { slot + 1 };
-                for i in (at..len).rev() {
-                    next.sequence.actions[i + 1] = next.sequence.actions[i];
-                    next.before[i + 1] = next.before[i];
-                    next.kinds[i + 1] = next.kinds[i];
-                }
-                let (action, delay, kind) = if item == 3 {
-                    (
-                        next.sequence.actions[slot],
-                        next.before[slot],
-                        next.kinds[slot],
-                    )
+        let len = usize::from(next.sequence.len);
+        let focus = match item {
+            INSERT_BEFORE | INSERT_AFTER | DUPLICATE => {
+                let at = if item == INSERT_BEFORE { slot } else { slot + 1 };
+                let step = if item == DUPLICATE {
+                    next.step(slot)
                 } else {
                     (Action::Empty, 0, 0)
                 };
-                next.sequence.actions[at] = action;
-                next.before[at] = delay;
-                next.kinds[at] = kind;
-                next.sequence.len = (len + 1) as u8;
-                focus = at;
+                if !next.insert_step(at, step, slot + 1 < len) {
+                    self.limited = true;
+                    self.last_edit = Some(NO_ROOM.into());
+                    return false;
+                }
+                at
             }
-            4 | 5 => {
-                let other = if item == 4 {
+            MOVE_UP | MOVE_DOWN => {
+                let other = if item == MOVE_UP {
                     slot.checked_sub(1)
                 } else {
                     (slot + 1 < len).then_some(slot + 1)
@@ -475,26 +493,18 @@ impl RecipeEditor {
                 next.sequence.actions.swap(slot, other);
                 next.before.swap(slot, other);
                 next.kinds.swap(slot, other);
-                focus = other;
+                other
             }
-            6 => {
-                for i in slot..len - 1 {
-                    next.sequence.actions[i] = next.sequence.actions[i + 1];
-                    next.before[i] = next.before[i + 1];
-                    next.kinds[i] = next.kinds[i + 1];
-                }
-                next.sequence.actions[len - 1] = Action::Empty;
-                next.before[len - 1] = 0;
-                next.kinds[len - 1] = 0;
-                next.sequence.len = (len.saturating_sub(1).max(1)) as u8;
-                focus = slot.min(usize::from(next.sequence.len) - 1);
+            DELETE => {
+                next.remove_step(slot);
+                slot.min(usize::from(next.sequence.len) - 1)
             }
             _ => return false,
-        }
+        };
         self.commit_command(key, next, focus, TOOLS[item])
     }
     fn command_repeat(&mut self, pad: u32) -> bool {
-        if pad.count_ones() == 1 && pad & (DPAD_UP | DPAD_DOWN) != 0 {
+        if vertical(pad) {
             if self.command_held != pad {
                 self.command_held = pad;
                 self.command_ticks = 0;
@@ -517,8 +527,6 @@ impl RecipeEditor {
         buttons: u32,
         pressed: u32,
     ) -> Option<(bool, bool)> {
-        use crate::native_input::{MAPPER_A as A, MAPPER_B as B};
-        let shoulders = MAPPER_ZL | MAPPER_ZR;
         if pressed & crate::settings_menu::MENU_STICK_CLICK != 0
             || buttons == MAPPER_Y && pressed & MAPPER_Y != 0
             || buttons == MAPPER_X && pressed & MAPPER_X != 0
@@ -526,462 +534,282 @@ impl RecipeEditor {
             self.close_commands();
             return None;
         }
-
-        if self.modal.is_none() {
-            if buttons & shoulders == shoulders && pressed & shoulders != 0 {
-                self.modal = Some(Modal::Tools {
-                    slot: self.selected_slot(key)?,
-                    item: 0,
-                });
-                return Some((true, false));
-            }
-            if buttons & (MAPPER_R | shoulders) == 0 && pressed & (A | DPAD_LEFT | DPAD_RIGHT) != 0
-            {
-                let r = self.recipes.get(&key)?;
-                let fs = fields(r);
-                if let Field::Buttons(slot) = fs[self.cursor.min(fs.len() - 1)] {
-                    self.modal = Some(Modal::Buttons { slot, item: 0 });
-                    self.command_held = 0;
-                    self.command_ticks = 0;
+        match self.modal {
+            None => self.idle_input(key, buttons, pressed),
+            Some(modal) => self.modal_input(key, modal, buttons, pressed),
+        }
+    }
+    /// Shortcuts while no tool is open. Runs every frame: only cheap checks until a press.
+    fn idle_input(&mut self, key: (usize, usize), buttons: u32, pressed: u32) -> Option<(bool, bool)> {
+        let shoulders = MAPPER_ZL | MAPPER_ZR;
+        if buttons & shoulders == shoulders && pressed & shoulders != 0 {
+            let slot = self.selected_slot(key)?;
+            self.open(Modal::Tools { slot, item: 0 });
+            return Some((true, false));
+        }
+        if buttons & (MAPPER_R | shoulders) == 0 && pressed & (MAPPER_A | DPAD_LEFT | DPAD_RIGHT) != 0
+        {
+            match self.focused_field(key)? {
+                Field::Buttons(slot) => {
+                    self.open(Modal::Buttons { slot, item: 0 });
                     return Some((true, false));
                 }
-            }
-            if buttons & (MAPPER_R | shoulders) == 0 && pressed & A != 0 {
-                let r = self.recipes.get(&key)?;
-                let fs = fields(r);
-                if let Field::Kind(slot) = fs[self.cursor.min(fs.len() - 1)] {
+                Field::Kind(slot) if pressed & MAPPER_A != 0 => {
                     self.open_picker(key, slot);
                     return Some((true, false));
                 }
+                _ => {}
             }
-            if buttons & MAPPER_R != 0 {
-                let pad = buttons & (DPAD_UP | DPAD_DOWN | DPAD_LEFT | DPAD_RIGHT);
-                let repeat = self.command_repeat(pad);
-                if pad.count_ones() == 1
-                    && pad & (DPAD_UP | DPAD_DOWN) != 0
-                    && (pressed & pad != 0 || repeat)
-                {
-                    let r = self.recipes.get(&key)?;
-                    let fs = fields(r);
-                    let Some(slot) = field_slot(fs[self.cursor.min(fs.len() - 1)]) else {
-                        return Some((false, false));
-                    };
-                    let changed = self.structural(key, slot, if pad == DPAD_UP { 4 } else { 5 });
-                    return Some((changed, changed));
-                }
-                return Some((false, false));
-            }
-            if pressed & crate::settings_menu::MENU_STICK_CLICK != 0 {
-                return None;
-            }
-            if pressed & (A | shoulders) == 0 {
-                return None;
-            }
-            let slot = self.selected_slot(key)?;
-            if pressed & A != 0 {
-                self.modal = Some(Modal::Tools { slot, item: 0 });
-                self.command_held = 0;
-                self.command_ticks = 0;
-            } else {
-                let len = usize::from(self.recipes.get(&key)?.sequence.len);
-                let r = self.recipes.get(&key)?;
-                let fs = fields(r);
-                let in_step = field_slot(fs[self.cursor.min(fs.len() - 1)]).is_some();
-                let next = if !in_step {
-                    if pressed & MAPPER_ZR != 0 {
-                        0
-                    } else {
-                        len - 1
-                    }
-                } else if pressed & MAPPER_ZR != 0 {
-                    (slot + 1).min(len - 1)
-                } else {
-                    slot.saturating_sub(1)
-                };
-                self.focus_slot(key, next);
-            }
-            return Some((true, false));
         }
-        if pressed & B != 0 {
+        if buttons & MAPPER_R != 0 {
+            let pad = buttons & DPAD;
+            let repeat = self.command_repeat(pad);
+            if vertical(pad) && (pressed & pad != 0 || repeat) {
+                let Some(slot) = field_slot(self.focused_field(key)?) else {
+                    return Some((false, false));
+                };
+                let direction = if pad == DPAD_UP { MOVE_UP } else { MOVE_DOWN };
+                let changed = self.structural(key, slot, direction);
+                return Some((changed, changed));
+            }
+            return Some((false, false));
+        }
+        if pressed & (MAPPER_A | shoulders) == 0 {
+            return None;
+        }
+        if pressed & MAPPER_A != 0 {
+            let slot = self.selected_slot(key)?;
+            self.open(Modal::Tools { slot, item: 0 });
+        } else {
+            self.jump_step(key, pressed & MAPPER_ZR != 0)?;
+        }
+        Some((true, false))
+    }
+    /// ZL/ZR: previous/next step; from a sequence-level row, the first/last step.
+    fn jump_step(&mut self, key: (usize, usize), forward: bool) -> Option<()> {
+        let r = self.recipes.get(&key)?;
+        let len = usize::from(r.sequence.len);
+        let next = match (field_slot(focus(&fields(r), self.cursor)), forward) {
+            (None, true) => 0,
+            (None, false) => len - 1,
+            (Some(slot), true) => (slot + 1).min(len - 1),
+            (Some(slot), false) => slot.saturating_sub(1),
+        };
+        self.focus_slot(key, next);
+        Some(())
+    }
+    fn modal_input(
+        &mut self,
+        key: (usize, usize),
+        modal: Modal,
+        buttons: u32,
+        pressed: u32,
+    ) -> Option<(bool, bool)> {
+        if pressed & MAPPER_B != 0 {
             self.modal = self.return_modal.take();
             self.clear_copy();
             self.command_held = 0;
             return Some((true, false));
         }
-        let pad = buttons & (DPAD_UP | DPAD_DOWN | DPAD_LEFT | DPAD_RIGHT);
+        let pad = buttons & DPAD;
         let repeat = self.command_repeat(pad);
-        if pressed & (A | DPAD_UP | DPAD_DOWN | DPAD_LEFT | DPAD_RIGHT) == 0 && !repeat {
-            return Some((false, false));
-        }
-        let nav = if pressed & A == 0 && pad.count_ones() == 1 && (pressed & pad != 0 || repeat) {
+        let confirm = pressed & MAPPER_A != 0;
+        // The one d-pad direction pressed (or repeating) this frame.
+        let nav = if !confirm && pad.count_ones() == 1 && (pressed & pad != 0 || repeat) {
             pad
         } else {
             0
         };
-        if pressed & A == 0 && nav == 0 {
+        if !confirm && nav == 0 {
             return Some((false, false));
         }
-        let modal = self.modal?;
-        match modal {
-            Modal::Buttons { slot, mut item } => {
-                if pressed & A == 0 {
-                    if nav & DPAD_DOWN != 0 {
-                        item = (item + 1) % INPUT_BUTTONS.len();
-                    } else if nav & DPAD_UP != 0 {
-                        item = (item + INPUT_BUTTONS.len() - 1) % INPUT_BUTTONS.len();
-                    }
-                }
-                let mut changed = false;
-                if pressed & A != 0 || nav & (DPAD_LEFT | DPAD_RIGHT) != 0 {
-                    let mut next = self.recipes.get(&key)?.clone();
-                    match &mut next.sequence.actions[slot] {
-                        Action::Input {
-                            buttons, frames, ..
-                        }
-                        | Action::OpponentInput {
-                            buttons, frames, ..
-                        }
-                        | Action::Controller {
-                            buttons, frames, ..
-                        } => {
-                            *buttons ^= INPUT_BUTTONS[item].0;
-                            if *buttons == 0 && *frames == 0 {
-                                *frames = 4;
-                            }
-                        }
-                        _ => return Some((true, false)),
-                    }
-                    changed = self.commit_command(
-                        key,
-                        next,
-                        slot,
-                        "Changed buttons; kept axes and delay",
-                    );
-                    if let Some(r) = self.recipes.get(&key) {
-                        self.cursor = fields(r)
-                            .iter()
-                            .position(|f| matches!(f,Field::Buttons(i) if *i==slot))
-                            .unwrap_or(self.cursor);
-                    }
-                }
-                self.modal = Some(Modal::Buttons { slot, item });
-                return Some((true, changed));
-            }
-            Modal::Copy {
-                mut group,
-                mut item,
-            } => {
-                let count = if group == TEMPLATE_GROUP {
-                    self.copy_templates.len()
-                } else {
-                    self.copy_sources
-                        .iter()
-                        .filter(|s| s.slot as usize == group)
-                        .count()
-                };
-                if pressed & A != 0 && count > 0 {
-                    if group == TEMPLATE_GROUP {
-                        self.template_apply = Some(item.min(count - 1));
-                    } else if let Some(source) = self
-                        .copy_sources
-                        .iter()
-                        .filter(|s| s.slot as usize == group)
-                        .nth(item.min(count - 1))
-                    {
-                        self.copy_apply = Some((source.slot, source.index));
-                    }
-                    return Some((true, false));
-                }
-                if nav & (DPAD_LEFT | DPAD_RIGHT) != 0 {
-                    group = if nav & DPAD_RIGHT != 0 {
-                        (group + 1) % COPY_GROUPS.len()
-                    } else {
-                        (group + COPY_GROUPS.len() - 1) % COPY_GROUPS.len()
-                    };
-                    for _ in 0..COPY_GROUPS.len() - 1 {
-                        if self.has_copy_group(group) {
-                            break;
-                        }
-                        group = if nav & DPAD_RIGHT != 0 {
-                            (group + 1) % COPY_GROUPS.len()
-                        } else {
-                            (group + COPY_GROUPS.len() - 1) % COPY_GROUPS.len()
-                        };
-                    }
-                    item = 0;
-                } else if count > 0 {
-                    if nav & DPAD_DOWN != 0 {
-                        item = (item + 1) % count;
-                    } else if nav & DPAD_UP != 0 {
-                        item = (item + count - 1) % count;
-                    }
-                }
-                self.modal = Some(Modal::Copy { group, item });
-            }
-            Modal::Tools { slot, mut item } => {
-                if pressed & A != 0 {
-                    if item == 0 {
-                        self.open_picker(key, slot);
-                        return Some((true, false));
-                    }
-                    if item == 9 {
-                        let copied = self.copy_step(key, slot);
-                        if copied {
-                            self.close_commands();
-                        }
-                        return Some((true, false));
-                    }
-                    if item == 10 || item == 11 {
-                        let changed = self.paste_step(key, slot, item == 11);
-                        if changed {
-                            self.close_commands();
-                        }
-                        return Some((true, changed));
-                    }
-                    if item == 12 {
-                        self.close_commands();
-                        self.manage_requested = true;
-                        return Some((true, false));
-                    }
-                    if item == 8 {
-                        self.clear_copy();
-                        self.return_modal = self.modal;
-                        self.copy_requested = true;
-                        self.modal = Some(Modal::Copy {
-                            group: key.0,
-                            item: 0,
-                        });
-                        return Some((true, false));
-                    }
-                    let changed = self.structural(key, slot, item);
-                    if changed {
-                        self.modal = None;
-                        self.return_modal = None;
-                    }
-                    return Some((true, changed));
-                }
-                if nav & DPAD_DOWN != 0 {
-                    item = (item + 1) % TOOLS.len();
-                } else if nav & DPAD_UP != 0 {
-                    item = (item + TOOLS.len() - 1) % TOOLS.len();
-                }
-                self.modal = Some(Modal::Tools { slot, item });
-            }
-            Modal::Picker {
-                slot,
-                mut group,
-                mut item,
-            } => {
-                let r = self.recipes.get(&key)?;
-                let available = candidates(r, group);
-                let n = available.len();
-                if pressed & A != 0 && n > 0 {
-                    let kind = available[item.min(n - 1)];
-                    let mut action = if kind < PRESETS.len() {
-                        PRESETS[kind].1
-                    } else {
-                        r.imported[kind - PRESETS.len()]
-                    };
-                    if r.kinds[slot] == kind {
-                        self.modal = None;
-                        self.return_modal = None;
-                        return Some((true, false));
-                    }
-                    // Replacing the move should not discard its configured
-                    // hold. Until-takeover transfers only to another button.
-                    let jump_pulse = kind < PRESETS.len()
-                        && matches!(PRESETS[kind].0, "Short hop" | "Full hop hold");
-                    if !jump_pulse && kind < PRESETS.len() {
-                        let old = match r.sequence.actions[slot] {
-                            Action::Input { frames, .. }
-                            | Action::OpponentInput { frames, .. }
-                            | Action::Controller { frames, .. } => Some(frames),
-                            Action::ShieldUntilManual => Some(0),
-                            _ => None,
-                        };
-                        if let Some(old) = old {
-                            match &mut action {
-                                Action::Input {
-                                    buttons, frames, ..
-                                } => *frames = if old == 0 && *buttons == 0 { 4 } else { old },
-                                Action::OpponentInput { frames, .. }
-                                | Action::Controller { frames, .. } => {
-                                    *frames = if old == 0 { 4 } else { old }
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                    let mut next = r.clone();
-                    next.kinds[slot] = kind;
-                    next.sequence.actions[slot] = action;
-                    let changed =
-                        self.commit_command(key, next, slot, "Changed action; kept its delay");
-                    if changed {
-                        self.modal = None;
-                        self.return_modal = None;
-                    }
-                    return Some((true, changed));
-                }
-                if nav & (DPAD_LEFT | DPAD_RIGHT) != 0 {
-                    group = if nav & DPAD_RIGHT != 0 {
-                        (group + 1) % GROUPS.len()
-                    } else {
-                        (group + GROUPS.len() - 1) % GROUPS.len()
-                    };
-                    // Empty Saved inputs (or any empty group) should not cost
-                    // an extra category stop. This runs only on navigation.
-                    for _ in 0..GROUPS.len() {
-                        if !candidates(r, group).is_empty() {
-                            break;
-                        }
-                        group = if nav & DPAD_RIGHT != 0 {
-                            (group + 1) % GROUPS.len()
-                        } else {
-                            (group + GROUPS.len() - 1) % GROUPS.len()
-                        };
-                    }
-                    item = 0;
-                } else if n > 0 {
-                    if nav & DPAD_DOWN != 0 {
-                        item = (item + 1) % n;
-                    } else if nav & DPAD_UP != 0 {
-                        item = (item + n - 1) % n;
-                    }
-                }
-                self.modal = Some(Modal::Picker { slot, group, item });
-            }
-        }
-        Some((true, false))
-    }
-    pub fn command_panel(&self, key: (usize, usize)) -> Option<crate::settings_menu::RecipePanel> {
-        let modal = self.modal?;
-        let r = self.recipes.get(&key)?;
-        let mut panel = crate::settings_menu::RecipePanel::default();
         match modal {
             Modal::Buttons { slot, item } => {
-                panel
-                    .header
-                    .push(format!("STEP {:02} | BUTTON COMBINATION", slot + 1));
-                let mask = input_buttons(r.sequence.actions[slot]).unwrap_or(0);
-                for (i, (bit, name)) in INPUT_BUTTONS.iter().enumerate() {
-                    panel.body.push(format!(
-                        "{}[{}] {name}",
-                        if i == item { "> " } else { "  " },
-                        if mask & bit != 0 { "x" } else { " " }
-                    ));
-                }
-                panel.focus = Some(item);
-                panel
-                    .footer
-                    .push("Up/Down: button | A/Left/Right: toggle | B: back".into());
-                panel.footer.push(
-                    "Any combination; none = sticks only. Uses normal configured mappings.".into(),
-                );
+                let item = step_item(item, INPUT_BUTTONS.len(), nav);
+                let toggle = confirm || nav & (DPAD_LEFT | DPAD_RIGHT) != 0;
+                self.buttons_modal(key, slot, item, toggle)
             }
-            Modal::Copy { group, item } => {
-                panel.header.push("COPY RECIPE / GENERIC TEMPLATE".into());
-                panel.header.push(format!(
-                    "< {} >  {}/{}",
-                    COPY_GROUPS[group],
-                    group + 1,
-                    COPY_GROUPS.len()
-                ));
-                if group == TEMPLATE_GROUP {
-                    for (i, name) in self.copy_templates.iter().enumerate() {
-                        panel.body.push(format!(
-                            "{}{:02}  {}",
-                            if i == item { "> " } else { "" },
-                            i + 1,
-                            name
-                        ));
-                    }
-                } else {
-                    for (i, source) in self
-                        .copy_sources
-                        .iter()
-                        .filter(|s| s.slot as usize == group)
-                        .enumerate()
-                    {
-                        panel.body.push(format!(
-                            "{}{:02}  {}",
-                            if i == item { "> " } else { "" },
-                            i + 1,
-                            source.name
-                        ));
-                    }
-                }
-                if panel.body.is_empty() {
-                    panel
-                        .body
-                        .push("No configured source recipes in this category".into());
-                } else {
-                    panel.focus = Some(item);
-                }
-                panel
-                    .footer
-                    .push("Left/Right: Category | Up/Down: Recipe".into());
-                panel
-                    .footer
-                    .push("A: Replace current actions/timings | B: Cancel".into());
-                panel
-                    .footer
-                    .push("Keeps destination name and button activation. Undo available.".into());
-            }
-            Modal::Tools { slot, item } => {
-                panel
-                    .header
-                    .push(format!("STEP {:02} | {}", slot + 1, action_name(r, slot)));
-                panel.header.push("STEP TOOLS".into());
-                for (i, name) in TOOLS.iter().enumerate() {
-                    panel
-                        .body
-                        .push(format!("{}{}", if i == item { "> " } else { "  " }, name));
-                }
-                panel.focus = Some(item);
-                panel
-                    .footer
-                    .push("A: Choose | B: Back | Up/Down: Tool".into());
-            }
+            Modal::Copy { group, item } => self.copy_modal(group, item, confirm, nav),
+            Modal::Tools { slot, item } => self.tools_modal(key, slot, item, confirm, nav),
             Modal::Picker { slot, group, item } => {
-                panel
-                    .header
-                    .push(format!("CHOOSE ACTION | STEP {:02}", slot + 1));
-                panel.header.push(format!(
-                    "< {} >  {}/{}",
-                    GROUPS[group],
-                    group + 1,
-                    GROUPS.len()
-                ));
-                for (i, kind) in candidates(r, group).iter().enumerate() {
-                    let label = if *kind < PRESETS.len() {
-                        PRESETS[*kind].0.to_owned()
-                    } else {
-                        format!(
-                            "Saved: {}",
-                            describe_action(r.imported[*kind - PRESETS.len()])
-                        )
-                    };
-                    panel.body.push(format!(
-                        "{}{:02}  {label}",
-                        if i == item { "> " } else { "" },
-                        i + 1
-                    ));
-                }
-                if panel.body.is_empty() {
-                    panel.body.push("No imported inputs in this recipe".into());
-                } else {
-                    panel.focus = Some(item);
-                }
-                panel
-                    .footer
-                    .push("Left/Right: Group | Up/Down: Action | A: Apply | B: Cancel".into());
+                self.picker_modal(key, slot, group, item, confirm, nav)
             }
+        }
+    }
+    fn buttons_modal(
+        &mut self,
+        key: (usize, usize),
+        slot: usize,
+        item: usize,
+        toggle: bool,
+    ) -> Option<(bool, bool)> {
+        let mut changed = false;
+        if toggle {
+            let mut next = self.recipes.get(&key)?.clone();
+            let action = &mut next.sequence.actions[slot];
+            let Some(buttons) = buttons_mut(action) else {
+                return Some((true, false));
+            };
+            *buttons ^= INPUT_BUTTONS[item].0;
+            if *buttons == 0 {
+                // Stick-only input cannot hold until manual takeover.
+                if let Some((frames, _)) = frames_mut(action) {
+                    if *frames == 0 {
+                        *frames = 4;
+                    }
+                }
+            }
+            changed = self.commit_command(key, next, slot, "Changed buttons; kept axes and delay");
+            if let Some(i) = self.field_index(key, Field::Buttons(slot)) {
+                self.cursor = i;
+            }
+        }
+        self.modal = Some(Modal::Buttons { slot, item });
+        Some((true, changed))
+    }
+    fn copy_modal(
+        &mut self,
+        group: usize,
+        item: usize,
+        confirm: bool,
+        nav: u32,
+    ) -> Option<(bool, bool)> {
+        let count = self.copy_count(group);
+        if confirm && count > 0 {
+            let item = item.min(count - 1);
+            if group == TEMPLATE_GROUP {
+                self.template_apply = Some(item);
+            } else {
+                let source = self
+                    .copy_sources_in(group)
+                    .nth(item)
+                    .map(|source| (source.slot, source.index));
+                self.copy_apply = source;
+            }
+            return Some((true, false));
+        }
+        let (group, item) = if nav & (DPAD_LEFT | DPAD_RIGHT) != 0 {
+            let forward = nav & DPAD_RIGHT != 0;
+            let has_entries = |g| self.copy_count(g) > 0;
+            (next_group(group, COPY_GROUPS.len(), forward, has_entries), 0)
+        } else {
+            (group, step_item(item, count, nav))
+        };
+        self.modal = Some(Modal::Copy { group, item });
+        Some((true, false))
+    }
+    fn tools_modal(
+        &mut self,
+        key: (usize, usize),
+        slot: usize,
+        item: usize,
+        confirm: bool,
+        nav: u32,
+    ) -> Option<(bool, bool)> {
+        if !confirm {
+            let item = step_item(item, TOOLS.len(), nav);
+            self.modal = Some(Modal::Tools { slot, item });
+            return Some((true, false));
+        }
+        let changed = match item {
+            CHOOSE_ACTION => {
+                self.open_picker(key, slot);
+                false
+            }
+            COPY_STEP => {
+                if self.copy_step(key, slot) {
+                    self.close_commands();
+                }
+                false
+            }
+            PASTE_BEFORE | PASTE_AFTER => {
+                let changed = self.paste_step(key, slot, item == PASTE_AFTER);
+                if changed {
+                    self.close_commands();
+                }
+                changed
+            }
+            RECIPE_OPTIONS => {
+                self.close_commands();
+                self.manage_requested = true;
+                false
+            }
+            COPY_RECIPE => {
+                self.clear_copy();
+                self.return_modal = self.modal;
+                self.copy_requested = true;
+                self.open(Modal::Copy {
+                    group: key.0,
+                    item: 0,
+                });
+                false
+            }
+            _ => {
+                let changed = self.structural(key, slot, item);
+                if changed {
+                    self.dismiss();
+                }
+                changed
+            }
+        };
+        Some((true, changed))
+    }
+    fn picker_modal(
+        &mut self,
+        key: (usize, usize),
+        slot: usize,
+        group: usize,
+        item: usize,
+        confirm: bool,
+        nav: u32,
+    ) -> Option<(bool, bool)> {
+        let r = self.recipes.get(&key)?;
+        let available = candidates(r, group);
+        if confirm && !available.is_empty() {
+            let kind = available[item.min(available.len() - 1)];
+            return self.apply_kind(key, slot, kind);
+        }
+        let (group, item) = if nav & (DPAD_LEFT | DPAD_RIGHT) != 0 {
+            // Empty groups (notably Saved inputs) cost no extra category stop.
+            let forward = nav & DPAD_RIGHT != 0;
+            let has_entries = |g| !candidates(r, g).is_empty();
+            (next_group(group, GROUPS.len(), forward, has_entries), 0)
+        } else {
+            (group, step_item(item, available.len(), nav))
+        };
+        self.modal = Some(Modal::Picker { slot, group, item });
+        Some((true, false))
+    }
+    fn apply_kind(&mut self, key: (usize, usize), slot: usize, kind: usize) -> Option<(bool, bool)> {
+        let r = self.recipes.get(&key)?;
+        if r.kinds[slot] == kind {
+            self.dismiss();
+            return Some((true, false));
+        }
+        let mut action = r.action_for(kind);
+        if kind < PRESETS.len() && !matches!(action, Action::Input { buttons: MAPPER_X, .. }) {
+            carry_hold(r.sequence.actions[slot], &mut action);
+        }
+        let mut next = r.clone();
+        next.kinds[slot] = kind;
+        next.sequence.actions[slot] = action;
+        let changed = self.commit_command(key, next, slot, "Changed action; kept its delay");
+        if changed {
+            self.dismiss();
+        }
+        Some((true, changed))
+    }
+    pub fn command_panel(&self, key: (usize, usize)) -> Option<RecipePanel> {
+        let modal = self.modal?;
+        let r = self.recipes.get(&key)?;
+        let mut panel = RecipePanel::default();
+        match modal {
+            Modal::Buttons { slot, item } => buttons_panel(&mut panel, r, slot, item),
+            Modal::Copy { group, item } => self.copy_panel(&mut panel, group, item),
+            Modal::Tools { slot, item } => tools_panel(&mut panel, r, slot, item),
+            Modal::Picker { slot, group, item } => picker_panel(&mut panel, r, slot, group, item),
         }
         if let Some(message) = &self.last_edit {
-            panel.footer.push(message.clone());
-        }
-        if let Some(message) = self.last_edit.as_ref() {
             panel.footer.push(message.clone());
         }
         panel
@@ -989,6 +817,102 @@ impl RecipeEditor {
             .push("R3: Done | Y: Save current recipe".into());
         Some(panel)
     }
+    fn copy_panel(&self, panel: &mut RecipePanel, group: usize, item: usize) {
+        panel.header.push("COPY RECIPE / GENERIC TEMPLATE".into());
+        group_header(panel, COPY_GROUPS, group);
+        if group == TEMPLATE_GROUP {
+            for (i, name) in self.copy_templates.iter().enumerate() {
+                numbered_row(panel, i, item, name);
+            }
+        } else {
+            for (i, source) in self.copy_sources_in(group).enumerate() {
+                numbered_row(panel, i, item, &source.name);
+            }
+        }
+        if panel.body.is_empty() {
+            panel
+                .body
+                .push("No configured source recipes in this category".into());
+        } else {
+            panel.focus = Some(item);
+        }
+        panel.footer.extend([
+            "Left/Right: Category | Up/Down: Recipe".into(),
+            "A: Replace current actions/timings | B: Cancel".into(),
+            "Keeps destination name and button activation. Undo available.".into(),
+        ]);
+    }
+}
+
+fn group_header(panel: &mut RecipePanel, names: &[&str], group: usize) {
+    panel.header.push(format!(
+        "< {} >  {}/{}",
+        names[group],
+        group + 1,
+        names.len()
+    ));
+}
+fn numbered_row(panel: &mut RecipePanel, i: usize, item: usize, text: impl std::fmt::Display) {
+    let marker = if i == item { "> " } else { "" };
+    panel.body.push(format!("{marker}{:02}  {text}", i + 1));
+}
+fn buttons_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, item: usize) {
+    panel
+        .header
+        .push(format!("STEP {:02} | BUTTON COMBINATION", slot + 1));
+    let mask = input_buttons(r.sequence.actions[slot]).unwrap_or(0);
+    for (i, (bit, name)) in INPUT_BUTTONS.iter().enumerate() {
+        panel.body.push(format!(
+            "{}[{}] {name}",
+            if i == item { "> " } else { "  " },
+            if mask & bit != 0 { "x" } else { " " }
+        ));
+    }
+    panel.focus = Some(item);
+    panel.footer.extend([
+        "Up/Down: button | A/Left/Right: toggle | B: back".into(),
+        "Any combination; none = sticks only. Uses normal configured mappings.".into(),
+    ]);
+}
+fn tools_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, item: usize) {
+    panel
+        .header
+        .push(format!("STEP {:02} | {}", slot + 1, action_name(r, slot)));
+    panel.header.push("STEP TOOLS".into());
+    for (i, name) in TOOLS.iter().enumerate() {
+        panel
+            .body
+            .push(format!("{}{name}", if i == item { "> " } else { "  " }));
+    }
+    panel.focus = Some(item);
+    panel
+        .footer
+        .push("A: Choose | B: Back | Up/Down: Tool".into());
+}
+fn picker_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, group: usize, item: usize) {
+    panel
+        .header
+        .push(format!("CHOOSE ACTION | STEP {:02}", slot + 1));
+    group_header(panel, GROUPS, group);
+    for (i, kind) in candidates(r, group).into_iter().enumerate() {
+        match PRESETS.get(kind) {
+            Some((name, _)) => numbered_row(panel, i, item, name),
+            None => numbered_row(
+                panel,
+                i,
+                item,
+                format_args!("Saved: {}", describe_action(r.action_for(kind))),
+            ),
+        }
+    }
+    if panel.body.is_empty() {
+        panel.body.push("No imported inputs in this recipe".into());
+    } else {
+        panel.focus = Some(item);
+    }
+    panel
+        .footer
+        .push("Left/Right: Group | Up/Down: Action | A: Apply | B: Cancel".into());
 }
 
 #[cfg(test)]
@@ -1351,7 +1275,7 @@ mod reaction_copy_tests {
         let mut e = editor();
         for (label, frames) in [("Short hop", 1), ("Full hop hold", 4)] {
             let kind = PRESETS.iter().position(|(name, _)| *name == label).unwrap();
-            let group = group(PRESETS[kind].1, label);
+            let group = group(PRESETS[kind].1);
             let item = candidates(&e.recipes[&KEY], group)
                 .iter()
                 .position(|k| *k == kind)

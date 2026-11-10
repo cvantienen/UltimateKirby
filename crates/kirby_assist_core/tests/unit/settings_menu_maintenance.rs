@@ -1,5 +1,5 @@
 use super::*;
-use crate::{fighter_profiles::FighterProfiles, native_input::*, sequence_config::Catalog};
+use crate::{fighter_profiles::FighterProfiles, sequence_config::Catalog};
 fn configured() -> MenuPresets {
     let catalog=Catalog::parse("[bowser.roll.manual]\ndefault=true\nstart_delay=0\nactions=grab\n[bowser.roll.auto]\nstart_delay=0\nreaction=auto_roll:40:12\nactions=up_b:4\n").unwrap();
     let mut profiles = FighterProfiles::default();

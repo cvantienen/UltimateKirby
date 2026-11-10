@@ -20,6 +20,12 @@ pub struct GrabHandoff {
     packets: u8,
     last_packet: Option<i64>,
 }
+/// Airborne, caught or otherwise interrupted fighters cannot be waiting on a Grab.
+fn receipt_ends(status: i32, situation: i32) -> bool {
+    situation != crate::native_states::situation::GROUND
+        || native_grab_active(status)
+        || sequence_interrupted(status)
+}
 impl GrabHandoff {
     pub const fn new() -> Self {
         Self {
@@ -53,12 +59,7 @@ impl GrabHandoff {
         out
     }
     pub fn observe(&mut self, valid: bool, status: i32, situation: i32) {
-        if !valid
-            || situation != crate::native_states::situation::GROUND
-            || native_grab_active(status)
-            || sequence_interrupted(status)
-            || self.delivery.exhausted()
-        {
+        if !valid || receipt_ends(status, situation) || self.delivery.exhausted() {
             self.clear_receipt();
             if !valid {
                 self.previous_request = false;
@@ -66,15 +67,15 @@ impl GrabHandoff {
             }
         }
     }
+    /// Forget the receipt but keep the request/catch edge memory and the last
+    /// native sample, so a held button is not mistaken for a new request.
     fn clear_receipt(&mut self) {
-        self.pending = false;
-        self.owner = None;
-        self.delivery = Default::default();
-        self.native_clock = NativeAttempt::new();
-        self.enemy_clock = NativeAttempt::new();
-        self.enemy_id = None;
-        self.packets = 0;
-        self.last_packet = None;
+        *self = Self {
+            previous_request: self.previous_request,
+            previous_catch: self.previous_catch,
+            native_context: self.native_context,
+            ..Self::new()
+        };
     }
     /// Live observations expire on native progress, not controller polls. A
     /// missing/frozen observation cannot prove a queued Catch has expired.
@@ -88,10 +89,7 @@ impl GrabHandoff {
             return;
         };
         self.native_context = Some(c);
-        if c.situation != crate::native_states::situation::GROUND
-            || native_grab_active(c.status)
-            || sequence_interrupted(c.status)
-        {
+        if receipt_ends(c.status, c.situation) {
             self.clear_receipt();
         } else if self.pending {
             self.native_clock.advance_pause(c, None, u16::MAX);
@@ -111,14 +109,10 @@ impl GrabHandoff {
             .and_then(|e| e.motion.map(|m| (e, m)))
             .filter(|_| !c.stopped);
         let Some((enemy, motion)) = sample else {
-            self.enemy_clock = NativeAttempt::new();
-            self.enemy_id = None;
+            self.track_enemy(None);
             return;
         };
-        if self.enemy_id != Some(enemy.id) {
-            self.enemy_clock = NativeAttempt::new();
-            self.enemy_id = Some(enemy.id);
-        }
+        self.track_enemy(Some(enemy.id));
         self.enemy_clock.advance_pause(
             GameplayContext {
                 status: enemy.status,
@@ -132,6 +126,14 @@ impl GrabHandoff {
         );
         if self.enemy_clock.elapsed() >= crate::move_input::ACCEPTANCE_TIMEOUT {
             self.clear_receipt();
+        }
+    }
+    /// The opponent clock restarts whenever the watched opponent changes or a
+    /// sample is missed.
+    fn track_enemy(&mut self, id: Option<u32>) {
+        if id.is_none() || self.enemy_id != id {
+            self.enemy_clock = NativeAttempt::new();
+            self.enemy_id = id;
         }
     }
     pub fn shield_packet(out: ControllerOutput, right: Option<[f32; 2]>) -> bool {
@@ -159,21 +161,16 @@ impl GrabHandoff {
         out: ControllerOutput,
         right: Option<[f32; 2]>,
     ) -> bool {
-        !self.pending
-            || owner == Some(Owner::Safety)
-            || owner.is_some()
-                && owner == self.owner
-                && out.requested == 0
-                && out.stick.is_none_or(|s| s == [0.; 2])
-                && right.is_none_or(|s| s == [0.; 2])
-            || Self::shield_packet(out, right)
-            || owner.is_some()
-                && owner == self.owner
-                && self.packets < 4
-                && out.requested & MAPPER_R != 0
-                && out.requested & !(MAPPER_R | MAPPER_ZR) == 0
-                && out.stick.is_none_or(|s| s[1] == 0.)
-                && right.is_none_or(|s| s == [0.; 2])
+        if !self.pending || owner == Some(Owner::Safety) || Self::shield_packet(out, right) {
+            return true;
+        }
+        let own = owner.is_some() && owner == self.owner;
+        let idle = out.requested == 0 && out.stick.is_none_or(|s| s == [0.; 2]);
+        let grab_pulse = self.packets < 4
+            && out.requested & MAPPER_R != 0
+            && out.requested & !(MAPPER_R | MAPPER_ZR) == 0
+            && out.stick.is_none_or(|s| s[1] == 0.);
+        own && right.is_none_or(|s| s == [0.; 2]) && (idle || grab_pulse)
     }
     /// Called after the original mapper, once per delivered controller tick.
     pub fn mapped(
@@ -188,17 +185,12 @@ impl GrabHandoff {
         let new_native_catch = native_catch && !self.previous_catch;
         let fresh = new_grab_request || new_native_catch;
         if eligible && !self.pending && fresh {
+            self.clear_receipt();
             self.pending = true;
             self.owner = owner;
-            self.delivery = Default::default();
-            self.native_clock = NativeAttempt::new();
-            self.enemy_clock = NativeAttempt::new();
-            self.enemy_id = None;
             if let Some(c) = self.native_context {
                 self.native_clock.advance_pause(c, None, u16::MAX);
             }
-            self.packets = 0;
-            self.last_packet = None;
         }
         self.previous_request = requested_grab;
         self.previous_catch = native_catch;

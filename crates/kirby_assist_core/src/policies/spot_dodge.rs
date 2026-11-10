@@ -693,4 +693,33 @@ pub mod roll_read {
         pub vulnerable_in: Option<f32>,
         pub actionable_in: Option<f32>,
     }
+    impl Target {
+        pub fn vulnerable_now(&self) -> bool {
+            self.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.)
+        }
+        /// Copied facts as an `Opponent`. The caller knows the actor's native
+        /// situation and which recovery clock, if any, applies.
+        pub(crate) fn opponent(
+            &self,
+            situation: i32,
+            remaining: Option<f32>,
+        ) -> crate::gameplay::Opponent {
+            crate::gameplay::Opponent {
+                id: self.id,
+                status: self.status,
+                situation,
+                position: self.position,
+                velocity: [self.velocity_x, 0.],
+                motion: Some(crate::gameplay::MotionTiming {
+                    kind: self.motion,
+                    frame: self.frame,
+                    rate: self.rate,
+                    remaining,
+                }),
+                vulnerable: self.vulnerable_now(),
+                vulnerable_in: self.vulnerable_in,
+                ..Default::default()
+            }
+        }
+    }
 }

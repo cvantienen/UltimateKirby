@@ -1,16 +1,18 @@
 //! Lazy, in-memory recipe edits. No parsing, I/O, or allocation in execution.
+use super::cycle;
 use crate::native_input::*;
 use crate::sequence_config::{
     Action, Condition, Direction as D, InputReference as IR, RangeCheck, Sequence, MAX_ACTIONS,
 };
 use std::collections::BTreeMap;
+use std::fmt::Write;
 #[path = "editor/commands.rs"]
 mod commands;
 #[path = "editor/presentation.rs"]
 mod presentation;
 use presentation::{field_slot, field_value, fields, recipe_panel, Field};
 #[cfg(test)]
-use presentation::{same_field, schedule_summary, scheduled_frames};
+use presentation::{schedule_summary, scheduled_frames};
 
 const fn key(buttons: u32, x: f32, y: f32, frames: u8) -> Action {
     Action::Input {
@@ -374,55 +376,96 @@ impl Recipe {
             pending = pending.saturating_sub(255);
         }
         sequence.len = (len as u8).max(6);
-        let mut kinds = [0; MAX_ACTIONS];
-        let mut imported = Vec::new();
-        for (i, a) in sequence.actions().iter().enumerate() {
-            kinds[i] = preset_kind(*a).unwrap_or_else(|| {
-                let index = imported
-                    .iter()
-                    .position(|saved| saved == a)
-                    .unwrap_or_else(|| {
-                        imported.push(*a);
-                        imported.len() - 1
-                    });
-                PRESETS.len() + index
-            });
-        }
-        Self {
+        let mut recipe = Self {
             button_recipe: false,
             sequence,
             before,
-            kinds,
-            imported,
+            kinds: [0; MAX_ACTIONS],
+            imported: Vec::new(),
             edited: 0,
             modified: false,
+        };
+        for (i, action) in sequence.actions().iter().enumerate() {
+            recipe.kinds[i] = recipe.kind_for(*action);
         }
+        recipe
+    }
+    /// Picker index for an action: its preset, else its (deduplicated) saved-input entry.
+    fn kind_for(&mut self, action: Action) -> usize {
+        preset_kind(action).unwrap_or_else(|| {
+            let index = self
+                .imported
+                .iter()
+                .position(|saved| *saved == action)
+                .unwrap_or_else(|| {
+                    self.imported.push(action);
+                    self.imported.len() - 1
+                });
+            PRESETS.len() + index
+        })
+    }
+    fn action_for(&self, kind: usize) -> Action {
+        match PRESETS.get(kind) {
+            Some((_, preset)) => *preset,
+            None => self.imported[kind - PRESETS.len()],
+        }
+    }
+    fn step(&self, slot: usize) -> (Action, u8, usize) {
+        (
+            self.sequence.actions[slot],
+            self.before[slot],
+            self.kinds[slot],
+        )
+    }
+    fn set_step(&mut self, slot: usize, (action, delay, kind): (Action, u8, usize)) {
+        self.sequence.actions[slot] = action;
+        self.before[slot] = delay;
+        self.kinds[slot] = kind;
+    }
+    /// A slot with neither an action nor a delay; the only kind that may be dropped for room.
+    fn unused(&self, slot: usize) -> bool {
+        self.sequence.actions[slot] == Action::Empty && self.before[slot] == 0
+    }
+    /// Insert before `at`, shifting later steps down. `reuse_last` lets an unused final
+    /// slot make room when all slots are taken. False (and unchanged) when full.
+    fn insert_step(&mut self, at: usize, step: (Action, u8, usize), reuse_last: bool) -> bool {
+        let mut len = usize::from(self.sequence.len);
+        if len == MAX_ACTIONS && reuse_last && self.unused(len - 1) {
+            len -= 1;
+        }
+        if len == MAX_ACTIONS {
+            return false;
+        }
+        for i in (at..len).rev() {
+            self.set_step(i + 1, self.step(i));
+        }
+        self.set_step(at, step);
+        self.sequence.len = (len + 1) as u8;
+        true
+    }
+    /// Remove a step, shifting later ones up; at least one slot always remains.
+    fn remove_step(&mut self, slot: usize) {
+        let len = usize::from(self.sequence.len);
+        for i in slot..len - 1 {
+            self.set_step(i, self.step(i + 1));
+        }
+        self.set_step(len - 1, (Action::Empty, 0, 0));
+        self.sequence.len = len.saturating_sub(1).max(1) as u8;
     }
     fn compile(&self) -> Option<Sequence> {
         let mut result = Sequence {
             len: 0,
+            actions: [Action::Empty; MAX_ACTIONS],
             ..self.sequence
         };
         for (i, action) in self.sequence.actions().iter().enumerate() {
-            for a in [
-                if self.before[i] > 0 {
-                    Some(Action::Wait(self.before[i]))
-                } else {
-                    None
-                },
-                if *action == Action::Empty {
-                    None
-                } else {
-                    Some(*action)
-                },
-            ]
-            .into_iter()
-            .flatten()
-            {
-                if result.len as usize == MAX_ACTIONS {
+            let delay = (self.before[i] > 0).then_some(Action::Wait(self.before[i]));
+            let step = (*action != Action::Empty).then_some(*action);
+            for a in delay.into_iter().chain(step) {
+                if usize::from(result.len) == MAX_ACTIONS {
                     return None;
                 }
-                result.actions[result.len as usize] = a;
+                result.actions[usize::from(result.len)] = a;
                 result.len += 1;
             }
         }
@@ -466,7 +509,7 @@ const INPUT_BUTTONS: &[(u32, &str)] = &[
     (MAPPER_ZL, "ZL"),
     (MAPPER_ZR, "ZR"),
 ];
-fn input_buttons(a: Action) -> Option<u32> {
+fn buttons_mut(a: &mut Action) -> Option<&mut u32> {
     match a {
         Action::Input { buttons, .. }
         | Action::OpponentInput { buttons, .. }
@@ -474,16 +517,32 @@ fn input_buttons(a: Action) -> Option<u32> {
         _ => None,
     }
 }
-fn buttons_label(mask: u32) -> String {
-    let names = INPUT_BUTTONS
-        .iter()
-        .filter(|(b, _)| mask & b != 0)
-        .map(|(_, n)| *n)
-        .collect::<Vec<_>>();
-    if names.is_empty() {
-        "None (stick only)".into()
+fn input_buttons(mut a: Action) -> Option<u32> {
+    buttons_mut(&mut a).map(|buttons| *buttons)
+}
+/// Button names joined by `+`; bits the picker cannot name stay visible as hex.
+fn buttons_text(mask: u32, none: &str) -> String {
+    let mut text = String::new();
+    let mut push = |part: std::fmt::Arguments| {
+        if !text.is_empty() {
+            text.push('+');
+        }
+        let _ = text.write_fmt(part);
+    };
+    let mut known = 0;
+    for (bit, name) in INPUT_BUTTONS {
+        known |= bit;
+        if mask & bit != 0 {
+            push(format_args!("{name}"));
+        }
+    }
+    if mask & !known != 0 {
+        push(format_args!("0x{:X}", mask & !known));
+    }
+    if text.is_empty() {
+        none.into()
     } else {
-        names.join("+")
+        text
     }
 }
 fn input_reference(a: Action, right: bool) -> IR {
@@ -546,57 +605,36 @@ fn set_input_reference(a: &mut Action, r: IR, right: bool) {
         _ => {}
     }
 }
+fn describe_input(buttons: u32, stick: [f32; 2], reference: &str, frames: u8) -> String {
+    let mut text = format!(
+        "{} | X:{:.0}% Y:{:.0}% ({reference}) | ",
+        buttons_text(buttons, "Stick only"),
+        stick[0] * 100.,
+        stick[1] * 100.
+    );
+    if frames == 0 {
+        text.push_str("until manual");
+    } else {
+        let _ = write!(text, "{frames}f");
+    }
+    text
+}
 fn describe_action(action: Action) -> String {
     match action {
-        Action::Controller{buttons,stick,cstick,reference,cstick_reference,frames}=>format!("{} | Left {:.0}%/{:.0}% {} | Right {:.0}%/{:.0}% {} | {frames}f",buttons_label(buttons),stick[0]*100.,stick[1]*100.,reference.token(),cstick[0]*100.,cstick[1]*100.,cstick_reference.token()),
+        Action::Controller{buttons,stick,cstick,reference,cstick_reference,frames}=>format!("{} | Left {:.0}%/{:.0}% {} | Right {:.0}%/{:.0}% {} | {frames}f",buttons_text(buttons, "None (stick only)"),stick[0]*100.,stick[1]*100.,reference.token(),cstick[0]*100.,cstick[1]*100.,cstick_reference.token()),
         Action::LedgePosition{offset,strength,tolerance,brake,frames}=>format!("Run to {offset} units inward from ledge | {:.0}% | tolerance {tolerance} | brake {brake} | max {frames}f",strength*100.),
         Action::IfFacingOpponent{away}=>if away{"If back to opponent (instant)".into()}else{"If facing opponent (instant)".into()},
         Action::ElseFacing=>"Otherwise (instant facing branch)".into(),
         Action::ShieldUntilManual=>"Shield until manual takeover (saved input)".into(),
         Action::Range(RangeCheck::Ignore)=>"Skip range check (saved input)".into(),
-        Action::OpponentInput { buttons, stick, frames } => describe_action(Action::Input { buttons, stick, frames, relative: true }).replace("(facing)", "(opponent)"),
-        Action::Input {
-            buttons,
-            stick,
-            relative, frames,
-            ..
-        } => {
-            let mut names = Vec::new();
-            let mut known = 0;
-            for (mask, name) in [
-                (MAPPER_A, "A"),
-                (MAPPER_B, "B"),
-                (MAPPER_X, "X"),
-                (MAPPER_Y, "Y"),
-                (MAPPER_L, "L"),
-                (MAPPER_R, "R"),
-                (MAPPER_ZL, "ZL"),
-                (MAPPER_ZR, "ZR"),
-            ] {
-                known |= mask;
-                if buttons & mask != 0 {
-                    names.push(name.to_owned());
-                }
-            }
-            if buttons & !known != 0 {
-                names.push(format!("0x{:X}", buttons & !known));
-            }
-            let buttons = if names.is_empty() {
-                "Stick only".into()
-            } else {
-                names.join("+")
-            };
-            format!(
-                "{} | X:{:.0}% Y:{:.0}% ({}) | {}",
-                buttons,
-                stick[0] * 100.,
-                stick[1] * 100.,
-                if relative { "facing" } else { "screen" },
-                if frames==0 {"until manual".into()}else{format!("{frames}f")}
-            )
-        }
+        Action::OpponentInput { buttons, stick, frames } => describe_input(buttons, stick, "opponent", frames),
+        Action::Input { buttons, stick, relative, frames } => describe_input(buttons, stick, if relative { "facing" } else { "screen" }, frames),
         other => format!("{other:?}"),
     }
+}
+/// The field under the cursor; the cursor may lag behind a field list that shrank.
+fn focus(fields: &[Field], cursor: usize) -> Field {
+    fields[cursor.min(fields.len() - 1)]
 }
 fn step(v: f32, delta: f32, min: f32, max: f32) -> f32 {
     ((v + delta).clamp(min, max) * 100.).round() / 100.
@@ -608,142 +646,143 @@ fn byte(v: &mut u8, up: bool, min: u8) {
         v.saturating_sub(1).max(min)
     };
 }
+/// 16-bit frame counts share one ceiling.
+fn wide(v: &mut u16, up: bool, min: u16) {
+    *v = if up {
+        v.saturating_add(1).min(3600)
+    } else {
+        v.saturating_sub(1).max(min)
+    };
+}
 fn direction(v: &mut D, up: bool, onstage: bool) {
     let mut i = DIRECTIONS.iter().position(|d| d == v).unwrap_or(0);
     for _ in 0..DIRECTIONS.len() {
-        i = if up {
-            (i + 1) % DIRECTIONS.len()
-        } else {
-            (i + DIRECTIONS.len() - 1) % DIRECTIONS.len()
-        };
+        i = cycle(i, DIRECTIONS.len(), up);
         if !onstage || !Action::Face(DIRECTIONS[i]).needs_ledge() {
             *v = DIRECTIONS[i];
             break;
         }
     }
 }
-fn adjust_action(action: &mut Action, field: Field, up: bool, delta: f32, onstage: bool) {
-    match (action, field) {
-        (Action::LedgePosition { offset, .. }, Field::Distance(_)) => {
-            *offset = step(*offset, delta, 0., 200.)
+// Each editable parameter has exactly one accessor; editing, display and
+// validation all read the same location so they cannot drift apart.
+/// The action's main duration in frames and its lowest allowed value.
+fn frames_mut(a: &mut Action) -> Option<(&mut u8, u8)> {
+    match a {
+        Action::Input { frames, .. }
+        | Action::OpponentInput { frames, .. }
+        | Action::Controller { frames, .. }
+        | Action::CStick { frames, .. }
+        | Action::Chase { frames, .. }
+        | Action::Approach { frames, .. }
+        | Action::Drift { frames, .. }
+        | Action::ShieldUntilBlock(frames) => Some((frames, 1)),
+        Action::Wait(frames) | Action::Check { wait: frames, .. } => Some((frames, 0)),
+        _ => None,
+    }
+}
+fn frames(mut a: Action) -> Option<u8> {
+    frames_mut(&mut a).map(|(frames, _)| *frames)
+}
+fn stick_mut(a: &mut Action) -> Option<&mut [f32; 2]> {
+    match a {
+        Action::Input { stick, .. }
+        | Action::OpponentInput { stick, .. }
+        | Action::Controller { stick, .. }
+        | Action::CStick { stick, .. } => Some(stick),
+        _ => None,
+    }
+}
+fn direction_mut(a: &mut Action) -> Option<&mut D> {
+    match a {
+        Action::Face(d)
+        | Action::Walk { direction: d, .. }
+        | Action::Run { direction: d, .. }
+        | Action::Drift { direction: d, .. } => Some(d),
+        _ => None,
+    }
+}
+/// A bounded number edited in steps of `scale` per button press.
+struct Scalar<'a> {
+    value: &'a mut f32,
+    min: f32,
+    max: f32,
+    scale: f32,
+}
+fn scalar_mut(a: &mut Action, field: Field) -> Option<Scalar<'_>> {
+    let (value, min, max, scale) = match (a, field) {
+        (Action::Controller { cstick, .. }, Field::CX(_)) => (&mut cstick[0], -1., 1., 0.01),
+        (Action::Controller { cstick, .. }, Field::CY(_)) => (&mut cstick[1], -1., 1., 0.01),
+        (a, Field::X(_)) => (&mut stick_mut(a)?[0], -1., 1., 0.01),
+        (a, Field::Y(_)) => (&mut stick_mut(a)?[1], -1., 1., 0.01),
+        (Action::LedgePosition { strength, .. }, Field::Strength(_)) => (strength, 0.3, 1., 0.01),
+        (Action::Chase { strength, .. } | Action::Drift { strength, .. }, Field::Strength(_)) => {
+            (strength, 0., 1., 0.01)
         }
-        (Action::LedgePosition { strength, .. }, Field::Strength(_)) => {
-            *strength = step(*strength, delta * 0.01, 0.3, 1.)
-        }
-        (Action::LedgePosition { tolerance, .. }, Field::Tolerance(_)) => {
-            *tolerance = step(*tolerance, delta * 0.1, 0., 20.)
-        }
-        (Action::LedgePosition { brake, .. }, Field::Brake(_)) => {
-            *brake = step(*brake, delta * 0.5, 0., 100.)
-        }
-        (Action::LedgePosition { frames, .. }, Field::PositionTimeout(_)) => {
-            *frames = if up {
-                frames.saturating_add(1).min(3600)
-            } else {
-                frames.saturating_sub(1).max(1)
-            }
-        }
-        (Action::Chase { strength, .. }, Field::Strength(_)) => {
-            *strength = step(*strength, delta * 0.01, 0., 1.)
-        }
-        (
-            Action::Tap {
-                buttons,
-                stick,
-                hold,
-                ..
-            },
-            Field::TapButtons(_),
-        ) => {
-            let index = TAP_BUTTONS
-                .iter()
-                .position(|(button, axes, _)| button == buttons && axes == stick);
-            let index = match index {
-                Some(i) => {
-                    if up {
-                        (i + 1) % TAP_BUTTONS.len()
-                    } else {
-                        (i + TAP_BUTTONS.len() - 1) % TAP_BUTTONS.len()
-                    }
-                }
-                None => {
-                    if up {
-                        0
-                    } else {
-                        TAP_BUTTONS.len() - 1
-                    }
-                }
-            };
-            let (button, axes, _) = TAP_BUTTONS[index];
-            *buttons = button;
-            *stick = axes;
-            *hold = 1;
-        }
-        (Action::Tap { gap, .. }, Field::TapGap(_)) => byte(gap, up, 1),
-        (Action::Tap { frames, .. }, Field::Duration(_)) => {
-            *frames = if up {
-                frames.saturating_add(1).min(3600)
-            } else {
-                frames.saturating_sub(1).max(1)
-            }
-        }
-        (
-            Action::Input { frames, .. }
-            | Action::OpponentInput { frames, .. }
-            | Action::Controller { frames, .. }
-            | Action::CStick { frames, .. }
-            | Action::Chase { frames, .. }
-            | Action::Approach { frames, .. }
-            | Action::Drift { frames, .. },
-            Field::Duration(_),
-        ) => byte(frames, up, 1),
-        (Action::Wait(frames), Field::Duration(_)) => byte(frames, up, 0),
-        (Action::ShieldUntilBlock(frames), Field::Duration(_)) => byte(frames, up, 1),
-        (Action::Check { wait, .. }, Field::Duration(_)) => byte(wait, up, 0),
-        (Action::Check { value, .. }, Field::Distance(_)) => *value = step(*value, delta, 0., 100.),
-        (
-            Action::Input { stick, .. }
-            | Action::OpponentInput { stick, .. }
-            | Action::Controller { stick, .. }
-            | Action::Tap { stick, .. }
-            | Action::CStick { stick, .. },
-            Field::X(_),
-        ) => stick[0] = step(stick[0], delta * 0.01, -1., 1.),
-        (
-            Action::Input { stick, .. }
-            | Action::OpponentInput { stick, .. }
-            | Action::Controller { stick, .. }
-            | Action::Tap { stick, .. }
-            | Action::CStick { stick, .. },
-            Field::Y(_),
-        ) => stick[1] = step(stick[1], delta * 0.01, -1., 1.),
         (
             Action::Approach {
                 strength, airborne, ..
             },
             Field::Strength(_),
-        ) => {
-            *strength = step(
-                *strength,
-                delta * 0.01,
-                0.1,
-                if *airborne { 1. } else { 0.95 },
-            )
-        }
-        (Action::Walk { strength, .. }, Field::Strength(_)) => {
-            *strength = step(*strength, delta * 0.01, 0.1, 0.95)
-        }
-        (Action::Drift { strength, .. }, Field::Strength(_)) => {
-            *strength = step(*strength, delta * 0.01, 0., 1.)
-        }
-        (Action::Walk { units, .. } | Action::Run { units, .. }, Field::Distance(_)) => {
-            *units = step(*units, delta, 0., 100.)
-        }
-        (Action::Range(RangeCheck::Verify(value)), Field::Distance(_)) => {
-            *value = step(*value, delta, 0., 60.)
-        }
+        ) => (strength, 0.1, if *airborne { 1. } else { 0.95 }, 0.01),
+        (Action::Walk { strength, .. }, Field::Strength(_)) => (strength, 0.1, 0.95, 0.01),
+        (Action::LedgePosition { tolerance, .. }, Field::Tolerance(_)) => (tolerance, 0., 20., 0.1),
+        (Action::LedgePosition { brake, .. }, Field::Brake(_)) => (brake, 0., 100., 0.5),
+        (Action::LedgePosition { offset, .. }, Field::Distance(_)) => (offset, 0., 200., 1.),
+        (
+            Action::Walk { units: value, .. }
+            | Action::Run { units: value, .. }
+            | Action::Check { value, .. },
+            Field::Distance(_),
+        ) => (value, 0., 100., 1.),
+        (Action::Range(RangeCheck::Verify(value)), Field::Distance(_)) => (value, 0., 60., 1.),
         (Action::Chase { gap, .. } | Action::Approach { gap, .. }, Field::Gap(_)) => {
-            *gap = step(*gap, delta, 0., 60.)
+            (gap, 0., 60., 1.)
+        }
+        _ => return None,
+    };
+    Some(Scalar {
+        value,
+        min,
+        max,
+        scale,
+    })
+}
+fn scalar(mut a: Action, field: Field) -> Option<f32> {
+    scalar_mut(&mut a, field).map(|s| *s.value)
+}
+fn cycle_tap_input(action: &mut Action, up: bool) {
+    let Action::Tap {
+        buttons,
+        stick,
+        hold,
+        ..
+    } = action
+    else {
+        return;
+    };
+    let current = TAP_BUTTONS
+        .iter()
+        .position(|(button, axes, _)| button == buttons && axes == stick);
+    let index = match current {
+        Some(i) => cycle(i, TAP_BUTTONS.len(), up),
+        None if up => 0,
+        None => TAP_BUTTONS.len() - 1,
+    };
+    (*buttons, *stick, _) = TAP_BUTTONS[index];
+    *hold = 1;
+}
+fn adjust_action(action: &mut Action, field: Field, up: bool, onstage: bool) {
+    let delta = if up { 1. } else { -1. };
+    match (&mut *action, field) {
+        (_, Field::TapButtons(_)) => cycle_tap_input(action, up),
+        (Action::Tap { gap, .. }, Field::TapGap(_)) => byte(gap, up, 1),
+        (Action::Tap { frames, .. }, Field::Duration(_))
+        | (Action::LedgePosition { frames, .. }, Field::PositionTimeout(_)) => wide(frames, up, 1),
+        (_, Field::Duration(_)) => {
+            if let Some((frames, min)) = frames_mut(action) {
+                byte(frames, up, min);
+            }
         }
         (Action::Walk { min_gap, .. }, Field::Gap(_)) => {
             let old = min_gap.unwrap_or(0.);
@@ -753,24 +792,32 @@ fn adjust_action(action: &mut Action, field: Field, up: bool, delta: f32, onstag
                 Some(step(old, delta, 0., 60.))
             };
         }
-        (
-            Action::Walk {
-                direction: d,
+        (_, Field::Direction(_)) => {
+            if let Some(d) = direction_mut(action) {
+                direction(d, up, onstage);
+            }
+            if let Action::Walk {
+                direction,
                 min_gap,
                 ..
-            },
-            Field::Direction(_),
-        ) => {
-            direction(d, up, onstage);
-            if *d != D::Opponent {
-                *min_gap = None;
+            } = action
+            {
+                if *direction != D::Opponent {
+                    *min_gap = None;
+                }
             }
         }
-        (
-            Action::Face(d) | Action::Run { direction: d, .. } | Action::Drift { direction: d, .. },
-            Field::Direction(_),
-        ) => direction(d, up, onstage),
-        _ => {}
+        _ => {
+            if let Some(Scalar {
+                value,
+                min,
+                max,
+                scale,
+            }) = scalar_mut(action, field)
+            {
+                *value = step(*value, delta * scale, min, max);
+            }
+        }
     }
 }
 pub(super) struct CopySource {
@@ -779,7 +826,41 @@ pub(super) struct CopySource {
     pub name: String,
 }
 
-fn adjust_reaction(recipe: &mut Recipe, field: Field, up: bool) {
+fn adjust_reference(recipe: &mut Recipe, index: usize, right: bool, up: bool) {
+    let old = input_reference(recipe.sequence.actions[index], right);
+    let current = IR::ALL.iter().position(|value| *value == old).unwrap_or(0);
+    let next = cycle(current, IR::ALL.len(), up);
+    set_input_reference(&mut recipe.sequence.actions[index], IR::ALL[next], right);
+}
+
+fn adjust_action_kind(recipe: &mut Recipe, index: usize, up: bool) {
+    let count = PRESETS.len() + recipe.imported.len();
+    recipe.kinds[index] = cycle(recipe.kinds[index], count, up);
+    recipe.sequence.actions[index] = recipe.action_for(recipe.kinds[index]);
+}
+
+fn toggle_shield_hold(recipe: &mut Recipe, index: usize) {
+    match &mut recipe.sequence.actions[index] {
+        Action::Input { frames, .. } => *frames = if *frames == 0 { 4 } else { 0 },
+        Action::ShieldUntilManual => {
+            let shield = key(MAPPER_ZR, 0., 0., 4);
+            recipe.sequence.actions[index] = shield;
+            recipe.kinds[index] = recipe.kind_for(shield);
+        }
+        _ => {}
+    }
+}
+
+fn adjust_slots(recipe: &mut Recipe, up: bool) {
+    let len = usize::from(recipe.sequence.len);
+    if up && len < MAX_ACTIONS {
+        recipe.sequence.len += 1;
+    } else if !up && len > 1 && recipe.unused(len - 1) {
+        recipe.sequence.len -= 1;
+    }
+}
+
+fn adjust_field(recipe: &mut Recipe, field: Field, up: bool, onstage: bool) -> bool {
     match field {
         Field::Reaction(0) => {
             let trigger = recipe.sequence.reaction.trigger;
@@ -788,104 +869,23 @@ fn adjust_reaction(recipe: &mut Recipe, field: Field, up: bool) {
                 .iter()
                 .position(|value| *value == trigger)
                 .unwrap_or(0);
-            recipe.sequence.reaction.trigger = options[super::cycle(index, options.len(), up)];
+            recipe.sequence.reaction.trigger = options[cycle(index, options.len(), up)];
         }
         Field::Reaction(index) => recipe.sequence.reaction.adjust(index, up),
-        _ => unreachable!("reaction adjustment requires a reaction field"),
-    }
-}
-
-fn adjust_reference(recipe: &mut Recipe, index: usize, right: bool, up: bool) {
-    let old = input_reference(recipe.sequence.actions[index], right);
-    let current = IR::ALL.iter().position(|value| *value == old).unwrap_or(0);
-    let next = super::cycle(current, IR::ALL.len(), up);
-    set_input_reference(&mut recipe.sequence.actions[index], IR::ALL[next], right);
-}
-
-fn adjust_action_kind(recipe: &mut Recipe, index: usize, up: bool) {
-    let count = PRESETS.len() + recipe.imported.len();
-    let current = recipe.kinds[index];
-    recipe.kinds[index] = if current >= count {
-        if up {
-            0
-        } else {
-            count - 1
-        }
-    } else {
-        super::cycle(current, count, up)
-    };
-    recipe.sequence.actions[index] = if recipe.kinds[index] < PRESETS.len() {
-        PRESETS[recipe.kinds[index]].1
-    } else {
-        recipe.imported[recipe.kinds[index] - PRESETS.len()]
-    };
-}
-
-fn toggle_shield_hold(recipe: &mut Recipe, index: usize) {
-    match &mut recipe.sequence.actions[index] {
-        Action::Input { frames, .. } => *frames = if *frames == 0 { 4 } else { 0 },
-        Action::ShieldUntilManual => {
-            recipe.sequence.actions[index] = Action::Input {
-                buttons: MAPPER_ZR,
-                stick: [0.; 2],
-                frames: 4,
-                relative: true,
-            };
-            recipe.kinds[index] = PRESETS
-                .iter()
-                .position(|(_, action)| *action == recipe.sequence.actions[index])
-                .unwrap_or(0);
-        }
-        _ => {}
-    }
-}
-
-fn adjust_field(recipe: &mut Recipe, field: Field, up: bool, delta: f32, onstage: bool) -> bool {
-    match field {
-        Field::Reaction(_) => adjust_reaction(recipe, field, up),
         Field::WhileHeld => recipe.sequence.while_held = !recipe.sequence.while_held,
         Field::GroundOnly => recipe.sequence.ground_only = !recipe.sequence.ground_only,
         Field::Buttons(_) => return false,
-        Field::Reference(index) | Field::CReference(index) => {
-            adjust_reference(recipe, index, matches!(field, Field::CReference(_)), up);
-        }
-        Field::CX(index) | Field::CY(index) => {
-            if let Action::Controller { cstick, .. } = &mut recipe.sequence.actions[index] {
-                let axis = usize::from(matches!(field, Field::CY(_)));
-                cstick[axis] = step(cstick[axis], delta * 0.01, -1., 1.);
-            }
-        }
-        Field::Start => {
-            recipe.sequence.start_delay = if up {
-                recipe.sequence.start_delay.saturating_add(1).min(3600)
-            } else {
-                recipe.sequence.start_delay.saturating_sub(1)
-            }
-        }
-        Field::Slots => {
-            let len = usize::from(recipe.sequence.len);
-            if up && len < MAX_ACTIONS {
-                recipe.sequence.len += 1;
-            } else if !up
-                && len > 1
-                && recipe.sequence.actions[len - 1] == Action::Empty
-                && recipe.before[len - 1] == 0
-            {
-                recipe.sequence.len -= 1;
-            }
-        }
+        Field::Reference(index) => adjust_reference(recipe, index, false, up),
+        Field::CReference(index) => adjust_reference(recipe, index, true, up),
+        Field::Start => wide(&mut recipe.sequence.start_delay, up, 0),
+        Field::Slots => adjust_slots(recipe, up),
         Field::Before(index) => byte(&mut recipe.before[index], up, 0),
         Field::Kind(index) => adjust_action_kind(recipe, index, up),
         Field::ShieldHold(index) => toggle_shield_hold(recipe, index),
         other => {
-            let index = field_slot(other).expect("action field must have a slot");
-            adjust_action(
-                &mut recipe.sequence.actions[index],
-                other,
-                up,
-                delta,
-                onstage,
-            );
+            if let Some(index) = field_slot(other) {
+                adjust_action(&mut recipe.sequence.actions[index], other, up, onstage);
+            }
         }
     }
     true
@@ -942,7 +942,8 @@ impl RecipeEditor {
         (self.recipes.len(), bytes)
     }
     pub fn preview_panel(sequence: Sequence) -> super::RecipePanel {
-        recipe_panel(&Recipe::new(sequence), None, false, None)
+        let recipe = Recipe::new(sequence);
+        recipe_panel(&recipe, &fields(&recipe), None, false, None)
     }
     pub fn has(&self, key: (usize, usize)) -> bool {
         self.recipes.contains_key(&key)
@@ -1006,19 +1007,13 @@ impl RecipeEditor {
     }
     pub fn navigate(&mut self, key: (usize, usize), down: bool) {
         if let Some(r) = self.recipes.get(&key) {
-            let n = fields(r).len();
-            self.cursor = if down {
-                (self.cursor + 1) % n
-            } else {
-                (self.cursor + n - 1) % n
-            };
+            self.cursor = cycle(self.cursor, fields(r).len(), down);
         }
     }
     pub fn repeatable(&self, key: (usize, usize)) -> bool {
         self.recipes.get(&key).is_some_and(|r| {
-            let fs = fields(r);
             !matches!(
-                fs[self.cursor.min(fs.len() - 1)],
+                focus(&fields(r), self.cursor),
                 Field::Kind(_)
                     | Field::ShieldHold(_)
                     | Field::Direction(_)
@@ -1037,11 +1032,9 @@ impl RecipeEditor {
             return false;
         };
         let mut next = r.clone();
-        let fs = fields(&next);
-        let f = fs[self.cursor.min(fs.len() - 1)];
+        let f = focus(&fields(&next), self.cursor);
         let onstage = next.sequence.reaction.active();
-        let delta = if up { 1. } else { -1. };
-        if !adjust_field(&mut next, f, up, delta, onstage) {
+        if !adjust_field(&mut next, f, up, onstage) {
             return false;
         }
         self.limited = next.compile().is_none();
@@ -1051,12 +1044,17 @@ impl RecipeEditor {
         let changed =
             next.sequence != r.sequence || next.before != r.before || next.kinds != r.kinds;
         if changed {
-            self.last_edit = Some(format!(
-                "Last change: {}{} -> {}",
-                field_slot(f).map_or("Start: ".into(), |i| format!("slot {}: ", i + 1)),
-                field_value(r, f).trim(),
-                field_value(&next, f).trim()
-            ));
+            let mut summary = String::from("Last change: ");
+            if let Some(slot) = field_slot(f) {
+                let _ = write!(summary, "slot {}: ", slot + 1);
+            }
+            let _ = write!(
+                summary,
+                "{} -> {}",
+                field_value(r, f),
+                field_value(&next, f)
+            );
+            self.last_edit = Some(summary);
             next.modified = true;
             if let Some(i) = field_slot(f) {
                 next.edited |= 1u32 << i;
@@ -1079,8 +1077,7 @@ impl RecipeEditor {
         if self.modal.is_some() {
             return None;
         }
-        let fs = fields(r);
-        let slot = field_slot(*fs.get(self.cursor.min(fs.len() - 1))?)?;
+        let slot = field_slot(focus(&fields(r), self.cursor))?;
         let (label, preset) = PRESETS.get(r.kinds[slot])?;
         match (r.sequence.actions[slot], *preset) {
             (
@@ -1108,6 +1105,7 @@ impl RecipeEditor {
         let cursor = self.cursor.min(fs.len() - 1);
         let mut panel = recipe_panel(
             r,
+            &fs,
             editing.then_some(fs[cursor]),
             self.limited,
             self.last_edit.as_deref(),
@@ -1118,8 +1116,6 @@ impl RecipeEditor {
                 cursor + 1,
                 fs.len()
             ));
-        }
-        if editing {
             panel
                 .footer
                 .push("A on move: Categories | ZL+ZR: Tools | ZL/ZR: Jump step".into());
@@ -1346,7 +1342,7 @@ mod tests {
         for field in [Field::TapGap(0), Field::Duration(0)] {
             e.cursor = fields(&e.recipes[&key])
                 .iter()
-                .position(|f| same_field(*f, field))
+                .position(|f| *f == field)
                 .unwrap();
             assert!(e.adjust(key, true));
         }
@@ -1426,7 +1422,7 @@ mod tests {
             .sequence;
         let recipe = Recipe::new(source);
         assert_eq!(schedule_summary(&recipe), (12, false));
-        let panel = recipe_panel(&recipe, None, false, None);
+        let panel = recipe_panel(&recipe, &fields(&recipe), None, false, None);
         let text = panel.header.join("\n") + "\n" + &panel.body.join("\n");
         assert!(text.contains("Input schedule: 12f | done F13"));
         assert!(text.contains("F3"));
@@ -1436,7 +1432,9 @@ mod tests {
         assert_eq!(recipe.compile().unwrap().actions(), source.actions());
         let mut limited = recipe;
         limited.sequence.timeout = 6;
-        let header = recipe_panel(&limited, None, false, None).header.join(" ");
+        let header = recipe_panel(&limited, &fields(&limited), None, false, None)
+            .header
+            .join(" ");
         assert!(header.contains("timeout 6f"));
         assert!(!header.contains("done F"));
     }
@@ -1448,7 +1446,8 @@ mod tests {
         .unwrap()
         .entries()[0]
             .sequence;
-        let panel = recipe_panel(&Recipe::new(source), None, false, None);
+        let recipe = Recipe::new(source);
+        let panel = recipe_panel(&recipe, &fields(&recipe), None, false, None);
         assert!(panel.header.join(" ").contains("variable checks"));
         let text = panel.body.join("\n");
         assert!(text.contains("F1 check"));
@@ -2063,7 +2062,7 @@ mod reaction_editor_tests {
         assert_eq!(action_name(&r, 3), "If back to ledge");
         assert_eq!(action_name(&r, 5), "End facing block");
         assert_eq!(r.compile().unwrap(), sequence);
-        assert!(recipe_panel(&r, None, false, None)
+        assert!(recipe_panel(&r, &fields(&r), None, false, None)
             .header
             .join(" ")
             .contains("Conditional timing"));
@@ -2186,7 +2185,7 @@ mod reaction_editor_tests {
         ] {
             e.cursor = fields(&e.recipes[&key])
                 .iter()
-                .position(|f| same_field(*f, target))
+                .position(|f| *f == target)
                 .unwrap();
             assert!(e.adjust(key, true));
         }
@@ -2252,7 +2251,7 @@ mod reaction_editor_tests {
             for target in [Field::X(0), Field::Y(0), Field::CX(0), Field::CY(0)] {
                 e.cursor = fields(&e.recipes[&key])
                     .iter()
-                    .position(|f| same_field(*f, target))
+                    .position(|f| *f == target)
                     .unwrap();
                 for _ in 0..120 {
                     e.adjust(key, round % 2 == 0);
@@ -2303,7 +2302,7 @@ mod ledge_position_branch_editor_tests {
         ] {
             e.cursor = fields(&e.recipes[&key])
                 .iter()
-                .position(|f| same_field(*f, field))
+                .position(|f| *f == field)
                 .unwrap();
             assert!(e.adjust(key, up));
         }

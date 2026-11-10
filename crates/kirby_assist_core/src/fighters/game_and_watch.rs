@@ -18,6 +18,8 @@ const MIN_REFLECT_RETRY_INTERVAL_FRAMES: f32 = 2.0;
 const MAX_TURNING_FRAMES: f32 = 2.0;
 const MAX_UNSENT_REFLECT_FRAMES: f32 = 4.0;
 const TURNING_REFLECT_STARTUP_EXTRA_FRAMES: f32 = 1.0;
+/// Recently attempted shots remembered so a missed/consumed shot is not retried.
+const ATTEMPT_MEMORY: usize = 32;
 
 pub const GAMEWATCH: i32 = crate::fighter_kinds::MR_GAME_AND_WATCH;
 /// Adding a fighter requires a verified native move/resource adapter too.
@@ -42,28 +44,13 @@ impl Config {
         }
         Some(Self {
             startup: values
-                .value(
-                    tuning::REFLECT_STARTUP,
-                    tuning::MIN_GAMEWATCH_REFLECT_STARTUP_FRAMES,
-                )
+                .get(tuning::REFLECT_STARTUP)
                 .max(tuning::MIN_GAMEWATCH_REFLECT_STARTUP_FRAMES),
-            margin: values.value(
-                tuning::REFLECT_MARGIN,
-                tuning::DEFAULT_REFLECT_MARGIN_FRAMES,
-            ),
-            max_hold: values.value(
-                tuning::REFLECT_MAX_HOLD,
-                tuning::DEFAULT_REFLECT_MAX_HOLD_FRAMES,
-            ),
-            half_width: values.value(
-                tuning::REFLECT_HALF_WIDTH,
-                tuning::DEFAULT_REFLECT_HALF_WIDTH,
-            ),
-            height: values.value(tuning::REFLECT_HEIGHT, tuning::DEFAULT_REFLECT_HEIGHT),
-            half_depth: values.value(
-                tuning::REFLECT_HALF_DEPTH,
-                tuning::DEFAULT_REFLECT_HALF_DEPTH,
-            ),
+            margin: values.get(tuning::REFLECT_MARGIN),
+            max_hold: values.get(tuning::REFLECT_MAX_HOLD),
+            half_width: values.get(tuning::REFLECT_HALF_WIDTH),
+            height: values.get(tuning::REFLECT_HEIGHT),
+            half_depth: values.get(tuning::REFLECT_HALF_DEPTH),
         })
     }
     pub fn horizon(self) -> f32 {
@@ -76,14 +63,8 @@ pub fn movable(status: i32, situation: i32) -> bool {
         crate::native_states::situation::GROUND => {
             matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT | crate::native_states::status::OTTOTTO | crate::native_states::status::OTTOTTO_WAIT)
         }
-        // Ordinary jump/fall only. Never recovery, tumble, attack or air dodge.
-        crate::native_states::situation::AIR => matches!(
-            status,
-            crate::native_states::status::JUMP
-                | crate::native_states::status::JUMP_AERIAL
-                | crate::native_states::status::FALL
-                | crate::native_states::status::FALL_AERIAL
-        ),
+        // Ordinary jump/fall only.
+        crate::native_states::situation::AIR => crate::native_states::jump_or_fall(status),
         _ => false,
     }
 }
@@ -215,7 +196,7 @@ pub struct Reflector {
     delivery: crate::move_input::DeliveryBudget,
     receipt_polls: u8,
     last_poll: Option<i64>,
-    attempted: [Option<ProjectileKey>; 32],
+    attempted: [Option<ProjectileKey>; ATTEMPT_MEMORY],
     next: usize,
 }
 impl Default for Reflector {
@@ -235,7 +216,7 @@ impl Reflector {
             delivery: crate::move_input::DeliveryBudget::new(),
             receipt_polls: 0,
             last_poll: None,
-            attempted: [None; 32],
+            attempted: [None; ATTEMPT_MEMORY],
             next: 0,
         }
     }
@@ -250,7 +231,7 @@ impl Reflector {
             .target
             .filter(|id| !self.attempted.contains(&Some(*id)))
         {
-            self.attempted[self.next % 32] = Some(id);
+            self.attempted[self.next % ATTEMPT_MEMORY] = Some(id);
             self.next = self.next.wrapping_add(1);
         }
     }
@@ -262,6 +243,17 @@ impl Reflector {
         self.delivery = crate::move_input::DeliveryBudget::new();
         self.receipt_polls = 0;
         self.last_poll = None;
+    }
+    fn abort(&mut self) -> ControllerOutput {
+        self.cancel();
+        ControllerOutput::default()
+    }
+    /// Abort, remembering the target when a receipt poll already counted against it.
+    fn abort_polled(&mut self) -> ControllerOutput {
+        if self.receipt_polls > 0 {
+            self.remember_target();
+        }
+        self.abort()
     }
     /// Last-resort receipt fence when BOTH native animation and projectile
     /// clocks are unavailable/frozen. This never advances a move or adds input.
@@ -278,9 +270,7 @@ impl Reflector {
     pub fn mapped(&mut self, tick: i64) {
         if self.target.is_some() {
             self.delivery.mapped(tick);
-        }
-        if !self.sent {
-            if self.target.is_some() {
+            if !self.sent {
                 self.remember_target();
                 self.sent = true;
             }
@@ -298,18 +288,15 @@ impl Reflector {
                 && supports(c.kind)
                 && c.gauge.is_finite()
                 && (0.0..3.0).contains(&c.gauge)
-                && c.facing.is_finite()
-                && c.facing.abs() > 0.5
+                && super::valid_facing(c.facing)
         }) else {
-            self.cancel();
-            return Default::default();
+            return self.abort();
         };
         if c.stopped {
             return Default::default();
         }
         let Some(now) = self.clock.observe(c.animation, false) else {
-            self.cancel();
-            return Default::default();
+            return self.abort();
         };
         let status = c.animation.status;
         let elapsed = now.saturating_sub(self.began) as f32;
@@ -320,8 +307,7 @@ impl Reflector {
                 || elapsed >= MAX_UNCONFIRMED_REFLECT_FRAMES
                 || self.delivery.exhausted()
             {
-                self.cancel();
-                return Default::default();
+                return self.abort();
             } else if elapsed >= MIN_REFLECT_RETRY_INTERVAL_FRAMES || threat.is_none() {
                 // An online-delayed packet is a receipt reservation, not a
                 // neutral-stick hold or a stream of repeated special inputs.
@@ -335,35 +321,14 @@ impl Reflector {
                 && t.direction.is_finite()
                 && t.direction.abs() == 1.
         }) else {
-            self.cancel();
-            return Default::default();
+            return self.abort();
         };
         if self.target.is_some() && self.target() != Some(threat.id) {
-            self.cancel();
-            return Default::default();
+            return self.abort();
         }
         let facing = threat.direction * c.facing > 0.;
         if self.target.is_none() {
-            if !movable(status, c.situation)
-                || !c.can_special
-                || self.attempted.contains(&Some(threat.key()))
-                || !facing && c.situation != crate::native_states::situation::GROUND
-                || threat.in_frames
-                    < config.startup
-                        + if facing {
-                            0.
-                        } else {
-                            TURNING_REFLECT_STARTUP_EXTRA_FRAMES
-                        }
-                || threat.in_frames
-                    > config.startup
-                        + config.margin
-                        + if facing {
-                            0.
-                        } else {
-                            REFLECT_CONTACT_SAFETY_MARGIN_FRAMES
-                        }
-            {
+            if !self.admissible(config, c, threat, facing) {
                 return Default::default();
             }
             self.target = Some(threat.key());
@@ -378,19 +343,14 @@ impl Reflector {
                     ..=crate::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_END
             )
         {
-            self.cancel();
-            return Default::default();
+            return self.abort();
         }
         if self.turning {
             if !movable(status, c.situation)
                 || c.situation != crate::native_states::situation::GROUND
                 || elapsed >= MAX_TURNING_FRAMES
             {
-                if self.receipt_polls > 0 {
-                    self.remember_target();
-                }
-                self.cancel();
-                return Default::default();
+                return self.abort_polled();
             }
             if !facing {
                 return crate::move_input::output([threat.direction * 0.6, 0.], 0);
@@ -408,11 +368,7 @@ impl Reflector {
                     || self.delivery.exhausted())
             || self.confirmed && !bucket(status)
         {
-            if self.receipt_polls > 0 {
-                self.remember_target();
-            }
-            self.cancel();
-            return Default::default();
+            return self.abort_polled();
         }
         ControllerOutput {
             requested: MAPPER_B,
@@ -420,5 +376,24 @@ impl Reflector {
             stick: Some([0., -1.]),
             ..Default::default()
         }
+    }
+    /// Whether a new reflect started now covers this shot: Game & Watch can
+    /// act, the shot is a fresh attempt, and it arrives inside the startup
+    /// window (a turn-around costs extra startup and keeps a larger margin).
+    fn admissible(&self, config: Config, c: Context, threat: Threat, facing: bool) -> bool {
+        let (extra_startup, extra_margin) = if facing {
+            (0., 0.)
+        } else {
+            (
+                TURNING_REFLECT_STARTUP_EXTRA_FRAMES,
+                REFLECT_CONTACT_SAFETY_MARGIN_FRAMES,
+            )
+        };
+        movable(c.animation.status, c.situation)
+            && c.can_special
+            && !self.attempted.contains(&Some(threat.key()))
+            && (facing || c.situation == crate::native_states::situation::GROUND)
+            && (config.startup + extra_startup..=config.startup + config.margin + extra_margin)
+                .contains(&threat.in_frames)
     }
 }

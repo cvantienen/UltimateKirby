@@ -124,6 +124,38 @@ pub mod modes {
     const MIN_REPORT_INTERVAL_MS: u64 = 250;
     const LABEL_CAPACITY_BYTES: usize = 64;
     const CONFIGURATION_ROW_COUNT: usize = 25;
+    const LEDGE_HELP: &str = "Hold the ledge tool; waits for the matching ledge option, safe spacing and protection to end.";
+    const RECIPE_HELP: &str = "An assigned recipe runs once per fresh button press while the menu is closed; Native preserves the existing control.";
+    const BINDING_HELP: &str = "Binding for this D-pad direction; Normal keeps the existing control.";
+    /// Row order must match the root menu's configuration rows. An empty label
+    /// marks a removed slot that is kept only so later rows stay aligned.
+    const CONFIGURATION_ROWS: [(&str, &str); CONFIGURATION_ROW_COUNT] = [
+        ("Neutral getup", LEDGE_HELP),
+        ("Jump getup", LEDGE_HELP),
+        ("Ledge roll", LEDGE_HELP),
+        ("Getup attack", LEDGE_HELP),
+        ("Ledge drop", LEDGE_HELP),
+        ("Onstage roll read", "Watches approaching/crossing ground rolls; chooses the configured punish inside recovery and reach."),
+        ("Y binding", "Existing Y mode, used while Y sequence is set to Native."),
+        ("Auto mash", "Acts only during supported capture/mash states, then returns physical control."),
+        ("Idle crouch", "Grounded idle within 45 horizontal / 20 vertical units of an enemy; movement, actions or held L suspend crouching."),
+        ("Turnaround tilt", "Aims a physical down tilt toward the enemy; does not generate an attack press."),
+        ("", ""),
+        ("Spot-dodge punish", "Reads enemy spot-dodge recovery; selects near down smash or farther forward smash."),
+        ("Grab dodge", "Detects ordinary grab threats, requests spot dodge, then watches recovery for a smash punish."),
+        ("Auto tech", "Handles native tech windows; physical input can still override."),
+        ("Ledge trump", "Uses the held trump trigger, a known floor edge and native movement readiness."),
+        ("Performance gauge", "Records the training performance gauge to performance.log."),
+        ("X button recipe", RECIPE_HELP),
+        ("Y button recipe", RECIPE_HELP),
+        ("D-pad Up binding", BINDING_HELP),
+        ("D-pad Down binding", BINDING_HELP),
+        ("D-pad Left binding", BINDING_HELP),
+        ("D-pad Right binding", BINDING_HELP),
+        ("Ledge trap mode", "Uses the saved ledge response; waits for protection, reach and native readiness."),
+        ("Out of shield", "Confirms shield contact, retains defense through stun/multihits and selects the fighter-specific in-range response; yields to ledge responses."),
+        ("Shield pressure", "Watches enemy shields and shield-origin rolls; selects a configured pressure response without interrupting protected ledge actions."),
+    ];
     const RESULT_TOP_MARGIN: f32 = 14.0;
     const RESULT_BOTTOM_MARGIN: f32 = 8.0;
     const MIN_RESULT_HEIGHT: f32 = 40.0;
@@ -186,17 +218,16 @@ pub mod modes {
         }
     }
     pub fn motion_name(status: i32, motion: u64) -> &'static str {
+        const ATTACK_AIR_NAMES: [(u64, &str); 5] = [
+            (crate::timing::motion_hash("attack_air_n"), "neutral air"),
+            (crate::timing::motion_hash("attack_air_f"), "forward air"),
+            (crate::timing::motion_hash("attack_air_b"), "back air"),
+            (crate::timing::motion_hash("attack_air_hi"), "up air"),
+            (crate::timing::motion_hash("attack_air_lw"), "down air"),
+        ];
         if status == crate::native_states::status::ATTACK_AIR {
-            for (key, name) in [
-                ("attack_air_n", "neutral air"),
-                ("attack_air_f", "forward air"),
-                ("attack_air_b", "back air"),
-                ("attack_air_hi", "up air"),
-                ("attack_air_lw", "down air"),
-            ] {
-                if crate::timing::motion_hash(key) == motion {
-                    return name;
-                }
+            if let Some((_, name)) = ATTACK_AIR_NAMES.iter().find(|(hash, _)| *hash == motion) {
+                return name;
             }
         }
         native_name(status)
@@ -236,6 +267,25 @@ pub mod modes {
     const NATIVE_ACTION_GRAB: u16 = 64;
     const NATIVE_ACTION_DAMAGE_OR_TECH: u16 = 128;
     const NATIVE_ACTION_LEDGE_ACTION: u16 = 256;
+    const NATIVE_ACTION_LABELS: [(u16, &str); 9] = [
+        (NATIVE_ACTION_AIRBORNE, "jump/fall"),
+        (NATIVE_ACTION_SHIELD, "shield"),
+        (NATIVE_ACTION_SPOT_DODGE, "spot dodge"),
+        (NATIVE_ACTION_ROLL_OR_AIR_DODGE, "roll/air dodge"),
+        (NATIVE_ACTION_GROUND_ATTACK, "ground attack"),
+        (NATIVE_ACTION_AERIAL_ATTACK, "aerial attack"),
+        (NATIVE_ACTION_GRAB, "grab/capture"),
+        (NATIVE_ACTION_DAMAGE_OR_TECH, "damage/knockdown"),
+        (NATIVE_ACTION_LEDGE_ACTION, "ledge action"),
+    ];
+    /// Buttons whose labels a mode's requests are summarized by.
+    const REQUEST_LABELS: [(u32, &str); 5] = [
+        (MAPPER_X | MAPPER_ZL, "Jump"),
+        (MAPPER_A, "Attack"),
+        (MAPPER_R, "Grab"),
+        (MAPPER_B, "Special"),
+        (MAPPER_ZR, "Shield"),
+    ];
     pub fn native_name(status: i32) -> &'static str {
         match status {
             crate::native_states::status::WAIT => "standing",
@@ -402,32 +452,15 @@ pub mod modes {
         pub fn format(&self) -> String {
             let mut text = String::with_capacity(REPORT_TEXT_CAPACITY_BYTES);
             let last = self.last;
-            let winner = last.winner.map_or("physical controls", name);
+            let winner = winner_name(last.winner);
             let _ = writeln!(
                 text,
                 "MODE EXPLANATION +{}ms ({} changes batched)",
                 self.at_ms, self.changes
             );
-            let why = if !last.valid {
-                "assistance paused: observation or gameplay scope is unavailable"
-            } else if last.winner == Some(Owner::Safety) {
-                "native tech, mash, SDI or launch DI has emergency priority"
-            } else if last.committed {
-                "a committed sequence retains its input and release frames"
-            } else if last.winner == Some(Owner::Ledge) && last.requested == 0 {
-                "ledge watch/preparation is reserved ahead of optional helpers"
-            } else if last.winner == Some(Owner::RollRead) && last.requested == 0 {
-                "roll-read preparation owns the stick before requesting an attack"
-            } else if last.winner == Some(Owner::Posture) {
-                "no higher-priority mode needs control; this helper only aims the stick, leaving attack buttons physical"
-            } else if last.winner.is_some() {
-                "this eligible proposal won input priority"
-            } else {
-                "no mode currently proposes an eligible input"
-            };
-            let _ = writeln!(text, "Now: {winner}. Why: {why}.");
+            let _ = writeln!(text, "Now: {winner}. Why: {}.", why_text(last));
             if self.first.winner != last.winner {
-                let _ = writeln!(text, "Control changed: {} -> {}. Earlier control ended or yielded to priority; this alone does not establish a hit or miss.", self.first.winner.map_or("physical controls", name), winner);
+                let _ = writeln!(text, "Control changed: {} -> {}. Earlier control ended or yielded to priority; this alone does not establish a hit or miss.", winner_name(self.first.winner), winner);
             }
 
             let _ = writeln!(
@@ -451,20 +484,10 @@ pub mod modes {
                 last.native_frame,
                 last.motion
             );
-            let observed: Vec<_> = [
-                (NATIVE_ACTION_AIRBORNE, "jump/fall"),
-                (NATIVE_ACTION_SHIELD, "shield"),
-                (NATIVE_ACTION_SPOT_DODGE, "spot dodge"),
-                (NATIVE_ACTION_ROLL_OR_AIR_DODGE, "roll/air dodge"),
-                (NATIVE_ACTION_GROUND_ATTACK, "ground attack"),
-                (NATIVE_ACTION_AERIAL_ATTACK, "aerial attack"),
-                (NATIVE_ACTION_GRAB, "grab/capture"),
-                (NATIVE_ACTION_DAMAGE_OR_TECH, "damage/knockdown"),
-                (NATIVE_ACTION_LEDGE_ACTION, "ledge action"),
-            ]
-            .into_iter()
-            .filter_map(|(mask, label)| (self.native_actions & mask != 0).then_some(label))
-            .collect();
+            let observed: Vec<_> = NATIVE_ACTION_LABELS
+                .into_iter()
+                .filter_map(|(mask, label)| (self.native_actions & mask != 0).then_some(label))
+                .collect();
             let _ = writeln!(text, "Game states observed in batch: {}. These are observations, not proof a particular request caused them.", if observed.is_empty() { "no action startup sampled".to_owned() } else { observed.join(", ") });
             for (index, owner) in OWNERS.iter().enumerate() {
                 let e = self.modes[index];
@@ -473,57 +496,7 @@ pub mod modes {
                 }
                 let _ = writeln!(text, "  {} — {}", name(*owner), purpose(*owner));
                 let _ = write!(text, "    Input: ");
-                if e.selected == 0 {
-                    let _ = writeln!(
-                        text,
-                        "{}",
-                        if !last.valid {
-                            "proposed, but never applied: gameplay or observation scope was unavailable."
-                        } else {
-                            "proposed, but never applied in this batch; another mode retained priority."
-                        }
-                    );
-                } else {
-                    let _ = write!(text, "selected; requested button types during batch: ");
-                    if e.requests == 0 {
-                        let _ = write!(text, "no action buttons (preparation, hold or release)");
-                    } else {
-                        let mut separator = "";
-                        for (mask, label) in [
-                            (MAPPER_X | MAPPER_ZL, "Jump"),
-                            (MAPPER_A, "Attack"),
-                            (MAPPER_R, "Grab"),
-                            (MAPPER_B, "Special"),
-                            (MAPPER_ZR, "Shield"),
-                        ] {
-                            if e.requests & mask != 0 {
-                                let _ = write!(text, "{separator}{label}");
-                                separator = ", ";
-                            }
-                        }
-                        let _ = write!(text, " (raw {:#x})", e.requests);
-                    }
-                    let _ = write!(text, ". Stick: ");
-                    match e.stick {
-                        None => {
-                            let _ = write!(text, "physical");
-                        }
-                        Some([x, y]) => {
-                            let horizontal = match x {
-                                -1 => "left",
-                                1 => "right",
-                                _ => "neutral horizontal",
-                            };
-                            let vertical = match y {
-                                -1 => "down",
-                                1 => "up",
-                                _ => "neutral vertical",
-                            };
-                            let _ = write!(text, "{horizontal}, {vertical}");
-                        }
-                    }
-                    let _ = writeln!(text, ".");
-                }
+                write_input_evidence(&mut text, e, last.valid);
             }
             if last.safety != 0 {
                 let _ = writeln!(
@@ -541,6 +514,78 @@ pub mod modes {
                 else { "no hit flag was observed in this batch" });
             text
         }
+    }
+
+    fn winner_name(winner: Option<Owner>) -> &'static str {
+        winner.map_or("physical controls", name)
+    }
+
+    fn why_text(last: Snapshot) -> &'static str {
+        if !last.valid {
+            "assistance paused: observation or gameplay scope is unavailable"
+        } else if last.winner == Some(Owner::Safety) {
+            "native tech, mash, SDI or launch DI has emergency priority"
+        } else if last.committed {
+            "a committed sequence retains its input and release frames"
+        } else if last.winner == Some(Owner::Ledge) && last.requested == 0 {
+            "ledge watch/preparation is reserved ahead of optional helpers"
+        } else if last.winner == Some(Owner::RollRead) && last.requested == 0 {
+            "roll-read preparation owns the stick before requesting an attack"
+        } else if last.winner == Some(Owner::Posture) {
+            "no higher-priority mode needs control; this helper only aims the stick, leaving attack buttons physical"
+        } else if last.winner.is_some() {
+            "this eligible proposal won input priority"
+        } else {
+            "no mode currently proposes an eligible input"
+        }
+    }
+
+    fn write_input_evidence(text: &mut String, e: Evidence, valid: bool) {
+        if e.selected == 0 {
+            let _ = writeln!(
+                text,
+                "{}",
+                if !valid {
+                    "proposed, but never applied: gameplay or observation scope was unavailable."
+                } else {
+                    "proposed, but never applied in this batch; another mode retained priority."
+                }
+            );
+            return;
+        }
+        let _ = write!(text, "selected; requested button types during batch: ");
+        if e.requests == 0 {
+            let _ = write!(text, "no action buttons (preparation, hold or release)");
+        } else {
+            let mut separator = "";
+            for (mask, label) in REQUEST_LABELS {
+                if e.requests & mask != 0 {
+                    let _ = write!(text, "{separator}{label}");
+                    separator = ", ";
+                }
+            }
+            let _ = write!(text, " (raw {:#x})", e.requests);
+        }
+        let _ = write!(text, ". Stick: ");
+        match e.stick {
+            None => {
+                let _ = write!(text, "physical");
+            }
+            Some([x, y]) => {
+                let horizontal = match x {
+                    -1 => "left",
+                    1 => "right",
+                    _ => "neutral horizontal",
+                };
+                let vertical = match y {
+                    -1 => "down",
+                    1 => "up",
+                    _ => "neutral vertical",
+                };
+                let _ = write!(text, "{horizontal}, {vertical}");
+            }
+        }
+        let _ = writeln!(text, ".");
     }
 
     pub struct Recorder {
@@ -670,48 +715,10 @@ pub mod modes {
             if self.fighter == "mr_game_and_watch" {
                 let _=writeln!(text,"  Auto-reflect: {}. Native-ready projectile defense only; full bucket and ledge mode suspend it.",if self.auto_reflect {"ON"}else{"OFF"});
             }
-            for (label, value) in [
-                "Neutral getup",
-                "Jump getup",
-                "Ledge roll",
-                "Getup attack",
-                "Ledge drop",
-                "Onstage roll read",
-                "Y binding",
-                "Auto mash",
-                "Idle crouch",
-                "Turnaround tilt",
-                "Spot-dodge punish",
-                "Grab dodge",
-                "Auto tech",
-                "Ledge trump",
-                "Performance gauge",
-                "X button recipe",
-                "Y button recipe",
-                "D-pad Up binding",
-                "D-pad Down binding",
-                "D-pad Left binding",
-                "D-pad Right binding",
-                "Ledge trap mode",
-                "Out of shield",
-                "Shield pressure",
-            ]
-            .iter()
-            .zip(self.rows)
-            {
-                let help = match *label {
-                    "Neutral getup" | "Jump getup" | "Ledge roll" | "Getup attack" | "Ledge drop" => "Hold the ledge tool; waits for the matching ledge option, safe spacing and protection to end.",
-                    "Shield pressure" => "Watches enemy shields and shield-origin rolls; selects a configured pressure response without interrupting protected ledge actions.",
-                    "Onstage roll read" => "Watches approaching/crossing ground rolls; chooses the configured punish inside recovery and reach.",
-                    "Y binding" => "Existing Y mode, used while Y sequence is set to Native.",
-                    "X sequence" | "Y sequence" => "An assigned recipe runs once per fresh button press while the menu is closed; Native preserves the existing control.",
-                    "Auto mash" => "Acts only during supported capture/mash states, then returns physical control.",
-                    "Idle crouch" => "Grounded idle within 45 horizontal / 20 vertical units of an enemy; movement, actions or held L suspend crouching.",
-                    "Turnaround tilt" => "Aims a physical down tilt toward the enemy; does not generate an attack press.",
-                    "Spot-dodge punish" => "Reads enemy spot-dodge recovery; selects near down smash or farther forward smash.",
-                    _ => "Detects ordinary grab threats, requests spot dodge, then watches recovery for a smash punish.",
-                };
-                let _ = writeln!(text, "  {label}: {value}\n    {help}");
+            for ((label, help), value) in CONFIGURATION_ROWS.iter().zip(self.rows) {
+                if !label.is_empty() {
+                    let _ = writeln!(text, "  {label}: {value}\n    {help}");
+                }
             }
             text.push_str("Priority: emergency safety > spot/grab/roll reads > ledge sequences > other punishes/tools > defensive helpers > turbo > crouch/tilt. Saved choices are available options; an eligible trigger and native state are still required.");
             text

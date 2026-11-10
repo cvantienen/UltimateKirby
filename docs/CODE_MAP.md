@@ -55,12 +55,12 @@ timing, menu text caching and health counters are grouped with their parents.
 | `src/game_ffi.rs` | Native Smash function declarations and ABI boundary. |
 | `src/diagnostics.rs` and `src/diagnostics/` | Diagnostic-build-only logging, calibration, grab recording, and performance tools. |
 | `crates/kirby_assist_core/src/lib.rs` | Portable core modules and compatibility re-exports. |
-| Core `config.rs`, `live_input.rs`, and `sequence_config.rs` | Settings and recipe data models, startup parsing, validation, and persistence. |
-| Core `settings_menu.rs` and `settings_menu/` | Portable menu state, choice navigation, recipe editor, commands, and presentation. |
+| Core `config.rs`, `live_input.rs` (`live_input/config.rs` holds `LiveConfig`), and `sequence_config.rs` | Settings and recipe data models, startup parsing, validation, and persistence. |
+| Core `settings_menu.rs` and `settings_menu/` | Portable menu state, choice navigation (`input.rs` input state machine, `panel.rs` recipe panel), recipe editor, commands, and presentation. |
 | Core `shared/controller.rs` / `shared/native_input.rs` | Logical controller actions, ownership, arbitration, and native-independent button translations. |
 | Core `shared/observations.rs` / `shared/timing.rs` / `shared/survival/` | Copied gameplay facts, timing contracts, and reusable survival policies. |
 | Core `fighters.rs` and `fighters/` | Fighter catalog, profile/tuning data, native status tables, and fighter-specific policies. |
-| Core `fighters/native_states/fighter_status.rs` | Fighter-specific native status IDs; classification uses the verified tables in `native_states/final_states.rs` and `up_special.rs`. |
+| Core `fighters/native_states/fighter_status.rs` | Fighter-specific native status IDs; classification uses the verified per-fighter tables in `native_states/kind_statuses.rs`. |
 | Core `policies.rs` and `policies/` | Assist policies, including ledge, reaction, out-of-shield, posture, dodge, and defense. |
 | Core `policies/ledge_trap.rs` / `policies/ledge_trap/` | Ledge response selection, visit ownership, native-progress clocks, and file-authored timeline execution. |
 | Core `policies/out_of_shield.rs` / `policies/out_of_shield/` | Out-of-shield target validation, grab response, and shield Up-B fallback. |

@@ -28,7 +28,7 @@ mod lightweight;
 
 static VIEW: Mutex<Option<Snapshot>> = Mutex::new(None);
 static DEFERRED_CLEAR: AtomicBool = AtomicBool::new(false);
-static VIEW_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static VIEW_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 static LAST_FOCUS: Mutex<Option<(i32, MenuRow, usize, u8, Option<usize>, u64)>> = Mutex::new(None);
 static PRESENCE: Mutex<MenuPresence> = Mutex::new(MenuPresence::new());
@@ -46,8 +46,7 @@ pub(super) fn show_master_status(enabled: bool) {
 static MASTER_GESTURE: Mutex<kirby_assist_core::runtime_toggle::RuntimeToggle> =
     Mutex::new(kirby_assist_core::runtime_toggle::RuntimeToggle::new());
 static MASTER_CLOCK: Mutex<Option<Instant>> = Mutex::new(None);
-static MASTER_PROBE_TICK: std::sync::atomic::AtomicU64 =
-    std::sync::atomic::AtomicU64::new(u64::MAX);
+static MASTER_PROBE_TICK: AtomicU64 = AtomicU64::new(u64::MAX);
 
 const NPAD_STYLE_FULL_KEY: u32 = 0x1;
 const NPAD_STYLE_HANDHELD: u32 = 0x2;
@@ -57,9 +56,6 @@ const NPAD_STYLE_JOY_RIGHT: u32 = 0x10;
 const NPAD_STYLE_GAMECUBE: u32 = 0x20;
 
 unsafe fn selected_hid_buttons() -> Option<u64> {
-    selected_hid_buttons_inner()
-}
-unsafe fn selected_hid_buttons_inner() -> Option<u64> {
     let player = super::super::CONFIG.get()?.player_index;
     let ids = [
         player,
@@ -101,6 +97,15 @@ unsafe fn selected_hid_buttons_inner() -> Option<u64> {
     None
 }
 
+fn disarm_master_gesture() {
+    if let Ok(mut gesture) = MASTER_GESTURE.try_lock() {
+        gesture.disarm();
+    }
+}
+unsafe fn refresh_match_lock() {
+    super::super::refresh_master_match_lock(super::super::observations::battle_menu_ready_go());
+}
+
 unsafe fn poll_master_switch() {
     if !super::super::CONFIG
         .get()
@@ -122,27 +127,21 @@ unsafe fn poll_master_switch() {
     // probe so leaving battle remains observable without mapper callbacks.
     if super::super::MASTER_IN_MATCH.load(Ordering::Acquire) {
         if periodic_probe {
-            super::super::refresh_master_match_lock(
-                super::super::observations::battle_menu_ready_go(),
-            );
+            refresh_match_lock();
         }
         if super::super::MASTER_IN_MATCH.load(Ordering::Acquire) {
-            if let Ok(mut gesture) = MASTER_GESTURE.try_lock() {
-                gesture.disarm();
-            }
+            disarm_master_gesture();
             return;
         }
     }
     let Some(buttons) = selected_hid_buttons() else {
-        if let Ok(mut gesture) = MASTER_GESTURE.try_lock() {
-            gesture.disarm();
-        }
+        disarm_master_gesture();
         return;
     };
     if buttons & kirby_assist_core::runtime_toggle::CHORD
         == kirby_assist_core::runtime_toggle::CHORD
     {
-        super::super::refresh_master_match_lock(super::super::observations::battle_menu_ready_go());
+        refresh_match_lock();
     }
     let blocked = super::super::MASTER_IN_MATCH.load(Ordering::Acquire);
     let toggled = MASTER_GESTURE
@@ -232,14 +231,46 @@ unsafe extern "C" fn setup(context: *mut u64) {
         igSetCurrentContext(context.cast());
     }
 }
+/// Latest master-switch confirmation. Expiry clears the pending flag under the
+/// same lock as show_master_status, so it cannot discard a newly published toast.
+fn current_master_status(now: Instant) -> Option<bool> {
+    if !MASTER_TOAST_PENDING.load(Ordering::Acquire) {
+        return None;
+    }
+    MASTER_TOAST.try_lock().ok().and_then(|mut toast| {
+        let active = toast
+            .as_ref()
+            .copied()
+            .filter(|(_, shown)| now.duration_since(*shown) < MASTER_TOAST_LIFETIME);
+        if active.is_none() {
+            *toast = None;
+            MASTER_TOAST_PENDING.store(false, Ordering::Release);
+        }
+        active.map(|(enabled, _)| enabled)
+    })
+}
+/// `None` while the presence lock is contended: callers keep their current state.
+fn presence_fresh(now: Instant) -> Option<bool> {
+    PRESENCE.try_lock().ok().map(|presence| presence.fresh(now))
+}
+/// Display size once the host context is usable; `None` skips this frame.
+unsafe fn display_size() -> Option<ImVec2_c> {
+    let context = CONTEXT.load(Ordering::Acquire);
+    if context.is_null() {
+        return None;
+    }
+    igSetCurrentContext(context.cast());
+    let io = igGetIO();
+    if io.is_null() {
+        return None;
+    }
+    let display = (*io).DisplaySize;
+    (display.x.is_finite() && display.y.is_finite() && display.x > 0.0 && display.y > 0.0)
+        .then_some(display)
+}
 unsafe extern "C" fn draw() {
     let now = Instant::now();
-    if BATTLE_ACTIVE.load(Ordering::Acquire)
-        && PRESENCE
-            .try_lock()
-            .ok()
-            .is_some_and(|presence| !presence.fresh(now))
-    {
+    if BATTLE_ACTIVE.load(Ordering::Acquire) && presence_fresh(now) == Some(false) {
         set_battle_active(false);
     }
     poll_master_switch();
@@ -253,23 +284,7 @@ unsafe extern "C" fn draw() {
     }
     // Profile/editor cleanup and save completion run on the existing mapper
     // callback. Rendering never applies edits or destroys the fighter roster.
-    let toast = if MASTER_TOAST_PENDING.load(Ordering::Acquire) {
-        MASTER_TOAST.try_lock().ok().and_then(|mut toast| {
-            let active = toast
-                .as_ref()
-                .copied()
-                .filter(|(_, shown)| now.duration_since(*shown) < MASTER_TOAST_LIFETIME);
-            if active.is_none() {
-                *toast = None;
-                // Update under the same lock as show_master_status, so expiry
-                // cannot clear the flag for a newly published toast.
-                MASTER_TOAST_PENDING.store(false, Ordering::Release);
-            }
-            active.map(|(enabled, _)| enabled)
-        })
-    } else {
-        None
-    };
+    let toast = current_master_status(now);
     let battle_active = BATTLE_ACTIVE.load(Ordering::Acquire);
     // There is no dependable character-select-only scene signal in this lightweight UI
     // callback. Show confirmation only after the chord instead of leaving a
@@ -279,19 +294,9 @@ unsafe extern "C" fn draw() {
     if status.is_none() && !menu_requested {
         return;
     }
-    let context = CONTEXT.load(Ordering::Acquire);
-    if context.is_null() {
+    let Some(display) = display_size() else {
         return;
-    }
-    igSetCurrentContext(context.cast());
-    let io = igGetIO();
-    if io.is_null() {
-        return;
-    }
-    let display = (*io).DisplaySize;
-    if !display.x.is_finite() || !display.y.is_finite() || display.x <= 0.0 || display.y <= 0.0 {
-        return;
-    }
+    };
     let scale = (display.y / 720.0).clamp(0.65, 3.0);
     if let Some(enabled) = status {
         draw_master_toast(scale, enabled, display);
@@ -300,10 +305,13 @@ unsafe extern "C" fn draw() {
         return;
     }
     // Only recent battle presence can display the menu.
-    let fresh = PRESENCE.try_lock().ok().is_some_and(|p| p.fresh(now));
-    if !fresh {
-        set_battle_active(false);
-        return;
+    match presence_fresh(now) {
+        Some(true) => {}
+        Some(false) => {
+            set_battle_active(false);
+            return;
+        }
+        None => return,
     }
     let Ok(view_guard) = VIEW.try_lock() else {
         return;
@@ -326,19 +334,33 @@ unsafe extern "C" fn draw() {
         lightweight::draw(view, display, scale);
         return;
     }
+    draw_card(view, display, scale, status.is_some());
+}
+
+/// Window flags shared by every overlay: never focused, clickable or persisted.
+const OVERLAY_FLAGS: i32 = (ImGuiWindowFlags_NoDecoration
+    | ImGuiWindowFlags_NoScrollbar
+    | ImGuiWindowFlags_AlwaysAutoResize
+    | ImGuiWindowFlags_NoSavedSettings
+    | ImGuiWindowFlags_NoInputs
+    | ImGuiWindowFlags_NoFocusOnAppearing
+    | ImGuiWindowFlags_NoBringToFrontOnFocus) as i32;
+fn accent() -> ImVec4_c {
+    color(0.35, 0.86, 0.78, 1.0)
+}
+fn row_highlight() -> ImVec4_c {
+    color(0.17, 0.54, 0.50, 0.19)
+}
+
+unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32, status_shown: bool) {
     // A fixed-width card shows only the focused row; never shrink text to fit
     // the entire catalog or horizontally scroll the gameplay overlay.
-    let menu_font_size = 15.0 * scale;
     let gap = 5.0 * scale;
-    let width = (if view.quick || view.modes {
-        390.0
-    } else {
-        560.0
-    } * scale)
-        .min(display.x * if view.quick || view.modes { 0.44 } else { 0.49 })
+    let compact = view.quick || view.modes;
+    let width = (if compact { 390.0 } else { 560.0 } * scale)
+        .min(display.x * if compact { 0.44 } else { 0.49 })
         .min((display.x - 16.0 * scale).max(1.0));
-    let accent = color(0.35, 0.86, 0.78, 1.0);
-    igPushFont(std::ptr::null_mut(), menu_font_size);
+    igPushFont(std::ptr::null_mut(), 15.0 * scale);
     for (slot, value) in [
         (ImGuiCol_WindowBg, color(0.035, 0.047, 0.070, 0.96)),
         (ImGuiCol_Border, color(0.19, 0.25, 0.32, 0.70)),
@@ -382,243 +404,251 @@ unsafe extern "C" fn draw() {
     };
     igSetNextWindowPos(menu_position, ImGuiCond_Always as _, menu_pivot);
     igSetNextWindowSize(ImVec2_c { x: width, y: 0.0 }, ImGuiCond_Always as _);
-    let flags = ImGuiWindowFlags_NoDecoration
-        | ImGuiWindowFlags_NoScrollbar
-        | ImGuiWindowFlags_AlwaysAutoResize
-        | ImGuiWindowFlags_NoSavedSettings
-        | ImGuiWindowFlags_NoInputs
-        | ImGuiWindowFlags_NoFocusOnAppearing
-        | ImGuiWindowFlags_NoBringToFrontOnFocus;
     if igBegin(
         c"##saved_options".as_ptr(),
         std::ptr::null_mut(),
-        flags as _,
+        OVERLAY_FLAGS,
     ) {
-        igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.58, 0.69, 0.79, 1.0));
-        if let Some(navigation) = &view.navigation {
-            card_text(navigation);
-        }
-        igPopStyleColor(1);
-        igSeparator();
-        for value in view
-            .values
-            .iter()
-            .filter(|v| view.quick || view.modes || v.row == view.row)
-        {
-            if MenuSelection::page_link(value.row) {
-                igSeparator();
-            }
-            let selected = value.row == view.row;
-            if selected {
-                let p = igGetCursorScreenPos();
-                let available = igGetContentRegionAvail().x.max(1.0);
-                let height =
-                    igCalcTextSize(value.line.as_ptr(), std::ptr::null(), false, available).y;
-                let draw = igGetWindowDrawList();
-                ImDrawList_AddRectFilled(
-                    draw,
-                    ImVec2_c {
-                        x: p.x - 5.0 * scale,
-                        y: p.y - 2.0 * scale,
-                    },
-                    ImVec2_c {
-                        x: p.x + available + 5.0 * scale,
-                        y: p.y + height + 2.0 * scale,
-                    },
-                    igGetColorU32_Vec4(color(0.17, 0.54, 0.50, 0.19)),
-                    5.0 * scale,
-                    0 as _,
-                );
-                ImDrawList_AddRectFilled(
-                    draw,
-                    ImVec2_c {
-                        x: p.x - 7.0 * scale,
-                        y: p.y - 1.0 * scale,
-                    },
-                    ImVec2_c {
-                        x: p.x - 5.0 * scale,
-                        y: p.y + height + 1.0 * scale,
-                    },
-                    igGetColorU32_Vec4(accent),
-                    1.0 * scale,
-                    0 as _,
-                );
-            }
-            let tint = if selected {
-                accent
-            } else {
-                match value.enabled {
-                    Some(true) => color(0.50, 0.82, 0.70, 1.0),
-                    Some(false) => color(0.54, 0.61, 0.69, 1.0),
-                    None => color(0.86, 0.90, 0.95, 1.0),
-                }
-            };
-            igPushStyleColor_Vec4(ImGuiCol_Text as _, tint);
-            card_text(&value.line);
-            igPopStyleColor(1);
-        }
-        for line in &view.header {
-            igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.60, 0.84, 0.94, 1.0));
-            card_text(line);
-            igPopStyleColor(1);
-        }
-        if !view.body.is_empty() {
-            igSeparator();
-            let wrap = (igGetContentRegionAvail().x - 8.0 * scale).max(1.0);
-            let measure = |line: &CString| {
-                igCalcTextSize(line.as_ptr(), std::ptr::null(), false, wrap).y + 5.0 * scale
-            };
-            let title = |line: &CString| {
-                let b = line.as_bytes();
-                let b = b.strip_prefix(b"> ").unwrap_or(b);
-                b.len() > 2 && b[0].is_ascii_digit() && b[1].is_ascii_digit()
-            };
-            let footer_height = view.footer.iter().map(&measure).sum::<f32>() + 12.0 * scale;
-            let content_height = view
-                .body
-                .iter()
-                .map(|line| measure(line) + if title(line) { 7.0 * scale } else { 0.0 })
-                .sum::<f32>()
-                + 8.0 * scale;
-            // Reserve room below the diagnostic editor for its cached logs.
-            let limit = display.y
-                * if cfg!(feature = "diagnostic-logging") {
-                    0.72
-                } else {
-                    0.90
-                };
-            let budget =
-                (limit - igGetCursorPosY() - footer_height - 16.0 * scale).max(32.0 * scale);
-            let height = content_height.min(budget);
-            let key = (
-                view.fighter,
-                view.row,
-                view.choice,
-                view.mode,
-                view.focus,
-                view.revision,
-            );
-            let changed = LAST_FOCUS.try_lock().ok().is_some_and(|mut previous| {
-                let changed = *previous != Some(key);
-                *previous = Some(key);
-                changed
-            });
-            igPushStyleVar_Vec2(
-                ImGuiStyleVar_WindowPadding as _,
-                ImVec2_c {
-                    x: 4.0 * scale,
-                    y: 4.0 * scale,
-                },
-            );
-            let shown = igBeginChild_Str(
-                c"##recipe_actions".as_ptr(),
-                ImVec2_c { x: 0.0, y: height },
-                0 as _,
-                (ImGuiWindowFlags_NoInputs
-                    | ImGuiWindowFlags_NoScrollbar
-                    | ImGuiWindowFlags_NoBackground
-                    | ImGuiWindowFlags_NoSavedSettings) as _,
-            );
-            if shown {
-                if changed && view.focus.is_none() {
-                    igSetScrollY(0.0);
-                }
-                for (i, line) in view.body.iter().enumerate() {
-                    let is_title = title(line);
-                    if is_title {
-                        igSeparator();
-                    }
-                    let focused = view.focus == Some(i);
-                    let text_height =
-                        igCalcTextSize(line.as_ptr(), std::ptr::null(), false, wrap).y;
-                    let local_y = igGetCursorPosY();
-                    let top = igGetScrollY();
-                    let outside = local_y < top + 4.0 * scale
-                        || local_y + text_height > top + height - 4.0 * scale;
-                    if focused {
-                        let p = igGetCursorScreenPos();
-                        ImDrawList_AddRectFilled(
-                            igGetWindowDrawList(),
-                            ImVec2_c {
-                                x: p.x - 2.0 * scale,
-                                y: p.y - 1.0 * scale,
-                            },
-                            ImVec2_c {
-                                x: p.x + igGetContentRegionAvail().x + 2.0 * scale,
-                                y: p.y + text_height + 1.0 * scale,
-                            },
-                            igGetColorU32_Vec4(color(0.17, 0.54, 0.50, 0.19)),
-                            4.0 * scale,
-                            0 as _,
-                        );
-                    }
-                    let tint = if focused {
-                        accent
-                    } else if is_title {
-                        color(0.55, 0.85, 0.95, 1.0)
-                    } else {
-                        color(0.92, 0.94, 0.97, 1.0)
-                    };
-                    igPushStyleColor_Vec4(ImGuiCol_Text as _, tint);
-                    card_text(line);
-                    igPopStyleColor(1);
-                    if changed && focused && outside {
-                        igSetScrollHereY(0.5);
-                    }
-                }
-            }
-            igEndChild();
-            igPopStyleVar(1);
-            igSeparator();
-        }
-        for line in &view.footer {
-            igPushStyleColor_Vec4(
-                ImGuiCol_Text as _,
-                if line.as_bytes().starts_with(b"Save failed") {
-                    color(1.0, 0.55, 0.45, 1.0)
-                } else if line.as_bytes().starts_with(b"Saved") {
-                    accent
-                } else if line.as_bytes().starts_with(b"Unsaved") {
-                    color(0.96, 0.77, 0.42, 1.0)
-                } else {
-                    color(0.72, 0.78, 0.87, 1.0)
-                },
-            );
-            card_text(line);
-            igPopStyleColor(1);
-        }
+        draw_card_contents(view, display, scale);
     }
     #[cfg(feature = "diagnostic-logging")]
     let result_space = kirby_assist_core::diagnostics::modes::left_result_space(
-        display.y - if status.is_some() { 24.0 * scale } else { 0.0 },
+        display.y - if status_shown { 24.0 * scale } else { 0.0 },
         scale,
         igGetWindowHeight() + 8.0 * scale,
     );
+    #[cfg(not(feature = "diagnostic-logging"))]
+    let _ = status_shown;
     igEnd();
     #[cfg(feature = "diagnostic-logging")]
     if let Some((result_y, available)) = result_space {
-        draw_result(
-            scale,
-            width,
-            display.x - 8.0 * scale,
-            result_y,
-            available,
-            flags as _,
-        );
+        draw_result(scale, width, display.x - 8.0 * scale, result_y, available);
     }
     igPopStyleVar(4);
     igPopStyleColor(3);
     igPopFont();
 }
 
+unsafe fn draw_card_contents(view: &Snapshot, display: ImVec2_c, scale: f32) {
+    igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.58, 0.69, 0.79, 1.0));
+    if let Some(navigation) = &view.navigation {
+        card_text(navigation);
+    }
+    igPopStyleColor(1);
+    igSeparator();
+    draw_value_rows(view, scale);
+    for line in &view.header {
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.60, 0.84, 0.94, 1.0));
+        card_text(line);
+        igPopStyleColor(1);
+    }
+    if !view.body.is_empty() {
+        draw_recipe_body(view, display, scale);
+    }
+    for line in &view.footer {
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, footer_tint(line));
+        card_text(line);
+        igPopStyleColor(1);
+    }
+}
+
+fn footer_tint(line: &CStr) -> ImVec4_c {
+    let bytes = line.to_bytes();
+    if bytes.starts_with(b"Save failed") {
+        color(1.0, 0.55, 0.45, 1.0)
+    } else if bytes.starts_with(b"Saved") {
+        accent()
+    } else if bytes.starts_with(b"Unsaved") {
+        color(0.96, 0.77, 0.42, 1.0)
+    } else {
+        color(0.72, 0.78, 0.87, 1.0)
+    }
+}
+
+unsafe fn draw_value_rows(view: &Snapshot, scale: f32) {
+    for value in view
+        .values
+        .iter()
+        .filter(|v| view.quick || view.modes || v.row == view.row)
+    {
+        if MenuSelection::page_link(value.row) {
+            igSeparator();
+        }
+        let selected = value.row == view.row;
+        if selected {
+            draw_selected_row_backdrop(&value.line, scale);
+        }
+        let tint = if selected {
+            accent()
+        } else {
+            match value.enabled {
+                Some(true) => color(0.50, 0.82, 0.70, 1.0),
+                Some(false) => color(0.54, 0.61, 0.69, 1.0),
+                None => color(0.86, 0.90, 0.95, 1.0),
+            }
+        };
+        igPushStyleColor_Vec4(ImGuiCol_Text as _, tint);
+        card_text(&value.line);
+        igPopStyleColor(1);
+    }
+}
+
+/// Tinted panel plus accent bar behind the focused row, sized to its wrapped text.
+unsafe fn draw_selected_row_backdrop(line: &CStr, scale: f32) {
+    let p = igGetCursorScreenPos();
+    let available = igGetContentRegionAvail().x.max(1.0);
+    let height = igCalcTextSize(line.as_ptr(), std::ptr::null(), false, available).y;
+    let draw = igGetWindowDrawList();
+    ImDrawList_AddRectFilled(
+        draw,
+        ImVec2_c {
+            x: p.x - 5.0 * scale,
+            y: p.y - 2.0 * scale,
+        },
+        ImVec2_c {
+            x: p.x + available + 5.0 * scale,
+            y: p.y + height + 2.0 * scale,
+        },
+        igGetColorU32_Vec4(row_highlight()),
+        5.0 * scale,
+        0 as _,
+    );
+    ImDrawList_AddRectFilled(
+        draw,
+        ImVec2_c {
+            x: p.x - 7.0 * scale,
+            y: p.y - 1.0 * scale,
+        },
+        ImVec2_c {
+            x: p.x - 5.0 * scale,
+            y: p.y + height + 1.0 * scale,
+        },
+        igGetColorU32_Vec4(accent()),
+        1.0 * scale,
+        0 as _,
+    );
+}
+
+/// Numbered editor lines ("01 ...", optionally after the "> " cursor) start a new group.
+fn is_recipe_title(line: &CStr) -> bool {
+    let b = line.to_bytes();
+    let b = b.strip_prefix(b"> ").unwrap_or(b);
+    b.len() > 2 && b[0].is_ascii_digit() && b[1].is_ascii_digit()
+}
+
+/// The scrolling recipe-action list. Its height is whatever the footer leaves
+/// of the screen budget, and it follows the focused line only when focus moved.
+unsafe fn draw_recipe_body(view: &Snapshot, display: ImVec2_c, scale: f32) {
+    igSeparator();
+    let wrap = (igGetContentRegionAvail().x - 8.0 * scale).max(1.0);
+    let measure = |line: &CString| {
+        igCalcTextSize(line.as_ptr(), std::ptr::null(), false, wrap).y + 5.0 * scale
+    };
+    let footer_height = view.footer.iter().map(&measure).sum::<f32>() + 12.0 * scale;
+    let content_height = view
+        .body
+        .iter()
+        .map(|line| {
+            measure(line)
+                + if is_recipe_title(line) {
+                    7.0 * scale
+                } else {
+                    0.0
+                }
+        })
+        .sum::<f32>()
+        + 8.0 * scale;
+    // Reserve room below the diagnostic editor for its cached logs.
+    let limit = display.y
+        * if cfg!(feature = "diagnostic-logging") {
+            0.72
+        } else {
+            0.90
+        };
+    let budget = (limit - igGetCursorPosY() - footer_height - 16.0 * scale).max(32.0 * scale);
+    let height = content_height.min(budget);
+    let key = (
+        view.fighter,
+        view.row,
+        view.choice,
+        view.mode,
+        view.focus,
+        view.revision,
+    );
+    let changed = LAST_FOCUS.try_lock().ok().is_some_and(|mut previous| {
+        let changed = *previous != Some(key);
+        *previous = Some(key);
+        changed
+    });
+    igPushStyleVar_Vec2(
+        ImGuiStyleVar_WindowPadding as _,
+        ImVec2_c {
+            x: 4.0 * scale,
+            y: 4.0 * scale,
+        },
+    );
+    let shown = igBeginChild_Str(
+        c"##recipe_actions".as_ptr(),
+        ImVec2_c { x: 0.0, y: height },
+        0 as _,
+        (ImGuiWindowFlags_NoInputs
+            | ImGuiWindowFlags_NoScrollbar
+            | ImGuiWindowFlags_NoBackground
+            | ImGuiWindowFlags_NoSavedSettings) as _,
+    );
+    if shown {
+        if changed && view.focus.is_none() {
+            igSetScrollY(0.0);
+        }
+        for (i, line) in view.body.iter().enumerate() {
+            let is_title = is_recipe_title(line);
+            if is_title {
+                igSeparator();
+            }
+            let focused = view.focus == Some(i);
+            let text_height = igCalcTextSize(line.as_ptr(), std::ptr::null(), false, wrap).y;
+            let local_y = igGetCursorPosY();
+            let top = igGetScrollY();
+            let outside =
+                local_y < top + 4.0 * scale || local_y + text_height > top + height - 4.0 * scale;
+            if focused {
+                let p = igGetCursorScreenPos();
+                ImDrawList_AddRectFilled(
+                    igGetWindowDrawList(),
+                    ImVec2_c {
+                        x: p.x - 2.0 * scale,
+                        y: p.y - 1.0 * scale,
+                    },
+                    ImVec2_c {
+                        x: p.x + igGetContentRegionAvail().x + 2.0 * scale,
+                        y: p.y + text_height + 1.0 * scale,
+                    },
+                    igGetColorU32_Vec4(row_highlight()),
+                    4.0 * scale,
+                    0 as _,
+                );
+            }
+            let tint = if focused {
+                accent()
+            } else if is_title {
+                color(0.55, 0.85, 0.95, 1.0)
+            } else {
+                color(0.92, 0.94, 0.97, 1.0)
+            };
+            igPushStyleColor_Vec4(ImGuiCol_Text as _, tint);
+            card_text(line);
+            igPopStyleColor(1);
+            if changed && focused && outside {
+                igSetScrollHereY(0.5);
+            }
+        }
+    }
+    igEndChild();
+    igPopStyleVar(1);
+    igSeparator();
+}
+
 unsafe fn draw_master_toast(scale: f32, enabled: bool, display: ImVec2_c) {
-    let flags = ImGuiWindowFlags_NoDecoration
-        | ImGuiWindowFlags_NoBackground
-        | ImGuiWindowFlags_AlwaysAutoResize
-        | ImGuiWindowFlags_NoSavedSettings
-        | ImGuiWindowFlags_NoInputs
-        | ImGuiWindowFlags_NoFocusOnAppearing
-        | ImGuiWindowFlags_NoBringToFrontOnFocus;
     igSetNextWindowPos(
         ImVec2_c {
             x: display.x - 8.0 * scale,
@@ -639,7 +669,7 @@ unsafe fn draw_master_toast(scale: f32, enabled: bool, display: ImVec2_c) {
     if igBegin(
         c"##kirby_assist_master".as_ptr(),
         std::ptr::null_mut(),
-        flags as _,
+        OVERLAY_FLAGS | ImGuiWindowFlags_NoBackground as i32,
     ) {
         igTextUnformatted(
             if enabled {
@@ -655,63 +685,53 @@ unsafe fn draw_master_toast(scale: f32, enabled: bool, display: ImVec2_c) {
     igPopFont();
 }
 #[cfg(feature = "diagnostic-logging")]
-unsafe fn draw_result(
-    scale: f32,
-    width: f32,
-    right: f32,
-    y: f32,
-    available: f32,
-    flags: ImGuiWindowFlags,
-) {
-    {
-        igSetNextWindowPos(
-            ImVec2_c { x: right, y },
-            ImGuiCond_Always as _,
-            ImVec2_c { x: 1.0, y: 0.0 },
-        );
-        igSetNextWindowSize(ImVec2_c { x: width, y: 0.0 }, ImGuiCond_Always as _);
-        igSetNextWindowSizeConstraints(
-            ImVec2_c { x: width, y: 0.0 },
-            ImVec2_c {
-                x: width,
-                y: available,
-            },
-            None,
-            std::ptr::null_mut(),
-        );
-        igPushFont(std::ptr::null_mut(), 13.5 * scale);
-        igPushStyleColor_Vec4(ImGuiCol_WindowBg as _, color(0.035, 0.045, 0.075, 0.97));
-        if igBegin(
-            c"##ledge_result".as_ptr(),
-            std::ptr::null_mut(),
-            flags & !(ImGuiWindowFlags_NoBackground as ImGuiWindowFlags),
-        ) {
-            igPushTextWrapPos(0.0);
-            crate::performance::with_card(|card| {
-                igTextUnformatted(card.as_ptr(), std::ptr::null());
-                igSeparator();
-            });
-            // Both cards are cached by the worker. Drawing performs no native
-            // reads, formatting, file I/O or blocking lock acquisition.
-            if !crate::logging::with_snapshot(|card| {
-                igTextUnformatted(card.as_ptr(), std::ptr::null())
-            }) {
-                igTextUnformatted(
-                    c"LIVE SNAPSHOT: waiting for an assisted action. Full log: status.log".as_ptr(),
-                    std::ptr::null(),
-                );
-            }
-            crate::calibration::with_card(|card| {
-                igSeparator();
-                igTextUnformatted(c"LAST COMPLETED LEDGE ATTEMPT".as_ptr(), std::ptr::null());
-                igTextUnformatted(card.as_ptr(), std::ptr::null());
-            });
-            igPopTextWrapPos();
+unsafe fn draw_result(scale: f32, width: f32, right: f32, y: f32, available: f32) {
+    igSetNextWindowPos(
+        ImVec2_c { x: right, y },
+        ImGuiCond_Always as _,
+        ImVec2_c { x: 1.0, y: 0.0 },
+    );
+    igSetNextWindowSize(ImVec2_c { x: width, y: 0.0 }, ImGuiCond_Always as _);
+    igSetNextWindowSizeConstraints(
+        ImVec2_c { x: width, y: 0.0 },
+        ImVec2_c {
+            x: width,
+            y: available,
+        },
+        None,
+        std::ptr::null_mut(),
+    );
+    igPushFont(std::ptr::null_mut(), 13.5 * scale);
+    igPushStyleColor_Vec4(ImGuiCol_WindowBg as _, color(0.035, 0.045, 0.075, 0.97));
+    if igBegin(
+        c"##ledge_result".as_ptr(),
+        std::ptr::null_mut(),
+        OVERLAY_FLAGS,
+    ) {
+        igPushTextWrapPos(0.0);
+        crate::performance::with_card(|card| {
+            igTextUnformatted(card.as_ptr(), std::ptr::null());
+            igSeparator();
+        });
+        // Both cards are cached by the worker. Drawing performs no native
+        // reads, formatting, file I/O or blocking lock acquisition.
+        if !crate::logging::with_snapshot(|card| igTextUnformatted(card.as_ptr(), std::ptr::null()))
+        {
+            igTextUnformatted(
+                c"LIVE SNAPSHOT: waiting for an assisted action. Full log: status.log".as_ptr(),
+                std::ptr::null(),
+            );
         }
-        igEnd();
-        igPopStyleColor(1);
-        igPopFont();
+        crate::calibration::with_card(|card| {
+            igSeparator();
+            igTextUnformatted(c"LAST COMPLETED LEDGE ATTEMPT".as_ptr(), std::ptr::null());
+            igTextUnformatted(card.as_ptr(), std::ptr::null());
+        });
+        igPopTextWrapPos();
     }
+    igEnd();
+    igPopStyleColor(1);
+    igPopFont();
 }
 pub(super) fn install() {
     imgui_api::imgui_setup_context(setup);

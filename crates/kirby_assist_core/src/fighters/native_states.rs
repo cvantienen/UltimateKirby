@@ -1,9 +1,8 @@
 //! Shared read-only native state vocabulary (skyline-smash d2ca90d lua_const).
 //! Own incapacitation and opponent punishability are deliberately distinct.
-#[path = "native_states/fighter_status.rs"]
 pub mod fighter_status;
-#[path = "native_states/final_states.rs"]
-mod final_states;
+mod kind_statuses;
+pub use kind_statuses::up_special_status;
 pub mod status {
     //! Generic fighter status IDs copied from the pinned `skyline-smash` table.
     //!
@@ -198,9 +197,6 @@ pub mod status {
     pub const SPECIAL_LW: i32 = 0x1df;
     pub const FINAL: i32 = 0x1e0;
 }
-#[path = "native_states/up_special.rs"]
-mod up_special;
-pub use up_special::up_special_status;
 
 /// Ground-touch masks from the pinned `skyline-smash` lua_const table.
 pub mod ground_touch {
@@ -219,9 +215,7 @@ pub mod situation {
     pub const UNAVAILABLE: i32 = -1;
 
     // AttackData.situation is a bitmask, not a SITUATION_KIND value.
-    /// it represents the bitmask for ground-based attacks.
     pub const ATTACK_GROUND_MASK: u16 = 1;
-    
     pub const ATTACK_AIR_MASK: u16 = 2;
 }
 
@@ -278,15 +272,17 @@ pub const CATCH_PULL: i32 = status::CATCH_PULL;
 pub const CATCH_DASH: i32 = status::CATCH_DASH;
 pub const CATCH_DASH_PULL: i32 = status::CATCH_DASH_PULL;
 pub const CATCH_TURN: i32 = status::CATCH_TURN;
-// Preserve the old public values for compatibility. Use `status::*` internally
-// because these historical labels do not match the pinned native table.
-pub const CATCH_TURN_PULL: i32 = status::CATCH_WAIT;
-pub const CATCH_WAIT: i32 = status::CATCH_ATTACK;
-pub const CATCH_ATTACK: i32 = status::CATCH_CUT;
-pub const CATCH_CUT: i32 = status::CATCH_JUMP;
 pub const THROW: i32 = status::THROW;
 pub const CAPTURE_PULLED: i32 = status::CAPTURE_PULLED;
 pub const THROWN: i32 = status::THROWN;
+
+/// Ordinary jump/fall states only: never recovery, tumble, attack or air dodge.
+pub fn jump_or_fall(status: i32) -> bool {
+    matches!(
+        status,
+        status::JUMP | status::JUMP_AERIAL | status::FALL | status::FALL_AERIAL
+    )
+}
 
 /// Special captures/final victims are not ordinary combat targets, even when a
 /// transient LinkModule capture link is absent or uses a move-specific link.
@@ -348,61 +344,16 @@ pub fn ordinary_grab_immune(status: i32) -> bool {
     )
 }
 
-fn status_interrupted(kind: i32, status: i32) -> bool {
-    status_noncombat(kind, status)
-        || match kind {
-            crate::fighter_kinds::DIDDY_KONG => matches!(
-                status,
-                fighter_status::DIDDY_SPECIAL_S_DAMAGE_FALL
-                    | fighter_status::DIDDY_SPECIAL_HI_CHARGE_DAMAGE
-                    | fighter_status::DIDDY_SPECIAL_HI_UPPER_DAMAGE
-            ),
-            crate::fighter_kinds::GRENINJA => {
-                status == fighter_status::GEKKOUGA_SPECIAL_HI_WALL_DAMAGE
-            }
-            crate::fighter_kinds::BOWSER_JR => {
-                status == fighter_status::KOOPAJR_SPECIAL_HI_DAMAGE_END
-            }
-            crate::fighter_kinds::SQUIRTLE => status == fighter_status::PZENIGAME_SPECIAL_LW_OUT,
-            crate::fighter_kinds::IVYSAUR => status == fighter_status::PFUSHIGISOU_SPECIAL_LW_OUT,
-            crate::fighter_kinds::CHARIZARD => status == fighter_status::PLIZARDON_SPECIAL_LW_OUT,
-            crate::fighter_kinds::PYRA => status == fighter_status::EFLAME_SPECIAL_LW_OUT,
-            crate::fighter_kinds::MYTHRA => status == fighter_status::ELIGHT_SPECIAL_LW_OUT,
-            _ => false,
-        }
-}
-
-fn status_noncombat(kind: i32, status: i32) -> bool {
-    final_states::final_status(kind, status)
-        || matches!(
-            (kind, status),
-            (
-                crate::fighter_kinds::SQUIRTLE,
-                fighter_status::PZENIGAME_SPECIAL_LW_STANDBY
-            ) | (
-                crate::fighter_kinds::IVYSAUR,
-                fighter_status::PFUSHIGISOU_SPECIAL_LW_STANDBY
-            ) | (
-                crate::fighter_kinds::CHARIZARD,
-                fighter_status::PLIZARDON_SPECIAL_LW_STANDBY
-            ) | (
-                crate::fighter_kinds::PYRA,
-                fighter_status::EFLAME_SPECIAL_LW_STANDBY
-            ) | (
-                crate::fighter_kinds::MYTHRA,
-                fighter_status::ELIGHT_SPECIAL_LW_STANDBY
-            )
-        )
-}
-
 /// Private status values overlap across fighters. Apply these forced-state
 /// meanings only to the native kind that owns them.
 pub fn fighter_sequence_interrupted(kind: i32, status: i32) -> bool {
-    sequence_interrupted(status) || status_interrupted(kind, status)
+    sequence_interrupted(status)
+        || fighter_noncombat(kind, status)
+        || kind_statuses::forced_status(kind, status)
 }
 
 /// Inactive swap forms and known Final Smash actors are not ordinary punish
 /// targets, even through a transient missing capture link.
 pub fn fighter_noncombat(kind: i32, status: i32) -> bool {
-    status_noncombat(kind, status)
+    kind_statuses::noncombat_status(kind, status)
 }

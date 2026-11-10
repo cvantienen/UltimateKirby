@@ -1,23 +1,45 @@
 use super::*;
+use kirby_assist_core::manual_controls::ManualFrame;
+use kirby_assist_core::native_input::ButtonTrace;
 
-unsafe fn refresh_master_for_controller(
-    wrapper: *mut c_void,
-    index: i32,
-    config: &Config,
-) -> Option<Option<bool>> {
-    selected_controller(wrapper, index, config.player_index)?;
-    let ready = observations::battle_menu_ready_go();
-    refresh_master_match_lock(ready);
-    Some(ready)
+/// Left-stick side flick bits of the native button word.
+const LEFT_STICK_SIDE_FLICKS: u32 = (1 << 21) | (1 << 23);
+
+fn mask_if(condition: bool, mask: u32) -> u32 {
+    if condition {
+        mask
+    } else {
+        0
+    }
 }
 
-/// Represents the admission state for the mapper callback, including configuration, readiness, and session ticket.
+/// Whether `button` (canonical) is held in `trace` once translated to the physical layout.
+fn physical_held(config: &Config, trace: ButtonTrace, button: u32) -> bool {
+    trace.held & config.control_layout.physical_buttons(button) != 0
+}
+
+/// Outcome of owner arbitration for one poll.
+struct Arbitration {
+    winner: Option<Owner>,
+    selected: ControllerOutput,
+    situation: i32,
+    tech_press: bool,
+    tech_takeover: bool,
+    mash_takeover: bool,
+    #[cfg(feature = "diagnostic-logging")]
+    intents: [Intent; 13],
+}
+/// Result of admitting a mapper callback: the immutable startup config, the
+/// selected physical controller, and the match session this callback belongs to.
+#[derive(Clone, Copy)]
 pub(super) struct MapperAdmission {
     pub(super) config: &'static Config,
-    pub(super) master_ready_go: Option<Option<bool>>,
+    controller: *mut controller::Controller,
+    master_ready_go: Option<bool>,
     pub(super) session_ticket: SessionTicket,
 }
-/// Represents the output adjustments for the mapper callback, including stick input, automatic requests, and other control flags.
+/// Adjustments applied to the native mapper's result: stick input, automatic requests, and other control flags.
+#[derive(Clone, Copy, Default)]
 struct MapperOutputAdjustments {
     left_stick: Option<[f32; 2]>,
     right_stick: Option<[f32; 2]>,
@@ -29,8 +51,8 @@ struct MapperOutputAdjustments {
     tech_output: Option<TechOutput>,
 }
 
-/// Represents the feedback delivered to the mapper callback, including manual and automatic actions, grab delivery, and other relevant events.
-#[derive(Clone, Copy)]
+/// Feedback recorded after native mapping: which manual and automatic actions actually reached the final buttons.
+#[derive(Clone, Copy, Default)]
 struct MapperDeliveryFeedback {
     manual_jump: bool,
     reflect: bool,
@@ -55,15 +77,20 @@ pub(super) unsafe fn admit_mapper_callback(
     }
 
     // Keep the read-only battle gate and bounded menu maintenance active in
-    // vanilla passthrough, before any mapper state lock.
-    let master_ready_go = refresh_master_for_controller(wrapper, index, config);
+    // vanilla passthrough, before any mapper state lock. Only the selected
+    // controller refreshes the master match lock.
+    let selected = selected_controller(wrapper, index, config.player_index).map(|controller| {
+        let ready = observations::battle_menu_ready_go();
+        refresh_master_match_lock(ready);
+        (controller, ready)
+    });
     settings_menu::poll_maintenance();
     if !RUNTIME_ENABLED.load(Ordering::Acquire) {
         return None;
     }
 
     // Only the configured physical controller may establish participation.
-    let controller = selected_controller(wrapper, index, config.player_index)?;
+    let (controller, master_ready_go) = selected?;
     if (*controller).connected == 0 {
         runtime::suspend_participation();
         return None;
@@ -78,30 +105,24 @@ pub(super) unsafe fn admit_mapper_callback(
     LOCAL_PARTICIPANT.store(true, Ordering::Release);
     Some(MapperAdmission {
         config,
+        controller,
         master_ready_go,
         session_ticket,
     })
 }
-/// Enters the training passthrough mode for the specified controller and configuration, returning `true` if successful.
-pub(super) unsafe fn enter_training_passthrough(
-    wrapper: *mut c_void,
-    index: i32,
-    config: &Config,
-) -> bool {
-    let selected_physical = CONFIG
-        .get()
-        .and_then(|config| selected_controller(wrapper, index, config.player_index))
-        .map(|controller| trace(controller));
-    let Some(physical) = selected_physical else {
-        return true;
-    };
-    training::enter_passthrough(physical, index, config.control_layout)
+/// Enters the training passthrough mode for the admitted controller, returning `true` when the callback should stay a passthrough.
+pub(super) unsafe fn enter_training_passthrough(admission: &MapperAdmission, index: i32) -> bool {
+    training::enter_passthrough(
+        trace(admission.controller),
+        index,
+        admission.config.control_layout,
+    )
 }
 
 /// Applies the specified output adjustments to the mapper output, modifying stick input, automatic requests, and other control flags.
 unsafe fn apply_mapper_output_adjustments(
     output: *mut c_void,
-    adjustments: MapperOutputAdjustments,
+    adjustments: &MapperOutputAdjustments,
 ) {
     let mapped = output.cast::<MappedInputs>();
     // Preserve selected analog input after the native mapper's flick filtering.
@@ -119,8 +140,6 @@ unsafe fn apply_mapper_output_adjustments(
         (*mapped).buttons =
             kirby_assist_core::native_input::mapped_automatic_actions((*mapped).buttons, requested);
     }
-    (*mapped).buttons =
-        kirby_assist_core::native_input::mapped_short_hop((*mapped).buttons, adjustments.short_hop);
     (*mapped).buttons =
         kirby_assist_core::native_input::mapped_short_hop((*mapped).buttons, adjustments.short_hop);
     // Raw trigger history can lose A even while retaining the stick.
@@ -232,9 +251,7 @@ fn record_mapped_dodges(
             spot.mapped_grab(tick, target);
         }
         spot.delivery_tick(delivery_tick);
-    }
-    if let Some((tick, target)) = auto_dodge {
-        if let Some(spot) = state.spot_dodge.as_mut() {
+        if let Some((tick, target)) = auto_dodge {
             spot.attempted_dodge(tick, target);
             // Stop pressing only after actual Guard + Down delivery; failed
             // packets retain their bounded retry budget.
@@ -292,22 +309,22 @@ fn record_mapped_tech(
     tech_applied: bool,
     #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
 ) {
-    if tech_applied && guard && !state.last_mapped_guard {
+    if guard && !state.last_mapped_guard {
         if let Some(tech) = state.tech_input.as_mut() {
-            tech.mapped_press();
+            if tech_applied {
+                tech.mapped_press();
+            } else {
+                tech.mapped_human_guard();
+            }
         }
         #[cfg(feature = "diagnostic-logging")]
-        if CONFIG
-            .get()
-            .is_some_and(|config| config.controls.tech_debug)
+        if tech_applied
+            && CONFIG
+                .get()
+                .is_some_and(|config| config.controls.tech_debug)
         {
             messages
                 .push("tech mapped: fresh GUARD edge confirmed; request cooldown committed".into());
-        }
-    }
-    if !tech_applied && guard && !state.last_mapped_guard {
-        if let Some(tech) = state.tech_input.as_mut() {
-            tech.mapped_human_guard();
         }
     }
 }
@@ -392,264 +409,306 @@ unsafe fn record_mapped_delivery(
     #[cfg(feature = "diagnostic-logging")]
     record_mapped_grab_diagnostics(&mut state, mapped, feedback.grab_delivery);
 }
-/// Updates the mapper menu and input state for the specified controller, handling menu readiness, battle activity, and diagnostic logging.
-unsafe fn update_mapper_menu_and_input(
+/// The selected controller's physical input, read before any assist is applied,
+/// plus the static settings every overlay stage consults.
+#[derive(Clone, Copy)]
+struct OverlayFrame {
     controller: *mut controller::Controller,
     index: i32,
-    config: &Config,
-    physical: kirby_assist_core::native_input::ButtonTrace,
+    config: &'static Config,
+    physical: ButtonTrace,
+    /// `physical.held` as seen by the Training compatibility layer.
+    tested_held: u32,
     physical_stick: [f32; 2],
     physical_right_stick: [f32; 2],
-    menu_ready_go: Option<bool>,
-    menu_training_mode: bool,
-    training_test_mode: bool,
-    #[cfg(feature = "diagnostic-logging")] trump_pressed: &mut bool,
-    #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
-) {
-    if let Ok(mut state) = STATE.lock() {
-        let intro_current = state.menu_intro_object.is_some_and(|intro| {
-            state.human_routes[index as usize]
-                .is_some_and(|(id, seen)| id == intro && seen.elapsed() < SESSION_OBSERVATION_GAP)
-        });
-        let local_fighter_current = (*controller).connected != 0
-            && state.human_routes[index as usize].is_some_and(|(id, seen)| {
-                Some(id) == state.associated_object && seen.elapsed() < SESSION_OBSERVATION_GAP
-            });
-        let menu_battle_active =
-            local_fighter_current && menu_ready_go.is_some_and(|go| go || intro_current);
-        if menu_ready_go != Some(false) {
-            state.menu_intro_object = None;
-        }
-        if state.menu_battle_active != menu_battle_active {
-            state.menu_battle_active = menu_battle_active;
-            if menu_battle_active {
-                #[cfg(feature = "imgui-menu")]
-                state
-                    .settings_menu
-                    .get_or_insert_with(settings_menu::SettingsMenu::default)
-                    .begin_match();
-            } else {
-                attack_sources::clear();
-                state.menu_fighter_kind = None;
-                if let Some(settings_menu) = state.settings_menu.as_mut() {
-                    settings_menu.end_match();
-                }
-            }
-        }
-        if (*controller).connected == 0 {
-            state.cancel();
-            state.associated_object = None;
-            state.mapping_index = None;
+    physical_autorepeat: u32,
+    physical_triggers: [f32; 2],
+}
+
+/// Whether this mapper slot's human fighter was observed recently and is the associated object.
+fn local_route_current(state: &State, index: i32) -> bool {
+    state.human_routes[index as usize].is_some_and(|(id, seen)| {
+        Some(id) == state.associated_object && seen.elapsed() < SESSION_OBSERVATION_GAP
+    })
+}
+
+/// Starts or ends the menu's battle session as the local fighter enters or leaves a live match.
+fn track_menu_battle(state: &mut State, index: i32, connected: bool, menu_ready_go: Option<bool>) {
+    let intro_current = state.menu_intro_object.is_some_and(|intro| {
+        state.human_routes[index as usize]
+            .is_some_and(|(id, seen)| id == intro && seen.elapsed() < SESSION_OBSERVATION_GAP)
+    });
+    let local_fighter_current = connected && local_route_current(state, index);
+    let menu_battle_active =
+        local_fighter_current && menu_ready_go.is_some_and(|go| go || intro_current);
+    if menu_ready_go != Some(false) {
+        state.menu_intro_object = None;
+    }
+    if state.menu_battle_active != menu_battle_active {
+        state.menu_battle_active = menu_battle_active;
+        if menu_battle_active {
+            #[cfg(feature = "imgui-menu")]
+            state
+                .settings_menu
+                .get_or_insert_with(settings_menu::SettingsMenu::default)
+                .begin_match();
         } else {
-            if state.mapping_index != Some(index) {
-                state.cancel();
-                state.associated_object = None;
-                state.mapping_index = Some(index);
-                #[cfg(feature = "diagnostic-logging")]
-                {
-                    state.mapper_confirmed = false;
-                    messages.push(format!(
-                        "selected local controller {} bound to mapper {index} (npad={}, style={})",
-                        config.player_index,
-                        (*controller).npad,
-                        (*controller).style
-                    ));
-                }
-            }
-            #[cfg(feature = "diagnostic-logging")]
-            if !state.mapper_confirmed {
-                state.mapper_confirmed = true;
-            }
-            // A new mapper call advances our local scheduling tick.
-            // Other hooks can run several times within this tick;
-            // evaluated_tick prevents them consuming extra pulses.
-            let now = Instant::now();
-            state.raw_tick = state.raw_tick.wrapping_add(1);
-            state.raw_seen = Some(now);
-            state.raw_connected = true;
-            let policy_buttons = if training_test_mode {
-                training_test::policy_buttons(physical.held)
-            } else {
-                physical.held
-            };
-            let takeover_buttons = config.control_layout.takeover_buttons(policy_buttons);
-            let policy_buttons = config.control_layout.policy_buttons(policy_buttons);
-            state.raw_buttons = policy_buttons;
-            state.action_owner.observe_manual(
-                takeover_buttons,
-                [
-                    physical_stick[0],
-                    physical_stick[1],
-                    physical_right_stick[0],
-                    physical_right_stick[1],
-                ],
-            );
-            state.posture_down = kirby_assist_core::posture::Posture::any_tilt_intent(
-                policy_buttons,
-                physical_stick,
-                physical_right_stick,
-            );
-            if physical.held & MAPPER_PLUS != 0 {
-                state.cancel();
-            }
-            {
-                let kind = state.menu_fighter_kind;
-                let menu_available = state.menu_battle_active && physical.held & MAPPER_PLUS == 0;
-                let gameplay = menu_available && state.fighter_kind.is_some();
-                // Raw button/menu observations still run, but a committed
-                // input owner cannot be replaced by a queued button tape.
-                let damage_recovery = state
-                    .manual_context
-                    .is_some_and(|c| kirby_assist_core::ledge_trap::sequence_interrupted(c.status));
-                let committed_inputs = state.action_owner.current_owner().is_some()
-                    || state.tech_output.press
-                    || state.tech_output.owns_guard
-                    || state.mash_stick.is_some();
-                let bindings_blocked = committed_inputs || damage_recovery;
-                let safety_jump = !committed_inputs && damage_recovery;
-                let changed = state
-                    .settings_menu
-                    .get_or_insert_with(settings_menu::SettingsMenu::default)
-                    .input(
-                        menu_available,
-                        gameplay,
-                        bindings_blocked,
-                        safety_jump,
-                        kind,
-                        policy_buttons,
-                        if training_test_mode {
-                            training_test::policy_buttons(physical.held)
-                        } else {
-                            physical.held
-                        },
-                        config.control_layout,
-                        &config.assist,
-                        config.controls.auto_mash,
-                        config.auto_spot_dodge,
-                        config.controls.auto_tech,
-                        menu_training_mode,
-                    );
-                if changed {
-                    state.cancel_manual_tools();
-                }
-                let consumed = state.settings_menu.as_ref().map_or(0, |p| p.consumed);
-                if let Some(settings_menu) = state.settings_menu.as_ref() {
-                    settings_menu.display_battle(state.menu_battle_active && kind.is_some());
-                }
-                // L remains an assist trigger; Up remains available to bindings
-                // diagonals. Menu-consumed sides/Down never reach tools.
-                // Preserve Y for the first native-readiness check;
-                // the later overlay still consumes its mapped action.
-                let helper_consumed = consumed
-                    & !state
-                        .settings_menu
-                        .as_ref()
-                        .map_or(0, |m| m.builtin_consumed);
-                let policy_buttons = state
-                    .settings_menu
-                    .as_ref()
-                    .map_or(policy_buttons, |m| m.native_buttons);
-                state.raw_buttons = kirby_assist_core::settings_menu::observation_buttons(
-                    policy_buttons,
-                    helper_consumed,
-                );
-                let ledge_held = config.controls.enabled
-                    && state
-                        .settings_menu
-                        .as_ref()
-                        .is_some_and(|p| p.sequence_enabled(config.assist.enabled))
-                    && state.settings_menu.as_ref().is_some_and(|p| p.ledge_held);
-                attack_sources::tracking(
-                    config.autopilot_shield && ledge_held
-                        || !ledge_held
-                            && state
-                                .settings_menu
-                                .as_ref()
-                                .is_some_and(|m| m.reflect_config(kind.unwrap_or(-1)).is_some()),
-                );
-                let manual_actions = state
-                    .settings_menu
-                    .as_ref()
-                    .map_or(0, |m| m.manual_native_actions());
-                let ledge_inputs_reserved = ledge_held
-                    || state
-                        .settings_menu
-                        .as_ref()
-                        .is_some_and(|m| m.reserves_automatic_modes());
-                let suspend_auto = state.action_owner.current_owner().is_none()
-                    && (ledge_inputs_reserved
-                        || manual_actions != 0
-                        || kirby_assist_core::native_input::automatic_escape(
-                            config.control_layout,
-                            physical.held,
-                            physical.pressed,
-                            false,
-                            state.manual_context.is_some_and(|c| {
-                                c.situation == kirby_assist_core::native_states::situation::GROUND
-                            }),
-                            0,
-                        ));
-                state.action_owner.set_automatic_suspended(suspend_auto);
-                if suspend_auto {
-                    state.suspend_automatic_punishes();
-                }
-                if ledge_inputs_reserved
-                    && state.action_owner.current_owner().is_none()
-                    && state.grab_handoff.reserve_ledge_inputs()
-                {
-                    // A queued Grab must settle before unrelated playback;
-                    // only native confirmation/expiry can release its receipt.
-                    state.oos.cancel_pending();
-                    if let Some(spot) = state.spot_dodge.as_mut() {
-                        spot.cancel_response();
-                    }
-                }
-                #[cfg(feature = "diagnostic-logging")]
-                {
-                    *trump_pressed = physical.pressed
-                        & (kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS
-                            | kirby_assist_core::native_input::MAPPER_X
-                            | MAPPER_Y)
-                        != 0
-                        && state
-                            .settings_menu
-                            .as_ref()
-                            .is_some_and(|m| m.ledge_trump_held());
-                }
-                if consumed & DPAD_SIDES != 0
-                    || physical.held & (DPAD_UP | MAPPER_DPAD_DOWN | MAPPER_MINUS) != 0
-                {
-                    // Menu takeover cancels before a native refresh
-                    // could replay a cached jump/dodge request.
-                }
-                if state.ledge_active != ledge_held {
-                    if !ledge_held {
-                        state.action_owner.release(Owner::Ledge);
-                    }
-                    #[cfg(feature = "diagnostic-logging")]
-                    state.grab_trace.reset("autopilot_released_or_mode_changed");
-                    #[cfg(feature = "diagnostic-logging")]
-                    state.calibration.reset("autopilot released/mode changed");
-                    state.ledge_active = ledge_held;
-                    state.ledge_walk_motion = None;
-                    state.autopilot_guarding = false;
-                    state.guard_hold = None;
-                    state.ledge = None;
-                    state.ledge_position = None;
-                    state.ledge_seek_tick = None;
-                    state.ledge_output = ControllerOutput::default();
-                }
-                if state.ledge_active && state.ledge.is_none() {
-                    if let Some(slot) = state.settings_menu.as_ref().and_then(|m| m.preview_slot())
-                    {
-                        let mut preview = LedgeTrap::default();
-                        preview.request_preview(slot);
-                        state.ledge = Some(preview);
-                    }
-                }
+            attack_sources::clear();
+            state.menu_fighter_kind = None;
+            if let Some(settings_menu) = state.settings_menu.as_mut() {
+                settings_menu.end_match();
             }
         }
     }
+}
+
+/// Binds mapper state to this slot, discarding anything learned from a previously selected slot.
+unsafe fn bind_mapper_index(
+    state: &mut State,
+    frame: &OverlayFrame,
+    #[cfg(feature = "diagnostic-logging")] messages: &mut Vec<String>,
+) {
+    if state.mapping_index != Some(frame.index) {
+        state.cancel();
+        state.associated_object = None;
+        state.mapping_index = Some(frame.index);
+        #[cfg(feature = "diagnostic-logging")]
+        {
+            state.mapper_confirmed = false;
+            messages.push(format!(
+                "selected local controller {} bound to mapper {} (npad={}, style={})",
+                frame.config.player_index,
+                frame.index,
+                (*frame.controller).npad,
+                (*frame.controller).style
+            ));
+        }
+    }
+    #[cfg(feature = "diagnostic-logging")]
+    {
+        state.mapper_confirmed = true;
+    }
+}
+
+/// Updates the mapper menu and input state for the selected controller, handling menu readiness, battle activity, and diagnostic logging.
+unsafe fn update_mapper_menu_and_input(
+    frame: &OverlayFrame,
+    menu_ready_go: Option<bool>,
+    menu_training_mode: bool,
+    #[cfg(feature = "diagnostic-logging")] diagnostics: &mut MapperDiagnostics,
+) {
+    let Ok(mut state) = STATE.lock() else {
+        return;
+    };
+    let connected = (*frame.controller).connected != 0;
+    track_menu_battle(&mut state, frame.index, connected, menu_ready_go);
+    if !connected {
+        state.cancel();
+        state.associated_object = None;
+        state.mapping_index = None;
+        return;
+    }
+    bind_mapper_index(
+        &mut state,
+        frame,
+        #[cfg(feature = "diagnostic-logging")]
+        &mut diagnostics.messages,
+    );
+    let policy_buttons = observe_raw_input(&mut state, frame);
+    let kind = state.menu_fighter_kind;
+    run_settings_menu(&mut state, frame, policy_buttons, menu_training_mode, kind);
+    apply_menu_modes(&mut state, frame, kind);
+    #[cfg(feature = "diagnostic-logging")]
+    {
+        diagnostics.trump_pressed = trump_input_pressed(&state, frame.physical);
+    }
+}
+
+/// Records this poll's physical input, advances the local scheduling tick and
+/// returns the canonical policy buttons.
+fn observe_raw_input(state: &mut State, frame: &OverlayFrame) -> u32 {
+    let OverlayFrame {
+        config,
+        physical,
+        tested_held,
+        physical_stick,
+        physical_right_stick,
+        ..
+    } = *frame;
+    // A new mapper call advances our local scheduling tick.
+    // Other hooks can run several times within this tick;
+    // evaluated_tick prevents them consuming extra pulses.
+    let now = Instant::now();
+    state.raw_tick = state.raw_tick.wrapping_add(1);
+    state.raw_seen = Some(now);
+    state.raw_connected = true;
+    let takeover_buttons = config.control_layout.takeover_buttons(tested_held);
+    let policy_buttons = config.control_layout.policy_buttons(tested_held);
+    state.raw_buttons = policy_buttons;
+    state.action_owner.observe_manual(
+        takeover_buttons,
+        [
+            physical_stick[0],
+            physical_stick[1],
+            physical_right_stick[0],
+            physical_right_stick[1],
+        ],
+    );
+    state.posture_down = kirby_assist_core::posture::Posture::any_tilt_intent(
+        policy_buttons,
+        physical_stick,
+        physical_right_stick,
+    );
+    if physical.held & MAPPER_PLUS != 0 {
+        state.cancel();
+    }
+    policy_buttons
+}
+
+/// Feeds this poll to the settings menu and publishes its consumed/native buttons.
+fn run_settings_menu(
+    state: &mut State,
+    frame: &OverlayFrame,
+    policy_buttons: u32,
+    menu_training_mode: bool,
+    kind: Option<i32>,
+) {
+    let OverlayFrame {
+        config,
+        physical,
+        tested_held,
+        ..
+    } = *frame;
+    let menu_available = state.menu_battle_active && physical.held & MAPPER_PLUS == 0;
+    let gameplay = menu_available && state.fighter_kind.is_some();
+    // Raw button/menu observations still run, but a committed
+    // input owner cannot be replaced by a queued button tape.
+    let damage_recovery = state
+        .manual_context
+        .is_some_and(|c| kirby_assist_core::ledge_trap::sequence_interrupted(c.status));
+    let committed_inputs = state.action_owner.current_owner().is_some()
+        || state.tech_output.press
+        || state.tech_output.owns_guard
+        || state.mash_stick.is_some();
+    let bindings_blocked = committed_inputs || damage_recovery;
+    let safety_jump = !committed_inputs && damage_recovery;
+    let changed = state
+        .settings_menu
+        .get_or_insert_with(settings_menu::SettingsMenu::default)
+        .input(
+            menu_available,
+            gameplay,
+            bindings_blocked,
+            safety_jump,
+            kind,
+            policy_buttons,
+            tested_held,
+            config.control_layout,
+            &config.assist,
+            config.controls.auto_mash,
+            config.auto_spot_dodge,
+            config.controls.auto_tech,
+            menu_training_mode,
+        );
+    if changed {
+        state.cancel_manual_tools();
+    }
+    // L remains an assist trigger; Up remains available to bindings
+    // diagonals. Menu-consumed sides/Down never reach tools.
+    // Preserve Y for the first native-readiness check;
+    // the later overlay still consumes its mapped action.
+    let (policy_buttons, helper_consumed) = match state.settings_menu.as_ref() {
+        Some(menu) => {
+            menu.display_battle(state.menu_battle_active && kind.is_some());
+            (menu.native_buttons, menu.consumed & !menu.builtin_consumed)
+        }
+        None => (policy_buttons, 0),
+    };
+    state.raw_buttons =
+        kirby_assist_core::settings_menu::observation_buttons(policy_buttons, helper_consumed);
+}
+
+/// Applies the menu's mode switches: attack-source tracking, automatic-mode
+/// suspension and the ledge-assist lifecycle.
+fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) {
+    let OverlayFrame {
+        config, physical, ..
+    } = *frame;
+    let menu = state.settings_menu.as_ref();
+    let ledge_held =
+        menu.is_some_and(|p| p.sequence_enabled(config.assist.enabled) && p.ledge_held);
+    attack_sources::tracking(
+        config.autopilot_shield && ledge_held
+            || !ledge_held && menu.is_some_and(|m| m.reflect_config(kind.unwrap_or(-1)).is_some()),
+    );
+    let manual_actions = menu.map_or(0, |m| m.manual_native_actions());
+    let ledge_inputs_reserved = ledge_held || menu.is_some_and(|m| m.reserves_automatic_modes());
+    let suspend_auto = state.action_owner.current_owner().is_none()
+        && (ledge_inputs_reserved
+            || manual_actions != 0
+            || kirby_assist_core::native_input::automatic_escape(
+                config.control_layout,
+                physical.held,
+                physical.pressed,
+                false,
+                state.manual_context.is_some_and(|c| {
+                    c.situation == kirby_assist_core::native_states::situation::GROUND
+                }),
+                0,
+            ));
+    state.action_owner.set_automatic_suspended(suspend_auto);
+    if suspend_auto {
+        state.suspend_automatic_punishes();
+    }
+    if ledge_inputs_reserved
+        && state.action_owner.current_owner().is_none()
+        && state.grab_handoff.reserve_ledge_inputs()
+    {
+        // A queued Grab must settle before unrelated playback;
+        // only native confirmation/expiry can release its receipt.
+        state.oos.cancel_pending();
+        if let Some(spot) = state.spot_dodge.as_mut() {
+            spot.cancel_response();
+        }
+    }
+    if state.ledge_active != ledge_held {
+        if !ledge_held {
+            state.action_owner.release(Owner::Ledge);
+        }
+        #[cfg(feature = "diagnostic-logging")]
+        state.grab_trace.reset("autopilot_released_or_mode_changed");
+        #[cfg(feature = "diagnostic-logging")]
+        state.calibration.reset("autopilot released/mode changed");
+        state.ledge_active = ledge_held;
+        state.ledge_walk_motion = None;
+        state.autopilot_guarding = false;
+        state.guard_hold = None;
+        state.ledge = None;
+        state.ledge_position = None;
+        state.ledge_seek_tick = None;
+        state.ledge_output = ControllerOutput::default();
+    }
+    if state.ledge_active && state.ledge.is_none() {
+        if let Some(slot) = state.settings_menu.as_ref().and_then(|m| m.preview_slot()) {
+            let mut preview = LedgeTrap::default();
+            preview.request_preview(slot);
+            state.ledge = Some(preview);
+        }
+    }
+}
+
+/// Diagnostic only: a D-pad/X/Y press while the trump hold is configured.
+#[cfg(feature = "diagnostic-logging")]
+fn trump_input_pressed(state: &State, physical: ButtonTrace) -> bool {
+    physical.pressed
+        & (kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS
+            | kirby_assist_core::native_input::MAPPER_X
+            | MAPPER_Y)
+        != 0
+        && state
+            .settings_menu
+            .as_ref()
+            .is_some_and(|m| m.ledge_trump_held())
 }
 /// Refreshes the selected fighter for the specified controller index, observing the fighter if valid or clearing the state if not.
 unsafe fn refresh_selected_fighter(index: i32) {
@@ -697,40 +756,28 @@ type GrabMappingComparison = (
     [f32; 2],
     [f32; 2],
 );
-/// Represents the preparation state for the mapper,
-/// including restored controller state, mapped inputs, and diagnostic information.
+/// Diagnostic-build reports collected while preparing the overlay and written after mapping.
+#[cfg(feature = "diagnostic-logging")]
+#[derive(Default)]
+struct MapperDiagnostics {
+    trump_pressed: bool,
+    ledge_edge: Option<u32>,
+    grab_mapping_comparison: Option<GrabMappingComparison>,
+    messages: Vec<String>,
+    mode_report: Option<kirby_assist_core::diagnostics::modes::Report>,
+}
+
+/// Overlay result handed from the pre-map stage to the post-map stage: the
+/// saved physical controller, the final-button adjustments and feedback, and
+/// the D-pad bits whose taunts must be filtered from the mapped output.
+#[derive(Default)]
 pub(super) struct MapperPreparation {
     pub(super) restore: Option<ControllerRestore>,
-    mapped_left_stick: Option<[f32; 2]>,
-    mapped_automatic_request: Option<u32>,
-    mapped_auto_grab: Option<(i64, u32, bool)>,
-    mapped_reflect: bool,
-    mapped_reflector: Option<i64>,
-    mapped_auto_up_special: Option<(i64, u32, Owner)>,
-    mapped_auto_dodge: Option<(i64, u32)>,
-    mapped_dodge_punish_grab: Option<(i64, u32)>,
-    mapped_attack_hold: bool,
-    mapped_literal_request: Option<u32>,
-    mapped_unshielded_auto_grab: bool,
-    mapped_sequence_right: Option<[f32; 2]>,
+    adjustments: MapperOutputAdjustments,
+    feedback: MapperDeliveryFeedback,
     reserved_dpad: u32,
-    tech_applied: bool,
-    mapped_tech_output: Option<TechOutput>,
-    mapped_grab_handoff: Option<(i64, Option<Owner>, bool, bool)>,
-    sequence_short_hop: bool,
-    mapped_manual_jump: bool,
     #[cfg(feature = "diagnostic-logging")]
-    trump_pressed: bool,
-    #[cfg(feature = "diagnostic-logging")]
-    ledge_edge: Option<u32>,
-    #[cfg(feature = "diagnostic-logging")]
-    grab_delivery: Option<(u32, u32, u32, &'static str)>,
-    #[cfg(feature = "diagnostic-logging")]
-    grab_mapping_comparison: Option<GrabMappingComparison>,
-    #[cfg(feature = "diagnostic-logging")]
-    messages: Vec<String>,
-    #[cfg(feature = "diagnostic-logging")]
-    mode_report: Option<kirby_assist_core::diagnostics::modes::Report>,
+    diagnostics: MapperDiagnostics,
 }
 
 /// Represents the input flags for the mapper, indicating the current conditions of the controller and game state.
@@ -773,60 +820,46 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
         .as_ref()
         .is_some_and(LedgeTrap::committed_input_pending)
         || state.ledge_output.owned != 0 && !state.autopilot_guarding;
-    let intents = [
-        Intent {
-            owner: Owner::Reflect,
-            present: state.reflect_output.owned != 0 || state.reflector.active(),
-            committed: true,
-        },
-        Intent {
-            owner: Owner::OutOfShield,
-            // Preserve the automation reservation while R may be
-            // queued; a neutral output still leaves movement manual.
-            present: state.oos_output.owned != 0
+    let ledge_acquired = ledge_priority || ledge_committed;
+    // An idle always-on watch must not swallow Turbo movement. Acquired ledge
+    // visits/tapes keep priority.
+    let ledge_present = state.ledge_active
+        && (state.action_owner.current_owner() == Some(Owner::Ledge)
+            || !state.autopilot_guarding
+                && (!inputs.turbo_active || ledge_acquired)
+                && (state.oos_output.owned == 0 || ledge_acquired))
+        && (state.ledge_output.owned != 0
+            || state.ledge_output.stick.is_some()
+            || state
+                .ledge
+                .as_ref()
+                .is_none_or(|trap| !trap.manual_after_response()));
+    [
+        committed_intent(
+            Owner::Reflect,
+            state.reflect_output.owned != 0 || state.reflector.active(),
+        ),
+        // Preserve the automation reservation while R may be queued; a
+        // neutral output still leaves movement manual.
+        committed_intent(
+            Owner::OutOfShield,
+            state.oos_output.owned != 0
                 || state.oos.grab_delivery_pending()
                 || state.oos.awaiting_up_b(),
-            committed: true,
-        },
-        Intent {
-            owner: Owner::Safety,
-            present: state.tech_output.press
+        ),
+        committed_intent(
+            Owner::Safety,
+            state.tech_output.press
                 || state.tech_output.owns_guard
                 || inputs.mash_active
                 || inputs.damage_active,
-            committed: true,
-        },
-        Intent {
-            owner: Owner::Trip,
-            present: state.trip_output.owned != 0,
-            committed: true,
-        },
-        Intent {
-            owner: Owner::Fair,
-            present: state.fair_output.owned != 0,
-            committed: true,
-        },
-        Intent {
-            owner: Owner::Trump,
-            present: state.trump_output.owned != 0,
-            committed: true,
-        },
+        ),
+        committed_intent(Owner::Trip, state.trip_output.owned != 0),
+        committed_intent(Owner::Fair, state.fair_output.owned != 0),
+        committed_intent(Owner::Trump, state.trump_output.owned != 0),
         Intent {
             owner: Owner::Ledge,
-            present: state.ledge_active
-                && (state.action_owner.current_owner() == Some(Owner::Ledge)
-                    || !state.autopilot_guarding
-                // An idle always-on watch must not swallow
-                // Turbo movement. Acquired ledge visits/tapes keep priority.
-                && (!inputs.turbo_active
-                    || ledge_priority || ledge_committed)
-                && (state.oos_output.owned == 0 || ledge_priority || ledge_committed))
-                && (state.ledge_output.owned != 0
-                    || state.ledge_output.stick.is_some()
-                    || state
-                        .ledge
-                        .as_ref()
-                        .is_none_or(|trap| !trap.manual_after_response())),
+            present: ledge_present,
             committed: ledge_committed,
         },
         Intent::sequence_receipt(
@@ -837,18 +870,17 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
                 .as_ref()
                 .is_some_and(|e| e.awaiting_up_b()),
         ),
-        Intent {
-            owner: Owner::GrabDodge,
-            present: state.spot_output.owned != 0
+        committed_intent(
+            Owner::GrabDodge,
+            state.spot_output.owned != 0
                 && state
                     .spot_dodge
                     .as_ref()
                     .is_some_and(|s| s.target().is_some()),
-            committed: true,
-        },
-        Intent {
-            owner: Owner::OptionRead,
-            present: (state.spot_output.owned != 0
+        ),
+        committed_intent(
+            Owner::OptionRead,
+            (state.spot_output.owned != 0
                 || state
                     .spot_dodge
                     .as_ref()
@@ -857,25 +889,31 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
                     .spot_dodge
                     .as_ref()
                     .is_none_or(|s| s.target().is_none()),
-            committed: true,
-        },
-        Intent {
-            owner: Owner::Defense,
-            present: state.autopilot_guarding && state.ledge_output.owned != 0,
-            committed: false,
-        },
-        Intent {
-            owner: Owner::Turbo,
-            present: inputs.turbo_active || inputs.pivot_active,
-            committed: false,
-        },
-        Intent {
-            owner: Owner::Posture,
-            present: inputs.posture_active,
-            committed: false,
-        },
-    ];
-    intents
+        ),
+        passive_intent(
+            Owner::Defense,
+            state.autopilot_guarding && state.ledge_output.owned != 0,
+        ),
+        passive_intent(Owner::Turbo, inputs.turbo_active || inputs.pivot_active),
+        passive_intent(Owner::Posture, inputs.posture_active),
+    ]
+}
+
+/// An intent whose owner keeps its reservation until its own script finishes.
+fn committed_intent(owner: Owner, present: bool) -> Intent {
+    Intent {
+        owner,
+        present,
+        committed: true,
+    }
+}
+/// An intent that yields to every committed owner.
+fn passive_intent(owner: Owner, present: bool) -> Intent {
+    Intent {
+        owner,
+        present,
+        committed: false,
+    }
 }
 /// Selects the appropriate controller output based on the winning owner, posture, and current situation, applying grab handoff and out-of-shield adjustments as needed.
 fn selected_owner_output(
@@ -891,10 +929,9 @@ fn selected_owner_output(
         Some(Owner::Trump) => state.trump_output,
         Some(Owner::OutOfShield) => state.oos_output,
         Some(Owner::Posture) => posture,
-        Some(Owner::Ledge) => state.ledge_output,
+        Some(Owner::Ledge | Owner::Defense) => state.ledge_output,
         Some(Owner::RollRead) => state.roll_read_output,
         Some(Owner::GrabDodge | Owner::OptionRead) => state.spot_output,
-        Some(Owner::Defense) => state.ledge_output,
         _ => ControllerOutput::default(),
     };
     if winner == Some(Owner::OutOfShield) {
@@ -907,18 +944,15 @@ fn selected_owner_output(
     selected
 }
 
-/// Determines the appropriate right stick input based on the winning owner, selected controller output, and current situation.
-fn selected_owner_right_stick(
-    state: &State,
-    winner: Option<Owner>,
-    selected: ControllerOutput,
-    situation: i32,
-) -> Option<[f32; 2]> {
-    if situation == kirby_assist_core::native_states::situation::GROUND
-        && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
-    {
-        return Some([0.; 2]);
-    }
+/// A grounded Grab packet neutralises the C-stick so the native mapper cannot read it as a smash.
+fn grab_release_right_stick(selected: ControllerOutput, situation: i32) -> Option<[f32; 2]> {
+    (situation == kirby_assist_core::native_states::situation::GROUND
+        && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0)
+        .then_some([0.; 2])
+}
+
+/// The C-stick packet the winning script requests, for the owners that supply one.
+fn owner_right_stick(state: &State, winner: Option<Owner>) -> Option<[f32; 2]> {
     match winner {
         Some(Owner::Ledge) => state
             .ledge
@@ -937,7 +971,18 @@ fn selected_owner_right_stick(
     }
 }
 
+/// Determines the appropriate right stick input based on the winning owner, selected controller output, and current situation.
+fn selected_owner_right_stick(
+    state: &State,
+    winner: Option<Owner>,
+    selected: ControllerOutput,
+    situation: i32,
+) -> Option<[f32; 2]> {
+    grab_release_right_stick(selected, situation).or_else(|| owner_right_stick(state, winner))
+}
+
 /// Represents a sampled posture, including configured C-stick inputs, controller output, and tilt aiming status.
+#[derive(Clone, Copy)]
 struct PostureSample {
     configured_c_stick: Option<([f32; 2], [f32; 2])>,
     output: ControllerOutput,
@@ -1020,6 +1065,7 @@ fn sample_mapper_posture(
     }
 }
 /// Represents a sampled damage stick state, including DI, SDI, and damage stick inputs.
+#[derive(Clone, Copy)]
 struct DamageStickSample {
     di_stick: Option<[f32; 2]>,
     sdi_stick: Option<[f32; 2]>,
@@ -1028,17 +1074,23 @@ struct DamageStickSample {
 /// Handles manual ledge walking, returning the appropriate stick input if conditions are met.
 fn manual_ledge_walk(
     state: &State,
-    settings: &AssistSettings,
-    manual_scope: bool,
-    fresh: bool,
-    policy_buttons: u32,
-    physical_stick: [f32; 2],
-    physical_right_stick: [f32; 2],
-    ledge: ControllerOutput,
+    frame: &OverlayFrame,
+    gate: &PollGate,
     turbo: TurboOutput,
 ) -> Option<[f32; 2]> {
-    if !settings.enabled
-        || !manual_scope
+    let OverlayFrame {
+        config,
+        physical_stick,
+        physical_right_stick,
+        ..
+    } = *frame;
+    let PollGate {
+        policy_buttons,
+        fresh,
+        manual_scope,
+        ..
+    } = *gate;
+    if !manual_scope
         || policy_buttons & MAPPER_L == 0
         || !state.ledge_active
         || state
@@ -1046,6 +1098,13 @@ fn manual_ledge_walk(
             .as_ref()
             .is_some_and(|menu| menu.preview_slot().is_some())
     {
+        return None;
+    }
+    let settings = state.settings_menu.as_ref().map_or_else(
+        || settings_for_fighter(state.fighter_kind, config.assist),
+        |p| p.settings(state.fighter_kind, &config.assist),
+    );
+    if !settings.enabled {
         return None;
     }
 
@@ -1073,7 +1132,7 @@ fn manual_ledge_walk(
     } else {
         None
     };
-    if ledge.stick.is_none() && turbo.stick.is_none() {
+    if state.ledge_output.stick.is_none() && turbo.stick.is_none() {
         walking
     } else {
         None
@@ -1153,1029 +1212,1273 @@ fn sample_damage_sticks(
     }
 }
 
-/// Prepares the mapper overlay for the given controller index and session ticket. Returns a `MapperPreparation` if successful.
+/// The classic monitor chord passes through untouched before D-pad Down can
+/// start a trump. This applies to standalone builds as well as Training; OS
+/// overlays remain responsible for their own focus.
+fn pass_monitor_chord(config: &Config, physical: ButtonTrace) -> bool {
+    if !kirby_assist_core::settings_menu::monitor_chord(
+        config.control_layout.policy_buttons(physical.held),
+    ) {
+        return false;
+    }
+    if let Ok(mut state) = STATE.lock() {
+        state.cancel();
+        state
+            .settings_menu
+            .get_or_insert_with(Default::default)
+            .observe_passthrough(physical.held, config.control_layout);
+    }
+    true
+}
+
+/// Diagnostic only: records the first poll of every mapper index.
+#[cfg(feature = "diagnostic-logging")]
+unsafe fn note_observed_mapper(
+    index: i32,
+    controller: *mut controller::Controller,
+    config: &Config,
+    messages: &mut Vec<String>,
+) {
+    if SEEN_MAPPERS.fetch_or(1 << index, Ordering::Relaxed) & (1 << index) == 0 {
+        messages.push(format!("mapper observed index {index}: npad={}, style={}, connected={}; configured local controller={}", (*controller).npad, (*controller).style, (*controller).connected, config.player_index));
+    }
+}
+
+/// Pre-map stage: saves the physical controller, advances menu/route
+/// bookkeeping, lets the winning tool overlay the controller, and returns what
+/// the post-map stage must apply, record and restore. `None` leaves the call a
+/// plain passthrough.
 ///
 /// # Safety
-/// This function is unsafe because it dereferences raw pointers for the output and wrapper. The caller must ensure that these pointers are valid and correctly aligned.
+/// `admission.controller` must be the live native controller of this callback and `output` the mapper's result buffer.
 pub(super) unsafe fn prepare_mapper_overlay(
+    admission: MapperAdmission,
     index: i32,
     output: *mut c_void,
-    wrapper: *mut c_void,
-    master_ready_go: Option<Option<bool>>,
     training_mode: Option<bool>,
     training_test_mode: bool,
-    session_ticket: SessionTicket,
 ) -> Option<MapperPreparation> {
-    let mut restore = None;
-    let mut mapped_left_stick = None;
-    let mut mapped_automatic_request = None;
-    let mut mapped_auto_grab = None;
-    let mut mapped_reflect = false;
-    let mut mapped_reflector = None;
-    let mut mapped_auto_up_special = None;
-    let mut mapped_auto_dodge = None;
-    let mut mapped_dodge_punish_grab = None;
-    let mut mapped_attack_hold = false;
-    let mut mapped_literal_request = None;
-    let mut mapped_unshielded_auto_grab = false;
-    let mut mapped_sequence_right = None;
-    let mut reserved_dpad = 0;
-    let mut tech_applied = false;
-    let mut mapped_tech_output = None;
-    let mut mapped_grab_handoff = None;
-    let mut sequence_short_hop = false;
-    let mut mapped_manual_jump = false;
+    let MapperAdmission {
+        config,
+        controller,
+        master_ready_go,
+        session_ticket,
+    } = admission;
+    let mut prep = MapperPreparation::default();
+    sync_diagnostic_options();
+    if output.is_null() {
+        return Some(prep);
+    }
     #[cfg(feature = "diagnostic-logging")]
-    let mut trump_pressed = false;
-    #[cfg(feature = "diagnostic-logging")]
-    let mut ledge_edge = None;
-    #[cfg(feature = "diagnostic-logging")]
-    let mut grab_delivery = None;
-    #[cfg(feature = "diagnostic-logging")]
-    let mut grab_mapping_comparison = None;
-    #[cfg(feature = "diagnostic-logging")]
-    let mut messages = Vec::new();
-    #[cfg(feature = "diagnostic-logging")]
-    let mut mode_report = None;
-    if let Some(config) = CONFIG.get().map(|config| **config) {
-        let config = diagnostic_config(config);
-        // A startup-disabled mod is a true passthrough: do not bind routes,
-        // update menus, refresh fighters, run policies or touch controller data.
-        if !config.controls.enabled {
-            return None;
-        }
-        if !wrapper.is_null()
-            && !output.is_null()
-            && (0..kirby_assist_core::native_input::MAPPER_SLOT_COUNT).contains(&index)
+    note_observed_mapper(index, controller, config, &mut prep.diagnostics.messages);
+    // Read physical input before applying any assist. Reusing last
+    // output as "human input" would keep automated buttons latched.
+    let physical = trace(controller);
+    if pass_monitor_chord(config, physical) {
+        return None;
+    }
+    let frame = OverlayFrame {
+        controller,
+        index,
+        config,
+        physical,
+        tested_held: if training_test_mode {
+            training_test::policy_buttons(physical.held)
+        } else {
+            physical.held
+        },
+        physical_stick: [(*controller).left_stick_x, (*controller).left_stick_y],
+        physical_right_stick: [(*controller).right_stick_x, (*controller).right_stick_y],
+        physical_autorepeat: (*controller).autorepeat[0],
+        physical_triggers: [(*controller).left_trigger, (*controller).right_trigger],
+    };
+    // Without Training Modpack, query only the selected controller;
+    // with it, reuse the earlier shortcut-policy scene read.
+    let menu_training_mode = training_mode.unwrap_or_else(|| game::is_training_mode());
+    update_mapper_menu_and_input(
+        &frame,
+        master_ready_go,
+        menu_training_mode,
+        #[cfg(feature = "diagnostic-logging")]
+        &mut prep.diagnostics,
+    );
+    // Restore 1.0.4's immediate pre-map refresh without its roster
+    // scan: only resolve a recently observed human fighter ID.
+    // Revalidate identity on every refresh; never retain a pointer.
+    refresh_selected_fighter(index);
+    if let Ok(mut state) = STATE.lock() {
+        if state.session.accepts(session_ticket)
+            && state.mapping_index == Some(index)
+            && (*controller).connected != 0
         {
-            // The wrapper stores a Controller pointer at this byte offset. read() loads
-            // that pointer; cast() alone only changes its type. These native
-            // offsets belong to the verified layout, not user-tunable settings.
-            let controller = controller_from_wrapper(wrapper);
-            #[cfg(feature = "diagnostic-logging")]
-            if !controller.is_null()
-                && SEEN_MAPPERS.fetch_or(1 << index, Ordering::Relaxed) & (1 << index) == 0
-            {
-                messages.push(format!("mapper observed index {index}: npad={}, style={}, connected={}; configured local controller={}", (*controller).npad, (*controller).style, (*controller).connected, config.player_index));
-            }
-            if !controller.is_null()
-                && selected_controller_mapper(config.player_index, (*controller).npad, index)
-                    == Some(index)
-            {
-                // Read physical input before applying any assist. Reusing last
-                // output as "human input" would keep automated buttons latched.
-                let physical = trace(controller);
-                // Let the classic monitor chord pass before D-pad Down can
-                // start a trump. This applies to standalone builds as well as
-                // Training; OS overlays remain responsible for their own focus.
-                if kirby_assist_core::settings_menu::monitor_chord(
-                    config.control_layout.policy_buttons(physical.held),
-                ) {
-                    if let Ok(mut state) = STATE.lock() {
-                        state.cancel();
-                        state
-                            .settings_menu
-                            .get_or_insert_with(Default::default)
-                            .observe_passthrough(physical.held, config.control_layout);
-                    }
-                    return None;
-                }
-                let physical_stick = [(*controller).left_stick_x, (*controller).left_stick_y];
-                let physical_right_stick =
-                    [(*controller).right_stick_x, (*controller).right_stick_y];
-                let physical_autorepeat = (*controller).autorepeat[0];
-                let physical_triggers = [(*controller).left_trigger, (*controller).right_trigger];
-                // Only the selected controller checks the existing battle
-                // manager guard. Menu lifetime is independent of request TTL.
-                let menu_ready_go =
-                    master_ready_go.unwrap_or_else(|| observations::battle_menu_ready_go());
-                // Without Training Modpack, query only the selected controller;
-                // with it, reuse the earlier shortcut-policy scene read.
-                let menu_training_mode = training_mode.unwrap_or_else(|| game::is_training_mode());
-                update_mapper_menu_and_input(
-                    controller,
-                    index,
-                    &config,
-                    physical,
-                    physical_stick,
-                    physical_right_stick,
-                    menu_ready_go,
-                    menu_training_mode,
-                    training_test_mode,
-                    #[cfg(feature = "diagnostic-logging")]
-                    &mut trump_pressed,
-                    #[cfg(feature = "diagnostic-logging")]
-                    &mut messages,
-                );
-                // Restore 1.0.4's immediate pre-map refresh without its roster
-                // scan: only resolve a recently observed human fighter ID.
-                // Revalidate identity on every refresh; never retain a pointer.
-                refresh_selected_fighter(index);
-                if let Ok(mut state) = STATE.lock() {
-                    if state.session.accepts(session_ticket)
-                        && state.mapping_index == Some(index)
-                        && (*controller).connected != 0
-                    {
-                        // Recreate the canonical policy view in this lock scope.
-                        // The earlier copy configures observation/menu state, but
-                        // is intentionally scoped to that mapper-state update.
-                        let policy_buttons = if training_test_mode {
-                            training_test::policy_buttons(physical.held)
-                        } else {
-                            physical.held
-                        };
-                        let policy_buttons = config.control_layout.policy_buttons(policy_buttons);
-                        let policy_buttons = state
-                            .settings_menu
-                            .as_ref()
-                            .map_or(policy_buttons, |m| m.native_buttons);
-                        let now = Instant::now();
-                        let fresh = kirby_assist_core::observation::input_update_current(
-                            state.evaluated_tick,
-                            state.raw_tick,
-                        ) && state
-                            .request_seen
-                            .is_some_and(|seen| now.duration_since(seen) < REQUEST_LIFETIME);
-                        let ledge_fresh = fresh;
-                        let route_current =
-                            state.human_routes[index as usize].is_some_and(|(id, seen)| {
-                                Some(id) == state.associated_object
-                                    && seen.elapsed() < SESSION_OBSERVATION_GAP
-                            });
-                        let ledge_config = state.settings_menu.as_ref().map_or_else(
-                            || settings_for_fighter(state.fighter_kind, config.assist),
-                            |p| p.settings(state.fighter_kind, &config.assist),
-                        );
-                        let manual_scope = config.controls.enabled
-                            && route_current
-                            && state.associated_object.is_some()
-                            && state.associated_object == state.observed_object
-                            && physical.held & MAPPER_PLUS == 0;
-                        #[cfg(feature = "diagnostic-logging")]
-                        {
-                            let expired = manual_scope
-                                && state.menu_battle_active
-                                && !fresh
-                                && state.request_seen.is_some();
-                            if expired && !state.last_input_expired {
-                                crate::performance::health::event(
-                                    crate::performance::health::Event::InputExpired,
-                                );
-                            }
-                            state.last_input_expired = expired;
-                        }
-                        // Expired requests become neutral. The overlay still
-                        // knows the previous assisted output, allowing a release.
-                        let native_grab = state.manual_context.is_some_and(|c| {
-                            kirby_assist_core::action_owner::native_grab_active(c.status)
-                        });
-                        let auto_mash = state
-                            .settings_menu
-                            .as_ref()
-                            .map_or(config.controls.auto_mash, |menu| {
-                                menu.auto_mash(config.controls.auto_mash)
-                            });
-                        let mash_stick = if fresh && auto_mash {
-                            state.mash_stick
-                        } else {
-                            None
-                        };
-
-                        // Compose all native requests through ONE button history.
-                        // Independent overlays can disagree about a release when
-                        // tech, mash and ledge ownership switch on the same frame.
-                        // Read the trigger from PHYSICAL buttons, then consume
-                        // its taunt bits. Releasing returns the fresh physical
-                        // stick immediately, rather than forcing neutral.
-                        let tick = state.policy_tick.unwrap_or(state.raw_tick);
-                        let can_move = fresh && state.policy_tick.is_some() && state.turbo_ready;
-                        // The selected button binding alone activates Turbo t-bag.
-                        // L3 is not remapped to the L ledge-assist role.
-                        let turbo_held = policy_buttons & TURBO_TRIGGER != 0;
-                        let turbo_facing = state.manual_context.map_or(1.0, |ctx| ctx.facing);
-                        let turbo_input_tick = state.raw_tick;
-                        let mut turbo_output = state
-                            .turbo
-                            .get_or_insert_with(TurboState::default)
-                            .sample_teabag(
-                                config.turbo,
-                                // Generate the next local input packet now;
-                                // never wait for delayed crouch acknowledgment.
-                                turbo_input_tick,
-                                turbo_held,
-                                turbo_facing,
-                                manual_scope,
-                                can_move,
-                            );
-                        // Bound directions are consumed by the menu adapter. Normal
-                        // directions pass through; no hard-coded B-reverse/trump.
-                        // L holds ledge trap; held Y runs its saved mode.
-                        // Changing tools releases the previous policy.
-                        // Stale observations still release automation ownership.
-                        let turbo_stick = turbo_output.stick;
-                        let pivot_context = state.manual_context.filter(|_| {
-                            fresh
-                                && manual_scope
-                                && state.policy_tick.is_some()
-                                && turbo_stick.is_none()
-                                && physical.held
-                                    & !kirby_assist_core::manual_controls::LEFT_STICK_DIRECTIONS
-                                    == 0
-                                && physical_right_stick
-                                    .iter()
-                                    .all(|v| v.is_finite() && v.abs() <= 0.1)
-                        });
-                        if pivot_context.is_none() {
-                            state.dash_pivot = None;
-                        }
-                        let pivot_stick = pivot_context.map_or(None, |context| {
-                            state
-                                .dash_pivot
-                                .get_or_insert_with(Default::default)
-                                .sample(
-                                    tick,
-                                    context.status,
-                                    context.situation,
-                                    context.stopped,
-                                    physical_stick,
-                                )
-                                .stick
-                        });
-                        let mut ledge = if ledge_fresh && state.ledge_active {
-                            state.ledge_output
-                        } else {
-                            ControllerOutput::default()
-                        };
-                        let manual_walk_stick = manual_ledge_walk(
-                            &state,
-                            &ledge_config,
-                            manual_scope,
-                            fresh,
-                            policy_buttons,
-                            physical_stick,
-                            physical_right_stick,
-                            ledge,
-                            turbo_output,
-                        );
-                        #[cfg(feature = "diagnostic-logging")]
-                        if trump_pressed {
-                            messages.push(format!(
-                                "trump input: scope={}, fresh={}, action={}, stick={:?}, reserved={reserved_dpad:#x}",
-                                manual_scope, fresh,
-                                state.trump.as_ref().map_or("unobserved", LedgeTrump::action_name),
-                                state.trump_output.stick,
-                            ));
-                        }
-                        let manual_context = state.manual_context;
-                        let PostureSample {
-                            configured_c_stick,
-                            output: posture,
-                            tilt_aiming,
-                        } = sample_mapper_posture(
-                            &mut state,
-                            manual_context,
-                            manual_scope,
-                            fresh,
-                            policy_buttons,
-                            physical,
-                            physical_stick,
-                            physical_right_stick,
-                        );
-                        // Menu input is reserved during entry/respawn too.
-                        let menu_consumed =
-                            if state.menu_battle_active && state.menu_fighter_kind.is_some() {
-                                state.settings_menu.as_ref().map_or(0, |menu| menu.consumed)
-                            } else {
-                                0
-                            };
-                        reserved_dpad |=
-                            menu_consumed & kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS;
-                        let DamageStickSample {
-                            di_stick,
-                            sdi_stick,
-                            damage_stick,
-                        } = sample_damage_sticks(
-                            &mut state,
-                            &config,
-                            manual_scope,
-                            fresh,
-                            mash_stick,
-                            physical_stick,
-                            #[cfg(feature = "diagnostic-logging")]
-                            &mut messages,
-                        );
-                        // Single final authority for sticks/buttons. Preparation
-                        // keeps ledge/roll timing ahead of every optional tool.
-                        // A detected ledge visit reserves its response against
-                        // general reads. Before acquisition they run normally.
-                        let mut intents = mapper_action_intents(
-                            &mut state,
-                            MapperIntentInputs {
-                                fresh,
-                                manual_scope,
-                                mash_active: mash_stick.is_some(),
-                                damage_active: damage_stick.is_some(),
-                                turbo_active: turbo_stick.is_some(),
-                                pivot_active: pivot_stick.is_some(),
-                                posture_active: posture.stick.is_some(),
-                            },
-                        );
-                        let handoff_status = manual_context.map_or(-1, |c| c.status);
-                        let handoff_situation = manual_context.map_or(
-                            kirby_assist_core::native_states::situation::UNAVAILABLE,
-                            |c| c.situation,
-                        );
-                        let handoff_context =
-                            manual_context.filter(|_| fresh).map(|c| GameplayContext {
-                                gameplay: manual_scope,
-                                status: c.status,
-                                situation: c.situation,
-                                motion_kind: c.motion,
-                                motion_frame: c.frame,
-                                motion_rate: c.rate,
-                                stopped: c.stopped,
-                                ..GameplayContext::default()
-                            });
-                        state
-                            .grab_handoff
-                            .observe_native(manual_scope, handoff_context);
-                        state.grab_handoff.restrict(&mut intents);
-                        let mut winner = state
-                            .action_owner
-                            .select(fresh && manual_scope && !native_grab, &intents);
-                        sequence_short_hop = winner == Some(Owner::Ledge)
-                            && state.ledge_output.native_short_hop
-                            || winner == Some(Owner::OutOfShield)
-                                && state.oos_output.native_short_hop
-                            || winner == Some(Owner::OptionRead)
-                                && state.spot_output.native_short_hop;
-                        let mut selected =
-                            selected_owner_output(&mut state, winner, posture, handoff_situation);
-                        let selected_right =
-                            selected_owner_right_stick(&state, winner, selected, handoff_situation);
-                        if !state.grab_handoff.permits(winner, selected, selected_right) {
-                            // Stop the old script, not just this packet; otherwise its
-                            // delayed B/Up step could resume after receipt expiry.
-                            if let Some(owner) = winner {
-                                state.action_owner.release(owner);
-                            }
-                            winner = None;
-                            selected = ControllerOutput::default();
-                        }
-                        if winner == Some(Owner::Safety) {
-                            (selected, mapped_tech_output) =
-                                kirby_assist_core::action_owner::safety_output_with_deadline(
-                                    state.tech_output,
-                                    mash_stick,
-                                    di_stick,
-                                    sdi_stick,
-                                    state.tech_urgent,
-                                );
-                        }
-                        selected = kirby_assist_core::action_owner::exclusive_output(
-                            winner,
-                            state.action_owner.current_owner() == winner && winner.is_some(),
-                            selected,
-                        );
-                        let tech_takeover =
-                            winner == Some(Owner::Safety) && mapped_tech_output.is_some();
-                        let mash_takeover = winner == Some(Owner::Safety) && mash_stick.is_some();
-                        mapped_grab_handoff = Some((
-                            state.raw_tick,
-                            winner,
-                            selected.requested & kirby_assist_core::native_input::MAPPER_R != 0,
-                            fresh
-                                && manual_scope
-                                && !native_grab
-                                && handoff_situation
-                                    == kirby_assist_core::native_states::situation::GROUND
-                                && !kirby_assist_core::ledge_trap::sequence_interrupted(
-                                    handoff_status,
-                                ),
-                        ));
-                        ledge = selected;
-                        turbo_output.stick = match winner {
-                            Some(Owner::Safety) => selected.stick,
-                            Some(Owner::Turbo) => turbo_stick.or(pivot_stick),
-                            // An armed ledge wait reserves priority without an
-                            // attack stick. Keep its shared physical walk cap;
-                            // owned releases and active recipes must never fall through.
-                            Some(Owner::Ledge)
-                                if selected.owned == 0 && selected.requested == 0 =>
-                            {
-                                selected.stick.or(manual_walk_stick)
-                            }
-                            None => manual_walk_stick,
-                            _ => selected.stick,
-                        };
-                        state.cancel_non_owner(winner);
-                        #[cfg(feature = "diagnostic-logging")]
-                        {
-                            use kirby_assist_core::diagnostics::modes::{bit, Snapshot};
-                            let status = manual_context.map_or(-1, |c| c.status);
-                            // Log only a change into a real assist override, not
-                            // every poll or native animation stop. No game reads.
-                            let blocker = if manual_scope
-                                && fresh
-                                && physical_stick[0].abs() >= 0.8
-                                && physical_stick[1].abs() < 0.3
-                                && turbo_output.stick.is_some_and(|s| {
-                                    s[0].abs() <= 0.2 || s[0] * physical_stick[0] < 0.0
-                                }) {
-                                winner
-                            } else {
-                                None
-                            };
-                            if blocker != state.last_movement_blocker {
-                                state.last_movement_blocker = blocker;
-                                if let Some(owner) = blocker {
-                                    messages.push(format!("MOVEMENT OVERRIDE: owner={}, native_status={status:#x}, physical_stick={physical_stick:?}, proposed_stick={:?}, requested={:#x}, ledge_active={}",
-                                        kirby_assist_core::diagnostics::modes::name(owner),turbo_output.stick,ledge.requested,state.ledge_active));
-                                }
-                            }
-                            let snapshot = Snapshot {
-                                winner,
-                                present: intents
-                                    .iter()
-                                    .filter(|i| i.present)
-                                    .fold(0, |mask, i| mask | bit(i.owner)),
-                                committed: intents
-                                    .iter()
-                                    .any(|i| Some(i.owner) == winner && i.committed),
-                                requested: ledge.requested,
-                                stick: turbo_output.stick.map(|stick| {
-                                    stick.map(|v| {
-                                        if v > 0.08 {
-                                            1
-                                        } else if v < -0.08 {
-                                            -1
-                                        } else {
-                                            0
-                                        }
-                                    })
-                                }),
-                                status,
-                                motion: manual_context.map_or(0, |c| c.motion),
-                                native_frame: manual_context
-                                    .map_or(0, |c| c.frame.clamp(0.0, 65535.0) as u16),
-                                stopped: manual_context.is_some_and(|c| c.stopped),
-                                can_act: state.turbo_ready,
-                                hit: state.mode_hit,
-                                valid: fresh && manual_scope,
-                                safety: (if state.tech_output.press || state.tech_output.owns_guard
-                                {
-                                    kirby_assist_core::diagnostics::modes::SAFETY_TECH_GUARD
-                                } else {
-                                    0
-                                }) | (if mash_stick.is_some() {
-                                    kirby_assist_core::diagnostics::modes::SAFETY_MASH
-                                } else {
-                                    0
-                                }) | (if sdi_stick.is_some() && di_stick.is_none() {
-                                    kirby_assist_core::diagnostics::modes::SAFETY_SDI
-                                } else {
-                                    0
-                                }) | (if di_stick.is_some() {
-                                    kirby_assist_core::diagnostics::modes::SAFETY_DI
-                                } else {
-                                    0
-                                }),
-                            };
-                            // Reuse the mapper's timestamp; do not read another clock per poll.
-                            let origin = *state.mode_log_origin.get_or_insert(now);
-                            let ms = now
-                                .saturating_duration_since(origin)
-                                .as_millis()
-                                .min(u128::from(u64::MAX))
-                                as u64;
-                            mode_report = state.mode_diagnostics.sample(snapshot, ms);
-                        }
-
-                        // A held C-stick can otherwise inject an attack while
-                        // left-stick-only mashing. Block its digital aliases too.
-                        let blocked_stick_buttons = if mash_takeover {
-                            kirby_assist_core::manual_controls::RIGHT_STICK_DIRECTIONS
-                                | kirby_assist_core::manual_controls::STICK_CLICKS
-                        } else {
-                            0
-                        };
-                        let cancel_stick = if handoff_situation
-                            == kirby_assist_core::native_states::situation::GROUND
-                            && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
-                        {
-                            Some([0.; 2])
-                        } else if winner == Some(Owner::RollRead) && fresh && selected.owned != 0 {
-                            state.rule_engine.as_ref().and_then(|r| r.right_stick())
-                        } else if winner == Some(Owner::OutOfShield)
-                            && fresh
-                            && state.oos_output.owned != 0
-                        {
-                            state.oos.right_stick()
-                        } else if winner == Some(Owner::OptionRead) && fresh && selected.owned != 0
-                        {
-                            state.spot_dodge.as_ref().and_then(|s| s.right_stick())
-                        } else if winner == Some(Owner::Ledge) && fresh {
-                            state
-                                .ledge
-                                .as_ref()
-                                .and_then(LedgeTrap::requested_right_stick)
-                        } else {
-                            None
-                        };
-                        // All manual tools share ONE final edge history. When
-                        // adding a tool, compose its requested/owned masks here
-                        // and decide its stick priority explicitly; do not write
-                        // another independent A/R/ZR history after this point.
-                        let sequence_walking = match winner {
-                            Some(Owner::Ledge) => state
-                                .ledge
-                                .as_ref()
-                                .and_then(LedgeTrap::requested_walk_stick)
-                                .is_some(),
-                            Some(Owner::RollRead) => {
-                                state.rule_engine.as_ref().is_some_and(|r| r.walking())
-                            }
-                            // A moving grab retains raw horizontal input; it is not a file Walk.
-                            Some(Owner::OutOfShield) => false,
-                            Some(Owner::OptionRead) => {
-                                state.spot_dodge.as_ref().is_some_and(|s| s.walking())
-                            }
-                            _ => false,
-                        };
-                        let exclusive_sequence = ledge.owned
-                            & kirby_assist_core::native_input::GAMEPLAY_BUTTONS
-                            == kirby_assist_core::native_input::GAMEPLAY_BUTTONS;
-                        if exclusive_sequence {
-                            reserved_dpad |= kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS;
-                        }
-                        let canonical_consumed =
-                            kirby_assist_core::native_input::sequence_flick_consumption(
-                                ledge.owned,
-                                sequence_walking,
-                            ) | reserved_dpad
-                                | menu_consumed
-                                | if !exclusive_sequence
-                                    && ledge.owned
-                                        & kirby_assist_core::manual_controls::LEFT_STICK_DIRECTIONS
-                                        != 0
-                                    && !mash_takeover
-                                    && !matches!(winner, Some(Owner::Trip | Owner::Fair))
-                                    && !(matches!(winner, Some(Owner::Posture)) && tilt_aiming)
-                                {
-                                    (1 << 21) | (1 << 23)
-                                } else {
-                                    0
-                                }
-                                | if manual_walk_stick.is_some()
-                                    && turbo_output.stick == manual_walk_stick
-                                    && ledge.owned == 0
-                                    && !mash_takeover
-                                {
-                                    (1 << 21) | (1 << 23)
-                                } else {
-                                    0
-                                };
-                        let canonical_requested =
-                            kirby_assist_core::native_input::selected_requests(
-                                ledge.owned,
-                                ledge.requested,
-                                0,
-                            );
-                        // Deliver the native jump pulse through the same raw
-                        // history as every other simulated input. The final
-                        // mapped flag supplements this path; it does not replace it.
-                        if exclusive_sequence {
-                            mapped_automatic_request = Some(canonical_requested);
-                        }
-                        mapped_manual_jump = winner == Some(Owner::Ledge)
-                            && canonical_requested
-                                & kirby_assist_core::native_input::SEQUENCE_JUMP_BUTTONS
-                                != 0;
-                        let canonical_owned = ledge.owned
-                            | if tech_takeover {
-                                state.tech_output.owned_buttons()
-                            } else {
-                                0
-                            }
-                            | if mapped_tech_output.is_some_and(|t| t.press) {
-                                MAPPER_ZR
-                            } else {
-                                0
-                            }
-                            | if cancel_stick.is_some() {
-                                kirby_assist_core::manual_controls::RIGHT_STICK_DIRECTIONS
-                            } else {
-                                0
-                            }
-                            | blocked_stick_buttons;
-                        // Keep source consumption above; only the final taunt
-                        // filter yields to an explicitly owned sequence D-pad.
-                        reserved_dpad =
-                            kirby_assist_core::manual_controls::sequence_taunt_reservation(
-                                reserved_dpad,
-                                ledge.requested,
-                                ledge.owned,
-                            );
-                        let approach_pulse =
-                            winner == Some(Owner::OutOfShield) && state.oos.approach_pending();
-                        if mapped_tech_output.is_some_and(|t| t.press) && !state.last_mapped_guard {
-                            state
-                                .manual_overlay
-                                .get_or_insert_with(ManualOverlay::default)
-                                .rearm_tech_guard(
-                                    config.control_layout.physical_buttons(MAPPER_ZR),
-                                    physical,
-                                );
-                        }
-                        let manual = state
-                            .manual_overlay
-                            .get_or_insert_with(ManualOverlay::default)
-                            .apply_reaction_controls(
-                                physical,
-                                physical_stick,
-                                turbo_output,
-                                config.control_layout.physical_buttons(canonical_consumed),
-                                config.control_layout.physical_buttons(canonical_requested),
-                                config
-                                    .control_layout
-                                    .physical_owned_buttons(canonical_owned),
-                                winner == Some(Owner::RollRead) || approach_pulse,
-                            );
-                        if fresh && manual_scope && sequence_walking {
-                            mapped_left_stick = ledge.stick;
-                        }
-                        // Built-in analog outputs must survive the native
-                        // mapper's flick/history filtering just like file Walk.
-                        if fresh
-                            && manual_scope
-                            && (winner == Some(Owner::Turbo) && turbo_stick.is_some()
-                                || (winner == Some(Owner::Ledge) || winner.is_none())
-                                    && selected.owned == 0
-                                    && manual_walk_stick.is_some()
-                                    && turbo_output.stick == manual_walk_stick)
-                        {
-                            mapped_left_stick = turbo_output.stick;
-                        }
-                        // Preserve the selected literal A packet, including directional
-                        // smashes and one-frame presses. Plan metadata used to retain
-                        // only neutral multi-frame holds, losing A while the stick survived.
-                        mapped_attack_hold = fresh
-                            && manual_scope
-                            && matches!(
-                                winner,
-                                Some(
-                                    Owner::Ledge
-                                        | Owner::RollRead
-                                        | Owner::OutOfShield
-                                        | Owner::OptionRead
-                                )
-                            )
-                            && selected.owned & kirby_assist_core::native_input::MAPPER_A != 0
-                            && selected.requested & kirby_assist_core::native_input::MAPPER_A != 0
-                            && manual.buttons.held
-                                & config
-                                    .control_layout
-                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_A)
-                                != 0;
-                        // Forward all exclusive sequence axes identically. Drift
-                        // and Run must not depend on the native mapper retaining
-                        // an analog value after physical flick history was masked.
-                        if let Some(stick) =
-                            kirby_assist_core::native_input::exclusive_sequence_stick(
-                                ledge.owned,
-                                ledge.stick,
-                            )
-                        {
-                            mapped_left_stick = Some(stick);
-                        }
-                        if exclusive_sequence {
-                            mapped_sequence_right = Some(cancel_stick.unwrap_or([0.; 2]));
-                        }
-                        if fresh && manual_scope && exclusive_sequence && winner.is_some() {
-                            mapped_literal_request = Some(
-                                [
-                                    kirby_assist_core::native_input::MAPPER_A,
-                                    kirby_assist_core::native_input::MAPPER_B,
-                                    kirby_assist_core::native_input::MAPPER_R,
-                                    kirby_assist_core::native_input::MAPPER_ZR,
-                                ]
-                                .into_iter()
-                                .fold(0, |mask, button| {
-                                    mask | if canonical_requested & selected.owned & button != 0
-                                        && manual.buttons.held
-                                            & config.control_layout.physical_buttons(button)
-                                            != 0
-                                    {
-                                        button
-                                    } else {
-                                        0
-                                    }
-                                }),
-                            );
-                            mapped_unshielded_auto_grab = winner == Some(Owner::OutOfShield)
-                                && state.oos.unshielded_grab_started();
-                        }
-                        let posture_side = if winner == Some(Owner::Posture) {
-                            configured_c_stick
-                                .and_then(|(_, right)| (right[1] == 0.0).then_some(right[0]))
-                        } else {
-                            None
-                        };
-                        let modified = if winner.is_none() || winner == Some(Owner::Posture) {
-                            state
-                                .posture_side_aliases
-                                .apply(manual.buttons, posture_side)
-                        } else {
-                            state.posture_side_aliases = Default::default();
-                            manual.buttons
-                        };
-                        if winner == Some(Owner::Reflect) {
-                            mapped_reflector = Some(state.raw_tick);
-                        }
-                        mapped_reflect = winner == Some(Owner::Reflect)
-                            && selected.requested & kirby_assist_core::native_input::MAPPER_B != 0
-                            && modified.held
-                                & config
-                                    .control_layout
-                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_B)
-                                != 0;
-                        if winner == Some(Owner::OutOfShield)
-                            && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
-                            && modified.held
-                                & config
-                                    .control_layout
-                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_R)
-                                != 0
-                        {
-                            mapped_auto_grab = state
-                                .oos
-                                .target()
-                                .map(|target| (state.raw_tick, target, true));
-                        } else if approach_pulse
-                            && selected.stick.is_some_and(|s| s[0].abs() >= 0.95)
-                        {
-                            mapped_auto_grab = state
-                                .oos
-                                .target()
-                                .map(|target| (state.raw_tick, target, false));
-                        }
-                        if winner == Some(Owner::OptionRead)
-                            && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
-                            && modified.held
-                                & config
-                                    .control_layout
-                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_R)
-                                != 0
-                        {
-                            mapped_dodge_punish_grab = state
-                                .spot_dodge
-                                .as_ref()
-                                .and_then(|s| s.follow_target())
-                                .map(|id| (state.raw_tick, id));
-                        }
-                        if winner == Some(Owner::GrabDodge)
-                            && selected.requested & MAPPER_ZR != 0
-                            && selected.stick.is_some_and(|s| s[1] < -0.5)
-                        {
-                            mapped_auto_dodge = state
-                                .spot_dodge
-                                .as_ref()
-                                .and_then(|s| s.target())
-                                .map(|target| (state.raw_tick, target));
-                        }
-                        if winner == Some(Owner::OutOfShield)
-                            && state.oos.shield_up_b_pending()
-                            && selected.requested & kirby_assist_core::native_input::MAPPER_B != 0
-                            && modified.held
-                                & config
-                                    .control_layout
-                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_B)
-                                != 0
-                        {
-                            mapped_auto_up_special = state
-                                .oos
-                                .target()
-                                .map(|target| (state.raw_tick, target, Owner::OutOfShield));
-                        } else if selected.requested & kirby_assist_core::native_input::MAPPER_B
-                            != 0
-                            && modified.held
-                                & config
-                                    .control_layout
-                                    .physical_buttons(kirby_assist_core::native_input::MAPPER_B)
-                                != 0
-                        {
-                            let target = match winner {
-                                Some(Owner::RollRead) => state
-                                    .rule_engine
-                                    .as_ref()
-                                    .filter(|e| e.direct_up_b())
-                                    .and_then(|e| e.target()),
-                                Some(Owner::OptionRead) => state
-                                    .spot_dodge
-                                    .as_ref()
-                                    .filter(|s| s.direct_up_b())
-                                    .and_then(|s| s.follow_target()),
-                                _ => None,
-                            };
-                            mapped_auto_up_special = target
-                                .zip(winner)
-                                .map(|(target, owner)| (state.raw_tick, target, owner));
-                        }
-                        #[cfg(feature = "diagnostic-logging")]
-                        if state.grab_trace.active() || state.calibration.active() {
-                            grab_delivery = Some((
-                                state.ledge_output.requested,
-                                modified.held,
-                                modified.pressed,
-                                if !ledge_fresh {
-                                    "expired_observation"
-                                } else if !manual_scope {
-                                    "outside_manual_scope"
-                                } else if mash_takeover {
-                                    "mash_priority"
-                                } else if state.tech_output.owns_guard {
-                                    "tech_priority"
-                                } else if winner == Some(Owner::Trip) {
-                                    "trip_priority"
-                                } else if winner == Some(Owner::Fair) {
-                                    "fair_priority"
-                                } else if state.trump_output.owned != 0 {
-                                    "trump_priority"
-                                } else {
-                                    "ledge"
-                                },
-                            ));
-                        }
-                        tech_applied = mapped_tech_output.is_some_and(|t| t.press);
-                        #[cfg(feature = "diagnostic-logging")]
-                        if ledge.requested & modified.pressed != 0 {
-                            ledge_edge = Some(ledge.requested);
-                        }
-                        #[cfg(feature = "diagnostic-logging")]
-                        {
-                            let grab_button = config
-                                .control_layout
-                                .physical_buttons(kirby_assist_core::native_input::MAPPER_R);
-                            let automatic = winner == Some(Owner::OutOfShield)
-                                && selected.requested & kirby_assist_core::native_input::MAPPER_R
-                                    != 0
-                                && modified.held & grab_button != 0;
-                            let manual_grab = physical.held & grab_button != 0
-                                && selected.requested & kirby_assist_core::native_input::MAPPER_R
-                                    == 0;
-                            if automatic || manual_grab {
-                                let (counter, pressed) = if automatic {
-                                    (&AUTOMATIC_GRAB_COMPARISON_POLLS, modified.pressed)
-                                } else {
-                                    (&MANUAL_GRAB_COMPARISON_POLLS, physical.pressed)
-                                };
-                                if pressed & grab_button != 0 {
-                                    counter.store(0, Ordering::Relaxed);
-                                }
-                                if counter
-                                    .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
-                                        (count < 8).then_some(count + 1)
-                                    })
-                                    .is_ok()
-                                {
-                                    grab_mapping_comparison = Some((
-                                        automatic,
-                                        winner,
-                                        selected.requested,
-                                        physical,
-                                        modified,
-                                        physical_stick,
-                                        manual.stick,
-                                        physical_triggers,
-                                        kirby_assist_core::native_input::owned_trigger_axes(
-                                            physical_triggers,
-                                            manual.clear_autorepeat,
-                                        ),
-                                    ));
-                                }
-                            }
-                        }
-                        #[cfg(feature = "diagnostic-logging")]
-                        if let Some(message) = state.pending_combat_log.take() {
-                            messages.push(message);
-                        }
-                        #[cfg(feature = "diagnostic-logging")]
-                        if let Some(message) = state.pending_tech_log.take() {
-                            messages.push(message);
-                        }
-                        #[cfg(feature = "diagnostic-logging")]
-                        if let Some(message) = state.pending_ledge_log.take() {
-                            messages.push(message);
-                        }
-                        #[cfg(feature = "diagnostic-logging")]
-                        if config.controls.tech_debug
-                            && state.last_logged_scenario.1
-                            && modified.pressed & MAPPER_ZR != 0
-                            && mapped_tech_output.is_some_and(|t| t.press)
-                        {
-                            messages.push(format!("tech ZR applied: input_update={}, held={:#x}, previous={:#x}, pressed={:#x}", state.raw_tick, modified.held, modified.previous, modified.pressed));
-                            messages.push(format!(
-                                "tech request timing: {:?}",
-                                state
-                                    .tech_input
-                                    .as_ref()
-                                    .and_then(TechInput::last_observation)
-                            ));
-                        }
-                        state.last_output_buttons = modified.held;
-                        #[cfg(feature = "diagnostic-logging")]
-                        {
-                            state.buttons_modified |= modified != physical;
-                        }
-                        // Mutation is confined to the verified controller
-                        // fields, after policy evaluation. This is software
-                        // input before user button mapping, not a physical HID
-                        // report transmitted by a Pro Controller.
-                        write_trace(controller, modified);
-                        (*controller).left_stick_x = manual.stick[0];
-                        (*controller).left_stick_y = manual.stick[1];
-                        let triggers = kirby_assist_core::native_input::owned_trigger_axes(
-                            physical_triggers,
-                            manual.clear_autorepeat,
-                        );
-                        (*controller).left_trigger = triggers[0];
-                        (*controller).right_trigger = triggers[1];
-                        // Action-owning sequences suppress competing C-stick
-                        // attacks. The facing helper only angles an existing
-                        // physical down C-stick; restore both sticks afterward.
-                        if kirby_assist_core::move_input::blocks_physical_c_stick(ledge.owned)
-                            || mash_takeover
-                        {
-                            (*controller).right_stick_x = 0.0;
-                            (*controller).right_stick_y = 0.0;
-                        }
-                        if winner == Some(Owner::Posture) {
-                            if let Some(stick) =
-                                configured_c_stick.map(|(_, right)| right).or_else(|| {
-                                    kirby_assist_core::posture::Posture::aimed_c_stick(
-                                        policy_buttons,
-                                        physical_right_stick,
-                                        posture.stick,
-                                    )
-                                })
-                            {
-                                (*controller).right_stick_x = stick[0];
-                                (*controller).right_stick_y = stick[1];
-                            }
-                        }
-                        if let Some(stick) = cancel_stick {
-                            (*controller).right_stick_x = stick[0];
-                            (*controller).right_stick_y = stick[1];
-                        }
-                        // Repeat flags can otherwise leak a held side-taunt
-                        // even after held/pressed/released words were consumed.
-                        (*controller).autorepeat[0] &= !manual.clear_autorepeat;
-                        restore = Some(ControllerRestore {
-                            controller,
-                            physical,
-                            stick: physical_stick,
-                            right_stick: physical_right_stick,
-                            autorepeat: physical_autorepeat,
-                            triggers: physical_triggers,
-                        });
-                    }
-                }
-            }
+            compose_overlay(&mut state, &frame, &mut prep);
         }
     }
-    Some(MapperPreparation {
-        restore,
-        mapped_left_stick,
-        mapped_automatic_request,
-        mapped_auto_grab,
-        mapped_reflect,
-        mapped_reflector,
-        mapped_auto_up_special,
-        mapped_auto_dodge,
-        mapped_dodge_punish_grab,
-        mapped_attack_hold,
-        mapped_literal_request,
-        mapped_unshielded_auto_grab,
-        mapped_sequence_right,
-        reserved_dpad,
-        tech_applied,
-        mapped_tech_output,
-        mapped_grab_handoff,
-        sequence_short_hop,
-        mapped_manual_jump,
+    Some(prep)
+}
+
+/// Runs every overlay stage for one admitted poll while holding the state lock.
+unsafe fn compose_overlay(state: &mut State, frame: &OverlayFrame, prep: &mut MapperPreparation) {
+    let gate = poll_gate(state, frame);
+    #[cfg(feature = "diagnostic-logging")]
+    track_input_expiry(state, &gate);
+    let mut samples = sample_tools(state, frame, &gate, prep);
+    let arbitration = arbitrate_owner(state, &gate, &samples, prep);
+    samples.turbo_output.stick = winner_left_stick(&arbitration, &samples);
+    state.cancel_non_owner(arbitration.winner);
+    #[cfg(feature = "diagnostic-logging")]
+    report_mode_snapshot(state, frame, &gate, &samples, &arbitration, prep);
+    let request = compose_native_request(state, &gate, &samples, &arbitration, prep);
+    let (manual, approach_pulse) =
+        apply_manual_overlay(state, frame, &samples, &arbitration, &request);
+    plan_stick_overlay(
+        state,
+        frame,
+        &gate,
+        &samples,
+        &arbitration,
+        &request,
+        &manual,
+        prep,
+    );
+    let modified = plan_delivery_feedback(
+        state,
+        frame,
+        &arbitration,
+        &samples,
+        &manual,
+        approach_pulse,
+        prep,
+    );
+    #[cfg(feature = "diagnostic-logging")]
+    report_overlay_diagnostics(state, frame, &gate, &arbitration, &manual, modified, prep);
+    commit_overlay(
+        state,
+        frame,
+        &gate,
+        &samples,
+        &arbitration,
+        &request,
+        &manual,
+        modified,
+        prep,
+    );
+}
+
+/// Freshness and scope gates, computed once per poll.
+#[derive(Clone, Copy)]
+struct PollGate {
+    policy_buttons: u32,
+    fresh: bool,
+    manual_scope: bool,
+    native_grab: bool,
+    mash_stick: Option<[f32; 2]>,
+    #[cfg(feature = "diagnostic-logging")]
+    now: Instant,
+}
+
+fn poll_gate(state: &State, frame: &OverlayFrame) -> PollGate {
+    let OverlayFrame {
+        index,
+        config,
+        physical,
+        tested_held,
+        ..
+    } = *frame;
+    // Recreate the canonical policy view in this lock scope.
+    // The earlier copy configures observation/menu state, but
+    // is intentionally scoped to that mapper-state update.
+    let policy_buttons = config.control_layout.policy_buttons(tested_held);
+    let policy_buttons = state
+        .settings_menu
+        .as_ref()
+        .map_or(policy_buttons, |m| m.native_buttons);
+    let now = Instant::now();
+    let fresh =
+        kirby_assist_core::observation::input_update_current(state.evaluated_tick, state.raw_tick)
+            && state
+                .request_seen
+                .is_some_and(|seen| now.duration_since(seen) < REQUEST_LIFETIME);
+    let manual_scope = local_route_current(state, index)
+        && state.associated_object == state.observed_object
+        && physical.held & MAPPER_PLUS == 0;
+    // Expired requests become neutral. The overlay still
+    // knows the previous assisted output, allowing a release.
+    let native_grab = state
+        .manual_context
+        .is_some_and(|c| kirby_assist_core::action_owner::native_grab_active(c.status));
+    let auto_mash = state
+        .settings_menu
+        .as_ref()
+        .map_or(config.controls.auto_mash, |menu| {
+            menu.auto_mash(config.controls.auto_mash)
+        });
+    let mash_stick = if fresh && auto_mash {
+        state.mash_stick
+    } else {
+        None
+    };
+    PollGate {
+        policy_buttons,
+        fresh,
+        manual_scope,
+        native_grab,
+        mash_stick,
         #[cfg(feature = "diagnostic-logging")]
-        trump_pressed,
+        now,
+    }
+}
+
+/// Diagnostic only: reports the transition into an expired-input state once.
+#[cfg(feature = "diagnostic-logging")]
+fn track_input_expiry(state: &mut State, gate: &PollGate) {
+    let expired = gate.manual_scope
+        && state.menu_battle_active
+        && !gate.fresh
+        && state.request_seen.is_some();
+    if expired && !state.last_input_expired {
+        crate::performance::health::event(crate::performance::health::Event::InputExpired);
+    }
+    state.last_input_expired = expired;
+}
+
+/// Each manual tool's proposal for this poll, before owner arbitration.
+#[derive(Clone, Copy)]
+struct ToolSamples {
+    turbo_output: TurboOutput,
+    turbo_stick: Option<[f32; 2]>,
+    pivot_stick: Option<[f32; 2]>,
+    manual_walk_stick: Option<[f32; 2]>,
+    manual_context: Option<ManualContext>,
+    posture: PostureSample,
+    menu_consumed: u32,
+    damage: DamageStickSample,
+}
+
+/// Samples the Turbo t-bag and dash-pivot helpers from the physical input.
+fn sample_turbo_and_pivot(
+    state: &mut State,
+    frame: &OverlayFrame,
+    gate: &PollGate,
+) -> (TurboOutput, Option<[f32; 2]>) {
+    let OverlayFrame {
+        config,
+        physical,
+        physical_stick,
+        physical_right_stick,
+        ..
+    } = *frame;
+    let PollGate {
+        policy_buttons,
+        fresh,
+        manual_scope,
+        ..
+    } = *gate;
+    // Compose all native requests through ONE button history.
+    // Independent overlays can disagree about a release when
+    // tech, mash and ledge ownership switch on the same frame.
+    // Read the trigger from PHYSICAL buttons, then consume
+    // its taunt bits. Releasing returns the fresh physical
+    // stick immediately, rather than forcing neutral.
+    let tick = state.policy_tick.unwrap_or(state.raw_tick);
+    let can_move = fresh && state.policy_tick.is_some() && state.turbo_ready;
+    // The selected button binding alone activates Turbo t-bag.
+    // L3 is not remapped to the L ledge-assist role.
+    let turbo_held = policy_buttons & TURBO_TRIGGER != 0;
+    let turbo_facing = state.manual_context.map_or(1.0, |ctx| ctx.facing);
+    let turbo_input_tick = state.raw_tick;
+    let turbo_output = state
+        .turbo
+        .get_or_insert_with(TurboState::default)
+        .sample_teabag(
+            config.turbo,
+            // Generate the next local input packet now;
+            // never wait for delayed crouch acknowledgment.
+            turbo_input_tick,
+            turbo_held,
+            turbo_facing,
+            manual_scope,
+            can_move,
+        );
+    // Bound directions are consumed by the menu adapter. Normal
+    // directions pass through; no hard-coded B-reverse/trump.
+    // L holds ledge trap; held Y runs its saved mode.
+    // Changing tools releases the previous policy.
+    // Stale observations still release automation ownership.
+    let turbo_stick = turbo_output.stick;
+    let pivot_context = state.manual_context.filter(|_| {
+        fresh
+            && manual_scope
+            && state.policy_tick.is_some()
+            && turbo_stick.is_none()
+            && physical.held & !kirby_assist_core::manual_controls::LEFT_STICK_DIRECTIONS == 0
+            && physical_right_stick
+                .iter()
+                .all(|v| v.is_finite() && v.abs() <= 0.1)
+    });
+    if pivot_context.is_none() {
+        state.dash_pivot = None;
+    }
+    let pivot_stick = pivot_context.map_or(None, |context| {
+        state
+            .dash_pivot
+            .get_or_insert_with(Default::default)
+            .sample(
+                tick,
+                context.status,
+                context.situation,
+                context.stopped,
+                physical_stick,
+            )
+            .stick
+    });
+    (turbo_output, pivot_stick)
+}
+
+/// Samples every manual tool for this poll: turbo, dash pivot, ledge walk, posture and damage sticks.
+fn sample_tools(
+    state: &mut State,
+    frame: &OverlayFrame,
+    gate: &PollGate,
+    prep: &mut MapperPreparation,
+) -> ToolSamples {
+    let OverlayFrame {
+        config,
+        physical,
+        physical_stick,
+        physical_right_stick,
+        ..
+    } = *frame;
+    let PollGate {
+        policy_buttons,
+        fresh,
+        manual_scope,
+        mash_stick,
+        ..
+    } = *gate;
+    let (turbo_output, pivot_stick) = sample_turbo_and_pivot(state, frame, gate);
+    let turbo_stick = turbo_output.stick;
+    let manual_walk_stick = manual_ledge_walk(state, frame, gate, turbo_output);
+    let manual_context = state.manual_context;
+    let posture = sample_mapper_posture(
+        state,
+        manual_context,
+        manual_scope,
+        fresh,
+        policy_buttons,
+        physical,
+        physical_stick,
+        physical_right_stick,
+    );
+    // Menu input is reserved during entry/respawn too.
+    let menu_consumed = if state.menu_battle_active && state.menu_fighter_kind.is_some() {
+        state.settings_menu.as_ref().map_or(0, |menu| menu.consumed)
+    } else {
+        0
+    };
+    prep.reserved_dpad |= menu_consumed & kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS;
+    #[cfg(feature = "diagnostic-logging")]
+    report_trump_input(state, gate, prep);
+    let damage = sample_damage_sticks(
+        state,
+        config,
+        manual_scope,
+        fresh,
+        mash_stick,
+        physical_stick,
         #[cfg(feature = "diagnostic-logging")]
-        ledge_edge,
+        &mut prep.diagnostics.messages,
+    );
+    ToolSamples {
+        turbo_output,
+        turbo_stick,
+        pivot_stick,
+        manual_walk_stick,
+        manual_context,
+        posture,
+        menu_consumed,
+        damage,
+    }
+}
+
+/// Diagnostic only: describes the trump input of a poll that pressed its binding.
+#[cfg(feature = "diagnostic-logging")]
+fn report_trump_input(state: &State, gate: &PollGate, prep: &mut MapperPreparation) {
+    if prep.diagnostics.trump_pressed {
+        prep.diagnostics.messages.push(format!(
+            "trump input: scope={}, fresh={}, action={}, stick={:?}, reserved={:#x}",
+            gate.manual_scope,
+            gate.fresh,
+            state
+                .trump
+                .as_ref()
+                .map_or("unobserved", LedgeTrump::action_name),
+            state.trump_output.stick,
+            prep.reserved_dpad,
+        ));
+    }
+}
+
+/// Resolves the owner of this poll's left stick and buttons, then records what the mapper hook must deliver for it.
+fn arbitrate_owner(
+    state: &mut State,
+    gate: &PollGate,
+    samples: &ToolSamples,
+    prep: &mut MapperPreparation,
+) -> Arbitration {
+    let PollGate {
+        fresh,
+        manual_scope,
+        native_grab,
+        mash_stick,
+        ..
+    } = *gate;
+    let ToolSamples {
+        turbo_stick,
+        pivot_stick,
+        manual_context,
+        posture: PostureSample {
+            output: posture, ..
+        },
+        damage:
+            DamageStickSample {
+                di_stick,
+                sdi_stick,
+                damage_stick,
+            },
+        ..
+    } = *samples;
+    // Single final authority for sticks/buttons. Preparation
+    // keeps ledge/roll timing ahead of every optional tool.
+    // A detected ledge visit reserves its response against
+    // general reads. Before acquisition they run normally.
+    // Single final authority for sticks/buttons. Preparation
+    // keeps ledge/roll timing ahead of every optional tool.
+    // A detected ledge visit reserves its response against
+    // general reads. Before acquisition they run normally.
+    let mut intents = mapper_action_intents(
+        state,
+        MapperIntentInputs {
+            fresh,
+            manual_scope,
+            mash_active: mash_stick.is_some(),
+            damage_active: damage_stick.is_some(),
+            turbo_active: turbo_stick.is_some(),
+            pivot_active: pivot_stick.is_some(),
+            posture_active: posture.stick.is_some(),
+        },
+    );
+    let handoff_status = manual_context.map_or(-1, |c| c.status);
+    let handoff_situation = manual_context.map_or(
+        kirby_assist_core::native_states::situation::UNAVAILABLE,
+        |c| c.situation,
+    );
+    let handoff_context = manual_context.filter(|_| fresh).map(|c| GameplayContext {
+        gameplay: manual_scope,
+        status: c.status,
+        situation: c.situation,
+        motion_kind: c.motion,
+        motion_frame: c.frame,
+        motion_rate: c.rate,
+        stopped: c.stopped,
+        ..GameplayContext::default()
+    });
+    state
+        .grab_handoff
+        .observe_native(manual_scope, handoff_context);
+    state.grab_handoff.restrict(&mut intents);
+    let mut winner = state
+        .action_owner
+        .select(fresh && manual_scope && !native_grab, &intents);
+    prep.adjustments.short_hop = owner_native_short_hop(state, winner);
+    let mut selected = selected_owner_output(state, winner, posture, handoff_situation);
+    let selected_right = selected_owner_right_stick(state, winner, selected, handoff_situation);
+    if !state.grab_handoff.permits(winner, selected, selected_right) {
+        // Stop the old script, not just this packet; otherwise its
+        // delayed B/Up step could resume after receipt expiry.
+        if let Some(owner) = winner {
+            state.action_owner.release(owner);
+        }
+        winner = None;
+        selected = ControllerOutput::default();
+    }
+    let mut mapped_tech_output = None;
+    if winner == Some(Owner::Safety) {
+        (selected, mapped_tech_output) =
+            kirby_assist_core::action_owner::safety_output_with_deadline(
+                state.tech_output,
+                mash_stick,
+                di_stick,
+                sdi_stick,
+                state.tech_urgent,
+            );
+    }
+    selected = kirby_assist_core::action_owner::exclusive_output(
+        winner,
+        state.action_owner.current_owner() == winner && winner.is_some(),
+        selected,
+    );
+    let tech_takeover = winner == Some(Owner::Safety) && mapped_tech_output.is_some();
+    let mash_takeover = winner == Some(Owner::Safety) && mash_stick.is_some();
+    prep.feedback.grab_handoff = Some((
+        state.raw_tick,
+        winner,
+        selected.requested & kirby_assist_core::native_input::MAPPER_R != 0,
+        fresh
+            && manual_scope
+            && !native_grab
+            && handoff_situation == kirby_assist_core::native_states::situation::GROUND
+            && !kirby_assist_core::ledge_trap::sequence_interrupted(handoff_status),
+    ));
+    prep.adjustments.tech_output = mapped_tech_output;
+    let tech_press = mapped_tech_output.is_some_and(|t| t.press);
+    prep.feedback.tech_applied = tech_press;
+    Arbitration {
+        winner,
+        selected,
+        situation: handoff_situation,
+        tech_press,
+        tech_takeover,
+        mash_takeover,
         #[cfg(feature = "diagnostic-logging")]
-        grab_delivery,
-        #[cfg(feature = "diagnostic-logging")]
-        grab_mapping_comparison,
-        #[cfg(feature = "diagnostic-logging")]
-        messages,
-        #[cfg(feature = "diagnostic-logging")]
-        mode_report,
-    })
+        intents,
+    }
+}
+
+/// Whether the winning script asked the mapped jump to be shortened.
+fn owner_native_short_hop(state: &State, winner: Option<Owner>) -> bool {
+    match winner {
+        Some(Owner::Ledge) => state.ledge_output.native_short_hop,
+        Some(Owner::OutOfShield) => state.oos_output.native_short_hop,
+        Some(Owner::OptionRead) => state.spot_output.native_short_hop,
+        _ => false,
+    }
+}
+
+/// The left-stick packet the winning owner supplies.
+fn winner_left_stick(arbitration: &Arbitration, samples: &ToolSamples) -> Option<[f32; 2]> {
+    let Arbitration {
+        winner, selected, ..
+    } = *arbitration;
+    let ToolSamples {
+        turbo_stick,
+        pivot_stick,
+        manual_walk_stick,
+        ..
+    } = *samples;
+    match winner {
+        Some(Owner::Safety) => selected.stick,
+        Some(Owner::Turbo) => turbo_stick.or(pivot_stick),
+        // An armed ledge wait reserves priority without an
+        // attack stick. Keep its shared physical walk cap;
+        // owned releases and active recipes must never fall through.
+        Some(Owner::Ledge) if selected.owned == 0 && selected.requested == 0 => {
+            selected.stick.or(manual_walk_stick)
+        }
+        None => manual_walk_stick,
+        _ => selected.stick,
+    }
+}
+
+/// Diagnostic only: reports a movement override and feeds the mode recorder.
+#[cfg(feature = "diagnostic-logging")]
+fn report_mode_snapshot(
+    state: &mut State,
+    frame: &OverlayFrame,
+    gate: &PollGate,
+    samples: &ToolSamples,
+    arbitration: &Arbitration,
+    prep: &mut MapperPreparation,
+) {
+    let OverlayFrame { physical_stick, .. } = *frame;
+    let PollGate {
+        now,
+        fresh,
+        manual_scope,
+        mash_stick,
+        ..
+    } = *gate;
+    let ToolSamples {
+        turbo_output,
+        manual_context,
+        damage:
+            DamageStickSample {
+                di_stick,
+                sdi_stick,
+                ..
+            },
+        ..
+    } = *samples;
+    let Arbitration {
+        winner,
+        selected: ledge,
+        ref intents,
+        ..
+    } = *arbitration;
+    let messages = &mut prep.diagnostics.messages;
+    use kirby_assist_core::diagnostics::modes::{bit, Snapshot};
+    let status = manual_context.map_or(-1, |c| c.status);
+    // Log only a change into a real assist override, not
+    // every poll or native animation stop. No game reads.
+    let blocker = if manual_scope
+        && fresh
+        && physical_stick[0].abs() >= 0.8
+        && physical_stick[1].abs() < 0.3
+        && turbo_output
+            .stick
+            .is_some_and(|s| s[0].abs() <= 0.2 || s[0] * physical_stick[0] < 0.0)
+    {
+        winner
+    } else {
+        None
+    };
+    if blocker != state.last_movement_blocker {
+        state.last_movement_blocker = blocker;
+        if let Some(owner) = blocker {
+            messages.push(format!("MOVEMENT OVERRIDE: owner={}, native_status={status:#x}, physical_stick={physical_stick:?}, proposed_stick={:?}, requested={:#x}, ledge_active={}",
+                                        kirby_assist_core::diagnostics::modes::name(owner),turbo_output.stick,ledge.requested,state.ledge_active));
+        }
+    }
+    let snapshot = Snapshot {
+        winner,
+        present: intents
+            .iter()
+            .filter(|i| i.present)
+            .fold(0, |mask, i| mask | bit(i.owner)),
+        committed: intents
+            .iter()
+            .any(|i| Some(i.owner) == winner && i.committed),
+        requested: ledge.requested,
+        stick: turbo_output.stick.map(|stick| {
+            stick.map(|v| {
+                if v > 0.08 {
+                    1
+                } else if v < -0.08 {
+                    -1
+                } else {
+                    0
+                }
+            })
+        }),
+        status,
+        motion: manual_context.map_or(0, |c| c.motion),
+        native_frame: manual_context.map_or(0, |c| c.frame.clamp(0.0, 65535.0) as u16),
+        stopped: manual_context.is_some_and(|c| c.stopped),
+        can_act: state.turbo_ready,
+        hit: state.mode_hit,
+        valid: fresh && manual_scope,
+        safety: (if state.tech_output.press || state.tech_output.owns_guard {
+            kirby_assist_core::diagnostics::modes::SAFETY_TECH_GUARD
+        } else {
+            0
+        }) | (if mash_stick.is_some() {
+            kirby_assist_core::diagnostics::modes::SAFETY_MASH
+        } else {
+            0
+        }) | (if sdi_stick.is_some() && di_stick.is_none() {
+            kirby_assist_core::diagnostics::modes::SAFETY_SDI
+        } else {
+            0
+        }) | (if di_stick.is_some() {
+            kirby_assist_core::diagnostics::modes::SAFETY_DI
+        } else {
+            0
+        }),
+    };
+    // Reuse the mapper's timestamp; do not read another clock per poll.
+    let origin = *state.mode_log_origin.get_or_insert(now);
+    let ms = now
+        .saturating_duration_since(origin)
+        .as_millis()
+        .min(u128::from(u64::MAX)) as u64;
+    prep.diagnostics.mode_report = state.mode_diagnostics.sample(snapshot, ms);
+}
+
+/// The button masks and stick packets the winning owner asks the native mapper to treat as its input.
+#[derive(Clone, Copy)]
+struct NativeRequest {
+    consumed: u32,
+    requested: u32,
+    owned: u32,
+    cancel_stick: Option<[f32; 2]>,
+    sequence_walking: bool,
+    exclusive_sequence: bool,
+}
+
+/// The C-stick packet to force this poll: a grounded Grab release, or the
+/// winning script's own stick while its input is current.
+fn cancel_right_stick(
+    state: &State,
+    winner: Option<Owner>,
+    selected: ControllerOutput,
+    situation: i32,
+    fresh: bool,
+) -> Option<[f32; 2]> {
+    if let Some(release) = grab_release_right_stick(selected, situation) {
+        return Some(release);
+    }
+    let current = fresh
+        && match winner {
+            Some(Owner::RollRead | Owner::OptionRead) => selected.owned != 0,
+            Some(Owner::OutOfShield) => state.oos_output.owned != 0,
+            Some(Owner::Ledge) => true,
+            _ => false,
+        };
+    current.then(|| owner_right_stick(state, winner)).flatten()
+}
+
+fn compose_native_request(
+    state: &State,
+    gate: &PollGate,
+    samples: &ToolSamples,
+    arbitration: &Arbitration,
+    prep: &mut MapperPreparation,
+) -> NativeRequest {
+    let PollGate { fresh, .. } = *gate;
+    let ToolSamples {
+        turbo_output,
+        manual_walk_stick,
+        menu_consumed,
+        posture: PostureSample { tilt_aiming, .. },
+        ..
+    } = *samples;
+    let Arbitration {
+        winner,
+        selected,
+        situation: handoff_situation,
+        tech_press,
+        tech_takeover,
+        mash_takeover,
+        ..
+    } = *arbitration;
+    // A held C-stick can otherwise inject an attack while
+    // left-stick-only mashing. Block its digital aliases too.
+    let blocked_stick_buttons = if mash_takeover {
+        kirby_assist_core::manual_controls::RIGHT_STICK_DIRECTIONS
+            | kirby_assist_core::manual_controls::STICK_CLICKS
+    } else {
+        0
+    };
+    let cancel_stick = cancel_right_stick(state, winner, selected, handoff_situation, fresh);
+    // All manual tools share ONE final edge history. When
+    // adding a tool, compose its requested/owned masks here
+    // and decide its stick priority explicitly; do not write
+    // another independent A/R/ZR history after this point.
+    let sequence_walking = match winner {
+        Some(Owner::Ledge) => state
+            .ledge
+            .as_ref()
+            .and_then(LedgeTrap::requested_walk_stick)
+            .is_some(),
+        Some(Owner::RollRead) => state.rule_engine.as_ref().is_some_and(|r| r.walking()),
+        // A moving grab retains raw horizontal input; it is not a file Walk.
+        Some(Owner::OutOfShield) => false,
+        Some(Owner::OptionRead) => state.spot_dodge.as_ref().is_some_and(|s| s.walking()),
+        _ => false,
+    };
+    let exclusive_sequence = selected.owned & kirby_assist_core::native_input::GAMEPLAY_BUTTONS
+        == kirby_assist_core::native_input::GAMEPLAY_BUTTONS;
+    if exclusive_sequence {
+        prep.reserved_dpad |= kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS;
+    }
+    let owned_direction_flick = !exclusive_sequence
+        && selected.owned & kirby_assist_core::manual_controls::LEFT_STICK_DIRECTIONS != 0
+        && !mash_takeover
+        && !matches!(winner, Some(Owner::Trip | Owner::Fair))
+        && !(winner == Some(Owner::Posture) && tilt_aiming);
+    let walk_cap_flick = manual_walk_stick.is_some()
+        && turbo_output.stick == manual_walk_stick
+        && selected.owned == 0
+        && !mash_takeover;
+    let consumed = kirby_assist_core::native_input::sequence_flick_consumption(
+        selected.owned,
+        sequence_walking,
+    ) | prep.reserved_dpad
+        | menu_consumed
+        | mask_if(
+            owned_direction_flick || walk_cap_flick,
+            LEFT_STICK_SIDE_FLICKS,
+        );
+    let requested =
+        kirby_assist_core::native_input::selected_requests(selected.owned, selected.requested, 0);
+    // Deliver the native jump pulse through the same raw
+    // history as every other simulated input. The final
+    // mapped flag supplements this path; it does not replace it.
+    if exclusive_sequence {
+        prep.adjustments.automatic_request = Some(requested);
+    }
+    prep.feedback.manual_jump = winner == Some(Owner::Ledge)
+        && requested & kirby_assist_core::native_input::SEQUENCE_JUMP_BUTTONS != 0;
+    let owned = selected.owned
+        | mask_if(tech_takeover, state.tech_output.owned_buttons())
+        | mask_if(tech_press, MAPPER_ZR)
+        | mask_if(
+            cancel_stick.is_some(),
+            kirby_assist_core::manual_controls::RIGHT_STICK_DIRECTIONS,
+        )
+        | blocked_stick_buttons;
+    // Keep source consumption above; only the final taunt
+    // filter yields to an explicitly owned sequence D-pad.
+    prep.reserved_dpad = kirby_assist_core::manual_controls::sequence_taunt_reservation(
+        prep.reserved_dpad,
+        selected.requested,
+        selected.owned,
+    );
+    NativeRequest {
+        consumed,
+        requested,
+        owned,
+        cancel_stick,
+        sequence_walking,
+        exclusive_sequence,
+    }
+}
+
+/// Runs the shared manual overlay over the physical input and returns its
+/// frame plus whether Out of Shield is mid approach pulse.
+fn apply_manual_overlay(
+    state: &mut State,
+    frame: &OverlayFrame,
+    samples: &ToolSamples,
+    arbitration: &Arbitration,
+    request: &NativeRequest,
+) -> (ManualFrame, bool) {
+    let OverlayFrame {
+        config,
+        physical,
+        physical_stick,
+        ..
+    } = *frame;
+    let turbo_output = samples.turbo_output;
+    let Arbitration {
+        winner, tech_press, ..
+    } = *arbitration;
+    let NativeRequest {
+        consumed: canonical_consumed,
+        requested: canonical_requested,
+        owned: canonical_owned,
+        ..
+    } = *request;
+    let approach_pulse = winner == Some(Owner::OutOfShield) && state.oos.approach_pending();
+    if tech_press && !state.last_mapped_guard {
+        state
+            .manual_overlay
+            .get_or_insert_with(ManualOverlay::default)
+            .rearm_tech_guard(config.control_layout.physical_buttons(MAPPER_ZR), physical);
+    }
+    let manual = state
+        .manual_overlay
+        .get_or_insert_with(ManualOverlay::default)
+        .apply_reaction_controls(
+            physical,
+            physical_stick,
+            turbo_output,
+            config.control_layout.physical_buttons(canonical_consumed),
+            config.control_layout.physical_buttons(canonical_requested),
+            config
+                .control_layout
+                .physical_owned_buttons(canonical_owned),
+            winner == Some(Owner::RollRead) || approach_pulse,
+        );
+    (manual, approach_pulse)
+}
+
+/// Chooses the analog sticks and final-button adjustments the mapper hook applies after native mapping.
+fn plan_stick_overlay(
+    state: &State,
+    frame: &OverlayFrame,
+    gate: &PollGate,
+    samples: &ToolSamples,
+    arbitration: &Arbitration,
+    request: &NativeRequest,
+    manual: &ManualFrame,
+    prep: &mut MapperPreparation,
+) {
+    let OverlayFrame { config, .. } = *frame;
+    let PollGate {
+        fresh,
+        manual_scope,
+        ..
+    } = *gate;
+    let ToolSamples {
+        turbo_output,
+        turbo_stick,
+        manual_walk_stick,
+        ..
+    } = *samples;
+    let Arbitration {
+        winner, selected, ..
+    } = *arbitration;
+    let NativeRequest {
+        requested: canonical_requested,
+        cancel_stick,
+        sequence_walking,
+        exclusive_sequence,
+        ..
+    } = *request;
+    let adjustments = &mut prep.adjustments;
+    if fresh && manual_scope && sequence_walking {
+        adjustments.left_stick = selected.stick;
+    }
+    // Built-in analog outputs must survive the native
+    // mapper's flick/history filtering just like file Walk.
+    if fresh
+        && manual_scope
+        && (winner == Some(Owner::Turbo) && turbo_stick.is_some()
+            || (winner == Some(Owner::Ledge) || winner.is_none())
+                && selected.owned == 0
+                && manual_walk_stick.is_some()
+                && turbo_output.stick == manual_walk_stick)
+    {
+        adjustments.left_stick = turbo_output.stick;
+    }
+    // Preserve the selected literal A packet, including directional
+    // smashes and one-frame presses. Plan metadata used to retain
+    // only neutral multi-frame holds, losing A while the stick survived.
+    adjustments.attack_hold = fresh
+        && manual_scope
+        && matches!(
+            winner,
+            Some(Owner::Ledge | Owner::RollRead | Owner::OutOfShield | Owner::OptionRead)
+        )
+        && selected.owned & kirby_assist_core::native_input::MAPPER_A != 0
+        && selected.requested & kirby_assist_core::native_input::MAPPER_A != 0
+        && physical_held(
+            config,
+            manual.buttons,
+            kirby_assist_core::native_input::MAPPER_A,
+        );
+    // Forward all exclusive sequence axes identically. Drift
+    // and Run must not depend on the native mapper retaining
+    // an analog value after physical flick history was masked.
+    if let Some(stick) =
+        kirby_assist_core::native_input::exclusive_sequence_stick(selected.owned, selected.stick)
+    {
+        adjustments.left_stick = Some(stick);
+    }
+    if exclusive_sequence {
+        adjustments.right_stick = Some(cancel_stick.unwrap_or([0.; 2]));
+    }
+    if fresh && manual_scope && exclusive_sequence && winner.is_some() {
+        adjustments.literal_request = Some(
+            [
+                kirby_assist_core::native_input::MAPPER_A,
+                kirby_assist_core::native_input::MAPPER_B,
+                kirby_assist_core::native_input::MAPPER_R,
+                kirby_assist_core::native_input::MAPPER_ZR,
+            ]
+            .into_iter()
+            .fold(0, |mask, button| {
+                mask | mask_if(
+                    canonical_requested & selected.owned & button != 0
+                        && physical_held(config, manual.buttons, button),
+                    button,
+                )
+            }),
+        );
+        adjustments.unshielded_auto_grab =
+            winner == Some(Owner::OutOfShield) && state.oos.unshielded_grab_started();
+    }
+}
+
+/// Records which automatic actions the final buttons must confirm, and
+/// returns the button history after posture side-tilt aliasing.
+fn plan_delivery_feedback(
+    state: &mut State,
+    frame: &OverlayFrame,
+    arbitration: &Arbitration,
+    samples: &ToolSamples,
+    manual: &ManualFrame,
+    approach_pulse: bool,
+    prep: &mut MapperPreparation,
+) -> ButtonTrace {
+    let OverlayFrame { config, .. } = *frame;
+    let Arbitration {
+        winner, selected, ..
+    } = *arbitration;
+    let configured_c_stick = samples.posture.configured_c_stick;
+    let feedback = &mut prep.feedback;
+    let posture_side = if winner == Some(Owner::Posture) {
+        configured_c_stick.and_then(|(_, right)| (right[1] == 0.0).then_some(right[0]))
+    } else {
+        None
+    };
+    let modified = if winner.is_none() || winner == Some(Owner::Posture) {
+        state
+            .posture_side_aliases
+            .apply(manual.buttons, posture_side)
+    } else {
+        state.posture_side_aliases = Default::default();
+        manual.buttons
+    };
+    let r_delivered = selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
+        && physical_held(config, modified, kirby_assist_core::native_input::MAPPER_R);
+    let b_delivered = selected.requested & kirby_assist_core::native_input::MAPPER_B != 0
+        && physical_held(config, modified, kirby_assist_core::native_input::MAPPER_B);
+    if winner == Some(Owner::Reflect) {
+        feedback.reflector_tick = Some(state.raw_tick);
+    }
+    feedback.reflect = winner == Some(Owner::Reflect) && b_delivered;
+    if winner == Some(Owner::OutOfShield) && r_delivered {
+        feedback.auto_grab = state
+            .oos
+            .target()
+            .map(|target| (state.raw_tick, target, true));
+    } else if approach_pulse && selected.stick.is_some_and(|s| s[0].abs() >= 0.95) {
+        feedback.auto_grab = state
+            .oos
+            .target()
+            .map(|target| (state.raw_tick, target, false));
+    }
+    if winner == Some(Owner::OptionRead) && r_delivered {
+        feedback.dodge_punish_grab = state
+            .spot_dodge
+            .as_ref()
+            .and_then(|s| s.follow_target())
+            .map(|id| (state.raw_tick, id));
+    }
+    if winner == Some(Owner::GrabDodge)
+        && selected.requested & MAPPER_ZR != 0
+        && selected.stick.is_some_and(|s| s[1] < -0.5)
+    {
+        feedback.auto_dodge = state
+            .spot_dodge
+            .as_ref()
+            .and_then(|s| s.target())
+            .map(|target| (state.raw_tick, target));
+    }
+    if winner == Some(Owner::OutOfShield) && state.oos.shield_up_b_pending() && b_delivered {
+        feedback.auto_up_special = state
+            .oos
+            .target()
+            .map(|target| (state.raw_tick, target, Owner::OutOfShield));
+    } else if b_delivered {
+        let target = match winner {
+            Some(Owner::RollRead) => state
+                .rule_engine
+                .as_ref()
+                .filter(|e| e.direct_up_b())
+                .and_then(|e| e.target()),
+            Some(Owner::OptionRead) => state
+                .spot_dodge
+                .as_ref()
+                .filter(|s| s.direct_up_b())
+                .and_then(|s| s.follow_target()),
+            _ => None,
+        };
+        feedback.auto_up_special = target
+            .zip(winner)
+            .map(|(target, owner)| (state.raw_tick, target, owner));
+    }
+    modified
+}
+
+/// Diagnostic only: grab-delivery traces, ledge edge, queued logs and the grab mapping comparison.
+#[cfg(feature = "diagnostic-logging")]
+fn report_overlay_diagnostics(
+    state: &mut State,
+    frame: &OverlayFrame,
+    gate: &PollGate,
+    arbitration: &Arbitration,
+    manual: &ManualFrame,
+    modified: ButtonTrace,
+    prep: &mut MapperPreparation,
+) {
+    let OverlayFrame {
+        config,
+        physical,
+        physical_stick,
+        physical_triggers,
+        ..
+    } = *frame;
+    let PollGate {
+        fresh,
+        manual_scope,
+        ..
+    } = *gate;
+    let Arbitration {
+        winner,
+        selected,
+        tech_press,
+        mash_takeover,
+        ..
+    } = *arbitration;
+    let diagnostics = &mut prep.diagnostics;
+    let messages = &mut diagnostics.messages;
+    if state.grab_trace.active() || state.calibration.active() {
+        prep.feedback.grab_delivery = Some((
+            state.ledge_output.requested,
+            modified.held,
+            modified.pressed,
+            if !fresh {
+                "expired_observation"
+            } else if !manual_scope {
+                "outside_manual_scope"
+            } else if mash_takeover {
+                "mash_priority"
+            } else if state.tech_output.owns_guard {
+                "tech_priority"
+            } else if winner == Some(Owner::Trip) {
+                "trip_priority"
+            } else if winner == Some(Owner::Fair) {
+                "fair_priority"
+            } else if state.trump_output.owned != 0 {
+                "trump_priority"
+            } else {
+                "ledge"
+            },
+        ));
+    }
+    if selected.requested & modified.pressed != 0 {
+        diagnostics.ledge_edge = Some(selected.requested);
+    }
+    let grab_button = config
+        .control_layout
+        .physical_buttons(kirby_assist_core::native_input::MAPPER_R);
+    let automatic = winner == Some(Owner::OutOfShield)
+        && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0
+        && modified.held & grab_button != 0;
+    let manual_grab = physical.held & grab_button != 0
+        && selected.requested & kirby_assist_core::native_input::MAPPER_R == 0;
+    if automatic || manual_grab {
+        let (counter, pressed) = if automatic {
+            (&AUTOMATIC_GRAB_COMPARISON_POLLS, modified.pressed)
+        } else {
+            (&MANUAL_GRAB_COMPARISON_POLLS, physical.pressed)
+        };
+        if pressed & grab_button != 0 {
+            counter.store(0, Ordering::Relaxed);
+        }
+        if counter
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+                (count < 8).then_some(count + 1)
+            })
+            .is_ok()
+        {
+            diagnostics.grab_mapping_comparison = Some((
+                automatic,
+                winner,
+                selected.requested,
+                physical,
+                modified,
+                physical_stick,
+                manual.stick,
+                physical_triggers,
+                kirby_assist_core::native_input::owned_trigger_axes(
+                    physical_triggers,
+                    manual.clear_autorepeat,
+                ),
+            ));
+        }
+    }
+    messages.extend(state.pending_combat_log.take());
+    messages.extend(state.pending_tech_log.take());
+    messages.extend(state.pending_ledge_log.take());
+    if config.controls.tech_debug
+        && state.last_logged_scenario.1
+        && modified.pressed & MAPPER_ZR != 0
+        && tech_press
+    {
+        messages.push(format!(
+            "tech ZR applied: input_update={}, held={:#x}, previous={:#x}, pressed={:#x}",
+            state.raw_tick, modified.held, modified.previous, modified.pressed
+        ));
+        messages.push(format!(
+            "tech request timing: {:?}",
+            state
+                .tech_input
+                .as_ref()
+                .and_then(TechInput::last_observation)
+        ));
+    }
+}
+
+/// Publishes the final buttons and sticks into the native controller and records what to restore.
+unsafe fn commit_overlay(
+    state: &mut State,
+    frame: &OverlayFrame,
+    gate: &PollGate,
+    samples: &ToolSamples,
+    arbitration: &Arbitration,
+    request: &NativeRequest,
+    manual: &ManualFrame,
+    modified: ButtonTrace,
+    prep: &mut MapperPreparation,
+) {
+    let OverlayFrame {
+        controller,
+        physical,
+        physical_stick,
+        physical_right_stick,
+        physical_autorepeat,
+        physical_triggers,
+        ..
+    } = *frame;
+    let policy_buttons = gate.policy_buttons;
+    let PostureSample {
+        configured_c_stick,
+        output: posture,
+        ..
+    } = samples.posture;
+    let Arbitration {
+        winner,
+        selected,
+        mash_takeover,
+        ..
+    } = *arbitration;
+    let cancel_stick = request.cancel_stick;
+    state.last_output_buttons = modified.held;
+    #[cfg(feature = "diagnostic-logging")]
+    {
+        state.buttons_modified |= modified != physical;
+    }
+    // Mutation is confined to the verified controller
+    // fields, after policy evaluation. This is software
+    // input before user button mapping, not a physical HID
+    // report transmitted by a Pro Controller.
+    write_trace(controller, modified);
+    (*controller).left_stick_x = manual.stick[0];
+    (*controller).left_stick_y = manual.stick[1];
+    let triggers = kirby_assist_core::native_input::owned_trigger_axes(
+        physical_triggers,
+        manual.clear_autorepeat,
+    );
+    (*controller).left_trigger = triggers[0];
+    (*controller).right_trigger = triggers[1];
+    // Action-owning sequences suppress competing C-stick
+    // attacks. The facing helper only angles an existing
+    // physical down C-stick; restore both sticks afterward.
+    let blocks_c_stick =
+        kirby_assist_core::move_input::blocks_physical_c_stick(selected.owned) || mash_takeover;
+    let posture_c_stick = if winner == Some(Owner::Posture) {
+        configured_c_stick.map(|(_, right)| right).or_else(|| {
+            kirby_assist_core::posture::Posture::aimed_c_stick(
+                policy_buttons,
+                physical_right_stick,
+                posture.stick,
+            )
+        })
+    } else {
+        None
+    };
+    if let Some(stick) = cancel_stick
+        .or(posture_c_stick)
+        .or_else(|| blocks_c_stick.then_some([0.; 2]))
+    {
+        (*controller).right_stick_x = stick[0];
+        (*controller).right_stick_y = stick[1];
+    }
+    // Repeat flags can otherwise leak a held side-taunt
+    // even after held/pressed/released words were consumed.
+    (*controller).autorepeat[0] &= !manual.clear_autorepeat;
+    prep.restore = Some(ControllerRestore {
+        controller,
+        physical,
+        stick: physical_stick,
+        right_stick: physical_right_stick,
+        autorepeat: physical_autorepeat,
+        triggers: physical_triggers,
+    });
 }
 /// Finalizes the mapper overlay for the given output and preparation state, applying adjustments and recording delivery feedback.
 pub(super) unsafe fn finish_mapper_overlay(
@@ -2186,37 +2489,22 @@ pub(super) unsafe fn finish_mapper_overlay(
 ) {
     let MapperPreparation {
         restore,
-        mapped_left_stick,
-        mapped_automatic_request,
-        mapped_auto_grab,
-        mapped_reflect,
-        mapped_reflector,
-        mapped_auto_up_special,
-        mapped_auto_dodge,
-        mapped_dodge_punish_grab,
-        mapped_attack_hold,
-        mapped_literal_request,
-        mapped_unshielded_auto_grab,
-        mapped_sequence_right,
+        adjustments,
+        feedback,
         reserved_dpad,
-        tech_applied,
-        mapped_tech_output,
-        mapped_grab_handoff,
-        sequence_short_hop,
-        mapped_manual_jump,
         #[cfg(feature = "diagnostic-logging")]
-        trump_pressed,
-        #[cfg(feature = "diagnostic-logging")]
-        ledge_edge,
-        #[cfg(feature = "diagnostic-logging")]
-        grab_delivery,
-        #[cfg(feature = "diagnostic-logging")]
-        grab_mapping_comparison,
-        #[cfg(feature = "diagnostic-logging")]
-        mut messages,
-        #[cfg(feature = "diagnostic-logging")]
-        mode_report,
+        diagnostics,
     } = preparation;
+    #[cfg(feature = "diagnostic-logging")]
+    let grab_delivery = feedback.grab_delivery;
+    #[cfg(feature = "diagnostic-logging")]
+    let MapperDiagnostics {
+        trump_pressed,
+        ledge_edge,
+        grab_mapping_comparison,
+        mut messages,
+        mode_report,
+    } = diagnostics;
     #[cfg(feature = "diagnostic-logging")]
     let native_grab_mapping =
         if grab_mapping_comparison.is_some() && restore.is_some() && !output.is_null() {
@@ -2225,36 +2513,12 @@ pub(super) unsafe fn finish_mapper_overlay(
             None
         };
     if restore.is_some() && !output.is_null() {
-        apply_mapper_output_adjustments(
-            output,
-            MapperOutputAdjustments {
-                left_stick: mapped_left_stick,
-                right_stick: mapped_sequence_right,
-                automatic_request: mapped_automatic_request,
-                short_hop: sequence_short_hop,
-                attack_hold: mapped_attack_hold,
-                literal_request: mapped_literal_request,
-                unshielded_auto_grab: mapped_unshielded_auto_grab,
-                tech_output: mapped_tech_output,
-            },
-        );
+        apply_mapper_output_adjustments(output, &adjustments);
         record_mapped_delivery(
             output,
             index,
             session_ticket,
-            MapperDeliveryFeedback {
-                manual_jump: mapped_manual_jump,
-                reflect: mapped_reflect,
-                reflector_tick: mapped_reflector,
-                auto_grab: mapped_auto_grab,
-                grab_handoff: mapped_grab_handoff,
-                dodge_punish_grab: mapped_dodge_punish_grab,
-                auto_dodge: mapped_auto_dodge,
-                auto_up_special: mapped_auto_up_special,
-                tech_applied,
-                #[cfg(feature = "diagnostic-logging")]
-                grab_delivery,
-            },
+            feedback,
             #[cfg(feature = "diagnostic-logging")]
             &mut messages,
         );

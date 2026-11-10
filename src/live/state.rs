@@ -272,13 +272,7 @@ impl State {
     pub(super) const fn new() -> Self {
         Self {
             reflector: kirby_assist_core::projectile_reflect::Reflector::new(),
-            reflect_output: ControllerOutput {
-                consume_trigger: false,
-                requested: 0,
-                owned: 0,
-                stick: None,
-                native_short_hop: false,
-            },
+            reflect_output: ControllerOutput::NONE,
             settings_menu: None,
             menu_fighter_kind: None,
             menu_battle_active: false,
@@ -322,21 +316,9 @@ impl State {
             #[cfg(feature = "diagnostic-logging")]
             last_input_expired: false,
             fair_followup: None,
-            fair_output: ControllerOutput {
-                consume_trigger: false,
-                stick: None,
-                requested: 0,
-                owned: 0,
-                native_short_hop: false,
-            },
+            fair_output: ControllerOutput::NONE,
             trip_followup: None,
-            trip_output: ControllerOutput {
-                consume_trigger: false,
-                stick: None,
-                requested: 0,
-                owned: 0,
-                native_short_hop: false,
-            },
+            trip_output: ControllerOutput::NONE,
             sdi: None,
             sdi_context: None,
             di: None,
@@ -352,48 +334,18 @@ impl State {
             trump_seek_tick: None,
             ledge_position: None,
             trump: None,
-            trump_output: ControllerOutput {
-                consume_trigger: false,
-                stick: None,
-                requested: 0,
-                owned: 0,
-                native_short_hop: false,
-            },
+            trump_output: ControllerOutput::NONE,
             oos: kirby_assist_core::out_of_shield::OutOfShield::new(),
-            oos_output: ControllerOutput {
-                consume_trigger: false,
-                stick: None,
-                requested: 0,
-                owned: 0,
-                native_short_hop: false,
-            },
+            oos_output: ControllerOutput::NONE,
             autopilot_guarding: false,
             guard_hold: None,
             spot_dodge: None,
-            spot_output: ControllerOutput {
-                consume_trigger: false,
-                stick: None,
-                requested: 0,
-                owned: 0,
-                native_short_hop: false,
-            },
-            ledge_output: ControllerOutput {
-                consume_trigger: false,
-                stick: None,
-                requested: 0,
-                owned: 0,
-                native_short_hop: false,
-            },
+            spot_output: ControllerOutput::NONE,
+            ledge_output: ControllerOutput::NONE,
             mash_stick: None,
             request_seen: None,
             rule_engine: None,
-            roll_read_output: ControllerOutput {
-                consume_trigger: false,
-                stick: None,
-                requested: 0,
-                owned: 0,
-                native_short_hop: false,
-            },
+            roll_read_output: ControllerOutput::NONE,
             observed_object: None,
             associated_object: None,
             fighter_kind: None,
@@ -437,23 +389,18 @@ impl State {
             calibration: crate::calibration::Recorder::new(),
         }
     }
-    // Menu choices replace settings; do not let a previous configuration keep
-    // an old punish/movement proposal queued. Navigation alone never calls this.
-    pub(super) fn cancel_manual_tools(&mut self) {
-        self.reflector.cancel();
+    /// Drop every queued tool proposal and its output. Callers add the resets
+    /// that differ: menu changes keep reflector/tech edge history, a full
+    /// cancellation does not.
+    fn clear_tool_proposals(&mut self) {
         self.reflect_output = ControllerOutput::default();
-        // A menu change invalidates native facts/settings already being read.
-        // Do not let the old observation publish after the new choice is active.
+        // Native facts/settings already being read are no longer current, so the
+        // old observation must not publish after the new state takes effect.
         self.observation_sequence = self.observation_sequence.wrapping_add(1);
         self.mash_stick = None;
         self.request_seen = None;
         self.oos = Default::default();
         self.oos_output = ControllerOutput::default();
-        // Clear the proposal, not tech's acknowledged-edge/cooldown history.
-        // The next observation applies the current enabled/tuning settings.
-        if let Some(tech) = self.tech_input.as_mut() {
-            tech.cancel_request();
-        }
         self.tech_output = TechOutput::default();
         self.tech_urgent = false;
         self.posture = None;
@@ -472,12 +419,7 @@ impl State {
         self.spot_output = ControllerOutput::default();
         self.rule_engine = None;
         self.roll_read_output = ControllerOutput::default();
-
         self.autopilot_guarding = false;
-        #[cfg(feature = "diagnostic-logging")]
-        self.grab_trace.reset("menu_choice_or_manual_tool_changed");
-        #[cfg(feature = "diagnostic-logging")]
-        self.calibration.reset("menu choice/manual tool changed");
         self.ledge = None;
         self.ledge_output = ControllerOutput::default();
         self.ledge_position = None;
@@ -491,6 +433,22 @@ impl State {
         self.trip_output = ControllerOutput::default();
         self.turbo = None;
         self.dash_pivot = None;
+    }
+    // Menu choices replace settings; do not let a previous configuration keep
+    // an old punish/movement proposal queued. Navigation alone never calls this.
+    pub(super) fn cancel_manual_tools(&mut self) {
+        self.reflector.cancel();
+        self.clear_tool_proposals();
+        // Clear the proposal, not tech's acknowledged-edge/cooldown history.
+        // The next observation applies the current enabled/tuning settings.
+        if let Some(tech) = self.tech_input.as_mut() {
+            tech.cancel_request();
+        }
+        #[cfg(feature = "diagnostic-logging")]
+        {
+            self.grab_trace.reset("menu_choice_or_manual_tool_changed");
+            self.calibration.reset("menu choice/manual tool changed");
+        }
     }
     pub(super) fn update_match(&mut self, ready: bool) -> Option<SessionTicket> {
         if self.session.update(ready) || !ready {
@@ -521,62 +479,32 @@ impl State {
     // call this: resetting there would forget cooldown and input history.
     pub(super) fn cancel(&mut self) {
         self.reflector = kirby_assist_core::projectile_reflect::Reflector::new();
-        self.reflect_output = ControllerOutput::default();
-        self.action_owner = ActionOwnership::new();
+        self.clear_tool_proposals();
         #[cfg(feature = "diagnostic-logging")]
         {
-            self.last_movement_blocker = None;
-            self.last_input_expired = false;
+            self.grab_trace.reset("session_or_controller_cancelled");
+            self.calibration.reset("session/controller cancelled");
         }
-        self.guard_hold = None;
-        self.spot_dodge = None;
-        self.spot_output = ControllerOutput::default();
-        self.rule_engine = None;
-        self.roll_read_output = ControllerOutput::default();
-
-        self.autopilot_guarding = false;
-        #[cfg(feature = "diagnostic-logging")]
-        self.grab_trace.reset("session_or_controller_cancelled");
-        #[cfg(feature = "diagnostic-logging")]
-        self.calibration.reset("session/controller cancelled");
         if let Some(menu) = self.settings_menu.as_mut() {
             menu.invalidate();
         }
-        self.observation_sequence = self.observation_sequence.wrapping_add(1);
         self.ledge_roster = None;
-        self.mash_stick = None;
-        self.request_seen = None;
         self.observed_object = None;
         self.fighter_kind = None;
         self.evaluated_tick = None;
         self.observation_setup.clear();
         self.policy = None;
         self.animation_clock = None;
-        self.oos = Default::default();
-        self.oos_output = ControllerOutput::default();
         self.tech_input = None;
         self.tech_floor_motion = Default::default();
-        self.tech_output = TechOutput::default();
-        self.tech_urgent = false;
         self.last_mapped_guard = false;
         self.last_mapped_stick = None;
         self.policy_tick = None;
-        self.turbo = None;
-        self.dash_pivot = None;
         self.manual_context = None;
-        self.posture = None;
-        self.posture_target = None;
-        self.posture_down = false;
-        self.posture_side_aliases = Default::default();
-        self.posture_floor_safe = false;
         self.manual_overlay = None;
         self.manual_jump_fence = kirby_assist_core::manual_controls::ManualJumpFence::new();
         self.grab_handoff = Default::default();
         self.turbo_ready = false;
-        self.fair_followup = None;
-        self.fair_output = ControllerOutput::default();
-        self.trip_followup = None;
-        self.trip_output = ControllerOutput::default();
         self.sdi = None;
         self.sdi_context = None;
         self.di = None;
@@ -585,14 +513,7 @@ impl State {
         self.damage_geometry = None;
         self.ledge_walk_ready = false;
         self.ledge_walk_motion = None;
-        self.ledge = None;
         self.ledge_active = false;
-        self.ledge_seek_tick = None;
-        self.trump_seek_tick = None;
-        self.ledge_position = None;
-        self.ledge_output = ControllerOutput::default();
-        self.trump = None;
-        self.trump_output = ControllerOutput::default();
         self.last_output_buttons = 0;
         #[cfg(feature = "diagnostic-logging")]
         {

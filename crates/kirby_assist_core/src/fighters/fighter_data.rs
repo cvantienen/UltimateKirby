@@ -127,12 +127,11 @@ pub struct FighterData {
 
 impl FighterData {
     pub fn move_for_motion(&self, motion: u64) -> Option<&MoveData> {
-        let mut matches = self
-            .moves
-            .iter()
-            .filter(|move_data| move_data.motions.contains(&motion));
-        let first = matches.next()?;
-        matches.next().is_none().then_some(first)
+        unique(
+            self.moves
+                .iter()
+                .filter(|move_data| move_data.motions.contains(&motion)),
+        )
     }
 
     pub fn stat(&self, key: &str) -> Option<&str> {
@@ -299,10 +298,10 @@ pub fn initialize() -> Result<(), &'static str> {
 }
 
 fn try_all() -> Result<&'static [FighterData], &'static str> {
-    match FIGHTERS.get_or_init(load_fighters) {
-        Ok(fighters) => Ok(fighters),
-        Err(error) => Err(error.as_str()),
-    }
+    FIGHTERS
+        .get_or_init(load_fighters)
+        .as_deref()
+        .map_err(String::as_str)
 }
 
 /// All fighter records, independent of player/opponent role.
@@ -387,10 +386,16 @@ fn ordinary_grab_uncached(kind: i32, status: i32) -> Option<GrabReference> {
 
 /// Return one unambiguous named move; variants are never guessed.
 pub fn named_move(kind: i32, name: &str) -> Option<&'static MoveData> {
-    let mut matches = fighter(kind)?
-        .moves
-        .iter()
-        .filter(|move_data| move_data.name == name);
+    unique(
+        fighter(kind)?
+            .moves
+            .iter()
+            .filter(|move_data| move_data.name == name),
+    )
+}
+
+/// The only item of `matches`; zero or several candidates are ambiguous.
+fn unique<'a, T>(mut matches: impl Iterator<Item = &'a T>) -> Option<&'a T> {
     let first = matches.next()?;
     matches.next().is_none().then_some(first)
 }

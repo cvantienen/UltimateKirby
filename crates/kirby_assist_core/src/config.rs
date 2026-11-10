@@ -42,52 +42,35 @@ impl AssistConfig {
             return false;
         }
 
-        // iter_mut() visits mutable references. find() returns the first match
-        // as Option<&mut ScenarioRule>; `*slot = rule` replaces that array entry,
-        // not the entire config. Search existing entries first to avoid duplicates.
-        if let Some(slot) = self
-            .rules
-            .iter_mut()
-            .find(|current| current.scenario == rule.scenario)
-        {
-            *slot = rule;
-            return true;
-        }
+        // Search existing entries first to avoid duplicates; `Scenario::None`
+        // marks an empty slot.
+        let position = |scenario| self.rules.iter().position(|r| r.scenario == scenario);
+        let Some(slot) = position(rule.scenario).or_else(|| position(Scenario::None)) else {
+            return false;
+        };
+        self.rules[slot] = rule;
+        true
+    }
 
-        if let Some(slot) = self
-            .rules
-            .iter_mut()
-            .find(|current| current.scenario == Scenario::None)
-        {
-            *slot = rule;
-            return true;
+    fn rule_mut(&mut self, scenario: Scenario) -> Option<&mut ScenarioRule> {
+        if scenario == Scenario::None {
+            return None;
         }
-
-        false
+        self.rules.iter_mut().find(|rule| rule.scenario == scenario)
     }
 
     /// Toggle a tool without losing its recipe or timing.
     pub fn set_rule_enabled(&mut self, scenario: Scenario, enabled: bool) -> bool {
-        if scenario == Scenario::None {
-            return false;
-        }
-        if let Some(rule) = self.rules.iter_mut().find(|rule| rule.scenario == scenario) {
-            rule.enabled = enabled;
-            return true;
-        }
-        false
+        self.rule_mut(scenario)
+            .map(|rule| rule.enabled = enabled)
+            .is_some()
     }
 
     /// Remove a tool and free its configuration slot.
     pub fn remove_rule(&mut self, scenario: Scenario) -> bool {
-        if scenario == Scenario::None {
-            return false;
-        }
-        if let Some(rule) = self.rules.iter_mut().find(|rule| rule.scenario == scenario) {
-            *rule = ScenarioRule::DISABLED;
-            return true;
-        }
-        false
+        self.rule_mut(scenario)
+            .map(|rule| *rule = ScenarioRule::DISABLED)
+            .is_some()
     }
 
     // Disabled entries are intentionally ignored, but retain their settings so
@@ -370,12 +353,7 @@ pub mod button_bindings {
             Self::ALL.into_iter().find(|m| m.id() == s)
         }
         pub fn supports(self, kind: i32) -> bool {
-            match self {
-                Self::IdleCrouch => kind == crate::fighter_kinds::KIRBY,
-                Self::TiltTurn => true,
-                Self::OutOfShield => true,
-                _ => true,
-            }
+            self != Self::IdleCrouch || kind == crate::fighter_kinds::KIRBY
         }
     }
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -557,6 +535,15 @@ pub mod option_read {
         pub position: [f32; 2],
         pub velocity: [f32; 2],
     }
+    impl Context {
+        /// Grounded with a usable motion clock and a known facing.
+        fn ready_to_read(&self) -> bool {
+            self.grounded
+                && crate::timing::clock_known(self.motion, self.frame, self.rate)
+                && self.facing.is_finite()
+                && self.facing.abs() >= 0.5
+        }
+    }
     #[derive(Clone, Copy)]
     pub struct Config {
         pub down: [u8; 2],
@@ -615,32 +602,8 @@ pub mod option_read {
                 *self = Self::default();
                 self.object = Some(c.object);
             }
-            let old = self.tracks;
-            for (i, t) in targets.iter().enumerate() {
-                self.tracks[i] = t.map(|t| Track {
-                    id: t.id,
-                    status: t.status,
-                    motion: t.motion,
-                    frame: t.frame,
-                    rate: t.rate,
-                    used: old.iter().flatten().any(|p| {
-                        crate::timing::same_motion_event(
-                            (p.id, p.status, p.motion, p.frame),
-                            (t.id, t.status, t.motion, t.frame),
-                        ) && p.used
-                    }),
-                });
-            }
-            if !enabled
-                || !c.grounded
-                || !c.frame.is_finite()
-                || c.frame < 0.0
-                || c.motion == crate::timing::NO_MOTION_KIND
-                || !c.rate.is_finite()
-                || c.rate <= 0.0
-                || !c.facing.is_finite()
-                || c.facing.abs() < 0.5
-            {
+            let old = self.refresh_tracks(&targets);
+            if !enabled || !c.ready_to_read() {
                 self.cancel_pending();
                 self.previous = None;
                 return self.output;
@@ -656,34 +619,11 @@ pub mod option_read {
             if c.stopped {
                 return self.output;
             }
-            let clock = (c.status, c.motion, c.frame, c.rate);
-            let mut delta = motion_elapsed(self.previous, clock, 0.0);
-            self.previous = Some(clock);
-            if delta == 0.0 {
-                if let Some(t) = targets.iter().flatten().find(|t| Some(t.id) == self.target) {
-                    if let Some(p) = old
-                        .iter()
-                        .flatten()
-                        .find(|p| p.id == t.id && p.motion == t.motion)
-                    {
-                        delta = motion_elapsed(
-                            Some((p.status, p.motion, p.frame, p.rate)),
-                            (t.status, t.motion, t.frame, t.rate),
-                            0.0,
-                        );
-                    }
-                }
-            }
-            if !delta.is_finite() || !(0.0..=8.0).contains(&delta) {
-                self.cancel_pending();
-                return self.output;
-            }
-            if self.target.is_some_and(|id| {
-                !targets
-                    .iter()
-                    .flatten()
-                    .any(|t| t.id == id && contact(c, cfg, *t, self.forward, 0.0, height))
-            }) {
+            let delta = self.clock_delta(&c, &targets, old);
+            if !delta.is_finite()
+                || !(0.0..=8.0).contains(&delta)
+                || !self.target_in_contact(c, cfg, &targets, height)
+            {
                 self.cancel_pending();
                 return self.output;
             }
@@ -691,66 +631,20 @@ pub mod option_read {
                 return self.output;
             }
             if self.phase == 2 {
-                self.age += delta;
-                if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT
-                    || !targets.iter().flatten().any(|t| {
-                        Some(t.id) == self.target && contact(c, cfg, *t, self.forward, 0.0, height)
-                    })
-                {
-                    self.cancel_pending();
-                } else {
-                    self.output = if crate::move_input::smash_retry_pressed(
-                        self.age,
-                        self.target.unwrap_or_default(),
-                    ) {
-                        crate::move_input::output(
-                            if self.forward {
-                                [c.facing.signum(), 0.0]
-                            } else {
-                                [0.0, -1.0]
-                            },
-                            MAPPER_A,
-                        )
-                    } else {
-                        crate::move_input::output([0.0; 2], 0)
-                    };
-                }
-                return self.output;
+                return self.retry_attack(c.facing, delta);
             }
-            let shield = match c.status {
-                crate::native_states::GUARD_ON..=crate::native_states::GUARD => 11.0,
-                crate::native_states::GUARD_OFF => (11.0 - c.frame).max(0.0),
-                _ => 0.0,
-            };
-            if !c.can_act
-                && shield == 0.0
-                && !(matches!(
-                    c.status,
-                    crate::native_states::GUARD_ON..=crate::native_states::GUARD_OFF
-                ) && (c.down_ready || c.forward_ready))
-            {
+            let shield = shield_frames(&c);
+            let in_guard = matches!(
+                c.status,
+                crate::native_states::GUARD_ON..=crate::native_states::GUARD_OFF
+            );
+            if !c.can_act && shield == 0.0 && !(in_guard && (c.down_ready || c.forward_ready)) {
                 self.cancel_pending();
                 return self.output;
             }
             let setup = shield + if self.phase == 1 { 0.0 } else { 1.0 };
-            let mut selected = None;
-            for (i, t) in targets.iter().enumerate() {
-                let Some(t) = t else { continue };
-                if self.tracks[i].unwrap().used || self.target.is_some_and(|id| id != t.id) {
-                    continue;
-                }
-                let at = t.opens.clamp(0.0, 120.0);
-                let x = t.position[0] - c.position[0] + (t.velocity[0] - c.velocity[0]) * at;
-                let forward = x.abs() > cfg.down_reach;
-                if t.kind == Kind::Roll && !forward {
-                    continue;
-                } // close rolls retain the existing down-smash reader
-                if contact(c, cfg, *t, forward, setup, height) {
-                    selected = Some((i, *t, forward, x));
-                    break;
-                }
-            }
-            let Some((i, t, forward, x)) = selected else {
+            let Some((i, t, forward, x)) = self.select_target(c, cfg, &targets, setup, height)
+            else {
                 self.cancel_pending();
                 return self.output;
             };
@@ -764,11 +658,8 @@ pub mod option_read {
                 self.phase = 0;
                 return self.output;
             }
-            if shield > 0.0 {
-                self.phase = 1;
-                return self.output;
-            }
-            if self.phase != 1 {
+            // Wait out the shield, then one observed frame, before attacking.
+            if shield > 0.0 || self.phase != 1 {
                 self.phase = 1;
                 return self.output;
             }
@@ -781,17 +672,148 @@ pub mod option_read {
             }
             self.phase = 2;
             self.age = 0.0;
-            self.tracks[i].as_mut().unwrap().used = true;
-            self.output = crate::move_input::output(
-                if forward {
-                    [c.facing.signum(), 0.0]
-                } else {
-                    [0.0, -1.0]
-                },
-                MAPPER_A,
-            );
+            if let Some(track) = self.tracks[i].as_mut() {
+                track.used = true;
+            }
+            self.output = attack_output(forward, c.facing);
             self.output
         }
+
+        /// Remember each target's motion clock; `used` survives while the same
+        /// motion event continues. Returns the previous tracks.
+        fn refresh_tracks(&mut self, targets: &[Option<Target>; 8]) -> [Option<Track>; 8] {
+            let old = self.tracks;
+            for (track, target) in self.tracks.iter_mut().zip(targets) {
+                *track = target.map(|t| Track {
+                    id: t.id,
+                    status: t.status,
+                    motion: t.motion,
+                    frame: t.frame,
+                    rate: t.rate,
+                    used: old.iter().flatten().any(|p| {
+                        crate::timing::same_motion_event(
+                            (p.id, p.status, p.motion, p.frame),
+                            (t.id, t.status, t.motion, t.frame),
+                        ) && p.used
+                    }),
+                });
+            }
+            old
+        }
+
+        /// Elapsed frames of our own clock, else of the committed target's, else NaN
+        /// when either clock is invalid or rewound.
+        fn clock_delta(
+            &mut self,
+            c: &Context,
+            targets: &[Option<Target>; 8],
+            old: [Option<Track>; 8],
+        ) -> f32 {
+            let clock = (c.status, c.motion, c.frame, c.rate);
+            let delta = motion_elapsed(self.previous, clock, 0.0);
+            self.previous = Some(clock);
+            if delta != 0.0 {
+                return delta;
+            }
+            let previous_clock = targets
+                .iter()
+                .flatten()
+                .find(|t| Some(t.id) == self.target)
+                .and_then(|t| {
+                    let p = old
+                        .iter()
+                        .flatten()
+                        .find(|p| p.id == t.id && p.motion == t.motion)?;
+                    Some((p, t))
+                });
+            previous_clock.map_or(delta, |(p, t)| {
+                motion_elapsed(
+                    Some((p.status, p.motion, p.frame, p.rate)),
+                    (t.status, t.motion, t.frame, t.rate),
+                    0.0,
+                )
+            })
+        }
+
+        /// A committed target must stay in reach of the committed attack.
+        fn target_in_contact(
+            &self,
+            c: Context,
+            cfg: Config,
+            targets: &[Option<Target>; 8],
+            height: f32,
+        ) -> bool {
+            self.target.is_none_or(|id| {
+                targets
+                    .iter()
+                    .flatten()
+                    .any(|t| t.id == id && contact(c, cfg, *t, self.forward, 0.0, height))
+            })
+        }
+
+        /// First untouched target (or the committed one) already in reach once
+        /// `setup` frames have elapsed. Returns its slot, side and horizontal offset.
+        fn select_target(
+            &self,
+            c: Context,
+            cfg: Config,
+            targets: &[Option<Target>; 8],
+            setup: f32,
+            height: f32,
+        ) -> Option<(usize, Target, bool, f32)> {
+            for (i, t) in targets.iter().enumerate() {
+                let Some(t) = t else { continue };
+                if self.tracks[i].is_some_and(|track| track.used)
+                    || self.target.is_some_and(|id| id != t.id)
+                {
+                    continue;
+                }
+                let at = t.opens.clamp(0.0, 120.0);
+                let x = t.position[0] - c.position[0] + (t.velocity[0] - c.velocity[0]) * at;
+                let forward = x.abs() > cfg.down_reach;
+                if t.kind == Kind::Roll && !forward {
+                    continue;
+                } // close rolls retain the existing down-smash reader
+                if contact(c, cfg, *t, forward, setup, height) {
+                    return Some((i, *t, forward, x));
+                }
+            }
+            None
+        }
+
+        /// Hold the committed smash while native acceptance is pending, repeating the
+        /// press on the game's retry schedule until it times out.
+        fn retry_attack(&mut self, facing: f32, delta: f32) -> ControllerOutput {
+            self.age += delta;
+            if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT {
+                self.cancel_pending();
+            } else if crate::move_input::smash_retry_pressed(
+                self.age,
+                self.target.unwrap_or_default(),
+            ) {
+                self.output = attack_output(self.forward, facing);
+            } else {
+                self.output = crate::move_input::output([0.0; 2], 0);
+            }
+            self.output
+        }
+    }
+    fn shield_frames(c: &Context) -> f32 {
+        match c.status {
+            crate::native_states::GUARD_ON..=crate::native_states::GUARD => 11.0,
+            crate::native_states::GUARD_OFF => (11.0 - c.frame).max(0.0),
+            _ => 0.0,
+        }
+    }
+    fn attack_output(forward: bool, facing: f32) -> ControllerOutput {
+        crate::move_input::output(
+            if forward {
+                [facing.signum(), 0.0]
+            } else {
+                [0.0, -1.0]
+            },
+            MAPPER_A,
+        )
     }
     fn contact(c: Context, cfg: Config, t: Target, forward: bool, setup: f32, height: f32) -> bool {
         if !t.frame.is_finite()
@@ -909,7 +931,7 @@ pub mod settings {
                 fighter_kind: crate::fighter_kinds::KIRBY,
                 response_choices: [None; crate::fighter_profiles::presets::PresetSlot::COUNT],
                 sequence_overrides: [None; crate::fighter_profiles::presets::PresetSlot::COUNT],
-                fighter: FighterGrabData::from_kind(6),
+                fighter: FighterGrabData::from_kind(crate::fighter_kinds::KIRBY),
                 responses: LedgeResponses::default(),
                 enabled: false,
                 drop_defense: true,

@@ -35,7 +35,18 @@ pub const MAPPER_DPAD_LEFT: u32 = 1 << 3;
 pub const MAPPER_DPAD_BUTTONS: u32 =
     MAPPER_DPAD_UP | MAPPER_DPAD_RIGHT | MAPPER_DPAD_DOWN | MAPPER_DPAD_LEFT;
 pub const MAPPER_STICK_CLICKS: u32 = 3 << 16;
+// Controller::ButtonBitfield l_*/r_* digital stick aliases in the pinned HDR
+// layout. A stick flick includes these as well as its analog axis.
+pub const MAPPER_LEFT_STICK_UP: u32 = 1 << 20;
+pub const MAPPER_LEFT_STICK_RIGHT: u32 = 1 << 21;
+pub const MAPPER_LEFT_STICK_DOWN: u32 = 1 << 22;
+pub const MAPPER_LEFT_STICK_LEFT: u32 = 1 << 23;
+pub const MAPPER_LEFT_STICK_HORIZONTAL: u32 = MAPPER_LEFT_STICK_RIGHT | MAPPER_LEFT_STICK_LEFT;
 pub const MAPPER_LEFT_STICK_DIRECTIONS: u32 = 0xf << 20;
+pub const MAPPER_RIGHT_STICK_UP: u32 = 1 << 24;
+pub const MAPPER_RIGHT_STICK_RIGHT: u32 = 1 << 25;
+pub const MAPPER_RIGHT_STICK_DOWN: u32 = 1 << 26;
+pub const MAPPER_RIGHT_STICK_LEFT: u32 = 1 << 27;
 pub const MAPPER_RIGHT_STICK_DIRECTIONS: u32 = 0xf << 24;
 const MAPPER_EXTRA_BUTTON_CHANNELS: u32 = 0xf << 12;
 const MODULE_ACCESSOR_CONTROL_MODULE_POINTER_OFFSET_BYTES: usize = 0x48;
@@ -80,31 +91,27 @@ pub const ASSIST_BUTTONS: u32 = MAPPER_A
     | MAPPER_RIGHT_STICK_DIRECTIONS
     | MAPPER_EXTRA_BUTTONS;
 /// Physical gameplay controls, excluding pause/menu and left-stick DI directions.
-pub const GAMEPLAY_BUTTONS: u32 = MAPPER_DPAD_BUTTONS
-    | MAPPER_A
-    | MAPPER_B
-    | MAPPER_X
-    | MAPPER_Y
-    | MAPPER_L
-    | MAPPER_R
-    | MAPPER_ZL
-    | MAPPER_ZR
-    | MAPPER_STICK_CLICKS
-    | MAPPER_RIGHT_STICK_DIRECTIONS
-    | MAPPER_EXTRA_BUTTONS;
+pub const GAMEPLAY_BUTTONS: u32 = ASSIST_BUTTONS | MAPPER_DPAD_BUTTONS;
+
+/// Every gameplay control belongs to the caller: a fully owned input tape.
+pub const fn fully_owned(owned: u32) -> bool {
+    owned & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS
+}
+
+/// `bits` when `condition` holds, otherwise no bits.
+pub(crate) const fn bits_if(condition: bool, bits: u32) -> u32 {
+    if condition {
+        bits
+    } else {
+        0
+    }
+}
 
 /// Consume the alternate native click channel of an owned physical shoulder.
 /// This expands suppression only; generated buttons keep their normal meaning.
 pub fn physical_button_aliases(mask: u32) -> u32 {
-    mask | if mask & (MAPPER_L | MAPPER_ZL) != 0 {
-        MAPPER_DIGITAL_L
-    } else {
-        0
-    } | if mask & (MAPPER_R | MAPPER_ZR) != 0 {
-        MAPPER_DIGITAL_R
-    } else {
-        0
-    }
+    mask | bits_if(mask & (MAPPER_L | MAPPER_ZL) != 0, MAPPER_DIGITAL_L)
+        | bits_if(mask & (MAPPER_R | MAPPER_ZR) != 0, MAPPER_DIGITAL_R)
 }
 
 /// Native analog trigger axes are independent of the button-history words.
@@ -127,19 +134,14 @@ pub fn owned_trigger_axes(physical: [f32; 2], suppressed: u32) -> [f32; 2] {
 /// Every exclusive tape forwards the same analog packet, including neutral
 /// release frames. Partial helpers and native safety keep their existing path.
 pub fn exclusive_sequence_stick(owned: u32, stick: Option<[f32; 2]>) -> Option<[f32; 2]> {
-    (owned & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS)
-        .then_some(stick)
-        .flatten()
+    stick
+        .filter(|_| fully_owned(owned))
         .filter(|s| s.iter().all(|v| v.is_finite()))
 }
 
 /// Walking suppresses a dash flick; explicit full-strength Drift/Run must not.
 pub fn sequence_flick_consumption(owned: u32, walking: bool) -> u32 {
-    if owned & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS && walking {
-        (1 << 21) | (1 << 23)
-    } else {
-        0
-    }
+    bits_if(fully_owned(owned) && walking, MAPPER_LEFT_STICK_HORIZONTAL)
 }
 
 /// Raw source buttons/axes were already masked before native mapping. Preserve
@@ -170,7 +172,7 @@ pub fn mapped_automatic_actions(buttons: u32, requested: u32) -> u32 {
 /// A fully owned input tape supplies its own buttons exclusively. Native safety
 /// must win owner selection, rather than being mixed into another owner's tape.
 pub fn selected_requests(owned: u32, selected: u32, other: u32) -> u32 {
-    if owned & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS {
+    if fully_owned(owned) {
         selected
     } else {
         selected | other
@@ -214,12 +216,12 @@ pub fn mapped_stick_axis(axis: f32) -> i8 {
     }
 }
 
-fn map_button_bit(buttons: u32, source: u32, destination: u32) -> u32 {
-    if buttons & source != 0 {
-        destination
-    } else {
-        0
-    }
+/// Drop every `sources` bit, then add each pair's destination when any of its
+/// source bits is held. Bits outside `sources` pass through unchanged.
+fn remap_buttons(buttons: u32, sources: u32, pairs: &[(u32, u32)]) -> u32 {
+    pairs.iter().fold(buttons & !sources, |mapped, &(from, to)| {
+        mapped | bits_if(buttons & from != 0, to)
+    })
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -238,13 +240,15 @@ impl ControlLayout {
         if self == Self::Default {
             return physical;
         }
-        let action_buttons =
-            MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_L | MAPPER_R | MAPPER_ZL | MAPPER_ZR;
-        (physical & !action_buttons)
-            | (physical & MAPPER_A)
-            | map_button_bit(physical, MAPPER_B | MAPPER_L, MAPPER_B)
-            | map_button_bit(physical, MAPPER_X, MAPPER_R)
-            | map_button_bit(physical, MAPPER_ZL, MAPPER_ZR)
+        remap_buttons(
+            physical,
+            MAPPER_B | MAPPER_X | MAPPER_L | MAPPER_R | MAPPER_ZL | MAPPER_ZR,
+            &[
+                (MAPPER_B | MAPPER_L, MAPPER_B),
+                (MAPPER_X, MAPPER_R),
+                (MAPPER_ZL, MAPPER_ZR),
+            ],
+        )
     }
 
     /// One-to-one ownership conversion for physical custom binding sources.
@@ -253,36 +257,34 @@ impl ControlLayout {
         if self == Self::Default {
             return physical;
         }
-        let mask = MAPPER_X | MAPPER_R | MAPPER_L | MAPPER_ZL | MAPPER_ZR;
-        (physical & !mask)
-            | map_button_bit(physical, MAPPER_X, MAPPER_R)
-            | map_button_bit(physical, MAPPER_R, MAPPER_X)
-            | map_button_bit(physical, MAPPER_L, MAPPER_B)
-            | map_button_bit(physical, MAPPER_ZL, MAPPER_ZR)
-            | map_button_bit(physical, MAPPER_ZR, MAPPER_ZL)
+        remap_buttons(
+            physical,
+            MAPPER_X | MAPPER_R | MAPPER_L | MAPPER_ZL | MAPPER_ZR,
+            &[
+                (MAPPER_X, MAPPER_R),
+                (MAPPER_R, MAPPER_X),
+                (MAPPER_L, MAPPER_B),
+                (MAPPER_ZL, MAPPER_ZR),
+                (MAPPER_ZR, MAPPER_ZL),
+            ],
+        )
     }
 
     /// Manual intent includes jump buttons hidden from shortcut policy.
     pub fn takeover_buttons(self, physical: u32) -> u32 {
         let buttons = self.policy_buttons(physical);
-        if self == Self::Brother {
-            buttons
-                | map_button_bit(physical, MAPPER_R, MAPPER_X)
-                | map_button_bit(physical, MAPPER_ZR, MAPPER_Y)
-        } else {
-            buttons
+        if self == Self::Default {
+            return buttons;
         }
+        buttons
+            | bits_if(physical & MAPPER_R != 0, MAPPER_X)
+            | bits_if(physical & MAPPER_ZR != 0, MAPPER_Y)
     }
 
     /// Full takeovers suppress every raw gameplay button, including buttons
     /// unused by the simulated layout that may still map to shield/jump in-game.
     pub fn physical_owned_buttons(self, canonical: u32) -> u32 {
-        self.physical_buttons(canonical)
-            | if canonical & GAMEPLAY_BUTTONS == GAMEPLAY_BUTTONS {
-                GAMEPLAY_BUTTONS
-            } else {
-                0
-            }
+        self.physical_buttons(canonical) | bits_if(fully_owned(canonical), GAMEPLAY_BUTTONS)
     }
 
     /// Convert canonical assist buttons back to this layout's physical buttons.
@@ -290,16 +292,17 @@ impl ControlLayout {
         if self == Self::Default {
             return canonical;
         }
-        let action_buttons =
-            MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_Y | MAPPER_R | MAPPER_ZL | MAPPER_ZR;
-        (canonical & !action_buttons)
-            | (canonical & MAPPER_A)
-            | map_button_bit(canonical, MAPPER_B, MAPPER_L)
-            | map_button_bit(canonical, MAPPER_X, MAPPER_R)
-            | map_button_bit(canonical, MAPPER_ZL, MAPPER_ZR)
-            | (canonical & MAPPER_Y)
-            | map_button_bit(canonical, MAPPER_R, MAPPER_X)
-            | map_button_bit(canonical, MAPPER_ZR, MAPPER_ZL)
+        remap_buttons(
+            canonical,
+            MAPPER_B | MAPPER_X | MAPPER_R | MAPPER_ZL | MAPPER_ZR,
+            &[
+                (MAPPER_B, MAPPER_L),
+                (MAPPER_X, MAPPER_R),
+                (MAPPER_ZL, MAPPER_ZR),
+                (MAPPER_R, MAPPER_X),
+                (MAPPER_ZR, MAPPER_ZL),
+            ],
+        )
     }
 }
 
@@ -314,12 +317,6 @@ pub fn mapped_short_hop(buttons: u32, requested: bool) -> u32 {
         buttons
     }
 }
-// Controller::ButtonBitfield r_right/r_left in the pinned HDR layout.
-// A C-stick flick includes these digital aliases as well as its analog axis.
-pub const MAPPER_RIGHT_STICK_RIGHT: u32 = 1 << 25;
-pub const MAPPER_RIGHT_STICK_LEFT: u32 = 1 << 27;
-pub const MAPPER_RIGHT_STICK_UP: u32 = 1 << 24;
-pub const MAPPER_RIGHT_STICK_DOWN: u32 = 1 << 26;
 
 /// Bind the configured physical controller to its current game mapper slot.
 /// Controller identity and mapper slot are separate namespaces: controller 0
@@ -369,37 +366,23 @@ pub fn mapped_attack_hold(buttons: u32, requested: bool) -> u32 {
 /// caller supplies only selected, owned buttons still present in its raw packet.
 /// These are held input bits; no command flags, move/state writes or new edges.
 pub fn mapped_literal_buttons(buttons: u32, requested: u32) -> u32 {
-    // Fully owned neutral/attack frames release the preceding shield and its
-    // Catch alias too. Otherwise mapper hold history can outlive the raw ZR
-    // release and prevent the next authored move from leaving shield.
-    let buttons = if requested & SEQUENCE_GUARD_INPUTS == 0 {
-        buttons & !(MAPPED_GUARD | MAPPED_GUARD_HOLD | MAPPED_CATCH)
-    } else {
-        buttons
-    };
+    let mut mapped = buttons;
+    // Fully owned neutral/attack frames release the preceding shield too.
+    // Otherwise mapper hold history can outlive the raw ZR release and prevent
+    // the next authored move from leaving shield.
+    if requested & SEQUENCE_GUARD_INPUTS == 0 {
+        mapped &= !(MAPPED_GUARD | MAPPED_GUARD_HOLD);
+    }
+    // Catch alias only for an explicit Grab or the A+ZR Guard-Attack pair.
     let catch =
         requested & MAPPER_R != 0 || requested & (MAPPER_A | MAPPER_ZR) == (MAPPER_A | MAPPER_ZR);
-    let buttons = if catch {
-        buttons
-    } else {
-        buttons & !MAPPED_CATCH
-    };
-    mapped_attack_hold(buttons, requested & MAPPER_A != 0)
-        | if requested & MAPPER_B != 0 {
-            MAPPED_SPECIAL
-        } else {
-            0
-        }
-        | if requested & MAPPER_R != 0 {
-            MAPPED_CATCH
-        } else {
-            0
-        }
-        | if requested & MAPPER_ZR != 0 {
-            MAPPED_GUARD
-        } else {
-            0
-        }
+    if !catch {
+        mapped &= !MAPPED_CATCH;
+    }
+    mapped_attack_hold(mapped, requested & MAPPER_A != 0)
+        | bits_if(requested & MAPPER_B != 0, MAPPED_SPECIAL)
+        | bits_if(requested & MAPPER_R != 0, MAPPED_CATCH)
+        | bits_if(requested & MAPPER_ZR != 0, MAPPED_GUARD)
 }
 
 /// Match the native Catch+Guard result observed for an unshielded manual Grab.
@@ -492,43 +475,26 @@ pub unsafe fn controller_index(accessor: *const u8) -> Option<i32> {
     if !native_pointer_address(accessor) {
         return None;
     }
-    // Each read loads the pointer stored at an offset in the previous object.
+    // Each step loads the pointer stored at an offset in the previous object.
     // add(offset) alone moves an address; read() follows the stored pointer.
     // A non-null pointer is still not proof of validity: native lifetime/version
     // checks remain the caller's responsibility, as documented in Safety above.
-    let control = accessor
-        .add(MODULE_ACCESSOR_CONTROL_MODULE_POINTER_OFFSET_BYTES)
-        .cast::<*const u8>()
-        .read();
-    if !native_pointer_address(control) {
-        return None;
-    }
-    let first = control
-        .add(CONTROL_MODULE_INPUT_CONTEXT_POINTER_OFFSET_BYTES)
-        .cast::<*const u8>()
-        .read();
-    if !native_pointer_address(first) {
-        return None;
-    }
-    let second = first
-        .add(INPUT_CONTEXT_CONTROLLER_RECORD_POINTER_OFFSET_BYTES)
-        .cast::<*const u8>()
-        .read();
-    if !native_pointer_address(second) {
-        return None;
-    }
-    let input = second
-        .add(CONTROLLER_RECORD_INDEX_POINTER_OFFSET_BYTES)
-        .cast::<*const u8>()
-        .read();
-    if !native_pointer_address(input) {
-        return None;
-    }
+    let control = read_native_pointer(accessor, MODULE_ACCESSOR_CONTROL_MODULE_POINTER_OFFSET_BYTES)?;
+    let first = read_native_pointer(control, CONTROL_MODULE_INPUT_CONTEXT_POINTER_OFFSET_BYTES)?;
+    let second = read_native_pointer(first, INPUT_CONTEXT_CONTROLLER_RECORD_POINTER_OFFSET_BYTES)?;
+    let input = read_native_pointer(second, CONTROLLER_RECORD_INDEX_POINTER_OFFSET_BYTES)?;
     let index = input
         .add(INPUT_INDEX_FIELD_OFFSET_BYTES)
         .cast::<i32>()
         .read();
     (0..MAPPER_SLOT_COUNT).contains(&index).then_some(index)
+}
+
+/// Follow the pointer stored `offset` bytes into `object`; same safety contract
+/// as `controller_index`.
+unsafe fn read_native_pointer(object: *const u8, offset: usize) -> Option<*const u8> {
+    let pointer = object.add(offset).cast::<*const u8>().read();
+    native_pointer_address(pointer).then_some(pointer)
 }
 
 // These checks reject null, small sentinel and misaligned addresses. They do

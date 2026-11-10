@@ -168,9 +168,6 @@ impl Posture {
             c,
         )
     }
-    pub fn down_tilt_angle(buttons: u32, stick: [f32; 2]) -> bool {
-        Self::down_tilt_intent(buttons, stick, [0.0; 2])
-    }
     /// Read the real pre-map C-stick axes too: digital aliases may not exist
     /// yet on the first flick. Dominant Down avoids converting side/up tilts.
     pub fn down_c_stick(buttons: u32, right: [f32; 2]) -> bool {

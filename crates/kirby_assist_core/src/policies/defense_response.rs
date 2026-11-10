@@ -2,7 +2,9 @@
 use crate::{
     gameplay::{ControllerOutput, GameplayContext, Opponent},
     ledge_trap::InputTimeline,
-    reaction_rules::{Resolved, Side, Trigger},
+    move_input::{finite_positions, UpBFlow, UpBVerdict},
+    reaction_rules::{automatic_plan, Resolved, Trigger},
+    sequence_config::Sequence,
     settings::AssistSettings,
 };
 
@@ -10,14 +12,8 @@ use crate::{
 pub struct Response {
     plan: Option<InputTimeline>,
     target: Option<u32>,
-    automatic_up_b: bool,
+    up_b: UpBFlow,
     configured: bool,
-    up_b_seen: bool,
-    manual_epoch: u64,
-    delivery: crate::move_input::DeliveryBudget,
-    receipt: crate::move_input::UpBReceipt,
-    waiting_up_b: bool,
-    up_b_from_dodge: bool,
     grab_sent: bool,
     grab_settling: bool,
     grab_delivery: crate::move_input::DeliveryBudget,
@@ -27,14 +23,8 @@ impl Response {
         Self {
             plan: None,
             target: None,
-            automatic_up_b: false,
+            up_b: UpBFlow::new(),
             configured: false,
-            up_b_seen: false,
-            manual_epoch: 0,
-            delivery: crate::move_input::DeliveryBudget::new(),
-            receipt: crate::move_input::UpBReceipt::new(),
-            waiting_up_b: false,
-            up_b_from_dodge: false,
             grab_sent: false,
             grab_settling: false,
             grab_delivery: crate::move_input::DeliveryBudget::new(),
@@ -56,24 +46,23 @@ impl Response {
         self.plan.as_ref().is_some_and(InputTimeline::walking)
     }
     pub fn automatic_up_b(&self) -> bool {
-        self.automatic_up_b && self.plan.is_some()
+        self.up_b.armed() && self.plan.is_some()
     }
     pub fn up_b_delivery_started(&self) -> bool {
-        self.automatic_up_b() && (self.up_b_seen || self.receipt.sent())
+        self.automatic_up_b() && self.up_b.started()
     }
     pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
-        if self.automatic_up_b() && !self.up_b_seen && self.target == Some(target) {
-            self.delivery.mapped(tick);
+        if self.automatic_up_b() && self.target == Some(target) {
+            self.up_b.attempted(tick);
         }
     }
     pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
-        if self.automatic_up_b() && !self.up_b_seen && self.target == Some(target) {
-            self.delivery.mapped(tick);
-            self.receipt.mapped(tick);
+        if self.automatic_up_b() && self.target == Some(target) {
+            self.up_b.mapped(tick);
         }
     }
     pub fn configured_committed(&self) -> bool {
-        (self.configured || self.automatic_up_b) && self.target.is_some()
+        self.configured && self.target.is_some()
     }
     pub fn grab_delivery_pending(&self) -> bool {
         self.grab_sent && self.target.is_some()
@@ -85,17 +74,17 @@ impl Response {
         }
     }
     pub fn up_b_receipt_pending(&self) -> bool {
-        self.automatic_up_b() && !self.up_b_seen && self.receipt.sent()
+        self.automatic_up_b() && self.up_b.receipt_pending()
     }
     pub fn awaiting_up_b(&self) -> bool {
-        self.up_b_receipt_pending() && self.waiting_up_b
+        self.automatic_up_b() && self.up_b.awaiting()
     }
     pub fn delivery_tick(&mut self, tick: i64) {
         if self.grab_sent {
             self.grab_delivery.mapped(tick);
         }
-        if self.up_b_receipt_pending() {
-            self.receipt.tick(tick);
+        if self.automatic_up_b() {
+            self.up_b.tick(tick);
         }
     }
     /// Stop playback without forgetting a controller Grab still in flight.
@@ -103,42 +92,28 @@ impl Response {
         if self.grab_sent {
             self.plan = None;
             self.grab_settling = true;
-            self.automatic_up_b = false;
+            self.up_b.disarm();
         } else {
             self.cancel();
         }
     }
     pub fn cancel(&mut self) {
-        self.plan = None;
-        self.target = None;
-        self.automatic_up_b = false;
-        self.configured = false;
-        self.up_b_seen = false;
-        self.receipt = Default::default();
-        self.waiting_up_b = false;
-        self.up_b_from_dodge = false;
-        self.delivery = Default::default();
-        self.grab_sent = false;
-        self.grab_settling = false;
-        self.grab_delivery = Default::default();
+        *self = Self::new();
     }
-    pub fn start_up_b(
-        &mut self,
-        mut sequence: crate::sequence_config::Sequence,
-        c: GameplayContext,
-        enemy: Opponent,
-    ) -> bool {
-        if !c.gameplay
-            || c.situation != crate::native_states::situation::GROUND
-            || c.stopped
-            || !c.can_act
-            || !(crate::reaction_rules::automatic_start_status(c.status)
+    /// Common admission for an explicitly configured automatic response: native
+    /// control now, an available target and no grab already in progress.
+    fn can_begin(c: GameplayContext, enemy: Opponent) -> bool {
+        c.gameplay
+            && c.situation == crate::native_states::situation::GROUND
+            && !c.stopped
+            && c.can_act
+            && (crate::reaction_rules::automatic_start_status(c.status)
                 || c.status == crate::native_states::ESCAPE)
-            || !crate::reaction_rules::automatic_target_available(enemy.status)
-            || matches!(
-                c.status,
-                crate::native_states::CATCH..=crate::native_states::THROW
-            )
+            && crate::reaction_rules::automatic_target_available(enemy.status)
+            && !crate::action_owner::native_grab_active(c.status)
+    }
+    pub fn start_up_b(&mut self, mut sequence: Sequence, c: GameplayContext, enemy: Opponent) -> bool {
+        if !Self::can_begin(c, enemy)
             || sequence.start_delay != 0
             || !crate::reaction_rules::starts_direct_up_b(&sequence)
         {
@@ -147,48 +122,30 @@ impl Response {
         self.cancel();
         sequence.while_held = false;
         sequence.ground_only = false;
-        let mut plan = InputTimeline::new(sequence, enemy);
-        plan.allow_continuous_progress();
-        plan.guard_automatic_ground_actions();
-        self.plan = Some(plan);
+        self.plan = Some(automatic_plan(sequence, enemy));
         self.target = Some(enemy.id);
-        self.automatic_up_b = true;
+        self.up_b.arm(c, true);
         self.configured = true;
-        self.up_b_from_dodge = c.status == crate::native_states::ESCAPE;
-        self.manual_epoch = c.manual_input_epoch;
         true
     }
     /// Commit an explicitly configured automatic response. Native Up-B keeps
     /// its confirmation/air/manual safeguards; other recipes use the same tape.
     pub fn start_sequence(
         &mut self,
-        mut sequence: crate::sequence_config::Sequence,
+        mut sequence: Sequence,
         c: GameplayContext,
         enemy: Opponent,
     ) -> bool {
         if crate::reaction_rules::starts_direct_up_b(&sequence) && sequence.start_delay == 0 {
             return self.start_up_b(sequence, c, enemy);
         }
-        if !c.gameplay
-            || c.situation != crate::native_states::situation::GROUND
-            || c.stopped
-            || !c.can_act
-            || !(crate::reaction_rules::automatic_start_status(c.status)
-                || c.status == crate::native_states::ESCAPE)
-            || !crate::reaction_rules::automatic_target_available(enemy.status)
-            || crate::action_owner::native_grab_active(c.status)
-            || crate::ledge_trap::sequence_interrupted(c.status)
-        {
+        if !Self::can_begin(c, enemy) || crate::ledge_trap::sequence_interrupted(c.status) {
             return false;
         }
         self.cancel();
         sequence.while_held = false;
-        let mut plan = InputTimeline::new(sequence, enemy);
-        plan.allow_continuous_progress();
-        plan.guard_automatic_ground_actions();
-        self.plan = Some(plan);
+        self.plan = Some(automatic_plan(sequence, enemy));
         self.target = Some(enemy.id);
-        self.manual_epoch = c.manual_input_epoch;
         self.configured = true;
         true
     }
@@ -208,6 +165,15 @@ impl Response {
         self.plan = Some(plan);
         self.target = Some(enemy.id);
         true
+    }
+    /// The locked target stays usable: same actor, measurable and either an
+    /// ordinary target or, for an existing tape, a ledge-invulnerable one.
+    fn follows(&self, e: Opponent, c: GameplayContext) -> bool {
+        Some(e.id) == self.target
+            && finite_positions(e.position, c.position)
+            && (crate::reaction_rules::automatic_target_available(e.status)
+                || self.plan.is_some()
+                    && crate::reaction_rules::automatic_follow_target_available(e.status))
     }
     pub fn sample(
         &mut self,
@@ -234,87 +200,26 @@ impl Response {
             self.suspend();
             return ControllerOutput::default();
         }
-        if self.configured
-            && enemy.is_none_or(|e| {
-                Some(e.id) != self.target
-                    || !e
-                        .position
-                        .iter()
-                        .chain(c.position.iter())
-                        .all(|v| v.is_finite())
-                    || !(crate::reaction_rules::automatic_target_available(e.status)
-                        || self.plan.is_some()
-                            && crate::reaction_rules::automatic_follow_target_available(e.status))
-            })
-        {
+        if self.configured && enemy.is_none_or(|e| !self.follows(e, c)) {
             self.suspend();
             return ControllerOutput::default();
         }
-        if self.automatic_up_b && self.plan.is_some() {
-            let native = crate::reaction_rules::native_up_b_started(settings.fighter_kind, c);
-            match crate::up_b_receipt::evaluate(
-                self.up_b_seen,
-                native,
-                self.waiting_up_b,
-                self.up_b_from_dodge,
-                c,
-                &self.receipt,
-                &self.delivery,
-            ) {
-                crate::up_b_receipt::ReceiptAction::Confirm => {
-                    if let Some(enemy) = enemy.filter(|e| Some(e.id) == self.target) {
-                        self.plan.as_mut().unwrap().confirm_initial_up_b(c, enemy);
-                    }
-                }
-                crate::up_b_receipt::ReceiptAction::Cancel => {
+        if self.automatic_up_b() {
+            match self.up_b.advance(c, settings.fighter_kind) {
+                UpBVerdict::Cancel => {
                     self.cancel();
                     return ControllerOutput::default();
                 }
-                crate::up_b_receipt::ReceiptAction::Wait => {
-                    self.waiting_up_b = true;
-                    return ControllerOutput::default();
+                UpBVerdict::Wait => return ControllerOutput::default(),
+                UpBVerdict::Confirm => {
+                    if let (Some(plan), Some(enemy)) = (
+                        self.plan.as_mut(),
+                        enemy.filter(|e| Some(e.id) == self.target),
+                    ) {
+                        plan.confirm_initial_up_b(c, enemy);
+                    }
                 }
-                crate::up_b_receipt::ReceiptAction::Continue => {}
-            }
-            self.up_b_seen |= native;
-            let interrupted_by_status = matches!(
-                c.status,
-                crate::native_states::status::JUMP..=crate::native_states::status::FALL_AERIAL
-                    | crate::native_states::ESCAPE_F
-                        ..=crate::native_states::ESCAPE_AIR_SLIDE
-                    | crate::native_states::CATCH..=crate::native_states::THROW
-                    | crate::native_states::status::SPECIAL_N
-                    | crate::native_states::status::SPECIAL_S
-                    | crate::native_states::status::SPECIAL_LW
-            );
-            let invalid_escape =
-                c.status == crate::native_states::ESCAPE && (!c.can_act || self.up_b_seen);
-            let up_b_ended = self.up_b_seen
-                && matches!(
-                    c.status,
-                    crate::native_states::status::WAIT
-                        ..=crate::native_states::status::TURN_RUN_BRAKE
-                        | crate::native_states::status::FALL_SPECIAL
-                        | crate::native_states::status::LANDING
-                            ..=crate::native_states::GUARD_DAMAGE
-                );
-            let native_up_b_ended = self.up_b_seen && !native;
-            let initial_up_b_can_start = crate::reaction_rules::automatic_start_status(c.status)
-                || c.status == crate::native_states::ESCAPE;
-            let initial_up_b_is_invalid = !self.up_b_seen
-                && (c.situation != crate::native_states::situation::GROUND
-                    || c.stopped
-                    || !c.can_act
-                    || !initial_up_b_can_start
-                    || self.delivery.exhausted());
-            if interrupted_by_status
-                || invalid_escape
-                || up_b_ended
-                || native_up_b_ended
-                || initial_up_b_is_invalid
-            {
-                self.cancel();
-                return ControllerOutput::default();
+                UpBVerdict::Continue => {}
             }
         }
         let Some(plan) = self.plan.as_mut() else {
@@ -325,33 +230,28 @@ impl Response {
             self.cancel();
             return ControllerOutput::default();
         }
-        let manual = crate::up_b_receipt::manual_handback(
-            self.automatic_up_b,
-            self.up_b_seen,
-            c,
-            self.manual_epoch,
-        );
+        let manual = self.up_b.manual_handback(c);
         if manual && plan.drifting() {
             self.cancel();
             return ControllerOutput::default();
         }
         c.held = true;
         let output = plan.sample(settings, c, enemy, None, 0.0);
-        let output = if self.automatic_up_b || self.configured {
+        let output = if self.up_b.armed() || self.configured {
             crate::out_of_shield::direct_shield_input(c.status, output, plan.right_stick())
         } else {
             output
         };
-        if self.automatic_up_b
-            && (manual && plan.drifting()
-                || !self.up_b_seen && output.requested & crate::native_input::MAPPER_B == 0)
+        match self
+            .up_b
+            .after_sample(manual && plan.drifting(), output.requested)
         {
-            if crate::up_b_receipt::pending(self.up_b_seen, self.receipt.sent()) {
-                self.waiting_up_b = true;
+            UpBVerdict::Wait => return ControllerOutput::default(),
+            UpBVerdict::Cancel => {
+                self.cancel();
                 return ControllerOutput::default();
             }
-            self.cancel();
-            return ControllerOutput::default();
+            UpBVerdict::Continue | UpBVerdict::Confirm => {}
         }
         if self.grab_sent && output.requested & crate::native_input::MAPPER_R == 0 {
             self.plan = None;
@@ -371,32 +271,25 @@ pub fn select(
     trigger: Trigger,
     c: GameplayContext,
     enemy: Opponent,
-) -> Option<crate::sequence_config::Sequence> {
+) -> Option<Sequence> {
     if !trigger.defensive() || c.stopped || !c.gameplay
         // Retained text token is inert for compatibility with older files.
         || trigger == Trigger::LedgeRegrab
-        || !c.position.iter().chain(enemy.position.iter()).all(|v| v.is_finite())
+        || !finite_positions(c.position, enemy.position)
         || !c.facing.is_finite() || c.facing.abs() < 0.5
     {
         return None;
     }
-    for candidate in rules.rules.iter().flatten() {
+    rules.rules.iter().flatten().find_map(|candidate| {
         let r = candidate.sequence.reaction;
-        let dx = enemy.position[0] - c.position[0];
         if !r.trigger.event_matches(trigger)
             || r.trigger.needs_vulnerable() && !enemy.vulnerable
-            || !r.state.matches(c)
-            || dx.abs() < r.min
-            || dx.abs() > r.max
-            || (enemy.position[1] - c.position[1]).abs() > r.height
-            || matches!(r.side, Side::Front) && dx * c.facing <= 0.001
-            || matches!(r.side, Side::Behind) && dx * c.facing >= -0.001
+            || r.rejects(c, enemy.position).is_some()
         {
-            continue;
+            return None;
         }
         let mut sequence = candidate.sequence;
         sequence.while_held = false;
-        return Some(sequence);
-    }
-    None
+        Some(sequence)
+    })
 }

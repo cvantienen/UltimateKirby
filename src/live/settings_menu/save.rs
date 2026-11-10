@@ -31,6 +31,28 @@ pub(super) struct Job {
     pub sequence: Sequence,
     pub tuning: Option<kirby_assist_core::fighter_tuning::Tuning>,
 }
+/// What a result must report when its worker cannot deliver one itself.
+#[derive(Clone, Copy)]
+struct Identity {
+    kind: i32,
+    slot: PresetSlot,
+    index: usize,
+    revision: u64,
+    delete: bool,
+    tuning: Option<kirby_assist_core::fighter_tuning::Tuning>,
+}
+impl Job {
+    fn identity(&self) -> Identity {
+        Identity {
+            kind: self.kind,
+            slot: self.slot,
+            index: self.index,
+            revision: self.revision,
+            delete: self.delete,
+            tuning: self.tuning,
+        }
+    }
+}
 pub(super) struct ResultMessage {
     pub choice: Option<String>,
     pub kind: i32,
@@ -43,13 +65,29 @@ pub(super) struct ResultMessage {
     pub snapshot: Option<(Sequence, Option<String>)>,
     pub tuning: Option<kirby_assist_core::fighter_tuning::Tuning>,
 }
+impl ResultMessage {
+    fn failure(identity: Identity, message: String) -> Self {
+        Self {
+            choice: None,
+            kind: identity.kind,
+            slot: identity.slot,
+            index: identity.index,
+            revision: identity.revision,
+            message,
+            success: false,
+            deleted: identity.delete,
+            snapshot: None,
+            tuning: identity.tuning,
+        }
+    }
+}
 // No pending snapshots/queue: explicit Training saves start one temporary
 // worker immediately. Retain its handle until exit; never detach a live
 // Switch worker. A second save waits until completion is consumed.
 static BUSY: AtomicBool = AtomicBool::new(false);
 struct Worker {
     handle: std::thread::JoinHandle<()>,
-    identity: (i32, PresetSlot, usize, u64),
+    identity: Identity,
 }
 static WORKER: Mutex<Option<Worker>> = Mutex::new(None);
 // Only explicit saves and cached-text replacement use this gate; never inputs,
@@ -108,18 +146,10 @@ pub(super) fn poll() -> Option<ResultMessage> {
         .take();
     if let Some((identity, failed)) = exited {
         if failed || result.is_none() {
-            result = Some(ResultMessage {
-                choice: None,
-                kind: identity.0,
-                slot: identity.1,
-                index: identity.2,
-                revision: identity.3,
-                message: "Save worker stopped unexpectedly; save not confirmed. Retry Save".into(),
-                success: false,
-                deleted: false,
-                snapshot: None,
-                tuning: None,
-            });
+            result = Some(ResultMessage::failure(
+                identity,
+                "Save worker stopped unexpectedly; save not confirmed. Retry Save".into(),
+            ));
         }
     }
     if result.is_some() {
@@ -163,7 +193,7 @@ fn request_with(job: Job, training: bool, operation: fn(&Job) -> Result<bool, St
     // Keep native thread ownership through completion. Detaching immediately
     // after creation overlapped the cached-menu destruction in crash reports.
     let mut worker = WORKER.lock().unwrap_or_else(|e| e.into_inner());
-    let identity = (job.kind, job.slot, job.index, job.revision);
+    let identity = job.identity();
     *worker = spawn_worker(job, operation).map(|handle| Worker { handle, identity });
     "Saving now; keep Smash open until complete".into()
 }
@@ -172,18 +202,20 @@ fn publish(result: ResultMessage) {
     *slot = Some(result);
     RESULT_READY.store(true, Ordering::Release);
 }
+fn completion_message(job: &Job, outcome: &Result<bool, String>) -> String {
+    match outcome {
+        Ok(false) => "Already saved; file unchanged".into(),
+        Ok(true) if job.delete => "Deleted from sequences.txt (backup created)".into(),
+        Ok(true) if job.make_default => "Saved as startup default (backup created)".into(),
+        Ok(true) => "Saved to sequences.txt (backup created)".into(),
+        Err(error) => format!("Save failed: {error}"),
+    }
+}
 fn spawn_worker(
     job: Job,
     operation: fn(&Job) -> Result<bool, String>,
 ) -> Option<std::thread::JoinHandle<()>> {
-    let identity = (
-        job.kind,
-        job.slot,
-        job.index,
-        job.revision,
-        job.delete,
-        job.tuning,
-    );
+    let identity = job.identity();
     match std::thread::Builder::new()
         .name("recipe-save".into())
         .stack_size(WORKER_STACK_BYTES)
@@ -209,23 +241,16 @@ fn spawn_worker(
                     );
                 }
             }
-            let message = match outcome {
-                Ok(false) => "Already saved; file unchanged".into(),
-                Ok(true) if job.delete => "Deleted from sequences.txt (backup created)".into(),
-                Ok(true) if job.make_default => "Saved as startup default (backup created)".into(),
-                Ok(true) => "Saved to sequences.txt (backup created)".into(),
-                Err(error) => format!("Save failed: {error}"),
-            };
             publish(ResultMessage {
+                message: completion_message(&job, &outcome),
+                success,
+                snapshot: (success && job.tuning.is_none()).then_some((job.sequence, job.name)),
                 choice: Some(job.choice),
                 kind: job.kind,
                 slot: job.slot,
                 index: job.index,
                 revision: job.revision,
-                message,
-                success,
                 deleted: job.delete,
-                snapshot: (success && job.tuning.is_none()).then_some((job.sequence, job.name)),
                 tuning: job.tuning,
             });
         }) {
@@ -233,18 +258,10 @@ fn spawn_worker(
         Err(error) => {
             #[cfg(feature = "diagnostic-logging")]
             crate::performance::health::event(crate::performance::health::Event::SaveFailed);
-            publish(ResultMessage {
-                choice: None,
-                kind: identity.0,
-                slot: identity.1,
-                index: identity.2,
-                revision: identity.3,
-                deleted: identity.4,
-                success: false,
-                snapshot: None,
-                tuning: identity.5,
-                message: format!("Cannot start save worker: {error}"),
-            });
+            publish(ResultMessage::failure(
+                identity,
+                format!("Cannot start save worker: {error}"),
+            ));
             None
         }
     }
@@ -263,7 +280,7 @@ fn publish_tuning(
 }
 fn write(job: &Job) -> Result<bool, String> {
     if let Some(tuning) = job.tuning {
-        write_tuning_paths(
+        let changed = write_tuning_paths(
             job.kind,
             tuning,
             Path::new(PATH),
@@ -273,7 +290,7 @@ fn write(job: &Job) -> Result<bool, String> {
         if let Some(saved) = super::super::SEQUENCES.get() {
             publish_tuning(saved, job.kind, tuning);
         }
-        return Ok(true);
+        return Ok(changed);
     }
     let (catalog, changed) =
         write_recipe_paths(job, Path::new(PATH), Path::new(TEMP), Path::new(BACKUP))?;
@@ -292,17 +309,27 @@ fn write(job: &Job) -> Result<bool, String> {
     }
     Ok(true)
 }
+/// Recover an interrupted save, then read the live file and apply `update`.
+fn read_updated(
+    path: &Path,
+    temp: &Path,
+    update: impl FnOnce(&str) -> Result<String, String>,
+) -> Result<(String, String), String> {
+    recover_paths(path, temp)?;
+    let original = String::from_utf8(read_bounded(path)?).map_err(|e| e.to_string())?;
+    let updated = update(&original)?;
+    Ok((original, updated))
+}
 fn write_tuning_paths(
     kind: i32,
     tuning: kirby_assist_core::fighter_tuning::Tuning,
     path: &Path,
     temp: &Path,
     backup: &Path,
-) -> Result<(), String> {
-    recover_paths(path, temp)?;
+) -> Result<bool, String> {
     // Full-file validation still runs, but its temporary catalogs are dropped
     // before disk replacement. No recipe snapshot survives/publishes this save.
-    let (original, updated) = read_and_update(path, |original| {
+    let (original, updated) = read_updated(path, temp, |original| {
         persist::update_tuning(original, kind, tuning)
     })?;
     commit_paths(path, temp, backup, &original, &updated)
@@ -320,14 +347,6 @@ fn read_bounded(path: &Path) -> Result<Vec<u8>, String> {
     }
     Ok(data)
 }
-fn read_and_update(
-    path: &Path,
-    update: impl FnOnce(&str) -> Result<String, String>,
-) -> Result<(String, String), String> {
-    let original = String::from_utf8(read_bounded(path)?).map_err(|e| e.to_string())?;
-    let updated = update(&original)?;
-    Ok((original, updated))
-}
 #[cfg(test)]
 fn write_paths(
     job: &Job,
@@ -343,15 +362,7 @@ fn write_recipe_paths(
     temp: &Path,
     backup_path: &Path,
 ) -> Result<(kirby_assist_core::sequence_config::Catalog, bool), String> {
-    if job.tuning.is_some() {
-        return Err("Fighter settings must use the dedicated settings save path".into());
-    }
-    recover_paths(path, temp)?;
-    let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
-    if metadata.len() > MAX_FILE_BYTES {
-        return Err("Existing sequences.txt is too large".into());
-    }
-    let (original, updated) = read_and_update(path, |original| {
+    let (original, updated) = read_updated(path, temp, |original| {
         let updated = if job.delete {
             persist::delete(original, job.kind, job.slot, &job.choice, job.allow_new)?
         } else {
@@ -373,23 +384,48 @@ fn write_recipe_paths(
     })?;
     let saved_catalog = kirby_assist_core::sequence_config::Catalog::parse(&updated)?
         .for_build(cfg!(feature = "diagnostic-logging"));
-
-    if updated == original {
-        return Ok((saved_catalog, false));
-    }
-    commit_paths(path, temp, backup_path, &original, &updated)?;
-    Ok((saved_catalog, true))
+    let changed = commit_paths(path, temp, backup_path, &original, &updated)?;
+    Ok((saved_catalog, changed))
 }
+fn ensure_unchanged(path: &Path, original: &str) -> Result<(), String> {
+    if read_bounded(path)? == original.as_bytes() {
+        Ok(())
+    } else {
+        Err("sequences.txt changed during save; retry".into())
+    }
+}
+/// Write through an already opened file, close the native handle, then read the
+/// bytes back before any rename or later step relies on them.
+fn write_verified(
+    mut file: fs::File,
+    path: &Path,
+    bytes: &[u8],
+    verify_error: &str,
+) -> Result<(), String> {
+    file.write_all(bytes).map_err(|e| e.to_string())?;
+    file.sync_all().map_err(|e| e.to_string())?;
+    drop(file);
+    if read_bounded(path)? == bytes {
+        Ok(())
+    } else {
+        Err(verify_error.into())
+    }
+}
+/// Replace the live file with `updated`, keeping a verified backup of `original`.
+/// Returns false, touching no file, when the update changes nothing.
 fn commit_paths(
     path: &Path,
     temp: &Path,
     backup_path: &Path,
     original: &str,
     updated: &str,
-) -> Result<(), String> {
+) -> Result<bool, String> {
+    if updated == original {
+        return Ok(false);
+    }
     // Refuse to reuse an unclaimed temporary file. Replacement preserves the
     // original under a recovery name when Switch cannot overwrite by rename.
-    let mut temporary = OpenOptions::new()
+    let temporary = OpenOptions::new()
         .write(true)
         // Skyline's Switch std backend tests create and create_new separately:
         // create_new alone returns raw FS result 514 for a missing file.
@@ -398,47 +434,33 @@ fn commit_paths(
         .open(temp)
         .map_err(|e| format!("Cannot create save temporary file: {e}"))?;
     let result = (|| {
-        temporary
-            .write_all(updated.as_bytes())
-            .map_err(|e| e.to_string())?;
-        temporary.sync_all().map_err(|e| e.to_string())?;
-        // Close the native write handle before read-back and later renames.
-        drop(temporary);
-        if read_bounded(temp)? != updated.as_bytes() {
-            return Err("Temporary file verification failed".into());
-        }
-        if read_bounded(path)? != original.as_bytes() {
-            return Err("sequences.txt changed during save; retry".into());
-        }
-        let mut backup = OpenOptions::new()
+        write_verified(
+            temporary,
+            temp,
+            updated.as_bytes(),
+            "Temporary file verification failed",
+        )?;
+        ensure_unchanged(path, original)?;
+        let backup = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .open(backup_path)
             .map_err(|e| format!("Cannot create backup: {e}"))?;
-        backup
-            .write_all(original.as_bytes())
-            .map_err(|e| e.to_string())?;
-        backup.sync_all().map_err(|e| e.to_string())?;
-        drop(backup);
-        if read_bounded(backup_path)? != original.as_bytes() {
-            return Err("Backup verification failed".into());
-        }
+        write_verified(
+            backup,
+            backup_path,
+            original.as_bytes(),
+            "Backup verification failed",
+        )?;
         // Detect ordinary concurrent edits again after the backup I/O.
-        if read_bounded(path)? != original.as_bytes() {
-            return Err("sequences.txt changed during save; retry".into());
-        }
-        Ok(())
+        ensure_unchanged(path, original)?;
+        replace_file(path, temp, original, |from, to| fs::rename(from, to))
     })();
-    if let Err(error) = result {
+    if result.is_err() {
         let _ = fs::remove_file(temp);
-        return Err(error);
     }
-    if let Err(error) = replace_file(path, temp, original, |from, to| fs::rename(from, to)) {
-        let _ = fs::remove_file(temp);
-        return Err(error);
-    }
-    Ok(())
+    result.map(|()| true)
 }
 
 fn recovery_path(path: &Path) -> std::path::PathBuf {
@@ -455,9 +477,6 @@ fn exists(path: &Path) -> Result<bool, String> {
     }
 }
 fn validate_file(path: &Path) -> Result<(), String> {
-    if fs::metadata(path).map_err(|e| e.to_string())?.len() > MAX_FILE_BYTES {
-        return Err("Recovery file is too large".into());
-    }
     let source = String::from_utf8(read_bounded(path)?).map_err(|e| e.to_string())?;
     persist::validate_output(&source)
 }
@@ -509,9 +528,7 @@ where
     if exists(&rollback)? {
         return Err("Previous save recovery file exists; retry after recovery".into());
     }
-    if read_bounded(path)? != original.as_bytes() {
-        return Err("sequences.txt changed during save; retry".into());
-    }
+    ensure_unchanged(path, original)?;
     rename(path, &rollback)
         .map_err(|e| format!("Cannot preserve original before replacement: {e}"))?;
     if let Err(publish) = rename(temp, path) {
@@ -672,7 +689,14 @@ mod tests {
         });
         *WORKER.lock().unwrap() = Some(Worker {
             handle,
-            identity: (5, PresetSlot::Roll, 0, 0),
+            identity: Job {
+                kind: 5,
+                slot: PresetSlot::Roll,
+                index: 0,
+                revision: 0,
+                ..job()
+            }
+            .identity(),
         });
         posted.wait();
         assert!(has_result());
@@ -1026,6 +1050,26 @@ mod tests {
         assert_eq!(after.tuning[&6], other);
     }
     #[test]
+    fn commit_skips_identical_content_for_every_save_kind_and_keeps_the_backup() {
+        let directory = Directory::new();
+        let path = directory.0.join("sequences.txt");
+        let temp = directory.0.join("temp");
+        let backup = directory.0.join("backup");
+        fs::write(&path, SOURCE).unwrap();
+        fs::write(&backup, "previous backup must stay").unwrap();
+        assert!(!commit_paths(&path, &temp, &backup, SOURCE, SOURCE).unwrap());
+        assert_eq!(fs::read_to_string(&path).unwrap(), SOURCE);
+        assert_eq!(
+            fs::read_to_string(&backup).unwrap(),
+            "previous backup must stay"
+        );
+        assert!(!temp.exists());
+        let updated = format!("{SOURCE}\n# edited\n");
+        assert!(commit_paths(&path, &temp, &backup, SOURCE, &updated).unwrap());
+        assert_eq!(fs::read_to_string(&path).unwrap(), updated);
+        assert_eq!(fs::read_to_string(&backup).unwrap(), SOURCE);
+    }
+    #[test]
     fn settings_backup_failure_preserves_active_file() {
         let directory = Directory::new();
         let path = directory.0.join("sequences.txt");
@@ -1089,22 +1133,39 @@ mod tests {
     #[test]
     fn exited_worker_without_a_result_releases_save_gate_and_reports_failure() {
         let _guard = WORKER_TEST.lock().unwrap();
-        claim_worker(true).unwrap();
-        let handle = std::thread::spawn(|| {});
-        while !handle.is_finished() {
-            std::thread::yield_now();
+        let mut settings = kirby_assist_core::fighter_tuning::Tuning::default();
+        settings.set("grab_range", "14").unwrap();
+        // A recipe job and a fighter-settings job must each report as themselves,
+        // so completion routing does not mistake a settings failure for a recipe.
+        for (tuning, delete) in [(None, false), (None, true), (Some(settings), false)] {
+            claim_worker(true).unwrap();
+            let handle = std::thread::spawn(|| {});
+            while !handle.is_finished() {
+                std::thread::yield_now();
+            }
+            *WORKER.lock().unwrap() = Some(Worker {
+                handle,
+                identity: Job {
+                    kind: 5,
+                    slot: PresetSlot::Roll,
+                    index: 9,
+                    revision: 123,
+                    delete,
+                    tuning,
+                    ..job()
+                }
+                .identity(),
+            });
+            assert!(has_result());
+            let result = poll().unwrap();
+            assert!(!result.success);
+            assert_eq!((result.kind, result.index, result.revision), (5, 9, 123));
+            assert_eq!(result.deleted, delete);
+            assert_eq!(result.tuning, tuning);
+            assert!(result.message.contains("not confirmed"));
+            assert!(!busy());
+            assert!(try_ui_edit().is_some());
         }
-        *WORKER.lock().unwrap() = Some(Worker {
-            handle,
-            identity: (5, PresetSlot::Roll, 9, 123),
-        });
-        assert!(has_result());
-        let result = poll().unwrap();
-        assert!(!result.success);
-        assert_eq!((result.kind, result.index, result.revision), (5, 9, 123));
-        assert!(result.message.contains("not confirmed"));
-        assert!(!busy());
-        assert!(try_ui_edit().is_some());
     }
     #[test]
     fn malformed_save_snapshot_is_rejected_before_starting_a_worker() {

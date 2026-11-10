@@ -1,6 +1,6 @@
 //! Confirmed shield-contact responses. Inputs only; never force native states.
 use crate::{
-    gameplay::{ControllerOutput, MotionTiming, Opponent},
+    gameplay::{ControllerOutput, Opponent},
     roll_read::Target as ObservedTarget,
 };
 mod automatic;
@@ -8,21 +8,43 @@ mod simple;
 pub use automatic::{AutomaticConfig, AutomaticLimits};
 mod shield_up_b;
 
-pub(super) fn copied_target(target: ObservedTarget) -> Opponent {
-    Opponent {
-        id: target.id,
-        status: target.status,
-        position: target.position,
-        velocity: [target.velocity_x, 0.],
-        vulnerable: target.vulnerable_in == Some(0.),
-        motion: Some(MotionTiming {
-            kind: target.motion,
-            frame: target.frame,
-            rate: target.rate,
-            remaining: None,
-        }),
-        ..Default::default()
-    }
+fn copied_target(target: &ObservedTarget) -> Opponent {
+    target.opponent(crate::native_states::situation::GROUND, None)
+}
+
+/// The locked target: live follow facts first, else the copied snapshot.
+pub(super) fn locked_enemy(
+    id: Option<u32>,
+    follow: Option<Opponent>,
+    targets: &[Option<ObservedTarget>; 8],
+) -> Option<Opponent> {
+    follow.filter(|e| Some(e.id) == id).or_else(|| {
+        targets
+            .iter()
+            .flatten()
+            .find(|t| Some(t.id) == id)
+            .map(copied_target)
+    })
+}
+
+/// The horizontally nearest acceptable fighter; snapshot targets precede `follow`.
+pub(super) fn nearest_enemy(
+    origin: f32,
+    targets: &[Option<ObservedTarget>; 8],
+    follow: Option<Opponent>,
+    mut accept: impl FnMut(Opponent) -> bool,
+) -> Option<Opponent> {
+    targets
+        .iter()
+        .flatten()
+        .map(copied_target)
+        .chain(follow)
+        .filter(|e| accept(*e))
+        .min_by(|a, b| {
+            (a.position[0] - origin)
+                .abs()
+                .total_cmp(&(b.position[0] - origin).abs())
+        })
 }
 
 pub(super) fn target_within_range(
@@ -310,15 +332,17 @@ impl OutOfShield {
             context,
             targets,
             attacker,
-            range,
-            24.,
-            startup,
-            range,
-            false,
-            matches!(
-                c.status,
-                crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
-            ),
+            simple::Reach {
+                range,
+                height: 24.,
+                startup,
+                close: range,
+                approach: false,
+                shielded: matches!(
+                    c.status,
+                    crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
+                ),
+            },
         )
     }
     /// Front vulnerable-target grab (enemy shield required only when unshielded):
@@ -511,7 +535,7 @@ mod tests {
 
     #[test]
     fn copied_target_preserves_common_observation_facts() {
-        let opponent = copied_target(ObservedTarget {
+        let opponent = copied_target(&ObservedTarget {
             id: 7,
             status: 12,
             motion: 34,

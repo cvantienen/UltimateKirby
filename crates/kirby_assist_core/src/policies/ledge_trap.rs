@@ -34,7 +34,12 @@ mod attempt {
         pub fn elapsed(&self) -> f32 {
             self.age
         }
-        pub fn advance_pause(&mut self, ctx: GameplayContext, enemy: Option<Opponent>, timeout: u16) {
+        pub fn advance_pause(
+            &mut self,
+            ctx: GameplayContext,
+            enemy: Option<Opponent>,
+            timeout: u16,
+        ) {
             if ctx.stopped {
                 self.enemy_was_fresh = false;
                 return;
@@ -76,7 +81,9 @@ mod attempt {
             // only these known static states opt into opponent-clock fallback.
             let delta = if own > 0.0 {
                 own
-            } else if super::needs_opponent_clock(ctx.status, ctx.motion_rate) && self.enemy_was_fresh {
+            } else if super::needs_opponent_clock(ctx.status, ctx.motion_rate)
+                && self.enemy_was_fresh
+            {
                 other
             } else {
                 0.0
@@ -152,7 +159,8 @@ mod attempt {
         use super::*;
 
         #[test]
-        fn held_guard_and_teeter_poses_use_opponent_frames_without_counting_duplicates_or_hitstop() {
+        fn held_guard_and_teeter_poses_use_opponent_frames_without_counting_duplicates_or_hitstop()
+        {
             for status in [
                 crate::native_states::GUARD_ON,
                 crate::native_states::GUARD,
@@ -603,11 +611,60 @@ pub const SEQUENCE_BUTTONS: u32 = ASSIST_BUTTONS
 /// Verified against pinned skyline-smash d2ca90d9, src/lua_const.rs:
 /// CAPTURE_PULLED..DAMAGE_FALL, DOWN..DOWN_WAIT_CONTINUE, DOWN_DAMAGE/REFLECT_LR
 /// and DAMAGE_FLY_REFLECT_JUMP_BOARD. THROW (0x40) is our attack, THROWN (0x46) is the victim.
-pub fn sequence_interrupted(status: i32) -> bool {
-    crate::native_states::sequence_interrupted(status)
-}
+pub use crate::native_states::sequence_interrupted;
 fn is_hanging(status: i32) -> bool {
     (CLIFF_CATCH_MOVE..=CLIFF_WAIT).contains(&status)
+}
+/// Any native ledge state: the hang plus every option taken from it.
+fn is_ledge_status(status: i32) -> bool {
+    is_hanging(status) || is_ledge_option(status)
+}
+/// A get-up, roll, ledge attack or ledge jump.
+fn is_ledge_option(status: i32) -> bool {
+    option_slot(status).is_some()
+}
+/// Both axes of a copied native position/velocity are usable.
+pub(crate) fn finite2(p: [f32; 2]) -> bool {
+    p[0].is_finite() && p[1].is_finite()
+}
+fn finite_opponent(e: &Opponent) -> bool {
+    finite2(e.position) && finite2(e.velocity)
+}
+/// Our own native sample is finite with a real left/right facing.
+fn usable_context(ctx: GameplayContext) -> bool {
+    finite2(ctx.position)
+        && finite2(ctx.velocity)
+        && ctx.facing.is_finite()
+        && ctx.facing.abs() >= 0.5
+}
+/// The ledge option slot whose input recipe answers this native status.
+fn option_slot(status: i32) -> Option<PresetSlot> {
+    match status {
+        CLIFF_CLIMB => Some(PresetSlot::Neutral),
+        CLIFF_ESCAPE => Some(PresetSlot::Roll),
+        CLIFF_ATTACK => Some(PresetSlot::Attack),
+        CLIFF_JUMP1..=CLIFF_JUMP3 => Some(PresetSlot::Jump),
+        _ => None,
+    }
+}
+/// The response slot for an observed opponent: a ledge option it is taking (or
+/// just took, as its sticky previous status shows), or a drop from the hang.
+fn response_slot(enemy: Opponent, from_hang: bool) -> Option<PresetSlot> {
+    option_slot(enemy.status)
+        .or_else(|| option_slot(enemy.previous_status))
+        .or_else(|| {
+            (enemy.situation == crate::native_states::situation::AIR
+                && from_hang
+                && !is_hanging(enemy.status)
+                && !matches!(
+                    enemy.status,
+                    crate::native_states::THROW
+                        ..=crate::native_states::status::DAMAGE_FALL
+                            | crate::native_states::status::DEAD
+                            | crate::native_states::status::REBIRTH
+                ))
+            .then_some(PresetSlot::Drop)
+        })
 }
 
 /// Acquisition can use the actual cliff anchor instead of a hanging fighter's
@@ -619,10 +676,7 @@ pub fn in_tracking_range(
     tracked: bool,
 ) -> bool {
     if settings.distance_agnostic {
-        return position
-            .iter()
-            .chain(enemy.position.iter())
-            .all(|value| value.is_finite());
+        return finite2(position) && finite2(enemy.position);
     }
     let reference = if !tracked && is_hanging(enemy.status) {
         enemy.cliff_position.unwrap_or(enemy.position)
@@ -637,32 +691,6 @@ pub fn in_tracking_range(
         [settings.horizontal_range, settings.vertical_range]
     };
     dx.is_finite() && dy.is_finite() && dx.abs() <= limits[0] && dy.abs() <= limits[1]
-}
-
-// Shared grab readiness is still used by independent helpers, not by raw
-// sequence inputs. These native term IDs are not move-start timing values.
-pub fn grab_transition_term(status: i32) -> i32 {
-    match status {
-        crate::native_states::status::DASH | crate::native_states::status::RUN => {
-            crate::native_states::transition_terms::CONT_CATCH_DASH
-        }
-        crate::native_states::status::TURN_DASH | crate::native_states::status::TURN_RUN => {
-            crate::native_states::transition_terms::CONT_CATCH_TURN
-        }
-        _ => crate::native_states::transition_terms::CONT_CATCH,
-    }
-}
-pub fn grab_input_ready(status: i32, mut enabled: impl FnMut(i32) -> bool) -> bool {
-    let preferred = grab_transition_term(status);
-    enabled(preferred)
-        || matches!(status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV)
-            && [
-                crate::native_states::transition_terms::CONT_CATCH,
-                crate::native_states::transition_terms::CONT_CATCH_DASH,
-                crate::native_states::transition_terms::CONT_CATCH_TURN,
-            ]
-            .into_iter()
-            .any(|term| term != preferred && enabled(term))
 }
 
 #[derive(Default)]
@@ -694,9 +722,6 @@ impl LedgeTrap {
     pub fn preview_active(&self) -> bool {
         self.preview.is_some() && !self.complete
     }
-    pub fn manual_after_grab(&self) -> bool {
-        self.complete && self.captured
-    }
     pub fn manual_after_response(&self) -> bool {
         self.complete
     }
@@ -714,9 +739,11 @@ impl LedgeTrap {
     pub fn target(&self) -> Option<u32> {
         self.target
     }
+    fn engaged(&self) -> bool {
+        self.preview.is_some() || self.target.is_some() || self.file_timeline.is_some()
+    }
     pub fn needs_response_observation(&self) -> bool {
-        !self.complete
-            && (self.preview.is_some() || self.target.is_some() || self.file_timeline.is_some())
+        !self.complete && self.engaged()
     }
     pub fn observation_target(&self) -> Option<u32> {
         self.target.filter(|_| self.needs_response_observation())
@@ -724,11 +751,9 @@ impl LedgeTrap {
     pub fn reserves_response(&self, enemy: Option<Opponent>) -> bool {
         !self.visit_consumed
             && !self.complete
-            && (self.needs_response_observation()
-                || enemy.is_some_and(|e| {
-                    (CLIFF_CATCH_MOVE..=CLIFF_JUMP3).contains(&e.status)
-                        || is_hanging(e.previous_status)
-                }))
+            && (self.engaged()
+                || enemy
+                    .is_some_and(|e| is_ledge_status(e.status) || is_hanging(e.previous_status)))
     }
     pub fn committed_input_pending(&self) -> bool {
         self.file_timeline_active()
@@ -750,7 +775,7 @@ impl LedgeTrap {
         self.file_timeline_active() && !sequence_interrupted(status)
     }
     pub fn prepare_stance(&mut self, anchor: [f32; 2], inward: f32) {
-        if anchor.iter().all(|v| v.is_finite()) && inward.is_finite() {
+        if finite2(anchor) && inward.is_finite() {
             self.anchor = Some(anchor);
             self.inward = inward.signum();
         }
@@ -793,53 +818,16 @@ impl LedgeTrap {
         if self.complete {
             return ControllerOutput::default();
         }
-        if !ctx
-            .position
-            .iter()
-            .chain(ctx.velocity.iter())
-            .all(|v| v.is_finite())
-            || !ctx.facing.is_finite()
-            || ctx.facing.abs() < 0.5
-        {
-            self.file_timeline = None;
-            self.complete = true;
-            self.last_output = ControllerOutput::default();
-            return self.last_output;
+        if !usable_context(ctx) {
+            return self.end_visit();
         }
         if self.file_timeline.is_some() {
             return self.continue_timeline(settings, ctx, enemy);
         }
         if let Some(slot) = self.preview {
-            let Some(enemy) = enemy.filter(|e| {
-                e.position
-                    .iter()
-                    .chain(e.velocity.iter())
-                    .all(|v| v.is_finite())
-            }) else {
-                self.complete = true;
-                return ControllerOutput::default();
-            };
-            self.target = Some(enemy.id);
-            self.slot = Some(slot);
-            self.anchor = enemy
-                .cliff_position
-                .filter(|p| p.iter().all(|v| v.is_finite()));
-            if let Some(anchor) = self.anchor {
-                self.inward = (ctx.position[0] - anchor[0]).signum();
-            }
-            let Some(sequence) = settings.sequence_overrides[slot as usize] else {
-                self.complete = true;
-                return ControllerOutput::default();
-            };
-            self.file_timeline = Some(file_timeline::Timeline::new(sequence, enemy));
-            return self.continue_timeline(settings, ctx, Some(enemy));
+            return self.sample_preview(settings, ctx, enemy, slot);
         }
-        let Some(enemy) = enemy.filter(|e| {
-            e.position
-                .iter()
-                .chain(e.velocity.iter())
-                .all(|v| v.is_finite())
-        }) else {
+        let Some(enemy) = enemy.filter(finite_opponent) else {
             self.target = None;
             return ControllerOutput::default();
         };
@@ -850,39 +838,11 @@ impl LedgeTrap {
         let hang = is_hanging(enemy.status);
         let from_hang = self.target == Some(enemy.id) && is_hanging(self.last_status)
             || is_hanging(enemy.previous_status);
-        let slot = match enemy.status {
-            CLIFF_CLIMB => Some(PresetSlot::Neutral),
-            CLIFF_ESCAPE => Some(PresetSlot::Roll),
-            CLIFF_ATTACK => Some(PresetSlot::Attack),
-            CLIFF_JUMP1..=CLIFF_JUMP3 => Some(PresetSlot::Jump),
-            _ if enemy.previous_status == CLIFF_CLIMB => Some(PresetSlot::Neutral),
-            _ if enemy.previous_status == CLIFF_ESCAPE => Some(PresetSlot::Roll),
-            _ if enemy.previous_status == CLIFF_ATTACK => Some(PresetSlot::Attack),
-            _ if (CLIFF_JUMP1..=CLIFF_JUMP3).contains(&enemy.previous_status) => {
-                Some(PresetSlot::Jump)
-            }
-            _ if enemy.situation == crate::native_states::situation::AIR
-                && from_hang
-                && !hang
-                && !matches!(
-                    enemy.status,
-                    crate::native_states::THROW
-                        ..=crate::native_states::status::DAMAGE_FALL
-                            | crate::native_states::status::DEAD
-                            | crate::native_states::status::REBIRTH
-                ) =>
-            {
-                Some(PresetSlot::Drop)
-            }
-            _ => None,
-        };
+        let slot = response_slot(enemy, from_hang);
         if hang || slot.is_some() {
             self.target = Some(enemy.id);
             self.observed_velocity = enemy.velocity;
-            if let Some(anchor) = enemy
-                .cliff_position
-                .filter(|p| p.iter().all(|v| v.is_finite()))
-            {
+            if let Some(anchor) = enemy.cliff_position.filter(|p| finite2(*p)) {
                 self.anchor = Some(anchor);
                 if (ctx.position[0] - anchor[0]).abs() > 0.5 {
                     self.inward = (ctx.position[0] - anchor[0]).signum();
@@ -894,16 +854,50 @@ impl LedgeTrap {
             return ControllerOutput::default();
         };
         self.slot = Some(slot);
+        self.start_timeline(settings, ctx, slot, enemy)
+    }
+    /// Editor preview: answer the one observed opponent with the chosen slot,
+    /// whatever its native status.
+    fn sample_preview(
+        &mut self,
+        settings: AssistSettings,
+        ctx: GameplayContext,
+        enemy: Option<Opponent>,
+        slot: PresetSlot,
+    ) -> ControllerOutput {
+        let Some(enemy) = enemy.filter(finite_opponent) else {
+            return self.end_visit();
+        };
+        self.target = Some(enemy.id);
+        self.slot = Some(slot);
+        self.anchor = enemy.cliff_position.filter(|p| finite2(*p));
+        if let Some(anchor) = self.anchor {
+            self.inward = (ctx.position[0] - anchor[0]).signum();
+        }
+        self.start_timeline(settings, ctx, slot, enemy)
+    }
+    fn start_timeline(
+        &mut self,
+        settings: AssistSettings,
+        ctx: GameplayContext,
+        slot: PresetSlot,
+        enemy: Opponent,
+    ) -> ControllerOutput {
         // No file recipe means no response. There is no compiled fighter fallback.
+        // An explicitly empty row is a completed no-response choice; it must
+        // not reserve other input helpers for the rest of this visit.
         let Some(sequence) = settings.sequence_overrides[slot as usize] else {
-            // An explicitly empty row is a completed no-response choice; it
-            // must not reserve other input helpers for the rest of this visit.
-            self.complete = true;
-            self.last_output = ControllerOutput::default();
-            return self.last_output;
+            return self.end_visit();
         };
         self.file_timeline = Some(file_timeline::Timeline::new(sequence, enemy));
         self.continue_timeline(settings, ctx, Some(enemy))
+    }
+    /// Complete this visit without a response (or after an unusable observation).
+    fn end_visit(&mut self) -> ControllerOutput {
+        self.file_timeline = None;
+        self.complete = true;
+        self.last_output = ControllerOutput::default();
+        self.last_output
     }
     fn continue_timeline(
         &mut self,

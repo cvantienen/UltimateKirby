@@ -251,10 +251,6 @@ extern "C" {
     // Infliction asks whether Kirby registered a hit; is_attack asks whether
     // an opponent currently has an active attack slot. Starting an animation
     // alone proves neither a successful hit nor a safely ended get-up attack.
-    #[link_name = "\u{1}_ZN3app8lua_bind39AttackModule__is_infliction_status_implEPNS_26BattleObjectModuleAccessorEj"]
-    // Reserved for the unregistered whiff-punish prototype.
-    #[allow(dead_code)]
-    pub fn attack_infliction(module_accessor: *mut Object, collision_mask: i32) -> bool;
     // Fresh collision on this update; unlike is_infliction_status, this cannot
     // carry an earlier fair hit forward into a later hitbox interval.
     #[link_name = "\u{1}_ZN3app8lua_bind32AttackModule__is_infliction_implEPNS_26BattleObjectModuleAccessorEj"]

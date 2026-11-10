@@ -57,10 +57,7 @@ mod state;
 mod tech;
 
 use config::load_config;
-use controller::{
-    controller_from_wrapper, selected_controller, trace, write_trace, ControllerRestore,
-    MappedInputs,
-};
+use controller::{selected_controller, trace, write_trace, ControllerRestore, MappedInputs};
 use kirby_assist_core::action_owner::{ActionOwnership, Intent, Owner};
 use kirby_assist_core::training_test;
 use observations::{combat_targets, fighter_ids, human_fighter, nearest_ledge_opponent};
@@ -84,12 +81,9 @@ use kirby_assist_core::live_input::{
 };
 use kirby_assist_core::manual_controls::{
     ledge_walk_stick, suppress_reserved_taunts, turbo_movement_allowed, DashPivotAssist,
-    ManualContext, ManualOverlay, TurboOutput, TurboState, DPAD_SIDES, DPAD_UP, TURBO_TRIGGER,
+    ManualContext, ManualOverlay, TurboOutput, TurboState, TURBO_TRIGGER,
 };
-use kirby_assist_core::native_input::{
-    controller_index, selected_controller_mapper, MAPPER_DPAD_DOWN, MAPPER_L, MAPPER_MINUS,
-    MAPPER_PLUS, MAPPER_ZR,
-};
+use kirby_assist_core::native_input::{controller_index, MAPPER_L, MAPPER_PLUS, MAPPER_ZR};
 #[cfg(feature = "diagnostic-logging")]
 use kirby_assist_core::native_input::{MAPPER_A, MAPPER_X, MAPPER_Y};
 use kirby_assist_core::session::{MatchSession, SessionTicket};
@@ -162,20 +156,24 @@ static SEQUENCES_UPDATED: AtomicBool = AtomicBool::new(false);
 // the game, then lock again to publish results. `if let Ok` skips poisoned locks
 // instead of panicking inside a native callback.
 static STATE: Mutex<State> = Mutex::new(State::new());
+fn sync_diagnostic_options() {
+    #[cfg(feature = "diagnostic-logging")]
+    {
+        let perf = STATE
+            .lock()
+            .ok()
+            .and_then(|state| {
+                state
+                    .settings_menu
+                    .as_ref()
+                    .map(|menu| menu.diagnostic_options())
+            })
+            .unwrap_or_default();
+        crate::performance::set_enabled(perf);
+    }
+}
 fn diagnostic_config(config: Config) -> Config {
-    #[cfg(feature = "diagnostic-logging")]
-    let perf = STATE
-        .lock()
-        .ok()
-        .and_then(|state| {
-            state
-                .settings_menu
-                .as_ref()
-                .map(|menu| menu.diagnostic_options())
-        })
-        .unwrap_or_default();
-    #[cfg(feature = "diagnostic-logging")]
-    crate::performance::set_enabled(perf);
+    sync_diagnostic_options();
     config
 }
 // Only a freshly revalidated selected-controller route may authorize gameplay,
@@ -225,15 +223,11 @@ unsafe fn map_controls(
     wrapper: *mut c_void,
     arg: bool,
 ) {
-    let Some(mapper::MapperAdmission {
-        config,
-        master_ready_go,
-        session_ticket,
-    }) = mapper::admit_mapper_callback(wrapper, index)
-    else {
+    let Some(admission) = mapper::admit_mapper_callback(wrapper, index) else {
         original!()(mappings, index, output, wrapper, arg);
         return;
     };
+    let session_ticket = admission.session_ticket;
     #[cfg(feature = "diagnostic-logging")]
     let _mapping_time =
         crate::performance::health::Trace::new(crate::performance::health::Lane::Mapping);
@@ -246,7 +240,7 @@ unsafe fn map_controls(
         .then(|| game::is_training_mode());
     let training_test_mode =
         training_test::active(training_mode.is_some(), training_mode.unwrap_or(false));
-    if training_test_mode && mapper::enter_training_passthrough(wrapper, index, config) {
+    if training_test_mode && mapper::enter_training_passthrough(&admission, index) {
         original!()(mappings, index, output, wrapper, arg);
         return;
     }
@@ -258,15 +252,9 @@ unsafe fn map_controls(
     // save physical data -> temporarily replace -> map -> restore.
     // Only the mapper's RESULT survives. Retaining our temporary raw data would
     // make the next callback mistake automation for a real physical hold.
-    let Some(mut preparation) = mapper::prepare_mapper_overlay(
-        index,
-        output,
-        wrapper,
-        master_ready_go,
-        training_mode,
-        training_test_mode,
-        session_ticket,
-    ) else {
+    let Some(mut preparation) =
+        mapper::prepare_mapper_overlay(admission, index, output, training_mode, training_test_mode)
+    else {
         original!()(mappings, index, output, wrapper, arg);
         return;
     };

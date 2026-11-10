@@ -1,14 +1,21 @@
 //! Kirby-specific input-only follow-ups.
+use crate::gameplay::ControllerOutput;
+use crate::native_input::MAPPER_A;
 
 mod fair_followup {
     //! Kirby fast-fall fair hit 1 -> landing -> upward-angled forward smash.
     //! A fresh hurtbox hit arms the follow-up. Shield/stale hit flags do not.
-    use super::FOLLOWUP_BUTTONS;
+    use super::{hold, press_a, valid_facing};
     use crate::gameplay::ControllerOutput;
     use crate::native_input::MAPPER_A;
+    use crate::native_states::{jump_or_fall, status};
+    use std::ops::Range;
     const FAIR: u64 = crate::timing::MOTION_ATTACK_AIR_F;
     const UP_ANGLE: f32 = 0.5;
     const FAST_FALL_FRAMES: f32 = 16.0;
+    const MAX_LATCH_FRAMES: f32 = 180.0;
+    /// Fair frames whose hit counts as the first hit; contact from the next frame on is a later hit.
+    const FIRST_HIT_FRAMES: Range<f32> = 10.0..12.0;
 
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct FairContext {
@@ -51,15 +58,7 @@ mod fair_followup {
             ctx: FairContext,
             velocity_y: f32,
         ) -> ControllerOutput {
-            if !enabled
-                || !ctx.kirby
-                || !ctx.frame.is_finite()
-                || ctx.frame < 0.0
-                || !ctx.rate.is_finite()
-                || ctx.rate <= 0.0
-                || !ctx.facing.is_finite()
-                || ctx.facing.abs() < 0.5
-            {
+            if !enabled || !ctx.usable() {
                 *self = Self::default();
                 return self.output;
             }
@@ -71,141 +70,151 @@ mod fair_followup {
             }
             let native_progress = !ctx.stopped
                 && self.last.is_none_or(|last| {
-                    ctx.status != last.status || ctx.motion != last.motion || ctx.frame != last.frame
+                    ctx.status != last.status
+                        || ctx.motion != last.motion
+                        || ctx.frame != last.frame
                 });
             let was_queued = self.queued;
-            let fair = ctx.status == crate::native_states::status::ATTACK_AIR && ctx.motion == FAIR;
             // Native aerial status can overlap a grounded situation flag on the
             // landing update. Do not discard its hit or issue another aerial A.
-            let landed = ctx.grounded
-                && !fair
-                && !matches!(
-                    ctx.status,
-                    crate::native_states::status::JUMP
-                        | crate::native_states::status::JUMP_AERIAL
-                        | crate::native_states::status::FALL
-                        | crate::native_states::status::FALL_AERIAL
-                );
-            let new_fair = fair
-                && self.last.is_none_or(|last| {
-                    last.status != crate::native_states::status::ATTACK_AIR
-                        || last.motion != FAIR
-                        || ctx.frame < last.frame
-                });
-            if new_fair && !self.queued {
-                self.spent = false;
-                self.down_held = false;
+            let landed = ctx.grounded && !ctx.is_fair() && !jump_or_fall(ctx.status);
+            let recognized = self.recognize(ctx, landed);
+            if !recognized && self.queued && !ctx.stopped {
+                self.advance_age(ctx);
             }
-            let first_hit = fair && (10.0..12.0).contains(&ctx.frame);
-            // A later connecting hit invalidates the first-hit-only landing route.
-            // Check before duplicate/stop handling: contact can arrive in hitstop.
-            if self.queued && fair && ctx.frame >= 12.0 && ctx.hit_now {
-                self.finish();
-            }
-            let landing_hit = landed
-                && ctx.status == crate::native_states::status::LANDING_ATTACK_AIR
-                && ctx.motion == crate::timing::motion_hash("landing_air_f")
-                && self.last.is_some_and(|last| {
-                    last.status == crate::native_states::status::ATTACK_AIR
-                        && last.motion == FAIR
-                        && (10.0..12.0).contains(&last.frame)
-                });
-            let recognized = !self.queued && !self.spent && (first_hit || landing_hit) && ctx.hit_now;
-            if recognized {
-                self.queued = true;
-                self.age = 0.0;
-                self.facing = ctx.facing.signum();
-            } else if self.queued && !ctx.stopped {
-                let mut delta = crate::timing::motion_elapsed(
-                    self.last
-                        .map(|last| (last.status, last.motion, last.frame, last.rate)),
-                    (ctx.status, ctx.motion, ctx.frame, ctx.rate),
-                    0.0,
-                );
-                // A falling animation may loop before landing. This is a confirmed
-                // hit latch, not an exact-frame aerial sequence; skipped advancing
-                // snapshots must not erase the pending grounded smash either.
-                if delta.is_nan()
-                    && matches!(
-                        ctx.status,
-                        crate::native_states::status::FALL | crate::native_states::status::FALL_AERIAL
-                    )
-                    && self.last.is_some_and(|last| {
-                        ctx.status == last.status && ctx.motion == last.motion && ctx.frame < last.frame
-                    })
-                {
-                    delta = 1.0;
-                }
-                if !delta.is_finite() || delta < 0.0 {
-                    self.finish();
-                } else {
-                    self.age += delta;
-                }
-            }
-            let mut out = ControllerOutput::default();
-            if self.queued {
-                // Later animation frames without contact retain hit 1. A later
-                // connecting hit, damage, grab, dodge or special cancels the latch.
-                let supported = if landed {
-                    matches!(ctx.status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_ATTACK_AIR | crate::native_states::status::ATTACK_S4_START..=crate::native_states::status::ATTACK_S4)
-                } else {
-                    fair || matches!(
-                        ctx.status,
-                        crate::native_states::status::JUMP
-                            | crate::native_states::status::JUMP_AERIAL
-                            | crate::native_states::status::FALL
-                            | crate::native_states::status::FALL_AERIAL
-                    )
-                };
-                if !supported
-                    || self.age > 180.0
-                    || !landed && self.age >= FAST_FALL_FRAMES
-                    || matches!(
-                        ctx.status,
-                        crate::native_states::status::ATTACK_S4_HOLD
-                            | crate::native_states::status::ATTACK_S4
-                    )
-                {
-                    self.finish();
-                } else {
-                    out.owned = FOLLOWUP_BUTTONS;
-                    out.stick = Some([0.0, 0.0]);
-                    if !landed {
-                        self.down_held |= !ctx.stopped && velocity_y.is_finite() && velocity_y < -0.05;
-                        if self.down_held {
-                            out.stick = Some([0.0, -1.0]);
-                        }
-                    }
-                    if ctx.status == crate::native_states::status::ATTACK_S4_START {
-                        // Release A to avoid charge, but preserve the angle through
-                        // startup until native forward-smash attack selection.
-                        out.stick = Some([self.facing, UP_ANGLE]);
-                    } else if landed && !recognized && !native_progress {
-                        out = self.output;
-                    } else if landed && !recognized && self.output.requested & MAPPER_A == 0 {
-                        // Ordinary smash-buffer input during landing lag; no range,
-                        // DI, percent or opponent-state gates after confirmation.
-                        out.requested = MAPPER_A;
-                        out.stick = Some([self.facing, UP_ANGLE]);
-                    }
-                }
-            }
+            let mut out = if self.queued {
+                self.queued_output(ctx, landed, recognized, native_progress, velocity_y)
+            } else {
+                ControllerOutput::default()
+            };
             // One explicit release when acceptance/interruption ends ownership.
-            if out.owned == 0 && was_queued {
-                // Hand back physical movement immediately when an aerial times out.
-                if landed {
-                    out.owned = FOLLOWUP_BUTTONS;
-                    out.stick = Some([0.0, 0.0]);
-                }
+            // Hand back physical movement immediately when an aerial times out.
+            if out.owned == 0 && was_queued && landed {
+                out = hold([0.0, 0.0]);
             }
             self.last = Some(ctx);
             self.output = out;
             out
         }
+        /// Rearm on a new fair, drop the latch on a later hit, and latch the first hit.
+        fn recognize(&mut self, ctx: FairContext, landed: bool) -> bool {
+            let fair = ctx.is_fair();
+            let new_fair = fair
+                && self
+                    .last
+                    .is_none_or(|last| !last.is_fair() || ctx.frame < last.frame);
+            if new_fair && !self.queued {
+                self.spent = false;
+                self.down_held = false;
+            }
+            // A later connecting hit invalidates the first-hit-only landing route.
+            // Check before duplicate/stop handling: contact can arrive in hitstop.
+            if self.queued && fair && ctx.frame >= FIRST_HIT_FRAMES.end && ctx.hit_now {
+                self.finish();
+            }
+            let first_hit = fair && FIRST_HIT_FRAMES.contains(&ctx.frame);
+            let landing_hit = landed
+                && ctx.status == status::LANDING_ATTACK_AIR
+                && ctx.motion == crate::timing::motion_hash("landing_air_f")
+                && self
+                    .last
+                    .is_some_and(|last| last.is_fair() && FIRST_HIT_FRAMES.contains(&last.frame));
+            let recognized =
+                !self.queued && !self.spent && (first_hit || landing_hit) && ctx.hit_now;
+            if recognized {
+                self.queued = true;
+                self.age = 0.0;
+                self.facing = ctx.facing.signum();
+            }
+            recognized
+        }
+        fn advance_age(&mut self, ctx: FairContext) {
+            let mut delta = crate::timing::motion_elapsed(
+                self.last
+                    .map(|last| (last.status, last.motion, last.frame, last.rate)),
+                (ctx.status, ctx.motion, ctx.frame, ctx.rate),
+                0.0,
+            );
+            // A falling animation may loop before landing. This is a confirmed
+            // hit latch, not an exact-frame aerial sequence; skipped advancing
+            // snapshots must not erase the pending grounded smash either.
+            if delta.is_nan()
+                && matches!(ctx.status, status::FALL | status::FALL_AERIAL)
+                && self.last.is_some_and(|last| {
+                    ctx.status == last.status && ctx.motion == last.motion && ctx.frame < last.frame
+                })
+            {
+                delta = 1.0;
+            }
+            if !delta.is_finite() || delta < 0.0 {
+                self.finish();
+            } else {
+                self.age += delta;
+            }
+        }
+        fn queued_output(
+            &mut self,
+            ctx: FairContext,
+            landed: bool,
+            recognized: bool,
+            native_progress: bool,
+            velocity_y: f32,
+        ) -> ControllerOutput {
+            // Later animation frames without contact retain hit 1. A later
+            // connecting hit, damage, grab, dodge or special cancels the latch.
+            let supported = if landed {
+                matches!(ctx.status, status::WAIT..=status::TURN_RUN_BRAKE | status::SQUAT..=status::LANDING_ATTACK_AIR | status::ATTACK_S4_START..=status::ATTACK_S4)
+            } else {
+                ctx.is_fair() || jump_or_fall(ctx.status)
+            };
+            if !supported
+                || self.age > MAX_LATCH_FRAMES
+                || !landed && self.age >= FAST_FALL_FRAMES
+                || matches!(ctx.status, status::ATTACK_S4_HOLD | status::ATTACK_S4)
+            {
+                self.finish();
+                return ControllerOutput::default();
+            }
+            if ctx.status == status::ATTACK_S4_START {
+                // Release A to avoid charge, but preserve the angle through
+                // startup until native forward-smash attack selection.
+                return hold([self.facing, UP_ANGLE]);
+            }
+            if landed && !recognized {
+                if !native_progress {
+                    return self.output;
+                }
+                if self.output.requested & MAPPER_A == 0 {
+                    // Ordinary smash-buffer input during landing lag; no range,
+                    // DI, percent or opponent-state gates after confirmation.
+                    return press_a([self.facing, UP_ANGLE]);
+                }
+            }
+            if !landed {
+                self.down_held |= !ctx.stopped && velocity_y.is_finite() && velocity_y < -0.05;
+                if self.down_held {
+                    return hold([0.0, -1.0]);
+                }
+            }
+            hold([0.0, 0.0])
+        }
         fn finish(&mut self) {
             self.queued = false;
             self.down_held = false;
             self.spent = true;
+        }
+    }
+    impl FairContext {
+        fn usable(&self) -> bool {
+            self.kirby
+                && self.frame.is_finite()
+                && self.frame >= 0.0
+                && self.rate.is_finite()
+                && self.rate > 0.0
+                && valid_facing(self.facing)
+        }
+        fn is_fair(&self) -> bool {
+            self.status == status::ATTACK_AIR && self.motion == FAIR
         }
     }
 
@@ -538,9 +547,10 @@ mod fair_followup {
 }
 mod trip_followup {
     //! Kirby tilt-trip recognition and buffered forward-smash inputs.
-    use super::FOLLOWUP_BUTTONS;
+    use super::{hold, press_a, valid_facing};
     use crate::gameplay::ControllerOutput;
     use crate::native_input::MAPPER_A;
+    use crate::native_states::status;
 
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct TripTarget {
@@ -549,16 +559,10 @@ mod trip_followup {
         pub previous_status: i32,
     }
     fn trip_tilt(status: i32) -> bool {
-        matches!(
-            status,
-            crate::native_states::status::ATTACK_S3 | crate::native_states::status::ATTACK_LW3
-        )
+        matches!(status, status::ATTACK_S3 | status::ATTACK_LW3)
     }
     fn tripping(status: i32) -> bool {
-        matches!(
-            status,
-            crate::native_states::status::SLIP..=crate::native_states::status::SLIP_WAIT
-        )
+        matches!(status, status::SLIP..=status::SLIP_WAIT)
     }
 
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -583,8 +587,7 @@ mod trip_followup {
     }
     impl TripFollowup {
         pub fn cancel_pending(&mut self) {
-            self.queued = false;
-            self.spent = true;
+            self.finish();
             self.output = ControllerOutput::default();
         }
         pub fn watching(&self) -> bool {
@@ -593,7 +596,12 @@ mod trip_followup {
         pub fn sample(&mut self, enabled: bool, ctx: TripContext) -> ControllerOutput {
             // Invalid/changed identity resets the tool. An identical observation
             // reuses output, so repeated mapper polls do not manufacture new pulses.
-            if !enabled || !ctx.kirby || !ctx.frame.is_finite() || ctx.frame < 0.0 {
+            if !enabled
+                || !ctx.kirby
+                || !ctx.frame.is_finite()
+                || ctx.frame < 0.0
+                || !valid_facing(ctx.facing)
+            {
                 *self = Self::default();
                 return ControllerOutput::default();
             }
@@ -605,8 +613,37 @@ mod trip_followup {
             }
             let native_progress = !ctx.stopped
                 && self.last.is_none_or(|last| {
-                    ctx.status != last.status || ctx.motion != last.motion || ctx.frame != last.frame
+                    ctx.status != last.status
+                        || ctx.motion != last.motion
+                        || ctx.frame != last.frame
                 });
+            let recognized = self.recognize(ctx);
+            let mut out = ControllerOutput::default();
+            let was_queued = self.queued;
+            if self.queued {
+                if ctx.tilt_ended() {
+                    self.finish();
+                } else if !recognized && !native_progress {
+                    // Changed target facts are evidence, not another input frame.
+                    // Preserve the current press/release through duplicate polls.
+                    self.last = Some(ctx);
+                    return self.output;
+                } else {
+                    out = self.tilt_lag_output(ctx, recognized);
+                }
+            }
+            // Release immediately at smash startup so the macro does not charge it.
+            if out.owned == 0 && was_queued {
+                out = hold([0.0, 0.0]);
+            }
+            self.last = Some(ctx);
+            self.output = out;
+            out
+        }
+        /// Rearm on a new tilt, then latch a current trip or grounded re-hit
+        /// damage whose immediate previous state was a trip. No new-trip
+        /// transition or hit flag required.
+        fn recognize(&mut self, ctx: TripContext) -> bool {
             let new_tilt = trip_tilt(ctx.status)
                 && self.last.is_none_or(|last| {
                     last.status != ctx.status || ctx.frame < last.frame || ctx.motion != last.motion
@@ -614,77 +651,54 @@ mod trip_followup {
             if new_tilt && !self.queued {
                 self.spent = false;
             }
-            // Recognize current trips and grounded re-hit damage whose immediate
-            // previous state was a trip. No new-trip transition or hit flag required.
             let recognized = !self.queued
                 && !self.spent
                 && trip_tilt(ctx.status)
                 && ctx.targets.iter().flatten().any(|enemy| {
                     tripping(enemy.status)
                         || tripping(enemy.previous_status)
-                            && matches!(
-                                enemy.status,
-                                crate::native_states::status::DAMAGE
-                                    | crate::native_states::status::DOWN_DAMAGE
-                            )
+                            && matches!(enemy.status, status::DAMAGE | status::DOWN_DAMAGE)
                 });
             if recognized {
                 self.queued = true;
-                self.facing = if ctx.facing.is_finite() && ctx.facing < 0.0 {
-                    -1.0
-                } else {
-                    1.0
-                };
+                self.facing = ctx.facing.signum();
             }
-            let mut out = ControllerOutput::default();
-            let was_queued = self.queued;
-            if self.queued {
-                let accepted = matches!(
-                    ctx.status,
-                    crate::native_states::status::ATTACK_S4_START
-                        ..=crate::native_states::status::ATTACK_S4
-                );
-                let supported = ctx.grounded
-                    && matches!(ctx.status, crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::SQUAT_RV | crate::native_states::status::ATTACK_S3 | crate::native_states::status::ATTACK_LW3);
-                if accepted || !supported {
-                    self.queued = false;
-                    self.spent = true;
-                } else if !recognized && !native_progress {
-                    // Changed target facts are evidence, not another input frame.
-                    // Preserve the current press/release through duplicate polls.
-                    self.last = Some(ctx);
-                    return self.output;
-                } else {
-                    // Own every competing gameplay button and both sticks from
-                    // recognition onward, including tilt lag and release gaps.
-                    out.owned = FOLLOWUP_BUTTONS;
-                    out.stick = Some([0.0, 0.0]);
-                    // First release the physical tilt/A. Then keep sending fresh
-                    // directional+A flicks into the game's normal buffer until smash
-                    // startup is observed. No readiness gate or six-pulse cutoff.
-                    if !recognized && !ctx.stopped && self.output.requested & MAPPER_A == 0 {
-                        out.requested = MAPPER_A;
-                        out.stick = Some(crate::move_input::smash_stick(
-                            crate::move_input::Smash::Forward,
-                            self.facing,
-                        ));
-                    }
-                }
+            recognized
+        }
+        fn tilt_lag_output(&self, ctx: TripContext, recognized: bool) -> ControllerOutput {
+            // Own every competing gameplay button and both sticks from
+            // recognition onward, including tilt lag and release gaps. First
+            // release the physical tilt/A. Then keep sending fresh directional+A
+            // flicks into the game's normal buffer until smash startup is
+            // observed. No readiness gate or six-pulse cutoff.
+            if !recognized && !ctx.stopped && self.output.requested & MAPPER_A == 0 {
+                press_a(crate::move_input::smash_stick(
+                    crate::move_input::Smash::Forward,
+                    self.facing,
+                ))
+            } else {
+                hold([0.0, 0.0])
             }
-            // Release immediately at smash startup so the macro does not charge it.
-            if out.owned == 0 && was_queued {
-                out.owned = FOLLOWUP_BUTTONS;
-                out.stick = Some([0.0, 0.0]);
-            }
-            self.last = Some(ctx);
-            self.output = out;
-            out
+        }
+        fn finish(&mut self) {
+            self.queued = false;
+            self.spent = true;
+        }
+    }
+    impl TripContext {
+        /// Smash startup was accepted, or Kirby left the grounded tilt/idle states.
+        fn tilt_ended(&self) -> bool {
+            let accepted = matches!(self.status, status::ATTACK_S4_START..=status::ATTACK_S4);
+            let supported = self.grounded
+                && matches!(self.status, status::WAIT..=status::TURN_RUN_BRAKE | status::SQUAT..=status::SQUAT_RV | status::ATTACK_S3 | status::ATTACK_LW3);
+            accepted || !supported
         }
     }
 
     #[cfg(test)]
     mod tests {
         use super::*;
+        use crate::kirby::FOLLOWUP_BUTTONS;
         fn ctx(status: i32, target_status: i32) -> TripContext {
             TripContext {
                 object: 1,
@@ -903,11 +917,25 @@ mod trip_followup {
                         crate::native_states::status::SLIP,
                     )
                 },
+                // An unreadable facing must not guess "forward = right".
+                TripContext {
+                    facing: 0.0,
+                    ..ctx(
+                        crate::native_states::status::ATTACK_LW3,
+                        crate::native_states::status::SLIP,
+                    )
+                },
+                TripContext {
+                    facing: f32::NAN,
+                    ..ctx(
+                        crate::native_states::status::ATTACK_LW3,
+                        crate::native_states::status::SLIP,
+                    )
+                },
             ] {
-                assert_eq!(
-                    TripFollowup::default().sample(true, sample),
-                    ControllerOutput::default()
-                );
+                let mut state = TripFollowup::default();
+                assert_eq!(state.sample(true, sample), ControllerOutput::default());
+                assert!(!state.watching());
             }
             for terminal in [
                 TripContext {
@@ -999,3 +1027,22 @@ pub use trip_followup::{TripContext, TripFollowup, TripTarget};
 // Follow-ups also suppress taunts; Plus/Minus remain available.
 const FOLLOWUP_BUTTONS: u32 =
     crate::native_input::ASSIST_BUTTONS | crate::native_input::MAPPER_DPAD_BUTTONS;
+
+use super::valid_facing;
+
+/// Own every competing gameplay button and the left stick, holding `stick`.
+fn hold(stick: [f32; 2]) -> ControllerOutput {
+    ControllerOutput {
+        owned: FOLLOWUP_BUTTONS,
+        stick: Some(stick),
+        ..ControllerOutput::default()
+    }
+}
+
+/// `hold`, plus one fresh A press.
+fn press_a(stick: [f32; 2]) -> ControllerOutput {
+    ControllerOutput {
+        requested: MAPPER_A,
+        ..hold(stick)
+    }
+}

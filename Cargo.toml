@@ -1700,6 +1700,8 @@ Extracts native tech prediction and consolidates menu row formatting without cha
 Consolidates target range checks across live observations and simplifies fighter observation predicates without changing input behavior.
 
 Refreshes architecture and source-map references to current live modules and adds a beginner workflow for tracing features, reproducing issues, and validating fixes.
+
+Refactor and logic audit across the plugin and core: decomposes observe_fighter and the mapper overlay into staged helpers, shares one tool-proposal reset between cancel paths, merges the observation setup double lock into one atomic snapshot, splits the menu input state machine, save helpers and sequence/ledge samplers, fixes shifted diagnostic configuration rows, removes dead code, and keeps automation input-only with no gameplay behavior changes beyond the listed fixes.
 """
 
 

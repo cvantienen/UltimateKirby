@@ -16,7 +16,8 @@ pub use crate::flame_choke::{
 pub fn late_damage_stop_prediction(remaining: u64, input_delay: f32) -> bool {
     input_delay.is_finite()
         && remaining > 0
-        && remaining as f32 <= input_delay.clamp(0.0, 12.0) + 5.0
+        && remaining as f32
+            <= input_delay.clamp(0.0, crate::tech_input::MAX_INPUT_DELAY_FRAMES) + 5.0
 }
 
 /// During victim hitstop the reserved new launch is more useful than frozen
@@ -25,6 +26,14 @@ pub fn prediction_velocity(current: [f32; 2], reserved: Option<[f32; 2]>) -> [f3
     reserved
         .filter(|v| v.iter().all(|x| x.is_finite()) && v.iter().any(|x| x.abs() > APPROACH_EPSILON))
         .unwrap_or(current)
+}
+
+/// Native acceleration band in which one-frame floor sweeps are trusted.
+const FLOOR_ACCELERATION: std::ops::RangeInclusive<f32> = -0.3..=-0.005;
+
+/// Vertical offset after `t` frames of constant acceleration.
+fn arc_height(vy: f32, acceleration: f32, t: f32) -> f32 {
+    vy * t + 0.5 * acceleration * t * t
 }
 
 /// One recent, copied observation; no game pointer or poll-based clock.
@@ -52,11 +61,7 @@ impl FloorMotionHistory {
     /// Estimate only small, recent downward acceleration in the same native
     /// motion. Discontinuities/new hits/unknown clocks fall back to linear rays.
     pub fn sample(&mut self, now: FloorMotionSample) -> f32 {
-        if ![now.frame, now.rate, now.vy].iter().all(|v| v.is_finite())
-            || now.frame < 0.0
-            || now.rate <= 0.0
-            || now.motion == crate::timing::NO_MOTION_KIND
-        {
+        if !crate::timing::clock_known(now.motion, now.frame, now.rate) || !now.vy.is_finite() {
             *self = Self::default();
             return 0.0;
         }
@@ -73,7 +78,7 @@ impl FloorMotionHistory {
             }
             if (0.5..=2.0).contains(&elapsed) {
                 let acceleration = (now.vy - last.vy) / elapsed;
-                if (-0.3..=-0.005).contains(&acceleration) {
+                if FLOOR_ACCELERATION.contains(&acceleration) {
                     self.acceleration = acceleration;
                     return acceleration;
                 }
@@ -84,20 +89,29 @@ impl FloorMotionHistory {
     }
 }
 
-/// Withhold automatic guard once native air escape can consume the input.
-pub fn tech_press_allowed(status: i32, air_escape_enabled: bool) -> bool {
-    // Release eligibility additionally requires a verified grounded predecessor
-    // in the native adapter; aerial releases never receive a contact forecast.
-    ((crate::native_states::status::DAMAGE_FLY..=crate::native_states::status::DAMAGE_FALL)
+/// The pinned status range covering damage-fly/reflect/fall, not ordinary
+/// airborne movement. Broadening it carelessly could cause unrelated dodges.
+pub fn is_tumble_status(status: i32) -> bool {
+    (crate::native_states::status::DAMAGE_FLY..=crate::native_states::status::DAMAGE_FALL)
         .contains(&status)
+}
+
+/// Statuses in which a shield press can be a tech or release request: tumble,
+/// wall/ceiling bounce, and the Flame Choke capture/release pair. Release
+/// eligibility additionally requires a verified grounded predecessor in the
+/// native adapter; aerial releases never receive a contact forecast.
+pub fn is_tech_status(status: i32) -> bool {
+    is_tumble_status(status)
         || matches!(
             status,
-            crate::native_states::status::STOP_WALL
-                | crate::native_states::status::STOP_CEIL
-                | CATCHED_GANON
-                | CATCHED_AIR_END_GANON
-        ))
-        && !air_escape_enabled
+            crate::native_states::status::STOP_WALL | crate::native_states::status::STOP_CEIL
+        )
+        || crate::flame_choke::guard_lockout_status(status)
+}
+
+/// Withhold automatic guard once native air escape can consume the input.
+pub fn tech_press_allowed(status: i32, air_escape_enabled: bool) -> bool {
+    is_tech_status(status) && !air_escape_enabled
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -125,11 +139,7 @@ impl TechGate {
 
 /// Classify native gates without claiming that passing them guarantees a tech.
 pub fn tech_gate(status: i32, situation: i32, passive_disabled: bool, stopped: bool) -> TechGate {
-    // This pinned status range covers damage-fly/reflect/fall, not ordinary
-    // airborne movement. Broadening it carelessly could cause unrelated dodges.
-    if !(crate::native_states::status::DAMAGE_FLY..=crate::native_states::status::DAMAGE_FALL)
-        .contains(&status)
-    {
+    if !is_tumble_status(status) {
         TechGate::OutsideTumble
     } else if situation != crate::native_states::situation::AIR {
         TechGate::NotAirborne
@@ -155,7 +165,7 @@ pub fn tech_gate_with_floor(
     tech_gate(
         status,
         if situation == crate::native_states::situation::GROUND && native_floor_tech {
-            2
+            crate::native_states::situation::AIR
         } else {
             situation
         },
@@ -174,8 +184,7 @@ pub struct CollisionRay {
     pub passable: bool,
 }
 
-/// Three probes per approaching surface; unused directions stay empty.
-
+/// Collision-probe dimensions in local fighter units.
 #[derive(Clone, Copy, Debug)]
 pub struct Body {
     pub half_width: f32,
@@ -215,7 +224,23 @@ impl Body {
             ceiling_padding: self.ceiling_padding * scale,
         }
     }
+    /// Finite, non-negative and bounded: rejects corrupted per-fighter tuning.
+    fn plausible(&self) -> bool {
+        [
+            self.half_width,
+            self.floor_origin,
+            self.ceiling_origin,
+            self.floor_padding,
+            self.ceiling_padding,
+            self.wall[0],
+            self.wall[1],
+            self.wall[2],
+        ]
+        .iter()
+        .all(|v| v.is_finite() && *v >= 0. && *v <= 100.)
+    }
 }
+/// Three probes per approaching surface; unused directions stay empty.
 pub fn tech_probes(x: f32, y: f32, vx: f32, vy: f32, horizon: f32) -> [Option<CollisionRay>; 9] {
     tech_probes_with_body(x, y, vx, vy, horizon, Body::default())
 }
@@ -230,10 +255,11 @@ pub fn tech_probes_with_body(
     // Reserve three floor, three wall, and three ceiling slots. Option::None
     // means that direction is not approaching; callers use flatten() to skip it.
     let mut probes = [None; 9];
-    if ![x, y, vx, vy, horizon].iter().all(|v| v.is_finite()) || !(1.0..=20.0).contains(&horizon) {
-        return probes;
-    }
-    if ![vx * horizon, vy * horizon].iter().all(|v| v.is_finite()) {
+    if ![x, y, vx, vy, horizon, vx * horizon, vy * horizon]
+        .iter()
+        .all(|v| v.is_finite())
+        || !(1.0..=20.0).contains(&horizon)
+    {
         return probes;
     }
     // Default side offsets and heights are generic body estimates; callers may
@@ -247,29 +273,32 @@ pub fn tech_probes_with_body(
         .into_iter()
         .enumerate()
     {
-        if vy < -APPROACH_EPSILON {
-            probes[i] = Some(CollisionRay {
-                origin: [x + offset, y + body.floor_origin],
-                delta: [vx * horizon, vy * horizon - body.floor_padding],
-                passable: true,
-            });
-        }
-        if vx.abs() > APPROACH_EPSILON {
-            probes[i + 3] = Some(CollisionRay {
-                origin: [x, y + body.wall[i]],
-                delta: [vx * horizon + vx.signum() * body.half_width, vy * horizon],
-                passable: false,
-            });
-        }
-        if vy > APPROACH_EPSILON {
-            probes[i + 6] = Some(CollisionRay {
-                origin: [x + offset, y + body.ceiling_origin],
-                delta: [vx * horizon, vy * horizon + body.ceiling_padding],
-                passable: false,
-            });
+        let surfaces = [
+            (vy < -APPROACH_EPSILON, [x + offset, y + body.floor_origin], true),
+            (vx.abs() > APPROACH_EPSILON, [x, y + body.wall[i]], false),
+            (vy > APPROACH_EPSILON, [x + offset, y + body.ceiling_origin], false),
+        ];
+        for (surface, (approaching, origin, passable)) in surfaces.into_iter().enumerate() {
+            if approaching {
+                probes[surface * 3 + i] = Some(CollisionRay {
+                    origin,
+                    delta: probe_delta(surface, vx, vy, horizon, body),
+                    passable,
+                });
+            }
         }
     }
     probes
+}
+
+/// Displacement of a floor (0), wall (1) or ceiling (2) probe over `horizon`
+/// frames, padded by the body so thin surfaces are caught before contact.
+fn probe_delta(surface: usize, vx: f32, vy: f32, horizon: f32, body: Body) -> [f32; 2] {
+    match surface {
+        0 => [vx * horizon, vy * horizon - body.floor_padding],
+        1 => [vx * horizon + vx.signum() * body.half_width, vy * horizon],
+        _ => [vx * horizon, vy * horizon + body.ceiling_padding],
+    }
 }
 
 // The full ray already passed all eligibility/finite checks. Refinement only
@@ -282,12 +311,10 @@ fn refined_probe(
     horizon: f32,
     body: Body,
 ) -> CollisionRay {
-    let delta = match index / 3 {
-        0 => [vx * horizon, vy * horizon - body.floor_padding],
-        1 => [vx * horizon + vx.signum() * body.half_width, vy * horizon],
-        _ => [vx * horizon, vy * horizon + body.ceiling_padding],
-    };
-    CollisionRay { delta, ..ray }
+    CollisionRay {
+        delta: probe_delta(index / 3, vx, vy, horizon, body),
+        ..ray
+    }
 }
 
 /// Estimate first contact using bounded ray refinement. The native query only
@@ -339,42 +366,16 @@ pub fn first_contact_with_body(
 ) -> Option<f32> {
     let full = tech_probes_with_body(x, y, vx, vy, horizon, body);
     let mut earliest: Option<f32> = None;
-    let curved_floor = [x, y, vx, vy, horizon].iter().all(|v| v.is_finite())
+    let curved_floor = [x, y, vx, vy, horizon, vx * horizon, vy * horizon]
+        .iter()
+        .all(|v| v.is_finite())
         && (1.0..=5.0).contains(&horizon)
         && vy + acceleration * horizon < -APPROACH_EPSILON
-        && (-0.3..=-0.005).contains(&acceleration)
-        && [vx * horizon, vy * horizon].iter().all(|v| v.is_finite());
+        && FLOOR_ACCELERATION.contains(&acceleration);
     if curved_floor {
-        'steps: for step in 1..=5 {
-            let end = (step as f32).min(horizon);
-            let start = ((step - 1) as f32).max(if vy > 0.0 { -vy / acceleration } else { 0.0 });
-            if (step - 1) as f32 >= end {
-                break;
-            }
-            if start >= end {
-                continue;
-            }
-            let height = |t: f32| vy * t + 0.5 * acceleration * t * t;
-            for offset in [-body.half_width, 0.0, body.half_width] {
-                let ray = CollisionRay {
-                    origin: [
-                        x + vx * start + offset,
-                        y + height(start) + body.floor_origin,
-                    ],
-                    delta: [
-                        vx * (end - start),
-                        height(end) - height(start) - body.floor_padding,
-                    ],
-                    passable: true,
-                };
-                if collides(ray) {
-                    earliest = Some(end);
-                    if end <= 1.0 {
-                        return earliest;
-                    }
-                    break 'steps;
-                }
-            }
+        earliest = curved_floor_contact(x, y, vx, vy, horizon, acceleration, body, &mut collides);
+        if earliest.is_some_and(|end| end <= 1.0) {
+            return earliest;
         }
     }
     for (index, ray) in full.into_iter().enumerate() {
@@ -417,6 +418,51 @@ pub fn first_contact_with_body(
     earliest
 }
 
+/// The first one-frame floor sweep along the accelerated arc that hits, as its
+/// end time. Rising segments before an apex are excluded.
+fn curved_floor_contact(
+    x: f32,
+    y: f32,
+    vx: f32,
+    vy: f32,
+    horizon: f32,
+    acceleration: f32,
+    body: Body,
+    collides: &mut impl FnMut(CollisionRay) -> bool,
+) -> Option<f32> {
+    let apex = if vy > 0.0 { -vy / acceleration } else { 0.0 };
+    for step in 1..=5 {
+        let end = (step as f32).min(horizon);
+        let before = (step - 1) as f32;
+        if before >= end {
+            break;
+        }
+        let start = before.max(apex);
+        if start >= end {
+            continue;
+        }
+        for offset in [-body.half_width, 0.0, body.half_width] {
+            let ray = CollisionRay {
+                origin: [
+                    x + vx * start + offset,
+                    y + arc_height(vy, acceleration, start) + body.floor_origin,
+                ],
+                delta: [
+                    vx * (end - start),
+                    arc_height(vy, acceleration, end)
+                        - arc_height(vy, acceleration, start)
+                        - body.floor_padding,
+                ],
+                passable: true,
+            };
+            if collides(ray) {
+                return Some(end);
+            }
+        }
+    }
+    None
+}
+
 /// Native adapter's contact forecast: sweep each simulation frame separately.
 /// A long padded diagonal is not a monotonic collision predicate and can miss
 /// narrow platforms between its endpoints. Frame segments preserve the body
@@ -435,27 +481,16 @@ pub fn first_contact_swept(
 ) -> Option<f32> {
     if ![x, y, vx, vy, horizon].iter().all(|v| v.is_finite())
         || !(1.0..=20.0).contains(&horizon)
-        || ![
-            body.half_width,
-            body.floor_origin,
-            body.ceiling_origin,
-            body.floor_padding,
-            body.ceiling_padding,
-            body.wall[0],
-            body.wall[1],
-            body.wall[2],
-        ]
-        .iter()
-        .all(|v| v.is_finite() && *v >= 0. && *v <= 100.)
+        || !body.plausible()
     {
         return None;
     }
-    let acceleration = if (-0.3..=-0.005).contains(&acceleration) {
+    let acceleration = if FLOOR_ACCELERATION.contains(&acceleration) {
         acceleration
     } else {
         0.
     };
-    let height = |t: f32| vy * t + 0.5 * acceleration * t * t;
+    let height = |t: f32| arc_height(vy, acceleration, t);
     for step in 0..horizon.ceil() as u32 {
         let start = step as f32;
         let end = (start + 1.).min(horizon);

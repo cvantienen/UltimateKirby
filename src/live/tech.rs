@@ -105,6 +105,7 @@ const MAX_CONTACT_HORIZON_FRAMES: f32 = 20.0;
 
 /// Diagnostic snapshot only: the string describes our detector's decision, not
 /// a complete explanation of all native tech restrictions or proof of success.
+#[derive(Clone, Copy)]
 pub(super) struct TechAssessment {
     pub(super) status: i32,
     pub(super) situation: i32,

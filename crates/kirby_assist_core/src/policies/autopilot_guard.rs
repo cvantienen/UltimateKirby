@@ -62,13 +62,7 @@ pub fn approaching_active_attack_with(
     enemy_velocity: [f32; 2],
     e: Envelope,
 ) -> bool {
-    if !own
-        .iter()
-        .chain(own_velocity.iter())
-        .chain(enemy.iter())
-        .chain(enemy_velocity.iter())
-        .all(|v| v.is_finite())
-    {
+    if !finite(&[&own, &own_velocity, &enemy, &enemy_velocity]) {
         return false;
     }
     let relative = [enemy[0] - own[0], enemy[1] - own[1]];
@@ -78,24 +72,30 @@ pub fn approaching_active_attack_with(
     ];
     // Swept segment against a rectangular warning envelope: no missed crossing
     // just because both sampled endpoints fall outside it.
-    let mut enter = 0.0_f32;
-    let mut leave = e.forecast;
-    for (axis, radius) in [(0, e.warning_x), (1, e.warning_y)] {
-        if velocity[axis].abs() < 0.0001 {
-            if relative[axis].abs() > radius {
-                return false;
-            }
-        } else {
-            let a = (-radius - relative[axis]) / velocity[axis];
-            let b = (radius - relative[axis]) / velocity[axis];
-            enter = enter.max(a.min(b));
-            leave = leave.min(a.max(b));
-            if enter > leave {
-                return false;
-            }
-        }
+    let mut window = [0.0_f32, e.forecast];
+    [(0, e.warning_x), (1, e.warning_y)]
+        .into_iter()
+        .all(|(axis, radius)| {
+            let p = relative[axis];
+            sweep_axis(&mut window, p, p, -radius, radius, velocity[axis])
+        })
+}
+
+fn finite(groups: &[&[f32]]) -> bool {
+    groups.iter().all(|g| g.iter().all(|v| v.is_finite()))
+}
+/// One axis of a swept overlap test. A span `[lo, hi]` moving at `velocity`
+/// overlaps `[low, high]` during some time interval; narrow `window`
+/// (`[enter, leave]`) to it and report whether any time is left.
+fn sweep_axis(window: &mut [f32; 2], lo: f32, hi: f32, low: f32, high: f32, velocity: f32) -> bool {
+    if velocity.abs() < 0.0001 {
+        return hi >= low && lo <= high;
     }
-    true
+    let a = (low - hi) / velocity;
+    let b = (high - lo) / velocity;
+    window[0] = window[0].max(a.min(b));
+    window[1] = window[1].min(a.max(b));
+    window[0] <= window[1]
 }
 
 /// A nearby Up-B can reach the stage before its first active-hitbox observation.

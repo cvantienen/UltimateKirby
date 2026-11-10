@@ -1,12 +1,11 @@
 //! One-shot run-off ledge trump. Inputs only; native ledge catch ends ownership.
 use crate::{
     gameplay::{ControllerOutput, GameplayContext},
-    ledge_trap::{CLIFF_CATCH_MOVE, CLIFF_WAIT},
+    ledge_trap::{finite2, CLIFF_CATCH_MOVE, CLIFF_WAIT},
     native_input::ASSIST_BUTTONS,
+    native_states::{situation, status::FALL},
 };
 
-// FIGHTER_STATUS_KIND_FALL in the native lua_const bindings.
-const FALL: i32 = 0xe;
 const DEFAULT_TRUMP_EDGE_SCAN_LIMIT: u16 = 100;
 
 /// Find the nearest edge of the current floor using read-only support probes.
@@ -27,7 +26,7 @@ pub fn floor_edge_with_limit(
     limit: u16,
     mut supported: impl FnMut([f32; 2]) -> bool,
 ) -> Option<[f32; 2]> {
-    if !position.iter().all(|v| v.is_finite()) || !facing.is_finite() || !supported(position) {
+    if !finite2(position) || !facing.is_finite() || !supported(position) {
         return None;
     }
     let preferred = if facing < 0.0 { -1.0 } else { 1.0 };
@@ -85,6 +84,83 @@ struct Attempt {
     phase: Phase,
     updates: u16,
 }
+impl Attempt {
+    /// A usable same-floor edge within trump reach, from solid ground.
+    fn start(anchor: [f32; 2], ctx: GameplayContext) -> Option<Self> {
+        let dx = anchor[0] - ctx.position[0];
+        (finite2(anchor)
+            && finite2(ctx.position)
+            && dx.abs() <= f32::from(DEFAULT_TRUMP_EDGE_SCAN_LIMIT)
+            && dx != 0.0
+            && (anchor[1] - ctx.position[1]).abs() <= 3.0
+            && ctx.situation == situation::GROUND)
+            .then(|| Self {
+                anchor,
+                outward: dx.signum(),
+                approach_limit: dx.abs() + 4.0,
+                phase: Phase::Approach,
+                updates: 0,
+            })
+    }
+    /// Whether the fighter is still on the macro's path, in a state it can run.
+    fn viable(&self, ctx: GameplayContext) -> bool {
+        let air_fall = ctx.situation == situation::AIR && ctx.status == FALL;
+        let reach = if matches!(self.phase, Phase::Approach) {
+            self.approach_limit
+        } else {
+            12.0
+        };
+        let bounded = finite2(ctx.position)
+            && ctx.motion_frame.is_finite()
+            && ctx.motion_frame >= 0.0
+            && (ctx.position[0] - self.anchor[0]).abs() <= reach
+            && (ctx.position[1] - self.anchor[1]).abs() <= 16.0
+            && self.updates <= 120;
+        let supported_state =
+            crate::manual_controls::turbo_movement_allowed(ctx.status, ctx.situation, false)
+                || air_fall;
+        // Native stop makes can_act false even during an otherwise valid run.
+        // Freeze that attempt; damage/attacks still cancel, including in stop.
+        bounded
+            && supported_state
+            && (ctx.stopped || ctx.can_act && ctx.situation == situation::GROUND || air_fall)
+    }
+    /// Left-stick request for this sample, advancing the phase; `None` ends the attempt.
+    fn drive(&mut self, ctx: GameplayContext) -> Option<[f32; 2]> {
+        match self.phase {
+            Phase::Approach if ctx.situation == situation::GROUND => {
+                let gap = (self.anchor[0] - ctx.position[0]) * self.outward;
+                // If stage motion invalidated the chosen boundary, do not run
+                // farther outward across the stage in search of a different one.
+                if gap < -3.0 {
+                    return None;
+                }
+                // Stop sprinting before the boundary. Excess run momentum
+                // used to carry fighters beyond catch range during Down.
+                Some([self.outward * if gap <= 8.0 { 0.55 } else { 1.0 }, 0.0])
+            }
+            Phase::Approach => {
+                self.phase = Phase::Down {
+                    status: ctx.status,
+                    frame: ctx.motion_frame,
+                };
+                Some([-self.outward, -1.0])
+            }
+            Phase::Down { status, frame } if ctx.situation == situation::AIR => {
+                // Mapper polls are not frames. Hold Down until the fighter's
+                // native animation advances, then stop Down so ledge catch is legal.
+                if ctx.status == status && ctx.motion_frame <= frame {
+                    Some([-self.outward, -1.0])
+                } else {
+                    self.phase = Phase::Return;
+                    Some([-self.outward, 0.0])
+                }
+            }
+            Phase::Return if ctx.situation == situation::AIR => Some([-self.outward, 0.0]),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct LedgeTrump {
@@ -141,24 +217,7 @@ impl LedgeTrump {
         self.held = down;
         self.output = ControllerOutput::default();
         if pressed && self.attempt.is_none() && ctx.can_act && !ctx.stopped {
-            if let Some(anchor) = edge {
-                let dx = anchor[0] - ctx.position[0];
-                if anchor.iter().all(|v| v.is_finite())
-                    && ctx.position.iter().all(|v| v.is_finite())
-                    && (0.0..=100.0).contains(&dx.abs())
-                    && dx != 0.0
-                    && (anchor[1] - ctx.position[1]).abs() <= 3.0
-                    && ctx.situation == crate::native_states::situation::GROUND
-                {
-                    self.attempt = Some(Attempt {
-                        anchor,
-                        outward: dx.signum(),
-                        approach_limit: dx.abs() + 4.0,
-                        phase: Phase::Approach,
-                        updates: 0,
-                    });
-                }
-            }
+            self.attempt = edge.and_then(|anchor| Attempt::start(anchor, ctx));
         }
         let Some(mut attempt) = self.attempt else {
             return self.output;
@@ -177,28 +236,7 @@ impl LedgeTrump {
         if changed && !ctx.stopped {
             attempt.updates += 1;
         }
-        let bounded = ctx.position.iter().all(|v| v.is_finite())
-            && ctx.motion_frame.is_finite()
-            && ctx.motion_frame >= 0.0
-            && (ctx.position[0] - attempt.anchor[0]).abs()
-                <= if matches!(attempt.phase, Phase::Approach) {
-                    attempt.approach_limit
-                } else {
-                    12.0
-                }
-            && (ctx.position[1] - attempt.anchor[1]).abs() <= 16.0
-            && attempt.updates <= 120;
-        // Native stop makes can_act false even during an otherwise valid run.
-        // Freeze that attempt; damage/attacks still cancel, including in stop.
-        let supported_state =
-            crate::manual_controls::turbo_movement_allowed(ctx.status, ctx.situation, false)
-                || ctx.situation == crate::native_states::situation::AIR && ctx.status == FALL;
-        if !bounded
-            || !supported_state
-            || !ctx.stopped
-                && !(ctx.can_act && ctx.situation == crate::native_states::situation::GROUND
-                    || ctx.situation == crate::native_states::situation::AIR && ctx.status == FALL)
-        {
+        if !attempt.viable(ctx) {
             self.attempt = None;
             return self.output;
         }
@@ -206,45 +244,9 @@ impl LedgeTrump {
             self.attempt = Some(attempt);
             return self.output;
         }
-        let stick = match attempt.phase {
-            Phase::Approach if ctx.situation == crate::native_states::situation::GROUND => {
-                // If stage motion invalidated the chosen boundary, do not run
-                // farther outward across the stage in search of a different one.
-                if (attempt.anchor[0] - ctx.position[0]) * attempt.outward < -3.0 {
-                    self.attempt = None;
-                    return self.output;
-                }
-                // Stop sprinting before the boundary. Excess run momentum
-                // used to carry fighters beyond catch range during Down.
-                let gap = (attempt.anchor[0] - ctx.position[0]) * attempt.outward;
-                [attempt.outward * if gap <= 8.0 { 0.55 } else { 1.0 }, 0.0]
-            }
-            Phase::Approach => {
-                attempt.phase = Phase::Down {
-                    status: ctx.status,
-                    frame: ctx.motion_frame,
-                };
-                [-attempt.outward, -1.0]
-            }
-            Phase::Down { status, frame }
-                if ctx.situation == crate::native_states::situation::AIR =>
-            {
-                // Mapper polls are not frames. Hold Down until the fighter's
-                // native animation advances, then stop Down so ledge catch is legal.
-                if ctx.status == status && ctx.motion_frame <= frame {
-                    [-attempt.outward, -1.0]
-                } else {
-                    attempt.phase = Phase::Return;
-                    [-attempt.outward, 0.0]
-                }
-            }
-            Phase::Return if ctx.situation == crate::native_states::situation::AIR => {
-                [-attempt.outward, 0.0]
-            }
-            _ => {
-                self.attempt = None;
-                return self.output;
-            }
+        let Some(stick) = attempt.drive(ctx) else {
+            self.attempt = None;
+            return self.output;
         };
         self.attempt = Some(attempt);
         self.output = ControllerOutput {

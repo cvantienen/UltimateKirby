@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 const UTF8_CONTINUATION_MASK: u8 = 0xc0;
 const UTF8_CONTINUATION_PREFIX: u8 = 0x80;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(super) struct Draft {
     pub id: String,
     pub name: String,
@@ -14,6 +14,12 @@ pub(super) struct Draft {
     pub new: bool,
     pub deleted: bool,
     pub dirty: bool,
+}
+impl Draft {
+    /// A deleted draft or a legacy mode binding is not a selectable recipe.
+    pub fn live(&self) -> bool {
+        !self.deleted && self.sequence.mode.is_none()
+    }
 }
 #[derive(Default)]
 pub(super) enum Mode {

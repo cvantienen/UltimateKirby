@@ -216,83 +216,9 @@ pub mod spacing {
             return "";
         }
         match choice {
-            "nair" | "shield_nair" | "drop_nair" => match fighter_kind {
-                kind::LITTLE_MAC => "~touching", // Little Mac's intentionally tiny aerial.
-                kind::DONKEY_KONG
-                | kind::LINK
-                | kind::SAMUS
-                | kind::DARK_SAMUS
-                | kind::BOWSER
-                | kind::MARTH
-                | kind::LUCINA
-                | kind::GANONDORF
-                | kind::ROY
-                | kind::CHROM
-                | kind::IKE
-                | kind::CHARIZARD
-                | kind::SONIC
-                | kind::KING_DEDEDE
-                | kind::ROB
-                | kind::ROSALINA_AND_LUMA
-                | kind::SHULK
-                | kind::CLOUD
-                | kind::CORRIN
-                | kind::RIDLEY
-                | kind::KING_K_ROOL => "~mid",
-                _ => "~close",
-            },
-            "down_tilt" | "down_tilt_shield" => match fighter_kind {
-                kind::DONKEY_KONG
-                | kind::LINK
-                | kind::SAMUS
-                | kind::DARK_SAMUS
-                | kind::YOSHI
-                | kind::KIRBY
-                | kind::CAPTAIN_FALCON
-                | kind::MARTH
-                | kind::LUCINA
-                | kind::GANONDORF
-                | kind::MEWTWO
-                | kind::ROY
-                | kind::CHROM
-                | kind::IKE
-                | kind::IVYSAUR
-                | kind::CHARIZARD
-                | kind::KING_DEDEDE
-                | kind::TOON_LINK
-                | kind::GRENINJA
-                | kind::PALUTENA
-                | kind::ROBIN
-                | kind::SHULK
-                | kind::CLOUD
-                | kind::CORRIN
-                | kind::RIDLEY
-                | kind::KING_K_ROOL
-                | kind::ISABELLE
-                | kind::MII_SWORDFIGHTER => "~mid / low",
-                _ => "~close / low",
-            },
-            "forward_tilt" | "poke" => match fighter_kind {
-                kind::DONKEY_KONG
-                | kind::LINK
-                | kind::SAMUS
-                | kind::DARK_SAMUS
-                | kind::MARTH
-                | kind::LUCINA
-                | kind::GANONDORF
-                | kind::MEWTWO
-                | kind::IKE
-                | kind::CHARIZARD
-                | kind::SHULK
-                | kind::CLOUD
-                | kind::CORRIN
-                | kind::RIDLEY
-                | kind::SIMON
-                | kind::RICHTER
-                | kind::KING_K_ROOL
-                | kind::MII_SWORDFIGHTER => "~long",
-                _ => "~mid",
-            },
+            "nair" | "shield_nair" | "drop_nair" => nair_hint(fighter_kind),
+            "down_tilt" | "down_tilt_shield" => down_tilt_hint(fighter_kind),
+            "forward_tilt" | "poke" => forward_tilt_hint(fighter_kind),
             "stone" => "~close",
             "inhale" => "~close / front",
             "zair" | "shield_zair" => "~long / front",
@@ -309,78 +235,7 @@ pub mod spacing {
             "forward_air" | "shield_fair" => "~mid / front",
             "bair" if fighter_kind == kind::YOSHI => "~close / rear",
             "slingshot" => "~ranged / front",
-            "short_hop_dair"
-                if matches!(
-                    fighter_kind,
-                    kind::DARK_SAMUS
-                        | kind::NESS
-                        | kind::JIGGLYPUFF
-                        | kind::PEACH
-                        | kind::DAISY
-                        | kind::MARTH
-                        | kind::LUCINA
-                        | kind::YOUNG_LINK
-                        | kind::GANONDORF
-                        | kind::MEWTWO
-                        | kind::ROY
-                        | kind::CHROM
-                        | kind::MR_GAME_AND_WATCH
-                        | kind::META_KNIGHT
-                        | kind::PIT
-                        | kind::DARK_PIT
-                        | kind::ZERO_SUIT_SAMUS
-                        | kind::WARIO
-                        | kind::SNAKE
-                        | kind::IKE
-                        | kind::SQUIRTLE
-                        | kind::IVYSAUR
-                        | kind::CHARIZARD
-                        | kind::DIDDY_KONG
-                        | kind::LUCAS
-                        | kind::SONIC
-                        | kind::KING_DEDEDE
-                        | kind::OLIMAR
-                        | kind::LUCARIO
-                        | kind::ROB
-                        | kind::TOON_LINK
-                        | kind::WOLF
-                        | kind::VILLAGER
-                        | kind::MEGA_MAN
-                        | kind::WII_FIT_TRAINER
-                        | kind::ROSALINA_AND_LUMA
-                        | kind::LITTLE_MAC
-                        | kind::GRENINJA
-                        | kind::PALUTENA
-                        | kind::PAC_MAN
-                        | kind::ROBIN
-                        | kind::SHULK
-                        | kind::BOWSER_JR
-                        | kind::DUCK_HUNT
-                        | kind::RYU
-                        | kind::KEN
-                        | kind::CLOUD
-                        | kind::CORRIN
-                        | kind::BAYONETTA
-                        | kind::INKLING
-                        | kind::RIDLEY
-                        | kind::SIMON
-                        | kind::RICHTER
-                        | kind::KING_K_ROOL
-                        | kind::ISABELLE
-                        | kind::INCINEROAR
-                        | kind::SQUIRTLE_FIGHTER
-                        | kind::IVYSAUR_FIGHTER
-                        | kind::CHARIZARD_FIGHTER
-                        | kind::POKEMON_TRAINER
-                        | kind::PYRA_FIGHTER
-                        | kind::MYTHRA_FIGHTER
-                        | kind::ICE_CLIMBERS_POPO
-                        | kind::ICE_CLIMBERS_NANA
-                ) =>
-            {
-                "~below / near edge"
-            }
-            "short_hop_dair" => "~below / offstage",
+            "short_hop_dair" => short_hop_dair_hint(fighter_kind),
             "drop_fair" => "~front / offstage",
             "belly_flop" if slot == PresetSlot::Drop => "~below / offstage",
             "belly_flop" => "~mid",
@@ -393,6 +248,160 @@ pub mod spacing {
             // A new action without reviewed metadata should never inherit another
             // move's estimate just because it occupies the same menu row.
             _ => "~spacing?",
+        }
+    }
+
+    // Per-move reach classes; a fighter outside a list takes that move's shorter default.
+    fn nair_hint(fighter_kind: i32) -> &'static str {
+        match fighter_kind {
+            kind::LITTLE_MAC => "~touching", // Little Mac's intentionally tiny aerial.
+            kind::DONKEY_KONG
+            | kind::LINK
+            | kind::SAMUS
+            | kind::DARK_SAMUS
+            | kind::BOWSER
+            | kind::MARTH
+            | kind::LUCINA
+            | kind::GANONDORF
+            | kind::ROY
+            | kind::CHROM
+            | kind::IKE
+            | kind::CHARIZARD
+            | kind::SONIC
+            | kind::KING_DEDEDE
+            | kind::ROB
+            | kind::ROSALINA_AND_LUMA
+            | kind::SHULK
+            | kind::CLOUD
+            | kind::CORRIN
+            | kind::RIDLEY
+            | kind::KING_K_ROOL => "~mid",
+            _ => "~close",
+        }
+    }
+    fn down_tilt_hint(fighter_kind: i32) -> &'static str {
+        match fighter_kind {
+            kind::DONKEY_KONG
+            | kind::LINK
+            | kind::SAMUS
+            | kind::DARK_SAMUS
+            | kind::YOSHI
+            | kind::KIRBY
+            | kind::CAPTAIN_FALCON
+            | kind::MARTH
+            | kind::LUCINA
+            | kind::GANONDORF
+            | kind::MEWTWO
+            | kind::ROY
+            | kind::CHROM
+            | kind::IKE
+            | kind::IVYSAUR
+            | kind::CHARIZARD
+            | kind::KING_DEDEDE
+            | kind::TOON_LINK
+            | kind::GRENINJA
+            | kind::PALUTENA
+            | kind::ROBIN
+            | kind::SHULK
+            | kind::CLOUD
+            | kind::CORRIN
+            | kind::RIDLEY
+            | kind::KING_K_ROOL
+            | kind::ISABELLE
+            | kind::MII_SWORDFIGHTER => "~mid / low",
+            _ => "~close / low",
+        }
+    }
+    fn forward_tilt_hint(fighter_kind: i32) -> &'static str {
+        match fighter_kind {
+            kind::DONKEY_KONG
+            | kind::LINK
+            | kind::SAMUS
+            | kind::DARK_SAMUS
+            | kind::MARTH
+            | kind::LUCINA
+            | kind::GANONDORF
+            | kind::MEWTWO
+            | kind::IKE
+            | kind::CHARIZARD
+            | kind::SHULK
+            | kind::CLOUD
+            | kind::CORRIN
+            | kind::RIDLEY
+            | kind::SIMON
+            | kind::RICHTER
+            | kind::KING_K_ROOL
+            | kind::MII_SWORDFIGHTER => "~long",
+            _ => "~mid",
+        }
+    }
+    fn short_hop_dair_hint(fighter_kind: i32) -> &'static str {
+        match fighter_kind {
+            kind::DARK_SAMUS
+            | kind::NESS
+            | kind::JIGGLYPUFF
+            | kind::PEACH
+            | kind::DAISY
+            | kind::MARTH
+            | kind::LUCINA
+            | kind::YOUNG_LINK
+            | kind::GANONDORF
+            | kind::MEWTWO
+            | kind::ROY
+            | kind::CHROM
+            | kind::MR_GAME_AND_WATCH
+            | kind::META_KNIGHT
+            | kind::PIT
+            | kind::DARK_PIT
+            | kind::ZERO_SUIT_SAMUS
+            | kind::WARIO
+            | kind::SNAKE
+            | kind::IKE
+            | kind::SQUIRTLE
+            | kind::IVYSAUR
+            | kind::CHARIZARD
+            | kind::DIDDY_KONG
+            | kind::LUCAS
+            | kind::SONIC
+            | kind::KING_DEDEDE
+            | kind::OLIMAR
+            | kind::LUCARIO
+            | kind::ROB
+            | kind::TOON_LINK
+            | kind::WOLF
+            | kind::VILLAGER
+            | kind::MEGA_MAN
+            | kind::WII_FIT_TRAINER
+            | kind::ROSALINA_AND_LUMA
+            | kind::LITTLE_MAC
+            | kind::GRENINJA
+            | kind::PALUTENA
+            | kind::PAC_MAN
+            | kind::ROBIN
+            | kind::SHULK
+            | kind::BOWSER_JR
+            | kind::DUCK_HUNT
+            | kind::RYU
+            | kind::KEN
+            | kind::CLOUD
+            | kind::CORRIN
+            | kind::BAYONETTA
+            | kind::INKLING
+            | kind::RIDLEY
+            | kind::SIMON
+            | kind::RICHTER
+            | kind::KING_K_ROOL
+            | kind::ISABELLE
+            | kind::INCINEROAR
+            | kind::SQUIRTLE_FIGHTER
+            | kind::IVYSAUR_FIGHTER
+            | kind::CHARIZARD_FIGHTER
+            | kind::POKEMON_TRAINER
+            | kind::PYRA_FIGHTER
+            | kind::MYTHRA_FIGHTER
+            | kind::ICE_CLIMBERS_POPO
+            | kind::ICE_CLIMBERS_NANA => "~below / near edge",
+            _ => "~below / offstage",
         }
     }
 }
@@ -622,9 +631,6 @@ impl FighterProfiles {
         profiles.add_sequence_choices(&catalog).unwrap();
         profiles
     }
-    /// Startup only. Freeze the file-authored menus into process-lifetime
-    /// storage so all existing borrowed catalog consumers stay allocation-free.
-    /// The file/section/list caps bound this retained memory. Never call per frame.
     /// Share inert Training templates without expanding fighter-specific menus.
     /// Runtime uses owned selected-fighter records instead of leaking all tapes.
     pub fn add_sequence_templates(&mut self, templates: &[crate::sequence_config::Template]) {
@@ -637,6 +643,9 @@ impl FighterProfiles {
             profile.menu_options.templates = templates;
         }
     }
+    /// Startup only. Freeze the file-authored menus into process-lifetime
+    /// storage so all existing borrowed catalog consumers stay allocation-free.
+    /// The file/section/list caps bound this retained memory. Never call per frame.
     pub fn add_sequence_choices(
         &mut self,
         catalog: &crate::sequence_config::Catalog,
