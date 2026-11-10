@@ -1,6 +1,11 @@
 //! Local teardown only: no game writes, scene hooks, HID changes or I/O.
+//! Technical: Owns local runtime gating, participant suspension, and state reset
+//! without modifying native game state.
+//! Plain English: This module safely starts or pauses Kirby Assist for the local player.
 use super::*;
-
+/// Check if feature activity is allowed based on the runtime and local participant status.
+/// Technical: Requires both the master runtime flag and local participant flag to be set.
+/// Plain English: Assistance is allowed only when the mod and this player's session are active.
 pub(crate) fn feature_activity_allowed() -> bool {
     RUNTIME_ENABLED.load(Ordering::Acquire) && LOCAL_PARTICIPANT.load(Ordering::Acquire)
 }
@@ -8,6 +13,9 @@ pub(crate) fn feature_activity_allowed() -> bool {
 /// Bind the selected mapper without creating a menu or starting an assistance
 /// policy. A later native fighter callback supplies ownership; the next mapper
 /// poll revalidates its copied ID before allowing any feature work.
+/// Technical: Selects a fresh callback-discovered route only when its mapper
+/// index and associated fighter still match.
+/// Plain English: Finds the currently verified fighter for the selected controller.
 pub(super) fn mapper_candidate(index: i32) -> Option<u32> {
     if !RUNTIME_ENABLED.load(Ordering::Acquire) || !(0..8).contains(&index) {
         return None;
@@ -24,7 +32,10 @@ pub(super) fn mapper_candidate(index: i32) -> Option<u32> {
         })
         .map(|(id, _)| id)
 }
-
+/// Reset the given state, preserving the session and observation sequence while clearing all other fields.
+/// Technical: Ends menu state, replaces all runtime policy fields with defaults,
+/// and advances the observation sequence while retaining the session.
+/// Plain English: Clears active assistance safely without forgetting the current match.
 fn reset_state(state: &mut State) {
     let mut session = state.session;
     session.update(false);
@@ -40,7 +51,10 @@ fn reset_state(state: &mut State) {
     state.session = session;
     state.observation_sequence = sequence;
 }
-
+/// Suspend local participation in the runtime, clearing any active state and resetting relevant flags.
+/// Technical: Atomically revokes local participation, clears projectile tracking,
+/// and resets state only when local runtime state was active.
+/// Plain English: Pauses this player's assistance and forgets its active session data.
 pub(super) fn suspend_participation() {
     let was_active = LOCAL_PARTICIPANT.swap(false, Ordering::AcqRel);
     if let Ok(mut state) = STATE.lock() {
@@ -59,7 +73,10 @@ pub(super) fn suspend_participation() {
         }
     }
 }
-
+/// Enable or disable the runtime, resetting state and clearing relevant flags as necessary.
+/// Technical: Refuses toggles during a match, disables activity during teardown,
+/// clears shared state, then publishes the requested gate value.
+/// Plain English: Turns assistance off or on outside battle after safely clearing old state.
 pub(super) fn set_runtime_enabled(enabled: bool) {
     if MASTER_IN_MATCH.load(Ordering::Acquire) {
         return;

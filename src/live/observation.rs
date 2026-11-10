@@ -1,11 +1,21 @@
+//! Technical: Collects live fighter observations and coordinates read-only
+//! native facts with portable policy state.
+//! Plain English: This module watches the active fighter and passes copied
+//! information to the assistance logic.
 use super::*;
 
+/// Technical: Reentrancy guard for full fighter observations.
+/// Plain English: Stops a native callback from starting the same observation twice.
 static OBSERVING_FIGHTER: AtomicBool = AtomicBool::new(false);
 
 // Native queries can re-enter command hooks. Never recursively sample another
 // full observation while the mapper's synchronous refresh is in progress.
+/// Technical: RAII lease that clears the observation guard when a callback exits.
+/// Plain English: Makes sure nested-observation protection is always released.
 struct FighterObservationGuard;
 impl FighterObservationGuard {
+    /// Technical: Acquires the guard with compare-exchange or returns `None` if occupied.
+    /// Plain English: Allows one observation at a time and skips nested attempts.
     fn acquire() -> Option<Self> {
         OBSERVING_FIGHTER
             .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
@@ -14,6 +24,8 @@ impl FighterObservationGuard {
     }
 }
 impl Drop for FighterObservationGuard {
+    /// Technical: Releases the reentrancy flag with release ordering.
+    /// Plain English: Lets the next callback observe the fighter after this one ends.
     fn drop(&mut self) {
         OBSERVING_FIGHTER.store(false, Ordering::Release);
     }
@@ -22,65 +34,169 @@ impl Drop for FighterObservationGuard {
 #[cfg(feature = "diagnostic-logging")]
 #[derive(Clone, Copy, PartialEq, Eq)]
 /// Represents a diagnostic snapshot of the ledge state for the fighter.
+/// Technical: Copies the state facts needed to explain a ledge decision.
+/// Plain English: Records what was happening when the ledge helper chose an action.
 pub(super) struct LedgeDiagnostic {
+    /// Technical: Target object identifier, if a target was selected.
+    /// Plain English: Which opponent the helper was watching.
     target: Option<u32>,
+    /// Technical: Target's native status kind.
+    /// Plain English: The opponent's current action code.
     enemy_status: i32,
+    /// Technical: Whether the target was vulnerable to the proposed action.
+    /// Plain English: Whether the opponent could be hit or grabbed.
     vulnerable: bool,
+    /// Technical: Kirby's native status kind.
+    /// Plain English: Kirby's current action code.
     kirby_status: i32,
+    /// Technical: Whether the fighter could act at observation time.
+    /// Plain English: Whether Kirby could take an action then.
     can_act: bool,
+    /// Technical: Whether a grab was permitted by current native state.
+    /// Plain English: Whether Kirby could grab at that moment.
     can_grab: bool,
+    /// Technical: Whether dash attack was permitted by current native state.
+    /// Plain English: Whether Kirby could dash attack at that moment.
     can_dash_attack: bool,
+    /// Technical: Whether a jump was permitted by current native state.
+    /// Plain English: Whether Kirby could jump at that moment.
     can_jump: bool,
+    /// Technical: Whether an aerial attack was permitted by current native state.
+    /// Plain English: Whether Kirby could attack in the air then.
     can_air_attack: bool,
+    /// Technical: Whether an attack hit confirmation was observed.
+    /// Plain English: Whether the helper saw a confirmed hit.
     hit_confirmed: bool,
+    /// Technical: Native motion kind used for this decision.
+    /// Plain English: Which animation Kirby was playing.
     own_motion: u64,
+    /// Technical: Button mask requested by the selected action.
+    /// Plain English: Which buttons the helper wanted to press.
     requested: u32,
+    /// Technical: Stable action label used in the diagnostic record.
+    /// Plain English: The name of the helper action that was chosen.
     action: &'static str,
 }
 /// Represents the observation needs for the current state and configuration.
+/// Technical: Precomputed set of native scans needed by the current policy.
+/// Plain English: Lists which game facts this update needs to check.
 #[derive(Clone, Copy)]
 struct ObservationNeeds {
+    /// Technical: Whether to inspect a new ledge-trump edge.
+    /// Plain English: Whether to look for a new ledge-trump input.
     find_trump_edge: bool,
+    /// Technical: Whether to inspect a new ledge-trap edge.
+    /// Plain English: Whether to look for a new ledge-trap input.
     find_trap_edge: bool,
+    /// Technical: Whether general ledge tracking is needed.
+    /// Plain English: Whether the helper needs to check ledge state.
     observe_ledge: bool,
+    /// Technical: Whether a preview must initialize its target.
+    /// Plain English: Whether a preview needs its first target check.
     preview_start: bool,
+    /// Technical: Whether an active ledge response needs another observation.
+    /// Plain English: Whether a current ledge response needs to keep checking.
     continue_ledge_response: bool,
+    /// Technical: Whether a literal sequence's ledge timeline needs observation.
+    /// Plain English: Whether a running recipe needs ledge timing checks.
     literal_ledge_timeline: bool,
+    /// Technical: Whether a file sequence's ledge timeline needs observation.
+    /// Plain English: Whether a saved recipe needs ledge timing checks.
     file_ledge_timeline: bool,
+    /// Technical: Whether ground-specific ledge timeline facts are needed.
+    /// Plain English: Whether the helper needs extra ground timing checks.
     ground_ledge_timeline: bool,
+    /// Technical: Whether to observe the ledge-trump helper.
+    /// Plain English: Whether the plugin needs to check the ledge-trump state.
     observe_trump: bool,
 }
 /// Captures a snapshot of the observation policy for the current state.
+/// Technical: Copied policy decisions and thresholds shared with one observation pass.
+/// Plain English: Holds the menu and helper settings used for this fighter check.
 #[derive(Clone, Copy, Default)]
 struct ObservationPolicySnapshot {
+    /// Technical: Whether automatic policy actions are currently suspended.
+    /// Plain English: Whether automatic helpers are temporarily paused.
     automatic_suspended: bool,
+    /// Technical: Whether a trip follow-up is queued.
+    /// Plain English: Whether a trip action is waiting.
     trip_queued: bool,
+    /// Technical: Whether grab dodge is enabled.
+    /// Plain English: Whether grab dodge help is on.
     grab_dodge_enabled: bool,
+    /// Technical: Idle-crouch and tilt-turn mode switches.
+    /// Plain English: Whether the crouch and turn posture helpers are on.
     posture_modes: (bool, bool),
+    /// Technical: Whether physical down is currently a posture intent.
+    /// Plain English: Whether the player is steering down.
     posture_down: bool,
+    /// Technical: Whether roster data was unavailable for this pass.
+    /// Plain English: Whether the plugin could not find the fighter list.
     roster_missing: bool,
+    /// Technical: Whether out-of-shield assistance is enabled.
+    /// Plain English: Whether out-of-shield help is on.
     oos_enabled: bool,
+    /// Technical: Target id currently held by out-of-shield assistance.
+    /// Plain English: Which opponent the shield helper is following.
     oos_target: Option<u32>,
+    /// Technical: Whether reaction rules are enabled.
+    /// Plain English: Whether automatic reaction rules are on.
     rules_on: bool,
+    /// Technical: Target id currently locked by a reaction rule.
+    /// Plain English: Which opponent the reaction rule is following.
     rule_target: Option<u32>,
+    /// Technical: Target retained for a dodge follow-up.
+    /// Plain English: Which opponent a dodge follow-up may target.
     dodge_follow: Option<u32>,
+    /// Technical: Whether an automatic sequence currently owns the action reservation.
+    /// Plain English: Whether an automatic recipe is already in control.
     automatic_sequence_committed: bool,
+    /// Technical: Whether an up-special receipt is pending confirmation.
+    /// Plain English: Whether the helper is waiting to confirm an up-special.
     up_b_receipt: bool,
+    /// Technical: Ground-rule distance, height, and active settings.
+    /// Plain English: How far away and high a ground rule should watch.
     rules_ground: Option<(f32, f32, bool)>,
+    /// Technical: Simple-rule start conditions for the three rule slots.
+    /// Plain English: The trigger settings for the simple rules.
     simple_starts: [Option<kirby_assist_core::reaction_rules::SimpleStart>; 3],
+    /// Technical: Configured dodge lookahead in frames.
+    /// Plain English: How far ahead dodge checks look.
     dodge_lookahead: f32,
+    /// Technical: Input epoch used to correlate observation with physical input.
+    /// Plain English: Which controller update these settings go with.
     manual_input_epoch: u64,
+    /// Technical: Fighter-specific tuning used for analysis.
+    /// Plain English: The fighter settings used by the helper checks.
     analysis_settings: kirby_assist_core::fighter_tuning::Tuning,
+    /// Technical: Time/distance limits for the three automatic sequences.
+    /// Plain English: How long and far automatic recipes may search.
     automatic_limits: [Option<(f32, f32)>; 3],
+    /// Technical: Whether dodge rules can directly issue up-special.
+    /// Plain English: Whether a dodge follow-up may use up-special.
     dodge_direct_up_b: bool,
+    /// Technical: Whether any enabled policy requests an up-special observation.
+    /// Plain English: Whether a helper may need to press up-special.
     want_up_special: bool,
+    /// Technical: Whether ordinary backup rules are available.
+    /// Plain English: Whether a fallback reaction is enabled.
     ordinary_backup: bool,
+    /// Technical: Whether an active policy requests stationary positioning.
+    /// Plain English: Whether a helper wants the fighter to stay still.
     stationary_intent: bool,
+    /// Technical: Whether an active policy requests a grab.
+    /// Plain English: Whether a helper wants the fighter to grab.
     grab_intent: bool,
+    /// Technical: Whether native policy inputs indicate shielding.
+    /// Plain English: Whether the fighter is currently holding shield.
     self_shielded: bool,
+    /// Technical: Whether a grab is waiting for dash-state progression.
+    /// Plain English: Whether a grab helper is waiting for the fighter to dash.
     grab_dash_pending: bool,
 }
 
+/// Technical: Tests locked and nearby targets against the configured ground-rule watch range.
+/// Plain English: Decides whether a rule needs extra ground observations for a nearby target.
 fn rule_needs_ground_observation(
     ground_watch: Option<(f32, f32, bool)>,
     target_is_locked: bool,
@@ -111,6 +227,7 @@ fn rule_needs_ground_observation(
 }
 
 /// Determines the observation needs based on the current state and configuration.
+/// Plain English: Chooses which game details this update needs to read.
 fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
     let trump_held = state
         .settings_menu
@@ -168,6 +285,7 @@ fn observation_needs(state: &State, config: &Config) -> ObservationNeeds {
 
 /// Resolves the observation setup for the given fighter and session,
 ///  returning the configuration, setup sequence, and observation needs if available.
+/// Plain English: Checks whether this fighter can be observed and prepares its required queries.
 fn resolve_observation_setup(
     index: i32,
     session_ticket: SessionTicket,
@@ -191,6 +309,7 @@ fn resolve_observation_setup(
     Some((config, setup_sequence, needs))
 }
 /// Determines whether manual automatic input is currently blocked for the given fighter and context.
+/// Plain English: Checks whether player input or the current fighter state should pause automatic helpers.
 fn manual_automatic_input_blocked(
     object_id: u32,
     fighter_kind: i32,
@@ -214,6 +333,7 @@ fn manual_automatic_input_blocked(
     })
 }
 /// Captures a snapshot of the observation policy for the given fighter, configuration, and context.
+/// Plain English: Copies the current menu and helper settings before reading native game data.
 fn snapshot_observation_policy(
     fighter_kind: i32,
     manual_automatic_blocked: bool,
@@ -364,26 +484,52 @@ fn snapshot_observation_policy(
 }
 /// Refreshes the master state for the specified controller, returning the readiness status if available.
 /// Represents an observation of a fighter, including its object ID, index, session ticket, fighter kind, and tick timestamp.
+/// Technical: Immutable identity and callback context captured before native observation begins.
+/// Plain English: The fighter, controller, and match details for one observation.
 struct FighterObservation {
+    /// Technical: Native battle-object identifier.
+    /// Plain English: The game's ID for this fighter.
     object_id: u32,
+    /// Technical: Selected controller-array index.
+    /// Plain English: Which player slot owns this observation.
     index: i32,
+    /// Technical: Session-generation ticket captured for publication validation.
+    /// Plain English: Which match session this observation belongs to.
     session_ticket: SessionTicket,
+    /// Technical: Fighter kind used to resolve fighter-specific policy.
+    /// Plain English: Which character is being observed.
     fighter_kind: i32,
+    /// Technical: Local scheduler tick captured for this observation.
+    /// Plain English: Which controller update this observation belongs to.
     tick: i64,
 }
 
 /// Represents a publication of an observation, including the session ticket, index, tick timestamp, and setup sequence.
+/// Technical: Freshness fence carried from observation setup through state publication.
+/// Plain English: Details used to reject results if the fighter changes while being checked.
 struct ObservationPublication {
+    /// Technical: Session-generation ticket associated with the observation.
+    /// Plain English: The match session when the check started.
     session_ticket: SessionTicket,
+    /// Technical: Controller index associated with the observation.
+    /// Plain English: Which player slot the check belongs to.
     index: i32,
+    /// Technical: Input tick associated with the observation.
+    /// Plain English: Which controller update the check belongs to.
     tick: i64,
+    /// Technical: Sequence number captured before native reads.
+    /// Plain English: The state version the check started from.
     setup_sequence: u64,
 }
 /// Provides methods for working with observation publications, including checking if they are current.
 impl ObservationPublication {
+    /// Technical: Checks whether this pass still matches the active session and object.
+    /// Plain English: Rejects results if the fighter or match changed mid-observation.
     fn is_current(&self, state: &State) -> bool {
         self.accepts_at(state, self.setup_sequence)
     }
+    /// Technical: Validates the session plus observation-sequence fence before publication.
+    /// Plain English: Prevents an older observation from replacing newer state.
     fn accepts_at(&self, state: &State, sequence: u64) -> bool {
         state.session.accepts(self.session_ticket)
             && state.mapping_index == Some(self.index)
@@ -397,6 +543,7 @@ impl ObservationPublication {
     }
 }
 /// Refreshes the observation roster if necessary, based on the requested state, active consumer status, and the current publication.
+/// Plain English: Updates the fighter list only when a current helper needs it.
 unsafe fn refresh_observation_roster(
     discover_roster: bool,
     needs: &ObservationNeeds,
@@ -446,6 +593,7 @@ unsafe fn refresh_observation_roster(
     }
 }
 /// Begins a full observation of a fighter, updating the state with the associated object, fighter kind, and observation sequence. Returns the new observation sequence if successful.
+/// Plain English: Marks this fighter update as the newest observation for the selected controller.
 fn begin_full_observation(
     publication: &ObservationPublication,
     object_id: u32,
@@ -484,6 +632,7 @@ fn begin_full_observation(
     Some(state.observation_sequence)
 }
 /// Admits a fighter observation, validating the object and controller index, and updating the state with the observation if successful. Returns the fighter observation if applicable.
+/// Plain English: Confirms the fighter and controller match before starting an observation.
 unsafe fn admit_fighter_observation(
     object: *mut game::Object,
     discover_roster: bool,
@@ -573,32 +722,69 @@ unsafe fn admit_fighter_observation(
     })
 }
 /// Represents an observation of a tech situation, including clatter status, auto-tech settings, floor motion history, tech assessment, and timing information.
+/// Technical: Copied inputs and prediction results for one tech-policy evaluation.
+/// Plain English: Holds the timing and settings needed to decide whether to prepare a tech.
 #[derive(Clone, Copy)]
 struct TechObservation {
+    /// Technical: Remaining clatter duration reported by native state.
+    /// Plain English: How long the fighter can still break free.
     clatter_remaining: f32,
+    /// Technical: Whether clatter behavior applies to the current situation.
+    /// Plain English: Whether mashing can help in this state.
     clatter: bool,
+    /// Technical: Effective Auto Tech mode after menu and startup settings.
+    /// Plain English: Whether automatic teching is enabled.
     auto_tech_enabled: bool,
+    /// Technical: History used to account for moving floor motion.
+    /// Plain English: Recent stage movement used by the landing estimate.
     tech_floor_motion: kirby_assist_core::tech_prediction::FloorMotionHistory,
+    /// Technical: Native eligibility and collision/timing prediction result.
+    /// Plain English: The current estimate of whether a tech is possible.
     assessment: tech::TechAssessment,
+    /// Technical: Combined tech eligibility decision.
+    /// Plain English: Whether this fighter should use tech assistance.
     tech: bool,
+    /// Technical: Whether native status reserves guard for a tech action.
+    /// Plain English: Whether the game is already handling the tech button.
     native_tech_guard: bool,
+    /// Technical: Native parameter tuple for tech/clatter timing.
+    /// Plain English: Game timing values used to calculate the tech window.
     tech_timing: (u16, u16, u16),
 }
 
 /// Represents the basic native observation of a fighter, including status, situation, motion details, and input blocking information.
+/// Technical: Small copy of fighter state needed to construct policy contexts.
+/// Plain English: Basic status, motion, and stop information for this fighter.
 #[derive(Clone, Copy, Default)]
 struct NativeObservationBasics {
+    /// Technical: Native fighter status kind.
+    /// Plain English: The fighter's current action code.
     status: i32,
+    /// Technical: Native ground/air situation kind.
+    /// Plain English: Whether the fighter is grounded or airborne.
     situation: i32,
+    /// Technical: Whether native game stop is active.
+    /// Plain English: Whether the fighter is frozen by hitstop or pause.
     stopped: bool,
+    /// Technical: Current native motion frame.
+    /// Plain English: How far the current animation has progressed.
     motion_frame: f32,
+    /// Technical: Current native motion identifier.
+    /// Plain English: Which animation is playing.
     motion_kind: u64,
+    /// Technical: Current native motion rate.
+    /// Plain English: How quickly the animation is advancing.
     motion_rate: f32,
+    /// Technical: Whether current inputs block automatic actions.
+    /// Plain English: Whether another input condition prevents automatic helpers.
     manual_automatic_blocked: bool,
+    /// Technical: Whether damage-stop state is active.
+    /// Plain English: Whether the fighter is in damage hitstop.
     damage_stop: bool,
 }
 impl NativeObservationBasics {
     /// The pose every `GameplayContext` of this observation starts from.
+    /// Plain English: Creates a shared starting point for the fighter's gameplay checks.
     fn gameplay_context(&self) -> GameplayContext {
         GameplayContext {
             gameplay: true,
@@ -613,6 +799,7 @@ impl NativeObservationBasics {
     }
 }
 /// Observes the basic native state of a fighter, including status, situation, motion details, and input blocking information. Returns a `NativeObservationBasics` struct with the observed values.
+/// Plain English: Copies the fighter's current status and animation details.
 unsafe fn observe_native_basics(
     reads: &frame::FrameReads,
     object: *mut game::Object,
@@ -641,8 +828,10 @@ unsafe fn observe_native_basics(
 }
 /// Native input latency compensation is removed: only native move timing and
 /// explicit response configuration feed the policies.
+/// Plain English: Keeps policy timing based on the game and chosen response settings, not an assumed delay.
 const INPUT_DELAY: f32 = 0.0;
 /// Observes the tech state of a fighter, including clatter, auto-tech settings, and floor motion history. Returns a `TechObservation` struct with the observed values.
+/// Plain English: Gathers the timing and floor facts used by tech assistance.
 unsafe fn observe_tech_state(
     reads: &frame::FrameReads,
     object: *mut game::Object,
@@ -709,6 +898,7 @@ unsafe fn observe_tech_state(
 }
 
 /// Statuses with no playable fighter: the observation is cancelled, not sampled.
+/// Plain English: Checks whether the fighter is in a state where helpers should stop.
 fn out_of_play(status: i32) -> bool {
     matches!(
         status,
@@ -719,6 +909,8 @@ fn out_of_play(status: i32) -> bool {
             ..=kirby_assist_core::native_states::status::LOSE
     )
 }
+/// Technical: Cancels shared assistance state after a failed/stale observation path.
+/// Plain English: Clears pending helper actions when observation cannot continue safely.
 fn cancel_state() {
     if let Ok(mut state) = STATE.lock() {
         state.cancel();
@@ -726,44 +918,97 @@ fn cancel_state() {
 }
 
 /// Grab reach limits for the automatic modes; saved per-mode limits override tuning.
+/// Technical: Resolved distance and vertical bounds for automatic grab policies.
+/// Plain English: The ranges automatic grab helpers use to check opponents.
 #[derive(Clone, Copy)]
 struct AutoGrabLimits {
+    /// Technical: Legacy close-grab distance threshold.
+    /// Plain English: The old close-range limit for a grab.
     legacy_close: f32,
+    /// Technical: Legacy approach-grab distance threshold.
+    /// Plain English: The old range for moving toward a grab.
     legacy_approach: f32,
+    /// Technical: Primary grab target distance.
+    /// Plain English: How far away a normal grab may target.
     range: f32,
+    /// Technical: Approach-action target distance.
+    /// Plain English: How far away the helper may start approaching.
     approach_range: f32,
+    /// Technical: Maximum vertical difference for ordinary grabs.
+    /// Plain English: How high or low the opponent can be for a grab.
     height: f32,
+    /// Technical: Maximum vertical difference for shield-based grabs.
+    /// Plain English: How high or low the opponent can be for a shield grab.
     shield_height: f32,
+    /// Technical: Backup grab target distance.
+    /// Plain English: How far away the fallback grab may target.
     backup_range: f32,
+    /// Technical: Backup grab maximum vertical difference.
+    /// Plain English: How high or low the fallback target may be.
     backup_height: f32,
 }
 /// Automatic-mode scope and follow-up watches derived from the policy snapshot.
+/// Technical: Resolved observation switches and limits for automatic helpers.
+/// Plain English: Lists which automatic checks should run and their target ranges.
 #[derive(Clone, Copy)]
 struct AutomaticFlags {
+    /// Technical: Whether a command-grab capture link requires clock observation.
+    /// Plain English: Whether to check a linked grab animation clock.
     capture_link: bool,
+    /// Technical: Scope rules governing automatic observations.
+    /// Plain English: Which situations the automatic helpers should watch.
     scope: kirby_assist_core::reaction_rules::AutomaticObservationScope,
+    /// Technical: Whether Kirby-specific trip observation is enabled.
+    /// Plain English: Whether to watch for Kirby's trip targets.
     trip_kirby: bool,
+    /// Technical: Whether trip-target watches are active.
+    /// Plain English: Whether the helper should check for trip opportunities.
     trip_watch: bool,
+    /// Technical: Resolved automatic grab ranges.
+    /// Plain English: The grab distances used by automatic helpers.
     limits: AutoGrabLimits,
 }
 /// Read-only inputs of one accepted observation, shared by every stage.
+/// Technical: Borrows frame-local facts and groups copied state for read-only observation stages.
+/// Plain English: Shares one fighter snapshot and its settings across the checks.
 #[derive(Clone, Copy)]
 struct Pass<'a> {
+    /// Technical: Per-callback cache for native values and roster data.
+    /// Plain English: Stores facts already read during this update.
     reads: &'a frame::FrameReads,
+    /// Technical: Current fighter accessor, used only during the synchronous pass.
+    /// Plain English: Temporary handle for reading this fighter's game data.
     object: *mut game::Object,
+    /// Technical: Immutable startup configuration borrowed for this pass.
+    /// Plain English: The plugin settings used by the checks.
     config: &'a Config,
+    /// Technical: Copied battle-object identifier.
+    /// Plain English: The fighter's game ID.
     object_id: u32,
+    /// Technical: Copied fighter kind for profile and tuning lookup.
+    /// Plain English: Which character this pass is checking.
     fighter_kind: i32,
+    /// Technical: Precomputed set of required observation queries.
+    /// Plain English: Which facts this pass needs to read.
     needs: ObservationNeeds,
+    /// Technical: Copied menu and policy decisions.
+    /// Plain English: The settings and helper choices for this pass.
     policy: ObservationPolicySnapshot,
+    /// Technical: Resolved automatic-mode switches and thresholds.
+    /// Plain English: Which automatic checks and target ranges apply.
     flags: AutomaticFlags,
+    /// Technical: Basic copied native state for the local fighter.
+    /// Plain English: The fighter's current status and animation information.
     own: NativeObservationBasics,
+    /// Technical: Native tech timing and prediction results.
+    /// Plain English: The current estimate for tech assistance.
     tech_obs: TechObservation,
 }
 
 // This observer reads game facts and publishes input requests; it never changes
 // fighter status. Native reads happen outside STATE and publication revalidates
 /// Observes the fighter's state, including native reads and session validation. This function never changes fighter status and ensures that the session is revalidated because native reads can re-enter hooks.
+/// Plain English: Reads the fighter and opponent state, then ignores results if the match changed during those reads.
 pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster: bool) {
     let Some(config) = CONFIG.get().map(Box::as_ref) else {
         return;
@@ -867,6 +1112,7 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
 
 /// Derives the automatic-mode scope, Kirby follow-up watches and grab limits
 /// from the policy snapshot and the fighter's own pose.
+/// Plain English: Calculates which automatic checks and target ranges apply to this fighter.
 unsafe fn derive_automatic_flags(
     reads: &frame::FrameReads,
     object: *mut game::Object,
@@ -970,34 +1216,68 @@ unsafe fn derive_automatic_flags(
 }
 
 /// Everything the fighter's observation reads from the game before sampling any policy.
+/// Technical: Aggregates copied observations for the later policy-sampling stages.
+/// Plain English: Holds the facts collected about the fighter and nearby opponents.
 #[derive(Clone, Copy)]
 struct Collected {
+    /// Technical: Optional reaction-rule context and candidate targets.
+    /// Plain English: The nearby targets and situation for reaction rules.
     rule_observation: Option<RuleObservation>,
+    /// Technical: Per-event readiness results for simple rules.
+    /// Plain English: Which simple reaction triggers are ready.
     simple_readiness: [bool; 3],
+    /// Technical: Ledge, trump, and defensive guard facts.
+    /// Plain English: What the ledge and shield helpers found.
     ledge: LedgeFacts,
+    /// Technical: Trip, aerial follow-up, and attacker-direction facts.
+    /// Plain English: What combat follow-up helpers found.
     combat: CombatFacts,
+    /// Technical: Posture target and floor-safety facts.
+    /// Plain English: Whether posture changes are safe and which way to face.
     posture: PostureFacts,
+    /// Technical: Validated gameplay context for manual actions.
+    /// Plain English: The fighter situation used by manual helpers.
     manual_context: ManualContext,
+    /// Technical: Vertical velocity copied for combo decisions.
+    /// Plain English: How quickly the fighter is moving up or down.
     combo_velocity_y: f32,
+    /// Technical: Whether dodge-response conditions were satisfied.
+    /// Plain English: Whether a dodge follow-up can begin.
     dodge_response_ready: bool,
+    /// Technical: Spot-dodge context and bounded candidate target array.
+    /// Plain English: The dodge situation and opponents a follow-up may target.
     spot_observation: Option<(
         kirby_assist_core::spot_dodge::Context,
         [Option<kirby_assist_core::spot_dodge::Target>; 8],
     )>,
+    /// Technical: Damage-stop, launch, and survival geometry facts.
+    /// Plain English: What DI and SDI helpers need to know about a launch.
     damage: DamageFacts,
+    /// Technical: Optional out-of-shield response context.
+    /// Plain English: The shield situation used for out-of-shield help.
     oos_context: Option<kirby_assist_core::out_of_shield::Context>,
+    /// Technical: Optional opponent retained for a shield follow-up.
+    /// Plain English: Which opponent a shield follow-up should track.
     oos_follow: Option<kirby_assist_core::gameplay::Opponent>,
+    /// Technical: Optional projectile-reflection mode, context, and threat.
+    /// Plain English: The projectile information needed for auto-reflect.
     reflect_observation: Option<ReflectObservation>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Optional native activity flag used only by diagnostic reporting.
+    /// Plain English: Extra fighter activity information for troubleshooting.
     neutral_native_activity: Option<bool>,
 }
 /// Own context, nearby roll-read targets and the followed actor of the rule pass.
+/// Technical: Tuple containing current gameplay facts and bounded rule candidates.
+/// Plain English: The situation and possible opponents for automatic reaction rules.
 type RuleObservation = (
     GameplayContext,
     [Option<kirby_assist_core::roll_read::Target>; 8],
     Option<kirby_assist_core::gameplay::Opponent>,
 );
 /// The configured reflector mode, its context and the best incoming projectile threat.
+/// Technical: Tuple pairing reflection configuration, context, and selected projectile threat.
+/// Plain English: Settings and the projectile that the reflector may handle.
 type ReflectObservation = (
     kirby_assist_core::projectile_reflect::Config,
     kirby_assist_core::projectile_reflect::Context,
@@ -1006,6 +1286,7 @@ type ReflectObservation = (
 
 /// Collects every native fact the policies need, in the order the native reads
 /// must happen. No `STATE` lock is held across a native read.
+/// Plain English: Gathers the game facts first so helper decisions can happen afterward.
 unsafe fn collect_observations(p: &Pass) -> Collected {
     let Pass {
         reads,
@@ -1088,6 +1369,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
 }
 
 /// The one bounded rule-target pass: own context, nearby targets and the followed actor.
+/// Plain English: Finds nearby opponents for reaction rules using a limited scan.
 unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
     let Pass {
         reads,
@@ -1237,6 +1519,7 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
 
 /// Per-event readiness is computed outside STATE, only for an actual nearby
 /// candidate. Ordinary fighter recipes never depend on Up-B availability.
+/// Plain English: Checks whether nearby reaction rules can start their chosen actions.
 unsafe fn collect_simple_readiness(
     p: &Pass,
     rule_observation: Option<RuleObservation>,
@@ -1263,6 +1546,7 @@ unsafe fn collect_simple_readiness(
 
 /// Query grab/OOS readiness only with a current vulnerable target or active attempt.
 /// Returns shield-ready, can-grab, can-jump and can-up-special.
+/// Plain English: Checks out-of-shield actions only when an opponent or active response makes the check useful.
 unsafe fn collect_oos_readiness(
     p: &Pass,
     rule_observation: Option<RuleObservation>,
@@ -1331,14 +1615,26 @@ unsafe fn collect_oos_readiness(
 }
 
 /// Own-fighter and opponent facts for the ledge, trump and defensive-guard policies.
+/// Technical: Copied candidate, timeline, and guard readiness data for ledge policies.
+/// Plain English: What ledge helpers know about the opponent and shield timing.
 #[derive(Clone, Copy)]
 struct LedgeFacts {
+    /// Technical: Best observed ledge opponent, when available.
+    /// Plain English: The opponent being tracked near the ledge.
     opponent: Option<kirby_assist_core::gameplay::Opponent>,
+    /// Technical: Optional copied context for ledge/trump/ground rules.
+    /// Plain English: The ledge situation and its target details.
     observation: Option<LedgeObservation>,
+    /// Technical: Whether native guard input is available for a ledge response.
+    /// Plain English: Whether shielding can be used for the ledge response.
     guard_ready: bool,
+    /// Technical: Whether an incoming threat requires defensive guard.
+    /// Plain English: Whether an attack makes shielding necessary.
     guard_threat: bool,
 }
 /// Own context, the ledge opponent, the trump edge and the locked ground spot.
+/// Technical: Tuple of ledge gameplay context, followed actor, edge, and ground spot.
+/// Plain English: The data used to choose a ledge or ground response.
 type LedgeObservation = (
     GameplayContext,
     Option<kirby_assist_core::gameplay::Opponent>,
@@ -1351,6 +1647,11 @@ type LedgeObservation = (
 // make an input legal. The core uses these values to decide what to request.
 // Full movement/ledge queries (including ground rays) are demand-driven.
 // Stick-click/Y shortcuts use the existing motion sample, without ground rays.
+/// Technical: Collects native ledge, opponent, and response facts for this pass.
+/// Plain English: Gathers what the ledge helper needs to decide whether to respond.
+///
+/// # Safety
+/// The pass must contain current validated native object references for its lifetime.
 unsafe fn collect_ledge(p: &Pass) -> LedgeFacts {
     let Pass {
         reads,
@@ -1535,15 +1836,32 @@ unsafe fn collect_ledge(p: &Pass) -> LedgeFacts {
 }
 
 /// Kirby follow-up contexts and the attacker direction used by SDI/DI.
+/// Technical: Copied target and movement facts for combat and launch policies.
+/// Plain English: Opponent and attacker information used by follow-up helpers.
 #[derive(Clone, Copy)]
 struct CombatFacts {
+    /// Technical: Native-compatible Kirby trip target context.
+    /// Plain English: Information needed to check Kirby's trip targets.
     trip_context: kirby_assist_core::kirby::TripContext,
+    /// Technical: Native-compatible fair follow-up context.
+    /// Plain English: Information needed to check an aerial follow-up.
     fair_context: kirby_assist_core::kirby::FairContext,
+    /// Technical: Whether a fair follow-up request is pending.
+    /// Plain English: Whether an aerial follow-up is waiting.
     fair_pending: bool,
+    /// Technical: Whether a fair hit window is currently active.
+    /// Plain English: Whether the follow-up can hit now.
     fair_hit_window: bool,
+    /// Technical: Signed attacker direction used for outward DI.
+    /// Plain English: Which way to move away from the attacker.
     outward: f32,
 }
 
+/// Technical: Builds copied combat-target and attack-threat facts from the pass.
+/// Plain English: Gathers nearby opponent and active-attack information.
+///
+/// # Safety
+/// Native object references in the pass must remain valid during this synchronous collection.
 unsafe fn collect_combat(p: &Pass) -> CombatFacts {
     let Pass {
         reads,
@@ -1620,12 +1938,23 @@ unsafe fn collect_combat(p: &Pass) -> CombatFacts {
 }
 
 /// Opponent side and platform safety for the automatic posture assists.
+/// Technical: Captures the selected facing target and platform safety result.
+/// Plain English: Says which way posture assistance should face and whether it is safe.
 #[derive(Clone, Copy)]
 struct PostureFacts {
+    /// Technical: Opponent-relative target side, if an opponent was observed.
+    /// Plain English: Which side the opponent is on.
     target: Option<f32>,
+    /// Technical: Whether the proposed posture movement is safe on the current floor.
+    /// Plain English: Whether the fighter can safely move into the posture.
     floor_safe: bool,
 }
 
+/// Technical: Collects posture, floor-safety, and manual movement observations.
+/// Plain English: Gathers position and ground details used by movement helpers.
+///
+/// # Safety
+/// The pass must contain current validated native object references.
 unsafe fn collect_posture(p: &Pass) -> PostureFacts {
     let Pass {
         reads,
@@ -1687,6 +2016,11 @@ unsafe fn collect_posture(p: &Pass) -> PostureFacts {
     }
 }
 
+/// Technical: Collects incoming-grab and spot-dodge context for an observation pass.
+/// Plain English: Checks nearby grab threats and whether a dodge decision is relevant.
+///
+/// # Safety
+/// Native objects must be revalidated and remain live during this query.
 unsafe fn collect_spot_dodge(
     p: &Pass,
 ) -> Option<(
@@ -1770,14 +2104,29 @@ unsafe fn collect_spot_dodge(
 }
 
 /// Hitstop SDI/DI contexts and the blast-zone geometry observed for them.
+/// Technical: Copied launch and environment inputs for damage survival policies.
+/// Plain English: The information used to choose a safe DI or SDI direction.
 #[derive(Clone, Copy)]
 struct DamageFacts {
+    /// Technical: SDI context derived from the current damage-stop observation.
+    /// Plain English: The current situation for smash directional influence.
     sdi_context: SdiContext,
+    /// Technical: Optional DI context for the current launch.
+    /// Plain English: The current situation for directional influence.
     di_context: Option<kirby_assist_core::auto_di::Context>,
+    /// Technical: Cached blast-zone bounds used for trajectory analysis.
+    /// Plain English: The stage boundary information used by launch checks.
     geometry: Option<damage::GeometryCache>,
+    /// Technical: Optional predicted launch trajectory.
+    /// Plain English: Where the fighter may travel after the launch.
     trajectory: Option<kirby_assist_core::auto_di::Trajectory>,
 }
 
+/// Technical: Collects copied damage-stop, launch, and survival geometry facts.
+/// Plain English: Gathers launch information used by DI/SDI safety helpers.
+///
+/// # Safety
+/// `p` must refer to the current validated fighter observation.
 unsafe fn collect_damage(p: &Pass, outward: f32) -> DamageFacts {
     let Pass {
         reads,
@@ -1834,6 +2183,11 @@ unsafe fn collect_damage(p: &Pass, outward: f32) -> DamageFacts {
     }
 }
 
+/// Technical: Collects out-of-shield eligibility and timing facts for current targets.
+/// Plain English: Checks whether a shield response can be considered now.
+///
+/// # Safety
+/// Native object accessors must remain valid for this synchronous query.
 unsafe fn collect_oos_context(
     p: &Pass,
     oos_readiness: (bool, bool, bool, bool),
@@ -1887,6 +2241,11 @@ unsafe fn collect_oos_context(
 }
 
 #[cfg(feature = "diagnostic-logging")]
+/// Technical: Reads native action activity used to distinguish neutral from committed states.
+/// Plain English: Checks whether the fighter is busy with an action before selecting a response.
+///
+/// # Safety
+/// The supplied pass must contain a live validated fighter accessor.
 unsafe fn collect_neutral_native_activity(
     p: &Pass,
     ledge_opponent: Option<kirby_assist_core::gameplay::Opponent>,
@@ -1918,6 +2277,7 @@ unsafe fn collect_neutral_native_activity(
 }
 
 /// Reflector observation: the configured mode, the tracked projectile and its threat.
+/// Plain English: Checks the selected reflector setting against the current projectile threat.
 unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
     let Pass {
         reads,
@@ -1964,17 +2324,27 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
 }
 
 /// Facts only the diagnostic log needs; empty in silent builds.
+/// Technical: Diagnostic-only state changes collected before publication.
+/// Plain English: Notes about this observation that may be included in logs.
 #[derive(Default)]
 struct PublicationNotes {
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Whether the first controller-button write was observed.
+    /// Plain English: Whether a controller button was first changed this session.
     first_button_write: bool,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Whether automatic policy admission succeeded.
+    /// Plain English: Whether helpers were allowed to act.
     acquired: bool,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Whether the active scenario key changed.
+    /// Plain English: Whether the situation being logged changed.
     scenario_changed: bool,
 }
 #[cfg(feature = "diagnostic-logging")]
 impl PublicationNotes {
+    /// Technical: Formats this observation's diagnostic facts when logging is compiled in.
+    /// Plain English: Writes a compact troubleshooting summary for this fighter update.
     fn log(&self, p: &Pass, index: i32) {
         let Pass {
             object_id,
@@ -2001,6 +2371,8 @@ impl PublicationNotes {
 // session again before updating history, because those reads can re-enter
 // hooks. No file loading or JSON parsing belongs in this per-update path.
 // The caller holds STATE: nothing below may query the game.
+/// Technical: Publishes collected facts only after validating session and observation fences.
+/// Plain English: Updates shared helper state only if this observation is still current.
 fn publish_observation(
     state: &mut State,
     p: &Pass,
@@ -2088,6 +2460,7 @@ fn publish_observation(
 }
 
 /// A pending grab hand-off tracks the opponent's native clock for as long as it lasts.
+/// Plain English: Follows the opponent's animation while a queued grab handoff is waiting.
 fn observe_grab_handoff_clock(state: &mut State, p: &Pass, c: &Collected) {
     let rule_observation = c.rule_observation;
     if state.grab_handoff.pending() {
@@ -2121,6 +2494,8 @@ fn observe_grab_handoff_clock(state: &mut State, p: &Pass, c: &Collected) {
 // Reuse facts already read by active analyses. Missing targets are not
 // evidence of a new event; a known native status change is. This adds
 // no roster pass or native queries and prevents duplicate/stale reads.
+/// Technical: Feeds cached status transitions into policies without repeating native reads.
+/// Plain English: Updates helpers using statuses already observed during this pass.
 fn observe_known_statuses(state: &mut State, p: &Pass) {
     let Pass {
         reads,
@@ -2140,15 +2515,29 @@ fn observe_known_statuses(state: &mut State, p: &Pass) {
 }
 
 /// Intent and priority the automatic policies are admitted under for this observation.
+/// Technical: Admission decisions controlling which automatic policy families may sample.
+/// Plain English: Which automatic helpers are allowed to use the collected facts.
 #[derive(Clone, Copy)]
 struct Admission {
+    /// Technical: Whether automatic behavior is suspended by higher-priority ownership.
+    /// Plain English: Whether automatic helpers are paused.
     automatic_suspended: bool,
+    /// Technical: Whether the current policy reserves stationary positioning.
+    /// Plain English: Whether the fighter should avoid moving.
     stationary_intent: bool,
+    /// Technical: Whether an automatic grab is permitted in the current scope.
+    /// Plain English: Whether a grab helper may act.
     grab_intent: bool,
+    /// Technical: Whether the local fighter is shielded.
+    /// Plain English: Whether the fighter is holding shield.
     self_shielded: bool,
+    /// Technical: Whether ledge priority preempts other automatic policies.
+    /// Plain English: Whether the ledge helper has priority right now.
     ledge_priority: bool,
 }
 
+/// Technical: Applies session, ownership, context, and configuration gates to automatic tools.
+/// Plain English: Decides which automatic helpers may act on the collected observations.
 fn admit_automatic(state: &mut State, p: &Pass, c: &Collected) -> Admission {
     let Pass {
         policy:
@@ -2215,6 +2604,7 @@ fn admit_automatic(state: &mut State, p: &Pass, c: &Collected) -> Admission {
 
 /// The reaction policies in priority order: fair follow-up, incoming-grab
 /// defense, its punish, then the OOS/roll-read arbitration.
+/// Plain English: Samples combat reactions in priority order so stronger actions can take precedence.
 fn sample_reactions(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     #[cfg(feature = "diagnostic-logging")]
     let _combo_performance = crate::performance::Scope::new(crate::performance::Part::Combo);
@@ -2246,6 +2636,8 @@ fn sample_reactions(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     }
 }
 
+/// Technical: Advances Kirby's fair follow-up policy using admitted hit observations.
+/// Plain English: Updates the automatic forward-air follow-up state.
 fn sample_fair(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         fighter_kind,
@@ -2274,6 +2666,7 @@ fn sample_fair(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
 
 /// An incoming-grab defense is sampled once before new offensive
 /// choices. Existing committed owners remain protected by allows().
+/// Plain English: Checks grab defense before starting a new attack or helper action.
 fn sample_spot_dodge(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         policy:
@@ -2355,6 +2748,8 @@ fn sample_spot_dodge(state: &mut State, p: &Pass, c: &Collected, a: &Admission) 
     };
 }
 
+/// Technical: Advances the spot-dodge punish policy from current target and action facts.
+/// Plain English: Updates the follow-up after a successful spot dodge.
 fn sample_spot_punish(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         config,
@@ -2425,6 +2820,8 @@ fn sample_spot_punish(state: &mut State, p: &Pass, c: &Collected, a: &Admission)
 // An immediately usable Up-B may replace an unaccepted automatic grab.
 // Admission and this handoff share the core selector; cached Grab input
 // is cleared before the winning reaction can reach the mapper.
+/// Technical: Applies higher-priority ownership and safety gates before grab automation.
+/// Plain English: Cancels or postpones grab assistance when another action must take priority.
 fn preempt_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         needs: ObservationNeeds {
@@ -2485,6 +2882,8 @@ fn preempt_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     }
 }
 
+/// Technical: Samples grab eligibility and handoff state using the current admitted facts.
+/// Plain English: Updates automatic grab assistance from this fighter observation.
 fn sample_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         config,
@@ -2572,6 +2971,8 @@ fn sample_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     }
 }
 
+/// Technical: Advances the roll-read policy from target escape and follow-up observations.
+/// Plain English: Tracks a selected response to an opponent's roll or get-up.
 fn sample_roll_read(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     let Pass {
         config,
@@ -2640,6 +3041,8 @@ fn sample_roll_read(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
 }
 
 #[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_variables))]
+/// Technical: Advances Kirby trip-follow-up state using current target snapshots.
+/// Plain English: Updates Kirby's trip helper from the fighters observed this frame.
 fn sample_trip(state: &mut State, p: &Pass, c: &Collected) {
     let Pass {
         flags: AutomaticFlags { trip_kirby, .. },
@@ -2675,6 +3078,7 @@ fn sample_trip(state: &mut State, p: &Pass, c: &Collected) {
 }
 
 /// Publishes the hitstop SDI/DI contexts and marks this input update as evaluated.
+/// Plain English: Makes launch escape information available for the current controller update.
 fn publish_damage_contexts(state: &mut State, p: &Pass, c: &Collected, tick: i64) {
     let Pass { object_id, .. } = *p;
     let DamageFacts {
@@ -2693,6 +3097,7 @@ fn publish_damage_contexts(state: &mut State, p: &Pass, c: &Collected, tick: i64
 
 /// Mash and tech sampling. Returns the policy tick, absent during hitstop.
 #[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_variables))]
+/// Plain English: Updates tech and mash helpers when the fighter is not frozen by hitstop.
 fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
     let Pass {
         config,
@@ -2851,6 +3256,8 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
     policy_tick
 }
 
+/// Technical: Publishes the current manual-control context and input epoch.
+/// Plain English: Makes the player's current action and manual-input state available to helpers.
 fn publish_manual_context(state: &mut State, p: &Pass, c: &Collected) {
     let Pass {
         own: NativeObservationBasics { stopped, .. },
@@ -2897,6 +3304,7 @@ fn publish_manual_context(state: &mut State, p: &Pass, c: &Collected) {
 
 /// Ledge, trump and defensive-guard sampling for the observation's own context.
 #[cfg_attr(not(feature = "diagnostic-logging"), allow(unused_variables))]
+/// Plain English: Updates ledge, ledge-trump, and guard helpers from current observations.
 fn sample_ledge(
     state: &mut State,
     p: &Pass,
@@ -2939,6 +3347,7 @@ fn sample_ledge(
 }
 
 /// Without a ledge observation the ledge/trump/guard policies release their history.
+/// Plain English: Clears ledge-related output when this update has no ledge facts.
 fn reset_ledge_outputs(state: &mut State) {
     #[cfg(feature = "diagnostic-logging")]
     state.grab_trace.reset("ledge_observation_unavailable");
@@ -2952,6 +3361,8 @@ fn reset_ledge_outputs(state: &mut State) {
     state.trump_seek_tick = None;
 }
 
+/// Technical: Updates ledge-trump timing from the current ledge and edge observations.
+/// Plain English: Checks whether a ledge trump response should be prepared.
 fn sample_trump(
     state: &mut State,
     p: &Pass,
@@ -2996,6 +3407,7 @@ fn sample_trump(
 }
 
 /// Samples the ledge-trap policy and returns whether it holds the ledge input.
+/// Plain English: Updates a ledge trap and reports whether it still needs the controller.
 fn sample_ledge_response(
     state: &mut State,
     p: &Pass,
@@ -3109,6 +3521,8 @@ fn sample_ledge_response(
 // response takes priority immediately; hanging/no-target uses the
 // locked, damped preparation controller instead of root chasing.
 // Returns the positioning action name for the diagnostic log.
+/// Technical: Samples automatic positioning against the observed ledge and opponent.
+/// Plain English: Chooses safe positioning input near a ledge.
 fn sample_ledge_positioning(
     state: &mut State,
     p: &Pass,
@@ -3173,6 +3587,8 @@ fn sample_ledge_positioning(
     positioning_action
 }
 
+/// Technical: Advances defensive guard state using admitted threat and action facts.
+/// Plain English: Updates automatic shield behavior when a threat is approaching.
 fn sample_defensive_guard(
     state: &mut State,
     p: &Pass,
@@ -3255,6 +3671,7 @@ fn sample_defensive_guard(
 
 /// Calibration, grab-trace and throttled ledge-observation diagnostics.
 #[cfg(feature = "diagnostic-logging")]
+/// Plain English: Publishes troubleshooting data after the ledge helpers run.
 fn publish_ledge_diagnostics(
     state: &mut State,
     p: &Pass,
@@ -3427,6 +3844,8 @@ fn publish_ledge_diagnostics(
     }
 }
 
+/// Technical: Advances the reflector policy from the copied projectile threat result.
+/// Plain English: Updates the helper that responds to reflectable projectiles.
 fn sample_reflect(state: &mut State, p: &Pass, c: &Collected) {
     let Pass {
         tech_obs: TechObservation { clatter, tech, .. },

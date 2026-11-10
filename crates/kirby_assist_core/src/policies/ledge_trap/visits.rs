@@ -6,27 +6,72 @@ use super::{
 };
 use crate::ledge_position::LedgeSpot;
 
+/// Technical: Defines the `Visit` data structure.
+///
+/// Plain English: Holds the data for Visit.
 #[derive(Clone, Copy)]
 struct Visit {
+    /// Technical: Stores the `id` value in `Visit` as `u32`.
+    ///
+    /// Plain English: Holds the id value used by Visit.
     id: u32,
+    /// Technical: Stores the `last_status` value in `Visit` as `i32`.
+    ///
+    /// Plain English: Holds the last status value used by Visit.
     last_status: i32,
+    /// Technical: Stores the `armed` value in `Visit` as `bool`.
+    ///
+    /// Plain English: Holds the armed value used by Visit.
     armed: bool,
+    /// Technical: Stores the `handled` value in `Visit` as `bool`.
+    ///
+    /// Plain English: Holds the handled value used by Visit.
     handled: bool,
 }
+/// Technical: Defines the `LedgeVisits` data structure.
+///
+/// Plain English: Holds the data for LedgeVisits.
 #[derive(Default)]
 pub struct LedgeVisits {
+    /// Technical: Stores the `owner` value in `LedgeVisits` as `Option<(u32`.
+    ///
+    /// Plain English: Optionally stores the owner for LedgeVisits; it may be absent.
     owner: Option<(u32, i32)>,
+    /// Technical: Stores the `visits` value in `LedgeVisits` as `[Option<Visit>; 8]`.
+    ///
+    /// Plain English: Stores the visits collection for LedgeVisits.
     visits: [Option<Visit>; 8],
+    /// Technical: Stores the `replace` value in `LedgeVisits` as `usize`.
+    ///
+    /// Plain English: Holds the replace value used by LedgeVisits.
     replace: usize,
+    /// Technical: Stores the `ledge` value in `LedgeVisits` as `Option<LedgeSpot>`.
+    ///
+    /// Plain English: Optionally stores the ledge for LedgeVisits; it may be absent.
     ledge: Option<LedgeSpot>,
+    /// Technical: Stores the `visit_epoch` value in `LedgeVisits` as `u64`.
+    ///
+    /// Plain English: Holds the visit epoch value used by LedgeVisits.
     visit_epoch: u64,
 }
+/// Technical: Defines the `Observation` data structure.
+///
+/// Plain English: Holds the data for Observation.
 #[derive(Clone, Copy)]
 struct Observation {
+    /// Technical: Stores the `new_visit` value in `Observation` as `bool`.
+    ///
+    /// Plain English: Holds the new visit value used by Observation.
     new_visit: bool,
+    /// Technical: Stores the `allowed` value in `Observation` as `bool`.
+    ///
+    /// Plain English: Holds the allowed value used by Observation.
     allowed: bool,
 }
 impl LedgeVisits {
+    /// Technical: Constructs a new value with the type’s initial state.
+    ///
+    /// Plain English: Creates a new value.
     pub const fn new() -> Self {
         Self {
             owner: None,
@@ -36,18 +81,30 @@ impl LedgeVisits {
             visit_epoch: 0,
         }
     }
+    /// Technical: Sets the owner.
+    ///
+    /// Plain English: Sets the owner.
     pub fn set_owner(&mut self, id: u32, kind: i32) {
         if self.owner != Some((id, kind)) {
             *self = Self::default();
             self.owner = Some((id, kind));
         }
     }
+    /// Technical: Visits the epoch.
+    ///
+    /// Plain English: Visits the epoch.
     pub fn visit_epoch(&self) -> u64 {
         self.visit_epoch
     }
+    /// Technical: Returns an optional `walking_ledge` value.
+    ///
+    /// Plain English: Gets walking ledge if it is available.
     pub fn walking_ledge(&self) -> Option<LedgeSpot> {
         self.ledge
     }
+    /// Technical: Records the time of the latest fighter observation.
+    ///
+    /// Plain English: Remembers when a fighter was last seen.
     fn observe(&mut self, e: Opponent, own: [f32; 2]) -> Observation {
         let index = self
             .visits
@@ -105,6 +162,9 @@ impl LedgeVisits {
         self.visits[index] = Some(visit);
         Observation { new_visit, allowed }
     }
+    /// Technical: Updates the `claim` state using the supplied inputs.
+    ///
+    /// Plain English: Updates claim.
     fn claim(&mut self, id: u32) {
         if let Some(v) = self.visits.iter_mut().flatten().find(|v| v.id == id) {
             v.handled = true;
@@ -115,6 +175,9 @@ impl LedgeVisits {
 /// Preserve one response per visit even when this engine is recreated.
 /// Explicit editor previews remain independently repeatable.
 impl LedgeTrap {
+    /// Technical: Samples the with visits.
+    ///
+    /// Plain English: Samples the with visits.
     pub fn sample_with_visits(
         &mut self,
         visits: &mut LedgeVisits,
@@ -164,6 +227,9 @@ mod tests {
     use crate::{
         fighter_profiles::presets::PresetSlot, native_input::MAPPER_A, sequence_config::Catalog,
     };
+    /// Technical: Returns the current settings view.
+    ///
+    /// Plain English: Gets the settings being edited.
     fn settings() -> AssistSettings {
         let c = Catalog::parse("[kirby.neutral.test]\nstart_delay=0\nactions=a:1").unwrap();
         let mut s = AssistSettings {
@@ -173,6 +239,9 @@ mod tests {
         s.sequence_overrides[PresetSlot::Neutral as usize] = Some(c.entries()[0].sequence);
         s
     }
+    /// Technical: Returns the `ctx` result.
+    ///
+    /// Plain English: Gets the ctx result.
     fn ctx(frame: f32) -> GameplayContext {
         GameplayContext {
             motion_kind: 123,
@@ -180,6 +249,9 @@ mod tests {
             ..context()
         }
     }
+    /// Technical: Regression test for `completed_visit_stays_consumed_after_release_reset_and_sticky_previous_status`.
+    ///
+    /// Plain English: Checks that completed visit stays consumed after release reset and sticky previous status.
     #[test]
     fn completed_visit_stays_consumed_after_release_reset_and_sticky_previous_status() {
         let mut v = LedgeVisits::default();
@@ -226,6 +298,9 @@ mod tests {
             trap = LedgeTrap::default(); // Also model another assist taking ownership.
         }
     }
+    /// Technical: Regression test for `interrupting_an_active_response_does_not_restart_it_and_new_grab_rearms`.
+    ///
+    /// Plain English: Checks that interrupting an active response does not restart it and new grab rearms.
     #[test]
     fn interrupting_an_active_response_does_not_restart_it_and_new_grab_rearms() {
         let mut v = LedgeVisits::default();
@@ -267,6 +342,9 @@ mod tests {
             MAPPER_A
         );
     }
+    /// Technical: Regression test for `standing_previous_getup_alone_cannot_create_a_visit`.
+    ///
+    /// Plain English: Checks that standing previous getup alone cannot create a visit.
     #[test]
     fn standing_previous_getup_alone_cannot_create_a_visit() {
         let mut v = LedgeVisits::default();
@@ -282,6 +360,9 @@ mod tests {
         );
         assert!(t.file_timeline.is_none());
     }
+    /// Technical: Regression test for `ledge_attack_seen_without_its_hang_is_still_a_response_visit`.
+    ///
+    /// Plain English: Checks that ledge attack seen without its hang is still a response visit.
     #[test]
     fn ledge_attack_seen_without_its_hang_is_still_a_response_visit() {
         let c = Catalog::parse("[kirby.attack.test]\nstart_delay=0\nactions=y:1").unwrap();
@@ -308,6 +389,9 @@ mod tests {
         assert!(!seen_hang.observe(attack, [0.0; 2]).new_visit);
         assert_eq!(seen_hang.visit_epoch(), epoch);
     }
+    /// Technical: Regression test for `walking_anchor_only_comes_from_a_real_observed_hang_and_survives_input_release`.
+    ///
+    /// Plain English: Checks that walking anchor only comes from a real observed hang and survives input release.
     #[test]
     fn walking_anchor_only_comes_from_a_real_observed_hang_and_survives_input_release() {
         let mut v = LedgeVisits::default();
@@ -339,6 +423,9 @@ mod tests {
         v.set_owner(4, 5);
         assert!(v.walking_ledge().is_none());
     }
+    /// Technical: Regression test for `completed_engine_rearms_for_next_observed_hang_without_releasing_l`.
+    ///
+    /// Plain English: Checks that completed engine rearms for next observed hang without releasing l.
     #[test]
     fn completed_engine_rearms_for_next_observed_hang_without_releasing_l() {
         let mut v = LedgeVisits::default();
@@ -383,6 +470,9 @@ mod preview_tests {
     use crate::{
         fighter_profiles::presets::PresetSlot, native_input::MAPPER_A, sequence_config::Catalog,
     };
+    /// Technical: Regression test for `editor_previews_repeat_without_consuming_the_real_visit`.
+    ///
+    /// Plain English: Checks that editor previews repeat without consuming the real visit.
     #[test]
     fn editor_previews_repeat_without_consuming_the_real_visit() {
         let c = Catalog::parse("[kirby.neutral.test]\nstart_delay=0\nactions=a:1").unwrap();
@@ -432,6 +522,9 @@ mod preview_tests {
             MAPPER_A
         );
     }
+    /// Technical: Regression test for `opposite_ledge_replaces_inward_side_but_same_edge_motion_and_own_crossing_do_not`.
+    ///
+    /// Plain English: Checks that opposite ledge replaces inward side but same edge motion and own crossing do not.
     #[test]
     fn opposite_ledge_replaces_inward_side_but_same_edge_motion_and_own_crossing_do_not() {
         let mut v = LedgeVisits::new();

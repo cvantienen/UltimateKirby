@@ -3,34 +3,220 @@ use super::super::RecipePanel;
 use super::*;
 use std::borrow::Cow;
 
+/// Technical: Defines the available `Field` cases.
+///
+/// Plain English: Lists the available Field choices.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Field {
-    Reaction(u8),
+    /// Technical: Represents the `Reaction` case of `Field`.
+    ///
+    /// Plain English: Represents the Reaction option in Field.
+    Reaction(
+        /// Technical: Carries the reaction field index in `Field`.
+        ///
+        /// Plain English: Holds the reaction field index for this `Field` choice.
+        u8,
+    ),
+    /// Technical: Represents the `WhileHeld` case of `Field`.
+    ///
+    /// Plain English: Represents the WhileHeld option in Field.
     WhileHeld,
+    /// Technical: Represents the `GroundOnly` case of `Field`.
+    ///
+    /// Plain English: Represents the GroundOnly option in Field.
     GroundOnly,
-    TapButtons(usize),
-    TapGap(usize),
-    ShieldHold(usize),
+    /// Technical: Represents the `TapButtons` case of `Field`.
+    ///
+    /// Plain English: Represents the TapButtons option in Field.
+    TapButtons(
+        /// Technical: Carries the tap-button field index in `Field`.
+        ///
+        /// Plain English: Holds the tap-button field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `TapGap` case of `Field`.
+    ///
+    /// Plain English: Represents the TapGap option in Field.
+    TapGap(
+        /// Technical: Carries the tap-gap field index in `Field`.
+        ///
+        /// Plain English: Holds the tap-gap field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `ShieldHold` case of `Field`.
+    ///
+    /// Plain English: Represents the ShieldHold option in Field.
+    ShieldHold(
+        /// Technical: Carries the shield-hold field index in `Field`.
+        ///
+        /// Plain English: Holds the shield-hold field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Start` case of `Field`.
+    ///
+    /// Plain English: Represents the Start option in Field.
     Start,
+    /// Technical: Represents the `Slots` case of `Field`.
+    ///
+    /// Plain English: Represents the Slots option in Field.
     Slots,
-    Kind(usize),
-    Before(usize),
-    Duration(usize),
-    Buttons(usize),
-    Reference(usize),
-    CReference(usize),
-    CX(usize),
-    CY(usize),
-    X(usize),
-    Y(usize),
-    Strength(usize),
-    Tolerance(usize),
-    Brake(usize),
-    PositionTimeout(usize),
-    Distance(usize),
-    Gap(usize),
-    Direction(usize),
+    /// Technical: Represents the `Kind` case of `Field`.
+    ///
+    /// Plain English: Represents the Kind option in Field.
+    Kind(
+        /// Technical: Carries the action-kind field index in `Field`.
+        ///
+        /// Plain English: Holds the action-kind field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Before` case of `Field`.
+    ///
+    /// Plain English: Represents the Before option in Field.
+    Before(
+        /// Technical: Carries the pre-action delay field index in `Field`.
+        ///
+        /// Plain English: Holds the pre-action delay field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Duration` case of `Field`.
+    ///
+    /// Plain English: Represents the Duration option in Field.
+    Duration(
+        /// Technical: Carries the action-duration field index in `Field`.
+        ///
+        /// Plain English: Holds the action-duration field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Buttons` case of `Field`.
+    ///
+    /// Plain English: Represents the Buttons option in Field.
+    Buttons(
+        /// Technical: Carries the button field index in `Field`.
+        ///
+        /// Plain English: Holds the button field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Reference` case of `Field`.
+    ///
+    /// Plain English: Represents the Reference option in Field.
+    Reference(
+        /// Technical: Carries the reference field index in `Field`.
+        ///
+        /// Plain English: Holds the reference field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `CReference` case of `Field`.
+    ///
+    /// Plain English: Represents the CReference option in Field.
+    CReference(
+        /// Technical: Carries the center-reference field index in `Field`.
+        ///
+        /// Plain English: Holds the center-reference field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `CX` case of `Field`.
+    ///
+    /// Plain English: Represents the CX option in Field.
+    CX(
+        /// Technical: Carries the center X-coordinate field index in `Field`.
+        ///
+        /// Plain English: Holds the center X-coordinate field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `CY` case of `Field`.
+    ///
+    /// Plain English: Represents the CY option in Field.
+    CY(
+        /// Technical: Carries the center Y-coordinate field index in `Field`.
+        ///
+        /// Plain English: Holds the center Y-coordinate field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `X` case of `Field`.
+    ///
+    /// Plain English: Represents the X option in Field.
+    X(
+        /// Technical: Carries the X-coordinate field index in `Field`.
+        ///
+        /// Plain English: Holds the X-coordinate field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Y` case of `Field`.
+    ///
+    /// Plain English: Represents the Y option in Field.
+    Y(
+        /// Technical: Carries the Y-coordinate field index in `Field`.
+        ///
+        /// Plain English: Holds the Y-coordinate field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Strength` case of `Field`.
+    ///
+    /// Plain English: Represents the Strength option in Field.
+    Strength(
+        /// Technical: Carries the input-strength field index in `Field`.
+        ///
+        /// Plain English: Holds the input-strength field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Tolerance` case of `Field`.
+    ///
+    /// Plain English: Represents the Tolerance option in Field.
+    Tolerance(
+        /// Technical: Carries the tolerance field index in `Field`.
+        ///
+        /// Plain English: Holds the tolerance field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Brake` case of `Field`.
+    ///
+    /// Plain English: Represents the Brake option in Field.
+    Brake(
+        /// Technical: Carries the braking field index in `Field`.
+        ///
+        /// Plain English: Holds the braking field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `PositionTimeout` case of `Field`.
+    ///
+    /// Plain English: Represents the PositionTimeout option in Field.
+    PositionTimeout(
+        /// Technical: Carries the position-timeout field index in `Field`.
+        ///
+        /// Plain English: Holds the position-timeout field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Distance` case of `Field`.
+    ///
+    /// Plain English: Represents the Distance option in Field.
+    Distance(
+        /// Technical: Carries the distance field index in `Field`.
+        ///
+        /// Plain English: Holds the distance field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Gap` case of `Field`.
+    ///
+    /// Plain English: Represents the Gap option in Field.
+    Gap(
+        /// Technical: Carries the gap field index in `Field`.
+        ///
+        /// Plain English: Holds the gap field index for this `Field` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Direction` case of `Field`.
+    ///
+    /// Plain English: Represents the Direction option in Field.
+    Direction(
+        /// Technical: Carries the direction field index in `Field`.
+        ///
+        /// Plain English: Holds the direction field index for this `Field` choice.
+        usize,
+    ),
 }
+/// Technical: Adds the action fields.
+///
+/// Plain English: Adds the action fields.
 fn push_action_fields(out: &mut Vec<Field>, action: Action, i: usize) {
     match action {
         Action::Controller { .. } => out.extend([
@@ -99,6 +285,7 @@ fn push_action_fields(out: &mut Vec<Field>, action: Action, i: usize) {
 }
 /// Every focusable field in display order: Start, each slot's fields, then the
 /// sequence-level rows. `recipe_panel` renders straight from this list.
+/// Plain English: Every focusable field in display order: Start, each slot's fields, then the sequence-level rows. recipepanel renders straight from this list.
 pub(super) fn fields(r: &Recipe) -> Vec<Field> {
     let mut out = vec![Field::Start];
     for (i, a) in r.sequence.actions().iter().enumerate() {
@@ -125,6 +312,9 @@ pub(super) fn fields(r: &Recipe) -> Vec<Field> {
     out.push(Field::Slots);
     out
 }
+/// Technical: Returns an optional `field_slot` value.
+///
+/// Plain English: Gets field slot if it is available.
 pub(super) fn field_slot(f: Field) -> Option<usize> {
     match f {
         Field::Start | Field::Slots | Field::WhileHeld | Field::GroundOnly | Field::Reaction(_) => {
@@ -153,11 +343,13 @@ pub(super) fn field_slot(f: Field) -> Option<usize> {
     }
 }
 /// Full label and value of a field.
+/// Plain English: Full label and value of a field.
 pub(super) fn field_value(r: &Recipe, f: Field) -> String {
     field_text(r, f, false)
 }
 /// Label and value of a field. `short` is the compact form used in the slot
 /// list: abbreviated labels and `Nf` instead of `N frames`.
+/// Plain English: Label and value of a field. short is the compact form used in the slot list: abbreviated labels and Nf instead of N frames.
 fn field_text(r: &Recipe, f: Field, short: bool) -> String {
     let sequence = &r.sequence;
     let action = field_slot(f).map_or(Action::Empty, |i| sequence.actions[i]);
@@ -311,6 +503,9 @@ fn field_text(r: &Recipe, f: Field, short: bool) -> String {
 }
 // Nominal input time only. Conditional actions can finish early or wait on
 // observations; never present those as exact attack startup/recovery timings.
+/// Technical: Returns an optional `scheduled_frames` value.
+///
+/// Plain English: Gets scheduled frames if it is available.
 pub(super) fn scheduled_frames(action: Action) -> Option<u32> {
     match action {
         Action::Tap { frames, .. } => Some(u32::from(frames)),
@@ -330,6 +525,9 @@ pub(super) fn scheduled_frames(action: Action) -> Option<u32> {
         _ => None,
     }
 }
+/// Technical: Returns the `schedule_summary` result.
+///
+/// Plain English: Gets the schedule summary result.
 pub(super) fn schedule_summary(r: &Recipe) -> (u32, bool) {
     r.sequence.actions().iter().enumerate().fold(
         (u32::from(r.sequence.start_delay), false),
@@ -343,6 +541,7 @@ pub(super) fn schedule_summary(r: &Recipe) -> (u32, bool) {
     )
 }
 /// ` | F<n>` style timing suffix; `None` duration means a check of unknown length.
+/// Plain English:  | F<n> style timing suffix; None duration means a check of unknown length.
 fn frame_label(start: u32, duration: Option<u32>, after_check: bool) -> String {
     let first = start + 1;
     if after_check {
@@ -357,27 +556,49 @@ fn frame_label(start: u32, duration: Option<u32>, after_check: bool) -> String {
 }
 
 /// How a panel row looks when plain and when focused.
+/// Plain English: How a panel row looks when plain and when focused.
 #[derive(Clone, Copy)]
 struct Row {
+    /// Technical: Stores the `plain` value in `Row` as `&'static str`.
+    ///
+    /// Plain English: Holds the plain value used by Row.
     plain: &'static str,
+    /// Technical: Stores the `focused` value in `Row` as `&'static str`.
+    ///
+    /// Plain English: Holds the focused value used by Row.
     focused: &'static str,
+    /// Technical: Stores the `bracket` value in `Row` as `bool`.
+    ///
+    /// Plain English: Holds the bracket value used by Row.
     bracket: bool,
 }
+/// Technical: Defines the `FIELD_ROW` constant used by this module.
+///
+/// Plain English: Provides the FIELD ROW constant value.
 const FIELD_ROW: Row = Row {
     plain: "",
     focused: "> ",
     bracket: true,
 };
+/// Technical: Defines the `TITLE_ROW` constant used by this module.
+///
+/// Plain English: Provides the TITLE ROW constant value.
 const TITLE_ROW: Row = Row {
     plain: "",
     focused: "> ",
     bracket: false,
 };
+/// Technical: Defines the `SETTING_ROW` constant used by this module.
+///
+/// Plain English: Provides the SETTING ROW constant value.
 const SETTING_ROW: Row = Row {
     plain: "    ",
     focused: ">   ",
     bracket: true,
 };
+/// Technical: Adds the row.
+///
+/// Plain English: Adds the row.
 fn push_row(panel: &mut RecipePanel, focused: bool, row: Row, text: impl std::fmt::Display) {
     let text = match (focused, row.bracket) {
         (true, true) => format!("{}[{text}]", row.focused),
@@ -390,6 +611,9 @@ fn push_row(panel: &mut RecipePanel, focused: bool, row: Row, text: impl std::fm
     panel.body.push(text);
 }
 
+/// Technical: Returns the `timing_summary` result.
+///
+/// Plain English: Gets the timing summary result.
 fn timing_summary(r: &Recipe, branched: bool) -> String {
     let (scheduled, variable) = schedule_summary(r);
     if branched {
@@ -407,6 +631,7 @@ fn timing_summary(r: &Recipe, branched: bool) -> String {
 }
 
 /// Renders every field in `fs` (from `fields(r)`); `selected` marks the focused one.
+/// Plain English: Renders every field in fs (from fields(r)); selected marks the focused one.
 pub(super) fn recipe_panel(
     r: &Recipe,
     fs: &[Field],

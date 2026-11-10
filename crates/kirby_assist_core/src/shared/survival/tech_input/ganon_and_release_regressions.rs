@@ -3,6 +3,9 @@ use super::*;
 use crate::tech_prediction::grounded_ganon_contact_in;
 use crate::tech_prediction::{CATCHED_AIR_END_GANON, CATCHED_GANON};
 
+/// Technical: Returns the `capture` result.
+///
+/// Plain English: Gets the capture result.
 fn capture(frame: f32, delay: f32) -> TechContext {
     TechContext {
         object: 1,
@@ -27,6 +30,9 @@ fn capture(frame: f32, delay: f32) -> TechContext {
     }
 }
 
+/// Technical: Regression test for `grounded_ganon_waits_for_tight_arrival_window_and_compensates_online_delay`.
+///
+/// Plain English: Checks that grounded ganon waits for tight arrival window and compensates online delay.
 #[test]
 fn grounded_ganon_waits_for_tight_arrival_window_and_compensates_online_delay() {
     for delay in [0.0, 3.0, 6.0] {
@@ -53,6 +59,9 @@ fn grounded_ganon_waits_for_tight_arrival_window_and_compensates_online_delay() 
     }
 }
 
+/// Technical: Regression test for `cooldown_keeps_held_shield_aliases_released_until_the_collision_ends`.
+///
+/// Plain English: Checks that cooldown keeps held shield aliases released until the collision ends.
 #[test]
 fn cooldown_keeps_held_shield_aliases_released_until_the_collision_ends() {
     use crate::manual_controls::{ManualOverlay, TurboOutput};
@@ -112,6 +121,9 @@ fn cooldown_keeps_held_shield_aliases_released_until_the_collision_ends() {
     assert_eq!(input.cooldown_remaining(), 0.0);
 }
 
+/// Technical: Regression test for `ordinary_tumble_retains_its_existing_arrival_window_and_invalid_capture_never_presses`.
+///
+/// Plain English: Checks that ordinary tumble retains its existing arrival window and invalid capture never presses.
 #[test]
 fn ordinary_tumble_retains_its_existing_arrival_window_and_invalid_capture_never_presses() {
     let mut input = TechInput::default();
@@ -138,6 +150,9 @@ fn ordinary_tumble_retains_its_existing_arrival_window_and_invalid_capture_never
     assert!(!input.sample(false, true, 40, capture(27.0, 0.0)).press);
 }
 
+/// Technical: Regression test for `grounded_shared_release_can_deliver_unmapped_capture_request`.
+///
+/// Plain English: Checks that grounded shared release can deliver unmapped capture request.
 #[test]
 fn grounded_shared_release_can_deliver_unmapped_capture_request() {
     let mut input = TechInput::default();
@@ -169,6 +184,9 @@ fn grounded_shared_release_can_deliver_unmapped_capture_request() {
     );
 }
 
+/// Technical: Regression test for `floor_tech_can_buffer_before_last_two_hitstop_frames`.
+///
+/// Plain English: Checks that floor tech can buffer before last two hitstop frames.
 #[test]
 fn floor_tech_can_buffer_before_last_two_hitstop_frames() {
     let mut input = TechInput::default();

@@ -1,10 +1,16 @@
 // Included in the native menu and host tests so both compile this exact publication path.
+// Technical: Publishes menu changes into the runtime settings and sequence state.
+// Plain English: This included source applies what the player selected in the settings menu.
+/// Technical: Records that a menu publish could not acquire its required locks.
+/// Plain English: Signals the menu should try publishing again later.
 fn menu_retry() -> bool {
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::MenuRetry);
     false
 }
 /// Estimated owned payload of one cached view, for the retained-memory gauge.
+/// Technical: Sums struct storage and owned string/vector capacities for a snapshot.
+/// Plain English: Estimates how much memory the cached menu text is using.
 #[cfg(feature = "diagnostic-logging")]
 fn snapshot_bytes(v: &Snapshot) -> usize {
     let lines_bytes = |lines: &Vec<CString>| {
@@ -27,6 +33,8 @@ fn snapshot_bytes(v: &Snapshot) -> usize {
         + lines_bytes(&v.body)
         + lines_bytes(&v.footer)
 }
+/// Technical: Publishes a complete cached view or defers/retries when an edit/save lock is busy.
+/// Plain English: Updates the menu display to match the player's current selection.
 pub(super) fn publish(
     profile: &FighterProfile,
     selection: &MenuSelection,

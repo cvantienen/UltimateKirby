@@ -6,6 +6,9 @@
 //! Tune body offsets here, keep native queries in src/live.rs, and add geometry
 //! regression tests for each new case instead of embedding stage-specific fixes.
 // Ignore only numerical rest, not genuine slow tumble/contact motion.
+/// Technical: Defines the `APPROACH_EPSILON` constant used by this module.
+///
+/// Plain English: Provides the APPROACH EPSILON constant value.
 const APPROACH_EPSILON: f32 = 0.0001;
 pub use crate::flame_choke::{
     grounded_ganon_contact_in, grounded_ganon_release, CATCHED_AIR_END_GANON, CATCHED_GANON,
@@ -13,6 +16,7 @@ pub use crate::flame_choke::{
 
 /// Spend the existing ray budget in the last five damage-hitstop frames rather
 /// than waiting until the last two. Global stop/unknown timers remain excluded.
+/// Plain English: Spend the existing ray budget in the last five damage-hitstop frames rather than waiting until the last two. Global stop/unknown timers remain excluded.
 pub fn late_damage_stop_prediction(remaining: u64, input_delay: f32) -> bool {
     input_delay.is_finite()
         && remaining > 0
@@ -22,6 +26,7 @@ pub fn late_damage_stop_prediction(remaining: u64, input_delay: f32) -> bool {
 
 /// During victim hitstop the reserved new launch is more useful than frozen
 /// kinetic motion. Invalid/zero reservations retain the ordinary velocity.
+/// Plain English: During victim hitstop the reserved new launch is more useful than frozen kinetic motion. Invalid/zero reservations retain the ordinary velocity.
 pub fn prediction_velocity(current: [f32; 2], reserved: Option<[f32; 2]>) -> [f32; 2] {
     reserved
         .filter(|v| v.iter().all(|x| x.is_finite()) && v.iter().any(|x| x.abs() > APPROACH_EPSILON))
@@ -29,29 +34,62 @@ pub fn prediction_velocity(current: [f32; 2], reserved: Option<[f32; 2]>) -> [f3
 }
 
 /// Native acceleration band in which one-frame floor sweeps are trusted.
+/// Plain English: Native acceleration band in which one-frame floor sweeps are trusted.
 const FLOOR_ACCELERATION: std::ops::RangeInclusive<f32> = -0.3..=-0.005;
 
 /// Vertical offset after `t` frames of constant acceleration.
+/// Plain English: Vertical offset after t frames of constant acceleration.
 fn arc_height(vy: f32, acceleration: f32, t: f32) -> f32 {
     vy * t + 0.5 * acceleration * t * t
 }
 
 /// One recent, copied observation; no game pointer or poll-based clock.
+/// Plain English: One recent, copied observation; no game pointer or poll-based clock.
 #[derive(Clone, Copy, Debug)]
 pub struct FloorMotionSample {
+    /// Technical: Stores the `object` value in `FloorMotionSample` as `u32`.
+    ///
+    /// Plain English: Holds the object value used by FloorMotionSample.
     pub object: u32,
+    /// Technical: Stores the `status` value in `FloorMotionSample` as `i32`.
+    ///
+    /// Plain English: Holds the status value used by FloorMotionSample.
     pub status: i32,
+    /// Technical: Stores the `motion` value in `FloorMotionSample` as `u64`.
+    ///
+    /// Plain English: Holds the motion value used by FloorMotionSample.
     pub motion: u64,
+    /// Technical: Stores the `frame` value in `FloorMotionSample` as `f32`.
+    ///
+    /// Plain English: Holds the frame value used by FloorMotionSample.
     pub frame: f32,
+    /// Technical: Stores the `rate` value in `FloorMotionSample` as `f32`.
+    ///
+    /// Plain English: Holds the rate value used by FloorMotionSample.
     pub rate: f32,
+    /// Technical: Stores the `vy` value in `FloorMotionSample` as `f32`.
+    ///
+    /// Plain English: Holds the vy value used by FloorMotionSample.
     pub vy: f32,
 }
+/// Technical: Defines the `FloorMotionHistory` data structure.
+///
+/// Plain English: Holds the data for FloorMotionHistory.
 #[derive(Clone, Copy, Default)]
 pub struct FloorMotionHistory {
+    /// Technical: Stores the `last` value in `FloorMotionHistory` as `Option<FloorMotionSample>`.
+    ///
+    /// Plain English: Optionally stores the last for FloorMotionHistory; it may be absent.
     last: Option<FloorMotionSample>,
+    /// Technical: Stores the `acceleration` value in `FloorMotionHistory` as `f32`.
+    ///
+    /// Plain English: Holds the acceleration value used by FloorMotionHistory.
     acceleration: f32,
 }
 impl FloorMotionHistory {
+    /// Technical: Constructs a new value with the type’s initial state.
+    ///
+    /// Plain English: Creates a new value.
     pub const fn new() -> Self {
         Self {
             last: None,
@@ -60,6 +98,7 @@ impl FloorMotionHistory {
     }
     /// Estimate only small, recent downward acceleration in the same native
     /// motion. Discontinuities/new hits/unknown clocks fall back to linear rays.
+    /// Plain English: Estimate only small, recent downward acceleration in the same native motion. Discontinuities/new hits/unknown clocks fall back to linear rays.
     pub fn sample(&mut self, now: FloorMotionSample) -> f32 {
         if !crate::timing::clock_known(now.motion, now.frame, now.rate) || !now.vy.is_finite() {
             *self = Self::default();
@@ -91,6 +130,7 @@ impl FloorMotionHistory {
 
 /// The pinned status range covering damage-fly/reflect/fall, not ordinary
 /// airborne movement. Broadening it carelessly could cause unrelated dodges.
+/// Plain English: The pinned status range covering damage-fly/reflect/fall, not ordinary airborne movement. Broadening it carelessly could cause unrelated dodges.
 pub fn is_tumble_status(status: i32) -> bool {
     (crate::native_states::status::DAMAGE_FLY..=crate::native_states::status::DAMAGE_FALL)
         .contains(&status)
@@ -100,6 +140,7 @@ pub fn is_tumble_status(status: i32) -> bool {
 /// wall/ceiling bounce, and the Flame Choke capture/release pair. Release
 /// eligibility additionally requires a verified grounded predecessor in the
 /// native adapter; aerial releases never receive a contact forecast.
+/// Plain English: Statuses in which a shield press can be a tech or release request: tumble, wall/ceiling bounce, and the Flame Choke capture/release pair. Release eligibility additionally requires a verified grounded predecessor in the native.
 pub fn is_tech_status(status: i32) -> bool {
     is_tumble_status(status)
         || matches!(
@@ -110,6 +151,7 @@ pub fn is_tech_status(status: i32) -> bool {
 }
 
 /// Withhold automatic guard once native air escape can consume the input.
+/// Plain English: Withhold automatic guard once native air escape can consume the input.
 pub fn tech_press_allowed(status: i32, air_escape_enabled: bool) -> bool {
     is_tech_status(status) && !air_escape_enabled
 }
@@ -117,15 +159,36 @@ pub fn tech_press_allowed(status: i32, air_escape_enabled: bool) -> bool {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 // These are reasons OUR detector proceeds or stops. Passing Predict is not the
 // same as the game's final decision to accept a shield input as a legal tech.
+/// Technical: Defines the available `TechGate` cases.
+///
+/// Plain English: Lists the available TechGate choices.
 pub enum TechGate {
+    /// Technical: Represents the `OutsideTumble` case of `TechGate`.
+    ///
+    /// Plain English: Represents the OutsideTumble option in TechGate.
     OutsideTumble,
+    /// Technical: Represents the `NotAirborne` case of `TechGate`.
+    ///
+    /// Plain English: Represents the NotAirborne option in TechGate.
     NotAirborne,
+    /// Technical: Represents the `PassiveDisabled` case of `TechGate`.
+    ///
+    /// Plain English: Represents the PassiveDisabled option in TechGate.
     PassiveDisabled,
+    /// Technical: Represents the `Hitstop` case of `TechGate`.
+    ///
+    /// Plain English: Represents the Hitstop option in TechGate.
     Hitstop,
+    /// Technical: Represents the `Predict` case of `TechGate`.
+    ///
+    /// Plain English: Represents the Predict option in TechGate.
     Predict,
 }
 
 impl TechGate {
+    /// Technical: Returns the display label for the value.
+    ///
+    /// Plain English: Gets the text shown for this value.
     pub const fn label(self) -> &'static str {
         match self {
             Self::OutsideTumble => "outside_supported_tumble",
@@ -138,6 +201,7 @@ impl TechGate {
 }
 
 /// Classify native gates without claiming that passing them guarantees a tech.
+/// Plain English: Classify native gates without claiming that passing them guarantees a tech.
 pub fn tech_gate(status: i32, situation: i32, passive_disabled: bool, stopped: bool) -> TechGate {
     if !is_tumble_status(status) {
         TechGate::OutsideTumble
@@ -155,6 +219,7 @@ pub fn tech_gate(status: i32, situation: i32, passive_disabled: bool, stopped: b
 /// A floor collision can change situation before the last techable observation.
 /// Admit grounded tumble only when the native floor-tech transition is enabled;
 /// ordinary landing/down states and disabled-passive hits remain excluded.
+/// Plain English: A floor collision can change situation before the last techable observation. Admit grounded tumble only when the native floor-tech transition is enabled; ordinary landing/down states and disabled-passive hits remain excluded.
 pub fn tech_gate_with_floor(
     status: i32,
     situation: i32,
@@ -177,24 +242,56 @@ pub fn tech_gate_with_floor(
 #[derive(Clone, Copy, Debug)]
 // Coordinates and displacement use game world units. [f32; 2] is a fixed
 // two-element float array: index 0 is x (right), index 1 is y (up).
+/// Technical: Defines the `CollisionRay` data structure.
+///
+/// Plain English: Holds the data for CollisionRay.
 pub struct CollisionRay {
+    /// Technical: Stores the `origin` value in `CollisionRay` as `[f32; 2]`.
+    ///
+    /// Plain English: Stores the origin collection for CollisionRay.
     pub origin: [f32; 2],
+    /// Technical: Stores the `delta` value in `CollisionRay` as `[f32; 2]`.
+    ///
+    /// Plain English: Stores the delta collection for CollisionRay.
     pub delta: [f32; 2],
     /// Only descending floor probes can collide with a one-way platform.
+    /// Plain English: Only descending floor probes can collide with a one-way platform.
     pub passable: bool,
 }
 
 /// Collision-probe dimensions in local fighter units.
+/// Plain English: Collision-probe dimensions in local fighter units.
 #[derive(Clone, Copy, Debug)]
 pub struct Body {
+    /// Technical: Stores the `half_width` value in `Body` as `f32`.
+    ///
+    /// Plain English: Holds the half width value used by Body.
     pub half_width: f32,
+    /// Technical: Stores the `floor_origin` value in `Body` as `f32`.
+    ///
+    /// Plain English: Holds the floor origin value used by Body.
     pub floor_origin: f32,
+    /// Technical: Stores the `wall` value in `Body` as `[f32; 3]`.
+    ///
+    /// Plain English: Stores the wall collection for Body.
     pub wall: [f32; 3],
+    /// Technical: Stores the `ceiling_origin` value in `Body` as `f32`.
+    ///
+    /// Plain English: Holds the ceiling origin value used by Body.
     pub ceiling_origin: f32,
+    /// Technical: Stores the `floor_padding` value in `Body` as `f32`.
+    ///
+    /// Plain English: Holds the floor padding value used by Body.
     pub floor_padding: f32,
+    /// Technical: Stores the `ceiling_padding` value in `Body` as `f32`.
+    ///
+    /// Plain English: Holds the ceiling padding value used by Body.
     pub ceiling_padding: f32,
 }
 impl Default for Body {
+    /// Technical: Returns the default value for this type.
+    ///
+    /// Plain English: Returns the default value for this type.
     fn default() -> Self {
         Self {
             half_width: 2.5,
@@ -209,6 +306,7 @@ impl Default for Body {
 impl Body {
     /// Forecast dimensions are local fighter units. Native contacts remain
     /// authoritative; do not use hurtbox/model height as an invented ECB size.
+    /// Plain English: Forecast dimensions are local fighter units. Native contacts remain authoritative; do not use hurtbox/model height as an invented ECB size.
     pub fn scaled(self, scale: f32) -> Self {
         let scale = if scale.is_finite() && (0.1..=10.).contains(&scale) {
             scale
@@ -225,6 +323,7 @@ impl Body {
         }
     }
     /// Finite, non-negative and bounded: rejects corrupted per-fighter tuning.
+    /// Plain English: Finite, non-negative and bounded: rejects corrupted per-fighter tuning.
     fn plausible(&self) -> bool {
         [
             self.half_width,
@@ -241,9 +340,13 @@ impl Body {
     }
 }
 /// Three probes per approaching surface; unused directions stay empty.
+/// Plain English: Three probes per approaching surface; unused directions stay empty.
 pub fn tech_probes(x: f32, y: f32, vx: f32, vy: f32, horizon: f32) -> [Option<CollisionRay>; 9] {
     tech_probes_with_body(x, y, vx, vy, horizon, Body::default())
 }
+/// Technical: Returns an optional `tech_probes_with_body` value.
+///
+/// Plain English: Gets tech probes with body if it is available.
 pub fn tech_probes_with_body(
     x: f32,
     y: f32,
@@ -293,6 +396,7 @@ pub fn tech_probes_with_body(
 
 /// Displacement of a floor (0), wall (1) or ceiling (2) probe over `horizon`
 /// frames, padded by the body so thin surfaces are caught before contact.
+/// Plain English: Displacement of a floor (0), wall (1) or ceiling (2) probe over horizon frames, padded by the body so thin surfaces are caught before contact.
 fn probe_delta(surface: usize, vx: f32, vy: f32, horizon: f32, body: Body) -> [f32; 2] {
     match surface {
         0 => [vx * horizon, vy * horizon - body.floor_padding],
@@ -303,6 +407,9 @@ fn probe_delta(surface: usize, vx: f32, vy: f32, horizon: f32, body: Body) -> [f
 
 // The full ray already passed all eligibility/finite checks. Refinement only
 // changes its horizon; rebuilding all nine body probes for one slot is wasteful.
+/// Technical: Returns the `refined_probe` result.
+///
+/// Plain English: Gets the refined probe result.
 fn refined_probe(
     ray: CollisionRay,
     index: usize,
@@ -320,6 +427,7 @@ fn refined_probe(
 /// Estimate first contact using bounded ray refinement. The native query only
 /// reports a hit, so this brackets time rather than assuming the full lookahead
 /// is the collision time. At most five refinement queries per hit ray.
+/// Plain English: Estimate first contact using bounded ray refinement. The native query only reports a hit, so this brackets time rather than assuming the full lookahead is the collision time. At most five refinement queries per hit ray.
 pub fn first_contact_in(
     x: f32,
     y: f32,
@@ -334,6 +442,7 @@ pub fn first_contact_in(
 /// Use at most five one-frame floor sweeps when recent native motion shows
 /// downward acceleration. Rising segments before an apex are excluded.
 /// Wall/ceiling rays and fallback geometry are unchanged.
+/// Plain English: Use at most five one-frame floor sweeps when recent native motion shows downward acceleration. Rising segments before an apex are excluded. Wall/ceiling rays and fallback geometry are unchanged.
 pub fn first_contact_with_floor_acceleration(
     x: f32,
     y: f32,
@@ -354,6 +463,9 @@ pub fn first_contact_with_floor_acceleration(
         collides,
     )
 }
+/// Technical: Determines whether the `first_contact_with_body` condition holds.
+///
+/// Plain English: Checks whether first contact with body.
 pub fn first_contact_with_body(
     x: f32,
     y: f32,
@@ -420,6 +532,7 @@ pub fn first_contact_with_body(
 
 /// The first one-frame floor sweep along the accelerated arc that hits, as its
 /// end time. Rising segments before an apex are excluded.
+/// Plain English: The first one-frame floor sweep along the accelerated arc that hits, as its end time. Rising segments before an apex are excluded.
 fn curved_floor_contact(
     x: f32,
     y: f32,
@@ -468,6 +581,7 @@ fn curved_floor_contact(
 /// narrow platforms between its endpoints. Frame segments preserve the body
 /// offsets along the entire path. Native passive terms select eligible surfaces
 /// in floor/wall/ceiling order; a disabled surface cannot trigger a shield edge.
+/// Plain English: Native adapter's contact forecast: sweep each simulation frame separately. A long padded diagonal is not a monotonic collision predicate and can miss narrow platforms between its endpoints. Frame segments preserve the body.
 pub fn first_contact_swept(
     x: f32,
     y: f32,

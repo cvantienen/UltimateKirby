@@ -13,15 +13,36 @@ mod actions;
 use actions::parse_actions;
 pub use actions::validate_facing_blocks;
 
+/// Technical: Defines the available `SectionHeader` cases.
+///
+/// Plain English: Lists the available SectionHeader choices.
 #[derive(Clone, Copy)]
 enum SectionHeader<'a> {
+    /// Technical: Represents the `UniversalSettings` case of `SectionHeader`.
+    ///
+    /// Plain English: Represents the UniversalSettings option in SectionHeader.
     UniversalSettings,
+    /// Technical: Represents the `Template` case of `SectionHeader`.
+    ///
+    /// Plain English: Represents the Template option in SectionHeader.
     Template { id: &'a str, countable: bool },
+    /// Technical: Represents the `RetiredButtons` case of `SectionHeader`.
+    ///
+    /// Plain English: Represents the RetiredButtons option in SectionHeader.
     RetiredButtons,
+    /// Technical: Represents the `Settings` case of `SectionHeader`.
+    ///
+    /// Plain English: Represents the Settings option in SectionHeader.
     Settings,
+    /// Technical: Represents the `Entry` case of `SectionHeader`.
+    ///
+    /// Plain English: Represents the Entry option in SectionHeader.
     Entry,
 }
 
+/// Technical: Classifies the section header.
+///
+/// Plain English: Classifies the section header.
 fn classify_section_header(line: &str) -> Option<SectionHeader<'_>> {
     if !line.starts_with('[') || !line.ends_with(']') {
         return None;
@@ -49,11 +70,13 @@ fn classify_section_header(line: &str) -> Option<SectionHeader<'_>> {
 
 /// A line without its `#` comment. Every reader and writer of the file uses
 /// this one rule, so they agree on what a header or key line is.
+/// Plain English: A line without its # comment. Every reader and writer of the file uses this one rule, so they agree on what a header or key line is.
 pub(super) fn strip_comment(line: &str) -> &str {
     line.split('#').next().unwrap_or("").trim()
 }
 
 /// Section headers that will hold a 32-action recipe.
+/// Plain English: Section headers that will hold a 32-action recipe.
 fn count_sections(source: &str) -> Result<usize, String> {
     let count = source
         .lines()
@@ -79,33 +102,89 @@ fn count_sections(source: &str) -> Result<usize, String> {
 }
 
 /// What the `key = value` lines under the current header mean.
+/// Plain English: What the key = value lines under the current header mean.
 #[derive(Clone, Copy)]
 enum Body {
     /// Recipe keys for `Parser::current`; before any header there is none.
+    /// Plain English: Recipe keys for Parser::current; before any header there is none.
     Recipe,
+    /// Technical: Represents the `Retired` case of `Body`.
+    ///
+    /// Plain English: Represents the Retired option in Body.
     Retired,
+    /// Technical: Represents the `Universal` case of `Body`.
+    ///
+    /// Plain English: Represents the Universal option in Body.
     Universal,
-    Tuning(i32),
+    /// Technical: Represents the `Tuning` case of `Body`.
+    ///
+    /// Plain English: Represents the Tuning option in Body.
+    Tuning(
+        /// Technical: Carries the numeric tuning value in `Body`.
+        ///
+        /// Plain English: Holds the numeric tuning value for this `Body` choice.
+        i32,
+    ),
 }
 
 /// Keys of a recipe section. Each may appear once per section.
+/// Plain English: Keys of a recipe section. Each may appear once per section.
 #[derive(Clone, Copy)]
 enum RecipeKey {
+    /// Technical: Represents the `Name` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the Name option in RecipeKey.
     Name,
+    /// Technical: Represents the `Builtin` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the Builtin option in RecipeKey.
     Builtin,
+    /// Technical: Represents the `Mode` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the Mode option in RecipeKey.
     Mode,
+    /// Technical: Represents the `Activation` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the Activation option in RecipeKey.
     Activation,
+    /// Technical: Represents the `GroundOnly` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the GroundOnly option in RecipeKey.
     GroundOnly,
+    /// Technical: Represents the `WhileHeld` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the WhileHeld option in RecipeKey.
     WhileHeld,
+    /// Technical: Represents the `Reaction` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the Reaction option in RecipeKey.
     Reaction,
+    /// Technical: Represents the `Actions` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the Actions option in RecipeKey.
     Actions,
+    /// Technical: Represents the `Default` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the Default option in RecipeKey.
     Default,
+    /// Technical: Represents the `StartDelay` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the StartDelay option in RecipeKey.
     StartDelay,
+    /// Technical: Represents the `Timeout` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the Timeout option in RecipeKey.
     Timeout,
+    /// Technical: Represents the `SpatialTimeout` case of `RecipeKey`.
+    ///
+    /// Plain English: Represents the SpatialTimeout option in RecipeKey.
     SpatialTimeout,
 }
 
 impl RecipeKey {
+    /// Technical: Parses the supplied source into the module’s validated representation.
+    ///
+    /// Plain English: Reads the source and checks that it is valid.
     fn parse(key: &str) -> Option<Self> {
         Some(match key {
             "name" | "label" => Self::Name,
@@ -124,6 +203,9 @@ impl RecipeKey {
         })
     }
 
+    /// Technical: Returns the display name associated with the value.
+    ///
+    /// Plain English: Gets the name shown for this value.
     fn name(self) -> &'static str {
         match self {
             Self::Name => "name",
@@ -142,6 +224,9 @@ impl RecipeKey {
     }
 }
 
+/// Technical: Constructs the entry.
+///
+/// Plain English: Holds the new entry value.
 fn new_entry(fighter_kind: i32, fighter: String, slot: PresetSlot, choice: String) -> Entry {
     Entry {
         fighter_kind,
@@ -157,20 +242,44 @@ fn new_entry(fighter_kind: i32, fighter: String, slot: PresetSlot, choice: Strin
 
 /// Line-by-line catalog reader. `current` is the recipe being filled in; it is
 /// validated and moved into `entries` when the next header (or EOF) arrives.
+/// Plain English: Line-by-line catalog reader. current is the recipe being filled in; it is validated and moved into entries when the next header (or EOF) arrives.
 struct Parser {
+    /// Technical: Stores the `entries` value in `Parser` as `Vec<Entry>`.
+    ///
+    /// Plain English: Holds the entries value used by Parser.
     entries: Vec<Entry>,
+    /// Technical: Stores the `current` value in `Parser` as `Option<(Entry`.
+    ///
+    /// Plain English: Optionally stores the current for Parser; it may be absent.
     current: Option<(Entry, usize)>,
     /// `RecipeKey` bits already used by `current`.
+    /// Plain English: RecipeKey bits already used by current.
     seen: u16,
+    /// Technical: Stores the `body` value in `Parser` as `Body`.
+    ///
+    /// Plain English: Holds the body value used by Parser.
     body: Body,
+    /// Technical: Stores the `universal` value in `Parser` as `Option<String>`.
+    ///
+    /// Plain English: Optionally stores the universal for Parser; it may be absent.
     universal: Option<String>,
+    /// Technical: Stores the `universal_keys` value in `Parser` as `Vec<String>`.
+    ///
+    /// Plain English: Holds the universal keys value used by Parser.
     universal_keys: Vec<String>,
+    /// Technical: Stores the `tuning` value in `Parser` as `BTreeMap<i32`.
+    ///
+    /// Plain English: Holds the tuning value used by Parser.
     tuning: BTreeMap<i32, Tuning>,
     /// Built on first use: most fighters resolve through `fighter_data`.
+    /// Plain English: Built on first use: most fighters resolve through fighterdata.
     identities: Option<FighterProfiles>,
 }
 
 impl Parser {
+    /// Technical: Constructs a new value with the type’s initial state.
+    ///
+    /// Plain English: Creates a new value.
     fn new(sections: usize) -> Result<Self, String> {
         // Entry embeds all 32 actions. Geometric Vec growth temporarily kept
         // both the old and new roster buffers alive during saves. Count headers
@@ -192,11 +301,17 @@ impl Parser {
         })
     }
 
+    /// Technical: Begins the entry.
+    ///
+    /// Plain English: Begins the entry.
     fn begin_entry(&mut self, entry: Entry, line_number: usize) {
         self.seen = 0;
         self.current = Some((entry, line_number));
     }
 
+    /// Technical: Returns the `open_section` result.
+    ///
+    /// Plain English: Gets the open section result.
     fn open_section(
         &mut self,
         header: SectionHeader<'_>,
@@ -224,6 +339,9 @@ impl Parser {
         Ok(())
     }
 
+    /// Technical: Returns the `open_template` result.
+    ///
+    /// Plain English: Gets the open template result.
     fn open_template(&mut self, id: &str, line_number: usize) -> Result<(), String> {
         if !valid_id(id)
             || self
@@ -241,6 +359,7 @@ impl Parser {
     }
 
     /// `[fighter.situation.choice_id]` or `[fighter.settings]`.
+    /// Plain English: [fighter.situation.choiceid] or [fighter.settings].
     fn open_fighter_section(&mut self, line: &str, line_number: usize) -> Result<Body, String> {
         let header = &line[1..line.len() - 1];
         let mut parts = header.split('.');
@@ -279,6 +398,9 @@ impl Parser {
         Ok(Body::Recipe)
     }
 
+    /// Technical: Returns an optional `fighter_kind` value.
+    ///
+    /// Plain English: Gets fighter kind if it is available.
     fn fighter_kind(&mut self, fighter: &str) -> Option<i32> {
         crate::fighter_data::all()
             .iter()
@@ -294,6 +416,9 @@ impl Parser {
             })
     }
 
+    /// Technical: Returns the `property` result.
+    ///
+    /// Plain English: Gets the property result.
     fn property(&mut self, line: &str, line_number: usize) -> Result<(), String> {
         if matches!(self.body, Body::Retired) {
             return Ok(());
@@ -314,6 +439,9 @@ impl Parser {
         }
     }
 
+    /// Technical: Returns the `universal_property` result.
+    ///
+    /// Plain English: Gets the universal property result.
     fn universal_property(
         &mut self,
         key: &str,
@@ -332,6 +460,9 @@ impl Parser {
         Ok(())
     }
 
+    /// Technical: Returns the `recipe_property` result.
+    ///
+    /// Plain English: Gets the recipe property result.
     fn recipe_property(
         &mut self,
         key: &str,
@@ -356,6 +487,9 @@ impl Parser {
         apply_recipe_key(entry, key, value, line_number)
     }
 
+    /// Technical: Completes the active operation and records its final state.
+    ///
+    /// Plain English: Finishes the current operation.
     fn finish(mut self) -> Result<Catalog, String> {
         finish_entry(&mut self.current, &mut self.entries)?;
         self.identities = None;
@@ -393,6 +527,9 @@ impl Parser {
     }
 }
 
+/// Technical: Applies the recipe key.
+///
+/// Plain English: Applies the recipe key.
 fn apply_recipe_key(
     entry: &mut Entry,
     key: RecipeKey,
@@ -458,6 +595,9 @@ fn apply_recipe_key(
     Ok(())
 }
 
+/// Technical: Parses the name.
+///
+/// Plain English: Parses the name.
 fn parse_name(value: &str, line_number: usize) -> Result<String, String> {
     let value = if value.starts_with('"') || value.ends_with('"') {
         value
@@ -475,6 +615,9 @@ fn parse_name(value: &str, line_number: usize) -> Result<String, String> {
     Ok(value.trim().to_owned())
 }
 
+/// Technical: Parses the flag.
+///
+/// Plain English: Parses the flag.
 fn parse_flag(key: RecipeKey, value: &str, line_number: usize) -> Result<bool, String> {
     match value {
         "true" => Ok(true),
@@ -487,6 +630,7 @@ fn parse_flag(key: RecipeKey, value: &str, line_number: usize) -> Result<bool, S
 }
 
 /// `start_delay` may be zero; the timeouts must be at least one frame.
+/// Plain English: startdelay may be zero; the timeouts must be at least one frame.
 fn parse_frame_count(key: RecipeKey, value: &str, line_number: usize) -> Result<u16, String> {
     let name = key.name();
     let frames: u16 = value
@@ -502,6 +646,9 @@ fn parse_frame_count(key: RecipeKey, value: &str, line_number: usize) -> Result<
 }
 
 impl Catalog {
+    /// Technical: Parses the supplied source into the module’s validated representation.
+    ///
+    /// Plain English: Reads the source and checks that it is valid.
     pub fn parse(source: &str) -> Result<Self, String> {
         if source.len() as u64 > MAX_FILE_BYTES {
             return Err("sequence file exceeds 512 KiB".into());
@@ -520,6 +667,9 @@ impl Catalog {
         parser.finish()
     }
 
+    /// Technical: Returns the `validate` result.
+    ///
+    /// Plain English: Gets the validate result.
     pub fn validate(&self, profiles: &FighterProfiles) -> Result<(), String> {
         // Count each row once. The old nested full-catalog scan allocated a
         // temporary row Vec for every section, repeatedly during a single save.
@@ -580,6 +730,9 @@ impl Catalog {
         Ok(())
     }
 
+    /// Technical: Returns an optional `find` value.
+    ///
+    /// Plain English: Gets find if it is available.
     pub fn find(&self, fighter_kind: i32, slot: PresetSlot, choice: &str) -> Option<Sequence> {
         self.entries
             .iter()
@@ -589,18 +742,28 @@ impl Catalog {
             .map(|entry| entry.sequence)
     }
 
+    /// Technical: Returns the number of stored elements.
+    ///
+    /// Plain English: Counts the stored items.
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
+    /// Technical: Checks whether empty.
+    ///
+    /// Plain English: Checks whether empty.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
+    /// Technical: Returns the `entries` result.
+    ///
+    /// Plain English: Gets the entries result.
     pub fn entries(&self) -> &[Entry] {
         &self.entries
     }
     /// Startup-only filtering, before menus are frozen and recipes can execute.
+    /// Plain English: Startup-only filtering, before menus are frozen and recipes can execute.
     pub fn for_build(mut self, diagnostic: bool) -> Self {
         if !diagnostic {
             self.entries.retain(|entry| {
@@ -619,6 +782,9 @@ impl Catalog {
 // Return only the validation result here. Expanded button settings must not
 // reserve config-sized Result/map temporaries in every catalog parser frame,
 // including small files that do not contain universal settings at all.
+/// Technical: Validates the universal settings.
+///
+/// Plain English: Validates the universal settings.
 #[inline(never)]
 fn validate_universal_settings(settings: &str) -> Result<(), String> {
     crate::live_input::LiveConfig::parse(settings)
@@ -627,6 +793,9 @@ fn validate_universal_settings(settings: &str) -> Result<(), String> {
 }
 
 // Policy sections contain no 32-action Entry; do not reserve recipe storage for them.
+/// Technical: Determines whether the `settings_header` condition holds.
+///
+/// Plain English: Checks whether settings header.
 fn settings_header(line: &str) -> bool {
     let Some(header) = line.strip_prefix('[').and_then(|s| s.strip_suffix(']')) else {
         return false;
@@ -640,6 +809,7 @@ fn settings_header(line: &str) -> bool {
 }
 
 /// Old universal bindings remain inert; never migrate them into fighter lists.
+/// Plain English: Old universal bindings remain inert; never migrate them into fighter lists.
 fn retired_button_header(line: &str) -> bool {
     let Some(header) = line.strip_prefix('[').and_then(|s| s.strip_suffix(']')) else {
         return false;
@@ -664,6 +834,7 @@ fn retired_button_header(line: &str) -> bool {
 }
 
 /// Cross-key rules that can only be judged once the whole section is read.
+/// Plain English: Cross-key rules that can only be judged once the whole section is read.
 fn check_entry(entry: &Entry, line: usize) -> Result<(), String> {
     let sequence = &entry.sequence;
     if entry.fighter_kind == -1
@@ -710,6 +881,9 @@ fn check_entry(entry: &Entry, line: usize) -> Result<(), String> {
     Ok(())
 }
 
+/// Technical: Finishes the entry.
+///
+/// Plain English: Finishes the entry.
 fn finish_entry(
     current: &mut Option<(Entry, usize)>,
     entries: &mut Vec<Entry>,
@@ -726,6 +900,9 @@ fn finish_entry(
     Ok(())
 }
 
+/// Technical: Returns the `words_id` result.
+///
+/// Plain English: Gets the words id result.
 pub(super) fn words_id(value: &str) -> String {
     value
         .trim()
@@ -736,6 +913,9 @@ pub(super) fn words_id(value: &str) -> String {
         .replace('-', "_")
 }
 
+/// Technical: Parses the slot.
+///
+/// Plain English: Parses the slot.
 pub(super) fn parse_slot(value: &str) -> Option<PresetSlot> {
     Some(match value.to_ascii_lowercase().as_str() {
         "neutral" | "neutral_getup" => PresetSlot::Neutral,
@@ -755,6 +935,9 @@ pub(super) fn parse_slot(value: &str) -> Option<PresetSlot> {
     })
 }
 
+/// Technical: Returns the `slot_name` result.
+///
+/// Plain English: Gets the slot name result.
 pub(super) fn slot_name(slot: PresetSlot) -> &'static str {
     match slot {
         PresetSlot::Neutral => "neutral",
@@ -773,6 +956,9 @@ pub(super) fn slot_name(slot: PresetSlot) -> &'static str {
     }
 }
 
+/// Technical: Determines whether the `valid_id` condition holds.
+///
+/// Plain English: Checks whether valid id.
 pub(super) fn valid_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 48

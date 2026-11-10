@@ -4,9 +4,18 @@
 //! `impl GameAdapter` accepts any type implementing the adapter traits.
 use crate::{AssistConfig, AssistEngine, FrameDecision, GameAdapter, InputPermissions};
 
+/// Technical: Defines the `AssistRuntime` data structure.
+///
+/// Plain English: Holds the data for AssistRuntime.
 #[derive(Clone, Debug, Default)]
 pub struct AssistRuntime {
+    /// Technical: Stores the `config` value in `AssistRuntime` as `AssistConfig`.
+    ///
+    /// Plain English: Holds the config value used by AssistRuntime.
     pub config: AssistConfig,
+    /// Technical: Stores the `permissions` value in `AssistRuntime` as `InputPermissions`.
+    ///
+    /// Plain English: Holds the permissions value used by AssistRuntime.
     pub permissions: InputPermissions,
 }
 
@@ -14,6 +23,7 @@ impl AssistRuntime {
     /// Call once per simulation frame, using fresh human input rather than the
     /// previous merged output. The adapter owns frame counters and resets them
     /// on scenario re-entry. Missing fighter state releases to fresh human input when available.
+    /// Plain English: Call once per simulation frame, using fresh human input rather than the previous merged output. The adapter owns frame counters and resets them on scenario re-entry. Missing fighter state releases to fresh human input when.
     pub fn process_frame(&self, adapter: &mut impl GameAdapter) -> Option<FrameDecision> {
         // `?` unwraps Some(value), or returns None immediately if a read fails.
         // A missing human input read cannot safely reconstruct physical input;
@@ -48,32 +58,62 @@ mod tests {
         GameObservationSource, InputBridge, RunContext, Scenario,
     };
 
+    /// Technical: Defines the `Adapter` data structure.
+    ///
+    /// Plain English: Holds the data for Adapter.
     struct Adapter {
+        /// Technical: Stores the `observation` value in `Adapter` as `Option<FighterObservation>`.
+        ///
+        /// Plain English: Optionally stores the observation for Adapter; it may be absent.
         observation: Option<FighterObservation>,
+        /// Technical: Stores the `human` value in `Adapter` as `Option<ControllerFrame>`.
+        ///
+        /// Plain English: Optionally stores the human for Adapter; it may be absent.
         human: Option<ControllerFrame>,
+        /// Technical: Stores the `context` value in `Adapter` as `Option<RunContext>`.
+        ///
+        /// Plain English: Optionally stores the context for Adapter; it may be absent.
         context: Option<RunContext>,
+        /// Technical: Stores the `writes` value in `Adapter` as `Vec<ControllerFrame>`.
+        ///
+        /// Plain English: Holds the writes value used by Adapter.
         writes: Vec<ControllerFrame>,
     }
 
     impl GameObservationSource for Adapter {
+        /// Technical: Observes the fighter.
+        ///
+        /// Plain English: Observes the fighter.
         fn observe_fighter(&self) -> Option<FighterObservation> {
             self.observation
         }
     }
     impl InputBridge for Adapter {
+        /// Technical: Reads the human input.
+        ///
+        /// Plain English: Reads the human input.
         fn read_human_input(&self) -> Option<ControllerFrame> {
             self.human
         }
+        /// Technical: Writes the merged input.
+        ///
+        /// Plain English: Writes the merged input.
         fn write_merged_input(&mut self, frame: ControllerFrame) {
             self.writes.push(frame);
         }
     }
     impl GameAdapter for Adapter {
+        /// Technical: Reads the context.
+        ///
+        /// Plain English: Reads the context.
         fn read_context(&self) -> Option<RunContext> {
             self.context
         }
     }
 
+    /// Technical: Regression test for `runner_releases_pulses_and_handles_disable_exit_and_missing_state`.
+    ///
+    /// Plain English: Checks that runner releases pulses and handles disable exit and missing state.
     #[test]
     fn runner_releases_pulses_and_handles_disable_exit_and_missing_state() {
         let human = ControllerFrame {
@@ -133,15 +173,39 @@ mod tests {
 pub mod runtime_toggle {
     //! Deliberate master-switch gesture. Match detection is supplied by the adapter.
     use std::time::Duration;
+    /// Technical: Defines the `CHORD` constant used by this module.
+    ///
+    /// Plain English: Provides the CHORD constant value.
     pub const CHORD: u64 = (1 << 10) | (1 << 11);
+    /// Technical: Defines the `HOLD` constant used by this module.
+    ///
+    /// Plain English: Provides the HOLD constant value.
     const HOLD: Duration = Duration::from_millis(350);
+    /// Technical: Defines the `RELEASE` constant used by this module.
+    ///
+    /// Plain English: Provides the RELEASE constant value.
     const RELEASE: Duration = Duration::from_millis(150);
+    /// Technical: Defines the `RuntimeToggle` data structure.
+    ///
+    /// Plain English: Holds the data for RuntimeToggle.
     pub struct RuntimeToggle {
+        /// Technical: Stores the `armed` value in `RuntimeToggle` as `bool`.
+        ///
+        /// Plain English: Holds the armed value used by RuntimeToggle.
         armed: bool,
+        /// Technical: Stores the `held_since` value in `RuntimeToggle` as `Option<Duration>`.
+        ///
+        /// Plain English: Optionally stores the held since for RuntimeToggle; it may be absent.
         held_since: Option<Duration>,
+        /// Technical: Stores the `released_since` value in `RuntimeToggle` as `Option<Duration>`.
+        ///
+        /// Plain English: Optionally stores the released since for RuntimeToggle; it may be absent.
         released_since: Option<Duration>,
     }
     impl RuntimeToggle {
+        /// Technical: Constructs a new value with the type’s initial state.
+        ///
+        /// Plain English: Creates a new value.
         pub const fn new() -> Self {
             Self {
                 armed: true,
@@ -149,11 +213,17 @@ pub mod runtime_toggle {
                 released_since: None,
             }
         }
+        /// Technical: Clears the armed state and resets the hold and release timers.
+        ///
+        /// Plain English: Disarms the toggle and clears its timing history.
         pub fn disarm(&mut self) {
             self.armed = false;
             self.held_since = None;
             self.released_since = None;
         }
+        /// Technical: Updates the toggle state from the current button sample and match state.
+        ///
+        /// Plain English: Checks the current buttons and updates whether the toggle should activate.
         pub fn sample(&mut self, buttons: u64, in_match: bool, now: Duration) -> bool {
             let held = buttons & CHORD;
             if in_match {
@@ -184,9 +254,15 @@ pub mod runtime_toggle {
     #[cfg(test)]
     mod tests {
         use super::*;
+        /// Technical: Converts a millisecond offset into a `Duration`.
+        ///
+        /// Plain English: Turns a millisecond value into a time duration.
         fn at(ms: u64) -> Duration {
             Duration::from_millis(ms)
         }
+        /// Technical: Regression test for `holds_toggle_once_and_partial_or_glitchy_releases_do_not_rearm`.
+        ///
+        /// Plain English: Checks that holds toggle once and partial or glitchy releases do not rearm.
         #[test]
         fn holds_toggle_once_and_partial_or_glitchy_releases_do_not_rearm() {
             let mut s = RuntimeToggle::new();
@@ -203,6 +279,9 @@ pub mod runtime_toggle {
             assert!(!s.sample(CHORD, false, at(1800)));
             assert!(s.sample(CHORD, false, at(2150)));
         }
+        /// Technical: Checks whether cancel pending holds and held chords cannot carry out of battle.
+        ///
+        /// Plain English: Checks that matches cancel pending holds and held chords cannot carry out of battle.
         #[test]
         fn matches_cancel_pending_holds_and_held_chords_cannot_carry_out_of_battle() {
             let mut s = RuntimeToggle::new();
@@ -215,6 +294,9 @@ pub mod runtime_toggle {
             s.sample(CHORD, false, at(2300));
             assert!(s.sample(CHORD, false, at(2650)));
         }
+        /// Technical: Regression test for `missing_controller_samples_cancel_a_partly_completed_gesture`.
+        ///
+        /// Plain English: Checks that missing controller samples cancel a partly completed gesture.
         #[test]
         fn missing_controller_samples_cancel_a_partly_completed_gesture() {
             let mut s = RuntimeToggle::new();
@@ -235,20 +317,36 @@ pub mod session {
 
     /// Render-side fence: cached matchmaking/GO state cannot keep UI alive after
     /// local fighter callbacks stop. A mapper call alone never renews this lease.
+    /// Plain English: Render-side fence: cached matchmaking/GO state cannot keep UI alive after local fighter callbacks stop. A mapper call alone never renews this lease.
     #[derive(Default)]
     pub struct MenuPresence {
+        /// Technical: Stores the `last_fighter` value in `MenuPresence` as `Option<Instant>`.
+        ///
+        /// Plain English: Optionally stores the last fighter for MenuPresence; it may be absent.
         last_fighter: Option<Instant>,
     }
     impl MenuPresence {
+        /// Technical: Constructs a new value with the type’s initial state.
+        ///
+        /// Plain English: Creates a new value.
         pub const fn new() -> Self {
             Self { last_fighter: None }
         }
+        /// Technical: Records the time of the latest fighter observation.
+        ///
+        /// Plain English: Remembers when a fighter was last seen.
         pub fn observe(&mut self, now: Instant) {
             self.last_fighter = Some(now);
         }
+        /// Technical: Clears the remembered fighter observation.
+        ///
+        /// Plain English: Forgets the last fighter observation.
         pub fn clear(&mut self) {
             self.last_fighter = None;
         }
+        /// Technical: Checks whether the last fighter observation is within the freshness window.
+        ///
+        /// Plain English: Checks whether the fighter was seen recently.
         pub fn fresh(&self, now: Instant) -> bool {
             self.last_fighter.is_some_and(|seen| {
                 now.checked_duration_since(seen)
@@ -257,17 +355,31 @@ pub mod session {
         }
     }
     /// Represents a session ticket that uniquely identifies a match session.
+    /// Plain English: Represents a session ticket that uniquely identifies a match session.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-    pub struct SessionTicket(u64);
+    pub struct SessionTicket(
+        /// Technical: Opaque numeric identity for one match session.
+        ///
+        /// Plain English: Distinguishes this match from every other session.
+        u64,
+    );
 
     /// Represents the current match session, tracking readiness and epoch for session validation.
+    /// Plain English: Represents the current match session, tracking readiness and epoch for session validation.
     #[derive(Clone, Copy, Debug, Default)]
     pub struct MatchSession {
+        /// Technical: Stores the `ready` value in `MatchSession` as `bool`.
+        ///
+        /// Plain English: Holds the ready value used by MatchSession.
         ready: bool,
+        /// Technical: Stores the `epoch` value in `MatchSession` as `u64`.
+        ///
+        /// Plain English: Holds the epoch value used by MatchSession.
         epoch: u64,
     }
     impl MatchSession {
         /// Creates a new match session with default values.
+        /// Plain English: Creates a new match session with default values.
         pub const fn new() -> Self {
             Self {
                 ready: false,
@@ -280,6 +392,7 @@ pub mod session {
         /// # Returns
         /// * `true` if the readiness state changed and cached fighter/controller/overlay state must reset.
         /// * `false` otherwise.
+        /// Plain English: Updates the match session's readiness state. # Parameters  ready - The new readiness state. # Returns  true if the readiness state changed and cached fighter/controller/overlay state must reset.  false otherwise.
         pub fn update(&mut self, ready: bool) -> bool {
             let changed = self.ready != ready;
             if changed {
@@ -292,6 +405,7 @@ pub mod session {
         /// # Returns
         /// * `Some(SessionTicket)` if the match session is ready.
         /// * `None` otherwise.
+        /// Plain English: Returns the current session ticket if the match session is ready. # Returns  Some(SessionTicket) if the match session is ready.  None otherwise.
         pub fn ticket(self) -> Option<SessionTicket> {
             self.ready.then_some(SessionTicket(self.epoch))
         }
@@ -301,6 +415,7 @@ pub mod session {
         /// # Returns
         /// * `true` if the ticket matches the current session ticket.
         /// * `false` otherwise.
+        /// Plain English: Checks if the given session ticket is accepted by the current match session. # Parameters  ticket - The session ticket to check. # Returns  true if the ticket matches the current session ticket.  false otherwise.
         pub fn accepts(self, ticket: SessionTicket) -> bool {
             self.ticket() == Some(ticket)
         }
@@ -309,6 +424,9 @@ pub mod session {
     #[cfg(test)]
     mod tests {
         use super::*;
+        /// Technical: Regression test for `leaving_elite_warmup_expires_menu_without_another_mapper_callback`.
+        ///
+        /// Plain English: Checks that leaving elite warmup expires menu without another mapper callback.
         #[test]
         fn leaving_elite_warmup_expires_menu_without_another_mapper_callback() {
             let now = Instant::now();
@@ -326,6 +444,9 @@ pub mod session {
             presence.clear();
             assert!(!presence.fresh(now + Duration::from_secs(31)));
         }
+        /// Technical: Regression test for `live_fighter_observations_keep_menu_available_through_normal_input_pauses`.
+        ///
+        /// Plain English: Checks that live fighter observations keep menu available through normal input pauses.
         #[test]
         fn live_fighter_observations_keep_menu_available_through_normal_input_pauses() {
             let now = Instant::now();
@@ -336,6 +457,9 @@ pub mod session {
                 assert!(presence.fresh(at + Duration::from_millis(16)));
             }
         }
+        /// Technical: Regression test for `warmup_to_loading_to_match_rejects_old_observations_even_with_reused_ids`.
+        ///
+        /// Plain English: Checks that warmup to loading to match rejects old observations even with reused ids.
         #[test]
         fn warmup_to_loading_to_match_rejects_old_observations_even_with_reused_ids() {
             let mut session = MatchSession::new();
@@ -353,6 +477,9 @@ pub mod session {
             assert!(!session.accepts(warmup_observation));
             assert!(session.accepts(match_observation));
         }
+        /// Technical: Regression test for `repeated_gameplay_polls_do_not_reset_current_action_history`.
+        ///
+        /// Plain English: Checks that repeated gameplay polls do not reset current action history.
         #[test]
         fn repeated_gameplay_polls_do_not_reset_current_action_history() {
             let mut session = MatchSession::new();
@@ -381,11 +508,13 @@ pub mod training_test {
     };
 
     /// Training compatibility applies only when it is installed and in use.
+    /// Plain English: Training compatibility applies only when it is installed and in use.
     pub fn active(installed: bool, training: bool) -> bool {
         installed && training
     }
 
     /// The overlay chord, Plus, or one of `pad_buttons` held with D-pad up/down.
+    /// Plain English: The overlay chord, Plus, or one of padbuttons held with D-pad up/down.
     fn shortcut(buttons: u32, pad_buttons: u32) -> bool {
         monitor_chord(buttons)
             || buttons & MAPPER_PLUS != 0
@@ -395,6 +524,7 @@ pub mod training_test {
     /// Whether the whole controller belongs to Training this frame: a Training
     /// shortcut is held, or an earlier handoff (`already`) has not been ended
     /// by a fresh Minus press.
+    /// Plain English: Whether the whole controller belongs to Training this frame: a Training shortcut is held, or an earlier handoff (already) has not been ended by a fresh Minus press.
     pub fn passthrough(buttons: u32, pressed: u32, already: bool) -> bool {
         // Persist the handoff across releases: a Training menu/recording can stay
         // open after its shortcut is released. Fresh Minus resumes and toggles ours.
@@ -404,16 +534,19 @@ pub mod training_test {
 
     /// Default ZL+Up/Down save/load is momentary. Menus, recording/playback and
     /// OS-overlay shortcuts can stay open after release and require a Minus resume.
+    /// Plain English: Default ZL+Up/Down save/load is momentary. Menus, recording/playback and OS-overlay shortcuts can stay open after release and require a Minus resume.
     pub fn sticky_shortcut(buttons: u32) -> bool {
         shortcut(buttons, MAPPER_B | MAPPER_ZR)
     }
 
     /// Minus is the shared menu event in every build, including Training.
+    /// Plain English: Minus is the shared menu event in every build, including Training.
     pub fn policy_buttons(physical: u32) -> u32 {
         physical
     }
 
     /// All gameplay features retain the same startup/menu settings in Training.
+    /// Plain English: All gameplay features retain the same startup/menu settings in Training.
     pub fn settings(config: LiveConfig, _test_mode: bool) -> LiveConfig {
         config
     }

@@ -5,68 +5,191 @@ use crate::{gameplay::ControllerOutput, native_input::MAPPER_ZR, timing::motion_
 // Spot dodge becomes intangible after startup; six native frames gives the
 // mapper/online queue margin without firing so early that normal dodge duration
 // ends before an ordinary grab's active window.
+/// Technical: Defines the `LOOKAHEAD` constant used by this module.
+///
+/// Plain English: Provides the LOOKAHEAD constant value.
 pub const LOOKAHEAD: f32 = 6.0;
+/// Technical: Defines the `ESCAPE` constant used by this module.
+///
+/// Plain English: Provides the ESCAPE constant value.
 pub const ESCAPE: i32 = crate::native_states::ESCAPE;
+/// Technical: Defines the `Context` data structure.
+///
+/// Plain English: Holds the data for Context.
 #[derive(Clone, Copy)]
 pub struct Context {
+    /// Technical: Stores the `object` value in `Context` as `u32`.
+    ///
+    /// Plain English: Holds the object value used by Context.
     pub object: u32,
+    /// Technical: Stores the `status` value in `Context` as `i32`.
+    ///
+    /// Plain English: Holds the status value used by Context.
     pub status: i32,
+    /// Technical: Stores the `situation` value in `Context` as `i32`.
+    ///
+    /// Plain English: Holds the situation value used by Context.
     pub situation: i32,
+    /// Technical: Stores the `motion` value in `Context` as `u64`.
+    ///
+    /// Plain English: Holds the motion value used by Context.
     pub motion: u64,
+    /// Technical: Stores the `frame` value in `Context` as `f32`.
+    ///
+    /// Plain English: Holds the frame value used by Context.
     pub frame: f32,
+    /// Technical: Stores the `rate` value in `Context` as `f32`.
+    ///
+    /// Plain English: Holds the rate value used by Context.
     pub rate: f32,
+    /// Technical: Stores the `stopped` value in `Context` as `bool`.
+    ///
+    /// Plain English: Holds the stopped value used by Context.
     pub stopped: bool,
+    /// Technical: Stores the `can_spot_dodge` value in `Context` as `bool`.
+    ///
+    /// Plain English: Holds the can spot dodge value used by Context.
     pub can_spot_dodge: bool,
+    /// Technical: Stores the `position` value in `Context` as `[f32; 2]`.
+    ///
+    /// Plain English: Stores the position collection for Context.
     pub position: [f32; 2],
+    /// Technical: Stores the `velocity` value in `Context` as `[f32; 2]`.
+    ///
+    /// Plain English: Stores the velocity collection for Context.
     pub velocity: [f32; 2],
 }
+/// Technical: Determines whether the `ground_status` condition holds.
+///
+/// Plain English: Checks whether ground status.
 pub fn ground_status(status: i32) -> bool {
     crate::out_of_shield::stationary_grab_state(status)
 }
 // Held shields may have a stationary animation. Only these guard states may
 // use a zero motion rate; native escape readiness still gates every new request.
+/// Technical: Determines whether the `stationary_guard` condition holds.
+///
+/// Plain English: Checks whether stationary guard.
 fn stationary_guard(c: Context) -> bool {
     matches!(
         c.status,
         crate::native_states::GUARD_ON | crate::native_states::GUARD
     ) && c.rate == 0.0
 }
+/// Technical: Determines whether the `valid_clock_rate` condition holds.
+///
+/// Plain English: Checks whether valid clock rate.
 fn valid_clock_rate(c: Context) -> bool {
     c.rate.is_finite() && (c.rate > 0.0 || stationary_guard(c))
 }
+/// Technical: Defines the `Target` data structure.
+///
+/// Plain English: Holds the data for Target.
 #[derive(Clone, Copy)]
 pub struct Target {
+    /// Technical: Stores the `id` value in `Target` as `u32`.
+    ///
+    /// Plain English: Holds the id value used by Target.
     pub id: u32,
+    /// Technical: Stores the `status` value in `Target` as `i32`.
+    ///
+    /// Plain English: Holds the status value used by Target.
     pub status: i32,
+    /// Technical: Stores the `motion` value in `Target` as `u64`.
+    ///
+    /// Plain English: Holds the motion value used by Target.
     pub motion: u64,
+    /// Technical: Stores the `frame` value in `Target` as `f32`.
+    ///
+    /// Plain English: Holds the frame value used by Target.
     pub frame: f32,
+    /// Technical: Stores the `rate` value in `Target` as `f32`.
+    ///
+    /// Plain English: Holds the rate value used by Target.
     pub rate: f32,
+    /// Technical: Stores the `position` value in `Target` as `[f32; 2]`.
+    ///
+    /// Plain English: Stores the position collection for Target.
     pub position: [f32; 2],
+    /// Technical: Stores the `velocity` value in `Target` as `[f32; 2]`.
+    ///
+    /// Plain English: Stores the velocity collection for Target.
     pub velocity: [f32; 2],
+    /// Technical: Stores the `facing` value in `Target` as `f32`.
+    ///
+    /// Plain English: Holds the facing value used by Target.
     pub facing: f32,
+    /// Technical: Stores the `first` value in `Target` as `u8`.
+    ///
+    /// Plain English: Holds the first value used by Target.
     pub first: u8,
+    /// Technical: Stores the `last` value in `Target` as `u8`.
+    ///
+    /// Plain English: Holds the last value used by Target.
     pub last: u8,
+    /// Technical: Stores the `reach` value in `Target` as `f32`.
+    ///
+    /// Plain English: Holds the reach value used by Target.
     pub reach: f32,
 }
+/// Technical: Defines the `Track` data structure.
+///
+/// Plain English: Holds the data for Track.
 #[derive(Clone, Copy)]
 struct Track {
+    /// Technical: Stores the `id` value in `Track` as `u32`.
+    ///
+    /// Plain English: Holds the id value used by Track.
     id: u32,
+    /// Technical: Stores the `status` value in `Track` as `i32`.
+    ///
+    /// Plain English: Holds the status value used by Track.
     status: i32,
+    /// Technical: Stores the `motion` value in `Track` as `u64`.
+    ///
+    /// Plain English: Holds the motion value used by Track.
     motion: u64,
+    /// Technical: Stores the `frame` value in `Track` as `f32`.
+    ///
+    /// Plain English: Holds the frame value used by Track.
     frame: f32,
+    /// Technical: Stores the `rate` value in `Track` as `f32`.
+    ///
+    /// Plain English: Holds the rate value used by Track.
     rate: f32,
+    /// Technical: Stores the `used` value in `Track` as `bool`.
+    ///
+    /// Plain English: Holds the used value used by Track.
     used: bool,
 }
 
+/// Technical: Defines `Tracks` as a type alias.
+///
+/// Plain English: Holds the Tracks value.
 type Tracks = [Option<Track>; crate::battle_objects::FIGHTER_CAPACITY];
 
+/// Technical: Defines the `ThreatWindow` data structure.
+///
+/// Plain English: Holds the data for ThreatWindow.
 #[derive(Clone, Copy)]
 struct ThreatWindow {
+    /// Technical: Stores the `lookahead` value in `ThreatWindow` as `f32`.
+    ///
+    /// Plain English: Holds the lookahead value used by ThreatWindow.
     lookahead: f32,
+    /// Technical: Stores the `padding` value in `ThreatWindow` as `f32`.
+    ///
+    /// Plain English: Holds the padding value used by ThreatWindow.
     padding: f32,
+    /// Technical: Stores the `height` value in `ThreatWindow` as `f32`.
+    ///
+    /// Plain English: Holds the height value used by ThreatWindow.
     height: f32,
 }
 
+/// Technical: Checks whether grab target.
+///
+/// Plain English: Checks whether grab target.
 fn is_grab_target(target: Target) -> bool {
     matches!(
         target.status,
@@ -78,6 +201,9 @@ fn is_grab_target(target: Target) -> bool {
         && target.frame >= 0.0
 }
 
+/// Technical: Returns an optional `track_grabs` value.
+///
+/// Plain English: Gets track grabs if it is available.
 fn track_grabs(
     old: Tracks,
     selected_target: Option<u32>,
@@ -145,9 +271,15 @@ fn track_grabs(
     (tracks, threat)
 }
 
+/// Technical: Checks whether the observed interaction includes contact.
+///
+/// Plain English: Checks whether contact was observed.
 pub fn contact(c: Context, t: Target) -> Option<f32> {
     contact_with_lookahead(c, t, LOOKAHEAD)
 }
+/// Technical: Returns an optional `contact_with_lookahead` value.
+///
+/// Plain English: Gets contact with lookahead if it is available.
 pub fn contact_with_lookahead(c: Context, t: Target, lookahead: f32) -> Option<f32> {
     contact_with_shape(
         c,
@@ -157,6 +289,9 @@ pub fn contact_with_lookahead(c: Context, t: Target, lookahead: f32) -> Option<f
         fighter_tuning::DEFAULT_GRAB_DODGE_HEIGHT,
     )
 }
+/// Technical: Returns an optional `contact_with_shape` value.
+///
+/// Plain English: Gets contact with shape if it is available.
 pub fn contact_with_shape(
     c: Context,
     t: Target,
@@ -248,22 +383,64 @@ pub fn contact_with_shape(
     (interval[0] < last).then_some(interval[0])
 }
 
+/// Technical: Defines the `SpotDodge` data structure.
+///
+/// Plain English: Holds the data for SpotDodge.
 #[derive(Default)]
 pub struct SpotDodge {
+    /// Technical: Stores the `object` value in `SpotDodge` as `Option<u32>`.
+    ///
+    /// Plain English: Optionally stores the object for SpotDodge; it may be absent.
     object: Option<u32>,
+    /// Technical: Stores the `previous` value in `SpotDodge` as `Option<(i32`.
+    ///
+    /// Plain English: Optionally stores the previous for SpotDodge; it may be absent.
     previous: Option<(i32, u64, f32, f32)>,
+    /// Technical: Stores the `tracks` value in `SpotDodge` as `[Option<Track>; crate::battle_objects::FIGHTER_CAPACITY]`.
+    ///
+    /// Plain English: Stores the tracks collection for SpotDodge.
     tracks: [Option<Track>; crate::battle_objects::FIGHTER_CAPACITY],
+    /// Technical: Stores the `target` value in `SpotDodge` as `Option<u32>`.
+    ///
+    /// Plain English: Optionally stores the target for SpotDodge; it may be absent.
     target: Option<u32>,
+    /// Technical: Stores the `age` value in `SpotDodge` as `f32`.
+    ///
+    /// Plain English: Holds the age value used by SpotDodge.
     age: f32,
+    /// Technical: Stores the `output` value in `SpotDodge` as `ControllerOutput`.
+    ///
+    /// Plain English: Holds the output value used by SpotDodge.
     output: ControllerOutput,
+    /// Technical: Stores the `response` value in `SpotDodge` as `crate::defense_response::Response`.
+    ///
+    /// Plain English: Holds the response value used by SpotDodge.
     response: crate::defense_response::Response,
+    /// Technical: Stores the `punish_target` value in `SpotDodge` as `Option<u32>`.
+    ///
+    /// Plain English: Optionally stores the punish target for SpotDodge; it may be absent.
     punish_target: Option<u32>,
+    /// Technical: Stores the `mapped` value in `SpotDodge` as `u8`.
+    ///
+    /// Plain English: Holds the mapped value used by SpotDodge.
     mapped: u8,
+    /// Technical: Stores the `last_mapped` value in `SpotDodge` as `Option<i64>`.
+    ///
+    /// Plain English: Optionally stores the last mapped for SpotDodge; it may be absent.
     last_mapped: Option<i64>,
+    /// Technical: Stores the `dodge_delivered` value in `SpotDodge` as `bool`.
+    ///
+    /// Plain English: Holds the dodge delivered value used by SpotDodge.
     dodge_delivered: bool,
+    /// Technical: Stores the `punish_clock` value in `SpotDodge` as `crate::ledge_trap::NativeAttempt`.
+    ///
+    /// Plain English: Holds the punish clock value used by SpotDodge.
     punish_clock: crate::ledge_trap::NativeAttempt,
 }
 impl SpotDodge {
+    /// Technical: Updates the `suspend_response` state using the supplied inputs.
+    ///
+    /// Plain English: Updates suspend response.
     pub fn suspend_response(&mut self) {
         self.punish_target = None;
         self.punish_clock = Default::default();
@@ -271,6 +448,7 @@ impl SpotDodge {
     }
     /// Missing samples retain consumption; a positively observed end rearms the
     /// next native grab even when its first observed animation frame is later.
+    /// Plain English: Missing samples retain consumption; a positively observed end rearms the next native grab even when its first observed animation frame is later.
     pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         for track in &mut self.tracks {
             if track.is_some_and(|t| {
@@ -283,67 +461,119 @@ impl SpotDodge {
             }
         }
     }
+    /// Technical: Cancels the response.
+    ///
+    /// Plain English: Cancels the response.
     pub fn cancel_response(&mut self) {
         self.response.cancel();
         self.punish_target = None;
         self.punish_clock = Default::default();
     }
+    /// Technical: Returns an optional `follow_target` value.
+    ///
+    /// Plain English: Gets follow target if it is available.
     pub fn follow_target(&self) -> Option<u32> {
         self.response
             .target()
             .or(self.punish_target)
             .or(self.target)
     }
+    /// Technical: Determines whether the `direct_up_b` condition holds.
+    ///
+    /// Plain English: Checks whether direct up b.
     pub fn direct_up_b(&self) -> bool {
         self.response.automatic_up_b()
     }
+    /// Technical: Determines whether the `up_b_delivery_started` condition holds.
+    ///
+    /// Plain English: Checks whether up b delivery started.
     pub fn up_b_delivery_started(&self) -> bool {
         self.response.up_b_delivery_started()
     }
+    /// Technical: Determines whether the `up_b_receipt_pending` condition holds.
+    ///
+    /// Plain English: Checks whether up b receipt pending.
     pub fn up_b_receipt_pending(&self) -> bool {
         self.response.up_b_receipt_pending()
     }
+    /// Technical: Determines whether the `awaiting_up_b` condition holds.
+    ///
+    /// Plain English: Checks whether awaiting up b.
     pub fn awaiting_up_b(&self) -> bool {
         self.response.awaiting_up_b()
     }
+    /// Technical: Updates the `attempted_up_special` state using the supplied inputs.
+    ///
+    /// Plain English: Updates attempted up special.
     pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
         self.response.attempted_up_special(tick, target);
     }
+    /// Technical: Updates the `mapped_up_special` state using the supplied inputs.
+    ///
+    /// Plain English: Updates mapped up special.
     pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
         self.response.mapped_up_special(tick, target);
     }
+    /// Technical: Determines whether the `punish_committed` condition holds.
+    ///
+    /// Plain English: Checks whether punish committed.
     pub fn punish_committed(&self) -> bool {
         self.response.target().is_some()
     }
     /// A confirmed dodge and its configured follow-up are one response, even
     /// while native recovery requires an exclusive neutral packet.
+    /// Plain English: A confirmed dodge and its configured follow-up are one response, even while native recovery requires an exclusive neutral packet.
     pub fn punish_pending(&self) -> bool {
         self.punish_target.is_some() || self.punish_committed()
     }
+    /// Technical: Determines whether the `grab_delivery_pending` condition holds.
+    ///
+    /// Plain English: Checks whether grab delivery pending.
     pub fn grab_delivery_pending(&self) -> bool {
         self.response.grab_delivery_pending()
     }
+    /// Technical: Updates the `mapped_grab` state using the supplied inputs.
+    ///
+    /// Plain English: Updates mapped grab.
     pub fn mapped_grab(&mut self, tick: i64, target: u32) {
         self.response.mapped_grab(tick, target);
     }
+    /// Technical: Updates the `delivery_tick` state using the supplied inputs.
+    ///
+    /// Plain English: Updates delivery tick.
     pub fn delivery_tick(&mut self, tick: i64) {
         self.response.delivery_tick(tick);
         if self.dodge_delivered {
             self.dodge_wait_tick(tick);
         }
     }
+    /// Technical: Determines whether ground.
+    ///
+    /// Plain English: Checks whether ground.
     pub fn needs_ground(&self) -> bool {
         self.response.needs_ground()
     }
+    /// Technical: Determines whether the `attack_hold` condition holds.
+    ///
+    /// Plain English: Checks whether attack hold.
     pub fn attack_hold(&self) -> bool {
         self.response.attack_hold()
     }
+    /// Technical: Returns an optional `right_stick` value.
+    ///
+    /// Plain English: Gets right stick if it is available.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         self.response.right_stick()
     }
+    /// Technical: Determines whether the `walking` condition holds.
+    ///
+    /// Plain English: Checks whether walking.
     pub fn walking(&self) -> bool {
         self.response.walking()
     }
+    /// Technical: Returns the `punish_configured` result.
+    ///
+    /// Plain English: Gets the punish configured result.
     pub fn punish_configured(
         &mut self,
         enabled: bool,
@@ -392,6 +622,7 @@ impl SpotDodge {
     }
     /// One delivered Down+Guard packet, then neutral while awaiting native
     /// ESCAPE. Delivery is not a successful dodge or authorization to punish.
+    /// Plain English: One delivered Down+Guard packet, then neutral while awaiting native ESCAPE. Delivery is not a successful dodge or authorization to punish.
     pub fn mapped_dodge(&mut self, tick: i64, target: u32) {
         if self.target == Some(target) {
             self.dodge_delivered = true;
@@ -403,11 +634,15 @@ impl SpotDodge {
     }
     /// Rejected mapped packets still spend the bounded attempt budget; they
     /// never count as delivery, native dodge success or a punish confirmation.
+    /// Plain English: Rejected mapped packets still spend the bounded attempt budget; they never count as delivery, native dodge success or a punish confirmation.
     pub fn attempted_dodge(&mut self, tick: i64, target: u32) {
         if self.target == Some(target) {
             self.dodge_wait_tick(tick);
         }
     }
+    /// Technical: Updates the `dodge_wait_tick` state using the supplied inputs.
+    ///
+    /// Plain English: Updates dodge wait tick.
     fn dodge_wait_tick(&mut self, tick: i64) {
         if self.target.is_some() && self.last_mapped != Some(tick) {
             self.mapped = self.mapped.saturating_add(1);
@@ -417,6 +652,7 @@ impl SpotDodge {
     /// A follow-up requires our own observed ESCAPE from a pending warning.
     /// It reuses the saved spot-dodge Up-B recipe; no synthetic dodge success,
     /// forced cancel, extra roster pass or per-frame sequence copy is needed.
+    /// Plain English: A follow-up requires our own observed ESCAPE from a pending warning. It reuses the saved spot-dodge Up-B recipe; no synthetic dodge success, forced cancel, extra roster pass or per-frame sequence copy is needed.
     pub fn punish_automatic(
         &mut self,
         allowed: bool,
@@ -477,9 +713,15 @@ impl SpotDodge {
         }
         self.response.sample(true, settings, context, Some(enemy))
     }
+    /// Technical: Returns the selected target observation.
+    ///
+    /// Plain English: Gets the chosen target.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
+    /// Technical: Cancels the pending.
+    ///
+    /// Plain English: Cancels the pending.
     pub fn cancel_pending(&mut self) {
         self.target = None;
         self.mapped = 0;
@@ -487,6 +729,9 @@ impl SpotDodge {
         self.dodge_delivered = false;
         self.output = ControllerOutput::default();
     }
+    /// Technical: Marks the used.
+    ///
+    /// Plain English: Marks the used.
     fn mark_used(&mut self, id: u32) {
         for track in self.tracks.iter_mut().flatten() {
             if track.id == id {
@@ -494,6 +739,9 @@ impl SpotDodge {
             }
         }
     }
+    /// Technical: Updates the toggle state from the current button sample and match state.
+    ///
+    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         enabled: bool,
@@ -502,6 +750,9 @@ impl SpotDodge {
     ) -> ControllerOutput {
         self.sample_with_lookahead(enabled, c, targets, LOOKAHEAD)
     }
+    /// Technical: Samples the with lookahead.
+    ///
+    /// Plain English: Samples the with lookahead.
     pub fn sample_with_lookahead(
         &mut self,
         enabled: bool,
@@ -518,6 +769,9 @@ impl SpotDodge {
             fighter_tuning::DEFAULT_GRAB_DODGE_HEIGHT,
         )
     }
+    /// Technical: Samples the with shape.
+    ///
+    /// Plain English: Samples the with shape.
     pub fn sample_with_shape(
         &mut self,
         enabled: bool,
@@ -677,28 +931,66 @@ impl SpotDodge {
 pub mod roll_read {
     //! Shared copied opponent facts used by reaction and out-of-shield policies.
 
+    /// Technical: Defines the `ESCAPE_F` constant used by this module.
+    ///
+    /// Plain English: Provides the ESCAPE F constant value.
     pub const ESCAPE_F: i32 = crate::native_states::ESCAPE_F;
+    /// Technical: Defines the `ESCAPE_B` constant used by this module.
+    ///
+    /// Plain English: Provides the ESCAPE B constant value.
     pub const ESCAPE_B: i32 = crate::native_states::ESCAPE_B;
 
+    /// Technical: Defines the `Target` data structure.
+    ///
+    /// Plain English: Holds the data for Target.
     #[derive(Clone, Copy)]
     pub struct Target {
+        /// Technical: Stores the `id` value in `Target` as `u32`.
+        ///
+        /// Plain English: Holds the id value used by Target.
         pub id: u32,
+        /// Technical: Stores the `status` value in `Target` as `i32`.
+        ///
+        /// Plain English: Holds the status value used by Target.
         pub status: i32,
         /// Copied native motion identity for the configurable rule clock.
+        /// Plain English: Copied native motion identity for the configurable rule clock.
         pub motion: u64,
+        /// Technical: Stores the `frame` value in `Target` as `f32`.
+        ///
+        /// Plain English: Holds the frame value used by Target.
         pub frame: f32,
+        /// Technical: Stores the `rate` value in `Target` as `f32`.
+        ///
+        /// Plain English: Holds the rate value used by Target.
         pub rate: f32,
+        /// Technical: Stores the `position` value in `Target` as `[f32; 2]`.
+        ///
+        /// Plain English: Stores the position collection for Target.
         pub position: [f32; 2],
+        /// Technical: Stores the `velocity_x` value in `Target` as `f32`.
+        ///
+        /// Plain English: Holds the velocity x value used by Target.
         pub velocity_x: f32,
+        /// Technical: Stores the `vulnerable_in` value in `Target` as `Option<f32>`.
+        ///
+        /// Plain English: Optionally stores the vulnerable in for Target; it may be absent.
         pub vulnerable_in: Option<f32>,
+        /// Technical: Stores the `actionable_in` value in `Target` as `Option<f32>`.
+        ///
+        /// Plain English: Optionally stores the actionable in for Target; it may be absent.
         pub actionable_in: Option<f32>,
     }
     impl Target {
+        /// Technical: Determines whether the `vulnerable_now` condition holds.
+        ///
+        /// Plain English: Checks whether vulnerable now.
         pub fn vulnerable_now(&self) -> bool {
             self.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.)
         }
         /// Copied facts as an `Opponent`. The caller knows the actor's native
         /// situation and which recovery clock, if any, applies.
+        /// Plain English: Copied facts as an Opponent. The caller knows the actor's native situation and which recovery clock, if any, applies.
         pub(crate) fn opponent(
             &self,
             situation: i32,

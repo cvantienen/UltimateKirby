@@ -8,20 +8,26 @@ use crate::fighter_kinds as kind;
 
 /// Inactive swap forms and Final Smash phases; do not apply these numbers to
 /// another fighter where they may mean ordinary attacks or recovery.
+/// Plain English: Inactive swap forms and Final Smash phases; do not apply these numbers to another fighter where they may mean ordinary attacks or recovery.
 pub(super) fn noncombat_status(fighter: i32, status: i32) -> bool {
     final_statuses(fighter).contains(&status) || standby_statuses(fighter).contains(&status)
 }
 
 /// Kind-specific stun/exit states that end an input sequence.
+/// Plain English: Kind-specific stun/exit states that end an input sequence.
 pub(super) fn forced_status(fighter: i32, status: i32) -> bool {
     forced_statuses(fighter).contains(&status)
 }
 
 /// Ordinary SPECIAL_HI plus the verified kind-specific continuations.
+/// Plain English: Ordinary SPECIALHI plus the verified kind-specific continuations.
 pub fn up_special_status(fighter: i32, status: i32) -> bool {
     status == super::status::SPECIAL_HI || up_special_statuses(fighter).contains(&status)
 }
 
+/// Technical: Returns the `standby_statuses` result.
+///
+/// Plain English: Gets the standby statuses result.
 fn standby_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::SQUIRTLE => &[fs::PZENIGAME_SPECIAL_LW_STANDBY],
@@ -33,6 +39,9 @@ fn standby_statuses(fighter: i32) -> &'static [i32] {
     }
 }
 
+/// Technical: Returns the `forced_statuses` result.
+///
+/// Plain English: Gets the forced statuses result.
 fn forced_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::DIDDY_KONG => &[
@@ -51,6 +60,9 @@ fn forced_statuses(fighter: i32) -> &'static [i32] {
     }
 }
 
+/// Technical: Returns the `final_statuses` result.
+///
+/// Plain English: Gets the final statuses result.
 fn final_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::DONKEY_KONG => &[fs::DONKEY_FINAL_ATTACK, fs::DONKEY_FINAL_END],
@@ -479,6 +491,9 @@ fn final_statuses(fighter: i32) -> &'static [i32] {
     }
 }
 
+/// Technical: Returns the `up_special_statuses` result.
+///
+/// Plain English: Gets the up special statuses result.
 fn up_special_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::LINK => &[fs::LINK_SPECIAL_HI_HOLD, fs::LINK_SPECIAL_HI_END],

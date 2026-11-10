@@ -1,4 +1,6 @@
 //! Cached menu text shared by the native renderer and host rendering tests.
+//! Technical: Caches formatted menu text and exposes shared rendering snapshots.
+//! Plain English: This module prepares menu labels so the renderer can display them.
 //! Builds only on content changes; lightweight contains option rows only.
 use kirby_assist_core::{
     fighter_profiles::{presets::PresetSlot, spacing, FighterProfile},
@@ -8,8 +10,12 @@ use std::ffi::CString;
 mod text_cache {
     //! Explicit owned C-string copies for cached UI. Never reuse a Vec<String>
     //! allocation as Vec<CString> or transfer the source strings' byte allocations.
+    //! Technical: Copies display strings into separately owned, valid native C strings.
+    //! Plain English: Makes safe text copies for the menu renderer.
     use std::ffi::CString;
 
+    /// Technical: Copies valid UTF-8 bytes into an independently owned NUL-terminated CString.
+    /// Plain English: Makes a safe text copy for native menu display.
     pub(super) fn copy_text(text: &str) -> Result<Option<CString>, &'static str> {
         if text.as_bytes().contains(&0) {
             return Ok(None);
@@ -27,6 +33,8 @@ mod text_cache {
             .map(Some)
             .map_err(|_| "Invalid menu text")
     }
+    /// Technical: Reserves and copies each display line into separately owned C strings.
+    /// Plain English: Prepares a list of menu lines that can safely outlive their source.
     pub(super) fn copy_lines(lines: &[String]) -> Result<Vec<CString>, &'static str> {
         let mut cached = Vec::new();
         cached
@@ -41,9 +49,13 @@ mod text_cache {
     }
 
     #[cfg(test)]
+    /// Technical: Ownership and text-validity regressions for native display copies.
+    /// Plain English: Tests that cached menu text is copied safely.
     mod tests {
         use super::*;
         #[test]
+        /// Technical: Checks empty, Unicode, error, and embedded-NUL line handling and ownership.
+        /// Plain English: Verifies the display copies valid text and skips invalid text.
         fn copies_empty_unicode_and_error_rows_without_aliasing_sources() {
             let lines = vec![
                 "".into(),
@@ -66,6 +78,8 @@ mod text_cache {
             );
         }
         #[test]
+        /// Technical: Repeatedly replaces cached save-status lines without source-buffer reuse.
+        /// Plain English: Checks repeated saves do not leave the menu using temporary text.
         fn repeated_save_status_cache_replacement_does_not_reuse_source_storage() {
             let mut view = Some(copy_lines(&["Before save".into()]).unwrap());
             for i in 0..2000 {
@@ -87,34 +101,84 @@ mod text_cache {
     }
 }
 
+/// Technical: Fully owned, revision-tagged presentation data consumed by the draw callback.
+/// Plain English: A ready-to-display copy of the menu for one selection revision.
 pub(super) struct Snapshot {
+    /// Technical: General menu revision represented by this presentation.
+    /// Plain English: Which menu update this snapshot displays.
     pub(super) revision: u64,
+    /// Technical: Lifecycle generation used to reject snapshots from prior sessions.
+    /// Plain English: Which menu session this snapshot belongs to.
     pub(super) generation: u64,
+    /// Technical: Content revision used to identify changes to visible display strings.
+    /// Plain English: Which version of the menu text this snapshot contains.
     pub(super) content_revision: u64,
+    /// Technical: Recipe revision represented by this presentation.
+    /// Plain English: Which recipe version the menu shows.
     pub(super) recipe_revision: u64,
+    /// Technical: Effective auto-mash value represented by the rows.
+    /// Plain English: Whether the displayed choices include auto-mash being on.
     pub(super) auto_mash: bool,
+    /// Technical: Whether this snapshot represents the quick-menu layout.
+    /// Plain English: Whether the quick menu is displayed.
     pub(super) quick: bool,
+    /// Technical: Whether this snapshot omits editor-heavy presentation content.
+    /// Plain English: Whether this is the compact menu.
     pub(super) lightweight: bool,
+    /// Technical: Whether button-choice rows are part of the layout.
+    /// Plain English: Whether button choices are shown.
     pub(super) buttons: bool,
+    /// Technical: Whether mode-choice rows are part of the layout.
+    /// Plain English: Whether mode choices are shown.
     pub(super) modes: bool,
+    /// Technical: Native fighter kind used to build the rows.
+    /// Plain English: Which fighter this display belongs to.
     pub(super) fighter: i32,
+    /// Technical: Currently selected navigation row.
+    /// Plain English: Which menu row is highlighted.
     pub(super) row: MenuRow,
+    /// Technical: Cached selectable row labels and values.
+    /// Plain English: The choices shown in the menu.
     pub(super) values: Vec<SavedChoice>,
+    /// Technical: Optional cached navigation heading.
+    /// Plain English: The menu title shown above the choices.
     pub(super) navigation: Option<CString>,
+    /// Technical: Cached panel header lines.
+    /// Plain English: Status lines shown near the top of the menu.
     pub(super) header: Vec<CString>,
+    /// Technical: Cached editor or recipe body lines.
+    /// Plain English: The main details shown in the menu.
     pub(super) body: Vec<CString>,
+    /// Technical: Cached panel footer lines.
+    /// Plain English: Hints shown at the bottom of the menu.
     pub(super) footer: Vec<CString>,
+    /// Technical: Optional focus index for editor controls.
+    /// Plain English: Which editor field should receive focus.
     pub(super) focus: Option<usize>,
+    /// Technical: Selected option index in the current preset slot.
+    /// Plain English: Which option is selected in the current slot.
     pub(super) choice: usize,
+    /// Technical: Editor state discriminant used by the renderer.
+    /// Plain English: Which recipe editing state the menu is in.
     pub(super) mode: u8,
 }
+/// Technical: Cached row identity, enabled-state hint, and owned display text.
+/// Plain English: One prepared menu choice line and its status.
 pub(super) struct SavedChoice {
+    /// Technical: Core menu row represented by this cached label.
+    /// Plain English: Which menu choice this line belongs to.
     pub(super) row: MenuRow,
+    /// Technical: Toggle value when the row is a simple ON/OFF control.
+    /// Plain English: Whether a toggle row is currently on or off.
     pub(super) enabled: Option<bool>,
     // Complete single-column lines are cached on edits, never formatted in draw.
+    /// Technical: Owned NUL-terminated full row text for native rendering.
+    /// Plain English: The ready-made text shown for this choice.
     pub(super) line: CString,
 }
 impl Snapshot {
+    /// Technical: Tests whether content/layout inputs are reusable apart from cursor and revision.
+    /// Plain English: Checks if the existing display still matches the menu's choices.
     pub(super) fn reusable(
         &self,
         profile: &FighterProfile,
@@ -134,6 +198,8 @@ impl Snapshot {
             && self.quick == (selection.quick_menu && !selection.tuning_page)
             && self.values.iter().any(|v| v.row == selection.row)
     }
+    /// Technical: Updates only cursor/revision fields when the cached content remains reusable.
+    /// Plain English: Moves the highlight without rebuilding the menu text.
     pub(super) fn refresh_cursor(
         &mut self,
         profile: &FighterProfile,
@@ -148,6 +214,8 @@ impl Snapshot {
         self.revision = selection.revision;
         true
     }
+    /// Technical: Checks layout, fighter, revision, and generation against a publication request.
+    /// Plain English: Confirms this snapshot is the one the menu currently wants.
     pub(super) fn matches_request(
         &self,
         lightweight: bool,
@@ -160,11 +228,15 @@ impl Snapshot {
             && self.revision == revision
             && self.generation == generation
     }
+    /// Technical: Compares only the requested lightweight/full layout flag.
+    /// Plain English: Checks whether the menu is compact or full-sized as requested.
     pub(super) fn matches_layout(&self, lightweight: bool) -> bool {
         self.lightweight == lightweight
     }
 }
 
+/// Technical: Converts a boolean toggle to its label, selected index, and option count.
+/// Plain English: Prepares the ON/OFF text and selection position.
 fn toggle_value(enabled: bool) -> (String, usize, usize) {
     (
         (if enabled { "ON" } else { "OFF" }).to_owned(),
@@ -174,16 +246,22 @@ fn toggle_value(enabled: bool) -> (String, usize, usize) {
 }
 
 #[cfg(test)]
+/// Technical: Regressions for cached menu row labels and choice positions.
+/// Plain English: Tests that menu row text and positions are consistent.
 mod row_tests {
     use super::*;
 
     #[test]
+    /// Technical: Ensures toggle labels correspond to their selected indices.
+    /// Plain English: Checks ON and OFF rows point at the right option.
     fn toggle_rows_keep_matching_labels_and_positions() {
         assert_eq!(toggle_value(false), ("OFF".to_owned(), 0, 2));
         assert_eq!(toggle_value(true), ("ON".to_owned(), 1, 2));
     }
 }
 
+/// Technical: Formats the selected preset display name and its one-based position.
+/// Plain English: Gets the name and position shown for a recipe slot.
 fn slot_value(
     profile: &FighterProfile,
     selection: &MenuSelection,
@@ -215,6 +293,8 @@ fn slot_value(
     (name, index, count)
 }
 
+/// Technical: Resolves one menu row into display text and choice position metadata.
+/// Plain English: Prepares the text and selection for a single menu row.
 fn row_value(
     profile: &FighterProfile,
     selection: &MenuSelection,
@@ -258,6 +338,8 @@ fn row_value(
 }
 
 /// Rows shown in the single-column list, formatted once per rebuild.
+/// Technical: Builds owned text records for visible rows, reserving their full capacity first.
+/// Plain English: Prepares all visible menu choices for display.
 fn build_values(
     profile: &FighterProfile,
     selection: &MenuSelection,
@@ -309,6 +391,8 @@ fn build_values(
     Ok(values)
 }
 
+/// Technical: Formats the heading and navigation position for the active page.
+/// Plain English: Creates the title showing the current fighter and menu page.
 fn navigation_text(
     profile: &FighterProfile,
     selection: &MenuSelection,
@@ -341,6 +425,8 @@ fn navigation_text(
     }
 }
 
+/// Technical: Selects or constructs the panel content appropriate to the active editor page.
+/// Plain English: Chooses which status and help text belongs on this menu page.
 fn recipe_panel(profile: &FighterProfile, selection: &MenuSelection) -> RecipePanel {
     if selection.lightweight {
         RecipePanel::default()
@@ -366,6 +452,8 @@ fn recipe_panel(profile: &FighterProfile, selection: &MenuSelection) -> RecipePa
     }
 }
 
+/// Technical: Builds a revision-tagged snapshot, owning all text required by rendering.
+/// Plain English: Prepares a complete menu display from the current fighter choices.
 pub(super) fn build(
     profile: &FighterProfile,
     selection: &MenuSelection,

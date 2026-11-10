@@ -12,8 +12,14 @@ use crate::{
     settings::AssistSettings,
 };
 
+/// Technical: Sets the upper bound for grounded ledge scan distance.
+///
+/// Plain English: Holds the MAX GROUNDED LEDGE SCAN DISTANCE value.
 const MAX_GROUNDED_LEDGE_SCAN_DISTANCE: u16 = 400;
 
+/// Technical: Determines whether the `eligible_for_positioning` condition holds.
+///
+/// Plain English: Checks whether eligible for positioning.
 fn eligible_for_positioning(settings: AssistSettings, ctx: GameplayContext) -> bool {
     settings.enabled
         && ctx.held
@@ -26,14 +32,24 @@ fn eligible_for_positioning(settings: AssistSettings, ctx: GameplayContext) -> b
         && ctx.facing.is_finite()
 }
 
+/// Technical: Defines the `LedgeSpot` data structure.
+///
+/// Plain English: Holds the data for LedgeSpot.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeSpot {
+    /// Technical: Stores the `edge` value in `LedgeSpot` as `[f32; 2]`.
+    ///
+    /// Plain English: Stores the edge collection for LedgeSpot.
     pub edge: [f32; 2],
+    /// Technical: Stores the `inward` value in `LedgeSpot` as `f32`.
+    ///
+    /// Plain English: Holds the inward value used by LedgeSpot.
     pub inward: f32,
 }
 
 /// Reuse the existing trump's short support probes at the grounded floor height.
 /// No vertical stage-body scan, floor-normal FFI, or airborne geometry queries.
+/// Plain English: Reuse the existing trump's short support probes at the grounded floor height. No vertical stage-body scan, floor-normal FFI, or airborne geometry queries.
 pub fn nearest_ground_ledge(
     position: [f32; 2],
     facing: f32,
@@ -55,22 +71,46 @@ pub fn nearest_ground_ledge(
     supported(destination).then_some(LedgeSpot { edge, inward })
 }
 
+/// Technical: Defines the `LedgePosition` data structure.
+///
+/// Plain English: Holds the data for LedgePosition.
 #[derive(Default)]
 pub struct LedgePosition {
+    /// Technical: Stores the `spot` value in `LedgePosition` as `Option<LedgeSpot>`.
+    ///
+    /// Plain English: Optionally stores the spot for LedgePosition; it may be absent.
     spot: Option<LedgeSpot>,
+    /// Technical: Stores the `settled` value in `LedgePosition` as `bool`.
+    ///
+    /// Plain English: Holds the settled value used by LedgePosition.
     settled: bool,
+    /// Technical: Stores the `last_tick` value in `LedgePosition` as `Option<i64>`.
+    ///
+    /// Plain English: Optionally stores the last tick for LedgePosition; it may be absent.
     last_tick: Option<i64>,
+    /// Technical: Stores the `output` value in `LedgePosition` as `ControllerOutput`.
+    ///
+    /// Plain English: Holds the output value used by LedgePosition.
     output: ControllerOutput,
 }
 impl LedgePosition {
+    /// Technical: Returns an optional `spot` value.
+    ///
+    /// Plain English: Gets spot if it is available.
     pub fn spot(&self) -> Option<LedgeSpot> {
         self.spot
     }
+    /// Technical: Updates the `lock` state using the supplied inputs.
+    ///
+    /// Plain English: Updates lock.
     pub fn lock(&mut self, spot: Option<LedgeSpot>) {
         if self.spot.is_none() {
             self.spot = spot.filter(|spot| finite2(spot.edge) && spot.inward.abs() == 1.0);
         }
     }
+    /// Technical: Returns the `action_name` result.
+    ///
+    /// Plain English: Gets the action name result.
     pub fn action_name(&self) -> &'static str {
         if self.spot.is_none() {
             "seek_ground_ledge"
@@ -80,6 +120,9 @@ impl LedgePosition {
             "prepare_ground_ledge_position"
         }
     }
+    /// Technical: Updates the toggle state from the current button sample and match state.
+    ///
+    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         tick: i64,

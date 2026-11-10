@@ -1,5 +1,9 @@
 //! Scoped read-only adapter. Reuses the existing bounded ATTACK-source ring;
 //! no roster enumeration, heap allocation, native writes or cross-frame pointers.
+//! Technical: Adapts the core projectile-reflection policy to copied native
+//! observations and bounded attack geometry reads.
+//! Plain English: This module checks nearby projectiles and prepares a reflection
+//! response without changing game state.
 use crate::game_ffi as game;
 use kirby_assist_core::{
     autopilot_guard::Hitbox,
@@ -7,6 +11,12 @@ use kirby_assist_core::{
     timing::AnimationSample,
 };
 use kirby_assist_core::battle_objects::ObjectCategory;
+/// Technical: Builds a copied projectile-reflection context from live observations
+/// and bounded active-hitbox geometry.
+/// Plain English: Checks nearby remembered projectiles and returns any safe response proposal.
+///
+/// # Safety
+/// Native object pointers must remain valid for each read; the function retains none.
 pub(super) unsafe fn observe(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,

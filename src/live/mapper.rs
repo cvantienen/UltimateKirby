@@ -1,10 +1,19 @@
+//! Technical: Stages mapper callback admission, temporary input overlays, and
+//! post-map restoration around the native controller mapper.
+//! Plain English: This module safely adds assistance to controller input, then
+//! restores the player's physical input data.
+///
 use super::*;
 use kirby_assist_core::manual_controls::ManualFrame;
 use kirby_assist_core::native_input::ButtonTrace;
 
 /// Left-stick side flick bits of the native button word.
+/// Technical: Mask for the left-stick side-flick bits in the raw button word.
+/// Plain English: Identifies the two native flags used for left/right stick flicks.
 const LEFT_STICK_SIDE_FLICKS: u32 = (1 << 21) | (1 << 23);
 
+/// Technical: Returns `mask` unchanged when its condition is true, otherwise zero.
+/// Plain English: Turns a group of button bits on only when requested.
 fn mask_if(condition: bool, mask: u32) -> u32 {
     if condition {
         mask
@@ -14,59 +23,132 @@ fn mask_if(condition: bool, mask: u32) -> u32 {
 }
 
 /// Whether `button` (canonical) is held in `trace` once translated to the physical layout.
+/// Technical: Tests the physical trace using the configured canonical-to-physical mapping.
+/// Plain English: Checks whether the player is holding this button on their controller.
 fn physical_held(config: &Config, trace: ButtonTrace, button: u32) -> bool {
     trace.held & config.control_layout.physical_buttons(button) != 0
 }
 
 /// Outcome of owner arbitration for one poll.
+/// Technical: Carries the arbitration winner, selected output, and input takeover facts.
+/// Plain English: Stores which helper owns this poll and what it wants to send.
 struct Arbitration {
+    /// Technical: Owner selected for this poll, if any helper won.
+    /// Plain English: Which helper gets to control the input this update.
     winner: Option<Owner>,
+    /// Technical: Controller output selected for the winning owner.
+    /// Plain English: The buttons and stick direction the winner wants.
     selected: ControllerOutput,
+    /// Technical: Native situation used for owner and delivery decisions.
+    /// Plain English: Whether the fighter is grounded, airborne, or in another state.
     situation: i32,
+    /// Technical: Whether the current native-mapped tech press should be confirmed.
+    /// Plain English: Whether a tech button actually needs to be sent.
     tech_press: bool,
+    /// Technical: Whether tech currently owns or takes over guard input.
+    /// Plain English: Whether the tech helper is controlling guard.
     tech_takeover: bool,
+    /// Technical: Whether mash currently takes over another button owner.
+    /// Plain English: Whether auto-mash is controlling the input.
     mash_takeover: bool,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Per-owner arbitration intent snapshot.
+    /// Plain English: What each helper asked to do before one was selected.
     intents: [Intent; 13],
 }
 /// Result of admitting a mapper callback: the immutable startup config, the
 /// selected physical controller, and the match session this callback belongs to.
+/// Technical: Carries validated callback context across the staged overlay pipeline.
+/// Plain English: Holds the settings, controller, and session details needed for one mapping call.
 #[derive(Clone, Copy)]
 pub(super) struct MapperAdmission {
+    /// Technical: Reference to the immutable published startup settings.
+    /// Plain English: The plugin settings used for this callback.
     pub(super) config: &'static Config,
+    /// Technical: Native controller pointer validated against the mapper wrapper.
+    /// Plain English: The selected physical controller for this mapping call.
     controller: *mut controller::Controller,
+    /// Technical: Ready-Go observation copied during callback admission.
+    /// Plain English: Whether the match has started, if that was observable.
     master_ready_go: Option<bool>,
+    /// Technical: Ticket identifying the accepted match-session generation.
+    /// Plain English: Prevents this callback's work from leaking into another match.
     pub(super) session_ticket: SessionTicket,
 }
 /// Adjustments applied to the native mapper's result: stick input, automatic requests, and other control flags.
+/// Technical: Stores optional post-map stick/button changes before they are applied.
+/// Plain English: Collects the small input changes the helper wants the mapper to make.
 #[derive(Clone, Copy, Default)]
 struct MapperOutputAdjustments {
+    /// Technical: Optional left-stick override applied after native mapping.
+    /// Plain English: A left-stick direction to apply to the final input.
     left_stick: Option<[f32; 2]>,
+    /// Technical: Optional right-stick override applied after native mapping.
+    /// Plain English: A right-stick direction to apply to the final input.
     right_stick: Option<[f32; 2]>,
+    /// Technical: Optional native automatic-request mask.
+    /// Plain English: Automatic action button bits to add to the final input.
     automatic_request: Option<u32>,
+    /// Technical: Whether native short-hop behavior is requested.
+    /// Plain English: Whether the final jump should be shortened.
     short_hop: bool,
+    /// Technical: Whether the selected attack hold must be preserved literally.
+    /// Plain English: Whether the requested attack button needs to stay pressed.
     attack_hold: bool,
+    /// Technical: Optional literal native button request bypassing normal filtering.
+    /// Plain English: Exact button bits the helper needs to send.
     literal_request: Option<u32>,
+    /// Technical: Whether an automatic grab began without a shield state.
+    /// Plain English: Whether the automatic grab should start without shielding.
     unshielded_auto_grab: bool,
+    /// Technical: Optional tech-specific native output adjustment.
+    /// Plain English: A tech button change to apply, if one is needed.
     tech_output: Option<TechOutput>,
 }
 
 /// Feedback recorded after native mapping: which manual and automatic actions actually reached the final buttons.
+/// Technical: Captures delivered actions for state-machine acknowledgment after mapping.
+/// Plain English: Records which requested buttons actually reached the game's output.
 #[derive(Clone, Copy, Default)]
 struct MapperDeliveryFeedback {
+    /// Technical: Whether a manual jump was delivered.
+    /// Plain English: Whether the player's jump button reached the game.
     manual_jump: bool,
+    /// Technical: Whether a reflect action was delivered.
+    /// Plain English: Whether the reflect button reached the game.
     reflect: bool,
+    /// Technical: Raw input tick associated with a reflector receipt.
+    /// Plain English: Which input update confirmed the reflector.
     reflector_tick: Option<i64>,
+    /// Technical: Automatic-grab target and completion status for delivery tracking.
+    /// Plain English: Which target an automatic grab reached, if any.
     auto_grab: Option<(i64, u32, bool)>,
+    /// Technical: Grab-handoff delivery receipt with owner and eligibility flags.
+    /// Plain English: Whether a queued grab handoff reached the game.
     grab_handoff: Option<(i64, Option<Owner>, bool, bool)>,
+    /// Technical: Target id for a delivered dodge-punish grab.
+    /// Plain English: Which target a dodge-follow-up grab reached.
     dodge_punish_grab: Option<(i64, u32)>,
+    /// Technical: Target id for a delivered automatic dodge.
+    /// Plain English: Which target the automatic dodge responded to.
     auto_dodge: Option<(i64, u32)>,
+    /// Technical: Target and owner for a delivered automatic up special.
+    /// Plain English: Which helper and target caused an up-special response.
     auto_up_special: Option<(i64, u32, Owner)>,
+    /// Technical: Whether the native mapper applied a tech action.
+    /// Plain English: Whether the tech action was actually sent.
     tech_applied: bool,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Proposed and delivered grab masks plus gating reason for diagnostics.
+    /// Plain English: Details used to troubleshoot a grab button that did not arrive.
     grab_delivery: Option<(u32, u32, u32, &'static str)>,
 }
 /// Admits the mapper callback for the specified controller, returning the admission state if successful.
+/// Technical: Validates enabled configuration, controller identity, live session, and route.
+/// Plain English: Allows assistance only for the selected connected controller and verified fighter.
+///
+/// # Safety
+/// `wrapper` must be a live mapper wrapper matching the pinned native layout.
 pub(super) unsafe fn admit_mapper_callback(
     wrapper: *mut c_void,
     index: i32,
@@ -111,6 +193,11 @@ pub(super) unsafe fn admit_mapper_callback(
     })
 }
 /// Enters the training passthrough mode for the admitted controller, returning `true` when the callback should stay a passthrough.
+/// Technical: Passes the copied physical input and configured layout to training handoff policy.
+/// Plain English: Checks whether the training add-on should receive this input unchanged.
+///
+/// # Safety
+/// The admission must still refer to the current native controller callback.
 pub(super) unsafe fn enter_training_passthrough(admission: &MapperAdmission, index: i32) -> bool {
     training::enter_passthrough(
         trace(admission.controller),
@@ -120,6 +207,11 @@ pub(super) unsafe fn enter_training_passthrough(admission: &MapperAdmission, ind
 }
 
 /// Applies the specified output adjustments to the mapper output, modifying stick input, automatic requests, and other control flags.
+/// Technical: Mutates only the native mapped-output structure using the staged adjustments.
+/// Plain English: Applies selected button and stick changes to the mapper's result.
+///
+/// # Safety
+/// `output` must point to a writable `MappedInputs` value using the pinned layout.
 unsafe fn apply_mapper_output_adjustments(
     output: *mut c_void,
     adjustments: &MapperOutputAdjustments,
@@ -161,6 +253,8 @@ unsafe fn apply_mapper_output_adjustments(
     }
 }
 /// Records a manual jump input for the given state and mapped inputs, updating the manual jump fence if applicable.
+/// Technical: Samples the manual-jump fence only after a manual jump is present in mapped output.
+/// Plain English: Remembers a real jump so automation won't mistake it for its own input.
 fn record_mapped_manual_jump(state: &mut State, mapped: &MappedInputs, manual_jump: bool) {
     if manual_jump
         && mapped.buttons
@@ -192,6 +286,8 @@ fn record_mapped_manual_jump(state: &mut State, mapped: &MappedInputs, manual_ju
     }
 }
 /// Records a mapped reflector input for the given state and mapped inputs, handling reflector delivery and receipt polling.
+/// Technical: Acknowledges mapped reflector input and polls its bounded receipt state.
+/// Plain English: Confirms reflection input reached the mapper and releases ownership when done.
 fn record_mapped_reflector(
     state: &mut State,
     mapped: &MappedInputs,
@@ -214,6 +310,7 @@ fn record_mapped_reflector(
     }
 }
 /// Records mapped grab inputs for the given state and mapped inputs, handling automatic grabs and grab handoff events.
+/// Plain English: Tracks grab-related buttons that the mapper applied.
 fn record_mapped_grabs(
     state: &mut State,
     mapped: &MappedInputs,
@@ -238,6 +335,7 @@ fn record_mapped_grabs(
     }
 }
 /// Records mapped dodge inputs for the given state and mapped inputs, handling guard, punish grabs, and automatic dodges.
+/// Plain English: Tracks dodge and guard buttons that the mapper applied.
 fn record_mapped_dodges(
     state: &mut State,
     mapped: &MappedInputs,
@@ -263,6 +361,7 @@ fn record_mapped_dodges(
 }
 
 /// Records mapped up special inputs for the given state and mapped inputs, handling out-of-shield, roll read, and spot dodge scenarios.
+/// Plain English: Tracks up-special input changes made by defensive helpers.
 fn record_mapped_up_special(
     state: &mut State,
     mapped: &MappedInputs,
@@ -303,6 +402,7 @@ fn record_mapped_up_special(
 }
 
 /// Records mapped tech inputs for the given state, handling guard and tech application scenarios.
+/// Plain English: Tracks tech and guard buttons added by the mapper.
 fn record_mapped_tech(
     state: &mut State,
     guard: bool,
@@ -330,6 +430,8 @@ fn record_mapped_tech(
 }
 
 #[cfg(feature = "diagnostic-logging")]
+/// Technical: Records whether a proposed grab reached mapped buttons and calibration traces.
+/// Plain English: Saves the result of grab-input delivery for troubleshooting.
 fn record_mapped_grab_diagnostics(
     state: &mut State,
     mapped: &MappedInputs,
@@ -352,6 +454,7 @@ fn record_mapped_grab_diagnostics(
 }
 
 /// Records mapped grab diagnostics for the given state and mapped inputs, handling grab delivery events.
+/// Plain English: Updates grab and tech delivery records after native mapping.
 unsafe fn record_mapped_delivery(
     output: *mut c_void,
     index: i32,
@@ -411,21 +514,41 @@ unsafe fn record_mapped_delivery(
 }
 /// The selected controller's physical input, read before any assist is applied,
 /// plus the static settings every overlay stage consults.
+/// Plain English: Holds the real controller input and shared settings for this mapping update.
 #[derive(Clone, Copy)]
 struct OverlayFrame {
+    /// Technical: Live native controller pointer used by this callback.
+    /// Plain English: The controller being updated.
     controller: *mut controller::Controller,
+    /// Technical: Selected controller-array index.
+    /// Plain English: Which player controller this is.
     index: i32,
+    /// Technical: Immutable configuration snapshot for this overlay poll.
+    /// Plain English: The plugin settings used for this controller update.
     config: &'static Config,
+    /// Technical: Physical button trace captured before any helper mutation.
+    /// Plain English: The real buttons pressed before the plugin changes input.
     physical: ButtonTrace,
     /// `physical.held` as seen by the Training compatibility layer.
+    /// Technical: Button mask translated by the active Training compatibility adapter.
+    /// Plain English: The physical buttons as reported after Training Modpack adjustments.
     tested_held: u32,
+    /// Technical: Physical left-stick axes copied before mutation.
+    /// Plain English: The real left-stick direction before assistance.
     physical_stick: [f32; 2],
+    /// Technical: Physical right-stick axes copied before mutation.
+    /// Plain English: The real right-stick direction before assistance.
     physical_right_stick: [f32; 2],
+    /// Technical: Physical autorepeat bitfield copied before mutation.
+    /// Plain English: The controller's original repeat-button state.
     physical_autorepeat: u32,
+    /// Technical: Physical trigger axes copied before mutation.
+    /// Plain English: The controller's original trigger values.
     physical_triggers: [f32; 2],
 }
 
 /// Whether this mapper slot's human fighter was observed recently and is the associated object.
+/// Plain English: Checks whether this controller still belongs to the recently observed local fighter.
 fn local_route_current(state: &State, index: i32) -> bool {
     state.human_routes[index as usize].is_some_and(|(id, seen)| {
         Some(id) == state.associated_object && seen.elapsed() < SESSION_OBSERVATION_GAP
@@ -433,6 +556,7 @@ fn local_route_current(state: &State, index: i32) -> bool {
 }
 
 /// Starts or ends the menu's battle session as the local fighter enters or leaves a live match.
+/// Plain English: Opens or closes the menu's match-specific state as battle begins or ends.
 fn track_menu_battle(state: &mut State, index: i32, connected: bool, menu_ready_go: Option<bool>) {
     let intro_current = state.menu_intro_object.is_some_and(|intro| {
         state.human_routes[index as usize]
@@ -463,6 +587,7 @@ fn track_menu_battle(state: &mut State, index: i32, connected: bool, menu_ready_
 }
 
 /// Binds mapper state to this slot, discarding anything learned from a previously selected slot.
+/// Plain English: Resets cached controller data when the selected player changes.
 unsafe fn bind_mapper_index(
     state: &mut State,
     frame: &OverlayFrame,
@@ -491,6 +616,7 @@ unsafe fn bind_mapper_index(
 }
 
 /// Updates the mapper menu and input state for the selected controller, handling menu readiness, battle activity, and diagnostic logging.
+/// Plain English: Refreshes the menu and controller state for this update.
 unsafe fn update_mapper_menu_and_input(
     frame: &OverlayFrame,
     menu_ready_go: Option<bool>,
@@ -526,6 +652,7 @@ unsafe fn update_mapper_menu_and_input(
 
 /// Records this poll's physical input, advances the local scheduling tick and
 /// returns the canonical policy buttons.
+/// Plain English: Stores the real buttons pressed and prepares them for helper decisions.
 fn observe_raw_input(state: &mut State, frame: &OverlayFrame) -> u32 {
     let OverlayFrame {
         config,
@@ -566,6 +693,7 @@ fn observe_raw_input(state: &mut State, frame: &OverlayFrame) -> u32 {
 }
 
 /// Feeds this poll to the settings menu and publishes its consumed/native buttons.
+/// Plain English: Gives the menu this controller update and returns the buttons it handles.
 fn run_settings_menu(
     state: &mut State,
     frame: &OverlayFrame,
@@ -630,6 +758,7 @@ fn run_settings_menu(
 
 /// Applies the menu's mode switches: attack-source tracking, automatic-mode
 /// suspension and the ledge-assist lifecycle.
+/// Plain English: Updates helper behavior based on the current menu mode choices.
 fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) {
     let OverlayFrame {
         config, physical, ..
@@ -698,6 +827,7 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
 }
 
 /// Diagnostic only: a D-pad/X/Y press while the trump hold is configured.
+/// Plain English: Checks whether a player pressed a button relevant to the ledge-trump report.
 #[cfg(feature = "diagnostic-logging")]
 fn trump_input_pressed(state: &State, physical: ButtonTrace) -> bool {
     physical.pressed
@@ -711,6 +841,7 @@ fn trump_input_pressed(state: &State, physical: ButtonTrace) -> bool {
             .is_some_and(|m| m.ledge_trump_held())
 }
 /// Refreshes the selected fighter for the specified controller index, observing the fighter if valid or clearing the state if not.
+/// Plain English: Updates or clears the fighter data for the selected controller.
 unsafe fn refresh_selected_fighter(index: i32) {
     let candidate = STATE.lock().ok().and_then(|state| {
         (state.mapping_index == Some(index))
@@ -745,6 +876,8 @@ unsafe fn refresh_selected_fighter(index: i32) {
 }
 
 #[cfg(feature = "diagnostic-logging")]
+/// Technical: Tuple of manual/automatic grab comparison state copied for logging.
+/// Plain English: Bundles the controller and grab details used in diagnostic comparisons.
 type GrabMappingComparison = (
     bool,
     Option<Owner>,
@@ -757,26 +890,48 @@ type GrabMappingComparison = (
     [f32; 2],
 );
 /// Diagnostic-build reports collected while preparing the overlay and written after mapping.
+/// Plain English: Collects troubleshooting notes until controller mapping is complete.
 #[cfg(feature = "diagnostic-logging")]
 #[derive(Default)]
 struct MapperDiagnostics {
+    /// Technical: Whether the current poll pressed the configured trump input.
+    /// Plain English: Whether a ledge-trump button was pressed this update.
     trump_pressed: bool,
+    /// Technical: Ledge edge timestamp captured for diagnostic reporting.
+    /// Plain English: When the current ledge edge happened, if any.
     ledge_edge: Option<u32>,
+    /// Technical: Physical and mapped grab samples for comparison.
+    /// Plain English: The controller input and resulting grab buttons being compared.
     grab_mapping_comparison: Option<GrabMappingComparison>,
+    /// Technical: Deferred human-readable diagnostic messages.
+    /// Plain English: Notes to write after mapping finishes.
     messages: Vec<String>,
+    /// Technical: Deferred movement-mode diagnostic report.
+    /// Plain English: A summary of which movement mode took effect.
     mode_report: Option<kirby_assist_core::diagnostics::modes::Report>,
 }
 
 /// Overlay result handed from the pre-map stage to the post-map stage: the
 /// saved physical controller, the final-button adjustments and feedback, and
 /// the D-pad bits whose taunts must be filtered from the mapped output.
+/// Plain English: Carries controller changes and reports between the two mapper stages.
 #[derive(Default)]
 pub(super) struct MapperPreparation {
+    /// Technical: Original controller contents to restore after native mapping.
+    /// Plain English: The real controller values saved before temporary changes.
     pub(super) restore: Option<ControllerRestore>,
+    /// Technical: Planned button and stick changes for the mapped result.
+    /// Plain English: The button and stick values to apply after mapping.
     adjustments: MapperOutputAdjustments,
+    /// Technical: Delivery facts to record after native mapping.
+    /// Plain English: Information about which requested buttons actually reached the game.
     feedback: MapperDeliveryFeedback,
+    /// Technical: D-pad bits reserved by helper logic and filtered from mapped output.
+    /// Plain English: Directional buttons that should not also become taunts.
     reserved_dpad: u32,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Diagnostic data deferred until mapping completes.
+    /// Plain English: Troubleshooting details to write after this update.
     diagnostics: MapperDiagnostics,
 }
 
@@ -789,13 +944,28 @@ pub(super) struct MapperPreparation {
 /// * `turbo_active` - Indicates if turbo input is active.
 /// * `pivot_active` - Indicates if pivot input is active.
 /// * `posture_active` - Indicates if posture input is active.
+/// Plain English: Summarizes which input sources and helper modes are active for this poll.
 struct MapperIntentInputs {
+    /// Technical: Whether the controller sample passed freshness validation.
+    /// Plain English: Whether this input sample is recent enough to use.
     fresh: bool,
+    /// Technical: Whether manual policy actions are in scope.
+    /// Plain English: Whether manual helpers may act.
     manual_scope: bool,
+    /// Technical: Whether mash input currently owns an action.
+    /// Plain English: Whether the auto-mash helper is active.
     mash_active: bool,
+    /// Technical: Whether damage-state assistance is active.
+    /// Plain English: Whether the fighter is currently using damage assistance.
     damage_active: bool,
+    /// Technical: Whether turbo input is active.
+    /// Plain English: Whether the turbo helper is active.
     turbo_active: bool,
+    /// Technical: Whether dash-pivot input is active.
+    /// Plain English: Whether the dash-turn helper is active.
     pivot_active: bool,
+    /// Technical: Whether posture input is active.
+    /// Plain English: Whether a posture helper is active.
     posture_active: bool,
 }
 /// Computes the action intents for the mapper based on the current state and input flags. Returns an array of `Intent` for each possible action.
@@ -805,6 +975,7 @@ struct MapperIntentInputs {
 ///
 /// # Returns
 /// An array of `Intent` for each possible action.
+/// Plain English: Decides which controller actions each active helper wants to perform.
 fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Intent; 13] {
     let ledge_priority = state.action_owner.ledge_priority()
         && state.ledge_active
@@ -900,6 +1071,7 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
 }
 
 /// An intent whose owner keeps its reservation until its own script finishes.
+/// Plain English: Creates an action request that holds priority until its script ends.
 fn committed_intent(owner: Owner, present: bool) -> Intent {
     Intent {
         owner,
@@ -908,6 +1080,7 @@ fn committed_intent(owner: Owner, present: bool) -> Intent {
     }
 }
 /// An intent that yields to every committed owner.
+/// Plain English: Creates a lower-priority request that steps aside for active scripts.
 fn passive_intent(owner: Owner, present: bool) -> Intent {
     Intent {
         owner,
@@ -916,6 +1089,7 @@ fn passive_intent(owner: Owner, present: bool) -> Intent {
     }
 }
 /// Selects the appropriate controller output based on the winning owner, posture, and current situation, applying grab handoff and out-of-shield adjustments as needed.
+/// Plain English: Chooses the final button and stick output for the helper that won.
 fn selected_owner_output(
     state: &mut State,
     winner: Option<Owner>,
@@ -945,6 +1119,7 @@ fn selected_owner_output(
 }
 
 /// A grounded Grab packet neutralises the C-stick so the native mapper cannot read it as a smash.
+/// Plain English: Releases the right stick when a grounded grab is sent.
 fn grab_release_right_stick(selected: ControllerOutput, situation: i32) -> Option<[f32; 2]> {
     (situation == kirby_assist_core::native_states::situation::GROUND
         && selected.requested & kirby_assist_core::native_input::MAPPER_R != 0)
@@ -952,6 +1127,7 @@ fn grab_release_right_stick(selected: ControllerOutput, situation: i32) -> Optio
 }
 
 /// The C-stick packet the winning script requests, for the owners that supply one.
+/// Plain English: Gets the right-stick direction requested by the winning helper.
 fn owner_right_stick(state: &State, winner: Option<Owner>) -> Option<[f32; 2]> {
     match winner {
         Some(Owner::Ledge) => state
@@ -972,6 +1148,7 @@ fn owner_right_stick(state: &State, winner: Option<Owner>) -> Option<[f32; 2]> {
 }
 
 /// Determines the appropriate right stick input based on the winning owner, selected controller output, and current situation.
+/// Plain English: Chooses the right-stick output after considering the active helper and fighter state.
 fn selected_owner_right_stick(
     state: &State,
     winner: Option<Owner>,
@@ -982,13 +1159,23 @@ fn selected_owner_right_stick(
 }
 
 /// Represents a sampled posture, including configured C-stick inputs, controller output, and tilt aiming status.
+/// Technical: Bundles the posture helper's output with any sampled C-stick setup.
+/// Plain English: Stores posture-related button/stick choices for this mapper poll.
 #[derive(Clone, Copy)]
 struct PostureSample {
+    /// Technical: Optional pair of desired left- and right-stick values for configured posture.
+    /// Plain English: The stick directions needed for a posture change, if any.
     configured_c_stick: Option<([f32; 2], [f32; 2])>,
+    /// Technical: Posture helper's composed controller output.
+    /// Plain English: The posture helper's button and stick request.
     output: ControllerOutput,
+    /// Technical: Whether configured tilt logic is actively targeting a direction.
+    /// Plain English: Whether the helper is steering a tilt.
     tilt_aiming: bool,
 }
 
+/// Technical: Samples configured posture assistance using copied physical and native input state.
+/// Plain English: Chooses posture-related input for the current controller update.
 fn sample_mapper_posture(
     state: &mut State,
     manual_context: Option<ManualContext>,
@@ -1065,13 +1252,21 @@ fn sample_mapper_posture(
     }
 }
 /// Represents a sampled damage stick state, including DI, SDI, and damage stick inputs.
+/// Plain English: Holds the stick choices for damage direction and escape assistance.
 #[derive(Clone, Copy)]
 struct DamageStickSample {
+    /// Technical: Directional influence output selected for the current sample.
+    /// Plain English: The stick direction chosen for DI, if one is active.
     di_stick: Option<[f32; 2]>,
+    /// Technical: Smash directional influence output selected for the current sample.
+    /// Plain English: The stick direction chosen for SDI, if one is active.
     sdi_stick: Option<[f32; 2]>,
+    /// Technical: Exclusive damage-state stick output selected between DI and SDI.
+    /// Plain English: The final stick direction chosen for damage assistance.
     damage_stick: Option<[f32; 2]>,
 }
 /// Handles manual ledge walking, returning the appropriate stick input if conditions are met.
+/// Plain English: Uses the player's stick to walk along a ledge when the helper allows it.
 fn manual_ledge_walk(
     state: &State,
     frame: &OverlayFrame,
@@ -1139,6 +1334,7 @@ fn manual_ledge_walk(
     }
 }
 /// Samples the damage stick inputs for the given state and configuration, handling DI, SDI, and damage trajectory considerations.
+/// Plain English: Chooses safe DI or SDI stick input without overriding higher-priority actions.
 fn sample_damage_sticks(
     state: &mut State,
     config: &Config,
@@ -1215,6 +1411,7 @@ fn sample_damage_sticks(
 /// The classic monitor chord passes through untouched before D-pad Down can
 /// start a trump. This applies to standalone builds as well as Training; OS
 /// overlays remain responsible for their own focus.
+/// Plain English: Lets the monitor shortcut reach the system and cancels helper actions first.
 fn pass_monitor_chord(config: &Config, physical: ButtonTrace) -> bool {
     if !kirby_assist_core::settings_menu::monitor_chord(
         config.control_layout.policy_buttons(physical.held),
@@ -1232,6 +1429,7 @@ fn pass_monitor_chord(config: &Config, physical: ButtonTrace) -> bool {
 }
 
 /// Diagnostic only: records the first poll of every mapper index.
+/// Plain English: Logs each controller slot the mapper sees the first time.
 #[cfg(feature = "diagnostic-logging")]
 unsafe fn note_observed_mapper(
     index: i32,
@@ -1248,6 +1446,7 @@ unsafe fn note_observed_mapper(
 /// bookkeeping, lets the winning tool overlay the controller, and returns what
 /// the post-map stage must apply, record and restore. `None` leaves the call a
 /// plain passthrough.
+/// Plain English: Saves real input, applies the winning helper, and prepares output restoration.
 ///
 /// # Safety
 /// `admission.controller` must be the live native controller of this callback and `output` the mapper's result buffer.
@@ -1318,6 +1517,7 @@ pub(super) unsafe fn prepare_mapper_overlay(
 }
 
 /// Runs every overlay stage for one admitted poll while holding the state lock.
+/// Plain English: Applies the helper checks, chooses who controls the output, and prepares this poll.
 unsafe fn compose_overlay(state: &mut State, frame: &OverlayFrame, prep: &mut MapperPreparation) {
     let gate = poll_gate(state, frame);
     #[cfg(feature = "diagnostic-logging")]
@@ -1366,17 +1566,33 @@ unsafe fn compose_overlay(state: &mut State, frame: &OverlayFrame, prep: &mut Ma
 }
 
 /// Freshness and scope gates, computed once per poll.
+/// Technical: Carries validated input freshness, action scope, and native grab state.
+/// Plain English: Holds the checks that determine which inputs are safe to consider.
 #[derive(Clone, Copy)]
 struct PollGate {
+    /// Technical: Canonical policy button mask after menu consumption.
+    /// Plain English: Buttons available to helpers after the menu uses its buttons.
     policy_buttons: u32,
+    /// Technical: Whether this poll's action request passed freshness checks.
+    /// Plain English: Whether the helper request is recent enough to use.
     fresh: bool,
+    /// Technical: Whether the local fighter and scene allow manual assistance.
+    /// Plain English: Whether helpers are allowed for this player right now.
     manual_scope: bool,
+    /// Technical: Whether the native status represents an active grab.
+    /// Plain English: Whether the fighter is currently being grabbed.
     native_grab: bool,
+    /// Technical: Fresh auto-mash stick proposal, if active.
+    /// Plain English: The auto-mash stick direction, if one is ready.
     mash_stick: Option<[f32; 2]>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Poll timestamp reused by diagnostics to avoid another clock read.
+    /// Plain English: The time of this update, used by diagnostic reports.
     now: Instant,
 }
 
+/// Technical: Computes canonical button state, request freshness, route scope, and grab gates.
+/// Plain English: Checks whether current physical input and assistance requests are still usable.
 fn poll_gate(state: &State, frame: &OverlayFrame) -> PollGate {
     let OverlayFrame {
         index,
@@ -1430,6 +1646,7 @@ fn poll_gate(state: &State, frame: &OverlayFrame) -> PollGate {
 }
 
 /// Diagnostic only: reports the transition into an expired-input state once.
+/// Plain English: Logs when an input request first becomes too old to use.
 #[cfg(feature = "diagnostic-logging")]
 fn track_input_expiry(state: &mut State, gate: &PollGate) {
     let expired = gate.manual_scope
@@ -1443,19 +1660,37 @@ fn track_input_expiry(state: &mut State, gate: &PollGate) {
 }
 
 /// Each manual tool's proposal for this poll, before owner arbitration.
+/// Plain English: Holds the possible stick and button changes from every helper.
 #[derive(Clone, Copy)]
 struct ToolSamples {
+    /// Technical: Turbo helper's complete controller proposal.
+    /// Plain English: Buttons and stick proposed by Turbo.
     turbo_output: TurboOutput,
+    /// Technical: Turbo helper's left-stick proposal.
+    /// Plain English: The left-stick direction proposed by Turbo.
     turbo_stick: Option<[f32; 2]>,
+    /// Technical: Dash-pivot helper's left-stick proposal.
+    /// Plain English: The left-stick direction proposed by dash pivot.
     pivot_stick: Option<[f32; 2]>,
+    /// Technical: Manual ledge-walk helper's left-stick proposal.
+    /// Plain English: The left-stick direction proposed for walking the ledge.
     manual_walk_stick: Option<[f32; 2]>,
+    /// Technical: Snapshot of the current native action context.
+    /// Plain English: The fighter situation used by the helpers.
     manual_context: Option<ManualContext>,
+    /// Technical: Posture helper output and targeting metadata.
+    /// Plain English: The posture change proposed for this poll.
     posture: PostureSample,
+    /// Technical: Button mask consumed by the menu.
+    /// Plain English: Buttons used by the menu instead of the game.
     menu_consumed: u32,
+    /// Technical: Directional influence, SDI, and selected damage-stick proposals.
+    /// Plain English: Stick directions proposed for damage assistance.
     damage: DamageStickSample,
 }
 
 /// Samples the Turbo t-bag and dash-pivot helpers from the physical input.
+/// Plain English: Checks physical buttons for Turbo and dash-pivot stick requests.
 fn sample_turbo_and_pivot(
     state: &mut State,
     frame: &OverlayFrame,
@@ -1536,6 +1771,7 @@ fn sample_turbo_and_pivot(
 }
 
 /// Samples every manual tool for this poll: turbo, dash pivot, ledge walk, posture and damage sticks.
+/// Plain English: Collects every helper's proposed input before choosing a winner.
 fn sample_tools(
     state: &mut State,
     frame: &OverlayFrame,
@@ -1602,6 +1838,7 @@ fn sample_tools(
 }
 
 /// Diagnostic only: describes the trump input of a poll that pressed its binding.
+/// Plain English: Adds a troubleshooting message about the current ledge-trump buttons.
 #[cfg(feature = "diagnostic-logging")]
 fn report_trump_input(state: &State, gate: &PollGate, prep: &mut MapperPreparation) {
     if prep.diagnostics.trump_pressed {
@@ -1620,6 +1857,7 @@ fn report_trump_input(state: &State, gate: &PollGate, prep: &mut MapperPreparati
 }
 
 /// Resolves the owner of this poll's left stick and buttons, then records what the mapper hook must deliver for it.
+/// Plain English: Gives control to one helper and remembers which buttons it must deliver.
 fn arbitrate_owner(
     state: &mut State,
     gate: &PollGate,
@@ -1746,6 +1984,7 @@ fn arbitrate_owner(
 }
 
 /// Whether the winning script asked the mapped jump to be shortened.
+/// Plain English: Checks whether the active helper requested a short hop.
 fn owner_native_short_hop(state: &State, winner: Option<Owner>) -> bool {
     match winner {
         Some(Owner::Ledge) => state.ledge_output.native_short_hop,
@@ -1756,6 +1995,7 @@ fn owner_native_short_hop(state: &State, winner: Option<Owner>) -> bool {
 }
 
 /// The left-stick packet the winning owner supplies.
+/// Plain English: Chooses the winning helper's left-stick direction, if any.
 fn winner_left_stick(arbitration: &Arbitration, samples: &ToolSamples) -> Option<[f32; 2]> {
     let Arbitration {
         winner, selected, ..
@@ -1781,6 +2021,7 @@ fn winner_left_stick(arbitration: &Arbitration, samples: &ToolSamples) -> Option
 }
 
 /// Diagnostic only: reports a movement override and feeds the mode recorder.
+/// Plain English: Records how the final movement direction differed from physical input.
 #[cfg(feature = "diagnostic-logging")]
 fn report_mode_snapshot(
     state: &mut State,
@@ -1895,18 +2136,32 @@ fn report_mode_snapshot(
 }
 
 /// The button masks and stick packets the winning owner asks the native mapper to treat as its input.
+/// Plain English: Holds the chosen helper's button and stick changes for the native mapper.
 #[derive(Clone, Copy)]
 struct NativeRequest {
+    /// Technical: Canonical consumed button mask.
+    /// Plain English: Buttons used by the helper and kept from the game.
     consumed: u32,
+    /// Technical: Button mask requested from the selected owner.
+    /// Plain English: Buttons the winning helper wants to press.
     requested: u32,
+    /// Technical: Button mask reserved as exclusively owned by the selected action.
+    /// Plain English: Buttons only the winning helper is allowed to control.
     owned: u32,
+    /// Technical: Optional C-stick packet required to cancel or replace native input.
+    /// Plain English: A right-stick direction to apply, if one is needed.
     cancel_stick: Option<[f32; 2]>,
+    /// Technical: Whether the winning sequence is currently in a walking action.
+    /// Plain English: Whether a recipe is currently walking.
     sequence_walking: bool,
+    /// Technical: Whether the sequence has exclusive native stick ownership.
+    /// Plain English: Whether the recipe must fully control the sticks.
     exclusive_sequence: bool,
 }
 
 /// The C-stick packet to force this poll: a grounded Grab release, or the
 /// winning script's own stick while its input is current.
+/// Plain English: Chooses the right-stick value needed to prevent stray native input.
 fn cancel_right_stick(
     state: &State,
     winner: Option<Owner>,
@@ -1927,6 +2182,8 @@ fn cancel_right_stick(
     current.then(|| owner_right_stick(state, winner)).flatten()
 }
 
+/// Technical: Combines arbitration and sampled helper outputs into a native request.
+/// Plain English: Builds the final set of button/stick changes for this mapping poll.
 fn compose_native_request(
     state: &State,
     gate: &PollGate,
@@ -2036,6 +2293,7 @@ fn compose_native_request(
 
 /// Runs the shared manual overlay over the physical input and returns its
 /// frame plus whether Out of Shield is mid approach pulse.
+/// Plain English: Applies menu and helper button changes to the physical input.
 fn apply_manual_overlay(
     state: &mut State,
     frame: &OverlayFrame,
@@ -2084,6 +2342,7 @@ fn apply_manual_overlay(
 }
 
 /// Chooses the analog sticks and final-button adjustments the mapper hook applies after native mapping.
+/// Plain English: Plans which sticks and buttons should reach the game after native mapping.
 fn plan_stick_overlay(
     state: &State,
     frame: &OverlayFrame,
@@ -2183,6 +2442,7 @@ fn plan_stick_overlay(
 
 /// Records which automatic actions the final buttons must confirm, and
 /// returns the button history after posture side-tilt aliasing.
+/// Plain English: Checks which helper actions reached the game and updates delivery history.
 fn plan_delivery_feedback(
     state: &mut State,
     frame: &OverlayFrame,
@@ -2274,6 +2534,7 @@ fn plan_delivery_feedback(
 }
 
 /// Diagnostic only: grab-delivery traces, ledge edge, queued logs and the grab mapping comparison.
+/// Plain English: Prepares troubleshooting details about delivered inputs for the report.
 #[cfg(feature = "diagnostic-logging")]
 fn report_overlay_diagnostics(
     state: &mut State,
@@ -2394,6 +2655,7 @@ fn report_overlay_diagnostics(
 }
 
 /// Publishes the final buttons and sticks into the native controller and records what to restore.
+/// Plain English: Temporarily applies the chosen inputs and saves the real controller values for restoration.
 unsafe fn commit_overlay(
     state: &mut State,
     frame: &OverlayFrame,
@@ -2481,6 +2743,7 @@ unsafe fn commit_overlay(
     });
 }
 /// Finalizes the mapper overlay for the given output and preparation state, applying adjustments and recording delivery feedback.
+/// Plain English: Applies the final controller changes, records delivery, and writes deferred diagnostics.
 pub(super) unsafe fn finish_mapper_overlay(
     output: *mut c_void,
     index: i32,

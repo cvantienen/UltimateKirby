@@ -1,4 +1,8 @@
 //! Shared callback state and its session-reset/cancellation rules.
+//! Technical: Holds mutable policy/session snapshots shared by callbacks and
+//! implements their cancellation and reset semantics.
+//! Plain English: This is the runtime's shared memory for the current player
+//! session and active helpers.
 use super::*;
 #[cfg(feature = "diagnostic-logging")]
 use super::observation::LedgeDiagnostic;
@@ -6,145 +10,334 @@ use kirby_assist_core::kirby::{FairFollowup, TripFollowup};
 
 // One session for the configured controller, rather than one global session per
 // fighter. `cancel` clears assistance without changing the game's native state.
+/// Technical: Aggregates menu, session, input, and helper state for callback sharing.
+/// Plain English: Stores everything the currently selected player session needs.
 pub(super) struct State {
+    /// Technical: Lazily created menu state for the selected fighter.
+    /// Plain English: The current in-game menu and its selection.
     pub(super) settings_menu: Option<settings_menu::SettingsMenu>,
     // UI identity/lifetime survive combat cancellation and respawn. They never
     // authorize an input sequence; fighter_kind retains that separate role.
+    /// Technical: Fighter kind used for menu identity, independent of input authorization.
+    /// Plain English: Character currently represented by the menu.
     pub(super) menu_fighter_kind: Option<i32>,
+    /// Technical: Whether menu rendering is in an active battle context.
+    /// Plain English: Shows whether the match menu is currently active.
     pub(super) menu_battle_active: bool,
     // Intro permission is tied to a real local ENTRY object and fresh route,
     // then discarded at GO. Retained CSS roster data cannot reopen the menu.
+    /// Technical: Validated object ID that can authorize an intro menu.
+    /// Plain English: The entry fighter allowed to open the menu before the match starts.
     pub(super) menu_intro_object: Option<u32>,
+    /// Technical: Match-session generation and lifecycle state.
+    /// Plain English: Tracks which match this assistance state belongs to.
     pub(super) session: MatchSession,
     // Select a physical controller, then follow its actual mapper slot. Arena
     // participant slots must not be confused with local controller identity.
+    /// Technical: Selected mapper index for the configured physical controller.
+    /// Plain English: The controller slot Kirby Assist follows.
     pub(super) mapping_index: Option<i32>,
     // Human fighter IDs learned from live command callbacks, indexed by mapper
     // slot. No accessor is retained and the mapper never enumerates the roster.
+    /// Technical: Callback-discovered object IDs and observation times, indexed by mapper slot.
+    /// Plain English: Recently seen human fighters for each controller.
     pub(super) human_routes: [Option<(u32, Instant)>; 8],
     // Roster IDs are discovered only by native callbacks; synchronous mapper
     // refreshes revalidate these IDs instead of enumerating a loading roster.
+    /// Technical: Copied bounded roster and source observation tick.
+    /// Plain English: Recent fighter IDs used by ledge checks.
     pub(super) ledge_roster: Option<(kirby_assist_core::battle_objects::FightersInGame, i64)>,
     // Our mapper-call counter, NOT a verified simulation-frame or HID clock.
+    /// Technical: Local mapper-call counter, not a simulation-frame clock.
+    /// Plain English: Counts controller polling updates.
     pub(super) raw_tick: i64,
+    /// Technical: Wall-clock time of the last physical input sample.
+    /// Plain English: When the latest controller state was seen.
     pub(super) raw_seen: Option<Instant>,
+    /// Technical: Last raw held-button bitfield from the physical controller.
+    /// Plain English: Which physical buttons were held most recently.
     pub(super) raw_buttons: u32,
+    /// Technical: Tracks manual jump ownership and startup fencing.
+    /// Plain English: Prevents a real jump from being mistaken for an automatic one.
     pub(super) manual_jump_fence: kirby_assist_core::manual_controls::ManualJumpFence,
+    /// Technical: Tracks native grab-to-follow-up handoff state.
+    /// Plain English: Remembers the current grab sequence and its timing.
     pub(super) grab_handoff: kirby_assist_core::grab_handoff::GrabHandoff,
+    /// Technical: Whether the selected physical controller reported connected.
+    /// Plain English: Shows whether the controller is plugged in/available.
     pub(super) raw_connected: bool,
     // Option permits lazy construction and a clean reset by assigning None.
+    /// Technical: Optional raw-button policy state for the selected controller.
+    /// Plain English: Stores automatic button-policy history when needed.
     pub(super) policy: Option<RawAutoControls>,
+    /// Technical: Native animation-progress clock for deduplicating repeated polls.
+    /// Plain English: Tracks animation time so polling does not count as extra frames.
     pub(super) animation_clock: Option<AnimationClock>,
+    /// Technical: Tech-input edge and acknowledgment scheduler.
+    /// Plain English: Tracks shield presses needed for a possible tech.
     pub(super) tech_input: Option<TechInput>,
+    /// Technical: Motion history used to predict floor-contact transitions.
+    /// Plain English: Remembers movement needed to estimate an upcoming landing.
     pub(super) tech_floor_motion: kirby_assist_core::tech_prediction::FloorMotionHistory,
+    /// Technical: Current tech scheduler output before mapper acknowledgment.
+    /// Plain English: The shield request prepared for the next controller mapping.
     pub(super) tech_output: TechOutput,
+    /// Technical: Marks tech output as urgent for mapper ownership arbitration.
+    /// Plain English: Gives a near-immediate tech request higher priority.
     pub(super) tech_urgent: bool,
+    /// Technical: Last mapped guard state used for edge handling.
+    /// Plain English: Whether shield was present in the previous mapped result.
     pub(super) last_mapped_guard: bool,
+    /// Technical: Last mapped left-stick vector for continuity checks.
+    /// Plain English: The stick direction sent on the previous mapping.
     pub(super) last_mapped_stick: Option<[f32; 2]>,
+    /// Technical: Mapper tick associated with the latest policy evaluation.
+    /// Plain English: Which controller poll produced the current policy request.
     pub(super) policy_tick: Option<i64>,
     // Separate state for side-D-pad consumption and temporary left-stick control.
+    /// Technical: Optional turbo-button state and repeat timing.
+    /// Plain English: Tracks turbo input when it is enabled.
     pub(super) turbo: Option<TurboState>,
+    /// Technical: Optional dash-pivot timing and input state.
+    /// Plain English: Tracks a manual dash-to-turn assist.
     pub(super) dash_pivot: Option<DashPivotAssist>,
+    /// Technical: Copied manual movement context from native observations.
+    /// Plain English: The fighter action details used by manual controls.
     pub(super) manual_context: Option<ManualContext>,
+    /// Technical: Posture helper state for configured crouch/tilt behavior.
+    /// Plain English: Tracks posture adjustments for manual movement.
     pub(super) posture: Option<kirby_assist_core::posture::Posture>,
+    /// Technical: Targeted posture value for the current helper action.
+    /// Plain English: The desired posture or stick target.
     pub(super) posture_target: Option<f32>,
+    /// Technical: Whether the posture helper currently consumes down input.
+    /// Plain English: Shows whether down is being used for posture assistance.
     pub(super) posture_down: bool,
+    /// Technical: Tracks directional aliases caused by tilt-side controls.
+    /// Plain English: Remembers which side inputs are temporarily treated alike.
     pub(super) posture_side_aliases: kirby_assist_core::posture::TiltSideAliases,
+    /// Technical: Whether the current posture route passed floor-safety checks.
+    /// Plain English: Shows whether posture input is safe near the platform edge.
     pub(super) posture_floor_safe: bool,
+    /// Technical: Optional manual button overlay applied during mapping.
+    /// Plain English: Stores button changes for the current manual helper.
     pub(super) manual_overlay: Option<ManualOverlay>,
     // Observation-derived eligibility, not just whether a trigger is held.
     // Turbo/ledge must also respect grounded movement and native busy states.
+    /// Technical: Observation-derived readiness gate for turbo and ledge movement.
+    /// Plain English: Shows whether movement helpers may act in the current state.
     pub(super) turbo_ready: bool,
+    /// Technical: Tracks exclusive action ownership and priority arbitration.
+    /// Plain English: Keeps helpers from sending conflicting actions at once.
     pub(super) action_owner: ActionOwnership,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Last diagnostic owner that blocked movement.
+    /// Plain English: Records why movement assistance was held back.
     pub(super) last_movement_blocker: Option<Owner>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Whether the most recent diagnostic request expired before mapping.
+    /// Plain English: Records if a helper request became too old to use.
     pub(super) last_input_expired: bool,
+    /// Technical: Kirby forward-air follow-up policy state.
+    /// Plain English: Tracks the automatic forward-air follow-up.
     pub(super) fair_followup: Option<FairFollowup>,
+    /// Technical: Current forward-air follow-up controller proposal.
+    /// Plain English: Buttons requested by the forward-air helper.
     pub(super) fair_output: ControllerOutput,
+    /// Technical: Kirby trip follow-up policy state.
+    /// Plain English: Tracks the automatic trip follow-up.
     pub(super) trip_followup: Option<TripFollowup>,
+    /// Technical: Current trip follow-up controller proposal.
+    /// Plain English: Buttons requested by the trip helper.
     pub(super) trip_output: ControllerOutput,
+    /// Technical: SDI state machine for the active victim hitstop.
+    /// Plain English: Tracks directional influence during hit pause.
     pub(super) sdi: Option<SdiState>,
+    /// Technical: Copied context used by SDI sampling.
+    /// Plain English: Fighter and hit details for the current SDI decision.
     pub(super) sdi_context: Option<SdiContext>,
+    /// Technical: Automatic DI policy state.
+    /// Plain English: Tracks directional influence choices during launch.
     pub(super) di: Option<kirby_assist_core::auto_di::AutoDi>,
+    /// Technical: Copied blast-zone and launch context for DI prediction.
+    /// Plain English: The stage and launch facts used by DI.
     pub(super) di_context: Option<kirby_assist_core::auto_di::Context>,
+    /// Technical: Last calculated damage trajectory for the active hit.
+    /// Plain English: Predicted path of the launched fighter.
     pub(super) damage_trajectory: Option<kirby_assist_core::auto_di::Trajectory>,
+    /// Technical: Cached object ID, hitstop time, and copied blast-zone geometry.
+    /// Plain English: Recent stage bounds reused while the same hit is being observed.
     pub(super) damage_geometry: Option<(u32, u64, Option<kirby_assist_core::auto_di::BlastZone>)>,
+    /// Technical: Native-observation gate for ledge-walk assistance.
+    /// Plain English: Shows whether ledge walking is currently allowed.
     pub(super) ledge_walk_ready: bool,
+    /// Technical: Current and target movement vectors for ledge walking.
+    /// Plain English: The planned path for moving along the ledge.
     pub(super) ledge_walk_motion: Option<([f32; 2], [f32; 2])>,
+    /// Technical: Active ledge-trap response state.
+    /// Plain English: Tracks the selected ledge response sequence.
     pub(super) ledge: Option<LedgeTrap>,
+    /// Technical: Tracks recent ledge visits for bounded response behavior.
+    /// Plain English: Remembers recent ledge interactions.
     pub(super) ledge_visits: kirby_assist_core::ledge_trap::LedgeVisits,
+    /// Technical: Whether a ledge interaction is active in the current observation.
+    /// Plain English: Shows whether the fighter is currently at a ledge.
     pub(super) ledge_active: bool,
+    /// Technical: Mapper tick of the last ledge-edge search.
+    /// Plain English: Prevents searching for a ledge spot on every poll.
     pub(super) ledge_seek_tick: Option<i64>,
+    /// Technical: Mapper tick of the last trump-edge search.
+    /// Plain English: Prevents repeating the ledge-trump search too often.
     pub(super) trump_seek_tick: Option<i64>,
+    /// Technical: Last copied ground-ledge position and approach facts.
+    /// Plain English: The recent stage location used by ledge positioning.
     pub(super) ledge_position: Option<LedgePosition>,
+    /// Technical: Current ledge controller proposal.
+    /// Plain English: Buttons requested by the ledge helper.
     pub(super) ledge_output: ControllerOutput,
+    /// Technical: Out-of-shield response policy state.
+    /// Plain English: Tracks possible actions after shielding an attack.
     pub(super) oos: kirby_assist_core::out_of_shield::OutOfShield,
+    /// Technical: Current out-of-shield controller proposal.
+    /// Plain English: Buttons requested by the shield response helper.
     pub(super) oos_output: ControllerOutput,
+    /// Technical: Whether automatic defense currently owns a guard hold.
+    /// Plain English: Shows whether the defense helper is holding shield.
     pub(super) autopilot_guarding: bool,
+    /// Technical: Persistent guard-hold scheduler for a defended threat.
+    /// Plain English: Keeps shield held for the selected defense window.
     pub(super) guard_hold: Option<kirby_assist_core::autopilot_guard::GuardHold>,
+    /// Technical: Projectile-reflector policy state, including receipts.
+    /// Plain English: Tracks an active projectile reflection response.
     pub(super) reflector: kirby_assist_core::projectile_reflect::Reflector,
+    /// Technical: Current reflector controller proposal.
+    /// Plain English: Buttons requested to reflect a projectile.
     pub(super) reflect_output: ControllerOutput,
+    /// Technical: Optional spot-dodge policy and target state.
+    /// Plain English: Tracks a dodge response to an incoming grab.
     pub(super) spot_dodge: Option<kirby_assist_core::spot_dodge::SpotDodge>,
+    /// Technical: Current spot-dodge controller proposal.
+    /// Plain English: Buttons requested by the spot-dodge helper.
     pub(super) spot_output: ControllerOutput,
+    /// Technical: Optional ledge-trump timing and ownership state.
+    /// Plain English: Tracks a possible ledge trump.
     pub(super) trump: Option<LedgeTrump>,
+    /// Technical: Current ledge-trump controller proposal.
+    /// Plain English: Buttons requested by the ledge-trump helper.
     pub(super) trump_output: ControllerOutput,
     // Cached with the same timestamp as requested; never used after expiry.
+    /// Technical: Temporary requested stick for mash behavior.
+    /// Plain English: The stick direction requested by the current mash helper.
     pub(super) mash_stick: Option<[f32; 2]>,
+    /// Technical: Wall-clock timestamp associated with the latest request.
+    /// Plain English: When the current helper request was made.
     pub(super) request_seen: Option<Instant>,
+    /// Technical: Optional reaction-rule engine for configured matchup responses.
+    /// Plain English: Tracks configured rules that react to opponent behavior.
     pub(super) rule_engine: Option<Box<kirby_assist_core::reaction_rules::Engine>>,
+    /// Technical: Current roll-read controller proposal.
+    /// Plain English: Buttons requested by the roll-read helper.
     pub(super) roll_read_output: ControllerOutput,
+    /// Technical: Most recently observed native object ID.
+    /// Plain English: The fighter object seen in the latest callback.
     pub(super) observed_object: Option<u32>,
     // Store a game object ID, never an accessor pointer that could become stale.
+    /// Technical: Revalidated native object ID associated with the controller.
+    /// Plain English: The fighter currently linked to this controller.
     pub(super) associated_object: Option<u32>,
     // Native kind for the same validated controller/fighter association.
+    /// Technical: Fighter-kind ID for the validated controller association.
+    /// Plain English: The character currently linked to this controller.
     pub(super) fighter_kind: Option<i32>,
     // Repeated game queries within one observed mapper update must not mash
     // faster, consume cooldown faster, or issue an extra tech press.
+    /// Technical: Mapper tick already evaluated by policies.
+    /// Plain English: Prevents the same controller poll from advancing helpers twice.
     pub(super) evaluated_tick: Option<i64>,
+    /// Technical: Snapshot of observation fields required for native reads.
+    /// Plain English: Tracks which game facts this session needs to collect.
     pub(super) observation_setup: kirby_assist_core::observation::ObservationSetup,
     // Native observation order is separate from mapper polling frequency.
+    /// Technical: Monotonic wrapping fence for accepted observation publication.
+    /// Plain English: Distinguishes newer observations from stale callbacks.
     pub(super) observation_sequence: u64,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Last scenario log state used to suppress duplicate reports.
+    /// Plain English: Remembers which scenario status was last logged.
     pub(super) last_logged_scenario: (bool, bool),
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Diagnostic confirmation that the mapper route was observed.
+    /// Plain English: Records whether the controller mapping was verified.
     pub(super) mapper_confirmed: bool,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Diagnostic flag indicating an input field was altered.
+    /// Plain English: Records whether assistance changed any button data.
     pub(super) buttons_modified: bool,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Suppresses repeated button-modification diagnostic events.
+    /// Plain English: Avoids logging the same input change over and over.
     pub(super) button_mod_logged: bool,
     // Last game-visible buttons, distinct from the restored physical memory.
     // This tells the tech policy whether it must release ZR before re-pressing.
+    /// Technical: Last mapped button bitfield observed by the game.
+    /// Plain English: Remembers the buttons Smash actually received.
     pub(super) last_output_buttons: u32,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Last tech diagnostic key and reason tuple.
+    /// Plain English: Remembers the most recent tech status message.
     pub(super) last_tech_diagnostic: Option<(i32, i32, &'static str)>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Deferred tech diagnostic text awaiting logger output.
+    /// Plain English: A tech message to write later outside the callback.
     pub(super) pending_tech_log: Option<String>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Deferred combat diagnostic text awaiting logger output.
+    /// Plain English: A combat message to write later outside the callback.
     pub(super) pending_combat_log: Option<String>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Last combat diagnostic transition and target tuple.
+    /// Plain English: Tracks recent combat changes to avoid duplicate reports.
     pub(super) last_combat_diagnostic: (bool, bool, u32),
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Rate gate for ledge diagnostic snapshots.
+    /// Plain English: Limits repeated ledge troubleshooting reports.
     pub(super) ledge_diagnostics: DiagnosticGate<LedgeDiagnostic>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Recorder for diagnostic scenario/mode events.
+    /// Plain English: Collects mode changes for diagnostic reports.
     pub(super) mode_diagnostics: kirby_assist_core::diagnostics::modes::Recorder,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Wall-clock origin for mode diagnostics.
+    /// Plain English: When the current mode report started.
     pub(super) mode_log_origin: Option<Instant>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Optional hit-confirmation fact associated with the mode trace.
+    /// Plain English: Whether the recorded mode action connected.
     pub(super) mode_hit: Option<bool>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Last automatic-DI decision emitted for diagnostics.
+    /// Plain English: Remembers the latest DI choice for troubleshooting.
     pub(super) last_di_diagnostic: Option<kirby_assist_core::auto_di::Decision>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Wall-clock origin for ledge diagnostic timing.
+    /// Plain English: When the current ledge report started.
     pub(super) ledge_log_origin: Option<Instant>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Deferred ledge diagnostic text awaiting logger output.
+    /// Plain English: A ledge message to write later outside the callback.
     pub(super) pending_ledge_log: Option<String>,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Fixed-storage trace of grab request and mapper evidence.
+    /// Plain English: Saves grab troubleshooting events for a later report.
     pub(super) grab_trace: crate::grab_diagnostics::GrabTrace,
     #[cfg(feature = "diagnostic-logging")]
+    /// Technical: Recorder for diagnostic calibration samples.
+    /// Plain English: Collects ledge calibration details when diagnostics are enabled.
     pub(super) calibration: crate::calibration::Recorder,
 }
 impl State {
     /// Keep edge histories while discarding automatic plans under ledge priority.
+    /// Plain English: Stops lower-priority automatic helpers while preserving input history.
     pub(super) fn suspend_automatic_punishes(&mut self) {
         self.reflector.cancel();
         self.reflect_output = ControllerOutput::default();
@@ -168,6 +361,8 @@ impl State {
         self.trip_output = ControllerOutput::default();
         self.fair_output = ControllerOutput::default();
     }
+    /// Technical: Cancels pending actions except those owned by the selected priority owner.
+    /// Plain English: Clears helper requests that should yield to another action.
     pub(super) fn cancel_non_owner(&mut self, keep: Option<Owner>) {
         if keep != Some(Owner::Safety) {
             if let Some(tech) = self.tech_input.as_mut() {
@@ -269,6 +464,8 @@ impl State {
     // `const fn` allows the global Mutex to be initialized before startup.
     // Options begin as None; get_or_insert_with in the callbacks constructs
     // each helper only when first needed. No game pointer is created here.
+    /// Technical: Constructs empty callback state with initialized policy primitives.
+    /// Plain English: Starts a session state with no active helper requests.
     pub(super) const fn new() -> Self {
         Self {
             reflector: kirby_assist_core::projectile_reflect::Reflector::new(),
@@ -392,6 +589,7 @@ impl State {
     /// Drop every queued tool proposal and its output. Callers add the resets
     /// that differ: menu changes keep reflector/tech edge history, a full
     /// cancellation does not.
+    /// Plain English: Clears pending helper actions so stale input cannot continue.
     fn clear_tool_proposals(&mut self) {
         self.reflect_output = ControllerOutput::default();
         // Native facts/settings already being read are no longer current, so the
@@ -436,6 +634,8 @@ impl State {
     }
     // Menu choices replace settings; do not let a previous configuration keep
     // an old punish/movement proposal queued. Navigation alone never calls this.
+    /// Technical: Clears manual-control overlays and their pending ownership/outputs.
+    /// Plain English: Stops the manual helpers from keeping old input requests.
     pub(super) fn cancel_manual_tools(&mut self) {
         self.reflector.cancel();
         self.clear_tool_proposals();
@@ -450,6 +650,8 @@ impl State {
             self.calibration.reset("menu choice/manual tool changed");
         }
     }
+    /// Technical: Advances match-session state and yields its current publication ticket.
+    /// Plain English: Starts, updates, or ends the active match session.
     pub(super) fn update_match(&mut self, ready: bool) -> Option<SessionTicket> {
         if self.session.update(ready) || !ready {
             #[cfg(feature = "diagnostic-logging")]
@@ -477,6 +679,8 @@ impl State {
     }
     // Use for actual cancellation/reassignment. Hitstop deliberately does NOT
     // call this: resetting there would forget cooldown and input history.
+    /// Technical: Cancels all pending tool proposals and resets transient assistance state.
+    /// Plain English: Clears active helper actions while leaving native game state untouched.
     pub(super) fn cancel(&mut self) {
         self.reflector = kirby_assist_core::projectile_reflect::Reflector::new();
         self.clear_tool_proposals();

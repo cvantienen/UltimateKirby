@@ -1,10 +1,21 @@
 //! Read-only damage environment observations. Cache copied bounds per hit;
 //! refresh at launch-input handoff after SDI, and never retain game pointers.
+//! Technical: Converts short-lived native damage-state reads into copied blast
+//! zone geometry and optional trajectory estimates.
+//! Plain English: This module estimates where a launched fighter may travel without
+//! storing game-owned pointers.
 use crate::game_ffi as game;
 use kirby_assist_core::auto_di::{BlastZone, Trajectory};
-/// Observes the damage environment for a given object, caching geometry and computing trajectory if applicable.
+/// Technical: Cache key containing the object id, damage-stop countdown, and copied blast-zone geometry.
+/// Plain English: Remembers the stage bounds already read for this launched fighter.
 pub(super) type GeometryCache = (u32, u64, Option<BlastZone>);
-/// Cached geometry and blast zone information for a specific object at a given frame.
+/// Observes the damage environment for a given object, caching geometry and computing trajectory if applicable.
+/// Technical: Reuses matching cached blast-zone bounds and computes trajectory data
+/// only during the bounded damage-stop observation window.
+/// Plain English: Estimates the launch path while avoiding unnecessary native reads.
+///
+/// # Safety
+/// The object pointer must be valid for the duration of the native reads.
 pub(super) unsafe fn observe(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,

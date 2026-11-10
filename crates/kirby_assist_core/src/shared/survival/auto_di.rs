@@ -7,14 +7,32 @@ mod trajectory {
     //! stage collision, recovery options and the game's KO decision remain native.
     use super::{predicted_launch, Context, Decision, Mode, Reason, Settings};
 
+    /// Technical: Defines the `BlastZone` data structure.
+    ///
+    /// Plain English: Holds the data for BlastZone.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct BlastZone {
+        /// Technical: Stores the `left` value in `BlastZone` as `f32`.
+        ///
+        /// Plain English: Holds the left value used by BlastZone.
         pub left: f32,
+        /// Technical: Stores the `right` value in `BlastZone` as `f32`.
+        ///
+        /// Plain English: Holds the right value used by BlastZone.
         pub right: f32,
+        /// Technical: Stores the `bottom` value in `BlastZone` as `f32`.
+        ///
+        /// Plain English: Holds the bottom value used by BlastZone.
         pub bottom: f32,
+        /// Technical: Stores the `top` value in `BlastZone` as `f32`.
+        ///
+        /// Plain English: Holds the top value used by BlastZone.
         pub top: f32,
     }
     impl BlastZone {
+        /// Technical: Determines whether the `contains` condition holds.
+        ///
+        /// Plain English: Checks whether contains.
         pub fn contains(self, p: [f32; 2]) -> bool {
             [self.left, self.right, self.bottom, self.top, p[0], p[1]]
                 .iter()
@@ -28,6 +46,7 @@ mod trajectory {
         /// Pinned native result enum: NONE=-1, UP=0, DOWN=1, LEFT=2, RIGHT=3.
         /// Each axis is bracketed independently from a verified interior point.
         /// Unknown/nonrectangular results fail closed instead of inventing a stage.
+        /// Plain English: Read the actual death rectangle through GroundUtility::checkdeadarea. Pinned native result enum: NONE=-1, UP=0, DOWN=1, LEFT=2, RIGHT=3. Each axis is bracketed independently from a verified interior point.
         pub fn observe(p: [f32; 2], mut query: impl FnMut([f32; 2]) -> i32) -> Option<Self> {
             if !p.iter().all(|v| v.is_finite() && v.abs() < 8192.) || query(p) != -1 {
                 return None;
@@ -72,6 +91,9 @@ mod trajectory {
             };
             bounds.contains(p).then_some(bounds)
         }
+        /// Technical: Returns the `margin` result.
+        ///
+        /// Plain English: Gets the margin result.
         pub fn margin(self, p: [f32; 2]) -> f32 {
             (p[0] - self.left)
                 .min(self.right - p[0])
@@ -80,15 +102,36 @@ mod trajectory {
         }
     }
 
+    /// Technical: Defines the `Trajectory` data structure.
+    ///
+    /// Plain English: Holds the data for Trajectory.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Trajectory {
+        /// Technical: Stores the `position` value in `Trajectory` as `[f32; 2]`.
+        ///
+        /// Plain English: Stores the position collection for Trajectory.
         pub position: [f32; 2],
+        /// Technical: Stores the `blast` value in `Trajectory` as `BlastZone`.
+        ///
+        /// Plain English: Holds the blast value used by Trajectory.
         pub blast: BlastZone,
+        /// Technical: Stores the `hitstun` value in `Trajectory` as `f32`.
+        ///
+        /// Plain English: Holds the hitstun value used by Trajectory.
         pub hitstun: f32,
+        /// Technical: Stores the `gravity` value in `Trajectory` as `f32`.
+        ///
+        /// Plain English: Holds the gravity value used by Trajectory.
         pub gravity: f32,
+        /// Technical: Stores the `fall_speed` value in `Trajectory` as `f32`.
+        ///
+        /// Plain English: Holds the fall speed value used by Trajectory.
         pub fall_speed: f32,
     }
     impl Trajectory {
+        /// Technical: Determines whether the `valid` condition holds.
+        ///
+        /// Plain English: Checks whether valid.
         pub fn valid(self) -> bool {
             self.blast.contains(self.position)
                 && self.hitstun.is_finite()
@@ -101,6 +144,7 @@ mod trajectory {
         /// Larger is safer. Surviving the forecast outranks delaying a predicted KO;
         /// among survivors prefer clearance throughout flight, including corners.
         /// Uses Ultimate's 0.051 launch-speed decay and native fighter gravity.
+        /// Plain English: Larger is safer. Surviving the forecast outranks delaying a predicted KO; among survivors prefer clearance throughout flight, including corners. Uses Ultimate's 0.051 launch-speed decay and native fighter gravity.
         pub fn score(self, launch: [f32; 2]) -> f32 {
             let initial_speed = launch[0].hypot(launch[1]);
             if !self.valid() || !launch.iter().all(|v| v.is_finite()) || initial_speed < 0.00001 {
@@ -151,6 +195,9 @@ mod trajectory {
         }
     }
 
+    /// Technical: Chooses the trajectory.
+    ///
+    /// Plain English: Chooses the trajectory.
     pub fn choose_trajectory(
         settings: Settings,
         c: Context,
@@ -200,21 +247,46 @@ mod trajectory {
     }
 }
 pub use trajectory::{choose_trajectory, BlastZone, Trajectory};
+/// Technical: Defines the available `Mode` cases.
+///
+/// Plain English: Lists the available Mode choices.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Mode {
+    /// Technical: Represents the `Adaptive` case of `Mode`.
+    ///
+    /// Plain English: Represents the Adaptive option in Mode.
     Adaptive,
     #[default]
+    /// Technical: Represents the `Survival` case of `Mode`.
+    ///
+    /// Plain English: Represents the Survival option in Mode.
     Survival,
+    /// Technical: Represents the `Escape` case of `Mode`.
+    ///
+    /// Plain English: Represents the Escape option in Mode.
     Escape,
 }
+/// Technical: Defines the `Settings` data structure.
+///
+/// Plain English: Holds the data for Settings.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Settings {
+    /// Technical: Stores whether `Settings` is enabled.
+    ///
+    /// Plain English: Turns assistance on or off.
     pub enabled: bool,
+    /// Technical: Stores the `mode` value in `Settings` as `Mode`.
+    ///
+    /// Plain English: Holds the mode value used by Settings.
     pub mode: Mode,
     /// Legacy adaptive threshold, retained for existing config compatibility.
+    /// Plain English: Legacy adaptive threshold, retained for existing config compatibility.
     pub survival_speed: f32,
 }
 impl Default for Settings {
+    /// Technical: Returns the default value for this type.
+    ///
+    /// Plain English: Returns the default value for this type.
     fn default() -> Self {
         Self {
             enabled: true,
@@ -223,24 +295,56 @@ impl Default for Settings {
         }
     }
 }
+/// Technical: Defines the `Context` data structure.
+///
+/// Plain English: Holds the data for Context.
 #[derive(Clone, Copy, Debug)]
 pub struct Context {
+    /// Technical: Stores the `object` value in `Context` as `u32`.
+    ///
+    /// Plain English: Holds the object value used by Context.
     pub object: u32,
+    /// Technical: Stores the `damage_stop` value in `Context` as `bool`.
+    ///
+    /// Plain English: Holds the damage stop value used by Context.
     pub damage_stop: bool,
+    /// Technical: Stores the `remaining` value in `Context` as `u64`.
+    ///
+    /// Plain English: Holds the remaining value used by Context.
     pub remaining: u64,
     /// Native reserved damage velocity, before applying launch DI.
+    /// Plain English: Native reserved damage velocity, before applying launch DI.
     pub launch: [f32; 2],
     /// Away from attributed attacker/sole opponent; zero means unknown.
+    /// Plain English: Away from attributed attacker/sole opponent; zero means unknown.
     pub outward: f32,
 }
+/// Technical: Defines the available `Reason` cases.
+///
+/// Plain English: Lists the available Reason choices.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Reason {
+    /// Technical: Represents the `TrajectorySurvival` case of `Reason`.
+    ///
+    /// Plain English: Represents the TrajectorySurvival option in Reason.
     TrajectorySurvival,
+    /// Technical: Represents the `SideSurvival` case of `Reason`.
+    ///
+    /// Plain English: Represents the SideSurvival option in Reason.
     SideSurvival,
+    /// Technical: Represents the `VerticalSurvival` case of `Reason`.
+    ///
+    /// Plain English: Represents the VerticalSurvival option in Reason.
     VerticalSurvival,
+    /// Technical: Represents the `ComboEscape` case of `Reason`.
+    ///
+    /// Plain English: Represents the ComboEscape option in Reason.
     ComboEscape,
 }
 impl Reason {
+    /// Technical: Returns the display label for the value.
+    ///
+    /// Plain English: Gets the text shown for this value.
     pub fn label(self) -> &'static str {
         match self {
             Self::TrajectorySurvival => "maximize predicted blast-zone clearance",
@@ -250,14 +354,26 @@ impl Reason {
         }
     }
 }
+/// Technical: Defines the `Decision` data structure.
+///
+/// Plain English: Holds the data for Decision.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Decision {
+    /// Technical: Stores the `stick` value in `Decision` as `[f32; 2]`.
+    ///
+    /// Plain English: Stores the stick collection for Decision.
     pub stick: [f32; 2],
+    /// Technical: Stores the `reason` value in `Decision` as `Reason`.
+    ///
+    /// Plain English: Holds the reason value used by Decision.
     pub reason: Reason,
 }
 
 // A small analytic approximation, not a trajectory/collision simulator. Do not
 // infer blast-zone safety, recovery ability, throws or guaranteed true combos.
+/// Technical: Returns the `predicted_launch` result.
+///
+/// Plain English: Gets the predicted launch result.
 pub fn predicted_launch(v: [f32; 2], s: [f32; 2]) -> [f32; 2] {
     let speed = v[0].hypot(v[1]);
     if !v.iter().chain(s.iter()).all(|v| v.is_finite()) || speed < 0.00001 {
@@ -289,6 +405,7 @@ pub fn predicted_launch(v: [f32; 2], s: [f32; 2]) -> [f32; 2] {
     [speed * cos * lsi, speed * sin * lsi]
 }
 /// Settings and launch vector that either DI heuristic may act on.
+/// Plain English: Settings and launch vector that either DI heuristic may act on.
 fn usable(settings: Settings, launch: [f32; 2]) -> bool {
     settings.enabled
         && launch.iter().all(|v| v.is_finite())
@@ -296,6 +413,9 @@ fn usable(settings: Settings, launch: [f32; 2]) -> bool {
         && settings.survival_speed.is_finite()
         && (0.1..=30.0).contains(&settings.survival_speed)
 }
+/// Technical: Returns an optional `choose` value.
+///
+/// Plain English: Gets choose if it is available.
 pub fn choose(settings: Settings, c: Context) -> Option<Decision> {
     if !usable(settings, c.launch) || !c.outward.is_finite() {
         return None;
@@ -318,7 +438,13 @@ pub fn choose(settings: Settings, c: Context) -> Option<Decision> {
     if !escape && c.launch[0].abs() < 0.01 && away == 0.0 {
         return None;
     }
+    /// Technical: Defines the `D` constant used by this module.
+    ///
+    /// Plain English: Provides the D constant value.
     const D: f32 = std::f32::consts::FRAC_1_SQRT_2;
+    /// Technical: Defines the `STICKS` constant used by this module.
+    ///
+    /// Plain English: Provides the STICKS constant value.
     const STICKS: [[f32; 2]; 9] = [
         [0.0, 0.0],
         [-1.0, 0.0],
@@ -369,30 +495,59 @@ pub fn choose(settings: Settings, c: Context) -> Option<Decision> {
     })
 }
 
+/// Technical: Defines the `AutoDi` data structure.
+///
+/// Plain English: Holds the data for AutoDi.
 #[derive(Default)]
 pub struct AutoDi {
+    /// Technical: Stores the `last` value in `AutoDi` as `Option<(u32`.
+    ///
+    /// Plain English: Optionally stores the last for AutoDi; it may be absent.
     last: Option<(u32, u64)>,
+    /// Technical: Stores the `key` value in `AutoDi` as `Option<([f32; 2]`.
+    ///
+    /// Plain English: Optionally stores the key for AutoDi; it may be absent.
     key: Option<([f32; 2], f32, Settings)>,
+    /// Technical: Stores the `decision` value in `AutoDi` as `Option<Decision>`.
+    ///
+    /// Plain English: Optionally stores the decision for AutoDi; it may be absent.
     decision: Option<Decision>,
+    /// Technical: Stores the `manual` value in `AutoDi` as `bool`.
+    ///
+    /// Plain English: Holds the manual value used by AutoDi.
     manual: bool,
+    /// Technical: Stores the `stage_key` value in `AutoDi` as `Option<([f32; 2]`.
+    ///
+    /// Plain English: Optionally stores the stage key for AutoDi; it may be absent.
     stage_key: Option<([f32; 2], Settings)>,
+    /// Technical: Stores the `stage_decision` value in `AutoDi` as `Option<Decision>`.
+    ///
+    /// Plain English: Optionally stores the stage decision for AutoDi; it may be absent.
     stage_decision: Option<Decision>,
 }
 impl AutoDi {
+    /// Technical: Determines whether the `manual_override` condition holds.
+    ///
+    /// Plain English: Checks whether manual override.
     pub fn manual_override(&self) -> bool {
         self.manual
     }
+    /// Technical: Returns an optional `decision` value.
+    ///
+    /// Plain English: Gets decision if it is available.
     pub fn decision(&self) -> Option<Decision> {
         self.decision
     }
     /// An automated damage response owns its stick through the launch phase.
     /// Physical intent is handled by the shared owner, never by a second veto.
+    /// Plain English: An automated damage response owns its stick through the launch phase. Physical intent is handled by the shared owner, never by a second veto.
     pub fn sample_exclusive(&mut self, settings: Settings, c: Context) -> Option<[f32; 2]> {
         self.manual = false;
         self.sample(settings, c, [0.; 2])
     }
     /// Re-evaluate at the start of the final launch-input phase, then hold the
     /// same result through release. Early SDI may have changed the position.
+    /// Plain English: Re-evaluate at the start of the final launch-input phase, then hold the same result through release. Early SDI may have changed the position.
     pub fn sample_exclusive_with_trajectory(
         &mut self,
         settings: Settings,
@@ -415,6 +570,9 @@ impl AutoDi {
             fallback
         }
     }
+    /// Technical: Updates the toggle state from the current button sample and match state.
+    ///
+    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         settings: Settings,

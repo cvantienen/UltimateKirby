@@ -1,8 +1,11 @@
 //! The match overlay renders option rows only, with no heading or controls footer.
+//! Technical: Provides the compact renderer for in-match option rows.
+//! Plain English: This module draws the smaller menu shown during a match.
 use super::{color, Snapshot};
 use imgui_api::bindings::*;
 
 /// No tables, measured rows or per-frame string formatting/allocation.
+/// Plain English: Displays the compact list using cached text and minimal drawing work.
 pub(super) unsafe fn draw(view: &Snapshot, display: ImVec2_c, scale: f32) {
     if !view.lightweight {
         return;

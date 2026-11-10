@@ -5,29 +5,75 @@
 //! structs: moving this code does not permit changing that layout.
 //! The mapper hook saves these fields, temporarily overlays them, and restores
 //! them after native mapping. This file does not decide which tool wins.
+//! Technical: Models the pinned controller prefix and copies/restores input data
+//! around the native mapping call.
+//! Plain English: It temporarily applies assistance while keeping the player's
+//! actual controller state intact.
 use kirby_assist_core::native_input::{selected_controller_mapper, ButtonTrace, MAPPER_SLOT_COUNT};
 use std::ffi::c_void;
 
+/// Technical: Byte offset of the controller pointer inside the mapper wrapper.
+/// Plain English: Where the game's wrapper stores its controller pointer.
 const CONTROLLER_POINTER_OFFSET_BYTES: usize = 0x10;
+/// Technical: Size of the opaque native gyro/repeat prefix.
+/// Plain English: Number of untouched bytes before button-edge fields.
 const CONTROLLER_GYRO_REPEAT_BYTES: usize = 0x58;
+/// Technical: Size of the native controller color/flag byte group.
+/// Plain English: Space reserved for controller colors and flags.
 const CONTROLLER_COLOR_FLAGS_BYTES: usize = 0x17;
+/// Technical: Number of trailing native flag bytes before the NPad ID.
+/// Plain English: Reserved bytes needed to match the controller layout.
 const CONTROLLER_TRAILING_FLAGS_BYTES: usize = 8;
+/// Technical: Number of auto-repeat words represented by the native prefix.
+/// Plain English: How many repeat-history values Smash stores here.
 const CONTROLLER_AUTOREPEAT_WORDS: usize = 3;
+/// Technical: Expected byte offset of the current held-button word.
+/// Plain English: Where current button presses appear in controller memory.
 const CONTROLLER_CURRENT_BUTTONS_OFFSET_BYTES: usize = 8;
+/// Technical: Expected byte offset of the previous held-button word.
+/// Plain English: Where the prior button state appears in controller memory.
 const CONTROLLER_PREVIOUS_BUTTONS_OFFSET_BYTES: usize = 0xc;
+/// Technical: Expected byte offset of the left-stick X value.
+/// Plain English: Where the left stick's horizontal value is stored.
 const CONTROLLER_LEFT_STICK_X_OFFSET_BYTES: usize = 0x10;
+/// Technical: Expected byte offset of the left-stick Y value.
+/// Plain English: Where the left stick's vertical value is stored.
 const CONTROLLER_LEFT_STICK_Y_OFFSET_BYTES: usize = 0x14;
+/// Technical: Expected byte offset of the left-trigger value.
+/// Plain English: Where the left trigger's analog value is stored.
 const CONTROLLER_LEFT_TRIGGER_OFFSET_BYTES: usize = 0x18;
+/// Technical: Expected byte offset of the right-stick X value.
+/// Plain English: Where the right stick's horizontal value is stored.
 const CONTROLLER_RIGHT_STICK_X_OFFSET_BYTES: usize = 0x20;
+/// Technical: Expected byte offset of the right-stick Y value.
+/// Plain English: Where the right stick's vertical value is stored.
 const CONTROLLER_RIGHT_STICK_Y_OFFSET_BYTES: usize = 0x24;
+/// Technical: Expected byte offset of the right-trigger value.
+/// Plain English: Where the right trigger's analog value is stored.
 const CONTROLLER_RIGHT_TRIGGER_OFFSET_BYTES: usize = 0x28;
+/// Technical: Expected byte offset of the native just-pressed mask.
+/// Plain English: Where new button presses are stored.
 const CONTROLLER_JUST_DOWN_OFFSET_BYTES: usize = 0x88;
+/// Technical: Expected byte offset of the native just-released mask.
+/// Plain English: Where released buttons are stored.
 const CONTROLLER_JUST_RELEASE_OFFSET_BYTES: usize = 0x8c;
+/// Technical: Expected byte offset of native auto-repeat history.
+/// Plain English: Where repeated-button bookkeeping starts.
 const CONTROLLER_AUTOREPEAT_OFFSET_BYTES: usize = 0x90;
+/// Technical: Expected byte offset of the native controller-style field.
+/// Plain English: Where the controller type is stored.
 const CONTROLLER_STYLE_OFFSET_BYTES: usize = 0x9c;
+/// Technical: Expected byte offset of the native connection flag.
+/// Plain English: Where the connected/disconnected state is stored.
 const CONTROLLER_CONNECTED_OFFSET_BYTES: usize = 0xbb;
+/// Technical: Expected byte offset of the native NPad identifier.
+/// Plain English: Where the Switch controller ID is stored.
 const CONTROLLER_NPAD_OFFSET_BYTES: usize = 0xc4;
+/// Technical: Expected native result size for `MappedInputs`.
+/// Plain English: Ensures mapped controller output remains eight bytes.
 const MAPPED_INPUTS_SIZE_BYTES: usize = 8;
+/// Technical: Expected byte offset of mapped button bits.
+/// Plain English: Confirms the button word is first in mapped output.
 const MAPPED_INPUTS_BUTTONS_OFFSET_BYTES: usize = 0;
 
 /// Pinned Controller prefix: overlay button words, stick floats, and affected
@@ -35,28 +81,72 @@ const MAPPED_INPUTS_BUTTONS_OFFSET_BYTES: usize = 0;
 #[repr(C)]
 /// Padding fields are intentional: they preserve offsets of later native fields.
 /// Do not remove padding or reorder fields as a normal Rust refactor would.
+/// Technical: Native controller memory prefix pinned to the game ABI.
+/// Plain English: The controller fields the plugin temporarily reads and changes.
 pub(super) struct Controller {
+    /// Technical: Native vtable pointer at byte offset zero.
+    /// Plain English: The first slot Smash uses to identify this controller object.
     pub(super) vtable: usize,
+    /// Technical: Current held-button bitfield.
+    /// Plain English: Buttons the controller currently reports as held.
     pub(super) current_buttons: u32,
+    /// Technical: Previous poll's held-button bitfield.
+    /// Plain English: Buttons reported as held on the prior controller update.
     pub(super) previous_buttons: u32,
+    /// Technical: Left-stick horizontal axis in the native controller layout.
+    /// Plain English: The controller's left stick position from side to side.
     pub(super) left_stick_x: f32,
+    /// Technical: Left-stick vertical axis in the native controller layout.
+    /// Plain English: The controller's left stick position up or down.
     pub(super) left_stick_y: f32,
+    /// Technical: Left analog-trigger value.
+    /// Plain English: How far the left trigger is pressed.
     pub(super) left_trigger: f32,
+    /// Technical: Padding word preserving the pinned right-stick offset.
+    /// Plain English: Unused space required to match Smash's controller layout.
     pub(super) left_padding: u32,
+    /// Technical: Right-stick horizontal axis in the native controller layout.
+    /// Plain English: The controller's right stick position from side to side.
     pub(super) right_stick_x: f32,
+    /// Technical: Right-stick vertical axis in the native controller layout.
+    /// Plain English: The controller's right stick position up or down.
     pub(super) right_stick_y: f32,
+    /// Technical: Right analog-trigger value.
+    /// Plain English: How far the right trigger is pressed.
     pub(super) right_trigger: f32,
+    /// Technical: Padding word preserving the pinned native field offsets.
+    /// Plain English: Unused space required to match Smash's controller layout.
     pub(super) right_padding: u32,
     // Rest of the native gyro/repeat prefix remains untouched.
+    /// Technical: Opaque native gyro/repeat bytes between analog inputs and edge history.
+    /// Plain English: Controller data Kirby Assist leaves unchanged.
     pub(super) sticks_gyro_repeat: [u8; CONTROLLER_GYRO_REPEAT_BYTES],
+    /// Technical: Buttons newly pressed in the current poll.
+    /// Plain English: Buttons that changed from up to down this update.
     pub(super) just_down: u32,
+    /// Technical: Buttons released in the current poll.
+    /// Plain English: Buttons that changed from down to up this update.
     pub(super) just_release: u32,
+    /// Technical: Native auto-repeat history words.
+    /// Plain English: Button-repeat bookkeeping used by Smash.
     pub(super) autorepeat: [u32; CONTROLLER_AUTOREPEAT_WORDS],
+    /// Technical: Native controller style identifier.
+    /// Plain English: Identifies the controller type.
     pub(super) style: u32,
+    /// Technical: Native controller/player ID value.
+    /// Plain English: The controller ID Smash associates with this object.
     pub(super) controller_id: u32,
+    /// Technical: Opaque native color and flag bytes.
+    /// Plain English: Controller metadata Kirby Assist does not interpret.
     pub(super) colors_and_flags: [u8; CONTROLLER_COLOR_FLAGS_BYTES],
+    /// Technical: Native connected-state byte.
+    /// Plain English: Indicates whether this controller is connected.
     pub(super) connected: u8,
+    /// Technical: Opaque trailing flag bytes before the NPad identifier.
+    /// Plain English: Reserved controller metadata left untouched by the plugin.
     pub(super) trailing_flags: [u8; CONTROLLER_TRAILING_FLAGS_BYTES],
+    /// Technical: Native NPad identifier used to validate the controller route.
+    /// Plain English: Identifies which Switch controller this object represents.
     pub(super) npad: u32,
 }
 // Compile-time checks catch mistakes in OUR declared layout. They cannot prove
@@ -92,6 +182,11 @@ const _: () = {
 
 /// Reads the native wrapper's controller pointer. The caller checks that the
 /// wrapper is non-null and valid for this pinned layout before calling.
+/// Technical: Loads the controller pointer stored at the wrapper's pinned offset.
+/// Plain English: Finds the controller data inside the game's wrapper.
+///
+/// # Safety
+/// `wrapper` must point to a readable native wrapper using the documented layout.
 pub(super) unsafe fn controller_from_wrapper(wrapper: *mut c_void) -> *mut Controller {
     wrapper
         .cast::<u8>()
@@ -101,6 +196,12 @@ pub(super) unsafe fn controller_from_wrapper(wrapper: *mut c_void) -> *mut Contr
 }
 
 /// Selects the appropriate controller based on the wrapper, index, and player index.
+/// Technical: Bounds-checks the mapper slot and validates the wrapper's controller
+/// against the configured player-to-mapper route.
+/// Plain English: Returns the controller only if it matches the selected player and slot.
+///
+/// # Safety
+/// `wrapper` must point to a readable native wrapper for the pinned game ABI.
 pub(super) unsafe fn selected_controller(
     wrapper: *mut c_void,
     index: i32,
@@ -119,17 +220,36 @@ pub(super) unsafe fn selected_controller(
 }
 
 /// Stores the state of a controller for later restoration, including button traces, stick positions, and trigger values.
+/// Technical: Owns a snapshot of all input fields temporarily overwritten by mapping.
+/// Plain English: Keeps the player's original inputs so they can be restored afterward.
 pub(super) struct ControllerRestore {
+    /// Technical: Native controller pointer whose temporary overlay must be reverted.
+    /// Plain English: The controller object to restore.
     pub(super) controller: *mut Controller,
+    /// Technical: Copied held/previous/pressed/released button history.
+    /// Plain English: The player's original button state.
     pub(super) physical: ButtonTrace,
+    /// Technical: Copied left-stick X/Y values.
+    /// Plain English: The player's original left stick position.
     pub(super) stick: [f32; 2],
+    /// Technical: Copied right-stick X/Y values.
+    /// Plain English: The player's original right stick position.
     pub(super) right_stick: [f32; 2],
+    /// Technical: First auto-repeat history word changed by the overlay.
+    /// Plain English: The repeat-button state that must be put back.
     pub(super) autorepeat: u32,
+    /// Technical: Copied left/right analog trigger values.
+    /// Plain English: The player's original trigger positions.
     pub(super) triggers: [f32; 2],
 }
 
 impl ControllerRestore {
     /// Restores the controller to the previously saved state.
+    /// Technical: Writes the owned snapshot back to each overlaid native input field.
+    /// Plain English: Puts the player's real controller inputs back after mapping.
+    ///
+    /// # Safety
+    /// The controller pointer must still refer to the same live native controller.
     pub(super) unsafe fn restore(self) {
         let controller = self.controller;
         write_trace(controller, self.physical);
@@ -146,11 +266,23 @@ impl ControllerRestore {
 /// Pinned MappedInputs result (common/input.rs). The post-map filter clears
 /// reserved taunts which may otherwise survive native repeat/history handling.
 #[repr(C)]
+/// Technical: Native mapper result layout copied from the pinned input ABI.
+/// Plain English: The final buttons and stick values produced by game mapping.
 pub(super) struct MappedInputs {
+    /// Technical: Mapped canonical button bitfield returned by the native mapper.
+    /// Plain English: The final mapped buttons.
     pub(super) buttons: u32,
+    /// Technical: Mapped left-stick horizontal axis.
+    /// Plain English: Final left-stick side-to-side value.
     pub(super) left_x: i8,
+    /// Technical: Mapped left-stick vertical axis.
+    /// Plain English: Final left-stick up/down value.
     pub(super) left_y: i8,
+    /// Technical: Mapped right-stick horizontal axis.
+    /// Plain English: Final right-stick side-to-side value.
     pub(super) right_x: i8,
+    /// Technical: Mapped right-stick vertical axis.
+    /// Plain English: Final right-stick up/down value.
     pub(super) right_y: i8,
 }
 const _: () = {
@@ -159,6 +291,11 @@ const _: () = {
 };
 
 /// Copies the four physical button words before changing any of them.
+/// Technical: Reads the held, previous, pressed, and released native button masks.
+/// Plain English: Saves a consistent snapshot of which buttons were held or changed.
+///
+/// # Safety
+/// `controller` must point to a valid controller with the pinned layout.
 pub(super) unsafe fn trace(controller: *const Controller) -> ButtonTrace {
     ButtonTrace {
         held: (*controller).current_buttons,
@@ -169,6 +306,11 @@ pub(super) unsafe fn trace(controller: *const Controller) -> ButtonTrace {
 }
 /// Writes a complete, consistent button history; changing only held would leave
 /// new-press/release queries inconsistent with what the mapper sees.
+/// Technical: Writes all four related button masks from one trace.
+/// Plain English: Updates button history together so the game sees consistent presses.
+///
+/// # Safety
+/// `controller` must point to a writable controller with the pinned layout.
 pub(super) unsafe fn write_trace(controller: *mut Controller, buttons: ButtonTrace) {
     (*controller).current_buttons = buttons.held;
     (*controller).previous_buttons = buttons.previous;

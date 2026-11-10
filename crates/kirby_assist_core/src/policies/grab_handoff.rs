@@ -6,27 +6,67 @@ use crate::{
     ledge_trap::{sequence_interrupted, NativeAttempt},
     native_input::{MAPPER_R, MAPPER_ZR},
 };
+/// Technical: Defines the `GrabHandoff` data structure.
+///
+/// Plain English: Holds the data for GrabHandoff.
 #[derive(Default)]
 pub struct GrabHandoff {
+    /// Technical: Stores the `pending` value in `GrabHandoff` as `bool`.
+    ///
+    /// Plain English: Holds the pending value used by GrabHandoff.
     pending: bool,
+    /// Technical: Stores the `owner` value in `GrabHandoff` as `Option<Owner>`.
+    ///
+    /// Plain English: Optionally stores the owner for GrabHandoff; it may be absent.
     owner: Option<Owner>,
+    /// Technical: Stores the `delivery` value in `GrabHandoff` as `crate::move_input::DeliveryBudget`.
+    ///
+    /// Plain English: Holds the delivery value used by GrabHandoff.
     delivery: crate::move_input::DeliveryBudget,
+    /// Technical: Stores the `previous_request` value in `GrabHandoff` as `bool`.
+    ///
+    /// Plain English: Holds the previous request value used by GrabHandoff.
     previous_request: bool,
+    /// Technical: Stores the `previous_catch` value in `GrabHandoff` as `bool`.
+    ///
+    /// Plain English: Holds the previous catch value used by GrabHandoff.
     previous_catch: bool,
+    /// Technical: Stores the `native_clock` value in `GrabHandoff` as `NativeAttempt`.
+    ///
+    /// Plain English: Holds the native clock value used by GrabHandoff.
     native_clock: NativeAttempt,
+    /// Technical: Stores the `native_context` value in `GrabHandoff` as `Option<GameplayContext>`.
+    ///
+    /// Plain English: Optionally stores the native context for GrabHandoff; it may be absent.
     native_context: Option<GameplayContext>,
+    /// Technical: Stores the `enemy_clock` value in `GrabHandoff` as `NativeAttempt`.
+    ///
+    /// Plain English: Holds the enemy clock value used by GrabHandoff.
     enemy_clock: NativeAttempt,
+    /// Technical: Stores the `enemy_id` value in `GrabHandoff` as `Option<u32>`.
+    ///
+    /// Plain English: Optionally stores the enemy id for GrabHandoff; it may be absent.
     enemy_id: Option<u32>,
+    /// Technical: Stores the `packets` value in `GrabHandoff` as `u8`.
+    ///
+    /// Plain English: Holds the packets value used by GrabHandoff.
     packets: u8,
+    /// Technical: Stores the `last_packet` value in `GrabHandoff` as `Option<i64>`.
+    ///
+    /// Plain English: Optionally stores the last packet for GrabHandoff; it may be absent.
     last_packet: Option<i64>,
 }
 /// Airborne, caught or otherwise interrupted fighters cannot be waiting on a Grab.
+/// Plain English: Airborne, caught or otherwise interrupted fighters cannot be waiting on a Grab.
 fn receipt_ends(status: i32, situation: i32) -> bool {
     situation != crate::native_states::situation::GROUND
         || native_grab_active(status)
         || sequence_interrupted(status)
 }
 impl GrabHandoff {
+    /// Technical: Constructs a new value with the type’s initial state.
+    ///
+    /// Plain English: Creates a new value.
     pub const fn new() -> Self {
         Self {
             pending: false,
@@ -42,14 +82,21 @@ impl GrabHandoff {
             last_packet: None,
         }
     }
+    /// Technical: Checks whether a pending operation is stored.
+    ///
+    /// Plain English: Checks whether something is waiting to be processed.
     pub fn pending(&self) -> bool {
         self.pending
     }
     /// Admission must retain a queued Grab from another owner. Discarding its
     /// receipt can turn a new ledge Special into a throw when Catch arrives late.
+    /// Plain English: Admission must retain a queued Grab from another owner. Discarding its receipt can turn a new ledge Special into a throw when Catch arrives late.
     pub fn reserve_ledge_inputs(&self) -> bool {
         !self.pending || self.owner == Some(Owner::Ledge)
     }
+    /// Technical: Returns the `grab_packet` result.
+    ///
+    /// Plain English: Gets the grab packet result.
     pub fn grab_packet(mut out: ControllerOutput) -> ControllerOutput {
         if out.requested & MAPPER_R != 0 {
             out.requested &= MAPPER_R | MAPPER_ZR;
@@ -58,6 +105,9 @@ impl GrabHandoff {
         }
         out
     }
+    /// Technical: Records the time of the latest fighter observation.
+    ///
+    /// Plain English: Remembers when a fighter was last seen.
     pub fn observe(&mut self, valid: bool, status: i32, situation: i32) {
         if !valid || receipt_ends(status, situation) || self.delivery.exhausted() {
             self.clear_receipt();
@@ -69,6 +119,7 @@ impl GrabHandoff {
     }
     /// Forget the receipt but keep the request/catch edge memory and the last
     /// native sample, so a held button is not mistaken for a new request.
+    /// Plain English: Forget the receipt but keep the request/catch edge memory and the last native sample, so a held button is not mistaken for a new request.
     fn clear_receipt(&mut self) {
         *self = Self {
             previous_request: self.previous_request,
@@ -80,6 +131,7 @@ impl GrabHandoff {
     /// Live observations expire on native progress, not controller polls. A
     /// missing/frozen observation cannot prove a queued Catch has expired.
     /// This receipt emits no input while awaiting acknowledgment.
+    /// Plain English: Live observations expire on native progress, not controller polls. A missing/frozen observation cannot prove a queued Catch has expired. This receipt emits no input while awaiting acknowledgment.
     pub fn observe_native(&mut self, valid: bool, context: Option<GameplayContext>) {
         if !valid {
             *self = Self::new();
@@ -101,6 +153,7 @@ impl GrabHandoff {
     /// Held shield can have a static animation even while the game advances.
     /// Reuse a current opponent motion already read by the active watch; never
     /// poll another fighter or count controller ticks as simulated frames.
+    /// Plain English: Held shield can have a static animation even while the game advances. Reuse a current opponent motion already read by the active watch; never poll another fighter or count controller ticks as simulated frames.
     pub fn observe_enemy_progress(&mut self, c: GameplayContext, enemy: Option<Opponent>) {
         if !self.pending {
             return;
@@ -130,17 +183,24 @@ impl GrabHandoff {
     }
     /// The opponent clock restarts whenever the watched opponent changes or a
     /// sample is missed.
+    /// Plain English: The opponent clock restarts whenever the watched opponent changes or a sample is missed.
     fn track_enemy(&mut self, id: Option<u32>) {
         if id.is_none() || self.enemy_id != id {
             self.enemy_clock = NativeAttempt::new();
             self.enemy_id = id;
         }
     }
+    /// Technical: Determines whether the `shield_packet` condition holds.
+    ///
+    /// Plain English: Checks whether shield packet.
     pub fn shield_packet(out: ControllerOutput, right: Option<[f32; 2]>) -> bool {
         out.requested == MAPPER_ZR
             && out.stick.is_none_or(|s| s == [0.; 2])
             && right.is_none_or(|s| s == [0.; 2])
     }
+    /// Technical: Updates the `restrict` state using the supplied inputs.
+    ///
+    /// Plain English: Updates restrict.
     pub fn restrict(&self, intents: &mut [Intent]) {
         if self.pending {
             for i in intents {
@@ -155,6 +215,7 @@ impl GrabHandoff {
     }
     /// Same owner's remaining neutral-axis Grab pulse is safe. At its first
     /// other action, abort playback and retain only this input-free receipt.
+    /// Plain English: Same owner's remaining neutral-axis Grab pulse is safe. At its first other action, abort playback and retain only this input-free receipt.
     pub fn permits(
         &self,
         owner: Option<Owner>,
@@ -173,6 +234,7 @@ impl GrabHandoff {
         own && right.is_none_or(|s| s == [0.; 2]) && (idle || grab_pulse)
     }
     /// Called after the original mapper, once per delivered controller tick.
+    /// Plain English: Called after the original mapper, once per delivered controller tick.
     pub fn mapped(
         &mut self,
         tick: i64,

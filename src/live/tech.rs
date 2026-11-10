@@ -3,6 +3,10 @@
 //! This detector reports a possible contact. The portable TechInput scheduler
 //! separately decides whether to request/release shield and tracks mapper
 //! acknowledgment. Prediction, button delivery and successful tech are distinct.
+//! Technical: Combines native eligibility/timing reads with portable swept-contact
+//! prediction to produce a tech assessment.
+//! Plain English: This module estimates whether a fighter may hit the ground and
+//! whether the tech helper should prepare input.
 use super::native_params::{
     PARAM_COMMON, PARAM_GANON_SPECIAL_S_PASSIVE_TRIGGER_FRAME, PARAM_NO_RAPID_FRAME_VALUE,
     PARAM_PASSIVE_TRIGGER_FRAME,
@@ -14,11 +18,18 @@ use kirby_assist_core::tech_prediction::{
 };
 mod flame_choke {
     //! Read-only capture-link clock for grounded Flame Choke.
+    //! Technical: Handles command-grab capture/release timing from the captor's native motion clock.
+    //! Plain English: Checks when a grounded Flame Choke grab is about to release.
     use super::{game, TechAssessment};
     use kirby_assist_core::tech_prediction::{
         grounded_ganon_contact_in, grounded_ganon_release, CATCHED_AIR_END_GANON, CATCHED_GANON,
     };
 
+    /// Technical: Applies the special grounded/aerial capture rules to an assessment.
+    /// Plain English: Marks whether this Ganondorf grab can lead to a tech attempt.
+    ///
+    /// # Safety
+    /// `object` must remain a valid fighter accessor for the native reads.
     pub(super) unsafe fn assess_capture(
         reads: &super::super::frame::FrameReads,
         object: *mut game::Object,
@@ -61,6 +72,11 @@ mod flame_choke {
         false
     }
 
+    /// Technical: Resolves the linked captor and predicts grounded capture contact.
+    /// Plain English: Uses the captor's animation to estimate when the grab releases.
+    ///
+    /// # Safety
+    /// `object` must be a live victim object; any linked captor is revalidated by ID.
     unsafe fn timing(
         reads: &super::super::frame::FrameReads,
         object: *mut game::Object,
@@ -96,30 +112,64 @@ mod flame_choke {
         Some((remaining, motion, frame, rate))
     }
 }
+/// Technical: Smallest accepted native tech-trigger parameter value.
+/// Plain English: Rejects implausibly short game timing values.
 const MIN_NATIVE_TRIGGER_FRAME: u16 = 2;
+/// Technical: Largest accepted native tech-trigger parameter value.
+/// Plain English: Rejects implausibly long game timing values.
 const MAX_NATIVE_TRIGGER_FRAME: u16 = 120;
+/// Technical: Tolerance for classifying vertical velocity as non-upward.
+/// Plain English: Treats tiny upward movement as effectively level.
 const FLOOR_CONTACT_UPWARD_SPEED_TOLERANCE: f32 = 0.0001;
+/// Technical: Maximum absolute ground-offset magnitude accepted from native reads.
+/// Plain English: Ignores unrealistic stage offsets.
 const MAX_GROUND_OFFSET_MAGNITUDE: f32 = 100.0;
+/// Technical: Minimum horizon used for predicted floor contact.
+/// Plain English: Always checks at least one frame ahead.
 const MIN_CONTACT_HORIZON_FRAMES: f32 = 1.0;
+/// Technical: Maximum horizon used for predicted floor contact.
+/// Plain English: Does not predict a landing more than 20 frames ahead.
 const MAX_CONTACT_HORIZON_FRAMES: f32 = 20.0;
 
 /// Diagnostic snapshot only: the string describes our detector's decision, not
 /// a complete explanation of all native tech restrictions or proof of success.
 #[derive(Clone, Copy)]
+/// Technical: Copied diagnostic/prediction result for one tech observation.
+/// Plain English: Summarizes the fighter's state and why a tech may be expected.
 pub(super) struct TechAssessment {
+    /// Technical: Native fighter status at assessment time.
+    /// Plain English: The fighter's current action/state code.
     pub(super) status: i32,
+    /// Technical: Native ground/air situation at assessment time.
+    /// Plain English: Whether the fighter is on the ground or in the air.
     pub(super) situation: i32,
+    /// Technical: Copied X/Y velocity used for contact prediction.
+    /// Plain English: The fighter's current movement speed and direction.
     pub(super) velocity: [f32; 2],
+    /// Technical: Stable diagnostic identifier for the detector's result.
+    /// Plain English: A short reason explaining the current tech assessment.
     pub(super) reason: &'static str,
+    /// Technical: Predicted frames until contact, when available.
+    /// Plain English: How soon the fighter may hit the ground.
     pub(super) contact_in: Option<f32>,
+    /// Technical: Native victim-stop frames remaining.
+    /// Plain English: How much hit pause remains for the fighter.
     pub(super) remaining_stop: u64,
+    /// Technical: Whether guard should be prepared before the predicted contact.
+    /// Plain English: Whether the helper should get shield ready.
     pub(super) prepare_guard: bool,
+    /// Technical: Predicted remaining native reaction time, when known.
+    /// Plain English: How long the fighter remains in its hit reaction.
     pub(super) reaction_remaining: Option<f32>,
     // A grounded command grab can freeze the victim's animation. Its linked
     // captor's native clock supplies progress without counting controller polls.
+    /// Technical: Captor motion identity, frame, and rate used to estimate capture release timing.
+    /// Plain English: The grabber's animation timing used to predict when the grab releases.
     pub(super) capture_clock: Option<(u64, f32, f32)>,
 }
 impl TechAssessment {
+    /// Technical: Marks contact as immediate using remaining hitstop as the estimate.
+    /// Plain English: Records that the landing/contact is happening now.
     fn contact_now(&mut self, reason: &'static str) {
         self.contact_in = Some(self.remaining_stop as f32);
         self.prepare_guard = true;
@@ -128,6 +178,7 @@ impl TechAssessment {
 }
 
 /// Pinned common.prc integer parameters, read without changing native timing.
+/// Plain English: Reads the game's timing settings and substitutes safe defaults when values are invalid.
 pub(super) unsafe fn native_timing(object: *mut game::Object, fallback: u16) -> (u16, u16, u16) {
     let bounded = |value: i32, fallback: u16| {
         u16::try_from(value)
@@ -158,6 +209,7 @@ pub(super) unsafe fn native_timing(object: *mut game::Object, fallback: u16) -> 
 /// Start with native status/eligibility gates, then test swept stage rays. Keep
 /// the fixed body offsets in tech_prediction.rs separate so they can be tested
 /// on the host and tuned without scattering geometry through native FFI code.
+/// Plain English: Checks native fighter state and estimates whether the fighter can tech a landing.
 pub(super) unsafe fn assess_tech(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,
@@ -428,6 +480,11 @@ pub(super) unsafe fn assess_tech(
 }
 
 #[inline]
+/// Technical: Predicts ground contact from native motion, body geometry, and bounded floor probes.
+/// Plain English: Estimates when and where the fighter may land.
+///
+/// # Safety
+/// `object` must be a live fighter accessor for the duration of native reads.
 unsafe fn predict_contact(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,

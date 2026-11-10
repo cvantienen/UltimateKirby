@@ -4,21 +4,67 @@ use crate::button_bindings::Builtin;
 use crate::fighter_profiles::presets::SavedChoice;
 use crate::sequence_config::{Action, Sequence};
 
+/// Technical: Defines the `Choice` data structure.
+///
+/// Plain English: Holds the data for Choice.
 pub struct Choice<'a> {
+    /// Technical: Stores the `id` value in `Choice` as `&'a str`.
+    ///
+    /// Plain English: Holds the id value used by Choice.
     pub id: &'a str,
+    /// Technical: Stores the `name` value in `Choice` as `&'a str`.
+    ///
+    /// Plain English: Holds the name value used by Choice.
     pub name: &'a str,
+    /// Technical: Stores the `sequence` value in `Choice` as `Sequence`.
+    ///
+    /// Plain English: Holds the sequence value used by Choice.
     pub sequence: Sequence,
+    /// Technical: Stores the `allow_new` value in `Choice` as `bool`.
+    ///
+    /// Plain English: Holds the allow new value used by Choice.
     pub allow_new: bool,
 }
 /// Identity of a menu choice. Resolving it never copies a timeline, so the
 /// per-poll binding paths and list scans can ask about many choices cheaply.
+/// Plain English: Identity of a menu choice. Resolving it never copies a timeline, so the per-poll binding paths and list scans can ask about many choices cheaply.
 pub(super) enum Source<'a> {
-    Draft(&'a catalog::Draft),
-    Saved(&'a SavedChoice),
-    Builtin(Builtin),
+    /// Technical: Represents the `Draft` case of `Source`.
+    ///
+    /// Plain English: Represents the Draft option in Source.
+    Draft(
+        /// Technical: Carries the draft choice source in `Source`.
+        ///
+        /// Plain English: Holds the draft choice source for this `Source` choice.
+        &'a catalog::Draft,
+    ),
+    /// Technical: Represents the `Saved` case of `Source`.
+    ///
+    /// Plain English: Represents the Saved option in Source.
+    Saved(
+        /// Technical: Carries the saved choice source in `Source`.
+        ///
+        /// Plain English: Holds the saved choice source for this `Source` choice.
+        &'a SavedChoice,
+    ),
+    /// Technical: Represents the `Builtin` case of `Source`.
+    ///
+    /// Plain English: Represents the Builtin option in Source.
+    Builtin(
+        /// Technical: Carries the builtin choice source in `Source`.
+        ///
+        /// Plain English: Holds the builtin choice source for this `Source` choice.
+        Builtin,
+    ),
+    /// Technical: Represents the `Custom` case of `Source`.
+    ///
+    /// Plain English: Represents the Custom option in Source.
     Custom,
 }
 impl<'a> Source<'a> {
+    /// Technical: Returns the native identifier of the observed object.
+    ///
+    /// Plain English: Gets the object’s identifier.
     pub fn id(&self) -> &'a str {
         match self {
             Self::Draft(d) => &d.id,
@@ -27,6 +73,9 @@ impl<'a> Source<'a> {
             Self::Custom => "menu_custom",
         }
     }
+    /// Technical: Returns the display name associated with the value.
+    ///
+    /// Plain English: Gets the name shown for this value.
     pub fn name(&self) -> &'a str {
         match self {
             Self::Draft(d) => &d.name,
@@ -35,6 +84,9 @@ impl<'a> Source<'a> {
             Self::Custom => "Custom (6 slots)",
         }
     }
+    /// Technical: Determines whether the `allow_new` condition holds.
+    ///
+    /// Plain English: Checks whether allow new.
     pub fn allow_new(&self) -> bool {
         match self {
             Self::Draft(d) => d.new,
@@ -42,6 +94,9 @@ impl<'a> Source<'a> {
             Self::Builtin(_) | Self::Custom => true,
         }
     }
+    /// Technical: Returns an optional `builtin` value.
+    ///
+    /// Plain English: Gets builtin if it is available.
     pub fn builtin(&self) -> Option<Builtin> {
         match self {
             Self::Draft(d) => d.sequence.builtin,
@@ -50,6 +105,9 @@ impl<'a> Source<'a> {
             Self::Custom => None,
         }
     }
+    /// Technical: Returns the `sequence` result.
+    ///
+    /// Plain English: Gets the sequence result.
     pub fn sequence(&self) -> Sequence {
         match self {
             Self::Draft(d) => d.sequence,
@@ -63,19 +121,39 @@ impl<'a> Source<'a> {
     }
 }
 /// A choice without any executable step: nothing to run, test or save as a recipe.
+/// Plain English: A choice without any executable step: nothing to run, test or save as a recipe.
 pub(super) fn is_blank(sequence: &Sequence) -> bool {
     sequence.actions().iter().all(|a| *a == Action::Empty)
 }
 /// What the catalog needs from every reaction rule, accumulated in one scan.
+/// Plain English: What the catalog needs from every reaction rule, accumulated in one scan.
 #[derive(Default)]
 struct RuleScan {
+    /// Technical: Stores the `simplified` value in `RuleScan` as `bool`.
+    ///
+    /// Plain English: Holds the simplified value used by RuleScan.
     simplified: bool,
+    /// Technical: Stores the `has_reactions` value in `RuleScan` as `bool`.
+    ///
+    /// Plain English: Holds the has reactions value used by RuleScan.
     has_reactions: bool,
+    /// Technical: Stores the `auto_grab` value in `RuleScan` as `u8`.
+    ///
+    /// Plain English: Holds the auto grab value used by RuleScan.
     auto_grab: u8,
+    /// Technical: Stores the `buttons` value in `RuleScan` as `u32`.
+    ///
+    /// Plain English: Holds the buttons value used by RuleScan.
     buttons: u32,
+    /// Technical: Stores the `controls` value in `RuleScan` as `u8`.
+    ///
+    /// Plain English: Holds the controls value used by RuleScan.
     controls: u8,
 }
 impl RuleScan {
+    /// Technical: Updates the `add` state using the supplied inputs.
+    ///
+    /// Plain English: Updates add.
     fn add(&mut self, rule: crate::reaction_rules::Rule) {
         use crate::reaction_rules::Trigger;
         if self.simplified && rule.trigger.simple().is_none() {
@@ -97,6 +175,7 @@ impl MenuSelection {
     /// Build a fresh session from the owned saved catalog. Only differences
     /// from startup need owned records; unchanged file choices remain borrowed.
     /// Never calls the startup static-reference publisher (which would leak).
+    /// Plain English: Build a fresh session from the owned saved catalog. Only differences from startup need owned records; unchanged file choices remain borrowed. Never calls the startup static-reference publisher (which would leak).
     pub fn load_saved_recipes(
         &mut self,
         presets: &MenuPresets,
@@ -176,6 +255,7 @@ impl MenuSelection {
     }
 
     /// Resolve at most eight tagged recipes only after configuration revisions.
+    /// Plain English: Resolve at most eight tagged recipes only after configuration revisions.
     pub fn resolve_reactions(
         &self,
         presets: &MenuPresets,
@@ -206,6 +286,7 @@ impl MenuSelection {
         Ok(result)
     }
     /// One bounded profile scan on creation/recipe revisions, never idle polls.
+    /// Plain English: One bounded profile scan on creation/recipe revisions, never idle polls.
     pub(super) fn refresh_rule_bindings(&mut self, presets: &MenuPresets, held: u32) {
         let mut scan = RuleScan {
             simplified: self.simplified_reactions,
@@ -237,6 +318,9 @@ impl MenuSelection {
         self.rule_button_mask = scan.buttons;
         self.rule_toggles &= scan.controls;
     }
+    /// Technical: Returns the `reaction_enabled_controls` result.
+    ///
+    /// Plain English: Gets the reaction enabled controls result.
     pub fn reaction_enabled_controls(&self) -> u8 {
         if self.tuning_page {
             return 0;
@@ -248,13 +332,20 @@ impl MenuSelection {
                 0
             }
     }
+    /// Technical: Returns an optional `draft` value.
+    ///
+    /// Plain English: Gets draft if it is available.
     pub(super) fn draft(&self, slot: PresetSlot, index: usize) -> Option<&catalog::Draft> {
         self.catalog.as_ref()?.drafts.get(&(slot as usize, index))
     }
+    /// Technical: Returns mutable access to the catalog value.
+    ///
+    /// Plain English: Provides mutable access to catalog.
     pub(super) fn catalog_mut(&mut self) -> &mut catalog::Catalog {
         self.catalog.get_or_insert_with(Default::default)
     }
     /// Does a live recipe for this slot already provide the built-in action?
+    /// Plain English: Does a live recipe for this slot already provide the built-in action?
     fn builtin_recorded(&self, slot: PresetSlot, builtin: Builtin, options: &[SavedChoice]) -> bool {
         options.iter().any(|c| c.sequence.builtin == Some(builtin))
             || self.catalog.as_ref().is_some_and(|c| {
@@ -263,6 +354,9 @@ impl MenuSelection {
                 })
             })
     }
+    /// Technical: Returns an optional `source` value.
+    ///
+    /// Plain English: Gets source if it is available.
     pub(super) fn source<'a>(
         &'a self,
         presets: &'a MenuPresets,
@@ -291,6 +385,7 @@ impl MenuSelection {
         (index == options.len() + usize::from(slot.is_button())).then_some(Source::Custom)
     }
     /// Resolve only identity for the hot input path; do not copy 32 actions.
+    /// Plain English: Resolve only identity for the hot input path; do not copy 32 actions.
     pub fn choice_labels<'a>(
         &'a self,
         presets: &'a MenuPresets,
@@ -301,6 +396,9 @@ impl MenuSelection {
             .map(|source| (source.id(), source.name()))
     }
 
+    /// Technical: Returns an optional `choice` value.
+    ///
+    /// Plain English: Gets choice if it is available.
     pub fn choice<'a>(
         &'a self,
         presets: &'a MenuPresets,
@@ -314,10 +412,14 @@ impl MenuSelection {
             allow_new: source.allow_new(),
         })
     }
+    /// Technical: Determines whether the `managing` condition holds.
+    ///
+    /// Plain English: Checks whether managing.
     pub fn managing(&self) -> bool {
         self.catalog.as_ref().is_some_and(|c| c.active())
     }
     /// One past the highest choice index of a slot, templates and added drafts included.
+    /// Plain English: One past the highest choice index of a slot, templates and added drafts included.
     pub(super) fn choice_end(&self, presets: &MenuPresets, slot: PresetSlot) -> usize {
         let base = presets.list(slot).options.len() + slot.templates();
         let slot_key = slot as usize;
@@ -326,11 +428,17 @@ impl MenuSelection {
             .and_then(|c| c.drafts.range((slot_key, 0)..(slot_key + 1, 0)).next_back())
             .map_or(base, |((_, index), _)| base.max(index + 1))
     }
+    /// Technical: Returns the `all_choices` result.
+    ///
+    /// Plain English: Gets the all choices result.
     pub(super) fn all_choices(&self, presets: &MenuPresets, slot: PresetSlot) -> Vec<usize> {
         (0..self.choice_end(presets, slot))
             .filter(|i| self.source(presets, slot, *i).is_some())
             .collect()
     }
+    /// Technical: Returns an optional `recipe_snapshot` value.
+    ///
+    /// Plain English: Gets recipe snapshot if it is available.
     pub fn recipe_snapshot(
         &self,
         presets: &MenuPresets,
@@ -343,6 +451,9 @@ impl MenuSelection {
         }
         self.source(presets, slot, index).map(|s| s.sequence())
     }
+    /// Technical: Returns the `visible_choices` result.
+    ///
+    /// Plain English: Gets the visible choices result.
     pub(super) fn visible_choices(&self, presets: &MenuPresets, slot: PresetSlot) -> Vec<usize> {
         self.all_choices(presets, slot)
             .into_iter()
@@ -352,6 +463,9 @@ impl MenuSelection {
             })
             .collect()
     }
+    /// Technical: Returns the `template_sources` result.
+    ///
+    /// Plain English: Gets the template sources result.
     pub(super) fn template_sources(
         &self,
         presets: &MenuPresets,
@@ -385,6 +499,9 @@ impl MenuSelection {
         }
         sources
     }
+    /// Technical: Determines whether the `quick_choice` condition holds.
+    ///
+    /// Plain English: Checks whether quick choice.
     fn quick_choice(&self, presets: &MenuPresets, slot: PresetSlot, index: usize) -> bool {
         self.source(presets, slot, index).is_some_and(|source| {
             source.builtin().is_some()
@@ -398,11 +515,15 @@ impl MenuSelection {
         })
     }
     /// Choices the compact page cycles: the unedited blank template stays hidden.
+    /// Plain English: Choices the compact page cycles: the unedited blank template stays hidden.
     fn quick_choices(&self, presets: &MenuPresets, slot: PresetSlot) -> Vec<usize> {
         let mut visible = self.visible_choices(presets, slot);
         visible.retain(|i| self.quick_choice(presets, slot, *i));
         visible
     }
+    /// Technical: Returns the `choice_position` result.
+    ///
+    /// Plain English: Gets the choice position result.
     pub fn choice_position(&self, presets: &MenuPresets, slot: PresetSlot) -> (usize, usize) {
         let visible = if self.quick_menu {
             self.quick_choices(presets, slot)
@@ -417,6 +538,9 @@ impl MenuSelection {
             visible.len(),
         )
     }
+    /// Technical: Returns the `cycle_choice` result.
+    ///
+    /// Plain English: Gets the cycle choice result.
     pub(super) fn cycle_choice(
         &self,
         presets: &MenuPresets,
@@ -426,6 +550,9 @@ impl MenuSelection {
         let visible = self.visible_choices(presets, slot);
         Self::cycle_visible_choices(&visible, self.choices[slot as usize], forward, 0)
     }
+    /// Technical: Returns the `cycle_quick_choice` result.
+    ///
+    /// Plain English: Gets the cycle quick choice result.
     pub(super) fn cycle_quick_choice(
         &self,
         presets: &MenuPresets,
@@ -445,6 +572,9 @@ impl MenuSelection {
         )
     }
 
+    /// Technical: Returns the `cycle_visible_choices` result.
+    ///
+    /// Plain English: Gets the cycle visible choices result.
     fn cycle_visible_choices(
         visible: &[usize],
         current: usize,
@@ -457,10 +587,14 @@ impl MenuSelection {
             .unwrap_or(missing_index);
         visible[cycle(index, visible.len(), forward)]
     }
+    /// Technical: Returns an optional `name_override` value.
+    ///
+    /// Plain English: Gets name override if it is available.
     pub fn name_override(&self, slot: PresetSlot, index: usize) -> Option<&str> {
         self.draft(slot, index).map(|d| d.name.as_str())
     }
     /// Editing a different recipe must not make a completed snapshot look stale.
+    /// Plain English: Editing a different recipe must not make a completed snapshot look stale.
     pub fn saved_recipe_matches(
         &self,
         presets: &MenuPresets,
@@ -483,6 +617,9 @@ impl MenuSelection {
         };
         current == Some(sequence) && name_matches
     }
+    /// Technical: Marks the recipe saved.
+    ///
+    /// Plain English: Marks the recipe saved.
     pub fn mark_recipe_saved(&mut self, slot: PresetSlot, index: usize) {
         if let Some(editor) = self.editor.as_mut() {
             editor.mark_saved((slot as usize, index));
@@ -495,6 +632,9 @@ impl MenuSelection {
             draft.dirty = false;
         }
     }
+    /// Technical: Updates the `complete_file_save` state using the supplied inputs.
+    ///
+    /// Plain English: Updates complete file save.
     pub fn complete_file_save(
         &mut self,
         presets: &MenuPresets,
@@ -507,6 +647,7 @@ impl MenuSelection {
     }
     /// Promote the acknowledged worker snapshot, never a newer unsaved edit or
     /// the immutable startup recipe. Completion can arrive after leaving Training.
+    /// Plain English: Promote the acknowledged worker snapshot, never a newer unsaved edit or the immutable startup recipe. Completion can arrive after leaving Training.
     pub fn complete_saved_snapshot(
         &mut self,
         presets: &MenuPresets,
@@ -549,6 +690,9 @@ impl MenuSelection {
         // maintenance consumes completion before input.
         self.bump_recipes();
     }
+    /// Technical: Updates the `complete_deletion` state using the supplied inputs.
+    ///
+    /// Plain English: Updates complete deletion.
     fn complete_deletion(&mut self, presets: &MenuPresets, slot: PresetSlot, index: usize) {
         let key = (slot as usize, index);
         // A Custom saved at the template's index becomes a blank reusable
@@ -579,6 +723,7 @@ impl MenuSelection {
     /// Drop Training-only tools once per scene transition. Retain unfinished
     /// drafts (including invalid drafts) and any clean editor differing from its
     /// base; a late save acknowledgement will promote that base first.
+    /// Plain English: Drop Training-only tools once per scene transition. Retain unfinished drafts (including invalid drafts) and any clean editor differing from its base; a late save acknowledgement will promote that base first.
     pub fn release_training_tools(&mut self, presets: &MenuPresets) {
         let Some(mut editor) = self.editor.take() else {
             return;
@@ -597,6 +742,9 @@ impl MenuSelection {
             self.editor = Some(editor);
         }
     }
+    /// Technical: Updates the `manage_input` state using the supplied inputs.
+    ///
+    /// Plain English: Updates manage input.
     pub(super) fn manage_input(&mut self, presets: &MenuPresets, buttons: u32, pressed: u32) {
         let Some(slot) = self.row.slot() else {
             return;
@@ -676,6 +824,7 @@ impl MenuSelection {
         }
     }
     /// Why another option cannot be added to this row, if it cannot.
+    /// Plain English: Why another option cannot be added to this row, if it cannot.
     fn add_refusal(&self, presets: &MenuPresets, slot: PresetSlot) -> Option<String> {
         if let Some((row, _)) = self.mode_editor_origin.as_ref() {
             if self.auto_mode_events(*row).is_some() {
@@ -703,6 +852,7 @@ impl MenuSelection {
             .then(|| "Save and restart before adding more options".into())
     }
     /// First unused `menu_added_N` id at or after `serial`, with the serial it used.
+    /// Plain English: First unused menuaddedN id at or after serial, with the serial it used.
     fn fresh_choice_id(&self, presets: &MenuPresets, slot: PresetSlot, mut serial: usize) -> (String, usize) {
         let options = presets.list(slot).options;
         let slot_key = slot as usize;
@@ -720,6 +870,9 @@ impl MenuSelection {
             serial += 1;
         }
     }
+    /// Technical: Adds the choice.
+    ///
+    /// Plain English: Adds the choice.
     fn add_choice(
         &mut self,
         presets: &MenuPresets,
@@ -774,6 +927,9 @@ impl MenuSelection {
         self.save_status = Some("New option in memory — configure actions, then Y: Save".into());
         self.open_editor(presets, slot);
     }
+    /// Technical: Updates the `open_editor` state using the supplied inputs.
+    ///
+    /// Plain English: Updates open editor.
     pub(super) fn open_editor(&mut self, presets: &MenuPresets, slot: PresetSlot) {
         self.mode_rule_list = false;
         let index = self.choices[slot as usize];

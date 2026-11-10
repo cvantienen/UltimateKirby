@@ -3,6 +3,9 @@ use super::*;
 use crate::fighter_tuning::{self, Tuning};
 
 impl MenuSelection {
+    /// Technical: Returns the `recipe_panel` result.
+    ///
+    /// Plain English: Gets the recipe panel result.
     pub fn recipe_panel(&self, presets: &MenuPresets) -> RecipePanel {
         if self.mode_rule_list && !self.managing() {
             return self.mode_rules_panel(presets);
@@ -33,6 +36,9 @@ impl MenuSelection {
         }
         self.recipe_editor_panel(presets, slot, index)
     }
+    /// Technical: Returns the `tuning_panel` result.
+    ///
+    /// Plain English: Gets the tuning panel result.
     fn tuning_panel(&self) -> RecipePanel {
         let row = self.tuning_visible_index(self.tuning_row);
         RecipePanel {
@@ -56,6 +62,7 @@ impl MenuSelection {
         }
     }
     /// One fighter-setting row: value plus where that value comes from.
+    /// Plain English: One fighter-setting row: value plus where that value comes from.
     fn tuning_line(&self, i: usize, selected: bool) -> String {
         let custom = self.tuning.0[i];
         let value = custom.unwrap_or(self.tuning_values[i]);
@@ -85,6 +92,9 @@ impl MenuSelection {
             fighter_tuning::LABELS[i]
         )
     }
+    /// Technical: Returns the `catalog_panel` result.
+    ///
+    /// Plain English: Gets the catalog panel result.
     fn catalog_panel(&self, catalog: &catalog::Catalog) -> RecipePanel {
         let mut header = catalog.lines();
         let body = if header.is_empty() {
@@ -109,6 +119,7 @@ impl MenuSelection {
         panel
     }
     /// The recipe editor (or its read-only preview) with the page hints around it.
+    /// Plain English: The recipe editor (or its read-only preview) with the page hints around it.
     fn recipe_editor_panel(
         &self,
         presets: &MenuPresets,

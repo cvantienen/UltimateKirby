@@ -3,52 +3,158 @@ use super::*;
 use crate::sequence_config::Sequence;
 use std::collections::BTreeMap;
 
+/// Technical: Defines the `UTF8_CONTINUATION_MASK` constant used by this module.
+///
+/// Plain English: Provides the UTF8 CONTINUATION MASK constant value.
 const UTF8_CONTINUATION_MASK: u8 = 0xc0;
+/// Technical: Defines the `UTF8_CONTINUATION_PREFIX` constant used by this module.
+///
+/// Plain English: Provides the UTF8 CONTINUATION PREFIX constant value.
 const UTF8_CONTINUATION_PREFIX: u8 = 0x80;
 
+/// Technical: Defines the `Draft` data structure.
+///
+/// Plain English: Holds the data for Draft.
 #[derive(Clone, Default)]
 pub(super) struct Draft {
+    /// Technical: Stores the `id` value in `Draft` as `String`.
+    ///
+    /// Plain English: Holds the id value used by Draft.
     pub id: String,
+    /// Technical: Stores the `name` value in `Draft` as `String`.
+    ///
+    /// Plain English: Holds the name value used by Draft.
     pub name: String,
+    /// Technical: Stores the `sequence` value in `Draft` as `Sequence`.
+    ///
+    /// Plain English: Holds the sequence value used by Draft.
     pub sequence: Sequence,
+    /// Technical: Stores the `new` value in `Draft` as `bool`.
+    ///
+    /// Plain English: Holds the new value used by Draft.
     pub new: bool,
+    /// Technical: Stores the `deleted` value in `Draft` as `bool`.
+    ///
+    /// Plain English: Holds the deleted value used by Draft.
     pub deleted: bool,
+    /// Technical: Stores the `dirty` value in `Draft` as `bool`.
+    ///
+    /// Plain English: Holds the dirty value used by Draft.
     pub dirty: bool,
 }
 impl Draft {
     /// A deleted draft or a legacy mode binding is not a selectable recipe.
+    /// Plain English: A deleted draft or a legacy mode binding is not a selectable recipe.
     pub fn live(&self) -> bool {
         !self.deleted && self.sequence.mode.is_none()
     }
 }
+/// Technical: Defines the available `Mode` cases.
+///
+/// Plain English: Lists the available Mode choices.
 #[derive(Default)]
 pub(super) enum Mode {
     #[default]
+    /// Technical: Represents the `Closed` case of `Mode`.
+    ///
+    /// Plain English: Represents the Closed option in Mode.
     Closed,
-    Actions(usize),
+    /// Technical: Represents the `Actions` case of `Mode`.
+    ///
+    /// Plain English: Represents the Actions option in Mode.
+    Actions(
+        /// Technical: Carries the number of actions in the selected mode in `Mode`.
+        ///
+        /// Plain English: Holds the number of actions in the selected mode for this `Mode` choice.
+        usize,
+    ),
+    /// Technical: Represents the `Name` case of `Mode`.
+    ///
+    /// Plain English: Represents the Name option in Mode.
     Name {
+        /// Technical: Stores the `text` value in `Mode` as `Vec<u8>`.
+        ///
+        /// Plain English: Holds the text value used by Mode.
         text: Vec<u8>,
+        /// Technical: Stores the `cursor` value in `Mode` as `usize`.
+        ///
+        /// Plain English: Holds the cursor value used by Mode.
         cursor: usize,
     },
+    /// Technical: Represents the `Delete` case of `Mode`.
+    ///
+    /// Plain English: Represents the Delete option in Mode.
     Delete,
 }
+/// Technical: Defines the `Catalog` data structure.
+///
+/// Plain English: Holds the data for Catalog.
 #[derive(Default)]
 pub(super) struct Catalog {
+    /// Technical: Stores the `drafts` value in `Catalog` as `BTreeMap<(usize`.
+    ///
+    /// Plain English: Holds the drafts value used by Catalog.
     pub drafts: BTreeMap<(usize, usize), Draft>,
+    /// Technical: Stores the `mode` value in `Catalog` as `Mode`.
+    ///
+    /// Plain English: Holds the mode value used by Catalog.
     pub mode: Mode,
+    /// Technical: Stores the `revision` value in `Catalog` as `u64`.
+    ///
+    /// Plain English: Holds the revision value used by Catalog.
     pub revision: u64,
+    /// Technical: Stores the `assist` value in `Catalog` as `bool`.
+    ///
+    /// Plain English: Holds the assist value used by Catalog.
     pub assist: bool,
+    /// Technical: Stores the `held` value in `Catalog` as `u32`.
+    ///
+    /// Plain English: Holds the held value used by Catalog.
     held: u32,
+    /// Technical: Stores the `ticks` value in `Catalog` as `u16`.
+    ///
+    /// Plain English: Holds the ticks value used by Catalog.
     ticks: u16,
 }
+/// Technical: Defines the available `Event` cases.
+///
+/// Plain English: Lists the available Event choices.
 pub(super) enum Event {
+    /// Technical: Represents the `None` case of `Event`.
+    ///
+    /// Plain English: Represents the None option in Event.
     None,
-    Rename(String),
-    Add(bool),
+    /// Technical: Represents the `Rename` case of `Event`.
+    ///
+    /// Plain English: Represents the Rename option in Event.
+    Rename(
+        /// Technical: Carries the replacement name in `Event`.
+        ///
+        /// Plain English: Holds the replacement name for this `Event` choice.
+        String,
+    ),
+    /// Technical: Represents the `Add` case of `Event`.
+    ///
+    /// Plain English: Represents the Add option in Event.
+    Add(
+        /// Technical: Carries whether to add the entry in `Event`.
+        ///
+        /// Plain English: Holds whether to add the entry for this `Event` choice.
+        bool,
+    ),
+    /// Technical: Represents the `Delete` case of `Event`.
+    ///
+    /// Plain English: Represents the Delete option in Event.
     Delete,
+    /// Technical: Represents the `MakeDefault` case of `Event`.
+    ///
+    /// Plain English: Represents the MakeDefault option in Event.
     MakeDefault,
 }
 // Cursors are UTF-8 byte boundaries; saved recipe names allow 64 bytes.
+/// Technical: Returns the next the character.
+///
+/// Plain English: Returns the next the character.
 fn next_character(text: &[u8], cursor: usize) -> usize {
     let mut end = cursor + 1;
     while end < text.len() && text[end] & UTF8_CONTINUATION_MASK == UTF8_CONTINUATION_PREFIX {
@@ -56,6 +162,9 @@ fn next_character(text: &[u8], cursor: usize) -> usize {
     }
     end
 }
+/// Technical: Returns the `previous_character` result.
+///
+/// Plain English: Gets the previous character result.
 fn previous_character(text: &[u8], cursor: usize) -> usize {
     let mut start = if cursor == 0 { text.len() } else { cursor } - 1;
     while start > 0 && text[start] & UTF8_CONTINUATION_MASK == UTF8_CONTINUATION_PREFIX {
@@ -65,10 +174,12 @@ fn previous_character(text: &[u8], cursor: usize) -> usize {
 }
 impl Catalog {
     /// Returns whether the catalog is currently active (not closed).
+    /// Plain English: Returns whether the catalog is currently active (not closed).
     pub fn active(&self) -> bool {
         !matches!(self.mode, Mode::Closed)
     }
     /// Closes the catalog, resetting its mode and input state.
+    /// Plain English: Closes the catalog, resetting its mode and input state.
     pub fn close(&mut self) {
         self.mode = Mode::Closed;
         self.revision = self.revision.wrapping_add(1);
@@ -76,6 +187,7 @@ impl Catalog {
         self.ticks = 0;
     }
     /// Processes input for the catalog, returning an event based on the current mode and input state.
+    /// Plain English: Processes input for the catalog, returning an event based on the current mode and input state.
     pub fn input(&mut self, buttons: u32, pressed: u32, name: &str) -> Event {
         use crate::native_input::{MAPPER_A as A, MAPPER_B as B, MAPPER_X as X, MAPPER_Y as Y};
         let pad = buttons & (DPAD_SIDES | DPAD_UP | DPAD_DOWN);
@@ -201,6 +313,9 @@ impl Catalog {
         }
         Event::None
     }
+    /// Technical: Returns the `lines` result.
+    ///
+    /// Plain English: Gets the lines result.
     pub fn lines(&self) -> Vec<String> {
         match &self.mode {
             Mode::Closed => vec![],
@@ -244,6 +359,9 @@ impl Catalog {
         }
     }
 }
+/// Technical: Defines the `ALPHABET` constant used by this module.
+///
+/// Plain English: Provides the ALPHABET constant value.
 const ALPHABET: &[u8] = b" ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 #[cfg(test)]
@@ -254,22 +372,34 @@ mod tests {
         native_input::{MAPPER_A as A, MAPPER_B as B, MAPPER_X, MAPPER_Y as Y},
         sequence_config::Catalog as FileCatalog,
     };
+    /// Technical: Returns the `presets` result.
+    ///
+    /// Plain English: Gets the presets result.
     fn presets() -> MenuPresets {
         let file=FileCatalog::parse("[yoshi.neutral.alpha]\nname=Alpha\nstart_delay=0\nactions=a\n[yoshi.neutral.beta]\nname=Beta\nstart_delay=0\nactions=b\n").unwrap();
         let mut profiles = FighterProfiles::default();
         profiles.add_sequence_choices(&file).unwrap();
         profiles.profile(5).unwrap().menu_options
     }
+    /// Technical: Updates the `tap` state using the supplied inputs.
+    ///
+    /// Plain English: Updates tap.
     fn tap(menu: &mut MenuSelection, p: &MenuPresets, button: u32) {
         menu.input(button, p);
         menu.input(0, p);
     }
+    /// Technical: Returns the `menu` result.
+    ///
+    /// Plain English: Gets the menu result.
     fn menu(p: &MenuPresets) -> MenuSelection {
         let mut m = MenuSelection::new(p);
         m.show();
         m.input(0, p);
         m
     }
+    /// Technical: Regression test for `added_unsaved_recipes_can_be_switched_from_compact`.
+    ///
+    /// Plain English: Checks that added unsaved recipes can be switched from compact.
     #[test]
     fn added_unsaved_recipes_can_be_switched_from_compact() {
         let p = presets();
@@ -300,6 +430,9 @@ mod tests {
         m.choices[PresetSlot::Neutral as usize] = next;
         assert_eq!(m.cycle_quick_choice(&p, PresetSlot::Neutral, false), added);
     }
+    /// Technical: Regression test for `diagnostic_add_and_duplicate_keep_other_option_indices_and_edits_stable`.
+    ///
+    /// Plain English: Checks that diagnostic add and duplicate keep other option indices and edits stable.
     #[test]
     fn diagnostic_add_and_duplicate_keep_other_option_indices_and_edits_stable() {
         let p = presets();
@@ -341,6 +474,9 @@ mod tests {
         assert_eq!(m.choice(&p, PresetSlot::Neutral, 0).unwrap().id, "alpha");
         assert_eq!(m.choice(&p, PresetSlot::Neutral, 1).unwrap().id, "beta");
     }
+    /// Technical: Regression test for `diagnostic_rename_changes_label_not_id_and_requires_explicit_file_save`.
+    ///
+    /// Plain English: Checks that diagnostic rename changes label not id and requires explicit file save.
     #[test]
     fn diagnostic_rename_changes_label_not_id_and_requires_explicit_file_save() {
         let p = presets();
@@ -356,6 +492,9 @@ mod tests {
         m.input(Y, &p);
         assert!(m.save_requested);
     }
+    /// Technical: Regression test for `diagnostic_delete_needs_confirmation_and_only_hides_after_successful_file_write`.
+    ///
+    /// Plain English: Checks that diagnostic delete needs confirmation and only hides after successful file write.
     #[test]
     fn diagnostic_delete_needs_confirmation_and_only_hides_after_successful_file_write() {
         let p = presets();
@@ -376,6 +515,9 @@ mod tests {
         assert_ne!(m.choices[0], 0);
         assert_eq!(m.choice_position(&p, PresetSlot::Neutral).1, 2);
     }
+    /// Technical: Regression test for `closing_or_match_reset_exits_manager_without_deleting_or_renaming`.
+    ///
+    /// Plain English: Checks that closing or match reset exits manager without deleting or renaming.
     #[test]
     fn closing_or_match_reset_exits_manager_without_deleting_or_renaming() {
         let p = presets();
@@ -387,6 +529,9 @@ mod tests {
         assert!(!m.delete_requested);
         assert_eq!(m.choice(&p, PresetSlot::Neutral, 0).unwrap().name, "Alpha");
     }
+    /// Technical: Regression test for `empty_ness_and_falcon_catalogs_can_create_edit_preview_and_queue_a_recipe`.
+    ///
+    /// Plain English: Checks that empty ness and falcon catalogs can create edit preview and queue a recipe.
     #[test]
     fn empty_ness_and_falcon_catalogs_can_create_edit_preview_and_queue_a_recipe() {
         use crate::{
@@ -451,6 +596,9 @@ mod tests {
         }
     }
 
+    /// Technical: Regression test for `saved_custom_can_be_renamed_saved_again_and_deleted_without_restart`.
+    ///
+    /// Plain English: Checks that saved custom can be renamed saved again and deleted without restart.
     #[test]
     fn saved_custom_can_be_renamed_saved_again_and_deleted_without_restart() {
         use crate::sequence_config::persist;
@@ -517,6 +665,9 @@ mod tests {
         assert!(m.settings(&p, AssistSettings::default()).sequence_overrides[0].is_none());
     }
 
+    /// Technical: Regression test for `saving_one_recipe_is_not_stale_after_renaming_another`.
+    ///
+    /// Plain English: Checks that saving one recipe is not stale after renaming another.
     #[test]
     fn saving_one_recipe_is_not_stale_after_renaming_another() {
         let p = presets();
@@ -536,6 +687,9 @@ mod tests {
         assert!(!m.saved_recipe_matches(&p, slot, 0, older, None));
     }
 
+    /// Technical: Regression test for `deleting_only_saved_custom_restores_an_empty_reusable_template`.
+    ///
+    /// Plain English: Checks that deleting only saved custom restores an empty reusable template.
     #[test]
     fn deleting_only_saved_custom_restores_an_empty_reusable_template() {
         let p = MenuPresets::EMPTY;
@@ -559,6 +713,9 @@ mod tests {
 #[cfg(test)]
 mod startup_default_tests {
     use super::*;
+    /// Technical: Regression test for `list_manager_explicit_default_requests_a_save_without_changing_the_recipe`.
+    ///
+    /// Plain English: Checks that list manager explicit default requests a save without changing the recipe.
     #[test]
     fn list_manager_explicit_default_requests_a_save_without_changing_the_recipe() {
         use crate::native_input::*;
@@ -597,6 +754,9 @@ mod startup_default_tests {
 mod rename_regressions {
     use super::*;
     use crate::native_input::{MAPPER_A as A, MAPPER_X as X, MAPPER_Y as Y};
+    /// Technical: Returns the `rename` result.
+    ///
+    /// Plain English: Gets the rename result.
     fn rename(name: &str) -> Catalog {
         let mut c = Catalog {
             mode: Mode::Actions(0),
@@ -605,12 +765,18 @@ mod rename_regressions {
         c.input(A, A, name);
         c
     }
+    /// Technical: Returns the `accepted` result.
+    ///
+    /// Plain English: Gets the accepted result.
     fn accepted(c: &mut Catalog) -> String {
         match c.input(Y, Y, "") {
             Event::Rename(n) => n,
             _ => panic!("expected a valid name"),
         }
     }
+    /// Technical: Regression test for `accepting_a_unicode_name_preserves_it_and_cursor_edits_whole_characters`.
+    ///
+    /// Plain English: Checks that accepting a unicode name preserves it and cursor edits whole characters.
     #[test]
     fn accepting_a_unicode_name_preserves_it_and_cursor_edits_whole_characters() {
         let name = "Shield → Up-B / café";
@@ -624,6 +790,9 @@ mod rename_regressions {
         c.input(A, A, "");
         assert_eq!(accepted(&mut c), "é");
     }
+    /// Technical: Regression test for `rename_inserts_at_cursor_obeys_byte_limit_and_ignores_held_direction_on_confirm`.
+    ///
+    /// Plain English: Checks that rename inserts at cursor obeys byte limit and ignores held direction on confirm.
     #[test]
     fn rename_inserts_at_cursor_obeys_byte_limit_and_ignores_held_direction_on_confirm() {
         let mut c = rename("AB");

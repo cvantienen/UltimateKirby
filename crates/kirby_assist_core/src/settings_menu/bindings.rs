@@ -5,10 +5,14 @@ use crate::manual_controls::TURBO_TRIGGER;
 use crate::native_input::{ControlLayout, MAPPER_STICK_CLICKS, SEQUENCE_JUMP_BUTTONS};
 use crate::sequence_config::{Action, Sequence};
 
+/// Technical: Defines the `BUTTON_MASK` constant used by this module.
+///
+/// Plain English: Provides the BUTTON MASK constant value.
 pub const BUTTON_MASK: u32 = MAPPER_X | MAPPER_Y | MAPPER_DPAD_BUTTONS | MAPPER_STICK_CLICKS;
 
 /// A literal one-frame jump input. Damage/tech safety routes it as input
 /// instead of replacing the safety owner with a tape.
+/// Plain English: A literal one-frame jump input. Damage/tech safety routes it as input instead of replacing the safety owner with a tape.
 fn is_single_jump_tape(s: &Sequence) -> bool {
     s.start_delay == 0
         && !s.ground_only
@@ -24,12 +28,21 @@ fn is_single_jump_tape(s: &Sequence) -> bool {
 }
 
 impl MenuSelection {
+    /// Technical: Determines whether the `effective_mode` condition holds.
+    ///
+    /// Plain English: Checks whether effective mode.
     pub fn effective_mode(&self, _mode: Mode, base: bool) -> bool {
         base
     }
+    /// Technical: Determines whether the `ledge_mode` condition holds.
+    ///
+    /// Plain English: Checks whether ledge mode.
     pub fn ledge_mode(&self) -> bool {
         self.auto_ledge
     }
+    /// Technical: Determines whether the `ledge_trump_held` condition holds.
+    ///
+    /// Plain English: Checks whether ledge trump held.
     pub fn ledge_trump_held(&self) -> bool {
         !self.cancel_pending
             && !self.binding_starts_blocked
@@ -44,6 +57,9 @@ impl MenuSelection {
                     .physical_buttons(self.button_latch | self.pad_quarantine))
                 != 0
     }
+    /// Technical: Returns the `process_bindings` result.
+    ///
+    /// Plain English: Gets the process bindings result.
     pub(super) fn process_bindings(
         &mut self,
         p: &MenuPresets,
@@ -73,6 +89,7 @@ impl MenuSelection {
         self.rule_button_mask | sequences | self.builtin_consumed
     }
     /// Explicitly assigned rule buttons toggle their reaction group on a clean press.
+    /// Plain English: Explicitly assigned rule buttons toggle their reaction group on a clean press.
     fn toggle_rule_buttons(&mut self, buttons: u32, pressed: u32, available: bool, quarantined: u32) {
         if self.rule_button_mask == 0 {
             return;
@@ -99,6 +116,7 @@ impl MenuSelection {
     }
     /// Own every button bound to a literal recipe and start the one pressed
     /// cleanly. Returns the owned logical buttons.
+    /// Plain English: Own every button bound to a literal recipe and start the one pressed cleanly. Returns the owned logical buttons.
     fn start_bound_sequences(
         &mut self,
         p: &MenuPresets,
@@ -140,6 +158,9 @@ impl MenuSelection {
         }
         bound
     }
+    /// Technical: Starts the binding.
+    ///
+    /// Plain English: Starts the binding.
     fn start_binding(&mut self, p: &MenuPresets, slot: PresetSlot) {
         self.changed();
         self.preview_slot = Some(slot);
@@ -162,21 +183,25 @@ impl MenuSelection {
 impl MenuSelection {
     /// Existing owners finish before another button can start a sequence.
     /// Still observe releases and menu controls; never queue a held button.
+    /// Plain English: Existing owners finish before another button can start a sequence. Still observe releases and menu controls; never queue a held button.
     pub fn block_binding_starts(&mut self, blocked: bool) {
         self.binding_starts_blocked = blocked;
         self.binding_safety_jump = false;
     }
     /// Ordinary jump inputs must remain bufferable during damage/tech safety.
     /// Other custom tapes remain blocked and cannot replace that safety owner.
+    /// Plain English: Ordinary jump inputs must remain bufferable during damage/tech safety. Other custom tapes remain blocked and cannot replace that safety owner.
     pub fn preserve_safety_jump(&mut self, enabled: bool) {
         self.binding_safety_jump = enabled;
     }
     /// Physical binding keys remain physical even with the alternate layout.
+    /// Plain English: Physical binding keys remain physical even with the alternate layout.
     pub fn set_binding_input(&mut self, physical: u32, layout: ControlLayout) {
         self.binding_input = Some((physical, layout));
     }
     /// Actual manual gameplay roles after custom bindings. Automatic rule
     /// buttons are explicit commands to their own rule, not manual jump intent.
+    /// Plain English: Actual manual gameplay roles after custom bindings. Automatic rule buttons are explicit commands to their own rule, not manual jump intent.
     pub fn manual_native_actions(&self, p: &MenuPresets) -> u32 {
         let mut actions = self
             .native_buttons(self.binding_layout.policy_buttons(self.binding_physical))
@@ -197,6 +222,7 @@ impl MenuSelection {
         actions
     }
     /// `None` when the selected choice is unavailable, `Some(None)` for a recipe.
+    /// Plain English: None when the selected choice is unavailable, Some(None) for a recipe.
     fn selected_builtin(
         &self,
         p: &MenuPresets,
@@ -205,6 +231,9 @@ impl MenuSelection {
         self.source(p, slot, self.choices[slot as usize])
             .map(|source| source.builtin())
     }
+    /// Technical: Updates the `capture_binding_input` state using the supplied inputs.
+    ///
+    /// Plain English: Updates capture binding input.
     pub(super) fn capture_binding_input(&mut self, buttons: u32, p: &MenuPresets) {
         let (physical, layout) = self
             .binding_input
@@ -233,6 +262,9 @@ impl MenuSelection {
             self.button_latch &= !layout.binding_ownership(physical & self.single_jump_sources);
         }
     }
+    /// Technical: Updates the `refresh_native_bindings` state using the supplied inputs.
+    ///
+    /// Plain English: Updates refresh native bindings.
     pub fn refresh_native_bindings(&mut self, p: &MenuPresets) {
         let layout = self.binding_layout;
         let stamp = (
@@ -296,6 +328,7 @@ impl MenuSelection {
     }
     /// Canonical inputs for existing helpers only. Physical game inputs are
     /// untouched until the final overlay consumes the chosen binding source.
+    /// Plain English: Canonical inputs for existing helpers only. Physical game inputs are untouched until the final overlay consumes the chosen binding source.
     pub fn native_buttons(&self, buttons: u32) -> u32 {
         let mut result = buttons
             & !(MAPPER_X

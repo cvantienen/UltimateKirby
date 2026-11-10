@@ -3,6 +3,9 @@ use super::PresetSlot;
 use crate::fighter_data::{self, MoveData};
 use std::sync::OnceLock;
 
+/// Technical: Returns the `short` result.
+///
+/// Plain English: Gets the short result.
 fn short(text: &str, limit: usize) -> String {
     let mut chars = text.chars();
     let mut result: String = chars.by_ref().take(limit).collect();
@@ -11,6 +14,9 @@ fn short(text: &str, limit: usize) -> String {
     }
     result
 }
+/// Technical: Returns an optional `raw` value.
+///
+/// Plain English: Gets raw if it is available.
 fn raw<'a>(data: &'a MoveData, key: &str) -> Option<&'a str> {
     data.raw
         .iter()
@@ -18,6 +24,9 @@ fn raw<'a>(data: &'a MoveData, key: &str) -> Option<&'a str> {
         .map(|s| s.value.as_str())
         .filter(|s| !s.is_empty() && *s != "--")
 }
+/// Technical: Returns the `timing` result.
+///
+/// Plain English: Gets the timing result.
 fn timing(data: &MoveData) -> String {
     let startup = raw(data, "startup")
         .map(|s| short(s, 22))
@@ -55,6 +64,9 @@ fn timing(data: &MoveData) -> String {
     format!("Start {startup} | active {active} | total {total}{landing} (frames)")
 }
 
+/// Technical: Returns the `move_names` result.
+///
+/// Plain English: Gets the move names result.
 fn move_names(label: &str) -> &'static [&'static str] {
     match label {
         "Neutral A / Nair" => &["Jab 1", "Neutral Air"],
@@ -80,6 +92,9 @@ fn move_names(label: &str) -> &'static [&'static str] {
         _ => &[],
     }
 }
+/// Technical: Finds the move.
+///
+/// Plain English: Finds the move.
 fn find_move(kind: i32, name: &str) -> Option<&'static MoveData> {
     if let Some(data) = fighter_data::named_move(kind, name) {
         return Some(data);
@@ -95,21 +110,48 @@ fn find_move(kind: i32, name: &str) -> Option<&'static MoveData> {
     matches.next().is_none().then_some(data)
 }
 
+/// Technical: Defines the `Summary` data structure.
+///
+/// Plain English: Holds the data for Summary.
 #[derive(Clone, Copy, Default)]
 struct Summary {
+    /// Technical: Stores the `n` value in `Summary` as `u32`.
+    ///
+    /// Plain English: Holds the n value used by Summary.
     n: u32,
+    /// Technical: Stores the `total` value in `Summary` as `u32`.
+    ///
+    /// Plain English: Holds the total value used by Summary.
     total: u32,
+    /// Technical: Stores the `invulnerable` value in `Summary` as `u32`.
+    ///
+    /// Plain English: Holds the invulnerable value used by Summary.
     invulnerable: u32,
+    /// Technical: Stores the `min` value in `Summary` as `u16`.
+    ///
+    /// Plain English: Holds the min value used by Summary.
     min: u16,
+    /// Technical: Stores the `max` value in `Summary` as `u16`.
+    ///
+    /// Plain English: Holds the max value used by Summary.
     max: u16,
 }
+/// Technical: Defines the `KEYS` constant used by this module.
+///
+/// Plain English: Provides the KEYS constant value.
 const KEYS: [&str; 4] = [
     "ledgestats.neutralgetup",
     "ledgestats.roll",
     "ledgestats.jump",
     "ledgestats.attackframes",
 ];
+/// Technical: Defines the `LEDGE` constant used by this module.
+///
+/// Plain English: Provides the LEDGE constant value.
 static LEDGE: OnceLock<[Summary; 4]> = OnceLock::new();
+/// Technical: Returns an optional `ledge_reference` value.
+///
+/// Plain English: Gets ledge reference if it is available.
 fn ledge_reference(slot: PresetSlot) -> Option<String> {
     let (index, name) = match slot {
         PresetSlot::Neutral => (0, "Neutral get-up"),
@@ -150,6 +192,9 @@ fn ledge_reference(slot: PresetSlot) -> Option<String> {
         )
     })
 }
+/// Technical: Returns an optional `ledge_frames` value.
+///
+/// Plain English: Gets ledge frames if it is available.
 fn ledge_frames(value: &str) -> Option<(u16, u16)> {
     let (span, rest) = value.split_once(" intangible / ")?;
     let end = span.strip_prefix("1-")?.parse::<u16>().ok()?;
@@ -157,6 +202,9 @@ fn ledge_frames(value: &str) -> Option<(u16, u16)> {
     (end < total).then_some((end, total))
 }
 
+/// Technical: Returns the `hints` result.
+///
+/// Plain English: Gets the hints result.
 pub(super) fn hints(kind: i32, slot: PresetSlot, label: Option<&str>) -> Vec<String> {
     let mut lines = Vec::new();
     if let Some(label) = label {
@@ -194,6 +242,9 @@ pub(super) fn hints(kind: i32, slot: PresetSlot, label: Option<&str>) -> Vec<Str
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// Technical: Regression test for `correct_fighter_move_and_special_variants_are_used`.
+    ///
+    /// Plain English: Checks that correct fighter move and special variants are used.
     #[test]
     fn correct_fighter_move_and_special_variants_are_used() {
         let kirby = hints(6, PresetSlot::X, Some("Dtilt")).join(" ");
@@ -208,6 +259,9 @@ mod tests {
         assert!(bowser.contains("Whirling Fortress"));
         assert!(bowser.contains("Air"));
     }
+    /// Technical: Regression test for `roster_reference_is_labeled_and_does_not_claim_live_countdown`.
+    ///
+    /// Plain English: Checks that roster reference is labeled and does not claim live countdown.
     #[test]
     fn roster_reference_is_labeled_and_does_not_claim_live_countdown() {
         let hint = hints(6, PresetSlot::Neutral, None).join(" ");
@@ -219,6 +273,9 @@ mod tests {
         assert_eq!(ledge_frames("1-32 intangible / 33 total"), Some((32, 33)));
         assert_eq!(ledge_frames("?"), None);
     }
+    /// Technical: Regression test for `input_aliases_never_claim_ground_or_air_state_is_known`.
+    ///
+    /// Plain English: Checks that input aliases never claim ground or air state is known.
     #[test]
     fn input_aliases_never_claim_ground_or_air_state_is_known() {
         let hint = hints(6, PresetSlot::X, Some("Neutral A / Nair")).join(" ");

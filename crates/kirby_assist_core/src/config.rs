@@ -11,18 +11,32 @@ use crate::{
 };
 
 /// Maximum number of scenarios that can be configured without a heap allocator.
+/// Plain English: Maximum number of scenarios that can be configured without a heap allocator.
 pub const MAX_SCENARIO_RULES: usize = 10;
 
 /// Top-level configuration. Rules are disabled by default.
+/// Plain English: Top-level configuration. Rules are disabled by default.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AssistConfig {
+    /// Technical: Stores whether `AssistConfig` is enabled.
+    ///
+    /// Plain English: Turns assistance on or off.
     pub enabled: bool,
+    /// Technical: Stores the `scope` value in `AssistConfig` as `AssistScope`.
+    ///
+    /// Plain English: Sets which fighter or controller may receive assistance.
     pub scope: AssistScope,
     // Fixed-size storage avoids allocating a vector whenever policy is evaluated.
+    /// Technical: Stores the `rules` value in `AssistConfig` as `[ScenarioRule; MAX_SCENARIO_RULES]`.
+    ///
+    /// Plain English: Stores the configured scenario rules in fixed-size slots.
     pub rules: [ScenarioRule; MAX_SCENARIO_RULES],
 }
 
 impl Default for AssistConfig {
+    /// Technical: Returns the default value for this type.
+    ///
+    /// Plain English: Returns the default value for this type.
     fn default() -> Self {
         Self {
             enabled: false,
@@ -37,6 +51,7 @@ impl AssistConfig {
     ///
     /// Returns `false` for `Scenario::None` or when no empty slot remains.
     /// Disabled rules retain their settings until explicitly removed.
+    /// Plain English: Replaces the matching rule, or uses the first empty slot. Returns false for Scenario::None or when no empty slot remains. Disabled rules retain their settings until explicitly removed.
     pub fn set_rule(&mut self, rule: ScenarioRule) -> bool {
         if rule.scenario == Scenario::None {
             return false;
@@ -52,6 +67,9 @@ impl AssistConfig {
         true
     }
 
+    /// Technical: Returns mutable access to the configured rule for the requested scenario.
+    ///
+    /// Plain English: Returns mutable access to the configured rule for the requested scenario.
     fn rule_mut(&mut self, scenario: Scenario) -> Option<&mut ScenarioRule> {
         if scenario == Scenario::None {
             return None;
@@ -60,6 +78,7 @@ impl AssistConfig {
     }
 
     /// Toggle a tool without losing its recipe or timing.
+    /// Plain English: Toggle a tool without losing its recipe or timing.
     pub fn set_rule_enabled(&mut self, scenario: Scenario, enabled: bool) -> bool {
         self.rule_mut(scenario)
             .map(|rule| rule.enabled = enabled)
@@ -67,6 +86,7 @@ impl AssistConfig {
     }
 
     /// Remove a tool and free its configuration slot.
+    /// Plain English: Remove a tool and free its configuration slot.
     pub fn remove_rule(&mut self, scenario: Scenario) -> bool {
         self.rule_mut(scenario)
             .map(|rule| *rule = ScenarioRule::DISABLED)
@@ -75,6 +95,9 @@ impl AssistConfig {
 
     // Disabled entries are intentionally ignored, but retain their settings so
     // toggling a tool back on does not discard its timing/custom recipe.
+    /// Technical: Returns the enabled rule configured for the requested scenario.
+    ///
+    /// Plain English: Returns the enabled rule configured for the requested scenario.
     pub fn rule_for(&self, scenario: Scenario) -> Option<ScenarioRule> {
         self.rules
             .iter()
@@ -84,9 +107,16 @@ impl AssistConfig {
 }
 
 /// Select which fighter/controller may receive assistance, in any game mode.
+/// Plain English: Select which fighter/controller may receive assistance, in any game mode.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AssistScope {
+    /// Technical: Controls whether `AssistScope` requires local human control.
+    ///
+    /// Plain English: Requires the fighter to be controlled by a local human when this scope is checked.
     pub require_locally_human_controlled: bool,
+    /// Technical: Controls whether `AssistScope` requires Kirby.
+    ///
+    /// Plain English: Restricts assistance to Kirby when this flag is set.
     pub require_kirby: bool,
 }
 
@@ -94,6 +124,9 @@ impl AssistScope {
     // `!flag || condition` means "only require condition when flag is true".
     // This scope is independent of game mode; the live adapter separately
     // validates its supported native controller/fighter before using the engine.
+    /// Technical: Returns whether the supplied context is permitted by this scope.
+    ///
+    /// Plain English: Returns whether the supplied context is permitted by this scope.
     pub fn allows(self, context: RunContext) -> bool {
         (!self.require_locally_human_controlled || context.is_locally_human_controlled)
             && (!self.require_kirby || context.fighter == FighterKind::Kirby)
@@ -101,6 +134,9 @@ impl AssistScope {
 }
 
 impl Default for AssistScope {
+    /// Technical: Returns the default value for this type.
+    ///
+    /// Plain English: Returns the default value for this type.
     fn default() -> Self {
         Self {
             require_locally_human_controlled: true,
@@ -110,43 +146,82 @@ impl Default for AssistScope {
 }
 
 /// The action to take after a rule's timing condition has been met.
+/// Plain English: The action to take after a rule's timing condition has been met.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ScenarioAction {
     /// One logical controller frame, merged with the human player's frame.
-    ControllerRecipe(InputRecipe),
+    /// Plain English: One logical controller frame, merged with the human player's frame.
+    ControllerRecipe(
+        /// Technical: Carries the logical controller recipe in `ScenarioAction`.
+        ///
+        /// Plain English: Holds the logical controller recipe for this `ScenarioAction` choice.
+        InputRecipe,
+    ),
     /// A future feature for replaying a saved multi-frame input sequence.
     /// It is deliberately non-functional until a playback backend is written.
-    PlaybackSlot(RecordingSlot),
+    /// Plain English: A future feature for replaying a saved multi-frame input sequence. It is deliberately non-functional until a playback backend is written.
+    PlaybackSlot(
+        /// Technical: Carries the reserved recording slot in `ScenarioAction`.
+        ///
+        /// Plain English: Holds the reserved recording slot for this `ScenarioAction` choice.
+        RecordingSlot,
+    ),
 }
 
 /// Slot names reserve an understandable API for a future input recorder.
+/// Plain English: Slot names reserve an understandable API for a future input recorder.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RecordingSlot {
+    /// Technical: Represents the `One` case of `RecordingSlot`.
+    ///
+    /// Plain English: Represents the One option in RecordingSlot.
     One,
+    /// Technical: Represents the `Two` case of `RecordingSlot`.
+    ///
+    /// Plain English: Represents the Two option in RecordingSlot.
     Two,
+    /// Technical: Represents the `Three` case of `RecordingSlot`.
+    ///
+    /// Plain English: Represents the Three option in RecordingSlot.
     Three,
+    /// Technical: Represents the `Four` case of `RecordingSlot`.
+    ///
+    /// Plain English: Represents the Four option in RecordingSlot.
     Four,
+    /// Technical: Represents the `Five` case of `RecordingSlot`.
+    ///
+    /// Plain English: Represents the Five option in RecordingSlot.
     Five,
 }
 
 /// How a scenario's active-frame counter selects controller frames.
+/// Plain English: How a scenario's active-frame counter selects controller frames.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RuleTiming {
     /// Wait this many scenario frames before the first action frame.
+    /// Plain English: Wait this many scenario frames before the first action frame.
     pub start_after_frames: u16,
     /// Number of action frames to emit each time the rule activates.
+    /// Plain English: Number of action frames to emit each time the rule activates.
     pub active_for_frames: u16,
     /// Zero means "run once". Any other value repeats from the first frame.
+    /// Plain English: Zero means "run once". Any other value repeats from the first frame.
     pub repeat_every_frames: u16,
 }
 
 impl RuleTiming {
+    /// Technical: Defines the `IMMEDIATELY_ONCE` constant used by this module.
+    ///
+    /// Plain English: Provides the IMMEDIATELY ONCE constant value.
     pub const IMMEDIATELY_ONCE: Self = Self {
         start_after_frames: 0,
         active_for_frames: 1,
         repeat_every_frames: 0,
     };
 
+    /// Technical: Returns the `after` result.
+    ///
+    /// Plain English: Gets the after result.
     pub const fn after(start_after_frames: u16) -> Self {
         Self {
             start_after_frames,
@@ -154,6 +229,9 @@ impl RuleTiming {
         }
     }
 
+    /// Technical: Returns the `pulse_every` result.
+    ///
+    /// Plain English: Gets the pulse every result.
     pub const fn pulse_every(repeat_every_frames: u16) -> Self {
         Self {
             repeat_every_frames,
@@ -164,6 +242,9 @@ impl RuleTiming {
     // Frame zero belongs to the scenario. After the initial delay, modulo (%)
     // repeats a pulse pattern: interval 3 / duration 1 means on, off, off, repeat.
     // The live caller supplies observed input updates, not a universal game clock.
+    /// Technical: Checks whether the timing rule is active at the supplied scenario age.
+    ///
+    /// Plain English: Checks whether the timing rule is active at the supplied scenario age.
     pub fn is_active_on(self, frames_active: u32) -> bool {
         if frames_active < self.start_after_frames as u32 {
             return false;
@@ -183,15 +264,31 @@ impl RuleTiming {
 }
 
 /// A readable declaration: "in this scenario, propose this action at this time."
+/// Plain English: A readable declaration: "in this scenario, propose this action at this time.".
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ScenarioRule {
+    /// Technical: Stores whether `ScenarioRule` is enabled.
+    ///
+    /// Plain English: Turns assistance on or off.
     pub enabled: bool,
+    /// Technical: Stores the `scenario` value in `ScenarioRule` as `Scenario`.
+    ///
+    /// Plain English: Holds the scenario value used by ScenarioRule.
     pub scenario: Scenario,
+    /// Technical: Stores the `timing` value in `ScenarioRule` as `RuleTiming`.
+    ///
+    /// Plain English: Holds the timing value used by ScenarioRule.
     pub timing: RuleTiming,
+    /// Technical: Stores the `action` value in `ScenarioRule` as `ScenarioAction`.
+    ///
+    /// Plain English: Holds the action value used by ScenarioRule.
     pub action: ScenarioAction,
 }
 
 impl ScenarioRule {
+    /// Technical: Defines the `DISABLED` constant used by this module.
+    ///
+    /// Plain English: Provides the DISABLED constant value.
     pub const DISABLED: Self = Self {
         enabled: false,
         scenario: Scenario::None,
@@ -199,6 +296,9 @@ impl ScenarioRule {
         action: ScenarioAction::ControllerRecipe(InputRecipe::NONE),
     };
 
+    /// Technical: Returns the `controller` result.
+    ///
+    /// Plain English: Gets the controller result.
     pub const fn controller(scenario: Scenario, timing: RuleTiming, recipe: InputRecipe) -> Self {
         Self {
             enabled: true,
@@ -208,6 +308,9 @@ impl ScenarioRule {
         }
     }
 
+    /// Technical: Returns the `playback` result.
+    ///
+    /// Plain English: Gets the playback result.
     pub const fn playback(scenario: Scenario, timing: RuleTiming, slot: RecordingSlot) -> Self {
         Self {
             enabled: true,
@@ -225,6 +328,9 @@ mod tests {
     use super::*;
     use crate::input::ButtonSet;
 
+    /// Technical: Regression test for `all_scenarios_fit_and_disabled_settings_survive_other_tools`.
+    ///
+    /// Plain English: Checks that all scenarios fit and disabled settings survive other tools.
     #[test]
     fn all_scenarios_fit_and_disabled_settings_survive_other_tools() {
         let mut config = AssistConfig::default();
@@ -265,6 +371,9 @@ mod tests {
         assert!(config.set_rule(tech));
     }
 
+    /// Technical: Constructs the rule replaces old rule for the same scenario.
+    ///
+    /// Plain English: Checks that new rule replaces old rule for the same scenario.
     #[test]
     fn new_rule_replaces_old_rule_for_the_same_scenario() {
         let mut config = AssistConfig::default();
@@ -285,6 +394,9 @@ mod tests {
         );
     }
 
+    /// Technical: Regression test for `timing_supports_delays_and_pulses`.
+    ///
+    /// Plain English: Checks that timing supports delays and pulses.
     #[test]
     fn timing_supports_delays_and_pulses() {
         let timing = RuleTiming {
@@ -304,17 +416,44 @@ pub mod button_bindings {
     //! Mode identities for On/Off settings and legacy file compatibility.
     //! Reaction rules use their own explicit Control whitelist; Builtin below
     //! exposes native button helpers.
+    /// Technical: Defines the available `Mode` cases.
+    ///
+    /// Plain English: Lists the available Mode choices.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Mode {
+        /// Technical: Represents the `LedgeTrap` case of `Mode`.
+        ///
+        /// Plain English: Represents the LedgeTrap option in Mode.
         LedgeTrap,
+        /// Technical: Represents the `AutoTech` case of `Mode`.
+        ///
+        /// Plain English: Represents the AutoTech option in Mode.
         AutoTech,
+        /// Technical: Represents the `AutoMash` case of `Mode`.
+        ///
+        /// Plain English: Represents the AutoMash option in Mode.
         AutoMash,
+        /// Technical: Represents the `IdleCrouch` case of `Mode`.
+        ///
+        /// Plain English: Represents the IdleCrouch option in Mode.
         IdleCrouch,
+        /// Technical: Represents the `TiltTurn` case of `Mode`.
+        ///
+        /// Plain English: Represents the TiltTurn option in Mode.
         TiltTurn,
+        /// Technical: Represents the `SpotPunish` case of `Mode`.
+        ///
+        /// Plain English: Represents the SpotPunish option in Mode.
         SpotPunish,
+        /// Technical: Represents the `OutOfShield` case of `Mode`.
+        ///
+        /// Plain English: Represents the OutOfShield option in Mode.
         OutOfShield,
     }
     impl Mode {
+        /// Technical: Defines the `ALL` constant used by this module.
+        ///
+        /// Plain English: Provides the ALL constant value.
         pub const ALL: [Self; 7] = [
             Self::LedgeTrap,
             Self::AutoTech,
@@ -324,9 +463,15 @@ pub mod button_bindings {
             Self::SpotPunish,
             Self::OutOfShield,
         ];
+        /// Technical: Tests whether the requested bit is set in the value.
+        ///
+        /// Plain English: Checks whether this bit is on.
         pub fn bit(self) -> u16 {
             1 << self as usize
         }
+        /// Technical: Returns the native identifier of the observed object.
+        ///
+        /// Plain English: Gets the object’s identifier.
         pub fn id(self) -> &'static str {
             match self {
                 Self::LedgeTrap => "ledge_trap",
@@ -338,6 +483,9 @@ pub mod button_bindings {
                 Self::OutOfShield => "out_of_shield",
             }
         }
+        /// Technical: Returns the display label for the value.
+        ///
+        /// Plain English: Gets the text shown for this value.
         pub fn label(self) -> &'static str {
             match self {
                 Self::LedgeTrap => "Ledge trap",
@@ -349,20 +497,38 @@ pub mod button_bindings {
                 Self::OutOfShield => "Out of shield",
             }
         }
+        /// Technical: Parses the supplied source into the module’s validated representation.
+        ///
+        /// Plain English: Reads the source and checks that it is valid.
         pub fn parse(s: &str) -> Option<Self> {
             Self::ALL.into_iter().find(|m| m.id() == s)
         }
+        /// Technical: Checks whether the current value supports the requested operation.
+        ///
+        /// Plain English: Checks whether this value can be used for that operation.
         pub fn supports(self, kind: i32) -> bool {
             self != Self::IdleCrouch || kind == crate::fighter_kinds::KIRBY
         }
     }
+    /// Technical: Defines the available `Activation` cases.
+    ///
+    /// Plain English: Lists the available Activation choices.
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
     pub enum Activation {
         #[default]
+        /// Technical: Represents the `Hold` case of `Activation`.
+        ///
+        /// Plain English: Represents the Hold option in Activation.
         Hold,
+        /// Technical: Represents the `Toggle` case of `Activation`.
+        ///
+        /// Plain English: Represents the Toggle option in Activation.
         Toggle,
     }
     impl Activation {
+        /// Technical: Returns the native identifier of the observed object.
+        ///
+        /// Plain English: Gets the object’s identifier.
         pub fn id(self) -> &'static str {
             match self {
                 Self::Hold => "hold",
@@ -370,13 +536,28 @@ pub mod button_bindings {
             }
         }
     }
+    /// Technical: Defines the `ModeBinding` data structure.
+    ///
+    /// Plain English: Holds the data for ModeBinding.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct ModeBinding {
+        /// Technical: Stores the `mode` value in `ModeBinding` as `Mode`.
+        ///
+        /// Plain English: Holds the mode value used by ModeBinding.
         pub mode: Mode,
+        /// Technical: Stores the `activation` value in `ModeBinding` as `Activation`.
+        ///
+        /// Plain English: Holds the activation value used by ModeBinding.
         pub activation: Activation,
     }
     impl ModeBinding {
+        /// Technical: Defines the `COUNT` constant used by this module.
+        ///
+        /// Plain English: Provides the COUNT constant value.
         pub const COUNT: usize = Mode::ALL.len() * 2;
+        /// Technical: Converts a millisecond offset into a `Duration`.
+        ///
+        /// Plain English: Turns a millisecond value into a time duration.
         pub fn at(index: usize) -> Option<Self> {
             Some(Self {
                 mode: *Mode::ALL.get(index / 2)?,
@@ -387,10 +568,19 @@ pub mod button_bindings {
                 },
             })
         }
+        /// Technical: Returns the index of the selected entry.
+        ///
+        /// Plain English: Gets the selected item’s position.
         pub fn index(self) -> usize {
             self.mode as usize * 2 + usize::from(self.activation == Activation::Toggle)
         }
+        /// Technical: Returns the display label for the value.
+        ///
+        /// Plain English: Gets the text shown for this value.
         pub fn label(self) -> &'static str {
+            /// Technical: Defines the `LABELS` constant used by this module.
+            ///
+            /// Plain English: Provides the LABELS constant value.
             const LABELS: [&str; ModeBinding::COUNT] = [
                 "Hold: Ledge trap",
                 "Toggle: Ledge trap",
@@ -409,7 +599,13 @@ pub mod button_bindings {
             ];
             LABELS[self.index()]
         }
+        /// Technical: Returns the stable identifier of the selected choice.
+        ///
+        /// Plain English: Gets the selected choice’s ID.
         pub fn choice_id(self) -> &'static str {
+            /// Technical: Defines the `IDS` constant used by this module.
+            ///
+            /// Plain English: Provides the IDS constant value.
             const IDS: [&str; ModeBinding::COUNT] = [
                 "__mode_ledge_trap_hold",
                 "__mode_ledge_trap_toggle",
@@ -431,20 +627,39 @@ pub mod button_bindings {
     }
 
     /// Existing native input helpers, assignable without executing a recipe tape.
+    /// Plain English: Existing native input helpers, assignable without executing a recipe tape.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Builtin {
+        /// Technical: Represents the `Normal` case of `Builtin`.
+        ///
+        /// Plain English: Represents the Normal option in Builtin.
         Normal,
+        /// Technical: Represents the `LedgeAssist` case of `Builtin`.
+        ///
+        /// Plain English: Represents the LedgeAssist option in Builtin.
         LedgeAssist,
+        /// Technical: Represents the `TurboTeabag` case of `Builtin`.
+        ///
+        /// Plain English: Represents the TurboTeabag option in Builtin.
         TurboTeabag,
+        /// Technical: Represents the `LedgeTrump` case of `Builtin`.
+        ///
+        /// Plain English: Represents the LedgeTrump option in Builtin.
         LedgeTrump,
     }
     impl Builtin {
+        /// Technical: Defines the `ALL` constant used by this module.
+        ///
+        /// Plain English: Provides the ALL constant value.
         pub const ALL: [Self; 4] = [
             Self::Normal,
             Self::LedgeAssist,
             Self::TurboTeabag,
             Self::LedgeTrump,
         ];
+        /// Technical: Returns the serialized token for the value.
+        ///
+        /// Plain English: Gets the text form used when saving this value.
         pub fn token(self) -> &'static str {
             match self {
                 Self::Normal => "normal",
@@ -453,6 +668,9 @@ pub mod button_bindings {
                 Self::LedgeTrump => "ledge_trump",
             }
         }
+        /// Technical: Returns the display label for the value.
+        ///
+        /// Plain English: Gets the text shown for this value.
         pub fn label(self) -> &'static str {
             match self {
                 Self::Normal => "Normal button",
@@ -461,6 +679,9 @@ pub mod button_bindings {
                 Self::LedgeTrump => "Built-in: Ledge trump",
             }
         }
+        /// Technical: Returns the stable identifier of the selected choice.
+        ///
+        /// Plain English: Gets the selected choice’s ID.
         pub fn choice_id(self) -> &'static str {
             match self {
                 Self::Normal => "__normal_button",
@@ -469,12 +690,18 @@ pub mod button_bindings {
                 Self::LedgeTrump => "__builtin_ledge_trump",
             }
         }
+        /// Technical: Parses the supplied source into the module’s validated representation.
+        ///
+        /// Plain English: Reads the source and checks that it is valid.
         pub fn parse(value: &str) -> Option<Self> {
             match value {
                 "short_hop" => Some(Self::Normal),
                 _ => Self::ALL.into_iter().find(|b| b.token() == value),
             }
         }
+        /// Technical: Builds the default the for.
+        ///
+        /// Plain English: Holds the default for value.
         pub fn default_for(slot: crate::fighter_profiles::presets::PresetSlot) -> Self {
             use crate::fighter_profiles::presets::PresetSlot;
             match slot {
@@ -482,6 +709,9 @@ pub mod button_bindings {
                 _ => Self::Normal,
             }
         }
+        /// Technical: Returns the template offset used by the current record.
+        ///
+        /// Plain English: Gets the template’s position in the stored data.
         pub fn template_offset(self) -> usize {
             match self {
                 Self::Normal => 0,
@@ -500,43 +730,131 @@ pub mod option_read {
         native_input::MAPPER_A,
         timing::{motion_elapsed, ActiveWindow, RecoveryWindow},
     };
+    /// Technical: Defines the available `Kind` cases.
+    ///
+    /// Plain English: Lists the available Kind choices.
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum Kind {
+        /// Technical: Represents the `Spot` case of `Kind`.
+        ///
+        /// Plain English: Represents the Spot option in Kind.
         Spot,
+        /// Technical: Represents the `Grab` case of `Kind`.
+        ///
+        /// Plain English: Represents the Grab option in Kind.
         Grab,
+        /// Technical: Represents the `Roll` case of `Kind`.
+        ///
+        /// Plain English: Represents the Roll option in Kind.
         Roll,
     }
+    /// Technical: Defines the `Target` data structure.
+    ///
+    /// Plain English: Holds the data for Target.
     #[derive(Clone, Copy)]
     pub struct Target {
+        /// Technical: Stores the `id` value in `Target` as `u32`.
+        ///
+        /// Plain English: Holds the id value used by Target.
         pub id: u32,
+        /// Technical: Stores the `kind` value in `Target` as `Kind`.
+        ///
+        /// Plain English: Holds the kind value used by Target.
         pub kind: Kind,
+        /// Technical: Stores the `status` value in `Target` as `i32`.
+        ///
+        /// Plain English: Holds the status value used by Target.
         pub status: i32,
+        /// Technical: Stores the `motion` value in `Target` as `u64`.
+        ///
+        /// Plain English: Holds the motion value used by Target.
         pub motion: u64,
+        /// Technical: Stores the `frame` value in `Target` as `f32`.
+        ///
+        /// Plain English: Holds the frame value used by Target.
         pub frame: f32,
+        /// Technical: Stores the `rate` value in `Target` as `f32`.
+        ///
+        /// Plain English: Holds the rate value used by Target.
         pub rate: f32,
+        /// Technical: Stores the `position` value in `Target` as `[f32; 2]`.
+        ///
+        /// Plain English: Stores the position collection for Target.
         pub position: [f32; 2],
+        /// Technical: Stores the `velocity` value in `Target` as `[f32; 2]`.
+        ///
+        /// Plain English: Stores the velocity collection for Target.
         pub velocity: [f32; 2],
+        /// Technical: Stores the `opens` value in `Target` as `f32`.
+        ///
+        /// Plain English: Holds the opens value used by Target.
         pub opens: f32,
+        /// Technical: Stores the `closes` value in `Target` as `f32`.
+        ///
+        /// Plain English: Holds the closes value used by Target.
         pub closes: f32,
     }
+    /// Technical: Defines the `Context` data structure.
+    ///
+    /// Plain English: Holds the data for Context.
     #[derive(Clone, Copy)]
     pub struct Context {
+        /// Technical: Stores the `object` value in `Context` as `u32`.
+        ///
+        /// Plain English: Holds the object value used by Context.
         pub object: u32,
+        /// Technical: Stores the `status` value in `Context` as `i32`.
+        ///
+        /// Plain English: Holds the status value used by Context.
         pub status: i32,
+        /// Technical: Stores the `motion` value in `Context` as `u64`.
+        ///
+        /// Plain English: Holds the motion value used by Context.
         pub motion: u64,
+        /// Technical: Stores the `frame` value in `Context` as `f32`.
+        ///
+        /// Plain English: Holds the frame value used by Context.
         pub frame: f32,
+        /// Technical: Stores the `rate` value in `Context` as `f32`.
+        ///
+        /// Plain English: Holds the rate value used by Context.
         pub rate: f32,
+        /// Technical: Stores the `stopped` value in `Context` as `bool`.
+        ///
+        /// Plain English: Holds the stopped value used by Context.
         pub stopped: bool,
+        /// Technical: Stores the `grounded` value in `Context` as `bool`.
+        ///
+        /// Plain English: Holds the grounded value used by Context.
         pub grounded: bool,
+        /// Technical: Stores the `can_act` value in `Context` as `bool`.
+        ///
+        /// Plain English: Holds the can act value used by Context.
         pub can_act: bool,
+        /// Technical: Stores the `down_ready` value in `Context` as `bool`.
+        ///
+        /// Plain English: Holds the down ready value used by Context.
         pub down_ready: bool,
+        /// Technical: Stores the `forward_ready` value in `Context` as `bool`.
+        ///
+        /// Plain English: Holds the forward ready value used by Context.
         pub forward_ready: bool,
+        /// Technical: Stores the `facing` value in `Context` as `f32`.
+        ///
+        /// Plain English: Holds the facing value used by Context.
         pub facing: f32,
+        /// Technical: Stores the `position` value in `Context` as `[f32; 2]`.
+        ///
+        /// Plain English: Stores the position collection for Context.
         pub position: [f32; 2],
+        /// Technical: Stores the `velocity` value in `Context` as `[f32; 2]`.
+        ///
+        /// Plain English: Stores the velocity collection for Context.
         pub velocity: [f32; 2],
     }
     impl Context {
         /// Grounded with a usable motion clock and a known facing.
+        /// Plain English: Grounded with a usable motion clock and a known facing.
         fn ready_to_read(&self) -> bool {
             self.grounded
                 && crate::timing::clock_known(self.motion, self.frame, self.rate)
@@ -544,43 +862,118 @@ pub mod option_read {
                 && self.facing.abs() >= 0.5
         }
     }
+    /// Technical: Defines the `Config` data structure.
+    ///
+    /// Plain English: Holds the data for Config.
     #[derive(Clone, Copy)]
     pub struct Config {
+        /// Technical: Stores the `down` value in `Config` as `[u8; 2]`.
+        ///
+        /// Plain English: Stores the down collection for Config.
         pub down: [u8; 2],
+        /// Technical: Stores the `down_back` value in `Config` as `Option<[u8; 2]>`.
+        ///
+        /// Plain English: Optionally stores the down back for Config; it may be absent.
         pub down_back: Option<[u8; 2]>,
+        /// Technical: Stores the `forward` value in `Config` as `[u8; 2]`.
+        ///
+        /// Plain English: Stores the forward collection for Config.
         pub forward: [u8; 2],
+        /// Technical: Stores the `down_reach` value in `Config` as `f32`.
+        ///
+        /// Plain English: Holds the down reach value used by Config.
         pub down_reach: f32,
+        /// Technical: Stores the `forward_reach` value in `Config` as `f32`.
+        ///
+        /// Plain English: Holds the forward reach value used by Config.
         pub forward_reach: f32,
     }
+    /// Technical: Defines the `Track` data structure.
+    ///
+    /// Plain English: Holds the data for Track.
     #[derive(Clone, Copy)]
     struct Track {
+        /// Technical: Stores the `id` value in `Track` as `u32`.
+        ///
+        /// Plain English: Holds the id value used by Track.
         id: u32,
+        /// Technical: Stores the `status` value in `Track` as `i32`.
+        ///
+        /// Plain English: Holds the status value used by Track.
         status: i32,
+        /// Technical: Stores the `motion` value in `Track` as `u64`.
+        ///
+        /// Plain English: Holds the motion value used by Track.
         motion: u64,
+        /// Technical: Stores the `frame` value in `Track` as `f32`.
+        ///
+        /// Plain English: Holds the frame value used by Track.
         frame: f32,
+        /// Technical: Stores the `rate` value in `Track` as `f32`.
+        ///
+        /// Plain English: Holds the rate value used by Track.
         rate: f32,
+        /// Technical: Stores the `used` value in `Track` as `bool`.
+        ///
+        /// Plain English: Holds the used value used by Track.
         used: bool,
     }
+    /// Technical: Defines the `Punisher` data structure.
+    ///
+    /// Plain English: Holds the data for Punisher.
     #[derive(Default)]
     pub struct Punisher {
+        /// Technical: Stores the `object` value in `Punisher` as `Option<u32>`.
+        ///
+        /// Plain English: Optionally stores the object for Punisher; it may be absent.
         object: Option<u32>,
+        /// Technical: Stores the `tracks` value in `Punisher` as `[Option<Track>; 8]`.
+        ///
+        /// Plain English: Stores the tracks collection for Punisher.
         tracks: [Option<Track>; 8],
+        /// Technical: Stores the `previous` value in `Punisher` as `Option<(i32`.
+        ///
+        /// Plain English: Optionally stores the previous for Punisher; it may be absent.
         previous: Option<(i32, u64, f32, f32)>,
+        /// Technical: Stores the `target` value in `Punisher` as `Option<u32>`.
+        ///
+        /// Plain English: Optionally stores the target for Punisher; it may be absent.
         target: Option<u32>,
+        /// Technical: Stores the `phase` value in `Punisher` as `u8`.
+        ///
+        /// Plain English: Holds the phase value used by Punisher.
         phase: u8,
+        /// Technical: Stores the `forward` value in `Punisher` as `bool`.
+        ///
+        /// Plain English: Holds the forward value used by Punisher.
         forward: bool,
+        /// Technical: Stores the `age` value in `Punisher` as `f32`.
+        ///
+        /// Plain English: Holds the age value used by Punisher.
         age: f32,
+        /// Technical: Stores the `output` value in `Punisher` as `ControllerOutput`.
+        ///
+        /// Plain English: Holds the output value used by Punisher.
         output: ControllerOutput,
     }
     impl Punisher {
+        /// Technical: Checks whether an input owner has committed the action.
+        ///
+        /// Plain English: Checks whether the action has been committed.
         pub fn committed(&self) -> bool {
             self.target.is_some() && self.output.owned != 0
         }
+        /// Technical: Cancels the pending.
+        ///
+        /// Plain English: Cancels the pending.
         pub fn cancel_pending(&mut self) {
             self.target = None;
             self.phase = 0;
             self.output = ControllerOutput::default();
         }
+        /// Technical: Updates the toggle state from the current button sample and match state.
+        ///
+        /// Plain English: Checks the current buttons and updates whether the toggle should activate.
         pub fn sample(
             &mut self,
             enabled: bool,
@@ -590,6 +983,9 @@ pub mod option_read {
         ) -> ControllerOutput {
             self.sample_with_height(enabled, c, cfg, targets, 8.)
         }
+        /// Technical: Samples the with height.
+        ///
+        /// Plain English: Samples the with height.
         pub fn sample_with_height(
             &mut self,
             enabled: bool,
@@ -681,6 +1077,7 @@ pub mod option_read {
 
         /// Remember each target's motion clock; `used` survives while the same
         /// motion event continues. Returns the previous tracks.
+        /// Plain English: Remember each target's motion clock; used survives while the same motion event continues. Returns the previous tracks.
         fn refresh_tracks(&mut self, targets: &[Option<Target>; 8]) -> [Option<Track>; 8] {
             let old = self.tracks;
             for (track, target) in self.tracks.iter_mut().zip(targets) {
@@ -703,6 +1100,7 @@ pub mod option_read {
 
         /// Elapsed frames of our own clock, else of the committed target's, else NaN
         /// when either clock is invalid or rewound.
+        /// Plain English: Elapsed frames of our own clock, else of the committed target's, else NaN when either clock is invalid or rewound.
         fn clock_delta(
             &mut self,
             c: &Context,
@@ -736,6 +1134,7 @@ pub mod option_read {
         }
 
         /// A committed target must stay in reach of the committed attack.
+        /// Plain English: A committed target must stay in reach of the committed attack.
         fn target_in_contact(
             &self,
             c: Context,
@@ -753,6 +1152,7 @@ pub mod option_read {
 
         /// First untouched target (or the committed one) already in reach once
         /// `setup` frames have elapsed. Returns its slot, side and horizontal offset.
+        /// Plain English: First untouched target (or the committed one) already in reach once setup frames have elapsed. Returns its slot, side and horizontal offset.
         fn select_target(
             &self,
             c: Context,
@@ -783,6 +1183,7 @@ pub mod option_read {
 
         /// Hold the committed smash while native acceptance is pending, repeating the
         /// press on the game's retry schedule until it times out.
+        /// Plain English: Hold the committed smash while native acceptance is pending, repeating the press on the game's retry schedule until it times out.
         fn retry_attack(&mut self, facing: f32, delta: f32) -> ControllerOutput {
             self.age += delta;
             if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT {
@@ -798,6 +1199,9 @@ pub mod option_read {
             self.output
         }
     }
+    /// Technical: Returns the measured number of shield frames.
+    ///
+    /// Plain English: Gets how long the shield was held.
     fn shield_frames(c: &Context) -> f32 {
         match c.status {
             crate::native_states::GUARD_ON..=crate::native_states::GUARD => 11.0,
@@ -805,6 +1209,9 @@ pub mod option_read {
             _ => 0.0,
         }
     }
+    /// Technical: Returns the attack output requested by the current response.
+    ///
+    /// Plain English: Gets the attack input requested by the response.
     fn attack_output(forward: bool, facing: f32) -> ControllerOutput {
         crate::move_input::output(
             if forward {
@@ -815,6 +1222,9 @@ pub mod option_read {
             MAPPER_A,
         )
     }
+    /// Technical: Checks whether the observed interaction includes contact.
+    ///
+    /// Plain English: Checks whether contact was observed.
     fn contact(c: Context, cfg: Config, t: Target, forward: bool, setup: f32, height: f32) -> bool {
         if !t.frame.is_finite()
             || !t.rate.is_finite()
@@ -875,56 +1285,94 @@ pub mod settings {
     use crate::native_input::MAPPER_R;
 
     /// Validated assistance settings. Defaults and response timing are shared by both builds.
+    /// Plain English: Validated assistance settings. Defaults and response timing are shared by both builds.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct AssistSettings {
         /// Legacy identity tag; no executable fighter handler is dispatched.
+        /// Plain English: Legacy identity tag; no executable fighter handler is dispatched.
         pub implementation: Option<crate::ledge_trap::ResponseImplementation>,
         /// Native fighter identity for startup-loaded file menus.
+        /// Plain English: Native fighter identity for startup-loaded file menus.
         pub fighter_kind: i32,
         /// Indices into the fighter's startup-resolved menu lists. None preserves direct
         /// core/legacy callers that supply settings without using the battle menu.
+        /// Plain English: Indices into the fighter's startup-resolved menu lists. None preserves direct core/legacy callers that supply settings without using the battle menu.
         pub response_choices: [Option<usize>; crate::fighter_profiles::presets::PresetSlot::COUNT],
         /// Startup-parsed recipes for the five selected compiled or file-added IDs.
         /// Fixed-size copies keep text/file work out of live callbacks.
+        /// Plain English: Startup-parsed recipes for the five selected compiled or file-added IDs. Fixed-size copies keep text/file work out of live callbacks.
         pub sequence_overrides: [Option<crate::sequence_config::Sequence>;
             crate::fighter_profiles::presets::PresetSlot::COUNT],
         /// Numeric-only startup adjustments; these cannot register new actions.
         /// Resolved move timings and response switches for our selected fighter.
+        /// Plain English: Numeric-only startup adjustments; these cannot register new actions. Resolved move timings and response switches for our selected fighter.
         pub fighter: FighterGrabData,
+        /// Technical: Stores the `responses` value in `AssistSettings` as `LedgeResponses`.
+        ///
+        /// Plain English: Holds the responses value used by AssistSettings.
         pub responses: LedgeResponses,
+        /// Technical: Stores whether `AssistSettings` is enabled.
+        ///
+        /// Plain English: Turns assistance on or off.
         pub enabled: bool,
         /// Enable the selected response to a witnessed generic ledge release.
+        /// Plain English: Enable the selected response to a witnessed generic ledge release.
         pub drop_defense: bool,
         /// Native-time budget to request/confirm the drop punish before shielding.
         // Ranges/heights/stance distances are WORLD units, not stick percentages.
         // Increasing reach only makes the policy willing to attack from farther
         // away; it does not enlarge Kirby's real hitbox and can create more whiffs.
         /// Broad target acquisition limits in world units.
+        /// Plain English: Native-time budget to request/confirm the drop punish before shielding. Broad target acquisition limits in world units.
         pub horizontal_range: f32,
+        /// Technical: Stores the `vertical_range` value in `AssistSettings` as `f32`.
+        ///
+        /// Plain English: Holds the vertical range value used by AssistSettings.
         pub vertical_range: f32,
         // Follow limits keep the acquired opponent through its get-up travel;
         // acquisition limits above decide whether to acquire it in the first place.
+        /// Technical: Stores the `follow_range` value in `AssistSettings` as `f32`.
+        ///
+        /// Plain English: Holds the follow range value used by AssistSettings.
         pub follow_range: f32,
+        /// Technical: Stores the `follow_vertical_range` value in `AssistSettings` as `f32`.
+        ///
+        /// Plain English: Holds the follow vertical range value used by AssistSettings.
         pub follow_vertical_range: f32,
         /// Preserve player movement between response inputs.
+        /// Plain English: Preserve player movement between response inputs.
         pub manual_spacing: bool,
         /// Player owns spacing; normal/jump/grab timing does not test reach.
+        /// Plain English: Player owns spacing; normal/jump/grab timing does not test reach.
         pub distance_agnostic: bool,
         /// Baseline horizontal walk strength: normal cap is -0.02, near-full
         /// horizontal cap is +0.03, both bounded to 0.1..0.45.
+        /// Plain English: Baseline horizontal walk strength: normal cap is -0.02, near-full horizontal cap is +0.03, both bounded to 0.1..0.45.
         pub walk_strength: f32,
+        /// Technical: Stores the `auto_position` value in `AssistSettings` as `bool`.
+        ///
+        /// Plain English: Holds the auto position value used by AssistSettings.
         pub auto_position: bool,
         /// Heuristic stage-side stance offset, not a universal optimal location.
+        /// Plain English: Heuristic stage-side stance offset, not a universal optimal location.
         pub stand_distance: f32,
         // Unlike distances, move_strength is normalized stick magnitude (0..1).
+        /// Technical: Stores the `move_strength` value in `AssistSettings` as `f32`.
+        ///
+        /// Plain English: Holds the move strength value used by AssistSettings.
         pub move_strength: f32,
         /// Legacy parsed setting. Captures always return control to the player.
+        /// Plain English: Legacy parsed setting. Captures always return control to the player.
         pub throw_outward: bool,
         /// Native mask of the button mapped to Grab; R for this user's controls.
+        /// Plain English: Native mask of the button mapped to Grab; R for this user's controls.
         pub grab_button: u32,
     }
 
     impl Default for AssistSettings {
+        /// Technical: Returns the default value for this type.
+        ///
+        /// Plain English: Returns the default value for this type.
         fn default() -> Self {
             Self {
                 implementation: Some(crate::ledge_trap::ResponseImplementation::Kirby),

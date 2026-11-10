@@ -17,14 +17,30 @@ mod assist_handoff {
 
     /// Keep a released manual jump from racing a new grounded automatic input
     /// while the native fighter has not acknowledged the queued jump yet.
+    /// Plain English: Keep a released manual jump from racing a new grounded automatic input while the native fighter has not acknowledged the queued jump yet.
     #[derive(Default)]
     pub struct ManualJumpFence {
+        /// Technical: Stores the `owner` value in `ManualJumpFence` as `Option<(u32`.
+        ///
+        /// Plain English: Optionally stores the owner for ManualJumpFence; it may be absent.
         owner: Option<(u32, i32)>,
+        /// Technical: Stores the `held` value in `ManualJumpFence` as `bool`.
+        ///
+        /// Plain English: Holds the held value used by ManualJumpFence.
         held: bool,
+        /// Technical: Stores the `pending` value in `ManualJumpFence` as `bool`.
+        ///
+        /// Plain English: Holds the pending value used by ManualJumpFence.
         pending: bool,
+        /// Technical: Stores the `clock` value in `ManualJumpFence` as `NativeAttempt`.
+        ///
+        /// Plain English: Holds the clock value used by ManualJumpFence.
         clock: NativeAttempt,
     }
     impl ManualJumpFence {
+        /// Technical: Constructs a new value with the type’s initial state.
+        ///
+        /// Plain English: Creates a new value.
         pub const fn new() -> Self {
             Self {
                 owner: None,
@@ -33,9 +49,15 @@ mod assist_handoff {
                 clock: NativeAttempt::new(),
             }
         }
+        /// Technical: Checks whether a pending operation is stored.
+        ///
+        /// Plain English: Checks whether something is waiting to be processed.
         pub fn pending(&self) -> bool {
             self.pending
         }
+        /// Technical: Updates the toggle state from the current button sample and match state.
+        ///
+        /// Plain English: Checks the current buttons and updates whether the toggle should activate.
         pub fn sample(&mut self, object: u32, kind: i32, held: bool, c: GameplayContext) -> bool {
             if self.owner != Some((object, kind)) {
                 *self = Self::new();
@@ -68,13 +90,28 @@ mod assist_handoff {
         }
     }
 
+    /// Technical: Defines the `AssistGuardHandoff` data structure.
+    ///
+    /// Plain English: Holds the data for AssistGuardHandoff.
     #[derive(Default)]
     pub struct AssistGuardHandoff {
+        /// Technical: Stores the `blocked` value in `AssistGuardHandoff` as `u32`.
+        ///
+        /// Plain English: Holds the blocked value used by AssistGuardHandoff.
         blocked: u32,
+        /// Technical: Stores the `previous` value in `AssistGuardHandoff` as `Option<u32>`.
+        ///
+        /// Plain English: Optionally stores the previous for AssistGuardHandoff; it may be absent.
         previous: Option<u32>,
+        /// Technical: Stores the `protected` value in `AssistGuardHandoff` as `u32`.
+        ///
+        /// Plain English: Holds the protected value used by AssistGuardHandoff.
         protected: u32,
     }
     impl AssistGuardHandoff {
+        /// Technical: Constructs a new value with the type’s initial state.
+        ///
+        /// Plain English: Creates a new value.
         pub const fn new() -> Self {
             Self {
                 blocked: 0,
@@ -82,6 +119,9 @@ mod assist_handoff {
                 protected: 0,
             }
         }
+        /// Technical: Updates the toggle state from the current button sample and match state.
+        ///
+        /// Plain English: Checks the current buttons and updates whether the toggle should activate.
         pub fn sample(
             &mut self,
             active: bool,
@@ -117,6 +157,9 @@ mod assist_handoff {
     mod tests {
         use super::*;
         use crate::native_input::{MAPPER_ZL, MAPPER_ZR};
+        /// Technical: Checks whether the required input is currently held.
+        ///
+        /// Plain English: Checks whether the button is still held.
         fn held(mask: u32) -> ButtonTrace {
             ButtonTrace {
                 held: mask,
@@ -124,6 +167,9 @@ mod assist_handoff {
                 ..Default::default()
             }
         }
+        /// Technical: Regression test for `old_shield_hold_does_not_return_as_a_roll_or_air_dodge`.
+        ///
+        /// Plain English: Checks that old shield hold does not return as a roll or air dodge.
         #[test]
         fn old_shield_hold_does_not_return_as_a_roll_or_air_dodge() {
             let mut h = AssistGuardHandoff::new();
@@ -149,6 +195,9 @@ mod assist_handoff {
                 0
             );
         }
+        /// Technical: Regression test for `requested_defense_and_fresh_manual_shield_are_not_suppressed`.
+        ///
+        /// Plain English: Checks that requested defense and fresh manual shield are not suppressed.
         #[test]
         fn requested_defense_and_fresh_manual_shield_are_not_suppressed() {
             let mut h = AssistGuardHandoff::new();
@@ -174,28 +223,77 @@ mod assist_handoff {
     }
 }
 pub use assist_handoff::{AssistGuardHandoff, ManualJumpFence};
+/// Technical: Defines the `TURBO_TRIGGER` constant used by this module.
+///
+/// Plain English: Provides the TURBO TRIGGER constant value.
 pub const TURBO_TRIGGER: u32 = 1 << 16; // Canonical turbo role; physical source comes from button bindings.
+/// Technical: Defines the `DPAD_UP` constant used by this module.
+///
+/// Plain English: Provides the DPAD UP constant value.
 pub const DPAD_UP: u32 = crate::native_input::MAPPER_DPAD_UP;
+/// Technical: Defines the `DPAD_RIGHT` constant used by this module.
+///
+/// Plain English: Provides the DPAD RIGHT constant value.
 pub const DPAD_RIGHT: u32 = crate::native_input::MAPPER_DPAD_RIGHT;
+/// Technical: Defines the `DPAD_LEFT` constant used by this module.
+///
+/// Plain English: Provides the DPAD LEFT constant value.
 pub const DPAD_LEFT: u32 = crate::native_input::MAPPER_DPAD_LEFT;
+/// Technical: Defines the `DPAD_SIDES` constant used by this module.
+///
+/// Plain English: Provides the DPAD SIDES constant value.
 pub const DPAD_SIDES: u32 = DPAD_LEFT | DPAD_RIGHT;
+/// Technical: Defines the `LEFT_STICK_DIRECTIONS` constant used by this module.
+///
+/// Plain English: Provides the LEFT STICK DIRECTIONS constant value.
 pub const LEFT_STICK_DIRECTIONS: u32 = crate::native_input::MAPPER_LEFT_STICK_DIRECTIONS;
+/// Technical: Defines the `RIGHT_STICK_DIRECTIONS` constant used by this module.
+///
+/// Plain English: Provides the RIGHT STICK DIRECTIONS constant value.
 pub const RIGHT_STICK_DIRECTIONS: u32 = crate::native_input::MAPPER_RIGHT_STICK_DIRECTIONS;
+/// Technical: Defines the `STICK_CLICKS` constant used by this module.
+///
+/// Plain English: Provides the STICK CLICKS constant value.
 pub const STICK_CLICKS: u32 = crate::native_input::MAPPER_STICK_CLICKS;
 
+/// Technical: Defines the `ManualContext` data structure.
+///
+/// Plain English: Holds the data for ManualContext.
 #[derive(Clone, Copy, Debug)]
 pub struct ManualContext {
+    /// Technical: Stores the `status` value in `ManualContext` as `i32`.
+    ///
+    /// Plain English: Holds the status value used by ManualContext.
     pub status: i32,
+    /// Technical: Stores the `situation` value in `ManualContext` as `i32`.
+    ///
+    /// Plain English: Holds the situation value used by ManualContext.
     pub situation: i32,
+    /// Technical: Stores the `motion` value in `ManualContext` as `u64`.
+    ///
+    /// Plain English: Holds the motion value used by ManualContext.
     pub motion: u64,
+    /// Technical: Stores the `frame` value in `ManualContext` as `f32`.
+    ///
+    /// Plain English: Holds the frame value used by ManualContext.
     pub frame: f32,
+    /// Technical: Stores the `rate` value in `ManualContext` as `f32`.
+    ///
+    /// Plain English: Holds the rate value used by ManualContext.
     pub rate: f32,
+    /// Technical: Stores the `stopped` value in `ManualContext` as `bool`.
+    ///
+    /// Plain English: Holds the stopped value used by ManualContext.
     pub stopped: bool,
+    /// Technical: Stores the `facing` value in `ManualContext` as `f32`.
+    ///
+    /// Plain English: Holds the facing value used by ManualContext.
     pub facing: f32,
 }
 
 /// Preserve fine physical input and crouching while capping horizontal motion
 /// for manual ledge spacing. Attack recipes bypass this cap explicitly.
+/// Plain English: Preserve fine physical input and crouching while capping horizontal motion for manual ledge spacing. Attack recipes bypass this cap explicitly.
 pub fn ledge_walk_stick(physical: [f32; 2], maximum: f32) -> [f32; 2] {
     let base = if maximum.is_finite() {
         maximum.clamp(0.1, 0.45)
@@ -229,6 +327,7 @@ pub fn ledge_walk_stick(physical: [f32; 2], maximum: f32) -> [f32; 2] {
 
 /// Release only outward manual walking input at a known ledge gap.
 /// This uses copied motion, not geometry searches or native position writes.
+/// Plain English: Release only outward manual walking input at a known ledge gap. This uses copied motion, not geometry searches or native position writes.
 pub fn stop_walk_at_ledge(
     mut stick: [f32; 2],
     position: [f32; 2],
@@ -262,11 +361,18 @@ pub fn stop_walk_at_ledge(
 /// A diagonal press can include Up even when the intended trigger is Left/Right.
 /// Quarantine all D-pad bits involved in a macro press until their release, so
 /// a diagonal or its release cannot turn into a different taunt.
+/// Plain English: A diagonal press can include Up even when the intended trigger is Left/Right. Quarantine all D-pad bits involved in a macro press until their release, so a diagonal or its release cannot turn into a different taunt.
 #[derive(Default)]
 pub struct DpadReservation {
+    /// Technical: Stores the `quarantined` value in `DpadReservation` as `u32`.
+    ///
+    /// Plain English: Holds the quarantined value used by DpadReservation.
     quarantined: u32,
 }
 impl DpadReservation {
+    /// Technical: Updates the toggle state from the current button sample and match state.
+    ///
+    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(&mut self, enabled: u32, physical: u32, gameplay: bool) -> u32 {
         if !gameplay || enabled == 0 {
             *self = Self::default();
@@ -284,12 +390,19 @@ impl DpadReservation {
     }
 }
 
+/// Technical: Defines the `TurboSettings` data structure.
+///
+/// Plain English: Holds the data for TurboSettings.
 #[derive(Clone, Copy, Debug)]
 pub struct TurboSettings {
     /// Normalized horizontal stick magnitude during crouch and creep phases.
+    /// Plain English: Normalized horizontal stick magnitude during crouch and creep phases.
     pub walk_strength: f32,
 }
 impl Default for TurboSettings {
+    /// Technical: Returns the default value for this type.
+    ///
+    /// Plain English: Returns the default value for this type.
     fn default() -> Self {
         Self {
             walk_strength: 0.45,
@@ -299,6 +412,7 @@ impl Default for TurboSettings {
 
 /// Grounded idle/walk/run/turn/crouch states qualify. Do not change game
 /// statuses to force the macro through attacks, grabs, hitstop, or aerial states.
+/// Plain English: Grounded idle/walk/run/turn/crouch states qualify. Do not change game statuses to force the macro through attacks, grabs, hitstop, or aerial states.
 pub fn turbo_movement_allowed(status: i32, situation: i32, stopped: bool) -> bool {
     situation == crate::native_states::situation::GROUND
         && !stopped
@@ -308,28 +422,57 @@ pub fn turbo_movement_allowed(status: i32, situation: i32, stopped: bool) -> boo
                 .contains(&status))
 }
 
+/// Technical: Defines the `TurboOutput` data structure.
+///
+/// Plain English: Holds the data for TurboOutput.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct TurboOutput {
+    /// Technical: Stores the `stick` value in `TurboOutput` as `Option<[f32; 2]>`.
+    ///
+    /// Plain English: Optionally stores the stick for TurboOutput; it may be absent.
     pub stick: Option<[f32; 2]>,
 }
 
 /// Cleans up a deliberate full-stick reversal during a native dash/run. The
 /// two-update hold is advanced by the shared game tick, never mapper polls, so
 /// online input sampling cannot shorten the pivot window.
+/// Plain English: Cleans up a deliberate full-stick reversal during a native dash/run. The two-update hold is advanced by the shared game tick, never mapper polls, so online input sampling cannot shorten the pivot window.
 #[derive(Default)]
 pub struct DashPivotAssist {
+    /// Technical: Stores the `last_direction` value in `DashPivotAssist` as `i8`.
+    ///
+    /// Plain English: Holds the last direction value used by DashPivotAssist.
     last_direction: i8,
+    /// Technical: Stores the `active_direction` value in `DashPivotAssist` as `i8`.
+    ///
+    /// Plain English: Holds the active direction value used by DashPivotAssist.
     active_direction: i8,
+    /// Technical: Stores the `dash_walk_direction` value in `DashPivotAssist` as `i8`.
+    ///
+    /// Plain English: Holds the dash walk direction value used by DashPivotAssist.
     dash_walk_direction: i8,
+    /// Technical: Stores the `updates_left` value in `DashPivotAssist` as `u8`.
+    ///
+    /// Plain English: Holds the updates left value used by DashPivotAssist.
     updates_left: u8,
+    /// Technical: Stores the `last_tick` value in `DashPivotAssist` as `Option<i64>`.
+    ///
+    /// Plain English: Optionally stores the last tick for DashPivotAssist; it may be absent.
     last_tick: Option<i64>,
+    /// Technical: Stores the `last_output` value in `DashPivotAssist` as `TurboOutput`.
+    ///
+    /// Plain English: Holds the last output value used by DashPivotAssist.
     last_output: TurboOutput,
 }
 impl DashPivotAssist {
     /// A higher-priority tool must not leave movement queued for handback.
+    /// Plain English: A higher-priority tool must not leave movement queued for handback.
     pub fn cancel_pending(&mut self) {
         *self = Self::default();
     }
+    /// Technical: Updates the toggle state from the current button sample and match state.
+    ///
+    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         tick: i64,
@@ -442,17 +585,33 @@ impl DashPivotAssist {
     }
 }
 
+/// Technical: Defines the `TurboState` data structure.
+///
+/// Plain English: Holds the data for TurboState.
 #[derive(Default)]
 pub struct TurboState {
+    /// Technical: Stores the `direction` value in `TurboState` as `i8`.
+    ///
+    /// Plain English: Holds the direction value used by TurboState.
     direction: i8,
+    /// Technical: Stores the `next_phase` value in `TurboState` as `u32`.
+    ///
+    /// Plain English: Holds the next phase value used by TurboState.
     next_phase: u32,
+    /// Technical: Stores the `last_tick` value in `TurboState` as `Option<i64>`.
+    ///
+    /// Plain English: Optionally stores the last tick for TurboState; it may be absent.
     last_tick: Option<i64>,
+    /// Technical: Stores the `last_output` value in `TurboState` as `TurboOutput`.
+    ///
+    /// Plain English: Holds the last output value used by TurboState.
     last_output: TurboOutput,
 }
 impl TurboState {
     /// A selected button binding runs one crouch update and one gentle
     /// facing-direction walk update per cycle. Duplicate input updates reuse
     /// their output; releasing the binding or losing movement eligibility stops.
+    /// Plain English: A selected button binding runs one crouch update and one gentle facing-direction walk update per cycle. Duplicate input updates reuse their output; releasing the binding or losing movement eligibility stops.
     pub fn sample_teabag(
         &mut self,
         settings: TurboSettings,
@@ -509,25 +668,51 @@ impl TurboState {
 /// Result consumed by the native mapper; tech/mash button ownership is composed
 /// first. The shared stick overlay accepts analog mash as well as D-pad tools,
 /// owning stick/attack/shield fields only while the active policy requests them.
+/// Plain English: Result consumed by the native mapper; tech/mash button ownership is composed first. The shared stick overlay accepts analog mash as well as D-pad tools, owning stick/attack/shield fields only while the active policy requests them.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ManualFrame {
+    /// Technical: Stores the `buttons` value in `ManualFrame` as `ButtonTrace`.
+    ///
+    /// Plain English: Holds the buttons value used by ManualFrame.
     pub buttons: ButtonTrace,
+    /// Technical: Stores the `stick` value in `ManualFrame` as `[f32; 2]`.
+    ///
+    /// Plain English: Stores the stick collection for ManualFrame.
     pub stick: [f32; 2],
+    /// Technical: Stores the `clear_autorepeat` value in `ManualFrame` as `u32`.
+    ///
+    /// Plain English: Holds the clear autorepeat value used by ManualFrame.
     pub clear_autorepeat: u32,
 }
+/// Technical: Defines the `ManualOverlay` data structure.
+///
+/// Plain English: Holds the data for ManualOverlay.
 #[derive(Default)]
 pub struct ManualOverlay {
+    /// Technical: Stores the `buttons` value in `ManualOverlay` as `MapperButtonOverlay`.
+    ///
+    /// Plain English: Holds the buttons value used by ManualOverlay.
     buttons: MapperButtonOverlay,
+    /// Technical: Stores the `had_stick_override` value in `ManualOverlay` as `bool`.
+    ///
+    /// Plain English: Holds the had stick override value used by ManualOverlay.
     had_stick_override: bool,
+    /// Technical: Stores the `reaction_owned` value in `ManualOverlay` as `bool`.
+    ///
+    /// Plain English: Holds the reaction owned value used by ManualOverlay.
     reaction_owned: bool,
 }
 impl ManualOverlay {
     /// Native Guard can have been removed after raw mapping by an earlier mode.
     /// A scheduler-confirmed new tech edge must not inherit that raw held bit.
+    /// Plain English: Native Guard can have been removed after raw mapping by an earlier mode. A scheduler-confirmed new tech edge must not inherit that raw held bit.
     pub fn rearm_tech_guard(&mut self, mask: u32, human: ButtonTrace) {
         self.buttons.rearm_requested(mask, human.previous);
     }
 
+    /// Technical: Applies the supplied configuration or action.
+    ///
+    /// Plain English: Makes the supplied change.
     pub fn apply(
         &mut self,
         human: ButtonTrace,
@@ -539,6 +724,7 @@ impl ManualOverlay {
 
     /// Compose an additional hold control through the SAME button history.
     /// Separate chained histories could fabricate edges when ownership changes.
+    /// Plain English: Compose an additional hold control through the SAME button history. Separate chained histories could fabricate edges when ownership changes.
     pub fn apply_controls(
         &mut self,
         human: ButtonTrace,
@@ -560,6 +746,7 @@ impl ManualOverlay {
     }
     /// Only Auto react opts into a fresh first horizontal flick. Automatic
     /// grabs, ledge tapes, native safety and other helpers keep their history.
+    /// Plain English: Only Auto react opts into a fresh first horizontal flick. Automatic grabs, ledge tapes, native safety and other helpers keep their history.
     pub fn apply_reaction_controls(
         &mut self,
         human: ButtonTrace,
@@ -656,6 +843,7 @@ impl ManualOverlay {
 
 /// Apply consumption after history reconstruction too: old native trigger
 /// history must never reappear as a synthetic taunt press/release.
+/// Plain English: Apply consumption after history reconstruction too: old native trigger history must never reappear as a synthetic taunt press/release.
 fn remove_consumed(trace: ButtonTrace, mask: u32) -> ButtonTrace {
     ButtonTrace {
         held: trace.held & !mask,
@@ -673,6 +861,7 @@ fn remove_consumed(trace: ButtonTrace, mask: u32) -> ButtonTrace {
 // if native taunt repeat/history can survive the raw overlay.
 /// Physical bindings reserve taunts, but an explicit owned sequence request
 /// must retain its ordinary D-pad meaning. Side-taunt filtering is a pair.
+/// Plain English: Filter the mapper RESULT as well as raw inputs. Native mapping can retain repeat/history state beyond the four raw words. Only reserved taunts are removed; this neither adds attack commands nor changes unrelated buttons.
 pub fn sequence_taunt_reservation(consumed: u32, requested: u32, owned: u32) -> u32 {
     let intentional = requested & owned & crate::native_input::MAPPER_DPAD_BUTTONS;
     let sides = if intentional & DPAD_SIDES != 0 {
@@ -682,6 +871,9 @@ pub fn sequence_taunt_reservation(consumed: u32, requested: u32, owned: u32) -> 
     };
     consumed & !(intentional | sides)
 }
+/// Technical: Determines whether reserved taunt inputs must be suppressed.
+///
+/// Plain English: Checks whether the reserved taunt buttons should be ignored.
 pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
     let sides = if consumed & DPAD_SIDES != 0 {
         crate::native_input::MAPPED_TAUNT_SIDES
@@ -706,13 +898,26 @@ pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
 mod tests;
 
 /// Constant-size physical-input history for explicit sequence handback.
+/// Plain English: Constant-size physical-input history for explicit sequence handback.
 #[derive(Clone, Copy, Default)]
 pub struct ManualTakeover {
+    /// Technical: Stores the `previous` value in `ManualTakeover` as `Option<(u32`.
+    ///
+    /// Plain English: Optionally stores the previous for ManualTakeover; it may be absent.
     previous: Option<(u32, [f32; 4])>,
+    /// Technical: Stores the `epoch` value in `ManualTakeover` as `u64`.
+    ///
+    /// Plain English: Holds the epoch value used by ManualTakeover.
     epoch: u64,
+    /// Technical: Stores the `action_epoch` value in `ManualTakeover` as `u64`.
+    ///
+    /// Plain English: Holds the action epoch value used by ManualTakeover.
     action_epoch: u64,
 }
 impl ManualTakeover {
+    /// Technical: Constructs a new value with the type’s initial state.
+    ///
+    /// Plain English: Creates a new value.
     pub const fn new() -> Self {
         Self {
             previous: None,
@@ -720,24 +925,35 @@ impl ManualTakeover {
             action_epoch: 0,
         }
     }
+    /// Technical: Returns the current session epoch.
+    ///
+    /// Plain English: Gets the current session generation.
     pub fn epoch(&self) -> u64 {
         self.epoch
     }
+    /// Technical: Returns the requested stick direction.
+    ///
+    /// Plain English: Gets the chosen stick direction.
     pub fn stick(&self) -> [f32; 2] {
         self.previous
             .map_or([0.; 2], |(_, axes)| [axes[0], axes[1]])
     }
     /// Physical gameplay-button/C-stick edges, separate from movement intent.
     /// Committed automation reads the owner's frozen policy snapshot.
+    /// Plain English: Physical gameplay-button/C-stick edges, separate from movement intent. Committed automation reads the owner's frozen policy snapshot.
     pub fn action_epoch(&self) -> u64 {
         self.action_epoch
     }
+    /// Technical: Checks whether shield input is currently held.
+    ///
+    /// Plain English: Checks whether shield is being held.
     pub fn shield_held(&self) -> bool {
         self.previous
             .is_some_and(|(buttons, _)| buttons & crate::native_input::MAPPER_ZR != 0)
     }
     /// Native WAIT can lag a fresh run input. Stationary assists must inspect
     /// the physical stick too; an existing shield still permits OOS actions.
+    /// Plain English: Native WAIT can lag a fresh run input. Stationary assists must inspect the physical stick too; an existing shield still permits OOS actions.
     pub fn stationary_assist(&self, status: i32) -> bool {
         use crate::native_input::*;
         self.previous.is_some_and(|(buttons, axes)| {
@@ -763,6 +979,7 @@ impl ManualTakeover {
     /// Grounded offense may use a held horizontal walk/run input. Native or
     /// freshly pressed shield keeps the stricter tilt/roll gate; manual attacks,
     /// C-stick, and strong vertical jump/drop intent keep player priority.
+    /// Plain English: Grounded offense may use a held horizontal walk/run input. Native or freshly pressed shield keeps the stricter tilt/roll gate; manual attacks, C-stick, and strong vertical jump/drop intent keep player priority.
     pub fn grounded_grab_assist(&self, status: i32) -> bool {
         use crate::native_input::*;
         self.previous.is_some_and(|(buttons, axes)| {
@@ -781,6 +998,9 @@ impl ManualTakeover {
                 && buttons & (MAPPER_A | MAPPER_B | MAPPER_R) == 0
         })
     }
+    /// Technical: Updates the toggle state from the current button sample and match state.
+    ///
+    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(&mut self, buttons: u32, sticks: [f32; 4]) {
         use crate::native_input::*;
         let mask = MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_Y | MAPPER_R | MAPPER_ZR | MAPPER_ZL;

@@ -7,17 +7,37 @@ use crate::{
 };
 
 /// Reach and mode of one automatic grab admission.
+/// Plain English: Reach and mode of one automatic grab admission.
 #[derive(Clone, Copy)]
 pub(super) struct Reach {
+    /// Technical: Stores the `range` value in `Reach` as `f32`.
+    ///
+    /// Plain English: Holds the range value used by Reach.
     pub range: f32,
+    /// Technical: Stores the `height` value in `Reach` as `f32`.
+    ///
+    /// Plain English: Holds the height value used by Reach.
     pub height: f32,
+    /// Technical: Stores the `startup` value in `Reach` as `Option<f32>`.
+    ///
+    /// Plain English: Optionally stores the startup for Reach; it may be absent.
     pub startup: Option<f32>,
     /// An idle approach farther than this must enter native dash before R.
+    /// Plain English: An idle approach farther than this must enter native dash before R.
     pub close: f32,
+    /// Technical: Stores the `approach` value in `Reach` as `bool`.
+    ///
+    /// Plain English: Holds the approach value used by Reach.
     pub approach: bool,
+    /// Technical: Stores the `shielded` value in `Reach` as `bool`.
+    ///
+    /// Plain English: Holds the shielded value used by Reach.
     pub shielded: bool,
 }
 
+/// Technical: Determines whether the `target_valid` condition holds.
+///
+/// Plain English: Checks whether target valid.
 pub(super) fn target_valid(c: super::Context, lc: GameplayContext, e: Opponent, reach: Reach) -> bool {
     let Reach {
         range,
@@ -46,25 +66,76 @@ pub(super) fn target_valid(c: super::Context, lc: GameplayContext, e: Opponent, 
                         }))
         }
 }
+/// Technical: Defines the `Grab` data structure.
+///
+/// Plain English: Holds the data for Grab.
 #[derive(Default)]
 pub(super) struct Grab {
+    /// Technical: Stores the `target` value in `Grab` as `Option<u32>`.
+    ///
+    /// Plain English: Optionally stores the target for Grab; it may be absent.
     target: Option<u32>,
+    /// Technical: Stores the `clock` value in `Grab` as `NativeAttempt`.
+    ///
+    /// Plain English: Holds the clock value used by Grab.
     clock: NativeAttempt,
+    /// Technical: Stores the `mapped` value in `Grab` as `u8`.
+    ///
+    /// Plain English: Holds the mapped value used by Grab.
     mapped: u8,
+    /// Technical: Stores the `last_mapped` value in `Grab` as `Option<i64>`.
+    ///
+    /// Plain English: Optionally stores the last mapped for Grab; it may be absent.
     last_mapped: Option<i64>,
+    /// Technical: Stores the `approach` value in `Grab` as `bool`.
+    ///
+    /// Plain English: Holds the approach value used by Grab.
     approach: bool,
+    /// Technical: Stores the `dash_sent` value in `Grab` as `bool`.
+    ///
+    /// Plain English: Holds the dash sent value used by Grab.
     dash_sent: bool,
+    /// Technical: Stores the `direction` value in `Grab` as `f32`.
+    ///
+    /// Plain English: Holds the direction value used by Grab.
     direction: f32,
+    /// Technical: Stores the `await_dash` value in `Grab` as `bool`.
+    ///
+    /// Plain English: Holds the await dash value used by Grab.
     await_dash: bool,
+    /// Technical: Stores the `assisted_dash` value in `Grab` as `bool`.
+    ///
+    /// Plain English: Holds the assisted dash value used by Grab.
     assisted_dash: bool,
+    /// Technical: Stores the `approach_mapped` value in `Grab` as `u8`.
+    ///
+    /// Plain English: Holds the approach mapped value used by Grab.
     approach_mapped: u8,
+    /// Technical: Stores the `delivery_polls` value in `Grab` as `u8`.
+    ///
+    /// Plain English: Holds the delivery polls value used by Grab.
     delivery_polls: u8,
+    /// Technical: Stores the `last_delivery_poll` value in `Grab` as `Option<i64>`.
+    ///
+    /// Plain English: Optionally stores the last delivery poll for Grab; it may be absent.
     last_delivery_poll: Option<i64>,
+    /// Technical: Stores the `approach_polls` value in `Grab` as `u8`.
+    ///
+    /// Plain English: Holds the approach polls value used by Grab.
     approach_polls: u8,
+    /// Technical: Stores the `last_approach_poll` value in `Grab` as `Option<i64>`.
+    ///
+    /// Plain English: Optionally stores the last approach poll for Grab; it may be absent.
     last_approach_poll: Option<i64>,
+    /// Technical: Stores the `failed_approach` value in `Grab` as `Option<(u32`.
+    ///
+    /// Plain English: Optionally stores the failed approach for Grab; it may be absent.
     failed_approach: Option<(u32, u64)>,
 }
 impl Grab {
+    /// Technical: Constructs a new value with the type’s initial state.
+    ///
+    /// Plain English: Creates a new value.
     pub const fn new() -> Self {
         Self {
             target: None,
@@ -84,12 +155,21 @@ impl Grab {
             failed_approach: None,
         }
     }
+    /// Technical: Returns the selected target observation.
+    ///
+    /// Plain English: Gets the chosen target.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
+    /// Technical: Checks whether the feature is active.
+    ///
+    /// Plain English: Checks whether the feature is on.
     pub fn active(&self) -> bool {
         self.target.is_some()
     }
+    /// Technical: Cancels the pending operation and clears its state.
+    ///
+    /// Plain English: Stops the operation that was waiting.
     pub fn cancel(&mut self) {
         // Failure remains fenced until new manual intent or a positively
         // observed end of the enemy's shield. Missing observations do not rearm.
@@ -98,14 +178,23 @@ impl Grab {
             ..Self::new()
         };
     }
+    /// Technical: Updates the `rebase_custom_delivery` state using the supplied inputs.
+    ///
+    /// Plain English: Updates rebase custom delivery.
     pub fn rebase_custom_delivery(&mut self) {
         if !self.delivery_pending() {
             self.clock = NativeAttempt::default();
         }
     }
+    /// Technical: Determines whether the `delivery_pending` condition holds.
+    ///
+    /// Plain English: Checks whether delivery pending.
     pub fn delivery_pending(&self) -> bool {
         self.active() && self.mapped > 0
     }
+    /// Technical: Updates the `delivery_tick` state using the supplied inputs.
+    ///
+    /// Plain English: Updates delivery tick.
     pub fn delivery_tick(&mut self, tick: i64) {
         if self.approach_pending() && self.last_approach_poll != Some(tick) {
             self.approach_polls = self.approach_polls.saturating_add(1);
@@ -116,15 +205,27 @@ impl Grab {
             self.last_delivery_poll = Some(tick);
         }
     }
+    /// Technical: Determines whether the `unshielded_grab_started` condition holds.
+    ///
+    /// Plain English: Checks whether unshielded grab started.
     pub fn unshielded_grab_started(&self) -> bool {
         self.active() && self.approach && self.dash_sent
     }
+    /// Technical: Determines whether the `approach_pending` condition holds.
+    ///
+    /// Plain English: Checks whether approach pending.
     pub fn approach_pending(&self) -> bool {
         self.active() && self.approach && (!self.dash_sent || self.await_dash)
     }
+    /// Technical: Determines whether the `approach_active` condition holds.
+    ///
+    /// Plain English: Checks whether approach active.
     pub fn approach_active(&self) -> bool {
         self.active() && self.approach
     }
+    /// Technical: Determines whether the `turning_away` condition holds.
+    ///
+    /// Plain English: Checks whether turning away.
     pub fn turning_away(&self, physical: f32) -> bool {
         self.active()
             && self.approach
@@ -132,6 +233,9 @@ impl Grab {
             && physical.abs() >= 0.2
             && physical * self.direction < 0.
     }
+    /// Technical: Observes the statuses.
+    ///
+    /// Plain English: Observes the statuses.
     pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         if self.failed_approach.is_some_and(|(id, _)| {
             known.iter().flatten().any(|(actor, status)| {
@@ -141,12 +245,16 @@ impl Grab {
             self.failed_approach = None;
         }
     }
+    /// Technical: Updates the `fail_approach` state using the supplied inputs.
+    ///
+    /// Plain English: Updates fail approach.
     fn fail_approach(&mut self, epoch: u64) {
         let failed = self.target.map(|id| (id, epoch));
         self.cancel();
         self.failed_approach = failed;
     }
     /// An unanswered dash fences the target; an unanswered direct R just ends.
+    /// Plain English: An unanswered dash fences the target; an unanswered direct R just ends.
     fn give_up(&mut self, epoch: u64) {
         if self.assisted_dash {
             self.fail_approach(epoch);
@@ -154,11 +262,17 @@ impl Grab {
             self.cancel();
         }
     }
+    /// Technical: Updates the `release_unless_delivered` state using the supplied inputs.
+    ///
+    /// Plain English: Updates release unless delivered.
     fn release_unless_delivered(&mut self) {
         if !self.delivery_pending() {
             self.cancel();
         }
     }
+    /// Technical: Updates the `mapped_approach` state using the supplied inputs.
+    ///
+    /// Plain English: Updates mapped approach.
     pub fn mapped_approach(&mut self, tick: i64, target: u32) {
         if self.target == Some(target)
             && self.approach
@@ -173,12 +287,18 @@ impl Grab {
             self.last_mapped = Some(tick);
         }
     }
+    /// Technical: Updates the `mapped_grab` state using the supplied inputs.
+    ///
+    /// Plain English: Updates mapped grab.
     pub fn mapped_grab(&mut self, tick: i64, target: u32) {
         if self.target == Some(target) && self.last_mapped != Some(tick) {
             self.mapped = self.mapped.saturating_add(1);
             self.last_mapped = Some(tick);
         }
     }
+    /// Technical: Returns the `output` result.
+    ///
+    /// Plain English: Gets the output result.
     fn output(buttons: u32) -> ControllerOutput {
         ControllerOutput {
             owned: SEQUENCE_BUTTONS,
@@ -187,6 +307,9 @@ impl Grab {
             ..Default::default()
         }
     }
+    /// Technical: Updates the toggle state from the current button sample and match state.
+    ///
+    /// Plain English: Checks the current buttons and updates whether the toggle should activate.
     pub fn sample(
         &mut self,
         allowed: bool,
@@ -257,6 +380,7 @@ impl Grab {
     /// True when this sample must emit nothing: the delivered Grab ended, expired
     /// or is still settling. Settling owns no buttons or movement; false means
     /// the request is still retryable within its bounded budget.
+    /// Plain English: True when this sample must emit nothing: the delivered Grab ended, expired or is still settling. Settling owns no buttons or movement; false means the request is still retryable within its bounded budget.
     fn settle_delivered(
         &mut self,
         allowed: bool,
@@ -291,6 +415,7 @@ impl Grab {
     /// shield hit or catch startup ends the previous tap; never queue it
     /// through shieldstun or force a cancel of native recovery. A delivered R
     /// keeps its receipt state while the actor is merely not ready.
+    /// Plain English: True when no grab may be sampled now. Native incapacitation, a renewed shield hit or catch startup ends the previous tap; never queue it through shieldstun or force a cancel of native recovery. A delivered R keeps its receipt.
     fn admission_lost(
         &mut self,
         allowed: bool,
@@ -327,6 +452,7 @@ impl Grab {
         false
     }
     /// Promote an approach whose dash is already visible in native status.
+    /// Plain English: Promote an approach whose dash is already visible in native status.
     fn observe_dash(&mut self, c: super::Context, lc: GameplayContext) {
         if !self.active() {
             return;
@@ -357,6 +483,9 @@ impl Grab {
             self.clock = NativeAttempt::default();
         }
     }
+    /// Technical: Updates the `acquire` state using the supplied inputs.
+    ///
+    /// Plain English: Updates acquire.
     fn acquire(&mut self, e: Opponent, c: super::Context, reach: Reach) {
         self.target = Some(e.id);
         self.clock = NativeAttempt::default();
@@ -381,6 +510,7 @@ impl Grab {
     }
     /// The approach stick while the dash is unsent or unconfirmed; `None` once
     /// the approach is over and the Grab itself may be pressed.
+    /// Plain English: The approach stick while the dash is unsent or unconfirmed; None once the approach is over and the Grab itself may be pressed.
     fn approach_output(
         &mut self,
         c: super::Context,
