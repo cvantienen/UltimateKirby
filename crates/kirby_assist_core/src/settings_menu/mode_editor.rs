@@ -3,13 +3,6 @@ use super::*;
 use crate::reaction_rules::{Rule, SelfState, Trigger};
 impl MenuSelection {
     /// Returns an optional `mode_trigger` value.
-    ///
-    ///
-    ///  Gets mode trigger if it is available.
-    /// ### Arguments
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(super) fn mode_trigger(row: MenuRow) -> Option<Trigger> {
         match row {
             MenuRow::ShieldPressure => Some(Trigger::EnemyShield),
@@ -21,14 +14,6 @@ impl MenuSelection {
         }
     }
     /// Returns an optional `auto_mode_events` value.
-    ///
-    ///
-    ///  Gets auto mode events if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(super) fn auto_mode_events(&self, row: MenuRow) -> Option<&'static [Trigger]> {
         if !self.simplified_reactions {
             return None;
@@ -45,24 +30,10 @@ impl MenuSelection {
         }
     }
     /// Determines whether the `assist_rule_page` condition holds.
-    ///
-    ///
-    ///  Checks whether assist rule page.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn assist_rule_page(&self) -> bool {
         self.mode_editor_origin.is_some()
     }
     /// Returns an optional `restore_mode_choices` value.
-    ///
-    ///
-    ///  Gets restore mode choices if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(super) fn restore_mode_choices(&mut self) -> Option<MenuRow> {
         let (row, choices) = self.mode_editor_origin.take()?;
         self.mode_rule_list = false;
@@ -72,15 +43,6 @@ impl MenuSelection {
         Some(row)
     }
     /// Returns the `mode_entries` result.
-    ///
-    ///
-    ///  Gets the mode entries result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting items; the vector is empty when there are none.
     pub(super) fn mode_entries(
         &self,
         presets: &MenuPresets,
@@ -121,13 +83,6 @@ impl MenuSelection {
         result
     }
     /// Updates the `open_mode_list` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates open mode list.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `_presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
     pub(super) fn open_mode_list(&mut self, _presets: &MenuPresets, row: MenuRow) {
         if Self::mode_trigger(row).is_none() {
             return;
@@ -146,14 +101,6 @@ impl MenuSelection {
         self.tuning_page = false;
     }
     /// Chooses the mode rule.
-    ///
-    ///
-    ///  Chooses the mode rule.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
     fn choose_mode_rule(&mut self, presets: &MenuPresets, slot: PresetSlot, index: usize) {
         self.row = MenuRow::ALL
             .into_iter()
@@ -167,13 +114,6 @@ impl MenuSelection {
         self.open_editor(presets, slot);
     }
     /// Adds the mode rule.
-    ///
-    ///
-    ///  Adds the mode rule.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
     fn add_mode_rule(&mut self, presets: &MenuPresets, row: MenuRow) {
         let Some(mut trigger) = Self::mode_trigger(row) else {
             return;
@@ -293,14 +233,6 @@ impl MenuSelection {
         self.choose_mode_rule(presets, slot, next);
     }
     /// Updates the `open_mode_response` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates open mode response.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
-    /// - `cycle` (`Option<bool>`): Represents the cycle; the function uses it as input to the operation described above.
     pub(super) fn open_mode_response(
         &mut self,
         presets: &MenuPresets,
@@ -328,12 +260,6 @@ impl MenuSelection {
         self.choose_mode_rule(presets, slot, index);
     }
     /// Updates the `mode_cursor_to_current` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates mode cursor to current.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
     pub(super) fn mode_cursor_to_current(&mut self, presets: &MenuPresets) {
         if let Some((row, _)) = self.mode_editor_origin.as_ref() {
             let entries = self.mode_entries(presets, *row);
@@ -345,14 +271,6 @@ impl MenuSelection {
         }
     }
     /// Returns the `mode_rules_panel` result.
-    ///
-    ///
-    ///  Gets the mode rules panel result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `RecipePanel` value.
     pub(super) fn mode_rules_panel(&self, presets: &MenuPresets) -> RecipePanel {
         let Some((row, _)) = self.mode_editor_origin.as_ref() else {
             return RecipePanel::default();
@@ -428,16 +346,6 @@ impl MenuSelection {
         panel
     }
     /// Determines whether the `mode_list_input` condition holds.
-    ///
-    ///
-    ///  Checks whether mode list input.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(super) fn mode_list_input(
         &mut self,
         presets: &MenuPresets,
@@ -526,21 +434,11 @@ mod tests {
     use super::*;
     use crate::{fighter_profiles::FighterProfiles, native_input::MAPPER_R};
     /// Updates the `tap` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates tap.
-    /// ### Arguments
-    /// - `m` (`&mut MenuSelection`): Represents the m; the function uses it as input to the operation described above.
-    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
-    /// - `b` (`u32`): Represents the b; the function uses it as input to the operation described above.
     fn tap(m: &mut MenuSelection, p: &MenuPresets, b: u32) {
         m.input(0, p);
         m.input(b, p);
     }
     /// Regression test for `spot_punish_opens_its_own_list_and_saved_rule_remains_separate`.
-    ///
-    ///
-///  Checks that spot punish opens its own list and saved rule remains separate.
     #[test]
     fn spot_punish_opens_its_own_list_and_saved_rule_remains_separate() {
         let p = MenuPresets::default();
@@ -584,9 +482,6 @@ mod tests {
         assert!(!m.recipe_panel(&p).header.join(" ").contains("roster avg"));
     }
     /// Regression test for `each_assist_has_its_own_budget_and_legacy_storage_does_not_select_it_for_ledge`.
-    ///
-    ///
-///  Checks that each assist has its own budget and legacy storage does not select it for ledge.
     #[test]
     fn each_assist_has_its_own_budget_and_legacy_storage_does_not_select_it_for_ledge() {
         let mut source = String::new();
@@ -614,9 +509,6 @@ mod tests {
         assert!(bad.validate(&profiles).is_err());
     }
     /// Regression test for `rules_are_separate_sorted_and_idle_list_does_not_rebuild`.
-    ///
-    ///
-///  Checks that rules are separate sorted and idle list does not rebuild.
     #[test]
     fn rules_are_separate_sorted_and_idle_list_does_not_rebuild() {
         let source="[bowser.roll.manual]\nstart_delay=0\ndefault=true\nactions=grab:4\n[bowser.attack.oos]\nstart_delay=0\nreaction=shield_hit:grounded:0:12:18:any:1\nactions=up_b:4\n[bowser.drop.regrab]\nstart_delay=0\nreaction=ledge_regrab:grounded:0:18:30:any:1\nactions=down_smash:4\n[bowser.roll.late]\nstart_delay=0\nreaction=roll:grounded:0:20:18:any:4\nactions=grab:4\n[bowser.attack.first]\nstart_delay=0\nreaction=roll_cross:grounded:0:12:18:any:1\nactions=up_b:4\n";
@@ -666,9 +558,6 @@ mod tests {
         assert!(m.modes_menu);
     }
     /// Constructs the oos rule and duplicate keep their family and never enter ledge choices.
-    ///
-    ///
-///  Checks that new oos rule and duplicate keep their family and never enter ledge choices.
     #[test]
     fn new_oos_rule_and_duplicate_keep_their_family_and_never_enter_ledge_choices() {
         let p = MenuPresets::default();
@@ -703,9 +592,6 @@ mod tests {
             .contains("R3: Back to modes"));
     }
     /// Regression test for `r3_edits_menu_responses_cycles_them_and_restores_manual_choices`.
-    ///
-    ///
-///  Checks that r 3 edits menu responses cycles them and restores manual choices.
     #[test]
     fn r3_edits_menu_responses_cycles_them_and_restores_manual_choices() {
         let text="[bowser.roll.manual]\nstart_delay=0\ndefault=true\nactions=grab:4\n[bowser.roll.first]\nstart_delay=0\nreaction=roll:grounded:0:20:18:any:1\nactions=down_smash:4\n[bowser.attack.second]\nstart_delay=0\nreaction=roll_cross:grounded:0:20:18:any:2\nactions=up_b:4\n";
@@ -735,9 +621,6 @@ mod tests {
         assert_eq!(m.choices, original);
     }
     /// Regression test for `empty_mode_creates_tagged_draft_and_minus_preserves_manual_defaults`.
-    ///
-    ///
-///  Checks that empty mode creates tagged draft and minus preserves manual defaults.
     #[test]
     fn empty_mode_creates_tagged_draft_and_minus_preserves_manual_defaults() {
         let p = MenuPresets::default();
@@ -768,9 +651,6 @@ mod event_family_tests {
         sequence_config::{persist, Catalog},
     };
     /// Regression test for `vulnerable_and_any_variants_share_the_right_menu_and_save_roundtrip`.
-    ///
-    ///
-///  Checks that vulnerable and any variants share the right menu and save roundtrip.
     #[test]
     fn vulnerable_and_any_variants_share_the_right_menu_and_save_roundtrip() {
         let source="[bowser.attack.oos]\nstart_delay=0\nreaction=shield_hit_vulnerable:grounded:0:22:12:front:1\nactions=input:r:0:0:4\n[bowser.attack.spot]\nstart_delay=0\nreaction=spot_dodge_any:grounded:0:30:12:any:2\nactions=up_b:4\n[bowser.attack.pressure]\nstart_delay=0\nreaction=shield_pressure_vulnerable:grounded:0:22:12:front:1\nactions=input:r:0:0:4\n";
@@ -808,9 +688,6 @@ mod event_family_tests {
 mod simple_menu_tests {
     use super::*;
     /// Regression test for `all_auto_recipes_share_a_list_and_replace_duplicate_grab_tuning_rows`.
-    ///
-    ///
-///  Checks that all auto recipes share a list and replace duplicate grab tuning rows.
     #[test]
     fn all_auto_recipes_share_a_list_and_replace_duplicate_grab_tuning_rows() {
         let mut text = String::new();
@@ -863,9 +740,6 @@ mod simple_menu_tests {
         }
     }
     /// Regression test for `add_missing_auto_event_stays_inactive_until_actions_are_configured`.
-    ///
-    ///
-///  Checks that add missing auto event stays inactive until actions are configured.
     #[test]
     fn add_missing_auto_event_stays_inactive_until_actions_are_configured() {
         let profiles = crate::fighter_profiles::FighterProfiles::default();
@@ -887,9 +761,6 @@ mod simple_menu_tests {
         assert!(m.recipe_editing && !m.mode_rule_list);
     }
     /// Regression test for `native_simple_menu_keeps_legacy_events_and_opens_configured_grab_lists`.
-    ///
-    ///
-///  Checks that native simple menu keeps legacy events and opens configured grab lists.
     #[test]
     fn native_simple_menu_keeps_legacy_events_and_opens_configured_grab_lists() {
         let mut text="[bowser.roll.old]\nstart_delay=0\nreaction=roll:grounded:0:80:30:any:1\nactions=grab:4\n".to_owned();
@@ -929,9 +800,6 @@ mod simple_menu_tests {
 mod explicit_draft_tests {
     use super::*;
     /// Constructs the non grab events start blank for bowser yoshi and lucina.
-    ///
-    ///
-///  Checks that new non grab events start blank for bowser yoshi and lucina.
     #[test]
     fn new_non_grab_events_start_blank_for_bowser_yoshi_and_lucina() {
         let profiles = crate::fighter_profiles::FighterProfiles::default();

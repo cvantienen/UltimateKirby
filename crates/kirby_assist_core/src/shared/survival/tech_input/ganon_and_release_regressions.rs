@@ -4,13 +4,7 @@ use crate::tech_prediction::grounded_ganon_contact_in;
 use crate::tech_prediction::{CATCHED_AIR_END_GANON, CATCHED_GANON};
 
 /// Returns the `capture` result.
-///
 /// Gets the capture result.
-/// ### Arguments
-/// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-/// - `delay` (`f32`): Represents the delay; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `TechContext` value.
 fn capture(frame: f32, delay: f32) -> TechContext {
     TechContext {
         object: 1,
@@ -36,7 +30,6 @@ fn capture(frame: f32, delay: f32) -> TechContext {
 }
 
 /// Regression test for `grounded_ganon_waits_for_tight_arrival_window_and_compensates_online_delay`.
-///
 /// Checks that grounded ganon waits for tight arrival window and compensates online delay.
 #[test]
 fn grounded_ganon_waits_for_tight_arrival_window_and_compensates_online_delay() {
@@ -65,7 +58,6 @@ fn grounded_ganon_waits_for_tight_arrival_window_and_compensates_online_delay() 
 }
 
 /// Regression test for `cooldown_keeps_held_shield_aliases_released_until_the_collision_ends`.
-///
 /// Checks that cooldown keeps held shield aliases released until the collision ends.
 #[test]
 fn cooldown_keeps_held_shield_aliases_released_until_the_collision_ends() {
@@ -127,7 +119,6 @@ fn cooldown_keeps_held_shield_aliases_released_until_the_collision_ends() {
 }
 
 /// Regression test for `ordinary_tumble_retains_its_existing_arrival_window_and_invalid_capture_never_presses`.
-///
 /// Checks that ordinary tumble retains its existing arrival window and invalid capture never presses.
 #[test]
 fn ordinary_tumble_retains_its_existing_arrival_window_and_invalid_capture_never_presses() {
@@ -156,7 +147,6 @@ fn ordinary_tumble_retains_its_existing_arrival_window_and_invalid_capture_never
 }
 
 /// Regression test for `grounded_shared_release_can_deliver_unmapped_capture_request`.
-///
 /// Checks that grounded shared release can deliver unmapped capture request.
 #[test]
 fn grounded_shared_release_can_deliver_unmapped_capture_request() {
@@ -190,7 +180,6 @@ fn grounded_shared_release_can_deliver_unmapped_capture_request() {
 }
 
 /// Regression test for `floor_tech_can_buffer_before_last_two_hitstop_frames`.
-///
 /// Checks that floor tech can buffer before last two hitstop frames.
 #[test]
 fn floor_tech_can_buffer_before_last_two_hitstop_frames() {

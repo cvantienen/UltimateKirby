@@ -13,45 +13,23 @@ mod actions;
 use actions::parse_actions;
 pub use actions::validate_facing_blocks;
 
-/// Defines the available `SectionHeader` cases.
-///
-/// Lists the available SectionHeader choices.
+/// Available `SectionHeader` choices for the Smash assistance menu.
 #[derive(Clone, Copy)]
 enum SectionHeader<'a> {
-    /// Represents the `UniversalSettings` case of `SectionHeader`.
-    ///
-    ///
-///  Represents the UniversalSettings option in SectionHeader.
+/// `UniversalSettings` option in the `SectionHeader` Smash policy state.
     UniversalSettings,
-    /// Represents the `Template` case of `SectionHeader`.
-    ///
-    ///
-///  Represents the Template option in SectionHeader.
+/// `Template` option in the `SectionHeader` Smash policy state.
     Template { id: &'a str, countable: bool },
-    /// Represents the `RetiredButtons` case of `SectionHeader`.
-    ///
-    ///
-///  Represents the RetiredButtons option in SectionHeader.
+/// `RetiredButtons` option in the `SectionHeader` Smash policy state.
     RetiredButtons,
-    /// Represents the `Settings` case of `SectionHeader`.
-    ///
-    ///
-///  Represents the Settings option in SectionHeader.
+/// `Settings` option in the `SectionHeader` Smash policy state.
     Settings,
-    /// Represents the `Entry` case of `SectionHeader`.
-    ///
-    ///
-///  Represents the Entry option in SectionHeader.
+/// `Entry` option in the `SectionHeader` Smash policy state.
     Entry,
 }
 
 /// Classifies the section header.
-///
 /// Classifies the section header.
-/// ### Arguments
-/// - `line` (`&str`): Represents the line; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn classify_section_header(line: &str) -> Option<SectionHeader<'_>> {
     if !line.starts_with('[') || !line.ends_with(']') {
         return None;
@@ -79,23 +57,11 @@ fn classify_section_header(line: &str) -> Option<SectionHeader<'_>> {
 
 /// A line without its `#` comment. Every reader and writer of the file uses
 /// this one rule, so they agree on what a header or key line is.
-///
-///  A line without its # comment. Every reader and writer of the file uses this one rule, so they agree on what a header or key line is.
-/// ### Arguments
-/// - `line` (`&str`): Represents the line; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 pub(super) fn strip_comment(line: &str) -> &str {
     line.split('#').next().unwrap_or("").trim()
 }
 
 /// Section headers that will hold a 32-action recipe.
-///
-///  Section headers that will hold a 32-action recipe.
-/// ### Arguments
-/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn count_sections(source: &str) -> Result<usize, String> {
     let count = source
         .lines()
@@ -121,113 +87,52 @@ fn count_sections(source: &str) -> Result<usize, String> {
 }
 
 /// What the `key = value` lines under the current header mean.
-///
-///  What the key = value lines under the current header mean.
 #[derive(Clone, Copy)]
 enum Body {
     /// Recipe keys for `Parser::current`; before any header there is none.
-    ///
-///  Recipe keys for Parser::current; before any header there is none.
     Recipe,
-    /// Represents the `Retired` case of `Body`.
-    ///
-    ///
-///  Represents the Retired option in Body.
+/// `Retired` option in the `Body` Smash policy state.
     Retired,
-    /// Represents the `Universal` case of `Body`.
-    ///
-    ///
-///  Represents the Universal option in Body.
+/// `Universal` option in the `Body` Smash policy state.
     Universal,
-    /// Represents the `Tuning` case of `Body`.
-    ///
-    ///
-///  Represents the Tuning option in Body.
+/// `Tuning` option in the `Body` Smash policy state.
     Tuning(
         /// Carries the numeric tuning value in `Body`.
-        ///
-        ///
-///  Holds the numeric tuning value for this `Body` choice.
         i32,
     ),
 }
 
 /// Keys of a recipe section. Each may appear once per section.
-///
-///  Keys of a recipe section. Each may appear once per section.
 #[derive(Clone, Copy)]
 enum RecipeKey {
-    /// Represents the `Name` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the Name option in RecipeKey.
+/// `Name` option in the `RecipeKey` Smash policy state.
     Name,
-    /// Represents the `Builtin` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the Builtin option in RecipeKey.
+/// `Builtin` option in the `RecipeKey` Smash policy state.
     Builtin,
-    /// Represents the `Mode` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the Mode option in RecipeKey.
+/// `Mode` option in the `RecipeKey` Smash policy state.
     Mode,
-    /// Represents the `Activation` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the Activation option in RecipeKey.
+/// `Activation` option in the `RecipeKey` Smash policy state.
     Activation,
-    /// Represents the `GroundOnly` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the GroundOnly option in RecipeKey.
+/// `GroundOnly` option in the `RecipeKey` Smash policy state.
     GroundOnly,
-    /// Represents the `WhileHeld` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the WhileHeld option in RecipeKey.
+/// `WhileHeld` option in the `RecipeKey` Smash policy state.
     WhileHeld,
-    /// Represents the `Reaction` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the Reaction option in RecipeKey.
+/// `Reaction` option in the `RecipeKey` Smash policy state.
     Reaction,
-    /// Represents the `Actions` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the Actions option in RecipeKey.
+/// `Actions` option in the `RecipeKey` Smash policy state.
     Actions,
-    /// Represents the `Default` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the Default option in RecipeKey.
+/// `Default` option in the `RecipeKey` Smash policy state.
     Default,
-    /// Represents the `StartDelay` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the StartDelay option in RecipeKey.
+/// `StartDelay` option in the `RecipeKey` Smash policy state.
     StartDelay,
-    /// Represents the `Timeout` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the Timeout option in RecipeKey.
+/// `Timeout` option in the `RecipeKey` Smash policy state.
     Timeout,
-    /// Represents the `SpatialTimeout` case of `RecipeKey`.
-    ///
-    ///
-///  Represents the SpatialTimeout option in RecipeKey.
+/// `SpatialTimeout` option in the `RecipeKey` Smash policy state.
     SpatialTimeout,
 }
 
 impl RecipeKey {
     /// Parses the supplied source into the module’s validated representation.
-    ///
-    ///
-    ///  Reads the source and checks that it is valid.
-    /// ### Arguments
-    /// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn parse(key: &str) -> Option<Self> {
         Some(match key {
             "name" | "label" => Self::Name,
@@ -247,13 +152,6 @@ impl RecipeKey {
     }
 
     /// Returns the display name associated with the value.
-    ///
-    ///
-    ///  Gets the name shown for this value.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn name(self) -> &'static str {
         match self {
             Self::Name => "name",
@@ -273,15 +171,7 @@ impl RecipeKey {
 }
 
 /// Constructs the entry.
-///
 /// Holds the new entry value.
-/// ### Arguments
-/// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
-/// - `fighter` (`String`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-/// - `choice` (`String`): Represents the choice; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `Entry` value.
 fn new_entry(fighter_kind: i32, fighter: String, slot: PresetSlot, choice: String) -> Entry {
     Entry {
         fighter_kind,
@@ -297,58 +187,27 @@ fn new_entry(fighter_kind: i32, fighter: String, slot: PresetSlot, choice: Strin
 
 /// Line-by-line catalog reader. `current` is the recipe being filled in; it is
 /// validated and moved into `entries` when the next header (or EOF) arrives.
-///
-///  Line-by-line catalog reader. current is the recipe being filled in; it is validated and moved into entries when the next header (or EOF) arrives.
 struct Parser {
-    /// Stores the `entries` value in `Parser` as `Vec<Entry>`.
-    ///
-    ///
-///  Holds the entries value used by Parser.
+/// Runtime entries value used by Parser..
     entries: Vec<Entry>,
-    /// Stores the `current` value in `Parser` as `Option<(Entry`.
-    ///
-    ///
-///  Optionally stores the current for Parser; it may be absent.
+/// Runtime current value used by Parser..
     current: Option<(Entry, usize)>,
     /// `RecipeKey` bits already used by `current`.
-    ///
-///  RecipeKey bits already used by current.
     seen: u16,
-    /// Stores the `body` value in `Parser` as `Body`.
-    ///
-    ///
-///  Holds the body value used by Parser.
+/// Runtime body value used by Parser..
     body: Body,
-    /// Stores the `universal` value in `Parser` as `Option<String>`.
-    ///
-    ///
-///  Optionally stores the universal for Parser; it may be absent.
+/// Runtime universal value used by Parser..
     universal: Option<String>,
-    /// Stores the `universal_keys` value in `Parser` as `Vec<String>`.
-    ///
-    ///
-///  Holds the universal keys value used by Parser.
+/// Runtime universal keys value used by Parser..
     universal_keys: Vec<String>,
-    /// Stores the `tuning` value in `Parser` as `BTreeMap<i32`.
-    ///
-    ///
-///  Holds the tuning value used by Parser.
+/// Runtime tuning value used by Parser..
     tuning: BTreeMap<i32, Tuning>,
     /// Built on first use: most fighters resolve through `fighter_data`.
-    ///
-///  Built on first use: most fighters resolve through fighterdata.
     identities: Option<FighterProfiles>,
 }
 
 impl Parser {
     /// Constructs a new value with the type’s initial state.
-    ///
-    ///
-    ///  Creates a new value.
-    /// ### Arguments
-    /// - `sections` (`usize`): Represents the sections; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn new(sections: usize) -> Result<Self, String> {
         // Entry embeds all 32 actions. Geometric Vec growth temporarily kept
         // both the old and new roster buffers alive during saves. Count headers
@@ -371,29 +230,12 @@ impl Parser {
     }
 
     /// Begins the entry.
-    ///
-    ///
-    ///  Begins the entry.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `entry` (`Entry`): Represents the entry; the function uses it as input to the operation described above.
-    /// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
     fn begin_entry(&mut self, entry: Entry, line_number: usize) {
         self.seen = 0;
         self.current = Some((entry, line_number));
     }
 
     /// Returns the `open_section` result.
-    ///
-    ///
-    ///  Gets the open section result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `header` (`SectionHeader<'_>`): Represents the header; the function uses it as input to the operation described above.
-    /// - `line` (`&str`): Represents the line; the function uses it as input to the operation described above.
-    /// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn open_section(
         &mut self,
         header: SectionHeader<'_>,
@@ -422,15 +264,6 @@ impl Parser {
     }
 
     /// Returns the `open_template` result.
-    ///
-    ///
-    ///  Gets the open template result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `id` (`&str`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
-    /// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn open_template(&mut self, id: &str, line_number: usize) -> Result<(), String> {
         if !valid_id(id)
             || self
@@ -448,14 +281,6 @@ impl Parser {
     }
 
     /// `[fighter.situation.choice_id]` or `[fighter.settings]`.
-    ///
-    ///  [fighter.situation.choiceid] or [fighter.settings].
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `line` (`&str`): Represents the line; the function uses it as input to the operation described above.
-    /// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn open_fighter_section(&mut self, line: &str, line_number: usize) -> Result<Body, String> {
         let header = &line[1..line.len() - 1];
         let mut parts = header.split('.');
@@ -495,14 +320,6 @@ impl Parser {
     }
 
     /// Returns an optional `fighter_kind` value.
-    ///
-    ///
-    ///  Gets fighter kind if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `fighter` (`&str`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn fighter_kind(&mut self, fighter: &str) -> Option<i32> {
         crate::fighter_data::all()
             .iter()
@@ -519,15 +336,6 @@ impl Parser {
     }
 
     /// Returns the `property` result.
-    ///
-    ///
-    ///  Gets the property result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `line` (`&str`): Represents the line; the function uses it as input to the operation described above.
-    /// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn property(&mut self, line: &str, line_number: usize) -> Result<(), String> {
         if matches!(self.body, Body::Retired) {
             return Ok(());
@@ -549,16 +357,6 @@ impl Parser {
     }
 
     /// Returns the `universal_property` result.
-    ///
-    ///
-    ///  Gets the universal property result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-    /// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn universal_property(
         &mut self,
         key: &str,
@@ -578,16 +376,6 @@ impl Parser {
     }
 
     /// Returns the `recipe_property` result.
-    ///
-    ///
-    ///  Gets the recipe property result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-    /// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn recipe_property(
         &mut self,
         key: &str,
@@ -613,13 +401,6 @@ impl Parser {
     }
 
     /// Completes the active operation and records its final state.
-    ///
-    ///
-    ///  Finishes the current operation.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn finish(mut self) -> Result<Catalog, String> {
         finish_entry(&mut self.current, &mut self.entries)?;
         self.identities = None;
@@ -658,15 +439,7 @@ impl Parser {
 }
 
 /// Applies the recipe key.
-///
 /// Applies the recipe key.
-/// ### Arguments
-/// - `entry` (`&mut Entry`): Represents the entry; the function uses it as input to the operation described above.
-/// - `key` (`RecipeKey`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn apply_recipe_key(
     entry: &mut Entry,
     key: RecipeKey,
@@ -733,13 +506,7 @@ fn apply_recipe_key(
 }
 
 /// Parses the name.
-///
 /// Parses the name.
-/// ### Arguments
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn parse_name(value: &str, line_number: usize) -> Result<String, String> {
     let value = if value.starts_with('"') || value.ends_with('"') {
         value
@@ -758,14 +525,7 @@ fn parse_name(value: &str, line_number: usize) -> Result<String, String> {
 }
 
 /// Parses the flag.
-///
 /// Parses the flag.
-/// ### Arguments
-/// - `key` (`RecipeKey`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn parse_flag(key: RecipeKey, value: &str, line_number: usize) -> Result<bool, String> {
     match value {
         "true" => Ok(true),
@@ -778,14 +538,6 @@ fn parse_flag(key: RecipeKey, value: &str, line_number: usize) -> Result<bool, S
 }
 
 /// `start_delay` may be zero; the timeouts must be at least one frame.
-///
-///  startdelay may be zero; the timeouts must be at least one frame.
-/// ### Arguments
-/// - `key` (`RecipeKey`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn parse_frame_count(key: RecipeKey, value: &str, line_number: usize) -> Result<u16, String> {
     let name = key.name();
     let frames: u16 = value
@@ -802,13 +554,6 @@ fn parse_frame_count(key: RecipeKey, value: &str, line_number: usize) -> Result<
 
 impl Catalog {
     /// Parses the supplied source into the module’s validated representation.
-    ///
-    ///
-    ///  Reads the source and checks that it is valid.
-    /// ### Arguments
-    /// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn parse(source: &str) -> Result<Self, String> {
         if source.len() as u64 > MAX_FILE_BYTES {
             return Err("sequence file exceeds 512 KiB".into());
@@ -828,14 +573,6 @@ impl Catalog {
     }
 
     /// Returns the `validate` result.
-    ///
-    ///
-    ///  Gets the validate result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `profiles` (`&FighterProfiles`): Represents the profiles; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn validate(&self, profiles: &FighterProfiles) -> Result<(), String> {
         // Count each row once. The old nested full-catalog scan allocated a
         // temporary row Vec for every section, repeatedly during a single save.
@@ -897,16 +634,6 @@ impl Catalog {
     }
 
     /// Returns an optional `find` value.
-    ///
-    ///
-    ///  Gets find if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
-    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn find(&self, fighter_kind: i32, slot: PresetSlot, choice: &str) -> Option<Sequence> {
         self.entries
             .iter()
@@ -917,48 +644,20 @@ impl Catalog {
     }
 
     /// Returns the number of stored elements.
-    ///
-    ///
-    ///  Counts the stored items.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `usize` value.
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
     /// Checks whether empty.
-    ///
-    ///
-    ///  Checks whether empty.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
     /// Returns the `entries` result.
-    ///
-    ///
-    ///  Gets the entries result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `&[Entry]` value.
     pub fn entries(&self) -> &[Entry] {
         &self.entries
     }
     /// Startup-only filtering, before menus are frozen and recipes can execute.
-    ///
-    ///  Startup-only filtering, before menus are frozen and recipes can execute.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `diagnostic` (`bool`): Represents the diagnostic; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub fn for_build(mut self, diagnostic: bool) -> Self {
         if !diagnostic {
             self.entries.retain(|entry| {
@@ -978,7 +677,6 @@ impl Catalog {
 // reserve config-sized Result/map temporaries in every catalog parser frame,
 // including small files that do not contain universal settings at all.
 /// Validates the universal settings.
-///
 /// Validates the universal settings.
 #[inline(never)]
 fn validate_universal_settings(settings: &str) -> Result<(), String> {
@@ -989,12 +687,7 @@ fn validate_universal_settings(settings: &str) -> Result<(), String> {
 
 // Policy sections contain no 32-action Entry; do not reserve recipe storage for them.
 /// Determines whether the `settings_header` condition holds.
-///
 /// Checks whether settings header.
-/// ### Arguments
-/// - `line` (`&str`): Represents the line; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn settings_header(line: &str) -> bool {
     let Some(header) = line.strip_prefix('[').and_then(|s| s.strip_suffix(']')) else {
         return false;
@@ -1008,12 +701,6 @@ fn settings_header(line: &str) -> bool {
 }
 
 /// Old universal bindings remain inert; never migrate them into fighter lists.
-///
-///  Old universal bindings remain inert; never migrate them into fighter lists.
-/// ### Arguments
-/// - `line` (`&str`): Represents the line; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn retired_button_header(line: &str) -> bool {
     let Some(header) = line.strip_prefix('[').and_then(|s| s.strip_suffix(']')) else {
         return false;
@@ -1038,13 +725,6 @@ fn retired_button_header(line: &str) -> bool {
 }
 
 /// Cross-key rules that can only be judged once the whole section is read.
-///
-///  Cross-key rules that can only be judged once the whole section is read.
-/// ### Arguments
-/// - `entry` (`&Entry`): Represents the entry; the function uses it as input to the operation described above.
-/// - `line` (`usize`): Represents the line; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn check_entry(entry: &Entry, line: usize) -> Result<(), String> {
     let sequence = &entry.sequence;
     if entry.fighter_kind == -1
@@ -1092,13 +772,7 @@ fn check_entry(entry: &Entry, line: usize) -> Result<(), String> {
 }
 
 /// Finishes the entry.
-///
 /// Finishes the entry.
-/// ### Arguments
-/// - `current` (`&mut Option<(Entry, usize)>`): Represents the current; the function uses it as input to the operation described above.
-/// - `entries` (`&mut Vec<Entry>`): Represents the entries; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn finish_entry(
     current: &mut Option<(Entry, usize)>,
     entries: &mut Vec<Entry>,
@@ -1116,12 +790,7 @@ fn finish_entry(
 }
 
 /// Returns the `words_id` result.
-///
 /// Gets the words id result.
-/// ### Arguments
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 pub(super) fn words_id(value: &str) -> String {
     value
         .trim()
@@ -1133,12 +802,7 @@ pub(super) fn words_id(value: &str) -> String {
 }
 
 /// Parses the slot.
-///
 /// Parses the slot.
-/// ### Arguments
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) fn parse_slot(value: &str) -> Option<PresetSlot> {
     Some(match value.to_ascii_lowercase().as_str() {
         "neutral" | "neutral_getup" => PresetSlot::Neutral,
@@ -1159,12 +823,7 @@ pub(super) fn parse_slot(value: &str) -> Option<PresetSlot> {
 }
 
 /// Returns the `slot_name` result.
-///
 /// Gets the slot name result.
-/// ### Arguments
-/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 pub(super) fn slot_name(slot: PresetSlot) -> &'static str {
     match slot {
         PresetSlot::Neutral => "neutral",
@@ -1184,12 +843,7 @@ pub(super) fn slot_name(slot: PresetSlot) -> &'static str {
 }
 
 /// Determines whether the `valid_id` condition holds.
-///
 /// Checks whether valid id.
-/// ### Arguments
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn valid_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 48

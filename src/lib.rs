@@ -13,19 +13,13 @@
 //! Technical: Declares the plugin modules and exposes Skyline's load entry point.
 //! Plain English: This file wires the plugin together and starts it when Smash loads it.
 /// Declares the narrow native ABI boundary used by the live integration.
-///
-///  Provides read-only ways to inspect Smash's native state.
 mod game_ffi;
 /// Declares the Switch runtime integration and hook orchestration.
-///
-///  Connects fighter observations to controller assistance.
 mod live;
 // The diagnostic logger is absent from silent builds, not just disabled
 // by a setting. Config cannot enable it without rebuilding.
 #[cfg(feature = "diagnostic-logging")]
 /// Includes optional diagnostic storage and reporting in diagnostic builds.
-///
-///  Enables troubleshooting support only when compiled with the feature.
 mod diagnostics;
 #[cfg(feature = "diagnostic-logging")]
 use diagnostics::{calibration, grab_diagnostics, logging, performance};
@@ -35,8 +29,6 @@ use diagnostics::{calibration, grab_diagnostics, logging, performance};
 // and connect its observation/output in `live.rs` instead.
 #[skyline::main(name = "kirby_assist")]
 /// Initializes the live plugin integration when Skyline loads the module.
-///
-///  Skyline calls this once to start Kirby Assist.
 pub fn main() {
     live::install();
 }

@@ -11,11 +11,9 @@ use crate::settings::AssistSettings;
 use std::str::FromStr;
 
 /// Sets the default value for tech cooldown frames.
-///
 /// Holds the DEFAULT TECH COOLDOWN FRAMES value.
 const DEFAULT_TECH_COOLDOWN_FRAMES: u16 = 40;
 /// Sets the default value for collision lookahead frames.
-///
 /// Holds the DEFAULT COLLISION LOOKAHEAD FRAMES value.
 const DEFAULT_COLLISION_LOOKAHEAD_FRAMES: f32 = 3.0;
 
@@ -23,36 +21,19 @@ const DEFAULT_COLLISION_LOOKAHEAD_FRAMES: f32 = 3.0;
 // These are Copy values, so each callback can take a stable settings snapshot.
 // Fields named "frames" in the text config count observed mapper updates; their
 // relationship to the simulation clock still depends on the live input cadence.
-/// Defines the `LiveSettings` data structure.
-///
-/// Holds the data for LiveSettings.
+/// Runtime Smash data carried by `LiveSettings`.
 pub struct LiveSettings {
     /// Stores whether `LiveSettings` is enabled.
-    ///
-    ///
-    ///  Turns assistance on or off.
     pub enabled: bool,
-    /// Stores the `auto_mash` value in `LiveSettings` as `bool`.
-    ///
-    ///
-    ///  Holds the auto mash value used by LiveSettings.
+/// Runtime auto mash value used by LiveSettings..
     pub auto_mash: bool,
-    /// Stores the `auto_tech` value in `LiveSettings` as `bool`.
-    ///
-    ///
-    ///  Holds the auto tech value used by LiveSettings.
+/// Runtime auto tech value used by LiveSettings..
     pub auto_tech: bool,
     /// Enables extra diagnostic messages, not all logging in the plugin.
-    ///
-    ///  Enables extra diagnostic messages, not all logging in the plugin.
     pub tech_debug: bool,
     /// Permit temporary releases of the active tool's owned physical buttons.
-    ///
-    ///  Permit temporary releases of the active tool's owned physical buttons.
     pub takeover: bool,
     /// Limits repeated ZR requests; does not change the game's own lockout.
-    ///
-    ///  Limits repeated ZR requests; does not change the game's own lockout.
     pub tech_cooldown: u16,
 }
 
@@ -60,11 +41,6 @@ pub struct LiveSettings {
 // intentionally enables takeover and extra diagnostic details.
 impl Default for LiveSettings {
     /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             enabled: true,
@@ -79,76 +55,37 @@ impl Default for LiveSettings {
 
 /// Startup configuration shared with the Switch plugin. Unknown keys and
 /// invalid values reject the configuration instead of silently enabling tools.
-///
-///  Startup configuration shared with the Switch plugin. Unknown keys and invalid values reject the configuration instead of silently enabling tools.
 #[derive(Clone, Copy, Debug)]
 pub struct LiveConfig {
     /// L-held approximate defense against nearby active fighter attacks.
-    ///
-    ///  L-held approximate defense against nearby active fighter attacks.
     pub autopilot_shield: bool,
-    /// Stores the `down_tilt_trip_smash` value in `LiveConfig` as `bool`.
-    ///
-    ///
-    ///  Holds the down tilt trip smash value used by LiveConfig.
+/// Runtime down tilt trip smash value used by LiveConfig..
     pub down_tilt_trip_smash: bool,
-    /// Stores the `kirby_fair1_smash` value in `LiveConfig` as `bool`.
-    ///
-    ///
-    ///  Holds the kirby fair1 smash value used by LiveConfig.
+/// Runtime kirby fair1 smash value used by LiveConfig..
     pub kirby_fair1_smash: bool,
-    /// Stores the `auto_sdi` value in `LiveConfig` as `bool`.
-    ///
-    ///
-    ///  Holds the auto sdi value used by LiveConfig.
+/// Runtime auto sdi value used by LiveConfig..
     pub auto_sdi: bool,
-    /// Stores the `auto_di` value in `LiveConfig` as `crate::auto_di::Settings`.
-    ///
-    ///
-    ///  Holds the auto di value used by LiveConfig.
+/// Runtime auto di value used by LiveConfig..
     pub auto_di: crate::auto_di::Settings,
-    /// Stores the `auto_spot_dodge` value in `LiveConfig` as `bool`.
-    ///
-    ///
-    ///  Holds the auto spot dodge value used by LiveConfig.
+/// Runtime auto spot dodge value used by LiveConfig..
     pub auto_spot_dodge: bool,
-    /// Stores the `controls` value in `LiveConfig` as `LiveSettings`.
-    ///
-    ///
-    ///  Holds the controls value used by LiveConfig.
+/// Runtime controls value used by LiveConfig..
     pub controls: LiveSettings,
-    /// Stores the `control_layout` value in `LiveConfig` as `crate::native_input::ControlLayout`.
-    ///
-    ///
-    ///  Holds the control layout value used by LiveConfig.
+/// Runtime control layout value used by LiveConfig..
     pub control_layout: crate::native_input::ControlLayout,
     /// Facing-direction creep strength for the selected Turbo t-bag binding.
-    ///
-    ///  Facing-direction creep strength for the selected Turbo t-bag binding.
     pub turbo: TurboSettings,
-    /// Stores the `assist` value in `LiveConfig` as `AssistSettings`.
-    ///
-    ///
-    ///  Holds the assist value used by LiveConfig.
+/// Runtime assist value used by LiveConfig..
     pub assist: AssistSettings,
     /// Local physical controller number: 0 = Player 1. Its game mapper slot
     /// is discovered dynamically; battle participant position is irrelevant.
-    ///
-    ///  Local physical controller number: 0 = Player 1. Its game mapper slot is discovered dynamically; battle participant position is irrelevant.
     pub player_index: u32,
     /// Linear velocity horizon for collision rays; not a complete physics model.
-    ///
-    ///  Linear velocity horizon for collision rays; not a complete physics model.
     pub lookahead: f32,
 }
 
 impl Default for LiveConfig {
     /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             autopilot_shield: true,
@@ -168,72 +105,34 @@ impl Default for LiveConfig {
 }
 
 /// Returns the `invalid_line` result.
-///
 /// Gets the invalid line result.
-/// ### Arguments
-/// - `line_number` (`usize`): Represents the line number; the function uses it as input to the operation described above.
-/// - `line` (`&str`): Represents the line; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 fn invalid_line(line_number: usize, line: &str) -> String {
     format!("invalid config line {line_number}: {line}")
 }
 
 /// One `key = value` line. Every malformed value reports the same line-numbered
 /// message, so each key only names its destination field.
-///
-///  One key = value line. Every malformed value reports the same line-numbered message, so each key only names its destination field.
 struct Setting<'a> {
-    /// Stores the `line_number` value in `Setting` as `usize`.
-    ///
-    ///
-    ///  Holds the line number value used by Setting.
+/// Runtime line number value used by Setting..
     line_number: usize,
-    /// Stores the `line` value in `Setting` as `&'a str`.
-    ///
-    ///
-    ///  Holds the line value used by Setting.
+/// Runtime line value used by Setting..
     line: &'a str,
-    /// Stores the `value` value in `Setting` as `&'a str`.
-    ///
-    ///
-    ///  Holds the value value used by Setting.
+/// Runtime value value used by Setting..
     value: &'a str,
 }
 
 impl Setting<'_> {
     /// Returns the `invalid` result.
-    ///
-    ///
-    ///  Gets the invalid result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn invalid(&self) -> String {
         invalid_line(self.line_number, self.line)
     }
 
     /// The destination type decides whether this is a bool, integer or float.
-    ///
-    ///  The destination type decides whether this is a bool, integer or float.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn parse<T: FromStr>(&self) -> Result<T, String> {
         self.value.parse().map_err(|_| self.invalid())
     }
 
-    /// Stores the supplied value.
-    ///
-    ///
-    ///  Sets the value.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `field` (`&mut T`): Represents the field; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
+    /// Saves one mapped live-input configuration value.
     fn set<T: FromStr>(&self, field: &mut T) -> Result<(), String> {
         *field = self.parse()?;
         Ok(())
@@ -241,26 +140,11 @@ impl Setting<'_> {
 
     /// Older SD files carry values that no longer do anything; keep rejecting
     /// malformed ones so a typo is still reported.
-    ///
-    ///  Older SD files carry values that no longer do anything; keep rejecting malformed ones so a typo is still reported.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn accept<T: FromStr>(&self) -> Result<(), String> {
         self.parse::<T>().map(drop)
     }
 
     /// Returns the `choice` result.
-    ///
-    ///
-    ///  Gets the choice result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `options` (`&[(&str, T)]`): Represents the options; the function uses it as input to the operation described above.
-    /// - `ignore_case` (`bool`): Represents the ignore case; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn choice<T: Copy>(&self, options: &[(&str, T)], ignore_case: bool) -> Result<T, String> {
         options
             .iter()
@@ -278,43 +162,21 @@ impl Setting<'_> {
 
 /// Retired controls are still parsed and validated so older SD config files
 /// remain loadable, but they no longer affect live policy.
-///
-///  Retired controls are still parsed and validated so older SD config files remain loadable, but they no longer affect live policy.
 #[derive(Default)]
 struct RetiredSettings {
-    /// Stores the `roll_range` value in `RetiredSettings` as `Option<f32>`.
-    ///
-    ///
-    ///  Optionally stores the roll range for RetiredSettings; it may be absent.
+/// Runtime roll range value used by RetiredSettings..
     roll_range: Option<f32>,
     /// Outer `None`: key absent. Inner `None`: the literal `auto`.
-    ///
-    ///  Outer None: key absent. Inner None: the literal auto.
     roll_distance: Option<Option<f32>>,
-    /// Stores the `tilt_range` value in `RetiredSettings` as `Option<f32>`.
-    ///
-    ///
-    ///  Optionally stores the tilt range for RetiredSettings; it may be absent.
+/// Runtime tilt range value used by RetiredSettings..
     tilt_range: Option<f32>,
-    /// Stores the `grab_range` value in `RetiredSettings` as `Option<f32>`.
-    ///
-    ///
-    ///  Optionally stores the grab range for RetiredSettings; it may be absent.
+/// Runtime grab range value used by RetiredSettings..
     grab_range: Option<f32>,
-    /// Stores the `anti_air_range` value in `RetiredSettings` as `Option<f32>`.
-    ///
-    ///
-    ///  Optionally stores the anti air range for RetiredSettings; it may be absent.
+/// Runtime anti air range value used by RetiredSettings..
     anti_air_range: Option<f32>,
-    /// Stores the `anti_air_height` value in `RetiredSettings` as `Option<f32>`.
-    ///
-    ///
-    ///  Optionally stores the anti air height for RetiredSettings; it may be absent.
+/// Runtime anti air height value used by RetiredSettings..
     anti_air_height: Option<f32>,
-    /// Stores the `turbo_phase_frames` value in `RetiredSettings` as `Option<u16>`.
-    ///
-    ///
-    ///  Sets the turbo phase frames timing for RetiredSettings.
+/// Runtime turbo phase frames value used by RetiredSettings..
     turbo_phase_frames: Option<u16>,
 }
 
@@ -322,40 +184,19 @@ struct RetiredSettings {
 // parsing accepts NaN/infinity, hence is_finite in addition to range checks.
 // To expose a wider range, verify the consuming policy first.
 /// Determines whether the `finite_in` condition holds.
-///
 /// Checks whether finite in.
-/// ### Arguments
-/// - `value` (`f32`): Represents the value being processed; the function uses it as input to the operation described above.
-/// - `min` (`f32`): Represents the minimum allowed value; the function uses it as input to the operation described above.
-/// - `max` (`f32`): Represents the maximum allowed value; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn finite_in(value: f32, min: f32, max: f32) -> bool {
     value.is_finite() && (min..=max).contains(&value)
 }
 
 /// Determines whether the `retired_in` condition holds.
-///
 /// Checks whether retired in.
-/// ### Arguments
-/// - `value` (`Option<f32>`): Represents the value being processed; the function uses it as input to the operation described above.
-/// - `min` (`f32`): Represents the minimum allowed value; the function uses it as input to the operation described above.
-/// - `max` (`f32`): Represents the maximum allowed value; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn retired_in(value: Option<f32>, min: f32, max: f32) -> bool {
     value.is_none_or(|value| finite_in(value, min, max))
 }
 
 impl LiveConfig {
     /// Parses the supplied source into the module’s validated representation.
-    ///
-    ///
-    ///  Reads the source and checks that it is valid.
-    /// ### Arguments
-    /// - `contents` (`&str`): Represents the contents; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn parse(contents: &str) -> Result<Self, String> {
         // Start from Rust defaults, then replace only keys present in the file.
         // `?` propagates Err immediately: no partially parsed config is installed.
@@ -384,16 +225,6 @@ impl LiveConfig {
     // To expose a new setting, add its field/default, a match arm here, range
     // validation below, a deployment config comment, and parser/policy tests.
     /// Applies the supplied configuration or action.
-    ///
-    ///
-    ///  Makes the supplied change.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `retired` (`&mut RetiredSettings`): Represents the retired; the function uses it as input to the operation described above.
-    /// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// - `setting` (`&Setting`): Represents the setting; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn apply(
         &mut self,
         retired: &mut RetiredSettings,
@@ -512,14 +343,6 @@ impl LiveConfig {
     }
 
     /// Returns the `validate` result.
-    ///
-    ///
-    ///  Gets the validate result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `retired` (`&RetiredSettings`): Represents the retired; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn validate(&self, retired: &RetiredSettings) -> Result<(), String> {
         let assist = &self.assist;
         if !finite_in(assist.walk_strength, 0.1, 0.45) || !retired_in(retired.roll_range, 1.0, 20.0)

@@ -1715,6 +1715,10 @@ Replaces ObjectCategory enum conversions with direct object-ID category checks.
 Extracts shield attack endpoint world-coordinate conversion into a small helper without changing behavior.
 
 Extracts per-object active-hitbox threat checks while preserving shared scan budgets and cached depth reads.
+
+Repairs duplicated live mapper imports and observation function declarations that prevented compilation.
+
+Replaces predictive auto-tech collision and timing calculations with native passive-transition state and frame-by-frame alternating shield input.
 """
 
 

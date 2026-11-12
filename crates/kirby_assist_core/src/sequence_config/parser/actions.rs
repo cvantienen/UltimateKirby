@@ -9,13 +9,7 @@ use crate::sequence_config::{
 };
 
 /// Returns the `push` result.
-///
 /// Gets the push result.
-/// ### Arguments
-/// - `sequence` (`&mut Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-/// - `action` (`Action`): Represents the action; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn push(sequence: &mut Sequence, action: Action) -> Result<(), String> {
     if usize::from(sequence.len) == MAX_ACTIONS {
         return Err(format!(
@@ -28,13 +22,7 @@ fn push(sequence: &mut Sequence, action: Action) -> Result<(), String> {
 }
 
 /// Parses the actions.
-///
 /// Parses the actions.
-/// ### Arguments
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// - `line` (`usize`): Represents the line; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub(super) fn parse_actions(value: &str, line: usize) -> Result<Sequence, String> {
     let mut result = Sequence::default();
     for token in value.split(',').map(str::trim) {
@@ -48,12 +36,6 @@ pub(super) fn parse_actions(value: &str, line: usize) -> Result<Sequence, String
 }
 
 /// Flat facing blocks are deliberately bounded and cannot nest.
-///
-///  Flat facing blocks are deliberately bounded and cannot nest.
-/// ### Arguments
-/// - `actions` (`&[Action]`): Represents the actions; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn validate_facing_blocks(actions: &[Action]) -> Result<(), String> {
     let mut open = false;
     let mut otherwise = false;
@@ -90,15 +72,7 @@ pub fn validate_facing_blocks(actions: &[Action]) -> Result<(), String> {
 }
 
 /// Constructs a parsed input action from the supplied arguments.
-///
 /// Builds the input action described by the arguments.
-/// ### Arguments
-/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-/// - `stick` (`[f32; 2]`): Represents the stick; the function uses it as input to the operation described above.
-/// - `frames` (`u8`): Represents the number of frames; the function uses it as input to the operation described above.
-/// - `relative` (`bool`): Represents the relative; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `Action` value.
 fn input(buttons: u32, stick: [f32; 2], frames: u8, relative: bool) -> Action {
     Action::Input {
         buttons,
@@ -110,55 +84,25 @@ fn input(buttons: u32, stick: [f32; 2], frames: u8, relative: bool) -> Action {
 
 /// One colon-separated action token after alias normalization. Every accessor
 /// reports failures against the author's original text.
-///
-///  One colon-separated action token after alias normalization. Every accessor reports failures against the author's original text.
 struct Args<'a> {
-    /// Stores the `token` value in `Args` as `&'a str`.
-    ///
-    ///
-///  Holds the token value used by Args.
+/// Runtime token value used by Args..
     token: &'a str,
-    /// Stores the `parts` value in `Args` as `Vec<&'a str>`.
-    ///
-    ///
-///  Holds the parts value used by Args.
+/// Runtime parts value used by Args..
     parts: Vec<&'a str>,
 }
 
 impl Args<'_> {
     /// Returns the number of stored elements.
-    ///
-    ///
-    ///  Counts the stored items.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `usize` value.
     fn len(&self) -> usize {
         self.parts.len()
     }
 
     /// Returns the `invalid` result.
-    ///
-    ///
-    ///  Gets the invalid result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn invalid(&self) -> String {
         format!("invalid action {}", self.token)
     }
 
     /// Returns the `exact` result.
-    ///
-    ///
-    ///  Gets the exact result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `count` (`usize`): Represents the number of items; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn exact(&self, count: usize) -> Result<(), String> {
         if self.len() == count {
             Ok(())
@@ -168,14 +112,6 @@ impl Args<'_> {
     }
 
     /// Returns the `at_most` result.
-    ///
-    ///
-    ///  Gets the at most result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `count` (`usize`): Represents the number of items; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn at_most(&self, count: usize) -> Result<(), String> {
         if self.len() <= count {
             Ok(())
@@ -185,32 +121,11 @@ impl Args<'_> {
     }
 
     /// Returns the floating-point value when the fact contains one.
-    ///
-    ///
-    ///  Gets the number if this fact stores one.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-    /// - `min` (`f32`): Represents the minimum allowed value; the function uses it as input to the operation described above.
-    /// - `max` (`f32`): Represents the maximum allowed value; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn float(&self, index: usize, min: f32, max: f32) -> Result<f32, String> {
         parse_float(self.parts[index], min, max, self.token)
     }
 
     /// Returns the `float_or` result.
-    ///
-    ///
-    ///  Gets the float or result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-    /// - `default` (`f32`): Represents the default; the function uses it as input to the operation described above.
-    /// - `min` (`f32`): Represents the minimum allowed value; the function uses it as input to the operation described above.
-    /// - `max` (`f32`): Represents the maximum allowed value; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn float_or(&self, index: usize, default: f32, min: f32, max: f32) -> Result<f32, String> {
         if index < self.len() {
             self.float(index, min, max)
@@ -220,13 +135,6 @@ impl Args<'_> {
     }
 
     /// Left- or right-stick pair at `index` and `index + 1`.
-    ///
-    ///  Left- or right-stick pair at index and index + 1.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn stick(&self, index: usize) -> Result<[f32; 2], String> {
         Ok([
             self.float(index, -1.0, 1.0)?,
@@ -235,15 +143,6 @@ impl Args<'_> {
     }
 
     /// Returns the `frames_or` result.
-    ///
-    ///
-    ///  Gets the frames or result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-    /// - `default` (`u8`): Represents the default; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn frames_or(&self, index: usize, default: u8) -> Result<u8, String> {
         self.parts
             .get(index)
@@ -251,14 +150,6 @@ impl Args<'_> {
     }
 
     /// Input hold length: 1..255 native frames.
-    ///
-    ///  Input hold length: 1..255 native frames.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-    /// - `default` (`u8`): Represents the default; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn duration(&self, index: usize, default: u8) -> Result<u8, String> {
         match self.frames_or(index, default)? {
             0 => Err(format!("{}: input duration must be 1..255", self.token)),
@@ -267,53 +158,23 @@ impl Args<'_> {
     }
 
     /// Returns the `buttons` result.
-    ///
-    ///
-    ///  Gets the buttons result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn buttons(&self, index: usize) -> Result<u32, String> {
         buttons(self.parts[index])
     }
 
     /// Returns the `direction` result.
-    ///
-    ///
-    ///  Gets the direction result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn direction(&self, index: usize) -> Result<Direction, String> {
         Direction::from_token(self.parts[index])
             .ok_or_else(|| format!("invalid direction in {}", self.token))
     }
 
     /// Returns the `reference` result.
-    ///
-    ///
-    ///  Gets the reference result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn reference(&self, index: usize) -> Result<InputReference, String> {
         InputReference::parse(self.parts.get(index).copied().unwrap_or("screen"))
     }
 }
 
 /// Canonical single-letter names plus the long aliases accepted in `+` lists.
-///
-///  Canonical single-letter names plus the long aliases accepted in + lists.
-/// ### Arguments
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn buttons(value: &str) -> Result<u32, String> {
     let mut mask = 0;
     for button in value.split('+') {
@@ -331,12 +192,6 @@ fn buttons(value: &str) -> Result<u32, String> {
 
 /// Rewrite the spelled-out shortcuts that are not simple aliases of one token
 /// into the canonical `name:arg` layout used by the dispatcher below.
-///
-///  Rewrite the spelled-out shortcuts that are not simple aliases of one token into the canonical name:arg layout used by the dispatcher below.
-/// ### Arguments
-/// - `token` (`&str`): Represents the token; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 fn normalize(token: &str) -> String {
     let normalized = token
         .split(':')
@@ -368,13 +223,7 @@ fn normalize(token: &str) -> String {
 }
 
 /// Parses the action.
-///
 /// Parses the action.
-/// ### Arguments
-/// - `token` (`&str`): Represents the token; the function uses it as input to the operation described above.
-/// - `sequence` (`&mut Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn parse_action(token: &str, sequence: &mut Sequence) -> Result<(), String> {
     let normalized = normalize(token);
     let args = Args {
@@ -470,37 +319,20 @@ fn parse_action(token: &str, sequence: &mut Sequence) -> Result<(), String> {
 }
 
 /// Zero-argument markers such as `end_facing`.
-///
-///  Zero-argument markers such as endfacing.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// - `action` (`Action`): Represents the action; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn marker(args: &Args, action: Action) -> Result<Action, String> {
     args.exact(1)?;
     Ok(action)
 }
 
 /// Returns the `wait` result.
-///
 /// Gets the wait result.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn wait(args: &Args) -> Result<Action, String> {
     args.at_most(2)?;
     Ok(Action::Wait(args.frames_or(1, 1)?))
 }
 
 /// Returns the `check` result.
-///
 /// Gets the check result.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn check(args: &Args) -> Result<Action, String> {
     let condition = args
         .parts
@@ -524,12 +356,7 @@ fn check(args: &Args) -> Result<Action, String> {
 }
 
 /// Returns the `tap` result.
-///
 /// Gets the tap result.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn tap(args: &Args) -> Result<Action, String> {
     args.exact(7)?;
     let frames = parse_frames(args.parts[6])
@@ -548,12 +375,7 @@ fn tap(args: &Args) -> Result<Action, String> {
 }
 
 /// Returns the `press` result.
-///
 /// Gets the press result.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn press(args: &Args) -> Result<Action, String> {
     if args.len() != 2 && args.len() != 3 {
         return Err("use press:BUTTONS[:FRAMES] or hold:BUTTONS:FRAMES".into());
@@ -562,12 +384,7 @@ fn press(args: &Args) -> Result<Action, String> {
 }
 
 /// Returns the `controller_input` result.
-///
 /// Gets the controller input result.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn controller_input(args: &Args) -> Result<Action, String> {
     if !(7..=9).contains(&args.len()) {
         return Err(
@@ -585,12 +402,7 @@ fn controller_input(args: &Args) -> Result<Action, String> {
 }
 
 /// Returns the `opponent_input` result.
-///
 /// Gets the opponent input result.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn opponent_input(args: &Args) -> Result<Action, String> {
     args.exact(5)?;
     Ok(Action::OpponentInput {
@@ -601,12 +413,7 @@ fn opponent_input(args: &Args) -> Result<Action, String> {
 }
 
 /// Returns the `hold_until_manual` result.
-///
 /// Gets the hold until manual result.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn hold_until_manual(args: &Args) -> Result<Action, String> {
     args.exact(4)?;
     let held = args.buttons(1)?;
@@ -622,12 +429,7 @@ fn hold_until_manual(args: &Args) -> Result<Action, String> {
 }
 
 /// Returns the `walk` result.
-///
 /// Gets the walk result.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn walk(args: &Args) -> Result<Action, String> {
     if args.len() != 4 && args.len() != 5 {
         return Err("use walk:DIRECTION:UNITS:STRENGTH[:MIN_GAP]".into());
@@ -650,12 +452,7 @@ fn walk(args: &Args) -> Result<Action, String> {
 }
 
 /// Runs the to ledge.
-///
 /// Runs the to ledge.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn run_to_ledge(args: &Args) -> Result<Action, String> {
     if !(3..=6).contains(&args.len()) {
         return Err(
@@ -676,12 +473,7 @@ fn run_to_ledge(args: &Args) -> Result<Action, String> {
 }
 
 /// Returns the `approach` result.
-///
 /// Gets the approach result.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn approach(args: &Args) -> Result<Action, String> {
     args.exact(4)?;
     let airborne = args.parts[0] == "drift_to_opponent";
@@ -694,13 +486,7 @@ fn approach(args: &Args) -> Result<Action, String> {
 }
 
 /// Returns the `range_check` result.
-///
 /// Gets the range check result.
-/// ### Arguments
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// - `token` (`&str`): Represents the token; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn range_check(value: &str, token: &str) -> Result<RangeCheck, String> {
     Ok(match value {
         "ignore" => RangeCheck::Ignore,
@@ -711,13 +497,6 @@ fn range_check(value: &str, token: &str) -> Result<RangeCheck, String> {
 }
 
 /// `grab[:RANGE]`: an optional range gate followed by one R press.
-///
-///  grab[:RANGE]: an optional range gate followed by one R press.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// - `sequence` (`&mut Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn grab(args: &Args, sequence: &mut Sequence) -> Result<(), String> {
     args.at_most(2)?;
     let range = match args.parts.get(1).copied().unwrap_or("ignore") {
@@ -734,12 +513,6 @@ fn grab(args: &Args, sequence: &mut Sequence) -> Result<(), String> {
 
 /// Shortcut names (`jab`, `up_b`, `short_hop_nair`, ...) that expand to a
 /// facing-relative input. Returns the buttons and unit stick direction.
-///
-///  Shortcut names (jab, upb, shorthopnair, ...) that expand to a facing-relative input. Returns the buttons and unit stick direction.
-/// ### Arguments
-/// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn named_input(name: &str) -> Option<(u32, [f32; 2])> {
     Some(match name {
         "short_hop" | "shorthop" | "jump" => (X, [0.0; 2]),
@@ -772,12 +545,6 @@ fn named_input(name: &str) -> Option<(u32, [f32; 2])> {
 }
 
 /// Only the documented aerial spellings may take the `short_hop_` prefix.
-///
-///  Only the documented aerial spellings may take the shorthop prefix.
-/// ### Arguments
-/// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn pairs_with_short_hop(name: &str) -> bool {
     matches!(
         name,
@@ -796,13 +563,6 @@ fn pairs_with_short_hop(name: &str) -> bool {
 
 /// The catch-all action family: optional `turnaround_` / `short_hop_` prefixes
 /// around a shortcut name, `:FRAMES` and `:STRENGTH` suffixes.
-///
-///  The catch-all action family: optional turnaround / shorthop prefixes around a shortcut name, :FRAMES and :STRENGTH suffixes.
-/// ### Arguments
-/// - `args` (`&Args`): Represents the args; the function uses it as input to the operation described above.
-/// - `sequence` (`&mut Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn named_move(args: &Args, sequence: &mut Sequence) -> Result<(), String> {
     args.at_most(3)?;
     let mut name = args.parts[0];
@@ -845,12 +605,6 @@ fn named_move(args: &Args, sequence: &mut Sequence) -> Result<(), String> {
 }
 
 /// Long button spellings; the canonical letters come from `BUTTON_TOKENS`.
-///
-///  Long button spellings; the canonical letters come from BUTTONTOKENS.
-/// ### Arguments
-/// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn button_alias(name: &str) -> Option<u32> {
     Some(match name {
         "attack" => A,
@@ -864,15 +618,7 @@ fn button_alias(name: &str) -> Option<u32> {
 }
 
 /// Parses the float.
-///
 /// Parses the float.
-/// ### Arguments
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// - `min` (`f32`): Represents the minimum allowed value; the function uses it as input to the operation described above.
-/// - `max` (`f32`): Represents the maximum allowed value; the function uses it as input to the operation described above.
-/// - `token` (`&str`): Represents the token; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn parse_float(value: &str, min: f32, max: f32, token: &str) -> Result<f32, String> {
     let value = value
         .strip_suffix("_units")
@@ -894,13 +640,7 @@ fn parse_float(value: &str, min: f32, max: f32, token: &str) -> Result<f32, Stri
 }
 
 /// Parses the u 8.
-///
 /// Parses the u8.
-/// ### Arguments
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// - `token` (`&str`): Represents the token; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn parse_u8(value: &str, token: &str) -> Result<u8, String> {
     let value = value.strip_prefix("until_motion_frame_").unwrap_or(value);
     let value = value
@@ -913,12 +653,6 @@ fn parse_u8(value: &str, token: &str) -> Result<u8, String> {
 }
 
 /// Whole-action frame budgets (taps, movement timeouts): 1..=3600.
-///
-///  Whole-action frame budgets (taps, movement timeouts): 1..=3600.
-/// ### Arguments
-/// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn parse_frames(value: &str) -> Option<u16> {
     value
         .parse::<u16>()
@@ -931,21 +665,11 @@ mod tests {
     use super::*;
 
     /// Parses the supplied source into the module’s validated representation.
-    ///
-    ///
-    ///  Reads the source and checks that it is valid.
-    /// ### Arguments
-    /// - `text` (`&str`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     fn parse(text: &str) -> Result<Vec<Action>, String> {
         parse_actions(text, 1).map(|sequence| sequence.actions().to_vec())
     }
 
     /// Regression test for `shortcuts_expand_to_the_documented_inputs`.
-    ///
-    ///
-///  Checks that shortcuts expand to the documented inputs.
     #[test]
     fn shortcuts_expand_to_the_documented_inputs() {
         let facing = |buttons, stick, frames| input(buttons, stick, frames, true);
@@ -992,9 +716,6 @@ mod tests {
     }
 
     /// Regression test for `rejected_tokens_report_the_original_wording`.
-    ///
-    ///
-///  Checks that rejected tokens report the original wording.
     #[test]
     fn rejected_tokens_report_the_original_wording() {
         for (text, error) in [
@@ -1037,9 +758,6 @@ mod tests {
     }
 
     /// Regression test for `the_action_budget_is_checked_after_each_expansion`.
-    ///
-    ///
-///  Checks that the action budget is checked after each expansion.
     #[test]
     fn the_action_budget_is_checked_after_each_expansion() {
         let full = "wait:1,".repeat(MAX_ACTIONS - 1);

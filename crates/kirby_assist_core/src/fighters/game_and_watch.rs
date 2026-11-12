@@ -9,108 +9,52 @@ use crate::{
     timing::{AnimationClock, AnimationSample},
 };
 
-/// Defines the `REFLECT_CONTACT_SAFETY_MARGIN_FRAMES` constant used by this module.
-///
-/// Provides the REFLECT CONTACT SAFETY MARGIN FRAMES constant value.
+/// Extra frames added to Oil Panic startup when predicting projectile contact.
 const REFLECT_CONTACT_SAFETY_MARGIN_FRAMES: f32 = 2.0;
-/// Sets the upper bound for projectile radius.
-///
-/// Holds the MAX PROJECTILE RADIUS value.
+/// Largest projectile hitbox radius accepted by Oil Panic prediction.
 const MAX_PROJECTILE_RADIUS: f32 = 100.0;
-/// Sets the upper bound for reflector horizon frames.
-///
-/// Holds the MAX REFLECTOR HORIZON FRAMES value.
+/// Longest projectile-contact horizon accepted by Oil Panic prediction.
 const MAX_REFLECTOR_HORIZON_FRAMES: f32 = 40.0;
-/// Sets the upper bound for receipt poll count.
-///
-/// Holds the MAX RECEIPT POLL COUNT value.
+/// Mapper-poll limit while awaiting Oil Panic input acknowledgement.
 const MAX_RECEIPT_POLL_COUNT: u8 = 24;
-/// Sets the upper bound for unconfirmed reflect frames.
-///
-/// Holds the MAX UNCONFIRMED REFLECT FRAMES value.
+/// Time limit for native state to confirm Oil Panic startup.
 const MAX_UNCONFIRMED_REFLECT_FRAMES: f32 = 24.0;
-/// Sets the lower bound for reflect retry interval frames.
-///
-/// Holds the MIN REFLECT RETRY INTERVAL FRAMES value.
+/// Minimum native-frame gap before another Oil Panic delivery attempt.
 const MIN_REFLECT_RETRY_INTERVAL_FRAMES: f32 = 2.0;
-/// Sets the upper bound for turning frames.
-///
-/// Holds the MAX TURNING FRAMES value.
+/// Maximum time allowed for the pre-reflector turnaround.
 const MAX_TURNING_FRAMES: f32 = 2.0;
-/// Sets the upper bound for unsent reflect frames.
-///
-/// Holds the MAX UNSENT REFLECT FRAMES value.
+/// Maximum native frames allowed to deliver the Oil Panic input.
 const MAX_UNSENT_REFLECT_FRAMES: f32 = 4.0;
-/// Defines the `TURNING_REFLECT_STARTUP_EXTRA_FRAMES` constant used by this module.
-///
-/// Provides the TURNING REFLECT STARTUP EXTRA FRAMES constant value.
+/// Additional Oil Panic startup allowance when Game & Watch must turn first.
 const TURNING_REFLECT_STARTUP_EXTRA_FRAMES: f32 = 1.0;
 /// Recently attempted shots remembered so a missed/consumed shot is not retried.
-///
-///  Recently attempted shots remembered so a missed/consumed shot is not retried.
 const ATTEMPT_MEMORY: usize = 32;
 
-/// Defines the `GAMEWATCH` constant used by this module.
-///
-/// Provides the GAMEWATCH constant value.
+/// Native fighter-kind ID for Mr. Game & Watch.
 pub const GAMEWATCH: i32 = crate::fighter_kinds::MR_GAME_AND_WATCH;
 /// Adding a fighter requires a verified native move/resource adapter too.
-///
-///  Adding a fighter requires a verified native move/resource adapter too.
-/// ### Arguments
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn supports(kind: i32) -> bool {
     kind == GAMEWATCH
 }
 
-/// Defines the `Config` data structure.
-///
-/// Holds the data for Config.
+/// Mr. Game & Watch reflector timing and estimated body envelope.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Config {
-    /// Stores the `startup` value in `Config` as `f32`.
-    ///
-    ///
-    ///  Holds the startup value used by Config.
+    /// Native Oil Panic startup before reflection or absorption can begin.
     pub startup: f32,
-    /// Stores the `margin` value in `Config` as `f32`.
-    ///
-    ///
-    ///  Holds the margin value used by Config.
+    /// Extra prediction margin before projectile contact.
     pub margin: f32,
-    /// Stores the `max_hold` value in `Config` as `f32`.
-    ///
-    ///
-    ///  Holds the max hold value used by Config.
+    /// Maximum frames to hold one confirmed Oil Panic request.
     pub max_hold: f32,
-    /// Stores the `half_width` value in `Config` as `f32`.
-    ///
-    ///
-    ///  Holds the half width value used by Config.
+    /// Estimated horizontal half-width of Game & Watch's body.
     pub half_width: f32,
-    /// Stores the `height` value in `Config` as `f32`.
-    ///
-    ///
-    ///  Holds the height value used by Config.
+    /// Estimated body height above Game & Watch's root.
     pub height: f32,
-    /// Stores the `half_depth` value in `Config` as `f32`.
-    ///
-    ///
-    ///  Holds the half depth value used by Config.
+    /// Estimated depth allowance for off-plane projectile checks.
     pub half_depth: f32,
 }
 impl Config {
-    /// Returns the profile data for the requested fighter.
-    ///
-    ///
-    ///  Gets the data for this fighter.
-    /// ### Arguments
-    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-    /// - `values` (`Tuning`): Represents the values; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
+    /// Builds Oil Panic timing and body estimates for supported Game & Watch settings.
     pub fn for_fighter(kind: i32, values: Tuning) -> Option<Self> {
         // Explicit saved configuration, never a global/cross-fighter fallback.
         if !supports(kind) || values.0[tuning::REFLECT_DEFAULT].is_none() {
@@ -127,27 +71,13 @@ impl Config {
             half_depth: values.get(tuning::REFLECT_HALF_DEPTH),
         })
     }
-    /// Returns the prediction horizon used by the policy.
-    ///
-    ///
-    ///  Gets how far ahead the policy looks.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `f32` value.
+    /// Frames of lead time needed to start Oil Panic before projectile contact.
     pub fn horizon(self) -> f32 {
         self.startup + self.margin + REFLECT_CONTACT_SAFETY_MARGIN_FRAMES
     }
 }
 
-/// Checks whether the fighter can move in the observed state.
-///
-/// Checks whether the fighter can move.
-/// ### Arguments
-/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
+/// Whether Game & Watch can turn and start Oil Panic from this native state.
 pub fn movable(status: i32, situation: i32) -> bool {
     match situation {
         crate::native_states::situation::GROUND => {
@@ -158,13 +88,7 @@ pub fn movable(status: i32, situation: i32) -> bool {
         _ => false,
     }
 }
-/// Classifies the value into its bounded bucket.
-///
-/// Groups the value into a range.
-/// ### Arguments
-/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
+/// Whether Game & Watch is in an Oil Panic hold/absorb status.
 pub fn bucket(status: i32) -> bool {
     matches!(
         status,
@@ -174,58 +98,29 @@ pub fn bucket(status: i32) -> bool {
     )
 }
 
-/// Defines the `Threat` data structure.
-///
-/// Holds the data for Threat.
+/// Predicted incoming projectile contact used to time Oil Panic.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Threat {
-    /// Stores the `id` value in `Threat` as `u32`.
-    ///
-    ///
-    ///  Holds the id value used by Threat.
+    /// Native battle-object ID of the threatening projectile.
     pub id: u32,
-    /// Stores the `generation` value in `Threat` as `u32`.
-    ///
-    ///
-    ///  Holds the generation value used by Threat.
+    /// Projectile attack generation used to detect a reused object.
     pub generation: u32,
-    /// Stores the `in_frames` value in `Threat` as `f32`.
-    ///
-    ///
-    ///  Sets the in frames timing for Threat.
+    /// Predicted frames until projectile contact.
     pub in_frames: f32,
-    /// Stores the `direction` value in `Threat` as `f32`.
-    ///
-    ///
-    ///  Holds the direction value used by Threat.
+    /// Horizontal direction from Game & Watch toward the projectile.
     pub direction: f32,
 }
 /// A new native ATTACK on a reused object is a fresh opportunity, not the
 /// previous shot. No wall-clock cooldown or permanent object-ID blacklist.
-///
-///  A new native ATTACK on a reused object is a fresh opportunity, not the previous shot. No wall-clock cooldown or permanent object-ID blacklist.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProjectileKey {
-    /// Stores the `id` value in `ProjectileKey` as `u32`.
-    ///
-    ///
-    ///  Holds the id value used by ProjectileKey.
+    /// Native projectile battle-object ID.
     pub id: u32,
-    /// Stores the `generation` value in `ProjectileKey` as `u32`.
-    ///
-    ///
-    ///  Holds the generation value used by ProjectileKey.
+    /// Attack generation for this projectile object.
     pub generation: u32,
 }
 impl Threat {
-    /// Builds the lookup key for the observed state.
-    ///
-    ///
-    ///  Creates the key used to find this state.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ProjectileKey` value.
+    /// Identifies this exact projectile attack generation.
     fn key(self) -> ProjectileKey {
         ProjectileKey {
             id: self.id,
@@ -237,19 +132,6 @@ impl Threat {
 /// Swept capsule AABB against a configurable body envelope. Continuous slab
 /// intersections cannot skip a fast straight projectile between frame samples.
 /// Bounds are estimates, not a claim about the native reflector's hitbox.
-///
-///  Swept capsule AABB against a configurable body envelope. Continuous slab intersections cannot skip a fast straight projectile between frame samples. Bounds are estimates, not a claim about the native reflector's hitbox.
-/// ### Arguments
-/// - `config` (`Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
-/// - `origin` (`[f32; 3]`): Represents the origin; the function uses it as input to the operation described above.
-/// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
-/// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
-/// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
-/// - `hit` (`Hitbox`): Represents the hit; the function uses it as input to the operation described above.
-/// - `reflectable` (`bool`): Represents the reflectable; the function uses it as input to the operation described above.
-/// - `absorbable` (`bool`): Represents the absorbable; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn predict(
     config: Config,
     origin: [f32; 3],
@@ -320,127 +202,59 @@ pub fn predict(
     })
 }
 
-/// Defines the `Context` data structure.
-///
-/// Holds the data for Context.
+/// Copied Mr. Game & Watch state used to decide whether Oil Panic can be requested.
 #[derive(Clone, Copy)]
 pub struct Context {
-    /// Stores the `kind` value in `Context` as `i32`.
-    ///
-    ///
-    ///  Holds the kind value used by Context.
+    /// Observed fighter's native kind ID.
     pub kind: i32,
-    /// Stores the `situation` value in `Context` as `i32`.
-    ///
-    ///
-    ///  Holds the situation value used by Context.
+    /// Observed ground, air, or ledge situation.
     pub situation: i32,
-    /// Stores the `facing` value in `Context` as `f32`.
-    ///
-    ///
-    ///  Holds the facing value used by Context.
+    /// Observed left/right facing sign.
     pub facing: f32,
-    /// Stores the `can_special` value in `Context` as `bool`.
-    ///
-    ///
-    ///  Holds the can special value used by Context.
+    /// Whether native transitions currently permit a special move.
     pub can_special: bool,
-    /// Stores the `gauge` value in `Context` as `f32`.
-    ///
-    ///
-    ///  Holds the gauge value used by Context.
+    /// Current Oil Panic bucket gauge.
     pub gauge: f32,
-    /// Stores the `stopped` value in `Context` as `bool`.
-    ///
-    ///
-    ///  Holds the stopped value used by Context.
+    /// Whether native animation progress is stopped.
     pub stopped: bool,
-    /// Stores the `animation` value in `Context` as `AnimationSample`.
-    ///
-    ///
-    ///  Holds the animation value used by Context.
+    /// Current status, motion, frame, and playback-rate sample.
     pub animation: AnimationSample,
 }
 /// One current input owner. Delivered/expired attempts remember their native
 /// attack generation. Losing arbitration does not consume an unseen attack;
 /// a fresh shot on the same object can rearm on the first legal observation.
-///
-///  One current input owner. Delivered/expired attempts remember their native attack generation. Losing arbitration does not consume an unseen attack; a fresh shot on the same object can rearm on the first legal observation.
 pub struct Reflector {
-    /// Stores the `clock` value in `Reflector` as `AnimationClock`.
-    ///
-    ///
-    ///  Holds the clock value used by Reflector.
+    /// Native animation clock used to age the current Oil Panic request.
     clock: AnimationClock,
-    /// Stores the `target` value in `Reflector` as `Option<ProjectileKey>`.
-    ///
-    ///
-    ///  Optionally stores the target for Reflector; it may be absent.
+    /// Projectile generation currently assigned to the reflector.
     target: Option<ProjectileKey>,
-    /// Stores the `began` value in `Reflector` as `i64`.
-    ///
-    ///
-    ///  Holds the began value used by Reflector.
+    /// Native tick on which the reflector request began.
     began: i64,
-    /// Stores the `turning` value in `Reflector` as `bool`.
-    ///
-    ///
-    ///  Holds the turning value used by Reflector.
+    /// Whether Game & Watch must turn before using Oil Panic.
     turning: bool,
-    /// Stores the `sent` value in `Reflector` as `bool`.
-    ///
-    ///
-    ///  Holds the sent value used by Reflector.
+    /// Whether the Oil Panic input has been delivered.
     sent: bool,
-    /// Stores the `confirmed` value in `Reflector` as `bool`.
-    ///
-    ///
-    ///  Holds the confirmed value used by Reflector.
+    /// Whether native state confirmed Oil Panic startup.
     confirmed: bool,
-    /// Stores the `delivery` value in `Reflector` as `crate::move_input::DeliveryBudget`.
-    ///
-    ///
-    ///  Holds the delivery value used by Reflector.
+    /// Bounded retry budget for delivering the Oil Panic input.
     delivery: crate::move_input::DeliveryBudget,
-    /// Stores the `receipt_polls` value in `Reflector` as `u8`.
-    ///
-    ///
-    ///  Holds the receipt polls value used by Reflector.
+    /// Mapper polls spent waiting for delivery acknowledgement.
     receipt_polls: u8,
-    /// Stores the `last_poll` value in `Reflector` as `Option<i64>`.
-    ///
-    ///
-    ///  Optionally stores the last poll for Reflector; it may be absent.
+    /// Last native tick counted toward receipt acknowledgement.
     last_poll: Option<i64>,
-    /// Stores the `attempted` value in `Reflector` as `[Option<ProjectileKey>; ATTEMPT_MEMORY]`.
-    ///
-    ///
-    ///  Stores the attempted collection for Reflector.
+    /// Recent projectile generations that must not be retried.
     attempted: [Option<ProjectileKey>; ATTEMPT_MEMORY],
-    /// Stores the `next` value in `Reflector` as `usize`.
-    ///
-    ///
-    ///  Holds the next value used by Reflector.
+    /// Ring-buffer slot for the next remembered projectile.
     next: usize,
 }
 impl Default for Reflector {
-    /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
+    /// Starts with no active or remembered Oil Panic target.
     fn default() -> Self {
         Self::new()
     }
 }
 impl Reflector {
-    /// Constructs a new value with the type’s initial state.
-    ///
-    ///
-    ///  Creates a new value.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
+    /// Creates an idle Oil Panic state machine with no remembered projectile.
     pub const fn new() -> Self {
         Self {
             clock: AnimationClock::new(),
@@ -456,34 +270,15 @@ impl Reflector {
             next: 0,
         }
     }
-    /// Checks whether the feature is active.
-    ///
-    ///
-    ///  Checks whether the feature is on.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
+    /// Whether Oil Panic currently owns a projectile target.
     pub fn active(&self) -> bool {
         self.target.is_some()
     }
-    /// Returns the selected target observation.
-    ///
-    ///
-    ///  Gets the chosen target.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
+    /// Battle-object ID of the projectile currently assigned to Oil Panic.
     pub fn target(&self) -> Option<u32> {
         self.target.map(|key| key.id)
     }
-    /// Stores the latest eligible target observation.
-    ///
-    ///
-    ///  Remembers the target that can be used next.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// Remembers the current projectile generation so it is not retried.
     fn remember_target(&mut self) {
         if let Some(id) = self
             .target
@@ -493,12 +288,7 @@ impl Reflector {
             self.next = self.next.wrapping_add(1);
         }
     }
-    /// Cancels the pending operation and clears its state.
-    ///
-    ///
-    ///  Stops the operation that was waiting.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
+    /// Releases Oil Panic ownership while preserving the recent-attempt memory.
     pub fn cancel(&mut self) {
         self.target = None;
         self.turning = false;
@@ -509,24 +299,11 @@ impl Reflector {
         self.last_poll = None;
     }
     /// Aborts the active sequence and resets its progress.
-    ///
-    ///
-    ///  Stops the sequence and starts it over.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     fn abort(&mut self) -> ControllerOutput {
         self.cancel();
         ControllerOutput::default()
     }
     /// Abort, remembering the target when a receipt poll already counted against it.
-    ///
-    ///  Abort, remembering the target when a receipt poll already counted against it.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     fn abort_polled(&mut self) -> ControllerOutput {
         if self.receipt_polls > 0 {
             self.remember_target();
@@ -535,11 +312,6 @@ impl Reflector {
     }
     /// Last-resort receipt fence when BOTH native animation and projectile
     /// clocks are unavailable/frozen. This never advances a move or adds input.
-    ///
-    ///  Last-resort receipt fence when BOTH native animation and projectile clocks are unavailable/frozen. This never advances a move or adds input.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn poll_receipt(&mut self, tick: i64) {
         if self.target.is_some() && !self.confirmed && self.last_poll != Some(tick) {
             self.last_poll = Some(tick);
@@ -551,12 +323,6 @@ impl Reflector {
         }
     }
     /// Checks whether the requested input was acknowledged by the mapper.
-    ///
-    ///
-    ///  Checks whether the controller mapping accepted the input.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn mapped(&mut self, tick: i64) {
         if self.target.is_some() {
             self.delivery.mapped(tick);
@@ -566,18 +332,7 @@ impl Reflector {
             }
         }
     }
-    /// Updates the toggle state from the current button sample and match state.
-    ///
-    ///
-    ///  Checks the current buttons and updates whether the toggle should activate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
-    /// - `config` (`Option<Config>`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
-    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
-    /// - `threat` (`Option<Threat>`): Represents the threat; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
+    /// Advances Oil Panic targeting and emits only the controller input needed now.
     pub fn sample(
         &mut self,
         allowed: bool,
@@ -682,16 +437,6 @@ impl Reflector {
     /// Whether a new reflect started now covers this shot: Game & Watch can
     /// act, the shot is a fresh attempt, and it arrives inside the startup
     /// window (a turn-around costs extra startup and keeps a larger margin).
-    ///
-    ///  Whether a new reflect started now covers this shot: Game & Watch can act, the shot is a fresh attempt, and it arrives inside the startup window (a turn-around costs extra startup and keeps a larger margin).
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `config` (`Config`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
-    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
-    /// - `threat` (`Threat`): Represents the threat; the function uses it as input to the operation described above.
-    /// - `facing` (`bool`): Represents the facing; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn admissible(&self, config: Config, c: Context, threat: Threat, facing: bool) -> bool {
         let (extra_startup, extra_margin) = if facing {
             (0., 0.)

@@ -1,94 +1,41 @@
 //! Small geometric warning envelope, not native hitbox/hurtbox collision data.
 //! Only use this for a fighter with an active or verified imminent attack.
 
-/// Copied attack geometry shared by guard and projectile threat checks.
-///
-///  Copied attack geometry shared by guard and projectile threat checks.
+/// World-space hitbox geometry shared by attack and projectile threat checks.
 #[derive(Clone, Copy, Debug)]
 pub struct Hitbox {
-    /// Stores the `start` value in `Hitbox` as `[f32; 3]`.
-    ///
-    ///
-///  Stores the start collection for Hitbox.
+    /// First endpoint of the world-space hitbox segment.
     pub start: [f32; 3],
-    /// Stores the `end` value in `Hitbox` as `[f32; 3]`.
-    ///
-    ///
-///  Stores the end collection for Hitbox.
+    /// Second endpoint of the world-space hitbox segment.
     pub end: [f32; 3],
-    /// Stores the `radius` value in `Hitbox` as `f32`.
-    ///
-    ///
-///  Holds the radius value used by Hitbox.
+    /// Hitbox radius in world units.
     pub radius: f32,
-    /// Stores the `velocity` value in `Hitbox` as `[f32; 2]`.
-    ///
-    ///
-///  Stores the velocity collection for Hitbox.
+    /// Relative velocity used for swept threat prediction.
     pub velocity: [f32; 2],
 }
-
-/// Defines the `LOOKAHEAD_FRAMES` constant used by this module.
-///
-/// Provides the LOOKAHEAD FRAMES constant value.
+/// How many frames to look ahead to shield against incoming attacks.
 pub const LOOKAHEAD_FRAMES: f32 = 10.0;
-/// Defines the `HOLD_FRAMES` constant used by this module.
-///
-/// Provides the HOLD FRAMES constant value.
+/// How many frames to hold before letting go of the shield.
 pub const HOLD_FRAMES: f32 = 4.0;
-/// Defines the `Envelope` data structure.
-///
-/// Holds the data for Envelope.
+/// Represents the warning envelope for detecting approaching attacks.
+/// This envelope defines the scanning and warning regions along the x and y axes, as well as the dimensions and forecast time for detecting incoming attacks.
+/// containss:
+/// - `scan_x` and `scan_y`: The scanning region along the x and y axes.
+/// - `warning_x` and `warning_y`: The warning region along the x and y axes.
+/// - `half_width`, `height`, and `half_depth`: The dimensions of the envelope.
+/// - `forecast`: The forecast time for detecting incoming attacks.
 #[derive(Clone, Copy)]
 pub struct Envelope {
-    /// Stores the `scan_x` value in `Envelope` as `f32`.
-    ///
-    ///
-///  Holds the scan x value used by Envelope.
     pub scan_x: f32,
-    /// Stores the `scan_y` value in `Envelope` as `f32`.
-    ///
-    ///
-///  Holds the scan y value used by Envelope.
     pub scan_y: f32,
-    /// Stores the `warning_x` value in `Envelope` as `f32`.
-    ///
-    ///
-///  Holds the warning x value used by Envelope.
     pub warning_x: f32,
-    /// Stores the `warning_y` value in `Envelope` as `f32`.
-    ///
-    ///
-///  Holds the warning y value used by Envelope.
     pub warning_y: f32,
-    /// Stores the `half_width` value in `Envelope` as `f32`.
-    ///
-    ///
-///  Holds the half width value used by Envelope.
     pub half_width: f32,
-    /// Stores the `height` value in `Envelope` as `f32`.
-    ///
-    ///
-///  Holds the height value used by Envelope.
     pub height: f32,
-    /// Stores the `half_depth` value in `Envelope` as `f32`.
-    ///
-    ///
-///  Holds the half depth value used by Envelope.
     pub half_depth: f32,
-    /// Stores the `forecast` value in `Envelope` as `f32`.
-    ///
-    ///
-///  Holds the forecast value used by Envelope.
     pub forecast: f32,
 }
 impl Default for Envelope {
-    /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             scan_x: 96.,
@@ -106,15 +53,6 @@ impl Default for Envelope {
 /// Root positions/velocities are in world units and game frames. Five-frame
 /// linear projection helps with approaching aerials, but cannot predict startup,
 /// acceleration, teleports, projectiles or the actual shape of an attack.
-///
-///  Root positions/velocities are in world units and game frames. Five-frame linear projection helps with approaching aerials, but cannot predict startup, acceleration, teleports, projectiles or the actual shape of an attack.
-/// ### Arguments
-/// - `own` (`[f32; 2]`): Represents the own; the function uses it as input to the operation described above.
-/// - `own_velocity` (`[f32; 2]`): Represents the own velocity; the function uses it as input to the operation described above.
-/// - `enemy` (`[f32; 2]`): Represents the enemy; the function uses it as input to the operation described above.
-/// - `enemy_velocity` (`[f32; 2]`): Represents the enemy velocity; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn approaching_active_attack(
     own: [f32; 2],
     own_velocity: [f32; 2],
@@ -130,16 +68,7 @@ pub fn approaching_active_attack(
     )
 }
 /// Determines whether the `approaching_active_attack_with` condition holds.
-///
 /// Checks whether approaching active attack with the given envelope.
-/// ### Arguments
-/// - `own` (`[f32; 2]`): Represents the own; the function uses it as input to the operation described above.
-/// - `own_velocity` (`[f32; 2]`): Represents the own velocity; the function uses it as input to the operation described above.
-/// - `enemy` (`[f32; 2]`): Represents the enemy; the function uses it as input to the operation described above.
-/// - `enemy_velocity` (`[f32; 2]`): Represents the enemy velocity; the function uses it as input to the operation described above.
-/// - `e` (`Envelope`): Represents the e; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn approaching_active_attack_with(
     own: [f32; 2],
     own_velocity: [f32; 2],
@@ -166,29 +95,13 @@ pub fn approaching_active_attack_with(
 }
 
 /// Determines whether the `finite` condition holds.
-///
 /// Checks whether finite.
-/// ### Arguments
-/// - `groups` (`&[&[f32]]`): Represents the groups; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn finite(groups: &[&[f32]]) -> bool {
     groups.iter().all(|g| g.iter().all(|v| v.is_finite()))
 }
 /// One axis of a swept overlap test. A span `[lo, hi]` moving at `velocity`
 /// overlaps `[low, high]` during some time interval; narrow `window`
 /// (`[enter, leave]`) to it and report whether any time is left.
-///
-///  One axis of a swept overlap test. A span [lo, hi] moving at velocity overlaps [low, high] during some time interval; narrow window ([enter, leave]) to it and report whether any time is left.
-/// ### Arguments
-/// - `window` (`&mut [f32; 2]`): Represents the window; the function uses it as input to the operation described above.
-/// - `lo` (`f32`): Represents the lo; the function uses it as input to the operation described above.
-/// - `hi` (`f32`): Represents the hi; the function uses it as input to the operation described above.
-/// - `low` (`f32`): Represents the low; the function uses it as input to the operation described above.
-/// - `high` (`f32`): Represents the high; the function uses it as input to the operation described above.
-/// - `velocity` (`f32`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn sweep_axis(window: &mut [f32; 2], lo: f32, hi: f32, low: f32, high: f32, velocity: f32) -> bool {
     if velocity.abs() < 0.0001 {
         return hi >= low && lo <= high;
@@ -203,19 +116,6 @@ fn sweep_axis(window: &mut [f32; 2], lo: f32, hi: f32, low: f32, high: f32, velo
 /// A nearby Up-B can reach the stage before its first active-hitbox observation.
 /// Reserve shield conservatively during its native startup/first continuation;
 /// active geometry handles later phases. This does not confirm a hit or punish.
-///
-///  A nearby Up-B can reach the stage before its first active-hitbox observation. Reserve shield conservatively during its native startup/first continuation; active geometry handles later phases. This does not confirm a hit or punish.
-/// ### Arguments
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-/// - `previous` (`i32`): Represents the previous; the function uses it as input to the operation described above.
-/// - `own` (`[f32; 2]`): Represents the own; the function uses it as input to the operation described above.
-/// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
-/// - `enemy` (`[f32; 2]`): Represents the enemy; the function uses it as input to the operation described above.
-/// - `enemy_velocity` (`[f32; 2]`): Represents the enemy velocity; the function uses it as input to the operation described above.
-/// - `envelope` (`Envelope`): Represents the envelope; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn recovery_warning(
     kind: i32,
     status: i32,
@@ -241,30 +141,11 @@ pub fn recovery_warning(
 /// profile. Unknown attacks retain active-hitbox fallback, never Kirby data.
 /// Verified compiled active windows, including aerials, jabs and other mapped
 /// attacks. Unknown/ambiguous motion mappings do not invent startup timing.
-///
-///  Predict only move families described by the actual opponent's compiled profile. Unknown attacks retain active-hitbox fallback, never Kirby data. Verified compiled active windows, including aerials, jabs and other mapped.
-/// ### Arguments
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `motion` (`u64`): Represents the motion being checked; the function uses it as input to the operation described above.
-/// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-/// - `rate` (`f32`): Represents the rate; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn referenced_imminent_attack(kind: i32, motion: u64, frame: f32, rate: f32) -> bool {
     referenced_imminent_attack_with(kind, motion, frame, rate, LOOKAHEAD_FRAMES)
 }
 
 /// Predict whether an opponent's attack will become active within the forecast window.
-///
-///  Predict whether an opponent's attack will become active within the forecast window.
-/// ### Arguments
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `motion` (`u64`): Represents the motion being checked; the function uses it as input to the operation described above.
-/// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-/// - `rate` (`f32`): Represents the rate; the function uses it as input to the operation described above.
-/// - `forecast` (`f32`): Represents the forecast; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn referenced_imminent_attack_with(
     kind: i32,
     motion: u64,
@@ -287,27 +168,10 @@ pub fn referenced_imminent_attack_with(
 }
 /// Conservative swept hitbox AABB versus a standing defensive envelope.
 /// Bounds are estimates, not live hurtboxes; reads never alter attack geometry.
-///
-///  Conservative swept hitbox AABB versus a standing defensive envelope. Bounds are estimates, not live hurtboxes; reads never alter attack geometry.
-/// ### Arguments
-/// - `position` (`[f32; 3]`): Represents an object position; the function uses it as input to the operation described above.
-/// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
-/// - `h` (`Hitbox`): Represents the h; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn active_hitbox_threat(position: [f32; 3], velocity: [f32; 2], h: Hitbox) -> bool {
     active_hitbox_threat_with(position, velocity, h, Envelope::default())
 }
 /// Conservative swept hitbox AABB versus a standing defensive envelope, with custom envelope.
-///
-///  Conservative swept hitbox AABB versus a standing defensive envelope, with custom envelope.
-/// ### Arguments
-/// - `position` (`[f32; 3]`): Represents an object position; the function uses it as input to the operation described above.
-/// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
-/// - `h` (`Hitbox`): Represents the h; the function uses it as input to the operation described above.
-/// - `e` (`Envelope`): Represents the e; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn active_hitbox_threat_with(
     position: [f32; 3],
     velocity: [f32; 2],
@@ -359,82 +223,36 @@ pub fn active_hitbox_threat_with(
     true
 }
 
-/// Defines the `GuardClock` data structure.
-///
-/// Holds the data for GuardClock.
+/// Runtime Smash data carried by `GuardClock`.
 #[derive(Clone, Copy)]
 pub struct GuardClock {
-    /// Stores the `status` value in `GuardClock` as `i32`.
-    ///
-    ///
-///  Holds the status value used by GuardClock.
+/// Native fighter status observed for the guard decision.
     pub status: i32,
-    /// Stores the `motion` value in `GuardClock` as `u64`.
-    ///
-    ///
-///  Holds the motion value used by GuardClock.
+/// Native motion hash observed for the guard decision.
     pub motion: u64,
-    /// Stores the `frame` value in `GuardClock` as `f32`.
-    ///
-    ///
-///  Holds the frame value used by GuardClock.
+/// Current native animation frame.
     pub frame: f32,
-    /// Stores the `rate` value in `GuardClock` as `f32`.
-    ///
-    ///
-///  Holds the rate value used by GuardClock.
+/// Native animation playback rate.
     pub rate: f32,
-    /// Stores the `stopped` value in `GuardClock` as `bool`.
-    ///
-    ///
-///  Holds the stopped value used by GuardClock.
+/// Whether native animation progress is stopped, such as hitstop.
     pub stopped: bool,
 }
-/// Defines the `GuardHold` data structure.
-///
-/// Holds the data for GuardHold.
+/// Runtime Smash data carried by `GuardHold`.
 #[derive(Default)]
 pub struct GuardHold {
-    /// Stores the `previous` value in `GuardHold` as `Option<GuardClock>`.
-    ///
-    ///
-///  Optionally stores the previous for GuardHold; it may be absent.
+/// Previous guard-clock sample used to measure native progress.
     previous: Option<GuardClock>,
-    /// Stores the `previous_enemy` value in `GuardHold` as `Option<(u32`.
-    ///
-    ///
-///  Optionally stores the previous enemy for GuardHold; it may be absent.
+/// Previous opponent clock used for live ledge-defense timing.
     previous_enemy: Option<(u32, GuardClock)>,
-    /// Stores the `remaining` value in `GuardHold` as `f32`.
-    ///
-    ///
-///  Holds the remaining value used by GuardHold.
+/// Remaining native-frame shield tail after a threat ends.
     remaining: f32,
 }
 impl GuardHold {
-    /// Four advancing native frames of tail coverage, not mapper polls or ms.
-    /// Release/invalid readiness clears immediately; hitstop does not spend it.
-    ///
-    ///  Four advancing native frames of tail coverage, not mapper polls or ms. Release/invalid readiness clears immediately; hitstop does not spend it.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `eligible` (`bool`): Represents the eligible; the function uses it as input to the operation described above.
-    /// - `threat` (`bool`): Represents the threat; the function uses it as input to the operation described above.
-    /// - `c` (`GuardClock`): Represents the c; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
+    /// Samples the default four-frame shield tail after an approaching threat.
     pub fn sample(&mut self, eligible: bool, threat: bool, c: GuardClock) -> bool {
         self.sample_with_duration(eligible, threat, c, HOLD_FRAMES)
     }
-    ///  Samples the with duration.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `eligible` (`bool`): Represents the eligible; the function uses it as input to the operation described above.
-    /// - `threat` (`bool`): Represents the threat; the function uses it as input to the operation described above.
-    /// - `c` (`GuardClock`): Represents the c; the function uses it as input to the operation described above.
-    /// - `hold` (`f32`): Represents the hold; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
+    /// Samples a caller-supplied shield-tail duration in native frames.
     pub fn sample_with_duration(
         &mut self,
         eligible: bool,
@@ -444,20 +262,7 @@ impl GuardHold {
     ) -> bool {
         self.sample_inner(eligible, threat, c, hold, None, false)
     }
-    /// Live ledge defense can hold a static guard pose. Use only a copied
-    /// progressing opponent clock; never keep a stale tail without a clock.
-    /// This is passive defense only, not an authored shield sequence.
-    ///
-    ///  Live ledge defense can hold a static guard pose. Use only a copied progressing opponent clock; never keep a stale tail without a clock. This is passive defense only, not an authored shield sequence.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `eligible` (`bool`): Represents the eligible; the function uses it as input to the operation described above.
-    /// - `threat` (`bool`): Represents the threat; the function uses it as input to the operation described above.
-    /// - `c` (`GuardClock`): Represents the c; the function uses it as input to the operation described above.
-    /// - `hold` (`f32`): Represents the hold; the function uses it as input to the operation described above.
-    /// - `enemy` (`Option<(u32, GuardClock)>`): Represents the enemy; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
+    /// Samples a shield tail using a progressing copied opponent clock.
     pub fn sample_with_progress(
         &mut self,
         eligible: bool,
@@ -468,20 +273,7 @@ impl GuardHold {
     ) -> bool {
         self.sample_inner(eligible, threat, c, hold, enemy, true)
     }
-    /// Samples the inner.
-    ///
-    ///
-    ///  Samples the inner.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `eligible` (`bool`): Represents the eligible; the function uses it as input to the operation described above.
-    /// - `threat` (`bool`): Represents the threat; the function uses it as input to the operation described above.
-    /// - `c` (`GuardClock`): Represents the c; the function uses it as input to the operation described above.
-    /// - `hold` (`f32`): Represents the hold; the function uses it as input to the operation described above.
-    /// - `enemy` (`Option<(u32, GuardClock)>`): Represents the enemy; the function uses it as input to the operation described above.
-    /// - `source_aware` (`bool`): Represents the source aware; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
+    /// Performs the shared guard-tail state update.
     fn sample_inner(
         &mut self,
         eligible: bool,
@@ -587,10 +379,7 @@ impl GuardHold {
 #[cfg(test)]
 mod tests {
     use super::*;
-    /// Regression test for `checks_incoming_and_crossing_attacks_without_reacting_to_distant_retreats`.
-    ///
-    ///
-///  Checks that checks incoming and crossing attacks without reacting to distant retreats.
+    /// Approaching and crossing attacks warn; distant retreats do not.
     #[test]
     fn checks_incoming_and_crossing_attacks_without_reacting_to_distant_retreats() {
         assert!(approaching_active_attack(
@@ -629,10 +418,7 @@ mod tests {
 #[cfg(test)]
 mod approach_regressions {
     use super::*;
-    /// Regression test for `verified_fair_startup_is_warned_and_unknown_motion_is_not_invented`.
-    ///
-    ///
-///  Checks that verified fair startup is warned and unknown motion is not invented.
+    /// Verified fair startup warns, while unknown motions remain unpredicted.
     #[test]
     fn verified_fair_startup_is_warned_and_unknown_motion_is_not_invented() {
         let m = crate::timing::motion_hash("attack_air_f");
@@ -641,10 +427,7 @@ mod approach_regressions {
         assert!(!referenced_imminent_attack(5, 0, 12.0, 1.0));
         assert!(!referenced_imminent_attack(5, m, f32::NAN, 1.0));
     }
-    /// Regression test for `extended_and_descending_hitboxes_are_seen_without_close_roots`.
-    ///
-    ///
-///  Checks that extended and descending hitboxes are seen without close roots.
+    /// Extended and descending hitboxes are detected even with distant roots.
     #[test]
     fn extended_and_descending_hitboxes_are_seen_without_close_roots() {
         let long = Hitbox {

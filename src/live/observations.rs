@@ -10,8 +10,6 @@
 use super::{MANAGER_SLOT, STATE};
 use crate::game_ffi::{self as game};
 /// Maximum number of attack-geometry entries scanned in one frame.
-///
-///  Limits hitbox checks so one update cannot scan too many attacks.
 const ATTACK_GEOMETRY_SCAN_BUDGET: usize = 16;
 use kirby_assist_core::gameplay::{frames_until, MotionTiming, Opponent};
 use kirby_assist_core::kirby::TripTarget;
@@ -21,14 +19,6 @@ use kirby_assist_core::settings::AssistSettings;
 use std::sync::atomic::Ordering;
 
 /// Tests axis-aligned absolute X/Y deltas against the supplied bounds.
-///
-///  Checks whether a target is close enough horizontally and vertically.
-/// ### Arguments
-/// - `origin` (`[f32; 2]`): Represents the origin; the function uses it as input to the operation described above.
-/// - `target` (`[f32; 2]`): Represents the target object or value being checked; the function uses it as input to the operation described above.
-/// - `limits` (`[f32; 2]`): Represents the limits; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn within_observation_range(
     origin: [f32; 2],
     target: [f32; 2],
@@ -41,7 +31,7 @@ pub(super) fn within_observation_range(
 /// blocks fighter, weapon, and item categories that are not allowed.
 /// # Safety
 /// The native game API must be available when this function is called.
-unsafe fn should_skip_id(id: u32, own_id: u32) -> bool {
+unsafe fn non_valid_id(id: u32, own_id: u32) -> bool {
     if id == own_id
         || !matches!(
             id >> 28,
@@ -58,15 +48,6 @@ unsafe fn should_skip_id(id: u32, own_id: u32) -> bool {
 }
 
 /// Tests whether a target is within the attack scan range based on position, velocity, and envelope.
-///
-/// ### Arguments
-/// - `position` (`[f32; 2]`): Represents the current position of the object; the function uses it as input to the operation described above.
-/// - `velocity` (`[f32; 2]`): Represents the current velocity of the object; the function uses it as input to the operation described above.
-/// - `target` (`[f32; 2]`): Represents the target's position; the function uses it as input to the operation described above.
-/// - `target_velocity` (`[f32; 2]`): Represents the target's velocity; the function uses it as input to the operation described above.
-/// - `envelope` (`kirby_assist_core::autopilot_guard::Envelope`): Represents the envelope containing scan and warning limits; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` if the target is within the attack scan range; otherwise, returns `false`.
 fn is_within_attack_scan_range(
     position: [f32; 2],
     velocity: [f32; 2],
@@ -74,6 +55,7 @@ fn is_within_attack_scan_range(
     target_velocity: [f32; 2],
     envelope: kirby_assist_core::autopilot_guard::Envelope,
 ) -> bool {
+    // Early exit if the position or velocity data is not finite.
     if !target
         .iter()
         .chain(target_velocity.iter())
@@ -91,10 +73,9 @@ fn is_within_attack_scan_range(
 }
 
 /// Returns true when this object should be skipped.
-///
 /// # Safety
 /// If `enemy` is non-null, it must point to a live game object for these reads.
-unsafe fn should_skip_enemy(
+unsafe fn non_valid_enemy(
     reads: &super::frame::FrameReads,
     enemy: *mut game::Object,
     id: u32,
@@ -103,14 +84,12 @@ unsafe fn should_skip_enemy(
     if enemy.is_null() {
         return true;
     }
-
     // SAFETY: the caller guarantees a non-null pointer refers to a live object.
     // determine if the enemy should be skipped based on its ID and team
     unsafe { game::battle_object_id(enemy) != id || reads.team(enemy) == team }
 }
 
 /// Converts joint-relative attack endpoints to world coordinates.
-///
 /// # Safety
 /// `object` must point to a live game object with the native joint API available.
 unsafe fn world_hitbox_endpoints(
@@ -146,7 +125,6 @@ unsafe fn world_hitbox_endpoints(
 
 /// Checks one object's active hitboxes, sharing the scan budget and own-depth cache.
 /// An exhausted geometry budget conservatively reports a threat.
-///
 /// # Safety
 /// `own` and `enemy` must point to live game objects with native APIs available.
 unsafe fn object_has_active_hitbox_threat(
@@ -162,17 +140,22 @@ unsafe fn object_has_active_hitbox_threat(
 ) -> bool {
     let mut scale = None;
     for slot in 0..8 {
+        // Skip inactive attack slots early to save computation.
         if !game::attack_active(enemy, slot, false) {
             continue;
         }
+        // Early exit if the enemy is near, as it poses an immediate threat.
         if near {
             return true;
         }
+        // Early exit if the geometry budget is exhausted, as we cannot safely evaluate further.
         if *geometry_budget == 0 {
             return true;
         }
+        // Consume one unit of the geometry budget for this attack slot.
         *geometry_budget -= 1;
         let data = game::attack_geometry(enemy, slot, false);
+        // Skip if the attack geometry data is not available.
         if data.is_null() {
             continue;
         }
@@ -182,17 +165,26 @@ unsafe fn object_has_active_hitbox_threat(
         }
 
         let data = data.read();
-        if data.situation & kirby_assist_core::native_states::situation::ATTACK_GROUND_MASK == 0
-            || ![data.x, data.y, data.z, data.x2, data.y2, data.z2, data.size]
-                .iter()
-                .all(|x| x.is_finite())
+        // Invalid coordinates and non-positive hitbox sizes will still be rejected
+        if ![
+            data.x,
+            data.y,
+            data.z,
+            data.x2,
+            data.y2,
+            data.z2,
+            data.size,
+        ]
+        .iter()
+        .all(|x| x.is_finite())
             || data.size <= 0.0
         {
             continue;
-        }
-
+}
+        // Compute the world-space hitbox endpoints for the attack.
         let (from, to) = world_hitbox_endpoints(enemy, &data);
         let z = *own_z.get_or_insert_with(|| game::pos_z(own));
+        // Early exit if the active hitbox poses a threat.
         if kirby_assist_core::autopilot_guard::active_hitbox_threat_with(
             [position[0], position[1], z],
             velocity,
@@ -211,17 +203,6 @@ unsafe fn object_has_active_hitbox_threat(
 }
 
 /// L shield defense uses the cached roster and bounded remembered weapon/item sources.
-///
-///  Checks nearby enemies and remembered projectiles for an incoming attack.
-/// ### Arguments
-/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
-/// - `own` (`*mut game::Object`): Represents the own; the function uses it as input to the operation described above.
-/// - `own_id` (`u32`): Represents the own id; the function uses it as input to the operation described above.
-/// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
-/// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
-/// - `envelope` (`kirby_assist_core::autopilot_guard::Envelope`): Represents the envelope; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) unsafe fn incoming_fighter_attack(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
@@ -232,6 +213,7 @@ pub(super) unsafe fn incoming_fighter_attack(
 ) -> bool {
     #[cfg(feature = "diagnostic-logging")]
     let _performance = crate::performance::Scope::new(crate::performance::Part::Shield);
+
     let roster = reads.roster();
     let roster = roster.unwrap_or([None; kirby_assist_core::battle_objects::FIGHTER_CAPACITY]);
     let team = reads.team(own);
@@ -244,23 +226,23 @@ pub(super) unsafe fn incoming_fighter_attack(
         .chain(super::attack_sources::sources())
         .flatten()
     {
-        if unsafe { should_skip_id(id, own_id) } {
+        // skip self and invalid IDs
+        if unsafe { non_valid_id(id, own_id) } {
             continue;
         }
-
-        let enemy = game::module_accessor(id);
         // Skip enemies that should be ignored based on team and validity checks.
-        if unsafe { should_skip_enemy(reads, enemy, id, team) } {
+        let enemy = game::module_accessor(id);
+        if unsafe { non_valid_enemy(reads, enemy, id, team) } {
             continue;
         }
-
+        // Skip targets that are outside the attack scan range.
         let target = [reads.pos_x(enemy), reads.pos_y(enemy)];
         let target_velocity = [reads.speed_x(enemy), reads.speed_y(enemy)];
-        // Skip targets that are outside the attack scan range.
+        // Is this object close enough to examine?
         if !is_within_attack_scan_range(position, velocity, target, target_velocity, envelope) {
             continue;
         }
-        // check for incoming attacks
+        // Will the opponent’s root position enter the warning rectangle soon?
         let near = kirby_assist_core::autopilot_guard::approaching_active_attack_with(
             position,
             velocity,
@@ -268,16 +250,16 @@ pub(super) unsafe fn incoming_fighter_attack(
             target_velocity,
             envelope,
         );
-        // check for incoming 
+        // check for incoming up-special recovery attacks
         if id >> 28 == kirby_assist_core::battle_objects::OBJECT_CATEGORY_FIGHTER {
             let status = reads.status_kind(enemy);
             if status >= kirby_assist_core::native_states::status::SPECIAL_HI {
-                // ch
                 let previous = if status >= kirby_assist_core::native_states::status::FINAL {
                     reads.previous_status(enemy, game::LATEST_PREVIOUS_STATUS_HISTORY_INDEX)
                 } else {
                     0
                 };
+                // Is a recognized Up-B recovery potentially approaching?
                 if kirby_assist_core::autopilot_guard::recovery_warning(
                     reads.fighter_kind(enemy),
                     status,
@@ -292,6 +274,7 @@ pub(super) unsafe fn incoming_fighter_attack(
                 }
             }
         }
+        // Does an active hitbox currently overlap—or soon sweep into—the defensive area?
         if object_has_active_hitbox_threat(
             own,
             enemy,
@@ -305,13 +288,18 @@ pub(super) unsafe fn incoming_fighter_attack(
         ) {
             return true;
         }
+        // If the opponent is not near, skip further imminent attack checks.
         if !near {
             continue;
         }
+        // Check for imminent attacks from nearby opponents.
+        // determine if the opponent is about to perform an imminent
+        // attack based on their motion and envelope.
         let kind = reads.fighter_kind(enemy);
         let motion = reads.motion_kind(enemy);
         let frame = reads.motion_frame(enemy);
         let rate = reads.motion_rate(enemy);
+        // Will a known move become active soon? Predicts a hitbox before it exists.
         let imminent = kirby_assist_core::autopilot_guard::referenced_imminent_attack_with(
             kind,
             motion,
@@ -329,15 +317,8 @@ pub(super) unsafe fn incoming_fighter_attack(
 // Fighter instance parameters are read only while ledge assist is observing.
 // Missing/invalid keys stay None; no character-wide gravity constants are invented.
 /// Reads native vertical air parameters and validates them through `AirPhysics`.
-///
-///  Gets usable gravity and fall-speed values for this fighter.
-///
 /// # Safety
 /// `object` must be a live native fighter object.
-/// ### Arguments
-/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) unsafe fn native_air_physics(
     object: *mut game::Object,
 ) -> Option<kirby_assist_core::gameplay::AirPhysics> {
@@ -351,17 +332,8 @@ pub(super) unsafe fn native_air_physics(
 // lookahead, including current momentum, to stop walking across a visible edge.
 // This is intentionally conservative on sloped/moving/passable platforms.
 /// Sweeps the fighter's candidate ground movement using native floor probes.
-///
-///  Checks whether the predicted movement path remains supported by the stage.
-///
 /// # Safety
 /// `object` must be live and valid for the duration of the native probes.
-/// ### Arguments
-/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
-/// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
-/// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `[bool; 2]` value.
 pub(super) unsafe fn ground_support(
     object: *mut game::Object,
     position: [f32; 2],
@@ -391,18 +363,9 @@ pub(super) unsafe fn ground_support(
 }
 
 // Reuse callback-discovered IDs; never enumerate a roster from the mapper.
-/// Resolves and validates an opponent before copying posture/animation facts.
-///
-///  Reads a nearby opponent's current position and action safely.
-///
+/// finds the nearest valid enemy fighter and returns that enemy’s position relative to you.
 /// # Safety
 /// Native manager and object state must remain valid during this synchronous query.
-/// ### Arguments
-/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
-/// - `own` (`*mut game::Object`): Represents the own; the function uses it as input to the operation described above.
-/// - `own_id` (`u32`): Represents the own id; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) unsafe fn posture_opponent(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
@@ -439,19 +402,8 @@ pub(super) unsafe fn posture_opponent(
 }
 
 /// Builds the bounded target snapshot used by combat policies.
-///
-///  Collects nearby opponents and their current action details.
-///
 /// # Safety
 /// Native fighter IDs must be revalidated by this function before each accessor read.
-/// ### Arguments
-/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
-/// - `own` (`*mut game::Object`): Represents the own; the function uses it as input to the operation described above.
-/// - `own_id` (`u32`): Represents the own id; the function uses it as input to the operation described above.
-/// - `watch_trip` (`bool`): Represents the watch trip; the function uses it as input to the operation described above.
-/// - `watch_sdi` (`bool`): Represents the watch sdi; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `([Option<TripTarget>; 8], f32)` value.
 pub(super) unsafe fn combat_targets(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
@@ -524,19 +476,6 @@ pub(super) unsafe fn combat_targets(
 
 /// Optional onstage reactions, front grabs and either-side shield fallbacks. Status and
 /// spatial filters precede detailed reads; sixteen copied actor IDs bound the pass.
-///
-///  Finds nearby opponents that automatic reactions may respond to.
-/// ### Arguments
-/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
-/// - `own` (`*mut game::Object`): Represents the own; the function uses it as input to the operation described above.
-/// - `own_id` (`u32`): Represents the own id; the function uses it as input to the operation described above.
-/// - `follow` (`Option<u32>`): Represents the follow; the function uses it as input to the operation described above.
-/// - `grab_range` (`Option<[f32; 2]>`): Represents the grab range; the function uses it as input to the operation described above.
-/// - `shield_fallback` (`bool`): Represents the shield fallback; the function uses it as input to the operation described above.
-/// - `watch_events` (`bool`): Represents the watch events; the function uses it as input to the operation described above.
-/// - `sequence_follow` (`bool`): Represents the sequence follow; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `( [Option<kirby_assist_core::roll_read::Target>; 8], Option<Opponent>, )` value.
 pub(super) unsafe fn rule_targets(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
@@ -694,19 +633,8 @@ pub(super) unsafe fn rule_targets(
 }
 
 /// Updates observation state for a configured reaction-rule follow-up.
-///
-///  Tracks a selected follow-up while its target and conditions remain valid.
-///
 /// # Safety
 /// Any native objects read by the function must remain valid for this observation.
-/// ### Arguments
-/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
-/// - `own` (`*mut game::Object`): Represents the own; the function uses it as input to the operation described above.
-/// - `own_id` (`u32`): Represents the own id; the function uses it as input to the operation described above.
-/// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
-/// - `sequence_follow` (`bool`): Represents the sequence follow; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn rule_follow(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
@@ -758,13 +686,8 @@ unsafe fn rule_follow(
 // Some(array) can still contain empty slots. Callers use flatten() to visit
 // only present fighter IDs. IDs must be resolved to fresh accessors each time.
 /// Resolves the cached fighter-manager slot into a current native instance.
-///
-///  Finds the manager used to inspect player entries.
-///
 /// # Safety
 /// The cached slot must originate from the validated manager resolver.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn fighter_manager_instance() -> Option<*mut game::Object> {
     let slot = MANAGER_SLOT.load(Ordering::Relaxed);
     if slot == 0 {
@@ -775,13 +698,8 @@ unsafe fn fighter_manager_instance() -> Option<*mut game::Object> {
 }
 
 /// Returns a validated active fighter manager outside the results state.
-///
-///  Finds the match manager only while a playable match is active.
-///
 /// # Safety
 /// Native manager bindings must match the pinned game ABI.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn active_fighter_manager() -> Option<*mut game::Object> {
     let manager = fighter_manager_instance()?;
     // A bounded roster and non-result scene are the mode-independent checks.
@@ -794,18 +712,12 @@ unsafe fn active_fighter_manager() -> Option<*mut game::Object> {
 /// Menu lifetime only. A retained roster is insufficient on character select:
 /// require GO, or let the caller prove a fresh, local ENTRY callback for intro.
 /// None rejects missing/result/invalid managers without querying fighter data.
-///
-///  Confirms whether the match is far enough along to show the in-battle menu.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) unsafe fn battle_menu_ready_go() -> Option<bool> {
     let manager = active_fighter_manager()?;
     Some(game::is_ready_go(manager))
 }
 #[path = "fighter_roster.rs"]
 /// Supplies bounded fighter-ID and local-controller route validation.
-///
-///  Finds active fighters and checks which one belongs to the player.
 mod fighter_roster;
 pub(super) use fighter_roster::{fighter_ids, human_fighter, valid_local_route};
 
@@ -815,12 +727,6 @@ pub(super) use fighter_roster::{fighter_ids, human_fighter, valid_local_route};
 /// motion rate or a held edge-balancing pose. Read the already locked actor; no roster scan, hitbox/physics
 /// lookup, ray query or action-readiness query. Never retain its native pointer.
 /// Reads animation timing for an already selected ledge target without rescanning the roster.
-///
-///  Checks the current animation clock for a ledge recipe already in progress.
-/// ### Arguments
-/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) unsafe fn tracked_ledge_clock(reads: &super::frame::FrameReads) -> Option<Opponent> {
     let id = STATE.lock().ok()?.ledge.as_ref()?.observation_target()?;
     if !game::is_active(id) {
@@ -871,18 +777,8 @@ pub(super) unsafe fn tracked_ledge_clock(reads: &super::frame::FrameReads) -> Op
 }
 
 /// Selects the nearest valid opponent relevant to the current ledge observation.
-///
-///  Finds the closest opponent near the player's ledge situation.
-///
 /// # Safety
 /// Native object accessors are only valid during the current observation.
-/// ### Arguments
-/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
-/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
-/// - `own_id` (`u32`): Represents the own id; the function uses it as input to the operation described above.
-/// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) unsafe fn nearest_ledge_opponent(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,
@@ -1066,26 +962,12 @@ pub(super) unsafe fn nearest_ledge_opponent(
 extern "C" {
     #[link_name = "\u{1}_ZN3app7fighter20get_fighter_entry_idEj"]
     /// Resolves a battle-object ID to its owning native entry ID.
-    ///
-    ///  Finds which player slot owns this fighter or partner.
-    /// ### Arguments
-    /// - `object_id` (`u32`): Represents the object id; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `i32` value.
     fn game_entry_id(object_id: u32) -> i32;
 }
 
 /// Bounded ordinary-grab warning pass: existing roster, status filter first.
 /// No hitbox scans, allocated lists or retained game pointers. Command grabs
 /// are excluded until their timing/geometry has a verified model.
-///
-///  Finds nearby ordinary grab threats using the already cached fighter roster.
-/// ### Arguments
-/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
-/// - `own` (`*mut game::Object`): Represents the own; the function uses it as input to the operation described above.
-/// - `own_id` (`u32`): Represents the own id; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `[Option<kirby_assist_core::spot_dodge::Target>; 8]` value.
 pub(super) unsafe fn grab_targets(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,

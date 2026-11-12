@@ -1,54 +1,28 @@
 //! Coalesce unchanged diagnostic snapshots before allocating/formatting strings.
 //! Native action edges remain immediate; wall-clock samples explain long waits.
-/// Defines the `PERIODIC_DIAGNOSTIC_INTERVAL_MS` constant used by this module.
-///
-/// Provides the PERIODIC DIAGNOSTIC INTERVAL MS constant value.
+/// `PERIODIC_DIAGNOSTIC_INTERVAL_MS` is a configuration value used by the Smash runtime.
 const PERIODIC_DIAGNOSTIC_INTERVAL_MS: u64 = 500;
 
-/// Defines the `DiagnosticEmission` data structure.
-///
-/// Holds the data for DiagnosticEmission.
+/// Runtime Smash data carried by `DiagnosticEmission`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DiagnosticEmission {
-    /// Stores the `periodic` value in `DiagnosticEmission` as `bool`.
-    ///
-    ///
-    ///  Holds the periodic value used by DiagnosticEmission.
+/// Runtime periodic value used by DiagnosticEmission..
     pub periodic: bool,
-    /// Stores the `coalesced_updates` value in `DiagnosticEmission` as `u32`.
-    ///
-    ///
-    ///  Holds the coalesced updates value used by DiagnosticEmission.
+/// Runtime coalesced updates value used by DiagnosticEmission..
     pub coalesced_updates: u32,
 }
 
-/// Defines the `DiagnosticGate` data structure.
-///
-/// Holds the data for DiagnosticGate.
+/// Runtime Smash data carried by `DiagnosticGate`.
 pub struct DiagnosticGate<K> {
-    /// Stores the `last` value in `DiagnosticGate` as `Option<K>`.
-    ///
-    ///
-    ///  Optionally stores the last for DiagnosticGate; it may be absent.
+/// Runtime last value used by DiagnosticGate..
     last: Option<K>,
-    /// Stores the `last_emission_ms` value in `DiagnosticGate` as `Option<u64>`.
-    ///
-    ///
-    ///  Optionally stores the last emission ms for DiagnosticGate; it may be absent.
+/// Runtime last emission ms value used by DiagnosticGate..
     last_emission_ms: Option<u64>,
-    /// Stores the `coalesced` value in `DiagnosticGate` as `u32`.
-    ///
-    ///
-    ///  Holds the coalesced value used by DiagnosticGate.
+/// Runtime coalesced value used by DiagnosticGate..
     coalesced: u32,
 }
 impl<K: PartialEq> DiagnosticGate<K> {
     /// Constructs a new value with the type’s initial state.
-    ///
-    ///
-    ///  Creates a new value.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             last: None,
@@ -57,16 +31,6 @@ impl<K: PartialEq> DiagnosticGate<K> {
         }
     }
     /// Updates the toggle state from the current button sample and match state.
-    ///
-    ///
-    ///  Checks the current buttons and updates whether the toggle should activate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`K`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// - `now_ms` (`u64`): Represents the current time in milliseconds; the function uses it as input to the operation described above.
-    /// - `periodic` (`bool`): Represents whether this is a periodic sample; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample(&mut self, key: K, now_ms: u64, periodic: bool) -> Option<DiagnosticEmission> {
         let changed = self.last.as_ref() != Some(&key);
         let sample_due = periodic
@@ -89,16 +53,6 @@ impl<K: PartialEq> DiagnosticGate<K> {
     }
     /// Bound bulky progress logs even when readiness/requests chatter. Dedicated
     /// grab traces preserve critical edges separately before this throttle.
-    ///
-    ///  Bound bulky progress logs even when readiness/requests chatter. Dedicated grab traces preserve critical edges separately before this throttle.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`K`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// - `now_ms` (`u64`): Represents the current time in milliseconds; the function uses it as input to the operation described above.
-    /// - `periodic` (`bool`): Represents whether this is a periodic sample; the function uses it as input to the operation described above.
-    /// - `minimum_ms` (`u64`): Represents the minimum ms; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample_throttled(
         &mut self,
         key: K,
@@ -118,11 +72,6 @@ impl<K: PartialEq> DiagnosticGate<K> {
 }
 impl<K: PartialEq> Default for DiagnosticGate<K> {
     /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self::new()
     }
@@ -132,9 +81,6 @@ impl<K: PartialEq> Default for DiagnosticGate<K> {
 mod tests {
     use super::*;
     /// Regression test for `changing_progress_keys_cannot_bypass_the_formatting_rate_limit`.
-    ///
-    ///
-    ///  Checks that changing progress keys cannot bypass the formatting rate limit.
     #[test]
     fn changing_progress_keys_cannot_bypass_the_formatting_rate_limit() {
         let mut gate = DiagnosticGate::new();
@@ -147,9 +93,6 @@ mod tests {
         assert!(gate.sample_throttled(2000, 0, true, 125).is_some());
     }
     /// Regression test for `waiting_frames_are_coalesced_but_attack_and_hit_events_are_immediate`.
-    ///
-    ///
-    ///  Checks that waiting frames are coalesced but attack and hit events are immediate.
     #[test]
     fn waiting_frames_are_coalesced_but_attack_and_hit_events_are_immediate() {
         let mut gate = DiagnosticGate::new();
@@ -163,9 +106,6 @@ mod tests {
         assert!(!gate.sample("hit_confirmed", 496, true).unwrap().periodic);
     }
     /// Regression test for `verbose_waits_emit_at_most_two_periodic_snapshots_per_second`.
-    ///
-    ///
-    ///  Checks that verbose waits emit at most two periodic snapshots per second.
     #[test]
     fn verbose_waits_emit_at_most_two_periodic_snapshots_per_second() {
         let mut gate = DiagnosticGate::new();
@@ -177,9 +117,6 @@ mod tests {
         assert_eq!(emissions[1].coalesced_updates, 499);
     }
     /// Regression test for `nonverbose_mode_only_logs_events_and_reset_rearms_first_snapshot`.
-    ///
-    ///
-    ///  Checks that nonverbose mode only logs events and reset rearms first snapshot.
     #[test]
     fn nonverbose_mode_only_logs_events_and_reset_rearms_first_snapshot() {
         let mut gate = DiagnosticGate::new();
@@ -197,51 +134,25 @@ pub mod modes {
     use crate::{action_owner::Owner, native_input::*};
     use std::fmt::Write;
 
-    /// Defines the `OWNER_COUNT` constant used by this module.
-    ///
-    ///
-    ///  Provides the OWNER COUNT constant value.
+/// `OWNER_COUNT` is a configuration value used by the Smash runtime.
     const OWNER_COUNT: usize = 13;
-    /// Defines the `REPORT_TEXT_CAPACITY_BYTES` constant used by this module.
-    ///
-    ///
-    ///  Provides the REPORT TEXT CAPACITY BYTES constant value.
+/// `REPORT_TEXT_CAPACITY_BYTES` is a configuration value used by the Smash runtime.
     const REPORT_TEXT_CAPACITY_BYTES: usize = 1200;
     /// Sets the lower bound for report interval ms.
-    ///
-    ///
-    ///  Holds the MIN REPORT INTERVAL MS value.
     const MIN_REPORT_INTERVAL_MS: u64 = 250;
-    /// Defines the `LABEL_CAPACITY_BYTES` constant used by this module.
-    ///
-    ///
-    ///  Provides the LABEL CAPACITY BYTES constant value.
+/// `LABEL_CAPACITY_BYTES` is a configuration value used by the Smash runtime.
     const LABEL_CAPACITY_BYTES: usize = 64;
-    /// Defines the `CONFIGURATION_ROW_COUNT` constant used by this module.
-    ///
-    ///
-    ///  Provides the CONFIGURATION ROW COUNT constant value.
+/// `CONFIGURATION_ROW_COUNT` is a configuration value used by the Smash runtime.
     const CONFIGURATION_ROW_COUNT: usize = 25;
-    /// Defines the `LEDGE_HELP` constant used by this module.
-    ///
-    ///
-    ///  Provides the LEDGE HELP constant value.
+/// `LEDGE_HELP` is a configuration value used by the Smash runtime.
     const LEDGE_HELP: &str = "Hold the ledge tool; waits for the matching ledge option, safe spacing and protection to end.";
-    /// Defines the `RECIPE_HELP` constant used by this module.
-    ///
-    ///
-    ///  Provides the RECIPE HELP constant value.
+/// `RECIPE_HELP` is a configuration value used by the Smash runtime.
     const RECIPE_HELP: &str = "An assigned recipe runs once per fresh button press while the menu is closed; Native preserves the existing control.";
-    /// Defines the `BINDING_HELP` constant used by this module.
-    ///
-    ///
-    ///  Provides the BINDING HELP constant value.
+/// `BINDING_HELP` is a configuration value used by the Smash runtime.
     const BINDING_HELP: &str =
         "Binding for this D-pad direction; Normal keeps the existing control.";
     /// Row order must match the root menu's configuration rows. An empty label
     /// marks a removed slot that is kept only so later rows stay aligned.
-    ///
-    ///  Row order must match the root menu's configuration rows. An empty label marks a removed slot that is kept only so later rows stay aligned.
     const CONFIGURATION_ROWS: [(&str, &str); CONFIGURATION_ROW_COUNT] = [
         ("Neutral getup", LEDGE_HELP),
         ("Jump getup", LEDGE_HELP),
@@ -269,46 +180,22 @@ pub mod modes {
         ("Out of shield", "Confirms shield contact, retains defense through stun/multihits and selects the fighter-specific in-range response; yields to ledge responses."),
         ("Shield pressure", "Watches enemy shields and shield-origin rolls; selects a configured pressure response without interrupting protected ledge actions."),
     ];
-    /// Defines the `RESULT_TOP_MARGIN` constant used by this module.
-    ///
-    ///
-    ///  Provides the RESULT TOP MARGIN constant value.
+/// `RESULT_TOP_MARGIN` is a configuration value used by the Smash runtime.
     const RESULT_TOP_MARGIN: f32 = 14.0;
-    /// Defines the `RESULT_BOTTOM_MARGIN` constant used by this module.
-    ///
-    ///
-    ///  Provides the RESULT BOTTOM MARGIN constant value.
+/// `RESULT_BOTTOM_MARGIN` is a configuration value used by the Smash runtime.
     const RESULT_BOTTOM_MARGIN: f32 = 8.0;
     /// Sets the lower bound for result height.
-    ///
-    ///
-    ///  Holds the MIN RESULT HEIGHT value.
     const MIN_RESULT_HEIGHT: f32 = 40.0;
-    /// Defines the `SAFETY_TECH_GUARD` constant used by this module.
-    ///
-    ///
-    ///  Provides the SAFETY TECH GUARD constant value.
+/// `SAFETY_TECH_GUARD` is a configuration value used by the Smash runtime.
     pub const SAFETY_TECH_GUARD: u8 = 1 << 0;
-    /// Defines the `SAFETY_MASH` constant used by this module.
-    ///
-    ///
-    ///  Provides the SAFETY MASH constant value.
+/// `SAFETY_MASH` is a configuration value used by the Smash runtime.
     pub const SAFETY_MASH: u8 = 1 << 1;
-    /// Defines the `SAFETY_SDI` constant used by this module.
-    ///
-    ///
-    ///  Provides the SAFETY SDI constant value.
+/// `SAFETY_SDI` is a configuration value used by the Smash runtime.
     pub const SAFETY_SDI: u8 = 1 << 2;
-    /// Defines the `SAFETY_DI` constant used by this module.
-    ///
-    ///
-    ///  Provides the SAFETY DI constant value.
+/// `SAFETY_DI` is a configuration value used by the Smash runtime.
     pub const SAFETY_DI: u8 = 1 << 3;
 
-    /// Defines the `OWNERS` constant used by this module.
-    ///
-    ///
-    ///  Provides the OWNERS constant value.
+/// `OWNERS` is a configuration value used by the Smash runtime.
     pub const OWNERS: [Owner; OWNER_COUNT] = [
         Owner::Safety,
         Owner::OptionRead,
@@ -325,24 +212,10 @@ pub mod modes {
         Owner::Reflect,
     ];
     /// Tests whether the requested bit is set in the value.
-    ///
-    ///
-    ///  Checks whether this bit is on.
-    /// ### Arguments
-    /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u32` value.
     pub fn bit(owner: Owner) -> u32 {
         1 << OWNERS.iter().position(|v| *v == owner).unwrap()
     }
     /// Returns the display name associated with the value.
-    ///
-    ///
-    ///  Gets the name shown for this value.
-    /// ### Arguments
-    /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn name(owner: Owner) -> &'static str {
         match owner {
             Owner::Safety => "Tech / mash / SDI / DI",
@@ -361,12 +234,6 @@ pub mod modes {
         }
     }
     /// Describe each tool's prerequisites without guessing a particular failed gate.
-    ///
-    ///  Describe each tool's prerequisites without guessing a particular failed gate.
-    /// ### Arguments
-    /// - `owner` (`Owner`): Represents the owner associated with the value; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn purpose(owner: Owner) -> &'static str {
         match owner {
             Owner::OutOfShield => "Confirms shield contact, retains defense through stun/multihits and selects the fighter-specific in-range response; yields to ledge responses.",
@@ -385,19 +252,8 @@ pub mod modes {
         }
     }
     /// Returns the display name for the observed motion.
-    ///
-    ///
-    ///  Gets the motion’s display name.
-    /// ### Arguments
-    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-    /// - `motion` (`u64`): Represents the motion being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn motion_name(status: i32, motion: u64) -> &'static str {
-        /// Defines the `ATTACK_AIR_NAMES` constant used by this module.
-        ///
-        ///
-        ///  Provides the ATTACK AIR NAMES constant value.
+/// `ATTACK_AIR_NAMES` is a configuration value used by the Smash runtime.
         const ATTACK_AIR_NAMES: [(u64, &str); 5] = [
             (crate::timing::motion_hash("attack_air_n"), "neutral air"),
             (crate::timing::motion_hash("attack_air_f"), "forward air"),
@@ -413,13 +269,6 @@ pub mod modes {
         native_name(status)
     }
     /// Maps the native action identifier to its diagnostic label.
-    ///
-    ///
-    ///  Gets the readable name for the native action.
-    /// ### Arguments
-    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u16` value.
     fn native_action(status: i32) -> u16 {
         match status {
             crate::native_states::status::JUMP_SQUAT
@@ -446,60 +295,27 @@ pub mod modes {
             _ => NATIVE_ACTION_NONE,
         }
     }
-    /// Defines the `NATIVE_ACTION_NONE` constant used by this module.
-    ///
-    ///
-    ///  Provides the NATIVE ACTION NONE constant value.
+/// `NATIVE_ACTION_NONE` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_NONE: u16 = 0;
-    /// Defines the `NATIVE_ACTION_AIRBORNE` constant used by this module.
-    ///
-    ///
-    ///  Provides the NATIVE ACTION AIRBORNE constant value.
+/// `NATIVE_ACTION_AIRBORNE` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_AIRBORNE: u16 = 1;
-    /// Defines the `NATIVE_ACTION_SHIELD` constant used by this module.
-    ///
-    ///
-    ///  Provides the NATIVE ACTION SHIELD constant value.
+/// `NATIVE_ACTION_SHIELD` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_SHIELD: u16 = 2;
-    /// Defines the `NATIVE_ACTION_SPOT_DODGE` constant used by this module.
-    ///
-    ///
-    ///  Provides the NATIVE ACTION SPOT DODGE constant value.
+/// `NATIVE_ACTION_SPOT_DODGE` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_SPOT_DODGE: u16 = 4;
-    /// Defines the `NATIVE_ACTION_ROLL_OR_AIR_DODGE` constant used by this module.
-    ///
-    ///
-    ///  Provides the NATIVE ACTION ROLL OR AIR DODGE constant value.
+/// `NATIVE_ACTION_ROLL_OR_AIR_DODGE` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_ROLL_OR_AIR_DODGE: u16 = 8;
-    /// Defines the `NATIVE_ACTION_GROUND_ATTACK` constant used by this module.
-    ///
-    ///
-    ///  Provides the NATIVE ACTION GROUND ATTACK constant value.
+/// `NATIVE_ACTION_GROUND_ATTACK` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_GROUND_ATTACK: u16 = 16;
-    /// Defines the `NATIVE_ACTION_AERIAL_ATTACK` constant used by this module.
-    ///
-    ///
-    ///  Provides the NATIVE ACTION AERIAL ATTACK constant value.
+/// `NATIVE_ACTION_AERIAL_ATTACK` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_AERIAL_ATTACK: u16 = 32;
-    /// Defines the `NATIVE_ACTION_GRAB` constant used by this module.
-    ///
-    ///
-    ///  Provides the NATIVE ACTION GRAB constant value.
+/// `NATIVE_ACTION_GRAB` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_GRAB: u16 = 64;
-    /// Defines the `NATIVE_ACTION_DAMAGE_OR_TECH` constant used by this module.
-    ///
-    ///
-    ///  Provides the NATIVE ACTION DAMAGE OR TECH constant value.
+/// `NATIVE_ACTION_DAMAGE_OR_TECH` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_DAMAGE_OR_TECH: u16 = 128;
-    /// Defines the `NATIVE_ACTION_LEDGE_ACTION` constant used by this module.
-    ///
-    ///
-    ///  Provides the NATIVE ACTION LEDGE ACTION constant value.
+/// `NATIVE_ACTION_LEDGE_ACTION` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_LEDGE_ACTION: u16 = 256;
-    /// Defines the `NATIVE_ACTION_LABELS` constant used by this module.
-    ///
-    ///
-    ///  Provides the NATIVE ACTION LABELS constant value.
+/// `NATIVE_ACTION_LABELS` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_LABELS: [(u16, &str); 9] = [
         (NATIVE_ACTION_AIRBORNE, "jump/fall"),
         (NATIVE_ACTION_SHIELD, "shield"),
@@ -512,8 +328,6 @@ pub mod modes {
         (NATIVE_ACTION_LEDGE_ACTION, "ledge action"),
     ];
     /// Buttons whose labels a mode's requests are summarized by.
-    ///
-    ///  Buttons whose labels a mode's requests are summarized by.
     const REQUEST_LABELS: [(u32, &str); 5] = [
         (MAPPER_X | MAPPER_ZL, "Jump"),
         (MAPPER_A, "Attack"),
@@ -522,13 +336,6 @@ pub mod modes {
         (MAPPER_ZR, "Shield"),
     ];
     /// Maps the native identifier to its diagnostic name.
-    ///
-    ///
-    ///  Gets the readable name for the native value.
-    /// ### Arguments
-    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn native_name(status: i32) -> &'static str {
         match status {
             crate::native_states::status::WAIT => "standing",
@@ -586,160 +393,70 @@ pub mod modes {
         }
     }
 
-    /// Defines the `Snapshot` data structure.
-    ///
-    ///
-    ///  Holds the data for Snapshot.
+/// Runtime Smash data carried by `Snapshot`.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct Snapshot {
-        /// Stores the `winner` value in `Snapshot` as `Option<Owner>`.
-        ///
-        ///
-        ///  Optionally stores the winner for Snapshot; it may be absent.
+/// Runtime winner value used by Snapshot..
         pub winner: Option<Owner>,
-        /// Stores the `present` value in `Snapshot` as `u32`.
-        ///
-        ///
-        ///  Holds the present value used by Snapshot.
+/// Runtime present value used by Snapshot..
         pub present: u32,
-        /// Stores the `committed` value in `Snapshot` as `bool`.
-        ///
-        ///
-        ///  Holds the committed value used by Snapshot.
+/// Runtime committed value used by Snapshot..
         pub committed: bool,
-        /// Stores the `requested` value in `Snapshot` as `u32`.
-        ///
-        ///
-        ///  Holds the requested value used by Snapshot.
+/// Runtime requested value used by Snapshot..
         pub requested: u32,
         /// Quantized directions only; analog jitter must not create log spam.
-        ///
-        ///  Quantized directions only; analog jitter must not create log spam.
         pub stick: Option<[i8; 2]>,
-        /// Stores the `status` value in `Snapshot` as `i32`.
-        ///
-        ///
-        ///  Holds the status value used by Snapshot.
+/// native fighter status.
         pub status: i32,
-        /// Stores the `motion` value in `Snapshot` as `u64`.
-        ///
-        ///
-        ///  Holds the motion value used by Snapshot.
+/// native animation/motion ID.
         pub motion: u64,
-        /// Stores the `native_frame` value in `Snapshot` as `u16`.
-        ///
-        ///
-        ///  Holds the native frame value used by Snapshot.
+/// Runtime native frame value used by Snapshot..
         pub native_frame: u16,
-        /// Stores the `stopped` value in `Snapshot` as `bool`.
-        ///
-        ///
-        ///  Holds the stopped value used by Snapshot.
+/// Runtime stopped value used by Snapshot..
         pub stopped: bool,
-        /// Stores the `can_act` value in `Snapshot` as `bool`.
-        ///
-        ///
-        ///  Holds the can act value used by Snapshot.
+/// Runtime can act value used by Snapshot..
         pub can_act: bool,
-        /// Stores the `hit` value in `Snapshot` as `Option<bool>`.
-        ///
-        ///
-        ///  Optionally stores the hit for Snapshot; it may be absent.
+/// Runtime hit value used by Snapshot..
         pub hit: Option<bool>,
-        /// Stores the `valid` value in `Snapshot` as `bool`.
-        ///
-        ///
-        ///  Holds the valid value used by Snapshot.
+/// Runtime valid value used by Snapshot..
         pub valid: bool,
         /// Flags are the `SAFETY_*` constants in this module.
-        ///
-        ///  Flags are the SAFETY constants in this module.
         pub safety: u8,
     }
-    /// Defines the `Evidence` data structure.
-    ///
-    ///
-    ///  Holds the data for Evidence.
+/// Runtime Smash data carried by `Evidence`.
     #[derive(Clone, Copy, Default)]
     struct Evidence {
-        /// Stores the `proposed` value in `Evidence` as `bool`.
-        ///
-        ///
-        ///  Holds the proposed value used by Evidence.
+/// Runtime proposed value used by Evidence..
         proposed: bool,
-        /// Stores the `selected` value in `Evidence` as `u16`.
-        ///
-        ///
-        ///  Holds the selected value used by Evidence.
+/// Runtime selected value used by Evidence..
         selected: u16,
-        /// Stores the `requests` value in `Evidence` as `u32`.
-        ///
-        ///
-        ///  Holds the requests value used by Evidence.
+/// Runtime requests value used by Evidence..
         requests: u32,
-        /// Stores the `stick` value in `Evidence` as `Option<[i8; 2]>`.
-        ///
-        ///
-        ///  Optionally stores the stick for Evidence; it may be absent.
+/// Runtime stick value used by Evidence..
         stick: Option<[i8; 2]>,
     }
-    /// Defines the `Report` data structure.
-    ///
-    ///
-    ///  Holds the data for Report.
+/// Runtime Smash data carried by `Report`.
     #[derive(Clone, Copy)]
     pub struct Report {
-        /// Stores the `first` value in `Report` as `Snapshot`.
-        ///
-        ///
-        ///  Holds the first value used by Report.
+/// Runtime first value used by Report..
         pub first: Snapshot,
-        /// Stores the `last` value in `Report` as `Snapshot`.
-        ///
-        ///
-        ///  Holds the last value used by Report.
+/// Runtime last value used by Report..
         pub last: Snapshot,
-        /// Stores the `at_ms` value in `Report` as `u64`.
-        ///
-        ///
-        ///  Holds the at ms value used by Report.
+/// Runtime at ms value used by Report..
         pub at_ms: u64,
-        /// Stores the `changes` value in `Report` as `u16`.
-        ///
-        ///
-        ///  Holds the changes value used by Report.
+/// Runtime changes value used by Report..
         changes: u16,
-        /// Stores the `modes` value in `Report` as `[Evidence; OWNERS.len()]`.
-        ///
-        ///
-        ///  Stores the modes collection for Report.
+/// Runtime modes value used by Report..
         modes: [Evidence; OWNERS.len()],
-        /// Stores the `hit_seen` value in `Report` as `bool`.
-        ///
-        ///
-        ///  Holds the hit seen value used by Report.
+/// Runtime hit seen value used by Report..
         hit_seen: bool,
-        /// Stores the `hit_sampled` value in `Report` as `bool`.
-        ///
-        ///
-        ///  Holds the hit sampled value used by Report.
+/// Runtime hit sampled value used by Report..
         hit_sampled: bool,
-        /// Stores the `native_actions` value in `Report` as `u16`.
-        ///
-        ///
-        ///  Holds the native actions value used by Report.
+/// Runtime native actions value used by Report..
         native_actions: u16,
     }
     impl Report {
         /// Constructs a new value with the type’s initial state.
-        ///
-        ///
-        ///  Creates a new value.
-        /// ### Arguments
-        /// - `snapshot` (`Snapshot`): Represents the snapshot; the function uses it as input to the operation described above.
-        /// - `at_ms` (`u64`): Represents the at ms; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         fn new(snapshot: Snapshot, at_ms: u64) -> Self {
             Self {
                 first: snapshot,
@@ -753,12 +470,6 @@ pub mod modes {
             }
         }
         /// Records the time of the latest fighter observation.
-        ///
-        ///
-        ///  Remembers when a fighter was last seen.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `s` (`Snapshot`): Represents the s; the function uses it as input to the operation described above.
         fn observe(&mut self, s: Snapshot) {
             self.native_actions |= native_action(s.status);
             self.last = s;
@@ -776,12 +487,6 @@ pub mod modes {
             }
         }
         /// Compact menu snapshot, formatted only by the background writer.
-        ///
-        ///  Compact menu snapshot, formatted only by the background writer.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn card_text(&self) -> String {
             let s = self.last;
             let owner = s.winner.map_or("Physical controls", name);
@@ -825,12 +530,6 @@ pub mod modes {
             text
         }
         /// Called by the background writer, never the input hook.
-        ///
-        ///  Called by the background writer, never the input hook.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn format(&self) -> String {
             let mut text = String::with_capacity(REPORT_TEXT_CAPACITY_BYTES);
             let last = self.last;
@@ -899,25 +598,11 @@ pub mod modes {
     }
 
     /// Returns the diagnostic label for the selected winner.
-    ///
-    ///
-    ///  Gets the name shown for the selected winner.
-    /// ### Arguments
-    /// - `winner` (`Option<Owner>`): Represents the winner; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn winner_name(winner: Option<Owner>) -> &'static str {
         winner.map_or("physical controls", name)
     }
 
     /// Formats the explanation associated with the decision.
-    ///
-    ///
-    ///  Builds the text explaining the decision.
-    /// ### Arguments
-    /// - `last` (`Snapshot`): Represents the last; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn why_text(last: Snapshot) -> &'static str {
         if !last.valid {
             "assistance paused: observation or gameplay scope is unavailable"
@@ -939,13 +624,6 @@ pub mod modes {
     }
 
     /// Writes the input evidence.
-    ///
-    ///
-    ///  Writes the input evidence.
-    /// ### Arguments
-    /// - `text` (`&mut String`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
-    /// - `e` (`Evidence`): Represents the e; the function uses it as input to the operation described above.
-    /// - `valid` (`bool`): Represents the valid; the function uses it as input to the operation described above.
     fn write_input_evidence(text: &mut String, e: Evidence, valid: bool) {
         if e.selected == 0 {
             let _ = writeln!(
@@ -994,45 +672,23 @@ pub mod modes {
         let _ = writeln!(text, ".");
     }
 
-    /// Defines the `Recorder` data structure.
-    ///
-    ///
-    ///  Holds the data for Recorder.
+/// Runtime Smash data carried by `Recorder`.
     pub struct Recorder {
-        /// Stores the `previous` value in `Recorder` as `Option<Snapshot>`.
-        ///
-        ///
-        ///  Optionally stores the previous for Recorder; it may be absent.
+/// Runtime previous value used by Recorder..
         previous: Option<Snapshot>,
-        /// Stores the `pending` value in `Recorder` as `Option<Report>`.
-        ///
-        ///
-        ///  Optionally stores the pending for Recorder; it may be absent.
+/// Runtime pending value used by Recorder..
         pending: Option<Report>,
-        /// Stores the `last_ms` value in `Recorder` as `Option<u64>`.
-        ///
-        ///
-        ///  Optionally stores the last ms for Recorder; it may be absent.
+/// Runtime last ms value used by Recorder..
         last_ms: Option<u64>,
     }
     impl Default for Recorder {
         /// Returns the default value for this type.
-        ///
-        ///
-        ///  Returns the default value for this type.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         fn default() -> Self {
             Self::new()
         }
     }
     impl Recorder {
         /// Constructs a new value with the type’s initial state.
-        ///
-        ///
-        ///  Creates a new value.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self {
                 previous: None,
@@ -1041,14 +697,6 @@ pub mod modes {
             }
         }
         /// At most four fixed-size batches per second. Unchanged polls do no work.
-        ///
-        ///  At most four fixed-size batches per second. Unchanged polls do no work.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `snapshot` (`Snapshot`): Represents the snapshot; the function uses it as input to the operation described above.
-        /// - `ms` (`u64`): Represents the ms; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn sample(&mut self, snapshot: Snapshot, ms: u64) -> Option<Report> {
             if self.last_ms.is_some_and(|last| ms < last) {
                 *self = Self::new();
@@ -1089,14 +737,6 @@ pub mod modes {
     }
 
     /// Keep completed results below the menu; hide rather than overlap if it fills the screen.
-    ///
-    ///  Keep completed results below the menu; hide rather than overlap if it fills the screen.
-    /// ### Arguments
-    /// - `display_height` (`f32`): Represents the display height; the function uses it as input to the operation described above.
-    /// - `scale` (`f32`): Represents the scale; the function uses it as input to the operation described above.
-    /// - `menu_height` (`f32`): Represents the menu height; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn left_result_space(
         display_height: f32,
         scale: f32,
@@ -1118,30 +758,15 @@ pub mod modes {
 
     /// A copied menu name survives selected-fighter menu teardown without leaking
     /// strings. Configuration/report updates allocate no label storage on frames.
-    ///
-    ///  A copied menu name survives selected-fighter menu teardown without leaking strings. Configuration/report updates allocate no label storage on frames.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct Label {
-        /// Stores the `bytes` value in `Label` as `[u8; LABEL_CAPACITY_BYTES]`.
-        ///
-        ///
-        ///  Stores the bytes collection for Label.
+/// Runtime bytes value used by Label..
         bytes: [u8; LABEL_CAPACITY_BYTES],
-        /// Stores the `len` value in `Label` as `usize`.
-        ///
-        ///
-        ///  Holds the len value used by Label.
+/// Runtime len value used by Label..
         len: usize,
     }
     impl Label {
         /// Constructs a new value with the type’s initial state.
-        ///
-        ///
-        ///  Creates a new value.
-        /// ### Arguments
-        /// - `text` (`&str`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         pub fn new(text: &str) -> Self {
             let mut len = text.len().min(LABEL_CAPACITY_BYTES);
             while !text.is_char_boundary(len) {
@@ -1155,74 +780,32 @@ pub mod modes {
             label
         }
         /// Returns the string representation of the value.
-        ///
-        ///
-        ///  Gets the value as text.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn as_str(&self) -> &str {
             std::str::from_utf8(&self.bytes[..self.len]).unwrap_or("")
         }
         /// Checks whether empty.
-        ///
-        ///
-        ///  Checks whether empty.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn is_empty(&self) -> bool {
             self.len == 0
         }
     }
     impl std::fmt::Display for Label {
         /// Formats the value using the requested formatter.
-        ///
-        ///
-        ///  Writes the value in its display form.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `f` (`&mut std::fmt::Formatter<'_>`): Represents the f; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `std::fmt::Result` value.
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str(self.as_str())
         }
     }
-    /// Defines the `Configuration` data structure.
-    ///
-    ///
-    ///  Holds the data for Configuration.
+/// Runtime Smash data carried by `Configuration`.
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub struct Configuration {
-        /// Stores the `fighter` value in `Configuration` as `&'static str`.
-        ///
-        ///
-        ///  Holds the fighter value used by Configuration.
+/// Runtime fighter value used by Configuration..
         pub fighter: &'static str,
-        /// Stores the `rows` value in `Configuration` as `[Label; CONFIGURATION_ROW_COUNT]`.
-        ///
-        ///
-        ///  Stores the rows collection for Configuration.
+/// Runtime rows value used by Configuration..
         pub rows: [Label; CONFIGURATION_ROW_COUNT],
-        /// Stores the `auto_reflect` value in `Configuration` as `bool`.
-        ///
-        ///
-        ///  Holds the auto reflect value used by Configuration.
+/// Runtime auto reflect value used by Configuration..
         pub auto_reflect: bool,
     }
     impl Configuration {
         /// Constructs a new value with the type’s initial state.
-        ///
-        ///
-        ///  Creates a new value.
-        /// ### Arguments
-        /// - `fighter` (`&'static str`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-        /// - `rows` (`[&str; CONFIGURATION_ROW_COUNT]`): Represents the rows; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         pub fn new(fighter: &'static str, rows: [&str; CONFIGURATION_ROW_COUNT]) -> Self {
             Self {
                 fighter,
@@ -1231,26 +814,11 @@ pub mod modes {
             }
         }
         /// Returns a copy configured with the reflect response.
-        ///
-        ///
-        ///  Creates a copy that includes the reflect response.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         pub fn with_reflect(mut self, enabled: bool) -> Self {
             self.auto_reflect = enabled;
             self
         }
         /// Formats the value for presentation or persistence.
-        ///
-        ///
-        ///  Turns the value into formatted text.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn format(&self) -> String {
             let mut text = format!("SAVED MODES for {} (changed configuration)\n", self.fighter);
             if self.fighter == "mr_game_and_watch" {
@@ -1271,20 +839,11 @@ pub mod modes {
         use super::*;
 
         /// Sets the upper bound for recorder size bytes.
-        ///
-        ///
-        ///  Holds the MAX RECORDER SIZE BYTES value.
         const MAX_RECORDER_SIZE_BYTES: usize = 1024;
         /// Sets the upper bound for report size bytes.
-        ///
-        ///
-        ///  Holds the MAX REPORT SIZE BYTES value.
         const MAX_REPORT_SIZE_BYTES: usize = 768;
 
         /// Regression test for `copied_labels_survive_menu_teardown_and_truncate_on_utf8_boundaries`.
-        ///
-        ///
-        ///  Checks that copied labels survive menu teardown and truncate on utf 8 boundaries.
         #[test]
         fn copied_labels_survive_menu_teardown_and_truncate_on_utf8_boundaries() {
             let name = "é".repeat(40);
@@ -1300,11 +859,6 @@ pub mod modes {
             assert_eq!(configuration.rows[0].as_str(), "Saved custom option");
         }
         /// Captures the current values into a snapshot.
-        ///
-        ///
-        ///  Saves a snapshot of the current values.
-        /// ### Returns
-        /// Returns the resulting `Snapshot` value.
         fn snapshot() -> Snapshot {
             Snapshot {
                 winner: Some(Owner::Ledge),
@@ -1323,9 +877,6 @@ pub mod modes {
             }
         }
         /// Regression test for `snapshots_explain_every_owner_and_preserve_intermediate_native_startup`.
-        ///
-        ///
-        ///  Checks that snapshots explain every owner and preserve intermediate native startup.
         #[test]
         fn snapshots_explain_every_owner_and_preserve_intermediate_native_startup() {
             for owner in OWNERS {
@@ -1364,9 +915,6 @@ pub mod modes {
             );
         }
         /// Regression test for `animation_frame_only_changes_do_not_spam_stable_modes`.
-        ///
-        ///
-        ///  Checks that animation frame only changes do not spam stable modes.
         #[test]
         fn animation_frame_only_changes_do_not_spam_stable_modes() {
             let mut r = Recorder::new();
@@ -1384,9 +932,6 @@ pub mod modes {
             }
         }
         /// Regression test for `duplicate_polls_are_free_and_batches_have_a_hard_rate_limit`.
-        ///
-        ///
-        ///  Checks that duplicate polls are free and batches have a hard rate limit.
         #[test]
         fn duplicate_polls_are_free_and_batches_have_a_hard_rate_limit() {
             let mut recorder = Recorder::new();
@@ -1406,9 +951,6 @@ pub mod modes {
             assert!(recorder.sample(snapshot(), 0).is_some());
         }
         /// Regression test for `buffered_press_survives_release_in_the_same_batch_without_claiming_a_hit`.
-        ///
-        ///
-        ///  Checks that buffered press survives release in the same batch without claiming a hit.
         #[test]
         fn buffered_press_survives_release_in_the_same_batch_without_claiming_a_hit() {
             let mut r = Recorder::new();
@@ -1436,9 +978,6 @@ pub mod modes {
             assert!(report.contains("no hit flag"));
         }
         /// Regression test for `every_owner_and_configured_row_has_a_readable_label`.
-        ///
-        ///
-        ///  Checks that every owner and configured row has a readable label.
         #[test]
         fn every_owner_and_configured_row_has_a_readable_label() {
             assert_eq!(
@@ -1452,9 +991,6 @@ pub mod modes {
             assert!(text.contains("Neutral getup: OFF"));
         }
         /// Regression test for `configuration_rows_remain_aligned_after_removing_jab_grab`.
-        ///
-        ///
-        ///  Checks that configuration rows remain aligned after removing jab grab.
         #[test]
         fn configuration_rows_remain_aligned_after_removing_jab_grab() {
             let rows = [
@@ -1475,9 +1011,6 @@ pub mod modes {
             }
         }
         /// Regression test for `left_result_stacks_below_menu_or_hides_instead_of_overlapping`.
-        ///
-        ///
-        ///  Checks that left result stacks below menu or hides instead of overlapping.
         #[test]
         fn left_result_stacks_below_menu_or_hides_instead_of_overlapping() {
             for height in [480.0_f32, 720.0, 1080.0, 2160.0] {
@@ -1491,9 +1024,6 @@ pub mod modes {
             assert!(left_result_space(f32::NAN, 1.0, 100.0).is_none());
         }
         /// Regression test for `disabled_modes_do_not_log_manual_play_and_evidence_storage_is_bounded`.
-        ///
-        ///
-        ///  Checks that disabled modes do not log manual play and evidence storage is bounded.
         #[test]
         fn disabled_modes_do_not_log_manual_play_and_evidence_storage_is_bounded() {
             let mut r = Recorder::new();
@@ -1510,9 +1040,6 @@ pub mod modes {
             assert!(std::mem::size_of::<Report>() <= MAX_REPORT_SIZE_BYTES);
         }
         /// Regression test for `unknown_hit_evidence_and_invalid_scope_are_explained_without_inventing_a_blocker`.
-        ///
-        ///
-        ///  Checks that unknown hit evidence and invalid scope are explained without inventing a blocker.
         #[test]
         fn unknown_hit_evidence_and_invalid_scope_are_explained_without_inventing_a_blocker() {
             let mut r = Recorder::new();

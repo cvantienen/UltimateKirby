@@ -17,38 +17,19 @@ mod assist_handoff {
 
     /// Keep a released manual jump from racing a new grounded automatic input
     /// while the native fighter has not acknowledged the queued jump yet.
-    ///
-    ///  Keep a released manual jump from racing a new grounded automatic input while the native fighter has not acknowledged the queued jump yet.
     #[derive(Default)]
     pub struct ManualJumpFence {
-        /// Stores the `owner` value in `ManualJumpFence` as `Option<(u32`.
-        ///
-        ///
-        ///  Optionally stores the owner for ManualJumpFence; it may be absent.
+/// Runtime owner value used by ManualJumpFence..
         owner: Option<(u32, i32)>,
-        /// Stores the `held` value in `ManualJumpFence` as `bool`.
-        ///
-        ///
-        ///  Holds the held value used by ManualJumpFence.
+/// Runtime held value used by ManualJumpFence..
         held: bool,
-        /// Stores the `pending` value in `ManualJumpFence` as `bool`.
-        ///
-        ///
-        ///  Holds the pending value used by ManualJumpFence.
+/// Runtime pending value used by ManualJumpFence..
         pending: bool,
-        /// Stores the `clock` value in `ManualJumpFence` as `NativeAttempt`.
-        ///
-        ///
-        ///  Holds the clock value used by ManualJumpFence.
+/// Runtime clock value used by ManualJumpFence..
         clock: NativeAttempt,
     }
     impl ManualJumpFence {
         /// Constructs a new value with the type’s initial state.
-        ///
-        ///
-        ///  Creates a new value.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self {
                 owner: None,
@@ -58,28 +39,10 @@ mod assist_handoff {
             }
         }
         /// Checks whether a pending operation is stored.
-        ///
-        ///
-        ///  Checks whether something is waiting to be processed.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn pending(&self) -> bool {
             self.pending
         }
         /// Updates the toggle state from the current button sample and match state.
-        ///
-        ///
-        ///  Checks the current buttons and updates whether the toggle should activate.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `object` (`u32`): Represents the object; the function uses it as input to the operation described above.
-        /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-        /// - `held` (`bool`): Represents the held; the function uses it as input to the operation described above.
-        /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn sample(&mut self, object: u32, kind: i32, held: bool, c: GameplayContext) -> bool {
             if self.owner != Some((object, kind)) {
                 *self = Self::new();
@@ -112,35 +75,18 @@ mod assist_handoff {
         }
     }
 
-    /// Defines the `AssistGuardHandoff` data structure.
-    ///
-    ///
-    ///  Holds the data for AssistGuardHandoff.
+/// Runtime Smash data carried by `AssistGuardHandoff`.
     #[derive(Default)]
     pub struct AssistGuardHandoff {
-        /// Stores the `blocked` value in `AssistGuardHandoff` as `u32`.
-        ///
-        ///
-        ///  Holds the blocked value used by AssistGuardHandoff.
+/// Runtime blocked value used by AssistGuardHandoff..
         blocked: u32,
-        /// Stores the `previous` value in `AssistGuardHandoff` as `Option<u32>`.
-        ///
-        ///
-        ///  Optionally stores the previous for AssistGuardHandoff; it may be absent.
+/// Runtime previous value used by AssistGuardHandoff..
         previous: Option<u32>,
-        /// Stores the `protected` value in `AssistGuardHandoff` as `u32`.
-        ///
-        ///
-        ///  Holds the protected value used by AssistGuardHandoff.
+/// Runtime protected value used by AssistGuardHandoff..
         protected: u32,
     }
     impl AssistGuardHandoff {
         /// Constructs a new value with the type’s initial state.
-        ///
-        ///
-        ///  Creates a new value.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self {
                 blocked: 0,
@@ -149,18 +95,6 @@ mod assist_handoff {
             }
         }
         /// Updates the toggle state from the current button sample and match state.
-        ///
-        ///
-        ///  Checks the current buttons and updates whether the toggle should activate.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `active` (`bool`): Represents the active; the function uses it as input to the operation described above.
-        /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
-        /// - `guards` (`u32`): Represents the guards; the function uses it as input to the operation described above.
-        /// - `owned` (`u32`): Represents the owned; the function uses it as input to the operation described above.
-        /// - `requested` (`u32`): Represents the requested; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `u32` value.
         pub fn sample(
             &mut self,
             active: bool,
@@ -197,13 +131,6 @@ mod assist_handoff {
         use super::*;
         use crate::native_input::{MAPPER_ZL, MAPPER_ZR};
         /// Checks whether the required input is currently held.
-        ///
-        ///
-        ///  Checks whether the button is still held.
-        /// ### Arguments
-        /// - `mask` (`u32`): Represents the mask; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `ButtonTrace` value.
         fn held(mask: u32) -> ButtonTrace {
             ButtonTrace {
                 held: mask,
@@ -212,9 +139,6 @@ mod assist_handoff {
             }
         }
         /// Regression test for `old_shield_hold_does_not_return_as_a_roll_or_air_dodge`.
-        ///
-        ///
-        ///  Checks that old shield hold does not return as a roll or air dodge.
         #[test]
         fn old_shield_hold_does_not_return_as_a_roll_or_air_dodge() {
             let mut h = AssistGuardHandoff::new();
@@ -241,9 +165,6 @@ mod assist_handoff {
             );
         }
         /// Regression test for `requested_defense_and_fresh_manual_shield_are_not_suppressed`.
-        ///
-        ///
-        ///  Checks that requested defense and fresh manual shield are not suppressed.
         #[test]
         fn requested_defense_and_fresh_manual_shield_are_not_suppressed() {
             let mut h = AssistGuardHandoff::new();
@@ -269,90 +190,44 @@ mod assist_handoff {
     }
 }
 pub use assist_handoff::{AssistGuardHandoff, ManualJumpFence};
-/// Defines the `TURBO_TRIGGER` constant used by this module.
-///
-/// Provides the TURBO TRIGGER constant value.
+/// `TURBO_TRIGGER` is a configuration value used by the Smash runtime.
 pub const TURBO_TRIGGER: u32 = 1 << 16; // Canonical turbo role; physical source comes from button bindings.
-/// Defines the `DPAD_UP` constant used by this module.
-///
-/// Provides the DPAD UP constant value.
+/// `DPAD_UP` is a configuration value used by the Smash runtime.
 pub const DPAD_UP: u32 = crate::native_input::MAPPER_DPAD_UP;
-/// Defines the `DPAD_RIGHT` constant used by this module.
-///
-/// Provides the DPAD RIGHT constant value.
+/// `DPAD_RIGHT` is a configuration value used by the Smash runtime.
 pub const DPAD_RIGHT: u32 = crate::native_input::MAPPER_DPAD_RIGHT;
-/// Defines the `DPAD_LEFT` constant used by this module.
-///
-/// Provides the DPAD LEFT constant value.
+/// `DPAD_LEFT` is a configuration value used by the Smash runtime.
 pub const DPAD_LEFT: u32 = crate::native_input::MAPPER_DPAD_LEFT;
-/// Defines the `DPAD_SIDES` constant used by this module.
-///
-/// Provides the DPAD SIDES constant value.
+/// `DPAD_SIDES` is a configuration value used by the Smash runtime.
 pub const DPAD_SIDES: u32 = DPAD_LEFT | DPAD_RIGHT;
-/// Defines the `LEFT_STICK_DIRECTIONS` constant used by this module.
-///
-/// Provides the LEFT STICK DIRECTIONS constant value.
+/// `LEFT_STICK_DIRECTIONS` is a configuration value used by the Smash runtime.
 pub const LEFT_STICK_DIRECTIONS: u32 = crate::native_input::MAPPER_LEFT_STICK_DIRECTIONS;
-/// Defines the `RIGHT_STICK_DIRECTIONS` constant used by this module.
-///
-/// Provides the RIGHT STICK DIRECTIONS constant value.
+/// `RIGHT_STICK_DIRECTIONS` is a configuration value used by the Smash runtime.
 pub const RIGHT_STICK_DIRECTIONS: u32 = crate::native_input::MAPPER_RIGHT_STICK_DIRECTIONS;
-/// Defines the `STICK_CLICKS` constant used by this module.
-///
-/// Provides the STICK CLICKS constant value.
+/// `STICK_CLICKS` is a configuration value used by the Smash runtime.
 pub const STICK_CLICKS: u32 = crate::native_input::MAPPER_STICK_CLICKS;
 
-/// Defines the `ManualContext` data structure.
-///
-/// Holds the data for ManualContext.
+/// Runtime Smash data carried by `ManualContext`.
 #[derive(Clone, Copy, Debug)]
 pub struct ManualContext {
-    /// Stores the `status` value in `ManualContext` as `i32`.
-    ///
-    ///
-    ///  Holds the status value used by ManualContext.
+/// native fighter status.
     pub status: i32,
-    /// Stores the `situation` value in `ManualContext` as `i32`.
-    ///
-    ///
-    ///  Holds the situation value used by ManualContext.
+/// Runtime situation value used by ManualContext..
     pub situation: i32,
-    /// Stores the `motion` value in `ManualContext` as `u64`.
-    ///
-    ///
-    ///  Holds the motion value used by ManualContext.
+/// native animation/motion ID.
     pub motion: u64,
-    /// Stores the `frame` value in `ManualContext` as `f32`.
-    ///
-    ///
-    ///  Holds the frame value used by ManualContext.
+/// current native animation frame.
     pub frame: f32,
-    /// Stores the `rate` value in `ManualContext` as `f32`.
-    ///
-    ///
-    ///  Holds the rate value used by ManualContext.
+/// native animation playback rate.
     pub rate: f32,
-    /// Stores the `stopped` value in `ManualContext` as `bool`.
-    ///
-    ///
-    ///  Holds the stopped value used by ManualContext.
+/// Runtime stopped value used by ManualContext..
     pub stopped: bool,
-    /// Stores the `facing` value in `ManualContext` as `f32`.
-    ///
-    ///
-    ///  Holds the facing value used by ManualContext.
+/// left/right facing sign.
     pub facing: f32,
 }
 
 /// Preserve fine physical input and crouching while capping horizontal motion
 /// for manual ledge spacing. Attack recipes bypass this cap explicitly.
-///
-///  Preserve fine physical input and crouching while capping horizontal motion for manual ledge spacing. Attack recipes bypass this cap explicitly.
-/// ### Arguments
-/// - `physical` (`[f32; 2]`): Represents the physical; the function uses it as input to the operation described above.
-/// - `maximum` (`f32`): Represents the maximum; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `[f32; 2]` value.
 pub fn ledge_walk_stick(physical: [f32; 2], maximum: f32) -> [f32; 2] {
     let base = if maximum.is_finite() {
         maximum.clamp(0.1, 0.45)
@@ -386,16 +261,6 @@ pub fn ledge_walk_stick(physical: [f32; 2], maximum: f32) -> [f32; 2] {
 
 /// Release only outward manual walking input at a known ledge gap.
 /// This uses copied motion, not geometry searches or native position writes.
-///
-///  Release only outward manual walking input at a known ledge gap. This uses copied motion, not geometry searches or native position writes.
-/// ### Arguments
-/// - `stick` (`[f32; 2]`): Represents the stick; the function uses it as input to the operation described above.
-/// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
-/// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
-/// - `spot` (`crate::ledge_position::LedgeSpot`): Represents the spot; the function uses it as input to the operation described above.
-/// - `stand_distance` (`f32`): Represents the stand distance; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `[f32; 2]` value.
 pub fn stop_walk_at_ledge(
     mut stick: [f32; 2],
     position: [f32; 2],
@@ -429,28 +294,13 @@ pub fn stop_walk_at_ledge(
 /// A diagonal press can include Up even when the intended trigger is Left/Right.
 /// Quarantine all D-pad bits involved in a macro press until their release, so
 /// a diagonal or its release cannot turn into a different taunt.
-///
-///  A diagonal press can include Up even when the intended trigger is Left/Right. Quarantine all D-pad bits involved in a macro press until their release, so a diagonal or its release cannot turn into a different taunt.
 #[derive(Default)]
 pub struct DpadReservation {
-    /// Stores the `quarantined` value in `DpadReservation` as `u32`.
-    ///
-    ///
-    ///  Holds the quarantined value used by DpadReservation.
+/// Runtime quarantined value used by DpadReservation..
     quarantined: u32,
 }
 impl DpadReservation {
     /// Updates the toggle state from the current button sample and match state.
-    ///
-    ///
-    ///  Checks the current buttons and updates whether the toggle should activate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `enabled` (`u32`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-    /// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
-    /// - `gameplay` (`bool`): Represents the gameplay; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u32` value.
     pub fn sample(&mut self, enabled: u32, physical: u32, gameplay: bool) -> u32 {
         if !gameplay || enabled == 0 {
             *self = Self::default();
@@ -468,23 +318,14 @@ impl DpadReservation {
     }
 }
 
-/// Defines the `TurboSettings` data structure.
-///
-/// Holds the data for TurboSettings.
+/// Runtime Smash data carried by `TurboSettings`.
 #[derive(Clone, Copy, Debug)]
 pub struct TurboSettings {
     /// Normalized horizontal stick magnitude during crouch and creep phases.
-    ///
-    ///  Normalized horizontal stick magnitude during crouch and creep phases.
     pub walk_strength: f32,
 }
 impl Default for TurboSettings {
     /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             walk_strength: 0.45,
@@ -494,14 +335,6 @@ impl Default for TurboSettings {
 
 /// Grounded idle/walk/run/turn/crouch states qualify. Do not change game
 /// statuses to force the macro through attacks, grabs, hitstop, or aerial states.
-///
-///  Grounded idle/walk/run/turn/crouch states qualify. Do not change game statuses to force the macro through attacks, grabs, hitstop, or aerial states.
-/// ### Arguments
-/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
-/// - `stopped` (`bool`): Represents the stopped; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn turbo_movement_allowed(status: i32, situation: i32, stopped: bool) -> bool {
     situation == crate::native_states::situation::GROUND
         && !stopped
@@ -511,78 +344,37 @@ pub fn turbo_movement_allowed(status: i32, situation: i32, stopped: bool) -> boo
                 .contains(&status))
 }
 
-/// Defines the `TurboOutput` data structure.
-///
-/// Holds the data for TurboOutput.
+/// Runtime Smash data carried by `TurboOutput`.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct TurboOutput {
-    /// Stores the `stick` value in `TurboOutput` as `Option<[f32; 2]>`.
-    ///
-    ///
-    ///  Optionally stores the stick for TurboOutput; it may be absent.
+/// Runtime stick value used by TurboOutput..
     pub stick: Option<[f32; 2]>,
 }
 
 /// Cleans up a deliberate full-stick reversal during a native dash/run. The
 /// two-update hold is advanced by the shared game tick, never mapper polls, so
 /// online input sampling cannot shorten the pivot window.
-///
-///  Cleans up a deliberate full-stick reversal during a native dash/run. The two-update hold is advanced by the shared game tick, never mapper polls, so online input sampling cannot shorten the pivot window.
 #[derive(Default)]
 pub struct DashPivotAssist {
-    /// Stores the `last_direction` value in `DashPivotAssist` as `i8`.
-    ///
-    ///
-    ///  Holds the last direction value used by DashPivotAssist.
+/// Runtime last direction value used by DashPivotAssist..
     last_direction: i8,
-    /// Stores the `active_direction` value in `DashPivotAssist` as `i8`.
-    ///
-    ///
-    ///  Holds the active direction value used by DashPivotAssist.
+/// Runtime active direction value used by DashPivotAssist..
     active_direction: i8,
-    /// Stores the `dash_walk_direction` value in `DashPivotAssist` as `i8`.
-    ///
-    ///
-    ///  Holds the dash walk direction value used by DashPivotAssist.
+/// Runtime dash walk direction value used by DashPivotAssist..
     dash_walk_direction: i8,
-    /// Stores the `updates_left` value in `DashPivotAssist` as `u8`.
-    ///
-    ///
-    ///  Holds the updates left value used by DashPivotAssist.
+/// Runtime updates left value used by DashPivotAssist..
     updates_left: u8,
-    /// Stores the `last_tick` value in `DashPivotAssist` as `Option<i64>`.
-    ///
-    ///
-    ///  Optionally stores the last tick for DashPivotAssist; it may be absent.
+/// Runtime last tick value used by DashPivotAssist..
     last_tick: Option<i64>,
-    /// Stores the `last_output` value in `DashPivotAssist` as `TurboOutput`.
-    ///
-    ///
-    ///  Holds the last output value used by DashPivotAssist.
+/// Runtime last output value used by DashPivotAssist..
     last_output: TurboOutput,
 }
 impl DashPivotAssist {
     /// A higher-priority tool must not leave movement queued for handback.
-    ///
-    ///  A higher-priority tool must not leave movement queued for handback.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel_pending(&mut self) {
         *self = Self::default();
     }
     /// Updates the toggle state from the current button sample and match state.
-    ///
-    ///
-    ///  Checks the current buttons and updates whether the toggle should activate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-    /// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
-    /// - `stopped` (`bool`): Represents the stopped; the function uses it as input to the operation described above.
-    /// - `physical_stick` (`[f32; 2]`): Represents the physical stick; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `TurboOutput` value.
     pub fn sample(
         &mut self,
         tick: i64,
@@ -695,48 +487,22 @@ impl DashPivotAssist {
     }
 }
 
-/// Defines the `TurboState` data structure.
-///
-/// Holds the data for TurboState.
+/// Runtime Smash data carried by `TurboState`.
 #[derive(Default)]
 pub struct TurboState {
-    /// Stores the `direction` value in `TurboState` as `i8`.
-    ///
-    ///
-    ///  Holds the direction value used by TurboState.
+/// Runtime direction value used by TurboState..
     direction: i8,
-    /// Stores the `next_phase` value in `TurboState` as `u32`.
-    ///
-    ///
-    ///  Holds the next phase value used by TurboState.
+/// Runtime next phase value used by TurboState..
     next_phase: u32,
-    /// Stores the `last_tick` value in `TurboState` as `Option<i64>`.
-    ///
-    ///
-    ///  Optionally stores the last tick for TurboState; it may be absent.
+/// Runtime last tick value used by TurboState..
     last_tick: Option<i64>,
-    /// Stores the `last_output` value in `TurboState` as `TurboOutput`.
-    ///
-    ///
-    ///  Holds the last output value used by TurboState.
+/// Runtime last output value used by TurboState..
     last_output: TurboOutput,
 }
 impl TurboState {
     /// A selected button binding runs one crouch update and one gentle
     /// facing-direction walk update per cycle. Duplicate input updates reuse
     /// their output; releasing the binding or losing movement eligibility stops.
-    ///
-    ///  A selected button binding runs one crouch update and one gentle facing-direction walk update per cycle. Duplicate input updates reuse their output; releasing the binding or losing movement eligibility stops.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `settings` (`TurboSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `held` (`bool`): Represents the held; the function uses it as input to the operation described above.
-    /// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
-    /// - `gameplay` (`bool`): Represents the gameplay; the function uses it as input to the operation described above.
-    /// - `can_move` (`bool`): Represents the can move; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `TurboOutput` value.
     pub fn sample_teabag(
         &mut self,
         settings: TurboSettings,
@@ -793,71 +559,33 @@ impl TurboState {
 /// Result consumed by the native mapper; tech/mash button ownership is composed
 /// first. The shared stick overlay accepts analog mash as well as D-pad tools,
 /// owning stick/attack/shield fields only while the active policy requests them.
-///
-///  Result consumed by the native mapper; tech/mash button ownership is composed first. The shared stick overlay accepts analog mash as well as D-pad tools, owning stick/attack/shield fields only while the active policy requests them.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ManualFrame {
-    /// Stores the `buttons` value in `ManualFrame` as `ButtonTrace`.
-    ///
-    ///
-    ///  Holds the buttons value used by ManualFrame.
+/// Runtime buttons value used by ManualFrame..
     pub buttons: ButtonTrace,
-    /// Stores the `stick` value in `ManualFrame` as `[f32; 2]`.
-    ///
-    ///
-    ///  Stores the stick collection for ManualFrame.
+/// Runtime stick value used by ManualFrame..
     pub stick: [f32; 2],
-    /// Stores the `clear_autorepeat` value in `ManualFrame` as `u32`.
-    ///
-    ///
-    ///  Holds the clear autorepeat value used by ManualFrame.
+/// Runtime clear autorepeat value used by ManualFrame..
     pub clear_autorepeat: u32,
 }
-/// Defines the `ManualOverlay` data structure.
-///
-/// Holds the data for ManualOverlay.
+/// Runtime Smash data carried by `ManualOverlay`.
 #[derive(Default)]
 pub struct ManualOverlay {
-    /// Stores the `buttons` value in `ManualOverlay` as `MapperButtonOverlay`.
-    ///
-    ///
-    ///  Holds the buttons value used by ManualOverlay.
+/// Runtime buttons value used by ManualOverlay..
     buttons: MapperButtonOverlay,
-    /// Stores the `had_stick_override` value in `ManualOverlay` as `bool`.
-    ///
-    ///
-    ///  Holds the had stick override value used by ManualOverlay.
+/// Runtime had stick override value used by ManualOverlay..
     had_stick_override: bool,
-    /// Stores the `reaction_owned` value in `ManualOverlay` as `bool`.
-    ///
-    ///
-    ///  Holds the reaction owned value used by ManualOverlay.
+/// Runtime reaction owned value used by ManualOverlay..
     reaction_owned: bool,
 }
 impl ManualOverlay {
     /// Native Guard can have been removed after raw mapping by an earlier mode.
     /// A scheduler-confirmed new tech edge must not inherit that raw held bit.
-    ///
-    ///  Native Guard can have been removed after raw mapping by an earlier mode. A scheduler-confirmed new tech edge must not inherit that raw held bit.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `mask` (`u32`): Represents the mask; the function uses it as input to the operation described above.
-    /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
     pub fn rearm_tech_guard(&mut self, mask: u32, human: ButtonTrace) {
         self.buttons.rearm_requested(mask, human.previous);
     }
 
     /// Applies the supplied configuration or action.
-    ///
-    ///
-    ///  Makes the supplied change.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
-    /// - `physical_stick` (`[f32; 2]`): Represents the physical stick; the function uses it as input to the operation described above.
-    /// - `output` (`TurboOutput`): Represents the output data being produced; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ManualFrame` value.
     pub fn apply(
         &mut self,
         human: ButtonTrace,
@@ -869,18 +597,6 @@ impl ManualOverlay {
 
     /// Compose an additional hold control through the SAME button history.
     /// Separate chained histories could fabricate edges when ownership changes.
-    ///
-    ///  Compose an additional hold control through the SAME button history. Separate chained histories could fabricate edges when ownership changes.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
-    /// - `physical_stick` (`[f32; 2]`): Represents the physical stick; the function uses it as input to the operation described above.
-    /// - `output` (`TurboOutput`): Represents the output data being produced; the function uses it as input to the operation described above.
-    /// - `extra_consumed` (`u32`): Represents the extra consumed; the function uses it as input to the operation described above.
-    /// - `requested_buttons` (`u32`): Represents the requested buttons; the function uses it as input to the operation described above.
-    /// - `owned_buttons` (`u32`): Represents the owned buttons; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ManualFrame` value.
     pub fn apply_controls(
         &mut self,
         human: ButtonTrace,
@@ -902,19 +618,6 @@ impl ManualOverlay {
     }
     /// Only Auto react opts into a fresh first horizontal flick. Automatic
     /// grabs, ledge tapes, native safety and other helpers keep their history.
-    ///
-    ///  Only Auto react opts into a fresh first horizontal flick. Automatic grabs, ledge tapes, native safety and other helpers keep their history.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `human` (`ButtonTrace`): Represents the human; the function uses it as input to the operation described above.
-    /// - `physical_stick` (`[f32; 2]`): Represents the physical stick; the function uses it as input to the operation described above.
-    /// - `output` (`TurboOutput`): Represents the output data being produced; the function uses it as input to the operation described above.
-    /// - `extra_consumed` (`u32`): Represents the extra consumed; the function uses it as input to the operation described above.
-    /// - `requested_buttons` (`u32`): Represents the requested buttons; the function uses it as input to the operation described above.
-    /// - `owned_buttons` (`u32`): Represents the owned buttons; the function uses it as input to the operation described above.
-    /// - `reaction_owned` (`bool`): Represents the reaction owned; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ManualFrame` value.
     pub fn apply_reaction_controls(
         &mut self,
         human: ButtonTrace,
@@ -1011,13 +714,6 @@ impl ManualOverlay {
 
 /// Apply consumption after history reconstruction too: old native trigger
 /// history must never reappear as a synthetic taunt press/release.
-///
-///  Apply consumption after history reconstruction too: old native trigger history must never reappear as a synthetic taunt press/release.
-/// ### Arguments
-/// - `trace` (`ButtonTrace`): Represents the trace; the function uses it as input to the operation described above.
-/// - `mask` (`u32`): Represents the mask; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `ButtonTrace` value.
 fn remove_consumed(trace: ButtonTrace, mask: u32) -> ButtonTrace {
     ButtonTrace {
         held: trace.held & !mask,
@@ -1035,14 +731,6 @@ fn remove_consumed(trace: ButtonTrace, mask: u32) -> ButtonTrace {
 // if native taunt repeat/history can survive the raw overlay.
 /// Physical bindings reserve taunts, but an explicit owned sequence request
 /// must retain its ordinary D-pad meaning. Side-taunt filtering is a pair.
-///
-///  Filter the mapper RESULT as well as raw inputs. Native mapping can retain repeat/history state beyond the four raw words. Only reserved taunts are removed; this neither adds attack commands nor changes unrelated buttons.
-/// ### Arguments
-/// - `consumed` (`u32`): Represents the consumed; the function uses it as input to the operation described above.
-/// - `requested` (`u32`): Represents the requested; the function uses it as input to the operation described above.
-/// - `owned` (`u32`): Represents the owned; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `u32` value.
 pub fn sequence_taunt_reservation(consumed: u32, requested: u32, owned: u32) -> u32 {
     let intentional = requested & owned & crate::native_input::MAPPER_DPAD_BUTTONS;
     let sides = if intentional & DPAD_SIDES != 0 {
@@ -1053,13 +741,7 @@ pub fn sequence_taunt_reservation(consumed: u32, requested: u32, owned: u32) -> 
     consumed & !(intentional | sides)
 }
 /// Determines whether reserved taunt inputs must be suppressed.
-///
 /// Checks whether the reserved taunt buttons should be ignored.
-/// ### Arguments
-/// - `mapped_buttons` (`u32`): Represents the mapped buttons; the function uses it as input to the operation described above.
-/// - `consumed` (`u32`): Represents the consumed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `u32` value.
 pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
     let sides = if consumed & DPAD_SIDES != 0 {
         crate::native_input::MAPPED_TAUNT_SIDES
@@ -1084,33 +766,17 @@ pub fn suppress_reserved_taunts(mapped_buttons: u32, consumed: u32) -> u32 {
 mod tests;
 
 /// Constant-size physical-input history for explicit sequence handback.
-///
-///  Constant-size physical-input history for explicit sequence handback.
 #[derive(Clone, Copy, Default)]
 pub struct ManualTakeover {
-    /// Stores the `previous` value in `ManualTakeover` as `Option<(u32`.
-    ///
-    ///
-    ///  Optionally stores the previous for ManualTakeover; it may be absent.
+/// Runtime previous value used by ManualTakeover..
     previous: Option<(u32, [f32; 4])>,
-    /// Stores the `epoch` value in `ManualTakeover` as `u64`.
-    ///
-    ///
-    ///  Holds the epoch value used by ManualTakeover.
+/// Runtime epoch value used by ManualTakeover..
     epoch: u64,
-    /// Stores the `action_epoch` value in `ManualTakeover` as `u64`.
-    ///
-    ///
-    ///  Holds the action epoch value used by ManualTakeover.
+/// Runtime action epoch value used by ManualTakeover..
     action_epoch: u64,
 }
 impl ManualTakeover {
     /// Constructs a new value with the type’s initial state.
-    ///
-    ///
-    ///  Creates a new value.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             previous: None,
@@ -1119,60 +785,26 @@ impl ManualTakeover {
         }
     }
     /// Returns the current session epoch.
-    ///
-    ///
-    ///  Gets the current session generation.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u64` value.
     pub fn epoch(&self) -> u64 {
         self.epoch
     }
     /// Returns the requested stick direction.
-    ///
-    ///
-    ///  Gets the chosen stick direction.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `[f32; 2]` value.
     pub fn stick(&self) -> [f32; 2] {
         self.previous
             .map_or([0.; 2], |(_, axes)| [axes[0], axes[1]])
     }
     /// Physical gameplay-button/C-stick edges, separate from movement intent.
     /// Committed automation reads the owner's frozen policy snapshot.
-    ///
-    ///  Physical gameplay-button/C-stick edges, separate from movement intent. Committed automation reads the owner's frozen policy snapshot.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u64` value.
     pub fn action_epoch(&self) -> u64 {
         self.action_epoch
     }
     /// Checks whether shield input is currently held.
-    ///
-    ///
-    ///  Checks whether shield is being held.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn shield_held(&self) -> bool {
         self.previous
             .is_some_and(|(buttons, _)| buttons & crate::native_input::MAPPER_ZR != 0)
     }
     /// Native WAIT can lag a fresh run input. Stationary assists must inspect
     /// the physical stick too; an existing shield still permits OOS actions.
-    ///
-    ///  Native WAIT can lag a fresh run input. Stationary assists must inspect the physical stick too; an existing shield still permits OOS actions.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn stationary_assist(&self, status: i32) -> bool {
         use crate::native_input::*;
         self.previous.is_some_and(|(buttons, axes)| {
@@ -1198,13 +830,6 @@ impl ManualTakeover {
     /// Grounded offense may use a held horizontal walk/run input. Native or
     /// freshly pressed shield keeps the stricter tilt/roll gate; manual attacks,
     /// C-stick, and strong vertical jump/drop intent keep player priority.
-    ///
-    ///  Grounded offense may use a held horizontal walk/run input. Native or freshly pressed shield keeps the stricter tilt/roll gate; manual attacks, C-stick, and strong vertical jump/drop intent keep player priority.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn grounded_grab_assist(&self, status: i32) -> bool {
         use crate::native_input::*;
         self.previous.is_some_and(|(buttons, axes)| {
@@ -1224,13 +849,6 @@ impl ManualTakeover {
         })
     }
     /// Updates the toggle state from the current button sample and match state.
-    ///
-    ///
-    ///  Checks the current buttons and updates whether the toggle should activate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-    /// - `sticks` (`[f32; 4]`): Represents the sticks; the function uses it as input to the operation described above.
     pub fn sample(&mut self, buttons: u32, sticks: [f32; 4]) {
         use crate::native_input::*;
         let mask = MAPPER_A | MAPPER_B | MAPPER_X | MAPPER_Y | MAPPER_R | MAPPER_ZR | MAPPER_ZL;

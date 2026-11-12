@@ -7,12 +7,7 @@ use crate::{
     settings::AssistSettings,
 };
 /// Determines whether the `starts_direct_up_b` condition holds.
-///
 /// Checks whether starts direct up b.
-/// ### Arguments
-/// - `sequence` (`&Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn starts_direct_up_b(sequence: &Sequence) -> bool {
     simple::starts_up_b(sequence)
 }
@@ -26,13 +21,6 @@ pub use scope::{
 };
 /// An automatic reaction tape: delivered holds survive observation gaps and a
 /// pending Grab/Up-B is rejected after manual takeoff.
-///
-///  An automatic reaction tape: delivered holds survive observation gaps and a pending Grab/Up-B is rejected after manual takeoff.
-/// ### Arguments
-/// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-/// - `enemy` (`Opponent`): Represents the enemy; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `InputTimeline` value.
 pub(crate) fn automatic_plan(sequence: Sequence, enemy: Opponent) -> InputTimeline {
     let mut plan = InputTimeline::new(sequence, enemy);
     plan.allow_continuous_progress();
@@ -40,34 +28,13 @@ pub(crate) fn automatic_plan(sequence: Sequence, enemy: Opponent) -> InputTimeli
     plan
 }
 /// Per-actor memory of a native event that may already have been answered.
-///
-///  Per-actor memory of a native event that may already have been answered.
 pub(crate) trait Tracked: Copy {
     /// Returns the native identifier of the observed object.
-    ///
-    ///
-    ///  Gets the object’s identifier.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u32` value.
     fn id(&self) -> u32;
     /// Returns an optional `status` value.
-    ///
-    ///
-    ///  Gets status if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `i32` value.
     fn status(&self) -> i32;
 }
 /// Positive status evidence that an actor left its remembered event.
-///
-///  Positive status evidence that an actor left its remembered event.
-/// ### Arguments
-/// - `tracks` (`&mut [Option<T>]`): Represents the tracks; the function uses it as input to the operation described above.
-/// - `known` (`&[Option<(u32, i32)>; N]`): Represents the known; the function uses it as input to the operation described above.
 pub(crate) fn forget_ended<T: Tracked, const N: usize>(
     tracks: &mut [Option<T>],
     known: &[Option<(u32, i32)>; N],
@@ -85,13 +52,6 @@ pub(crate) fn forget_ended<T: Tracked, const N: usize>(
 }
 /// Missing samples are not evidence of a new event: keep selected memories of
 /// actors absent from this poll in spare slots until a different status is seen.
-///
-///  Missing samples are not evidence of a new event: keep selected memories of actors absent from this poll in spare slots until a different status is seen.
-/// ### Arguments
-/// - `tracks` (`&mut [Option<T>]`): Represents the tracks; the function uses it as input to the operation described above.
-/// - `old` (`impl IntoIterator<Item = T>`): Represents the old; the function uses it as input to the operation described above.
-/// - `observed` (`impl Iterator<Item = (u32, i32)> + Clone`): Represents the observed; the function uses it as input to the operation described above.
-/// - `keep` (`impl Fn(&T) -> bool`): Represents the keep; the function uses it as input to the operation described above.
 pub(crate) fn retain_missing<T: Tracked>(
     tracks: &mut [Option<T>],
     old: impl IntoIterator<Item = T>,
@@ -112,160 +72,72 @@ pub(crate) fn retain_missing<T: Tracked>(
     }
 }
 /// Sets the upper bound for rules per mode.
-///
 /// Holds the MAX RULES PER MODE value.
 pub const MAX_RULES_PER_MODE: usize = 8;
 /// Sets the upper bound for rules.
-///
 /// Holds the MAX RULES value.
 pub const MAX_RULES: usize = MAX_RULES_PER_MODE * 7;
-/// Defines the available `Trigger` cases.
-///
-/// Lists the available Trigger choices.
+/// Available `Trigger` choices for the Smash assistance menu.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Trigger {
     #[default]
-    /// Represents the `Off` case of `Trigger`.
-    ///
-    ///
-///  Represents the Off option in Trigger.
+/// `Off` option in the `Trigger` Smash policy state.
     Off,
-    /// Represents the `Roll` case of `Trigger`.
-    ///
-    ///
-///  Represents the Roll option in Trigger.
+/// `Roll` option in the `Trigger` Smash policy state.
     Roll,
-    /// Represents the `Crossed` case of `Trigger`.
-    ///
-    ///
-///  Represents the Crossed option in Trigger.
+/// `Crossed` option in the `Trigger` Smash policy state.
     Crossed,
-    /// Represents the `Vulnerable` case of `Trigger`.
-    ///
-    ///
-///  Represents the Vulnerable option in Trigger.
+/// `Vulnerable` option in the `Trigger` Smash policy state.
     Vulnerable,
-    /// Represents the `CrossVulnerable` case of `Trigger`.
-    ///
-    ///
-///  Represents the CrossVulnerable option in Trigger.
+/// `CrossVulnerable` option in the `Trigger` Smash policy state.
     CrossVulnerable,
-    /// Represents the `ShieldHit` case of `Trigger`.
-    ///
-    ///
-///  Represents the ShieldHit option in Trigger.
+/// `ShieldHit` option in the `Trigger` Smash policy state.
     ShieldHit,
-    /// Represents the `GrabDodged` case of `Trigger`.
-    ///
-    ///
-///  Represents the GrabDodged option in Trigger.
+/// `GrabDodged` option in the `Trigger` Smash policy state.
     GrabDodged,
-    /// Represents the `LedgeRegrab` case of `Trigger`.
-    ///
-    ///
-///  Represents the LedgeRegrab option in Trigger.
+/// `LedgeRegrab` option in the `Trigger` Smash policy state.
     LedgeRegrab,
-    /// Represents the `SpotDodge` case of `Trigger`.
-    ///
-    ///
-///  Represents the SpotDodge option in Trigger.
+/// `SpotDodge` option in the `Trigger` Smash policy state.
     SpotDodge,
-    /// Represents the `EnemyShield` case of `Trigger`.
-    ///
-    ///
-///  Represents the EnemyShield option in Trigger.
+/// `EnemyShield` option in the `Trigger` Smash policy state.
     EnemyShield,
-    /// Represents the `ShieldRoll` case of `Trigger`.
-    ///
-    ///
-///  Represents the ShieldRoll option in Trigger.
+/// `ShieldRoll` option in the `Trigger` Smash policy state.
     ShieldRoll,
-    /// Represents the `ShieldCross` case of `Trigger`.
-    ///
-    ///
-///  Represents the ShieldCross option in Trigger.
+/// `ShieldCross` option in the `Trigger` Smash policy state.
     ShieldCross,
-    /// Represents the `ShieldVulnerable` case of `Trigger`.
-    ///
-    ///
-///  Represents the ShieldVulnerable option in Trigger.
+/// `ShieldVulnerable` option in the `Trigger` Smash policy state.
     ShieldVulnerable,
-    /// Represents the `ShieldCrossVulnerable` case of `Trigger`.
-    ///
-    ///
-///  Represents the ShieldCrossVulnerable option in Trigger.
+/// `ShieldCrossVulnerable` option in the `Trigger` Smash policy state.
     ShieldCrossVulnerable,
-    /// Represents the `ShieldAway` case of `Trigger`.
-    ///
-    ///
-///  Represents the ShieldAway option in Trigger.
+/// `ShieldAway` option in the `Trigger` Smash policy state.
     ShieldAway,
-    /// Represents the `ShieldAwayVulnerable` case of `Trigger`.
-    ///
-    ///
-///  Represents the ShieldAwayVulnerable option in Trigger.
+/// `ShieldAwayVulnerable` option in the `Trigger` Smash policy state.
     ShieldAwayVulnerable,
-    /// Represents the `ShieldPressureVulnerable` case of `Trigger`.
-    ///
-    ///
-///  Represents the ShieldPressureVulnerable option in Trigger.
+/// `ShieldPressureVulnerable` option in the `Trigger` Smash policy state.
     ShieldPressureVulnerable,
-    /// Represents the `ShieldHitVulnerable` case of `Trigger`.
-    ///
-    ///
-///  Represents the ShieldHitVulnerable option in Trigger.
+/// `ShieldHitVulnerable` option in the `Trigger` Smash policy state.
     ShieldHitVulnerable,
-    /// Represents the `GrabDodgedVulnerable` case of `Trigger`.
-    ///
-    ///
-///  Represents the GrabDodgedVulnerable option in Trigger.
+/// `GrabDodgedVulnerable` option in the `Trigger` Smash policy state.
     GrabDodgedVulnerable,
-    /// Represents the `SpotDodgeAny` case of `Trigger`.
-    ///
-    ///
-///  Represents the SpotDodgeAny option in Trigger.
+/// `SpotDodgeAny` option in the `Trigger` Smash policy state.
     SpotDodgeAny,
-    /// Represents the `AutoRoll` case of `Trigger`.
-    ///
-    ///
-///  Represents the AutoRoll option in Trigger.
+/// `AutoRoll` option in the `Trigger` Smash policy state.
     AutoRoll,
-    /// Represents the `AutoSpot` case of `Trigger`.
-    ///
-    ///
-///  Represents the AutoSpot option in Trigger.
+/// `AutoSpot` option in the `Trigger` Smash policy state.
     AutoSpot,
-    /// Represents the `AutoAir` case of `Trigger`.
-    ///
-    ///
-///  Represents the AutoAir option in Trigger.
+/// `AutoAir` option in the `Trigger` Smash policy state.
     AutoAir,
-    /// Represents the `AutoGrab` case of `Trigger`.
-    ///
-    ///
-///  Represents the AutoGrab option in Trigger.
+/// `AutoGrab` option in the `Trigger` Smash policy state.
     AutoGrab,
-    /// Represents the `AutoShieldGrab` case of `Trigger`.
-    ///
-    ///
-///  Represents the AutoShieldGrab option in Trigger.
+/// `AutoShieldGrab` option in the `Trigger` Smash policy state.
     AutoShieldGrab,
-    /// Represents the `AutoGrabDodged` case of `Trigger`.
-    ///
-    ///
-///  Represents the AutoGrabDodged option in Trigger.
+/// `AutoGrabDodged` option in the `Trigger` Smash policy state.
     AutoGrabDodged,
-    /// Represents the `AutoShieldBackup` case of `Trigger`.
-    ///
-    ///
-///  Represents the AutoShieldBackup option in Trigger.
+/// `AutoShieldBackup` option in the `Trigger` Smash policy state.
     AutoShieldBackup,
 }
 impl Trigger {
-    /// Defines the `AUTO_EVENTS` constant used by this module.
-    ///
-    ///
-///  Provides the AUTO EVENTS constant value.
+/// `AUTO_EVENTS` is a configuration value used by the Smash runtime.
     pub const AUTO_EVENTS: [Self; 7] = [
         Self::AutoRoll,
         Self::AutoSpot,
@@ -276,13 +148,6 @@ impl Trigger {
         Self::AutoShieldBackup,
     ];
     /// Returns the `auto_name` result.
-    ///
-    ///
-    ///  Gets the auto name result.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn auto_name(self) -> &'static str {
         match self {
             Self::AutoRoll => "Roll",
@@ -296,10 +161,7 @@ impl Trigger {
         }
     }
 
-    /// Defines the `ALL` constant used by this module.
-    ///
-    ///
-///  Provides the ALL constant value.
+/// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 27] = [
         Self::Off,
         Self::Roll,
@@ -330,13 +192,6 @@ impl Trigger {
         Self::AutoShieldBackup,
     ];
     /// Returns the `family` result.
-    ///
-    ///
-    ///  Gets the family result.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `usize` value.
     pub fn family(self) -> usize {
         match self {
             t if t.simple().is_some() => 6,
@@ -349,13 +204,6 @@ impl Trigger {
         }
     }
     /// Returns an optional `simple` value.
-    ///
-    ///
-    ///  Gets simple if it is available.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn simple(self) -> Option<usize> {
         match self {
             Self::AutoRoll => Some(0),
@@ -369,13 +217,6 @@ impl Trigger {
         }
     }
     /// Determines whether the `shield_pressure` condition holds.
-    ///
-    ///
-    ///  Checks whether shield pressure.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn shield_pressure(self) -> bool {
         matches!(
             self,
@@ -389,10 +230,7 @@ impl Trigger {
                 | Self::ShieldPressureVulnerable
         )
     }
-    /// Defines the `SHIELD_EVENTS` constant used by this module.
-    ///
-    ///
-///  Provides the SHIELD EVENTS constant value.
+/// `SHIELD_EVENTS` is a configuration value used by the Smash runtime.
     pub const SHIELD_EVENTS: [Self; 8] = [
         Self::EnemyShield,
         Self::ShieldRoll,
@@ -404,13 +242,6 @@ impl Trigger {
         Self::ShieldPressureVulnerable,
     ];
     /// Determines whether the `defensive` condition holds.
-    ///
-    ///
-    ///  Checks whether defensive.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn defensive(self) -> bool {
         self.shield_pressure()
             || matches!(
@@ -425,14 +256,6 @@ impl Trigger {
             )
     }
     /// Determines whether the `event_matches` condition holds.
-    ///
-    ///
-    ///  Checks whether event matches.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `event` (`Self`): Represents the event; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn event_matches(self, event: Self) -> bool {
         self == event
             || matches!(
@@ -443,13 +266,6 @@ impl Trigger {
             )
     }
     /// Determines whether vulnerable.
-    ///
-    ///
-    ///  Checks whether vulnerable.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_vulnerable(self) -> bool {
         matches!(
             self,
@@ -460,13 +276,6 @@ impl Trigger {
         )
     }
     /// Returns the `events` result.
-    ///
-    ///
-    ///  Gets the events result.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `&'static [Self]` value.
     pub fn events(self) -> &'static [Self] {
         match self.family() {
             6 => &Self::AUTO_EVENTS,
@@ -484,13 +293,6 @@ impl Trigger {
         }
     }
     /// Returns the serialized token for the value.
-    ///
-    ///
-    ///  Gets the text form used when saving this value.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn token(self) -> &'static str {
         match self {
             Self::AutoGrab => "auto_grab",
@@ -523,53 +325,27 @@ impl Trigger {
         }
     }
 }
-/// Defines the available `SelfState` cases.
-///
-/// Lists the available SelfState choices.
+/// Available `SelfState` choices for the Smash assistance menu.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SelfState {
     #[default]
-    /// Represents the `Any` case of `SelfState`.
-    ///
-    ///
-///  Represents the Any option in SelfState.
+/// `Any` option in the `SelfState` Smash policy state.
     Any,
-    /// Represents the `Grounded` case of `SelfState`.
-    ///
-    ///
-///  Represents the Grounded option in SelfState.
+/// `Grounded` option in the `SelfState` Smash policy state.
     Grounded,
-    /// Represents the `Airborne` case of `SelfState`.
-    ///
-    ///
-///  Represents the Airborne option in SelfState.
+/// `Airborne` option in the `SelfState` Smash policy state.
     Airborne,
-    /// Represents the `Standing` case of `SelfState`.
-    ///
-    ///
-///  Represents the Standing option in SelfState.
+/// `Standing` option in the `SelfState` Smash policy state.
     Standing,
-    /// Represents the `Walking` case of `SelfState`.
-    ///
-    ///
-///  Represents the Walking option in SelfState.
+/// `Walking` option in the `SelfState` Smash policy state.
     Walking,
-    /// Represents the `Running` case of `SelfState`.
-    ///
-    ///
-///  Represents the Running option in SelfState.
+/// `Running` option in the `SelfState` Smash policy state.
     Running,
-    /// Represents the `Shielding` case of `SelfState`.
-    ///
-    ///
-///  Represents the Shielding option in SelfState.
+/// `Shielding` option in the `SelfState` Smash policy state.
     Shielding,
 }
 impl SelfState {
-    /// Defines the `ALL` constant used by this module.
-    ///
-    ///
-///  Provides the ALL constant value.
+/// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 7] = [
         Self::Any,
         Self::Grounded,
@@ -580,13 +356,6 @@ impl SelfState {
         Self::Shielding,
     ];
     /// Returns the serialized token for the value.
-    ///
-    ///
-    ///  Gets the text form used when saving this value.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn token(self) -> &'static str {
         match self {
             Self::Any => "any",
@@ -599,14 +368,6 @@ impl SelfState {
         }
     }
     /// Determines whether the `matches` condition holds.
-    ///
-    ///
-    ///  Checks whether matches.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(crate) fn matches(self, c: GameplayContext) -> bool {
         match self {
             Self::Any => true,
@@ -640,42 +401,21 @@ impl SelfState {
         }
     }
 }
-/// Defines the available `Side` cases.
-///
-/// Lists the available Side choices.
+/// Available `Side` choices for the Smash assistance menu.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Side {
     #[default]
-    /// Represents the `Any` case of `Side`.
-    ///
-    ///
-///  Represents the Any option in Side.
+/// `Any` option in the `Side` Smash policy state.
     Any,
-    /// Represents the `Front` case of `Side`.
-    ///
-    ///
-///  Represents the Front option in Side.
+/// `Front` option in the `Side` Smash policy state.
     Front,
-    /// Represents the `Behind` case of `Side`.
-    ///
-    ///
-///  Represents the Behind option in Side.
+/// `Behind` option in the `Side` Smash policy state.
     Behind,
 }
 impl Side {
-    /// Defines the `ALL` constant used by this module.
-    ///
-    ///
-///  Provides the ALL constant value.
+/// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 3] = [Self::Any, Self::Front, Self::Behind];
     /// Returns the serialized token for the value.
-    ///
-    ///
-    ///  Gets the text form used when saving this value.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn token(self) -> &'static str {
         match self {
             Self::Any => "any",
@@ -685,52 +425,26 @@ impl Side {
     }
 }
 /// Activation group, independent of trigger conditions and response actions.
-///
-///  Activation group, independent of trigger conditions and response actions.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Control {
     #[default]
-    /// Represents the `Menu` case of `Control`.
-    ///
-    ///
-///  Represents the Menu option in Control.
+/// `Menu` option in the `Control` Smash policy state.
     Menu,
-    /// Represents the `ToggleX` case of `Control`.
-    ///
-    ///
-///  Represents the ToggleX option in Control.
+/// `ToggleX` option in the `Control` Smash policy state.
     ToggleX,
-    /// Represents the `ToggleY` case of `Control`.
-    ///
-    ///
-///  Represents the ToggleY option in Control.
+/// `ToggleY` option in the `Control` Smash policy state.
     ToggleY,
-    /// Represents the `ToggleUp` case of `Control`.
-    ///
-    ///
-///  Represents the ToggleUp option in Control.
+/// `ToggleUp` option in the `Control` Smash policy state.
     ToggleUp,
-    /// Represents the `ToggleDown` case of `Control`.
-    ///
-    ///
-///  Represents the ToggleDown option in Control.
+/// `ToggleDown` option in the `Control` Smash policy state.
     ToggleDown,
-    /// Represents the `ToggleLeft` case of `Control`.
-    ///
-    ///
-///  Represents the ToggleLeft option in Control.
+/// `ToggleLeft` option in the `Control` Smash policy state.
     ToggleLeft,
-    /// Represents the `ToggleRight` case of `Control`.
-    ///
-    ///
-///  Represents the ToggleRight option in Control.
+/// `ToggleRight` option in the `Control` Smash policy state.
     ToggleRight,
 }
 impl Control {
-    /// Defines the `ALL` constant used by this module.
-    ///
-    ///
-///  Provides the ALL constant value.
+/// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 7] = [
         Self::Menu,
         Self::ToggleX,
@@ -741,24 +455,10 @@ impl Control {
         Self::ToggleRight,
     ];
     /// Tests whether the requested bit is set in the value.
-    ///
-    ///
-    ///  Checks whether this bit is on.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u8` value.
     pub fn bit(self) -> u8 {
         1 << self as u8
     }
     /// Returns the serialized token for the value.
-    ///
-    ///
-    ///  Gets the text form used when saving this value.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn token(self) -> &'static str {
         match self {
             Self::Menu => "menu",
@@ -771,13 +471,6 @@ impl Control {
         }
     }
     /// Returns the display label for the value.
-    ///
-    ///
-    ///  Gets the text shown for this value.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn label(self) -> &'static str {
         match self {
             Self::Menu => "Menu",
@@ -790,13 +483,6 @@ impl Control {
         }
     }
     /// Returns the button associated with the binding.
-    ///
-    ///
-    ///  Gets the assigned button.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u32` value.
     pub fn button(self) -> u32 {
         use crate::{manual_controls::*, native_input::*};
         match self {
@@ -810,59 +496,28 @@ impl Control {
         }
     }
 }
-/// Defines the `Rule` data structure.
-///
-/// Holds the data for Rule.
+/// Runtime Smash data carried by `Rule`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rule {
-    /// Stores the `trigger` value in `Rule` as `Trigger`.
-    ///
-    ///
-///  Holds the trigger value used by Rule.
+/// Runtime trigger value used by Rule..
     pub trigger: Trigger,
-    /// Stores the `state` value in `Rule` as `SelfState`.
-    ///
-    ///
-///  Holds the state value used by Rule.
+/// Runtime state value used by Rule..
     pub state: SelfState,
-    /// Stores the `min` value in `Rule` as `f32`.
-    ///
-    ///
-///  Holds the min value used by Rule.
+/// Runtime min value used by Rule..
     pub min: f32,
-    /// Stores the `max` value in `Rule` as `f32`.
-    ///
-    ///
-///  Holds the max value used by Rule.
+/// Runtime max value used by Rule..
     pub max: f32,
-    /// Stores the `height` value in `Rule` as `f32`.
-    ///
-    ///
-///  Holds the height value used by Rule.
+/// Runtime height value used by Rule..
     pub height: f32,
-    /// Stores the `side` value in `Rule` as `Side`.
-    ///
-    ///
-///  Holds the side value used by Rule.
+/// Runtime side value used by Rule..
     pub side: Side,
-    /// Stores the `priority` value in `Rule` as `u8`.
-    ///
-    ///
-///  Holds the priority value used by Rule.
+/// Runtime priority value used by Rule..
     pub priority: u8,
-    /// Stores the `control` value in `Rule` as `Control`.
-    ///
-    ///
-///  Holds the control value used by Rule.
+/// Runtime control value used by Rule..
     pub control: Control,
 }
 impl Default for Rule {
     /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             trigger: Trigger::Off,
@@ -878,26 +533,11 @@ impl Default for Rule {
 }
 impl Rule {
     /// Checks whether the feature is active.
-    ///
-    ///
-    ///  Checks whether the feature is on.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(self) -> bool {
         self.trigger != Trigger::Off
     }
     /// The first failing self-state/range/height/side gate for a target at
     /// `target`, in the order shown as feedback. Non-finite geometry never fits.
-    ///
-    ///  The first failing self-state/range/height/side gate for a target at target, in the order shown as feedback. Non-finite geometry never fits.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `target` (`[f32; 2]`): Represents the target object or value being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(crate) fn rejects(self, c: GameplayContext, target: [f32; 2]) -> Option<Feedback> {
         if !self.state.matches(c) {
             return Some(Feedback::State);
@@ -919,14 +559,6 @@ impl Rule {
         None
     }
     /// Returns the `field` result.
-    ///
-    ///
-    ///  Gets the field result.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `n` (`u8`): Represents the n; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn field(self, n: u8) -> String {
         match n {
             0 => format!(
@@ -986,22 +618,8 @@ impl Rule {
         }
     }
     /// Updates the `adjust` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates adjust.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `n` (`u8`): Represents the n; the function uses it as input to the operation described above.
-    /// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
     pub fn adjust(&mut self, n: u8, up: bool) {
         /// Advances the selected choice to the next value.
-        ///
-        ///
-        ///  Moves to the next choice.
-        /// ### Arguments
-        /// - `v` (`&mut T`): Represents the v; the function uses it as input to the operation described above.
-        /// - `all` (`&[T]`): Represents the all; the function uses it as input to the operation described above.
-        /// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
         fn cycle<T: Copy + PartialEq>(v: &mut T, all: &[T], up: bool) {
             let i = all.iter().position(|x| x == v).unwrap_or(0);
             *v = all[(i + if up { 1 } else { all.len() - 1 }) % all.len()]
@@ -1034,13 +652,6 @@ impl Rule {
         }
     }
     /// Returns the `validate` result.
-    ///
-    ///
-    ///  Gets the validate result.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn validate(self) -> Result<(), String> {
         if (self.trigger.defensive() || self.trigger.simple().is_some())
             && self.control != Control::Menu
@@ -1062,13 +673,6 @@ impl Rule {
         }
     }
     /// Parses the supplied source into the module’s validated representation.
-    ///
-    ///
-    ///  Reads the source and checks that it is valid.
-    /// ### Arguments
-    /// - `s` (`&str`): Represents the s; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn parse(s: &str) -> Result<Self, String> {
         let p: Vec<_> = s.trim().split(':').collect();
         if p.len() == 3 {
@@ -1132,13 +736,6 @@ impl Rule {
         })
     }
     /// Returns the serialized token for the value.
-    ///
-    ///
-    ///  Gets the text form used when saving this value.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn token(self) -> String {
         if self.trigger.simple().is_some() {
             return format!("{}:{}:{}", self.trigger.token(), self.max, self.height);
@@ -1161,12 +758,7 @@ impl Rule {
     }
 }
 /// Validates the response.
-///
 /// Validates the response.
-/// ### Arguments
-/// - `s` (`Sequence`): Represents the s; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn validate_response(s: Sequence) -> Result<(), String> {
     s.reaction.validate()?;
     crate::sequence_config::validate_facing_blocks(s.actions())?;
@@ -1181,84 +773,39 @@ pub fn validate_response(s: Sequence) -> Result<(), String> {
     }
     Ok(())
 }
-/// Defines the `Candidate` data structure.
-///
-/// Holds the data for Candidate.
+/// Runtime Smash data carried by `Candidate`.
 #[derive(Clone, Copy)]
 pub struct Candidate {
-    /// Stores the `slot` value in `Candidate` as `usize`.
-    ///
-    ///
-///  Holds the slot value used by Candidate.
+/// Runtime slot value used by Candidate..
     pub slot: usize,
-    /// Stores the `index` value in `Candidate` as `usize`.
-    ///
-    ///
-///  Holds the index value used by Candidate.
+/// Runtime index value used by Candidate..
     pub index: usize,
-    /// Stores the `sequence` value in `Candidate` as `Sequence`.
-    ///
-    ///
-///  Holds the sequence value used by Candidate.
+/// Runtime sequence value used by Candidate..
     pub sequence: Sequence,
 }
-/// Defines the `Resolved` data structure.
-///
-/// Holds the data for Resolved.
+/// Runtime Smash data carried by `Resolved`.
 pub struct Resolved {
-    /// Stores the `rules` value in `Resolved` as `Vec<Option<Candidate>>`.
-    ///
-    ///
-///  Stores the configured scenario rules in fixed-size slots.
+/// Runtime rules value used by Resolved..
     pub rules: Vec<Option<Candidate>>,
-    /// Stores the `len` value in `Resolved` as `usize`.
-    ///
-    ///
-///  Holds the len value used by Resolved.
+/// Runtime len value used by Resolved..
     pub len: usize,
-    /// Stores the `controls` value in `Resolved` as `u8`.
-    ///
-    ///
-///  Holds the controls value used by Resolved.
+/// Runtime controls value used by Resolved..
     pub controls: u8,
-    /// Stores the `enabled_controls` value in `Resolved` as `u8`.
-    ///
-    ///
-///  Holds the enabled controls value used by Resolved.
+/// Runtime enabled controls value used by Resolved..
     pub enabled_controls: u8,
-    /// Stores the `defense_mask` value in `Resolved` as `u32`.
-    ///
-    ///
-///  Holds the defense mask value used by Resolved.
+/// Runtime defense mask value used by Resolved..
     defense_mask: u32,
-    /// Stores the `simple` value in `Resolved` as `Option<Box<[Option<Sequence>; 7]>>`.
-    ///
-    ///
-///  Optionally stores the simple for Resolved; it may be absent.
+/// Runtime simple value used by Resolved..
     simple: Option<Box<[Option<Sequence>; 7]>>,
-    /// Stores the `simple_starts` value in `Resolved` as `[Option<SimpleStart>; 3]`.
-    ///
-    ///
-///  Stores the simple starts collection for Resolved.
+/// Runtime simple starts value used by Resolved..
     simple_starts: [Option<SimpleStart>; 3],
-    /// Stores the `automatic_ground` value in `Resolved` as `[Option<(f32`.
-    ///
-    ///
-///  Stores the automatic ground collection for Resolved.
+/// Runtime automatic ground value used by Resolved..
     automatic_ground: [Option<(f32, f32)>; 7],
-    /// Stores the `automatic_up_special` value in `Resolved` as `u8`.
-    ///
-    ///
-///  Holds the automatic up special value used by Resolved.
+/// Runtime automatic up special value used by Resolved..
     automatic_up_special: u8,
 }
 impl Default for Resolved {
     /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             rules: Vec::new(),
@@ -1275,14 +822,6 @@ impl Default for Resolved {
 }
 impl Resolved {
     /// Returns an optional `simple_sequence` value.
-    ///
-    ///
-    ///  Gets simple sequence if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn simple_sequence(&self, index: usize) -> Option<&Sequence> {
         self.simple
             .as_ref()
@@ -1290,25 +829,10 @@ impl Resolved {
             .and_then(Option::as_ref)
     }
     /// Checks whether simple events.
-    ///
-    ///
-    ///  Checks whether simple events.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn has_simple_events(&self) -> bool {
         (0..3).any(|i| self.simple_sequence(i).is_some())
     }
     /// Checks whether defense.
-    ///
-    ///
-    ///  Checks whether defense.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `trigger` (`Trigger`): Represents the trigger; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn has_defense(&self, trigger: Trigger) -> bool {
         let alias = match trigger {
             Trigger::ShieldHit => 1 << Trigger::ShieldHitVulnerable as u8,
@@ -1319,24 +843,10 @@ impl Resolved {
         self.defense_mask & ((1 << trigger as u8) | alias) != 0
     }
     /// Sets the enabled controls.
-    ///
-    ///
-    ///  Sets the enabled controls.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `controls` (`u8`): Represents the controls; the function uses it as input to the operation described above.
     pub fn set_enabled_controls(&mut self, controls: u8) {
         self.enabled_controls = controls;
     }
     /// Returns the `add` result.
-    ///
-    ///
-    ///  Gets the add result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `c` (`Candidate`): Represents the c; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn add(&mut self, c: Candidate) -> Result<(), String> {
         if !c.sequence.reaction.active() {
             return Ok(());
@@ -1394,83 +904,38 @@ impl Resolved {
         Ok(())
     }
 }
-/// Defines the available `Feedback` cases.
-///
-/// Lists the available Feedback choices.
+/// Available `Feedback` choices for the Smash assistance menu.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Feedback {
     #[default]
-    /// Represents the `Watching` case of `Feedback`.
-    ///
-    ///
-///  Represents the Watching option in Feedback.
+/// `Watching` option in the `Feedback` Smash policy state.
     Watching,
-    /// Represents the `State` case of `Feedback`.
-    ///
-    ///
-///  Represents the State option in Feedback.
+/// `State` option in the `Feedback` Smash policy state.
     State,
-    /// Represents the `Range` case of `Feedback`.
-    ///
-    ///
-///  Represents the Range option in Feedback.
+/// `Range` option in the `Feedback` Smash policy state.
     Range,
-    /// Represents the `Height` case of `Feedback`.
-    ///
-    ///
-///  Represents the Height option in Feedback.
+/// `Height` option in the `Feedback` Smash policy state.
     Height,
-    /// Represents the `Side` case of `Feedback`.
-    ///
-    ///
-///  Represents the Side option in Feedback.
+/// `Side` option in the `Feedback` Smash policy state.
     Side,
-    /// Represents the `Crossing` case of `Feedback`.
-    ///
-    ///
-///  Represents the Crossing option in Feedback.
+/// `Crossing` option in the `Feedback` Smash policy state.
     Crossing,
-    /// Represents the `Invulnerable` case of `Feedback`.
-    ///
-    ///
-///  Represents the Invulnerable option in Feedback.
+/// `Invulnerable` option in the `Feedback` Smash policy state.
     Invulnerable,
-    /// Represents the `Matched` case of `Feedback`.
-    ///
-    ///
-///  Represents the Matched option in Feedback.
+/// `Matched` option in the `Feedback` Smash policy state.
     Matched(
         /// Carries the index of the matched rule in `Feedback`.
-        ///
-        ///
-///  Holds the index of the matched rule for this `Feedback` choice.
         u8,
     ),
-    /// Represents the `Cancelled` case of `Feedback`.
-    ///
-    ///
-///  Represents the Cancelled option in Feedback.
+/// `Cancelled` option in the `Feedback` Smash policy state.
     Cancelled,
-    /// Represents the `MissingTarget` case of `Feedback`.
-    ///
-    ///
-///  Represents the MissingTarget option in Feedback.
+/// `MissingTarget` option in the `Feedback` Smash policy state.
     MissingTarget,
-    /// Represents the `Finished` case of `Feedback`.
-    ///
-    ///
-///  Represents the Finished option in Feedback.
+/// `Finished` option in the `Feedback` Smash policy state.
     Finished,
 }
 impl Feedback {
     /// Returns the display label for the value.
-    ///
-    ///
-    ///  Gets the text shown for this value.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn label(self) -> &'static str {
         match self {
             Self::Watching => "watching rolls",
@@ -1487,57 +952,26 @@ impl Feedback {
         }
     }
 }
-/// Defines the `Track` data structure.
-///
-/// Holds the data for Track.
+/// Runtime Smash data carried by `Track`.
 #[derive(Clone, Copy)]
 struct Track {
-    /// Stores the `id` value in `Track` as `u32`.
-    ///
-    ///
-///  Holds the id value used by Track.
+/// battle-object ID.
     id: u32,
-    /// Stores the `status` value in `Track` as `i32`.
-    ///
-    ///
-///  Holds the status value used by Track.
+/// native fighter status.
     status: i32,
-    /// Stores the `motion` value in `Track` as `u64`.
-    ///
-    ///
-///  Holds the motion value used by Track.
+/// native animation/motion ID.
     motion: u64,
-    /// Stores the `frame` value in `Track` as `f32`.
-    ///
-    ///
-///  Holds the frame value used by Track.
+/// current native animation frame.
     frame: f32,
-    /// Stores the `dx` value in `Track` as `f32`.
-    ///
-    ///
-///  Holds the dx value used by Track.
+/// Runtime dx value used by Track..
     dx: f32,
-    /// Stores the `crossed` value in `Track` as `bool`.
-    ///
-    ///
-///  Holds the crossed value used by Track.
+/// Runtime crossed value used by Track..
     crossed: bool,
-    /// Stores the `used` value in `Track` as `bool`.
-    ///
-    ///
-///  Holds the used value used by Track.
+/// Runtime used value used by Track..
     used: bool,
 }
 impl Track {
     /// Determines whether the `continues` condition holds.
-    ///
-    ///
-    ///  Checks whether continues.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `target` (`&Target`): Represents the target object or value being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn continues(&self, target: &Target) -> bool {
         crate::timing::same_motion_event(
             (self.id, self.status, self.motion, self.frame),
@@ -1547,234 +981,96 @@ impl Track {
 }
 impl Tracked for Track {
     /// Returns the native identifier of the observed object.
-    ///
-    ///
-    ///  Gets the object’s identifier.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u32` value.
     fn id(&self) -> u32 {
         self.id
     }
     /// Returns the `status` result.
-    ///
-    ///
-    ///  Gets the status result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `i32` value.
     fn status(&self) -> i32 {
         self.status
     }
 }
-/// Defines the `Engine` data structure.
-///
-/// Holds the data for Engine.
+/// Runtime Smash data carried by `Engine`.
 #[derive(Default)]
 pub struct Engine {
-    /// Stores the `tracks` value in `Engine` as `[Option<Track>; crate::battle_objects::FIGHTER_CAPACITY]`.
-    ///
-    ///
-///  Stores the tracks collection for Engine.
+/// Runtime tracks value used by Engine..
     tracks: [Option<Track>; crate::battle_objects::FIGHTER_CAPACITY],
-    /// Stores the `plan` value in `Engine` as `Option<InputTimeline>`.
-    ///
-    ///
-///  Optionally stores the plan for Engine; it may be absent.
+/// Runtime plan value used by Engine..
     plan: Option<InputTimeline>,
-    /// Stores the `target` value in `Engine` as `Option<u32>`.
-    ///
-    ///
-///  Optionally stores the target for Engine; it may be absent.
+/// selected opponent/projectile target.
     target: Option<u32>,
-    /// Stores the `feedback` value in `Engine` as `Feedback`.
-    ///
-    ///
-///  Holds the feedback value used by Engine.
+/// Runtime feedback value used by Engine..
     pub feedback: Feedback,
-    /// Stores the `last_priority` value in `Engine` as `Option<u8>`.
-    ///
-    ///
-///  Optionally stores the last priority for Engine; it may be absent.
+/// Runtime last priority value used by Engine..
     pub last_priority: Option<u8>,
-    /// Stores the `active_control` value in `Engine` as `Option<Control>`.
-    ///
-    ///
-///  Optionally stores the active control for Engine; it may be absent.
+/// Runtime active control value used by Engine..
     active_control: Option<Control>,
-    /// Stores the `up_b` value in `Engine` as `crate::move_input::UpBFlow`.
-    ///
-    ///
-///  Holds the up b value used by Engine.
+/// Runtime up b value used by Engine..
     up_b: crate::move_input::UpBFlow,
 }
 impl Engine {
     /// Observes the statuses.
-    ///
-    ///
-    ///  Observes the statuses.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `known` (`&[Option<(u32, i32)>; N]`): Represents the known; the function uses it as input to the operation described above.
     pub fn observe_statuses<const N: usize>(&mut self, known: &[Option<(u32, i32)>; N]) {
         forget_ended(&mut self.tracks, known);
     }
     /// Returns the selected target observation.
-    ///
-    ///
-    ///  Gets the chosen target.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
     /// Checks whether an input owner has committed the action.
-    ///
-    ///
-    ///  Checks whether the action has been committed.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn committed(&self) -> bool {
         self.plan.is_some()
     }
     /// Determines whether the `direct_up_b` condition holds.
-    ///
-    ///
-    ///  Checks whether direct up b.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn direct_up_b(&self) -> bool {
         self.up_b.armed() && self.plan.is_some()
     }
     /// Determines whether the `up_b_delivery_started` condition holds.
-    ///
-    ///
-    ///  Checks whether up b delivery started.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn up_b_delivery_started(&self) -> bool {
         self.direct_up_b() && self.up_b.started()
     }
     /// Updates the `attempted_up_special` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates attempted up special.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
         if self.direct_up_b() && self.target == Some(target) {
             self.up_b.attempted(tick);
         }
     }
     /// Updates the `mapped_up_special` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates mapped up special.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
         if self.direct_up_b() && self.target == Some(target) {
             self.up_b.mapped(tick);
         }
     }
     /// Determines whether the `up_b_receipt_pending` condition holds.
-    ///
-    ///
-    ///  Checks whether up b receipt pending.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn up_b_receipt_pending(&self) -> bool {
         self.direct_up_b() && self.up_b.receipt_pending()
     }
     /// Determines whether the `awaiting_up_b` condition holds.
-    ///
-    ///
-    ///  Checks whether awaiting up b.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn awaiting_up_b(&self) -> bool {
         self.direct_up_b() && self.up_b.awaiting()
     }
     /// Updates the `delivery_tick` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates delivery tick.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn delivery_tick(&mut self, tick: i64) {
         if self.direct_up_b() {
             self.up_b.tick(tick);
         }
     }
     /// Determines whether ground.
-    ///
-    ///
-    ///  Checks whether ground.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_ground(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::needs_ground)
     }
     /// Returns an optional `right_stick` value.
-    ///
-    ///
-    ///  Gets right stick if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         self.plan.as_ref().map(InputTimeline::right_stick)
     }
     /// Determines whether the `walking` condition holds.
-    ///
-    ///
-    ///  Checks whether walking.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn walking(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::walking)
     }
     /// Determines whether the `attack_hold` condition holds.
-    ///
-    ///
-    ///  Checks whether attack hold.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn attack_hold(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::attack_hold)
     }
     /// Cancels the pending operation and clears its state.
-    ///
-    ///
-    ///  Stops the operation that was waiting.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel(&mut self) {
         self.plan = None;
         self.target = None;
@@ -1785,13 +1081,6 @@ impl Engine {
     /// Rebuild the per-slot event memory from this poll. A consumed event whose
     /// actor is missing stays consumed until a different status is observed.
     /// `origin_x` additionally follows each target's side and roll crossing.
-    ///
-    ///  Rebuild the per-slot event memory from this poll. A consumed event whose actor is missing stays consumed until a different status is observed. originx additionally follows each target's side and roll crossing.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `origin_x` (`Option<f32>`): Represents the origin x; the function uses it as input to the operation described above.
-    /// - `tracked` (`impl Fn(&Target) -> bool`): Represents the tracked; the function uses it as input to the operation described above.
     fn observe_events(
         &mut self,
         targets: &[Option<Target>; 8],
@@ -1832,19 +1121,6 @@ impl Engine {
         );
     }
     /// Updates the toggle state from the current button sample and match state.
-    ///
-    ///
-    ///  Checks the current buttons and updates whether the toggle should activate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
-    /// - `rules` (`&Resolved`): Represents the rules; the function uses it as input to the operation described above.
-    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     pub fn sample(
         &mut self,
         allowed: bool,
@@ -1891,14 +1167,6 @@ impl Engine {
         out
     }
     /// Commit the first priority-ordered rule that matches an unconsumed roll.
-    ///
-    ///  Commit the first priority-ordered rule that matches an unconsumed roll.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `rules` (`&Resolved`): Represents the rules; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `follow` (`&mut Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
     fn start_matching_roll(
         &mut self,
         rules: &Resolved,
@@ -1961,14 +1229,6 @@ mod tests {
         sequence_config::{persist, Catalog},
     };
     /// Returns the `sequence` result.
-    ///
-    ///
-    ///  Gets the sequence result.
-    /// ### Arguments
-    /// - `trigger` (`&str`): Represents the trigger; the function uses it as input to the operation described above.
-    /// - `actions` (`&str`): Represents the actions; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `Sequence` value.
     fn sequence(trigger: &str, actions: &str) -> Sequence {
         Catalog::parse(&format!(
             "[yoshi.roll.rule]\nstart_delay=0\nreaction={trigger}\nactions={actions}\n"
@@ -1978,13 +1238,6 @@ mod tests {
             .sequence
     }
     /// Returns the `context` result.
-    ///
-    ///
-    ///  Gets the context result.
-    /// ### Arguments
-    /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `GameplayContext` value.
     fn context(frame: f32) -> GameplayContext {
         GameplayContext {
             held: true,
@@ -2001,14 +1254,6 @@ mod tests {
         }
     }
     /// Returns the selected target observation.
-    ///
-    ///
-    ///  Gets the chosen target.
-    /// ### Arguments
-    /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-    /// - `x` (`f32`): Represents the horizontal coordinate; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `Target` value.
     fn target(frame: f32, x: f32) -> Target {
         Target {
             id: 7,
@@ -2023,9 +1268,6 @@ mod tests {
         }
     }
     /// Regression test for `event_identity_requires_matching_motion_status_and_nonrewound_frame`.
-    ///
-    ///
-///  Checks that event identity requires matching motion status and nonrewound frame.
     #[test]
     fn event_identity_requires_matching_motion_status_and_nonrewound_frame() {
         let target = target(5., 1.);
@@ -2063,9 +1305,6 @@ mod tests {
     }
 
     /// Regression test for `simple_tracking_retains_consumed_missing_actor_until_status_changes`.
-    ///
-    ///
-///  Checks that simple tracking retains consumed missing actor until status changes.
     #[test]
     fn simple_tracking_retains_consumed_missing_actor_until_status_changes() {
         let mut engine = Engine::default();
@@ -2097,13 +1336,6 @@ mod tests {
         assert!(!engine.tracks.iter().flatten().any(|t| t.id == first.id));
     }
     /// Returns the `resolved` result.
-    ///
-    ///
-    ///  Gets the resolved result.
-    /// ### Arguments
-    /// - `s` (`Sequence`): Represents the s; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `Resolved` value.
     fn resolved(s: Sequence) -> Resolved {
         let mut r = Resolved::default();
         r.add(Candidate {
@@ -2115,16 +1347,6 @@ mod tests {
         r
     }
     /// Updates the toggle state from the current button sample and match state.
-    ///
-    ///
-    ///  Checks the current buttons and updates whether the toggle should activate.
-    /// ### Arguments
-    /// - `e` (`&mut Engine`): Represents the e; the function uses it as input to the operation described above.
-    /// - `r` (`&Resolved`): Represents the r; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `t` (`Target`): Represents the t; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     fn sample(e: &mut Engine, r: &Resolved, c: GameplayContext, t: Target) -> ControllerOutput {
         e.sample(
             true,
@@ -2136,9 +1358,6 @@ mod tests {
         )
     }
     /// Regression test for `roll_sequence_in_static_shield_uses_the_real_opponent_clock_from_its_first_sample`.
-    ///
-    ///
-///  Checks that roll sequence in static shield uses the real opponent clock from its first sample.
     #[test]
     fn roll_sequence_in_static_shield_uses_the_real_opponent_clock_from_its_first_sample() {
         for repeats in [0, 20] {
@@ -2187,9 +1406,6 @@ mod tests {
         }
     }
     /// Regression test for `different_native_roll_motion_does_not_inherit_the_previous_rolls_used_flag`.
-    ///
-    ///
-///  Checks that different native roll motion does not inherit the previous rolls used flag.
     #[test]
     fn different_native_roll_motion_does_not_inherit_the_previous_rolls_used_flag() {
         let rules = resolved(sequence("roll:any:0:20:12:any:1", "up_b:1"));
@@ -2209,9 +1425,6 @@ mod tests {
         );
     }
     /// Regression test for `reaction_persists_roundtrip_and_disabling_replaces_old_metadata`.
-    ///
-    ///
-///  Checks that reaction persists roundtrip and disabling replaces old metadata.
     #[test]
     fn reaction_persists_roundtrip_and_disabling_replaces_old_metadata() {
         let src="[yoshi.roll.rule]\nstart_delay=0\nactions=jab:4\n[kirby.roll.keep]\nstart_delay=0\nactions=grab\n";
@@ -2225,9 +1438,6 @@ mod tests {
         assert!(off.ends_with("[kirby.roll.keep]\nstart_delay=0\nactions=grab\n"));
     }
     /// Regression test for `invalid_rules_and_more_than_eight_are_rejected`.
-    ///
-    ///
-///  Checks that invalid rules and more than eight are rejected.
     #[test]
     fn invalid_rules_and_more_than_eight_are_rejected() {
         for s in [
@@ -2249,9 +1459,6 @@ mod tests {
         assert!(validate_response(sequence("roll:any:0:20:12:any:1", "walk:ledge:8:50%")).is_err());
     }
     /// Regression test for `one_attempt_per_roll_and_new_roll_rearms`.
-    ///
-    ///
-///  Checks that one attempt per roll and new roll rearms.
     #[test]
     fn one_attempt_per_roll_and_new_roll_rearms() {
         let r = resolved(sequence("roll:any:0:20:12:any:1", "jab:1"));
@@ -2268,9 +1475,6 @@ mod tests {
         );
     }
     /// Regression test for `crossing_survives_exact_zero_and_priority_chooses_the_first_match`.
-    ///
-    ///
-///  Checks that crossing survives exact zero and priority chooses the first match.
     #[test]
     fn crossing_survives_exact_zero_and_priority_chooses_the_first_match() {
         let r = resolved(sequence("roll_cross:any:0:20:12:any:1", "down_smash:4"));
@@ -2294,9 +1498,6 @@ mod tests {
         );
     }
     /// Regression test for `filters_wait_for_native_vulnerability_and_cancel_never_replays`.
-    ///
-    ///
-///  Checks that filters wait for native vulnerability and cancel never replays.
     #[test]
     fn filters_wait_for_native_vulnerability_and_cancel_never_replays() {
         let r = resolved(sequence("roll_vulnerable:walking:3:10:5:front:1", "jab:4"));
@@ -2317,9 +1518,6 @@ mod tests {
         assert_eq!(sample(&mut e, &r, c, target(4., 5.)).requested, 0);
     }
     /// Regression test for `spatial_response_requires_fresh_target_and_no_new_plan_starts_in_stop`.
-    ///
-    ///
-///  Checks that spatial response requires fresh target and no new plan starts in stop.
     #[test]
     fn spatial_response_requires_fresh_target_and_no_new_plan_starts_in_stop() {
         let r = resolved(sequence(
@@ -2345,9 +1543,6 @@ mod tests {
 mod combined_trigger_test {
     use super::*;
     /// Regression test for `combined_trigger_roundtrips_and_requires_both_crossing_and_vulnerability`.
-    ///
-    ///
-///  Checks that combined trigger roundtrips and requires both crossing and vulnerability.
     #[test]
     fn combined_trigger_roundtrips_and_requires_both_crossing_and_vulnerability() {
         let rule = Rule::parse("roll_cross_vulnerable:grounded:0:20:12:any:1").unwrap();
@@ -2419,9 +1614,6 @@ mod activation_tests {
         sequence_config::{persist, Catalog},
     };
     /// Regression test for `old_seven_fields_stay_menu_and_all_explicit_controls_roundtrip`.
-    ///
-    ///
-///  Checks that old seven fields stay menu and all explicit controls roundtrip.
     #[test]
     fn old_seven_fields_stay_menu_and_all_explicit_controls_roundtrip() {
         let old = "roll:grounded:0:20:12:any:1";
@@ -2440,9 +1632,6 @@ mod activation_tests {
         assert!(Rule::parse(&format!("{old}:toggle_zr")).is_err());
     }
     /// Regression test for `only_enabled_control_groups_can_start_and_disabling_cancels_playback`.
-    ///
-    ///
-///  Checks that only enabled control groups can start and disabling cancels playback.
     #[test]
     fn only_enabled_control_groups_can_start_and_disabling_cancels_playback() {
         let mut seq = Sequence::default();

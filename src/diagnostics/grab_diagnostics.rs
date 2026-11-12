@@ -8,197 +8,104 @@ use kirby_assist_core::{ledge_trap::RollGrabSnapshot, native_input::MAPPED_CATCH
 use std::{fmt::Write, time::Instant};
 
 /// Fixed capacity of the bounded diagnostic checkpoint ring.
-///
-///  The report keeps only this many recent trace points.
 const CHECKPOINTS: usize = 32;
 /// Minimum interval between emitted progress updates.
-///
-///  How often the report can add a progress note.
 const PROGRESS_MS: u64 = 125;
 /// Maximum elapsed time before the trace watchdog ends a report.
-///
-///  How long a grab trace can run before it is stopped.
 const WATCHDOG_MS: u64 = 3_000;
 
 /// Represents an event in the roll grab diagnostics, either an observation or a mapper update.
 /// Copied checkpoint payload for fighter observations and mapper delivery.
-///
-///  One saved observation or input-delivery detail in a grab trace.
 #[derive(Clone, Copy)]
 enum Event {
     /// Native grab-related state copied from an observation.
-    ///
-    ///  A snapshot of what the fighter and target were doing.
     Observation(RollGrabSnapshot),
     /// Input masks and stick values observed at the mapper boundary.
-    ///
-    ///  The buttons and stick direction before and after mapping.
     Mapper {
         /// Buttons proposed by the overlay.
-        ///
-        ///  Buttons the helper wanted to send.
         proposed: u32,
         /// Buttons applied before native mapping.
-        ///
-        ///  Buttons added by the helper before the game processed them.
         applied: u32,
         /// Buttons pressed on this mapper poll.
-        ///
-        ///  Buttons that became newly pressed this update.
         pressed: u32,
         /// Final mapped button mask.
-        ///
-        ///  Buttons the game received after mapping.
         mapped: u32,
         /// Final mapped left-stick axis values.
-        ///
-        ///  The left-stick direction the game received.
         stick: [i8; 2],
         /// Gate or suppression reason associated with delivery.
-        ///
-        ///  Why the requested input may have been blocked.
         gate: &'static str,
     },
 }
 /// Represents a checkpoint in the roll grab diagnostics, storing the elapsed time and the associated event.
 /// Ring-buffer entry pairing an elapsed timestamp with one copied event.
-///
-///  A timestamped detail in the grab troubleshooting trace.
 #[derive(Clone, Copy)]
 struct Checkpoint {
     /// Milliseconds elapsed since report origin.
-    ///
-    ///  How long after the trace started this point occurred.
     ms: u64,
     /// Copied diagnostic payload at this point.
-    ///
-    ///  What happened at this point in the trace.
     event: Event,
 }
 
 /// Represents a report for roll grab diagnostics, including metadata, checkpoints, and various counters.
 /// Bounded recorder snapshot describing one roll-grab attempt and its delivery history.
-///
-///  A troubleshooting record showing why a grab did or did not happen.
 pub struct Report {
     /// Monotonic identifier assigned to this trace.
-    ///
-    ///  The trace's unique number.
     id: u64,
     /// Fighter kind associated with the trace, if known.
-    ///
-    ///  Which fighter the trace was about.
     fighter: Option<i32>,
     /// Target object identifier associated with the trace, if known.
-    ///
-    ///  Which opponent the trace was about.
     target: Option<u32>,
     /// Time origin used to calculate checkpoint durations.
-    ///
-    ///  When this trace started.
     origin: Instant,
     /// First captured native grab observation.
-    ///
-    ///  The fighter state at the beginning of the trace.
     first: RollGrabSnapshot,
     /// Most recent captured native grab observation.
-    ///
-    ///  The latest fighter state in the trace.
     last: RollGrabSnapshot,
     /// Fixed-size circular checkpoint storage.
-    ///
-    ///  The limited list of recent events kept by the trace.
     checkpoints: [Option<Checkpoint>; CHECKPOINTS],
     /// Number of checkpoint writes, including overwritten ring entries.
-    ///
-    ///  How many events have been recorded so far.
     written: usize,
     /// Count of observation updates.
-    ///
-    ///  How many fighter snapshots were captured.
     observations: u32,
     /// Count of grab requests.
-    ///
-    ///  How many grab requests were made.
     requests: u32,
     /// Count of mapper polls during the trace.
-    ///
-    ///  How many controller updates were checked.
     mapper_polls: u32,
     /// Count of polls where a grab was proposed.
-    ///
-    ///  How many updates tried to send a grab.
     proposed_polls: u32,
     /// Count of polls where the grab overlay was applied.
-    ///
-    ///  How many updates added the grab button.
     applied_polls: u32,
     /// Count of polls where native mapped CATCH was present.
-    ///
-    ///  How many updates delivered the mapped grab button.
     catch_polls: u32,
     /// Count of rising edges on native mapped CATCH.
-    ///
-    ///  How many times the grab button became newly pressed.
     catch_edges: u32,
     /// Count of exits classified as whiff or interruption.
-    ///
-    ///  How many attempts ended without a confirmed grab.
     whiff_exits: u32,
     /// Whether native grab startup was observed.
-    ///
-    ///  Whether the game began a grab animation.
     native_started: bool,
     /// Elapsed timestamp of the most recent progress update.
-    ///
-    ///  When the trace last recorded progress.
     last_progress_ms: u64,
     /// Latest elapsed time observed by the recorder.
-    ///
-    ///  How long the trace has been running.
     latest_ms: u64,
     /// First checkpoint at which a request was observed.
-    ///
-    ///  When the first grab request appeared.
     first_request: Option<Checkpoint>,
     /// First checkpoint at which native grab startup was observed.
-    ///
-    ///  When the game first started the grab.
     first_native_start: Option<Checkpoint>,
     /// Most recent checkpoint waiting for native progress.
-    ///
-    ///  The latest point where the grab was still waiting.
     last_wait: Option<Checkpoint>,
     /// Most recent mapping inputs and delivery gate summary.
-    ///
-    ///  The last buttons and reason seen at the mapper.
     last_mapping: Option<(u32, u32, bool, &'static str)>,
     /// Stable trace termination reason.
-    ///
-    ///  Why this record stopped.
     end: &'static str,
 }
 impl Report {
     /// Returns the elapsed time in milliseconds since the report's origin.
-    ///
-    ///  Tells how many milliseconds have passed since this trace began.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u64` value.
     fn elapsed(&self, now: Instant) -> u64 {
         now.saturating_duration_since(self.origin)
             .as_millis()
             .min(u128::from(u64::MAX)) as u64
     }
     /// Pushes a new checkpoint into the report, recording the elapsed time and event.
-    ///
-    ///  Adds a recent event to the bounded trace history.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `ms` (`u64`): Represents the ms; the function uses it as input to the operation described above.
-    /// - `event` (`Event`): Represents the event; the function uses it as input to the operation described above.
     fn push(&mut self, ms: u64, event: Event) {
         // Preserve the initial checkpoint separately; the ring retains recent
         // evidence and reports overwrite counts instead of allocating/growing.
@@ -207,12 +114,6 @@ impl Report {
     }
     /// Called exclusively on the logger thread, never under the gameplay mutex.
     /// Formats the report into a human-readable string for logging or display.
-    ///
-    ///  Turns the saved trace into readable troubleshooting text.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn format(&self) -> String {
         let result = if self.last.captured {
             "capture_confirmed"
@@ -269,41 +170,22 @@ impl Report {
         text
     }
     /// Appends the copied native snapshot fields to the report buffer.
-    ///
-    ///  Adds one timestamped fighter/grab state to the troubleshooting log.
-    /// ### Arguments
-    /// - `text` (`&mut String`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
-    /// - `label` (`&str`): Represents the label; the function uses it as input to the operation described above.
-    /// - `ms` (`u64`): Represents the ms; the function uses it as input to the operation described above.
-    /// - `s` (`RollGrabSnapshot`): Represents the s; the function uses it as input to the operation described above.
     fn format_observation(text: &mut String, label: &str, ms: u64, s: RollGrabSnapshot) {
         let _ = writeln!(text, "  +{ms}ms {label} gate={} status={:#x}@{:.2} pos={:?} vx={:.3} facing={} endpoint={:?} stand={:?} endpoint_gap={:?} target_gap_facing={:?} usable_reach={:.2} grab_range={:.2} ready(control/act/grab)={}/{}/{} stopped={} safe_ground={:?} enemy_status={:?}@{:?} enemy_pos={:?} vulnerable={:?} opens_in={:?} adjusted_opens_in={:?} actionable_in={:?} active={:?} request={:#x} grab_button={:#x} attempts={} animations={} native_grabbing={} captured={}", s.phase, s.status, s.motion_frame, s.position, s.velocity_x, s.facing, s.endpoint, s.stand_x, s.endpoint.map(|x| x-s.position[0]), s.enemy_position.map(|p| (p[0]-s.position[0])*s.facing), s.usable_reach, s.grab_range, s.can_control, s.can_act, s.can_grab, s.stopped, s.safe_ground, s.enemy_status, s.enemy_frame, s.enemy_position, s.vulnerable, s.vulnerable_in, s.adjusted_opens_in, s.actionable_in, s.active, s.requested, s.grab_button, s.attempts, s.animations, s.native_grabbing, s.captured);
     }
 }
 /// Represents the trace of a roll grab, including the active report and its completion status.
 /// Owns one active recorder plus completion and identifier state.
-///
-///  Tracks a single roll-grab attempt and its report.
 pub struct GrabTrace {
     /// Active bounded report, absent when no trace is being collected.
-    ///
-    ///  The current trace, if one is running.
     active: Option<Report>,
     /// Whether a completed report awaits delivery.
-    ///
-    ///  Whether a finished trace is ready to be read.
     completed: bool,
     /// Monotonic id assigned to the next report.
-    ///
-    ///  The number used for the next trace.
     next_id: u64,
 }
 impl GrabTrace {
     /// Creates a new instance of `GrabTrace` with no active report and initial state.
-    ///
-    ///  Starts a grab trace recorder with nothing recorded.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             active: None,
@@ -312,23 +194,10 @@ impl GrabTrace {
         }
     }
     /// Returns `true` if there is an active report being tracked.
-    ///
-    ///  Checks whether a grab trace is currently running.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(&self) -> bool {
         self.active.is_some()
     }
     /// Observes a new roll grab snapshot, updating the active report or finishing it if necessary.
-    ///
-    ///  Adds the latest fighter snapshot and ends the trace if tracking stops.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `snapshot` (`Option<RollGrabSnapshot>`): Represents the snapshot; the function uses it as input to the operation described above.
-    /// - `fighter` (`Option<i32>`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-    /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
     pub fn observe(
         &mut self,
         snapshot: Option<RollGrabSnapshot>,
@@ -442,17 +311,6 @@ impl GrabTrace {
         }
     }
     /// Records a mapper update for the roll grab, including proposed and applied button states, stick input, and gate.
-    ///
-    ///  Records what the helper tried to send and what the game received.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `proposed` (`u32`): Represents the proposed; the function uses it as input to the operation described above.
-    /// - `applied` (`u32`): Represents the applied; the function uses it as input to the operation described above.
-    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
-    /// - `mapped` (`u32`): Represents the mapped; the function uses it as input to the operation described above.
-    /// - `stick` (`[i8; 2]`): Represents the stick; the function uses it as input to the operation described above.
-    /// - `gate` (`&'static str`): Represents the gate; the function uses it as input to the operation described above.
-    /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
     pub fn mapped(
         &mut self,
         proposed: u32,
@@ -492,11 +350,6 @@ impl GrabTrace {
         report.last_mapping = Some(key);
     }
     /// Finishes the active report with the given reason, writing it to the log and marking it as completed.
-    ///
-    ///  Ends the current trace and sends its report to the logger.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `reason` (`&'static str`): Represents the reason; the function uses it as input to the operation described above.
     pub fn finish(&mut self, reason: &'static str) {
         if let Some(mut report) = self.active.take() {
             report.end = reason;
@@ -505,11 +358,6 @@ impl GrabTrace {
         }
     }
     /// Resets the grab trace by finishing the current report with the given reason and clearing the completion flag.
-    ///
-    ///  Ends the current trace and clears its finished status.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `reason` (`&'static str`): Represents the reason; the function uses it as input to the operation described above.
     pub fn reset(&mut self, reason: &'static str) {
         self.finish(reason);
         self.completed = false;
@@ -518,20 +366,12 @@ impl GrabTrace {
 
 #[cfg(test)]
 /// Host-side regressions for bounded grab-trace sampling and evidence.
-///
-///  Checks that grab logs stay accurate without growing every poll.
 mod tests {
     use super::*;
     use kirby_assist_core::native_input::MAPPER_R;
     use std::time::Duration;
 
     /// Creates a minimal target-bearing fixture for trace tests.
-    ///
-    ///  Makes a sample grab state for the tests.
-    /// ### Arguments
-    /// - `phase` (`&'static str`): Represents the phase; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `RollGrabSnapshot` value.
     fn snapshot(phase: &'static str) -> RollGrabSnapshot {
         RollGrabSnapshot {
             target: Some(42),
@@ -543,8 +383,6 @@ mod tests {
     }
     #[test]
     /// Verifies duplicate polls do not add repeated request or catch edges.
-    ///
-    ///  Ensures repeated updates do not invent extra grab events.
     fn repeated_polls_do_not_fill_trace_or_invent_request_edges() {
         let now = Instant::now();
         let mut trace = GrabTrace::new();
@@ -563,8 +401,6 @@ mod tests {
     }
     #[test]
     /// Verifies reports distinguish undelivered overlays from wrong button mapping.
-    ///
-    ///  Checks logs explain whether the grab input was lost before mapping.
     fn mapper_evidence_distinguishes_expired_overlay_from_wrong_mapping() {
         let now = Instant::now();
         let mut trace = GrabTrace::new();
@@ -605,8 +441,6 @@ mod tests {
     }
     #[test]
     /// Verifies capture evidence remains independent from bounded ring history.
-    ///
-    ///  Ensures capture is still reported even if earlier trace entries roll off.
     fn acceptance_evidence_survives_a_full_ring_and_capture_is_separate() {
         let now = Instant::now();
         let mut trace = GrabTrace::new();
@@ -630,8 +464,6 @@ mod tests {
     }
     #[test]
     /// Verifies progress sampling and held-input completion behavior.
-    ///
-    ///  Ensures idle polls are sampled slowly and a finished trace stays finished.
     fn idle_progress_is_sampled_and_completed_trace_does_not_restart_while_held() {
         let now = Instant::now();
         let mut trace = GrabTrace::new();

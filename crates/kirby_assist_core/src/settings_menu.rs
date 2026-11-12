@@ -32,70 +32,36 @@ use crate::native_input::{
 use crate::settings::AssistSettings;
 pub use choices::Choice;
 
-/// Defines the `MENU_STICK_CLICK` constant used by this module.
-///
-/// Provides the MENU STICK CLICK constant value.
+/// `MENU_STICK_CLICK` is a configuration value used by the Smash runtime.
 pub const MENU_STICK_CLICK: u32 = 1 << 17; // Physical right-stick click (R3).
-/// Defines the `MENU_L3` constant used by this module.
-///
-/// Provides the MENU L3 constant value.
+/// `MENU_L3` is a configuration value used by the Smash runtime.
 pub const MENU_L3: u32 = 1 << 16; // L3 is a menu control only while the menu is visible.
-/// Defines the `MENU_TOGGLE_CHORD` constant used by this module.
-///
-/// Provides the MENU TOGGLE CHORD constant value.
+/// `MENU_TOGGLE_CHORD` is a configuration value used by the Smash runtime.
 pub const MENU_TOGGLE_CHORD: u32 = MAPPER_MINUS;
 
-/// Defines the `MENU_REPEAT_INITIAL_DELAY_TICKS` constant used by this module.
-///
-/// Provides the MENU REPEAT INITIAL DELAY TICKS constant value.
+/// `MENU_REPEAT_INITIAL_DELAY_TICKS` is a configuration value used by the Smash runtime.
 const MENU_REPEAT_INITIAL_DELAY_TICKS: u16 = 24;
-/// Defines the `MENU_REPEAT_FAST_MODE_TICKS` constant used by this module.
-///
-/// Provides the MENU REPEAT FAST MODE TICKS constant value.
+/// `MENU_REPEAT_FAST_MODE_TICKS` is a configuration value used by the Smash runtime.
 const MENU_REPEAT_FAST_MODE_TICKS: u16 = 90;
-/// Defines the `MENU_REPEAT_FAST_INTERVAL_TICKS` constant used by this module.
-///
-/// Provides the MENU REPEAT FAST INTERVAL TICKS constant value.
+/// `MENU_REPEAT_FAST_INTERVAL_TICKS` is a configuration value used by the Smash runtime.
 const MENU_REPEAT_FAST_INTERVAL_TICKS: u16 = 2;
-/// Defines the `MENU_REPEAT_SLOW_INTERVAL_TICKS` constant used by this module.
-///
-/// Provides the MENU REPEAT SLOW INTERVAL TICKS constant value.
+/// `MENU_REPEAT_SLOW_INTERVAL_TICKS` is a configuration value used by the Smash runtime.
 const MENU_REPEAT_SLOW_INTERVAL_TICKS: u16 = 6;
 
 /// Auto-repeat of one held direction: a delay, then a slow and later a fast cadence.
-///
-///  Auto-repeat of one held direction: a delay, then a slow and later a fast cadence.
 #[derive(Default)]
 struct HoldRepeat {
-    /// Stores the `direction` value in `HoldRepeat` as `u32`.
-    ///
-    ///
-    ///  Holds the direction value used by HoldRepeat.
+/// Runtime direction value used by HoldRepeat..
     direction: u32,
-    /// Stores the `ticks` value in `HoldRepeat` as `u16`.
-    ///
-    ///
-    ///  Holds the ticks value used by HoldRepeat.
+/// Runtime ticks value used by HoldRepeat..
     ticks: u16,
 }
 impl HoldRepeat {
     /// Restores the state to its initial configuration.
-    ///
-    ///
-    ///  Returns the state to its starting point.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn reset(&mut self) {
         *self = Self::default();
     }
     /// Track the held direction; true when a repeat is due this sample.
-    ///
-    ///  Track the held direction; true when a repeat is due this sample.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `direction` (`u32`): Represents the direction; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn step(&mut self, direction: u32) -> bool {
         if self.direction != direction {
             *self = Self {
@@ -117,208 +83,92 @@ impl HoldRepeat {
 }
 
 /// Checks whether the monitor-button chord is present in the input sample.
-///
 /// Checks whether the monitor buttons are pressed together.
-/// ### Arguments
-/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn monitor_chord(buttons: u32) -> bool {
     let mask = MAPPER_L | DPAD_DOWN | MENU_STICK_CLICK;
     buttons & mask == mask
 }
 /// Checks whether the configured menu-toggle chord was newly pressed.
-///
 /// Checks whether the menu-toggle buttons were just pressed.
-/// ### Arguments
-/// - `_held` (`u32`): Represents the held; the function uses it as input to the operation described above.
-/// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn menu_toggle_pressed(_held: u32, pressed: u32) -> bool {
     pressed & MAPPER_MINUS != 0
 }
 
 /// Only the dedicated L trigger bypasses menu consumption for readiness.
 /// Bound D-pad/X/Y inputs must not also reach legacy shortcut observers.
-///
-///  Only the dedicated L trigger bypasses menu consumption for readiness. Bound D-pad/X/Y inputs must not also reach legacy shortcut observers.
-/// ### Arguments
-/// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
-/// - `consumed` (`u32`): Represents the consumed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `u32` value.
 pub fn observation_buttons(physical: u32, consumed: u32) -> u32 {
     physical & !(consumed & !MAPPER_L)
 }
 
-/// Defines the available `MenuRow` cases.
-///
-/// Lists the available MenuRow choices.
+/// Available `MenuRow` choices for the Smash assistance menu.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MenuRow {
     #[default]
-    /// Represents the `Neutral` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the Neutral option in MenuRow.
+/// `Neutral` option in the `MenuRow` Smash policy state.
     Neutral,
-    /// Represents the `Jump` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the Jump option in MenuRow.
+/// `Jump` option in the `MenuRow` Smash policy state.
     Jump,
-    /// Represents the `Roll` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the Roll option in MenuRow.
+/// `Roll` option in the `MenuRow` Smash policy state.
     Roll,
-    /// Represents the `Attack` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the Attack option in MenuRow.
+/// `Attack` option in the `MenuRow` Smash policy state.
     Attack,
-    /// Represents the `Drop` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the Drop option in MenuRow.
+/// `Drop` option in the `MenuRow` Smash policy state.
     Drop,
-    /// Represents the `XSequence` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the XSequence option in MenuRow.
+/// `XSequence` option in the `MenuRow` Smash policy state.
     XSequence,
-    /// Represents the `YSequence` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the YSequence option in MenuRow.
+/// `YSequence` option in the `MenuRow` Smash policy state.
     YSequence,
-    /// Represents the `DpadUp` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the DpadUp option in MenuRow.
+/// `DpadUp` option in the `MenuRow` Smash policy state.
     DpadUp,
-    /// Represents the `DpadDown` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the DpadDown option in MenuRow.
+/// `DpadDown` option in the `MenuRow` Smash policy state.
     DpadDown,
-    /// Represents the `DpadLeft` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the DpadLeft option in MenuRow.
+/// `DpadLeft` option in the `MenuRow` Smash policy state.
     DpadLeft,
-    /// Represents the `DpadRight` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the DpadRight option in MenuRow.
+/// `DpadRight` option in the `MenuRow` Smash policy state.
     DpadRight,
-    /// Represents the `RollRead` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the RollRead option in MenuRow.
+/// `RollRead` option in the `MenuRow` Smash policy state.
     RollRead,
-    /// Represents the `AutoMash` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the AutoMash option in MenuRow.
+/// `AutoMash` option in the `MenuRow` Smash policy state.
     AutoMash,
-    /// Represents the `IdleCrouch` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the IdleCrouch option in MenuRow.
+/// `IdleCrouch` option in the `MenuRow` Smash policy state.
     IdleCrouch,
-    /// Represents the `TiltTurn` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the TiltTurn option in MenuRow.
+/// `TiltTurn` option in the `MenuRow` Smash policy state.
     TiltTurn,
-    /// Represents the `SpotPunish` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the SpotPunish option in MenuRow.
+/// `SpotPunish` option in the `MenuRow` Smash policy state.
     SpotPunish,
-    /// Represents the `GrabDodge` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the GrabDodge option in MenuRow.
+/// `GrabDodge` option in the `MenuRow` Smash policy state.
     GrabDodge,
-    /// Represents the `AutoTech` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the AutoTech option in MenuRow.
+/// `AutoTech` option in the `MenuRow` Smash policy state.
     AutoTech,
-    /// Represents the `Performance` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the Performance option in MenuRow.
+/// `Performance` option in the `MenuRow` Smash policy state.
     Performance,
-    /// Represents the `AutoLedge` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the AutoLedge option in MenuRow.
+/// `AutoLedge` option in the `MenuRow` Smash policy state.
     AutoLedge,
-    /// Represents the `OutOfShield` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the OutOfShield option in MenuRow.
+/// `OutOfShield` option in the `MenuRow` Smash policy state.
     OutOfShield,
-    /// Represents the `TestLatency` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the TestLatency option in MenuRow.
+/// `TestLatency` option in the `MenuRow` Smash policy state.
     TestLatency = 26,
-    /// Represents the `ButtonsPage` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the ButtonsPage option in MenuRow.
+/// `ButtonsPage` option in the `MenuRow` Smash policy state.
     ButtonsPage,
-    /// Represents the `ModesPage` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the ModesPage option in MenuRow.
+/// `ModesPage` option in the `MenuRow` Smash policy state.
     ModesPage,
-    /// Represents the `LedgePage` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the LedgePage option in MenuRow.
+/// `LedgePage` option in the `MenuRow` Smash policy state.
     LedgePage,
-    /// Represents the `RollRules` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the RollRules option in MenuRow.
+/// `RollRules` option in the `MenuRow` Smash policy state.
     RollRules,
-    /// Represents the `FighterSettings` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the FighterSettings option in MenuRow.
+/// `FighterSettings` option in the `MenuRow` Smash policy state.
     FighterSettings,
-    /// Represents the `ShieldPressure` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the ShieldPressure option in MenuRow.
+/// `ShieldPressure` option in the `MenuRow` Smash policy state.
     ShieldPressure,
-    /// Represents the `L3Sequence` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the L3Sequence option in MenuRow.
+/// `L3Sequence` option in the `MenuRow` Smash policy state.
     L3Sequence,
-    /// Represents the `R3Sequence` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the R3Sequence option in MenuRow.
+/// `R3Sequence` option in the `MenuRow` Smash policy state.
     R3Sequence,
-    /// Represents the `AutoReflect` case of `MenuRow`.
-    ///
-    ///
-    ///  Represents the AutoReflect option in MenuRow.
+/// `AutoReflect` option in the `MenuRow` Smash policy state.
     AutoReflect,
 }
 impl MenuRow {
-    /// Defines the `ALL` constant used by this module.
-    ///
-    ///
-    ///  Provides the ALL constant value.
+/// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 31] = [
         Self::Neutral,
         Self::Jump,
@@ -353,13 +203,6 @@ impl MenuRow {
         Self::AutoReflect,
     ];
     /// Returns the selected recipe slot.
-    ///
-    ///
-    ///  Gets the currently selected slot.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn slot(self) -> Option<PresetSlot> {
         match self {
             Self::Neutral => Some(PresetSlot::Neutral),
@@ -396,13 +239,6 @@ impl MenuRow {
         }
     }
     /// Returns the display label for the value.
-    ///
-    ///
-    ///  Gets the text shown for this value.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn label(self) -> &'static str {
         match self {
             Self::Neutral => "Neutral",
@@ -440,40 +276,19 @@ impl MenuRow {
     }
 }
 /// Cached presentation data; no execution state or native UI dependencies.
-///
-///  Cached presentation data; no execution state or native UI dependencies.
 #[derive(Default)]
 pub struct RecipePanel {
-    /// Stores the `header` value in `RecipePanel` as `Vec<String>`.
-    ///
-    ///
-    ///  Holds the header value used by RecipePanel.
+/// Runtime header value used by RecipePanel..
     pub header: Vec<String>,
-    /// Stores the `body` value in `RecipePanel` as `Vec<String>`.
-    ///
-    ///
-    ///  Holds the body value used by RecipePanel.
+/// Runtime body value used by RecipePanel..
     pub body: Vec<String>,
-    /// Stores the `footer` value in `RecipePanel` as `Vec<String>`.
-    ///
-    ///
-    ///  Holds the footer value used by RecipePanel.
+/// Runtime footer value used by RecipePanel..
     pub footer: Vec<String>,
-    /// Stores the `focus` value in `RecipePanel` as `Option<usize>`.
-    ///
-    ///
-    ///  Optionally stores the focus for RecipePanel; it may be absent.
+/// Runtime focus value used by RecipePanel..
     pub focus: Option<usize>,
 }
 impl RecipePanel {
     /// Converts the presentation model into display lines.
-    ///
-    ///
-    ///  Turns the presentation into lines of text.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting items; the vector is empty when there are none.
     pub fn into_lines(self) -> Vec<String> {
         self.header
             .into_iter()
@@ -482,390 +297,170 @@ impl RecipePanel {
             .collect()
     }
 }
-/// Defines the `MenuSelection` data structure.
-///
-/// Holds the data for MenuSelection.
+/// Runtime Smash data carried by `MenuSelection`.
 #[derive(Default)]
 pub struct MenuSelection {
-    /// Stores the `binding_input` value in `MenuSelection` as `Option<(u32`.
-    ///
-    ///
-    ///  Optionally stores the binding input for MenuSelection; it may be absent.
+/// Runtime binding input value used by MenuSelection..
     binding_input: Option<(u32, ControlLayout)>,
-    /// Stores the `binding_layout` value in `MenuSelection` as `ControlLayout`.
-    ///
-    ///
-    ///  Holds the binding layout value used by MenuSelection.
+/// Runtime binding layout value used by MenuSelection..
     binding_layout: ControlLayout,
-    /// Stores the `binding_physical` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the binding physical value used by MenuSelection.
+/// Runtime binding physical value used by MenuSelection..
     binding_physical: u32,
-    /// Stores the `binding_pressed` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the binding pressed value used by MenuSelection.
+/// Runtime binding pressed value used by MenuSelection..
     binding_pressed: u32,
-    /// Stores the `binding_previous` value in `MenuSelection` as `Option<u32>`.
-    ///
-    ///
-    ///  Optionally stores the binding previous for MenuSelection; it may be absent.
+/// Runtime binding previous value used by MenuSelection..
     binding_previous: Option<u32>,
-    /// Stores the `binding_ledge_previous` value in `MenuSelection` as `Option<bool>`.
-    ///
-    ///
-    ///  Optionally stores the binding ledge previous for MenuSelection; it may be absent.
+/// Runtime binding ledge previous value used by MenuSelection..
     binding_ledge_previous: Option<bool>,
-    /// Stores the `binding_ready` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the binding ready value used by MenuSelection.
+/// Runtime binding ready value used by MenuSelection..
     binding_ready: u32,
-    /// Stores the `binding_starts_blocked` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the binding starts blocked value used by MenuSelection.
+/// Runtime binding starts blocked value used by MenuSelection..
     binding_starts_blocked: bool,
-    /// Stores the `binding_safety_jump` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the binding safety jump value used by MenuSelection.
+/// Runtime binding safety jump value used by MenuSelection..
     binding_safety_jump: bool,
-    /// Stores the `binding_roles_stamp` value in `MenuSelection` as `Option<(ControlLayout`.
-    ///
-    ///
-    ///  Optionally stores the binding roles stamp for MenuSelection; it may be absent.
+/// Runtime binding roles stamp value used by MenuSelection..
     binding_roles_stamp: Option<(ControlLayout, [usize; PresetSlot::COUNT], u64, u32, bool)>,
     #[cfg(test)]
-    /// Stores the `binding_roles_rebuilds` value in `MenuSelection` as `usize`.
-    ///
-    ///
-    ///  Holds the binding roles rebuilds value used by MenuSelection.
+/// Runtime binding roles rebuilds value used by MenuSelection..
     binding_roles_rebuilds: usize,
-    /// Stores the `single_jump_sources` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the single jump sources value used by MenuSelection.
+/// Runtime single jump sources value used by MenuSelection..
     single_jump_sources: u32,
-    /// Stores the `ledge_assist_sources` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the ledge assist sources value used by MenuSelection.
+/// Runtime ledge assist sources value used by MenuSelection..
     ledge_assist_sources: u32,
-    /// Stores the `turbo_sources` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the turbo sources value used by MenuSelection.
+/// Runtime turbo sources value used by MenuSelection..
     turbo_sources: u32,
-    /// Stores the `trump_sources` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the trump sources value used by MenuSelection.
+/// Runtime trump sources value used by MenuSelection..
     trump_sources: u32,
-    /// Stores the `builtin_consumed` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the builtin consumed value used by MenuSelection.
+/// Runtime builtin consumed value used by MenuSelection..
     pub builtin_consumed: u32,
-    /// Stores the `binding_sources` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the binding sources value used by MenuSelection.
+/// Runtime binding sources value used by MenuSelection..
     binding_sources: u32,
-    /// Stores the `row` value in `MenuSelection` as `MenuRow`.
-    ///
-    ///
-    ///  Holds the row value used by MenuSelection.
+/// Runtime row value used by MenuSelection..
     pub row: MenuRow,
     /// Stable indices into five ledge lists and two manual-button lists.
-    ///
-    ///  Stable indices into five ledge lists and two manual-button lists.
     pub choices: [usize; PresetSlot::COUNT],
-    /// Stores the `roll_rules` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the roll rules value used by MenuSelection.
+/// Runtime roll rules value used by MenuSelection..
     pub roll_rules: bool,
     /// Native runtime uses the simplified event controller; legacy readers stay loadable.
-    ///
-    ///  Native runtime uses the simplified event controller; legacy readers stay loadable.
     pub simplified_reactions: bool,
-    /// Stores the `shield_pressure` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the shield pressure value used by MenuSelection.
+/// Runtime shield pressure value used by MenuSelection..
     pub shield_pressure: bool,
-    /// Stores the `rule_toggles` value in `MenuSelection` as `u8`.
-    ///
-    ///
-    ///  Holds the rule toggles value used by MenuSelection.
+/// Runtime rule toggles value used by MenuSelection..
     pub rule_toggles: u8,
-    /// Stores the `rule_button_mask` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the rule button mask value used by MenuSelection.
+/// Runtime rule button mask value used by MenuSelection..
     pub rule_button_mask: u32,
-    /// Stores the `rule_binding_stamp` value in `MenuSelection` as `Option<u64>`.
-    ///
-    ///
-    ///  Optionally stores the rule binding stamp for MenuSelection; it may be absent.
+/// Runtime rule binding stamp value used by MenuSelection..
     rule_binding_stamp: Option<u64>,
-    /// Stores the `rule_feedback` value in `MenuSelection` as `crate::reaction_rules::Feedback`.
-    ///
-    ///
-    ///  Holds the rule feedback value used by MenuSelection.
+/// Runtime rule feedback value used by MenuSelection..
     pub rule_feedback: crate::reaction_rules::Feedback,
-    /// Stores the `rule_last_priority` value in `MenuSelection` as `Option<u8>`.
-    ///
-    ///
-    ///  Optionally stores the rule last priority for MenuSelection; it may be absent.
+/// Runtime rule last priority value used by MenuSelection..
     pub rule_last_priority: Option<u8>,
-    /// Stores the `y_fighter_kind` value in `MenuSelection` as `i32`.
-    ///
-    ///
-    ///  Holds the y fighter kind value used by MenuSelection.
+/// Runtime y fighter kind value used by MenuSelection..
     pub y_fighter_kind: i32,
-    /// Stores the `revision` value in `MenuSelection` as `u64`.
-    ///
-    ///
-    ///  Holds the revision value used by MenuSelection.
+/// Runtime revision value used by MenuSelection..
     pub revision: u64,
     /// Displayed values/page changed; cursor-only navigation leaves this stable.
-    ///
-    ///  Displayed values/page changed; cursor-only navigation leaves this stable.
     pub content_revision: u64,
-    /// Stores the `recipe_revision` value in `MenuSelection` as `u64`.
-    ///
-    ///
-    ///  Holds the recipe revision value used by MenuSelection.
+/// Runtime recipe revision value used by MenuSelection..
     pub recipe_revision: u64,
-    /// Stores the `mode_editor_origin` value in `MenuSelection` as `Option<(MenuRow`.
-    ///
-    ///
-    ///  Optionally stores the mode editor origin for MenuSelection; it may be absent.
+/// Runtime mode editor origin value used by MenuSelection..
     mode_editor_origin: Option<(MenuRow, [usize; PresetSlot::COUNT])>,
-    /// Stores the `mode_rule_list` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the mode rule list value used by MenuSelection.
+/// Runtime mode rule list value used by MenuSelection..
     mode_rule_list: bool,
-    /// Stores the `mode_rule_cursor` value in `MenuSelection` as `usize`.
-    ///
-    ///
-    ///  Holds the mode rule cursor value used by MenuSelection.
+/// Runtime mode rule cursor value used by MenuSelection..
     mode_rule_cursor: usize,
-    /// Stores the `auto_add_event` value in `MenuSelection` as `usize`.
-    ///
-    ///
-    ///  Holds the auto add event value used by MenuSelection.
+/// Runtime auto add event value used by MenuSelection..
     auto_add_event: usize,
-    /// Stores the `auto_grab_configured` value in `MenuSelection` as `u8`.
-    ///
-    ///
-    ///  Holds the auto grab configured value used by MenuSelection.
+/// Runtime auto grab configured value used by MenuSelection..
     auto_grab_configured: u8,
-    /// Stores the `has_reactions` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the has reactions value used by MenuSelection.
+/// Runtime has reactions value used by MenuSelection..
     pub has_reactions: bool,
-    /// Stores the `recipe_editing` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the recipe editing value used by MenuSelection.
+/// Runtime recipe editing value used by MenuSelection..
     pub recipe_editing: bool,
-    /// Stores the `preview_slot` value in `MenuSelection` as `Option<PresetSlot>`.
-    ///
-    ///
-    ///  Optionally stores the preview slot for MenuSelection; it may be absent.
+/// Runtime preview slot value used by MenuSelection..
     pub preview_slot: Option<PresetSlot>,
     // Suppress a bound physical button until release, even after its tape ends.
-    /// Stores the `button_latch` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the button latch value used by MenuSelection.
+/// Runtime button latch value used by MenuSelection..
     button_latch: u32,
-    /// Stores the `held_binding` value in `MenuSelection` as `Option<PresetSlot>`.
-    ///
-    ///
-    ///  Optionally stores the held binding for MenuSelection; it may be absent.
+/// Runtime held binding value used by MenuSelection..
     held_binding: Option<PresetSlot>,
-    /// Stores the `save_requested` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the save requested value used by MenuSelection.
+/// Runtime save requested value used by MenuSelection..
     pub save_requested: bool,
-    /// Stores the `delete_requested` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the delete requested value used by MenuSelection.
+/// Runtime delete requested value used by MenuSelection..
     pub delete_requested: bool,
-    /// Stores the `default_requested` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the default requested value used by MenuSelection.
+/// Runtime default requested value used by MenuSelection..
     pub default_requested: bool,
     /// Match-only two-page selector; Training retains the full editor.
-    ///
-    ///  Match-only two-page selector; Training retains the full editor.
     pub lightweight: bool,
-    /// Stores the `lightweight_initialized` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the lightweight initialized value used by MenuSelection.
+/// Runtime lightweight initialized value used by MenuSelection..
     lightweight_initialized: bool,
-    /// Stores the `match_visibility_pending` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the match visibility pending value used by MenuSelection.
+/// Runtime match visibility pending value used by MenuSelection..
     match_visibility_pending: bool,
-    /// Stores the `catalog` value in `MenuSelection` as `Option<Box<catalog::Catalog>>`.
-    ///
-    ///
-    ///  Optionally stores the catalog for MenuSelection; it may be absent.
+/// Runtime catalog value used by MenuSelection..
     catalog: Option<Box<catalog::Catalog>>,
-    /// Stores the `save_status` value in `MenuSelection` as `Option<String>`.
-    ///
-    ///
-    ///  Optionally stores the save status for MenuSelection; it may be absent.
+/// Runtime save status value used by MenuSelection..
     pub save_status: Option<String>,
-    /// Stores the `editor` value in `MenuSelection` as `Option<Box<editor::RecipeEditor>>`.
-    ///
-    ///
-    ///  Optionally stores the editor for MenuSelection; it may be absent.
+/// Runtime editor value used by MenuSelection..
     editor: Option<Box<editor::RecipeEditor>>,
-    /// Stores the `hold` value in `MenuSelection` as `HoldRepeat`.
-    ///
-    ///
-    ///  Holds the hold value used by MenuSelection.
+/// Runtime hold value used by MenuSelection..
     hold: HoldRepeat,
     /// Minus hides/shows the panel and never starts a gameplay tool.
-    ///
-    ///  Minus hides/shows the panel and never starts a gameplay tool.
     pub menu_hidden: bool,
     /// First Minus page: saved recipe selection and Training L3 test, without editing.
-    ///
-    ///  First Minus page: saved recipe selection and Training L3 test, without editing.
     pub quick_menu: bool,
     /// Third page groups existing non-sequence modes and toggles.
-    ///
-    ///  Third page groups existing non-sequence modes and toggles.
     pub modes_menu: bool,
-    /// Stores the `button_menu` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the button menu value used by MenuSelection.
+/// Runtime button menu value used by MenuSelection..
     pub button_menu: bool,
-    /// Stores the `auto_ledge` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the auto ledge value used by MenuSelection.
+/// Runtime auto ledge value used by MenuSelection..
     pub auto_ledge: bool,
-    /// Stores the `tuning` value in `MenuSelection` as `crate::fighter_tuning::Tuning`.
-    ///
-    ///
-    ///  Holds the tuning value used by MenuSelection.
+/// Runtime tuning value used by MenuSelection..
     pub tuning: crate::fighter_tuning::Tuning,
-    /// Stores the `tuning_values` value in `MenuSelection` as `crate::fighter_tuning::Values`.
-    ///
-    ///
-    ///  Holds the tuning values value used by MenuSelection.
+/// Runtime tuning values value used by MenuSelection..
     pub tuning_values: crate::fighter_tuning::Values,
-    /// Stores the `tuning_page` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the tuning page value used by MenuSelection.
+/// Runtime tuning page value used by MenuSelection..
     pub tuning_page: bool,
-    /// Stores the `tuning_row` value in `MenuSelection` as `usize`.
-    ///
-    ///
-    ///  Holds the tuning row value used by MenuSelection.
+/// Runtime tuning row value used by MenuSelection..
     pub tuning_row: usize,
-    /// Stores the `tuning_save_requested` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the tuning save requested value used by MenuSelection.
+/// Runtime tuning save requested value used by MenuSelection..
     pub tuning_save_requested: bool,
 
-    /// Stores the `out_of_shield` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the out of shield value used by MenuSelection.
+/// Runtime out of shield value used by MenuSelection..
     pub out_of_shield: bool,
     /// One input-sample event. The adapter owns the shared mash toggle so it
     /// survives fighter/stock changes rather than being a fighter preset.
-    ///
-    ///  One input-sample event. The adapter owns the shared mash toggle so it survives fighter/stock changes rather than being a fighter preset.
     pub toggle_mash: bool,
-    /// Stores the `idle_crouch` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the idle crouch value used by MenuSelection.
+/// Runtime idle crouch value used by MenuSelection..
     pub idle_crouch: bool,
-    /// Stores the `tilt_turn` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the tilt turn value used by MenuSelection.
+/// Runtime tilt turn value used by MenuSelection..
     pub tilt_turn: bool,
-    /// Stores the `spot_punish` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the spot punish value used by MenuSelection.
+/// Runtime spot punish value used by MenuSelection..
     pub spot_punish: bool,
-    /// Stores the `grab_dodge` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the grab dodge value used by MenuSelection.
+/// Runtime grab dodge value used by MenuSelection..
     pub grab_dodge: bool,
-    /// Stores the `auto_tech` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the auto tech value used by MenuSelection.
+/// Runtime auto tech value used by MenuSelection..
     pub auto_tech: bool,
-    /// Stores the `auto_reflect` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the auto reflect value used by MenuSelection.
+/// Runtime auto reflect value used by MenuSelection..
     pub auto_reflect: bool,
-    /// Stores the `performance` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the performance value used by MenuSelection.
+/// Runtime performance value used by MenuSelection..
     pub performance: bool,
     /// Diagnostic annotation only: 0=unset, 1..=31 label external delay 0..=30f.
-    ///
-    ///  Diagnostic annotation only: 0=unset, 1..=31 label external delay 0..=30f.
     pub test_latency: u8,
-    /// Stores the `previous` value in `MenuSelection` as `Option<u32>`.
-    ///
-    ///
-    ///  Optionally stores the previous for MenuSelection; it may be absent.
+/// Runtime previous value used by MenuSelection..
     previous: Option<u32>,
     // Menu-held directions must be released before becoming gameplay triggers.
-    /// Stores the `pad_quarantine` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the pad quarantine value used by MenuSelection.
+/// Runtime pad quarantine value used by MenuSelection..
     pad_quarantine: u32,
     // A held button must be released after reset/config changes before it can
     // control an assist. Unowned gameplay input remains physical.
-    /// Stores the `trigger_ready` value in `MenuSelection` as `u32`.
-    ///
-    ///
-    ///  Holds the trigger ready value used by MenuSelection.
+/// Runtime trigger ready value used by MenuSelection..
     trigger_ready: u32,
-    /// Stores the `cancel_pending` value in `MenuSelection` as `bool`.
-    ///
-    ///
-    ///  Holds the cancel pending value used by MenuSelection.
+/// Runtime cancel pending value used by MenuSelection..
     pub cancel_pending: bool,
 }
 impl MenuSelection {
     /// Estimated owned payload, not allocator bookkeeping or game memory.
     /// Diagnostic adapter calls only after revisions, never scans on idle polls.
-    ///
-    ///  Estimated owned payload, not allocator bookkeeping or game memory. Diagnostic adapter calls only after revisions, never scans on idle polls.
     #[cfg(feature = "diagnostic-logging")]
     pub fn diagnostic_retained(&self) -> (usize, usize, usize) {
         let (recipes, editor_bytes) = self.editor.as_ref().map_or((0, 0), |e| e.retained());
@@ -897,10 +492,7 @@ impl MenuSelection {
                 + self.save_status.as_ref().map_or(0, String::capacity),
         )
     }
-    /// Defines the `QUICK_ROWS` constant used by this module.
-    ///
-    ///
-    ///  Provides the QUICK ROWS constant value.
+/// `QUICK_ROWS` is a configuration value used by the Smash runtime.
     pub const QUICK_ROWS: [MenuRow; PresetSlot::COUNT] = [
         MenuRow::Neutral,
         MenuRow::Jump,
@@ -916,10 +508,7 @@ impl MenuSelection {
         MenuRow::L3Sequence,
         MenuRow::R3Sequence,
     ];
-    /// Defines the `LEDGE_ROWS` constant used by this module.
-    ///
-    ///
-    ///  Provides the LEDGE ROWS constant value.
+/// `LEDGE_ROWS` is a configuration value used by the Smash runtime.
     pub const LEDGE_ROWS: [MenuRow; 8] = [
         MenuRow::Neutral,
         MenuRow::Jump,
@@ -930,10 +519,7 @@ impl MenuSelection {
         MenuRow::ModesPage,
         MenuRow::FighterSettings,
     ];
-    /// Defines the `BUTTON_ROWS` constant used by this module.
-    ///
-    ///
-    ///  Provides the BUTTON ROWS constant value.
+/// `BUTTON_ROWS` is a configuration value used by the Smash runtime.
     pub const BUTTON_ROWS: [MenuRow; 10] = [
         MenuRow::XSequence,
         MenuRow::YSequence,
@@ -946,10 +532,7 @@ impl MenuSelection {
         MenuRow::LedgePage,
         MenuRow::ModesPage,
     ];
-    /// Defines the `ASSIST_ROWS` constant used by this module.
-    ///
-    ///
-    ///  Provides the ASSIST ROWS constant value.
+/// `ASSIST_ROWS` is a configuration value used by the Smash runtime.
     pub const ASSIST_ROWS: [MenuRow; 18] = [
         MenuRow::RollRules,
         MenuRow::ShieldPressure,
@@ -971,8 +554,6 @@ impl MenuSelection {
         MenuRow::ModesPage,
     ];
     /// The button recipes followed by the assist rows.
-    ///
-    ///  The button recipes followed by the assist rows.
     const LIGHTWEIGHT_ROWS: [MenuRow; PresetSlot::BUTTONS.len() + Self::ASSIST_ROWS.len()] = {
         let mut rows = [MenuRow::Neutral; PresetSlot::BUTTONS.len() + Self::ASSIST_ROWS.len()];
         let mut i = 0;
@@ -990,23 +571,10 @@ impl MenuSelection {
     // The fixed ledge modifier owns lightweight navigation. Custom D-pad
     // bindings (including a D-pad assigned to ledge assist) remain gameplay.
     /// Processes navigation input for the lightweight settings view.
-    ///
-    ///
-    ///  Handles button navigation in the compact settings view.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn lightweight_navigation(&self) -> bool {
         self.binding_physical & self.binding_layout.physical_buttons(MAPPER_L) != 0
     }
     /// Moves the selection among rows in the current page.
-    ///
-    ///
-    ///  Moves the highlight to another row.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
     fn navigate_row(&mut self, forward: bool) {
         let rows = self.display_rows();
         let mut index = rows.iter().position(|r| *r == self.row).unwrap_or(0);
@@ -1019,13 +587,6 @@ impl MenuSelection {
         }
     }
     /// Builds the rows visible in the current settings page.
-    ///
-    ///
-    ///  Lists the rows to show on the page.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `&'static [MenuRow]` value.
     pub fn display_rows(&self) -> &'static [MenuRow] {
         if self.modes_menu {
             &Self::ASSIST_ROWS
@@ -1036,13 +597,6 @@ impl MenuSelection {
         }
     }
     /// Returns the row range belonging to the requested page.
-    ///
-    ///
-    ///  Gets the rows for one page.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `&'static [MenuRow]` value.
     fn page_rows(&self) -> &'static [MenuRow] {
         if self.button_menu {
             &Self::BUTTON_ROWS
@@ -1051,13 +605,6 @@ impl MenuSelection {
         }
     }
     /// Builds the navigation link for a settings page.
-    ///
-    ///
-    ///  Creates the button link to a page.
-    /// ### Arguments
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn page_link(row: MenuRow) -> bool {
         matches!(
             row,
@@ -1068,12 +615,6 @@ impl MenuSelection {
         )
     }
     /// Opens the requested settings page.
-    ///
-    ///
-    ///  Shows the selected page.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
     fn open_page(&mut self, row: MenuRow) {
         self.hold.reset();
         self.menu_hidden = false;
@@ -1096,14 +637,6 @@ impl MenuSelection {
         }
     }
     /// Checks whether the row is visible in the current viewport.
-    ///
-    ///
-    ///  Checks whether the row can be seen.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn row_visible(&self, row: MenuRow) -> bool {
         if self.tuning_page {
             return false;
@@ -1114,14 +647,6 @@ impl MenuSelection {
         self.row_on_page(row) && self.row_available(row)
     }
     /// Checks whether the page link is visible in the current viewport.
-    ///
-    ///
-    ///  Checks whether the page link can be seen.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn page_link_visible(&self, row: MenuRow) -> bool {
         match row {
             MenuRow::FighterSettings => true,
@@ -1132,14 +657,6 @@ impl MenuSelection {
         }
     }
     /// Checks whether a row belongs to the requested page.
-    ///
-    ///
-    ///  Checks whether the row is on this page.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn row_on_page(&self, row: MenuRow) -> bool {
         let slot = row.slot();
         if self.lightweight && self.button_menu {
@@ -1151,13 +668,6 @@ impl MenuSelection {
         }
     }
     /// Rows hidden by the build, the fighter or the reaction mode.
-    ///
-    ///  Rows hidden by the build, the fighter or the reaction mode.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn row_available(&self, row: MenuRow) -> bool {
         !(!cfg!(feature = "diagnostic-logging")
             && matches!(row, MenuRow::Performance | MenuRow::TestLatency))
@@ -1170,13 +680,6 @@ impl MenuSelection {
                     .is_none())
     }
     /// Constructs a new value with the type’s initial state.
-    ///
-    ///
-    ///  Creates a new value.
-    /// ### Arguments
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub fn new(presets: &MenuPresets) -> Self {
         Self {
             choices: std::array::from_fn(|i| {
@@ -1201,13 +704,6 @@ impl MenuSelection {
         }
     }
     /// The on/off setting a mode row toggles; Auto-mash is an event, not a flag.
-    ///
-    ///  The on/off setting a mode row toggles; Auto-mash is an event, not a flag.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `row` (`MenuRow`): Represents the row; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn mode_flag(&mut self, row: MenuRow) -> Option<&mut bool> {
         Some(match row {
             MenuRow::ShieldPressure => &mut self.shield_pressure,
@@ -1225,12 +721,6 @@ impl MenuSelection {
         })
     }
     /// Applies the selected adjustment mode to the value.
-    ///
-    ///
-    ///  Changes the value using the selected adjustment mode.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
     fn adjust_mode(&mut self, forward: bool) {
         match self.row {
             MenuRow::AutoMash => self.toggle_mash = true,
@@ -1245,26 +735,10 @@ impl MenuSelection {
         }
     }
     /// Ledge autopilot stays OFF unless separately enabled by the user.
-    ///
-    ///  Ledge autopilot stays OFF unless separately enabled by the user.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `base` (`bool`): Represents the base; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn sequence_enabled(&self, base: bool) -> bool {
         base || self.preview_slot.is_some() || self.ledge_mode()
     }
     /// Returns the current settings view.
-    ///
-    ///
-    ///  Gets the settings being edited.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// - `base` (`AssistSettings`): Represents the base; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `AssistSettings` value.
     pub fn settings(&self, presets: &MenuPresets, base: AssistSettings) -> AssistSettings {
         // Cache selected file timelines. There is no fighter-function fallback.
         let mut s = self.tuning.apply(base);
@@ -1296,27 +770,12 @@ impl MenuSelection {
         s
     }
     /// Checks whether the tuning section is visible.
-    ///
-    ///
-    ///  Checks whether the tuning options are shown.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn tuning_visible(&self, i: usize) -> bool {
         crate::fighter_tuning::Tuning::visible(self.y_fighter_kind, i)
             && !(i == crate::fighter_tuning::AUTO_GRAB_CLOSE && self.auto_grab_configured & 2 != 0)
             && !(i == crate::fighter_tuning::AUTO_GRAB_FAR && self.auto_grab_configured & 1 != 0)
     }
     /// The first visible fighter-setting row at or after `row`, wrapping to the first one.
-    ///
-    ///  The first visible fighter-setting row at or after row, wrapping to the first one.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `row` (`usize`): Represents the row; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `usize` value.
     fn tuning_visible_index(&self, row: usize) -> usize {
         (row..crate::fighter_tuning::COUNT)
             .find(|i| self.tuning_visible(*i))
@@ -1324,14 +783,6 @@ impl MenuSelection {
             .unwrap_or(0)
     }
     /// Returns the current recipe-input validation error, if any.
-    ///
-    ///
-    ///  Gets the recipe error message if one exists.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn recipe_input_error(&self, presets: &MenuPresets) -> Option<String> {
         let slot = self.row.slot()?;
         let key = (slot as usize, self.choices[slot as usize]);
@@ -1352,14 +803,6 @@ impl MenuSelection {
         crate::reaction_rules::validate_response(sequence).err()
     }
     /// Checks whether the recipe differs from its saved value.
-    ///
-    ///
-    ///  Checks whether the recipe has unsaved changes.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn recipe_modified(&self, slot: PresetSlot) -> bool {
         let index = self.choices[slot as usize];
         self.editor
@@ -1368,14 +811,6 @@ impl MenuSelection {
             || self.draft(slot, index).is_some_and(|d| d.dirty)
     }
     /// Checks whether ledge assistance is currently held.
-    ///
-    ///
-    ///  Checks whether the ledge-assist input is held.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn ledge_held(&self, buttons: u32) -> bool {
         // Training navigation is still a UI command even when that physical
         // direction is assigned to a gameplay helper and filtered from policy.
@@ -1401,12 +836,6 @@ impl MenuSelection {
     }
     /// A toggled ledge watch stays reserved even while manual input temporarily
     /// pauses its movement. Safety tech/mash and ledge shield are separate.
-    ///
-    ///  A toggled ledge watch stays reserved even while manual input temporarily pauses its movement. Safety tech/mash and ledge shield are separate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn reserves_automatic_modes(&self) -> bool {
         self.ledge_mode()
             || self.preview_slot.is_some()
@@ -1415,14 +844,6 @@ impl MenuSelection {
                 != 0
     }
     /// Checks whether autopilot assistance is currently held.
-    ///
-    ///
-    ///  Checks whether the autopilot input is held.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn autopilot_held(&self, buttons: u32) -> bool {
         self.ledge_mode()
             && !self.recipe_editing
@@ -1432,12 +853,6 @@ impl MenuSelection {
                 || self.lightweight && !self.menu_hidden && self.lightweight_navigation())
     }
     /// Telemetry is not selector content; updating it must not rebuild menu text.
-    ///
-    ///  Telemetry is not selector content; updating it must not rebuild menu text.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `feedback` (`crate::reaction_rules::Feedback`): Represents the feedback; the function uses it as input to the operation described above.
-    /// - `last` (`Option<u8>`): Represents the last; the function uses it as input to the operation described above.
     pub fn record_rule_feedback(
         &mut self,
         feedback: crate::reaction_rules::Feedback,
@@ -1448,27 +863,15 @@ impl MenuSelection {
     }
 
     /// Cursor/page moved; displayed values did not.
-    ///
-    ///  Cursor/page moved; displayed values did not.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn view_changed(&mut self) {
         self.revision = self.revision.wrapping_add(1);
     }
     /// Displayed values or the page changed.
-    ///
-    ///  Displayed values or the page changed.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn content_changed(&mut self) {
         self.content_revision = self.content_revision.wrapping_add(1);
         self.view_changed();
     }
     /// A menu change cancels any running test or held binding.
-    ///
-    ///  A menu change cancels any running test or held binding.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn changed(&mut self) {
         self.content_changed();
         self.held_binding = None;
@@ -1477,61 +880,32 @@ impl MenuSelection {
         // Binding changes require a Y release before the new mode can run.
     }
     /// Recipe data changed: caches keyed on `recipe_revision` must rebuild.
-    ///
-    ///  Recipe data changed: caches keyed on reciperevision must rebuild.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn bump_recipes(&mut self) {
         self.recipe_revision = self.recipe_revision.wrapping_add(1);
     }
     /// Checks whether any recipe edits are pending.
-    ///
-    ///
-    ///  Checks whether recipes have unsaved changes.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `status` (`&str`): Represents the status being checked; the function uses it as input to the operation described above.
     fn recipes_edited(&mut self, status: &str) {
         self.bump_recipes();
         self.save_status = Some(status.into());
     }
     /// Closes the recipe catalog and returns to the previous view.
-    ///
-    ///
-    ///  Closes the recipe list.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn close_catalog(&mut self) {
         if let Some(catalog) = self.catalog.as_mut() {
             catalog.close();
         }
     }
     /// Closes the active editor command state.
-    ///
-    ///
-    ///  Leaves the editor command view.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn close_editor_commands(&mut self) {
         if let Some(editor) = self.editor.as_mut() {
             editor.close_commands();
         }
     }
     /// Closes the active tools view.
-    ///
-    ///
-    ///  Leaves the tools view.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn close_tools(&mut self) {
         self.close_editor_commands();
         self.close_catalog();
     }
     /// One-shot save/delete/default requests live for a single input sample.
-    ///
-    ///  One-shot save/delete/default requests live for a single input sample.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn clear_requests(&mut self) {
         self.save_requested = false;
         self.delete_requested = false;
@@ -1540,11 +914,6 @@ impl MenuSelection {
     }
 
     /// Resets the inputs.
-    ///
-    ///
-    ///  Resets the inputs.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn reset_inputs(&mut self) {
         self.restore_mode_choices();
         self.tuning_page = false;
@@ -1570,11 +939,6 @@ impl MenuSelection {
     /// Observe real releases while another tool owns input. Do not navigate,
     /// toggle mash, consume buttons or run an assist during passthrough.
     /// Remember held directions too, so resuming cannot synthesize a menu tap.
-    ///
-    ///  Observe real releases while another tool owns input. Do not navigate, toggle mash, consume buttons or run an assist during passthrough. Remember held directions too, so resuming cannot synthesize a menu tap.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
     pub fn observe_passthrough(&mut self, buttons: u32) {
         self.observe_physical_passthrough(
             self.binding_layout.physical_buttons(buttons),
@@ -1582,13 +946,6 @@ impl MenuSelection {
         );
     }
     /// Observes the physical passthrough.
-    ///
-    ///
-    ///  Observes the physical passthrough.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
-    /// - `layout` (`ControlLayout`): Represents the layout; the function uses it as input to the operation described above.
     pub fn observe_physical_passthrough(&mut self, physical: u32, layout: ControlLayout) {
         let buttons = layout.policy_buttons(physical);
         self.binding_layout = layout;
@@ -1608,26 +965,10 @@ impl MenuSelection {
     /// Do not accumulate invisible edits or replay a held Save on completion.
     /// A Training worker must not keep its editor/layout alive in another mode
     /// or skip first-frame scene defaults at the next battle entry.
-    ///
-    ///  Keep real edge history while a visible editor waits for its save worker. Do not accumulate invisible edits or replay a held Save on completion. A Training worker must not keep its editor/layout alive in another mode or skip.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `training` (`bool`): Represents the training; the function uses it as input to the operation described above.
-    /// - `busy` (`bool`): Represents the busy; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn waits_for_training_save(&self, training: bool, busy: bool) -> bool {
         training && busy && !self.lightweight && !self.match_visibility_pending && !self.menu_hidden
     }
     /// Waits for the pending save operation to complete.
-    ///
-    ///
-    ///  Waits until saving is done.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u32` value.
     pub fn wait_for_save(&mut self, buttons: u32) -> u32 {
         self.observe_passthrough(buttons);
         self.cancel_pending = false;
@@ -1637,30 +978,17 @@ impl MenuSelection {
         buttons & !MAPPER_PLUS
     }
     /// A momentary Training save/load may resume held-L practice, never Y.
-    ///
-    ///  A momentary Training save/load may resume held-L practice, never Y.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn resume_training_ledge_hold(&mut self) {
         self.trigger_ready |= MAPPER_L;
     }
     /// Combat cancellation must not erase menu press history during entry,
     /// death or respawn: saved choices remain editable in those phases.
-    ///
-    ///  Combat cancellation must not erase menu press history during entry, death or respawn: saved choices remain editable in those phases.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel_actions(&mut self) {
         self.held_binding = None;
         self.trigger_ready = 0;
         self.cancel_pending = true;
     }
     /// Builds the requested display representation.
-    ///
-    ///
-    ///  Creates the view to show.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn show(&mut self) {
         self.tuning_page = false;
         self.menu_hidden = false;
@@ -1672,11 +1000,6 @@ impl MenuSelection {
         self.changed();
     }
     /// Builds the display for the available assistance modes.
-    ///
-    ///
-    ///  Shows the assistance mode choices.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn show_modes(&mut self) {
         self.show();
         self.modes_menu = true;
@@ -1684,11 +1007,6 @@ impl MenuSelection {
         self.row = MenuRow::RollRules;
     }
     /// Builds the quick-settings display.
-    ///
-    ///
-    ///  Shows the quick settings.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn show_quick(&mut self) {
         if self.mode_editor_origin.is_some() && !self.mode_rule_list {
             self.recipe_editing = false;
@@ -1722,10 +1040,6 @@ impl MenuSelection {
     }
     /// Resolve the new battle's visibility on its first scene-aware input.
     /// Lightweight starts visible; Training starts hidden.
-    ///
-    ///  Resolve the new battle's visibility on its first scene-aware input. Lightweight starts visible; Training starts hidden.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn begin_match(&mut self) {
         self.menu_hidden = true;
         self.match_visibility_pending = true;
@@ -1738,14 +1052,7 @@ impl MenuSelection {
     }
 }
 /// Advances the selected choice to the next value.
-///
 /// Moves to the next choice.
-/// ### Arguments
-/// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-/// - `count` (`usize`): Represents the number of items; the function uses it as input to the operation described above.
-/// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `usize` value.
 fn cycle(index: usize, count: usize, forward: bool) -> usize {
     if count == 0 {
         return 0;

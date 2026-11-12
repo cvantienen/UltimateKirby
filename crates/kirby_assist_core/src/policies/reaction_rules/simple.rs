@@ -2,12 +2,7 @@
 use super::*;
 use crate::move_input::{finite_positions, UpBVerdict};
 /// Returns an optional `event` value.
-///
 /// Gets event if it is available.
-/// ### Arguments
-/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn event(status: i32) -> Option<usize> {
     match status {
         crate::native_states::ESCAPE_F | crate::native_states::ESCAPE_B => Some(0),
@@ -17,12 +12,7 @@ pub fn event(status: i32) -> Option<usize> {
     }
 }
 /// Determines whether the `starts_up_b` condition holds.
-///
 /// Checks whether starts up b.
-/// ### Arguments
-/// - `sequence` (`&Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn starts_up_b(sequence: &Sequence) -> bool {
     matches!(sequence.actions().first(),
         Some(crate::sequence_config::Action::Input{buttons,stick,..}
@@ -32,28 +22,11 @@ pub(super) fn starts_up_b(sequence: &Sequence) -> bool {
 }
 impl Engine {
     /// Observes the simple events.
-    ///
-    ///
-    ///  Observes the simple events.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
     pub(super) fn observe_simple_events(&mut self, targets: &[Option<Target>; 8]) {
         self.observe_events(targets, None, |t| event(t.status).is_some());
     }
 
     /// Returns an optional `simple_candidate` value.
-    ///
-    ///
-    ///  Gets simple candidate if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `rules` (`&'a Resolved`): Represents the rules; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `readiness` (`[bool; 3]`): Represents the readiness; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn simple_candidate<'a>(
         &self,
         rules: &'a Resolved,
@@ -108,16 +81,6 @@ impl Engine {
     }
     /// Only a usable immediate Up-B may replace an unaccepted automatic grab.
     /// This does not consume an event, advance a tape or bypass native readiness.
-    ///
-    ///  Only a usable immediate Up-B may replace an unaccepted automatic grab. This does not consume an event, advance a tape or bypass native readiness.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `rules` (`&Resolved`): Represents the rules; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn prefers_simple_up_b(
         &self,
         rules: &Resolved,
@@ -139,19 +102,6 @@ impl Engine {
     }
     /// Yield an uncommitted grab or a committed approach before R is delivered.
     /// The caller clears cached grab output before sampling the reaction.
-    ///
-    ///  Yield an uncommitted grab or a committed approach before R is delivered. The caller clears cached grab output before sampling the reaction.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
-    /// - `rules` (`&Resolved`): Represents the rules; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
-    /// - `grab` (`&mut crate::out_of_shield::OutOfShield`): Represents the grab; the function uses it as input to the operation described above.
-    /// - `ownership` (`&mut crate::action_owner::ActionOwnership`): Represents the ownership; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn preempt_automatic_grab(
         &self,
         allowed: bool,
@@ -185,19 +135,6 @@ impl Engine {
         true
     }
     /// Samples the simple.
-    ///
-    ///
-    ///  Samples the simple.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
-    /// - `rules` (`&Resolved`): Represents the rules; the function uses it as input to the operation described above.
-    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     pub fn sample_simple(
         &mut self,
         allowed: bool,
@@ -210,12 +147,6 @@ impl Engine {
         self.sample_simple_ready(allowed, rules, settings, c, targets, follow, [c.can_act; 3])
     }
     /// Drop any tape and treat every remembered event as answered.
-    ///
-    ///  Drop any tape and treat every remembered event as answered.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     fn consume_and_cancel(&mut self) -> ControllerOutput {
         self.cancel();
         for track in self.tracks.iter_mut().flatten() {
@@ -224,20 +155,6 @@ impl Engine {
         ControllerOutput::default()
     }
     /// Samples the simple ready.
-    ///
-    ///
-    ///  Samples the simple ready.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
-    /// - `rules` (`&Resolved`): Represents the rules; the function uses it as input to the operation described above.
-    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
-    /// - `readiness` (`[bool; 3]`): Represents the readiness; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     pub fn sample_simple_ready(
         &mut self,
         allowed: bool,
@@ -316,16 +233,6 @@ impl Engine {
     /// Commit the nearest ready, unconsumed event. Only a selected event is
     /// consumed; there is no delayed response, so admission still requires a
     /// live event and readiness now.
-    ///
-    ///  Commit the nearest ready, unconsumed event. Only a selected event is consumed; there is no delayed response, so admission still requires a live event and readiness now.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `rules` (`&Resolved`): Represents the rules; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `readiness` (`[bool; 3]`): Represents the readiness; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn admit_simple(
         &mut self,
         rules: &Resolved,
@@ -372,15 +279,6 @@ impl Engine {
     }
     /// Native confirmation and lifecycle of an automatic direct Up-B; false
     /// when this sample must emit nothing.
-    ///
-    ///  Native confirmation and lifecycle of an automatic direct Up-B; false when this sample must emit nothing.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn advance_up_b(
         &mut self,
         settings: AssistSettings,

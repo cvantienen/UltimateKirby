@@ -4,88 +4,40 @@ pub mod presets {
     //! Startup-frozen file menu: labels and references to validated input timelines.
     //! No compiled fighter choices, response functions or move timing defaults.
 
-    /// Defines the available `PresetSlot` cases.
-    ///
-    ///
-    ///  Lists the available PresetSlot choices.
+    /// Menu slot that selects a ledge response or binds a physical controller button.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum PresetSlot {
-        /// Represents the `Neutral` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the Neutral option in PresetSlot.
+        /// Neutral get-up response slot.
         Neutral,
-        /// Represents the `Jump` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the Jump option in PresetSlot.
+        /// Ledge-jump response slot.
         Jump,
-        /// Represents the `Roll` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the Roll option in PresetSlot.
+        /// Ledge-roll response slot.
         Roll,
-        /// Represents the `Attack` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the Attack option in PresetSlot.
+        /// Ledge-attack response slot.
         Attack,
-        /// Represents the `Drop` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the Drop option in PresetSlot.
+        /// Ledge-drop response slot.
         Drop,
-        /// Represents the `X` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the X option in PresetSlot.
+        /// Sequence bound to the X button.
         X,
-        /// Represents the `Y` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the Y option in PresetSlot.
+        /// Sequence bound to the Y button.
         Y,
-        /// Represents the `DpadUp` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the DpadUp option in PresetSlot.
+        /// Sequence bound to D-pad up.
         DpadUp,
-        /// Represents the `DpadDown` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the DpadDown option in PresetSlot.
+        /// Sequence bound to D-pad down.
         DpadDown,
-        /// Represents the `DpadLeft` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the DpadLeft option in PresetSlot.
+        /// Sequence bound to D-pad left.
         DpadLeft,
-        /// Represents the `DpadRight` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the DpadRight option in PresetSlot.
+        /// Sequence bound to D-pad right.
         DpadRight,
-        /// Represents the `L3` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the L3 option in PresetSlot.
+        /// Sequence bound to the left-stick click.
         L3,
-        /// Represents the `R3` case of `PresetSlot`.
-        ///
-        ///
-        ///  Represents the R3 option in PresetSlot.
+        /// Sequence bound to the right-stick click.
         R3,
     }
     impl PresetSlot {
-        /// Defines the `COUNT` constant used by this module.
-        ///
-        ///
-        ///  Provides the COUNT constant value.
+        /// Number of ledge-response and controller-binding preset slots.
         pub const COUNT: usize = 13;
-        /// Defines the `ALL` constant used by this module.
-        ///
-        ///
-        ///  Provides the ALL constant value.
+        /// Every preset slot in stable menu order.
         pub const ALL: [Self; Self::COUNT] = [
             Self::Neutral,
             Self::Jump,
@@ -101,10 +53,7 @@ pub mod presets {
             Self::L3,
             Self::R3,
         ];
-        /// Defines the `BUTTONS` constant used by this module.
-        ///
-        ///
-        ///  Provides the BUTTONS constant value.
+        /// Preset slots backed by physical controller buttons.
         pub const BUTTONS: [Self; 8] = [
             Self::X,
             Self::Y,
@@ -116,13 +65,6 @@ pub mod presets {
             Self::R3,
         ];
         /// Returns the button associated with the binding.
-        ///
-        ///
-        ///  Gets the assigned button.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `u32` value.
         pub fn button(self) -> u32 {
             use crate::{manual_controls::*, native_input::*};
             match self {
@@ -137,26 +79,11 @@ pub mod presets {
                 _ => 0,
             }
         }
-        /// Checks whether button.
-        ///
-        ///
-        ///  Checks whether button.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
+        /// Whether this slot is bound to a physical controller button.
         pub fn is_button(self) -> bool {
             self as usize >= Self::X as usize
         }
         /// Builds the default the index.
-        ///
-        ///
-        ///  Holds the default index value.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `saved` (`usize`): Represents the saved; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `usize` value.
         pub fn default_index(self, saved: usize) -> usize {
             saved
                 + if self.is_button() {
@@ -166,24 +93,10 @@ pub mod presets {
                 }
         }
         /// Returns the maximum number of choices supported by the slot.
-        ///
-        ///
-        ///  Gets how many choices can fit in the slot.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `usize` value.
         pub fn max_choices(self) -> usize {
             32
         }
         /// Returns the stored recipe templates.
-        ///
-        ///
-        ///  Gets the available recipe templates.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `usize` value.
         pub fn templates(self) -> usize {
             if self.is_button() {
                 5 // Normal + custom recipe + three native helpers.
@@ -193,37 +106,17 @@ pub mod presets {
         }
     }
     /// A file-authored menu choice. There are no executable fighter handlers here.
-    ///
-    ///  A file-authored menu choice. There are no executable fighter handlers here.
     #[derive(Clone, Copy, Debug)]
     pub struct SavedChoice {
-        /// Stores the `id` value in `SavedChoice` as `&'static str`.
-        ///
-        ///
-        ///  Holds the id value used by SavedChoice.
+        /// Stable file identifier for the menu choice.
         pub id: &'static str,
-        /// Stores the `name` value in `SavedChoice` as `&'static str`.
-        ///
-        ///
-        ///  Holds the name value used by SavedChoice.
+        /// Player-facing name of the sequence choice.
         pub name: &'static str,
-        /// Stores the `sequence` value in `SavedChoice` as `&'static crate::sequence_config::Sequence`.
-        ///
-        ///
-        ///  Holds the sequence value used by SavedChoice.
+        /// Validated controller-input sequence selected by this choice.
         pub sequence: &'static crate::sequence_config::Sequence,
     }
     impl SavedChoice {
         /// Returns the file-authored value for the requested entry.
-        ///
-        ///
-        ///  Gets the value read from the configuration file.
-        /// ### Arguments
-        /// - `id` (`&'static str`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
-        /// - `name` (`&'static str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
-        /// - `sequence` (`&'static crate::sequence_config::Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         pub(crate) fn file(
             id: &'static str,
             name: &'static str,
@@ -232,32 +125,16 @@ pub mod presets {
             Self { id, name, sequence }
         }
     }
-    /// Defines the `SavedList` data structure.
-    ///
-    ///
-    ///  Holds the data for SavedList.
+    /// Saved selection and available choices for one preset slot.
     #[derive(Clone, Copy, Debug)]
     pub struct SavedList {
-        /// Stores the `selected` value in `SavedList` as `usize`.
-        ///
-        ///
-        ///  Holds the selected value used by SavedList.
+        /// Saved index of the currently selected choice.
         pub selected: usize,
-        /// Stores the `options` value in `SavedList` as `&'static [SavedChoice]`.
-        ///
-        ///
-        ///  Holds the options value used by SavedList.
+        /// File-authored choices available in this menu slot.
         pub options: &'static [SavedChoice],
     }
     impl SavedList {
-        /// Constructs a new value with the type’s initial state.
-        ///
-        ///
-        ///  Creates a new value.
-        /// ### Arguments
-        /// - `options` (`&'static [SavedChoice]`): Represents the options; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
+        /// Creates a saved list using the supplied file-authored choices.
         pub const fn new(options: &'static [SavedChoice]) -> Self {
             Self {
                 selected: 0,
@@ -265,53 +142,28 @@ pub mod presets {
             }
         }
     }
-    /// Defines the `MenuPresets` data structure.
-    ///
-    ///
-    ///  Holds the data for MenuPresets.
+    /// All ledge-response and controller-binding choices loaded for the menu.
     #[derive(Clone, Copy, Debug)]
     pub struct MenuPresets {
-        /// Stores the `lists` value in `MenuPresets` as `[SavedList; PresetSlot::COUNT]`.
-        ///
-        ///
-        ///  Stores the lists collection for MenuPresets.
+        /// One saved choice list for every preset slot.
         pub lists: [SavedList; PresetSlot::COUNT],
-        /// Stores the `templates` value in `MenuPresets` as `&'static [crate::sequence_config::Template]`.
-        ///
-        ///
-        ///  Holds the templates value used by MenuPresets.
+        /// Validated reusable input templates loaded with the sequences.
         pub templates: &'static [crate::sequence_config::Template],
     }
     // Empty until startup loads the sole text catalog.
     impl Default for MenuPresets {
-        /// Returns the default value for this type.
-        ///
-        ///
-        ///  Returns the default value for this type.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
+        /// Uses no file-authored sequences until the startup catalog is loaded.
         fn default() -> Self {
             Self::EMPTY
         }
     }
     impl MenuPresets {
-        /// Defines the `EMPTY` constant used by this module.
-        ///
-        ///
-        ///  Provides the EMPTY constant value.
+        /// Preset collection used when no file-authored choices are available.
         pub const EMPTY: Self = Self {
             lists: [SavedList::new(&[]); PresetSlot::COUNT],
             templates: &[],
         };
         /// Returns the available entries in the requested list.
-        ///
-        ///
-        ///  Gets the items in the list.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `&SavedList` value.
         pub fn list(&self, slot: PresetSlot) -> &SavedList {
             &self.lists[slot as usize]
         }
@@ -330,12 +182,6 @@ pub mod spacing {
 
     /// Compact display aliases only. IDs, handlers and timing stay unchanged.
     /// The UI resolves these when its cached snapshot changes, never per game frame.
-    ///
-    ///  Compact display aliases only. IDs, handlers and timing stay unchanged. The UI resolves these when its cached snapshot changes, never per game frame.
-    /// ### Arguments
-    /// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn menu_name(name: &str) -> &str {
         match name {
             "Down tilt" => "Dtilt",
@@ -391,14 +237,6 @@ pub mod spacing {
     /// An empty hint deliberately leaves grabs, shield and automatic roll approaches
     /// alone: their starting distance is not the move's final striking distance.
     /// Fighter kind is the resolved profile kind, so fallback profiles stay coherent.
-    ///
-    ///  An empty hint deliberately leaves grabs, shield and automatic roll approaches alone: their starting distance is not the move's final striking distance. Fighter kind is the resolved profile kind, so fallback profiles stay coherent.
-    /// ### Arguments
-    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
-    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn hint(fighter_kind: i32, slot: PresetSlot, choice: &str) -> &'static str {
         // Missile roll choices deliberately stay back instead of using the roll
         // approach, so retain their ranged hint even in that row.
@@ -451,13 +289,6 @@ pub mod spacing {
 
     // Per-move reach classes; a fighter outside a list takes that move's shorter default.
     /// Returns the neutral-air reference hint.
-    ///
-    ///
-    ///  Gets the note about neutral air.
-    /// ### Arguments
-    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn nair_hint(fighter_kind: i32) -> &'static str {
         match fighter_kind {
             kind::LITTLE_MAC => "~touching", // Little Mac's intentionally tiny aerial.
@@ -486,13 +317,6 @@ pub mod spacing {
         }
     }
     /// Returns the down-tilt reference hint.
-    ///
-    ///
-    ///  Gets the note about down tilt.
-    /// ### Arguments
-    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn down_tilt_hint(fighter_kind: i32) -> &'static str {
         match fighter_kind {
             kind::DONKEY_KONG
@@ -527,13 +351,6 @@ pub mod spacing {
         }
     }
     /// Returns the forward-tilt reference hint.
-    ///
-    ///
-    ///  Gets the note about forward tilt.
-    /// ### Arguments
-    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn forward_tilt_hint(fighter_kind: i32) -> &'static str {
         match fighter_kind {
             kind::DONKEY_KONG
@@ -558,13 +375,6 @@ pub mod spacing {
         }
     }
     /// Returns the short-hop down-air reference hint.
-    ///
-    ///
-    ///  Gets the note about short-hop down air.
-    /// ### Arguments
-    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn short_hop_dair_hint(fighter_kind: i32) -> &'static str {
         match fighter_kind {
             kind::DARK_SAMUS
@@ -644,11 +454,6 @@ macro_rules! fighter_profiles {
                 $(pub const $constant: i32 = crate::fighter_kinds::$kind;)?
 
                 /// Returns the profile associated with the fighter identity.
-                ///
-                ///
-                ///  Gets the fighter’s profile.
-                /// ### Returns
-                /// Returns the resulting `super::FighterProfile` value.
                 pub fn profile() -> super::FighterProfile {
                     let kind = crate::fighter_kinds::$kind;
                     super::FighterProfile {
@@ -660,10 +465,7 @@ macro_rules! fighter_profiles {
                 }
             }
         )*
-        /// Defines the `BUILDERS` constant used by this module.
-        ///
-        ///
-///  Provides the BUILDERS constant value.
+        /// Roster profile builders indexed by native fighter identity.
         const BUILDERS: &[fn() -> FighterProfile] = &[$($module::profile),*];
     };
 }
@@ -753,61 +555,31 @@ fighter_profiles! {
 use crate::settings::AssistSettings;
 use std::collections::BTreeMap;
 
-/// Defines the `GrabTiming` data structure.
-///
-/// Holds the data for GrabTiming.
+/// Startup and active-frame reference data for standing, dash, and pivot grabs.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GrabTiming {
     /// Zero means the canonical source has no simple numeric reach.
-    ///
-    ///  Zero means the canonical source has no simple numeric reach.
     pub standing_range: f32,
-    /// Stores the `standing_startup` value in `GrabTiming` as `u8`.
-    ///
-    ///
-    ///  Holds the standing startup value used by GrabTiming.
+    /// Standing-grab startup in frames.
     pub standing_startup: u8,
-    /// Stores the `dash_startup` value in `GrabTiming` as `u8`.
-    ///
-    ///
-    ///  Holds the dash startup value used by GrabTiming.
+    /// Dash-grab startup in frames.
     pub dash_startup: u8,
-    /// Stores the `pivot_startup` value in `GrabTiming` as `u8`.
-    ///
-    ///
-    ///  Holds the pivot startup value used by GrabTiming.
+    /// Pivot-grab startup in frames.
     pub pivot_startup: u8,
-    /// Stores the `shield_startup` value in `GrabTiming` as `u8`.
-    ///
-    ///
-    ///  Holds the shield startup value used by GrabTiming.
+    /// Extra frames required to grab after shielding.
     pub shield_startup: u8,
-    /// Stores the `standing_active_frames` value in `GrabTiming` as `u8`.
-    ///
-    ///
-    ///  Sets the standing active frames timing for GrabTiming.
+    /// Number of active frames for the standing grab.
     pub standing_active_frames: u8,
 }
 
 /// Grab timing and reach values derived from a fighter's canonical data.
-///
-///  Grab timing and reach values derived from a fighter's canonical data.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FighterGrabData {
-    /// Stores the `grab` value in `FighterGrabData` as `GrabTiming`.
-    ///
-    ///
-    ///  Holds the grab value used by FighterGrabData.
+    /// Frame timing shared by this fighter's grab observations.
     pub grab: GrabTiming,
 }
 impl FighterGrabData {
     /// Resolve simple grab facts from this fighter's canonical data row.
-    ///
-    ///  Resolve simple grab facts from this fighter's canonical data row.
-    /// ### Arguments
-    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub fn from_kind(kind: i32) -> Self {
         let grab = |status| crate::fighter_data::ordinary_grab(kind, status);
         let standing = grab(crate::native_states::CATCH);
@@ -830,43 +602,21 @@ impl FighterGrabData {
 }
 /// Response switches. Move selection for normal get-up uses GetupAttack.
 /// Ledge-drop recipes are selected separately through AssistSettings.
-///
-///  Response switches. Move selection for normal get-up uses GetupAttack. Ledge-drop recipes are selected separately through AssistSettings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LedgeResponses {
-    /// Stores the `neutral_getup` value in `LedgeResponses` as `bool`.
-    ///
-    ///
-    ///  Holds the neutral getup value used by LedgeResponses.
+    /// Whether the profile supports reacting to neutral ledge get-up.
     pub neutral_getup: bool,
-    /// Stores the `jump_getup` value in `LedgeResponses` as `bool`.
-    ///
-    ///
-    ///  Holds the jump getup value used by LedgeResponses.
+    /// Whether the profile supports reacting to ledge jump.
     pub jump_getup: bool,
-    /// Stores the `roll_getup` value in `LedgeResponses` as `bool`.
-    ///
-    ///
-    ///  Holds the roll getup value used by LedgeResponses.
+    /// Whether the profile supports reacting to ledge roll.
     pub roll_getup: bool,
-    /// Stores the `attack_getup` value in `LedgeResponses` as `bool`.
-    ///
-    ///
-    ///  Holds the attack getup value used by LedgeResponses.
+    /// Whether the profile supports reacting to ledge attack.
     pub attack_getup: bool,
-    /// Stores the `rear_block_nair` value in `LedgeResponses` as `bool`.
-    ///
-    ///
-    ///  Holds the rear block nair value used by LedgeResponses.
+    /// Whether the profile permits its rear-block neutral-air reference.
     pub rear_block_nair: bool,
 }
 impl Default for LedgeResponses {
-    /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
+    /// Enables every built-in ledge response unless a profile disables one.
     fn default() -> Self {
         Self {
             neutral_getup: true,
@@ -878,52 +628,24 @@ impl Default for LedgeResponses {
     }
 }
 
-/// Defines the `FighterProfile` data structure.
-///
-/// Holds the data for FighterProfile.
+/// Read-only identity, grab data, and menu choices for one fighter.
 #[derive(Clone, Debug)]
 pub struct FighterProfile {
-    /// Stores the `name` value in `FighterProfile` as `&'static str`.
-    ///
-    ///
-    ///  Holds the name value used by FighterProfile.
+    /// Roster display name.
     pub name: &'static str,
-    /// Stores the `fighter_kind` value in `FighterProfile` as `i32`.
-    ///
-    ///
-    ///  Holds the fighter kind value used by FighterProfile.
+    /// Native fighter-kind ID.
     pub fighter_kind: i32,
-    /// Stores the `grab` value in `FighterProfile` as `FighterGrabData`.
-    ///
-    ///
-    ///  Holds the grab value used by FighterProfile.
+    /// Validated grab timing and reach data.
     pub grab: FighterGrabData,
-    /// Stores the `menu_options` value in `FighterProfile` as `presets::MenuPresets`.
-    ///
-    ///
-    ///  Holds the menu options value used by FighterProfile.
+    /// Startup-loaded menu sequences for this fighter.
     pub menu_options: presets::MenuPresets,
 }
 impl FighterProfile {
     /// Full-roster facts are available regardless of this fighter's match role.
-    ///
-    ///  Full-roster facts are available regardless of this fighter's match role.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn fighter_data(&self) -> Option<&'static crate::fighter_data::FighterData> {
         crate::fighter_data::fighter(self.fighter_kind)
     }
-    /// Applies the supplied configuration or action.
-    ///
-    ///
-    ///  Makes the supplied change.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `AssistSettings` value.
+    /// Applies this fighter's identity, grab data, and response implementation.
     pub fn apply(&self, mut settings: AssistSettings) -> AssistSettings {
         settings.implementation =
             crate::ledge_trap::ResponseImplementation::for_kind(self.fighter_kind);
@@ -939,24 +661,14 @@ impl FighterProfile {
     }
 }
 
-/// Defines the `FighterProfiles` data structure.
-///
-/// Holds the data for FighterProfiles.
+/// Roster-wide lookup table of validated fighter profiles.
 #[derive(Clone, Debug)]
 pub struct FighterProfiles {
-    /// Stores the `profiles` value in `FighterProfiles` as `BTreeMap<i32`.
-    ///
-    ///
-    ///  Holds the profiles value used by FighterProfiles.
+    /// Profiles keyed by native fighter-kind ID.
     profiles: BTreeMap<i32, FighterProfile>,
 }
 impl Default for FighterProfiles {
-    /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
+    /// Builds the validated roster profile lookup by native fighter kind.
     fn default() -> Self {
         // Keep the constructor table in read-only storage and build one profile
         // at a time. A [FighterProfile; 77] temporary exceeded the native 64 KiB
@@ -971,10 +683,7 @@ impl Default for FighterProfiles {
 }
 
 impl FighterProfiles {
-    /// Constructs a value from the test file.
-    ///
-    ///
-    ///  Constructs a value from the test file.
+    /// Builds profiles using the deployed sequence catalog used by tests.
     #[cfg(test)]
     pub(crate) fn from_test_file() -> Self {
         let catalog = crate::sequence_config::Catalog::parse(include_str!(concat!(
@@ -989,11 +698,6 @@ impl FighterProfiles {
     }
     /// Share inert Training templates without expanding fighter-specific menus.
     /// Runtime uses owned selected-fighter records instead of leaking all tapes.
-    ///
-    ///  Share inert Training templates without expanding fighter-specific menus. Runtime uses owned selected-fighter records instead of leaking all tapes.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `templates` (`&[crate::sequence_config::Template]`): Represents the templates; the function uses it as input to the operation described above.
     pub fn add_sequence_templates(&mut self, templates: &[crate::sequence_config::Template]) {
         if templates.is_empty() {
             return;
@@ -1007,13 +711,6 @@ impl FighterProfiles {
     /// Startup only. Freeze the file-authored menus into process-lifetime
     /// storage so all existing borrowed catalog consumers stay allocation-free.
     /// The file/section/list caps bound this retained memory. Never call per frame.
-    ///
-    ///  Startup only. Freeze the file-authored menus into process-lifetime storage so all existing borrowed catalog consumers stay allocation-free. The file/section/list caps bound this retained memory. Never call per frame.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `catalog` (`&crate::sequence_config::Catalog`): Represents the catalog; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn add_sequence_choices(
         &mut self,
         catalog: &crate::sequence_config::Catalog,
@@ -1065,12 +762,6 @@ impl FighterProfiles {
         self.validate()
     }
     /// Check programmer-supplied catalog edits once before installing hooks.
-    ///
-    ///  Check programmer-supplied catalog edits once before installing hooks.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
     pub fn validate(&self) -> Result<(), String> {
         if !self.profiles.contains_key(&6) {
             return Err("Kirby identity/fighter-data profile is missing".into());
@@ -1144,14 +835,6 @@ impl FighterProfiles {
     }
 
     /// Returns the profile associated with the fighter identity.
-    ///
-    ///
-    ///  Gets the fighter’s profile.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `fighter_kind` (`i32`): Represents the fighter kind; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn profile(&self, fighter_kind: i32) -> Option<&FighterProfile> {
         // Native playable kinds are 0..FIGHTER_KIND_TERM (0x5e), exclusive.
         // Missing/invalid identities are inert; never substitute another fighter's
@@ -1164,14 +847,6 @@ impl FighterProfiles {
 
     /// Use only the requested fighter identity and its loaded file catalog.
     /// None still covers startup before a valid fighter is observed.
-    ///
-    ///  Use only the requested fighter identity and its loaded file catalog. None still covers startup before a valid fighter is observed.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `fighter_kind` (`Option<i32>`): Represents the fighter kind; the function uses it as input to the operation described above.
-    /// - `base` (`AssistSettings`): Represents the base; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `AssistSettings` value.
     pub fn settings_for_fighter(
         &self,
         fighter_kind: Option<i32>,

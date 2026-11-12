@@ -2,12 +2,7 @@
 use super::*;
 
 /// Returns the `button_names` result.
-///
 /// Gets the button names result.
-/// ### Arguments
-/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn button_names(buttons: u32) -> Result<String, String> {
     let known = BUTTON_TOKENS
         .iter()
@@ -31,15 +26,6 @@ fn button_names(buttons: u32) -> Result<String, String> {
 
 /// Text of `buttons`/`stick` chords that hold for `frames`; zero frames means
 /// "until the player takes over", which needs at least one button.
-///
-///  Text of buttons/stick chords that hold for frames; zero frames means "until the player takes over", which needs at least one button.
-/// ### Arguments
-/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-/// - `stick` (`[f32; 2]`): Represents the stick; the function uses it as input to the operation described above.
-/// - `frames` (`u8`): Represents the number of frames; the function uses it as input to the operation described above.
-/// - `relative` (`bool`): Represents the relative; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn input_action(
     buttons: u32,
     stick: [f32; 2],
@@ -63,12 +49,7 @@ fn input_action(
 }
 
 /// Returns the `action` result.
-///
 /// Gets the action result.
-/// ### Arguments
-/// - `a` (`Action`): Represents the a; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn action(a: Action) -> Result<String, String> {
     Ok(match a {
         Action::Empty => return Err("Remove empty execution steps before saving".into()),
@@ -206,17 +187,6 @@ fn action(a: Action) -> Result<String, String> {
 
 /// Replace only one recipe's actions/timings, preserving its label, default and
 /// every other section. A new Custom recipe gets a separate, nondefault entry.
-///
-///  Replace only one recipe's actions/timings, preserving its label, default and every other section. A new Custom recipe gets a separate, nondefault entry.
-/// ### Arguments
-/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-/// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
-/// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-/// - `allow_new` (`bool`): Represents the allow new; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn update(
     source: &str,
     kind: i32,
@@ -384,15 +354,6 @@ pub fn update(
 
 /// Select exactly one startup default in this fighter/category. Other sections
 /// remain byte-for-byte unchanged. Call after update_named to allow new recipes.
-///
-///  Select exactly one startup default in this fighter/category. Other sections remain byte-for-byte unchanged. Call after updatenamed to allow new recipes.
-/// ### Arguments
-/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-/// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn set_default(
     source: &str,
     kind: i32,
@@ -452,15 +413,6 @@ pub fn set_default(
 }
 
 /// Persist an explicit selected binding without enabling any other row.
-///
-///  Persist an explicit selected binding without enabling any other row.
-/// ### Arguments
-/// - `clean` (`&str`): Represents the clean; the function uses it as input to the operation described above.
-/// - `fighter` (`&str`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-/// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn matches_section(clean: &str, fighter: &str, slot: PresetSlot, choice: &str) -> bool {
     if !clean.starts_with('[') || !clean.ends_with(']') {
         return false;
@@ -475,24 +427,14 @@ fn matches_section(clean: &str, fighter: &str, slot: PresetSlot, choice: &str) -
         && parts[2] == choice
 }
 /// Validates the output.
-///
 /// Validates the output.
-/// ### Arguments
-/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn validate_output(source: &str) -> Result<(), String> {
     let catalog = Catalog::parse(source)?;
     validate_catalog(&catalog)
 }
 
 /// Validates the catalog.
-///
 /// Validates the catalog.
-/// ### Arguments
-/// - `catalog` (`&Catalog`): Represents the catalog; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn validate_catalog(catalog: &Catalog) -> Result<(), String> {
     // add_sequence_choices is a startup publisher: it deliberately leaks frozen
     // menu references for the game's lifetime. Saves must NEVER call it.
@@ -504,18 +446,7 @@ fn validate_catalog(catalog: &Catalog) -> Result<(), String> {
     Ok(())
 }
 /// Updates the named.
-///
 /// Updates the named.
-/// ### Arguments
-/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-/// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
-/// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-/// - `allow_new` (`bool`): Represents the allow new; the function uses it as input to the operation described above.
-/// - `name` (`Option<&str>`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn update_named(
     source: &str,
     kind: i32,
@@ -574,16 +505,7 @@ pub fn update_named(
     super::layout::for_save(source, output)
 }
 /// Returns the `delete` result.
-///
 /// Gets the delete result.
-/// ### Arguments
-/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-/// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
-/// - `allow_missing` (`bool`): Represents the allow missing; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn delete(
     source: &str,
     kind: i32,
@@ -622,19 +544,9 @@ pub fn delete(
 #[cfg(test)]
 mod tests {
     use super::*;
-    /// Defines the `SOURCE` constant used by this module.
-    ///
-    ///
-///  Provides the SOURCE constant value.
+/// `SOURCE` is a configuration value used by the Smash runtime.
     const SOURCE: &str = "# keep\n[yoshi.roll.grab]\nname = Tongue grab\ndefault=true\nstart_delay=0\nactions=grab\n\n[kirby.roll.a]\nstart_delay=0\nactions=a\n";
     /// Returns the `sequence` result.
-    ///
-    ///
-    ///  Gets the sequence result.
-    /// ### Arguments
-    /// - `actions` (`&str`): Represents the actions; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `Sequence` value.
     fn sequence(actions: &str) -> Sequence {
         Catalog::parse(&format!("[yoshi.roll.x]\nstart_delay=4\nactions={actions}"))
             .unwrap()
@@ -643,9 +555,6 @@ mod tests {
     }
 
     /// Regression test for `while_held_survives_save_and_can_be_disabled_without_duplicate_keys`.
-    ///
-    ///
-///  Checks that while held survives save and can be disabled without duplicate keys.
     #[test]
     fn while_held_survives_save_and_can_be_disabled_without_duplicate_keys() {
         let mut seq = sequence("tap:a:0:-0.6:1:11:120");
@@ -674,9 +583,6 @@ mod tests {
         );
     }
     /// Regression test for `taps_roundtrip_as_one_step_and_reject_zero_release_or_invalid_durations`.
-    ///
-    ///
-///  Checks that taps roundtrip as one step and reject zero release or invalid durations.
     #[test]
     fn taps_roundtrip_as_one_step_and_reject_zero_release_or_invalid_durations() {
         let original = sequence("tap:a+b:0:-0.6:1:11:1800");
@@ -704,9 +610,6 @@ mod tests {
         }
     }
     /// Regression test for `controller_and_opponent_inputs_roundtrip_without_rewriting_button_names`.
-    ///
-    ///
-///  Checks that controller and opponent inputs roundtrip without rewriting button names.
     #[test]
     fn controller_and_opponent_inputs_roundtrip_without_rewriting_button_names() {
         let original = sequence(
@@ -717,9 +620,6 @@ mod tests {
         assert_eq!(saved.actions(), original.actions());
     }
     /// Regression test for `explicit_checks_serialize_and_validate`.
-    ///
-    ///
-///  Checks that explicit checks serialize and validate.
     #[test]
     fn explicit_checks_serialize_and_validate() {
         let original = sequence(
@@ -742,9 +642,6 @@ mod tests {
         }
     }
     /// Regression test for `saving_a_ledge_recipe_preserves_ignored_retired_button_sections`.
-    ///
-    ///
-///  Checks that saving a ledge recipe preserves ignored retired button sections.
     #[test]
     fn saving_a_ledge_recipe_preserves_ignored_retired_button_sections() {
         let archived = "[universal.x.old]\nname=Archived\nstart_delay=0\nactions=old_syntax\n";
@@ -762,9 +659,6 @@ mod tests {
         assert_eq!(Catalog::parse(&updated).unwrap().len(), 1);
     }
     /// Regression test for `diagnostic_rename_delete_and_add_preserve_other_sections_and_validate`.
-    ///
-    ///
-///  Checks that diagnostic rename delete and add preserve other sections and validate.
     #[test]
     fn diagnostic_rename_delete_and_add_preserve_other_sections_and_validate() {
         let seq = sequence("grab");
@@ -808,9 +702,6 @@ mod tests {
         }
     }
     /// Regression test for `saved_recipe_preserves_other_sections_label_and_default`.
-    ///
-    ///
-///  Checks that saved recipe preserves other sections label and default.
     #[test]
     fn saved_recipe_preserves_other_sections_label_and_default() {
         let s = sequence("walk:inward:4:0.5,wait:2,face:opponent,grab:fighter_range");
@@ -821,9 +712,6 @@ mod tests {
         assert_eq!(Catalog::parse(&result).unwrap().entries()[0].sequence, s);
     }
     /// Regression test for `saved_recipe_roundtrips_palette_actions_and_custom_updates_without_duplicates`.
-    ///
-    ///
-///  Checks that saved recipe roundtrips palette actions and custom updates without duplicates.
     #[test]
     fn saved_recipe_roundtrips_palette_actions_and_custom_updates_without_duplicates() {
         let s=sequence("facing_input:x+a:0.3:-0.5:4,input:none:0:0:2,cstick:1:0:4,walk_to_opponent:0.5:10:4,drift_to_opponent:0.5:10:4,run:ledge:4,drift:away:0.25:5,range:ignore,range:4,range:fighter_range,range:fighter_range_instant,shield_until_block:9");
@@ -843,9 +731,6 @@ mod tests {
         );
     }
     /// Regression test for `saved_recipe_rejects_invalid_source_removed_sections_and_invalid_edits`.
-    ///
-    ///
-///  Checks that saved recipe rejects invalid source removed sections and invalid edits.
     #[test]
     fn saved_recipe_rejects_invalid_source_removed_sections_and_invalid_edits() {
         let s = sequence("grab");
@@ -867,12 +752,6 @@ mod tests {
 
     /// Exhaustive on purpose: adding an `Action` variant breaks this match until
     /// the writer/reader round-trip below also covers it.
-    ///
-    ///  Exhaustive on purpose: adding an Action variant breaks this match until the writer/reader round-trip below also covers it.
-    /// ### Arguments
-    /// - `action` (`&Action`): Represents the action; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `usize` value.
     fn variant_index(action: &Action) -> usize {
         match action {
             Action::Empty => 0,
@@ -901,9 +780,6 @@ mod tests {
     }
 
     /// Regression test for `every_action_variant_and_direction_roundtrips_through_writer_and_parser`.
-    ///
-    ///
-///  Checks that every action variant and direction roundtrips through writer and parser.
     #[test]
     fn every_action_variant_and_direction_roundtrips_through_writer_and_parser() {
         let directions: Vec<Direction> = Direction::TOKENS.iter().map(|(d, _)| *d).collect();
@@ -1061,9 +937,6 @@ mod tests {
 mod default_selection_tests {
     use super::*;
     /// Regression test for `startup_default_is_unique_and_other_fighters_categories_and_actions_are_untouched`.
-    ///
-    ///
-///  Checks that startup default is unique and other fighters categories and actions are untouched.
     #[test]
     fn startup_default_is_unique_and_other_fighters_categories_and_actions_are_untouched() {
         let source = "# preserve\n[kirby.neutral.first]\nstart_delay=0\ndefault=true\nactions=grab\n[kirby.neutral.second]\nstart_delay=0\nname=Second\nactions=wait:2,jab\n[yoshi.neutral.first]\nstart_delay=0\ndefault=true\nactions=grab\n[kirby.x.first]\nstart_delay=0\ndefault=true\nactions=nair\n";
@@ -1091,9 +964,6 @@ mod default_selection_tests {
 mod unchanged_save_tests {
     use super::*;
     /// Regression test for `same_sequence_and_name_preserve_original_bytes`.
-    ///
-    ///
-///  Checks that same sequence and name preserve original bytes.
     #[test]
     fn same_sequence_and_name_preserve_original_bytes() {
         let original="[yoshi.neutral.test]\n# preserve formatting\nname=Grab\nstart_delay=0\nactions=grab:4\n";
@@ -1132,14 +1002,6 @@ mod unchanged_save_tests {
 }
 
 /// Replace only one fighter's policy section, preserving recipes verbatim.
-///
-///  Replace only one fighter's policy section, preserving recipes verbatim.
-/// ### Arguments
-/// - `source` (`&str`): Represents the source; the function uses it as input to the operation described above.
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `tuning` (`crate::fighter_tuning::Tuning`): Represents the tuning; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn update_tuning(
     source: &str,
     kind: i32,

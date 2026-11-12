@@ -3,270 +3,125 @@ use super::super::RecipePanel;
 use super::*;
 use std::borrow::Cow;
 
-/// Defines the available `Field` cases.
-///
-/// Lists the available Field choices.
+/// Available `Field` choices for the Smash assistance menu.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Field {
-    /// Represents the `Reaction` case of `Field`.
-    ///
-    ///
-///  Represents the Reaction option in Field.
+/// `Reaction` option in the `Field` Smash policy state.
     Reaction(
         /// Carries the reaction field index in `Field`.
-        ///
-        ///
-///  Holds the reaction field index for this `Field` choice.
         u8,
     ),
-    /// Represents the `WhileHeld` case of `Field`.
-    ///
-    ///
-///  Represents the WhileHeld option in Field.
+/// `WhileHeld` option in the `Field` Smash policy state.
     WhileHeld,
-    /// Represents the `GroundOnly` case of `Field`.
-    ///
-    ///
-///  Represents the GroundOnly option in Field.
+/// `GroundOnly` option in the `Field` Smash policy state.
     GroundOnly,
-    /// Represents the `TapButtons` case of `Field`.
-    ///
-    ///
-///  Represents the TapButtons option in Field.
+/// `TapButtons` option in the `Field` Smash policy state.
     TapButtons(
         /// Carries the tap-button field index in `Field`.
-        ///
-        ///
-///  Holds the tap-button field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `TapGap` case of `Field`.
-    ///
-    ///
-///  Represents the TapGap option in Field.
+/// `TapGap` option in the `Field` Smash policy state.
     TapGap(
         /// Carries the tap-gap field index in `Field`.
-        ///
-        ///
-///  Holds the tap-gap field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `ShieldHold` case of `Field`.
-    ///
-    ///
-///  Represents the ShieldHold option in Field.
+/// `ShieldHold` option in the `Field` Smash policy state.
     ShieldHold(
         /// Carries the shield-hold field index in `Field`.
-        ///
-        ///
-///  Holds the shield-hold field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Start` case of `Field`.
-    ///
-    ///
-///  Represents the Start option in Field.
+/// `Start` option in the `Field` Smash policy state.
     Start,
-    /// Represents the `Slots` case of `Field`.
-    ///
-    ///
-///  Represents the Slots option in Field.
+/// `Slots` option in the `Field` Smash policy state.
     Slots,
-    /// Represents the `Kind` case of `Field`.
-    ///
-    ///
-///  Represents the Kind option in Field.
+/// `Kind` option in the `Field` Smash policy state.
     Kind(
         /// Carries the action-kind field index in `Field`.
-        ///
-        ///
-///  Holds the action-kind field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Before` case of `Field`.
-    ///
-    ///
-///  Represents the Before option in Field.
+/// `Before` option in the `Field` Smash policy state.
     Before(
         /// Carries the pre-action delay field index in `Field`.
-        ///
-        ///
-///  Holds the pre-action delay field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Duration` case of `Field`.
-    ///
-    ///
-///  Represents the Duration option in Field.
+/// `Duration` option in the `Field` Smash policy state.
     Duration(
         /// Carries the action-duration field index in `Field`.
-        ///
-        ///
-///  Holds the action-duration field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Buttons` case of `Field`.
-    ///
-    ///
-///  Represents the Buttons option in Field.
+/// `Buttons` option in the `Field` Smash policy state.
     Buttons(
         /// Carries the button field index in `Field`.
-        ///
-        ///
-///  Holds the button field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Reference` case of `Field`.
-    ///
-    ///
-///  Represents the Reference option in Field.
+/// `Reference` option in the `Field` Smash policy state.
     Reference(
         /// Carries the reference field index in `Field`.
-        ///
-        ///
-///  Holds the reference field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `CReference` case of `Field`.
-    ///
-    ///
-///  Represents the CReference option in Field.
+/// `CReference` option in the `Field` Smash policy state.
     CReference(
         /// Carries the center-reference field index in `Field`.
-        ///
-        ///
-///  Holds the center-reference field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `CX` case of `Field`.
-    ///
-    ///
-///  Represents the CX option in Field.
+/// `CX` option in the `Field` Smash policy state.
     CX(
         /// Carries the center X-coordinate field index in `Field`.
-        ///
-        ///
-///  Holds the center X-coordinate field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `CY` case of `Field`.
-    ///
-    ///
-///  Represents the CY option in Field.
+/// `CY` option in the `Field` Smash policy state.
     CY(
         /// Carries the center Y-coordinate field index in `Field`.
-        ///
-        ///
-///  Holds the center Y-coordinate field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `X` case of `Field`.
-    ///
-    ///
-///  Represents the X option in Field.
+/// `X` option in the `Field` Smash policy state.
     X(
         /// Carries the X-coordinate field index in `Field`.
-        ///
-        ///
-///  Holds the X-coordinate field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Y` case of `Field`.
-    ///
-    ///
-///  Represents the Y option in Field.
+/// `Y` option in the `Field` Smash policy state.
     Y(
         /// Carries the Y-coordinate field index in `Field`.
-        ///
-        ///
-///  Holds the Y-coordinate field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Strength` case of `Field`.
-    ///
-    ///
-///  Represents the Strength option in Field.
+/// `Strength` option in the `Field` Smash policy state.
     Strength(
         /// Carries the input-strength field index in `Field`.
-        ///
-        ///
-///  Holds the input-strength field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Tolerance` case of `Field`.
-    ///
-    ///
-///  Represents the Tolerance option in Field.
+/// `Tolerance` option in the `Field` Smash policy state.
     Tolerance(
         /// Carries the tolerance field index in `Field`.
-        ///
-        ///
-///  Holds the tolerance field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Brake` case of `Field`.
-    ///
-    ///
-///  Represents the Brake option in Field.
+/// `Brake` option in the `Field` Smash policy state.
     Brake(
         /// Carries the braking field index in `Field`.
-        ///
-        ///
-///  Holds the braking field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `PositionTimeout` case of `Field`.
-    ///
-    ///
-///  Represents the PositionTimeout option in Field.
+/// `PositionTimeout` option in the `Field` Smash policy state.
     PositionTimeout(
         /// Carries the position-timeout field index in `Field`.
-        ///
-        ///
-///  Holds the position-timeout field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Distance` case of `Field`.
-    ///
-    ///
-///  Represents the Distance option in Field.
+/// `Distance` option in the `Field` Smash policy state.
     Distance(
         /// Carries the distance field index in `Field`.
-        ///
-        ///
-///  Holds the distance field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Gap` case of `Field`.
-    ///
-    ///
-///  Represents the Gap option in Field.
+/// `Gap` option in the `Field` Smash policy state.
     Gap(
         /// Carries the gap field index in `Field`.
-        ///
-        ///
-///  Holds the gap field index for this `Field` choice.
         usize,
     ),
-    /// Represents the `Direction` case of `Field`.
-    ///
-    ///
-///  Represents the Direction option in Field.
+/// `Direction` option in the `Field` Smash policy state.
     Direction(
         /// Carries the direction field index in `Field`.
-        ///
-        ///
-///  Holds the direction field index for this `Field` choice.
         usize,
     ),
 }
 /// Adds the action fields.
-///
 /// Adds the action fields.
-/// ### Arguments
-/// - `out` (`&mut Vec<Field>`): Represents the out; the function uses it as input to the operation described above.
-/// - `action` (`Action`): Represents the action; the function uses it as input to the operation described above.
-/// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
 fn push_action_fields(out: &mut Vec<Field>, action: Action, i: usize) {
     match action {
         Action::Controller { .. } => out.extend([
@@ -335,12 +190,6 @@ fn push_action_fields(out: &mut Vec<Field>, action: Action, i: usize) {
 }
 /// Every focusable field in display order: Start, each slot's fields, then the
 /// sequence-level rows. `recipe_panel` renders straight from this list.
-///
-///  Every focusable field in display order: Start, each slot's fields, then the sequence-level rows. recipepanel renders straight from this list.
-/// ### Arguments
-/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting items; the vector is empty when there are none.
 pub(super) fn fields(r: &Recipe) -> Vec<Field> {
     let mut out = vec![Field::Start];
     for (i, a) in r.sequence.actions().iter().enumerate() {
@@ -368,12 +217,7 @@ pub(super) fn fields(r: &Recipe) -> Vec<Field> {
     out
 }
 /// Returns an optional `field_slot` value.
-///
 /// Gets field slot if it is available.
-/// ### Arguments
-/// - `f` (`Field`): Represents the f; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) fn field_slot(f: Field) -> Option<usize> {
     match f {
         Field::Start | Field::Slots | Field::WhileHeld | Field::GroundOnly | Field::Reaction(_) => {
@@ -402,26 +246,11 @@ pub(super) fn field_slot(f: Field) -> Option<usize> {
     }
 }
 /// Full label and value of a field.
-///
-///  Full label and value of a field.
-/// ### Arguments
-/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
-/// - `f` (`Field`): Represents the f; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 pub(super) fn field_value(r: &Recipe, f: Field) -> String {
     field_text(r, f, false)
 }
 /// Label and value of a field. `short` is the compact form used in the slot
 /// list: abbreviated labels and `Nf` instead of `N frames`.
-///
-///  Label and value of a field. short is the compact form used in the slot list: abbreviated labels and Nf instead of N frames.
-/// ### Arguments
-/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
-/// - `f` (`Field`): Represents the f; the function uses it as input to the operation described above.
-/// - `short` (`bool`): Represents the short; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 fn field_text(r: &Recipe, f: Field, short: bool) -> String {
     let sequence = &r.sequence;
     let action = field_slot(f).map_or(Action::Empty, |i| sequence.actions[i]);
@@ -576,12 +405,7 @@ fn field_text(r: &Recipe, f: Field, short: bool) -> String {
 // Nominal input time only. Conditional actions can finish early or wait on
 // observations; never present those as exact attack startup/recovery timings.
 /// Returns an optional `scheduled_frames` value.
-///
 /// Gets scheduled frames if it is available.
-/// ### Arguments
-/// - `action` (`Action`): Represents the action; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub(super) fn scheduled_frames(action: Action) -> Option<u32> {
     match action {
         Action::Tap { frames, .. } => Some(u32::from(frames)),
@@ -602,12 +426,7 @@ pub(super) fn scheduled_frames(action: Action) -> Option<u32> {
     }
 }
 /// Returns the `schedule_summary` result.
-///
 /// Gets the schedule summary result.
-/// ### Arguments
-/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `(u32, bool)` value.
 pub(super) fn schedule_summary(r: &Recipe) -> (u32, bool) {
     r.sequence.actions().iter().enumerate().fold(
         (u32::from(r.sequence.start_delay), false),
@@ -621,14 +440,6 @@ pub(super) fn schedule_summary(r: &Recipe) -> (u32, bool) {
     )
 }
 /// ` | F<n>` style timing suffix; `None` duration means a check of unknown length.
-///
-///   | F<n> style timing suffix; None duration means a check of unknown length.
-/// ### Arguments
-/// - `start` (`u32`): Represents the start; the function uses it as input to the operation described above.
-/// - `duration` (`Option<u32>`): Represents the length of time or number of frames; the function uses it as input to the operation described above.
-/// - `after_check` (`bool`): Represents the after check; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 fn frame_label(start: u32, duration: Option<u32>, after_check: bool) -> String {
     let first = start + 1;
     if after_check {
@@ -643,58 +454,35 @@ fn frame_label(start: u32, duration: Option<u32>, after_check: bool) -> String {
 }
 
 /// How a panel row looks when plain and when focused.
-///
-///  How a panel row looks when plain and when focused.
 #[derive(Clone, Copy)]
 struct Row {
-    /// Stores the `plain` value in `Row` as `&'static str`.
-    ///
-    ///
-///  Holds the plain value used by Row.
+/// Runtime plain value used by Row..
     plain: &'static str,
-    /// Stores the `focused` value in `Row` as `&'static str`.
-    ///
-    ///
-///  Holds the focused value used by Row.
+/// Runtime focused value used by Row..
     focused: &'static str,
-    /// Stores the `bracket` value in `Row` as `bool`.
-    ///
-    ///
-///  Holds the bracket value used by Row.
+/// Runtime bracket value used by Row..
     bracket: bool,
 }
-/// Defines the `FIELD_ROW` constant used by this module.
-///
-/// Provides the FIELD ROW constant value.
+/// `FIELD_ROW` is a configuration value used by the Smash runtime.
 const FIELD_ROW: Row = Row {
     plain: "",
     focused: "> ",
     bracket: true,
 };
-/// Defines the `TITLE_ROW` constant used by this module.
-///
-/// Provides the TITLE ROW constant value.
+/// `TITLE_ROW` is a configuration value used by the Smash runtime.
 const TITLE_ROW: Row = Row {
     plain: "",
     focused: "> ",
     bracket: false,
 };
-/// Defines the `SETTING_ROW` constant used by this module.
-///
-/// Provides the SETTING ROW constant value.
+/// `SETTING_ROW` is a configuration value used by the Smash runtime.
 const SETTING_ROW: Row = Row {
     plain: "    ",
     focused: ">   ",
     bracket: true,
 };
 /// Adds the row.
-///
 /// Adds the row.
-/// ### Arguments
-/// - `panel` (`&mut RecipePanel`): Represents the panel; the function uses it as input to the operation described above.
-/// - `focused` (`bool`): Represents the focused; the function uses it as input to the operation described above.
-/// - `row` (`Row`): Represents the row; the function uses it as input to the operation described above.
-/// - `text` (`impl std::fmt::Display`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
 fn push_row(panel: &mut RecipePanel, focused: bool, row: Row, text: impl std::fmt::Display) {
     let text = match (focused, row.bracket) {
         (true, true) => format!("{}[{text}]", row.focused),
@@ -708,13 +496,7 @@ fn push_row(panel: &mut RecipePanel, focused: bool, row: Row, text: impl std::fm
 }
 
 /// Returns the `timing_summary` result.
-///
 /// Gets the timing summary result.
-/// ### Arguments
-/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
-/// - `branched` (`bool`): Represents the branched; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 fn timing_summary(r: &Recipe, branched: bool) -> String {
     let (scheduled, variable) = schedule_summary(r);
     if branched {
@@ -732,16 +514,6 @@ fn timing_summary(r: &Recipe, branched: bool) -> String {
 }
 
 /// Renders every field in `fs` (from `fields(r)`); `selected` marks the focused one.
-///
-///  Renders every field in fs (from fields(r)); selected marks the focused one.
-/// ### Arguments
-/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
-/// - `fs` (`&[Field]`): Represents the fs; the function uses it as input to the operation described above.
-/// - `selected` (`Option<Field>`): Represents the selected; the function uses it as input to the operation described above.
-/// - `limited` (`bool`): Represents the limited; the function uses it as input to the operation described above.
-/// - `last` (`Option<&str>`): Represents the last; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `RecipePanel` value.
 pub(super) fn recipe_panel(
     r: &Recipe,
     fs: &[Field],

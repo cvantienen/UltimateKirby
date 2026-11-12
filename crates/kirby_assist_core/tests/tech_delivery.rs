@@ -74,7 +74,7 @@ fn mapped_press_remains_owned_until_the_fighter_consumes_guard_then_di_receives_
     );
     assert_eq!(packet.requested, 0);
     assert_eq!(packet.stick, Some([-1., 0.]));
-    assert_eq!(ack, None);
+    assert_eq!(ack, Some(release));
 }
 #[test]
 fn an_unconsumed_mapped_press_expires_on_native_progress_instead_of_mapper_poll_count() {
@@ -103,7 +103,7 @@ fn an_unconsumed_mapped_press_expires_on_native_progress_instead_of_mapper_poll_
     assert_eq!(input.cooldown_remaining(), 25.);
 }
 #[test]
-fn a_deadline_displaces_di_only_for_an_actual_tech_press_and_never_mixes_inputs() {
+fn a_deadline_displaces_di_only_for_a_press_and_applies_release_ownership_with_di() {
     let mut input = TechInput::default();
     let c = context();
     for (contact, urgent) in [(7., false), (3.25, true)] {
@@ -143,7 +143,13 @@ fn a_deadline_displaces_di_only_for_an_actual_tech_press_and_never_mixes_inputs(
     );
     assert_eq!(packet.requested, 0);
     assert_eq!(packet.stick, Some([-1., 0.]));
-    assert_eq!(ack, None);
+    assert_eq!(
+        ack,
+        Some(TechOutput {
+            press: false,
+            owns_guard: true,
+        })
+    );
 }
 #[test]
 fn no_contact_recovery_disable_and_cancel_invalidate_the_delivery_receipt() {

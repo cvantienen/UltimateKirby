@@ -5,19 +5,11 @@ use crate::manual_controls::TURBO_TRIGGER;
 use crate::native_input::{ControlLayout, MAPPER_STICK_CLICKS, SEQUENCE_JUMP_BUTTONS};
 use crate::sequence_config::{Action, Sequence};
 
-/// Defines the `BUTTON_MASK` constant used by this module.
-///
-/// Provides the BUTTON MASK constant value.
+/// `BUTTON_MASK` is a configuration value used by the Smash runtime.
 pub const BUTTON_MASK: u32 = MAPPER_X | MAPPER_Y | MAPPER_DPAD_BUTTONS | MAPPER_STICK_CLICKS;
 
 /// A literal one-frame jump input. Damage/tech safety routes it as input
 /// instead of replacing the safety owner with a tape.
-///
-///  A literal one-frame jump input. Damage/tech safety routes it as input instead of replacing the safety owner with a tape.
-/// ### Arguments
-/// - `s` (`&Sequence`): Represents the s; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn is_single_jump_tape(s: &Sequence) -> bool {
     s.start_delay == 0
         && !s.ground_only
@@ -34,37 +26,14 @@ fn is_single_jump_tape(s: &Sequence) -> bool {
 
 impl MenuSelection {
     /// Determines whether the `effective_mode` condition holds.
-    ///
-    ///
-    ///  Checks whether effective mode.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `_mode` (`Mode`): Represents the mode; the function uses it as input to the operation described above.
-    /// - `base` (`bool`): Represents the base; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn effective_mode(&self, _mode: Mode, base: bool) -> bool {
         base
     }
     /// Determines whether the `ledge_mode` condition holds.
-    ///
-    ///
-    ///  Checks whether ledge mode.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn ledge_mode(&self) -> bool {
         self.auto_ledge
     }
     /// Determines whether the `ledge_trump_held` condition holds.
-    ///
-    ///
-    ///  Checks whether ledge trump held.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn ledge_trump_held(&self) -> bool {
         !self.cancel_pending
             && !self.binding_starts_blocked
@@ -80,18 +49,6 @@ impl MenuSelection {
                 != 0
     }
     /// Returns the `process_bindings` result.
-    ///
-    ///
-    ///  Gets the process bindings result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
-    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
-    /// - `available` (`bool`): Represents the available; the function uses it as input to the operation described above.
-    /// - `quarantined` (`u32`): Represents the quarantined; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u32` value.
     pub(super) fn process_bindings(
         &mut self,
         p: &MenuPresets,
@@ -121,14 +78,6 @@ impl MenuSelection {
         self.rule_button_mask | sequences | self.builtin_consumed
     }
     /// Explicitly assigned rule buttons toggle their reaction group on a clean press.
-    ///
-    ///  Explicitly assigned rule buttons toggle their reaction group on a clean press.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
-    /// - `available` (`bool`): Represents the available; the function uses it as input to the operation described above.
-    /// - `quarantined` (`u32`): Represents the quarantined; the function uses it as input to the operation described above.
     fn toggle_rule_buttons(&mut self, buttons: u32, pressed: u32, available: bool, quarantined: u32) {
         if self.rule_button_mask == 0 {
             return;
@@ -155,16 +104,6 @@ impl MenuSelection {
     }
     /// Own every button bound to a literal recipe and start the one pressed
     /// cleanly. Returns the owned logical buttons.
-    ///
-    ///  Own every button bound to a literal recipe and start the one pressed cleanly. Returns the owned logical buttons.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
-    /// - `available` (`bool`): Represents the available; the function uses it as input to the operation described above.
-    /// - `quarantined` (`u32`): Represents the quarantined; the function uses it as input to the operation described above.
-    /// - `exclusive` (`u32`): Represents the exclusive; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u32` value.
     fn start_bound_sequences(
         &mut self,
         p: &MenuPresets,
@@ -207,13 +146,6 @@ impl MenuSelection {
         bound
     }
     /// Starts the binding.
-    ///
-    ///
-    ///  Starts the binding.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
-    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
     fn start_binding(&mut self, p: &MenuPresets, slot: PresetSlot) {
         self.changed();
         self.preview_slot = Some(slot);
@@ -236,44 +168,21 @@ impl MenuSelection {
 impl MenuSelection {
     /// Existing owners finish before another button can start a sequence.
     /// Still observe releases and menu controls; never queue a held button.
-    ///
-    ///  Existing owners finish before another button can start a sequence. Still observe releases and menu controls; never queue a held button.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `blocked` (`bool`): Represents the blocked; the function uses it as input to the operation described above.
     pub fn block_binding_starts(&mut self, blocked: bool) {
         self.binding_starts_blocked = blocked;
         self.binding_safety_jump = false;
     }
     /// Ordinary jump inputs must remain bufferable during damage/tech safety.
     /// Other custom tapes remain blocked and cannot replace that safety owner.
-    ///
-    ///  Ordinary jump inputs must remain bufferable during damage/tech safety. Other custom tapes remain blocked and cannot replace that safety owner.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
     pub fn preserve_safety_jump(&mut self, enabled: bool) {
         self.binding_safety_jump = enabled;
     }
     /// Physical binding keys remain physical even with the alternate layout.
-    ///
-    ///  Physical binding keys remain physical even with the alternate layout.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `physical` (`u32`): Represents the physical; the function uses it as input to the operation described above.
-    /// - `layout` (`ControlLayout`): Represents the layout; the function uses it as input to the operation described above.
     pub fn set_binding_input(&mut self, physical: u32, layout: ControlLayout) {
         self.binding_input = Some((physical, layout));
     }
     /// Actual manual gameplay roles after custom bindings. Automatic rule
     /// buttons are explicit commands to their own rule, not manual jump intent.
-    ///
-    ///  Actual manual gameplay roles after custom bindings. Automatic rule buttons are explicit commands to their own rule, not manual jump intent.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u32` value.
     pub fn manual_native_actions(&self, p: &MenuPresets) -> u32 {
         let mut actions = self
             .native_buttons(self.binding_layout.policy_buttons(self.binding_physical))
@@ -294,14 +203,6 @@ impl MenuSelection {
         actions
     }
     /// `None` when the selected choice is unavailable, `Some(None)` for a recipe.
-    ///
-    ///  None when the selected choice is unavailable, Some(None) for a recipe.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
-    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn selected_builtin(
         &self,
         p: &MenuPresets,
@@ -311,13 +212,6 @@ impl MenuSelection {
             .map(|source| source.builtin())
     }
     /// Updates the `capture_binding_input` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates capture binding input.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
     pub(super) fn capture_binding_input(&mut self, buttons: u32, p: &MenuPresets) {
         let (physical, layout) = self
             .binding_input
@@ -347,12 +241,6 @@ impl MenuSelection {
         }
     }
     /// Updates the `refresh_native_bindings` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates refresh native bindings.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
     pub fn refresh_native_bindings(&mut self, p: &MenuPresets) {
         let layout = self.binding_layout;
         let stamp = (
@@ -416,13 +304,6 @@ impl MenuSelection {
     }
     /// Canonical inputs for existing helpers only. Physical game inputs are
     /// untouched until the final overlay consumes the chosen binding source.
-    ///
-    ///  Canonical inputs for existing helpers only. Physical game inputs are untouched until the final overlay consumes the chosen binding source.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u32` value.
     pub fn native_buttons(&self, buttons: u32) -> u32 {
         let mut result = buttons
             & !(MAPPER_X

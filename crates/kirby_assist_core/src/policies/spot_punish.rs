@@ -13,34 +13,17 @@ use crate::{
 /// * `motion` - The motion kind of the target.
 /// * `frame` - The frame at which the opportunity was observed.
 /// * `used` - Indicates whether this opportunity has been used.
-///
-///  Represents an observed spot-dodge opportunity for a specific target. # Fields  id - The unique identifier of the target.  status - The status of the target.  motion - The motion kind of the target.  frame - The frame at which.
 #[derive(Clone, Copy)]
 struct Seen {
-    /// Stores the `id` value in `Seen` as `u32`.
-    ///
-    ///
-///  Holds the id value used by Seen.
+/// battle-object ID.
     id: u32,
-    /// Stores the `status` value in `Seen` as `i32`.
-    ///
-    ///
-///  Holds the status value used by Seen.
+/// native fighter status.
     status: i32,
-    /// Stores the `motion` value in `Seen` as `u64`.
-    ///
-    ///
-///  Holds the motion value used by Seen.
+/// native animation/motion ID.
     motion: u64,
-    /// Stores the `frame` value in `Seen` as `f32`.
-    ///
-    ///
-///  Holds the frame value used by Seen.
+/// current native animation frame.
     frame: f32,
-    /// Stores the `used` value in `Seen` as `bool`.
-    ///
-    ///
-///  Holds the used value used by Seen.
+/// Runtime used value used by Seen..
     used: bool,
 }
 
@@ -49,99 +32,41 @@ struct Seen {
 /// * `object` - The current object being tracked.
 /// * `seen` - An array of observed spot-dodge opportunities.
 /// * `response` - The current response being managed.
-///
-///  Represents a punisher that tracks observed spot-dodge opportunities and manages responses. # Fields  object - The current object being tracked.  seen - An array of observed spot-dodge opportunities.  response - The current.
 #[derive(Default)]
 pub struct Punisher {
-    /// Stores the `object` value in `Punisher` as `Option<u32>`.
-    ///
-    ///
-///  Optionally stores the object for Punisher; it may be absent.
+/// Runtime object value used by Punisher..
     object: Option<u32>,
-    /// Stores the `seen` value in `Punisher` as `[Option<Seen>; 8]`.
-    ///
-    ///
-///  Stores the seen collection for Punisher.
+/// Runtime seen value used by Punisher..
     seen: [Option<Seen>; 8],
-    /// Stores the `response` value in `Punisher` as `Response`.
-    ///
-    ///
-///  Holds the response value used by Punisher.
+/// Runtime response value used by Punisher..
     response: Response,
 }
 impl Punisher {
     /// Returns the selected target observation.
-    ///
-    ///
-    ///  Gets the chosen target.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn target(&self) -> Option<u32> {
         self.response.target()
     }
     /// Checks whether an input owner has committed the action.
-    ///
-    ///
-    ///  Checks whether the action has been committed.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn committed(&self) -> bool {
         self.target().is_some()
     }
     /// Determines whether ground.
-    ///
-    ///
-    ///  Checks whether ground.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_ground(&self) -> bool {
         self.response.needs_ground()
     }
     /// Determines whether the `walking` condition holds.
-    ///
-    ///
-    ///  Checks whether walking.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn walking(&self) -> bool {
         self.response.walking()
     }
     /// Determines whether the `attack_hold` condition holds.
-    ///
-    ///
-    ///  Checks whether attack hold.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn attack_hold(&self) -> bool {
         self.response.attack_hold()
     }
     /// Returns an optional `right_stick` value.
-    ///
-    ///
-    ///  Gets right stick if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         self.response.right_stick()
     }
     /// Cancels the pending.
-    ///
-    ///
-    ///  Cancels the pending.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel_pending(&mut self) {
         self.response.cancel();
     }
@@ -154,19 +79,6 @@ impl Punisher {
     /// * `c` - The current gameplay context.
     /// * `targets` - An array of potential targets.
     /// * `follow` - The opponent to follow, if any.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-    /// - `object` (`u32`): Represents the object; the function uses it as input to the operation described above.
-    /// - `rules` (`Option<&Resolved>`): Represents the rules; the function uses it as input to the operation described above.
-    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// - `context` (`GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
-    /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// The controller output based on the punisher's state and the current context.
-    ///
-    ///  Samples the current gameplay context and updates the punisher's state accordingly. # Parameters  enabled - Indicates whether the punisher is enabled.  object - The current object being tracked.  rules - The resolved reaction.
     pub fn sample(
         &mut self,
         enabled: bool,

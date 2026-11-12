@@ -10,17 +10,11 @@ use kirby_assist_core::{
 };
 
 /// SD-card path for the legacy/shared live settings file.
-///
-///  Where the plugin looks for the user's main configuration.
 const CONFIG_PATH: &str = "sd:/ultimate/kirby_assist/config.txt";
 /// SD-card path for the optional sequence catalog.
-///
-///  Where the plugin looks for user-defined sequences.
 const SEQUENCES_PATH: &str = "sd:/ultimate/kirby_assist/sequences.txt";
 /// Type alias for the loaded configuration, including the live config, fighter profiles, and sequence library.
 /// Groups the validated settings, fighter profile catalog, and sequence library.
-///
-///  This is the complete set of configuration data the plugin needs.
 type LoadedConfig = (Box<LiveConfig>, FighterProfiles, SequenceLibrary);
 
 // Full saved catalogs can exceed the native loader's 64 KiB stack when nested
@@ -29,8 +23,6 @@ type LoadedConfig = (Box<LiveConfig>, FighterProfiles, SequenceLibrary);
 /// Loads the configuration from the SD card, including the live config, fighter profiles, and sequence library.
 /// Returns an error if the configuration cannot be loaded.
 /// Runs the loader on a dedicated, enlarged stack and joins it before returning.
-///
-///  It safely loads startup files using extra stack space, then returns the result.
 #[inline(never)]
 pub(super) fn load_config() -> Result<LoadedConfig, String> {
     std::thread::Builder::new()
@@ -46,8 +38,6 @@ pub(super) fn load_config() -> Result<LoadedConfig, String> {
 /// the caller's small loader stack. This box is freed after publication.
 /// Performs file recovery, catalog parsing, configuration parsing,
 /// and runtime-profile preparation on the loader worker.
-///
-///  The worker reads the files and packages their validated settings.
 #[inline(never)]
 fn load_on_worker() -> Result<LoadedConfig, String> {
     super::settings_menu::recover_saved_file()?;
@@ -83,13 +73,6 @@ fn load_on_worker() -> Result<LoadedConfig, String> {
 /// Returns the loaded configuration or an error if preparation fails.
 /// Validates the profiles and build-filtered catalog, attaches shared
 /// templates, and boxes the live configuration.
-///
-///  It checks that the loaded choices are usable and prepares them for play.
-/// ### Arguments
-/// - `config` (`LiveConfig`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
-/// - `sequences` (`Catalog`): Represents the sequences; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn prepare_runtime(config: LiveConfig, sequences: Catalog) -> Result<LoadedConfig, String> {
     let mut profiles = FighterProfiles::default();
     profiles.validate()?;
@@ -107,13 +90,9 @@ fn prepare_runtime(config: LiveConfig, sequences: Catalog) -> Result<LoadedConfi
 
 #[cfg(test)]
 /// Host-side startup configuration regression tests.
-///
-///  Checks that configuration preparation preserves compact templates.
 mod tests {
     use super::*;
     /// Verifies shared templates remain shared and unrelated menus stay unexpanded.
-    ///
-    ///  Guards against startup building full menus for every character.
     #[test]
     fn startup_keeps_shared_templates_but_never_expands_other_fighter_menus() {
         let catalog=Catalog::parse("[template.defend]\nstart_delay=0\nactions=shield:4\n[bowser.roll.spin]\nstart_delay=0\nreaction=auto_roll:30:12\nactions=up_b:4,drift:opponent:1:69\n[lucina.neutral.poke]\nstart_delay=23\nactions=forward_tilt:1\n").unwrap();

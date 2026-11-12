@@ -5,153 +5,77 @@
 use serde::Deserialize;
 use std::{collections::BTreeMap, sync::OnceLock};
 
-/// Defines the `DATA_FILE` constant used by this module.
-///
-/// Provides the DATA FILE constant value.
+/// Embedded roster statistics and frame-data JSON.
 const DATA_FILE: &str = include_str!("../../../../data/Ultimate_stats.json");
-/// Defines the `DATA_SCHEMA_VERSION` constant used by this module.
-///
-/// Provides the DATA SCHEMA VERSION constant value.
+/// Schema version required from the embedded fighter-data catalog.
 const DATA_SCHEMA_VERSION: u32 = 1;
-/// Defines the `EXPECTED_FIGHTER_COUNT` constant used by this module.
-///
-/// Provides the EXPECTED FIGHTER COUNT constant value.
+/// Roster entry count required for the embedded catalog.
 const EXPECTED_FIGHTER_COUNT: usize = 90;
-/// Sets the upper bound for valid move frame.
-///
-/// Holds the MAX VALID MOVE FRAME value.
+/// Largest move-frame value accepted from the embedded catalog.
 const MAX_VALID_MOVE_FRAME: u16 = 120;
 
-/// Defines the `STATUS_DASH_ATTACK` constant used by this module.
-///
-/// Provides the STATUS DASH ATTACK constant value.
+/// Native status used to recognize dash attack frame data.
 const STATUS_DASH_ATTACK: i32 = crate::native_states::status::ATTACK_DASH;
-/// Defines the `STATUS_FORWARD_TILT` constant used by this module.
-///
-/// Provides the STATUS FORWARD TILT constant value.
+/// Native status used to recognize forward tilt frame data.
 const STATUS_FORWARD_TILT: i32 = crate::native_states::status::ATTACK_S3;
-/// Defines the `STATUS_UP_TILT` constant used by this module.
-///
-/// Provides the STATUS UP TILT constant value.
+/// Native status used to recognize up tilt frame data.
 const STATUS_UP_TILT: i32 = crate::native_states::status::ATTACK_HI3;
-/// Defines the `STATUS_DOWN_TILT` constant used by this module.
-///
-/// Provides the STATUS DOWN TILT constant value.
+/// Native status used to recognize down tilt frame data.
 const STATUS_DOWN_TILT: i32 = crate::native_states::status::ATTACK_LW3;
-/// Defines the `STATUS_FORWARD_SMASH` constant used by this module.
-///
-/// Provides the STATUS FORWARD SMASH constant value.
+/// Native status used to recognize forward smash frame data.
 const STATUS_FORWARD_SMASH: i32 = crate::native_states::status::ATTACK_S4;
-/// Defines the `STATUS_DOWN_SMASH` constant used by this module.
-///
-/// Provides the STATUS DOWN SMASH constant value.
+/// Native status used to recognize down smash frame data.
 const STATUS_DOWN_SMASH: i32 = crate::native_states::status::ATTACK_LW4;
-/// Defines the `STATUS_UP_SMASH` constant used by this module.
-///
-/// Provides the STATUS UP SMASH constant value.
+/// Native status used to recognize up smash frame data.
 const STATUS_UP_SMASH: i32 = crate::native_states::status::ATTACK_HI4;
-/// Defines the `STATUS_GRAB` constant used by this module.
-///
-/// Provides the STATUS GRAB constant value.
+/// Native status used to recognize grab frame data.
 const STATUS_GRAB: i32 = crate::native_states::CATCH;
-/// Defines the `STATUS_DASH_GRAB` constant used by this module.
-///
-/// Provides the STATUS DASH GRAB constant value.
+/// Native status used to recognize dash grab frame data.
 const STATUS_DASH_GRAB: i32 = crate::native_states::CATCH_DASH;
-/// Defines the `STATUS_PIVOT_GRAB` constant used by this module.
-///
-/// Provides the STATUS PIVOT GRAB constant value.
+/// Native status used to recognize pivot grab frame data.
 const STATUS_PIVOT_GRAB: i32 = crate::native_states::CATCH_TURN;
-/// Defines the `GRAB_STATUSES` constant used by this module.
-///
-/// Provides the GRAB STATUSES constant value.
+/// Standing, dash, and pivot-grab statuses used for grab-data lookup.
 const GRAB_STATUSES: [i32; 3] = [STATUS_GRAB, STATUS_DASH_GRAB, STATUS_PIVOT_GRAB];
 
-/// Defines the `Span` data structure.
-///
-/// Holds the data for Span.
+/// Inclusive startup-to-last-active frame interval for one hitbox window.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Span {
-    /// Stores the `first` value in `Span` as `u16`.
-    ///
-    ///
-    ///  Holds the first value used by Span.
+    /// First active frame in this hitbox window.
     pub first: u16,
-    /// Stores the `last` value in `Span` as `u16`.
-    ///
-    ///
-    ///  Holds the last value used by Span.
+    /// Last active frame in this hitbox window.
     pub last: u16,
 }
 
-/// Defines the `Stat` data structure.
-///
-/// Holds the data for Stat.
+/// One named fighter statistic exactly as loaded from the embedded data catalog.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Stat {
-    /// Stores the `key` value in `Stat` as `String`.
-    ///
-    ///
-    ///  Holds the key value used by Stat.
+    /// Catalog key naming the fighter statistic.
     pub key: String,
-    /// Stores the `value` value in `Stat` as `String`.
-    ///
-    ///
-    ///  Holds the value value used by Stat.
+    /// Raw catalog value for the fighter statistic.
     pub value: String,
 }
 
-/// Defines the `MoveData` data structure.
-///
-/// Holds the data for MoveData.
+/// Validated frame data and motion hashes for one fighter move.
 #[derive(Clone, Debug)]
 pub struct MoveData {
-    /// Stores the `name` value in `MoveData` as `String`.
-    ///
-    ///
-    ///  Holds the name value used by MoveData.
+    /// Display name of the move.
     pub name: String,
-    /// Stores the `total` value in `MoveData` as `Option<u16>`.
-    ///
-    ///
-    ///  Optionally stores the total for MoveData; it may be absent.
+    /// Total animation frames when the catalog supplies them.
     pub total: Option<u16>,
-    /// Stores the `landing_lag` value in `MoveData` as `Option<u16>`.
-    ///
-    ///
-    ///  Optionally stores the landing lag for MoveData; it may be absent.
+    /// Aerial landing lag in frames, when applicable.
     pub landing_lag: Option<u16>,
-    /// Stores the `active` value in `MoveData` as `Vec<Span>`.
-    ///
-    ///
-    ///  Holds the active value used by MoveData.
+    /// All validated active-hitbox frame windows.
     pub active: Vec<Span>,
-    /// Stores the `motions` value in `MoveData` as `Vec<u64>`.
-    ///
-    ///
-    ///  Holds the motions value used by MoveData.
+    /// Native motion hashes that identify this move.
     pub motions: Vec<u64>,
-    /// Stores the `whiff_eligible` value in `MoveData` as `bool`.
-    ///
-    ///
-    ///  Holds the whiff eligible value used by MoveData.
+    /// Whether the move may produce a whiff-punish recovery estimate.
     pub whiff_eligible: bool,
-    /// Stores the `raw` value in `MoveData` as `Vec<Stat>`.
-    ///
-    ///
-    ///  Holds the raw value used by MoveData.
+    /// Unparsed statistics retained from the source catalog.
     pub raw: Vec<Stat>,
 }
 
 impl MoveData {
     /// Checks whether damage data.
-    ///
-    ///
-    ///  Checks whether damage data.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn has_damage_data(&self) -> bool {
         self.raw
             .iter()
@@ -160,26 +84,11 @@ impl MoveData {
     }
 
     /// Returns the most recently active frame.
-    ///
-    ///
-    ///  Gets the last frame when the action was active.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn last_active(&self) -> Option<u16> {
         self.active.iter().map(|span| span.last).max()
     }
 
     /// Returns the observed recovery duration.
-    ///
-    ///
-    ///  Gets how long recovery lasts.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `observation` (`RecoveryObservation`): Represents the observation; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn recovery(&self, observation: RecoveryObservation) -> Option<f32> {
         let expected_status = match self.name.as_str() {
             "Dash Attack" => STATUS_DASH_ATTACK,
@@ -225,105 +134,48 @@ impl MoveData {
     }
 }
 
-/// Defines the `RecoveryObservation` data structure.
-///
-/// Holds the data for RecoveryObservation.
+/// Copied native facts used to verify that a grounded attack is in punishable recovery.
 #[derive(Clone, Copy, Debug)]
 pub struct RecoveryObservation {
-    /// Stores the `motion` value in `RecoveryObservation` as `u64`.
-    ///
-    ///
-    ///  Holds the motion value used by RecoveryObservation.
+    /// Current native motion hash.
     pub motion: u64,
-    /// Stores the `status` value in `RecoveryObservation` as `i32`.
-    ///
-    ///
-    ///  Holds the status value used by RecoveryObservation.
+    /// Current native fighter status.
     pub status: i32,
-    /// Stores the `grounded` value in `RecoveryObservation` as `bool`.
-    ///
-    ///
-    ///  Holds the grounded value used by RecoveryObservation.
+    /// Whether the attacker is currently grounded.
     pub grounded: bool,
-    /// Stores the `frame` value in `RecoveryObservation` as `f32`.
-    ///
-    ///
-    ///  Holds the frame value used by RecoveryObservation.
+    /// Current motion frame.
     pub frame: f32,
-    /// Stores the `rate` value in `RecoveryObservation` as `f32`.
-    ///
-    ///
-    ///  Holds the rate value used by RecoveryObservation.
+    /// Current motion playback rate.
     pub rate: f32,
-    /// Stores the `end` value in `RecoveryObservation` as `f32`.
-    ///
-    ///
-    ///  Holds the end value used by RecoveryObservation.
+    /// Observed motion end frame.
     pub end: f32,
-    /// Stores the `cancel` value in `RecoveryObservation` as `f32`.
-    ///
-    ///
-    ///  Holds the cancel value used by RecoveryObservation.
+    /// Observed cancel-enable frame.
     pub cancel: f32,
-    /// Stores the `can_cancel` value in `RecoveryObservation` as `bool`.
-    ///
-    ///
-    ///  Holds the can cancel value used by RecoveryObservation.
+    /// Whether the attacker can already cancel the move.
     pub can_cancel: bool,
-    /// Stores the `active_attack` value in `RecoveryObservation` as `bool`.
-    ///
-    ///
-    ///  Holds the active attack value used by RecoveryObservation.
+    /// Whether an attack hitbox is still active.
     pub active_attack: bool,
-    /// Stores the `registered_contact` value in `RecoveryObservation` as `bool`.
-    ///
-    ///
-    ///  Holds the registered contact value used by RecoveryObservation.
+    /// Whether the move has hit or been blocked.
     pub registered_contact: bool,
-    /// Stores the `vulnerable` value in `RecoveryObservation` as `bool`.
-    ///
-    ///
-    ///  Holds the vulnerable value used by RecoveryObservation.
+    /// Whether the attacker can currently be hit.
     pub vulnerable: bool,
 }
 
-/// Defines the `FighterData` data structure.
-///
-/// Holds the data for FighterData.
+/// Validated statistics and move data for one roster fighter.
 #[derive(Clone, Debug)]
 pub struct FighterData {
-    /// Stores the `kind` value in `FighterData` as `i32`.
-    ///
-    ///
-    ///  Holds the kind value used by FighterData.
+    /// Native fighter-kind ID.
     pub kind: i32,
-    /// Stores the `name` value in `FighterData` as `String`.
-    ///
-    ///
-    ///  Holds the name value used by FighterData.
+    /// Roster display name.
     pub name: String,
-    /// Stores the `stats` value in `FighterData` as `Vec<Stat>`.
-    ///
-    ///
-    ///  Holds the stats value used by FighterData.
+    /// Validated fighter-wide statistics.
     pub stats: Vec<Stat>,
-    /// Stores the `moves` value in `FighterData` as `Vec<MoveData>`.
-    ///
-    ///
-    ///  Holds the moves value used by FighterData.
+    /// Validated move frame data.
     pub moves: Vec<MoveData>,
 }
 
 impl FighterData {
     /// Resolves the configured move associated with the observed motion.
-    ///
-    ///
-    ///  Finds the move that matches this animation.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `motion` (`u64`): Represents the motion being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn move_for_motion(&self, motion: u64) -> Option<&MoveData> {
         unique(
             self.moves
@@ -333,14 +185,6 @@ impl FighterData {
     }
 
     /// Returns the fighter statistic selected by the key.
-    ///
-    ///
-    ///  Gets the fighter statistic.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn stat(&self, key: &str) -> Option<&str> {
         self.stats
             .iter()
@@ -349,162 +193,80 @@ impl FighterData {
     }
 
     /// Returns the numeric fighter statistic selected by the key.
-    ///
-    ///
-    ///  Gets the number for this fighter statistic.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn numeric_stat(&self, key: &str) -> Option<f32> {
         self.stat(key)?.parse().ok()
     }
 }
 
-/// Defines the `GrabReference` data structure.
-///
-/// Holds the data for GrabReference.
+/// Startup, active-window, and optional reach data for one grab type.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GrabReference {
-    /// Stores the `first` value in `GrabReference` as `u8`.
-    ///
-    ///
-    ///  Holds the first value used by GrabReference.
+    /// First frame on which the grab box is active.
     pub first: u8,
-    /// Stores the `last` value in `GrabReference` as `u8`.
-    ///
-    ///
-    ///  Holds the last value used by GrabReference.
+    /// Last frame on which the grab box is active.
     pub last: u8,
-    /// Stores the `reach` value in `GrabReference` as `Option<f32>`.
-    ///
-    ///
-    ///  Optionally stores the reach for GrabReference; it may be absent.
+    /// Optional root-relative grab reach from the data catalog.
     pub reach: Option<f32>,
 }
 
-/// Defines the `DataFile` data structure.
-///
-/// Holds the data for DataFile.
+/// Top-level shape of the embedded fighter-data JSON file.
 #[derive(Deserialize)]
 struct DataFile {
-    /// Stores the `schema_version` value in `DataFile` as `u32`.
-    ///
-    ///
-    ///  Holds the schema version value used by DataFile.
+    /// Schema version declared by the embedded fighter-data file.
     schema_version: u32,
-    /// Stores the `fighters` value in `DataFile` as `Vec<FighterRecord>`.
-    ///
-    ///
-    ///  Holds the fighters value used by DataFile.
+    /// Serialized roster entries from the embedded fighter-data file.
     fighters: Vec<FighterRecord>,
 }
 
-/// Defines the `FighterRecord` data structure.
-///
-/// Holds the data for FighterRecord.
+/// Serialized fighter entry read from the embedded data catalog.
 #[derive(Deserialize)]
 struct FighterRecord {
-    /// Stores the `kind` value in `FighterRecord` as `i32`.
-    ///
-    ///
-    ///  Holds the kind value used by FighterRecord.
+    /// Native fighter-kind ID from the serialized record.
     kind: i32,
-    /// Stores the `name` value in `FighterRecord` as `String`.
-    ///
-    ///
-    ///  Holds the name value used by FighterRecord.
+    /// Roster name from the serialized record.
     name: String,
-    /// Stores the `stats` value in `FighterRecord` as `Vec<StatRecord>`.
-    ///
-    ///
-    ///  Holds the stats value used by FighterRecord.
+    /// Serialized fighter-wide statistics.
     stats: Vec<StatRecord>,
-    /// Stores the `moves` value in `FighterRecord` as `Vec<MoveRecord>`.
-    ///
-    ///
-    ///  Holds the moves value used by FighterRecord.
+    /// Serialized move frame data.
     moves: Vec<MoveRecord>,
 }
 
-/// Defines the `StatRecord` data structure.
-///
-/// Holds the data for StatRecord.
+/// Serialized key/value fighter statistic from the embedded data catalog.
 #[derive(Deserialize)]
 struct StatRecord {
-    /// Stores the `key` value in `StatRecord` as `String`.
-    ///
-    ///
-    ///  Holds the key value used by StatRecord.
+    /// Serialized statistic name.
     key: String,
-    /// Stores the `value` value in `StatRecord` as `String`.
-    ///
-    ///
-    ///  Holds the value value used by StatRecord.
+    /// Serialized statistic value.
     value: String,
 }
 
-/// Defines the `MoveRecord` data structure.
-///
-/// Holds the data for MoveRecord.
+/// Serialized move frame-data entry from the embedded data catalog.
 #[derive(Deserialize)]
 struct MoveRecord {
-    /// Stores the `name` value in `MoveRecord` as `String`.
-    ///
-    ///
-    ///  Holds the name value used by MoveRecord.
+    /// Serialized move name.
     name: String,
-    /// Stores the `total` value in `MoveRecord` as `Option<u16>`.
-    ///
-    ///
-    ///  Optionally stores the total for MoveRecord; it may be absent.
+    /// Serialized total animation frames.
     total: Option<u16>,
-    /// Stores the `landing_lag` value in `MoveRecord` as `Option<u16>`.
-    ///
-    ///
-    ///  Optionally stores the landing lag for MoveRecord; it may be absent.
+    /// Serialized aerial landing lag.
     landing_lag: Option<u16>,
-    /// Stores the `active` value in `MoveRecord` as `Vec<[u16; 2]>`.
-    ///
-    ///
-    ///  Holds the active value used by MoveRecord.
+    /// Serialized active-frame intervals.
     active: Vec<[u16; 2]>,
-    /// Stores the `motions` value in `MoveRecord` as `Vec<String>`.
-    ///
-    ///
-    ///  Holds the motions value used by MoveRecord.
+    /// Serialized native motion names or hashes.
     motions: Vec<String>,
-    /// Stores the `whiff_eligible` value in `MoveRecord` as `bool`.
-    ///
-    ///
-    ///  Holds the whiff eligible value used by MoveRecord.
+    /// Serialized permission to estimate whiff recovery.
     whiff_eligible: bool,
-    /// Stores the `raw` value in `MoveRecord` as `BTreeMap<String`.
-    ///
-    ///
-    ///  Holds the raw value used by MoveRecord.
+    /// Additional move statistics retained by key.
     raw: BTreeMap<String, String>,
 }
 
-/// Defines `GrabFacts` as a type alias.
-///
-/// Holds the GrabFacts value.
+/// Native grab status paired with standing, dash, and pivot reference data.
 type GrabFacts = (i32, [Option<GrabReference>; 3]);
-/// Defines the `FIGHTERS` constant used by this module.
-///
-/// Provides the FIGHTERS constant value.
+/// Lazily parsed and validated roster fighter data.
 static FIGHTERS: OnceLock<Result<Vec<FighterData>, String>> = OnceLock::new();
-/// Defines the `GRAB_FACTS` constant used by this module.
-///
-/// Provides the GRAB FACTS constant value.
+/// Lazily derived grab startup, active-window, and reach data.
 static GRAB_FACTS: OnceLock<Vec<GrabFacts>> = OnceLock::new();
 
-/// Loads the fighters.
-///
-/// Loads the fighters.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
+/// Parses and validates the embedded roster-wide fighter-data catalog.
 fn load_fighters() -> Result<Vec<FighterData>, String> {
     let file: DataFile = serde_json::from_str(DATA_FILE)
         .map_err(|error| format!("cannot parse embedded Ultimate_stats.json: {error}"))?;
@@ -534,13 +296,7 @@ fn load_fighters() -> Result<Vec<FighterData>, String> {
     Ok(fighters)
 }
 
-/// Parses the fighter.
-///
-/// Parses the fighter.
-/// ### Arguments
-/// - `record` (`FighterRecord`): Represents the record; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
+/// Validates one serialized fighter and converts it to runtime frame data.
 fn parse_fighter(record: FighterRecord) -> Result<FighterData, String> {
     if record.name.is_empty() || record.stats.is_empty() || record.moves.is_empty() {
         return Err(format!(
@@ -577,14 +333,7 @@ fn parse_fighter(record: FighterRecord) -> Result<FighterData, String> {
     })
 }
 
-/// Parses the move.
-///
-/// Parses the move.
-/// ### Arguments
-/// - `fighter_name` (`&str`): Represents the fighter name; the function uses it as input to the operation described above.
-/// - `record` (`MoveRecord`): Represents the record; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
+/// Validates one serialized move and converts its active frames and motion IDs.
 fn parse_move(fighter_name: &str, record: MoveRecord) -> Result<MoveData, String> {
     let active = record
         .active
@@ -625,19 +374,12 @@ fn parse_move(fighter_name: &str, record: MoveRecord) -> Result<MoveData, String
 }
 
 /// Validate and initialize the embedded roster before installing live hooks.
-///
-///  Validate and initialize the embedded roster before installing live hooks.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn initialize() -> Result<(), &'static str> {
     try_all().map(|_| ())
 }
 
 /// Attempts each eligible candidate until one is accepted.
-///
 /// Tries the available options in order.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 fn try_all() -> Result<&'static [FighterData], &'static str> {
     FIGHTERS
         .get_or_init(load_fighters)
@@ -646,21 +388,11 @@ fn try_all() -> Result<&'static [FighterData], &'static str> {
 }
 
 /// All fighter records, independent of player/opponent role.
-///
-///  All fighter records, independent of player/opponent role.
-/// ### Returns
-/// Returns the resulting `&'static [FighterData]` value.
 pub fn all() -> &'static [FighterData] {
     try_all().unwrap_or_else(|error| panic!("invalid embedded fighter data: {error}"))
 }
 
 /// Exact native fighter-kind lookup. Unknown kinds never borrow another row.
-///
-///  Exact native fighter-kind lookup. Unknown kinds never borrow another row.
-/// ### Arguments
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn fighter(kind: i32) -> Option<&'static FighterData> {
     let fighters = all();
     fighters
@@ -670,10 +402,6 @@ pub fn fighter(kind: i32) -> Option<&'static FighterData> {
 }
 
 /// Prepare the compact native-kind grab lookup once before live callbacks.
-///
-///  Prepare the compact native-kind grab lookup once before live callbacks.
-/// ### Returns
-/// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
 pub fn prepare_grab_references() -> Result<(), &'static str> {
     let fighters = try_all()?;
     GRAB_FACTS.get_or_init(|| {
@@ -691,13 +419,6 @@ pub fn prepare_grab_references() -> Result<(), &'static str> {
 }
 
 /// Exact standing, dash, or pivot grab facts for any fighter-data row.
-///
-///  Exact standing, dash, or pivot grab facts for any fighter-data row.
-/// ### Arguments
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn ordinary_grab(kind: i32, status: i32) -> Option<GrabReference> {
     let slot = GRAB_STATUSES.iter().position(|&known| known == status)?;
     if let Some(facts) = GRAB_FACTS.get() {
@@ -709,14 +430,7 @@ pub fn ordinary_grab(kind: i32, status: i32) -> Option<GrabReference> {
     ordinary_grab_uncached(kind, status)
 }
 
-/// Reads ordinary-grab data without reusing a cached result.
-///
-/// Gets fresh ordinary-grab data.
-/// ### Arguments
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
+/// Reads and validates ordinary-grab data before the shared cache exists.
 fn ordinary_grab_uncached(kind: i32, status: i32) -> Option<GrabReference> {
     let move_name = match status {
         STATUS_GRAB => "Grab",
@@ -755,13 +469,6 @@ fn ordinary_grab_uncached(kind: i32, status: i32) -> Option<GrabReference> {
 }
 
 /// Return one unambiguous named move; variants are never guessed.
-///
-///  Return one unambiguous named move; variants are never guessed.
-/// ### Arguments
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn named_move(kind: i32, name: &str) -> Option<&'static MoveData> {
     unique(
         fighter(kind)?
@@ -772,51 +479,25 @@ pub fn named_move(kind: i32, name: &str) -> Option<&'static MoveData> {
 }
 
 /// The only item of `matches`; zero or several candidates are ambiguous.
-///
-///  The only item of matches; zero or several candidates are ambiguous.
-/// ### Arguments
-/// - `matches` (`impl Iterator<Item = &'a T>`): Represents the matches; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn unique<'a, T>(mut matches: impl Iterator<Item = &'a T>) -> Option<&'a T> {
     let first = matches.next()?;
     matches.next().is_none().then_some(first)
 }
 
 /// Small cache for fighter objects observed in controller/player slots.
-///
-///  Small cache for fighter objects observed in controller/player slots.
 #[derive(Clone, Copy, Default)]
 pub struct FighterDataCache {
-    /// Stores the `slots` value in `FighterDataCache` as `[Option<(u32`.
-    ///
-    ///
-    ///  Stores the slots collection for FighterDataCache.
+    /// Cached battle-object IDs paired with their resolved fighter data.
     slots: [Option<(u32, i32, &'static FighterData)>; 8],
 }
 
 impl FighterDataCache {
-    /// Constructs a new value with the type’s initial state.
-    ///
-    ///
-    ///  Creates a new value.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
+    /// Creates an empty fighter-data cache for the eight controller slots.
     pub const fn new() -> Self {
         Self { slots: [None; 8] }
     }
 
     /// Resolves the configured binding for the requested action.
-    ///
-    ///
-    ///  Finds the button assigned to this action.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
-    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn bind(&mut self, slot: usize, id: u32, kind: i32) -> Option<&'static FighterData> {
         let entry = self.slots.get_mut(slot)?;
         if let Some((old_id, old_kind, data)) = *entry {
@@ -828,13 +509,7 @@ impl FighterDataCache {
         entry.map(|(_, _, data)| data)
     }
 
-    /// Clears the remembered fighter observation.
-    ///
-    ///
-    ///  Forgets the last fighter observation.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
+    /// Forgets the fighter identity and data cached for one controller slot.
     pub fn clear(&mut self, slot: usize) {
         if let Some(entry) = self.slots.get_mut(slot) {
             *entry = None;
@@ -847,9 +522,6 @@ mod grab_reference_cache_tests {
     use super::*;
 
     /// Regression test for `prepared_references_match_uncached_data_for_every_kind_and_status`.
-    ///
-    ///
-    ///  Checks that prepared references match uncached data for every kind and status.
     #[test]
     fn prepared_references_match_uncached_data_for_every_kind_and_status() {
         let expected = all()

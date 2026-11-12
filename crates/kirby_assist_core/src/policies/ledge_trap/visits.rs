@@ -6,86 +6,42 @@ use super::{
 };
 use crate::ledge_position::LedgeSpot;
 
-/// Defines the `Visit` data structure.
-///
-/// Holds the data for Visit.
+/// Runtime Smash data carried by `Visit`.
 #[derive(Clone, Copy)]
 struct Visit {
-    /// Stores the `id` value in `Visit` as `u32`.
-    ///
-    ///
-///  Holds the id value used by Visit.
+/// battle-object ID.
     id: u32,
-    /// Stores the `last_status` value in `Visit` as `i32`.
-    ///
-    ///
-///  Holds the last status value used by Visit.
+/// Runtime last status value used by Visit..
     last_status: i32,
-    /// Stores the `armed` value in `Visit` as `bool`.
-    ///
-    ///
-///  Holds the armed value used by Visit.
+/// Runtime armed value used by Visit..
     armed: bool,
-    /// Stores the `handled` value in `Visit` as `bool`.
-    ///
-    ///
-///  Holds the handled value used by Visit.
+/// Runtime handled value used by Visit..
     handled: bool,
 }
-/// Defines the `LedgeVisits` data structure.
-///
-/// Holds the data for LedgeVisits.
+/// Runtime Smash data carried by `LedgeVisits`.
 #[derive(Default)]
 pub struct LedgeVisits {
-    /// Stores the `owner` value in `LedgeVisits` as `Option<(u32`.
-    ///
-    ///
-///  Optionally stores the owner for LedgeVisits; it may be absent.
+/// Runtime owner value used by LedgeVisits..
     owner: Option<(u32, i32)>,
-    /// Stores the `visits` value in `LedgeVisits` as `[Option<Visit>; 8]`.
-    ///
-    ///
-///  Stores the visits collection for LedgeVisits.
+/// Runtime visits value used by LedgeVisits..
     visits: [Option<Visit>; 8],
-    /// Stores the `replace` value in `LedgeVisits` as `usize`.
-    ///
-    ///
-///  Holds the replace value used by LedgeVisits.
+/// Runtime replace value used by LedgeVisits..
     replace: usize,
-    /// Stores the `ledge` value in `LedgeVisits` as `Option<LedgeSpot>`.
-    ///
-    ///
-///  Optionally stores the ledge for LedgeVisits; it may be absent.
+/// Runtime ledge value used by LedgeVisits..
     ledge: Option<LedgeSpot>,
-    /// Stores the `visit_epoch` value in `LedgeVisits` as `u64`.
-    ///
-    ///
-///  Holds the visit epoch value used by LedgeVisits.
+/// Runtime visit epoch value used by LedgeVisits..
     visit_epoch: u64,
 }
-/// Defines the `Observation` data structure.
-///
-/// Holds the data for Observation.
+/// Runtime Smash data carried by `Observation`.
 #[derive(Clone, Copy)]
 struct Observation {
-    /// Stores the `new_visit` value in `Observation` as `bool`.
-    ///
-    ///
-///  Holds the new visit value used by Observation.
+/// Runtime new visit value used by Observation..
     new_visit: bool,
-    /// Stores the `allowed` value in `Observation` as `bool`.
-    ///
-    ///
-///  Holds the allowed value used by Observation.
+/// Runtime allowed value used by Observation..
     allowed: bool,
 }
 impl LedgeVisits {
     /// Constructs a new value with the type’s initial state.
-    ///
-    ///
-    ///  Creates a new value.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             owner: None,
@@ -96,13 +52,6 @@ impl LedgeVisits {
         }
     }
     /// Sets the owner.
-    ///
-    ///
-    ///  Sets the owner.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
-    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
     pub fn set_owner(&mut self, id: u32, kind: i32) {
         if self.owner != Some((id, kind)) {
             *self = Self::default();
@@ -110,37 +59,14 @@ impl LedgeVisits {
         }
     }
     /// Visits the epoch.
-    ///
-    ///
-    ///  Visits the epoch.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u64` value.
     pub fn visit_epoch(&self) -> u64 {
         self.visit_epoch
     }
     /// Returns an optional `walking_ledge` value.
-    ///
-    ///
-    ///  Gets walking ledge if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn walking_ledge(&self) -> Option<LedgeSpot> {
         self.ledge
     }
     /// Records the time of the latest fighter observation.
-    ///
-    ///
-    ///  Remembers when a fighter was last seen.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `e` (`Opponent`): Represents the e; the function uses it as input to the operation described above.
-    /// - `own` (`[f32; 2]`): Represents the own; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `Observation` value.
     fn observe(&mut self, e: Opponent, own: [f32; 2]) -> Observation {
         let index = self
             .visits
@@ -199,12 +125,6 @@ impl LedgeVisits {
         Observation { new_visit, allowed }
     }
     /// Updates the `claim` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates claim.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
     fn claim(&mut self, id: u32) {
         if let Some(v) = self.visits.iter_mut().flatten().find(|v| v.id == id) {
             v.handled = true;
@@ -216,18 +136,6 @@ impl LedgeVisits {
 /// Explicit editor previews remain independently repeatable.
 impl LedgeTrap {
     /// Samples the with visits.
-    ///
-    ///
-    ///  Samples the with visits.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `visits` (`&mut LedgeVisits`): Represents the visits; the function uses it as input to the operation described above.
-    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
-    /// - `enemy` (`Option<Opponent>`): Represents the enemy; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     pub fn sample_with_visits(
         &mut self,
         visits: &mut LedgeVisits,
@@ -278,11 +186,6 @@ mod tests {
         fighter_profiles::presets::PresetSlot, native_input::MAPPER_A, sequence_config::Catalog,
     };
     /// Returns the current settings view.
-    ///
-    ///
-    ///  Gets the settings being edited.
-    /// ### Returns
-    /// Returns the resulting `AssistSettings` value.
     fn settings() -> AssistSettings {
         let c = Catalog::parse("[kirby.neutral.test]\nstart_delay=0\nactions=a:1").unwrap();
         let mut s = AssistSettings {
@@ -293,13 +196,6 @@ mod tests {
         s
     }
     /// Returns the `ctx` result.
-    ///
-    ///
-    ///  Gets the ctx result.
-    /// ### Arguments
-    /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `GameplayContext` value.
     fn ctx(frame: f32) -> GameplayContext {
         GameplayContext {
             motion_kind: 123,
@@ -308,9 +204,6 @@ mod tests {
         }
     }
     /// Regression test for `completed_visit_stays_consumed_after_release_reset_and_sticky_previous_status`.
-    ///
-    ///
-///  Checks that completed visit stays consumed after release reset and sticky previous status.
     #[test]
     fn completed_visit_stays_consumed_after_release_reset_and_sticky_previous_status() {
         let mut v = LedgeVisits::default();
@@ -358,9 +251,6 @@ mod tests {
         }
     }
     /// Regression test for `interrupting_an_active_response_does_not_restart_it_and_new_grab_rearms`.
-    ///
-    ///
-///  Checks that interrupting an active response does not restart it and new grab rearms.
     #[test]
     fn interrupting_an_active_response_does_not_restart_it_and_new_grab_rearms() {
         let mut v = LedgeVisits::default();
@@ -403,9 +293,6 @@ mod tests {
         );
     }
     /// Regression test for `standing_previous_getup_alone_cannot_create_a_visit`.
-    ///
-    ///
-///  Checks that standing previous getup alone cannot create a visit.
     #[test]
     fn standing_previous_getup_alone_cannot_create_a_visit() {
         let mut v = LedgeVisits::default();
@@ -422,9 +309,6 @@ mod tests {
         assert!(t.file_timeline.is_none());
     }
     /// Regression test for `ledge_attack_seen_without_its_hang_is_still_a_response_visit`.
-    ///
-    ///
-///  Checks that ledge attack seen without its hang is still a response visit.
     #[test]
     fn ledge_attack_seen_without_its_hang_is_still_a_response_visit() {
         let c = Catalog::parse("[kirby.attack.test]\nstart_delay=0\nactions=y:1").unwrap();
@@ -452,9 +336,6 @@ mod tests {
         assert_eq!(seen_hang.visit_epoch(), epoch);
     }
     /// Regression test for `walking_anchor_only_comes_from_a_real_observed_hang_and_survives_input_release`.
-    ///
-    ///
-///  Checks that walking anchor only comes from a real observed hang and survives input release.
     #[test]
     fn walking_anchor_only_comes_from_a_real_observed_hang_and_survives_input_release() {
         let mut v = LedgeVisits::default();
@@ -487,9 +368,6 @@ mod tests {
         assert!(v.walking_ledge().is_none());
     }
     /// Regression test for `completed_engine_rearms_for_next_observed_hang_without_releasing_l`.
-    ///
-    ///
-///  Checks that completed engine rearms for next observed hang without releasing l.
     #[test]
     fn completed_engine_rearms_for_next_observed_hang_without_releasing_l() {
         let mut v = LedgeVisits::default();
@@ -535,9 +413,6 @@ mod preview_tests {
         fighter_profiles::presets::PresetSlot, native_input::MAPPER_A, sequence_config::Catalog,
     };
     /// Regression test for `editor_previews_repeat_without_consuming_the_real_visit`.
-    ///
-    ///
-///  Checks that editor previews repeat without consuming the real visit.
     #[test]
     fn editor_previews_repeat_without_consuming_the_real_visit() {
         let c = Catalog::parse("[kirby.neutral.test]\nstart_delay=0\nactions=a:1").unwrap();
@@ -588,9 +463,6 @@ mod preview_tests {
         );
     }
     /// Regression test for `opposite_ledge_replaces_inward_side_but_same_edge_motion_and_own_crossing_do_not`.
-    ///
-    ///
-///  Checks that opposite ledge replaces inward side but same edge motion and own crossing do not.
     #[test]
     fn opposite_ledge_replaces_inward_side_but_same_edge_motion_and_own_crossing_do_not() {
         let mut v = LedgeVisits::new();

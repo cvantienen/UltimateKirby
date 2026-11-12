@@ -19,59 +19,27 @@ use crate::{
 /// * `start_side` - The initial side relative to the player.
 /// * `away` - Indicates whether the target is moving away from the player.
 /// * `used` - Indicates whether this interaction has been used.
-///
-///  Represents an observed shield interaction for a specific target. # Fields  id - The unique identifier of the target.  status - The status of the target.  motion - The motion kind of the target.  frame - The frame at which the.
 #[derive(Clone, Copy)]
 struct Seen {
-    /// Stores the `id` value in `Seen` as `u32`.
-    ///
-    ///
-///  Holds the id value used by Seen.
+/// battle-object ID.
     id: u32,
-    /// Stores the `status` value in `Seen` as `i32`.
-    ///
-    ///
-///  Holds the status value used by Seen.
+/// native fighter status.
     status: i32,
-    /// Stores the `motion` value in `Seen` as `u64`.
-    ///
-    ///
-///  Holds the motion value used by Seen.
+/// native animation/motion ID.
     motion: u64,
-    /// Stores the `frame` value in `Seen` as `f32`.
-    ///
-    ///
-///  Holds the frame value used by Seen.
+/// current native animation frame.
     frame: f32,
-    /// Stores the `dx` value in `Seen` as `f32`.
-    ///
-    ///
-///  Holds the dx value used by Seen.
+/// Runtime dx value used by Seen..
     dx: f32,
-    /// Stores the `from_shield` value in `Seen` as `bool`.
-    ///
-    ///
-///  Holds the from shield value used by Seen.
+/// Runtime from shield value used by Seen..
     from_shield: bool,
-    /// Stores the `crossed` value in `Seen` as `bool`.
-    ///
-    ///
-///  Holds the crossed value used by Seen.
+/// Runtime crossed value used by Seen..
     crossed: bool,
-    /// Stores the `start_side` value in `Seen` as `f32`.
-    ///
-    ///
-///  Holds the start side value used by Seen.
+/// Runtime start side value used by Seen..
     start_side: f32,
-    /// Stores the `away` value in `Seen` as `Option<bool>`.
-    ///
-    ///
-///  Optionally stores the away for Seen; it may be absent.
+/// Runtime away value used by Seen..
     away: Option<bool>,
-    /// Stores the `used` value in `Seen` as `bool`.
-    ///
-    ///
-///  Holds the used value used by Seen.
+/// Runtime used value used by Seen..
     used: bool,
 }
 /// Represents the shield pressure manager that tracks observed shield interactions and manages responses.
@@ -80,52 +48,26 @@ struct Seen {
 /// * `seen` - An array of observed shield interactions.
 /// * `response` - The current response being managed.
 /// * `claim_rolls` - Indicates whether roll claims are active.
-///
-///  Represents the shield pressure manager that tracks observed shield interactions and manages responses. # Fields  object - The current object being tracked.  seen - An array of observed shield interactions.  response - The.
 #[derive(Default)]
 pub struct Pressure {
-    /// Stores the `object` value in `Pressure` as `Option<u32>`.
-    ///
-    ///
-///  Optionally stores the object for Pressure; it may be absent.
+/// Runtime object value used by Pressure..
     object: Option<u32>,
-    /// Stores the `seen` value in `Pressure` as `[Option<Seen>; 8]`.
-    ///
-    ///
-///  Stores the seen collection for Pressure.
+/// Runtime seen value used by Pressure..
     seen: [Option<Seen>; 8],
-    /// Stores the `response` value in `Pressure` as `Response`.
-    ///
-    ///
-///  Holds the response value used by Pressure.
+/// Runtime response value used by Pressure..
     response: Response,
-    /// Stores the `claim_rolls` value in `Pressure` as `bool`.
-    ///
-    ///
-///  Holds the claim rolls value used by Pressure.
+/// Runtime claim rolls value used by Pressure..
     claim_rolls: bool,
 }
 /// Determines whether the given status corresponds to a shield context.
 /// # Parameters
 /// * `s` - The status to check.
-/// ### Arguments
-/// - `s` (`i32`): Represents the s; the function uses it as input to the operation described above.
-/// ### Returns
-/// `true` if the status corresponds to a shield context, `false` otherwise.
-///
-///  Determines whether the given status corresponds to a shield context. # Parameters  s - The status to check. # Returns true if the status corresponds to a shield context, false otherwise.
 fn shield_context(s: i32) -> bool {
     (crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE).contains(&s)
 }
 /// Determines whether the given status corresponds to a roll.
 /// # Parameters
 /// * `s` - The status to check.
-/// ### Arguments
-/// - `s` (`i32`): Represents the s; the function uses it as input to the operation described above.
-/// ### Returns
-/// `true` if the status corresponds to a roll, `false` otherwise.
-///
-///  Determines whether the given status corresponds to a roll. # Parameters  s - The status to check. # Returns true if the status corresponds to a roll, false otherwise.
 fn roll(s: i32) -> bool {
     matches!(
         s,
@@ -134,83 +76,36 @@ fn roll(s: i32) -> bool {
 }
 impl Pressure {
     /// Returns the current target being tracked by the pressure manager.
-    ///
-    ///  Returns the current target being tracked by the pressure manager.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn target(&self) -> Option<u32> {
         self.response.target()
     }
     /// Returns whether the pressure manager has committed to a target.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// `true` if the pressure manager has committed to a target, `false` otherwise.
-    ///
-    ///  Returns whether the pressure manager has committed to a target. # Returns true if the pressure manager has committed to a target, false otherwise.
     pub fn committed(&self) -> bool {
         self.target().is_some()
     }
     /// Returns whether the pressure manager is currently walking.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// `true` if the pressure manager is walking, `false` otherwise.
-    ///
-    ///  Returns whether the pressure manager is currently walking. # Returns true if the pressure manager is walking, false otherwise.
     pub fn walking(&self) -> bool {
         self.response.walking()
     }
     /// Returns whether the pressure manager requires the ground.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// `true` if the pressure manager needs the ground, `false` otherwise.
-    ///
-    ///  Returns whether the pressure manager requires the ground. # Returns true if the pressure manager needs the ground, false otherwise.
     pub fn needs_ground(&self) -> bool {
         self.response.needs_ground()
     }
     /// Returns whether the pressure manager is holding an attack.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// `true` if the pressure manager is holding an attack, `false` otherwise.
-    ///
-    ///  Returns whether the pressure manager is holding an attack. # Returns true if the pressure manager is holding an attack, false otherwise.
     pub fn attack_hold(&self) -> bool {
         self.response.attack_hold()
     }
     /// Returns the current right stick input, if any.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// An array representing the right stick input, or `None` if not available.
-    ///
-    ///  Returns the current right stick input, if any. # Returns An array representing the right stick input, or None if not available.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         self.response.right_stick()
     }
     /// Cancels any pending response managed by the pressure manager.
-    ///
-    ///  Cancels any pending response managed by the pressure manager.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel_pending(&mut self) {
         self.response.cancel();
     }
     /// Returns whether the pressure manager claims a roll for the specified target ID.
     /// # Parameters
     /// * `id` - The ID of the target to check.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// `true` if the pressure manager claims a roll for the target, `false` otherwise.
-    ///
-    ///  Returns whether the pressure manager claims a roll for the specified target ID. # Parameters  id - The ID of the target to check. # Returns true if the pressure manager claims a roll for the target, false otherwise.
     pub fn claims_roll(&self, id: u32) -> bool {
         self.claim_rolls
             && self
@@ -229,20 +124,6 @@ impl Pressure {
     /// * `c` - The current gameplay context.
     /// * `targets` - An array of potential targets.
     /// * `follow` - The opponent to follow, if any.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
-    /// - `object` (`u32`): Represents the object; the function uses it as input to the operation described above.
-    /// - `rules` (`Option<&Resolved>`): Represents the rules; the function uses it as input to the operation described above.
-    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// - `context` (`GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
-    /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// The controller output based on the pressure manager's state and the current context.
-    ///
-    ///  # Parameters  enabled - Indicates whether the pressure manager is enabled.  allowed - Indicates whether the pressure manager is allowed to act.  object - The current object being tracked.  rules - The resolved reaction rules,.
     pub fn sample(
         &mut self,
         enabled: bool,

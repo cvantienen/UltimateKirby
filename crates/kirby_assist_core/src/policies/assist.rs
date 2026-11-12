@@ -14,70 +14,33 @@ use crate::{
 // An enum is one named alternative at a time. Variants carrying (Scenario)
 // also keep the reason's context, which is useful in tests and diagnostics.
 ///
-///  Why the engine did or did not propose an action this frame.
 pub enum DecisionStatus {
-    /// Represents the `Disabled` case of `DecisionStatus`.
-    ///
-    ///
-///  Represents the Disabled option in DecisionStatus.
+/// `Disabled` option in the `DecisionStatus` Smash policy state.
     Disabled,
-    /// Represents the `ScopeRejected` case of `DecisionStatus`.
-    ///
-    ///
-///  Represents the ScopeRejected option in DecisionStatus.
+/// `ScopeRejected` option in the `DecisionStatus` Smash policy state.
     ScopeRejected,
-    /// Represents the `NoActiveScenario` case of `DecisionStatus`.
-    ///
-    ///
-///  Represents the NoActiveScenario option in DecisionStatus.
+/// `NoActiveScenario` option in the `DecisionStatus` Smash policy state.
     NoActiveScenario,
-    /// Represents the `NoRule` case of `DecisionStatus`.
-    ///
-    ///
-///  Represents the NoRule option in DecisionStatus.
+/// `NoRule` option in the `DecisionStatus` Smash policy state.
     NoRule(
         /// Carries the scenario with no enabled rule in `DecisionStatus`.
-        ///
-        ///
-///  Holds the scenario with no enabled rule for this `DecisionStatus` choice.
         Scenario,
     ),
-    /// Represents the `WaitingForTiming` case of `DecisionStatus`.
-    ///
-    ///
-///  Represents the WaitingForTiming option in DecisionStatus.
+/// `WaitingForTiming` option in the `DecisionStatus` Smash policy state.
     WaitingForTiming(
         /// Carries the scenario waiting for its timing window in `DecisionStatus`.
-        ///
-        ///
-///  Holds the scenario waiting for its timing window for this `DecisionStatus` choice.
         Scenario,
     ),
-    /// Represents the `ProposedController` case of `DecisionStatus`.
-    ///
-    ///
-///  Represents the ProposedController option in DecisionStatus.
+/// `ProposedController` option in the `DecisionStatus` Smash policy state.
     ProposedController(
         /// Carries the scenario producing a controller proposal in `DecisionStatus`.
-        ///
-        ///
-///  Holds the scenario producing a controller proposal for this `DecisionStatus` choice.
         Scenario,
     ),
-    /// Represents the `AwaitingPlaybackBackend` case of `DecisionStatus`.
-    ///
-    ///
-///  Represents the AwaitingPlaybackBackend option in DecisionStatus.
+/// `AwaitingPlaybackBackend` option in the `DecisionStatus` Smash policy state.
     AwaitingPlaybackBackend {
-        /// Stores the `scenario` value in `DecisionStatus` as `Scenario`.
-        ///
-        ///
-///  Holds the scenario value used by DecisionStatus.
+/// Runtime scenario value used by DecisionStatus..
         scenario: Scenario,
-        /// Stores the `slot` value in `DecisionStatus` as `RecordingSlot`.
-        ///
-        ///
-///  Holds the slot value used by DecisionStatus.
+/// Runtime slot value used by DecisionStatus..
         slot: RecordingSlot,
     },
 }
@@ -85,41 +48,22 @@ pub enum DecisionStatus {
 /// A transparent logical result. `proposed` is never written to Smash by this
 /// crate; the platform adapter decides whether and how to use it. The live
 /// policy consumes `recipe`, while generic examples consume `proposed`.
-///
-///  A transparent logical result. proposed is never written to Smash by this crate; the platform adapter decides whether and how to use it. The live policy consumes recipe, while generic examples consume proposed.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FrameDecision {
-    /// Stores the `proposed` value in `FrameDecision` as `ControllerFrame`.
-    ///
-    ///
-///  Holds the proposed value used by FrameDecision.
+/// Runtime proposed value used by FrameDecision..
     pub proposed: ControllerFrame,
-    /// Stores the `recipe` value in `FrameDecision` as `InputRecipe`.
-    ///
-    ///
-///  Holds the recipe value used by FrameDecision.
+/// Runtime recipe value used by FrameDecision..
     pub recipe: InputRecipe,
-    /// Stores the `arbitration` value in `FrameDecision` as `Option<ArbitrationResult>`.
-    ///
-    ///
-///  Optionally stores the arbitration for FrameDecision; it may be absent.
+/// Runtime arbitration value used by FrameDecision..
     pub arbitration: Option<ArbitrationResult>,
-    /// Stores the `selected_scenario` value in `FrameDecision` as `Option<Scenario>`.
-    ///
-    ///
-///  Optionally stores the selected scenario for FrameDecision; it may be absent.
+/// Runtime selected scenario value used by FrameDecision..
     pub selected_scenario: Option<Scenario>,
-    /// Stores the `status` value in `FrameDecision` as `DecisionStatus`.
-    ///
-    ///
-///  Holds the status value used by FrameDecision.
+/// native fighter status.
     pub status: DecisionStatus,
 }
 
 /// Stateless policy engine. It deliberately has no Skyline, Smash, HID, or
 /// memory access, making it easy to test and safe to evolve in isolation.
-///
-///  Stateless policy engine. It deliberately has no Skyline, Smash, HID, or memory access, making it easy to test and safe to evolve in isolation.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct AssistEngine;
 
@@ -127,18 +71,6 @@ impl AssistEngine {
     // The early returns preserve the fresh human frame when a prerequisite is
     // missing. Do not accidentally substitute a previous automated frame here.
     /// Returns the `evaluate` result.
-    ///
-    ///
-    ///  Gets the evaluate result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `config` (`AssistConfig`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
-    /// - `context` (`RunContext`): Represents the current execution context; the function uses it as input to the operation described above.
-    /// - `observation` (`FighterObservation`): Represents the observation; the function uses it as input to the operation described above.
-    /// - `user_input` (`ControllerFrame`): Represents the user input; the function uses it as input to the operation described above.
-    /// - `permissions` (`InputPermissions`): Represents the permissions; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `FrameDecision` value.
     pub fn evaluate(
         &self,
         config: AssistConfig,
@@ -204,14 +136,6 @@ impl AssistEngine {
 
 impl FrameDecision {
     /// Returns the `unchanged` result.
-    ///
-    ///
-    ///  Gets the unchanged result.
-    /// ### Arguments
-    /// - `proposed` (`ControllerFrame`): Represents the proposed; the function uses it as input to the operation described above.
-    /// - `status` (`DecisionStatus`): Represents the status being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     const fn unchanged(proposed: ControllerFrame, status: DecisionStatus) -> Self {
         Self {
             proposed,
@@ -234,19 +158,13 @@ mod tests {
         state::{FighterKind, ScenarioSample},
     };
 
-    /// Defines the `LOCAL_KIRBY` constant used by this module.
-    ///
-    ///
-///  Provides the LOCAL KIRBY constant value.
+/// `LOCAL_KIRBY` is a configuration value used by the Smash runtime.
     const LOCAL_KIRBY: RunContext = RunContext {
         is_locally_human_controlled: true,
         fighter: FighterKind::Kirby,
     };
 
-    /// Defines the `PLAYER_INPUT` constant used by this module.
-    ///
-    ///
-///  Provides the PLAYER INPUT constant value.
+/// `PLAYER_INPUT` is a configuration value used by the Smash runtime.
     const PLAYER_INPUT: ControllerFrame = ControllerFrame {
         buttons: ButtonSet::JUMP,
         left_stick: StickPosition {
@@ -259,13 +177,6 @@ mod tests {
     };
 
     /// Returns the `enabled_config` result.
-    ///
-    ///
-    ///  Gets the enabled config result.
-    /// ### Arguments
-    /// - `rule` (`ScenarioRule`): Represents the scenario rule being added, changed, or checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `AssistConfig` value.
     fn enabled_config(rule: ScenarioRule) -> AssistConfig {
         let mut config = AssistConfig {
             enabled: true,
@@ -276,9 +187,6 @@ mod tests {
     }
 
     /// Regression test for `defaults_are_a_no_op`.
-    ///
-    ///
-///  Checks that defaults are a no op.
     #[test]
     fn defaults_are_a_no_op() {
         let decision = AssistEngine.evaluate(
@@ -294,9 +202,6 @@ mod tests {
     }
 
     /// Regression test for `configured_clatter_pulse_proposes_an_additive_input`.
-    ///
-    ///
-///  Checks that configured clatter pulse proposes an additive input.
     #[test]
     fn configured_clatter_pulse_proposes_an_additive_input() {
         let config = enabled_config(ScenarioRule::controller(
@@ -322,9 +227,6 @@ mod tests {
     }
 
     /// Regression test for `higher_priority_scenario_blocks_broader_rule`.
-    ///
-    ///
-///  Checks that higher priority scenario blocks broader rule.
     #[test]
     fn higher_priority_scenario_blocks_broader_rule() {
         let config = enabled_config(ScenarioRule::controller(
@@ -352,9 +254,6 @@ mod tests {
     }
 
     /// Regression test for `scope_rejects_other_controllers`.
-    ///
-    ///
-///  Checks that scope rejects other controllers.
     #[test]
     fn scope_rejects_other_controllers() {
         let config = enabled_config(ScenarioRule::controller(
@@ -379,9 +278,6 @@ mod tests {
     }
 
     /// Regression test for `playback_rule_stays_inert_without_a_backend`.
-    ///
-    ///
-///  Checks that playback rule stays inert without a backend.
     #[test]
     fn playback_rule_stays_inert_without_a_backend() {
         let config = enabled_config(ScenarioRule::playback(
@@ -408,9 +304,6 @@ mod tests {
     }
 
     /// Regression test for `local_fighters_are_allowed_without_a_character_or_game_mode_requirement`.
-    ///
-    ///
-///  Checks that local fighters are allowed without a character or game mode requirement.
     #[test]
     fn local_fighters_are_allowed_without_a_character_or_game_mode_requirement() {
         for fighter in [FighterKind::Kirby, FighterKind::Other, FighterKind::Unknown] {

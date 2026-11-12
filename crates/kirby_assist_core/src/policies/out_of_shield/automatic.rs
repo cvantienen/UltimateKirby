@@ -7,74 +7,34 @@ use crate::{
     settings::AssistSettings,
 };
 
-/// Defines the `AutomaticConfig` data structure.
-///
-/// Holds the data for AutomaticConfig.
+/// Runtime Smash data carried by `AutomaticConfig`.
 #[derive(Clone, Copy, Default)]
 pub struct AutomaticConfig<'a> {
-    /// Stores the `grab` value in `AutomaticConfig` as `Option<&'a Sequence>`.
-    ///
-    ///
-///  Optionally stores the grab for AutomaticConfig; it may be absent.
+/// Runtime grab value used by AutomaticConfig..
     pub grab: Option<&'a Sequence>,
-    /// Stores the `shield_grab` value in `AutomaticConfig` as `Option<&'a Sequence>`.
-    ///
-    ///
-///  Optionally stores the shield grab for AutomaticConfig; it may be absent.
+/// Runtime shield grab value used by AutomaticConfig..
     pub shield_grab: Option<&'a Sequence>,
-    /// Stores the `backup` value in `AutomaticConfig` as `Option<&'a Sequence>`.
-    ///
-    ///
-///  Optionally stores the backup for AutomaticConfig; it may be absent.
+/// Runtime backup value used by AutomaticConfig..
     pub backup: Option<&'a Sequence>,
 }
-/// Defines the `AutomaticLimits` data structure.
-///
-/// Holds the data for AutomaticLimits.
+/// Runtime Smash data carried by `AutomaticLimits`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AutomaticLimits {
-    /// Stores the `close` value in `AutomaticLimits` as `f32`.
-    ///
-    ///
-///  Holds the close value used by AutomaticLimits.
+/// Runtime close value used by AutomaticLimits..
     pub close: f32,
-    /// Stores the `approach` value in `AutomaticLimits` as `f32`.
-    ///
-    ///
-///  Holds the approach value used by AutomaticLimits.
+/// Runtime approach value used by AutomaticLimits..
     pub approach: f32,
-    /// Stores the `grab_height` value in `AutomaticLimits` as `f32`.
-    ///
-    ///
-///  Holds the grab height value used by AutomaticLimits.
+/// Runtime grab height value used by AutomaticLimits..
     pub grab_height: f32,
-    /// Stores the `shield_height` value in `AutomaticLimits` as `f32`.
-    ///
-    ///
-///  Holds the shield height value used by AutomaticLimits.
+/// Runtime shield height value used by AutomaticLimits..
     pub shield_height: f32,
-    /// Stores the `backup` value in `AutomaticLimits` as `f32`.
-    ///
-    ///
-///  Holds the backup value used by AutomaticLimits.
+/// Runtime backup value used by AutomaticLimits..
     pub backup: f32,
-    /// Stores the `backup_height` value in `AutomaticLimits` as `f32`.
-    ///
-    ///
-///  Holds the backup height value used by AutomaticLimits.
+/// Runtime backup height value used by AutomaticLimits..
     pub backup_height: f32,
 }
 impl AutomaticLimits {
     /// Returns the `reach` result.
-    ///
-    ///
-    ///  Gets the reach result.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `shielded` (`bool`): Represents the shielded; the function uses it as input to the operation described above.
-    /// - `startup` (`Option<f32>`): Represents the startup; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `simple::Reach` value.
     pub(super) fn reach(self, shielded: bool, startup: Option<f32>) -> simple::Reach {
         simple::Reach {
             range: if shielded { self.close } else { self.approach },
@@ -92,15 +52,6 @@ impl AutomaticLimits {
 }
 impl AutomaticConfig<'_> {
     /// Returns the `limits` result.
-    ///
-    ///
-    ///  Gets the limits result.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `close` (`f32`): Represents the close; the function uses it as input to the operation described above.
-    /// - `approach` (`f32`): Represents the approach; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `AutomaticLimits` value.
     pub fn limits(self, close: f32, approach: f32) -> AutomaticLimits {
         let close = self.shield_grab.map_or(close, |s| s.reaction.max);
         AutomaticLimits {
@@ -114,15 +65,7 @@ impl AutomaticConfig<'_> {
     }
 }
 /// Determines whether the `literal_input` condition holds.
-///
 /// Checks whether literal input.
-/// ### Arguments
-/// - `action` (`&Action`): Represents the action; the function uses it as input to the operation described above.
-/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-/// - `stick` (`[f32; 2]`): Represents the stick; the function uses it as input to the operation described above.
-/// - `frames` (`u8`): Represents the number of frames; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn literal_input(action: &Action, buttons: u32, stick: [f32; 2], frames: u8) -> bool {
     match action {
         Action::Input {
@@ -147,12 +90,7 @@ fn literal_input(action: &Action, buttons: u32, stick: [f32; 2], frames: u8) -> 
     }
 }
 /// Determines whether the `native_grab_recipe` condition holds.
-///
 /// Checks whether native grab recipe.
-/// ### Arguments
-/// - `s` (`&Sequence`): Represents the s; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn native_grab_recipe(s: &Sequence) -> bool {
     let grab = match s.actions() {
         [grab] => Some(grab),
@@ -170,12 +108,7 @@ fn native_grab_recipe(s: &Sequence) -> bool {
         && grab.is_some_and(|a| literal_input(a, MAPPER_R, [0.; 2], 4))
 }
 /// Returns an optional `backup_timing` value.
-///
 /// Gets backup timing if it is available.
-/// ### Arguments
-/// - `s` (`&Sequence`): Represents the s; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn backup_timing(s: &Sequence) -> Option<super::shield_up_b::Timing> {
     if s.start_delay != 0 || s.timeout < 24 {
         return None;
@@ -199,70 +132,31 @@ fn backup_timing(s: &Sequence) -> Option<super::shield_up_b::Timing> {
 }
 
 /// One automatic sample's facts, shared by the steps below.
-///
-///  One automatic sample's facts, shared by the steps below.
 #[derive(Clone, Copy)]
 struct Sample<'a> {
-    /// Stores the `allowed` value in `Sample` as `bool`.
-    ///
-    ///
-///  Holds the allowed value used by Sample.
+/// Runtime allowed value used by Sample..
     allowed: bool,
-    /// Stores the `c` value in `Sample` as `Context`.
-    ///
-    ///
-///  Holds the c value used by Sample.
+/// Runtime c value used by Sample..
     c: Context,
-    /// Stores the `context` value in `Sample` as `GameplayContext`.
-    ///
-    ///
-///  Holds the context value used by Sample.
+/// Runtime context value used by Sample..
     context: GameplayContext,
-    /// Stores the `targets` value in `Sample` as `[Option<crate::roll_read::Target>; 8]`.
-    ///
-    ///
-///  Stores the targets collection for Sample.
+/// Runtime targets value used by Sample..
     targets: [Option<crate::roll_read::Target>; 8],
-    /// Stores the `follow` value in `Sample` as `Option<Opponent>`.
-    ///
-    ///
-///  Optionally stores the follow for Sample; it may be absent.
+/// Runtime follow value used by Sample..
     follow: Option<Opponent>,
-    /// Stores the `shielded` value in `Sample` as `bool`.
-    ///
-    ///
-///  Holds the shielded value used by Sample.
+/// Runtime shielded value used by Sample..
     shielded: bool,
-    /// Stores the `limits` value in `Sample` as `AutomaticLimits`.
-    ///
-    ///
-///  Holds the limits value used by Sample.
+/// Runtime limits value used by Sample..
     limits: AutomaticLimits,
-    /// Stores the `startup` value in `Sample` as `Option<f32>`.
-    ///
-    ///
-///  Optionally stores the startup for Sample; it may be absent.
+/// Runtime startup value used by Sample..
     startup: Option<f32>,
-    /// Stores the `settings` value in `Sample` as `AssistSettings`.
-    ///
-    ///
-///  Holds the settings value used by Sample.
+/// Runtime settings value used by Sample..
     settings: AssistSettings,
-    /// Stores the `config` value in `Sample` as `AutomaticConfig<'a>`.
-    ///
-    ///
-///  Holds the config value used by Sample.
+/// Runtime config value used by Sample..
     config: AutomaticConfig<'a>,
 }
 impl Sample<'_> {
     /// Returns an optional `backup_timing` value.
-    ///
-    ///
-    ///  Gets backup timing if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn backup_timing(&self) -> Option<super::shield_up_b::Timing> {
         self.config.backup.and_then(backup_timing)
     }
@@ -270,24 +164,6 @@ impl Sample<'_> {
 
 impl OutOfShield {
     /// Samples the automatic configured.
-    ///
-    ///
-    ///  Samples the automatic configured.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
-    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
-    /// - `context` (`GameplayContext`): Represents the current execution context; the function uses it as input to the operation described above.
-    /// - `targets` (`[Option<crate::roll_read::Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
-    /// - `shielded` (`bool`): Represents the shielded; the function uses it as input to the operation described above.
-    /// - `close` (`f32`): Represents the close; the function uses it as input to the operation described above.
-    /// - `approach` (`f32`): Represents the approach; the function uses it as input to the operation described above.
-    /// - `startup` (`Option<f32>`): Represents the startup; the function uses it as input to the operation described above.
-    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// - `config` (`AutomaticConfig<'_>`): Represents the configuration being read or changed; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     pub fn sample_automatic_configured(
         &mut self,
         allowed: bool,
@@ -351,14 +227,6 @@ impl OutOfShield {
     }
 
     /// Samples the configured grab.
-    ///
-    ///
-    ///  Samples the configured grab.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `f` (`&Sample`): Represents the f; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     fn sample_configured_grab(&mut self, f: &Sample) -> ControllerOutput {
         self.simple.sample(
             f.allowed,
@@ -371,16 +239,6 @@ impl OutOfShield {
     }
 
     /// Runs the backup.
-    ///
-    ///
-    ///  Runs the backup.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `f` (`&Sample`): Represents the f; the function uses it as input to the operation described above.
-    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
-    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     fn run_backup(&mut self, f: &Sample, allowed: bool, c: Context) -> ControllerOutput {
         let timing = f
             .backup_timing()
@@ -400,11 +258,6 @@ impl OutOfShield {
     /// A configured response waiting for its Grab to be mapped must still match
     /// the current shield/target; otherwise no R was delivered and the stale
     /// unshielded custom response yields to a fresh evaluation.
-    ///
-    ///  A configured response waiting for its Grab to be mapped must still match the current shield/target; otherwise no R was delivered and the stale unshielded custom response yields to a fresh evaluation.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `f` (`&Sample`): Represents the f; the function uses it as input to the operation described above.
     fn revalidate_grab_wait(&mut self, f: &Sample) {
         if !(self.configured_response
             && !self.configured_backup
@@ -427,24 +280,12 @@ impl OutOfShield {
     }
 
     /// The configured tape is over; a Grab already delivered keeps settling.
-    ///
-    ///  The configured tape is over; a Grab already delivered keeps settling.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn end_response(&mut self) {
         self.configured_response = false;
         self.configured_settling = self.simple.delivery_pending();
     }
 
     /// Returns the `settle_grab` result.
-    ///
-    ///
-    ///  Gets the settle grab result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `f` (`&Sample`): Represents the f; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     fn settle_grab(&mut self, f: &Sample) -> ControllerOutput {
         let _ = self
             .response
@@ -459,14 +300,6 @@ impl OutOfShield {
     }
 
     /// Returns the `continue_response` result.
-    ///
-    ///
-    ///  Gets the continue response result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `f` (`&Sample`): Represents the f; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     fn continue_response(&mut self, f: &Sample) -> ControllerOutput {
         let delivered = self.simple.delivery_pending();
         if delivered {
@@ -500,14 +333,6 @@ impl OutOfShield {
 
     /// The ordinary Grab path. `None` when it neither owns inputs nor awaits a
     /// delivered request, so the backup may be considered.
-    ///
-    ///  The ordinary Grab path. None when it neither owns inputs nor awaits a delivered request, so the backup may be considered.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `f` (`&Sample`): Represents the f; the function uses it as input to the operation described above.
-    /// - `fallback_ended` (`bool`): Represents the fallback ended; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn sample_grab(&mut self, f: &Sample, fallback_ended: bool) -> Option<ControllerOutput> {
         let delivered = self.simple.delivery_pending();
         let grab = self.sample_configured_grab(f);
@@ -528,14 +353,6 @@ impl OutOfShield {
     }
 
     /// Samples the backup.
-    ///
-    ///
-    ///  Samples the backup.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `f` (`&Sample`): Represents the f; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     fn sample_backup(&mut self, f: &Sample) -> ControllerOutput {
         // Reuse only the fallback's target/range admission for a custom
         // ordinary recipe. Its placeholder B is replaced below and never
@@ -563,16 +380,6 @@ impl OutOfShield {
     }
 
     /// Returns the `commit_configured` result.
-    ///
-    ///
-    ///  Gets the commit configured result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-    /// - `f` (`&Sample`): Represents the f; the function uses it as input to the operation described above.
-    /// - `backup` (`bool`): Represents the backup; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     fn commit_configured(
         &mut self,
         sequence: Sequence,

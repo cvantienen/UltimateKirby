@@ -8,48 +8,21 @@ use crate::fighter_kinds as kind;
 
 /// Inactive swap forms and Final Smash phases; do not apply these numbers to
 /// another fighter where they may mean ordinary attacks or recovery.
-///
-///  Inactive swap forms and Final Smash phases; do not apply these numbers to another fighter where they may mean ordinary attacks or recovery.
-/// ### Arguments
-/// - `fighter` (`i32`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn noncombat_status(fighter: i32, status: i32) -> bool {
     final_statuses(fighter).contains(&status) || standby_statuses(fighter).contains(&status)
 }
 
 /// Kind-specific stun/exit states that end an input sequence.
-///
-///  Kind-specific stun/exit states that end an input sequence.
-/// ### Arguments
-/// - `fighter` (`i32`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub(super) fn forced_status(fighter: i32, status: i32) -> bool {
     forced_statuses(fighter).contains(&status)
 }
 
 /// Ordinary SPECIAL_HI plus the verified kind-specific continuations.
-///
-///  Ordinary SPECIALHI plus the verified kind-specific continuations.
-/// ### Arguments
-/// - `fighter` (`i32`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 pub fn up_special_status(fighter: i32, status: i32) -> bool {
     status == super::status::SPECIAL_HI || up_special_statuses(fighter).contains(&status)
 }
 
-/// Returns the `standby_statuses` result.
-///
-/// Gets the standby statuses result.
-/// ### Arguments
-/// - `fighter` (`i32`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `&'static [i32]` value.
+/// Inactive swap-form statuses for Pokémon Trainer and Pyra/Mythra.
 fn standby_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::SQUIRTLE => &[fs::PZENIGAME_SPECIAL_LW_STANDBY],
@@ -61,13 +34,7 @@ fn standby_statuses(fighter: i32) -> &'static [i32] {
     }
 }
 
-/// Returns the `forced_statuses` result.
-///
-/// Gets the forced statuses result.
-/// ### Arguments
-/// - `fighter` (`i32`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `&'static [i32]` value.
+/// Fighter-specific damage and swap-exit states that interrupt assistance.
 fn forced_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::DIDDY_KONG => &[
@@ -86,13 +53,7 @@ fn forced_statuses(fighter: i32) -> &'static [i32] {
     }
 }
 
-/// Returns the `final_statuses` result.
-///
-/// Gets the final statuses result.
-/// ### Arguments
-/// - `fighter` (`i32`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `&'static [i32]` value.
+/// Verified Final Smash phases for the requested fighter kind.
 fn final_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::DONKEY_KONG => &[fs::DONKEY_FINAL_ATTACK, fs::DONKEY_FINAL_END],
@@ -521,13 +482,7 @@ fn final_statuses(fighter: i32) -> &'static [i32] {
     }
 }
 
-/// Returns the `up_special_statuses` result.
-///
-/// Gets the up special statuses result.
-/// ### Arguments
-/// - `fighter` (`i32`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `&'static [i32]` value.
+/// Fighter-specific continuations of the requested fighter's up special.
 fn up_special_statuses(fighter: i32) -> &'static [i32] {
     match fighter {
         kind::LINK => &[fs::LINK_SPECIAL_HI_HOLD, fs::LINK_SPECIAL_HI_END],

@@ -9,42 +9,26 @@ use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 
 /// Represents an empty record for projectile sources.
 /// Sentinel used for unused slots in the packed atomic record array.
-///
-///  This special value means a slot has no projectile.
 const EMPTY: u64 = u64::MAX;
 /// The maximum number of projectile sources that can be tracked.
 /// Number of fixed atomic slots in [`Sources`].
-///
-///  The tracker can remember up to 32 projectiles at once.
 const CAPACITY: usize = 32;
 
 /// Tracks projectile sources with bounded capacity and atomic coherence.
 /// Fixed-capacity tracker whose packed atomic records pair each object ID
 /// with the generation of its observed attack.
-///
-///  Remembers recent projectile attacks without allocating or storing
 /// pointers into the game.
 pub(super) struct Sources {
     /// Packed object-ID/generation records; `EMPTY` marks vacant slots.
-    ///
-    ///  These slots hold the remembered projectile identities.
     records: [AtomicU64; CAPACITY],
     /// Round-robin replacement cursor used when all records are occupied.
-    ///
-    ///  Chooses which old entry to replace when the tracker is full.
     next: AtomicUsize,
     /// Monotonic wrapping counter assigned to observed attack records.
-    ///
-    ///  Distinguishes a new attack from an older attack by the same object.
     generation: AtomicU32,
 }
 impl Sources {
     /// Creates a new instance of `Sources` with empty records and initial generation.
     /// Constructs an empty fixed-capacity tracker with generation zero.
-    ///
-    ///  Starts a projectile tracker with no remembered attacks.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub(super) const fn new() -> Self {
         Self {
             records: [const { AtomicU64::new(EMPTY) }; CAPACITY],
@@ -55,12 +39,7 @@ impl Sources {
     /// Remembers a projectile source by its ID, updating the generation if necessary.
     /// Validates weapon/item category, advances the attack generation,
     /// and updates an existing slot or inserts/replaces one.
-    ///
-    ///  Remembers this projectile attack, including when an object ID
     /// is reused for a later attack.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
     pub(super) fn remember(&self, id: u32) {
         if !matches!(
             id >> 28,
@@ -92,12 +71,6 @@ impl Sources {
     }
     /// Returns a snapshot of the current projectile sources as an array of `Option<ProjectileKey>`.
     /// Loads each packed atomic record into a copied optional key array.
-    ///
-    ///  Returns a safe snapshot of the projectiles remembered right now.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `[Option<ProjectileKey>; CAPACITY]` value.
     pub(super) fn snapshot(&self) -> [Option<ProjectileKey>; CAPACITY] {
         std::array::from_fn(|index| {
             let record = self.records[index].load(Ordering::Relaxed);
@@ -110,11 +83,6 @@ impl Sources {
     /// Forgets a projectile source by its ID, marking its slot as empty.
     /// Uses compare-exchange to clear the first matching ID without
     /// erasing a concurrently replaced record.
-    ///
-    ///  Forgets the matching projectile only if its slot has not changed.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
     pub(super) fn forget(&self, id: u32) {
         for slot in &self.records {
             let old = slot.load(Ordering::Relaxed);
@@ -131,11 +99,7 @@ impl Sources {
     /// Clears all projectile sources, resetting the next index but preserving the generation.
     /// Marks every slot empty and resets the replacement cursor while
     /// deliberately retaining the generation counter.
-    ///
-    ///  Clears remembered projectiles but keeps new attacks distinct
     /// from old receipts.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub(super) fn clear(&self) {
         for slot in &self.records {
             slot.store(EMPTY, Ordering::Relaxed);

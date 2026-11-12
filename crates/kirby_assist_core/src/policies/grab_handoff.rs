@@ -6,75 +6,33 @@ use crate::{
     ledge_trap::{sequence_interrupted, NativeAttempt},
     native_input::{MAPPER_R, MAPPER_ZR},
 };
-/// Defines the `GrabHandoff` data structure.
-///
-/// Holds the data for GrabHandoff.
+/// Runtime Smash data carried by `GrabHandoff`.
 #[derive(Default)]
 pub struct GrabHandoff {
-    /// Stores the `pending` value in `GrabHandoff` as `bool`.
-    ///
-    ///
-    ///  Holds the pending value used by GrabHandoff.
+/// Runtime pending value used by GrabHandoff..
     pending: bool,
-    /// Stores the `owner` value in `GrabHandoff` as `Option<Owner>`.
-    ///
-    ///
-    ///  Optionally stores the owner for GrabHandoff; it may be absent.
+/// Runtime owner value used by GrabHandoff..
     owner: Option<Owner>,
-    /// Stores the `delivery` value in `GrabHandoff` as `crate::move_input::DeliveryBudget`.
-    ///
-    ///
-    ///  Holds the delivery value used by GrabHandoff.
+/// Runtime delivery value used by GrabHandoff..
     delivery: crate::move_input::DeliveryBudget,
-    /// Stores the `previous_request` value in `GrabHandoff` as `bool`.
-    ///
-    ///
-    ///  Holds the previous request value used by GrabHandoff.
+/// Runtime previous request value used by GrabHandoff..
     previous_request: bool,
-    /// Stores the `previous_catch` value in `GrabHandoff` as `bool`.
-    ///
-    ///
-    ///  Holds the previous catch value used by GrabHandoff.
+/// Runtime previous catch value used by GrabHandoff..
     previous_catch: bool,
-    /// Stores the `native_clock` value in `GrabHandoff` as `NativeAttempt`.
-    ///
-    ///
-    ///  Holds the native clock value used by GrabHandoff.
+/// Runtime native clock value used by GrabHandoff..
     native_clock: NativeAttempt,
-    /// Stores the `native_context` value in `GrabHandoff` as `Option<GameplayContext>`.
-    ///
-    ///
-    ///  Optionally stores the native context for GrabHandoff; it may be absent.
+/// Runtime native context value used by GrabHandoff..
     native_context: Option<GameplayContext>,
-    /// Stores the `enemy_clock` value in `GrabHandoff` as `NativeAttempt`.
-    ///
-    ///
-    ///  Holds the enemy clock value used by GrabHandoff.
+/// Runtime enemy clock value used by GrabHandoff..
     enemy_clock: NativeAttempt,
-    /// Stores the `enemy_id` value in `GrabHandoff` as `Option<u32>`.
-    ///
-    ///
-    ///  Optionally stores the enemy id for GrabHandoff; it may be absent.
+/// Runtime enemy id value used by GrabHandoff..
     enemy_id: Option<u32>,
-    /// Stores the `packets` value in `GrabHandoff` as `u8`.
-    ///
-    ///
-    ///  Holds the packets value used by GrabHandoff.
+/// Runtime packets value used by GrabHandoff..
     packets: u8,
-    /// Stores the `last_packet` value in `GrabHandoff` as `Option<i64>`.
-    ///
-    ///
-    ///  Optionally stores the last packet for GrabHandoff; it may be absent.
+/// Runtime last packet value used by GrabHandoff..
     last_packet: Option<i64>,
 }
 /// Airborne, caught or otherwise interrupted fighters cannot be waiting on a Grab.
-///
-///  Airborne, caught or otherwise interrupted fighters cannot be waiting on a Grab.
-/// ### Arguments
-/// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-/// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn receipt_ends(status: i32, situation: i32) -> bool {
     situation != crate::native_states::situation::GROUND
         || native_grab_active(status)
@@ -82,11 +40,6 @@ fn receipt_ends(status: i32, situation: i32) -> bool {
 }
 impl GrabHandoff {
     /// Constructs a new value with the type’s initial state.
-    ///
-    ///
-    ///  Creates a new value.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             pending: false,
@@ -103,35 +56,15 @@ impl GrabHandoff {
         }
     }
     /// Checks whether a pending operation is stored.
-    ///
-    ///
-    ///  Checks whether something is waiting to be processed.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn pending(&self) -> bool {
         self.pending
     }
     /// Admission must retain a queued Grab from another owner. Discarding its
     /// receipt can turn a new ledge Special into a throw when Catch arrives late.
-    ///
-    ///  Admission must retain a queued Grab from another owner. Discarding its receipt can turn a new ledge Special into a throw when Catch arrives late.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn reserve_ledge_inputs(&self) -> bool {
         !self.pending || self.owner == Some(Owner::Ledge)
     }
     /// Returns the `grab_packet` result.
-    ///
-    ///
-    ///  Gets the grab packet result.
-    /// ### Arguments
-    /// - `out` (`ControllerOutput`): Represents the out; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     pub fn grab_packet(mut out: ControllerOutput) -> ControllerOutput {
         if out.requested & MAPPER_R != 0 {
             out.requested &= MAPPER_R | MAPPER_ZR;
@@ -141,14 +74,6 @@ impl GrabHandoff {
         out
     }
     /// Records the time of the latest fighter observation.
-    ///
-    ///
-    ///  Remembers when a fighter was last seen.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `valid` (`bool`): Represents the valid; the function uses it as input to the operation described above.
-    /// - `status` (`i32`): Represents the status being checked; the function uses it as input to the operation described above.
-    /// - `situation` (`i32`): Represents the situation; the function uses it as input to the operation described above.
     pub fn observe(&mut self, valid: bool, status: i32, situation: i32) {
         if !valid || receipt_ends(status, situation) || self.delivery.exhausted() {
             self.clear_receipt();
@@ -160,10 +85,6 @@ impl GrabHandoff {
     }
     /// Forget the receipt but keep the request/catch edge memory and the last
     /// native sample, so a held button is not mistaken for a new request.
-    ///
-    ///  Forget the receipt but keep the request/catch edge memory and the last native sample, so a held button is not mistaken for a new request.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     fn clear_receipt(&mut self) {
         *self = Self {
             previous_request: self.previous_request,
@@ -175,12 +96,6 @@ impl GrabHandoff {
     /// Live observations expire on native progress, not controller polls. A
     /// missing/frozen observation cannot prove a queued Catch has expired.
     /// This receipt emits no input while awaiting acknowledgment.
-    ///
-    ///  Live observations expire on native progress, not controller polls. A missing/frozen observation cannot prove a queued Catch has expired. This receipt emits no input while awaiting acknowledgment.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `valid` (`bool`): Represents the valid; the function uses it as input to the operation described above.
-    /// - `context` (`Option<GameplayContext>`): Represents the current execution context; the function uses it as input to the operation described above.
     pub fn observe_native(&mut self, valid: bool, context: Option<GameplayContext>) {
         if !valid {
             *self = Self::new();
@@ -202,12 +117,6 @@ impl GrabHandoff {
     /// Held shield can have a static animation even while the game advances.
     /// Reuse a current opponent motion already read by the active watch; never
     /// poll another fighter or count controller ticks as simulated frames.
-    ///
-    ///  Held shield can have a static animation even while the game advances. Reuse a current opponent motion already read by the active watch; never poll another fighter or count controller ticks as simulated frames.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `enemy` (`Option<Opponent>`): Represents the enemy; the function uses it as input to the operation described above.
     pub fn observe_enemy_progress(&mut self, c: GameplayContext, enemy: Option<Opponent>) {
         if !self.pending {
             return;
@@ -237,11 +146,6 @@ impl GrabHandoff {
     }
     /// The opponent clock restarts whenever the watched opponent changes or a
     /// sample is missed.
-    ///
-    ///  The opponent clock restarts whenever the watched opponent changes or a sample is missed.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `id` (`Option<u32>`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
     fn track_enemy(&mut self, id: Option<u32>) {
         if id.is_none() || self.enemy_id != id {
             self.enemy_clock = NativeAttempt::new();
@@ -249,26 +153,12 @@ impl GrabHandoff {
         }
     }
     /// Determines whether the `shield_packet` condition holds.
-    ///
-    ///
-    ///  Checks whether shield packet.
-    /// ### Arguments
-    /// - `out` (`ControllerOutput`): Represents the out; the function uses it as input to the operation described above.
-    /// - `right` (`Option<[f32; 2]>`): Represents the right; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn shield_packet(out: ControllerOutput, right: Option<[f32; 2]>) -> bool {
         out.requested == MAPPER_ZR
             && out.stick.is_none_or(|s| s == [0.; 2])
             && right.is_none_or(|s| s == [0.; 2])
     }
     /// Updates the `restrict` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates restrict.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `intents` (`&mut [Intent]`): Represents the intents; the function uses it as input to the operation described above.
     pub fn restrict(&self, intents: &mut [Intent]) {
         if self.pending {
             for i in intents {
@@ -283,15 +173,6 @@ impl GrabHandoff {
     }
     /// Same owner's remaining neutral-axis Grab pulse is safe. At its first
     /// other action, abort playback and retain only this input-free receipt.
-    ///
-    ///  Same owner's remaining neutral-axis Grab pulse is safe. At its first other action, abort playback and retain only this input-free receipt.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `owner` (`Option<Owner>`): Represents the owner associated with the value; the function uses it as input to the operation described above.
-    /// - `out` (`ControllerOutput`): Represents the out; the function uses it as input to the operation described above.
-    /// - `right` (`Option<[f32; 2]>`): Represents the right; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn permits(
         &self,
         owner: Option<Owner>,
@@ -310,15 +191,6 @@ impl GrabHandoff {
         own && right.is_none_or(|s| s == [0.; 2]) && (idle || grab_pulse)
     }
     /// Called after the original mapper, once per delivered controller tick.
-    ///
-    ///  Called after the original mapper, once per delivered controller tick.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `owner` (`Option<Owner>`): Represents the owner associated with the value; the function uses it as input to the operation described above.
-    /// - `requested_grab` (`bool`): Represents the requested grab; the function uses it as input to the operation described above.
-    /// - `native_catch` (`bool`): Represents the native catch; the function uses it as input to the operation described above.
-    /// - `eligible` (`bool`): Represents the eligible; the function uses it as input to the operation described above.
     pub fn mapped(
         &mut self,
         tick: i64,

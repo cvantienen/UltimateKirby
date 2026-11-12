@@ -3,47 +3,26 @@
 pub mod battle_objects {
     //! Bounded copied identities and candidate selection; no native pointers.
     /// Maximum number of fighter current slots in the roster.
-    ///
-///  Maximum number of fighter current slots in the roster.
     pub const FIGHTER_CAPACITY: usize = 16;
     /// Object category for fighters.
-    ///
-///  Object category for fighters.
     pub const OBJECT_CATEGORY_FIGHTER: u32 = 0;
     /// Object category for weapons.
-    ///
-///  Object category for weapons.
     pub const OBJECT_CATEGORY_WEAPON: u32 = 1;
     /// Object category for items.
-    ///
-///  Object category for items.
     pub const OBJECT_CATEGORY_ITEM: u32 = 4;
     /// Weapon kind for Pikmin Pikmin.
-    ///
-///  Weapon kind for Pikmin Pikmin.
     pub const WEAPON_KIND_PIKMIN_PIKMIN: i32 = 0x9d;
     /// Weapon kind for Rosetta Tico.
-    ///
-///  Weapon kind for Rosetta Tico.
     pub const WEAPON_KIND_ROSETTA_TICO: i32 = 0xe6;
     /// Bitshift amount (28) for extracting the category from an object ID.
     /// That label is a 32-bit number.
     /// Smash stores the object’s category in the first four bits and other identifying information in the remaining 28
-    ///
-///  Bitshift amount (28) for extracting the category from an object ID. That label is a 32-bit number. Smash stores the object’s category in the first four bits and other identifying information in the remaining 28.
     pub const BITSHIFT_CATEGORY: u32 = 28;
     /// Array holding current fighters in game.
     /// Each slot can hold an optional fighter ID; empty slots are None.
-    ///
-///  Array holding current fighters in game. Each slot can hold an optional fighter ID; empty slots are None.
     pub type FightersInGame = [Option<u32>; FIGHTER_CAPACITY];
 
     /// Recieves a mutable reference to a fighter roster and a fighter ID to append.
-    ///
-    ///  Recieves a mutable reference to a fighter roster and a fighter ID to append.
-    /// ### Arguments
-    /// - `roster` (`&mut FightersInGame`): Represents the roster; the function uses it as input to the operation described above.
-    /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
     pub fn append_fighter(roster: &mut FightersInGame, id: u32) {
         // Ignore invalid IDs or duplicates.
         if id >> BITSHIFT_CATEGORY != OBJECT_CATEGORY_FIGHTER || roster.contains(&Some(id)) {
@@ -56,12 +35,6 @@ pub mod battle_objects {
 
     /// Extra actors must not turn roster ordinals into indices of eight-slot
     /// policy arrays. Keep the nearest relevant candidates when those arrays fill.
-    ///
-    ///  Extra actors must not turn roster ordinals into indices of eight-slot policy arrays. Keep the nearest relevant candidates when those arrays fill.
-    /// ### Arguments
-    /// - `targets` (`&mut [Option<T>; N]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `candidate` (`T`): Represents the candidate; the function uses it as input to the operation described above.
-    /// - `distance` (`impl Fn(T) -> f32`): Represents the distance; the function uses it as input to the operation described above.
     pub fn insert_nearest<T: Copy, const N: usize>(
         targets: &mut [Option<T>; N],
         candidate: T,
@@ -89,14 +62,6 @@ pub mod battle_objects {
     }
 
     /// Returns the `distance_squared` result.
-    ///
-    ///
-    ///  Gets the distance squared result.
-    /// ### Arguments
-    /// - `from` (`[f32; 2]`): Represents the from; the function uses it as input to the operation described above.
-    /// - `to` (`[f32; 2]`): Represents the to; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `f32` value.
     pub fn distance_squared(from: [f32; 2], to: [f32; 2]) -> f32 {
         (to[0] - from[0]).powi(2) + (to[1] - from[1]).powi(2)
     }
@@ -120,29 +85,15 @@ pub mod battle_objects {
 
     /// Entry-based damage attribution cannot distinguish two Ice Climbers on
     /// opposite sides. Preserve agreement; return no invented side on conflict.
-    ///
-///  Entry-based damage attribution cannot distinguish two Ice Climbers on opposite sides. Preserve agreement; return no invented side on conflict.
     #[derive(Default)]
     pub struct EntryDirection {
-        /// Stores the `side` value in `EntryDirection` as `Option<f32>`.
-        ///
-        ///
-///  Optionally stores the side for EntryDirection; it may be absent.
+/// Runtime side value used by EntryDirection..
         side: Option<f32>,
-        /// Stores the `conflict` value in `EntryDirection` as `bool`.
-        ///
-        ///
-///  Holds the conflict value used by EntryDirection.
+/// Runtime conflict value used by EntryDirection..
         conflict: bool,
     }
     impl EntryDirection {
         /// Records the time of the latest fighter observation.
-        ///
-        ///
-        ///  Remembers when a fighter was last seen.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `direction` (`f32`): Represents the direction; the function uses it as input to the operation described above.
         pub fn observe(&mut self, direction: f32) {
             if !direction.is_finite() || self.side.is_some_and(|side| side != direction) {
                 self.conflict = true;
@@ -150,13 +101,6 @@ pub mod battle_objects {
             self.side = Some(direction);
         }
         /// Returns an optional `direction` value.
-        ///
-        ///
-        ///  Gets direction if it is available.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn direction(&self) -> Option<f32> {
             if self.conflict {
                 None
@@ -174,46 +118,24 @@ pub mod gameplay {
     //! They contain no game pointers and do not write native fighter state.
 
     /// Maximum number of animation forecast frames considered for timing calculations.
-    ///
-///  Maximum number of animation forecast frames considered for timing calculations.
     const MAX_ANIMATION_FORECAST_FRAMES: f32 = 120.0;
 
     /// Read-only animation timing; remaining values are measured in game frames.
     /// This struct captures the timing information for a single animation,
-    ///  including its current frame, rate of progress, and remaining duration.
-    ///
-///  Read-only animation timing; remaining values are measured in game frames. This struct captures the timing information for a single animation, including its current frame, rate of progress, and remaining duration.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct MotionTiming {
         /// Animation Hash40 identifier, not a status ID or frame count.
-        ///
-///  Animation Hash40 identifier, not a status ID or frame count.
         pub kind: u64,
         /// Animation frame, which can be fractional.
-        ///
-///  Animation frame, which can be fractional.
         pub frame: f32,
         /// Converts animation progress into game-frame time.
-        ///
-///  Converts animation progress into game-frame time.
         pub rate: f32,
         /// None means unknown; Some(0.0) means the animation already ended.
-        ///
-///  None means unknown; Some(0.0) means the animation already ended.
         pub remaining: Option<f32>,
     }
 
     /// Convert an animation-frame deadline into game-frame time.
-    ///
     /// Invalid or past deadlines remain unknown instead of being treated as ready.
-    ///
-    ///  Convert an animation-frame deadline into game-frame time. Invalid or past deadlines remain unknown instead of being treated as ready.
-    /// ### Arguments
-    /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-    /// - `deadline` (`f32`): Represents the deadline; the function uses it as input to the operation described above.
-    /// - `rate` (`f32`): Represents the rate; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn frames_until(frame: f32, deadline: f32, rate: f32) -> Option<f32> {
         if !frame.is_finite()
             || frame < 0.0
@@ -229,31 +151,15 @@ pub mod gameplay {
     }
 
     /// Validated native air kinetics for short movement forecasts.
-    ///
-///  Validated native air kinetics for short movement forecasts.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct AirPhysics {
-        /// Stores the `gravity` value in `AirPhysics` as `f32`.
-        ///
-        ///
-///  Holds the gravity value used by AirPhysics.
+/// Runtime gravity value used by AirPhysics..
         pub gravity: f32,
-        /// Stores the `terminal_speed` value in `AirPhysics` as `f32`.
-        ///
-        ///
-///  Holds the terminal speed value used by AirPhysics.
+/// Runtime terminal speed value used by AirPhysics..
         pub terminal_speed: f32,
     }
     impl AirPhysics {
         /// Constructs a new value with the type’s initial state.
-        ///
-        ///
-        ///  Creates a new value.
-        /// ### Arguments
-        /// - `gravity` (`f32`): Represents the gravity; the function uses it as input to the operation described above.
-        /// - `terminal_speed` (`f32`): Represents the terminal speed; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn new(gravity: f32, terminal_speed: f32) -> Option<Self> {
             (gravity.is_finite()
                 && (0.001..=2.0).contains(&gravity)
@@ -267,15 +173,6 @@ pub mod gameplay {
     }
 
     /// Return time to the earlier animation end or native cancel deadline.
-    ///
-    ///  Return time to the earlier animation end or native cancel deadline.
-    /// ### Arguments
-    /// - `frame` (`f32`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-    /// - `end` (`f32`): Represents the end; the function uses it as input to the operation described above.
-    /// - `cancel` (`f32`): Represents the cancel; the function uses it as input to the operation described above.
-    /// - `rate` (`f32`): Represents the rate; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn recovery_frames(frame: f32, end: f32, cancel: f32, rate: f32) -> Option<f32> {
         let end = frames_until(frame, end, rate)?;
         if cancel.is_finite() && cancel > 0.0 {
@@ -292,239 +189,123 @@ pub mod gameplay {
     }
 
     /// Read-only opponent facts copied by the platform adapter.
-    ///
-///  Read-only opponent facts copied by the platform adapter.
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
     pub struct Opponent {
-        /// Stores the `id` value in `Opponent` as `u32`.
-        ///
-        ///
-///  Holds the id value used by Opponent.
+/// battle-object ID.
         pub id: u32,
-        /// Stores the `status` value in `Opponent` as `i32`.
-        ///
-        ///
-///  Holds the status value used by Opponent.
+/// native fighter status.
         pub status: i32,
-        /// Stores the `previous_status` value in `Opponent` as `i32`.
-        ///
-        ///
-///  Holds the previous status value used by Opponent.
+/// Runtime previous status value used by Opponent..
         pub previous_status: i32,
-        /// Stores the `situation` value in `Opponent` as `i32`.
-        ///
-        ///
-///  Holds the situation value used by Opponent.
+/// Runtime situation value used by Opponent..
         pub situation: i32,
-        /// Stores the `position` value in `Opponent` as `[f32; 2]`.
-        ///
-        ///
-///  Stores the position collection for Opponent.
+/// world-space position.
         pub position: [f32; 2],
         /// Aggregate native hit status, not an individual hurtbox model.
-        ///
-///  Aggregate native hit status, not an individual hurtbox model.
         pub vulnerable: bool,
-        /// Stores the `velocity` value in `Opponent` as `[f32; 2]`.
-        ///
-        ///
-///  Stores the velocity collection for Opponent.
+/// world-space velocity.
         pub velocity: [f32; 2],
         /// Only ledge policies use this fallback anchor when the fighter hangs.
-        ///
-///  Only ledge policies use this fallback anchor when the fighter hangs.
         pub cliff_position: Option<[f32; 2]>,
         /// Sanitized native motion metadata; None means prediction is unavailable.
-        ///
-///  Sanitized native motion metadata; None means prediction is unavailable.
         pub vulnerable_in: Option<f32>,
-        /// Stores the `motion` value in `Opponent` as `Option<MotionTiming>`.
-        ///
-        ///
-///  Optionally stores the motion for Opponent; it may be absent.
+/// native animation/motion ID.
         pub motion: Option<MotionTiming>,
         /// Present for get-up attacks; None preserves conservative block-only behavior.
-        ///
-///  Present for get-up attacks; None preserves conservative block-only behavior.
         pub attack_active: Option<bool>,
-        /// Stores the `air_physics` value in `Opponent` as `Option<AirPhysics>`.
-        ///
-        ///
-///  Optionally stores the air physics for Opponent; it may be absent.
+/// Runtime air physics value used by Opponent..
         pub air_physics: Option<AirPhysics>,
         /// Native cancel deadline, separate from intermediate jump animation ends.
-        ///
-///  Native cancel deadline, separate from intermediate jump animation ends.
         pub actionable_in: Option<f32>,
     }
 
     /// Controlled fighter's native state, copied by the platform adapter.
-    ///
-///  Controlled fighter's native state, copied by the platform adapter.
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
     pub struct GameplayContext {
         /// Whether the controlled fighter is currently holding an input.
-        ///
-///  Whether the controlled fighter is currently holding an input.
         pub held: bool,
         /// Whether the controlled fighter is currently in active gameplay.
-        ///
-///  Whether the controlled fighter is currently in active gameplay.
         pub gameplay: bool,
         /// Changes only on fresh physical gameplay input, never simulated output.
-        ///
-///  Changes only on fresh physical gameplay input, never simulated output.
         pub manual_input_epoch: u64,
         /// Native readiness for this consumer's intended grounded action.
-        ///
-///  Native readiness for this consumer's intended grounded action.
         pub can_act: bool,
         /// The assist may own inputs, including during its guard/grab/tilt animation.
-        ///
-///  The assist may own inputs, including during its guard/grab/tilt animation.
         pub can_control: bool,
         /// Native hitstop: preserve an existing shield, but start no new actions.
-        ///
-///  Native hitstop: preserve an existing shield, but start no new actions.
         pub stopped: bool,
         /// The controlled fighter's current status kind.
-        ///
-///  The controlled fighter's current status kind.
         pub status: i32,
         /// The controlled fighter's current situation kind.
-        ///
-///  The controlled fighter's current situation kind.
         pub situation: i32,
         /// Current animation frame. Together with the motion kind it distinguishes
         /// progress when a target holds one pose, and is part of duplicate-observation reuse.
-        ///
-///  Current animation frame. Together with the motion kind it distinguishes progress when a target holds one pose, and is part of duplicate-observation reuse.
         pub motion_frame: f32,
         /// Current motion (Hash40) identifier.
-        ///
-///  Current motion (Hash40) identifier.
         pub motion_kind: u64,
         /// Current animation rate.
-        ///
-///  Current animation rate.
         pub motion_rate: f32,
         /// Current position in world coordinates.
-        ///
-///  Current position in world coordinates.
         pub position: [f32; 2],
         /// Current velocity in world coordinates.
-        ///
-///  Current velocity in world coordinates.
         pub velocity: [f32; 2],
         /// Native ground deceleration; None avoids assuming a stopping distance.
-        ///
-///  Native ground deceleration; None avoids assuming a stopping distance.
         pub ground_brake: Option<f32>,
         /// Facing uses its sign (+right/-left); position/velocity remain absolute
         /// world axes. Multiplying dx by facing asks if the target is in front.
-        ///
-///  Facing uses its sign (+right/-left); position/velocity remain absolute world axes. Multiplying dx by facing asks if the target is in front.
         pub facing: f32,
         /// The controlled fighter's previous status kind.
-        ///
-///  The controlled fighter's previous status kind.
         pub previous_status: i32,
         /// Whether the controlled fighter can currently perform a grab.
-        ///
-///  Whether the controlled fighter can currently perform a grab.
         pub can_grab: bool,
         /// Whether the controlled fighter can currently perform a tilt.
-        ///
-///  Whether the controlled fighter can currently perform a tilt.
         pub can_tilt: bool,
         /// Whether the controlled fighter can currently perform a down tilt.
-        ///
-///  Whether the controlled fighter can currently perform a down tilt.
         pub can_down_tilt: bool,
         /// Whether the controlled fighter can currently perform a down special.
-        ///
-///  Whether the controlled fighter can currently perform a down special.
         pub can_down_special: bool,
         /// Whether the controlled fighter can currently perform a dash attack.
-        ///
-///  Whether the controlled fighter can currently perform a dash attack.
         pub can_dash_attack: bool,
         /// Whether the controlled fighter can currently perform a down smash.
-        ///
-///  Whether the controlled fighter can currently perform a down smash.
         pub can_down_smash: bool,
         /// Explicit additional delay in game frames; live observations supply zero.
-        ///
-///  Explicit additional delay in game frames; live observations supply zero.
         pub input_delay: f32,
         /// Whether the controlled fighter can currently perform a jump.
-        ///
-///  Whether the controlled fighter can currently perform a jump.
         pub can_jump: bool,
         /// Whether the controlled fighter can currently perform an air attack.
-        ///
-///  Whether the controlled fighter can currently perform an air attack.
         pub can_air_attack: bool,
         /// The controlled fighter's current air physics, if applicable.
-        ///
-///  The controlled fighter's current air physics, if applicable.
         pub air_physics: Option<AirPhysics>,
         /// The controlled fighter's short hop speed, if applicable.
-        ///
-///  The controlled fighter's short hop speed, if applicable.
         pub short_hop_speed: Option<f32>,
         /// The controlled fighter's full hop speed, if applicable.
-        ///
-///  The controlled fighter's full hop speed, if applicable.
         pub full_hop_speed: Option<f32>,
         /// The number of frames the controlled fighter is in shield stun, if applicable.
-        ///
-///  The number of frames the controlled fighter is in shield stun, if applicable.
         pub shield_stun_frames: Option<i32>,
         /// The ID of the attacker causing the shield stun, if applicable.
-        ///
-///  The ID of the attacker causing the shield stun, if applicable.
         pub shield_attacker: Option<u32>,
         /// Native hit infliction during Kirby's current assisted attack.
-        ///
-///  Native hit infliction during Kirby's current assisted attack.
         pub hit_confirmed: bool,
         /// Ground support along a short swept lookahead, left then right.
-        ///
-///  Ground support along a short swept lookahead, left then right.
         pub safe_ground: [bool; 2],
     }
 
     /// Proposed controller inputs; the live adapter arbitrates and maps the request.
-    ///
-///  Proposed controller inputs; the live adapter arbitrates and maps the request.
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
     pub struct ControllerOutput {
         /// Whether to consume the trigger for this update.
-        ///
-///  Whether to consume the trigger for this update.
         pub consume_trigger: bool,
         /// The desired stick position for this update, if any.
-        ///
-///  The desired stick position for this update, if any.
         pub stick: Option<[f32; 2]>,
         /// Buttons to hold for this update (a mask of native controller bits).
-        ///
-///  Buttons to hold for this update (a mask of native controller bits).
         pub requested: u32,
         /// Buttons to replace, including buttons that should currently be released.
-        ///
-///  Buttons to replace, including buttons that should currently be released.
         pub owned: u32,
         /// Preserve a committed short-hop decision with this cached output until mapped.
-        ///
-///  Preserve a committed short-hop decision with this cached output until mapped.
         pub native_short_hop: bool,
     }
     impl ControllerOutput {
         /// No proposal; usable in `const` contexts where `Default` is not.
-        ///
-///  No proposal; usable in const contexts where Default is not.
         pub const NONE: Self = Self {
             consume_trigger: false,
             stick: None,
@@ -542,27 +323,11 @@ pub mod observation {
 
     /// Input proposals belong to exactly one selected-controller update. Wall-clock
     /// freshness is only a secondary timeout; it cannot make an old packet current.
-    ///
-    ///  Input proposals belong to exactly one selected-controller update. Wall-clock freshness is only a secondary timeout; it cannot make an old packet current.
-    /// ### Arguments
-    /// - `evaluated` (`Option<i64>`): Represents the evaluated; the function uses it as input to the operation described above.
-    /// - `current` (`i64`): Represents the current; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn input_update_current(evaluated: Option<i64>, current: i64) -> bool {
         evaluated == Some(current)
     }
 
     /// Reject setup that began before a settings/cancellation fence or mapper update.
-    ///
-    ///  Reject setup that began before a settings/cancellation fence or mapper update.
-    /// ### Arguments
-    /// - `captured_sequence` (`u64`): Represents the captured sequence; the function uses it as input to the operation described above.
-    /// - `current_sequence` (`u64`): Represents the current sequence; the function uses it as input to the operation described above.
-    /// - `captured_tick` (`i64`): Represents the captured tick; the function uses it as input to the operation described above.
-    /// - `current_tick` (`i64`): Represents the current tick; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn observation_inputs_current(
         captured_sequence: u64,
         current_sequence: u64,
@@ -574,59 +339,27 @@ pub mod observation {
 
     /// A command callback may upgrade a mapper-only sample once, including when
     /// no policy needs a roster. Discovery capability is distinct from roster data.
-    ///
-///  A command callback may upgrade a mapper-only sample once, including when no policy needs a roster. Discovery capability is distinct from roster data.
     #[derive(Clone, Copy, Default)]
     pub struct ObservationSetup {
-        /// Stores the `discovered` value in `ObservationSetup` as `Option<i64>`.
-        ///
-        ///
-///  Optionally stores the discovered for ObservationSetup; it may be absent.
+/// Runtime discovered value used by ObservationSetup..
         discovered: Option<i64>,
     }
     impl ObservationSetup {
         /// Constructs a new value with the type’s initial state.
-        ///
-        ///
-        ///  Creates a new value.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         pub const fn new() -> Self {
             Self { discovered: None }
         }
         /// Determines whether the `needed` condition holds.
-        ///
-        ///
-        ///  Checks whether needed.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-        /// - `evaluated` (`bool`): Represents the evaluated; the function uses it as input to the operation described above.
-        /// - `discover` (`bool`): Represents the discover; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn needed(&self, tick: i64, evaluated: bool, discover: bool) -> bool {
             !evaluated || (discover && self.discovered != Some(tick))
         }
         /// Updates the `complete` state using the supplied inputs.
-        ///
-        ///
-        ///  Updates complete.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-        /// - `discover` (`bool`): Represents the discover; the function uses it as input to the operation described above.
         pub fn complete(&mut self, tick: i64, discover: bool) {
             if discover {
                 self.discovered = Some(tick);
             }
         }
         /// Clears the remembered fighter observation.
-        ///
-        ///
-        ///  Forgets the last fighter observation.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         pub fn clear(&mut self) {
             self.discovered = None;
         }
@@ -635,37 +368,18 @@ pub mod observation {
     /// Exact floor-query reuse within ONE synchronous observation. Store copied
     /// values, never a pointer, and discard at callback exit so moving platforms
     /// and later frames always get new collision queries.
-    ///
-///  Exact floor-query reuse within ONE synchronous observation. Store copied values, never a pointer, and discard at callback exit so moving platforms and later frames always get new collision queries.
     type GroundSupportCache = Option<(u32, [f32; 2], f32, [bool; 2])>;
 
-    /// Defines the `GroundSupportSnapshot` data structure.
-    ///
-    ///
-///  Holds the data for GroundSupportSnapshot.
+/// Runtime Smash data carried by `GroundSupportSnapshot`.
     #[derive(Default)]
     pub struct GroundSupportSnapshot {
         // `Cell` lets this synchronous snapshot cache copied results through a
         // shared reference; it is interior mutability, not cross-thread locking.
-        /// Stores the `last` value in `GroundSupportSnapshot` as `Cell<GroundSupportCache>`.
-        ///
-        ///
-///  Holds the last value used by GroundSupportSnapshot.
+/// Runtime last value used by GroundSupportSnapshot..
         last: Cell<GroundSupportCache>,
     }
     impl GroundSupportSnapshot {
         /// Returns the `read` result.
-        ///
-        ///
-        ///  Gets the read result.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `object` (`u32`): Represents the object; the function uses it as input to the operation described above.
-        /// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
-        /// - `vx` (`f32`): Represents the vx; the function uses it as input to the operation described above.
-        /// - `query` (`impl FnOnce() -> [bool; 2]`): Represents the query; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `[bool; 2]` value.
         pub fn read(
             &self,
             object: u32,
@@ -684,157 +398,70 @@ pub mod observation {
         }
     }
     /// Field identifiers for fighter facts. Used as indices into the `facts` array of a `Fighter`.
-    ///
-///  Field identifiers for fighter facts. Used as indices into the facts array of a Fighter.
     #[derive(Clone, Copy)]
     #[repr(usize)]
     pub enum Field {
-        /// Represents the `Status` case of `Field`.
-        ///
-        ///
-///  Represents the Status option in Field.
+/// `Status` option in the `Field` Smash policy state.
         Status,
-        /// Represents the `Situation` case of `Field`.
-        ///
-        ///
-///  Represents the Situation option in Field.
+/// `Situation` option in the `Field` Smash policy state.
         Situation,
-        /// Represents the `Motion` case of `Field`.
-        ///
-        ///
-///  Represents the Motion option in Field.
+/// `Motion` option in the `Field` Smash policy state.
         Motion,
-        /// Represents the `Frame` case of `Field`.
-        ///
-        ///
-///  Represents the Frame option in Field.
+/// `Frame` option in the `Field` Smash policy state.
         Frame,
-        /// Represents the `Rate` case of `Field`.
-        ///
-        ///
-///  Represents the Rate option in Field.
+/// `Rate` option in the `Field` Smash policy state.
         Rate,
-        /// Represents the `X` case of `Field`.
-        ///
-        ///
-///  Represents the X option in Field.
+/// `X` option in the `Field` Smash policy state.
         X,
-        /// Represents the `Y` case of `Field`.
-        ///
-        ///
-///  Represents the Y option in Field.
+/// `Y` option in the `Field` Smash policy state.
         Y,
-        /// Represents the `Vx` case of `Field`.
-        ///
-        ///
-///  Represents the Vx option in Field.
+/// `Vx` option in the `Field` Smash policy state.
         Vx,
-        /// Represents the `Vy` case of `Field`.
-        ///
-        ///
-///  Represents the Vy option in Field.
+/// `Vy` option in the `Field` Smash policy state.
         Vy,
-        /// Represents the `Facing` case of `Field`.
-        ///
-        ///
-///  Represents the Facing option in Field.
+/// `Facing` option in the `Field` Smash policy state.
         Facing,
-        /// Represents the `Team` case of `Field`.
-        ///
-        ///
-///  Represents the Team option in Field.
+/// `Team` option in the `Field` Smash policy state.
         Team,
-        /// Represents the `Stop` case of `Field`.
-        ///
-        ///
-///  Represents the Stop option in Field.
+/// `Stop` option in the `Field` Smash policy state.
         Stop,
-        /// Represents the `PreviousStatus` case of `Field`.
-        ///
-        ///
-///  Represents the PreviousStatus option in Field.
+/// `PreviousStatus` option in the `Field` Smash policy state.
         PreviousStatus,
-        /// Represents the `EndFrame` case of `Field`.
-        ///
-        ///
-///  Represents the EndFrame option in Field.
+/// `EndFrame` option in the `Field` Smash policy state.
         EndFrame,
-        /// Represents the `CaptureLink` case of `Field`.
-        ///
-        ///
-///  Represents the CaptureLink option in Field.
+/// `CaptureLink` option in the `Field` Smash policy state.
         CaptureLink,
-        /// Represents the `Kind` case of `Field`.
-        ///
-        ///
-///  Represents the Kind option in Field.
+/// `Kind` option in the `Field` Smash policy state.
         Kind,
     }
-    /// Defines the `FIELDS` constant used by this module.
-    ///
-    ///
-///  Provides the FIELDS constant value.
+/// `FIELDS` is a configuration value used by the Smash runtime.
     const FIELDS: usize = Field::Kind as usize + 1;
-    /// Defines the available `Fact` cases.
-    ///
-    ///
-///  Lists the available Fact choices.
+/// Available `Fact` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub enum Fact {
-        /// Represents the `Int` case of `Fact`.
-        ///
-        ///
-///  Represents the Int option in Fact.
+/// `Int` option in the `Fact` Smash policy state.
         Int(
             /// Carries the observed int fact value in `Fact`.
-            ///
-            ///
-///  Holds the observed int fact value for this `Fact` choice.
             i32,
         ),
-        /// Represents the `Motion` case of `Fact`.
-        ///
-        ///
-///  Represents the Motion option in Fact.
+/// `Motion` option in the `Fact` Smash policy state.
         Motion(
             /// Carries the observed motion fact value in `Fact`.
-            ///
-            ///
-///  Holds the observed motion fact value for this `Fact` choice.
             u64,
         ),
-        /// Represents the `Float` case of `Fact`.
-        ///
-        ///
-///  Represents the Float option in Fact.
+/// `Float` option in the `Fact` Smash policy state.
         Float(
             /// Carries the observed float fact value in `Fact`.
-            ///
-            ///
-///  Holds the observed float fact value for this `Fact` choice.
             f32,
         ),
-        /// Represents the `Bool` case of `Fact`.
-        ///
-        ///
-///  Represents the Bool option in Fact.
+/// `Bool` option in the `Fact` Smash policy state.
         Bool(
             /// Carries the observed bool fact value in `Fact`.
-            ///
-            ///
-///  Holds the observed bool fact value for this `Fact` choice.
             bool,
         ),
     }
     impl Fact {
         /// Returns an optional `int` value.
-        ///
-        ///
-        ///  Gets int if it is available.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn int(self) -> Option<i32> {
             match self {
                 Self::Int(value) => Some(value),
@@ -842,13 +469,6 @@ pub mod observation {
             }
         }
         /// Returns the motion value when the observation contains one.
-        ///
-        ///
-        ///  Gets the motion value if it is available.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn motion(self) -> Option<u64> {
             match self {
                 Self::Motion(value) => Some(value),
@@ -856,13 +476,6 @@ pub mod observation {
             }
         }
         /// Returns the floating-point value when the fact contains one.
-        ///
-        ///
-        ///  Gets the number if this fact stores one.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn float(self) -> Option<f32> {
             match self {
                 Self::Float(value) => Some(value),
@@ -871,48 +484,26 @@ pub mod observation {
         }
     }
     /// A fighter in the observation snapshot, storing its identity and copied facts.
-    ///
-///  A fighter in the observation snapshot, storing its identity and copied facts.
     struct Fighter {
         // Cache facts lazily so sharing a snapshot does not force unrelated
         // policies to perform every possible native observation.
-        /// Stores the `id` value in `Fighter` as `Cell<Option<u32>>`.
-        ///
-        ///
-///  Holds the id value used by Fighter.
+/// battle-object ID.
         id: Cell<Option<u32>>,
-        /// Stores the `facts` value in `Fighter` as `[Cell<Option<Fact>>; FIELDS]`.
-        ///
-        ///
-///  Stores the facts collection for Fighter.
+/// Runtime facts value used by Fighter..
         facts: [Cell<Option<Fact>>; FIELDS],
     }
     /// At most eight fighter identities; an unexpected extra identity reads through.
     /// Construction allocates no heap memory and does not read the game eagerly.
-    ///
-///  At most eight fighter identities; an unexpected extra identity reads through. Construction allocates no heap memory and does not read the game eagerly.
     pub type ObservationSnapshot = ObservationSnapshotSized<8>;
     /// Observation snapshot for a fixed number of fighters. Stores copied facts and identities for passive analysis.
-    ///
-///  Observation snapshot for a fixed number of fighters. Stores copied facts and identities for passive analysis.
     pub struct ObservationSnapshotSized<const N: usize> {
-        /// Stores the `fighters` value in `ObservationSnapshotSized` as `[Fighter; N]`.
-        ///
-        ///
-///  Stores the fighters collection for ObservationSnapshotSized.
+/// Runtime fighters value used by ObservationSnapshotSized..
         fighters: [Fighter; N],
-        /// Stores the `last` value in `ObservationSnapshotSized` as `Cell<Option<usize>>`.
-        ///
-        ///
-///  Holds the last value used by ObservationSnapshotSized.
+/// Runtime last value used by ObservationSnapshotSized..
         last: Cell<Option<usize>>,
     }
     impl<const N: usize> Default for ObservationSnapshotSized<N> {
         /// Observation snapshot for a fixed number of fighters. Stores copied facts and identities for passive analysis.
-        ///
-        ///  Observation snapshot for a fixed number of fighters. Stores copied facts and identities for passive analysis.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         fn default() -> Self {
             Self {
                 last: Cell::new(None),
@@ -926,13 +517,6 @@ pub mod observation {
     impl<const N: usize> ObservationSnapshotSized<N> {
         /// A copied motion clock from an already observed other fighter. No native
         /// calls or additional roster scan; passive frozen poses cannot time a tail.
-        ///
-        ///  A copied motion clock from an already observed other fighter. No native calls or additional roster scan; passive frozen poses cannot time a tail.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `own` (`u32`): Represents the own; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn known_progress_clock(&self, own: u32) -> Option<(u32, i32, u64, f32, f32)> {
             self.fighters.iter().find_map(|f| {
                 let id = f.id.get().filter(|id| *id != own)?;
@@ -958,12 +542,6 @@ pub mod observation {
         }
         /// Already-read statuses only: no native calls, eager reads or allocation.
         /// Event consumers can distinguish a known end from a missing observation.
-        ///
-        ///  Already-read statuses only: no native calls, eager reads or allocation. Event consumers can distinguish a known end from a missing observation.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `[Option<(u32, i32)>; N]` value.
         pub fn known_statuses(&self) -> [Option<(u32, i32)>; N] {
             std::array::from_fn(|i| {
                 let entry = &self.fighters[i];
@@ -973,15 +551,6 @@ pub mod observation {
         }
         /// Most consumers read several fields from the same fighter in a row.
         /// This cursor only speeds slot lookup; fact lifetime/overflow stay exact.
-        ///
-        ///  Most consumers read several fields from the same fighter in a row. This cursor only speeds slot lookup; fact lifetime/overflow stay exact.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `id` (`u32`): Represents the identifier of an object or entry; the function uses it as input to the operation described above.
-        /// - `field` (`Field`): Represents the field; the function uses it as input to the operation described above.
-        /// - `read` (`impl FnOnce() -> Fact`): Represents the read; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `Fact` value.
         pub fn read(&self, id: u32, field: Field, read: impl FnOnce() -> Fact) -> Fact {
             let index = self
                 .last
@@ -1007,22 +576,12 @@ pub mod observation {
 
     /// One synchronous observation's roster IDs. Empty/unavailable is cached too.
     /// No native pointers, allocation, frame throttling, or cross-frame lifetime.
-    ///
-///  One synchronous observation's roster IDs. Empty/unavailable is cached too. No native pointers, allocation, frame throttling, or cross-frame lifetime.
     pub struct RosterSnapshot<const N: usize = 8> {
-        /// Stores the `value` value in `RosterSnapshot` as `Cell<Option<Option<[Option<u32>; N]>>>`.
-        ///
-        ///
-///  Holds the value value used by RosterSnapshot.
+/// Runtime value value used by RosterSnapshot..
         value: Cell<Option<Option<[Option<u32>; N]>>>,
     }
     impl<const N: usize> Default for RosterSnapshot<N> {
         /// Returns the default value for this type.
-        ///
-        ///
-        ///  Returns the default value for this type.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         fn default() -> Self {
             Self {
                 value: Cell::new(None),
@@ -1031,14 +590,6 @@ pub mod observation {
     }
     impl<const N: usize> RosterSnapshot<N> {
         /// Returns an optional `read` value.
-        ///
-        ///
-        ///  Gets read if it is available.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `query` (`impl FnOnce() -> Option<[Option<u32>; N]>`): Represents the query; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn read(
             &self,
             query: impl FnOnce() -> Option<[Option<u32>; N]>,
@@ -1057,16 +608,6 @@ pub(crate) mod projectile_geometry {
     use crate::autopilot_guard::Hitbox;
 
     /// Computes the earliest time of intersection between a swept capsule and an axis-aligned bounding box.
-    ///
-    ///  Computes the earliest time of intersection between a swept capsule and an axis-aligned bounding box.
-    /// ### Arguments
-    /// - `hit` (`Hitbox`): Represents the hit; the function uses it as input to the operation described above.
-    /// - `body_lo` (`[f32; 3]`): Represents the body lo; the function uses it as input to the operation described above.
-    /// - `body_hi` (`[f32; 3]`): Represents the body hi; the function uses it as input to the operation described above.
-    /// - `velocity` (`[f32; 2]`): Represents an object velocity or movement speed; the function uses it as input to the operation described above.
-    /// - `horizon` (`f32`): Represents the horizon; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(crate) fn swept_capsule_aabb(
         hit: Hitbox,
         body_lo: [f32; 3],
@@ -1118,102 +659,49 @@ pub mod state {
     /// It allows the engine to differentiate between known fighters, unknown fighters, and Kirby specifically.
     /// ***
     /// Need to analyse more, may be extended in the future to include other specific fighters and unique modes/modifiers.
-    ///
-///  simple label that tells the generic assist engine what it knows about the fighter It allows the engine to differentiate between known fighters, unknown fighters, and Kirby specifically.  Need to analyse more, may be extended.
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub enum FighterKind {
-        /// Represents the `Kirby` case of `FighterKind`.
-        ///
-        ///
-///  Represents the Kirby option in FighterKind.
+/// `Kirby` option in the `FighterKind` Smash policy state.
         Kirby,
-        /// Represents the `Other` case of `FighterKind`.
-        ///
-        ///
-///  Represents the Other option in FighterKind.
+/// `Other` option in the `FighterKind` Smash policy state.
         Other,
-        /// Represents the `Unknown` case of `FighterKind`.
-        ///
-        ///
-///  Represents the Unknown option in FighterKind.
+/// `Unknown` option in the `FighterKind` Smash policy state.
         Unknown,
     }
 
     /// A normalized situation that can activate an assistance rule.
-    ///
     /// The priority order follows the Training Modpack's public mash selection
     /// flow: specific defensive situations win over broad grounded/airborne ones.
-    ///
-///  A normalized situation that can activate an assistance rule. The priority order follows the Training Modpack's public mash selection flow: specific defensive situations win over broad grounded/airborne ones.
     #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
     pub enum Scenario {
-        /// Represents the `Tech` case of `Scenario`.
-        ///
-        ///
-///  Represents the Tech option in Scenario.
+/// `Tech` option in the `Scenario` Smash policy state.
         Tech,
-        /// Represents the `Clatter` case of `Scenario`.
-        ///
-        ///
-///  Represents the Clatter option in Scenario.
+/// `Clatter` option in the `Scenario` Smash policy state.
         Clatter,
-        /// Represents the `Tumble` case of `Scenario`.
-        ///
-        ///
-///  Represents the Tumble option in Scenario.
+/// `Tumble` option in the `Scenario` Smash policy state.
         Tumble,
-        /// Represents the `Hitstun` case of `Scenario`.
-        ///
-        ///
-///  Represents the Hitstun option in Scenario.
+/// `Hitstun` option in the `Scenario` Smash policy state.
         Hitstun,
-        /// Represents the `Parry` case of `Scenario`.
-        ///
-        ///
-///  Represents the Parry option in Scenario.
+/// `Parry` option in the `Scenario` Smash policy state.
         Parry,
-        /// Represents the `Footstool` case of `Scenario`.
-        ///
-        ///
-///  Represents the Footstool option in Scenario.
+/// `Footstool` option in the `Scenario` Smash policy state.
         Footstool,
-        /// Represents the `Landing` case of `Scenario`.
-        ///
-        ///
-///  Represents the Landing option in Scenario.
+/// `Landing` option in the `Scenario` Smash policy state.
         Landing,
-        /// Represents the `Ledge` case of `Scenario`.
-        ///
-        ///
-///  Represents the Ledge option in Scenario.
+/// `Ledge` option in the `Scenario` Smash policy state.
         Ledge,
-        /// Represents the `Grounded` case of `Scenario`.
-        ///
-        ///
-///  Represents the Grounded option in Scenario.
+/// `Grounded` option in the `Scenario` Smash policy state.
         Grounded,
-        /// Represents the `Airborne` case of `Scenario`.
-        ///
-        ///
-///  Represents the Airborne option in Scenario.
+/// `Airborne` option in the `Scenario` Smash policy state.
         Airborne,
         // Sentinel for an unused observation/rule slot; it is not an active tool.
         #[default]
-        /// Represents the `None` case of `Scenario`.
-        ///
-        ///
-///  Represents the None option in Scenario.
+/// `None` option in the `Scenario` Smash policy state.
         None,
     }
 
     impl Scenario {
         /// Lower values have higher precedence when multiple samples are active.
-        ///
-        ///  Lower values have higher precedence when multiple samples are active.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `u8` value.
         pub const fn priority(self) -> u8 {
             match self {
                 Self::Tech => 0,
@@ -1236,38 +724,21 @@ pub mod state {
     // Age belongs to a particular occurrence, not match time: active -> inactive
     // -> active restarts at zero. The live ScenarioCounter implements that contract.
     ///
-///  A situation supplied by a live or pretend game-state adapter.
     pub struct ScenarioSample {
-        /// Stores the `scenario` value in `ScenarioSample` as `Scenario`.
-        ///
-        ///
-///  Holds the scenario value used by ScenarioSample.
+/// Runtime scenario value used by ScenarioSample..
         pub scenario: Scenario,
         /// Frame zero is the first frame in this scenario.
-        ///
-///  Frame zero is the first frame in this scenario.
         pub frames_active: u32,
     }
 
     impl ScenarioSample {
-        /// Defines the `EMPTY` constant used by this module.
-        ///
-        ///
-///  Provides the EMPTY constant value.
+/// `EMPTY` is a configuration value used by the Smash runtime.
         pub const EMPTY: Self = Self {
             scenario: Scenario::None,
             frames_active: 0,
         };
 
         /// Constructs a new value with the type’s initial state.
-        ///
-        ///
-        ///  Creates a new value.
-        /// ### Arguments
-        /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
-        /// - `frames_active` (`u32`): Represents the frames active; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         pub const fn new(scenario: Scenario, frames_active: u32) -> Self {
             Self {
                 scenario,
@@ -1278,41 +749,22 @@ pub mod state {
 
     /// A small snapshot with room for overlapping conditions (for example, tumble
     /// and hitstun). The engine chooses the highest-priority active scenario.
-    ///
-///  A small snapshot with room for overlapping conditions (for example, tumble and hitstun). The engine chooses the highest-priority active scenario.
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct FighterObservation {
-        /// Stores the `active` value in `FighterObservation` as `[ScenarioSample; Self::MAX_SAMPLES]`.
-        ///
-        ///
-///  Stores the active collection for FighterObservation.
+/// active-frame or active-state data.
         pub active: [ScenarioSample; Self::MAX_SAMPLES],
     }
 
     impl FighterObservation {
         /// Sets the upper bound for samples.
-        ///
-        ///
-///  Holds the MAX SAMPLES value.
         pub const MAX_SAMPLES: usize = 3;
 
-        /// Defines the `EMPTY` constant used by this module.
-        ///
-        ///
-///  Provides the EMPTY constant value.
+/// `EMPTY` is a configuration value used by the Smash runtime.
         pub const EMPTY: Self = Self {
             active: [ScenarioSample::EMPTY; Self::MAX_SAMPLES],
         };
 
         /// Returns the `one` result.
-        ///
-        ///
-        ///  Gets the one result.
-        /// ### Arguments
-        /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
-        /// - `frames_active` (`u32`): Represents the frames active; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         pub const fn one(scenario: Scenario, frames_active: u32) -> Self {
             Self {
                 active: [
@@ -1326,13 +778,6 @@ pub mod state {
         // Return the sample WITH its age; choosing only its name would lose the
         // timing information needed by delayed/pulsing rules.
         /// Returns an optional `highest_priority` value.
-        ///
-        ///
-        ///  Gets highest priority if it is available.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn highest_priority(self) -> Option<ScenarioSample> {
             self.active
                 .into_iter()
@@ -1343,30 +788,17 @@ pub mod state {
 
     impl Default for FighterObservation {
         /// Returns the default value for this type.
-        ///
-        ///
-        ///  Returns the default value for this type.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         fn default() -> Self {
             Self::EMPTY
         }
     }
 
     /// Facts that must be established before the engine may propose an action.
-    ///
-///  Facts that must be established before the engine may propose an action.
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct RunContext {
-        /// Stores the `is_locally_human_controlled` value in `RunContext` as `bool`.
-        ///
-        ///
-///  Holds the is locally human controlled value used by RunContext.
+/// Runtime is locally human controlled value used by RunContext..
         pub is_locally_human_controlled: bool,
-        /// Stores the `fighter` value in `RunContext` as `FighterKind`.
-        ///
-        ///
-///  Holds the fighter value used by RunContext.
+/// Runtime fighter value used by RunContext..
         pub fighter: FighterKind,
     }
 
@@ -1376,57 +808,25 @@ pub mod state {
     // examples/walkthrough.rs implements these methods using pretend data. &self
     // permits reads; &mut self on write_merged_input permits changing adapter state.
     ///
-///  Boundary to implement only after a current, documented state-reading route has been verified. No game hook or memory layout is assumed here.
     pub trait GameObservationSource {
         /// Observes the fighter.
-        ///
-        ///
-        ///  Observes the fighter.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn observe_fighter(&self) -> Option<FighterObservation>;
     }
 
     /// Boundary to implement only after a current, documented input route has been
     /// verified. The core requires a read-then-write flow so human input can be
     /// preserved during arbitration.
-    ///
-///  Boundary to implement only after a current, documented input route has been verified. The core requires a read-then-write flow so human input can be preserved during arbitration.
     pub trait InputBridge {
         /// Reads the human input.
-        ///
-        ///
-        ///  Reads the human input.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn read_human_input(&self) -> Option<ControllerFrame>;
         /// Writes the merged input.
-        ///
-        ///
-        ///  Writes the merged input.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `frame` (`ControllerFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
         fn write_merged_input(&mut self, frame: ControllerFrame);
     }
 
     /// Combined adapter used by the frame runner. Return `None` when no valid
     /// fighter/controller is available (for example during loading or in menus).
-    ///
-///  Combined adapter used by the frame runner. Return None when no valid fighter/controller is available (for example during loading or in menus).
     pub trait GameAdapter: GameObservationSource + InputBridge {
         /// Reads the context.
-        ///
-        ///
-        ///  Reads the context.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn read_context(&self) -> Option<RunContext>;
     }
 
@@ -1437,9 +837,6 @@ pub mod state {
         use super::*;
 
         /// Regression test for `specific_scenario_beats_broad_scenario`.
-        ///
-        ///
-///  Checks that specific scenario beats broad scenario.
         #[test]
         fn specific_scenario_beats_broad_scenario() {
             let observation = FighterObservation {

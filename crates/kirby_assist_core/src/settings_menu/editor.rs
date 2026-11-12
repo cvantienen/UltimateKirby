@@ -15,15 +15,7 @@ use presentation::{field_slot, field_value, fields, recipe_panel, Field};
 use presentation::{schedule_summary, scheduled_frames};
 
 /// Builds the lookup key for the observed state.
-///
 /// Creates the key used to find this state.
-/// ### Arguments
-/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-/// - `x` (`f32`): Represents the horizontal coordinate; the function uses it as input to the operation described above.
-/// - `y` (`f32`): Represents the vertical coordinate; the function uses it as input to the operation described above.
-/// - `frames` (`u8`): Represents the number of frames; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `Action` value.
 const fn key(buttons: u32, x: f32, y: f32, frames: u8) -> Action {
     Action::Input {
         buttons,
@@ -32,9 +24,7 @@ const fn key(buttons: u32, x: f32, y: f32, frames: u8) -> Action {
         relative: true,
     }
 }
-/// Defines the `PRESETS` constant used by this module.
-///
-/// Provides the PRESETS constant value.
+/// `PRESETS` is a configuration value used by the Smash runtime.
 const PRESETS: &[(&str, Action)] = &[
     ("Empty", Action::Empty),
     ("Short hop", key(MAPPER_X, 0., 0., 1)),
@@ -258,9 +248,7 @@ const PRESETS: &[(&str, Action)] = &[
         },
     ),
 ];
-/// Defines the `TAP_BUTTONS` constant used by this module.
-///
-/// Provides the TAP BUTTONS constant value.
+/// `TAP_BUTTONS` is a configuration value used by the Smash runtime.
 const TAP_BUTTONS: &[(u32, [f32; 2], &str)] = &[
     (MAPPER_A, [0., 0.], "A"),
     (MAPPER_B, [0., 0.], "B"),
@@ -268,9 +256,7 @@ const TAP_BUTTONS: &[(u32, [f32; 2], &str)] = &[
     (MAPPER_A, [0., 0.6], "Up tilt"),
     (MAPPER_A, [0., -0.6], "Down tilt"),
 ];
-/// Defines the `DIRECTIONS` constant used by this module.
-///
-/// Provides the DIRECTIONS constant value.
+/// `DIRECTIONS` is a configuration value used by the Smash runtime.
 const DIRECTIONS: [D; 8] = [
     D::Opponent,
     D::AwayFromOpponent,
@@ -283,12 +269,7 @@ const DIRECTIONS: [D; 8] = [
 ];
 
 /// Returns an optional `preset_kind` value.
-///
 /// Gets preset kind if it is available.
-/// ### Arguments
-/// - `action` (`Action`): Represents the action; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn preset_kind(action: Action) -> Option<usize> {
     // Keep an edited action in its preset so users can keep editing its fields.
     PRESETS
@@ -302,13 +283,7 @@ fn preset_kind(action: Action) -> Option<usize> {
 }
 
 /// Determines whether the `same_preset_shape` condition holds.
-///
 /// Checks whether same preset shape.
-/// ### Arguments
-/// - `action` (`Action`): Represents the action; the function uses it as input to the operation described above.
-/// - `preset` (`Action`): Represents the preset; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn same_preset_shape(action: Action, preset: Action) -> bool {
     match (action, preset) {
         (
@@ -371,56 +346,26 @@ fn same_preset_shape(action: Action, preset: Action) -> bool {
     }
 }
 
-/// Defines the `Recipe` data structure.
-///
-/// Holds the data for Recipe.
+/// Runtime Smash data carried by `Recipe`.
 #[derive(Clone)]
 struct Recipe {
-    /// Stores the `button_recipe` value in `Recipe` as `bool`.
-    ///
-    ///
-///  Holds the button recipe value used by Recipe.
+/// Runtime button recipe value used by Recipe..
     button_recipe: bool,
-    /// Stores the `sequence` value in `Recipe` as `Sequence`.
-    ///
-    ///
-///  Holds the sequence value used by Recipe.
+/// Runtime sequence value used by Recipe..
     sequence: Sequence,
-    /// Stores the `before` value in `Recipe` as `[u8; MAX_ACTIONS]`.
-    ///
-    ///
-///  Stores the before collection for Recipe.
+/// Runtime before value used by Recipe..
     before: [u8; MAX_ACTIONS],
-    /// Stores the `kinds` value in `Recipe` as `[usize; MAX_ACTIONS]`.
-    ///
-    ///
-///  Stores the kinds collection for Recipe.
+/// Runtime kinds value used by Recipe..
     kinds: [usize; MAX_ACTIONS],
-    /// Stores the `imported` value in `Recipe` as `Vec<Action>`.
-    ///
-    ///
-///  Holds the imported value used by Recipe.
+/// Runtime imported value used by Recipe..
     imported: Vec<Action>,
-    /// Stores the `edited` value in `Recipe` as `u32`.
-    ///
-    ///
-///  Holds the edited value used by Recipe.
+/// Runtime edited value used by Recipe..
     edited: u32,
-    /// Stores the `modified` value in `Recipe` as `bool`.
-    ///
-    ///
-///  Holds the modified value used by Recipe.
+/// Runtime modified value used by Recipe..
     modified: bool,
 }
 impl Recipe {
     /// Constructs a new value with the type’s initial state.
-    ///
-    ///
-    ///  Creates a new value.
-    /// ### Arguments
-    /// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn new(mut sequence: Sequence) -> Self {
         // Present file Wait steps as delays, preserving their exact frame total.
         let original = sequence;
@@ -464,13 +409,6 @@ impl Recipe {
         recipe
     }
     /// Picker index for an action: its preset, else its (deduplicated) saved-input entry.
-    ///
-    ///  Picker index for an action: its preset, else its (deduplicated) saved-input entry.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `action` (`Action`): Represents the action; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `usize` value.
     fn kind_for(&mut self, action: Action) -> usize {
         preset_kind(action).unwrap_or_else(|| {
             let index = self
@@ -485,14 +423,6 @@ impl Recipe {
         })
     }
     /// Returns the `action_for` result.
-    ///
-    ///
-    ///  Gets the action for result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `kind` (`usize`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `Action` value.
     fn action_for(&self, kind: usize) -> Action {
         match PRESETS.get(kind) {
             Some((_, preset)) => *preset,
@@ -500,14 +430,6 @@ impl Recipe {
         }
     }
     /// Advances the state machine by one step.
-    ///
-    ///
-    ///  Moves the state machine to its next step.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `(Action, u8, usize)` value.
     fn step(&self, slot: usize) -> (Action, u8, usize) {
         (
             self.sequence.actions[slot],
@@ -516,40 +438,17 @@ impl Recipe {
         )
     }
     /// Sets the step.
-    ///
-    ///
-    ///  Sets the step.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// - `argument` (`(Action, u8, usize)`): Represents the input value represented by this parameter; the function uses it as input to the operation described above.
     fn set_step(&mut self, slot: usize, (action, delay, kind): (Action, u8, usize)) {
         self.sequence.actions[slot] = action;
         self.before[slot] = delay;
         self.kinds[slot] = kind;
     }
     /// A slot with neither an action nor a delay; the only kind that may be dropped for room.
-    ///
-    ///  A slot with neither an action nor a delay; the only kind that may be dropped for room.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn unused(&self, slot: usize) -> bool {
         self.sequence.actions[slot] == Action::Empty && self.before[slot] == 0
     }
     /// Insert before `at`, shifting later steps down. `reuse_last` lets an unused final
     /// slot make room when all slots are taken. False (and unchanged) when full.
-    ///
-    ///  Insert before at, shifting later steps down. reuselast lets an unused final slot make room when all slots are taken. False (and unchanged) when full.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `at` (`usize`): Represents the at; the function uses it as input to the operation described above.
-    /// - `step` (`(Action, u8, usize)`): Represents the step; the function uses it as input to the operation described above.
-    /// - `reuse_last` (`bool`): Represents the reuse last; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn insert_step(&mut self, at: usize, step: (Action, u8, usize), reuse_last: bool) -> bool {
         let mut len = usize::from(self.sequence.len);
         if len == MAX_ACTIONS && reuse_last && self.unused(len - 1) {
@@ -566,11 +465,6 @@ impl Recipe {
         true
     }
     /// Remove a step, shifting later ones up; at least one slot always remains.
-    ///
-    ///  Remove a step, shifting later ones up; at least one slot always remains.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `slot` (`usize`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
     fn remove_step(&mut self, slot: usize) {
         let len = usize::from(self.sequence.len);
         for i in slot..len - 1 {
@@ -580,13 +474,6 @@ impl Recipe {
         self.sequence.len = len.saturating_sub(1).max(1) as u8;
     }
     /// Returns an optional `compile` value.
-    ///
-    ///
-    ///  Gets compile if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn compile(&self) -> Option<Sequence> {
         let mut result = Sequence {
             len: 0,
@@ -608,13 +495,7 @@ impl Recipe {
     }
 }
 /// Returns the `action_name` result.
-///
 /// Gets the action name result.
-/// ### Arguments
-/// - `r` (`&Recipe`): Represents the r; the function uses it as input to the operation described above.
-/// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 fn action_name(r: &Recipe, i: usize) -> String {
     let action = r.sequence.actions[i];
     if let Some((name, preset)) = PRESETS.get(r.kinds[i]) {
@@ -642,9 +523,7 @@ fn action_name(r: &Recipe, i: usize) -> String {
     }
     describe_action(action)
 }
-/// Defines the `INPUT_BUTTONS` constant used by this module.
-///
-/// Provides the INPUT BUTTONS constant value.
+/// `INPUT_BUTTONS` is a configuration value used by the Smash runtime.
 const INPUT_BUTTONS: &[(u32, &str)] = &[
     (MAPPER_A, "A"),
     (MAPPER_B, "B"),
@@ -656,12 +535,7 @@ const INPUT_BUTTONS: &[(u32, &str)] = &[
     (MAPPER_ZR, "ZR"),
 ];
 /// Returns mutable access to the buttons value.
-///
 /// Provides mutable access to buttons.
-/// ### Arguments
-/// - `a` (`&mut Action`): Represents the a; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn buttons_mut(a: &mut Action) -> Option<&mut u32> {
     match a {
         Action::Input { buttons, .. }
@@ -671,23 +545,11 @@ fn buttons_mut(a: &mut Action) -> Option<&mut u32> {
     }
 }
 /// Returns an optional `input_buttons` value.
-///
 /// Gets input buttons if it is available.
-/// ### Arguments
-/// - `a` (`Action`): Represents the a; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn input_buttons(mut a: Action) -> Option<u32> {
     buttons_mut(&mut a).map(|buttons| *buttons)
 }
 /// Button names joined by `+`; bits the picker cannot name stay visible as hex.
-///
-///  Button names joined by +; bits the picker cannot name stay visible as hex.
-/// ### Arguments
-/// - `mask` (`u32`): Represents the mask; the function uses it as input to the operation described above.
-/// - `none` (`&str`): Represents the none; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 fn buttons_text(mask: u32, none: &str) -> String {
     let mut text = String::new();
     let mut push = |part: std::fmt::Arguments| {
@@ -713,13 +575,7 @@ fn buttons_text(mask: u32, none: &str) -> String {
     }
 }
 /// Returns the `input_reference` result.
-///
 /// Gets the input reference result.
-/// ### Arguments
-/// - `a` (`Action`): Represents the a; the function uses it as input to the operation described above.
-/// - `right` (`bool`): Represents the right; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `IR` value.
 fn input_reference(a: Action, right: bool) -> IR {
     match a {
         Action::Controller {
@@ -739,12 +595,7 @@ fn input_reference(a: Action, right: bool) -> IR {
     }
 }
 /// Sets the input reference.
-///
 /// Sets the input reference.
-/// ### Arguments
-/// - `a` (`&mut Action`): Represents the a; the function uses it as input to the operation described above.
-/// - `r` (`IR`): Represents the r; the function uses it as input to the operation described above.
-/// - `right` (`bool`): Represents the right; the function uses it as input to the operation described above.
 fn set_input_reference(a: &mut Action, r: IR, right: bool) {
     match a {
         Action::Controller {
@@ -788,15 +639,7 @@ fn set_input_reference(a: &mut Action, r: IR, right: bool) {
     }
 }
 /// Returns the `describe_input` result.
-///
 /// Gets the describe input result.
-/// ### Arguments
-/// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-/// - `stick` (`[f32; 2]`): Represents the stick; the function uses it as input to the operation described above.
-/// - `reference` (`&str`): Represents the reference; the function uses it as input to the operation described above.
-/// - `frames` (`u8`): Represents the number of frames; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 fn describe_input(buttons: u32, stick: [f32; 2], reference: &str, frames: u8) -> String {
     let mut text = format!(
         "{} | X:{:.0}% Y:{:.0}% ({reference}) | ",
@@ -812,12 +655,7 @@ fn describe_input(buttons: u32, stick: [f32; 2], reference: &str, frames: u8) ->
     text
 }
 /// Returns the `describe_action` result.
-///
 /// Gets the describe action result.
-/// ### Arguments
-/// - `action` (`Action`): Represents the action; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 fn describe_action(action: Action) -> String {
     match action {
         Action::Controller{buttons,stick,cstick,reference,cstick_reference,frames}=>format!("{} | Left {:.0}%/{:.0}% {} | Right {:.0}%/{:.0}% {} | {frames}f",buttons_text(buttons, "None (stick only)"),stick[0]*100.,stick[1]*100.,reference.token(),cstick[0]*100.,cstick[1]*100.,cstick_reference.token()),
@@ -832,36 +670,16 @@ fn describe_action(action: Action) -> String {
     }
 }
 /// The field under the cursor; the cursor may lag behind a field list that shrank.
-///
-///  The field under the cursor; the cursor may lag behind a field list that shrank.
-/// ### Arguments
-/// - `fields` (`&[Field]`): Represents the fields; the function uses it as input to the operation described above.
-/// - `cursor` (`usize`): Represents the cursor; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `Field` value.
 fn focus(fields: &[Field], cursor: usize) -> Field {
     fields[cursor.min(fields.len() - 1)]
 }
 /// Advances the state machine by one step.
-///
 /// Moves the state machine to its next step.
-/// ### Arguments
-/// - `v` (`f32`): Represents the v; the function uses it as input to the operation described above.
-/// - `delta` (`f32`): Represents the delta; the function uses it as input to the operation described above.
-/// - `min` (`f32`): Represents the minimum allowed value; the function uses it as input to the operation described above.
-/// - `max` (`f32`): Represents the maximum allowed value; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `f32` value.
 fn step(v: f32, delta: f32, min: f32, max: f32) -> f32 {
     ((v + delta).clamp(min, max) * 100.).round() / 100.
 }
 /// Updates the `byte` state using the supplied inputs.
-///
 /// Updates byte.
-/// ### Arguments
-/// - `v` (`&mut u8`): Represents the v; the function uses it as input to the operation described above.
-/// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
-/// - `min` (`u8`): Represents the minimum allowed value; the function uses it as input to the operation described above.
 fn byte(v: &mut u8, up: bool, min: u8) {
     *v = if up {
         v.saturating_add(1)
@@ -870,12 +688,6 @@ fn byte(v: &mut u8, up: bool, min: u8) {
     };
 }
 /// 16-bit frame counts share one ceiling.
-///
-///  16-bit frame counts share one ceiling.
-/// ### Arguments
-/// - `v` (`&mut u16`): Represents the v; the function uses it as input to the operation described above.
-/// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
-/// - `min` (`u16`): Represents the minimum allowed value; the function uses it as input to the operation described above.
 fn wide(v: &mut u16, up: bool, min: u16) {
     *v = if up {
         v.saturating_add(1).min(3600)
@@ -884,12 +696,7 @@ fn wide(v: &mut u16, up: bool, min: u16) {
     };
 }
 /// Updates the `direction` state using the supplied inputs.
-///
 /// Updates direction.
-/// ### Arguments
-/// - `v` (`&mut D`): Represents the v; the function uses it as input to the operation described above.
-/// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
-/// - `onstage` (`bool`): Represents the onstage; the function uses it as input to the operation described above.
 fn direction(v: &mut D, up: bool, onstage: bool) {
     let mut i = DIRECTIONS.iter().position(|d| d == v).unwrap_or(0);
     for _ in 0..DIRECTIONS.len() {
@@ -903,12 +710,6 @@ fn direction(v: &mut D, up: bool, onstage: bool) {
 // Each editable parameter has exactly one accessor; editing, display and
 // validation all read the same location so they cannot drift apart.
 /// The action's main duration in frames and its lowest allowed value.
-///
-///  The action's main duration in frames and its lowest allowed value.
-/// ### Arguments
-/// - `a` (`&mut Action`): Represents the a; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn frames_mut(a: &mut Action) -> Option<(&mut u8, u8)> {
     match a {
         Action::Input { frames, .. }
@@ -924,22 +725,12 @@ fn frames_mut(a: &mut Action) -> Option<(&mut u8, u8)> {
     }
 }
 /// Returns the configured frame count.
-///
 /// Gets the number of frames.
-/// ### Arguments
-/// - `a` (`Action`): Represents the a; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn frames(mut a: Action) -> Option<u8> {
     frames_mut(&mut a).map(|(frames, _)| *frames)
 }
 /// Returns mutable access to the stick value.
-///
 /// Provides mutable access to stick.
-/// ### Arguments
-/// - `a` (`&mut Action`): Represents the a; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn stick_mut(a: &mut Action) -> Option<&mut [f32; 2]> {
     match a {
         Action::Input { stick, .. }
@@ -950,12 +741,7 @@ fn stick_mut(a: &mut Action) -> Option<&mut [f32; 2]> {
     }
 }
 /// Returns mutable access to the direction value.
-///
 /// Provides mutable access to direction.
-/// ### Arguments
-/// - `a` (`&mut Action`): Represents the a; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn direction_mut(a: &mut Action) -> Option<&mut D> {
     match a {
         Action::Face(d)
@@ -966,38 +752,18 @@ fn direction_mut(a: &mut Action) -> Option<&mut D> {
     }
 }
 /// A bounded number edited in steps of `scale` per button press.
-///
-///  A bounded number edited in steps of scale per button press.
 struct Scalar<'a> {
-    /// Stores the `value` value in `Scalar` as `&'a mut f32`.
-    ///
-    ///
-///  Holds the value value used by Scalar.
+/// Runtime value value used by Scalar..
     value: &'a mut f32,
-    /// Stores the `min` value in `Scalar` as `f32`.
-    ///
-    ///
-///  Holds the min value used by Scalar.
+/// Runtime min value used by Scalar..
     min: f32,
-    /// Stores the `max` value in `Scalar` as `f32`.
-    ///
-    ///
-///  Holds the max value used by Scalar.
+/// Runtime max value used by Scalar..
     max: f32,
-    /// Stores the `scale` value in `Scalar` as `f32`.
-    ///
-    ///
-///  Holds the scale value used by Scalar.
+/// Runtime scale value used by Scalar..
     scale: f32,
 }
 /// Returns mutable access to the scalar value.
-///
 /// Provides mutable access to scalar.
-/// ### Arguments
-/// - `a` (`&mut Action`): Represents the a; the function uses it as input to the operation described above.
-/// - `field` (`Field`): Represents the field; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn scalar_mut(a: &mut Action, field: Field) -> Option<Scalar<'_>> {
     let (value, min, max, scale) = match (a, field) {
         (Action::Controller { cstick, .. }, Field::CX(_)) => (&mut cstick[0], -1., 1., 0.01),
@@ -1038,22 +804,12 @@ fn scalar_mut(a: &mut Action, field: Field) -> Option<Scalar<'_>> {
     })
 }
 /// Returns an optional `scalar` value.
-///
 /// Gets scalar if it is available.
-/// ### Arguments
-/// - `a` (`Action`): Represents the a; the function uses it as input to the operation described above.
-/// - `field` (`Field`): Represents the field; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn scalar(mut a: Action, field: Field) -> Option<f32> {
     scalar_mut(&mut a, field).map(|s| *s.value)
 }
 /// Updates the `cycle_tap_input` state using the supplied inputs.
-///
 /// Updates cycle tap input.
-/// ### Arguments
-/// - `action` (`&mut Action`): Represents the action; the function uses it as input to the operation described above.
-/// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
 fn cycle_tap_input(action: &mut Action, up: bool) {
     let Action::Tap {
         buttons,
@@ -1076,13 +832,7 @@ fn cycle_tap_input(action: &mut Action, up: bool) {
     *hold = 1;
 }
 /// Updates the `adjust_action` state using the supplied inputs.
-///
 /// Updates adjust action.
-/// ### Arguments
-/// - `action` (`&mut Action`): Represents the action; the function uses it as input to the operation described above.
-/// - `field` (`Field`): Represents the field; the function uses it as input to the operation described above.
-/// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
-/// - `onstage` (`bool`): Represents the onstage; the function uses it as input to the operation described above.
 fn adjust_action(action: &mut Action, field: Field, up: bool, onstage: bool) {
     let delta = if up { 1. } else { -1. };
     match (&mut *action, field) {
@@ -1131,35 +881,18 @@ fn adjust_action(action: &mut Action, field: Field, up: bool, onstage: bool) {
         }
     }
 }
-/// Defines the `CopySource` data structure.
-///
-/// Holds the data for CopySource.
+/// Runtime Smash data carried by `CopySource`.
 pub(super) struct CopySource {
-    /// Stores the `slot` value in `CopySource` as `super::PresetSlot`.
-    ///
-    ///
-///  Holds the slot value used by CopySource.
+/// Runtime slot value used by CopySource..
     pub slot: super::PresetSlot,
-    /// Stores the `index` value in `CopySource` as `usize`.
-    ///
-    ///
-///  Holds the index value used by CopySource.
+/// Runtime index value used by CopySource..
     pub index: usize,
-    /// Stores the `name` value in `CopySource` as `String`.
-    ///
-    ///
-///  Holds the name value used by CopySource.
+/// player-facing move/fighter name.
     pub name: String,
 }
 
 /// Updates the `adjust_reference` state using the supplied inputs.
-///
 /// Updates adjust reference.
-/// ### Arguments
-/// - `recipe` (`&mut Recipe`): Represents the input recipe to use; the function uses it as input to the operation described above.
-/// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-/// - `right` (`bool`): Represents the right; the function uses it as input to the operation described above.
-/// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
 fn adjust_reference(recipe: &mut Recipe, index: usize, right: bool, up: bool) {
     let old = input_reference(recipe.sequence.actions[index], right);
     let current = IR::ALL.iter().position(|value| *value == old).unwrap_or(0);
@@ -1168,12 +901,7 @@ fn adjust_reference(recipe: &mut Recipe, index: usize, right: bool, up: bool) {
 }
 
 /// Updates the `adjust_action_kind` state using the supplied inputs.
-///
 /// Updates adjust action kind.
-/// ### Arguments
-/// - `recipe` (`&mut Recipe`): Represents the input recipe to use; the function uses it as input to the operation described above.
-/// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-/// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
 fn adjust_action_kind(recipe: &mut Recipe, index: usize, up: bool) {
     let count = PRESETS.len() + recipe.imported.len();
     recipe.kinds[index] = cycle(recipe.kinds[index], count, up);
@@ -1181,11 +909,7 @@ fn adjust_action_kind(recipe: &mut Recipe, index: usize, up: bool) {
 }
 
 /// Toggles the shield hold.
-///
 /// Toggles the shield hold.
-/// ### Arguments
-/// - `recipe` (`&mut Recipe`): Represents the input recipe to use; the function uses it as input to the operation described above.
-/// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
 fn toggle_shield_hold(recipe: &mut Recipe, index: usize) {
     match &mut recipe.sequence.actions[index] {
         Action::Input { frames, .. } => *frames = if *frames == 0 { 4 } else { 0 },
@@ -1199,11 +923,7 @@ fn toggle_shield_hold(recipe: &mut Recipe, index: usize) {
 }
 
 /// Updates the `adjust_slots` state using the supplied inputs.
-///
 /// Updates adjust slots.
-/// ### Arguments
-/// - `recipe` (`&mut Recipe`): Represents the input recipe to use; the function uses it as input to the operation described above.
-/// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
 fn adjust_slots(recipe: &mut Recipe, up: bool) {
     let len = usize::from(recipe.sequence.len);
     if up && len < MAX_ACTIONS {
@@ -1214,15 +934,7 @@ fn adjust_slots(recipe: &mut Recipe, up: bool) {
 }
 
 /// Determines whether the `adjust_field` condition holds.
-///
 /// Checks whether adjust field.
-/// ### Arguments
-/// - `recipe` (`&mut Recipe`): Represents the input recipe to use; the function uses it as input to the operation described above.
-/// - `field` (`Field`): Represents the field; the function uses it as input to the operation described above.
-/// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
-/// - `onstage` (`bool`): Represents the onstage; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn adjust_field(recipe: &mut Recipe, field: Field, up: bool, onstage: bool) -> bool {
     match field {
         Field::Reaction(0) => {
@@ -1254,97 +966,44 @@ fn adjust_field(recipe: &mut Recipe, field: Field, up: bool, onstage: bool) -> b
     true
 }
 
-/// Defines the `RecipeEditor` data structure.
-///
-/// Holds the data for RecipeEditor.
+/// Runtime Smash data carried by `RecipeEditor`.
 #[derive(Default)]
 pub(super) struct RecipeEditor {
-    /// Stores the `modal` value in `RecipeEditor` as `Option<commands::Modal>`.
-    ///
-    ///
-///  Optionally stores the modal for RecipeEditor; it may be absent.
+/// Runtime modal value used by RecipeEditor..
     modal: Option<commands::Modal>,
-    /// Stores the `return_modal` value in `RecipeEditor` as `Option<commands::Modal>`.
-    ///
-    ///
-///  Optionally stores the return modal for RecipeEditor; it may be absent.
+/// Runtime return modal value used by RecipeEditor..
     return_modal: Option<commands::Modal>,
-    /// Stores the `step_clipboard` value in `RecipeEditor` as `Option<(Action`.
-    ///
-    ///
-///  Optionally stores the step clipboard for RecipeEditor; it may be absent.
+/// Runtime step clipboard value used by RecipeEditor..
     step_clipboard: Option<(Action, u8)>,
-    /// Stores the `manage_requested` value in `RecipeEditor` as `bool`.
-    ///
-    ///
-///  Holds the manage requested value used by RecipeEditor.
+/// Runtime manage requested value used by RecipeEditor..
     manage_requested: bool,
-    /// Stores the `copy_sources` value in `RecipeEditor` as `Vec<CopySource>`.
-    ///
-    ///
-///  Holds the copy sources value used by RecipeEditor.
+/// Runtime copy sources value used by RecipeEditor..
     copy_sources: Vec<CopySource>,
-    /// Stores the `copy_templates` value in `RecipeEditor` as `Vec<String>`.
-    ///
-    ///
-///  Holds the copy templates value used by RecipeEditor.
+/// Runtime copy templates value used by RecipeEditor..
     copy_templates: Vec<String>,
-    /// Stores the `template_apply` value in `RecipeEditor` as `Option<usize>`.
-    ///
-    ///
-///  Optionally stores the template apply for RecipeEditor; it may be absent.
+/// Runtime template apply value used by RecipeEditor..
     template_apply: Option<usize>,
-    /// Stores the `copy_requested` value in `RecipeEditor` as `bool`.
-    ///
-    ///
-///  Holds the copy requested value used by RecipeEditor.
+/// Runtime copy requested value used by RecipeEditor..
     copy_requested: bool,
-    /// Stores the `copy_apply` value in `RecipeEditor` as `Option<(super::PresetSlot`.
-    ///
-    ///
-///  Optionally stores the copy apply for RecipeEditor; it may be absent.
+/// Runtime copy apply value used by RecipeEditor..
     copy_apply: Option<(super::PresetSlot, usize)>,
-    /// Stores the `command_held` value in `RecipeEditor` as `u32`.
-    ///
-    ///
-///  Holds the command held value used by RecipeEditor.
+/// Runtime command held value used by RecipeEditor..
     command_held: u32,
-    /// Stores the `command_ticks` value in `RecipeEditor` as `u16`.
-    ///
-    ///
-///  Holds the command ticks value used by RecipeEditor.
+/// Runtime command ticks value used by RecipeEditor..
     command_ticks: u16,
-    /// Stores the `undo` value in `RecipeEditor` as `Option<Box<((usize`.
-    ///
-    ///
-///  Optionally stores the undo for RecipeEditor; it may be absent.
+/// Runtime undo value used by RecipeEditor..
     undo: Option<Box<((usize, usize), Recipe)>>,
-    /// Stores the `recipes` value in `RecipeEditor` as `BTreeMap<(usize`.
-    ///
-    ///
-///  Holds the recipes value used by RecipeEditor.
+/// Runtime recipes value used by RecipeEditor..
     recipes: BTreeMap<(usize, usize), Recipe>,
-    /// Stores the `cursor` value in `RecipeEditor` as `usize`.
-    ///
-    ///
-///  Holds the cursor value used by RecipeEditor.
+/// Runtime cursor value used by RecipeEditor..
     pub cursor: usize,
-    /// Stores the `limited` value in `RecipeEditor` as `bool`.
-    ///
-    ///
-///  Holds the limited value used by RecipeEditor.
+/// Runtime limited value used by RecipeEditor..
     pub limited: bool,
-    /// Stores the `last_edit` value in `RecipeEditor` as `Option<String>`.
-    ///
-    ///
-///  Optionally stores the last edit for RecipeEditor; it may be absent.
+/// Runtime last edit value used by RecipeEditor..
     last_edit: Option<String>,
 }
 impl RecipeEditor {
     /// Returns the `retained` result.
-    ///
-    ///
-///  Gets the retained result.
     #[cfg(feature = "diagnostic-logging")]
     pub(super) fn retained(&self) -> (usize, usize) {
         let bytes = std::mem::size_of::<Self>()
@@ -1376,35 +1035,15 @@ impl RecipeEditor {
         (self.recipes.len(), bytes)
     }
     /// Returns the `preview_panel` result.
-    ///
-    ///
-    ///  Gets the preview panel result.
-    /// ### Arguments
-    /// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `super::RecipePanel` value.
     pub fn preview_panel(sequence: Sequence) -> super::RecipePanel {
         let recipe = Recipe::new(sequence);
         recipe_panel(&recipe, &fields(&recipe), None, false, None)
     }
     /// Determines whether the `has` condition holds.
-    ///
-    ///
-    ///  Checks whether has.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn has(&self, key: (usize, usize)) -> bool {
         self.recipes.contains_key(&key)
     }
     /// Returns the `custom` result.
-    ///
-    ///
-    ///  Gets the custom result.
-    /// ### Returns
-    /// Returns the resulting `Sequence` value.
     pub fn custom() -> Sequence {
         Sequence {
             len: 6,
@@ -1412,13 +1051,6 @@ impl RecipeEditor {
         }
     }
     /// Updates the `ensure` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates ensure.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// - `source` (`Sequence`): Represents the source; the function uses it as input to the operation described above.
     pub fn ensure(&mut self, key: (usize, usize), source: Sequence) {
         self.close_commands();
         self.recipes.entry(key).or_insert_with(|| {
@@ -1431,24 +1063,10 @@ impl RecipeEditor {
         self.last_edit = None;
     }
     /// Determines whether the `edited` condition holds.
-    ///
-    ///
-    ///  Checks whether edited.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn edited(&self, key: (usize, usize)) -> bool {
         self.recipes.get(&key).is_some_and(|r| r.modified)
     }
     /// Marks the saved.
-    ///
-    ///
-    ///  Marks the saved.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
     pub fn mark_saved(&mut self, key: (usize, usize)) {
         if let Some(r) = self.recipes.get_mut(&key) {
             r.modified = false;
@@ -1456,11 +1074,6 @@ impl RecipeEditor {
         }
     }
     /// Updates the `release_tools` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates release tools.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn release_tools(&mut self) {
         self.close_commands();
         self.undo = None;
@@ -1468,12 +1081,6 @@ impl RecipeEditor {
         self.last_edit = None;
     }
     /// Retains the recipes.
-    ///
-    ///
-    ///  Retains the recipes.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `retain` (`impl FnMut((usize, usize), Option<Sequence>, bool) -> bool`): Represents the retain; the function uses it as input to the operation described above.
     pub fn retain_recipes(
         &mut self,
         mut retain: impl FnMut((usize, usize), Option<Sequence>, bool) -> bool,
@@ -1482,23 +1089,10 @@ impl RecipeEditor {
             .retain(|key, recipe| retain(*key, recipe.compile(), recipe.modified));
     }
     /// Checks whether empty.
-    ///
-    ///
-    ///  Checks whether empty.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn is_empty(&self) -> bool {
         self.recipes.is_empty()
     }
     /// Updates the `discard` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates discard.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
     pub fn discard(&mut self, key: (usize, usize)) {
         self.clear_copy();
         if self.undo.as_ref().is_some_and(|u| u.0 == key) {
@@ -1509,51 +1103,20 @@ impl RecipeEditor {
         self.recipes.remove(&key);
     }
     /// Returns an optional `while_held` value.
-    ///
-    ///
-    ///  Gets while held if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn while_held(&self, key: (usize, usize)) -> Option<bool> {
         self.recipes.get(&key).map(|r| r.sequence.while_held)
     }
     /// Returns an optional `compiled` value.
-    ///
-    ///
-    ///  Gets compiled if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn compiled(&self, key: (usize, usize)) -> Option<Sequence> {
         self.recipes.get(&key).and_then(Recipe::compile)
     }
     /// Updates the `navigate` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates navigate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// - `down` (`bool`): Represents the down; the function uses it as input to the operation described above.
     pub fn navigate(&mut self, key: (usize, usize), down: bool) {
         if let Some(r) = self.recipes.get(&key) {
             self.cursor = cycle(self.cursor, fields(r).len(), down);
         }
     }
     /// Determines whether the `repeatable` condition holds.
-    ///
-    ///
-    ///  Checks whether repeatable.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn repeatable(&self, key: (usize, usize)) -> bool {
         self.recipes.get(&key).is_some_and(|r| {
             !matches!(
@@ -1572,15 +1135,6 @@ impl RecipeEditor {
         })
     }
     /// Determines whether the `adjust` condition holds.
-    ///
-    ///
-    ///  Checks whether adjust.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// - `up` (`bool`): Represents the up; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn adjust(&mut self, key: (usize, usize), up: bool) -> bool {
         let Some(r) = self.recipes.get_mut(&key) else {
             return false;
@@ -1620,25 +1174,10 @@ impl RecipeEditor {
         changed
     }
     /// Determines whether the `reference_visible` condition holds.
-    ///
-    ///
-    ///  Checks whether reference visible.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub(super) fn reference_visible(&self) -> bool {
         matches!(self.modal, None | Some(commands::Modal::Picker { .. }))
     }
     /// Returns an optional `reference_label` value.
-    ///
-    ///
-    ///  Gets reference label if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub(super) fn reference_label(&self, key: (usize, usize)) -> Option<&'static str> {
         let r = self.recipes.get(&key)?;
         if let Some(commands::Modal::Picker { group, item, .. }) = self.modal {
@@ -1664,15 +1203,6 @@ impl RecipeEditor {
         }
     }
     /// Returns the `panel` result.
-    ///
-    ///
-    ///  Gets the panel result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`(usize, usize)`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// - `editing` (`bool`): Represents the editing; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `super::RecipePanel` value.
     pub fn panel(&self, key: (usize, usize), editing: bool) -> super::RecipePanel {
         if editing {
             if let Some(panel) = self.command_panel(key) {
@@ -1704,9 +1234,6 @@ impl RecipeEditor {
         panel
     }
     /// Returns the `lines` result.
-    ///
-    ///
-///  Gets the lines result.
     #[cfg(test)]
     pub fn lines(&self, key: (usize, usize)) -> Vec<String> {
         self.panel(key, true).into_lines()
@@ -1725,9 +1252,6 @@ mod tests {
     };
 
     /// Regression test for `edited_actions_keep_their_matching_preset_kind`.
-    ///
-    ///
-///  Checks that edited actions keep their matching preset kind.
     #[test]
     fn edited_actions_keep_their_matching_preset_kind() {
         let forward_tilt = PRESETS
@@ -1753,11 +1277,6 @@ mod tests {
     }
 
     /// Returns the `presets` result.
-    ///
-    ///
-    ///  Gets the presets result.
-    /// ### Returns
-    /// Returns the resulting `crate::fighter_profiles::presets::MenuPresets` value.
     fn presets() -> crate::fighter_profiles::presets::MenuPresets {
         let file = crate::sequence_config::Catalog::parse(
             "[kirby.neutral.first]\nstart_delay=0\nactions=short_hop,wait:2,nair",
@@ -1768,13 +1287,6 @@ mod tests {
         p.profile(6).unwrap().menu_options
     }
     /// Updates the `tap` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates tap.
-    /// ### Arguments
-    /// - `menu` (`&mut MenuSelection`): Represents the menu; the function uses it as input to the operation described above.
-    /// - `p` (`&crate::fighter_profiles::presets::MenuPresets`): Represents the p; the function uses it as input to the operation described above.
-    /// - `button` (`u32`): Represents the button; the function uses it as input to the operation described above.
     fn tap(
         menu: &mut MenuSelection,
         p: &crate::fighter_profiles::presets::MenuPresets,
@@ -1784,9 +1296,6 @@ mod tests {
         menu.input(button, p);
     }
     /// Copies the menu can template a button into ledge without changing source or name.
-    ///
-    ///
-///  Checks that copy menu can template a button into ledge without changing source or name.
     #[test]
     fn copy_menu_can_template_a_button_into_ledge_without_changing_source_or_name() {
         let file=crate::sequence_config::Catalog::parse("[kirby.neutral.target]\nname=Keep my name\nstart_delay=0\nactions=grab\n[kirby.x.source]\nname=Nice down smash\ndefault=true\nstart_delay=3\ntimeout=700\nspatial_timeout=80\nwhile_held=true\nactions=wait:2,down_smash:4").unwrap();
@@ -1831,9 +1340,6 @@ mod tests {
         assert_eq!(e.copy_sources.capacity(), 0);
     }
     /// Regression test for `editor_tools_consume_controls_cancel_safely_and_do_not_rebuild_while_idle`.
-    ///
-    ///
-///  Checks that editor tools consume controls cancel safely and do not rebuild while idle.
     #[test]
     fn editor_tools_consume_controls_cancel_safely_and_do_not_rebuild_while_idle() {
         let p = presets();
@@ -1874,9 +1380,6 @@ mod tests {
     }
 
     /// Regression test for `modified_save_explains_rejection_in_editor_and_tools_without_losing_edits`.
-    ///
-    ///
-///  Checks that modified save explains rejection in editor and tools without losing edits.
     #[test]
     fn modified_save_explains_rejection_in_editor_and_tools_without_losing_edits() {
         let p = presets();
@@ -1907,9 +1410,6 @@ mod tests {
         }
     }
     /// Regression test for `button_activation_is_editable_and_not_exposed_for_ledge_recipes`.
-    ///
-    ///
-///  Checks that button activation is editable and not exposed for ledge recipes.
     #[test]
     fn button_activation_is_editable_and_not_exposed_for_ledge_recipes() {
         let mut e = RecipeEditor::default();
@@ -1934,9 +1434,6 @@ mod tests {
             .contains("Loop while held"));
     }
     /// Regression test for `repeated_tap_picker_has_only_buttons_and_tilts_with_gap_and_total_fields`.
-    ///
-    ///
-///  Checks that repeated tap picker has only buttons and tilts with gap and total fields.
     #[test]
     fn repeated_tap_picker_has_only_buttons_and_tilts_with_gap_and_total_fields() {
         let source = crate::sequence_config::Catalog::parse(
@@ -1980,9 +1477,6 @@ mod tests {
         assert!(e.panel(key, true).body.join(" ").contains("every 13f"));
     }
     /// Regression test for `condition_fields_roundtrip_and_slot_growth_cannot_erase_actions`.
-    ///
-    ///
-///  Checks that condition fields roundtrip and slot growth cannot erase actions.
     #[test]
     fn condition_fields_roundtrip_and_slot_growth_cannot_erase_actions() {
         let source = crate::sequence_config::Catalog::parse(
@@ -2040,9 +1534,6 @@ mod tests {
         );
     }
     /// Regression test for `schedule_shows_input_frames_with_one_based_recognition_and_preserves_recipe`.
-    ///
-    ///
-///  Checks that schedule shows input frames with one based recognition and preserves recipe.
     #[test]
     fn schedule_shows_input_frames_with_one_based_recognition_and_preserves_recipe() {
         let source = crate::sequence_config::Catalog::parse(
@@ -2070,9 +1561,6 @@ mod tests {
         assert!(!header.contains("done F"));
     }
     /// Regression test for `schedule_never_claims_exact_frames_after_a_spatial_or_block_check`.
-    ///
-    ///
-///  Checks that schedule never claims exact frames after a spatial or block check.
     #[test]
     fn schedule_never_claims_exact_frames_after_a_spatial_or_block_check() {
         let source = crate::sequence_config::Catalog::parse(
@@ -2090,9 +1578,6 @@ mod tests {
         assert!(!panel.header.join(" ").contains("done F"));
     }
     /// Regression test for `imported_input_is_descriptive_and_can_be_reselected_after_cycling`.
-    ///
-    ///
-///  Checks that imported input is descriptive and can be reselected after cycling.
     #[test]
     fn imported_input_is_descriptive_and_can_be_reselected_after_cycling() {
         let action = Action::Input {
@@ -2121,9 +1606,6 @@ mod tests {
         assert_eq!(editor.compiled(key).unwrap().actions(), &[action]);
     }
     /// Regression test for `conditional_range_choices_keep_distinct_names_and_controls`.
-    ///
-    ///
-///  Checks that conditional range choices keep distinct names and controls.
     #[test]
     fn conditional_range_choices_keep_distinct_names_and_controls() {
         let mut source = Sequence::default();
@@ -2144,9 +1626,6 @@ mod tests {
         assert_eq!(r.compile().unwrap().actions(), source.actions());
     }
     /// Regression test for `button_hold_duration_changes_only_the_input_hold`.
-    ///
-    ///
-///  Checks that button hold duration changes only the input hold.
     #[test]
     fn button_hold_duration_changes_only_the_input_hold() {
         let mut source = Sequence::default();
@@ -2168,9 +1647,6 @@ mod tests {
         assert!(editor.lines(key).join("\n").contains("Hold input: 10f"));
     }
     /// Regression test for `full_sequence_panel_retains_all_moves_settings_and_exact_focus`.
-    ///
-    ///
-///  Checks that full sequence panel retains all moves settings and exact focus.
     #[test]
     fn full_sequence_panel_retains_all_moves_settings_and_exact_focus() {
         let mut sequence = RecipeEditor::custom();
@@ -2201,9 +1677,6 @@ mod tests {
         );
     }
     /// Regression test for `numbered_slot_overview_keeps_hidden_edits_visible_and_marks_saved_state`.
-    ///
-    ///
-///  Checks that numbered slot overview keeps hidden edits visible and marks saved state.
     #[test]
     fn numbered_slot_overview_keeps_hidden_edits_visible_and_marks_saved_state() {
         let mut e = RecipeEditor::default();
@@ -2228,9 +1701,6 @@ mod tests {
         assert!(!e.lines(key).join("\n").contains("01  Short hop *"));
     }
     /// Regression test for `training_reference_tracks_focused_move_and_picker_without_changing_recipe`.
-    ///
-    ///
-///  Checks that training reference tracks focused move and picker without changing recipe.
     #[test]
     fn training_reference_tracks_focused_move_and_picker_without_changing_recipe() {
         let p = presets();
@@ -2302,9 +1772,6 @@ mod tests {
     }
 
     /// Saves the wait consumes inputs without hidden edits or held save replay.
-    ///
-    ///
-///  Checks that save wait consumes inputs without hidden edits or held save replay.
     #[test]
     fn save_wait_consumes_inputs_without_hidden_edits_or_held_save_replay() {
         let p = presets();
@@ -2333,9 +1800,6 @@ mod tests {
     }
 
     /// Regression test for `menu_save_is_editor_only_once_per_press_and_cancels_preview`.
-    ///
-    ///
-///  Checks that menu save is editor only once per press and cancels preview.
     #[test]
     fn menu_save_is_editor_only_once_per_press_and_cancels_preview() {
         let p = presets();
@@ -2362,9 +1826,6 @@ mod tests {
         assert!(!menu.save_requested);
     }
     /// Regression test for `menu_preview_button_is_one_shot_consumed_and_menu_changes_cancel`.
-    ///
-    ///
-///  Checks that menu preview button is one shot consumed and menu changes cancel.
     #[test]
     fn menu_preview_button_is_one_shot_consumed_and_menu_changes_cancel() {
         let p = presets();
@@ -2409,9 +1870,6 @@ mod tests {
         assert_eq!(menu.input(MAPPER_X, &p) & MAPPER_X, 0);
     }
     /// Regression test for `recipe_editor_numeric_hold_accelerates_and_release_resets`.
-    ///
-    ///
-///  Checks that recipe editor numeric hold accelerates and release resets.
     #[test]
     fn recipe_editor_numeric_hold_accelerates_and_release_resets() {
         let p = presets();
@@ -2451,9 +1909,6 @@ mod tests {
         assert_eq!(menu.recipe_revision, revision);
     }
     /// Regression test for `recipe_editor_file_waits_become_delays_without_losing_frames`.
-    ///
-    ///
-///  Checks that recipe editor file waits become delays without losing frames.
     #[test]
     fn recipe_editor_file_waits_become_delays_without_losing_frames() {
         let mut source = Sequence::default();
@@ -2480,9 +1935,6 @@ mod tests {
         assert!(lines.contains("Delay:"));
     }
     /// Regression test for `recipe_editor_changes_next_attempt_delay_without_touching_file_or_old_snapshot`.
-    ///
-    ///
-///  Checks that recipe editor changes next attempt delay without touching file or old snapshot.
     #[test]
     fn recipe_editor_changes_next_attempt_delay_without_touching_file_or_old_snapshot() {
         let p = presets();
@@ -2511,9 +1963,6 @@ mod tests {
         assert!(menu.recipe_modified(PresetSlot::Neutral));
     }
     /// Regression test for `recipe_editor_custom_slots_swap_actions_and_insert_exact_delays`.
-    ///
-    ///
-///  Checks that recipe editor custom slots swap actions and insert exact delays.
     #[test]
     fn recipe_editor_custom_slots_swap_actions_and_insert_exact_delays() {
         let p = presets();
@@ -2560,9 +2009,6 @@ mod tests {
         );
     }
     /// Regression test for `recipe_editor_movement_bounds_and_expansion_limit_keep_valid_snapshots`.
-    ///
-    ///
-///  Checks that recipe editor movement bounds and expansion limit keep valid snapshots.
     #[test]
     fn recipe_editor_movement_bounds_and_expansion_limit_keep_valid_snapshots() {
         let mut e = RecipeEditor::default();
@@ -2608,9 +2054,6 @@ mod tests {
         assert_eq!(e.compiled((0, 1)).unwrap(), full);
     }
     /// Regression test for `menu_edited_a_hold_continues_after_jab_into_the_next_action`.
-    ///
-    ///
-///  Checks that menu edited a hold continues after jab into the next action.
     #[test]
     fn menu_edited_a_hold_continues_after_jab_into_the_next_action() {
         use crate::{
@@ -2702,9 +2145,6 @@ mod reaction_editor_tests {
     use super::*;
     use crate::{fighter_profiles::presets::PresetSlot, settings_menu::MenuSelection};
     /// Regression test for `assist_editor_tunes_roll_conditions_without_moving_rule_to_manual_choices`.
-    ///
-    ///
-///  Checks that assist editor tunes roll conditions without moving rule to manual choices.
     #[test]
     fn assist_editor_tunes_roll_conditions_without_moving_rule_to_manual_choices() {
         let source = crate::sequence_config::Catalog::parse(
@@ -2753,9 +2193,6 @@ mod reaction_editor_tests {
         );
     }
     /// Regression test for `facing_block_editor_preserves_marker_names_and_roundtrip`.
-    ///
-    ///
-///  Checks that facing block editor preserves marker names and roundtrip.
     #[test]
     fn facing_block_editor_preserves_marker_names_and_roundtrip() {
         let c=crate::sequence_config::Catalog::parse("[yoshi.neutral.test]\nstart_delay=0\nactions=if_facing_ledge, a:4, end_facing, if_back_to_ledge, b:4, end_facing").unwrap();
@@ -2779,9 +2216,6 @@ mod reaction_editor_tests {
     }
 
     /// Regression test for `shield_hold_selector_round_trips_without_losing_neighbor_actions`.
-    ///
-    ///
-///  Checks that shield hold selector round trips without losing neighbor actions.
     #[test]
     fn shield_hold_selector_round_trips_without_losing_neighbor_actions() {
         let source = crate::sequence_config::Catalog::parse(
@@ -2820,9 +2254,6 @@ mod reaction_editor_tests {
     }
 
     /// Regression test for `imported_opponent_input_keeps_target_axes_and_duration_editable`.
-    ///
-    ///
-///  Checks that imported opponent input keeps target axes and duration editable.
     #[test]
     fn imported_opponent_input_keeps_target_axes_and_duration_editable() {
         let source = crate::sequence_config::Catalog::parse(
@@ -2855,9 +2286,6 @@ mod reaction_editor_tests {
     }
 
     /// Regression test for `assist_ground_only_switch_preserves_other_recipe_fields`.
-    ///
-    ///
-///  Checks that assist ground only switch preserves other recipe fields.
     #[test]
     fn assist_ground_only_switch_preserves_other_recipe_fields() {
         let source=crate::sequence_config::Catalog::parse("[bowser.roll.test]\nstart_delay=0\nreaction=roll_vulnerable:grounded:0:24:10:any:1\nactions=up_b:3\n").unwrap().entries()[0].sequence;
@@ -2880,9 +2308,6 @@ mod reaction_editor_tests {
     }
 
     /// Regression test for `both_controller_sticks_and_references_are_editable_and_keep_saved_payload`.
-    ///
-    ///
-///  Checks that both controller sticks and references are editable and keep saved payload.
     #[test]
     fn both_controller_sticks_and_references_are_editable_and_keep_saved_payload() {
         let source = crate::sequence_config::Catalog::parse(
@@ -2922,9 +2347,6 @@ mod reaction_editor_tests {
     }
 
     /// Regression test for `invalid_draft_never_falls_back_to_the_old_recipe_snapshot`.
-    ///
-    ///
-///  Checks that invalid draft never falls back to the old recipe snapshot.
     #[test]
     fn invalid_draft_never_falls_back_to_the_old_recipe_snapshot() {
         let catalog = crate::sequence_config::Catalog::parse(
@@ -2956,9 +2378,6 @@ mod reaction_editor_tests {
         );
     }
     /// Regression test for `rapid_axis_edits_across_drafts_compile_and_serialize_the_exact_snapshot`.
-    ///
-    ///
-///  Checks that rapid axis edits across drafts compile and serialize the exact snapshot.
     #[test]
     fn rapid_axis_edits_across_drafts_compile_and_serialize_the_exact_snapshot() {
         let mut e = RecipeEditor::default();
@@ -3010,9 +2429,6 @@ mod reaction_editor_tests {
 mod ledge_position_branch_editor_tests {
     use super::*;
     /// Regression test for `positioning_fields_edit_and_save_without_converting_to_an_imported_action`.
-    ///
-    ///
-///  Checks that positioning fields edit and save without converting to an imported action.
     #[test]
     fn positioning_fields_edit_and_save_without_converting_to_an_imported_action() {
         let c = crate::sequence_config::Catalog::parse(
@@ -3075,9 +2491,6 @@ mod ledge_position_branch_editor_tests {
         }
     }
     /// Regression test for `opponent_branch_controls_are_zero_time_and_keep_single_branch_timing_label`.
-    ///
-    ///
-///  Checks that opponent branch controls are zero time and keep single branch timing label.
     #[test]
     fn opponent_branch_controls_are_zero_time_and_keep_single_branch_timing_label() {
         let cat=crate::sequence_config::Catalog::parse("[bowser.attack.test]\nstart_delay=0\nactions=if_facing_opponent,input:a:0:0:1,else_facing,input:b:0:0:1,end_facing\n").unwrap();

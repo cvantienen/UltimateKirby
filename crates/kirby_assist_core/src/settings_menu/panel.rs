@@ -4,14 +4,6 @@ use crate::fighter_tuning::{self, Tuning};
 
 impl MenuSelection {
     /// Returns the `recipe_panel` result.
-    ///
-    ///
-    ///  Gets the recipe panel result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `RecipePanel` value.
     pub fn recipe_panel(&self, presets: &MenuPresets) -> RecipePanel {
         if self.mode_rule_list && !self.managing() {
             return self.mode_rules_panel(presets);
@@ -43,13 +35,6 @@ impl MenuSelection {
         self.recipe_editor_panel(presets, slot, index)
     }
     /// Returns the `tuning_panel` result.
-    ///
-    ///
-    ///  Gets the tuning panel result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `RecipePanel` value.
     fn tuning_panel(&self) -> RecipePanel {
         let row = self.tuning_visible_index(self.tuning_row);
         RecipePanel {
@@ -73,14 +58,6 @@ impl MenuSelection {
         }
     }
     /// One fighter-setting row: value plus where that value comes from.
-    ///
-    ///  One fighter-setting row: value plus where that value comes from.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
-    /// - `selected` (`bool`): Represents the selected; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn tuning_line(&self, i: usize, selected: bool) -> String {
         let custom = self.tuning.0[i];
         let value = custom.unwrap_or(self.tuning_values[i]);
@@ -111,14 +88,6 @@ impl MenuSelection {
         )
     }
     /// Returns the `catalog_panel` result.
-    ///
-    ///
-    ///  Gets the catalog panel result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `catalog` (`&catalog::Catalog`): Represents the catalog; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `RecipePanel` value.
     fn catalog_panel(&self, catalog: &catalog::Catalog) -> RecipePanel {
         let mut header = catalog.lines();
         let body = if header.is_empty() {
@@ -143,15 +112,6 @@ impl MenuSelection {
         panel
     }
     /// The recipe editor (or its read-only preview) with the page hints around it.
-    ///
-    ///  The recipe editor (or its read-only preview) with the page hints around it.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `presets` (`&MenuPresets`): Represents the presets; the function uses it as input to the operation described above.
-    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `RecipePanel` value.
     fn recipe_editor_panel(
         &self,
         presets: &MenuPresets,

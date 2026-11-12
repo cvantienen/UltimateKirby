@@ -11,40 +11,22 @@ use crate::{
 };
 
 /// Maximum number of scenarios that can be configured without a heap allocator.
-///
-///  Maximum number of scenarios that can be configured without a heap allocator.
 pub const MAX_SCENARIO_RULES: usize = 10;
 
 /// Top-level configuration. Rules are disabled by default.
-///
-///  Top-level configuration. Rules are disabled by default.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AssistConfig {
     /// Stores whether `AssistConfig` is enabled.
-    ///
-    ///
-    ///  Turns assistance on or off.
     pub enabled: bool,
-    /// Stores the `scope` value in `AssistConfig` as `AssistScope`.
-    ///
-    ///
-    ///  Sets which fighter or controller may receive assistance.
+/// Runtime scope value used by AssistConfig..
     pub scope: AssistScope,
     // Fixed-size storage avoids allocating a vector whenever policy is evaluated.
-    /// Stores the `rules` value in `AssistConfig` as `[ScenarioRule; MAX_SCENARIO_RULES]`.
-    ///
-    ///
-    ///  Stores the configured scenario rules in fixed-size slots.
+/// Runtime rules value used by AssistConfig..
     pub rules: [ScenarioRule; MAX_SCENARIO_RULES],
 }
 
 impl Default for AssistConfig {
     /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             enabled: false,
@@ -56,16 +38,8 @@ impl Default for AssistConfig {
 
 impl AssistConfig {
     /// Replaces the matching rule, or uses the first empty slot.
-    ///
     /// Returns `false` for `Scenario::None` or when no empty slot remains.
     /// Disabled rules retain their settings until explicitly removed.
-    ///
-    ///  Replaces the matching rule, or uses the first empty slot. Returns false for Scenario::None or when no empty slot remains. Disabled rules retain their settings until explicitly removed.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `rule` (`ScenarioRule`): Represents the scenario rule being added, changed, or checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn set_rule(&mut self, rule: ScenarioRule) -> bool {
         if rule.scenario == Scenario::None {
             return false;
@@ -82,14 +56,6 @@ impl AssistConfig {
     }
 
     /// Returns mutable access to the configured rule for the requested scenario.
-    ///
-    ///
-    ///  Returns mutable access to the configured rule for the requested scenario.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     fn rule_mut(&mut self, scenario: Scenario) -> Option<&mut ScenarioRule> {
         if scenario == Scenario::None {
             return None;
@@ -98,14 +64,6 @@ impl AssistConfig {
     }
 
     /// Toggle a tool without losing its recipe or timing.
-    ///
-    ///  Toggle a tool without losing its recipe or timing.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
-    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn set_rule_enabled(&mut self, scenario: Scenario, enabled: bool) -> bool {
         self.rule_mut(scenario)
             .map(|rule| rule.enabled = enabled)
@@ -113,13 +71,6 @@ impl AssistConfig {
     }
 
     /// Remove a tool and free its configuration slot.
-    ///
-    ///  Remove a tool and free its configuration slot.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn remove_rule(&mut self, scenario: Scenario) -> bool {
         self.rule_mut(scenario)
             .map(|rule| *rule = ScenarioRule::DISABLED)
@@ -129,14 +80,6 @@ impl AssistConfig {
     // Disabled entries are intentionally ignored, but retain their settings so
     // toggling a tool back on does not discard its timing/custom recipe.
     /// Returns the enabled rule configured for the requested scenario.
-    ///
-    ///
-    ///  Returns the enabled rule configured for the requested scenario.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn rule_for(&self, scenario: Scenario) -> Option<ScenarioRule> {
         self.rules
             .iter()
@@ -146,19 +89,11 @@ impl AssistConfig {
 }
 
 /// Select which fighter/controller may receive assistance, in any game mode.
-///
-///  Select which fighter/controller may receive assistance, in any game mode.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AssistScope {
     /// Controls whether `AssistScope` requires local human control.
-    ///
-    ///
-    ///  Requires the fighter to be controlled by a local human when this scope is checked.
     pub require_locally_human_controlled: bool,
     /// Controls whether `AssistScope` requires Kirby.
-    ///
-    ///
-    ///  Restricts assistance to Kirby when this flag is set.
     pub require_kirby: bool,
 }
 
@@ -167,14 +102,6 @@ impl AssistScope {
     // This scope is independent of game mode; the live adapter separately
     // validates its supported native controller/fighter before using the engine.
     /// Returns whether the supplied context is permitted by this scope.
-    ///
-    ///
-    ///  Returns whether the supplied context is permitted by this scope.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `context` (`RunContext`): Represents the current execution context; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn allows(self, context: RunContext) -> bool {
         (!self.require_locally_human_controlled || context.is_locally_human_controlled)
             && (!self.require_kirby || context.fighter == FighterKind::Kirby)
@@ -183,11 +110,6 @@ impl AssistScope {
 
 impl Default for AssistScope {
     /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn default() -> Self {
         Self {
             require_locally_human_controlled: true,
@@ -197,89 +119,49 @@ impl Default for AssistScope {
 }
 
 /// The action to take after a rule's timing condition has been met.
-///
-///  The action to take after a rule's timing condition has been met.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ScenarioAction {
     /// One logical controller frame, merged with the human player's frame.
-    ///
-    ///  One logical controller frame, merged with the human player's frame.
     ControllerRecipe(
         /// Carries the logical controller recipe in `ScenarioAction`.
-        ///
-        ///
-        ///  Holds the logical controller recipe for this `ScenarioAction` choice.
         InputRecipe,
     ),
     /// A future feature for replaying a saved multi-frame input sequence.
     /// It is deliberately non-functional until a playback backend is written.
-    ///
-    ///  A future feature for replaying a saved multi-frame input sequence. It is deliberately non-functional until a playback backend is written.
     PlaybackSlot(
         /// Carries the reserved recording slot in `ScenarioAction`.
-        ///
-        ///
-        ///  Holds the reserved recording slot for this `ScenarioAction` choice.
         RecordingSlot,
     ),
 }
 
 /// Slot names reserve an understandable API for a future input recorder.
-///
-///  Slot names reserve an understandable API for a future input recorder.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RecordingSlot {
-    /// Represents the `One` case of `RecordingSlot`.
-    ///
-    ///
-    ///  Represents the One option in RecordingSlot.
+/// `One` option in the `RecordingSlot` Smash policy state.
     One,
-    /// Represents the `Two` case of `RecordingSlot`.
-    ///
-    ///
-    ///  Represents the Two option in RecordingSlot.
+/// `Two` option in the `RecordingSlot` Smash policy state.
     Two,
-    /// Represents the `Three` case of `RecordingSlot`.
-    ///
-    ///
-    ///  Represents the Three option in RecordingSlot.
+/// `Three` option in the `RecordingSlot` Smash policy state.
     Three,
-    /// Represents the `Four` case of `RecordingSlot`.
-    ///
-    ///
-    ///  Represents the Four option in RecordingSlot.
+/// `Four` option in the `RecordingSlot` Smash policy state.
     Four,
-    /// Represents the `Five` case of `RecordingSlot`.
-    ///
-    ///
-    ///  Represents the Five option in RecordingSlot.
+/// `Five` option in the `RecordingSlot` Smash policy state.
     Five,
 }
 
 /// How a scenario's active-frame counter selects controller frames.
-///
-///  How a scenario's active-frame counter selects controller frames.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RuleTiming {
     /// Wait this many scenario frames before the first action frame.
-    ///
-    ///  Wait this many scenario frames before the first action frame.
     pub start_after_frames: u16,
     /// Number of action frames to emit each time the rule activates.
-    ///
-    ///  Number of action frames to emit each time the rule activates.
     pub active_for_frames: u16,
     /// Zero means "run once". Any other value repeats from the first frame.
-    ///
-    ///  Zero means "run once". Any other value repeats from the first frame.
     pub repeat_every_frames: u16,
 }
 
 impl RuleTiming {
-    /// Defines the `IMMEDIATELY_ONCE` constant used by this module.
-    ///
-    ///
-    ///  Provides the IMMEDIATELY ONCE constant value.
+/// `IMMEDIATELY_ONCE` is a configuration value used by the Smash runtime.
     pub const IMMEDIATELY_ONCE: Self = Self {
         start_after_frames: 0,
         active_for_frames: 1,
@@ -287,13 +169,6 @@ impl RuleTiming {
     };
 
     /// Returns the `after` result.
-    ///
-    ///
-    ///  Gets the after result.
-    /// ### Arguments
-    /// - `start_after_frames` (`u16`): Represents the start after frames; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn after(start_after_frames: u16) -> Self {
         Self {
             start_after_frames,
@@ -302,13 +177,6 @@ impl RuleTiming {
     }
 
     /// Returns the `pulse_every` result.
-    ///
-    ///
-    ///  Gets the pulse every result.
-    /// ### Arguments
-    /// - `repeat_every_frames` (`u16`): Represents the repeat every frames; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn pulse_every(repeat_every_frames: u16) -> Self {
         Self {
             repeat_every_frames,
@@ -320,14 +188,6 @@ impl RuleTiming {
     // repeats a pulse pattern: interval 3 / duration 1 means on, off, off, repeat.
     // The live caller supplies observed input updates, not a universal game clock.
     /// Checks whether the timing rule is active at the supplied scenario age.
-    ///
-    ///
-    ///  Checks whether the timing rule is active at the supplied scenario age.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `frames_active` (`u32`): Represents the frames active; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn is_active_on(self, frames_active: u32) -> bool {
         if frames_active < self.start_after_frames as u32 {
             return false;
@@ -347,37 +207,20 @@ impl RuleTiming {
 }
 
 /// A readable declaration: "in this scenario, propose this action at this time."
-///
-///  A readable declaration: "in this scenario, propose this action at this time.".
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ScenarioRule {
     /// Stores whether `ScenarioRule` is enabled.
-    ///
-    ///
-    ///  Turns assistance on or off.
     pub enabled: bool,
-    /// Stores the `scenario` value in `ScenarioRule` as `Scenario`.
-    ///
-    ///
-    ///  Holds the scenario value used by ScenarioRule.
+/// Runtime scenario value used by ScenarioRule..
     pub scenario: Scenario,
-    /// Stores the `timing` value in `ScenarioRule` as `RuleTiming`.
-    ///
-    ///
-    ///  Holds the timing value used by ScenarioRule.
+/// Runtime timing value used by ScenarioRule..
     pub timing: RuleTiming,
-    /// Stores the `action` value in `ScenarioRule` as `ScenarioAction`.
-    ///
-    ///
-    ///  Holds the action value used by ScenarioRule.
+/// Runtime action value used by ScenarioRule..
     pub action: ScenarioAction,
 }
 
 impl ScenarioRule {
-    /// Defines the `DISABLED` constant used by this module.
-    ///
-    ///
-    ///  Provides the DISABLED constant value.
+/// `DISABLED` is a configuration value used by the Smash runtime.
     pub const DISABLED: Self = Self {
         enabled: false,
         scenario: Scenario::None,
@@ -386,15 +229,6 @@ impl ScenarioRule {
     };
 
     /// Returns the `controller` result.
-    ///
-    ///
-    ///  Gets the controller result.
-    /// ### Arguments
-    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
-    /// - `timing` (`RuleTiming`): Represents the timing; the function uses it as input to the operation described above.
-    /// - `recipe` (`InputRecipe`): Represents the input recipe to use; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn controller(scenario: Scenario, timing: RuleTiming, recipe: InputRecipe) -> Self {
         Self {
             enabled: true,
@@ -405,15 +239,6 @@ impl ScenarioRule {
     }
 
     /// Returns the `playback` result.
-    ///
-    ///
-    ///  Gets the playback result.
-    /// ### Arguments
-    /// - `scenario` (`Scenario`): Represents the scenario whose rule is being handled; the function uses it as input to the operation described above.
-    /// - `timing` (`RuleTiming`): Represents the timing; the function uses it as input to the operation described above.
-    /// - `slot` (`RecordingSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn playback(scenario: Scenario, timing: RuleTiming, slot: RecordingSlot) -> Self {
         Self {
             enabled: true,
@@ -432,9 +257,6 @@ mod tests {
     use crate::input::ButtonSet;
 
     /// Regression test for `all_scenarios_fit_and_disabled_settings_survive_other_tools`.
-    ///
-    ///
-    ///  Checks that all scenarios fit and disabled settings survive other tools.
     #[test]
     fn all_scenarios_fit_and_disabled_settings_survive_other_tools() {
         let mut config = AssistConfig::default();
@@ -476,9 +298,6 @@ mod tests {
     }
 
     /// Constructs the rule replaces old rule for the same scenario.
-    ///
-    ///
-    ///  Checks that new rule replaces old rule for the same scenario.
     #[test]
     fn new_rule_replaces_old_rule_for_the_same_scenario() {
         let mut config = AssistConfig::default();
@@ -500,9 +319,6 @@ mod tests {
     }
 
     /// Regression test for `timing_supports_delays_and_pulses`.
-    ///
-    ///
-    ///  Checks that timing supports delays and pulses.
     #[test]
     fn timing_supports_delays_and_pulses() {
         let timing = RuleTiming {
@@ -522,53 +338,26 @@ pub mod button_bindings {
     //! Mode identities for On/Off settings and legacy file compatibility.
     //! Reaction rules use their own explicit Control whitelist; Builtin below
     //! exposes native button helpers.
-    /// Defines the available `Mode` cases.
-    ///
-    ///
-    ///  Lists the available Mode choices.
+/// Available `Mode` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Mode {
-        /// Represents the `LedgeTrap` case of `Mode`.
-        ///
-        ///
-        ///  Represents the LedgeTrap option in Mode.
+/// `LedgeTrap` option in the `Mode` Smash policy state.
         LedgeTrap,
-        /// Represents the `AutoTech` case of `Mode`.
-        ///
-        ///
-        ///  Represents the AutoTech option in Mode.
+/// `AutoTech` option in the `Mode` Smash policy state.
         AutoTech,
-        /// Represents the `AutoMash` case of `Mode`.
-        ///
-        ///
-        ///  Represents the AutoMash option in Mode.
+/// `AutoMash` option in the `Mode` Smash policy state.
         AutoMash,
-        /// Represents the `IdleCrouch` case of `Mode`.
-        ///
-        ///
-        ///  Represents the IdleCrouch option in Mode.
+/// `IdleCrouch` option in the `Mode` Smash policy state.
         IdleCrouch,
-        /// Represents the `TiltTurn` case of `Mode`.
-        ///
-        ///
-        ///  Represents the TiltTurn option in Mode.
+/// `TiltTurn` option in the `Mode` Smash policy state.
         TiltTurn,
-        /// Represents the `SpotPunish` case of `Mode`.
-        ///
-        ///
-        ///  Represents the SpotPunish option in Mode.
+/// `SpotPunish` option in the `Mode` Smash policy state.
         SpotPunish,
-        /// Represents the `OutOfShield` case of `Mode`.
-        ///
-        ///
-        ///  Represents the OutOfShield option in Mode.
+/// `OutOfShield` option in the `Mode` Smash policy state.
         OutOfShield,
     }
     impl Mode {
-        /// Defines the `ALL` constant used by this module.
-        ///
-        ///
-        ///  Provides the ALL constant value.
+/// `ALL` is a configuration value used by the Smash runtime.
         pub const ALL: [Self; 7] = [
             Self::LedgeTrap,
             Self::AutoTech,
@@ -579,24 +368,10 @@ pub mod button_bindings {
             Self::OutOfShield,
         ];
         /// Tests whether the requested bit is set in the value.
-        ///
-        ///
-        ///  Checks whether this bit is on.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `u16` value.
         pub fn bit(self) -> u16 {
             1 << self as usize
         }
         /// Returns the native identifier of the observed object.
-        ///
-        ///
-        ///  Gets the object’s identifier.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn id(self) -> &'static str {
             match self {
                 Self::LedgeTrap => "ledge_trap",
@@ -609,13 +384,6 @@ pub mod button_bindings {
             }
         }
         /// Returns the display label for the value.
-        ///
-        ///
-        ///  Gets the text shown for this value.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn label(self) -> &'static str {
             match self {
                 Self::LedgeTrap => "Ledge trap",
@@ -628,56 +396,25 @@ pub mod button_bindings {
             }
         }
         /// Parses the supplied source into the module’s validated representation.
-        ///
-        ///
-        ///  Reads the source and checks that it is valid.
-        /// ### Arguments
-        /// - `s` (`&str`): Represents the s; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn parse(s: &str) -> Option<Self> {
             Self::ALL.into_iter().find(|m| m.id() == s)
         }
         /// Checks whether the current value supports the requested operation.
-        ///
-        ///
-        ///  Checks whether this value can be used for that operation.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn supports(self, kind: i32) -> bool {
             self != Self::IdleCrouch || kind == crate::fighter_kinds::KIRBY
         }
     }
-    /// Defines the available `Activation` cases.
-    ///
-    ///
-    ///  Lists the available Activation choices.
+/// Available `Activation` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
     pub enum Activation {
         #[default]
-        /// Represents the `Hold` case of `Activation`.
-        ///
-        ///
-        ///  Represents the Hold option in Activation.
+/// `Hold` option in the `Activation` Smash policy state.
         Hold,
-        /// Represents the `Toggle` case of `Activation`.
-        ///
-        ///
-        ///  Represents the Toggle option in Activation.
+/// `Toggle` option in the `Activation` Smash policy state.
         Toggle,
     }
     impl Activation {
         /// Returns the native identifier of the observed object.
-        ///
-        ///
-        ///  Gets the object’s identifier.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn id(self) -> &'static str {
             match self {
                 Self::Hold => "hold",
@@ -685,37 +422,18 @@ pub mod button_bindings {
             }
         }
     }
-    /// Defines the `ModeBinding` data structure.
-    ///
-    ///
-    ///  Holds the data for ModeBinding.
+/// Runtime Smash data carried by `ModeBinding`.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct ModeBinding {
-        /// Stores the `mode` value in `ModeBinding` as `Mode`.
-        ///
-        ///
-        ///  Holds the mode value used by ModeBinding.
+/// Runtime mode value used by ModeBinding..
         pub mode: Mode,
-        /// Stores the `activation` value in `ModeBinding` as `Activation`.
-        ///
-        ///
-        ///  Holds the activation value used by ModeBinding.
+/// Runtime activation value used by ModeBinding..
         pub activation: Activation,
     }
     impl ModeBinding {
-        /// Defines the `COUNT` constant used by this module.
-        ///
-        ///
-        ///  Provides the COUNT constant value.
+/// `COUNT` is a configuration value used by the Smash runtime.
         pub const COUNT: usize = Mode::ALL.len() * 2;
         /// Converts a millisecond offset into a `Duration`.
-        ///
-        ///
-        ///  Turns a millisecond value into a time duration.
-        /// ### Arguments
-        /// - `index` (`usize`): Represents the zero-based position of an item; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn at(index: usize) -> Option<Self> {
             Some(Self {
                 mode: *Mode::ALL.get(index / 2)?,
@@ -727,29 +445,12 @@ pub mod button_bindings {
             })
         }
         /// Returns the index of the selected entry.
-        ///
-        ///
-        ///  Gets the selected item’s position.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `usize` value.
         pub fn index(self) -> usize {
             self.mode as usize * 2 + usize::from(self.activation == Activation::Toggle)
         }
         /// Returns the display label for the value.
-        ///
-        ///
-        ///  Gets the text shown for this value.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn label(self) -> &'static str {
-            /// Defines the `LABELS` constant used by this module.
-            ///
-            ///
-            ///  Provides the LABELS constant value.
+/// `LABELS` is a configuration value used by the Smash runtime.
             const LABELS: [&str; ModeBinding::COUNT] = [
                 "Hold: Ledge trap",
                 "Toggle: Ledge trap",
@@ -769,18 +470,8 @@ pub mod button_bindings {
             LABELS[self.index()]
         }
         /// Returns the stable identifier of the selected choice.
-        ///
-        ///
-        ///  Gets the selected choice’s ID.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn choice_id(self) -> &'static str {
-            /// Defines the `IDS` constant used by this module.
-            ///
-            ///
-            ///  Provides the IDS constant value.
+/// `IDS` is a configuration value used by the Smash runtime.
             const IDS: [&str; ModeBinding::COUNT] = [
                 "__mode_ledge_trap_hold",
                 "__mode_ledge_trap_toggle",
@@ -802,36 +493,19 @@ pub mod button_bindings {
     }
 
     /// Existing native input helpers, assignable without executing a recipe tape.
-    ///
-    ///  Existing native input helpers, assignable without executing a recipe tape.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Builtin {
-        /// Represents the `Normal` case of `Builtin`.
-        ///
-        ///
-        ///  Represents the Normal option in Builtin.
+/// `Normal` option in the `Builtin` Smash policy state.
         Normal,
-        /// Represents the `LedgeAssist` case of `Builtin`.
-        ///
-        ///
-        ///  Represents the LedgeAssist option in Builtin.
+/// `LedgeAssist` option in the `Builtin` Smash policy state.
         LedgeAssist,
-        /// Represents the `TurboTeabag` case of `Builtin`.
-        ///
-        ///
-        ///  Represents the TurboTeabag option in Builtin.
+/// `TurboTeabag` option in the `Builtin` Smash policy state.
         TurboTeabag,
-        /// Represents the `LedgeTrump` case of `Builtin`.
-        ///
-        ///
-        ///  Represents the LedgeTrump option in Builtin.
+/// `LedgeTrump` option in the `Builtin` Smash policy state.
         LedgeTrump,
     }
     impl Builtin {
-        /// Defines the `ALL` constant used by this module.
-        ///
-        ///
-        ///  Provides the ALL constant value.
+/// `ALL` is a configuration value used by the Smash runtime.
         pub const ALL: [Self; 4] = [
             Self::Normal,
             Self::LedgeAssist,
@@ -839,13 +513,6 @@ pub mod button_bindings {
             Self::LedgeTrump,
         ];
         /// Returns the serialized token for the value.
-        ///
-        ///
-        ///  Gets the text form used when saving this value.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn token(self) -> &'static str {
             match self {
                 Self::Normal => "normal",
@@ -855,13 +522,6 @@ pub mod button_bindings {
             }
         }
         /// Returns the display label for the value.
-        ///
-        ///
-        ///  Gets the text shown for this value.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn label(self) -> &'static str {
             match self {
                 Self::Normal => "Normal button",
@@ -871,13 +531,6 @@ pub mod button_bindings {
             }
         }
         /// Returns the stable identifier of the selected choice.
-        ///
-        ///
-        ///  Gets the selected choice’s ID.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting text.
         pub fn choice_id(self) -> &'static str {
             match self {
                 Self::Normal => "__normal_button",
@@ -887,13 +540,6 @@ pub mod button_bindings {
             }
         }
         /// Parses the supplied source into the module’s validated representation.
-        ///
-        ///
-        ///  Reads the source and checks that it is valid.
-        /// ### Arguments
-        /// - `value` (`&str`): Represents the value being processed; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         pub fn parse(value: &str) -> Option<Self> {
             match value {
                 "short_hop" => Some(Self::Normal),
@@ -901,13 +547,6 @@ pub mod button_bindings {
             }
         }
         /// Builds the default the for.
-        ///
-        ///
-        ///  Holds the default for value.
-        /// ### Arguments
-        /// - `slot` (`crate::fighter_profiles::presets::PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         pub fn default_for(slot: crate::fighter_profiles::presets::PresetSlot) -> Self {
             use crate::fighter_profiles::presets::PresetSlot;
             match slot {
@@ -916,13 +555,6 @@ pub mod button_bindings {
             }
         }
         /// Returns the template offset used by the current record.
-        ///
-        ///
-        ///  Gets the template’s position in the stored data.
-        /// ### Arguments
-        /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `usize` value.
         pub fn template_offset(self) -> usize {
             match self {
                 Self::Normal => 0,
@@ -941,165 +573,72 @@ pub mod option_read {
         native_input::MAPPER_A,
         timing::{motion_elapsed, ActiveWindow, RecoveryWindow},
     };
-    /// Defines the available `Kind` cases.
-    ///
-    ///
-    ///  Lists the available Kind choices.
+/// Available `Kind` choices for the Smash assistance menu.
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum Kind {
-        /// Represents the `Spot` case of `Kind`.
-        ///
-        ///
-        ///  Represents the Spot option in Kind.
+/// `Spot` option in the `Kind` Smash policy state.
         Spot,
-        /// Represents the `Grab` case of `Kind`.
-        ///
-        ///
-        ///  Represents the Grab option in Kind.
+/// `Grab` option in the `Kind` Smash policy state.
         Grab,
-        /// Represents the `Roll` case of `Kind`.
-        ///
-        ///
-        ///  Represents the Roll option in Kind.
+/// `Roll` option in the `Kind` Smash policy state.
         Roll,
     }
-    /// Defines the `Target` data structure.
-    ///
-    ///
-    ///  Holds the data for Target.
+/// Runtime Smash data carried by `Target`.
     #[derive(Clone, Copy)]
     pub struct Target {
-        /// Stores the `id` value in `Target` as `u32`.
-        ///
-        ///
-        ///  Holds the id value used by Target.
+/// battle-object ID.
         pub id: u32,
-        /// Stores the `kind` value in `Target` as `Kind`.
-        ///
-        ///
-        ///  Holds the kind value used by Target.
+/// native fighter-kind ID.
         pub kind: Kind,
-        /// Stores the `status` value in `Target` as `i32`.
-        ///
-        ///
-        ///  Holds the status value used by Target.
+/// native fighter status.
         pub status: i32,
-        /// Stores the `motion` value in `Target` as `u64`.
-        ///
-        ///
-        ///  Holds the motion value used by Target.
+/// native animation/motion ID.
         pub motion: u64,
-        /// Stores the `frame` value in `Target` as `f32`.
-        ///
-        ///
-        ///  Holds the frame value used by Target.
+/// current native animation frame.
         pub frame: f32,
-        /// Stores the `rate` value in `Target` as `f32`.
-        ///
-        ///
-        ///  Holds the rate value used by Target.
+/// native animation playback rate.
         pub rate: f32,
-        /// Stores the `position` value in `Target` as `[f32; 2]`.
-        ///
-        ///
-        ///  Stores the position collection for Target.
+/// world-space position.
         pub position: [f32; 2],
-        /// Stores the `velocity` value in `Target` as `[f32; 2]`.
-        ///
-        ///
-        ///  Stores the velocity collection for Target.
+/// world-space velocity.
         pub velocity: [f32; 2],
-        /// Stores the `opens` value in `Target` as `f32`.
-        ///
-        ///
-        ///  Holds the opens value used by Target.
+/// Runtime opens value used by Target..
         pub opens: f32,
-        /// Stores the `closes` value in `Target` as `f32`.
-        ///
-        ///
-        ///  Holds the closes value used by Target.
+/// Runtime closes value used by Target..
         pub closes: f32,
     }
-    /// Defines the `Context` data structure.
-    ///
-    ///
-    ///  Holds the data for Context.
+/// Runtime Smash data carried by `Context`.
     #[derive(Clone, Copy)]
     pub struct Context {
-        /// Stores the `object` value in `Context` as `u32`.
-        ///
-        ///
-        ///  Holds the object value used by Context.
+/// Runtime object value used by Context..
         pub object: u32,
-        /// Stores the `status` value in `Context` as `i32`.
-        ///
-        ///
-        ///  Holds the status value used by Context.
+/// native fighter status.
         pub status: i32,
-        /// Stores the `motion` value in `Context` as `u64`.
-        ///
-        ///
-        ///  Holds the motion value used by Context.
+/// native animation/motion ID.
         pub motion: u64,
-        /// Stores the `frame` value in `Context` as `f32`.
-        ///
-        ///
-        ///  Holds the frame value used by Context.
+/// current native animation frame.
         pub frame: f32,
-        /// Stores the `rate` value in `Context` as `f32`.
-        ///
-        ///
-        ///  Holds the rate value used by Context.
+/// native animation playback rate.
         pub rate: f32,
-        /// Stores the `stopped` value in `Context` as `bool`.
-        ///
-        ///
-        ///  Holds the stopped value used by Context.
+/// Runtime stopped value used by Context..
         pub stopped: bool,
-        /// Stores the `grounded` value in `Context` as `bool`.
-        ///
-        ///
-        ///  Holds the grounded value used by Context.
+/// grounded-state observation.
         pub grounded: bool,
-        /// Stores the `can_act` value in `Context` as `bool`.
-        ///
-        ///
-        ///  Holds the can act value used by Context.
+/// Runtime can act value used by Context..
         pub can_act: bool,
-        /// Stores the `down_ready` value in `Context` as `bool`.
-        ///
-        ///
-        ///  Holds the down ready value used by Context.
+/// Runtime down ready value used by Context..
         pub down_ready: bool,
-        /// Stores the `forward_ready` value in `Context` as `bool`.
-        ///
-        ///
-        ///  Holds the forward ready value used by Context.
+/// Runtime forward ready value used by Context..
         pub forward_ready: bool,
-        /// Stores the `facing` value in `Context` as `f32`.
-        ///
-        ///
-        ///  Holds the facing value used by Context.
+/// left/right facing sign.
         pub facing: f32,
-        /// Stores the `position` value in `Context` as `[f32; 2]`.
-        ///
-        ///
-        ///  Stores the position collection for Context.
+/// world-space position.
         pub position: [f32; 2],
-        /// Stores the `velocity` value in `Context` as `[f32; 2]`.
-        ///
-        ///
-        ///  Stores the velocity collection for Context.
+/// world-space velocity.
         pub velocity: [f32; 2],
     }
     impl Context {
         /// Grounded with a usable motion clock and a known facing.
-        ///
-        ///  Grounded with a usable motion clock and a known facing.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn ready_to_read(&self) -> bool {
             self.grounded
                 && crate::timing::clock_known(self.motion, self.frame, self.rate)
@@ -1107,157 +646,68 @@ pub mod option_read {
                 && self.facing.abs() >= 0.5
         }
     }
-    /// Defines the `Config` data structure.
-    ///
-    ///
-    ///  Holds the data for Config.
+/// Runtime Smash data carried by `Config`.
     #[derive(Clone, Copy)]
     pub struct Config {
-        /// Stores the `down` value in `Config` as `[u8; 2]`.
-        ///
-        ///
-        ///  Stores the down collection for Config.
+/// Runtime down value used by Config..
         pub down: [u8; 2],
-        /// Stores the `down_back` value in `Config` as `Option<[u8; 2]>`.
-        ///
-        ///
-        ///  Optionally stores the down back for Config; it may be absent.
+/// Runtime down back value used by Config..
         pub down_back: Option<[u8; 2]>,
-        /// Stores the `forward` value in `Config` as `[u8; 2]`.
-        ///
-        ///
-        ///  Stores the forward collection for Config.
+/// Runtime forward value used by Config..
         pub forward: [u8; 2],
-        /// Stores the `down_reach` value in `Config` as `f32`.
-        ///
-        ///
-        ///  Holds the down reach value used by Config.
+/// Runtime down reach value used by Config..
         pub down_reach: f32,
-        /// Stores the `forward_reach` value in `Config` as `f32`.
-        ///
-        ///
-        ///  Holds the forward reach value used by Config.
+/// Runtime forward reach value used by Config..
         pub forward_reach: f32,
     }
-    /// Defines the `Track` data structure.
-    ///
-    ///
-    ///  Holds the data for Track.
+/// Runtime Smash data carried by `Track`.
     #[derive(Clone, Copy)]
     struct Track {
-        /// Stores the `id` value in `Track` as `u32`.
-        ///
-        ///
-        ///  Holds the id value used by Track.
+/// battle-object ID.
         id: u32,
-        /// Stores the `status` value in `Track` as `i32`.
-        ///
-        ///
-        ///  Holds the status value used by Track.
+/// native fighter status.
         status: i32,
-        /// Stores the `motion` value in `Track` as `u64`.
-        ///
-        ///
-        ///  Holds the motion value used by Track.
+/// native animation/motion ID.
         motion: u64,
-        /// Stores the `frame` value in `Track` as `f32`.
-        ///
-        ///
-        ///  Holds the frame value used by Track.
+/// current native animation frame.
         frame: f32,
-        /// Stores the `rate` value in `Track` as `f32`.
-        ///
-        ///
-        ///  Holds the rate value used by Track.
+/// native animation playback rate.
         rate: f32,
-        /// Stores the `used` value in `Track` as `bool`.
-        ///
-        ///
-        ///  Holds the used value used by Track.
+/// Runtime used value used by Track..
         used: bool,
     }
-    /// Defines the `Punisher` data structure.
-    ///
-    ///
-    ///  Holds the data for Punisher.
+/// Runtime Smash data carried by `Punisher`.
     #[derive(Default)]
     pub struct Punisher {
-        /// Stores the `object` value in `Punisher` as `Option<u32>`.
-        ///
-        ///
-        ///  Optionally stores the object for Punisher; it may be absent.
+/// Runtime object value used by Punisher..
         object: Option<u32>,
-        /// Stores the `tracks` value in `Punisher` as `[Option<Track>; 8]`.
-        ///
-        ///
-        ///  Stores the tracks collection for Punisher.
+/// Runtime tracks value used by Punisher..
         tracks: [Option<Track>; 8],
-        /// Stores the `previous` value in `Punisher` as `Option<(i32`.
-        ///
-        ///
-        ///  Optionally stores the previous for Punisher; it may be absent.
+/// Runtime previous value used by Punisher..
         previous: Option<(i32, u64, f32, f32)>,
-        /// Stores the `target` value in `Punisher` as `Option<u32>`.
-        ///
-        ///
-        ///  Optionally stores the target for Punisher; it may be absent.
+/// selected opponent/projectile target.
         target: Option<u32>,
-        /// Stores the `phase` value in `Punisher` as `u8`.
-        ///
-        ///
-        ///  Holds the phase value used by Punisher.
+/// Runtime phase value used by Punisher..
         phase: u8,
-        /// Stores the `forward` value in `Punisher` as `bool`.
-        ///
-        ///
-        ///  Holds the forward value used by Punisher.
+/// Runtime forward value used by Punisher..
         forward: bool,
-        /// Stores the `age` value in `Punisher` as `f32`.
-        ///
-        ///
-        ///  Holds the age value used by Punisher.
+/// Runtime age value used by Punisher..
         age: f32,
-        /// Stores the `output` value in `Punisher` as `ControllerOutput`.
-        ///
-        ///
-        ///  Holds the output value used by Punisher.
+/// controller input output.
         output: ControllerOutput,
     }
     impl Punisher {
         /// Checks whether an input owner has committed the action.
-        ///
-        ///
-        ///  Checks whether the action has been committed.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         pub fn committed(&self) -> bool {
             self.target.is_some() && self.output.owned != 0
         }
         /// Cancels the pending.
-        ///
-        ///
-        ///  Cancels the pending.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
         pub fn cancel_pending(&mut self) {
             self.target = None;
             self.phase = 0;
             self.output = ControllerOutput::default();
         }
         /// Updates the toggle state from the current button sample and match state.
-        ///
-        ///
-        ///  Checks the current buttons and updates whether the toggle should activate.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-        /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
-        /// - `cfg` (`Config`): Represents the cfg; the function uses it as input to the operation described above.
-        /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `ControllerOutput` value.
         pub fn sample(
             &mut self,
             enabled: bool,
@@ -1268,18 +718,6 @@ pub mod option_read {
             self.sample_with_height(enabled, c, cfg, targets, 8.)
         }
         /// Samples the with height.
-        ///
-        ///
-        ///  Samples the with height.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-        /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
-        /// - `cfg` (`Config`): Represents the cfg; the function uses it as input to the operation described above.
-        /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-        /// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `ControllerOutput` value.
         pub fn sample_with_height(
             &mut self,
             enabled: bool,
@@ -1371,13 +809,6 @@ pub mod option_read {
 
         /// Remember each target's motion clock; `used` survives while the same
         /// motion event continues. Returns the previous tracks.
-        ///
-        ///  Remember each target's motion clock; used survives while the same motion event continues. Returns the previous tracks.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `[Option<Track>; 8]` value.
         fn refresh_tracks(&mut self, targets: &[Option<Target>; 8]) -> [Option<Track>; 8] {
             let old = self.tracks;
             for (track, target) in self.tracks.iter_mut().zip(targets) {
@@ -1400,15 +831,6 @@ pub mod option_read {
 
         /// Elapsed frames of our own clock, else of the committed target's, else NaN
         /// when either clock is invalid or rewound.
-        ///
-        ///  Elapsed frames of our own clock, else of the committed target's, else NaN when either clock is invalid or rewound.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `c` (`&Context`): Represents the c; the function uses it as input to the operation described above.
-        /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-        /// - `old` (`[Option<Track>; 8]`): Represents the old; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `f32` value.
         fn clock_delta(
             &mut self,
             c: &Context,
@@ -1442,16 +864,6 @@ pub mod option_read {
         }
 
         /// A committed target must stay in reach of the committed attack.
-        ///
-        ///  A committed target must stay in reach of the committed attack.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
-        /// - `cfg` (`Config`): Represents the cfg; the function uses it as input to the operation described above.
-        /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-        /// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `true` when the documented condition holds; otherwise, returns `false`.
         fn target_in_contact(
             &self,
             c: Context,
@@ -1469,17 +881,6 @@ pub mod option_read {
 
         /// First untouched target (or the committed one) already in reach once
         /// `setup` frames have elapsed. Returns its slot, side and horizontal offset.
-        ///
-        ///  First untouched target (or the committed one) already in reach once setup frames have elapsed. Returns its slot, side and horizontal offset.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
-        /// - `cfg` (`Config`): Represents the cfg; the function uses it as input to the operation described above.
-        /// - `targets` (`&[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-        /// - `setup` (`f32`): Represents the setup; the function uses it as input to the operation described above.
-        /// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
         fn select_target(
             &self,
             c: Context,
@@ -1510,14 +911,6 @@ pub mod option_read {
 
         /// Hold the committed smash while native acceptance is pending, repeating the
         /// press on the game's retry schedule until it times out.
-        ///
-        ///  Hold the committed smash while native acceptance is pending, repeating the press on the game's retry schedule until it times out.
-        /// ### Arguments
-        /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-        /// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
-        /// - `delta` (`f32`): Represents the delta; the function uses it as input to the operation described above.
-        /// ### Returns
-        /// Returns the resulting `ControllerOutput` value.
         fn retry_attack(&mut self, facing: f32, delta: f32) -> ControllerOutput {
             self.age += delta;
             if self.age >= crate::move_input::ACCEPTANCE_TIMEOUT {
@@ -1534,13 +927,6 @@ pub mod option_read {
         }
     }
     /// Returns the measured number of shield frames.
-    ///
-    ///
-    ///  Gets how long the shield was held.
-    /// ### Arguments
-    /// - `c` (`&Context`): Represents the c; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `f32` value.
     fn shield_frames(c: &Context) -> f32 {
         match c.status {
             crate::native_states::GUARD_ON..=crate::native_states::GUARD => 11.0,
@@ -1549,14 +935,6 @@ pub mod option_read {
         }
     }
     /// Returns the attack output requested by the current response.
-    ///
-    ///
-    ///  Gets the attack input requested by the response.
-    /// ### Arguments
-    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
-    /// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     fn attack_output(forward: bool, facing: f32) -> ControllerOutput {
         crate::move_input::output(
             if forward {
@@ -1568,18 +946,6 @@ pub mod option_read {
         )
     }
     /// Checks whether the observed interaction includes contact.
-    ///
-    ///
-    ///  Checks whether contact was observed.
-    /// ### Arguments
-    /// - `c` (`Context`): Represents the c; the function uses it as input to the operation described above.
-    /// - `cfg` (`Config`): Represents the cfg; the function uses it as input to the operation described above.
-    /// - `t` (`Target`): Represents the t; the function uses it as input to the operation described above.
-    /// - `forward` (`bool`): Represents the forward; the function uses it as input to the operation described above.
-    /// - `setup` (`f32`): Represents the setup; the function uses it as input to the operation described above.
-    /// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn contact(c: Context, cfg: Config, t: Target, forward: bool, setup: f32, height: f32) -> bool {
         if !t.frame.is_finite()
             || !t.rate.is_finite()
@@ -1640,118 +1006,64 @@ pub mod settings {
     use crate::native_input::MAPPER_R;
 
     /// Validated assistance settings. Defaults and response timing are shared by both builds.
-    ///
-    ///  Validated assistance settings. Defaults and response timing are shared by both builds.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct AssistSettings {
         /// Legacy identity tag; no executable fighter handler is dispatched.
-        ///
-        ///  Legacy identity tag; no executable fighter handler is dispatched.
         pub implementation: Option<crate::ledge_trap::ResponseImplementation>,
         /// Native fighter identity for startup-loaded file menus.
-        ///
-        ///  Native fighter identity for startup-loaded file menus.
         pub fighter_kind: i32,
         /// Indices into the fighter's startup-resolved menu lists. None preserves direct
         /// core/legacy callers that supply settings without using the battle menu.
-        ///
-        ///  Indices into the fighter's startup-resolved menu lists. None preserves direct core/legacy callers that supply settings without using the battle menu.
         pub response_choices: [Option<usize>; crate::fighter_profiles::presets::PresetSlot::COUNT],
         /// Startup-parsed recipes for the five selected compiled or file-added IDs.
         /// Fixed-size copies keep text/file work out of live callbacks.
-        ///
-        ///  Startup-parsed recipes for the five selected compiled or file-added IDs. Fixed-size copies keep text/file work out of live callbacks.
         pub sequence_overrides: [Option<crate::sequence_config::Sequence>;
             crate::fighter_profiles::presets::PresetSlot::COUNT],
         /// Numeric-only startup adjustments; these cannot register new actions.
         /// Resolved move timings and response switches for our selected fighter.
-        ///
-        ///  Numeric-only startup adjustments; these cannot register new actions. Resolved move timings and response switches for our selected fighter.
         pub fighter: FighterGrabData,
-        /// Stores the `responses` value in `AssistSettings` as `LedgeResponses`.
-        ///
-        ///
-        ///  Holds the responses value used by AssistSettings.
+/// Runtime responses value used by AssistSettings..
         pub responses: LedgeResponses,
         /// Stores whether `AssistSettings` is enabled.
-        ///
-        ///
-        ///  Turns assistance on or off.
         pub enabled: bool,
         /// Enable the selected response to a witnessed generic ledge release.
-        ///
-        ///  Enable the selected response to a witnessed generic ledge release.
         pub drop_defense: bool,
         /// Native-time budget to request/confirm the drop punish before shielding.
         // Ranges/heights/stance distances are WORLD units, not stick percentages.
         // Increasing reach only makes the policy willing to attack from farther
         // away; it does not enlarge Kirby's real hitbox and can create more whiffs.
         /// Broad target acquisition limits in world units.
-        ///
-        ///  Native-time budget to request/confirm the drop punish before shielding. Broad target acquisition limits in world units.
         pub horizontal_range: f32,
-        /// Stores the `vertical_range` value in `AssistSettings` as `f32`.
-        ///
-        ///
-        ///  Holds the vertical range value used by AssistSettings.
+/// Runtime vertical range value used by AssistSettings..
         pub vertical_range: f32,
         // Follow limits keep the acquired opponent through its get-up travel;
         // acquisition limits above decide whether to acquire it in the first place.
-        /// Stores the `follow_range` value in `AssistSettings` as `f32`.
-        ///
-        ///
-        ///  Holds the follow range value used by AssistSettings.
+/// Runtime follow range value used by AssistSettings..
         pub follow_range: f32,
-        /// Stores the `follow_vertical_range` value in `AssistSettings` as `f32`.
-        ///
-        ///
-        ///  Holds the follow vertical range value used by AssistSettings.
+/// Runtime follow vertical range value used by AssistSettings..
         pub follow_vertical_range: f32,
         /// Preserve player movement between response inputs.
-        ///
-        ///  Preserve player movement between response inputs.
         pub manual_spacing: bool,
         /// Player owns spacing; normal/jump/grab timing does not test reach.
-        ///
-        ///  Player owns spacing; normal/jump/grab timing does not test reach.
         pub distance_agnostic: bool,
         /// Baseline horizontal walk strength: normal cap is -0.02, near-full
         /// horizontal cap is +0.03, both bounded to 0.1..0.45.
-        ///
-        ///  Baseline horizontal walk strength: normal cap is -0.02, near-full horizontal cap is +0.03, both bounded to 0.1..0.45.
         pub walk_strength: f32,
-        /// Stores the `auto_position` value in `AssistSettings` as `bool`.
-        ///
-        ///
-        ///  Holds the auto position value used by AssistSettings.
+/// Runtime auto position value used by AssistSettings..
         pub auto_position: bool,
         /// Heuristic stage-side stance offset, not a universal optimal location.
-        ///
-        ///  Heuristic stage-side stance offset, not a universal optimal location.
         pub stand_distance: f32,
         // Unlike distances, move_strength is normalized stick magnitude (0..1).
-        /// Stores the `move_strength` value in `AssistSettings` as `f32`.
-        ///
-        ///
-        ///  Holds the move strength value used by AssistSettings.
+/// Runtime move strength value used by AssistSettings..
         pub move_strength: f32,
         /// Legacy parsed setting. Captures always return control to the player.
-        ///
-        ///  Legacy parsed setting. Captures always return control to the player.
         pub throw_outward: bool,
         /// Native mask of the button mapped to Grab; R for this user's controls.
-        ///
-        ///  Native mask of the button mapped to Grab; R for this user's controls.
         pub grab_button: u32,
     }
 
     impl Default for AssistSettings {
         /// Returns the default value for this type.
-        ///
-        ///
-        ///  Returns the default value for this type.
-        /// ### Returns
-        /// Returns a `Self` value representing the result of the operation.
         fn default() -> Self {
             Self {
                 implementation: Some(crate::ledge_trap::ResponseImplementation::Kirby),

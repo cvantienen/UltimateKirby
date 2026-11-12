@@ -7,26 +7,12 @@
 use crate::game_ffi as game;
 use kirby_assist_core::auto_di::{BlastZone, Trajectory};
 /// Cache key containing the object id, damage-stop countdown, and copied blast-zone geometry.
-///
-///  Remembers the stage bounds already read for this launched fighter.
 pub(super) type GeometryCache = (u32, u64, Option<BlastZone>);
 /// Observes the damage environment for a given object, caching geometry and computing trajectory if applicable.
 /// Reuses matching cached blast-zone bounds and computes trajectory data
 /// only during the bounded damage-stop observation window.
-///
-///  Estimates the launch path while avoiding unnecessary native reads.
-///
 /// # Safety
 /// The object pointer must be valid for the duration of the native reads.
-/// ### Arguments
-/// - `reads` (`&super::frame::FrameReads`): Represents the read-only snapshot of current observations; the function uses it as input to the operation described above.
-/// - `object` (`*mut game::Object`): Represents the object; the function uses it as input to the operation described above.
-/// - `object_id` (`u32`): Represents the object id; the function uses it as input to the operation described above.
-/// - `damage_stop` (`bool`): Represents the damage stop; the function uses it as input to the operation described above.
-/// - `remaining` (`u64`): Represents the remaining; the function uses it as input to the operation described above.
-/// - `cached` (`Option<GeometryCache>`): Represents the cached; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `(Option<GeometryCache>, Option<Trajectory>)` value.
 pub(super) unsafe fn observe(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,

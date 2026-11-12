@@ -8,54 +8,26 @@ use crate::{
     settings::AssistSettings,
 };
 
-/// Defines the `Response` data structure.
-///
-/// Holds the data for Response.
+/// Runtime Smash data carried by `Response`.
 #[derive(Default)]
 pub struct Response {
-    /// Stores the `plan` value in `Response` as `Option<InputTimeline>`.
-    ///
-    ///
-    ///  Optionally stores the plan for Response; it may be absent.
+/// Runtime plan value used by Response..
     plan: Option<InputTimeline>,
-    /// Stores the `target` value in `Response` as `Option<u32>`.
-    ///
-    ///
-    ///  Optionally stores the target for Response; it may be absent.
+/// selected opponent/projectile target.
     target: Option<u32>,
-    /// Stores the `up_b` value in `Response` as `UpBFlow`.
-    ///
-    ///
-    ///  Holds the up b value used by Response.
+/// Runtime up b value used by Response..
     up_b: UpBFlow,
-    /// Stores the `configured` value in `Response` as `bool`.
-    ///
-    ///
-    ///  Holds the configured value used by Response.
+/// Runtime configured value used by Response..
     configured: bool,
-    /// Stores the `grab_sent` value in `Response` as `bool`.
-    ///
-    ///
-    ///  Holds the grab sent value used by Response.
+/// Runtime grab sent value used by Response..
     grab_sent: bool,
-    /// Stores the `grab_settling` value in `Response` as `bool`.
-    ///
-    ///
-    ///  Holds the grab settling value used by Response.
+/// Runtime grab settling value used by Response..
     grab_settling: bool,
-    /// Stores the `grab_delivery` value in `Response` as `crate::move_input::DeliveryBudget`.
-    ///
-    ///
-    ///  Holds the grab delivery value used by Response.
+/// Runtime grab delivery value used by Response..
     grab_delivery: crate::move_input::DeliveryBudget,
 }
 impl Response {
     /// Constructs a new value with the type’s initial state.
-    ///
-    ///
-    ///  Creates a new value.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             plan: None,
@@ -68,138 +40,54 @@ impl Response {
         }
     }
     /// Returns the selected target observation.
-    ///
-    ///
-    ///  Gets the chosen target.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
     /// Determines whether ground.
-    ///
-    ///
-    ///  Checks whether ground.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn needs_ground(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::needs_ground)
     }
     /// Determines whether the `attack_hold` condition holds.
-    ///
-    ///
-    ///  Checks whether attack hold.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn attack_hold(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::attack_hold)
     }
     /// Returns an optional `right_stick` value.
-    ///
-    ///
-    ///  Gets right stick if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn right_stick(&self) -> Option<[f32; 2]> {
         self.plan.as_ref().map(InputTimeline::right_stick)
     }
     /// Determines whether the `walking` condition holds.
-    ///
-    ///
-    ///  Checks whether walking.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn walking(&self) -> bool {
         self.plan.as_ref().is_some_and(InputTimeline::walking)
     }
     /// Determines whether the `automatic_up_b` condition holds.
-    ///
-    ///
-    ///  Checks whether automatic up b.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn automatic_up_b(&self) -> bool {
         self.up_b.armed() && self.plan.is_some()
     }
     /// Determines whether the `up_b_delivery_started` condition holds.
-    ///
-    ///
-    ///  Checks whether up b delivery started.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn up_b_delivery_started(&self) -> bool {
         self.automatic_up_b() && self.up_b.started()
     }
     /// Updates the `attempted_up_special` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates attempted up special.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn attempted_up_special(&mut self, tick: i64, target: u32) {
         if self.automatic_up_b() && self.target == Some(target) {
             self.up_b.attempted(tick);
         }
     }
     /// Updates the `mapped_up_special` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates mapped up special.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_up_special(&mut self, tick: i64, target: u32) {
         if self.automatic_up_b() && self.target == Some(target) {
             self.up_b.mapped(tick);
         }
     }
     /// Determines whether the `configured_committed` condition holds.
-    ///
-    ///
-    ///  Checks whether configured committed.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn configured_committed(&self) -> bool {
         self.configured && self.target.is_some()
     }
     /// Determines whether the `grab_delivery_pending` condition holds.
-    ///
-    ///
-    ///  Checks whether grab delivery pending.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn grab_delivery_pending(&self) -> bool {
         self.grab_sent && self.target.is_some()
     }
     /// Updates the `mapped_grab` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates mapped grab.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped_grab(&mut self, tick: i64, target: u32) {
         if self.configured && self.target == Some(target) {
             self.grab_sent = true;
@@ -207,34 +95,14 @@ impl Response {
         }
     }
     /// Determines whether the `up_b_receipt_pending` condition holds.
-    ///
-    ///
-    ///  Checks whether up b receipt pending.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn up_b_receipt_pending(&self) -> bool {
         self.automatic_up_b() && self.up_b.receipt_pending()
     }
     /// Determines whether the `awaiting_up_b` condition holds.
-    ///
-    ///
-    ///  Checks whether awaiting up b.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn awaiting_up_b(&self) -> bool {
         self.automatic_up_b() && self.up_b.awaiting()
     }
     /// Updates the `delivery_tick` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates delivery tick.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn delivery_tick(&mut self, tick: i64) {
         if self.grab_sent {
             self.grab_delivery.mapped(tick);
@@ -244,10 +112,6 @@ impl Response {
         }
     }
     /// Stop playback without forgetting a controller Grab still in flight.
-    ///
-    ///  Stop playback without forgetting a controller Grab still in flight.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn suspend(&mut self) {
         if self.grab_sent {
             self.plan = None;
@@ -258,23 +122,11 @@ impl Response {
         }
     }
     /// Cancels the pending operation and clears its state.
-    ///
-    ///
-    ///  Stops the operation that was waiting.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel(&mut self) {
         *self = Self::new();
     }
     /// Common admission for an explicitly configured automatic response: native
     /// control now, an available target and no grab already in progress.
-    ///
-    ///  Common admission for an explicitly configured automatic response: native control now, an available target and no grab already in progress.
-    /// ### Arguments
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `enemy` (`Opponent`): Represents the enemy; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn can_begin(c: GameplayContext, enemy: Opponent) -> bool {
         c.gameplay
             && c.situation == crate::native_states::situation::GROUND
@@ -286,16 +138,6 @@ impl Response {
             && !crate::action_owner::native_grab_active(c.status)
     }
     /// Starts the up b.
-    ///
-    ///
-    ///  Starts the up b.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `enemy` (`Opponent`): Represents the enemy; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn start_up_b(
         &mut self,
         mut sequence: Sequence,
@@ -319,15 +161,6 @@ impl Response {
     }
     /// Commit an explicitly configured automatic response. Native Up-B keeps
     /// its confirmation/air/manual safeguards; other recipes use the same tape.
-    ///
-    ///  Commit an explicitly configured automatic response. Native Up-B keeps its confirmation/air/manual safeguards; other recipes use the same tape.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `sequence` (`Sequence`): Represents the sequence; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `enemy` (`Opponent`): Represents the enemy; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn start_sequence(
         &mut self,
         mut sequence: Sequence,
@@ -348,17 +181,6 @@ impl Response {
         true
     }
     /// Determines whether the `start` condition holds.
-    ///
-    ///
-    ///  Checks whether start.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `rules` (`&Resolved`): Represents the rules; the function uses it as input to the operation described above.
-    /// - `trigger` (`Trigger`): Represents the trigger; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `enemy` (`Opponent`): Represents the enemy; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn start(
         &mut self,
         rules: &Resolved,
@@ -378,14 +200,6 @@ impl Response {
     }
     /// The locked target stays usable: same actor, measurable and either an
     /// ordinary target or, for an existing tape, a ledge-invulnerable one.
-    ///
-    ///  The locked target stays usable: same actor, measurable and either an ordinary target or, for an existing tape, a ledge-invulnerable one.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `e` (`Opponent`): Represents the e; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn follows(&self, e: Opponent, c: GameplayContext) -> bool {
         Some(e.id) == self.target
             && finite_positions(e.position, c.position)
@@ -394,17 +208,6 @@ impl Response {
                     && crate::reaction_rules::automatic_follow_target_available(e.status))
     }
     /// Updates the toggle state from the current button sample and match state.
-    ///
-    ///
-    ///  Checks the current buttons and updates whether the toggle should activate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
-    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-    /// - `enemy` (`Option<Opponent>`): Represents the enemy; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     pub fn sample(
         &mut self,
         allowed: bool,
@@ -496,15 +299,6 @@ impl Response {
 }
 
 /// Shared event/range selection; recipes are copied only when an event matches.
-///
-///  Shared event/range selection; recipes are copied only when an event matches.
-/// ### Arguments
-/// - `rules` (`&Resolved`): Represents the rules; the function uses it as input to the operation described above.
-/// - `trigger` (`Trigger`): Represents the trigger; the function uses it as input to the operation described above.
-/// - `c` (`GameplayContext`): Represents the c; the function uses it as input to the operation described above.
-/// - `enemy` (`Opponent`): Represents the enemy; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn select(
     rules: &Resolved,
     trigger: Trigger,

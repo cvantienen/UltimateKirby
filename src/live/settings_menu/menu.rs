@@ -24,57 +24,33 @@ use std::{
 
 #[path = "view.rs"]
 /// Builds owned menu-text snapshots for the renderer.
-///
-///  Prepares the text that appears in the menu.
 mod view;
 #[cfg(feature = "diagnostic-logging")]
 use view::SavedChoice;
 use view::Snapshot;
 #[path = "lightweight.rs"]
 /// Publishes and draws the compact option-only selector.
-///
-///  Handles the smaller menu used when full editor details are unnecessary.
 mod lightweight;
 
 /// Cached owned snapshot consumed by the immediate-mode renderer.
-///
-///  The menu text currently ready to display.
 static VIEW: Mutex<Option<Snapshot>> = Mutex::new(None);
 /// Signals that cached owned UI data must be released on a safe callback.
-///
-///  Requests cleanup of the old menu display.
 static DEFERRED_CLEAR: AtomicBool = AtomicBool::new(false);
 /// Invalidates requests and snapshots across menu lifecycle transitions.
-///
-///  Distinguishes the newest menu session from older display data.
 static VIEW_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 /// Last rendered focus identity and generation for avoiding redundant focus work.
-///
-///  Remembers the last highlighted menu item.
 static LAST_FOCUS: Mutex<Option<(i32, MenuRow, usize, u8, Option<usize>, u64)>> = Mutex::new(None);
 /// Tracks current menu presence using session-level lifecycle rules.
-///
-///  Keeps track of whether the menu is present for the current match.
 static PRESENCE: Mutex<MenuPresence> = Mutex::new(MenuPresence::new());
 /// Pending master-switch notification and its creation time.
-///
-///  Stores a temporary message about the assist switch.
 static MASTER_TOAST: Mutex<Option<(bool, Instant)>> = Mutex::new(None);
 // A hidden/inactive toast needs no mutex on every shared-renderer callback.
 /// Fast-path indicator that a master-switch toast may need rendering.
-///
-///  Lets drawing skip checking for a message when none is waiting.
 static MASTER_TOAST_PENDING: AtomicBool = AtomicBool::new(false);
 /// Maximum display duration of the master-switch toast.
-///
-///  How long the switch message stays visible.
 const MASTER_TOAST_LIFETIME: Duration = Duration::from_millis(1800);
 /// Publishes a switch status if the toast slot can be acquired immediately.
-///
-///  Queues a short on/off message without blocking the renderer.
-/// ### Arguments
-/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
 pub(super) fn show_master_status(enabled: bool) {
     if let Ok(mut toast) = MASTER_TOAST.try_lock() {
         *toast = Some((enabled, Instant::now()));
@@ -83,49 +59,27 @@ pub(super) fn show_master_status(enabled: bool) {
 }
 
 /// Serializes and debounces the physical master-switch gesture.
-///
-///  Tracks button presses used to turn the assist on or off.
 static MASTER_GESTURE: Mutex<kirby_assist_core::runtime_toggle::RuntimeToggle> =
     Mutex::new(kirby_assist_core::runtime_toggle::RuntimeToggle::new());
 /// Monotonic origin used for switch sampling cadence.
-///
-///  Provides a clock for checking the switch gesture.
 static MASTER_CLOCK: Mutex<Option<Instant>> = Mutex::new(None);
 /// Most recent quarter-second match-lock probe tick.
-///
-///  Prevents repeating the match-lock check too frequently.
 static MASTER_PROBE_TICK: AtomicU64 = AtomicU64::new(u64::MAX);
 
 /// Native HID style mask for a full-key controller.
-///
-///  Identifies a standard full-key controller.
 const NPAD_STYLE_FULL_KEY: u32 = 0x1;
 /// Native HID style mask for handheld controls.
-///
-///  Identifies handheld controller controls.
 const NPAD_STYLE_HANDHELD: u32 = 0x2;
 /// Native HID style mask for paired Joy-Cons.
-///
-///  Identifies a pair of Joy-Cons.
 const NPAD_STYLE_JOY_DUAL: u32 = 0x4;
 /// Native HID style mask for a left Joy-Con.
-///
-///  Identifies the left Joy-Con.
 const NPAD_STYLE_JOY_LEFT: u32 = 0x8;
 /// Native HID style mask for a right Joy-Con.
-///
-///  Identifies the right Joy-Con.
 const NPAD_STYLE_JOY_RIGHT: u32 = 0x10;
 /// Native HID style mask for a GameCube controller.
-///
-///  Identifies a GameCube controller.
 const NPAD_STYLE_GAMECUBE: u32 = 0x20;
 
 /// Reads the selected player's current native HID button bitfield.
-///
-///  Checks which physical buttons the selected controller is pressing.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn selected_hid_buttons() -> Option<u64> {
     let player = super::super::CONFIG.get()?.player_index;
     let ids = [
@@ -169,23 +123,17 @@ unsafe fn selected_hid_buttons() -> Option<u64> {
 }
 
 /// Disarms the switch recognizer when the gesture cannot be sampled.
-///
-///  Cancels a partly entered switch button combination.
 fn disarm_master_gesture() {
     if let Ok(mut gesture) = MASTER_GESTURE.try_lock() {
         gesture.disarm();
     }
 }
 /// Refreshes the master lock from an existing read-only battle observation.
-///
-///  Checks whether the current match still prevents switching.
 unsafe fn refresh_match_lock() {
     super::super::refresh_master_match_lock(super::super::observations::battle_menu_ready_go());
 }
 
 /// Samples master-toggle input, rate-limits locked-match probes, and applies a completed gesture.
-///
-///  Checks for the on/off button combination without reading controls every render callback.
 unsafe fn poll_master_switch() {
     if !super::super::CONFIG
         .get()
@@ -232,10 +180,6 @@ unsafe fn poll_master_switch() {
     }
 }
 /// Updates session-presence state from the supplied local-fighter timestamp.
-///
-///  Records that the local fighter was observed.
-/// ### Arguments
-/// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
 pub(super) fn observe_local_fighter(now: Instant) {
     if let Ok(mut presence) = PRESENCE.try_lock() {
         presence.observe(now);
@@ -245,39 +189,23 @@ pub(super) fn observe_local_fighter(now: Instant) {
 // requests, hitstop, death and respawn. Master-switch probes above are separate
 // read-only manager checks; menu rendering does not query fighter state.
 /// Tracks whether the renderer should consider the battle menu active.
-///
-///  Remembers whether the current display belongs to an active battle.
 static BATTLE_ACTIVE: AtomicBool = AtomicBool::new(false);
 // Visibility must not depend on acquiring the cached-text mutex. A close
 // request can arrive while ImGui is drawing the previous snapshot.
 /// Atomic fast-path visibility state independent of cached view locking.
-///
-///  Lets the menu close immediately even while old text is being drawn.
 static MENU_VISIBLE: AtomicBool = AtomicBool::new(false);
 /// Requests the lightweight menu presentation for the next snapshot.
-///
-///  Requests a compact menu display.
 static LIGHTWEIGHT_REQUESTED: AtomicBool = AtomicBool::new(true);
 /// Fighter kind requested for cached display publication.
-///
-///  Identifies the fighter whose menu should be displayed.
 static REQUESTED_FIGHTER: AtomicI32 = AtomicI32::new(-1);
 /// Selection revision requested for cached display publication.
-///
-///  Identifies which version of the menu should be displayed.
 static REQUESTED_REVISION: AtomicU64 = AtomicU64::new(0);
 // The installed host supplies its context through this setup callback. Older
 // compatible hosts do not export imgui_get_context_export; importing that
 // optional getter would stop Skyline from loading the entire plugin.
 /// Host-owned ImGui context pointer initialized by the setup callback.
-///
-///  The display context supplied by the compatible host.
 static CONTEXT: AtomicPtr<u64> = AtomicPtr::new(std::ptr::null_mut());
 /// Publishes battle visibility and clears session diagnostics on exit.
-///
-///  Tells the display when the battle starts or ends.
-/// ### Arguments
-/// - `active` (`bool`): Represents the active; the function uses it as input to the operation described above.
 pub(super) fn set_battle_active(active: bool) {
     let was_active = BATTLE_ACTIVE.swap(active, Ordering::AcqRel);
     #[cfg(feature = "diagnostic-logging")]
@@ -289,8 +217,6 @@ pub(super) fn set_battle_active(active: bool) {
     let _ = was_active;
 }
 /// Invalidates menu requests and defers owned snapshot destruction.
-///
-///  Closes the menu and schedules safe cleanup.
 pub(super) fn clear() {
     VIEW_GENERATION.fetch_add(1, Ordering::AcqRel);
     MENU_VISIBLE.store(false, Ordering::Release);
@@ -303,8 +229,6 @@ pub(super) fn clear() {
     finish_deferred_clear();
 }
 /// Acquires the UI/save gate and frees an invalidated snapshot without blocking.
-///
-///  Removes old menu text once no save or UI edit is using it.
 pub(super) fn finish_deferred_clear() {
     if !DEFERRED_CLEAR.load(Ordering::Acquire) {
         return;
@@ -326,15 +250,6 @@ pub(super) fn finish_deferred_clear() {
 include!("publish.rs");
 
 /// Constructs an ImGui color from normalized RGBA components.
-///
-///  Makes a color value for drawing the menu.
-/// ### Arguments
-/// - `r` (`f32`): Represents the r; the function uses it as input to the operation described above.
-/// - `g` (`f32`): Represents the g; the function uses it as input to the operation described above.
-/// - `b` (`f32`): Represents the b; the function uses it as input to the operation described above.
-/// - `a` (`f32`): Represents the a; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `ImVec4_c` value.
 fn color(r: f32, g: f32, b: f32, a: f32) -> ImVec4_c {
     ImVec4_c {
         x: r,
@@ -344,10 +259,6 @@ fn color(r: f32, g: f32, b: f32, a: f32) -> ImVec4_c {
     }
 }
 /// Draws a cached NUL-terminated line with the native ImGui text API.
-///
-///  Displays one cached line of menu text.
-/// ### Arguments
-/// - `value` (`&CStr`): Represents the value being processed; the function uses it as input to the operation described above.
 unsafe fn card_text(value: &CStr) {
     // Native wrapping advances layout by the same height that gets drawn.
     igPushTextWrapPos(0.0);
@@ -355,10 +266,6 @@ unsafe fn card_text(value: &CStr) {
     igPopTextWrapPos();
 }
 /// Stores the renderer-owned ImGui context supplied by the host setup callback.
-///
-///  Remembers the display context provided by the game host.
-/// ### Arguments
-/// - `context` (`*mut u64`): Represents the current execution context; the function uses it as input to the operation described above.
 unsafe extern "C" fn setup(context: *mut u64) {
     CONTEXT.store(context, Ordering::Release);
     if !context.is_null() {
@@ -367,12 +274,6 @@ unsafe extern "C" fn setup(context: *mut u64) {
 }
 /// Latest master-switch confirmation. Expiry clears the pending flag under the
 /// same lock as show_master_status, so it cannot discard a newly published toast.
-///
-///  Returns the switch message while it is still visible.
-/// ### Arguments
-/// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn current_master_status(now: Instant) -> Option<bool> {
     if !MASTER_TOAST_PENDING.load(Ordering::Acquire) {
         return None;
@@ -390,20 +291,10 @@ fn current_master_status(now: Instant) -> Option<bool> {
     })
 }
 /// `None` while the presence lock is contended: callers keep their current state.
-///
-///  Checks whether the local fighter was seen recently, without waiting.
-/// ### Arguments
-/// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn presence_fresh(now: Instant) -> Option<bool> {
     PRESENCE.try_lock().ok().map(|presence| presence.fresh(now))
 }
 /// Display size once the host context is usable; `None` skips this frame.
-///
-///  Gets the current screen size when the host display is ready.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 unsafe fn display_size() -> Option<ImVec2_c> {
     let context = CONTEXT.load(Ordering::Acquire);
     if context.is_null() {
@@ -419,8 +310,6 @@ unsafe fn display_size() -> Option<ImVec2_c> {
         .then_some(display)
 }
 /// Draws the cached menu without querying fighter state or waiting on shared locks.
-///
-///  Renders the menu using already prepared text.
 unsafe extern "C" fn draw() {
     let now = Instant::now();
     if BATTLE_ACTIVE.load(Ordering::Acquire) && presence_fresh(now) == Some(false) {
@@ -491,8 +380,6 @@ unsafe extern "C" fn draw() {
 }
 
 /// Window flags shared by every overlay: never focused, clickable or persisted.
-///
-///  Makes the menu an on-screen overlay that does not take controller focus.
 const OVERLAY_FLAGS: i32 = (ImGuiWindowFlags_NoDecoration
     | ImGuiWindowFlags_NoScrollbar
     | ImGuiWindowFlags_AlwaysAutoResize
@@ -501,30 +388,15 @@ const OVERLAY_FLAGS: i32 = (ImGuiWindowFlags_NoDecoration
     | ImGuiWindowFlags_NoFocusOnAppearing
     | ImGuiWindowFlags_NoBringToFrontOnFocus) as i32;
 /// Returns the configured accent color used by menu headings.
-///
-///  Gets the menu's heading color.
-/// ### Returns
-/// Returns the resulting `ImVec4_c` value.
 fn accent() -> ImVec4_c {
     color(0.35, 0.86, 0.78, 1.0)
 }
 /// Returns the configured selected-row background color.
-///
-///  Gets the background color for the selected row.
-/// ### Returns
-/// Returns the resulting `ImVec4_c` value.
 fn row_highlight() -> ImVec4_c {
     color(0.17, 0.54, 0.50, 0.19)
 }
 
 /// Draws the cached panel frame, heading, content, and status within display bounds.
-///
-///  Draws the menu card and its sections.
-/// ### Arguments
-/// - `view` (`&Snapshot`): Represents the view; the function uses it as input to the operation described above.
-/// - `display` (`ImVec2_c`): Represents the display; the function uses it as input to the operation described above.
-/// - `scale` (`f32`): Represents the scale; the function uses it as input to the operation described above.
-/// - `status_shown` (`bool`): Represents the status shown; the function uses it as input to the operation described above.
 unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32, status_shown: bool) {
     // A fixed-width card shows only the focused row; never shrink text to fit
     // the entire catalog or horizontally scroll the gameplay overlay.
@@ -603,12 +475,6 @@ unsafe fn draw_card(view: &Snapshot, display: ImVec2_c, scale: f32, status_shown
 }
 
 /// Draws cached heading/body/footer content using the supplied scale and display size.
-///
-///  Displays the prepared menu text in the menu card.
-/// ### Arguments
-/// - `view` (`&Snapshot`): Represents the view; the function uses it as input to the operation described above.
-/// - `display` (`ImVec2_c`): Represents the display; the function uses it as input to the operation described above.
-/// - `scale` (`f32`): Represents the scale; the function uses it as input to the operation described above.
 unsafe fn draw_card_contents(view: &Snapshot, display: ImVec2_c, scale: f32) {
     igPushStyleColor_Vec4(ImGuiCol_Text as _, color(0.58, 0.69, 0.79, 1.0));
     if let Some(navigation) = &view.navigation {
@@ -633,12 +499,6 @@ unsafe fn draw_card_contents(view: &Snapshot, display: ImVec2_c, scale: f32) {
 }
 
 /// Selects a footer tint based on the cached line's status prefix.
-///
-///  Colors status messages differently from ordinary hints.
-/// ### Arguments
-/// - `line` (`&CStr`): Represents the line; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `ImVec4_c` value.
 fn footer_tint(line: &CStr) -> ImVec4_c {
     let bytes = line.to_bytes();
     if bytes.starts_with(b"Save failed") {
@@ -653,11 +513,6 @@ fn footer_tint(line: &CStr) -> ImVec4_c {
 }
 
 /// Draws cached selectable rows and updates focus only when its identity changes.
-///
-///  Displays each menu choice and highlights the current one.
-/// ### Arguments
-/// - `view` (`&Snapshot`): Represents the view; the function uses it as input to the operation described above.
-/// - `scale` (`f32`): Represents the scale; the function uses it as input to the operation described above.
 unsafe fn draw_value_rows(view: &Snapshot, scale: f32) {
     for value in view
         .values
@@ -687,11 +542,6 @@ unsafe fn draw_value_rows(view: &Snapshot, scale: f32) {
 }
 
 /// Tinted panel plus accent bar behind the focused row, sized to its wrapped text.
-///
-///  Draws a highlight behind the selected recipe row.
-/// ### Arguments
-/// - `line` (`&CStr`): Represents the line; the function uses it as input to the operation described above.
-/// - `scale` (`f32`): Represents the scale; the function uses it as input to the operation described above.
 unsafe fn draw_selected_row_backdrop(line: &CStr, scale: f32) {
     let p = igGetCursorScreenPos();
     let available = igGetContentRegionAvail().x.max(1.0);
@@ -728,12 +578,6 @@ unsafe fn draw_selected_row_backdrop(line: &CStr, scale: f32) {
 }
 
 /// Numbered editor lines ("01 ...", optionally after the "> " cursor) start a new group.
-///
-///  Checks whether a line is the heading for a recipe action.
-/// ### Arguments
-/// - `line` (`&CStr`): Represents the line; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn is_recipe_title(line: &CStr) -> bool {
     let b = line.to_bytes();
     let b = b.strip_prefix(b"> ").unwrap_or(b);
@@ -742,12 +586,6 @@ fn is_recipe_title(line: &CStr) -> bool {
 
 /// The scrolling recipe-action list. Its height is whatever the footer leaves
 /// of the screen budget, and it follows the focused line only when focus moved.
-///
-///  Shows recipe actions in a scrolling list sized to the remaining screen.
-/// ### Arguments
-/// - `view` (`&Snapshot`): Represents the view; the function uses it as input to the operation described above.
-/// - `display` (`ImVec2_c`): Represents the display; the function uses it as input to the operation described above.
-/// - `scale` (`f32`): Represents the scale; the function uses it as input to the operation described above.
 unsafe fn draw_recipe_body(view: &Snapshot, display: ImVec2_c, scale: f32) {
     igSeparator();
     let wrap = (igGetContentRegionAvail().x - 8.0 * scale).max(1.0);
@@ -859,12 +697,6 @@ unsafe fn draw_recipe_body(view: &Snapshot, display: ImVec2_c, scale: f32) {
 }
 
 /// Draws and expires a pending master-switch toast within the current display.
-///
-///  Shows the temporary message confirming the switch state.
-/// ### Arguments
-/// - `scale` (`f32`): Represents the scale; the function uses it as input to the operation described above.
-/// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-/// - `display` (`ImVec2_c`): Represents the display; the function uses it as input to the operation described above.
 unsafe fn draw_master_toast(scale: f32, enabled: bool, display: ImVec2_c) {
     igSetNextWindowPos(
         ImVec2_c {
@@ -903,14 +735,6 @@ unsafe fn draw_master_toast(scale: f32, enabled: bool, display: ImVec2_c) {
 }
 #[cfg(feature = "diagnostic-logging")]
 /// Draws the latest cached diagnostic/result card when its epoch is current.
-///
-///  Displays the latest available status report.
-/// ### Arguments
-/// - `scale` (`f32`): Represents the scale; the function uses it as input to the operation described above.
-/// - `width` (`f32`): Represents the width; the function uses it as input to the operation described above.
-/// - `right` (`f32`): Represents the right; the function uses it as input to the operation described above.
-/// - `y` (`f32`): Represents the vertical coordinate; the function uses it as input to the operation described above.
-/// - `available` (`f32`): Represents the available; the function uses it as input to the operation described above.
 unsafe fn draw_result(scale: f32, width: f32, right: f32, y: f32, available: f32) {
     igSetNextWindowPos(
         ImVec2_c { x: right, y },
@@ -960,8 +784,6 @@ unsafe fn draw_result(scale: f32, width: f32, right: f32, y: f32, available: f32
     igPopFont();
 }
 /// Registers the ImGui setup and draw callbacks when the feature is enabled.
-///
-///  Connects the menu display to the game renderer.
 pub(super) fn install() {
     imgui_api::imgui_setup_context(setup);
     imgui_api::imgui_smash_add_on_draw_frame(draw as *const std::ffi::c_void);

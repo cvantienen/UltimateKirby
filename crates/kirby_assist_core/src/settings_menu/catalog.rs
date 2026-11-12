@@ -3,194 +3,92 @@ use super::*;
 use crate::sequence_config::Sequence;
 use std::collections::BTreeMap;
 
-/// Defines the `UTF8_CONTINUATION_MASK` constant used by this module.
-///
-/// Provides the UTF8 CONTINUATION MASK constant value.
+/// `UTF8_CONTINUATION_MASK` is a configuration value used by the Smash runtime.
 const UTF8_CONTINUATION_MASK: u8 = 0xc0;
-/// Defines the `UTF8_CONTINUATION_PREFIX` constant used by this module.
-///
-/// Provides the UTF8 CONTINUATION PREFIX constant value.
+/// `UTF8_CONTINUATION_PREFIX` is a configuration value used by the Smash runtime.
 const UTF8_CONTINUATION_PREFIX: u8 = 0x80;
 
-/// Defines the `Draft` data structure.
-///
-/// Holds the data for Draft.
+/// Runtime Smash data carried by `Draft`.
 #[derive(Clone, Default)]
 pub(super) struct Draft {
-    /// Stores the `id` value in `Draft` as `String`.
-    ///
-    ///
-///  Holds the id value used by Draft.
+/// battle-object ID.
     pub id: String,
-    /// Stores the `name` value in `Draft` as `String`.
-    ///
-    ///
-///  Holds the name value used by Draft.
+/// player-facing move/fighter name.
     pub name: String,
-    /// Stores the `sequence` value in `Draft` as `Sequence`.
-    ///
-    ///
-///  Holds the sequence value used by Draft.
+/// Runtime sequence value used by Draft..
     pub sequence: Sequence,
-    /// Stores the `new` value in `Draft` as `bool`.
-    ///
-    ///
-///  Holds the new value used by Draft.
+/// Runtime new value used by Draft..
     pub new: bool,
-    /// Stores the `deleted` value in `Draft` as `bool`.
-    ///
-    ///
-///  Holds the deleted value used by Draft.
+/// Runtime deleted value used by Draft..
     pub deleted: bool,
-    /// Stores the `dirty` value in `Draft` as `bool`.
-    ///
-    ///
-///  Holds the dirty value used by Draft.
+/// Runtime dirty value used by Draft..
     pub dirty: bool,
 }
 impl Draft {
     /// A deleted draft or a legacy mode binding is not a selectable recipe.
-    ///
-    ///  A deleted draft or a legacy mode binding is not a selectable recipe.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn live(&self) -> bool {
         !self.deleted && self.sequence.mode.is_none()
     }
 }
-/// Defines the available `Mode` cases.
-///
-/// Lists the available Mode choices.
+/// Available `Mode` choices for the Smash assistance menu.
 #[derive(Default)]
 pub(super) enum Mode {
     #[default]
-    /// Represents the `Closed` case of `Mode`.
-    ///
-    ///
-///  Represents the Closed option in Mode.
+/// `Closed` option in the `Mode` Smash policy state.
     Closed,
-    /// Represents the `Actions` case of `Mode`.
-    ///
-    ///
-///  Represents the Actions option in Mode.
+/// `Actions` option in the `Mode` Smash policy state.
     Actions(
         /// Carries the number of actions in the selected mode in `Mode`.
-        ///
-        ///
-///  Holds the number of actions in the selected mode for this `Mode` choice.
         usize,
     ),
-    /// Represents the `Name` case of `Mode`.
-    ///
-    ///
-///  Represents the Name option in Mode.
+/// `Name` option in the `Mode` Smash policy state.
     Name {
-        /// Stores the `text` value in `Mode` as `Vec<u8>`.
-        ///
-        ///
-///  Holds the text value used by Mode.
+/// Runtime text value used by Mode..
         text: Vec<u8>,
-        /// Stores the `cursor` value in `Mode` as `usize`.
-        ///
-        ///
-///  Holds the cursor value used by Mode.
+/// Runtime cursor value used by Mode..
         cursor: usize,
     },
-    /// Represents the `Delete` case of `Mode`.
-    ///
-    ///
-///  Represents the Delete option in Mode.
+/// `Delete` option in the `Mode` Smash policy state.
     Delete,
 }
-/// Defines the `Catalog` data structure.
-///
-/// Holds the data for Catalog.
+/// Runtime Smash data carried by `Catalog`.
 #[derive(Default)]
 pub(super) struct Catalog {
-    /// Stores the `drafts` value in `Catalog` as `BTreeMap<(usize`.
-    ///
-    ///
-///  Holds the drafts value used by Catalog.
+/// Runtime drafts value used by Catalog..
     pub drafts: BTreeMap<(usize, usize), Draft>,
-    /// Stores the `mode` value in `Catalog` as `Mode`.
-    ///
-    ///
-///  Holds the mode value used by Catalog.
+/// Runtime mode value used by Catalog..
     pub mode: Mode,
-    /// Stores the `revision` value in `Catalog` as `u64`.
-    ///
-    ///
-///  Holds the revision value used by Catalog.
+/// Runtime revision value used by Catalog..
     pub revision: u64,
-    /// Stores the `assist` value in `Catalog` as `bool`.
-    ///
-    ///
-///  Holds the assist value used by Catalog.
+/// Runtime assist value used by Catalog..
     pub assist: bool,
-    /// Stores the `held` value in `Catalog` as `u32`.
-    ///
-    ///
-///  Holds the held value used by Catalog.
+/// Runtime held value used by Catalog..
     held: u32,
-    /// Stores the `ticks` value in `Catalog` as `u16`.
-    ///
-    ///
-///  Holds the ticks value used by Catalog.
+/// Runtime ticks value used by Catalog..
     ticks: u16,
 }
-/// Defines the available `Event` cases.
-///
-/// Lists the available Event choices.
+/// Available `Event` choices for the Smash assistance menu.
 pub(super) enum Event {
-    /// Represents the `None` case of `Event`.
-    ///
-    ///
-///  Represents the None option in Event.
+/// `None` option in the `Event` Smash policy state.
     None,
-    /// Represents the `Rename` case of `Event`.
-    ///
-    ///
-///  Represents the Rename option in Event.
+/// `Rename` option in the `Event` Smash policy state.
     Rename(
         /// Carries the replacement name in `Event`.
-        ///
-        ///
-///  Holds the replacement name for this `Event` choice.
         String,
     ),
-    /// Represents the `Add` case of `Event`.
-    ///
-    ///
-///  Represents the Add option in Event.
+/// `Add` option in the `Event` Smash policy state.
     Add(
         /// Carries whether to add the entry in `Event`.
-        ///
-        ///
-///  Holds whether to add the entry for this `Event` choice.
         bool,
     ),
-    /// Represents the `Delete` case of `Event`.
-    ///
-    ///
-///  Represents the Delete option in Event.
+/// `Delete` option in the `Event` Smash policy state.
     Delete,
-    /// Represents the `MakeDefault` case of `Event`.
-    ///
-    ///
-///  Represents the MakeDefault option in Event.
+/// `MakeDefault` option in the `Event` Smash policy state.
     MakeDefault,
 }
 // Cursors are UTF-8 byte boundaries; saved recipe names allow 64 bytes.
 /// Returns the next the character.
-///
 /// Returns the next the character.
-/// ### Arguments
-/// - `text` (`&[u8]`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
-/// - `cursor` (`usize`): Represents the cursor; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `usize` value.
 fn next_character(text: &[u8], cursor: usize) -> usize {
     let mut end = cursor + 1;
     while end < text.len() && text[end] & UTF8_CONTINUATION_MASK == UTF8_CONTINUATION_PREFIX {
@@ -199,13 +97,7 @@ fn next_character(text: &[u8], cursor: usize) -> usize {
     end
 }
 /// Returns the `previous_character` result.
-///
 /// Gets the previous character result.
-/// ### Arguments
-/// - `text` (`&[u8]`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
-/// - `cursor` (`usize`): Represents the cursor; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `usize` value.
 fn previous_character(text: &[u8], cursor: usize) -> usize {
     let mut start = if cursor == 0 { text.len() } else { cursor } - 1;
     while start > 0 && text[start] & UTF8_CONTINUATION_MASK == UTF8_CONTINUATION_PREFIX {
@@ -215,20 +107,10 @@ fn previous_character(text: &[u8], cursor: usize) -> usize {
 }
 impl Catalog {
     /// Returns whether the catalog is currently active (not closed).
-    ///
-    ///  Returns whether the catalog is currently active (not closed).
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(&self) -> bool {
         !matches!(self.mode, Mode::Closed)
     }
     /// Closes the catalog, resetting its mode and input state.
-    ///
-    ///  Closes the catalog, resetting its mode and input state.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn close(&mut self) {
         self.mode = Mode::Closed;
         self.revision = self.revision.wrapping_add(1);
@@ -236,15 +118,6 @@ impl Catalog {
         self.ticks = 0;
     }
     /// Processes input for the catalog, returning an event based on the current mode and input state.
-    ///
-    ///  Processes input for the catalog, returning an event based on the current mode and input state.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `buttons` (`u32`): Represents the controller buttons being sampled; the function uses it as input to the operation described above.
-    /// - `pressed` (`u32`): Represents the pressed; the function uses it as input to the operation described above.
-    /// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `Event` value.
     pub fn input(&mut self, buttons: u32, pressed: u32, name: &str) -> Event {
         use crate::native_input::{MAPPER_A as A, MAPPER_B as B, MAPPER_X as X, MAPPER_Y as Y};
         let pad = buttons & (DPAD_SIDES | DPAD_UP | DPAD_DOWN);
@@ -371,13 +244,6 @@ impl Catalog {
         Event::None
     }
     /// Returns the `lines` result.
-    ///
-    ///
-    ///  Gets the lines result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting items; the vector is empty when there are none.
     pub fn lines(&self) -> Vec<String> {
         match &self.mode {
             Mode::Closed => vec![],
@@ -421,9 +287,7 @@ impl Catalog {
         }
     }
 }
-/// Defines the `ALPHABET` constant used by this module.
-///
-/// Provides the ALPHABET constant value.
+/// `ALPHABET` is a configuration value used by the Smash runtime.
 const ALPHABET: &[u8] = b" ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 #[cfg(test)]
@@ -435,11 +299,6 @@ mod tests {
         sequence_config::Catalog as FileCatalog,
     };
     /// Returns the `presets` result.
-    ///
-    ///
-    ///  Gets the presets result.
-    /// ### Returns
-    /// Returns the resulting `MenuPresets` value.
     fn presets() -> MenuPresets {
         let file=FileCatalog::parse("[yoshi.neutral.alpha]\nname=Alpha\nstart_delay=0\nactions=a\n[yoshi.neutral.beta]\nname=Beta\nstart_delay=0\nactions=b\n").unwrap();
         let mut profiles = FighterProfiles::default();
@@ -447,25 +306,11 @@ mod tests {
         profiles.profile(5).unwrap().menu_options
     }
     /// Updates the `tap` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates tap.
-    /// ### Arguments
-    /// - `menu` (`&mut MenuSelection`): Represents the menu; the function uses it as input to the operation described above.
-    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
-    /// - `button` (`u32`): Represents the button; the function uses it as input to the operation described above.
     fn tap(menu: &mut MenuSelection, p: &MenuPresets, button: u32) {
         menu.input(button, p);
         menu.input(0, p);
     }
     /// Returns the `menu` result.
-    ///
-    ///
-    ///  Gets the menu result.
-    /// ### Arguments
-    /// - `p` (`&MenuPresets`): Represents the p; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `MenuSelection` value.
     fn menu(p: &MenuPresets) -> MenuSelection {
         let mut m = MenuSelection::new(p);
         m.show();
@@ -473,9 +318,6 @@ mod tests {
         m
     }
     /// Regression test for `added_unsaved_recipes_can_be_switched_from_compact`.
-    ///
-    ///
-///  Checks that added unsaved recipes can be switched from compact.
     #[test]
     fn added_unsaved_recipes_can_be_switched_from_compact() {
         let p = presets();
@@ -507,9 +349,6 @@ mod tests {
         assert_eq!(m.cycle_quick_choice(&p, PresetSlot::Neutral, false), added);
     }
     /// Regression test for `diagnostic_add_and_duplicate_keep_other_option_indices_and_edits_stable`.
-    ///
-    ///
-///  Checks that diagnostic add and duplicate keep other option indices and edits stable.
     #[test]
     fn diagnostic_add_and_duplicate_keep_other_option_indices_and_edits_stable() {
         let p = presets();
@@ -552,9 +391,6 @@ mod tests {
         assert_eq!(m.choice(&p, PresetSlot::Neutral, 1).unwrap().id, "beta");
     }
     /// Regression test for `diagnostic_rename_changes_label_not_id_and_requires_explicit_file_save`.
-    ///
-    ///
-///  Checks that diagnostic rename changes label not id and requires explicit file save.
     #[test]
     fn diagnostic_rename_changes_label_not_id_and_requires_explicit_file_save() {
         let p = presets();
@@ -571,9 +407,6 @@ mod tests {
         assert!(m.save_requested);
     }
     /// Regression test for `diagnostic_delete_needs_confirmation_and_only_hides_after_successful_file_write`.
-    ///
-    ///
-///  Checks that diagnostic delete needs confirmation and only hides after successful file write.
     #[test]
     fn diagnostic_delete_needs_confirmation_and_only_hides_after_successful_file_write() {
         let p = presets();
@@ -595,9 +428,6 @@ mod tests {
         assert_eq!(m.choice_position(&p, PresetSlot::Neutral).1, 2);
     }
     /// Regression test for `closing_or_match_reset_exits_manager_without_deleting_or_renaming`.
-    ///
-    ///
-///  Checks that closing or match reset exits manager without deleting or renaming.
     #[test]
     fn closing_or_match_reset_exits_manager_without_deleting_or_renaming() {
         let p = presets();
@@ -610,9 +440,6 @@ mod tests {
         assert_eq!(m.choice(&p, PresetSlot::Neutral, 0).unwrap().name, "Alpha");
     }
     /// Regression test for `empty_ness_and_falcon_catalogs_can_create_edit_preview_and_queue_a_recipe`.
-    ///
-    ///
-///  Checks that empty ness and falcon catalogs can create edit preview and queue a recipe.
     #[test]
     fn empty_ness_and_falcon_catalogs_can_create_edit_preview_and_queue_a_recipe() {
         use crate::{
@@ -678,9 +505,6 @@ mod tests {
     }
 
     /// Regression test for `saved_custom_can_be_renamed_saved_again_and_deleted_without_restart`.
-    ///
-    ///
-///  Checks that saved custom can be renamed saved again and deleted without restart.
     #[test]
     fn saved_custom_can_be_renamed_saved_again_and_deleted_without_restart() {
         use crate::sequence_config::persist;
@@ -748,9 +572,6 @@ mod tests {
     }
 
     /// Regression test for `saving_one_recipe_is_not_stale_after_renaming_another`.
-    ///
-    ///
-///  Checks that saving one recipe is not stale after renaming another.
     #[test]
     fn saving_one_recipe_is_not_stale_after_renaming_another() {
         let p = presets();
@@ -771,9 +592,6 @@ mod tests {
     }
 
     /// Regression test for `deleting_only_saved_custom_restores_an_empty_reusable_template`.
-    ///
-    ///
-///  Checks that deleting only saved custom restores an empty reusable template.
     #[test]
     fn deleting_only_saved_custom_restores_an_empty_reusable_template() {
         let p = MenuPresets::EMPTY;
@@ -798,9 +616,6 @@ mod tests {
 mod startup_default_tests {
     use super::*;
     /// Regression test for `list_manager_explicit_default_requests_a_save_without_changing_the_recipe`.
-    ///
-    ///
-///  Checks that list manager explicit default requests a save without changing the recipe.
     #[test]
     fn list_manager_explicit_default_requests_a_save_without_changing_the_recipe() {
         use crate::native_input::*;
@@ -840,13 +655,6 @@ mod rename_regressions {
     use super::*;
     use crate::native_input::{MAPPER_A as A, MAPPER_X as X, MAPPER_Y as Y};
     /// Returns the `rename` result.
-    ///
-    ///
-    ///  Gets the rename result.
-    /// ### Arguments
-    /// - `name` (`&str`): Represents the name being parsed, looked up, or displayed; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `Catalog` value.
     fn rename(name: &str) -> Catalog {
         let mut c = Catalog {
             mode: Mode::Actions(0),
@@ -856,13 +664,6 @@ mod rename_regressions {
         c
     }
     /// Returns the `accepted` result.
-    ///
-    ///
-    ///  Gets the accepted result.
-    /// ### Arguments
-    /// - `c` (`&mut Catalog`): Represents the c; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn accepted(c: &mut Catalog) -> String {
         match c.input(Y, Y, "") {
             Event::Rename(n) => n,
@@ -870,9 +671,6 @@ mod rename_regressions {
         }
     }
     /// Regression test for `accepting_a_unicode_name_preserves_it_and_cursor_edits_whole_characters`.
-    ///
-    ///
-///  Checks that accepting a unicode name preserves it and cursor edits whole characters.
     #[test]
     fn accepting_a_unicode_name_preserves_it_and_cursor_edits_whole_characters() {
         let name = "Shield → Up-B / café";
@@ -887,9 +685,6 @@ mod rename_regressions {
         assert_eq!(accepted(&mut c), "é");
     }
     /// Regression test for `rename_inserts_at_cursor_obeys_byte_limit_and_ignores_held_direction_on_confirm`.
-    ///
-    ///
-///  Checks that rename inserts at cursor obeys byte limit and ignores held direction on confirm.
     #[test]
     fn rename_inserts_at_cursor_obeys_byte_limit_and_ignores_held_direction_on_confirm() {
         let mut c = rename("AB");

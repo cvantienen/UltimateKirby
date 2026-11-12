@@ -5,13 +5,6 @@ use crate::settings::AssistSettings;
 
 /// Default close/approach automatic-grab ranges: the standing range, and that
 /// range scaled by the fighter's dash-grab/standing-grab reach ratio.
-///
-///  Default close/approach automatic-grab ranges: the standing range, and that range scaled by the fighter's dash-grab/standing-grab reach ratio.
-/// ### Arguments
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// - `standing` (`f32`): Represents the standing; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `(f32, f32)` value.
 fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
     if !standing.is_finite() || standing <= 0. {
         return (0., 0.);
@@ -29,13 +22,7 @@ fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
     (standing, standing * dash / base)
 }
 
-/// Returns the default down-tilt facing adjustment.
-///
-/// Gets the default facing for down tilt.
-/// ### Arguments
-/// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
+/// Whether this fighter should turn down tilt toward the opponent by default.
 fn tilt_turn_down_default(kind: i32) -> bool {
     matches!(
         kind,
@@ -48,15 +35,9 @@ mod schema {
     //!
     //! The index order is shared by saved configuration, menu rendering, and
     //! runtime policy values. Keep each key, label, and hint at the same index.
-    /// Defines the `COUNT` constant used by this module.
-    ///
-    ///
-    ///  Provides the COUNT constant value.
+    /// Number of stable per-fighter tuning fields.
     pub const COUNT: usize = 54;
-    /// Defines the `KEYS` constant used by this module.
-    ///
-    ///
-    ///  Provides the KEYS constant value.
+    /// Persistent configuration keys in stable tuning-field order.
     pub const KEYS: [&str; COUNT] = [
         "walk_strength",
         "grab_range",
@@ -114,10 +95,7 @@ mod schema {
         "tilt_turn_up",
     ];
 
-    /// Defines the `LABELS` constant used by this module.
-    ///
-    ///
-    ///  Provides the LABELS constant value.
+    /// Menu labels aligned with the stable tuning-field order.
     pub const LABELS: [&str; COUNT] = [
         "Walking stick %",
         "Grab reach estimate",
@@ -175,10 +153,7 @@ mod schema {
         "Tilt face: up",
     ];
 
-    /// Defines the `HINTS` constant used by this module.
-    ///
-    ///
-    ///  Provides the HINTS constant value.
+    /// Player-facing behavior descriptions aligned with each tuning field.
     pub const HINTS: [&str; COUNT] = [
         "Walking baseline uses the original curve: slightly lower at partial stick, 50% at full horizontal stick. Recipes keep their own strengths.",
         "Your grab reach estimate for recipes, legacy grab and Yoshi chase helpers. Saved attacker overrides also feed ordinary-grab threat estimates. Never extends hitboxes.",
@@ -236,325 +211,139 @@ mod schema {
         "Aim physical up C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.",
     ];
 
-    /// Defines the `TILT_TURN_DOWN` constant used by this module.
-    ///
-    ///
-    ///  Provides the TILT TURN DOWN constant value.
+    /// Stable tuning-array index for tilt turn down.
     pub const TILT_TURN_DOWN: usize = 51;
-    /// Defines the `TILT_TURN_FORWARD` constant used by this module.
-    ///
-    ///
-    ///  Provides the TILT TURN FORWARD constant value.
+    /// Stable tuning-array index for tilt turn forward.
     pub const TILT_TURN_FORWARD: usize = 52;
-    /// Defines the `TILT_TURN_UP` constant used by this module.
-    ///
-    ///
-    ///  Provides the TILT TURN UP constant value.
+    /// Stable tuning-array index for tilt turn up.
     pub const TILT_TURN_UP: usize = 53;
-    /// Defines the `REFLECT_DEFAULT` constant used by this module.
-    ///
-    ///
-    ///  Provides the REFLECT DEFAULT constant value.
+    /// Stable tuning-array index for reflect default.
     pub const REFLECT_DEFAULT: usize = 44;
-    /// Defines the `REFLECT_STARTUP` constant used by this module.
-    ///
-    ///
-    ///  Provides the REFLECT STARTUP constant value.
+    /// Stable tuning-array index for reflect startup.
     pub const REFLECT_STARTUP: usize = 45;
-    /// Defines the `REFLECT_MARGIN` constant used by this module.
-    ///
-    ///
-    ///  Provides the REFLECT MARGIN constant value.
+    /// Stable tuning-array index for reflect margin.
     pub const REFLECT_MARGIN: usize = 46;
-    /// Defines the `REFLECT_MAX_HOLD` constant used by this module.
-    ///
-    ///
-    ///  Provides the REFLECT MAX HOLD constant value.
+    /// Stable tuning-array index for reflect max hold.
     pub const REFLECT_MAX_HOLD: usize = 47;
-    /// Defines the `REFLECT_HALF_WIDTH` constant used by this module.
-    ///
-    ///
-    ///  Provides the REFLECT HALF WIDTH constant value.
+    /// Stable tuning-array index for reflect half width.
     pub const REFLECT_HALF_WIDTH: usize = 48;
-    /// Defines the `REFLECT_HEIGHT` constant used by this module.
-    ///
-    ///
-    ///  Provides the REFLECT HEIGHT constant value.
+    /// Stable tuning-array index for reflect height.
     pub const REFLECT_HEIGHT: usize = 49;
-    /// Defines the `REFLECT_HALF_DEPTH` constant used by this module.
-    ///
-    ///
-    ///  Provides the REFLECT HALF DEPTH constant value.
+    /// Stable tuning-array index for reflect half depth.
     pub const REFLECT_HALF_DEPTH: usize = 50;
-    /// Defines the `SHIELD_SCAN_X` constant used by this module.
-    ///
-    ///
-    ///  Provides the SHIELD SCAN X constant value.
+    /// Stable tuning-array index for shield scan x.
     pub const SHIELD_SCAN_X: usize = 40;
-    /// Defines the `SHIELD_SCAN_Y` constant used by this module.
-    ///
-    ///
-    ///  Provides the SHIELD SCAN Y constant value.
+    /// Stable tuning-array index for shield scan y.
     pub const SHIELD_SCAN_Y: usize = 41;
-    /// Defines the `AUTO_GRAB_CLOSE` constant used by this module.
-    ///
-    ///
-    ///  Provides the AUTO GRAB CLOSE constant value.
+    /// Stable tuning-array index for auto grab close.
     pub const AUTO_GRAB_CLOSE: usize = 42;
-    /// Defines the `AUTO_GRAB_FAR` constant used by this module.
-    ///
-    ///
-    ///  Provides the AUTO GRAB FAR constant value.
+    /// Stable tuning-array index for auto grab far.
     pub const AUTO_GRAB_FAR: usize = 43;
-    /// Defines the `SHIELD_WARNING_X` constant used by this module.
-    ///
-    ///
-    ///  Provides the SHIELD WARNING X constant value.
+    /// Stable tuning-array index for shield warning x.
     pub const SHIELD_WARNING_X: usize = 14;
-    /// Defines the `SHIELD_WARNING_Y` constant used by this module.
-    ///
-    ///
-    ///  Provides the SHIELD WARNING Y constant value.
+    /// Stable tuning-array index for shield warning y.
     pub const SHIELD_WARNING_Y: usize = 15;
-    /// Defines the `SHIELD_BODY_HALF_WIDTH` constant used by this module.
-    ///
-    ///
-    ///  Provides the SHIELD BODY HALF WIDTH constant value.
+    /// Stable tuning-array index for shield body half width.
     pub const SHIELD_BODY_HALF_WIDTH: usize = 16;
-    /// Defines the `SHIELD_BODY_HEIGHT` constant used by this module.
-    ///
-    ///
-    ///  Provides the SHIELD BODY HEIGHT constant value.
+    /// Stable tuning-array index for shield body height.
     pub const SHIELD_BODY_HEIGHT: usize = 17;
-    /// Defines the `SHIELD_BODY_HALF_DEPTH` constant used by this module.
-    ///
-    ///
-    ///  Provides the SHIELD BODY HALF DEPTH constant value.
+    /// Stable tuning-array index for shield body half depth.
     pub const SHIELD_BODY_HALF_DEPTH: usize = 18;
-    /// Defines the `SHIELD_FORECAST` constant used by this module.
-    ///
-    ///
-    ///  Provides the SHIELD FORECAST constant value.
+    /// Stable tuning-array index for shield forecast.
     pub const SHIELD_FORECAST: usize = 19;
-    /// Defines the `SHIELD_HOLD` constant used by this module.
-    ///
-    ///
-    ///  Provides the SHIELD HOLD constant value.
+    /// Stable tuning-array index for shield hold.
     pub const SHIELD_HOLD: usize = 20;
-    /// Defines the `GRAB_DODGE_PADDING` constant used by this module.
-    ///
-    ///
-    ///  Provides the GRAB DODGE PADDING constant value.
+    /// Stable tuning-array index for grab dodge padding.
     pub const GRAB_DODGE_PADDING: usize = 21;
-    /// Defines the `GRAB_DODGE_HEIGHT` constant used by this module.
-    ///
-    ///
-    ///  Provides the GRAB DODGE HEIGHT constant value.
+    /// Stable tuning-array index for grab dodge height.
     pub const GRAB_DODGE_HEIGHT: usize = 22;
-    /// Defines the `TECH_HALF_WIDTH` constant used by this module.
-    ///
-    ///
-    ///  Provides the TECH HALF WIDTH constant value.
+    /// Stable tuning-array index for tech half width.
     pub const TECH_HALF_WIDTH: usize = 23;
-    /// Defines the `TECH_FLOOR_ORIGIN` constant used by this module.
-    ///
-    ///
-    ///  Provides the TECH FLOOR ORIGIN constant value.
+    /// Stable tuning-array index for tech floor origin.
     pub const TECH_FLOOR_ORIGIN: usize = 24;
-    /// Defines the `TECH_WALL_LOW` constant used by this module.
-    ///
-    ///
-    ///  Provides the TECH WALL LOW constant value.
+    /// Stable tuning-array index for tech wall low.
     pub const TECH_WALL_LOW: usize = 25;
-    /// Defines the `TECH_WALL_MID` constant used by this module.
-    ///
-    ///
-    ///  Provides the TECH WALL MID constant value.
+    /// Stable tuning-array index for tech wall mid.
     pub const TECH_WALL_MID: usize = 26;
-    /// Defines the `TECH_WALL_HIGH` constant used by this module.
-    ///
-    ///
-    ///  Provides the TECH WALL HIGH constant value.
+    /// Stable tuning-array index for tech wall high.
     pub const TECH_WALL_HIGH: usize = 27;
-    /// Defines the `TECH_CEILING_ORIGIN` constant used by this module.
-    ///
-    ///
-    ///  Provides the TECH CEILING ORIGIN constant value.
+    /// Stable tuning-array index for tech ceiling origin.
     pub const TECH_CEILING_ORIGIN: usize = 28;
-    /// Defines the `TECH_FLOOR_PADDING` constant used by this module.
-    ///
-    ///
-    ///  Provides the TECH FLOOR PADDING constant value.
+    /// Stable tuning-array index for tech floor padding.
     pub const TECH_FLOOR_PADDING: usize = 29;
-    /// Defines the `TECH_CEILING_PADDING` constant used by this module.
-    ///
-    ///
-    ///  Provides the TECH CEILING PADDING constant value.
+    /// Stable tuning-array index for tech ceiling padding.
     pub const TECH_CEILING_PADDING: usize = 30;
-    /// Defines the `PUNISH_DOWN_REACH` constant used by this module.
-    ///
-    ///
-    ///  Provides the PUNISH DOWN REACH constant value.
+    /// Stable tuning-array index for punish down reach.
     pub const PUNISH_DOWN_REACH: usize = 31;
-    /// Defines the `PUNISH_FORWARD_REACH` constant used by this module.
-    ///
-    ///
-    ///  Provides the PUNISH FORWARD REACH constant value.
+    /// Stable tuning-array index for punish forward reach.
     pub const PUNISH_FORWARD_REACH: usize = 32;
-    /// Defines the `PUNISH_HEIGHT` constant used by this module.
-    ///
-    ///
-    ///  Provides the PUNISH HEIGHT constant value.
+    /// Stable tuning-array index for punish height.
     pub const PUNISH_HEIGHT: usize = 33;
-    /// Defines the `ROLL_SMASH_HEIGHT` constant used by this module.
-    ///
-    ///
-    ///  Provides the ROLL SMASH HEIGHT constant value.
+    /// Stable tuning-array index for roll smash height.
     pub const ROLL_SMASH_HEIGHT: usize = 34;
-    /// Defines the `ROLL_SMASH_WATCH` constant used by this module.
-    ///
-    ///
-    ///  Provides the ROLL SMASH WATCH constant value.
+    /// Stable tuning-array index for roll smash watch.
     pub const ROLL_SMASH_WATCH: usize = 35;
-    /// Defines the `ROLL_GRAB_HEIGHT` constant used by this module.
-    ///
-    ///
-    ///  Provides the ROLL GRAB HEIGHT constant value.
+    /// Stable tuning-array index for roll grab height.
     pub const ROLL_GRAB_HEIGHT: usize = 36;
-    /// Defines the `ROLL_GRAB_WATCH` constant used by this module.
-    ///
-    ///
-    ///  Provides the ROLL GRAB WATCH constant value.
+    /// Stable tuning-array index for roll grab watch.
     pub const ROLL_GRAB_WATCH: usize = 37;
-    /// Defines the `CROUCH_RANGE` constant used by this module.
-    ///
-    ///
-    ///  Provides the CROUCH RANGE constant value.
+    /// Stable tuning-array index for crouch range.
     pub const CROUCH_RANGE: usize = 38;
-    /// Defines the `CROUCH_HEIGHT` constant used by this module.
-    ///
-    ///
-    ///  Provides the CROUCH HEIGHT constant value.
+    /// Stable tuning-array index for crouch height.
     pub const CROUCH_HEIGHT: usize = 39;
-    /// Defines the `WALK_STRENGTH` constant used by this module.
-    ///
-    ///
-    ///  Provides the WALK STRENGTH constant value.
+    /// Stable tuning-array index for walk strength.
     pub const WALK_STRENGTH: usize = 0;
-    /// Defines the `GRAB_RANGE` constant used by this module.
-    ///
-    ///
-    ///  Provides the GRAB RANGE constant value.
+    /// Stable tuning-array index for grab range.
     pub const GRAB_RANGE: usize = 1;
-    /// Defines the `HORIZONTAL_RANGE` constant used by this module.
-    ///
-    ///
-    ///  Provides the HORIZONTAL RANGE constant value.
+    /// Stable tuning-array index for horizontal range.
     pub const HORIZONTAL_RANGE: usize = 2;
-    /// Defines the `VERTICAL_RANGE` constant used by this module.
-    ///
-    ///
-    ///  Provides the VERTICAL RANGE constant value.
+    /// Stable tuning-array index for vertical range.
     pub const VERTICAL_RANGE: usize = 3;
-    /// Defines the `FOLLOW_RANGE` constant used by this module.
-    ///
-    ///
-    ///  Provides the FOLLOW RANGE constant value.
+    /// Stable tuning-array index for follow range.
     pub const FOLLOW_RANGE: usize = 4;
-    /// Defines the `FOLLOW_VERTICAL_RANGE` constant used by this module.
-    ///
-    ///
-    ///  Provides the FOLLOW VERTICAL RANGE constant value.
+    /// Stable tuning-array index for follow vertical range.
     pub const FOLLOW_VERTICAL_RANGE: usize = 5;
-    /// Defines the `STAND_DISTANCE` constant used by this module.
-    ///
-    ///
-    ///  Provides the STAND DISTANCE constant value.
+    /// Stable tuning-array index for stand distance.
     pub const STAND_DISTANCE: usize = 6;
-    /// Defines the `MOVE_STRENGTH` constant used by this module.
-    ///
-    ///
-    ///  Provides the MOVE STRENGTH constant value.
+    /// Stable tuning-array index for move strength.
     pub const MOVE_STRENGTH: usize = 7;
-    /// Defines the `MANUAL_SPACING` constant used by this module.
-    ///
-    ///
-    ///  Provides the MANUAL SPACING constant value.
+    /// Stable tuning-array index for manual spacing.
     pub const MANUAL_SPACING: usize = 8;
-    /// Defines the `AUTO_POSITION` constant used by this module.
-    ///
-    ///
-    ///  Provides the AUTO POSITION constant value.
+    /// Stable tuning-array index for auto position.
     pub const AUTO_POSITION: usize = 9;
-    /// Defines the `USE_RANGE_LIMITS` constant used by this module.
-    ///
-    ///
-    ///  Provides the USE RANGE LIMITS constant value.
+    /// Stable tuning-array index for use range limits.
     pub const USE_RANGE_LIMITS: usize = 10;
-    /// Defines the `GRAB_DODGE_DEFAULT` constant used by this module.
-    ///
-    ///
-    ///  Provides the GRAB DODGE DEFAULT constant value.
+    /// Stable tuning-array index for grab dodge default.
     pub const GRAB_DODGE_DEFAULT: usize = 11;
-    /// Defines the `OUT_OF_SHIELD_DEFAULT` constant used by this module.
-    ///
-    ///
-    ///  Provides the OUT OF SHIELD DEFAULT constant value.
+    /// Stable tuning-array index for out of shield default.
     pub const OUT_OF_SHIELD_DEFAULT: usize = 12;
-    /// Defines the `GRAB_DODGE_LOOKAHEAD` constant used by this module.
-    ///
-    ///
-    ///  Provides the GRAB DODGE LOOKAHEAD constant value.
+    /// Stable tuning-array index for grab dodge lookahead.
     pub const GRAB_DODGE_LOOKAHEAD: usize = 13;
 }
 
-/// Sets the lower bound for gamewatch reflect startup frames.
-///
-/// Holds the MIN GAMEWATCH REFLECT STARTUP FRAMES value.
+/// Minimum gamewatch reflect startup frames accepted by the input policy.
 pub const MIN_GAMEWATCH_REFLECT_STARTUP_FRAMES: f32 = 6.0;
-/// Sets the lower bound for grab dodge lookahead frames.
-///
-/// Holds the MIN GRAB DODGE LOOKAHEAD FRAMES value.
+/// Minimum grab dodge lookahead frames accepted by the input policy.
 pub const MIN_GRAB_DODGE_LOOKAHEAD_FRAMES: f32 = 1.0;
-/// Sets the upper bound for grab dodge lookahead frames.
-///
-/// Holds the MAX GRAB DODGE LOOKAHEAD FRAMES value.
+/// Maximum grab dodge lookahead frames accepted by the input policy.
 pub const MAX_GRAB_DODGE_LOOKAHEAD_FRAMES: f32 = 8.0;
-/// Sets the default value for grab dodge padding.
-///
-/// Holds the DEFAULT GRAB DODGE PADDING value.
+/// Default grab dodge padding accepted by the input policy.
 pub const DEFAULT_GRAB_DODGE_PADDING: f32 = 2.0;
-/// Sets the upper bound for grab dodge padding.
-///
-/// Holds the MAX GRAB DODGE PADDING value.
+/// Maximum grab dodge padding accepted by the input policy.
 pub const MAX_GRAB_DODGE_PADDING: f32 = 30.0;
-/// Sets the default value for grab dodge height.
-///
-/// Holds the DEFAULT GRAB DODGE HEIGHT value.
+/// Default grab dodge height accepted by the input policy.
 pub const DEFAULT_GRAB_DODGE_HEIGHT: f32 = 8.0;
-/// Sets the upper bound for grab dodge height.
-///
-/// Holds the MAX GRAB DODGE HEIGHT value.
+/// Maximum grab dodge height accepted by the input policy.
 pub const MAX_GRAB_DODGE_HEIGHT: f32 = 60.0;
-/// Sets the default value for reflect margin frames.
-///
-/// Holds the DEFAULT REFLECT MARGIN FRAMES value.
+/// Default reflect margin frames accepted by the input policy.
 const DEFAULT_REFLECT_MARGIN_FRAMES: f32 = 2.0;
-/// Sets the default value for reflect max hold frames.
-///
-/// Holds the DEFAULT REFLECT MAX HOLD FRAMES value.
+/// Default reflect max hold frames accepted by the input policy.
 const DEFAULT_REFLECT_MAX_HOLD_FRAMES: f32 = 45.0;
-/// Sets the default value for reflect half width.
-///
-/// Holds the DEFAULT REFLECT HALF WIDTH value.
+/// Default reflect half width accepted by the input policy.
 const DEFAULT_REFLECT_HALF_WIDTH: f32 = 5.0;
-/// Sets the default value for reflect height.
-///
-/// Holds the DEFAULT REFLECT HEIGHT value.
+/// Default reflect height accepted by the input policy.
 const DEFAULT_REFLECT_HEIGHT: f32 = 16.0;
-/// Sets the default value for reflect half depth.
-///
-/// Holds the DEFAULT REFLECT HALF DEPTH value.
+/// Default reflect half depth accepted by the input policy.
 const DEFAULT_REFLECT_HALF_DEPTH: f32 = 5.0;
 
 pub use schema::*;
@@ -562,8 +351,6 @@ pub use schema::*;
 /// Fixed fallback for every override that has one, shared by the runtime reads
 /// (`Tuning::get`) and the menu display (`Tuning::values`) so they cannot drift.
 /// Rows derived from settings or the fighter kind are filled in by `values`.
-///
-///  Fixed fallback for every override that has one, shared by the runtime reads (Tuning::get) and the menu display (Tuning::values) so they cannot drift. Rows derived from settings or the fighter kind are filled in by values.
 const DEFAULTS: [f32; COUNT] = {
     let mut d = [0.; COUNT];
     d[GRAB_DODGE_DEFAULT] = 1.;
@@ -603,114 +390,54 @@ const DEFAULTS: [f32; COUNT] = {
     d
 };
 
-/// Defines the `Tuning` data structure.
-///
-/// Holds the data for Tuning.
+/// Optional per-fighter overrides for input-assistance policy values.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Tuning(
     /// Per-field optional tuning overrides in schema order.
-    ///
-    ///
-    ///  Stores only the fighter settings that should differ from their defaults.
     pub [Option<f32>; COUNT],
 );
-/// Defines the `Values` data structure.
-///
-/// Holds the data for Values.
+/// Resolved numeric tuning values after defaults and fighter overrides are applied.
 #[derive(Clone, Copy)]
 pub struct Values(
     /// Fully resolved tuning values in schema order.
-    ///
-    ///
-    ///  Stores the actual numeric value for every tuning setting.
     pub [f32; COUNT],
 );
 impl Default for Values {
-    /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
+    /// Initializes the resolved tuning array before defaults are populated.
     fn default() -> Self {
         Self([0.; COUNT])
     }
 }
 impl std::ops::Deref for Values {
-    /// Defines `Target` as a type alias.
-    ///
-    ///
-    ///  Holds the Target value.
+    /// Resolved tuning array exposed through `Deref`.
     type Target = [f32; COUNT];
     /// Exposes the wrapped value through the `Deref` implementation.
-    ///
-    ///
-    ///  Lets callers use the wrapped value directly.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `&Self::Target` value.
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 impl std::ops::DerefMut for Values {
     /// Returns mutable access to the deref value.
-    ///
-    ///
-    ///  Provides mutable access to deref.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `&mut Self::Target` value.
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 impl Default for Tuning {
-    /// Returns the default value for this type.
-    ///
-    ///
-    ///  Returns the default value for this type.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
+    /// Starts with no per-fighter overrides; shared policy defaults remain active.
     fn default() -> Self {
         Self([None; COUNT])
     }
 }
 impl Tuning {
-    /// Returns the wrapped value.
-    ///
-    ///
-    ///  Gets the stored value.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
-    /// - `fallback` (`f32`): Represents the fallback; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `f32` value.
+    /// Returns one override, falling back when that fighter has no saved value.
     pub fn value(&self, i: usize, fallback: f32) -> f32 {
         self.0[i].unwrap_or(fallback)
     }
     /// The override, or this row's shared fixed default.
-    ///
-    ///  The override, or this row's shared fixed default.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `f32` value.
     pub fn get(&self, i: usize) -> f32 {
         self.value(i, DEFAULTS[i])
     }
-    /// Returns the configured frame count.
-    ///
-    ///
-    ///  Gets the number of frames.
-    /// ### Arguments
-    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
+    /// Whether this tuning row is displayed and parsed as a frame count.
     pub fn frames(i: usize) -> bool {
         matches!(
             i,
@@ -724,13 +451,6 @@ impl Tuning {
     }
     /// Menu rows shown for this fighter: reflect rows need a supported reflector,
     /// the legacy punish/roll rows are hidden, and crouch rows are Kirby-only.
-    ///
-    ///  Menu rows shown for this fighter: reflect rows need a supported reflector, the legacy punish/roll rows are hidden, and crouch rows are Kirby-only.
-    /// ### Arguments
-    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn visible(kind: i32, i: usize) -> bool {
         match i {
             REFLECT_DEFAULT..=REFLECT_HALF_DEPTH => crate::projectile_reflect::supports(kind),
@@ -739,28 +459,13 @@ impl Tuning {
             _ => i < COUNT,
         }
     }
-    /// Checks whether bool.
-    ///
-    ///
-    ///  Checks whether bool.
-    /// ### Arguments
-    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
+    /// Whether the menu row stores an on/off value instead of a scalar.
     pub fn is_bool(i: usize) -> bool {
         (MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT).contains(&i)
             || i == REFLECT_DEFAULT
             || (TILT_TURN_DOWN..=TILT_TURN_UP).contains(&i)
     }
-    /// Returns the configured tilt-turn behavior.
-    ///
-    ///
-    ///  Gets the tilt-turn setting.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `crate::posture::TiltSettings` value.
+    /// Resolves which physical C-stick tilts should face the opponent.
     pub fn tilt_turn(self, kind: i32) -> crate::posture::TiltSettings {
         crate::posture::TiltSettings {
             down: self.value(TILT_TURN_DOWN, f32::from(tilt_turn_down_default(kind))) == 1.0,
@@ -769,62 +474,22 @@ impl Tuning {
         }
     }
     /// Returns the default grab-dodge setting.
-    ///
-    ///
-    ///  Gets the standard grab-dodge setting.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `base` (`bool`): Represents the base; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn grab_dodge_default(self, base: bool) -> bool {
         self.0[GRAB_DODGE_DEFAULT].map_or(base, |x| x == 1.0)
     }
     /// Returns the default out-of-shield setting.
-    ///
-    ///
-    ///  Gets the standard out-of-shield setting.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn oos_default(self) -> bool {
         self.get(OUT_OF_SHIELD_DEFAULT) == 1.0
     }
-    /// Returns the configured dodge lookahead.
-    ///
-    ///
-    ///  Gets how far ahead the dodge check looks.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `f32` value.
+    /// Frames ahead used to predict an ordinary grab before spot-dodging.
     pub fn dodge_lookahead(self) -> f32 {
         self.get(GRAB_DODGE_LOOKAHEAD)
     }
-    /// Returns the configured automatic-grab range.
-    ///
-    ///
-    ///  Gets how close a target must be for the automatic grab.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-    /// - `standing` (`f32`): Represents the standing; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `f32` value.
+    /// Close-range limit for an automatic standing grab.
     pub fn auto_grab_range(&self, kind: i32, standing: f32) -> f32 {
         self.auto_grab_ranges(kind, standing).0
     }
     /// Returns the per-fighter automatic-grab ranges.
-    ///
-    ///
-    ///  Gets the automatic-grab ranges for the fighters.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `kind` (`i32`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-    /// - `standing` (`f32`): Represents the standing; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `(f32, f32)` value.
     pub fn auto_grab_ranges(&self, kind: i32, standing: f32) -> (f32, f32) {
         let (close, far) = match (self.0[AUTO_GRAB_CLOSE], self.0[AUTO_GRAB_FAR]) {
             (Some(close), Some(far)) => (close, far),
@@ -836,13 +501,6 @@ impl Tuning {
         (close, far.max(close))
     }
     /// Returns the shield observation used by the response.
-    ///
-    ///
-    ///  Gets the observed shield data.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `crate::autopilot_guard::Envelope` value.
     pub fn shield(&self) -> crate::autopilot_guard::Envelope {
         crate::autopilot_guard::Envelope {
             scan_x: self.get(SHIELD_SCAN_X),
@@ -856,13 +514,6 @@ impl Tuning {
         }
     }
     /// Returns the body area used for tech prediction.
-    ///
-    ///
-    ///  Gets the body area used to estimate a tech.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `crate::tech_prediction::Body` value.
     pub fn tech_body(&self) -> crate::tech_prediction::Body {
         crate::tech_prediction::Body {
             half_width: self.get(TECH_HALF_WIDTH),
@@ -878,13 +529,6 @@ impl Tuning {
         }
     }
     /// Returns the geometric bounds for the observed object.
-    ///
-    ///
-    ///  Gets the object’s bounds.
-    /// ### Arguments
-    /// - `i` (`usize`): Represents the i; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `(f32, f32, f32)` value.
     pub fn bounds(i: usize) -> (f32, f32, f32) {
         if Self::is_bool(i) {
             return (0., 1., 1.);
@@ -923,16 +567,7 @@ impl Tuning {
             _ => (1.0, 150.0, 0.5),
         }
     }
-    /// Stores the supplied value.
-    ///
-    ///
-    ///  Sets the value.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `key` (`&str`): Represents the key or identifier being sampled; the function uses it as input to the operation described above.
-    /// - `text` (`&str`): Represents the text being parsed or displayed; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Ok(value)` on success or `Err(error)` if the operation fails.
+    /// Parses and saves one named per-fighter tuning override.
     pub fn set(&mut self, key: &str, text: &str) -> Result<(), String> {
         let i = KEYS
             .iter()
@@ -959,13 +594,6 @@ impl Tuning {
         Ok(())
     }
     /// Returns the resolved tuning values.
-    ///
-    ///
-    ///  Gets the actual tuning values.
-    /// ### Arguments
-    /// - `s` (`AssistSettings`): Represents the s; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `Values` value.
     pub fn values(s: AssistSettings) -> Values {
         let mut values = DEFAULTS;
         values[WALK_STRENGTH] = s.walk_strength;
@@ -995,15 +623,7 @@ impl Tuning {
         values[TILT_TURN_DOWN] = f32::from(tilt_turn_down_default(s.fighter_kind));
         Values(values)
     }
-    /// Applies the supplied configuration or action.
-    ///
-    ///
-    ///  Makes the supplied change.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `s` (`AssistSettings`): Represents the s; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `AssistSettings` value.
+    /// Applies saved per-fighter overrides to the runtime assistance settings.
     pub fn apply(self, mut s: AssistSettings) -> AssistSettings {
         let v = self.0;
         let set = |slot: usize, target: &mut f32| {
@@ -1036,15 +656,9 @@ impl Tuning {
 mod tests {
     use super::*;
     use crate::sequence_config::{persist, Catalog};
-    /// Defines the `SOURCE` constant used by this module.
-    ///
-    ///
-    ///  Provides the SOURCE constant value.
+    /// Startup-loaded per-fighter tuning overrides.
     const SOURCE: &str = "# keep recipes\n[kirby.neutral.nair]\nstart_delay=0\nactions=nair\n[yoshi.neutral.grab]\nstart_delay=0\nactions=grab:fighter_range\n";
     /// Regression test for `saved_overrides_are_per_fighter_and_preserve_recipes`.
-    ///
-    ///
-    ///  Checks that saved overrides are per fighter and preserve recipes.
     #[test]
     fn saved_overrides_are_per_fighter_and_preserve_recipes() {
         let mut tuning = Tuning::default();
@@ -1085,9 +699,6 @@ mod tests {
         );
     }
     /// Regression test for `invalid_settings_reject_before_loading`.
-    ///
-    ///
-    ///  Checks that invalid settings reject before loading.
     #[test]
     fn invalid_settings_reject_before_loading() {
         for text in [
@@ -1106,9 +717,6 @@ mod tests {
         assert!(Catalog::parse("[yoshi.settings]\n[yoshi.settings]\n").is_err());
     }
     /// Regression test for `applied_values_change_decisions_and_inputs_only`.
-    ///
-    ///
-    ///  Checks that applied values change decisions and inputs only.
     #[test]
     fn applied_values_change_decisions_and_inputs_only() {
         let base = AssistSettings::default();

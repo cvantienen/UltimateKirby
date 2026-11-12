@@ -6,29 +6,16 @@ use crate::{
     roll_read::Target,
 };
 
-/// Defines the `Timing` data structure.
-///
-/// Holds the data for Timing.
+/// Runtime Smash data carried by `Timing`.
 #[derive(Clone, Copy)]
 pub(super) struct Timing {
-    /// Stores the `delivery` value in `Timing` as `u8`.
-    ///
-    ///
-///  Holds the delivery value used by Timing.
+/// Runtime delivery value used by Timing..
     pub delivery: u8,
-    /// Stores the `timeout` value in `Timing` as `u16`.
-    ///
-    ///
-///  Holds the timeout value used by Timing.
+/// Runtime timeout value used by Timing..
     pub timeout: u16,
 }
 impl Timing {
     /// Returns the `legacy` result.
-    ///
-    ///
-    ///  Gets the legacy result.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub fn legacy() -> Self {
         Self {
             delivery: 4,
@@ -36,49 +23,24 @@ impl Timing {
         }
     }
 }
-/// Defines the `ShieldUpB` data structure.
-///
-/// Holds the data for ShieldUpB.
+/// Runtime Smash data carried by `ShieldUpB`.
 #[derive(Default)]
 pub(super) struct ShieldUpB {
-    /// Stores the `target` value in `ShieldUpB` as `Option<u32>`.
-    ///
-    ///
-///  Optionally stores the target for ShieldUpB; it may be absent.
+/// selected opponent/projectile target.
     target: Option<u32>,
-    /// Stores the `clock` value in `ShieldUpB` as `NativeAttempt`.
-    ///
-    ///
-///  Holds the clock value used by ShieldUpB.
+/// Runtime clock value used by ShieldUpB..
     clock: NativeAttempt,
-    /// Stores the `mapped` value in `ShieldUpB` as `u8`.
-    ///
-    ///
-///  Holds the mapped value used by ShieldUpB.
+/// Runtime mapped value used by ShieldUpB..
     mapped: u8,
-    /// Stores the `last_mapped` value in `ShieldUpB` as `Option<i64>`.
-    ///
-    ///
-///  Optionally stores the last mapped for ShieldUpB; it may be absent.
+/// Runtime last mapped value used by ShieldUpB..
     last_mapped: Option<i64>,
-    /// Stores the `receipt` value in `ShieldUpB` as `crate::move_input::UpBReceipt`.
-    ///
-    ///
-///  Holds the receipt value used by ShieldUpB.
+/// Runtime receipt value used by ShieldUpB..
     receipt: crate::move_input::UpBReceipt,
-    /// Stores the `waiting` value in `ShieldUpB` as `bool`.
-    ///
-    ///
-///  Holds the waiting value used by ShieldUpB.
+/// Runtime waiting value used by ShieldUpB..
     waiting: bool,
 }
 impl ShieldUpB {
     /// Constructs a new value with the type’s initial state.
-    ///
-    ///
-    ///  Creates a new value.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             target: None,
@@ -90,44 +52,18 @@ impl ShieldUpB {
         }
     }
     /// Returns the selected target observation.
-    ///
-    ///
-    ///  Gets the chosen target.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn target(&self) -> Option<u32> {
         self.target
     }
     /// Checks whether the feature is active.
-    ///
-    ///
-    ///  Checks whether the feature is on.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(&self) -> bool {
         self.target.is_some()
     }
     /// Cancels the pending operation and clears its state.
-    ///
-    ///
-    ///  Stops the operation that was waiting.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
     pub fn cancel(&mut self) {
         *self = Self::new();
     }
     /// Updates the `attempted` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates attempted.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn attempted(&mut self, tick: i64, target: u32) {
         if self.target == Some(target) && self.last_mapped != Some(tick) {
             self.mapped = self.mapped.saturating_add(1);
@@ -135,13 +71,6 @@ impl ShieldUpB {
         }
     }
     /// Checks whether the requested input was acknowledged by the mapper.
-    ///
-    ///
-    ///  Checks whether the controller mapping accepted the input.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `target` (`u32`): Represents the target object or value being checked; the function uses it as input to the operation described above.
     pub fn mapped(&mut self, tick: i64, target: u32) {
         self.attempted(tick, target);
         if self.target == Some(target) {
@@ -149,66 +78,24 @@ impl ShieldUpB {
         }
     }
     /// Determines whether the `delivery_started` condition holds.
-    ///
-    ///
-    ///  Checks whether delivery started.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn delivery_started(&self) -> bool {
         self.active() && self.receipt.sent()
     }
     /// Determines whether the `receipt_pending` condition holds.
-    ///
-    ///
-    ///  Checks whether receipt pending.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn receipt_pending(&self) -> bool {
         self.active() && self.receipt.sent()
     }
     /// Determines whether the `awaiting` condition holds.
-    ///
-    ///
-    ///  Checks whether awaiting.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn awaiting(&self) -> bool {
         self.receipt_pending() && self.waiting
     }
     /// Updates the `delivery_tick` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates delivery tick.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
     pub fn delivery_tick(&mut self, tick: i64) {
         if self.receipt_pending() {
             self.receipt.tick(tick);
         }
     }
     /// Updates the toggle state from the current button sample and match state.
-    ///
-    ///
-    ///  Checks the current buttons and updates whether the toggle should activate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `allowed` (`bool`): Represents the allowed; the function uses it as input to the operation described above.
-    /// - `c` (`super::Context`): Represents the c; the function uses it as input to the operation described above.
-    /// - `lc` (`GameplayContext`): Represents the lc; the function uses it as input to the operation described above.
-    /// - `targets` (`[Option<Target>; 8]`): Represents the targets; the function uses it as input to the operation described above.
-    /// - `follow` (`Option<Opponent>`): Represents the follow; the function uses it as input to the operation described above.
-    /// - `range` (`f32`): Represents the range; the function uses it as input to the operation described above.
-    /// - `height` (`f32`): Represents the height; the function uses it as input to the operation described above.
-    /// - `timing` (`Timing`): Represents the timing; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     pub fn sample(
         &mut self,
         allowed: bool,

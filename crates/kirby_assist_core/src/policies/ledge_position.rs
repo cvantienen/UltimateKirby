@@ -13,18 +13,11 @@ use crate::{
 };
 
 /// Sets the upper bound for grounded ledge scan distance.
-///
 /// Holds the MAX GROUNDED LEDGE SCAN DISTANCE value.
 const MAX_GROUNDED_LEDGE_SCAN_DISTANCE: u16 = 400;
 
 /// Determines whether the `eligible_for_positioning` condition holds.
-///
 /// Checks whether eligible for positioning.
-/// ### Arguments
-/// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-/// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `true` when the documented condition holds; otherwise, returns `false`.
 fn eligible_for_positioning(settings: AssistSettings, ctx: GameplayContext) -> bool {
     settings.enabled
         && ctx.held
@@ -37,34 +30,17 @@ fn eligible_for_positioning(settings: AssistSettings, ctx: GameplayContext) -> b
         && ctx.facing.is_finite()
 }
 
-/// Defines the `LedgeSpot` data structure.
-///
-/// Holds the data for LedgeSpot.
+/// Runtime Smash data carried by `LedgeSpot`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeSpot {
-    /// Stores the `edge` value in `LedgeSpot` as `[f32; 2]`.
-    ///
-    ///
-///  Stores the edge collection for LedgeSpot.
+/// Runtime edge value used by LedgeSpot..
     pub edge: [f32; 2],
-    /// Stores the `inward` value in `LedgeSpot` as `f32`.
-    ///
-    ///
-///  Holds the inward value used by LedgeSpot.
+/// Runtime inward value used by LedgeSpot..
     pub inward: f32,
 }
 
 /// Reuse the existing trump's short support probes at the grounded floor height.
 /// No vertical stage-body scan, floor-normal FFI, or airborne geometry queries.
-///
-///  Reuse the existing trump's short support probes at the grounded floor height. No vertical stage-body scan, floor-normal FFI, or airborne geometry queries.
-/// ### Arguments
-/// - `position` (`[f32; 2]`): Represents an object position; the function uses it as input to the operation described above.
-/// - `facing` (`f32`): Represents the facing; the function uses it as input to the operation described above.
-/// - `supported` (`impl FnMut([f32; 2]) -> bool`): Represents the supported; the function uses it as input to the operation described above.
-/// - `stand_distance` (`f32`): Represents the stand distance; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 pub fn nearest_ground_ledge(
     position: [f32; 2],
     facing: f32,
@@ -86,64 +62,30 @@ pub fn nearest_ground_ledge(
     supported(destination).then_some(LedgeSpot { edge, inward })
 }
 
-/// Defines the `LedgePosition` data structure.
-///
-/// Holds the data for LedgePosition.
+/// Runtime Smash data carried by `LedgePosition`.
 #[derive(Default)]
 pub struct LedgePosition {
-    /// Stores the `spot` value in `LedgePosition` as `Option<LedgeSpot>`.
-    ///
-    ///
-///  Optionally stores the spot for LedgePosition; it may be absent.
+/// Runtime spot value used by LedgePosition..
     spot: Option<LedgeSpot>,
-    /// Stores the `settled` value in `LedgePosition` as `bool`.
-    ///
-    ///
-///  Holds the settled value used by LedgePosition.
+/// Runtime settled value used by LedgePosition..
     settled: bool,
-    /// Stores the `last_tick` value in `LedgePosition` as `Option<i64>`.
-    ///
-    ///
-///  Optionally stores the last tick for LedgePosition; it may be absent.
+/// Runtime last tick value used by LedgePosition..
     last_tick: Option<i64>,
-    /// Stores the `output` value in `LedgePosition` as `ControllerOutput`.
-    ///
-    ///
-///  Holds the output value used by LedgePosition.
+/// controller input output.
     output: ControllerOutput,
 }
 impl LedgePosition {
     /// Returns an optional `spot` value.
-    ///
-    ///
-    ///  Gets spot if it is available.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn spot(&self) -> Option<LedgeSpot> {
         self.spot
     }
     /// Updates the `lock` state using the supplied inputs.
-    ///
-    ///
-    ///  Updates lock.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `spot` (`Option<LedgeSpot>`): Represents the spot; the function uses it as input to the operation described above.
     pub fn lock(&mut self, spot: Option<LedgeSpot>) {
         if self.spot.is_none() {
             self.spot = spot.filter(|spot| finite2(spot.edge) && spot.inward.abs() == 1.0);
         }
     }
     /// Returns the `action_name` result.
-    ///
-    ///
-    ///  Gets the action name result.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn action_name(&self) -> &'static str {
         if self.spot.is_none() {
             "seek_ground_ledge"
@@ -154,16 +96,6 @@ impl LedgePosition {
         }
     }
     /// Updates the toggle state from the current button sample and match state.
-    ///
-    ///
-    ///  Checks the current buttons and updates whether the toggle should activate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `tick` (`i64`): Represents the tick; the function uses it as input to the operation described above.
-    /// - `ctx` (`GameplayContext`): Represents the ctx; the function uses it as input to the operation described above.
-    /// - `settings` (`AssistSettings`): Represents the settings; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `ControllerOutput` value.
     pub fn sample(
         &mut self,
         tick: i64,

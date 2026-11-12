@@ -6,76 +6,36 @@ pub use crate::kirby::{FairContext, FairFollowup, TripContext, TripFollowup, Tri
 
 use super::{is_new_hit, stick_engaged, LAUNCH_DI_FRAMES, MAX_DAMAGE_STOP_DI_FRAMES};
 
-/// Defines the `SdiContext` data structure.
-///
-/// Holds the data for SdiContext.
+/// Runtime Smash data carried by `SdiContext`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SdiContext {
-    /// Stores the `object` value in `SdiContext` as `u32`.
-    ///
-    ///
-///  Holds the object value used by SdiContext.
+/// Runtime object value used by SdiContext..
     pub object: u32,
-    /// Stores the `damage_stop` value in `SdiContext` as `bool`.
-    ///
-    ///
-///  Holds the damage stop value used by SdiContext.
+/// Runtime damage stop value used by SdiContext..
     pub damage_stop: bool,
-    /// Stores the `remaining` value in `SdiContext` as `u64`.
-    ///
-    ///
-///  Holds the remaining value used by SdiContext.
+/// Runtime remaining value used by SdiContext..
     pub remaining: u64,
-    /// Stores the `input_delay` value in `SdiContext` as `f32`.
-    ///
-    ///
-///  Holds the input delay value used by SdiContext.
+/// Runtime input delay value used by SdiContext..
     pub input_delay: f32,
     /// Away from the attributed attacker (or sole opponent); zero if unknown.
-    ///
-///  Away from the attributed attacker (or sole opponent); zero if unknown.
     pub outward: f32,
 }
-/// Defines the `SdiState` data structure.
-///
-/// Holds the data for SdiState.
+/// Runtime Smash data carried by `SdiState`.
 #[derive(Default)]
 pub struct SdiState {
-    /// Stores the `last` value in `SdiState` as `Option<(u32`.
-    ///
-    ///
-///  Optionally stores the last for SdiState; it may be absent.
+/// Runtime last value used by SdiState..
     last: Option<(u32, u64)>,
-    /// Stores the `last_flick` value in `SdiState` as `Option<u64>`.
-    ///
-    ///
-///  Optionally stores the last flick for SdiState; it may be absent.
+/// Runtime last flick value used by SdiState..
     last_flick: Option<u64>,
-    /// Stores the `output` value in `SdiState` as `Option<[f32; 2]>`.
-    ///
-    ///
-///  Optionally stores the output for SdiState; it may be absent.
+/// controller input output.
     output: Option<[f32; 2]>,
-    /// Stores the `manual_control` value in `SdiState` as `bool`.
-    ///
-    ///
-///  Holds the manual control value used by SdiState.
+/// Runtime manual control value used by SdiState..
     manual_control: bool,
 }
 impl SdiState {
     /// Re-arm a real controller flick when the previous game-visible stick was
     /// already held. Repeated mapper polls retain that neutral release until
     /// native hitstop advances; a same-side held sample is never a fresh SDI.
-    ///
-    ///  Re-arm a real controller flick when the previous game-visible stick was already held. Repeated mapper polls retain that neutral release until native hitstop advances; a same-side held sample is never a fresh SDI.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-    /// - `ctx` (`SdiContext`): Represents the ctx; the function uses it as input to the operation described above.
-    /// - `geometry` (`Option<([f32; 2], crate::auto_di::BlastZone)>`): Represents the geometry; the function uses it as input to the operation described above.
-    /// - `previous` (`[f32; 2]`): Represents the previous; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample_exclusive_with_previous(
         &mut self,
         enabled: bool,
@@ -94,29 +54,11 @@ impl SdiState {
     }
     /// Neutral flick gaps are owned too; physical movement cannot cancel an
     /// already selected damage response or leak into its later DI phase.
-    ///
-    ///  Neutral flick gaps are owned too; physical movement cannot cancel an already selected damage response or leak into its later DI phase.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-    /// - `ctx` (`SdiContext`): Represents the ctx; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample_exclusive(&mut self, enabled: bool, ctx: SdiContext) -> Option<[f32; 2]> {
         self.manual_control = false;
         self.sample(enabled, ctx, [0.; 2])
     }
     /// Samples the exclusive with geometry.
-    ///
-    ///
-    ///  Samples the exclusive with geometry.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-    /// - `ctx` (`SdiContext`): Represents the ctx; the function uses it as input to the operation described above.
-    /// - `geometry` (`Option<([f32; 2], crate::auto_di::BlastZone)>`): Represents the geometry; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample_exclusive_with_geometry(
         &mut self,
         enabled: bool,
@@ -147,16 +89,6 @@ impl SdiState {
         Some(best)
     }
     /// Updates the toggle state from the current button sample and match state.
-    ///
-    ///
-    ///  Checks the current buttons and updates whether the toggle should activate.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `enabled` (`bool`): Represents whether the feature or option should be enabled; the function uses it as input to the operation described above.
-    /// - `ctx` (`SdiContext`): Represents the ctx; the function uses it as input to the operation described above.
-    /// - `physical` (`[f32; 2]`): Represents the physical; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `Some(value)` when a value is available; otherwise, returns `None`.
     pub fn sample(
         &mut self,
         enabled: bool,

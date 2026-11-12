@@ -20,70 +20,37 @@ use std::{
 };
 
 /// Generation counter invalidating stale rendered calibration cards.
-///
-///  Identifies which calibration result the menu currently shows.
 static EPOCH: AtomicUsize = AtomicUsize::new(0);
 #[cfg(feature = "imgui-menu")]
 /// Mutex-protected cached calibration-card text and its generation.
-///
-///  Stores the troubleshooting card displayed in the menu.
 static CARD: Mutex<Option<(usize, CString)>> = Mutex::new(None);
 /// Time limit after which an unfinished trace is considered stalled.
-///
-///  Ends a calibration attempt after four seconds without completion.
 const WATCHDOG_MS: u64 = 4_000;
 /// Raw right-stick direction mask used for calibration classification.
-///
-///  Identifies the right-stick directions tracked by the recorder.
 const RAW_CSTICK: u32 = RIGHT_STICK_DIRECTIONS;
 /// Stable names corresponding to the five recorded input channels.
-///
-///  Labels the jump, attack, grab, special, and shield inputs in reports.
 const CHANNELS: [&str; 5] = ["Jump", "Attack", "Grab", "Special", "Shield"];
 
 #[derive(Clone, Copy, Debug)]
 /// Compact timestamped copy of own/target animation facts.
-///
-///  Stores a moment in the attempt using copied animation details.
 struct Stamp {
     /// Elapsed wall-clock milliseconds from the report origin.
-    ///
-    ///  How long after the attempt began this sample was taken.
     ms: u64,
     /// Target's native status ID, if present.
-    ///
-    ///  The opponent's action at this sample.
     target_status: Option<i32>,
     /// Target motion hash, if present.
-    ///
-    ///  The opponent's animation at this sample.
     target_motion: Option<u64>,
     /// Target's fractional motion frame, if present.
-    ///
-    ///  How far the opponent's animation had progressed.
     target_frame: Option<f32>,
     /// Target's motion playback rate, if present.
-    ///
-    ///  How quickly the opponent's animation was playing.
     target_rate: Option<f32>,
     /// Own fighter's native status ID.
-    ///
-    ///  The player's action at this sample.
     own_status: i32,
     /// Own fighter's current motion frame.
-    ///
-    ///  How far the player's animation had progressed.
     own_frame: f32,
 }
 impl Stamp {
     /// Copies timing/status facts from a calibration frame.
-    ///
-    ///  Creates a compact record of what both fighters were doing.
-    /// ### Arguments
-    /// - `frame` (`CalibrationFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-    /// - `ms` (`u64`): Represents the ms; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn new(frame: CalibrationFrame, ms: u64) -> Self {
         Self {
             ms,
@@ -96,12 +63,6 @@ impl Stamp {
         }
     }
     /// Formats the target's copied status and motion clock.
-    ///
-    ///  Produces a short readable timestamp for the report.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn describe(self) -> String {
         let frame = self
             .target_frame
@@ -118,43 +79,22 @@ impl Stamp {
 
 #[derive(Clone, Copy, Debug)]
 /// Captures neutral-attack activity and contemporaneous opponent spacing/protection.
-///
-///  Records what the player and opponent were doing when a neutral move became active.
 struct NeutralActivity {
     /// Timestamp and animation snapshot for this activity sample.
-    ///
-    ///  When the activity happened and which animation was playing.
     stamp: Stamp,
     /// Own fighter's motion hash at the sample.
-    ///
-    ///  The player's animation during the activity.
     own_motion: u64,
     /// Opponent-relative X/Y position delta, if a target was observed.
-    ///
-    ///  How far away and above/below the opponent was.
     gap: Option<[f32; 2]>,
     /// Whether the target was vulnerable at the sample.
-    ///
-    ///  Whether the opponent could be hit then.
     vulnerable: Option<bool>,
     /// Remaining protection duration, if available.
-    ///
-    ///  How long the opponent's protection was expected to last.
     protection: Option<f32>,
     /// Remaining recovery duration for a cliff-climb target, if applicable.
-    ///
-    ///  How long the opponent had before they could act.
     recovery: Option<f32>,
 }
 impl NeutralActivity {
     /// Copies neutral activity and target spacing/protection from a frame.
-    ///
-    ///  Captures the fighter and opponent state for this moment.
-    /// ### Arguments
-    /// - `frame` (`CalibrationFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-    /// - `stamp` (`Stamp`): Represents the stamp; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     fn new(frame: CalibrationFrame, stamp: Stamp) -> Self {
         Self {
             stamp,
@@ -183,12 +123,6 @@ impl NeutralActivity {
         }
     }
     /// Formats copied animation, vulnerability, timing, and spacing values.
-    ///
-    ///  Turns the activity snapshot into one readable report line.
-    /// ### Arguments
-    /// - `self` (`self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn describe(self) -> String {
         format!(
             "own {} f{:.1}; {}; vulnerable={:?}; protection_left={}; recovery_left={}; gap_x/height={:?}",
@@ -208,150 +142,76 @@ impl NeutralActivity {
 
 use kirby_assist_core::diagnostics::modes::Label as ChoiceName;
 /// Frozen diagnostic record for one selected fighter option attempt.
-///
-///  All copied details used to explain how one test went.
 pub struct Report {
     /// Recorder generation captured when this attempt began.
-    ///
-    ///  Identifies the calibration run that produced this report.
     epoch: usize,
     /// Stable fighter profile key for the observed character.
-    ///
-    ///  The character name used in the report.
     fighter: &'static str,
     /// Native fighter-kind ID corresponding to `fighter`.
-    ///
-    ///  The game's numeric ID for the character.
     fighter_kind: i32,
     /// Human-readable selected option label.
-    ///
-    ///  The menu choice the player tested.
     choice: ChoiceName,
     /// Wall-clock start instant used to compute elapsed time.
-    ///
-    ///  When this attempt began.
     origin: Instant,
     /// First copied calibration frame for the attempt.
-    ///
-    ///  The fighter and target state when recording started.
     first: CalibrationFrame,
     /// Most recent copied calibration frame.
-    ///
-    ///  The latest fighter and target state recorded.
     last: CalibrationFrame,
     /// Timestamp derived from the first frame and elapsed time.
-    ///
-    ///  The starting time and animation details in compact form.
     first_stamp: Stamp,
     /// Timestamp derived from the latest frame and elapsed time.
-    ///
-    ///  The most recent time and animation details.
     last_stamp: Stamp,
     /// Resolved move timing/configuration associated with the attempt.
-    ///
-    ///  The move recipe being tested.
     model: CalibrationMove,
     /// First timestamped request observed for each input channel.
-    ///
-    ///  When each button request was first made.
     requests: [Option<Stamp>; 5],
     /// Whether each requested channel was acknowledged by the mapper.
-    ///
-    ///  Which requested inputs were actually mapped.
     mapped: [bool; 5],
     /// First mapper-acknowledgment timestamp for each input channel.
-    ///
-    ///  When each input first appeared in mapped output.
     mapped_first: [Option<Stamp>; 5],
     /// Optional input-to-mapper latency sample in milliseconds.
-    ///
-    ///  Measured delay for the diagnostic run, if available.
     test_latency: Option<u8>,
     /// Performance-recorder epoch used for this latency sample.
-    ///
-    ///  Identifies which performance sample the delay came from.
     test_epoch: usize,
     /// Calibration frame at the first accepted raw request.
-    ///
-    ///  The fighter state when the first input was requested.
     first_request: Option<CalibrationFrame>,
     /// Timestamp when native jump/squat startup was observed.
-    ///
-    ///  When the game began the jump action.
     jump_start: Option<Stamp>,
     /// Timestamp when the selected native move started.
-    ///
-    ///  When the game began the chosen move.
     move_start: Option<Stamp>,
     /// Optional own animation frame when the configured move became active.
-    ///
-    ///  The move's animation frame when activity was observed.
     activity_frame: Option<f32>,
     /// First copied snapshot of a neutral attack's active state.
-    ///
-    ///  The first time the neutral attack appeared active.
     neutral_first_active: Option<NeutralActivity>,
     /// First active neutral-attack snapshot while the target was vulnerable.
-    ///
-    ///  When the move was active while the opponent could be hit.
     neutral_vulnerable_active: Option<NeutralActivity>,
     /// First timestamp at which the target was observed vulnerable.
-    ///
-    ///  When the opponent's protection was first seen to end.
     vulnerable: Option<Stamp>,
     /// First observed hit-infliction timestamp.
-    ///
-    ///  When the game first reported a hit.
     hit: Option<Stamp>,
     /// Whether native capture was observed.
-    ///
-    ///  Whether the game confirmed a grab.
     captured: bool,
     /// Whether native shield block was observed.
-    ///
-    ///  Whether the attack was seen to be blocked.
     blocked: bool,
     /// Last native or policy gate reason recorded.
-    ///
-    ///  The latest reason the move was waiting or stopped.
     last_wait: &'static str,
     /// Last mapper admission gate label.
-    ///
-    ///  The latest reason input did or did not pass mapping.
     mapper_gate: &'static str,
     /// Raw requested canonical button mask.
-    ///
-    ///  Buttons the helper asked to press.
     raw_requested: u32,
     /// Button mask admitted by the overlay before native mapping.
-    ///
-    ///  Buttons that made it into the temporary controller input.
     raw_applied: u32,
     /// Final mapped button mask captured by the recorder.
-    ///
-    ///  Buttons the game mapper produced.
     mapped_buttons: u32,
     /// Stable completion reason for this attempt.
-    ///
-    ///  Why the recording ended.
     end: &'static str,
     /// Whether the selected action was observed as native execution.
-    ///
-    ///  Whether the game actually started the requested move.
     was_native: bool,
     /// Optional finer-grained end reason for the selected timeline.
-    ///
-    ///  An extra detail about why the sequence ended.
     ending: Option<&'static str>,
 }
 /// Worker-only explanation; retain unknown gate names with readable spacing.
 /// Maps known gate identifiers to readable phrases and normalizes unknown labels.
-///
-///  Rewrites internal wait reasons into clearer report text.
-/// ### Arguments
-/// - `gate` (`&str`): Represents the gate; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `std::borrow::Cow<'_, str>` value.
 fn readable_gate(gate: &str) -> std::borrow::Cow<'_, str> {
     let known = match gate {
         "watch_ledge" => "Watching for an opponent ledge option",
@@ -381,12 +241,6 @@ fn readable_gate(gate: &str) -> std::borrow::Cow<'_, str> {
 impl Report {
     /// Classifies the strongest observed result from capture, hit, block,
     /// native start, and input evidence.
-    ///
-    ///  Summarizes what the game appeared to do during the attempt.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn result(&self) -> &'static str {
         if self.captured {
             "CAPTURE confirmed"
@@ -410,12 +264,6 @@ impl Report {
     }
 
     /// Returns a caveated narrative consistent with the available native evidence.
-    ///
-    ///  Explains what the result can and cannot confirm.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     fn explanation(&self) -> &'static str {
         if self.captured {
             "The game confirmed a capture."
@@ -449,8 +297,6 @@ impl Report {
     }
 
     /// Compact frozen summary; all formatting happens on the logger worker.
-    ///
-    ///  Prepares a short copy of the calibration result for the menu card.
     #[cfg(any(feature = "imgui-menu", test))]
     fn card_text(&self) -> String {
         let mut text = String::with_capacity(768);
@@ -488,25 +334,12 @@ impl Report {
     }
 
     /// Converts an instant into saturated milliseconds from this report's origin.
-    ///
-    ///  Measures how many milliseconds have passed since recording began.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `u64` value.
     fn elapsed(&self, now: Instant) -> u64 {
         now.saturating_duration_since(self.origin)
             .as_millis()
             .min(u128::from(u64::MAX)) as u64
     }
     /// Checks whether the input channel matching the configured move was requested.
-    ///
-    ///  Tells whether the relevant button was ever requested.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn action_requested(&self) -> bool {
         match self.model.kind {
             CalibrationKind::Attack => self.requests[1].is_some(),
@@ -517,12 +350,6 @@ impl Report {
         }
     }
     /// Checks whether the input channel matching the configured move was mapped.
-    ///
-    ///  Tells whether the relevant button reached the mapped output.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     fn action_mapped(&self) -> bool {
         match self.model.kind {
             CalibrationKind::Attack => self.mapped[1],
@@ -533,12 +360,6 @@ impl Report {
         }
     }
     /// Worker thread only. Native frames and wall time are kept separate.
-    ///
-    ///  Turns the saved calibration into a full readable report.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting text.
     pub fn format(&self) -> String {
         let mut text = String::with_capacity(3_072);
         let label = match self.first.slot {
@@ -770,10 +591,6 @@ impl Report {
     }
 }
 /// Stores or classifies the sequence end marker used by calibration reports.
-///
-///  Remembers how the configured sequence finished.
-/// ### Arguments
-/// - `reason` (`Option<&'static str>`): Represents the reason; the function uses it as input to the operation described above.
 fn note_timeline_end(reason: Option<&'static str>) {
     match reason {
         Some("native_clock_gap") => {
@@ -787,13 +604,6 @@ fn note_timeline_end(reason: Option<&'static str>) {
 }
 
 /// Computes target-motion frame delta only when target clock evidence matches.
-///
-///  Measures animation progress without treating wall time as game time.
-/// ### Arguments
-/// - `a` (`Stamp`): Represents the a; the function uses it as input to the operation described above.
-/// - `b` (`Stamp`): Represents the b; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns `Some(value)` when a value is available; otherwise, returns `None`.
 fn target_delta(a: Stamp, b: Stamp) -> Option<f32> {
     let rate = a.target_rate?;
     let other_rate = b.target_rate?;
@@ -813,35 +623,16 @@ fn target_delta(a: Stamp, b: Stamp) -> Option<f32> {
 }
 
 /// Formats an optional timestamp or returns a stable missing-value label.
-///
-///  Displays a time point when known, otherwise says it was not observed.
-/// ### Arguments
-/// - `stamp` (`Option<Stamp>`): Represents the stamp; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 fn point(stamp: Option<Stamp>) -> String {
     stamp.map_or_else(|| "not observed".into(), Stamp::describe)
 }
 /// Formats an optional finite numeric value for a report.
-///
-///  Shows a number when available and a placeholder when it is not.
-/// ### Arguments
-/// - `value` (`Option<f32>`): Represents the value being processed; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting text.
 fn number(value: Option<f32>) -> String {
     value
         .filter(|v| v.is_finite())
         .map_or_else(|| "unknown".into(), |v| format!("{v:.1}"))
 }
 /// Resolves the canonical button mask for each calibration input channel.
-///
-///  Maps a tested move to its jump, attack, grab, special, and shield buttons.
-/// ### Arguments
-/// - `frame` (`CalibrationFrame`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-/// - `kind` (`CalibrationKind`): Represents the kind or category being checked; the function uses it as input to the operation described above.
-/// ### Returns
-/// Returns the resulting `[u32; 5]` value.
 fn channel_masks(frame: CalibrationFrame, kind: CalibrationKind) -> [u32; 5] {
     let grab = if kind == CalibrationKind::Grab {
         frame.grab_button
@@ -863,24 +654,14 @@ fn channel_masks(frame: CalibrationFrame, kind: CalibrationKind) -> [u32; 5] {
 }
 
 /// Per-session calibration lifecycle and current bounded report.
-///
-///  Tracks a single attempt and decides when its report is complete.
 pub struct Recorder {
     /// Current report, absent when there is no active attempt.
-    ///
-    ///  The calibration report being collected now.
     active: Option<Report>,
     /// Suppresses resuming an attempt after it has completed.
-    ///
-    ///  Keeps a finished option from starting another report until a new visit.
     closed: bool,
 }
 impl Recorder {
     /// Creates an idle recorder with no report and an open lifecycle.
-    ///
-    ///  Starts calibration recording in a clean state.
-    /// ### Returns
-    /// Returns a `Self` value representing the result of the operation.
     pub const fn new() -> Self {
         Self {
             active: None,
@@ -888,25 +669,11 @@ impl Recorder {
         }
     }
     /// Reports whether a calibration report is currently being collected.
-    ///
-    ///  Checks whether calibration tracking is active.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns `true` when the documented condition holds; otherwise, returns `false`.
     pub fn active(&self) -> bool {
         self.active.is_some()
     }
     /// Starts, updates, or closes a report from copied calibration frames,
     /// distinguishing option changes and animation rewinds.
-    ///
-    ///  Records what happened during the selected option attempt.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `frame` (`Option<CalibrationFrame>`): Represents the current frame or frame count; the function uses it as input to the operation described above.
-    /// - `fighter` (`(&'static str, i32)`): Represents the fighter being checked or configured; the function uses it as input to the operation described above.
-    /// - `choice` (`&str`): Represents the choice; the function uses it as input to the operation described above.
-    /// - `now` (`Instant`): Represents the current time; the function uses it as input to the operation described above.
     pub fn observe(
         &mut self,
         frame: Option<CalibrationFrame>,
@@ -1113,14 +880,6 @@ impl Recorder {
         }
     }
     /// Records mapper proposal, applied overlay, and final mapped-button evidence.
-    ///
-    ///  Tracks whether requested inputs reached the game's mapper output.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `proposed` (`u32`): Represents the proposed; the function uses it as input to the operation described above.
-    /// - `applied` (`u32`): Represents the applied; the function uses it as input to the operation described above.
-    /// - `mapped` (`u32`): Represents the mapped; the function uses it as input to the operation described above.
-    /// - `gate` (`&'static str`): Represents the gate; the function uses it as input to the operation described above.
     pub fn mapped(&mut self, proposed: u32, applied: u32, mapped: u32, gate: &'static str) {
         let Some(report) = self.active.as_mut() else {
             return;
@@ -1155,11 +914,6 @@ impl Recorder {
         }
     }
     /// Completes the current report with a reason and closes the attempt.
-    ///
-    ///  Ends recording and sends the report to the logger.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `reason` (`&'static str`): Represents the reason; the function uses it as input to the operation described above.
     pub fn stop(&mut self, reason: &'static str) {
         if let Some(mut report) = self.active.take() {
             report.end = reason;
@@ -1168,11 +922,6 @@ impl Recorder {
         }
     }
     /// Stops any current report and reopens the recorder lifecycle.
-    ///
-    ///  Clears the completed state so a later option visit can be tracked.
-    /// ### Arguments
-    /// - `self` (`&self`): Represents the current instance being read or updated; the function uses it as input to the operation described above.
-    /// - `reason` (`&'static str`): Represents the reason; the function uses it as input to the operation described above.
     pub fn reset(&mut self, reason: &'static str) {
         self.stop(reason);
         self.closed = false;
@@ -1181,10 +930,6 @@ impl Recorder {
 
 /// Called only by the background writer. An old queued result cannot leak into
 /// the next battle/fighter after its epoch has been invalidated.
-///
-///  Updates the display only if the report still belongs to this session.
-/// ### Arguments
-/// - `report` (`&Report`): Represents the report; the function uses it as input to the operation described above.
 pub fn publish(report: &Report) {
     if report.epoch != EPOCH.load(Ordering::Acquire) {
         return;
@@ -1202,8 +947,6 @@ pub fn publish(report: &Report) {
     let _ = report;
 }
 /// Advances the recorder epoch and clears the cached menu card.
-///
-///  Removes stale calibration text from the diagnostic display.
 pub fn clear() {
     EPOCH.fetch_add(1, Ordering::AcqRel);
     #[cfg(feature = "imgui-menu")]
@@ -1213,10 +956,6 @@ pub fn clear() {
 }
 #[cfg(feature = "imgui-menu")]
 /// Invokes the renderer with the cached card only when its epoch is current.
-///
-///  Shows the latest valid calibration card in the menu.
-/// ### Arguments
-/// - `draw` (`impl FnOnce(&CStr)`): Represents the draw; the function uses it as input to the operation described above.
 pub fn with_card(draw: impl FnOnce(&CStr)) {
     if let Ok(card) = CARD.try_lock() {
         if let Some((epoch, card)) = card.as_ref() {
@@ -1229,8 +968,6 @@ pub fn with_card(draw: impl FnOnce(&CStr)) {
 
 #[cfg(test)]
 /// Host-side calibration recorder behavior tests.
-///
-///  Checks how calibration samples and reports behave.
 mod tests {
     use super::*;
     use kirby_assist_core::{
@@ -1243,12 +980,6 @@ mod tests {
     use std::time::Duration;
 
     /// Builds a baseline calibration observation for a selected option.
-    ///
-    ///  Creates a reusable fighter snapshot for test cases.
-    /// ### Arguments
-    /// - `slot` (`PresetSlot`): Represents the configuration or storage slot being used; the function uses it as input to the operation described above.
-    /// ### Returns
-    /// Returns the resulting `CalibrationFrame` value.
     fn frame(slot: PresetSlot) -> CalibrationFrame {
         let context = GameplayContext {
             held: true,
@@ -1339,8 +1070,6 @@ mod tests {
 
     #[test]
     /// Verifies raw recipes do not fabricate readiness or opponent failures.
-    ///
-    ///  Ensures the report only records evidence the game actually provided.
     fn raw_recipe_diagnostics_do_not_invent_readiness_or_opponent_failures() {
         let mut f = frame(PresetSlot::Drop);
         f.expected = CalibrationMove::unknown();
@@ -1360,8 +1089,6 @@ mod tests {
     }
     #[test]
     /// Verifies each option channel creates one report without live publication.
-    ///
-    ///  Checks all five button categories are recorded once.
     fn all_five_options_record_once_without_live_report_updates() {
         let now = Instant::now();
         for slot in PresetSlot::ALL {
@@ -1379,8 +1106,6 @@ mod tests {
 
     #[test]
     /// Verifies jump mapping is not misclassified as attack/aerial confirmation.
-    ///
-    ///  Ensures a jump alone does not count as the wrong move succeeding.
     fn jump_mapping_does_not_confirm_attack_or_wrong_aerial() {
         let now = Instant::now();
         let mut recorder = Recorder::new();
@@ -1424,8 +1149,6 @@ mod tests {
 
     #[test]
     /// Verifies grounded startup/charge does not count as active attack pose.
-    ///
-    ///  Ensures a move winding up is not reported as already attacking.
     fn grounded_startup_or_charge_is_not_an_active_attack_pose() {
         let now = Instant::now();
         let mut recorder = Recorder::new();
@@ -1458,8 +1181,6 @@ mod tests {
 
     #[test]
     /// Verifies shield preparation retains independent grab-request spacing.
-    ///
-    ///  Ensures shield input does not distort grab timing evidence.
     fn shield_preparation_does_not_replace_grab_request_spacing() {
         let now = Instant::now();
         let mut recorder = Recorder::new();
@@ -1502,8 +1223,6 @@ mod tests {
 
     #[test]
     /// Verifies completed reports stay closed until the option is revisited.
-    ///
-    ///  Prevents a finished attempt from restarting during repeated polls.
     fn completed_result_stays_closed_until_next_option_visit() {
         let now = Instant::now();
         let mut recorder = Recorder::new();
@@ -1518,8 +1237,6 @@ mod tests {
     }
     #[test]
     /// Verifies neutral raw reports include actual active/protection/spacing facts.
-    ///
-    ///  Checks that neutral move reports use observed game evidence.
     fn raw_neutral_report_survives_recipe_end_and_captures_real_active_protection_and_spacing() {
         let now = Instant::now();
         let mut recorder = Recorder::new();
@@ -1584,8 +1301,6 @@ mod tests {
     }
     #[test]
     /// Verifies only raw neutral attack traces continue after recipe completion.
-    ///
-    ///  Keeps other finished recipes from extending their reports.
     fn only_raw_neutral_attack_reports_extend_past_recipe_completion() {
         for slot in [PresetSlot::Neutral, PresetSlot::Jump] {
             let mut recorder = Recorder::new();
@@ -1601,8 +1316,6 @@ mod tests {
     }
     #[test]
     /// Requires matching target-clock evidence before calculating native frame delta.
-    ///
-    ///  Avoids comparing animation times from different targets or motions.
     fn input_path_only_computes_native_delta_with_matching_clock_evidence() {
         let a = Stamp::new(frame(PresetSlot::Neutral), 0);
         let mut b = a;
@@ -1620,8 +1333,6 @@ mod tests {
     }
     #[test]
     /// Verifies mapper acknowledgment is timestamped separately and retains trial label.
-    ///
-    ///  Keeps the input request, mapper confirmation, and option name distinct.
     fn mapper_ack_has_its_own_point_and_report_uses_stored_trial_label() {
         let mut r = Recorder::new();
         let f = frame(PresetSlot::Jump);
