@@ -31,7 +31,7 @@ pub(super) unsafe fn observe(
     let active = tracked.is_some();
     let status = reads.status_kind(own);
     let situation = reads.situation_kind(own);
-    if !policy::movable(status, situation) && !(active && policy::bucket(status)) {
+    if !(policy::movable(status, situation) || active && policy::bucket(status)) {
         return None;
     }
     if reads.capture_link(own) {

@@ -1,10 +1,9 @@
 //! Live tech requests with mapper acknowledgment. Input-only: native collision
 //! rules and lockout still decide whether the requested tech is possible.
 //!
-//! `sample` asks for a shield edge near predicted contact. `mapped_press` is
-//! called only after the native mapper reports that edge; only then does our
-//! cooldown begin. A prediction or a requested button alone is not delivery.
-//! See src/live/tech.rs for native detection and tech_prediction.rs for geometry.
+//! The live adapter uses native transition availability to pulse Guard once per
+//! controller frame. The legacy predictor below remains available to callers
+//! that still provide a [`TechContext`].
 pub use crate::flame_choke::DEFAULT_GANON_PASSIVE_TRIGGER_FRAME;
 use crate::tech_prediction::{is_tech_status, is_tumble_status};
 /// Sets the default value for passive trigger frame.
@@ -71,8 +70,6 @@ pub fn native_tech_state(
 pub struct FrameTechInput {
     object: Option<u32>,
     frame: Option<i64>,
-    active: bool,
-    press: bool,
     output: TechOutput,
 }
 
@@ -93,8 +90,6 @@ impl FrameTechInput {
         }
         if !enabled || state != NativeTechState::Opportunity {
             self.frame = Some(frame);
-            self.active = false;
-            self.press = false;
             self.output = TechOutput::default();
             return self.output;
         }
@@ -102,14 +97,13 @@ impl FrameTechInput {
             return self.output;
         }
         self.frame = Some(frame);
-        self.press = if self.active {
-            !self.press
+        let press = if self.output.owns_guard {
+            !self.output.press
         } else {
-            self.active = true;
             !guard_held
         };
         self.output = TechOutput {
-            press: self.press,
+            press,
             owns_guard: true,
         };
         self.output
@@ -117,14 +111,7 @@ impl FrameTechInput {
 
     /// Releases any queued Guard ownership immediately.
     pub fn cancel_request(&mut self) {
-        self.active = false;
-        self.press = false;
         self.output = TechOutput::default();
-    }
-
-    /// Whether this frame is an active Guard pulse.
-    pub fn urgent_press(&self) -> bool {
-        self.output.press
     }
 
     /// Mapper acknowledgements do not advance the pulse; controller frames do.

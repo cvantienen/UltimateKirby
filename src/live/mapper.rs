@@ -2,7 +2,6 @@
 //! post-map restoration around the native controller mapper.
 //! Plain English: This module safely adds assistance to controller input, then
 //! restores the player's physical input data.
-///
 use super::*;
 use kirby_assist_core::manual_controls::ManualFrame;
 use kirby_assist_core::native_input::ButtonTrace;
@@ -375,8 +374,7 @@ fn record_mapped_tech(
                 .get()
                 .is_some_and(|config| config.controls.tech_debug)
         {
-            messages
-                .push("tech mapped: fresh GUARD edge confirmed; request cooldown committed".into());
+            messages.push("tech mapped: fresh GUARD edge confirmed".into());
         }
     }
 }
@@ -657,21 +655,21 @@ fn run_settings_menu(
     let changed = state
         .settings_menu
         .get_or_insert_with(settings_menu::SettingsMenu::default)
-        .input(
-            menu_available,
+        .input(settings_menu::MenuInput {
+            available: menu_available,
             gameplay,
             bindings_blocked,
             safety_jump,
-            kind,
-            policy_buttons,
-            tested_held,
-            config.control_layout,
-            &config.assist,
-            config.controls.auto_mash,
-            config.auto_spot_dodge,
-            config.controls.auto_tech,
-            menu_training_mode,
-        );
+            fighter_kind: kind,
+            buttons: policy_buttons,
+            physical: tested_held,
+            layout: config.control_layout,
+            base: config.assist,
+            mash_default: config.controls.auto_mash,
+            grab_default: config.auto_spot_dodge,
+            tech_default: config.controls.auto_tech,
+            training: menu_training_mode,
+        });
     if changed {
         state.cancel_manual_tools();
     }
@@ -1070,14 +1068,22 @@ struct PostureSample {
 /// Samples configured posture assistance using copied physical and native input state.
 fn sample_mapper_posture(
     state: &mut State,
+    frame: &OverlayFrame,
+    gate: &PollGate,
     manual_context: Option<ManualContext>,
-    manual_scope: bool,
-    fresh: bool,
-    policy_buttons: u32,
-    physical: kirby_assist_core::native_input::ButtonTrace,
-    physical_stick: [f32; 2],
-    physical_right_stick: [f32; 2],
 ) -> PostureSample {
+    let OverlayFrame {
+        physical,
+        physical_stick,
+        physical_right_stick,
+        ..
+    } = *frame;
+    let PollGate {
+        manual_scope,
+        fresh,
+        policy_buttons,
+        ..
+    } = *gate;
     let (idle_crouch, tilt_turn) = state
         .settings_menu
         .as_ref()
@@ -1616,7 +1622,7 @@ fn sample_turbo_and_pivot(
     if pivot_context.is_none() {
         state.dash_pivot = None;
     }
-    let pivot_stick = pivot_context.map_or(None, |context| {
+    let pivot_stick = pivot_context.and_then(|context| {
         state
             .dash_pivot
             .get_or_insert_with(Default::default)
@@ -1641,13 +1647,10 @@ fn sample_tools(
 ) -> ToolSamples {
     let OverlayFrame {
         config,
-        physical,
         physical_stick,
-        physical_right_stick,
         ..
     } = *frame;
     let PollGate {
-        policy_buttons,
         fresh,
         manual_scope,
         mash_stick,
@@ -1657,16 +1660,7 @@ fn sample_tools(
     let turbo_stick = turbo_output.stick;
     let manual_walk_stick = manual_ledge_walk(state, frame, gate, turbo_output);
     let manual_context = state.manual_context;
-    let posture = sample_mapper_posture(
-        state,
-        manual_context,
-        manual_scope,
-        fresh,
-        policy_buttons,
-        physical,
-        physical_stick,
-        physical_right_stick,
-    );
+    let posture = sample_mapper_posture(state, frame, gate, manual_context);
     // Menu input is reserved during entry/respawn too.
     let menu_consumed = if state.menu_battle_active && state.menu_fighter_kind.is_some() {
         state.settings_menu.as_ref().map_or(0, |menu| menu.consumed)
@@ -1749,10 +1743,6 @@ fn arbitrate_owner(
     // keeps ledge/roll timing ahead of every optional tool.
     // A detected ledge visit reserves its response against
     // general reads. Before acquisition they run normally.
-    // Single final authority for sticks/buttons. Preparation
-    // keeps ledge/roll timing ahead of every optional tool.
-    // A detected ledge visit reserves its response against
-    // general reads. Before acquisition they run normally.
     let mut intents = mapper_action_intents(
         state,
         MapperIntentInputs {
@@ -1807,7 +1797,7 @@ fn arbitrate_owner(
                 mash_stick,
                 di_stick,
                 sdi_stick,
-                state.tech_urgent,
+                state.tech_output.press,
             );
     }
     selected = kirby_assist_core::action_owner::exclusive_output(
@@ -2085,11 +2075,12 @@ fn compose_native_request(
     if exclusive_sequence {
         prep.reserved_dpad |= kirby_assist_core::native_input::MAPPER_DPAD_BUTTONS;
     }
-    let owned_direction_flick = !exclusive_sequence
-        && selected.owned & kirby_assist_core::manual_controls::LEFT_STICK_DIRECTIONS != 0
-        && !mash_takeover
-        && !matches!(winner, Some(Owner::Trip | Owner::Fair))
-        && !(winner == Some(Owner::Posture) && tilt_aiming);
+    let direction_flick_reserved = exclusive_sequence
+        || selected.owned & kirby_assist_core::manual_controls::LEFT_STICK_DIRECTIONS == 0
+        || mash_takeover
+        || matches!(winner, Some(Owner::Trip | Owner::Fair))
+        || winner == Some(Owner::Posture) && tilt_aiming;
+    let owned_direction_flick = !direction_flick_reserved;
     let walk_cap_flick = manual_walk_stick.is_some()
         && turbo_output.stick == manual_walk_stick
         && selected.owned == 0

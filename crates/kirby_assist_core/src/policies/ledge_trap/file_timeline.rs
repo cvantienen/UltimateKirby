@@ -857,7 +857,7 @@ impl Timeline {
     /// boundary, not at the (possibly later) observation.
     fn hold_ended(&self, f: &Frame, frames: impl Into<f32>) -> Option<Step> {
         let frames = frames.into();
-        (f.elapsed >= frames).then(|| Step::Advance(self.step_start + frames))
+        (f.elapsed >= frames).then_some(Step::Advance(self.step_start + frames))
     }
     /// Returns an optional `facing_jump` value.
     fn facing_jump(&self) -> Option<u8> {

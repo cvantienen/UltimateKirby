@@ -60,8 +60,6 @@ pub(super) struct State {
     pub(super) tech_input: Option<FrameTechInput>,
     /// Current tech scheduler output before mapper acknowledgment.
     pub(super) tech_output: TechOutput,
-    /// Marks tech output as urgent for mapper ownership arbitration.
-    pub(super) tech_urgent: bool,
     /// Last mapped guard state used for edge handling.
     pub(super) last_mapped_guard: bool,
     /// Last mapped left-stick vector for continuity checks.
@@ -174,8 +172,8 @@ pub(super) struct State {
     // Native kind for the same validated controller/fighter association.
     /// Fighter-kind ID for the validated controller association.
     pub(super) fighter_kind: Option<i32>,
-    // Repeated game queries within one observed mapper update must not mash
-    // faster, consume cooldown faster, or issue an extra tech press.
+    // Repeated game queries within one observed mapper update must not advance
+    // mash state or issue an extra tech phase.
     /// Mapper tick already evaluated by policies.
     pub(super) evaluated_tick: Option<i64>,
     /// Snapshot of observation fields required for native reads.
@@ -196,7 +194,7 @@ pub(super) struct State {
     /// Suppresses repeated button-modification diagnostic events.
     pub(super) button_mod_logged: bool,
     // Last game-visible buttons, distinct from the restored physical memory.
-    // This tells the tech policy whether it must release ZR before re-pressing.
+    // This tells the tech pulser whether it must release ZR before re-pressing.
     /// Last mapped button bitfield observed by the game.
     pub(super) last_output_buttons: u32,
     #[cfg(feature = "diagnostic-logging")]
@@ -271,7 +269,6 @@ impl State {
                 tech.cancel_request();
             }
             self.tech_output = TechOutput::default();
-            self.tech_urgent = false;
         }
         if keep != Some(Owner::Reflect) {
             self.reflector.cancel();
@@ -392,7 +389,6 @@ impl State {
                 press: false,
                 owns_guard: false,
             },
-            tech_urgent: false,
             last_mapped_guard: false,
             last_mapped_stick: None,
             policy_tick: None,
@@ -499,7 +495,6 @@ impl State {
         self.oos = Default::default();
         self.oos_output = ControllerOutput::default();
         self.tech_output = TechOutput::default();
-        self.tech_urgent = false;
         self.posture = None;
         self.posture_target = None;
         self.posture_down = false;
@@ -537,8 +532,7 @@ impl State {
     pub(super) fn cancel_manual_tools(&mut self) {
         self.reflector.cancel();
         self.clear_tool_proposals();
-        // Clear the proposal, not tech's acknowledged-edge/cooldown history.
-        // The next observation applies the current enabled/tuning settings.
+        // Clear the current pulse; the next observation reapplies native state.
         if let Some(tech) = self.tech_input.as_mut() {
             tech.cancel_request();
         }
@@ -574,8 +568,8 @@ impl State {
         }
         self.session.ticket()
     }
-    // Use for actual cancellation/reassignment. Hitstop deliberately does NOT
-    // call this: resetting there would forget cooldown and input history.
+    // Use for actual cancellation/reassignment. Hitstop does not cancel the
+    // session; its next native observation decides whether pulsing continues.
     /// Cancels all pending tool proposals and resets transient assistance state.
     pub(super) fn cancel(&mut self) {
         self.reflector = kirby_assist_core::projectile_reflect::Reflector::new();

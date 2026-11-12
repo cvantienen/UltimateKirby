@@ -6,7 +6,7 @@ name = "kirby_assist"
 # Required by the source syntax, dependency imports, and array iteration rules.
 edition = "2021"
 # Single release-version source: logger and release builder read this value.
-version = "2.3.0"
+version = "2.8.0"
 description = """ menu update for preformance; simplified
 chatgpt fixes
 Allows leading Wait actions to hold a true neutral standstill before any supported recipe, including short_hop_nair, instead of rejecting Wait plus paired Nair. Adds paired short_hop_fair/bair/uair/dair actions that send Jump+Attack+direction together, with one jump pulse and native acceptance/retries. Preserves the explicit after-hop Nair Attack delay and separate C-stick aerial path. Uses bounded native-progress pause clocks with hitstop/duplicate protection and idle-loop handling, cleared on plan reset; no new rays, scans or file reads in play.
@@ -1719,6 +1719,8 @@ Extracts per-object active-hitbox threat checks while preserving shared scan bud
 Repairs duplicated live mapper imports and observation function declarations that prevented compilation.
 
 Replaces predictive auto-tech collision and timing calculations with native passive-transition state and frame-by-frame alternating shield input.
+
+Consolidates mapper and menu frame snapshots, native observation queries, and redundant transient state while preserving controller timing and input ownership.
 """
 
 

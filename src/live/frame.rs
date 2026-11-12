@@ -87,7 +87,7 @@ impl FrameReads {
         self.ground_brake.set(Some((id, value)));
         value
     }
-    /// Reserved launch vector during victim hitstop; shared by DI and tech prediction.
+    /// Reserved launch vector during victim hitstop for directional influence.
     /// Caches the native reserved X/Y damage speeds for this observation.
     /// # Safety
     /// `object` must be a live native object for the duration of this read.

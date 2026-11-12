@@ -255,7 +255,7 @@ fn manual_automatic_input_blocked(
     fighter_kind: i32,
     context: GameplayContext,
 ) -> bool {
-    STATE.lock().ok().map_or(true, |mut state| {
+    STATE.lock().ok().is_none_or(|mut state| {
         let actions = state
             .settings_menu
             .as_ref()
@@ -583,10 +583,10 @@ unsafe fn admit_fighter_observation(
     };
     // Nonselected/remote callbacks may share human metadata. They cannot
     // initialize policies, cache opponents or renew the local menu presence.
-    if !STATE
+    if STATE
         .lock()
         .ok()
-        .is_some_and(|state| state.mapping_index == Some(index))
+        .is_none_or(|state| state.mapping_index != Some(index))
     {
         return None;
     }
@@ -828,7 +828,7 @@ struct Pass<'a> {
     flags: AutomaticFlags,
     /// Basic copied native state for the local fighter.
     own: NativeObservationBasics,
-    /// Native tech timing and prediction results.
+    /// Native passive-transition availability and current tech result.
     tech_obs: TechObservation,
 }
 
@@ -1230,21 +1230,25 @@ unsafe fn collect_rule_observation(p: &Pass) -> Option<RuleObservation> {
     {
         let (targets, follow) = if !clatter && !tech && automatic_scope.observe_targets() {
             observations::rule_targets(
-                &reads,
+                reads,
                 object,
                 object_id,
-                rule_target.or(oos_target).or(dodge_follow),
-                (oos_enabled && automatic_scope.acquire).then_some(if self_shielded {
-                    [
-                        auto_grab_range.max(auto_backup_range),
-                        auto_shield_height.max(auto_backup_height),
-                    ]
-                } else {
-                    [auto_grab_approach_range, auto_grab_height]
-                }),
-                self_shielded,
-                rules_on && automatic_scope.acquire,
-                automatic_sequence_committed,
+                observations::RuleTargetQuery {
+                    follow: rule_target.or(oos_target).or(dodge_follow),
+                    grab_range: (oos_enabled && automatic_scope.acquire).then_some(
+                        if self_shielded {
+                            [
+                                auto_grab_range.max(auto_backup_range),
+                                auto_shield_height.max(auto_backup_height),
+                            ]
+                        } else {
+                            [auto_grab_approach_range, auto_grab_height]
+                        },
+                    ),
+                    shield_fallback: self_shielded,
+                    watch_events: rules_on && automatic_scope.acquire,
+                    sequence_follow: automatic_sequence_committed,
+                },
             )
         } else {
             ([None; 8], None)
@@ -1496,10 +1500,10 @@ unsafe fn collect_ledge(p: &Pass) -> LedgeFacts {
         && literal_ledge_timeline
         && kirby_assist_core::ledge_trap::needs_opponent_clock(native_status, timing_rate)
     {
-        observations::tracked_ledge_clock(&reads)
+        observations::tracked_ledge_clock(reads)
     } else {
         (observe_ledge && !literal_ledge_timeline)
-            .then(|| nearest_ledge_opponent(&reads, object, object_id, config.assist))
+            .then(|| nearest_ledge_opponent(reads, object, object_id, config.assist))
             .flatten()
     };
     let response_observation = observe_ledge
@@ -1544,7 +1548,7 @@ unsafe fn collect_ledge(p: &Pass) -> LedgeFacts {
                 && !reads.capture_link(object);
             if guard_ready {
                 guard_threat = observations::incoming_fighter_attack(
-                    &reads,
+                    reads,
                     object,
                     object_id,
                     position,
@@ -1680,7 +1684,7 @@ unsafe fn collect_combat(p: &Pass) -> CombatFacts {
         ..
     } = *p;
     let (trip_targets, outward) = if trip_watch || damage_stop {
-        combat_targets(&reads, object, object_id, trip_watch, damage_stop)
+        combat_targets(reads, object, object_id, trip_watch, damage_stop)
     } else {
         ([None; 8], 0.0)
     };
@@ -1774,7 +1778,7 @@ unsafe fn collect_posture(p: &Pass) -> PostureFacts {
             stopped || clatter || tech,
         );
     let posture_opponent = if observe_posture_target {
-        observations::posture_opponent(&reads, object, object_id)
+        observations::posture_opponent(reads, object, object_id)
     } else {
         None
     };
@@ -1851,7 +1855,7 @@ unsafe fn collect_spot_dodge(
     {
         // Detect a real grab before querying our dodge transition. Keep the
         // ordinary sample even with no target so pending requests can release.
-        let targets = observations::grab_targets(&reads, object, object_id);
+        let targets = observations::grab_targets(reads, object, object_id);
         Some((
             kirby_assist_core::spot_dodge::Context {
                 object: object_id,
@@ -2893,8 +2897,8 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
             state.last_tech_diagnostic = None;
         }
     }
-    // During hitstop, publish neutral assist without resetting the policy's
-    // cooldown/history. Mapping polls are not advancing the damage clock.
+    // During hitstop, publish neutral mash input. Auto-tech remains keyed to
+    // the deduplicated controller frame and native transition state.
     let policy_tick = state
         .animation_clock
         .get_or_insert_with(AnimationClock::default)
@@ -2954,7 +2958,6 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
             },
             guard_held,
         );
-    state.tech_urgent = state.tech_output.press;
     let _requested = mash_requested | if state.tech_output.press { HID_ZR } else { 0 };
     #[cfg(feature = "diagnostic-logging")]
     if config.controls.tech_debug {

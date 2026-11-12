@@ -204,6 +204,11 @@ pub mod runtime_toggle {
             true
         }
     }
+    impl Default for RuntimeToggle {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
     #[cfg(test)]
     mod tests {
         use super::*;

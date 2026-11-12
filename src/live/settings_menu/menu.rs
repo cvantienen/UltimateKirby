@@ -39,8 +39,19 @@ static DEFERRED_CLEAR: AtomicBool = AtomicBool::new(false);
 /// Invalidates requests and snapshots across menu lifecycle transitions.
 static VIEW_GENERATION: AtomicU64 = AtomicU64::new(0);
 
+/// Identity of the row/action focus last sent to ImGui.
+#[derive(Clone, Copy, Eq, PartialEq)]
+struct FocusKey {
+    fighter: i32,
+    row: MenuRow,
+    choice: usize,
+    mode: u8,
+    action: Option<usize>,
+    revision: u64,
+}
+
 /// Last rendered focus identity and generation for avoiding redundant focus work.
-static LAST_FOCUS: Mutex<Option<(i32, MenuRow, usize, u8, Option<usize>, u64)>> = Mutex::new(None);
+static LAST_FOCUS: Mutex<Option<FocusKey>> = Mutex::new(None);
 /// Tracks current menu presence using session-level lifecycle rules.
 static PRESENCE: Mutex<MenuPresence> = Mutex::new(MenuPresence::new());
 /// Pending master-switch notification and its creation time.
@@ -615,14 +626,14 @@ unsafe fn draw_recipe_body(view: &Snapshot, display: ImVec2_c, scale: f32) {
         };
     let budget = (limit - igGetCursorPosY() - footer_height - 16.0 * scale).max(32.0 * scale);
     let height = content_height.min(budget);
-    let key = (
-        view.fighter,
-        view.row,
-        view.choice,
-        view.mode,
-        view.focus,
-        view.revision,
-    );
+    let key = FocusKey {
+        fighter: view.fighter,
+        row: view.row,
+        choice: view.choice,
+        mode: view.mode,
+        action: view.focus,
+        revision: view.revision,
+    };
     let changed = LAST_FOCUS.try_lock().ok().is_some_and(|mut previous| {
         let changed = *previous != Some(key);
         *previous = Some(key);

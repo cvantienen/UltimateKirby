@@ -13,6 +13,24 @@ use kirby_assist_core::fighter_profiles::{
 use kirby_assist_core::{settings::AssistSettings, settings_menu::MenuSelection};
 use std::collections::BTreeMap;
 
+/// One mapper-frame snapshot consumed by the settings menu.
+#[derive(Clone, Copy)]
+pub(super) struct MenuInput {
+    pub(super) available: bool,
+    pub(super) gameplay: bool,
+    pub(super) bindings_blocked: bool,
+    pub(super) safety_jump: bool,
+    pub(super) fighter_kind: Option<i32>,
+    pub(super) buttons: u32,
+    pub(super) physical: u32,
+    pub(super) layout: kirby_assist_core::native_input::ControlLayout,
+    pub(super) base: AssistSettings,
+    pub(super) mash_default: bool,
+    pub(super) grab_default: bool,
+    pub(super) tech_default: bool,
+    pub(super) training: bool,
+}
+
 #[cfg(feature = "imgui-menu")]
 #[path = "settings_menu/menu.rs"]
 /// In-game ImGui adapter for observing menu input and publishing views.
@@ -597,22 +615,22 @@ impl SettingsMenu {
     }
     /// True releases old proposals when navigating or changing a tool.
     /// Routes one physical-input sample, refreshes derived caches, and publishes changed views.
-    pub fn input(
-        &mut self,
-        available: bool,
-        gameplay: bool,
-        bindings_blocked: bool,
-        safety_jump: bool,
-        kind: Option<i32>,
-        buttons: u32,
-        physical: u32,
-        layout: kirby_assist_core::native_input::ControlLayout,
-        base: &AssistSettings,
-        mash_default: bool,
-        grab_default: bool,
-        tech_default: bool,
-        training: bool,
-    ) -> bool {
+    pub fn input(&mut self, input: MenuInput) -> bool {
+        let MenuInput {
+            available,
+            gameplay,
+            bindings_blocked,
+            safety_jump,
+            fighter_kind: kind,
+            buttons,
+            physical,
+            layout,
+            base,
+            mash_default,
+            grab_default,
+            tech_default,
+            training,
+        } = input;
         #[cfg(feature = "diagnostic-logging")]
         let _timing =
             crate::performance::health::Trace::new(crate::performance::health::Lane::MenuInput);
@@ -627,7 +645,7 @@ impl SettingsMenu {
         }
         self.selections
             .entry(kind)
-            .or_insert_with(|| new_selection(profile, kind, base, grab_default, tech_default));
+            .or_insert_with(|| new_selection(profile, kind, &base, grab_default, tech_default));
         let file_list_changed = self.poll_save_result();
         self.scope = gameplay;
         let selection = self.selections.get_mut(&kind).unwrap();
@@ -641,16 +659,14 @@ impl SettingsMenu {
             self.resume_saved_state = false;
         }
         let options = &profile.menu_options;
-        self.consumed = route_input(
-            selection,
-            options,
+        self.consumed = route_input(selection, options, RouteInput {
             bindings_blocked,
             safety_jump,
             buttons,
             physical,
             layout,
             training,
-        );
+        });
         self.native_buttons = selection.native_buttons(buttons);
         self.builtin_consumed = selection.builtin_consumed;
         self.rules.refresh(kind, selection, options);
@@ -674,7 +690,7 @@ impl SettingsMenu {
             && (selection.preview_slot.is_some()
                 || selection.ledge_held(buttons)
                 || selection.autopilot_held(buttons));
-        self.resolved.refresh(selection, profile, *base);
+        self.resolved.refresh(selection, profile, base);
         request_saves(selection, kind, options, training);
         #[cfg(feature = "diagnostic-logging")]
         self.diagnostics
@@ -753,19 +769,30 @@ fn new_selection(
     s
 }
 
-/// Feed one frame of physical input to the selection and refresh its native
-/// bindings. Returns the buttons the menu consumed.
-/// Applies menu input while respecting training-save and binding gates.
-fn route_input(
-    selection: &mut MenuSelection,
-    options: &MenuPresets,
+#[derive(Clone, Copy)]
+struct RouteInput {
     bindings_blocked: bool,
     safety_jump: bool,
     buttons: u32,
     physical: u32,
     layout: kirby_assist_core::native_input::ControlLayout,
     training: bool,
+}
+
+/// Applies menu input while respecting training-save and binding gates.
+fn route_input(
+    selection: &mut MenuSelection,
+    options: &MenuPresets,
+    input: RouteInput,
 ) -> u32 {
+    let RouteInput {
+        bindings_blocked,
+        safety_jump,
+        buttons,
+        physical,
+        layout,
+        training,
+    } = input;
     // Scene permission was copied before the caller acquired STATE. Do
     // not call native game functions from this locked menu adapter.
     selection.block_binding_starts(bindings_blocked);

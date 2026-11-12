@@ -251,21 +251,21 @@ fn every_training_editor_dispatches_y_save_without_gameplay_input_permission() {
     *save::TEST_OPERATION.lock().unwrap() = Some(record);
     let _hook = Hook;
     let sample = |menu: &mut SettingsMenu, buttons| {
-        menu.input(
-            true,
-            false,
-            true,
-            false,
-            Some(15),
+        menu.input(MenuInput {
+            available: true,
+            gameplay: false,
+            bindings_blocked: true,
+            safety_jump: false,
+            fighter_kind: Some(15),
             buttons,
-            buttons,
-            ControlLayout::Default,
-            &AssistSettings::default(),
-            true,
-            true,
-            true,
-            true,
-        );
+            physical: buttons,
+            layout: ControlLayout::Default,
+            base: AssistSettings::default(),
+            mash_default: true,
+            grab_default: true,
+            tech_default: true,
+            training: true,
+        });
     };
     for (row, choice) in rows
         .into_iter()

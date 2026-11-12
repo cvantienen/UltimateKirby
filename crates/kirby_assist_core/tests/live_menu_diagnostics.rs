@@ -44,21 +44,21 @@ fn configuration_logs_once_on_entry_and_on_choice_edits_but_not_navigation_or_po
     });
     let mut menu = live_menu::SettingsMenu::default();
     let mut sample = |kind, buttons| {
-        menu.input(
-            true,
-            true,
-            false,
-            false,
-            Some(kind),
+        menu.input(live_menu::MenuInput {
+            available: true,
+            gameplay: true,
+            bindings_blocked: false,
+            safety_jump: false,
+            fighter_kind: Some(kind),
             buttons,
-            buttons,
-            kirby_assist_core::native_input::ControlLayout::Default,
-            &AssistSettings::default(),
-            true,
-            true,
-            true,
-            true,
-        );
+            physical: buttons,
+            layout: kirby_assist_core::native_input::ControlLayout::Default,
+            base: AssistSettings::default(),
+            mash_default: true,
+            grab_default: true,
+            tech_default: true,
+            training: true,
+        });
     };
     sample(6, 0);
     assert_eq!(CONFIGS.lock().unwrap().len(), 1);

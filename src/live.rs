@@ -73,7 +73,7 @@ mod runtime;
 mod settings_menu;
 /// Stores callback-shared session and policy state.
 mod state;
-/// Combines native tech eligibility observations with prediction.
+/// Reads native passive-transition eligibility for frame-by-frame auto-tech.
 mod tech;
 
 use config::load_config;

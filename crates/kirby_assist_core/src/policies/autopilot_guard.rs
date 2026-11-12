@@ -193,14 +193,14 @@ pub fn active_hitbox_threat_with(
     }
     let mut enter = 0.0_f32;
     let mut leave = e.forecast;
-    for axis in 0..3 {
+    for (axis, (&start, &end)) in h.start.iter().zip(&h.end).enumerate() {
         let (low, high) = match axis {
             0 => (position[0] - e.half_width, position[0] + e.half_width),
             1 => (position[1], position[1] + e.height),
             _ => (position[2] - e.half_depth, position[2] + e.half_depth),
         };
-        let lo = h.start[axis].min(h.end[axis]) - h.radius;
-        let hi = h.start[axis].max(h.end[axis]) + h.radius;
+        let lo = start.min(end) - h.radius;
+        let hi = start.max(end) + h.radius;
         let v = if axis < 2 {
             h.velocity[axis] - velocity[axis]
         } else {

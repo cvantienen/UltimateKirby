@@ -109,21 +109,21 @@ fn fighter_change_never_inherits_bowser_actions_and_grab_dodge_cannot_borrow_ano
                 );
             }
         }
-        menu.input(
-            true,
-            true,
-            false,
-            false,
-            Some(kind),
-            0,
-            0,
-            ControlLayout::Default,
-            &AssistSettings::default(),
-            true,
-            true,
-            true,
-            false,
-        );
+        menu.input(live_menu::MenuInput {
+            available: true,
+            gameplay: true,
+            bindings_blocked: false,
+            safety_jump: false,
+            fighter_kind: Some(kind),
+            buttons: 0,
+            physical: 0,
+            layout: ControlLayout::Default,
+            base: AssistSettings::default(),
+            mash_default: true,
+            grab_default: true,
+            tech_default: true,
+            training: false,
+        });
         assert!(menu.for_fighter(kind).is_some());
         for other in [15, 22, 5].into_iter().filter(|other| *other != kind) {
             assert!(
@@ -198,21 +198,21 @@ fn pyra_mythra_swaps_reload_only_the_active_forms_menu_and_saved_inputs() {
             .profile(kind)
             .unwrap()
             .apply(AssistSettings::default());
-        menu.input(
-            true,
-            true,
-            false,
-            false,
-            Some(kind),
-            0,
-            0,
-            ControlLayout::Default,
-            &base,
-            true,
-            true,
-            true,
-            false,
-        );
+        menu.input(live_menu::MenuInput {
+            available: true,
+            gameplay: true,
+            bindings_blocked: false,
+            safety_jump: false,
+            fighter_kind: Some(kind),
+            buttons: 0,
+            physical: 0,
+            layout: ControlLayout::Default,
+            base,
+            mash_default: true,
+            grab_default: true,
+            tech_default: true,
+            training: false,
+        });
         assert!(menu.for_fighter(kind).is_some());
         for old in [
             kirby_assist_core::fighter_kinds::PYRA,
@@ -259,21 +259,21 @@ fn production_reflector_configuration_tracks_only_the_current_fighter_and_live_s
         (15, true),
         (28, true),
     ] {
-        menu.input(
-            true,
+        menu.input(live_menu::MenuInput {
+            available: true,
             gameplay,
-            false,
-            false,
-            Some(kind),
-            0,
-            0,
-            ControlLayout::Default,
-            &AssistSettings::default(),
-            true,
-            true,
-            true,
-            false,
-        );
+            bindings_blocked: false,
+            safety_jump: false,
+            fighter_kind: Some(kind),
+            buttons: 0,
+            physical: 0,
+            layout: ControlLayout::Default,
+            base: AssistSettings::default(),
+            mash_default: true,
+            grab_default: true,
+            tech_default: true,
+            training: false,
+        });
         assert_eq!(
             menu.reflect_config(kind).is_some(),
             kind == kirby_assist_core::fighter_kinds::MR_GAME_AND_WATCH && gameplay
@@ -294,21 +294,21 @@ fn compact_runtime_idle_has_no_allocations_and_fighter_switches_do_not_retain_ol
     prepare_compact_library();
     let mut menu = live_menu::SettingsMenu::default();
     let sample = |m: &mut live_menu::SettingsMenu, kind| {
-        m.input(
-            true,
-            true,
-            false,
-            false,
-            Some(kind),
-            0,
-            0,
-            ControlLayout::Default,
-            &AssistSettings::default(),
-            true,
-            true,
-            true,
-            false,
-        );
+        m.input(live_menu::MenuInput {
+            available: true,
+            gameplay: true,
+            bindings_blocked: false,
+            safety_jump: false,
+            fighter_kind: Some(kind),
+            buttons: 0,
+            physical: 0,
+            layout: ControlLayout::Default,
+            base: AssistSettings::default(),
+            mash_default: true,
+            grab_default: true,
+            tech_default: true,
+            training: false,
+        });
     };
     for _ in 0..3 {
         sample(&mut menu, 15);

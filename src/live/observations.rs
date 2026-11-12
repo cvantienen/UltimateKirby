@@ -125,18 +125,22 @@ unsafe fn world_hitbox_endpoints(
 
 /// Checks one object's active hitboxes, sharing the scan budget and own-depth cache.
 /// An exhausted geometry budget conservatively reports a threat.
+struct HitboxScan<'a> {
+    own: *mut game::Object,
+    position: [f32; 2],
+    velocity: [f32; 2],
+    envelope: kirby_assist_core::autopilot_guard::Envelope,
+    geometry_budget: &'a mut usize,
+    own_z: &'a mut Option<f32>,
+}
+
 /// # Safety
 /// `own` and `enemy` must point to live game objects with native APIs available.
 unsafe fn object_has_active_hitbox_threat(
-    own: *mut game::Object,
     enemy: *mut game::Object,
-    position: [f32; 2],
-    velocity: [f32; 2],
     target_velocity: [f32; 2],
     near: bool,
-    envelope: kirby_assist_core::autopilot_guard::Envelope,
-    geometry_budget: &mut usize,
-    own_z: &mut Option<f32>,
+    scan: &mut HitboxScan<'_>,
 ) -> bool {
     let mut scale = None;
     for slot in 0..8 {
@@ -149,11 +153,11 @@ unsafe fn object_has_active_hitbox_threat(
             return true;
         }
         // Early exit if the geometry budget is exhausted, as we cannot safely evaluate further.
-        if *geometry_budget == 0 {
+        if *scan.geometry_budget == 0 {
             return true;
         }
         // Consume one unit of the geometry budget for this attack slot.
-        *geometry_budget -= 1;
+        *scan.geometry_budget -= 1;
         let data = game::attack_geometry(enemy, slot, false);
         // Skip if the attack geometry data is not available.
         if data.is_null() {
@@ -183,18 +187,18 @@ unsafe fn object_has_active_hitbox_threat(
 }
         // Compute the world-space hitbox endpoints for the attack.
         let (from, to) = world_hitbox_endpoints(enemy, &data);
-        let z = *own_z.get_or_insert_with(|| game::pos_z(own));
+        let z = *scan.own_z.get_or_insert_with(|| game::pos_z(scan.own));
         // Early exit if the active hitbox poses a threat.
         if kirby_assist_core::autopilot_guard::active_hitbox_threat_with(
-            [position[0], position[1], z],
-            velocity,
+            [scan.position[0], scan.position[1], z],
+            scan.velocity,
             kirby_assist_core::autopilot_guard::Hitbox {
                 start: [from.x, from.y, from.z],
                 end: [to.x, to.y, to.z],
                 radius: data.size * scale,
                 velocity: target_velocity,
             },
-            envelope,
+            scan.envelope,
         ) {
             return true;
         }
@@ -276,15 +280,17 @@ pub(super) unsafe fn incoming_fighter_attack(
         }
         // Does an active hitbox currently overlap—or soon sweep into—the defensive area?
         if object_has_active_hitbox_threat(
-            own,
             enemy,
-            position,
-            velocity,
             target_velocity,
             near,
-            envelope,
-            &mut geometry_budget,
-            &mut own_z,
+            &mut HitboxScan {
+                own,
+                position,
+                velocity,
+                envelope,
+                geometry_budget: &mut geometry_budget,
+                own_z: &mut own_z,
+            },
         ) {
             return true;
         }
@@ -476,19 +482,30 @@ pub(super) unsafe fn combat_targets(
 
 /// Optional onstage reactions, front grabs and either-side shield fallbacks. Status and
 /// spatial filters precede detailed reads; sixteen copied actor IDs bound the pass.
+pub(super) struct RuleTargetQuery {
+    pub(super) follow: Option<u32>,
+    pub(super) grab_range: Option<[f32; 2]>,
+    pub(super) shield_fallback: bool,
+    pub(super) watch_events: bool,
+    pub(super) sequence_follow: bool,
+}
+
 pub(super) unsafe fn rule_targets(
     reads: &super::frame::FrameReads,
     own: *mut game::Object,
     own_id: u32,
-    follow: Option<u32>,
-    grab_range: Option<[f32; 2]>,
-    shield_fallback: bool,
-    watch_events: bool,
-    sequence_follow: bool,
+    query: RuleTargetQuery,
 ) -> (
     [Option<kirby_assist_core::roll_read::Target>; 8],
     Option<Opponent>,
 ) {
+    let RuleTargetQuery {
+        follow,
+        grab_range,
+        shield_fallback,
+        watch_events,
+        sequence_follow,
+    } = query;
     #[cfg(feature = "diagnostic-logging")]
     let _scope = crate::performance::Scope::new(crate::performance::Part::Roll);
     let mut targets = [None; 8];
@@ -529,11 +546,10 @@ pub(super) unsafe fn rule_targets(
             continue;
         }
         let available = kirby_assist_core::reaction_rules::automatic_target_available(status);
-        if !available
-            && !(sequence_follow
-                && follow == Some(id)
-                && kirby_assist_core::reaction_rules::automatic_follow_target_available(status))
-        {
+        let retained_follow = sequence_follow
+            && follow == Some(id)
+            && kirby_assist_core::reaction_rules::automatic_follow_target_available(status);
+        if !(available || retained_follow) {
             continue;
         }
         let event = available
