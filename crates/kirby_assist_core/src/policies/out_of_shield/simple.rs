@@ -373,18 +373,16 @@ impl Grab {
             return;
         }
         if self.await_dash
-            && matches!(c.status, crate::native_states::status::WALK..=crate::native_states::status::TURN_RUN_BRAKE | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT)
+            && matches!(
+                c.status,
+                crate::native_states::status::DASH
+                    | crate::native_states::status::RUN
+                    | crate::native_states::status::TURN_DASH
+                    | crate::native_states::status::TURN_RUN
+            )
         {
             self.await_dash = false;
             self.dash_sent = true;
-            // The player may have begun walking before our dash was mapped.
-            // Keep that movement manual instead of boosting it into a run.
-            if !matches!(
-                c.status,
-                crate::native_states::status::DASH | crate::native_states::status::RUN
-            ) {
-                self.assisted_dash = false;
-            }
             self.clock = NativeAttempt::default();
         }
         if self.approach
@@ -405,16 +403,22 @@ impl Grab {
         self.mapped = 0;
         self.last_mapped = None;
         self.approach = reach.approach;
-        // A far idle grab must enter native dash before pressing R.
+        // A far grab must enter native dash before pressing R.
         // A mapped stick packet (or residual shield-drop speed) is not proof.
         self.await_dash = reach.approach
-            && c.status == crate::native_states::status::WAIT
             && reach.close.is_finite()
-            && (e.position[0] - c.position[0]).abs() > reach.close;
+            && (e.position[0] - c.position[0]).abs() > reach.close
+            && !matches!(
+                c.status,
+                crate::native_states::status::DASH
+                    | crate::native_states::status::RUN
+                    | crate::native_states::status::TURN_DASH
+                    | crate::native_states::status::TURN_RUN
+            );
         self.assisted_dash = self.await_dash;
         self.approach_mapped = 0;
-        // Close standing grabs and already moving grabs need no synthetic
-        // run packet. Only the out-of-close-range idle path starts a dash.
+        // Close standing grabs and already dashing grabs need no synthetic
+        // run packet. Other out-of-close-range states must start a dash.
         self.dash_sent = !self.await_dash;
         self.direction = (e.position[0] - c.position[0]).signum();
         if self.direction == 0. {

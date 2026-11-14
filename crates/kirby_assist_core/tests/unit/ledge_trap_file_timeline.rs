@@ -39,6 +39,20 @@ fn moving_enemy(frame: f32) -> Opponent {
     }
 }
 #[test]
+fn recipe_jump_duration_distinguishes_short_and_full_hop() {
+    let mut short = timeline("short_hop:1");
+    assert!(sample(&mut short, ctx(0.)).native_short_hop);
+    assert_eq!(sample(&mut short, ctx(1.)).requested, 0);
+
+    let mut full = timeline("full_hop:4");
+    for frame in 0..4 {
+        let output = sample(&mut full, ctx(frame as f32));
+        assert_eq!(output.requested, MAPPER_X);
+        assert!(!output.native_short_hop);
+    }
+    assert_eq!(sample(&mut full, ctx(4.)).requested, 0);
+}
+#[test]
 fn while_held_loops_without_extra_frames_and_rebases_clock_until_released() {
     let mut seq = sequence("tap:a:0:-0.6:1:3:8");
     seq.while_held = true;

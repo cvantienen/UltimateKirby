@@ -893,11 +893,13 @@ impl Timeline {
         if relative {
             stick[0] *= self.direction;
         }
-        Step::Output(shield_grab_input(
-            f.ctx.status,
-            controls(stick, buttons),
-            [0.; 2],
-        ))
+        let mut output = shield_grab_input(f.ctx.status, controls(stick, buttons), [0.; 2]);
+        // A one-frame recipe jump is an intentional short hop. Preserve that
+        // decision until the native mapper handles the cached output instead
+        // of relying on the mapper observing a very short release window.
+        output.native_short_hop =
+            buttons & SEQUENCE_JUMP_BUTTONS != 0 && (frames == 1 || buttons & MAPPER_A != 0);
+        Step::Output(output)
     }
     /// Returns the `step_face` result.
     fn step_face(&mut self, d: Direction, f: &Frame) -> Step {

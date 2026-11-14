@@ -55,8 +55,8 @@ fn kirby_authored_nair_waits_exactly_five_frames_after_the_jump_input() {
     let jump = trap.sample(s, 0, ctx(0.0), Some(target()));
     assert_eq!(jump.requested, MAPPER_X);
     assert!(
-        !jump.native_short_hop,
-        "raw file inputs never force an engine jump flag"
+        jump.native_short_hop,
+        "a one-frame recipe jump must request native short-hop handling"
     );
     for frame in 1..=5 {
         assert_eq!(trap.sample(s, frame, ctx(frame as f32), None).requested, 0);
