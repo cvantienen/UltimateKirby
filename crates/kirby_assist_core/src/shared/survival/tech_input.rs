@@ -1,9 +1,8 @@
 //! Live tech requests with mapper acknowledgment. Input-only: native collision
 //! rules and lockout still decide whether the requested tech is possible.
 //!
-//! The live adapter uses native transition availability to pulse Guard once per
-//! controller frame. The legacy predictor below remains available to callers
-//! that still provide a [`TechContext`].
+//! The live adapter supplies a bounded collision forecast through [`TechContext`]
+//! and this scheduler handles timing, release, cooldown, and native delivery.
 pub use crate::flame_choke::DEFAULT_GANON_PASSIVE_TRIGGER_FRAME;
 use crate::tech_prediction::{is_tech_status, is_tumble_status};
 /// Sets the default value for passive trigger frame.

@@ -209,12 +209,15 @@ pub fn mapped_sequence_cstick(buttons: u32, right: [f32; 2]) -> u32 {
     }
 }
 
-/// Fixed automatic grab and direct Up-B tapes own all raw sources. Remove
-/// unrequested jump/shield output that can turn a dash/Up-B into a jump/roll. Keep
-/// native Attack/Special/Catch semantics and every explicitly requested jump.
+/// Fixed automatic and authored sequence tapes own all raw sources. Remove
+/// unrequested jump/shield output that can turn a dash/Up-B into a jump/roll.
+/// An explicit sequence jump request must also survive native mapper history as
+/// a mapped jump edge; otherwise a one-frame recipe pulse can be lost entirely.
 pub fn mapped_automatic_actions(buttons: u32, requested: u32) -> u32 {
     let mut result = buttons;
-    if requested & SEQUENCE_JUMP_BUTTONS == 0 {
+    if requested & SEQUENCE_JUMP_BUTTONS != 0 {
+        result |= MAPPED_JUMP;
+    } else {
         result &= !(MAPPED_JUMP | MAPPED_JUMP_MINI);
     }
     if requested & SEQUENCE_GUARD_INPUTS == 0 {
@@ -425,13 +428,21 @@ pub fn mapped_attack_hold(buttons: u32, requested: bool) -> u32 {
 /// These are held input bits; no command flags, move/state writes or new edges.
 pub fn mapped_literal_buttons(buttons: u32, requested: u32) -> u32 {
     let mut mapped = buttons;
+    // An explicit Grab must not inherit a stale native Attack bit from the
+    // preceding drift/dash packet. Without this, Catch and Attack arrive in
+    // the same mapped frame and the game performs a jab instead of a grab.
+    if requested & MAPPER_R != 0 && requested & MAPPER_A == 0 {
+        mapped &= !MAPPED_ATTACK_HOLD_BITS;
+    }
     // Fully owned neutral/attack frames release the preceding shield too.
     // Otherwise mapper hold history can outlive the raw ZR release and prevent
     // the next authored move from leaving shield.
     if requested & SEQUENCE_GUARD_INPUTS == 0 {
         mapped &= !(MAPPED_GUARD | MAPPED_GUARD_HOLD);
     }
-    // Catch alias only for an explicit Grab or the A+ZR Guard-Attack pair.
+    // A grounded sequence Grab needs the native Catch+Guard combination. Catch
+    // alone can be left as a post-map bit and the game will continue into jab;
+    // shield-grab sequences already carry Guard through their ZR request.
     let catch =
         requested & MAPPER_R != 0 || requested & (MAPPER_A | MAPPER_ZR) == (MAPPER_A | MAPPER_ZR);
     if !catch {
@@ -439,7 +450,10 @@ pub fn mapped_literal_buttons(buttons: u32, requested: u32) -> u32 {
     }
     mapped_attack_hold(mapped, requested & MAPPER_A != 0)
         | bits_if(requested & MAPPER_B != 0, MAPPED_SPECIAL)
-        | bits_if(requested & MAPPER_R != 0, MAPPED_CATCH)
+        | bits_if(
+            requested & MAPPER_R != 0,
+            MAPPED_CATCH | MAPPED_GUARD,
+        )
         | bits_if(requested & MAPPER_ZR != 0, MAPPED_GUARD)
 }
 

@@ -1,6 +1,8 @@
 # Kirby forward-air first-hit landing follow-up
 
-A fresh hurtbox hit during **fair frames 10–11** arms the follow-up. This uses
+A fresh hurtbox hit before **fair frame 17** arms the follow-up. The observer
+allows a small timing margin after the first hit's active frames so a delayed
+poll does not lose the confirmation. This uses
 `AttackModule::is_infliction(HIT)`, not the persistent infliction-status flag.
 Shield-only contact, nair and fair's later hits cannot arm it. The route is the
 fast-fall first-hit landing confirm: land before fair reaches its second hit

@@ -157,7 +157,7 @@ fn literal_oos_requests_keep_grab_special_and_guard_without_inventing_attack_or_
     );
     assert_eq!(
         mapped_literal_buttons(0x44, MAPPER_R),
-        0x44 | MAPPED_CATCH,
+        0x44 | MAPPED_CATCH | MAPPED_GUARD,
         "unowned native bits stay unchanged"
     );
 }

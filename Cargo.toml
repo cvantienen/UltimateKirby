@@ -6,7 +6,7 @@ name = "kirby_assist"
 # Required by the source syntax, dependency imports, and array iteration rules.
 edition = "2021"
 # Single release-version source: logger and release builder read this value.
-version = "2.8.1"
+version = "2.8.2"
 description = """ menu update for preformance; simplified
 chatgpt fixes
 Allows leading Wait actions to hold a true neutral standstill before any supported recipe, including short_hop_nair, instead of rejecting Wait plus paired Nair. Adds paired short_hop_fair/bair/uair/dair actions that send Jump+Attack+direction together, with one jump pulse and native acceptance/retries. Preserves the explicit after-hop Nair Attack delay and separate C-stick aerial path. Uses bounded native-progress pause clocks with hitstop/duplicate protection and idle-loop handling, cleared on plan reset; no new rays, scans or file reads in play.
@@ -32,6 +32,10 @@ Hardens menu option changes against stale recipe publication: clears pending out
 Restores the previous sequences.txt layout at the user's request, undoing the all-character heading reorganization while preserving every existing recipe, timing edit and dynamic file-option feature.
 
 Restores recipe jump timing so one-frame jumps request short-hop handling while four-frame holds remain full hops, and preserves horizontal drift through grounded grab handoff so drift-then-grab recipes do not lose their grab input.
+
+Ensures explicit sequence jump requests survive the final native mapping stage as a mapped jump edge, so one-frame short-hop pulses are not lost.
+
+Clears stale mapped attack bits when an explicit sequence grab is delivered, preventing drift-then-grab recipes from becoming jabs.
 
 Organizes sequences.txt with clear alphabetical headings for all 77 registered fighter profiles and five getup-situation subsections per fighter, preserving the ten active Kirby input tests. Explicitly labels empty sections and the remaining compiled-recipe fallback so the file cannot be mistaken for a completed all-roster timing migration.
 
@@ -1723,6 +1727,10 @@ Repairs duplicated live mapper imports and observation function declarations tha
 Replaces predictive auto-tech collision and timing calculations with native passive-transition state and frame-by-frame alternating shield input.
 
 Consolidates mapper and menu frame snapshots, native observation queries, and redundant transient state while preserving controller timing and input ownership.
+
+Restores collision-timed auto-tech scheduling so Guard is not pressed early as an air-dodge and valid predicted tech contacts keep retrying until native delivery.
+
+Improves auto-tech contact prediction with reserved hitstop launch velocity, one-frame live delivery allowance, and native floor-transition gating to reduce missed techs.
 """
 
 

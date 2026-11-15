@@ -109,7 +109,7 @@ use kirby_assist_core::native_input::{controller_index, MAPPER_L, MAPPER_PLUS, M
 use kirby_assist_core::native_input::{MAPPER_A, MAPPER_X, MAPPER_Y};
 use kirby_assist_core::session::{MatchSession, SessionTicket};
 use kirby_assist_core::settings::AssistSettings;
-use kirby_assist_core::tech_input::{FrameTechInput, NativeTechState, TechOutput};
+use kirby_assist_core::tech_input::{TechContext, TechInput, TechOutput};
 use kirby_assist_core::timing::{AnimationClock, AnimationSample};
 use skyline::hooks::{getRegionAddress, Region};
 use std::{

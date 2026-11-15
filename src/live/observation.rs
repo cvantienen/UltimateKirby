@@ -655,7 +655,7 @@ struct TechObservation {
     auto_tech_enabled: bool,
     /// Native eligibility result.
     assessment: tech::TechAssessment,
-    /// Whether native state currently permits a tech.
+    /// Whether a collision is currently predicted inside the tech window.
     tech: bool,
 }
 
@@ -741,8 +741,14 @@ unsafe fn observe_tech_state(
                 menu.auto_tech(config.controls.auto_tech)
             })
     });
-    let assessment = assess_tech(reads, object, auto_tech_enabled);
-    let tech = !clatter && assessment.state == NativeTechState::Opportunity;
+    let assessment = assess_tech(
+        reads,
+        object,
+        auto_tech_enabled,
+        (config.lookahead + tech::TECH_INPUT_DELAY_FRAMES).min(5.0),
+        stopped,
+    );
+    let tech = !clatter && assessment.contact_in.is_some();
     TechObservation {
         clatter_remaining,
         clatter,
@@ -2944,19 +2950,27 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
         0
     };
     let guard_held = state.last_mapped_guard;
+    let prepare_guard = !clatter && tech;
     state.tech_output = state
         .tech_input
-        .get_or_insert_with(FrameTechInput::default)
+        .get_or_insert_with(TechInput::default)
         .sample(
             config.controls.enabled && auto_tech_enabled,
-            object_id,
-            tick,
-            if clatter {
-                NativeTechState::Inactive
-            } else {
-                assessment.state
+            config.controls.takeover,
+            config.controls.tech_cooldown,
+            TechContext {
+                object: object_id,
+                status: assessment.status,
+                motion: own_motion_kind,
+                frame: ledge_motion_frame,
+                rate: p.own.motion_rate,
+                stopped,
+                remaining_stop: assessment.remaining_stop,
+                contact_in: if prepare_guard { assessment.contact_in } else { None },
+                input_delay: tech::TECH_INPUT_DELAY_FRAMES,
+                previous_guard: guard_held,
+                prepare_guard,
             },
-            guard_held,
         );
     let _requested = mash_requested | if state.tech_output.press { HID_ZR } else { 0 };
     #[cfg(feature = "diagnostic-logging")]

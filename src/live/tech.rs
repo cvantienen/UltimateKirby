@@ -1,11 +1,19 @@
-//! Native auto-tech eligibility.
+//! Native collision-timed auto-tech eligibility.
 //!
-//! This module deliberately does not forecast physics or collision timing. It
-//! reads the game's passive-transition permissions and reports whether the live
-//! input layer should pulse Guard on this controller frame.
+//! Guard is requested only for a bounded, imminent stage collision. Native
+//! transition flags remain diagnostics and a final eligibility check; they are
+//! not, by themselves, a reason to press Guard.
 
 use crate::game_ffi as game;
 use kirby_assist_core::tech_input::{native_tech_state, NativeTechState};
+use kirby_assist_core::tech_prediction::{
+    first_contact_in, late_damage_stop_prediction, prediction_velocity, tech_gate_with_floor,
+    TechGate,
+};
+
+/// One mapper/controller frame accounts for the live callback and overlay
+/// before the game consumes the Guard edge.
+pub(super) const TECH_INPUT_DELAY_FRAMES: f32 = 1.0;
 
 /// Native status and transition result copied into the observation pipeline.
 #[derive(Clone, Copy)]
@@ -16,6 +24,10 @@ pub(super) struct TechAssessment {
     pub(super) situation: i32,
     /// Authoritative native tech state.
     pub(super) state: NativeTechState,
+    /// First predicted floor, wall, or ceiling contact in frames.
+    pub(super) contact_in: Option<f32>,
+    /// Remaining native damage-stop frames.
+    pub(super) remaining_stop: u64,
     /// Stable diagnostic label for the native gate that matched.
     #[cfg_attr(not(feature = "diagnostic-logging"), allow(dead_code))]
     pub(super) reason: &'static str,
@@ -29,6 +41,8 @@ pub(super) unsafe fn assess_tech(
     reads: &super::frame::FrameReads,
     object: *mut game::Object,
     enabled: bool,
+    horizon: f32,
+    stopped: bool,
 ) -> TechAssessment {
     let status = reads.status_kind(object);
     let situation = reads.situation_kind(object);
@@ -37,6 +51,8 @@ pub(super) unsafe fn assess_tech(
             status,
             situation,
             state: NativeTechState::Inactive,
+            contact_in: None,
+            remaining_stop: 0,
             reason: "auto_tech_disabled",
         };
     }
@@ -68,28 +84,78 @@ pub(super) unsafe fn assess_tech(
         wall_enabled,
         ceiling_enabled,
     );
-    let reason = match state {
-        NativeTechState::Succeeded => "tech_status_observed",
-        NativeTechState::Opportunity
-            if status == kirby_assist_core::native_states::status::STOP_WALL =>
-        {
-            "native_wall_tech_available"
-        }
-        NativeTechState::Opportunity
-            if status == kirby_assist_core::native_states::status::STOP_CEIL =>
-        {
-            "native_ceiling_tech_available"
-        }
-        NativeTechState::Opportunity if floor_enabled => "native_floor_tech_available",
-        NativeTechState::Opportunity if wall_enabled => "native_wall_tech_available",
-        NativeTechState::Opportunity => "native_ceiling_tech_available",
-        NativeTechState::Inactive if passive_disabled => "native_passive_disabled",
-        NativeTechState::Inactive => "native_tech_unavailable",
+    let remaining_stop = if stopped && game::is_damage_stop(object) {
+        game::hitstop_remaining(object)
+    } else {
+        0
+    };
+    if (kirby_assist_core::native_states::status::PASSIVE
+        ..=kirby_assist_core::native_states::status::PASSIVE_CEIL)
+        .contains(&status)
+    {
+        return TechAssessment {
+            status,
+            situation,
+            state: NativeTechState::Succeeded,
+            contact_in: None,
+            remaining_stop,
+            reason: "tech_status_observed",
+        };
+    }
+    let gate = tech_gate_with_floor(
+        status,
+        situation,
+        passive_disabled,
+        stopped,
+        floor_enabled,
+    );
+    let late_hitstop = gate == TechGate::Hitstop
+        && late_damage_stop_prediction(remaining_stop, TECH_INPUT_DELAY_FRAMES);
+    if !matches!(gate, TechGate::Predict) && !late_hitstop {
+        return TechAssessment {
+            status,
+            situation,
+            state,
+            contact_in: None,
+            remaining_stop,
+            reason: gate.label(),
+        };
+    }
+    let x = reads.pos_x(object);
+    let y = reads.pos_y(object);
+    let current_velocity = [reads.speed_x(object), reads.speed_y(object)];
+    let reserved_velocity = (stopped
+        && remaining_stop > 0
+        && kirby_assist_core::tech_prediction::is_tumble_status(status))
+        .then(|| reads.damage_launch(object));
+    let [vx, vy] = prediction_velocity(current_velocity, reserved_velocity);
+    let horizon = horizon.clamp(1.0, 20.0);
+    let contact_in = if [x, y, vx, vy].iter().all(|v| v.is_finite()) {
+        first_contact_in(x, y, vx, vy, horizon, |probe| {
+            let origin = game::Vector2 {
+                x: probe.origin[0],
+                y: probe.origin[1],
+            };
+            let delta = game::Vector2 {
+                x: probe.delta[0],
+                y: probe.delta[1],
+            };
+            game::ray_check(object, &origin, &delta, probe.passable) != 0
+        })
+    } else {
+        None
+    };
+    let reason = if contact_in.is_some() {
+        "collision_predicted"
+    } else {
+        gate.label()
     };
     TechAssessment {
         status,
         situation,
         state,
+        contact_in,
+        remaining_stop,
         reason,
     }
 }

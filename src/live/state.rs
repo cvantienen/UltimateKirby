@@ -56,8 +56,8 @@ pub(super) struct State {
     pub(super) policy: Option<RawAutoControls>,
     /// Native animation-progress clock for deduplicating repeated polls.
     pub(super) animation_clock: Option<AnimationClock>,
-    /// Frame-deduplicated native auto-tech shield pulser.
-    pub(super) tech_input: Option<FrameTechInput>,
+    /// Collision-timed auto-tech scheduler with mapper acknowledgment.
+    pub(super) tech_input: Option<TechInput>,
     /// Current tech scheduler output before mapper acknowledgment.
     pub(super) tech_output: TechOutput,
     /// Last mapped guard state used for edge handling.

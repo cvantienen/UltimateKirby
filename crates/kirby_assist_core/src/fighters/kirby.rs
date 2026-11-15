@@ -18,8 +18,10 @@ mod fair_followup {
     const FAST_FALL_FRAMES: f32 = 16.0;
     /// Maximum native age of an armed first-hit fair follow-up.
     const MAX_LATCH_FRAMES: f32 = 180.0;
-    /// Fair frames whose hit counts as the first hit; contact from the next frame on is a later hit.
-    const FIRST_HIT_FRAMES: Range<f32> = 10.0..12.0;
+    /// Fair frames before the second hit begins. The live observer can sample
+    /// a confirmed first hit slightly after its exact active frame, so keep the
+    /// first-hit boundary tolerant while still rejecting the later hit.
+    const FIRST_HIT_FRAMES: Range<f32> = 0.0..17.0;
 
     /// Copied Kirby state used by the first-hit forward-air follow-up.
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -379,6 +381,17 @@ mod fair_followup {
                 ..contact
             };
             assert_eq!(tool.sample(true, landing).requested, MAPPER_A);
+        }
+        /// A delayed observation of the first-hit contact still arms the landing smash.
+        #[test]
+        fn delayed_first_hit_observation_arms_before_the_second_hit() {
+            let mut tool = FairFollowup::default();
+            let delayed_hit = FairContext {
+                frame: 13.0,
+                ..fair(10.0)
+            };
+            assert_eq!(tool.sample(true, delayed_hit).requested, 0);
+            assert!(tool.queued);
         }
         /// Regression test for `fresh_first_hit_reported_on_immediate_landing_arms_but_later_hit_does_not`.
         #[test]
