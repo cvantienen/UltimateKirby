@@ -165,11 +165,24 @@ The original mapper consumes the normalized floats and consistent directional bi
 
 ### Auto tech
 
-The observer checks airborne damage-fly/reflect/fall states and the damage flag disabling passive/tech behavior. For an already associated fighter, it refreshes prediction before the same mapper invocation consumes the requested button. This removes v2's extra mapping-update delay. The game callback remains responsible for initially discovering the controlled fighter.
+The observer checks native damage/tumble state, passive-transition terms, the
+passive-disabled flag, and damage-stop timing. For an already associated
+fighter, it refreshes prediction before the same mapper invocation consumes the
+requested button. The game callback remains responsible for initially
+discovering the controlled fighter. The live handoff includes a fixed one-frame
+delivery allowance; it is not learned from samples and is not a general mapper
+poll delay.
 
 Collision prediction sweeps along velocity up to the configured horizon, with three probes for each approaching floor/wall/ceiling direction. Offset floor/ceiling rays and several wall heights approximate the fighter's footprint rather than relying on a single center line. The supplied horizon is five updates instead of v2's three. These are fixed approximate offsets, not the game's exact collision shape.
 
-Prediction no longer waits for the current passive transition term to be enabled: an early physical-style ZR press can reach the game's normal input buffer before contact. It still excludes the native flag disabling passive behavior, and the game retains eligibility, lockouts, and untechable outcomes. The mod does not force a tech status. When a predicted opportunity is ready, it requests ZR and starts the configured cooldown. If an opportunity begins while cooling down and remains present, it can now trigger when the cooldown finishes. A sustained opportunity can be retried after the configured cooldown; requests are not spammed every update.
+Prediction requires the native eligibility gate, including the relevant passive
+transition terms, and excludes the native flag disabling passive behavior. The
+mod does not press merely because the fighter is airborne and does not force a
+tech status. When a bounded collision is predicted, it requests ZR only when
+the scheduler's contact window is ready. If an opportunity begins while
+cooling down and remains present, it can trigger when the cooldown finishes. A
+sustained opportunity can be retried after the configured cooldown; requests
+are not spammed every update.
 
 This is a velocity-based collision heuristic, not a perfect simulation of future movement or the fighter's collision shape. Moving platforms, slopes, unusual collision geometry, special grabs, hitstop, buffering, and polling latency can affect the result. The game still decides whether the input results in a tech. No mod can make a raw ZR press guarantee a legal tech when the game rejects that input.
 
@@ -306,7 +319,7 @@ In the diagnostic build with `tech_debug = true`, the mod queues state-change di
 | `outside_supported_tumble` | Damage/knockdown status is outside the supported tumble range. |
 | `hitstop_wait` | No late-hitstop tech buffer is ready; cooldown history is retained. Late damage-hitstop may predict and buffer a tech. |
 | `no_collision_predicted` | The probes did not find a surface in the prediction horizon. |
-| `collision_predicted` | Contact was predicted; includes estimated contact time, hitstop remaining, extra input delay (zero in live code), request mask and scheduler cooldown. |
+| `collision_predicted` | Contact was predicted; includes estimated contact time, hitstop remaining, the fixed one-frame live delivery allowance, request mask and scheduler cooldown. |
 | `tech ZR applied` | A raw ZR press edge was supplied to the mapper during a predicted tech opportunity. This does not prove a successful tech. |
 | `tech mapped: fresh GUARD edge confirmed` | The original mapper produced a fresh shield press. Our cooldown starts here; native tech acceptance remains separate. |
 | `tech_status_observed` | The fighter entered a native tech status. This does not establish whether the mod or a human caused it. |

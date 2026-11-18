@@ -1755,7 +1755,6 @@ unsafe fn collect_posture(p: &Pass) -> PostureFacts {
         policy:
             ObservationPolicySnapshot {
                 posture_modes,
-                posture_down,
                 analysis_settings,
                 ..
             },
@@ -1769,15 +1768,15 @@ unsafe fn collect_posture(p: &Pass) -> PostureFacts {
             },
         ..
     } = *p;
+    // Refresh the target for every grounded tilt-turn-eligible observation.
+    // Waiting for the previous mapper poll to report `posture_down` created a
+    // race for a fresh A + left-stick-down input: the attack could arrive
+    // before the target was captured, while C-stick tilt input often had a
+    // directional bit available early enough. This remains limited to the
+    // existing grounded target gate and never emits an attack or facing write.
     let observe_posture_target = (posture_modes.0
         || posture_modes.1
-            && (posture_down
-                || matches!(
-                    assessment.status,
-                    kirby_assist_core::native_states::status::ATTACK_LW3
-                        | kirby_assist_core::native_states::status::ATTACK_S3
-                        | kirby_assist_core::native_states::status::ATTACK_HI3
-                )))
+            && assessment.situation == kirby_assist_core::native_states::situation::GROUND)
         && kirby_assist_core::posture::Posture::needs_configured_target(
             assessment.status,
             assessment.situation,

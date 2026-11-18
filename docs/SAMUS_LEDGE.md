@@ -70,7 +70,7 @@ necessarily covered for all twelve.
 
 Neutral, Jump and Roll scheduling aims protection expiry near the middle of
 that span: nominally **five frames after the first active frame**, leaving six
-later frames. The forecast uses zero extra live input-delay compensation and a four-frame
+later frames. The forecast uses no learned live input-delay compensation and a four-frame
 takeoff/delivery allowance. Actual native acceptance, spacing and height can
 shift contact. Unknown protection/recovery timing does not become a guessed hit.
 

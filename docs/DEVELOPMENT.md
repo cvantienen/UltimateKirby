@@ -59,6 +59,35 @@ The complete callback lifecycle, data fences, and ownership boundaries are in
 [runtime architecture](ARCHITECTURE.md). Use the [source map](CODE_MAP.md) to
 jump to the current module owner.
 
+### Current one-update flow
+
+```text
+native command callback
+  → validate local fighter/controller/session
+  → FrameReads caches read-only native facts for this callback
+  → observation evaluates live adapters and core policies
+  → copied proposals enter State with freshness/session fences
+  → mapper refreshes the recently discovered fighter
+  → ActionOwnership chooses the winning intent
+  → temporary button/stick overlay surrounds the original mapper
+  → physical controller memory is restored
+```
+
+The mapper is the delivery boundary: a policy or recipe can request an input,
+but it does not directly write native fighter state. Auto-tech is a useful
+example of the split: `src/live/tech.rs` reads native eligibility and predicts a
+bounded floor/wall/ceiling contact, core `shared/survival/tech_input.rs`
+decides whether a fresh Guard edge is due, and `src/live/mapper.rs` confirms
+delivery while preserving physical input. The same rule applies to recipes,
+ledge responses, DI, and Kirby follow-ups.
+
+For a new behavior, identify which arrow owns the missing fact or decision
+before editing. Add a core policy when copied values are sufficient; add a live
+adapter only for native ABI/read-only queries; connect the result through
+`State` and `ActionOwnership`; then add a narrow regression test and update the
+feature guide. A new `Scenario`, menu row, or Rust module is not live wiring
+by itself.
+
 ### Change a feature or fix a behavior
 
 1. **Reproduce and classify the issue.** Record the selected fighter/controller,
@@ -142,6 +171,23 @@ semantics in `src/live/runtime.rs`, and portable evaluation in
 See [action ownership](ACTION_OWNERSHIP.md) and
 [observations and timing](OBSERVATIONS_AND_TIMING.md) before introducing new
 arbitration or clock behavior.
+
+## Editing patterns and extension checklist
+
+Before changing code, search for the existing owner and tests rather than
+creating a parallel helper. Keep native pointer access inside `src/` and pass
+small copied structs into the core. Keep configuration parsing, validation,
+defaults, and menu presentation synchronized; keep saved recipe syntax in
+`deployment/ultimate/kirby_assist/sequences.txt`; and keep generated fighter
+pages generated.
+
+For a behavior change, edit the smallest owning module, add the failing and
+negative regression cases, then update the relevant guide's trigger, controls,
+timing, ownership, and limitations. For a new feature, wire all four pieces:
+observation, policy/state, reset/cancellation, and mapper delivery. Review
+conflicting owners in `ACTION_OWNERSHIP.md` before assigning a new priority.
+Do not use callback count as a gameplay clock, retain native pointers across a
+callback, or add native writes to make a test pass.
 
 ## Extend a configured input recipe
 

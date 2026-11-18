@@ -164,6 +164,16 @@ The live plugin also coordinates stateful features that produce their own
 controller outputs. Those outputs join the same ownership/arbitration path;
 individual features do not bypass the mapper with independent native writes.
 
+Auto-tech illustrates the current live/core boundary. `src/live/tech.rs` reads
+native status, passive flags, transition terms, velocity (including reserved
+damage launch during hitstop), and bounded stage-contact rays. The observation
+layer supplies the resulting contact forecast plus a fixed one-frame delivery
+allowance to core `shared/survival/tech_input.rs`. That scheduler handles
+contact lead, cooldown, Guard release/press, and mapper acknowledgment; it does
+not write a tech status and it does not press Guard merely for airborne
+motion. This arrangement keeps native facts in the live adapter and timing/
+delivery policy testable in the portable core.
+
 ### 5. Arbitrate intent and ownership
 
 Feature policies describe desired controller actions, while ownership rules

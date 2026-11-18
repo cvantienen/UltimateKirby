@@ -41,13 +41,16 @@ platforms; wall and ceiling probes exclude them to avoid false early predictions
 The adapter withholds automatic guard when native damage-recovery flags and the
 air-escape transition indicate it could become an air dodge. The scheduler also
 cancels stale contact requests outside supported tumble/capture statuses.
-`tech_lookahead_frames` remains a base horizon of 1–5;
-the live adapter supplies zero extra input delay, so it adds no learned-delay
-extension to that horizon. Explicit core callers can still supply a delay.
+`tech_lookahead_frames` remains a base horizon of 1–5. The live adapter adds a
+fixed one-frame delivery allowance for the observation/mapper handoff, then
+caps the effective horizon at five frames. This is a fixed implementation
+allowance, not learned delay compensation. Explicit core callers can still
+supply a delay.
 
 For an eligible damage-air/tumble state, the live scheduler compares contact
-time with the configured native lead and remaining hitstop. Live extra input
-delay is zero; no per-action samples or medians are collected. The final five
+time with the configured native lead and remaining hitstop. The fixed live
+delivery allowance is one frame; no per-action samples or medians are
+collected. The final five
 known damage-hitstop frames can run the existing bounded collision forecast
 (previously only the final two). This gives the mapper more lead for a floor
 impact immediately after a spike. Remaining stop time is included in the forecast;
@@ -98,7 +101,8 @@ assumption that the victim has normal downward knockback.
 
 The linked clock also drives scheduler progress when the victim's capture pose
 is frozen. The shield request targets four frames before predicted impact after
-any explicit core delay (zero in the live adapter); ordinary tumble retains its existing nine-frame lead.
+the fixed one-frame live delivery allowance; ordinary tumble retains its
+existing nine-frame lead.
 Held shields still require release and a fresh mapped press. Invalid/missing
 capture links or clocks do not fabricate a throw deadline. This timing assumes
 the vanilla move script and still requires on-device verification.

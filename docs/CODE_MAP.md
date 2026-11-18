@@ -50,7 +50,7 @@ timing, menu text caching and health counters are grouped with their parents.
 | `src/live/controller.rs` | Native controller layout, selection, button-history access, and overlay restoration. |
 | `src/live/settings_menu.rs` and `src/live/settings_menu/` | Live menu settings, rendering, and serialized save-result handling. |
 | `src/live/training.rs` / Core `runtime.rs` | Training passthrough lifecycle / generic portable adapter loop. |
-| `src/live/tech.rs` / `src/live/kirby_followups.rs` / `src/live/reflect.rs` | Native observations and adapters for tech, Kirby follow-ups, and reflection. |
+| `src/live/tech.rs` / `src/live/kirby_followups.rs` / `src/live/reflect.rs` | Native observations and adapters for collision-timed tech, Kirby follow-ups, and reflection. `tech.rs` supplies the bounded contact forecast; core `shared/survival/tech_input.rs` schedules acknowledged Guard delivery. |
 | `src/live/attack_sources.rs` / `src/live/projectile_sources.rs` | Bounded read-only attack-source tracking for ledge defense and projectile reflection. |
 | `src/game_ffi.rs` | Native Smash function declarations and ABI boundary. |
 | `src/diagnostics.rs` and `src/diagnostics/` | Diagnostic-build-only logging, calibration, grab recording, and performance tools. |
