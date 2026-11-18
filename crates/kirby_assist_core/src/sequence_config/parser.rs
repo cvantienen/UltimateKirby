@@ -29,7 +29,6 @@ enum SectionHeader<'a> {
 }
 
 /// Classifies the section header.
-/// Classifies the section header.
 fn classify_section_header(line: &str) -> Option<SectionHeader<'_>> {
     if !line.starts_with('[') || !line.ends_with(']') {
         return None;
@@ -440,7 +439,6 @@ impl Parser {
 }
 
 /// Applies the recipe key.
-/// Applies the recipe key.
 fn apply_recipe_key(
     entry: &mut Entry,
     key: RecipeKey,
@@ -506,7 +504,6 @@ fn apply_recipe_key(
 }
 
 /// Parses the name.
-/// Parses the name.
 fn parse_name(value: &str, line_number: usize) -> Result<String, String> {
     let value = if value.starts_with('"') || value.ends_with('"') {
         value
@@ -524,7 +521,6 @@ fn parse_name(value: &str, line_number: usize) -> Result<String, String> {
     Ok(value.trim().to_owned())
 }
 
-/// Parses the flag.
 /// Parses the flag.
 fn parse_flag(key: RecipeKey, value: &str, line_number: usize) -> Result<bool, String> {
     match value {
@@ -677,7 +673,6 @@ impl Catalog {
 // reserve config-sized Result/map temporaries in every catalog parser frame,
 // including small files that do not contain universal settings at all.
 /// Validates the universal settings.
-/// Validates the universal settings.
 #[inline(never)]
 fn validate_universal_settings(settings: &str) -> Result<(), String> {
     crate::live_input::LiveConfig::parse(settings)
@@ -772,7 +767,6 @@ fn check_entry(entry: &Entry, line: usize) -> Result<(), String> {
 }
 
 /// Finishes the entry.
-/// Finishes the entry.
 fn finish_entry(
     current: &mut Option<(Entry, usize)>,
     entries: &mut Vec<Entry>,
@@ -801,7 +795,6 @@ pub(super) fn words_id(value: &str) -> String {
         .replace('-', "_")
 }
 
-/// Parses the slot.
 /// Parses the slot.
 pub(super) fn parse_slot(value: &str) -> Option<PresetSlot> {
     Some(match value.to_ascii_lowercase().as_str() {

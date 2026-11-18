@@ -8,8 +8,7 @@ use crate::sequence_config::{
     MAX_SEQUENCE_FRAME_COUNT,
 };
 
-/// Returns the `push` result.
-/// Gets the push result.
+/// Appends one parsed action, rejecting a sequence that exceeds its fixed capacity.
 fn push(sequence: &mut Sequence, action: Action) -> Result<(), String> {
     if usize::from(sequence.len) == MAX_ACTIONS {
         return Err(format!(
@@ -21,8 +20,7 @@ fn push(sequence: &mut Sequence, action: Action) -> Result<(), String> {
     Ok(())
 }
 
-/// Parses the actions.
-/// Parses the actions.
+/// Parses and validates one comma-separated action list.
 pub(super) fn parse_actions(value: &str, line: usize) -> Result<Sequence, String> {
     let mut result = Sequence::default();
     for token in value.split(',').map(str::trim) {
@@ -71,8 +69,7 @@ pub fn validate_facing_blocks(actions: &[Action]) -> Result<(), String> {
     Ok(())
 }
 
-/// Constructs a parsed input action from the supplied arguments.
-/// Builds the input action described by the arguments.
+/// Builds one input action from validated button, stick, duration, and facing values.
 fn input(buttons: u32, stick: [f32; 2], frames: u8, relative: bool) -> Action {
     Action::Input {
         buttons,
@@ -222,7 +219,6 @@ fn normalize(token: &str) -> String {
     }
 }
 
-/// Parses the action.
 /// Parses the action.
 fn parse_action(token: &str, sequence: &mut Sequence) -> Result<(), String> {
     let normalized = normalize(token);
@@ -457,7 +453,6 @@ fn walk(args: &Args) -> Result<Action, String> {
 }
 
 /// Runs the to ledge.
-/// Runs the to ledge.
 fn run_to_ledge(args: &Args) -> Result<Action, String> {
     if !(3..=6).contains(&args.len()) {
         return Err(
@@ -625,7 +620,6 @@ fn button_alias(name: &str) -> Option<u32> {
     })
 }
 
-/// Parses the float.
 /// Parses the float.
 fn parse_float(value: &str, min: f32, max: f32, token: &str) -> Result<f32, String> {
     let value = value

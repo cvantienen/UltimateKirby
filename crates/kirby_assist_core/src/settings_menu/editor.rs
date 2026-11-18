@@ -595,7 +595,6 @@ fn input_reference(a: Action, right: bool) -> IR {
     }
 }
 /// Sets the input reference.
-/// Sets the input reference.
 fn set_input_reference(a: &mut Action, r: IR, right: bool) {
     match a {
         Action::Controller {
@@ -906,7 +905,6 @@ fn adjust_action_kind(recipe: &mut Recipe, index: usize, up: bool) {
     recipe.sequence.actions[index] = recipe.action_for(recipe.kinds[index]);
 }
 
-/// Toggles the shield hold.
 /// Toggles the shield hold.
 fn toggle_shield_hold(recipe: &mut Recipe, index: usize) {
     match &mut recipe.sequence.actions[index] {

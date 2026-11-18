@@ -47,9 +47,20 @@ pub(super) enum Mode {
         text: Vec<u8>,
         /// Runtime cursor value used by Mode..
         cursor: usize,
+        /// Active rename picker.
+        picker: NamePicker,
     },
     /// `Delete` option in the `Mode` Smash policy state.
     Delete,
+}
+/// Rename picker available from the sequence list manager.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) enum NamePicker {
+    /// Edit one character at a time from the alphabet.
+    #[default]
+    Alphabet,
+    /// Replace the name with a predefined move term.
+    Terms,
 }
 /// Runtime Smash data carried by `Catalog`.
 #[derive(Default)]
@@ -87,7 +98,6 @@ pub(super) enum Event {
     MakeDefault,
 }
 // Cursors are UTF-8 byte boundaries; saved recipe names allow 64 bytes.
-/// Returns the next the character.
 /// Returns the next the character.
 fn next_character(text: &[u8], cursor: usize) -> usize {
     let mut end = cursor + 1;
@@ -172,6 +182,7 @@ impl Catalog {
                             self.mode = Mode::Name {
                                 text: if text.is_empty() { vec![b'A'] } else { text },
                                 cursor: 0,
+                                picker: NamePicker::Alphabet,
                             };
                         }
                         1 => {
@@ -190,7 +201,11 @@ impl Catalog {
                     }
                 }
             }
-            Mode::Name { text, cursor } => {
+            Mode::Name {
+                text,
+                cursor,
+                picker,
+            } => {
                 // Confirm/erase/insert must not also apply a held direction.
                 if pressed & Y != 0 {
                     let value = String::from_utf8_lossy(text).trim().to_owned();
@@ -211,6 +226,11 @@ impl Catalog {
                             *cursor = previous_character(text, *cursor);
                         }
                     }
+                } else if pressed & crate::native_input::MAPPER_ZL != 0 {
+                    *picker = match picker {
+                        NamePicker::Alphabet => NamePicker::Terms,
+                        NamePicker::Terms => NamePicker::Alphabet,
+                    };
                 } else if pressed & X == 0
                     && pad.count_ones() == 1
                     && (pressed & pad != 0 || repeat)
@@ -219,6 +239,17 @@ impl Catalog {
                         *cursor = next_character(text, *cursor) % text.len();
                     } else if pad & DPAD_SIDES != 0 {
                         *cursor = previous_character(text, *cursor);
+                    } else if pad != 0 && *picker == NamePicker::Terms {
+                        let current = String::from_utf8_lossy(text);
+                        let index = match NAME_TERMS.iter().position(|term| *term == current) {
+                            Some(index) if pad == DPAD_DOWN => (index + 1) % NAME_TERMS.len(),
+                            Some(index) => (index + NAME_TERMS.len() - 1) % NAME_TERMS.len(),
+                            None if pad == DPAD_DOWN => 0,
+                            None => NAME_TERMS.len() - 1,
+                        };
+                        text.clear();
+                        text.extend_from_slice(NAME_TERMS[index].as_bytes());
+                        *cursor = 0;
                     } else if pad != 0 {
                         let i = ALPHABET
                             .iter()
@@ -267,7 +298,11 @@ impl Catalog {
                 }
                 lines
             }
-            Mode::Name { text, cursor } => vec![
+            Mode::Name {
+                text,
+                cursor,
+                picker,
+            } => vec![
                 "RENAME OPTION".into(),
                 format!(
                     "{}[{}]{}",
@@ -275,7 +310,12 @@ impl Catalog {
                     String::from_utf8_lossy(&text[*cursor..next_character(text, *cursor)]),
                     String::from_utf8_lossy(&text[next_character(text, *cursor)..])
                 ),
-                "Left/Right: cursor | Up/Down: letter (hold)".into(),
+                match picker {
+                    NamePicker::Alphabet => "Left/Right: cursor | Up/Down: letter (hold)",
+                    NamePicker::Terms => "Up/Down: predefined term (hold)",
+                }
+                .into(),
+                "ZL: switch alphabet / term picker".into(),
                 "X: insert after cursor | A: erase character".into(),
                 "Y: use name | B: cancel. Then Y: Save in editor.".into(),
             ],
@@ -289,6 +329,30 @@ impl Catalog {
 }
 /// `ALPHABET` is a configuration value used by the Smash runtime.
 const ALPHABET: &[u8] = b" ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+/// Predefined sequence-name terms offered by the rename term picker.
+const NAME_TERMS: &[&str] = &[
+    "F-TILT",
+    "U-TILT",
+    "D-TILT",
+    "F-SMASH",
+    "U-SMASH",
+    "D-SMASH",
+    "NEUTRAL-B",
+    "SIDE-B",
+    "UP-B",
+    "DOWN-B",
+    "N-AIR",
+    "F-AIR",
+    "B-AIR",
+    "U-AIR",
+    "D-AIR",
+    "Z-AIR",
+    "GRAB",
+    "WALK",
+    "RUN",
+    "S-HOP",
+    "F-HOP",
+];
 
 #[cfg(test)]
 mod tests {
@@ -653,7 +717,7 @@ mod startup_default_tests {
 #[cfg(test)]
 mod rename_regressions {
     use super::*;
-    use crate::native_input::{MAPPER_A as A, MAPPER_X as X, MAPPER_Y as Y};
+    use crate::native_input::{MAPPER_A as A, MAPPER_X as X, MAPPER_Y as Y, MAPPER_ZL};
     /// Returns the `rename` result.
     fn rename(name: &str) -> Catalog {
         let mut c = Catalog {
@@ -705,5 +769,19 @@ mod rename_regressions {
         assert_eq!(accepted(&mut c), name);
         let mut c = rename(&"é".repeat(33));
         assert_eq!(accepted(&mut c), name);
+    }
+    /// Regression test for `predefined_term_picker_replaces_the_name_and_cycles`.
+    #[test]
+    fn predefined_term_picker_replaces_the_name_and_cycles() {
+        let mut c = rename("Custom");
+        c.input(MAPPER_ZL, MAPPER_ZL, "");
+        assert!(c.lines()[2].contains("predefined term"));
+        c.input(DPAD_DOWN, DPAD_DOWN, "");
+        assert_eq!(accepted(&mut c), "F-TILT");
+
+        let mut c = rename("F-TILT");
+        c.input(MAPPER_ZL, MAPPER_ZL, "");
+        c.input(DPAD_UP, DPAD_UP, "");
+        assert_eq!(accepted(&mut c), "WALK");
     }
 }

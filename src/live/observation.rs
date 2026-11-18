@@ -3346,7 +3346,7 @@ fn publish_ledge_diagnostics(
                 frame,
                 profile.name,
                 kirby_assist_core::diagnostics::modes::Label::new(
-                    kirby_assist_core::fighter_profiles::spacing::menu_name(name),
+                    name,
                 ),
             ))
         });

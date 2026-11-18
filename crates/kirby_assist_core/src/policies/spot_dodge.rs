@@ -111,7 +111,6 @@ struct ThreatWindow {
 }
 
 /// Checks whether grab target.
-/// Checks whether grab target.
 fn is_grab_target(target: Target) -> bool {
     matches!(
         target.status,

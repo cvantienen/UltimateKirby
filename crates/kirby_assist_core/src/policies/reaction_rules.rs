@@ -819,7 +819,6 @@ impl Rule {
     }
 }
 /// Validates the response.
-/// Validates the response.
 pub fn validate_response(s: Sequence) -> Result<(), String> {
     s.reaction.validate()?;
     crate::sequence_config::validate_facing_blocks(s.actions())?;

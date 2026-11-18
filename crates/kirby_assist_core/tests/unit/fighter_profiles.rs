@@ -19,6 +19,7 @@ fn individual_profile_modules_preserve_public_identities() {
         ),
         (pyra::profile(), "pyra", pyra::FIGHTER_KIND),
         (mythra::profile(), "mythra", mythra::FIGHTER_KIND),
+        (sora::profile(), "sora", crate::fighter_kinds::SORA),
     ] {
         assert_eq!(profile.name, name);
         assert_eq!(profile.fighter_kind, kind);
@@ -29,7 +30,7 @@ fn individual_profile_modules_preserve_public_identities() {
 #[test]
 fn registered_fighters_have_no_embedded_options_or_scheduling_fallback() {
     let profiles = FighterProfiles::default();
-    assert_eq!(profiles.profiles.len(), 79);
+    assert_eq!(profiles.profiles.len(), 90);
     profiles.validate().unwrap();
     for profile in profiles.profiles.values() {
         assert!(profile

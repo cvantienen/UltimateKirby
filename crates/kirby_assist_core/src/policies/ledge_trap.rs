@@ -653,10 +653,32 @@ mod identity {
         IceClimbers,
         /// `IceClimbersNana` option in the `ResponseImplementation` Smash policy state.
         IceClimbersNana,
+        /// `PiranhaPlant` option in the `ResponseImplementation` Smash policy state.
+        PiranhaPlant,
+        /// `Joker` option in the `ResponseImplementation` Smash policy state.
+        Joker,
+        /// `Hero` option in the `ResponseImplementation` Smash policy state.
+        Hero,
+        /// `BanjoAndKazooie` option in the `ResponseImplementation` Smash policy state.
+        BanjoAndKazooie,
+        /// `Terry` option in the `ResponseImplementation` Smash policy state.
+        Terry,
+        /// `Byleth` option in the `ResponseImplementation` Smash policy state.
+        Byleth,
+        /// `MinMin` option in the `ResponseImplementation` Smash policy state.
+        MinMin,
+        /// `Steve` option in the `ResponseImplementation` Smash policy state.
+        Steve,
+        /// `Sephiroth` option in the `ResponseImplementation` Smash policy state.
+        Sephiroth,
         /// `Pyra` option in the `ResponseImplementation` Smash policy state.
         Pyra,
         /// `Mythra` option in the `ResponseImplementation` Smash policy state.
         Mythra,
+        /// `Kazuya` option in the `ResponseImplementation` Smash policy state.
+        Kazuya,
+        /// `Sora` option in the `ResponseImplementation` Smash policy state.
+        Sora,
     }
     impl ResponseImplementation {
         /// Returns an optional `for_kind` value.
@@ -739,8 +761,19 @@ mod identity {
                 74 => Some(Self::MiiGunner),
                 75 => Some(Self::IceClimbers),
                 76 => Some(Self::IceClimbersNana),
+                81 => Some(Self::PiranhaPlant),
+                82 => Some(Self::Joker),
+                83 => Some(Self::Hero),
+                84 => Some(Self::BanjoAndKazooie),
+                85 => Some(Self::Terry),
+                86 => Some(Self::Byleth),
+                87 => Some(Self::MinMin),
+                88 => Some(Self::Steve),
+                89 => Some(Self::Sephiroth),
                 90 => Some(Self::Pyra),
                 91 => Some(Self::Mythra),
+                92 => Some(Self::Kazuya),
+                93 => Some(Self::Sora),
                 _ => None,
             }
         }
@@ -796,7 +829,6 @@ pub const SEQUENCE_BUTTONS: u32 = ASSIST_BUTTONS
 /// CAPTURE_PULLED..DAMAGE_FALL, DOWN..DOWN_WAIT_CONTINUE, DOWN_DAMAGE/REFLECT_LR
 /// and DAMAGE_FLY_REFLECT_JUMP_BOARD. THROW (0x40) is our attack, THROWN (0x46) is the victim.
 pub use crate::native_states::sequence_interrupted;
-/// Checks whether hanging.
 /// Checks whether hanging.
 fn is_hanging(status: i32) -> bool {
     (CLIFF_CATCH_MOVE..=CLIFF_WAIT).contains(&status)

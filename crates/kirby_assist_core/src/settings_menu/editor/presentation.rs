@@ -121,7 +121,6 @@ pub(super) enum Field {
     ),
 }
 /// Adds the action fields.
-/// Adds the action fields.
 fn push_action_fields(out: &mut Vec<Field>, action: Action, i: usize) {
     match action {
         Action::Controller { .. } => out.extend([
@@ -481,7 +480,6 @@ const SETTING_ROW: Row = Row {
     focused: ">   ",
     bracket: true,
 };
-/// Adds the row.
 /// Adds the row.
 fn push_row(panel: &mut RecipePanel, focused: bool, row: Row, text: impl std::fmt::Display) {
     let text = match (focused, row.bracket) {

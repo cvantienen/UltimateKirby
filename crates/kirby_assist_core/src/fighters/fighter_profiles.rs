@@ -180,60 +180,6 @@ pub mod spacing {
     use super::presets::PresetSlot;
     use crate::fighter_kinds as kind;
 
-    /// Compact display aliases only. IDs, handlers and timing stay unchanged.
-    /// The UI resolves these when its cached snapshot changes, never per game frame.
-    pub fn menu_name(name: &str) -> &str {
-        match name {
-            "Down tilt" => "Dtilt",
-            "Forward tilt" => "Ftilt",
-            "Forward tilt 1" => "Ftilt 1",
-            "Up tilt" => "Utilt",
-            "Grounded up tilt" => "Ground Utilt",
-            "Forward air" => "Fair",
-            "Forward air 1" => "Fair 1",
-            "Up air" => "Uair",
-            "Down smash" => "Dsmash",
-            "Forward smash" => "Fsmash",
-            "Down tilt > shield" => "Dtilt > Shield",
-            "Shield > nair" => "Shield Nair",
-            "Shield > fair" => "Shield Fair",
-            "Shield > fair 1" => "Shield Fair 1",
-            "Shield > up air" => "Shield Uair",
-            "Shield > zair" => "Shield Zair",
-            "Shield > Up-B" => "Shield Up-B",
-            "Shield > slingshot" => "Shield Sling",
-            "Shield > trampoline" => "Shield Tramp",
-            "Shield > fair (Pikmin)" => "Shield Pikmin Fair",
-            "Shield > up air (Pikmin)" => "Shield Pikmin Uair",
-            "Grab / rear nair" => "Grab/rear Nair",
-            "Grab / rear shield" => "Grab/rear Guard",
-            "Short-hop zair" => "SH Zair",
-            "Short-hop dair" => "SH Dair",
-            "Short-hop bite" => "SH Bite",
-            "Hop nair (near)" => "Near Nair",
-            "Hop fair (near)" => "Near Fair",
-            "Hop fair 1 (near)" => "Near Fair 1",
-            "Hop dair (near)" => "Near Dair",
-            "Hop fair (Pikmin)" => "Pikmin Fair",
-            "Hop dair (Pikmin)" => "Pikmin Dair",
-            "Neutral-B / Inhale" => "Inhale",
-            "Down-B / Stone" => "Stone",
-            "Immediate down-B" => "Bomb (now)",
-            "Homing missile" => "Homing Msl",
-            "Super missile" => "Super Msl",
-            "Homing (stay back)" => "Homing (stay)",
-            "Super (stay back)" => "Super (stay)",
-            "Flame fair (stay back)" => "Flame Fair (stay)",
-            "Headbutt f-smash" => "Head Fsmash",
-            "Belly flop (risky)" => "Flop (risky)",
-            "Dair shred (risky)" => "Dair (risky)",
-            "Meteor chase (risky)" => "Meteor (risky)",
-            "Turnip spike (risky)" => "Turnip (risky)",
-            "Tiny up-air (joke)" => "Tiny Uair (joke)",
-            _ => name,
-        }
-    }
-
     /// An empty hint deliberately leaves grabs, shield and automatic roll approaches
     /// alone: their starting distance is not the move's final striking distance.
     /// Fighter kind is the resolved profile kind, so fallback profiles stay coherent.
@@ -548,8 +494,19 @@ fighter_profiles! {
     mii_gunner: MII_GUNNER, "mii_gunner";
     ice_climbers: ICE_CLIMBERS_POPO, "ice_climbers";
     ice_climbers_nana: ICE_CLIMBERS_NANA, "ice_climbers_nana";
+    piranha_plant: PIRANHA_PLANT, "piranha_plant";
+    joker: JOKER, "joker";
+    hero: HERO, "hero";
+    banjo_and_kazooie: BANJO_AND_KAZOOIE, "banjo_and_kazooie";
+    terry: TERRY, "terry";
+    byleth: BYLETH, "byleth";
+    min_min: MIN_MIN, "min_min";
+    steve: STEVE, "steve";
+    sephiroth: SEPHIROTH, "sephiroth";
     pyra: PYRA, "pyra", FIGHTER_KIND;
     mythra: MYTHRA, "mythra", FIGHTER_KIND;
+    kazuya: KAZUYA, "kazuya";
+    sora: SORA, "sora";
 }
 
 use crate::settings::AssistSettings;

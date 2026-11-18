@@ -433,13 +433,11 @@ fn matches_section(clean: &str, fighter: &str, slot: PresetSlot, choice: &str) -
         && parts[2] == choice
 }
 /// Validates the output.
-/// Validates the output.
 pub fn validate_output(source: &str) -> Result<(), String> {
     let catalog = Catalog::parse(source)?;
     validate_catalog(&catalog)
 }
 
-/// Validates the catalog.
 /// Validates the catalog.
 fn validate_catalog(catalog: &Catalog) -> Result<(), String> {
     // add_sequence_choices is a startup publisher: it deliberately leaks frozen
@@ -451,7 +449,6 @@ fn validate_catalog(catalog: &Catalog) -> Result<(), String> {
     catalog.validate(&profiles)?;
     Ok(())
 }
-/// Updates the named.
 /// Updates the named.
 pub fn update_named(
     source: &str,

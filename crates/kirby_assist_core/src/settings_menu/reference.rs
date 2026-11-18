@@ -89,7 +89,6 @@ fn move_names(label: &str) -> &'static [&'static str] {
     }
 }
 /// Finds the move.
-/// Finds the move.
 fn find_move(kind: i32, name: &str) -> Option<&'static MoveData> {
     if let Some(data) = fighter_data::named_move(kind, name) {
         return Some(data);

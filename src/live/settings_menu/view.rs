@@ -3,7 +3,7 @@
 //! Plain English: This module prepares menu labels so the renderer can display them.
 //! Builds only on content changes; lightweight contains option rows only.
 use kirby_assist_core::{
-    fighter_profiles::{presets::PresetSlot, spacing, FighterProfile},
+    fighter_profiles::{presets::PresetSlot, FighterProfile},
     settings_menu::{MenuRow, MenuSelection, RecipePanel},
 };
 use std::ffi::CString;
@@ -239,7 +239,7 @@ fn slot_value(
             |v| {
                 format!(
                     "{}{}",
-                    spacing::menu_name(v.name),
+                    v.name,
                     if selection.recipe_modified(slot) {
                         " *"
                     } else {

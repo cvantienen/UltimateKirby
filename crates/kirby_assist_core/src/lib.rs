@@ -12,13 +12,7 @@
 //! input translation, plus checks for transitions and cancellation.
 //! This crate can be tested on a computer without Skyline or a connected Switch.
 
-// Source layout (see docs/CODE_MAP.md):
-// - shared/: controller, observation, native-input, timing and survival contracts.
-// - fighters/: reference data, profiles, native state tables, fighter-specific rules.
-// - policies/: independent assistance policies (ledge, out-of-shield, reactions, ...).
-// - config.rs, sequence_config.rs, settings_menu.rs, manual_controls.rs: user configuration.
-// - runtime.rs, live_input.rs, diagnostics.rs: stateful orchestration and logging.
-// examples/walkthrough.rs is a complete, pretend frame loop on your computer.
+// See docs/DEVELOPER_GUIDE.md for the architecture, execution flow, and module map.
 //
 // Every module keeps its original crate-root path through the re-exports below,
 // so `kirby_assist_core::native_input` and similar callers are unaffected.
