@@ -38,7 +38,6 @@ impl Engine {
         if !c.gameplay || !ready_now || !readiness.into_iter().any(|ready| ready) {
             return None;
         }
-        let mut nearest: Option<(f32, usize, &Sequence)> = None;
         for (i, t) in targets.iter().enumerate() {
             let Some(t) = t.filter(|t| {
                 t.frame.is_finite()
@@ -72,12 +71,14 @@ impl Engine {
                 && d.is_finite()
                 && d <= r.max
                 && (t.position[1] - c.position[1]).abs() <= r.height
-                && nearest.as_ref().is_none_or(|(old, _, _)| d < *old)
+            // The first observed eligible event owns the response. Do
+            // not reorder simultaneous events by distance: that made a
+            // later target steal a sequence from the event seen first.
             {
-                nearest = Some((d, i, sequence));
+                return Some((i, sequence));
             }
         }
-        nearest.map(|(_, i, sequence)| (i, sequence))
+        None
     }
     /// Only a usable immediate Up-B may replace an unaccepted automatic grab.
     /// This does not consume an event, advance a tape or bypass native readiness.

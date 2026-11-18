@@ -77,6 +77,76 @@ pub const MAX_RULES_PER_MODE: usize = 8;
 /// Sets the upper bound for rules.
 /// Holds the MAX RULES value.
 pub const MAX_RULES: usize = MAX_RULES_PER_MODE * 7;
+
+/// The seven legacy AutoReact slots, kept in one place so menu, cache, and
+/// runtime code cannot disagree about what a slot means.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AutomaticEvent {
+    /// Opponent ground roll.
+    Roll,
+    /// Opponent spot dodge.
+    Spot,
+    /// Opponent air dodge.
+    Air,
+    /// Legacy unshielded automatic grab.
+    Grab,
+    /// Shield grab response.
+    ShieldGrab,
+    /// Grab-dodge follow-up.
+    GrabDodged,
+    /// Shield backup response.
+    ShieldBackup,
+}
+impl AutomaticEvent {
+    /// All events in their stable serialized/cache order.
+    pub const ALL: [Self; 7] = [
+        Self::Roll,
+        Self::Spot,
+        Self::Air,
+        Self::Grab,
+        Self::ShieldGrab,
+        Self::GrabDodged,
+        Self::ShieldBackup,
+    ];
+    /// Returns the stable slot index.
+    pub const fn index(self) -> usize {
+        match self {
+            Self::Roll => 0,
+            Self::Spot => 1,
+            Self::Air => 2,
+            Self::Grab => 3,
+            Self::ShieldGrab => 4,
+            Self::GrabDodged => 5,
+            Self::ShieldBackup => 6,
+        }
+    }
+    /// Converts a serialized trigger into its automatic event identity.
+    pub const fn from_trigger(trigger: Trigger) -> Option<Self> {
+        match trigger {
+            Trigger::AutoRoll => Some(Self::Roll),
+            Trigger::AutoSpot => Some(Self::Spot),
+            Trigger::AutoAir => Some(Self::Air),
+            Trigger::AutoGrab => Some(Self::Grab),
+            Trigger::AutoShieldGrab => Some(Self::ShieldGrab),
+            Trigger::AutoGrabDodged => Some(Self::GrabDodged),
+            Trigger::AutoShieldBackup => Some(Self::ShieldBackup),
+            _ => None,
+        }
+    }
+    /// Converts an automatic event back to its configured trigger.
+    pub const fn trigger(self) -> Trigger {
+        match self {
+            Self::Roll => Trigger::AutoRoll,
+            Self::Spot => Trigger::AutoSpot,
+            Self::Air => Trigger::AutoAir,
+            Self::Grab => Trigger::AutoGrab,
+            Self::ShieldGrab => Trigger::AutoShieldGrab,
+            Self::GrabDodged => Trigger::AutoGrabDodged,
+            Self::ShieldBackup => Trigger::AutoShieldBackup,
+        }
+    }
+}
+
 /// Available `Trigger` choices for the Smash assistance menu.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Trigger {
@@ -139,13 +209,13 @@ pub enum Trigger {
 impl Trigger {
 /// `AUTO_EVENTS` is a configuration value used by the Smash runtime.
     pub const AUTO_EVENTS: [Self; 7] = [
-        Self::AutoRoll,
-        Self::AutoSpot,
-        Self::AutoAir,
-        Self::AutoGrab,
-        Self::AutoShieldGrab,
-        Self::AutoGrabDodged,
-        Self::AutoShieldBackup,
+        AutomaticEvent::Roll.trigger(),
+        AutomaticEvent::Spot.trigger(),
+        AutomaticEvent::Air.trigger(),
+        AutomaticEvent::Grab.trigger(),
+        AutomaticEvent::ShieldGrab.trigger(),
+        AutomaticEvent::GrabDodged.trigger(),
+        AutomaticEvent::ShieldBackup.trigger(),
     ];
     /// Returns the `auto_name` result.
     pub fn auto_name(self) -> &'static str {
@@ -205,16 +275,7 @@ impl Trigger {
     }
     /// Returns an optional `simple` value.
     pub fn simple(self) -> Option<usize> {
-        match self {
-            Self::AutoRoll => Some(0),
-            Self::AutoSpot => Some(1),
-            Self::AutoAir => Some(2),
-            Self::AutoGrab => Some(3),
-            Self::AutoShieldGrab => Some(4),
-            Self::AutoGrabDodged => Some(5),
-            Self::AutoShieldBackup => Some(6),
-            _ => None,
-        }
+        AutomaticEvent::from_trigger(self).map(AutomaticEvent::index)
     }
     /// Determines whether the `shield_pressure` condition holds.
     pub fn shield_pressure(self) -> bool {
@@ -821,6 +882,11 @@ impl Default for Resolved {
     }
 }
 impl Resolved {
+    /// Returns a configured automatic sequence without exposing its array
+    /// layout to callers.
+    pub fn automatic_sequence(&self, event: AutomaticEvent) -> Option<&Sequence> {
+        self.simple_sequence(event.index())
+    }
     /// Returns an optional `simple_sequence` value.
     pub fn simple_sequence(&self, index: usize) -> Option<&Sequence> {
         self.simple
@@ -865,7 +931,8 @@ impl Resolved {
         {
             return Err("At most 8 rules per assist mode per fighter".into());
         }
-        if let Some(index) = c.sequence.reaction.trigger.simple() {
+        if let Some(event) = AutomaticEvent::from_trigger(c.sequence.reaction.trigger) {
+            let index = event.index();
             let simple = self.simple.get_or_insert_with(|| Box::new([None; 7]));
             if simple[index].is_some() {
                 return Err(

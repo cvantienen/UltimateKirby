@@ -1,5 +1,22 @@
 # Configurable reaction rules
 
+## Simplified runtime behavior
+
+Automatic reactions are sequence triggers: the first eligible roll, spot dodge,
+air dodge, or other configured event starts its saved sequence immediately.
+Events do not queue behind another reaction, and a later event cannot replace a
+sequence that has already started.
+
+Holding L gives ledge trap mode exclusive priority. All other automatic
+reactions are suspended while L is held, including a reaction that was already
+active when L was pressed.
+
+Automatic grabs are no longer a separate roaming or dash-approach system. The
+out-of-shield path only starts a configured shield_hit sequence while the
+fighter is shielding. Its reaction distance and height decide whether the
+sequence is eligible, so a grab recipe can still punish a vulnerable opponent
+in range without competing with roll, spot-dodge, or air-dodge reactions.
+
 ## Current simple Auto react mode
 
 The **Auto react** Training list groups all automatic response sequences for the

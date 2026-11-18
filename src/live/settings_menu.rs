@@ -506,7 +506,9 @@ impl SettingsMenu {
         if !self.live()?.grab_dodge {
             return None;
         }
-        self.current_rules()?.simple_sequence(5)
+        self.current_rules()?.automatic_sequence(
+            kirby_assist_core::reaction_rules::AutomaticEvent::GrabDodged,
+        )
     }
     /// All Auto react recipes share a revision cache, independent of the
     /// individual mode switches that continue to control their admission.
@@ -514,9 +516,19 @@ impl SettingsMenu {
     pub fn automatic_sequences(&self) -> kirby_assist_core::out_of_shield::AutomaticConfig<'_> {
         let rules = self.current_rules();
         kirby_assist_core::out_of_shield::AutomaticConfig {
-            grab: rules.and_then(|r| r.simple_sequence(3)),
-            shield_grab: rules.and_then(|r| r.simple_sequence(4)),
-            backup: rules.and_then(|r| r.simple_sequence(6)),
+            grab: rules.and_then(|r| {
+                r.automatic_sequence(kirby_assist_core::reaction_rules::AutomaticEvent::Grab)
+            }),
+            shield_grab: rules.and_then(|r| {
+                r.automatic_sequence(
+                    kirby_assist_core::reaction_rules::AutomaticEvent::ShieldGrab,
+                )
+            }),
+            backup: rules.and_then(|r| {
+                r.automatic_sequence(
+                    kirby_assist_core::reaction_rules::AutomaticEvent::ShieldBackup,
+                )
+            }),
         }
     }
     /// Returns configured time/distance limits for the three automatic recipes.

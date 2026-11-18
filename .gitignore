@@ -16,3 +16,4 @@ venv/
 /.sequence-sync-backups/
 
 /.mod-workbench/
+.kilo
