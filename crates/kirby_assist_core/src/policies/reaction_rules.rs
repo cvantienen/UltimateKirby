@@ -9,7 +9,7 @@ use crate::{
 /// Determines whether the `starts_direct_up_b` condition holds.
 /// Checks whether starts direct up b.
 pub fn starts_direct_up_b(sequence: &Sequence) -> bool {
-    simple::starts_up_b(sequence)
+    automatic_watch::starts_up_b(sequence)
 }
 mod automatic_watch;
 mod scope;
@@ -1286,7 +1286,6 @@ impl Engine {
     }
 }
 
-mod simple;
 #[cfg(test)]
 mod tests {
     use super::*;

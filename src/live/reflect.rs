@@ -98,13 +98,9 @@ pub(super) unsafe fn observe(
     let mut geometry = 0;
     'sources: for source in sources.into_iter().flatten() {
         let id = source.id;
-        if id == own_id
-            || !matches!(
-                id >> 28,
-                kirby_assist_core::battle_objects::OBJECT_CATEGORY_WEAPON
-                    | kirby_assist_core::battle_objects::OBJECT_CATEGORY_ITEM
-            )
-        {
+        // `attack_sources` admits only weapon and item IDs, so each snapshot
+        // already satisfies the tracker category invariant.
+        if id == own_id {
             continue;
         }
         if !game::is_active(id) {
