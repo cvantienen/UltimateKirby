@@ -276,16 +276,18 @@ pub fn mapped_stick_axis(axis: f32) -> i8 {
 /// Drop every `sources` bit, then add each pair's destination when any of its
 /// source bits is held. Bits outside `sources` pass through unchanged.
 fn remap_buttons(buttons: u32, sources: u32, pairs: &[(u32, u32)]) -> u32 {
-    pairs.iter().fold(buttons & !sources, |mapped, &(from, to)| {
-        mapped | bits_if(buttons & from != 0, to)
-    })
+    pairs
+        .iter()
+        .fold(buttons & !sources, |mapped, &(from, to)| {
+            mapped | bits_if(buttons & from != 0, to)
+        })
 }
 
 /// Available `ControlLayout` choices for the Smash assistance menu.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ControlLayout {
     #[default]
-/// `Default` option in the `ControlLayout` Smash policy state.
+    /// `Default` option in the `ControlLayout` Smash policy state.
     Default,
     /// A=Attack, L=Special, R/ZR=Jump, ZL=Shield, X=Grab.
     /// Turbo t-bag remains an independent, configurable button role.
@@ -450,10 +452,7 @@ pub fn mapped_literal_buttons(buttons: u32, requested: u32) -> u32 {
     }
     mapped_attack_hold(mapped, requested & MAPPER_A != 0)
         | bits_if(requested & MAPPER_B != 0, MAPPED_SPECIAL)
-        | bits_if(
-            requested & MAPPER_R != 0,
-            MAPPED_CATCH | MAPPED_GUARD,
-        )
+        | bits_if(requested & MAPPER_R != 0, MAPPED_CATCH | MAPPED_GUARD)
         | bits_if(requested & MAPPER_ZR != 0, MAPPED_GUARD)
 }
 
@@ -471,13 +470,13 @@ pub fn mapped_unshielded_auto_grab(buttons: u32, requested: u32, active: bool) -
 // (off -> on), whereas `held` stays on for as long as a button remains pressed.
 /// Runtime Smash data carried by `ButtonTrace`.
 pub struct ButtonTrace {
-/// Runtime held value used by ButtonTrace..
+    /// Runtime held value used by ButtonTrace..
     pub held: u32,
-/// Runtime previous value used by ButtonTrace..
+    /// Runtime previous value used by ButtonTrace..
     pub previous: u32,
-/// Runtime pressed value used by ButtonTrace..
+    /// Runtime pressed value used by ButtonTrace..
     pub pressed: u32,
-/// Runtime released value used by ButtonTrace..
+    /// Runtime released value used by ButtonTrace..
     pub released: u32,
 }
 
@@ -485,9 +484,9 @@ pub struct ButtonTrace {
 /// a fresh physical trace each mapping call and restores it after mapping.
 #[derive(Default)]
 pub struct MapperButtonOverlay {
-/// Runtime last output value used by MapperButtonOverlay..
+    /// Runtime last output value used by MapperButtonOverlay..
     last_output: Option<u32>,
-/// Runtime last affected value used by MapperButtonOverlay..
+    /// Runtime last affected value used by MapperButtonOverlay..
     last_affected: u32,
 }
 impl MapperButtonOverlay {
@@ -559,7 +558,10 @@ pub unsafe fn controller_index(accessor: *const u8) -> Option<i32> {
     // add(offset) alone moves an address; read() follows the stored pointer.
     // A non-null pointer is still not proof of validity: native lifetime/version
     // checks remain the caller's responsibility, as documented in Safety above.
-    let control = read_native_pointer(accessor, MODULE_ACCESSOR_CONTROL_MODULE_POINTER_OFFSET_BYTES)?;
+    let control = read_native_pointer(
+        accessor,
+        MODULE_ACCESSOR_CONTROL_MODULE_POINTER_OFFSET_BYTES,
+    )?;
     let first = read_native_pointer(control, CONTROL_MODULE_INPUT_CONTEXT_POINTER_OFFSET_BYTES)?;
     let second = read_native_pointer(first, INPUT_CONTEXT_CONTROLLER_RECORD_POINTER_OFFSET_BYTES)?;
     let input = read_native_pointer(second, CONTROLLER_RECORD_INDEX_POINTER_OFFSET_BYTES)?;

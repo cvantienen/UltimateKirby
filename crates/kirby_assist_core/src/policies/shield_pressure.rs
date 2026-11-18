@@ -21,25 +21,25 @@ use crate::{
 /// * `used` - Indicates whether this interaction has been used.
 #[derive(Clone, Copy)]
 struct Seen {
-/// battle-object ID.
+    /// battle-object ID.
     id: u32,
-/// native fighter status.
+    /// native fighter status.
     status: i32,
-/// native animation/motion ID.
+    /// native animation/motion ID.
     motion: u64,
-/// current native animation frame.
+    /// current native animation frame.
     frame: f32,
-/// Runtime dx value used by Seen..
+    /// Runtime dx value used by Seen..
     dx: f32,
-/// Runtime from shield value used by Seen..
+    /// Runtime from shield value used by Seen..
     from_shield: bool,
-/// Runtime crossed value used by Seen..
+    /// Runtime crossed value used by Seen..
     crossed: bool,
-/// Runtime start side value used by Seen..
+    /// Runtime start side value used by Seen..
     start_side: f32,
-/// Runtime away value used by Seen..
+    /// Runtime away value used by Seen..
     away: Option<bool>,
-/// Runtime used value used by Seen..
+    /// Runtime used value used by Seen..
     used: bool,
 }
 /// Represents the shield pressure manager that tracks observed shield interactions and manages responses.
@@ -50,13 +50,13 @@ struct Seen {
 /// * `claim_rolls` - Indicates whether roll claims are active.
 #[derive(Default)]
 pub struct Pressure {
-/// Runtime object value used by Pressure..
+    /// Runtime object value used by Pressure..
     object: Option<u32>,
-/// Runtime seen value used by Pressure..
+    /// Runtime seen value used by Pressure..
     seen: [Option<Seen>; 8],
-/// Runtime response value used by Pressure..
+    /// Runtime response value used by Pressure..
     response: Response,
-/// Runtime claim rolls value used by Pressure..
+    /// Runtime claim rolls value used by Pressure..
     claim_rolls: bool,
 }
 /// Determines whether the given status corresponds to a shield context.
@@ -162,7 +162,9 @@ impl Pressure {
                         let before = old.iter().flatten().find(|s| s.id == target.id);
                         let same_roll = roll(target.status)
                             && before.is_some_and(|s| {
-                                s.status == target.status && s.motion == target.motion && target.frame >= s.frame
+                                s.status == target.status
+                                    && s.motion == target.motion
+                                    && target.frame >= s.frame
                             });
                         let same_shield = shield_context(target.status)
                             && before.is_some_and(|s| shield_context(s.status));
@@ -253,7 +255,9 @@ impl Pressure {
                                     | crate::native_states::GUARD
                                     | crate::native_states::GUARD_DAMAGE
                             ) || roll(target.status) && seen.from_shield)
-                                && target.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.)
+                                && target
+                                    .vulnerable_in
+                                    .is_some_and(|v| v.is_finite() && v <= 0.)
                         }
                         Trigger::EnemyShield => matches!(
                             target.status,
@@ -262,17 +266,23 @@ impl Pressure {
                                 | crate::native_states::GUARD_DAMAGE
                         ),
                         Trigger::ShieldRoll => roll(target.status) && seen.from_shield,
-                        Trigger::ShieldCross => roll(target.status) && seen.from_shield && seen.crossed,
+                        Trigger::ShieldCross => {
+                            roll(target.status) && seen.from_shield && seen.crossed
+                        }
                         Trigger::ShieldVulnerable => {
                             roll(target.status)
                                 && seen.from_shield
-                                && target.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.)
+                                && target
+                                    .vulnerable_in
+                                    .is_some_and(|v| v.is_finite() && v <= 0.)
                         }
                         Trigger::ShieldCrossVulnerable => {
                             roll(target.status)
                                 && seen.from_shield
                                 && seen.crossed
-                                && target.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.)
+                                && target
+                                    .vulnerable_in
+                                    .is_some_and(|v| v.is_finite() && v <= 0.)
                         }
                         Trigger::ShieldAway => {
                             roll(target.status) && seen.from_shield && seen.away == Some(true)
@@ -281,7 +291,9 @@ impl Pressure {
                             roll(target.status)
                                 && seen.from_shield
                                 && seen.away == Some(true)
-                                && target.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.)
+                                && target
+                                    .vulnerable_in
+                                    .is_some_and(|v| v.is_finite() && v <= 0.)
                         }
                         _ => false,
                     };
@@ -300,7 +312,9 @@ impl Pressure {
                             rate: target.rate,
                             remaining: target.actionable_in,
                         }),
-                        vulnerable: target.vulnerable_in.is_some_and(|v| v.is_finite() && v <= 0.),
+                        vulnerable: target
+                            .vulnerable_in
+                            .is_some_and(|v| v.is_finite() && v <= 0.),
                         vulnerable_in: target.vulnerable_in,
                         ..Default::default()
                     };

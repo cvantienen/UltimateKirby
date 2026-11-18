@@ -57,9 +57,9 @@ const MASH_DIRECTIONS: [[f32; 2]; 4] = [
 /// Runtime Smash data carried by `ScenarioCounter`.
 #[derive(Default)]
 struct ScenarioCounter {
-/// Runtime previous active value used by ScenarioCounter..
+    /// Runtime previous active value used by ScenarioCounter..
     previous_active: bool,
-/// current native animation frame.
+    /// current native animation frame.
     frame: u32,
 }
 
@@ -88,23 +88,23 @@ impl ScenarioCounter {
 pub struct RawAutoControls {
     // `Option<T>` explicitly represents absence (None) or a value (Some(T)).
     // A changed identity or backwards clock invalidates this entire session.
-/// Runtime identity value used by RawAutoControls..
+    /// Runtime identity value used by RawAutoControls..
     identity: Option<u32>,
-/// Runtime last tick value used by RawAutoControls..
+    /// Runtime last tick value used by RawAutoControls..
     last_tick: Option<i64>,
-/// Runtime clatter value used by RawAutoControls..
+    /// Runtime clatter value used by RawAutoControls..
     clatter: ScenarioCounter,
-/// Runtime tech value used by RawAutoControls..
+    /// Runtime tech value used by RawAutoControls..
     tech: ScenarioCounter,
     // cooldown counts eligible scheduler updates, not wall-clock milliseconds
     // or the game's internal tech lockout. It prevents our repeated ZR attempts.
-/// Runtime cooldown value used by RawAutoControls..
+    /// Runtime cooldown value used by RawAutoControls..
     cooldown: u16,
-/// Runtime proposed value used by RawAutoControls..
+    /// Runtime proposed value used by RawAutoControls..
     proposed: u64,
-/// Runtime mash stick value used by RawAutoControls..
+    /// Runtime mash stick value used by RawAutoControls..
     mash_stick: Option<[f32; 2]>,
-/// Runtime tech needs release value used by RawAutoControls..
+    /// Runtime tech needs release value used by RawAutoControls..
     tech_needs_release: bool,
 }
 
@@ -282,11 +282,11 @@ impl RawAutoControls {
 /// flags and the sample ID intact.
 #[derive(Default)]
 pub struct HidButtonOverlay {
-/// Runtime last sample value used by HidButtonOverlay..
+    /// Runtime last sample value used by HidButtonOverlay..
     last_sample: Option<i64>,
-/// Runtime latched value used by HidButtonOverlay..
+    /// Runtime latched value used by HidButtonOverlay..
     latched: u64,
-/// Runtime owned value used by HidButtonOverlay..
+    /// Runtime owned value used by HidButtonOverlay..
     owned: u64,
 }
 
@@ -346,46 +346,46 @@ pub mod mapper_hook {
     //! Startup-only recognition of the FIM mapper, including Skyline entry patches.
     //! No fixed game address, pointer dereference, or instruction modification here.
 
-/// `MAPPING_NEEDLE` is a configuration value used by the Smash runtime.
+    /// `MAPPING_NEEDLE` is a configuration value used by the Smash runtime.
     pub const MAPPING_NEEDLE: &[u8] = &[
         0xff, 0x03, 0x02, 0xd1, 0xf7, 0x23, 0x00, 0xf9, 0xf6, 0x57, 0x05, 0xa9, 0xf4, 0x4f, 0x06,
         0xa9, 0xfd, 0x7b, 0x07, 0xa9, 0xfd, 0xc3, 0x01, 0x91, 0x3f, 0x04, 0x00, 0x31, 0xe0, 0x77,
         0x00, 0x54,
     ];
 
-/// `AARCH64_INSTRUCTION_BYTES` is a configuration value used by the Smash runtime.
+    /// `AARCH64_INSTRUCTION_BYTES` is a configuration value used by the Smash runtime.
     const AARCH64_INSTRUCTION_BYTES: usize = 4;
-/// `AARCH64_INSTRUCTION_WORD_BITS` is a configuration value used by the Smash runtime.
+    /// `AARCH64_INSTRUCTION_WORD_BITS` is a configuration value used by the Smash runtime.
     const AARCH64_INSTRUCTION_WORD_BITS: u32 = 32;
-/// `PATCHED_ENTRY_PREFIX_BYTES` is a configuration value used by the Smash runtime.
+    /// `PATCHED_ENTRY_PREFIX_BYTES` is a configuration value used by the Smash runtime.
     const PATCHED_ENTRY_PREFIX_BYTES: usize = 5 * AARCH64_INSTRUCTION_BYTES;
-/// `ENTRY_INSTRUCTION_0_OFFSET_BYTES` is a configuration value used by the Smash runtime.
+    /// `ENTRY_INSTRUCTION_0_OFFSET_BYTES` is a configuration value used by the Smash runtime.
     const ENTRY_INSTRUCTION_0_OFFSET_BYTES: usize = 0;
-/// `ENTRY_INSTRUCTION_1_OFFSET_BYTES` is a configuration value used by the Smash runtime.
+    /// `ENTRY_INSTRUCTION_1_OFFSET_BYTES` is a configuration value used by the Smash runtime.
     const ENTRY_INSTRUCTION_1_OFFSET_BYTES: usize = AARCH64_INSTRUCTION_BYTES;
-/// `ENTRY_INSTRUCTION_2_OFFSET_BYTES` is a configuration value used by the Smash runtime.
+    /// `ENTRY_INSTRUCTION_2_OFFSET_BYTES` is a configuration value used by the Smash runtime.
     const ENTRY_INSTRUCTION_2_OFFSET_BYTES: usize = 2 * AARCH64_INSTRUCTION_BYTES;
-/// `ENTRY_INSTRUCTION_3_OFFSET_BYTES` is a configuration value used by the Smash runtime.
+    /// `ENTRY_INSTRUCTION_3_OFFSET_BYTES` is a configuration value used by the Smash runtime.
     const ENTRY_INSTRUCTION_3_OFFSET_BYTES: usize = 3 * AARCH64_INSTRUCTION_BYTES;
-/// `ENTRY_INSTRUCTION_4_OFFSET_BYTES` is a configuration value used by the Smash runtime.
+    /// `ENTRY_INSTRUCTION_4_OFFSET_BYTES` is a configuration value used by the Smash runtime.
     const ENTRY_INSTRUCTION_4_OFFSET_BYTES: usize = 4 * AARCH64_INSTRUCTION_BYTES;
-/// `BRANCH_OPCODE_MASK` is a configuration value used by the Smash runtime.
+    /// `BRANCH_OPCODE_MASK` is a configuration value used by the Smash runtime.
     const BRANCH_OPCODE_MASK: u32 = 0xfc00_0000;
-/// `BRANCH_OPCODE` is a configuration value used by the Smash runtime.
+    /// `BRANCH_OPCODE` is a configuration value used by the Smash runtime.
     const BRANCH_OPCODE: u32 = 0x1400_0000;
-/// `LOAD_X17_LITERAL_OPCODE` is a configuration value used by the Smash runtime.
+    /// `LOAD_X17_LITERAL_OPCODE` is a configuration value used by the Smash runtime.
     const LOAD_X17_LITERAL_OPCODE: u32 = 0x5800_0051;
-/// `BRANCH_X17_OPCODE` is a configuration value used by the Smash runtime.
+    /// `BRANCH_X17_OPCODE` is a configuration value used by the Smash runtime.
     const BRANCH_X17_OPCODE: u32 = 0xd61f_0220;
-/// `NO_OPERATION_OPCODE` is a configuration value used by the Smash runtime.
+    /// `NO_OPERATION_OPCODE` is a configuration value used by the Smash runtime.
     const NO_OPERATION_OPCODE: u32 = 0xd503_201f;
-/// `TEST_BRANCH_PATCH_WORD` is a configuration value used by the Smash runtime.
+    /// `TEST_BRANCH_PATCH_WORD` is a configuration value used by the Smash runtime.
     #[cfg(test)]
     const TEST_BRANCH_PATCH_WORD: u32 = 0x1400_0100;
-/// `TEST_TARGET_LOW_WORD` is a configuration value used by the Smash runtime.
+    /// `TEST_TARGET_LOW_WORD` is a configuration value used by the Smash runtime.
     #[cfg(test)]
     const TEST_TARGET_LOW_WORD: u32 = 0x1234_5000;
-/// `TEST_TARGET_HIGH_WORD` is a configuration value used by the Smash runtime.
+    /// `TEST_TARGET_HIGH_WORD` is a configuration value used by the Smash runtime.
     #[cfg(test)]
     const TEST_TARGET_HIGH_WORD: u32 = 0x71;
 

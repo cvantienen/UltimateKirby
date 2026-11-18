@@ -8,7 +8,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[path = "projectile_sources.rs"]
 /// Implements the fixed-size atomic store used by attack-source tracking.
 mod projectile_sources;
-
 /// Fixed number of projectile source entries stored by this module.
 const CAPACITY: usize = 32;
 /// Maximum number of projectile identities retained by the tracker.

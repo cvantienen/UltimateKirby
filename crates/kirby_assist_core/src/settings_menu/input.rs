@@ -9,9 +9,9 @@ const EDITOR_BUTTONS: u32 = MAPPER_A | MAPPER_B | MAPPER_ZL | MAPPER_ZR | MAPPER
 /// One controller sample shared by every input phase.
 #[derive(Clone, Copy)]
 struct Sample {
-/// Runtime buttons value used by Sample..
+    /// Runtime buttons value used by Sample..
     buttons: u32,
-/// Runtime pressed value used by Sample..
+    /// Runtime pressed value used by Sample..
     pressed: u32,
     /// Directions this page owns; none on a lightweight page without the L modifier.
     directions: u32,
@@ -19,13 +19,13 @@ struct Sample {
     pad: u32,
     /// Direction quarantine as it was before this sample.
     quarantined: u32,
-/// Runtime toggled value used by Sample..
+    /// Runtime toggled value used by Sample..
     toggled: bool,
-/// Runtime editing value used by Sample..
+    /// Runtime editing value used by Sample..
     editing: bool,
-/// Runtime allow editing value used by Sample..
+    /// Runtime allow editing value used by Sample..
     allow_editing: bool,
-/// Runtime light navigation value used by Sample..
+    /// Runtime light navigation value used by Sample..
     light_navigation: bool,
 }
 impl Sample {
@@ -66,7 +66,13 @@ impl MenuSelection {
             buttons
         };
         let cancel_editor = self.sync_scene(presets, allow_editing);
-        let mut s = self.begin_sample(presets, buttons, allow_editing, cancel_editor, ledge_pressed);
+        let mut s = self.begin_sample(
+            presets,
+            buttons,
+            allow_editing,
+            cancel_editor,
+            ledge_pressed,
+        );
         if s.toggled {
             self.toggle_menu();
         }
@@ -423,8 +429,7 @@ impl MenuSelection {
         // Ordinary gameplay buttons are not compact-menu controls. A manual
         // action cancels a test so its owned inputs cannot swallow that press.
         let manual = MAPPER_L | MAPPER_Y | MAPPER_A | MAPPER_B | MAPPER_PLUS;
-        if self.preview_slot.is_some() && s.pressed & manual != 0 && !self.binding_starts_blocked
-        {
+        if self.preview_slot.is_some() && s.pressed & manual != 0 && !self.binding_starts_blocked {
             self.changed();
         }
         if let Some(pad) = self.compact_direction(s) {
@@ -503,9 +508,7 @@ impl MenuSelection {
                 return Some(s.consume(MAPPER_L | MAPPER_B));
             }
         }
-        if !s.toggled
-            && self.row.slot().is_some()
-            && (self.managing() || s.pressed & MAPPER_B != 0)
+        if !s.toggled && self.row.slot().is_some() && (self.managing() || s.pressed & MAPPER_B != 0)
         {
             return Some(self.manage_page_input(presets, s));
         }
@@ -571,7 +574,11 @@ impl MenuSelection {
                 }
             }
         }
-        if self.editor.as_mut().is_some_and(|e| e.take_manage_request()) {
+        if self
+            .editor
+            .as_mut()
+            .is_some_and(|e| e.take_manage_request())
+        {
             self.manage_input(presets, MAPPER_B, MAPPER_B);
         }
         recipe_changed
@@ -676,8 +683,8 @@ impl MenuSelection {
         let mut edited = false;
         if let Some(editor) = self.editor.as_mut() {
             if s.pad & DPAD_SIDES != 0 {
-                edited = (!repeat || editor.repeatable(key))
-                    && editor.adjust(key, s.pad == DPAD_RIGHT);
+                edited =
+                    (!repeat || editor.repeatable(key)) && editor.adjust(key, s.pad == DPAD_RIGHT);
             } else {
                 editor.navigate(key, s.pad == DPAD_DOWN);
             }

@@ -9,27 +9,27 @@ use crate::{
 /// Runtime Smash data carried by `GrabHandoff`.
 #[derive(Default)]
 pub struct GrabHandoff {
-/// Runtime pending value used by GrabHandoff..
+    /// Runtime pending value used by GrabHandoff..
     pending: bool,
-/// Runtime owner value used by GrabHandoff..
+    /// Runtime owner value used by GrabHandoff..
     owner: Option<Owner>,
-/// Runtime delivery value used by GrabHandoff..
+    /// Runtime delivery value used by GrabHandoff..
     delivery: crate::move_input::DeliveryBudget,
-/// Runtime previous request value used by GrabHandoff..
+    /// Runtime previous request value used by GrabHandoff..
     previous_request: bool,
-/// Runtime previous catch value used by GrabHandoff..
+    /// Runtime previous catch value used by GrabHandoff..
     previous_catch: bool,
-/// Runtime native clock value used by GrabHandoff..
+    /// Runtime native clock value used by GrabHandoff..
     native_clock: NativeAttempt,
-/// Runtime native context value used by GrabHandoff..
+    /// Runtime native context value used by GrabHandoff..
     native_context: Option<GameplayContext>,
-/// Runtime enemy clock value used by GrabHandoff..
+    /// Runtime enemy clock value used by GrabHandoff..
     enemy_clock: NativeAttempt,
-/// Runtime enemy id value used by GrabHandoff..
+    /// Runtime enemy id value used by GrabHandoff..
     enemy_id: Option<u32>,
-/// Runtime packets value used by GrabHandoff..
+    /// Runtime packets value used by GrabHandoff..
     packets: u8,
-/// Runtime last packet value used by GrabHandoff..
+    /// Runtime last packet value used by GrabHandoff..
     last_packet: Option<i64>,
 }
 /// Airborne, caught or otherwise interrupted fighters cannot be waiting on a Grab.

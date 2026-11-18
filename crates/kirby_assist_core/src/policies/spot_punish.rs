@@ -15,15 +15,15 @@ use crate::{
 /// * `used` - Indicates whether this opportunity has been used.
 #[derive(Clone, Copy)]
 struct Seen {
-/// battle-object ID.
+    /// battle-object ID.
     id: u32,
-/// native fighter status.
+    /// native fighter status.
     status: i32,
-/// native animation/motion ID.
+    /// native animation/motion ID.
     motion: u64,
-/// current native animation frame.
+    /// current native animation frame.
     frame: f32,
-/// Runtime used value used by Seen..
+    /// Runtime used value used by Seen..
     used: bool,
 }
 
@@ -34,11 +34,11 @@ struct Seen {
 /// * `response` - The current response being managed.
 #[derive(Default)]
 pub struct Punisher {
-/// Runtime object value used by Punisher..
+    /// Runtime object value used by Punisher..
     object: Option<u32>,
-/// Runtime seen value used by Punisher..
+    /// Runtime seen value used by Punisher..
     seen: [Option<Seen>; 8],
-/// Runtime response value used by Punisher..
+    /// Runtime response value used by Punisher..
     response: Response,
 }
 impl Punisher {

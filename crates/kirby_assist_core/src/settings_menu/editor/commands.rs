@@ -7,34 +7,34 @@ use crate::settings_menu::RecipePanel;
 /// Available `Modal` choices for the Smash assistance menu.
 #[derive(Clone, Copy)]
 pub(super) enum Modal {
-/// `Buttons` option in the `Modal` Smash policy state.
+    /// `Buttons` option in the `Modal` Smash policy state.
     Buttons {
-/// Runtime slot value used by Modal..
+        /// Runtime slot value used by Modal..
         slot: usize,
-/// Runtime item value used by Modal..
+        /// Runtime item value used by Modal..
         item: usize,
     },
-/// `Copy` option in the `Modal` Smash policy state.
+    /// `Copy` option in the `Modal` Smash policy state.
     Copy {
-/// Runtime group value used by Modal..
+        /// Runtime group value used by Modal..
         group: usize,
-/// Runtime item value used by Modal..
+        /// Runtime item value used by Modal..
         item: usize,
     },
-/// `Tools` option in the `Modal` Smash policy state.
+    /// `Tools` option in the `Modal` Smash policy state.
     Tools {
-/// Runtime slot value used by Modal..
+        /// Runtime slot value used by Modal..
         slot: usize,
-/// Runtime item value used by Modal..
+        /// Runtime item value used by Modal..
         item: usize,
     },
-/// `Picker` option in the `Modal` Smash policy state.
+    /// `Picker` option in the `Modal` Smash policy state.
     Picker {
-/// Runtime slot value used by Modal..
+        /// Runtime slot value used by Modal..
         slot: usize,
-/// Runtime group value used by Modal..
+        /// Runtime group value used by Modal..
         group: usize,
-/// Runtime item value used by Modal..
+        /// Runtime item value used by Modal..
         item: usize,
     },
 }
@@ -166,7 +166,9 @@ pub(super) fn candidates(r: &Recipe, category: usize) -> Vec<usize> {
     PRESETS
         .iter()
         .enumerate()
-        .filter_map(|(i, (_, action))| (group(*action) == category && ledge_free(*action)).then_some(i))
+        .filter_map(|(i, (_, action))| {
+            (group(*action) == category && ledge_free(*action)).then_some(i)
+        })
         .collect()
 }
 /// Returns the `changed_steps` result.
@@ -385,10 +387,7 @@ impl RecipeEditor {
             .cloned()
             .unwrap_or_else(|| Recipe::new(fallback));
         next.sequence.reaction = reaction;
-        let Some(compiled) = next
-            .compile()
-            .filter(|s| s.len != 0 && s.mode.is_none())
-        else {
+        let Some(compiled) = next.compile().filter(|s| s.len != 0 && s.mode.is_none()) else {
             self.reject_copy();
             return false;
         };
@@ -532,7 +531,11 @@ impl RecipeEditor {
         let len = usize::from(next.sequence.len);
         let focus = match item {
             INSERT_BEFORE | INSERT_AFTER | DUPLICATE => {
-                let at = if item == INSERT_BEFORE { slot } else { slot + 1 };
+                let at = if item == INSERT_BEFORE {
+                    slot
+                } else {
+                    slot + 1
+                };
                 let step = if item == DUPLICATE {
                     next.step(slot)
                 } else {
@@ -605,14 +608,20 @@ impl RecipeEditor {
         }
     }
     /// Shortcuts while no tool is open. Runs every frame: only cheap checks until a press.
-    fn idle_input(&mut self, key: (usize, usize), buttons: u32, pressed: u32) -> Option<(bool, bool)> {
+    fn idle_input(
+        &mut self,
+        key: (usize, usize),
+        buttons: u32,
+        pressed: u32,
+    ) -> Option<(bool, bool)> {
         let shoulders = MAPPER_ZL | MAPPER_ZR;
         if buttons & shoulders == shoulders && pressed & shoulders != 0 {
             let slot = self.selected_slot(key)?;
             self.open(Modal::Tools { slot, item: 0 });
             return Some((true, false));
         }
-        if buttons & (MAPPER_R | shoulders) == 0 && pressed & (MAPPER_A | DPAD_LEFT | DPAD_RIGHT) != 0
+        if buttons & (MAPPER_R | shoulders) == 0
+            && pressed & (MAPPER_A | DPAD_LEFT | DPAD_RIGHT) != 0
         {
             match self.focused_field(key)? {
                 Field::Buttons(slot) => {
@@ -759,7 +768,10 @@ impl RecipeEditor {
         let (group, item) = if nav & (DPAD_LEFT | DPAD_RIGHT) != 0 {
             let forward = nav & DPAD_RIGHT != 0;
             let has_entries = |g| self.copy_count(g) > 0;
-            (next_group(group, COPY_GROUPS.len(), forward, has_entries), 0)
+            (
+                next_group(group, COPY_GROUPS.len(), forward, has_entries),
+                0,
+            )
         } else {
             (group, step_item(item, count, nav))
         };
@@ -851,14 +863,27 @@ impl RecipeEditor {
         Some((true, false))
     }
     /// Applies the kind.
-    fn apply_kind(&mut self, key: (usize, usize), slot: usize, kind: usize) -> Option<(bool, bool)> {
+    fn apply_kind(
+        &mut self,
+        key: (usize, usize),
+        slot: usize,
+        kind: usize,
+    ) -> Option<(bool, bool)> {
         let r = self.recipes.get(&key)?;
         if r.kinds[slot] == kind {
             self.dismiss();
             return Some((true, false));
         }
         let mut action = r.action_for(kind);
-        if kind < PRESETS.len() && !matches!(action, Action::Input { buttons: MAPPER_X, .. }) {
+        if kind < PRESETS.len()
+            && !matches!(
+                action,
+                Action::Input {
+                    buttons: MAPPER_X,
+                    ..
+                }
+            )
+        {
             carry_hold(r.sequence.actions[slot], &mut action);
         }
         let mut next = r.clone();
@@ -1001,7 +1026,7 @@ fn picker_panel(panel: &mut RecipePanel, r: &Recipe, slot: usize, group: usize, 
 #[cfg(test)]
 mod tests {
     use super::*;
-/// `KEY` is a configuration value used by the Smash runtime.
+    /// `KEY` is a configuration value used by the Smash runtime.
     const KEY: (usize, usize) = (5, 0);
     /// Returns the `editor` result.
     fn editor() -> RecipeEditor {
@@ -1263,7 +1288,7 @@ mod tests {
 #[cfg(test)]
 mod reaction_copy_tests {
     use super::*;
-/// `KEY` is a configuration value used by the Smash runtime.
+    /// `KEY` is a configuration value used by the Smash runtime.
     const KEY: (usize, usize) = (5, 0);
     /// Returns the `editor` result.
     fn editor() -> RecipeEditor {
@@ -1421,9 +1446,9 @@ mod reaction_copy_tests {
 #[cfg(test)]
 mod menu_audit_tests {
     use super::*;
-/// `SRC` is a configuration value used by the Smash runtime.
+    /// `SRC` is a configuration value used by the Smash runtime.
     const SRC: (usize, usize) = (5, 0);
-/// `DST` is a configuration value used by the Smash runtime.
+    /// `DST` is a configuration value used by the Smash runtime.
     const DST: (usize, usize) = (0, 0);
     /// Returns the `recipe` result.
     fn recipe(a: &str) -> Sequence {

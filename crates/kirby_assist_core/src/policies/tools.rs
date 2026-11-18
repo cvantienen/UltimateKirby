@@ -11,7 +11,7 @@ use crate::{ButtonSet, InputRecipe, RuleTiming, Scenario, ScenarioRule};
 /// * `timing` - The timing rule for when to press shield.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AutoTech {
-/// Runtime timing value used by AutoTech..
+    /// Runtime timing value used by AutoTech..
     pub timing: RuleTiming,
 }
 
@@ -46,9 +46,9 @@ impl AutoTech {
 /// * `interval_frames` - The interval in frames between pulses.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AutoMash {
-/// Runtime buttons value used by AutoMash..
+    /// Runtime buttons value used by AutoMash..
     pub buttons: ButtonSet,
-/// Runtime interval frames value used by AutoMash..
+    /// Runtime interval frames value used by AutoMash..
     pub interval_frames: u16,
 }
 

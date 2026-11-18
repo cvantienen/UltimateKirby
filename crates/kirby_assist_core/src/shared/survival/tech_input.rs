@@ -53,10 +53,7 @@ pub fn native_tech_state(
         return NativeTechState::Opportunity;
     }
     let tumble = (status_kind::DAMAGE_FLY..=status_kind::DAMAGE_FALL).contains(&status);
-    let playable_situation = matches!(
-        situation,
-        situation_kind::GROUND | situation_kind::AIR
-    );
+    let playable_situation = matches!(situation, situation_kind::GROUND | situation_kind::AIR);
     if tumble && playable_situation && (floor_enabled || wall_enabled || ceiling_enabled) {
         NativeTechState::Opportunity
     } else {
@@ -151,25 +148,25 @@ const MAX_GUARD_PREPARATION_ADVANCES: u8 = 3;
 /// Runtime Smash data carried by `TechContext`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TechContext {
-/// Runtime object value used by TechContext..
+    /// Runtime object value used by TechContext..
     pub object: u32,
-/// native fighter status.
+    /// native fighter status.
     pub status: i32,
-/// native animation/motion ID.
+    /// native animation/motion ID.
     pub motion: u64,
-/// current native animation frame.
+    /// current native animation frame.
     pub frame: f32,
-/// native animation playback rate.
+    /// native animation playback rate.
     pub rate: f32,
-/// Runtime stopped value used by TechContext..
+    /// Runtime stopped value used by TechContext..
     pub stopped: bool,
-/// Runtime remaining stop value used by TechContext..
+    /// Runtime remaining stop value used by TechContext..
     pub remaining_stop: u64,
-/// Runtime contact in value used by TechContext..
+    /// Runtime contact in value used by TechContext..
     pub contact_in: Option<f32>,
-/// Runtime input delay value used by TechContext..
+    /// Runtime input delay value used by TechContext..
     pub input_delay: f32,
-/// Runtime previous guard value used by TechContext..
+    /// Runtime previous guard value used by TechContext..
     pub previous_guard: bool,
     /// Native adapter verified that guard cannot become an ordinary air dodge.
     /// Prepare release before imminent contact, without pressing shield early.
@@ -227,31 +224,31 @@ pub fn mapped_guard(buttons: u32, output: TechOutput) -> u32 {
 /// Runtime Smash data carried by `TechInput`.
 #[derive(Default)]
 pub struct TechInput {
-/// Runtime last value used by TechInput..
+    /// Runtime last value used by TechInput..
     last: Option<TechContext>,
-/// controller input output.
+    /// controller input output.
     output: TechOutput,
-/// Runtime waiting for mapper value used by TechInput..
+    /// Runtime waiting for mapper value used by TechInput..
     waiting_for_mapper: bool,
-/// Runtime cooldown value used by TechInput..
+    /// Runtime cooldown value used by TechInput..
     cooldown: f32,
-/// Runtime cooldown setting value used by TechInput..
+    /// Runtime cooldown setting value used by TechInput..
     cooldown_setting: u16,
-/// Runtime reaction remaining value used by TechInput..
+    /// Runtime reaction remaining value used by TechInput..
     reaction_remaining: Option<f32>,
-/// Runtime native guard value used by TechInput..
+    /// Runtime native guard value used by TechInput..
     native_guard: Option<bool>,
-/// Runtime delivery value used by TechInput..
+    /// Runtime delivery value used by TechInput..
     delivery: Option<Delivery>,
 }
 /// Runtime Smash data carried by `Delivery`.
 #[derive(Clone, Copy)]
 struct Delivery {
-/// Runtime stamp value used by Delivery..
+    /// Runtime stamp value used by Delivery..
     stamp: TechContext,
-/// Runtime reaction value used by Delivery..
+    /// Runtime reaction value used by Delivery..
     reaction: Option<f32>,
-/// Runtime advances value used by Delivery..
+    /// Runtime advances value used by Delivery..
     advances: u8,
 }
 impl Delivery {
@@ -486,9 +483,7 @@ impl TechInput {
         // The command-grab slam needs a tighter arrival margin than ordinary
         // tumble. Re-evaluate contact rather than replaying an old prediction.
         let arrival_lead = native_arrival_lead(ctx.status, window, ganon_window);
-        let due = ctx
-            .contact_lead()
-            .is_some_and(|lead| lead <= arrival_lead);
+        let due = ctx.contact_lead().is_some_and(|lead| lead <= arrival_lead);
         if !due || !eligible {
             return self.hold(TechOutput {
                 press: false,
@@ -529,7 +524,10 @@ impl TechInput {
     /// is frozen. Returns its plausible advance since the previous observation.
     fn advance_reaction_clock(&mut self, ctx: &TechContext, remaining: Option<f32>) -> Option<f32> {
         let remaining = remaining.filter(|v| {
-            v.is_finite() && *v > 0. && *v <= MAX_REACTION_REMAINING_FRAMES && is_tumble_status(ctx.status)
+            v.is_finite()
+                && *v > 0.
+                && *v <= MAX_REACTION_REMAINING_FRAMES
+                && is_tumble_status(ctx.status)
         });
         let previous = std::mem::replace(&mut self.reaction_remaining, remaining);
         self.last
@@ -619,7 +617,14 @@ mod frame_pulse_tests {
     #[test]
     fn native_ground_wall_and_ceiling_states_are_classified() {
         assert_eq!(
-            native_tech_state(status::DAMAGE_FLY, situation::AIR, false, true, false, false),
+            native_tech_state(
+                status::DAMAGE_FLY,
+                situation::AIR,
+                false,
+                true,
+                false,
+                false
+            ),
             NativeTechState::Opportunity
         );
         assert_eq!(
@@ -631,7 +636,14 @@ mod frame_pulse_tests {
             NativeTechState::Opportunity
         );
         assert_eq!(
-            native_tech_state(status::PASSIVE_CEIL, situation::AIR, false, true, true, true),
+            native_tech_state(
+                status::PASSIVE_CEIL,
+                situation::AIR,
+                false,
+                true,
+                true,
+                true
+            ),
             NativeTechState::Succeeded
         );
         assert_eq!(
@@ -644,14 +656,23 @@ mod frame_pulse_tests {
     fn pulses_once_per_frame_and_releases_when_the_opportunity_ends() {
         let mut input = FrameTechInput::default();
         let on = input.sample(true, 7, 10, NativeTechState::Opportunity, false);
-        assert_eq!(on, TechOutput { press: true, owns_guard: true });
+        assert_eq!(
+            on,
+            TechOutput {
+                press: true,
+                owns_guard: true
+            }
+        );
         assert_eq!(
             input.sample(true, 7, 10, NativeTechState::Opportunity, false),
             on
         );
         assert_eq!(
             input.sample(true, 7, 11, NativeTechState::Opportunity, false),
-            TechOutput { press: false, owns_guard: true }
+            TechOutput {
+                press: false,
+                owns_guard: true
+            }
         );
         assert_eq!(
             input.sample(true, 7, 12, NativeTechState::Opportunity, false),
@@ -672,11 +693,17 @@ mod frame_pulse_tests {
         let mut input = FrameTechInput::default();
         assert_eq!(
             input.sample(true, 1, 1, NativeTechState::Opportunity, true),
-            TechOutput { press: false, owns_guard: true }
+            TechOutput {
+                press: false,
+                owns_guard: true
+            }
         );
         assert_eq!(
             input.sample(true, 1, 2, NativeTechState::Opportunity, true),
-            TechOutput { press: true, owns_guard: true }
+            TechOutput {
+                press: true,
+                owns_guard: true
+            }
         );
     }
 }
@@ -685,5 +712,191 @@ mod frame_pulse_tests {
 mod tests;
 
 #[cfg(test)]
-#[path = "tech_input/ganon_and_release_regressions.rs"]
-mod ganon_and_release_regressions;
+mod ganon_and_release_regressions {
+    use super::*;
+    use crate::tech_prediction::grounded_ganon_contact_in;
+    use crate::tech_prediction::{CATCHED_AIR_END_GANON, CATCHED_GANON};
+
+    fn capture(frame: f32, delay: f32) -> TechContext {
+        TechContext {
+            object: 1,
+            status: CATCHED_GANON,
+            // This motion clock comes from the linked captor; the victim can
+            // remain in one frozen capture pose throughout the sequence.
+            motion: 7,
+            frame,
+            rate: 1.0,
+            stopped: false,
+            remaining_stop: 0,
+            contact_in: grounded_ganon_contact_in(
+                CATCHED_GANON,
+                crate::fighter_kinds::GANONDORF,
+                crate::native_states::fighter_status::GANON_SPECIAL_S_CATCH,
+                frame,
+                1.0,
+            ),
+            input_delay: delay,
+            previous_guard: false,
+            prepare_guard: false,
+        }
+    }
+
+    #[test]
+    fn grounded_ganon_waits_for_tight_arrival_window_and_compensates_online_delay() {
+        for delay in [0.0, 3.0, 6.0] {
+            let mut input = TechInput::default();
+            let due_frame = 31.0 - delay - 4.0;
+            assert!(
+                !input
+                    .sample(true, true, 40, capture(due_frame - 1.0, delay))
+                    .press
+            );
+            assert_eq!(input.cooldown_remaining(), 0.0);
+            for _ in 0..20 {
+                assert!(
+                    input
+                        .sample(true, true, 40, capture(due_frame, delay))
+                        .press
+                );
+            }
+            input.mapped_press();
+            assert_eq!(input.cooldown_remaining(), 40.0);
+            let release = input.sample(true, true, 40, capture(due_frame, delay));
+            assert!(!release.press);
+            assert!(release.owns_guard);
+        }
+    }
+
+    #[test]
+    fn cooldown_keeps_held_shield_aliases_released_until_the_collision_ends() {
+        use crate::manual_controls::{ManualOverlay, TurboOutput};
+        use crate::native_input::{ButtonTrace, MAPPER_L, MAPPER_R, MAPPER_ZL, MAPPER_ZR};
+
+        let shoulders = MAPPER_L | MAPPER_R | MAPPER_ZL | MAPPER_ZR;
+        let human = ButtonTrace {
+            held: MAPPER_ZL | MAPPER_ZR,
+            previous: MAPPER_ZL | MAPPER_ZR,
+            ..ButtonTrace::default()
+        };
+        let mut input = TechInput::default();
+        let mut overlay = ManualOverlay::default();
+        let context = capture(27.0, 0.0);
+        input.sample(
+            true,
+            true,
+            40,
+            TechContext {
+                previous_guard: true,
+                ..context
+            },
+        );
+        overlay.apply_controls(human, [0.0; 2], TurboOutput::default(), 0, 0, shoulders);
+        assert!(input.sample(true, true, 40, context).press);
+        overlay.apply_controls(
+            human,
+            [0.0; 2],
+            TurboOutput::default(),
+            0,
+            MAPPER_ZR,
+            shoulders,
+        );
+        input.mapped_press();
+        for frame in 28..=31 {
+            let out = input.sample(true, true, 40, capture(frame as f32, 0.0));
+            assert!(out.owns_guard && !out.press);
+            let trace =
+                overlay.apply_controls(human, [0.0; 2], TurboOutput::default(), 0, 0, shoulders);
+            assert_eq!(trace.buttons.held & shoulders, 0);
+            assert_eq!(
+                trace.buttons.pressed & shoulders,
+                0,
+                "held physical shields must not fabricate another GUARD edge"
+            );
+        }
+        let ended = input.sample(
+            true,
+            true,
+            40,
+            TechContext {
+                status: crate::native_states::status::PASSIVE,
+                contact_in: None,
+                ..context
+            },
+        );
+        assert_eq!(ended, TechOutput::default());
+        assert_eq!(input.cooldown_remaining(), 0.0);
+    }
+
+    #[test]
+    fn ordinary_tumble_retains_its_existing_arrival_window_and_invalid_capture_never_presses() {
+        let mut input = TechInput::default();
+        let ordinary = TechContext {
+            status: crate::native_states::status::DAMAGE_FLY,
+            contact_in: Some(8.0),
+            ..capture(20.0, 0.0)
+        };
+        assert!(input.sample(true, true, 40, ordinary).press);
+        let mut input = TechInput::default();
+        assert!(
+            !input
+                .sample(
+                    true,
+                    true,
+                    40,
+                    TechContext {
+                        contact_in: None,
+                        ..capture(27.0, 0.0)
+                    }
+                )
+                .press
+        );
+        assert!(!input.sample(false, true, 40, capture(27.0, 0.0)).press);
+    }
+
+    #[test]
+    fn grounded_shared_release_can_deliver_unmapped_capture_request() {
+        let mut input = TechInput::default();
+        assert!(input.sample(true, true, 40, capture(27.0, 0.0)).press);
+        let release = TechContext {
+            status: CATCHED_AIR_END_GANON,
+            motion: 8,
+            frame: 1.0,
+            contact_in: Some(0.0), // adapter verified the grounded predecessor
+            ..capture(31.0, 0.0)
+        };
+        assert!(input.sample(true, true, 40, release).press);
+        input.mapped_press();
+        assert!(!input.sample(true, true, 40, release).press);
+        assert_eq!(input.cooldown_remaining(), 40.0);
+        let mut input = TechInput::default();
+        assert!(
+            !input
+                .sample(
+                    true,
+                    true,
+                    40,
+                    TechContext {
+                        contact_in: None, // aerial/unknown predecessor: adapter supplies no contact
+                        ..release
+                    }
+                )
+                .press
+        );
+    }
+
+    #[test]
+    fn floor_tech_can_buffer_before_last_two_hitstop_frames() {
+        let mut input = TechInput::default();
+        let ctx = TechContext {
+            status: crate::native_states::status::DAMAGE_FLY_METEOR,
+            stopped: true,
+            remaining_stop: 5,
+            contact_in: Some(6.0),
+            ..capture(4.0, 0.0)
+        };
+        assert!(input.sample(true, true, 40, ctx).press);
+        input.mapped_press();
+        assert!(!input.sample(true, true, 40, ctx).press);
+        assert_eq!(input.cooldown_remaining(), 40.0);
+    }
+}

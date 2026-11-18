@@ -20,7 +20,16 @@ mod live;
 // by a setting. Config cannot enable it without rebuilding.
 #[cfg(feature = "diagnostic-logging")]
 /// Includes optional diagnostic storage and reporting in diagnostic builds.
-mod diagnostics;
+mod diagnostics {
+    /// Provides calibration capture and analysis routines.
+    pub(crate) mod calibration;
+    /// Provides grab-related diagnostic collection and reporting.
+    pub(crate) mod grab_diagnostics;
+    /// Provides the diagnostic logging backend.
+    pub(crate) mod logging;
+    /// Provides runtime performance measurements and reports.
+    pub(crate) mod performance;
+}
 #[cfg(feature = "diagnostic-logging")]
 use diagnostics::{calibration, grab_diagnostics, logging, performance};
 

@@ -506,9 +506,8 @@ impl SettingsMenu {
         if !self.live()?.grab_dodge {
             return None;
         }
-        self.current_rules()?.automatic_sequence(
-            kirby_assist_core::reaction_rules::AutomaticEvent::GrabDodged,
-        )
+        self.current_rules()?
+            .automatic_sequence(kirby_assist_core::reaction_rules::AutomaticEvent::GrabDodged)
     }
     /// All Auto react recipes share a revision cache, independent of the
     /// individual mode switches that continue to control their admission.
@@ -520,9 +519,7 @@ impl SettingsMenu {
                 r.automatic_sequence(kirby_assist_core::reaction_rules::AutomaticEvent::Grab)
             }),
             shield_grab: rules.and_then(|r| {
-                r.automatic_sequence(
-                    kirby_assist_core::reaction_rules::AutomaticEvent::ShieldGrab,
-                )
+                r.automatic_sequence(kirby_assist_core::reaction_rules::AutomaticEvent::ShieldGrab)
             }),
             backup: rules.and_then(|r| {
                 r.automatic_sequence(
@@ -671,14 +668,18 @@ impl SettingsMenu {
             self.resume_saved_state = false;
         }
         let options = &profile.menu_options;
-        self.consumed = route_input(selection, options, RouteInput {
-            bindings_blocked,
-            safety_jump,
-            buttons,
-            physical,
-            layout,
-            training,
-        });
+        self.consumed = route_input(
+            selection,
+            options,
+            RouteInput {
+                bindings_blocked,
+                safety_jump,
+                buttons,
+                physical,
+                layout,
+                training,
+            },
+        );
         self.native_buttons = selection.native_buttons(buttons);
         self.builtin_consumed = selection.builtin_consumed;
         self.rules.refresh(kind, selection, options);
@@ -792,11 +793,7 @@ struct RouteInput {
 }
 
 /// Applies menu input while respecting training-save and binding gates.
-fn route_input(
-    selection: &mut MenuSelection,
-    options: &MenuPresets,
-    input: RouteInput,
-) -> u32 {
+fn route_input(selection: &mut MenuSelection, options: &MenuPresets, input: RouteInput) -> u32 {
     let RouteInput {
         bindings_blocked,
         safety_jump,

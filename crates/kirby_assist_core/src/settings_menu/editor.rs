@@ -349,19 +349,19 @@ fn same_preset_shape(action: Action, preset: Action) -> bool {
 /// Runtime Smash data carried by `Recipe`.
 #[derive(Clone)]
 struct Recipe {
-/// Runtime button recipe value used by Recipe..
+    /// Runtime button recipe value used by Recipe..
     button_recipe: bool,
-/// Runtime sequence value used by Recipe..
+    /// Runtime sequence value used by Recipe..
     sequence: Sequence,
-/// Runtime before value used by Recipe..
+    /// Runtime before value used by Recipe..
     before: [u8; MAX_ACTIONS],
-/// Runtime kinds value used by Recipe..
+    /// Runtime kinds value used by Recipe..
     kinds: [usize; MAX_ACTIONS],
-/// Runtime imported value used by Recipe..
+    /// Runtime imported value used by Recipe..
     imported: Vec<Action>,
-/// Runtime edited value used by Recipe..
+    /// Runtime edited value used by Recipe..
     edited: u32,
-/// Runtime modified value used by Recipe..
+    /// Runtime modified value used by Recipe..
     modified: bool,
 }
 impl Recipe {
@@ -753,13 +753,13 @@ fn direction_mut(a: &mut Action) -> Option<&mut D> {
 }
 /// A bounded number edited in steps of `scale` per button press.
 struct Scalar<'a> {
-/// Runtime value value used by Scalar..
+    /// Runtime value value used by Scalar..
     value: &'a mut f32,
-/// Runtime min value used by Scalar..
+    /// Runtime min value used by Scalar..
     min: f32,
-/// Runtime max value used by Scalar..
+    /// Runtime max value used by Scalar..
     max: f32,
-/// Runtime scale value used by Scalar..
+    /// Runtime scale value used by Scalar..
     scale: f32,
 }
 /// Returns mutable access to the scalar value.
@@ -858,9 +858,7 @@ fn adjust_action(action: &mut Action, field: Field, up: bool, onstage: bool) {
                 direction(d, up, onstage);
             }
             if let Action::Walk {
-                direction,
-                min_gap,
-                ..
+                direction, min_gap, ..
             } = action
             {
                 if *direction != D::Opponent {
@@ -883,11 +881,11 @@ fn adjust_action(action: &mut Action, field: Field, up: bool, onstage: bool) {
 }
 /// Runtime Smash data carried by `CopySource`.
 pub(super) struct CopySource {
-/// Runtime slot value used by CopySource..
+    /// Runtime slot value used by CopySource..
     pub slot: super::PresetSlot,
-/// Runtime index value used by CopySource..
+    /// Runtime index value used by CopySource..
     pub index: usize,
-/// player-facing move/fighter name.
+    /// player-facing move/fighter name.
     pub name: String,
 }
 
@@ -969,37 +967,37 @@ fn adjust_field(recipe: &mut Recipe, field: Field, up: bool, onstage: bool) -> b
 /// Runtime Smash data carried by `RecipeEditor`.
 #[derive(Default)]
 pub(super) struct RecipeEditor {
-/// Runtime modal value used by RecipeEditor..
+    /// Runtime modal value used by RecipeEditor..
     modal: Option<commands::Modal>,
-/// Runtime return modal value used by RecipeEditor..
+    /// Runtime return modal value used by RecipeEditor..
     return_modal: Option<commands::Modal>,
-/// Runtime step clipboard value used by RecipeEditor..
+    /// Runtime step clipboard value used by RecipeEditor..
     step_clipboard: Option<(Action, u8)>,
-/// Runtime manage requested value used by RecipeEditor..
+    /// Runtime manage requested value used by RecipeEditor..
     manage_requested: bool,
-/// Runtime copy sources value used by RecipeEditor..
+    /// Runtime copy sources value used by RecipeEditor..
     copy_sources: Vec<CopySource>,
-/// Runtime copy templates value used by RecipeEditor..
+    /// Runtime copy templates value used by RecipeEditor..
     copy_templates: Vec<String>,
-/// Runtime template apply value used by RecipeEditor..
+    /// Runtime template apply value used by RecipeEditor..
     template_apply: Option<usize>,
-/// Runtime copy requested value used by RecipeEditor..
+    /// Runtime copy requested value used by RecipeEditor..
     copy_requested: bool,
-/// Runtime copy apply value used by RecipeEditor..
+    /// Runtime copy apply value used by RecipeEditor..
     copy_apply: Option<(super::PresetSlot, usize)>,
-/// Runtime command held value used by RecipeEditor..
+    /// Runtime command held value used by RecipeEditor..
     command_held: u32,
-/// Runtime command ticks value used by RecipeEditor..
+    /// Runtime command ticks value used by RecipeEditor..
     command_ticks: u16,
-/// Runtime undo value used by RecipeEditor..
+    /// Runtime undo value used by RecipeEditor..
     undo: Option<Box<((usize, usize), Recipe)>>,
-/// Runtime recipes value used by RecipeEditor..
+    /// Runtime recipes value used by RecipeEditor..
     recipes: BTreeMap<(usize, usize), Recipe>,
-/// Runtime cursor value used by RecipeEditor..
+    /// Runtime cursor value used by RecipeEditor..
     pub cursor: usize,
-/// Runtime limited value used by RecipeEditor..
+    /// Runtime limited value used by RecipeEditor..
     pub limited: bool,
-/// Runtime last edit value used by RecipeEditor..
+    /// Runtime last edit value used by RecipeEditor..
     last_edit: Option<String>,
 }
 impl RecipeEditor {

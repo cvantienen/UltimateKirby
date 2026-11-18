@@ -53,12 +53,18 @@ fn input_action(
 fn action(a: Action) -> Result<String, String> {
     Ok(match a {
         Action::Empty => return Err("Remove empty execution steps before saving".into()),
-        Action::IfFacingLedge { away } => {
-            (if away { "if_back_to_ledge" } else { "if_facing_ledge" }).into()
-        }
-        Action::IfFacingOpponent { away } => {
-            (if away { "if_back_to_opponent" } else { "if_facing_opponent" }).into()
-        }
+        Action::IfFacingLedge { away } => (if away {
+            "if_back_to_ledge"
+        } else {
+            "if_facing_ledge"
+        })
+        .into(),
+        Action::IfFacingOpponent { away } => (if away {
+            "if_back_to_opponent"
+        } else {
+            "if_facing_opponent"
+        })
+        .into(),
         Action::ElseFacing => "else_facing".into(),
         Action::EndFacing => "end_facing".into(),
         Action::LedgePosition {
@@ -544,7 +550,7 @@ pub fn delete(
 #[cfg(test)]
 mod tests {
     use super::*;
-/// `SOURCE` is a configuration value used by the Smash runtime.
+    /// `SOURCE` is a configuration value used by the Smash runtime.
     const SOURCE: &str = "# keep\n[yoshi.roll.grab]\nname = Tongue grab\ndefault=true\nstart_delay=0\nactions=grab\n\n[kirby.roll.a]\nstart_delay=0\nactions=a\n";
     /// Returns the `sequence` result.
     fn sequence(actions: &str) -> Sequence {
@@ -928,7 +934,11 @@ mod tests {
             assert_eq!(parsed.entries()[0].sequence.actions(), &group[..], "{text}");
             covered.extend(group.iter().map(variant_index));
         }
-        assert_eq!(covered.len(), 22, "an Action variant is missing from the round trip");
+        assert_eq!(
+            covered.len(),
+            22,
+            "an Action variant is missing from the round trip"
+        );
         assert!(action(Action::Empty).is_err());
     }
 }

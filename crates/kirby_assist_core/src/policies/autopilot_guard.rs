@@ -226,25 +226,25 @@ pub fn active_hitbox_threat_with(
 /// Runtime Smash data carried by `GuardClock`.
 #[derive(Clone, Copy)]
 pub struct GuardClock {
-/// Native fighter status observed for the guard decision.
+    /// Native fighter status observed for the guard decision.
     pub status: i32,
-/// Native motion hash observed for the guard decision.
+    /// Native motion hash observed for the guard decision.
     pub motion: u64,
-/// Current native animation frame.
+    /// Current native animation frame.
     pub frame: f32,
-/// Native animation playback rate.
+    /// Native animation playback rate.
     pub rate: f32,
-/// Whether native animation progress is stopped, such as hitstop.
+    /// Whether native animation progress is stopped, such as hitstop.
     pub stopped: bool,
 }
 /// Runtime Smash data carried by `GuardHold`.
 #[derive(Default)]
 pub struct GuardHold {
-/// Previous guard-clock sample used to measure native progress.
+    /// Previous guard-clock sample used to measure native progress.
     previous: Option<GuardClock>,
-/// Previous opponent clock used for live ledge-defense timing.
+    /// Previous opponent clock used for live ledge-defense timing.
     previous_enemy: Option<(u32, GuardClock)>,
-/// Remaining native-frame shield tail after a threat ends.
+    /// Remaining native-frame shield tail after a threat ends.
     remaining: f32,
 }
 impl GuardHold {

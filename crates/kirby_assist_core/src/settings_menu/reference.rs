@@ -108,15 +108,15 @@ fn find_move(kind: i32, name: &str) -> Option<&'static MoveData> {
 /// Runtime Smash data carried by `Summary`.
 #[derive(Clone, Copy, Default)]
 struct Summary {
-/// Runtime n value used by Summary..
+    /// Runtime n value used by Summary..
     n: u32,
-/// Runtime total value used by Summary..
+    /// Runtime total value used by Summary..
     total: u32,
-/// Runtime invulnerable value used by Summary..
+    /// Runtime invulnerable value used by Summary..
     invulnerable: u32,
-/// Runtime min value used by Summary..
+    /// Runtime min value used by Summary..
     min: u16,
-/// Runtime max value used by Summary..
+    /// Runtime max value used by Summary..
     max: u16,
 }
 /// `KEYS` is a configuration value used by the Smash runtime.

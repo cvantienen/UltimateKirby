@@ -170,21 +170,13 @@ unsafe fn object_has_active_hitbox_threat(
 
         let data = data.read();
         // Invalid coordinates and non-positive hitbox sizes will still be rejected
-        if ![
-            data.x,
-            data.y,
-            data.z,
-            data.x2,
-            data.y2,
-            data.z2,
-            data.size,
-        ]
-        .iter()
-        .all(|x| x.is_finite())
+        if ![data.x, data.y, data.z, data.x2, data.y2, data.z2, data.size]
+            .iter()
+            .all(|x| x.is_finite())
             || data.size <= 0.0
         {
             continue;
-}
+        }
         // Compute the world-space hitbox endpoints for the attack.
         let (from, to) = world_hitbox_endpoints(enemy, &data);
         let z = *scan.own_z.get_or_insert_with(|| game::pos_z(scan.own));

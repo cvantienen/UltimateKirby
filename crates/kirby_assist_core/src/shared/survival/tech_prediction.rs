@@ -40,25 +40,25 @@ fn arc_height(vy: f32, acceleration: f32, t: f32) -> f32 {
 /// One recent, copied observation; no game pointer or poll-based clock.
 #[derive(Clone, Copy, Debug)]
 pub struct FloorMotionSample {
-/// Runtime object value used by FloorMotionSample..
+    /// Runtime object value used by FloorMotionSample..
     pub object: u32,
-/// native fighter status.
+    /// native fighter status.
     pub status: i32,
-/// native animation/motion ID.
+    /// native animation/motion ID.
     pub motion: u64,
-/// current native animation frame.
+    /// current native animation frame.
     pub frame: f32,
-/// native animation playback rate.
+    /// native animation playback rate.
     pub rate: f32,
-/// Runtime vy value used by FloorMotionSample..
+    /// Runtime vy value used by FloorMotionSample..
     pub vy: f32,
 }
 /// Runtime Smash data carried by `FloorMotionHistory`.
 #[derive(Clone, Copy, Default)]
 pub struct FloorMotionHistory {
-/// Runtime last value used by FloorMotionHistory..
+    /// Runtime last value used by FloorMotionHistory..
     last: Option<FloorMotionSample>,
-/// Runtime acceleration value used by FloorMotionHistory..
+    /// Runtime acceleration value used by FloorMotionHistory..
     acceleration: f32,
 }
 impl FloorMotionHistory {
@@ -130,15 +130,15 @@ pub fn tech_press_allowed(status: i32, air_escape_enabled: bool) -> bool {
 // same as the game's final decision to accept a shield input as a legal tech.
 /// Available `TechGate` choices for the Smash assistance menu.
 pub enum TechGate {
-/// `OutsideTumble` option in the `TechGate` Smash policy state.
+    /// `OutsideTumble` option in the `TechGate` Smash policy state.
     OutsideTumble,
-/// `NotAirborne` option in the `TechGate` Smash policy state.
+    /// `NotAirborne` option in the `TechGate` Smash policy state.
     NotAirborne,
-/// `PassiveDisabled` option in the `TechGate` Smash policy state.
+    /// `PassiveDisabled` option in the `TechGate` Smash policy state.
     PassiveDisabled,
-/// `Hitstop` option in the `TechGate` Smash policy state.
+    /// `Hitstop` option in the `TechGate` Smash policy state.
     Hitstop,
-/// `Predict` option in the `TechGate` Smash policy state.
+    /// `Predict` option in the `TechGate` Smash policy state.
     Predict,
 }
 
@@ -197,9 +197,9 @@ pub fn tech_gate_with_floor(
 // two-element float array: index 0 is x (right), index 1 is y (up).
 /// Runtime Smash data carried by `CollisionRay`.
 pub struct CollisionRay {
-/// Runtime origin value used by CollisionRay..
+    /// Runtime origin value used by CollisionRay..
     pub origin: [f32; 2],
-/// Runtime delta value used by CollisionRay..
+    /// Runtime delta value used by CollisionRay..
     pub delta: [f32; 2],
     /// Only descending floor probes can collide with a one-way platform.
     pub passable: bool,
@@ -208,17 +208,17 @@ pub struct CollisionRay {
 /// Collision-probe dimensions in local fighter units.
 #[derive(Clone, Copy, Debug)]
 pub struct Body {
-/// Runtime half width value used by Body..
+    /// Runtime half width value used by Body..
     pub half_width: f32,
-/// Runtime floor origin value used by Body..
+    /// Runtime floor origin value used by Body..
     pub floor_origin: f32,
-/// Runtime wall value used by Body..
+    /// Runtime wall value used by Body..
     pub wall: [f32; 3],
-/// Runtime ceiling origin value used by Body..
+    /// Runtime ceiling origin value used by Body..
     pub ceiling_origin: f32,
-/// Runtime floor padding value used by Body..
+    /// Runtime floor padding value used by Body..
     pub floor_padding: f32,
-/// Runtime ceiling padding value used by Body..
+    /// Runtime ceiling padding value used by Body..
     pub ceiling_padding: f32,
 }
 impl Default for Body {
@@ -304,9 +304,17 @@ pub fn tech_probes_with_body(
         .enumerate()
     {
         let surfaces = [
-            (vy < -APPROACH_EPSILON, [x + offset, y + body.floor_origin], true),
+            (
+                vy < -APPROACH_EPSILON,
+                [x + offset, y + body.floor_origin],
+                true,
+            ),
             (vx.abs() > APPROACH_EPSILON, [x, y + body.wall[i]], false),
-            (vy > APPROACH_EPSILON, [x + offset, y + body.ceiling_origin], false),
+            (
+                vy > APPROACH_EPSILON,
+                [x + offset, y + body.ceiling_origin],
+                false,
+            ),
         ];
         for (surface, (approaching, origin, passable)) in surfaces.into_iter().enumerate() {
             if approaching {

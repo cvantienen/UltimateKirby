@@ -102,13 +102,7 @@ pub(super) unsafe fn assess_tech(
             reason: "tech_status_observed",
         };
     }
-    let gate = tech_gate_with_floor(
-        status,
-        situation,
-        passive_disabled,
-        stopped,
-        floor_enabled,
-    );
+    let gate = tech_gate_with_floor(status, situation, passive_disabled, stopped, floor_enabled);
     let late_hitstop = gate == TechGate::Hitstop
         && late_damage_stop_prediction(remaining_stop, TECH_INPUT_DELAY_FRAMES);
     if !matches!(gate, TechGate::Predict) && !late_hitstop {
@@ -127,7 +121,7 @@ pub(super) unsafe fn assess_tech(
     let reserved_velocity = (stopped
         && remaining_stop > 0
         && kirby_assist_core::tech_prediction::is_tumble_status(status))
-        .then(|| reads.damage_launch(object));
+    .then(|| reads.damage_launch(object));
     let [vx, vy] = prediction_velocity(current_velocity, reserved_velocity);
     let horizon = horizon.clamp(1.0, 20.0);
     let contact_in = if [x, y, vx, vy].iter().all(|v| v.is_finite()) {

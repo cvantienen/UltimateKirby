@@ -7,16 +7,16 @@ mod trajectory {
     //! stage collision, recovery options and the game's KO decision remain native.
     use super::{predicted_launch, Context, Decision, Mode, Reason, Settings};
 
-/// Runtime Smash data carried by `BlastZone`.
+    /// Runtime Smash data carried by `BlastZone`.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct BlastZone {
-/// Runtime left value used by BlastZone..
+        /// Runtime left value used by BlastZone..
         pub left: f32,
-/// Runtime right value used by BlastZone..
+        /// Runtime right value used by BlastZone..
         pub right: f32,
-/// Runtime bottom value used by BlastZone..
+        /// Runtime bottom value used by BlastZone..
         pub bottom: f32,
-/// Runtime top value used by BlastZone..
+        /// Runtime top value used by BlastZone..
         pub top: f32,
     }
     impl BlastZone {
@@ -87,18 +87,18 @@ mod trajectory {
         }
     }
 
-/// Runtime Smash data carried by `Trajectory`.
+    /// Runtime Smash data carried by `Trajectory`.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct Trajectory {
-/// world-space position.
+        /// world-space position.
         pub position: [f32; 2],
-/// Runtime blast value used by Trajectory..
+        /// Runtime blast value used by Trajectory..
         pub blast: BlastZone,
-/// Runtime hitstun value used by Trajectory..
+        /// Runtime hitstun value used by Trajectory..
         pub hitstun: f32,
-/// Runtime gravity value used by Trajectory..
+        /// Runtime gravity value used by Trajectory..
         pub gravity: f32,
-/// Runtime fall speed value used by Trajectory..
+        /// Runtime fall speed value used by Trajectory..
         pub fall_speed: f32,
     }
     impl Trajectory {
@@ -218,12 +218,12 @@ pub use trajectory::{choose_trajectory, BlastZone, Trajectory};
 /// Available `Mode` choices for the Smash assistance menu.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Mode {
-/// `Adaptive` option in the `Mode` Smash policy state.
+    /// `Adaptive` option in the `Mode` Smash policy state.
     Adaptive,
     #[default]
-/// `Survival` option in the `Mode` Smash policy state.
+    /// `Survival` option in the `Mode` Smash policy state.
     Survival,
-/// `Escape` option in the `Mode` Smash policy state.
+    /// `Escape` option in the `Mode` Smash policy state.
     Escape,
 }
 /// Runtime Smash data carried by `Settings`.
@@ -231,7 +231,7 @@ pub enum Mode {
 pub struct Settings {
     /// Stores whether `Settings` is enabled.
     pub enabled: bool,
-/// Runtime mode value used by Settings..
+    /// Runtime mode value used by Settings..
     pub mode: Mode,
     /// Legacy adaptive threshold, retained for existing config compatibility.
     pub survival_speed: f32,
@@ -249,11 +249,11 @@ impl Default for Settings {
 /// Runtime Smash data carried by `Context`.
 #[derive(Clone, Copy, Debug)]
 pub struct Context {
-/// Runtime object value used by Context..
+    /// Runtime object value used by Context..
     pub object: u32,
-/// Runtime damage stop value used by Context..
+    /// Runtime damage stop value used by Context..
     pub damage_stop: bool,
-/// Runtime remaining value used by Context..
+    /// Runtime remaining value used by Context..
     pub remaining: u64,
     /// Native reserved damage velocity, before applying launch DI.
     pub launch: [f32; 2],
@@ -263,13 +263,13 @@ pub struct Context {
 /// Available `Reason` choices for the Smash assistance menu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Reason {
-/// `TrajectorySurvival` option in the `Reason` Smash policy state.
+    /// `TrajectorySurvival` option in the `Reason` Smash policy state.
     TrajectorySurvival,
-/// `SideSurvival` option in the `Reason` Smash policy state.
+    /// `SideSurvival` option in the `Reason` Smash policy state.
     SideSurvival,
-/// `VerticalSurvival` option in the `Reason` Smash policy state.
+    /// `VerticalSurvival` option in the `Reason` Smash policy state.
     VerticalSurvival,
-/// `ComboEscape` option in the `Reason` Smash policy state.
+    /// `ComboEscape` option in the `Reason` Smash policy state.
     ComboEscape,
 }
 impl Reason {
@@ -286,9 +286,9 @@ impl Reason {
 /// Runtime Smash data carried by `Decision`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Decision {
-/// Runtime stick value used by Decision..
+    /// Runtime stick value used by Decision..
     pub stick: [f32; 2],
-/// Runtime reason value used by Decision..
+    /// Runtime reason value used by Decision..
     pub reason: Reason,
 }
 
@@ -358,9 +358,9 @@ pub fn choose(settings: Settings, c: Context) -> Option<Decision> {
     if !escape && c.launch[0].abs() < 0.01 && away == 0.0 {
         return None;
     }
-/// `D` is a configuration value used by the Smash runtime.
+    /// `D` is a configuration value used by the Smash runtime.
     const D: f32 = std::f32::consts::FRAC_1_SQRT_2;
-/// `STICKS` is a configuration value used by the Smash runtime.
+    /// `STICKS` is a configuration value used by the Smash runtime.
     const STICKS: [[f32; 2]; 9] = [
         [0.0, 0.0],
         [-1.0, 0.0],
@@ -414,17 +414,17 @@ pub fn choose(settings: Settings, c: Context) -> Option<Decision> {
 /// Runtime Smash data carried by `AutoDi`.
 #[derive(Default)]
 pub struct AutoDi {
-/// Runtime last value used by AutoDi..
+    /// Runtime last value used by AutoDi..
     last: Option<(u32, u64)>,
-/// Runtime key value used by AutoDi..
+    /// Runtime key value used by AutoDi..
     key: Option<([f32; 2], f32, Settings)>,
-/// Runtime decision value used by AutoDi..
+    /// Runtime decision value used by AutoDi..
     decision: Option<Decision>,
-/// Runtime manual value used by AutoDi..
+    /// Runtime manual value used by AutoDi..
     manual: bool,
-/// Runtime stage key value used by AutoDi..
+    /// Runtime stage key value used by AutoDi..
     stage_key: Option<([f32; 2], Settings)>,
-/// Runtime stage decision value used by AutoDi..
+    /// Runtime stage decision value used by AutoDi..
     stage_decision: Option<Decision>,
 }
 impl AutoDi {

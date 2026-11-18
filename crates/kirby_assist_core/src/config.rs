@@ -18,10 +18,10 @@ pub const MAX_SCENARIO_RULES: usize = 10;
 pub struct AssistConfig {
     /// Stores whether `AssistConfig` is enabled.
     pub enabled: bool,
-/// Runtime scope value used by AssistConfig..
+    /// Runtime scope value used by AssistConfig..
     pub scope: AssistScope,
     // Fixed-size storage avoids allocating a vector whenever policy is evaluated.
-/// Runtime rules value used by AssistConfig..
+    /// Runtime rules value used by AssistConfig..
     pub rules: [ScenarioRule; MAX_SCENARIO_RULES],
 }
 
@@ -137,15 +137,15 @@ pub enum ScenarioAction {
 /// Slot names reserve an understandable API for a future input recorder.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RecordingSlot {
-/// `One` option in the `RecordingSlot` Smash policy state.
+    /// `One` option in the `RecordingSlot` Smash policy state.
     One,
-/// `Two` option in the `RecordingSlot` Smash policy state.
+    /// `Two` option in the `RecordingSlot` Smash policy state.
     Two,
-/// `Three` option in the `RecordingSlot` Smash policy state.
+    /// `Three` option in the `RecordingSlot` Smash policy state.
     Three,
-/// `Four` option in the `RecordingSlot` Smash policy state.
+    /// `Four` option in the `RecordingSlot` Smash policy state.
     Four,
-/// `Five` option in the `RecordingSlot` Smash policy state.
+    /// `Five` option in the `RecordingSlot` Smash policy state.
     Five,
 }
 
@@ -161,7 +161,7 @@ pub struct RuleTiming {
 }
 
 impl RuleTiming {
-/// `IMMEDIATELY_ONCE` is a configuration value used by the Smash runtime.
+    /// `IMMEDIATELY_ONCE` is a configuration value used by the Smash runtime.
     pub const IMMEDIATELY_ONCE: Self = Self {
         start_after_frames: 0,
         active_for_frames: 1,
@@ -211,16 +211,16 @@ impl RuleTiming {
 pub struct ScenarioRule {
     /// Stores whether `ScenarioRule` is enabled.
     pub enabled: bool,
-/// Runtime scenario value used by ScenarioRule..
+    /// Runtime scenario value used by ScenarioRule..
     pub scenario: Scenario,
-/// Runtime timing value used by ScenarioRule..
+    /// Runtime timing value used by ScenarioRule..
     pub timing: RuleTiming,
-/// Runtime action value used by ScenarioRule..
+    /// Runtime action value used by ScenarioRule..
     pub action: ScenarioAction,
 }
 
 impl ScenarioRule {
-/// `DISABLED` is a configuration value used by the Smash runtime.
+    /// `DISABLED` is a configuration value used by the Smash runtime.
     pub const DISABLED: Self = Self {
         enabled: false,
         scenario: Scenario::None,
@@ -338,26 +338,26 @@ pub mod button_bindings {
     //! Mode identities for On/Off settings and legacy file compatibility.
     //! Reaction rules use their own explicit Control whitelist; Builtin below
     //! exposes native button helpers.
-/// Available `Mode` choices for the Smash assistance menu.
+    /// Available `Mode` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Mode {
-/// `LedgeTrap` option in the `Mode` Smash policy state.
+        /// `LedgeTrap` option in the `Mode` Smash policy state.
         LedgeTrap,
-/// `AutoTech` option in the `Mode` Smash policy state.
+        /// `AutoTech` option in the `Mode` Smash policy state.
         AutoTech,
-/// `AutoMash` option in the `Mode` Smash policy state.
+        /// `AutoMash` option in the `Mode` Smash policy state.
         AutoMash,
-/// `IdleCrouch` option in the `Mode` Smash policy state.
+        /// `IdleCrouch` option in the `Mode` Smash policy state.
         IdleCrouch,
-/// `TiltTurn` option in the `Mode` Smash policy state.
+        /// `TiltTurn` option in the `Mode` Smash policy state.
         TiltTurn,
-/// `SpotPunish` option in the `Mode` Smash policy state.
+        /// `SpotPunish` option in the `Mode` Smash policy state.
         SpotPunish,
-/// `OutOfShield` option in the `Mode` Smash policy state.
+        /// `OutOfShield` option in the `Mode` Smash policy state.
         OutOfShield,
     }
     impl Mode {
-/// `ALL` is a configuration value used by the Smash runtime.
+        /// `ALL` is a configuration value used by the Smash runtime.
         pub const ALL: [Self; 7] = [
             Self::LedgeTrap,
             Self::AutoTech,
@@ -404,13 +404,13 @@ pub mod button_bindings {
             self != Self::IdleCrouch || kind == crate::fighter_kinds::KIRBY
         }
     }
-/// Available `Activation` choices for the Smash assistance menu.
+    /// Available `Activation` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
     pub enum Activation {
         #[default]
-/// `Hold` option in the `Activation` Smash policy state.
+        /// `Hold` option in the `Activation` Smash policy state.
         Hold,
-/// `Toggle` option in the `Activation` Smash policy state.
+        /// `Toggle` option in the `Activation` Smash policy state.
         Toggle,
     }
     impl Activation {
@@ -422,16 +422,16 @@ pub mod button_bindings {
             }
         }
     }
-/// Runtime Smash data carried by `ModeBinding`.
+    /// Runtime Smash data carried by `ModeBinding`.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct ModeBinding {
-/// Runtime mode value used by ModeBinding..
+        /// Runtime mode value used by ModeBinding..
         pub mode: Mode,
-/// Runtime activation value used by ModeBinding..
+        /// Runtime activation value used by ModeBinding..
         pub activation: Activation,
     }
     impl ModeBinding {
-/// `COUNT` is a configuration value used by the Smash runtime.
+        /// `COUNT` is a configuration value used by the Smash runtime.
         pub const COUNT: usize = Mode::ALL.len() * 2;
         /// Converts a millisecond offset into a `Duration`.
         pub fn at(index: usize) -> Option<Self> {
@@ -450,7 +450,7 @@ pub mod button_bindings {
         }
         /// Returns the display label for the value.
         pub fn label(self) -> &'static str {
-/// `LABELS` is a configuration value used by the Smash runtime.
+            /// `LABELS` is a configuration value used by the Smash runtime.
             const LABELS: [&str; ModeBinding::COUNT] = [
                 "Hold: Ledge trap",
                 "Toggle: Ledge trap",
@@ -471,7 +471,7 @@ pub mod button_bindings {
         }
         /// Returns the stable identifier of the selected choice.
         pub fn choice_id(self) -> &'static str {
-/// `IDS` is a configuration value used by the Smash runtime.
+            /// `IDS` is a configuration value used by the Smash runtime.
             const IDS: [&str; ModeBinding::COUNT] = [
                 "__mode_ledge_trap_hold",
                 "__mode_ledge_trap_toggle",
@@ -495,17 +495,17 @@ pub mod button_bindings {
     /// Existing native input helpers, assignable without executing a recipe tape.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Builtin {
-/// `Normal` option in the `Builtin` Smash policy state.
+        /// `Normal` option in the `Builtin` Smash policy state.
         Normal,
-/// `LedgeAssist` option in the `Builtin` Smash policy state.
+        /// `LedgeAssist` option in the `Builtin` Smash policy state.
         LedgeAssist,
-/// `TurboTeabag` option in the `Builtin` Smash policy state.
+        /// `TurboTeabag` option in the `Builtin` Smash policy state.
         TurboTeabag,
-/// `LedgeTrump` option in the `Builtin` Smash policy state.
+        /// `LedgeTrump` option in the `Builtin` Smash policy state.
         LedgeTrump,
     }
     impl Builtin {
-/// `ALL` is a configuration value used by the Smash runtime.
+        /// `ALL` is a configuration value used by the Smash runtime.
         pub const ALL: [Self; 4] = [
             Self::Normal,
             Self::LedgeAssist,
@@ -573,68 +573,68 @@ pub mod option_read {
         native_input::MAPPER_A,
         timing::{motion_elapsed, ActiveWindow, RecoveryWindow},
     };
-/// Available `Kind` choices for the Smash assistance menu.
+    /// Available `Kind` choices for the Smash assistance menu.
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum Kind {
-/// `Spot` option in the `Kind` Smash policy state.
+        /// `Spot` option in the `Kind` Smash policy state.
         Spot,
-/// `Grab` option in the `Kind` Smash policy state.
+        /// `Grab` option in the `Kind` Smash policy state.
         Grab,
-/// `Roll` option in the `Kind` Smash policy state.
+        /// `Roll` option in the `Kind` Smash policy state.
         Roll,
     }
-/// Runtime Smash data carried by `Target`.
+    /// Runtime Smash data carried by `Target`.
     #[derive(Clone, Copy)]
     pub struct Target {
-/// battle-object ID.
+        /// battle-object ID.
         pub id: u32,
-/// native fighter-kind ID.
+        /// native fighter-kind ID.
         pub kind: Kind,
-/// native fighter status.
+        /// native fighter status.
         pub status: i32,
-/// native animation/motion ID.
+        /// native animation/motion ID.
         pub motion: u64,
-/// current native animation frame.
+        /// current native animation frame.
         pub frame: f32,
-/// native animation playback rate.
+        /// native animation playback rate.
         pub rate: f32,
-/// world-space position.
+        /// world-space position.
         pub position: [f32; 2],
-/// world-space velocity.
+        /// world-space velocity.
         pub velocity: [f32; 2],
-/// Runtime opens value used by Target..
+        /// Runtime opens value used by Target..
         pub opens: f32,
-/// Runtime closes value used by Target..
+        /// Runtime closes value used by Target..
         pub closes: f32,
     }
-/// Runtime Smash data carried by `Context`.
+    /// Runtime Smash data carried by `Context`.
     #[derive(Clone, Copy)]
     pub struct Context {
-/// Runtime object value used by Context..
+        /// Runtime object value used by Context..
         pub object: u32,
-/// native fighter status.
+        /// native fighter status.
         pub status: i32,
-/// native animation/motion ID.
+        /// native animation/motion ID.
         pub motion: u64,
-/// current native animation frame.
+        /// current native animation frame.
         pub frame: f32,
-/// native animation playback rate.
+        /// native animation playback rate.
         pub rate: f32,
-/// Runtime stopped value used by Context..
+        /// Runtime stopped value used by Context..
         pub stopped: bool,
-/// grounded-state observation.
+        /// grounded-state observation.
         pub grounded: bool,
-/// Runtime can act value used by Context..
+        /// Runtime can act value used by Context..
         pub can_act: bool,
-/// Runtime down ready value used by Context..
+        /// Runtime down ready value used by Context..
         pub down_ready: bool,
-/// Runtime forward ready value used by Context..
+        /// Runtime forward ready value used by Context..
         pub forward_ready: bool,
-/// left/right facing sign.
+        /// left/right facing sign.
         pub facing: f32,
-/// world-space position.
+        /// world-space position.
         pub position: [f32; 2],
-/// world-space velocity.
+        /// world-space velocity.
         pub velocity: [f32; 2],
     }
     impl Context {
@@ -646,54 +646,54 @@ pub mod option_read {
                 && self.facing.abs() >= 0.5
         }
     }
-/// Runtime Smash data carried by `Config`.
+    /// Runtime Smash data carried by `Config`.
     #[derive(Clone, Copy)]
     pub struct Config {
-/// Runtime down value used by Config..
+        /// Runtime down value used by Config..
         pub down: [u8; 2],
-/// Runtime down back value used by Config..
+        /// Runtime down back value used by Config..
         pub down_back: Option<[u8; 2]>,
-/// Runtime forward value used by Config..
+        /// Runtime forward value used by Config..
         pub forward: [u8; 2],
-/// Runtime down reach value used by Config..
+        /// Runtime down reach value used by Config..
         pub down_reach: f32,
-/// Runtime forward reach value used by Config..
+        /// Runtime forward reach value used by Config..
         pub forward_reach: f32,
     }
-/// Runtime Smash data carried by `Track`.
+    /// Runtime Smash data carried by `Track`.
     #[derive(Clone, Copy)]
     struct Track {
-/// battle-object ID.
+        /// battle-object ID.
         id: u32,
-/// native fighter status.
+        /// native fighter status.
         status: i32,
-/// native animation/motion ID.
+        /// native animation/motion ID.
         motion: u64,
-/// current native animation frame.
+        /// current native animation frame.
         frame: f32,
-/// native animation playback rate.
+        /// native animation playback rate.
         rate: f32,
-/// Runtime used value used by Track..
+        /// Runtime used value used by Track..
         used: bool,
     }
-/// Runtime Smash data carried by `Punisher`.
+    /// Runtime Smash data carried by `Punisher`.
     #[derive(Default)]
     pub struct Punisher {
-/// Runtime object value used by Punisher..
+        /// Runtime object value used by Punisher..
         object: Option<u32>,
-/// Runtime tracks value used by Punisher..
+        /// Runtime tracks value used by Punisher..
         tracks: [Option<Track>; 8],
-/// Runtime previous value used by Punisher..
+        /// Runtime previous value used by Punisher..
         previous: Option<(i32, u64, f32, f32)>,
-/// selected opponent/projectile target.
+        /// selected opponent/projectile target.
         target: Option<u32>,
-/// Runtime phase value used by Punisher..
+        /// Runtime phase value used by Punisher..
         phase: u8,
-/// Runtime forward value used by Punisher..
+        /// Runtime forward value used by Punisher..
         forward: bool,
-/// Runtime age value used by Punisher..
+        /// Runtime age value used by Punisher..
         age: f32,
-/// controller input output.
+        /// controller input output.
         output: ControllerOutput,
     }
     impl Punisher {
@@ -1022,7 +1022,7 @@ pub mod settings {
         /// Numeric-only startup adjustments; these cannot register new actions.
         /// Resolved move timings and response switches for our selected fighter.
         pub fighter: FighterGrabData,
-/// Runtime responses value used by AssistSettings..
+        /// Runtime responses value used by AssistSettings..
         pub responses: LedgeResponses,
         /// Stores whether `AssistSettings` is enabled.
         pub enabled: bool,
@@ -1034,13 +1034,13 @@ pub mod settings {
         // away; it does not enlarge Kirby's real hitbox and can create more whiffs.
         /// Broad target acquisition limits in world units.
         pub horizontal_range: f32,
-/// Runtime vertical range value used by AssistSettings..
+        /// Runtime vertical range value used by AssistSettings..
         pub vertical_range: f32,
         // Follow limits keep the acquired opponent through its get-up travel;
         // acquisition limits above decide whether to acquire it in the first place.
-/// Runtime follow range value used by AssistSettings..
+        /// Runtime follow range value used by AssistSettings..
         pub follow_range: f32,
-/// Runtime follow vertical range value used by AssistSettings..
+        /// Runtime follow vertical range value used by AssistSettings..
         pub follow_vertical_range: f32,
         /// Preserve player movement between response inputs.
         pub manual_spacing: bool,
@@ -1049,12 +1049,12 @@ pub mod settings {
         /// Baseline horizontal walk strength: normal cap is -0.02, near-full
         /// horizontal cap is +0.03, both bounded to 0.1..0.45.
         pub walk_strength: f32,
-/// Runtime auto position value used by AssistSettings..
+        /// Runtime auto position value used by AssistSettings..
         pub auto_position: bool,
         /// Heuristic stage-side stance offset, not a universal optimal location.
         pub stand_distance: f32,
         // Unlike distances, move_strength is normalized stick magnitude (0..1).
-/// Runtime move strength value used by AssistSettings..
+        /// Runtime move strength value used by AssistSettings..
         pub move_strength: f32,
         /// Legacy parsed setting. Captures always return control to the player.
         pub throw_outward: bool,

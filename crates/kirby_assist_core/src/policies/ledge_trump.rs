@@ -74,26 +74,26 @@ pub fn floor_edge_with_limit(
 /// Available `Phase` choices for the Smash assistance menu.
 #[derive(Clone, Copy)]
 enum Phase {
-/// `Approach` option in the `Phase` Smash policy state.
+    /// `Approach` option in the `Phase` Smash policy state.
     Approach,
-/// `Down` option in the `Phase` Smash policy state.
+    /// `Down` option in the `Phase` Smash policy state.
     Down { status: i32, frame: f32 },
-/// `Return` option in the `Phase` Smash policy state.
+    /// `Return` option in the `Phase` Smash policy state.
     Return,
 }
 
 /// Runtime Smash data carried by `Attempt`.
 #[derive(Clone, Copy)]
 struct Attempt {
-/// Runtime anchor value used by Attempt..
+    /// Runtime anchor value used by Attempt..
     anchor: [f32; 2],
-/// Runtime outward value used by Attempt..
+    /// Runtime outward value used by Attempt..
     outward: f32,
-/// Runtime approach limit value used by Attempt..
+    /// Runtime approach limit value used by Attempt..
     approach_limit: f32,
-/// Runtime phase value used by Attempt..
+    /// Runtime phase value used by Attempt..
     phase: Phase,
-/// Runtime updates value used by Attempt..
+    /// Runtime updates value used by Attempt..
     updates: u16,
 }
 impl Attempt {
@@ -177,15 +177,15 @@ impl Attempt {
 /// Runtime Smash data carried by `LedgeTrump`.
 #[derive(Default)]
 pub struct LedgeTrump {
-/// Runtime held value used by LedgeTrump..
+    /// Runtime held value used by LedgeTrump..
     held: bool,
-/// Runtime attempt value used by LedgeTrump..
+    /// Runtime attempt value used by LedgeTrump..
     attempt: Option<Attempt>,
-/// Runtime last tick value used by LedgeTrump..
+    /// Runtime last tick value used by LedgeTrump..
     last_tick: Option<i64>,
-/// Runtime last context value used by LedgeTrump..
+    /// Runtime last context value used by LedgeTrump..
     last_context: Option<GameplayContext>,
-/// controller input output.
+    /// controller input output.
     output: ControllerOutput,
 }
 

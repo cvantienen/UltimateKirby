@@ -51,9 +51,9 @@ const MENU_REPEAT_SLOW_INTERVAL_TICKS: u16 = 6;
 /// Auto-repeat of one held direction: a delay, then a slow and later a fast cadence.
 #[derive(Default)]
 struct HoldRepeat {
-/// Runtime direction value used by HoldRepeat..
+    /// Runtime direction value used by HoldRepeat..
     direction: u32,
-/// Runtime ticks value used by HoldRepeat..
+    /// Runtime ticks value used by HoldRepeat..
     ticks: u16,
 }
 impl HoldRepeat {
@@ -104,71 +104,71 @@ pub fn observation_buttons(physical: u32, consumed: u32) -> u32 {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MenuRow {
     #[default]
-/// `Neutral` option in the `MenuRow` Smash policy state.
+    /// `Neutral` option in the `MenuRow` Smash policy state.
     Neutral,
-/// `Jump` option in the `MenuRow` Smash policy state.
+    /// `Jump` option in the `MenuRow` Smash policy state.
     Jump,
-/// `Roll` option in the `MenuRow` Smash policy state.
+    /// `Roll` option in the `MenuRow` Smash policy state.
     Roll,
-/// `Attack` option in the `MenuRow` Smash policy state.
+    /// `Attack` option in the `MenuRow` Smash policy state.
     Attack,
-/// `Drop` option in the `MenuRow` Smash policy state.
+    /// `Drop` option in the `MenuRow` Smash policy state.
     Drop,
-/// `XSequence` option in the `MenuRow` Smash policy state.
+    /// `XSequence` option in the `MenuRow` Smash policy state.
     XSequence,
-/// `YSequence` option in the `MenuRow` Smash policy state.
+    /// `YSequence` option in the `MenuRow` Smash policy state.
     YSequence,
-/// `DpadUp` option in the `MenuRow` Smash policy state.
+    /// `DpadUp` option in the `MenuRow` Smash policy state.
     DpadUp,
-/// `DpadDown` option in the `MenuRow` Smash policy state.
+    /// `DpadDown` option in the `MenuRow` Smash policy state.
     DpadDown,
-/// `DpadLeft` option in the `MenuRow` Smash policy state.
+    /// `DpadLeft` option in the `MenuRow` Smash policy state.
     DpadLeft,
-/// `DpadRight` option in the `MenuRow` Smash policy state.
+    /// `DpadRight` option in the `MenuRow` Smash policy state.
     DpadRight,
-/// `RollRead` option in the `MenuRow` Smash policy state.
+    /// `RollRead` option in the `MenuRow` Smash policy state.
     RollRead,
-/// `AutoMash` option in the `MenuRow` Smash policy state.
+    /// `AutoMash` option in the `MenuRow` Smash policy state.
     AutoMash,
-/// `IdleCrouch` option in the `MenuRow` Smash policy state.
+    /// `IdleCrouch` option in the `MenuRow` Smash policy state.
     IdleCrouch,
-/// `TiltTurn` option in the `MenuRow` Smash policy state.
+    /// `TiltTurn` option in the `MenuRow` Smash policy state.
     TiltTurn,
-/// `SpotPunish` option in the `MenuRow` Smash policy state.
+    /// `SpotPunish` option in the `MenuRow` Smash policy state.
     SpotPunish,
-/// `GrabDodge` option in the `MenuRow` Smash policy state.
+    /// `GrabDodge` option in the `MenuRow` Smash policy state.
     GrabDodge,
-/// `AutoTech` option in the `MenuRow` Smash policy state.
+    /// `AutoTech` option in the `MenuRow` Smash policy state.
     AutoTech,
-/// `Performance` option in the `MenuRow` Smash policy state.
+    /// `Performance` option in the `MenuRow` Smash policy state.
     Performance,
-/// `AutoLedge` option in the `MenuRow` Smash policy state.
+    /// `AutoLedge` option in the `MenuRow` Smash policy state.
     AutoLedge,
-/// `OutOfShield` option in the `MenuRow` Smash policy state.
+    /// `OutOfShield` option in the `MenuRow` Smash policy state.
     OutOfShield,
-/// `TestLatency` option in the `MenuRow` Smash policy state.
+    /// `TestLatency` option in the `MenuRow` Smash policy state.
     TestLatency = 26,
-/// `ButtonsPage` option in the `MenuRow` Smash policy state.
+    /// `ButtonsPage` option in the `MenuRow` Smash policy state.
     ButtonsPage,
-/// `ModesPage` option in the `MenuRow` Smash policy state.
+    /// `ModesPage` option in the `MenuRow` Smash policy state.
     ModesPage,
-/// `LedgePage` option in the `MenuRow` Smash policy state.
+    /// `LedgePage` option in the `MenuRow` Smash policy state.
     LedgePage,
-/// `RollRules` option in the `MenuRow` Smash policy state.
+    /// `RollRules` option in the `MenuRow` Smash policy state.
     RollRules,
-/// `FighterSettings` option in the `MenuRow` Smash policy state.
+    /// `FighterSettings` option in the `MenuRow` Smash policy state.
     FighterSettings,
-/// `ShieldPressure` option in the `MenuRow` Smash policy state.
+    /// `ShieldPressure` option in the `MenuRow` Smash policy state.
     ShieldPressure,
-/// `L3Sequence` option in the `MenuRow` Smash policy state.
+    /// `L3Sequence` option in the `MenuRow` Smash policy state.
     L3Sequence,
-/// `R3Sequence` option in the `MenuRow` Smash policy state.
+    /// `R3Sequence` option in the `MenuRow` Smash policy state.
     R3Sequence,
-/// `AutoReflect` option in the `MenuRow` Smash policy state.
+    /// `AutoReflect` option in the `MenuRow` Smash policy state.
     AutoReflect,
 }
 impl MenuRow {
-/// `ALL` is a configuration value used by the Smash runtime.
+    /// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 31] = [
         Self::Neutral,
         Self::Jump,
@@ -278,13 +278,13 @@ impl MenuRow {
 /// Cached presentation data; no execution state or native UI dependencies.
 #[derive(Default)]
 pub struct RecipePanel {
-/// Runtime header value used by RecipePanel..
+    /// Runtime header value used by RecipePanel..
     pub header: Vec<String>,
-/// Runtime body value used by RecipePanel..
+    /// Runtime body value used by RecipePanel..
     pub body: Vec<String>,
-/// Runtime footer value used by RecipePanel..
+    /// Runtime footer value used by RecipePanel..
     pub footer: Vec<String>,
-/// Runtime focus value used by RecipePanel..
+    /// Runtime focus value used by RecipePanel..
     pub focus: Option<usize>,
 }
 impl RecipePanel {
@@ -300,109 +300,109 @@ impl RecipePanel {
 /// Runtime Smash data carried by `MenuSelection`.
 #[derive(Default)]
 pub struct MenuSelection {
-/// Runtime binding input value used by MenuSelection..
+    /// Runtime binding input value used by MenuSelection..
     binding_input: Option<(u32, ControlLayout)>,
-/// Runtime binding layout value used by MenuSelection..
+    /// Runtime binding layout value used by MenuSelection..
     binding_layout: ControlLayout,
-/// Runtime binding physical value used by MenuSelection..
+    /// Runtime binding physical value used by MenuSelection..
     binding_physical: u32,
-/// Runtime binding pressed value used by MenuSelection..
+    /// Runtime binding pressed value used by MenuSelection..
     binding_pressed: u32,
-/// Runtime binding previous value used by MenuSelection..
+    /// Runtime binding previous value used by MenuSelection..
     binding_previous: Option<u32>,
-/// Runtime binding ledge previous value used by MenuSelection..
+    /// Runtime binding ledge previous value used by MenuSelection..
     binding_ledge_previous: Option<bool>,
-/// Runtime binding ready value used by MenuSelection..
+    /// Runtime binding ready value used by MenuSelection..
     binding_ready: u32,
-/// Runtime binding starts blocked value used by MenuSelection..
+    /// Runtime binding starts blocked value used by MenuSelection..
     binding_starts_blocked: bool,
-/// Runtime binding safety jump value used by MenuSelection..
+    /// Runtime binding safety jump value used by MenuSelection..
     binding_safety_jump: bool,
-/// Runtime binding roles stamp value used by MenuSelection..
+    /// Runtime binding roles stamp value used by MenuSelection..
     binding_roles_stamp: Option<(ControlLayout, [usize; PresetSlot::COUNT], u64, u32, bool)>,
     #[cfg(test)]
-/// Runtime binding roles rebuilds value used by MenuSelection..
+    /// Runtime binding roles rebuilds value used by MenuSelection..
     binding_roles_rebuilds: usize,
-/// Runtime single jump sources value used by MenuSelection..
+    /// Runtime single jump sources value used by MenuSelection..
     single_jump_sources: u32,
-/// Runtime ledge assist sources value used by MenuSelection..
+    /// Runtime ledge assist sources value used by MenuSelection..
     ledge_assist_sources: u32,
-/// Runtime turbo sources value used by MenuSelection..
+    /// Runtime turbo sources value used by MenuSelection..
     turbo_sources: u32,
-/// Runtime trump sources value used by MenuSelection..
+    /// Runtime trump sources value used by MenuSelection..
     trump_sources: u32,
-/// Runtime builtin consumed value used by MenuSelection..
+    /// Runtime builtin consumed value used by MenuSelection..
     pub builtin_consumed: u32,
-/// Runtime binding sources value used by MenuSelection..
+    /// Runtime binding sources value used by MenuSelection..
     binding_sources: u32,
-/// Runtime row value used by MenuSelection..
+    /// Runtime row value used by MenuSelection..
     pub row: MenuRow,
     /// Stable indices into five ledge lists and two manual-button lists.
     pub choices: [usize; PresetSlot::COUNT],
-/// Runtime roll rules value used by MenuSelection..
+    /// Runtime roll rules value used by MenuSelection..
     pub roll_rules: bool,
     /// Native runtime uses the simplified event controller; legacy readers stay loadable.
     pub simplified_reactions: bool,
-/// Runtime shield pressure value used by MenuSelection..
+    /// Runtime shield pressure value used by MenuSelection..
     pub shield_pressure: bool,
-/// Runtime rule toggles value used by MenuSelection..
+    /// Runtime rule toggles value used by MenuSelection..
     pub rule_toggles: u8,
-/// Runtime rule button mask value used by MenuSelection..
+    /// Runtime rule button mask value used by MenuSelection..
     pub rule_button_mask: u32,
-/// Runtime rule binding stamp value used by MenuSelection..
+    /// Runtime rule binding stamp value used by MenuSelection..
     rule_binding_stamp: Option<u64>,
-/// Runtime rule feedback value used by MenuSelection..
+    /// Runtime rule feedback value used by MenuSelection..
     pub rule_feedback: crate::reaction_rules::Feedback,
-/// Runtime rule last priority value used by MenuSelection..
+    /// Runtime rule last priority value used by MenuSelection..
     pub rule_last_priority: Option<u8>,
-/// Runtime y fighter kind value used by MenuSelection..
+    /// Runtime y fighter kind value used by MenuSelection..
     pub y_fighter_kind: i32,
-/// Runtime revision value used by MenuSelection..
+    /// Runtime revision value used by MenuSelection..
     pub revision: u64,
     /// Displayed values/page changed; cursor-only navigation leaves this stable.
     pub content_revision: u64,
-/// Runtime recipe revision value used by MenuSelection..
+    /// Runtime recipe revision value used by MenuSelection..
     pub recipe_revision: u64,
-/// Runtime mode editor origin value used by MenuSelection..
+    /// Runtime mode editor origin value used by MenuSelection..
     mode_editor_origin: Option<(MenuRow, [usize; PresetSlot::COUNT])>,
-/// Runtime mode rule list value used by MenuSelection..
+    /// Runtime mode rule list value used by MenuSelection..
     mode_rule_list: bool,
-/// Runtime mode rule cursor value used by MenuSelection..
+    /// Runtime mode rule cursor value used by MenuSelection..
     mode_rule_cursor: usize,
-/// Runtime auto add event value used by MenuSelection..
+    /// Runtime auto add event value used by MenuSelection..
     auto_add_event: usize,
-/// Runtime auto grab configured value used by MenuSelection..
+    /// Runtime auto grab configured value used by MenuSelection..
     auto_grab_configured: u8,
-/// Runtime has reactions value used by MenuSelection..
+    /// Runtime has reactions value used by MenuSelection..
     pub has_reactions: bool,
-/// Runtime recipe editing value used by MenuSelection..
+    /// Runtime recipe editing value used by MenuSelection..
     pub recipe_editing: bool,
-/// Runtime preview slot value used by MenuSelection..
+    /// Runtime preview slot value used by MenuSelection..
     pub preview_slot: Option<PresetSlot>,
     // Suppress a bound physical button until release, even after its tape ends.
-/// Runtime button latch value used by MenuSelection..
+    /// Runtime button latch value used by MenuSelection..
     button_latch: u32,
-/// Runtime held binding value used by MenuSelection..
+    /// Runtime held binding value used by MenuSelection..
     held_binding: Option<PresetSlot>,
-/// Runtime save requested value used by MenuSelection..
+    /// Runtime save requested value used by MenuSelection..
     pub save_requested: bool,
-/// Runtime delete requested value used by MenuSelection..
+    /// Runtime delete requested value used by MenuSelection..
     pub delete_requested: bool,
-/// Runtime default requested value used by MenuSelection..
+    /// Runtime default requested value used by MenuSelection..
     pub default_requested: bool,
     /// Match-only two-page selector; Training retains the full editor.
     pub lightweight: bool,
-/// Runtime lightweight initialized value used by MenuSelection..
+    /// Runtime lightweight initialized value used by MenuSelection..
     lightweight_initialized: bool,
-/// Runtime match visibility pending value used by MenuSelection..
+    /// Runtime match visibility pending value used by MenuSelection..
     match_visibility_pending: bool,
-/// Runtime catalog value used by MenuSelection..
+    /// Runtime catalog value used by MenuSelection..
     catalog: Option<Box<catalog::Catalog>>,
-/// Runtime save status value used by MenuSelection..
+    /// Runtime save status value used by MenuSelection..
     pub save_status: Option<String>,
-/// Runtime editor value used by MenuSelection..
+    /// Runtime editor value used by MenuSelection..
     editor: Option<Box<editor::RecipeEditor>>,
-/// Runtime hold value used by MenuSelection..
+    /// Runtime hold value used by MenuSelection..
     hold: HoldRepeat,
     /// Minus hides/shows the panel and never starts a gameplay tool.
     pub menu_hidden: bool,
@@ -410,52 +410,52 @@ pub struct MenuSelection {
     pub quick_menu: bool,
     /// Third page groups existing non-sequence modes and toggles.
     pub modes_menu: bool,
-/// Runtime button menu value used by MenuSelection..
+    /// Runtime button menu value used by MenuSelection..
     pub button_menu: bool,
-/// Runtime auto ledge value used by MenuSelection..
+    /// Runtime auto ledge value used by MenuSelection..
     pub auto_ledge: bool,
-/// Runtime tuning value used by MenuSelection..
+    /// Runtime tuning value used by MenuSelection..
     pub tuning: crate::fighter_tuning::Tuning,
-/// Runtime tuning values value used by MenuSelection..
+    /// Runtime tuning values value used by MenuSelection..
     pub tuning_values: crate::fighter_tuning::Values,
-/// Runtime tuning page value used by MenuSelection..
+    /// Runtime tuning page value used by MenuSelection..
     pub tuning_page: bool,
-/// Runtime tuning row value used by MenuSelection..
+    /// Runtime tuning row value used by MenuSelection..
     pub tuning_row: usize,
-/// Runtime tuning save requested value used by MenuSelection..
+    /// Runtime tuning save requested value used by MenuSelection..
     pub tuning_save_requested: bool,
 
-/// Runtime out of shield value used by MenuSelection..
+    /// Runtime out of shield value used by MenuSelection..
     pub out_of_shield: bool,
     /// One input-sample event. The adapter owns the shared mash toggle so it
     /// survives fighter/stock changes rather than being a fighter preset.
     pub toggle_mash: bool,
-/// Runtime idle crouch value used by MenuSelection..
+    /// Runtime idle crouch value used by MenuSelection..
     pub idle_crouch: bool,
-/// Runtime tilt turn value used by MenuSelection..
+    /// Runtime tilt turn value used by MenuSelection..
     pub tilt_turn: bool,
-/// Runtime spot punish value used by MenuSelection..
+    /// Runtime spot punish value used by MenuSelection..
     pub spot_punish: bool,
-/// Runtime grab dodge value used by MenuSelection..
+    /// Runtime grab dodge value used by MenuSelection..
     pub grab_dodge: bool,
-/// Runtime auto tech value used by MenuSelection..
+    /// Runtime auto tech value used by MenuSelection..
     pub auto_tech: bool,
-/// Runtime auto reflect value used by MenuSelection..
+    /// Runtime auto reflect value used by MenuSelection..
     pub auto_reflect: bool,
-/// Runtime performance value used by MenuSelection..
+    /// Runtime performance value used by MenuSelection..
     pub performance: bool,
     /// Diagnostic annotation only: 0=unset, 1..=31 label external delay 0..=30f.
     pub test_latency: u8,
-/// Runtime previous value used by MenuSelection..
+    /// Runtime previous value used by MenuSelection..
     previous: Option<u32>,
     // Menu-held directions must be released before becoming gameplay triggers.
-/// Runtime pad quarantine value used by MenuSelection..
+    /// Runtime pad quarantine value used by MenuSelection..
     pad_quarantine: u32,
     // A held button must be released after reset/config changes before it can
     // control an assist. Unowned gameplay input remains physical.
-/// Runtime trigger ready value used by MenuSelection..
+    /// Runtime trigger ready value used by MenuSelection..
     trigger_ready: u32,
-/// Runtime cancel pending value used by MenuSelection..
+    /// Runtime cancel pending value used by MenuSelection..
     pub cancel_pending: bool,
 }
 impl MenuSelection {
@@ -492,7 +492,7 @@ impl MenuSelection {
                 + self.save_status.as_ref().map_or(0, String::capacity),
         )
     }
-/// `QUICK_ROWS` is a configuration value used by the Smash runtime.
+    /// `QUICK_ROWS` is a configuration value used by the Smash runtime.
     pub const QUICK_ROWS: [MenuRow; PresetSlot::COUNT] = [
         MenuRow::Neutral,
         MenuRow::Jump,
@@ -508,7 +508,7 @@ impl MenuSelection {
         MenuRow::L3Sequence,
         MenuRow::R3Sequence,
     ];
-/// `LEDGE_ROWS` is a configuration value used by the Smash runtime.
+    /// `LEDGE_ROWS` is a configuration value used by the Smash runtime.
     pub const LEDGE_ROWS: [MenuRow; 8] = [
         MenuRow::Neutral,
         MenuRow::Jump,
@@ -519,7 +519,7 @@ impl MenuSelection {
         MenuRow::ModesPage,
         MenuRow::FighterSettings,
     ];
-/// `BUTTON_ROWS` is a configuration value used by the Smash runtime.
+    /// `BUTTON_ROWS` is a configuration value used by the Smash runtime.
     pub const BUTTON_ROWS: [MenuRow; 10] = [
         MenuRow::XSequence,
         MenuRow::YSequence,
@@ -532,7 +532,7 @@ impl MenuSelection {
         MenuRow::LedgePage,
         MenuRow::ModesPage,
     ];
-/// `ASSIST_ROWS` is a configuration value used by the Smash runtime.
+    /// `ASSIST_ROWS` is a configuration value used by the Smash runtime.
     pub const ASSIST_ROWS: [MenuRow; 18] = [
         MenuRow::RollRules,
         MenuRow::ShieldPressure,

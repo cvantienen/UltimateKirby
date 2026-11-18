@@ -6,34 +6,34 @@ use crate::sequence_config::{Action, Sequence};
 
 /// Runtime Smash data carried by `Choice`.
 pub struct Choice<'a> {
-/// battle-object ID.
+    /// battle-object ID.
     pub id: &'a str,
-/// player-facing move/fighter name.
+    /// player-facing move/fighter name.
     pub name: &'a str,
-/// Runtime sequence value used by Choice..
+    /// Runtime sequence value used by Choice..
     pub sequence: Sequence,
-/// Runtime allow new value used by Choice..
+    /// Runtime allow new value used by Choice..
     pub allow_new: bool,
 }
 /// Identity of a menu choice. Resolving it never copies a timeline, so the
 /// per-poll binding paths and list scans can ask about many choices cheaply.
 pub(super) enum Source<'a> {
-/// `Draft` option in the `Source` Smash policy state.
+    /// `Draft` option in the `Source` Smash policy state.
     Draft(
         /// Carries the draft choice source in `Source`.
         &'a catalog::Draft,
     ),
-/// `Saved` option in the `Source` Smash policy state.
+    /// `Saved` option in the `Source` Smash policy state.
     Saved(
         /// Carries the saved choice source in `Source`.
         &'a SavedChoice,
     ),
-/// `Builtin` option in the `Source` Smash policy state.
+    /// `Builtin` option in the `Source` Smash policy state.
     Builtin(
         /// Carries the builtin choice source in `Source`.
         Builtin,
     ),
-/// `Custom` option in the `Source` Smash policy state.
+    /// `Custom` option in the `Source` Smash policy state.
     Custom,
 }
 impl<'a> Source<'a> {
@@ -92,15 +92,15 @@ pub(super) fn is_blank(sequence: &Sequence) -> bool {
 /// What the catalog needs from every reaction rule, accumulated in one scan.
 #[derive(Default)]
 struct RuleScan {
-/// Runtime simplified value used by RuleScan..
+    /// Runtime simplified value used by RuleScan..
     simplified: bool,
-/// Runtime has reactions value used by RuleScan..
+    /// Runtime has reactions value used by RuleScan..
     has_reactions: bool,
-/// Runtime auto grab value used by RuleScan..
+    /// Runtime auto grab value used by RuleScan..
     auto_grab: u8,
-/// Runtime buttons value used by RuleScan..
+    /// Runtime buttons value used by RuleScan..
     buttons: u32,
-/// Runtime controls value used by RuleScan..
+    /// Runtime controls value used by RuleScan..
     controls: u8,
 }
 impl RuleScan {
@@ -287,7 +287,12 @@ impl MenuSelection {
         self.catalog.get_or_insert_with(Default::default)
     }
     /// Does a live recipe for this slot already provide the built-in action?
-    fn builtin_recorded(&self, slot: PresetSlot, builtin: Builtin, options: &[SavedChoice]) -> bool {
+    fn builtin_recorded(
+        &self,
+        slot: PresetSlot,
+        builtin: Builtin,
+        options: &[SavedChoice],
+    ) -> bool {
         options.iter().any(|c| c.sequence.builtin == Some(builtin))
             || self.catalog.as_ref().is_some_and(|c| {
                 c.drafts.iter().any(|((s, _), d)| {
@@ -752,7 +757,12 @@ impl MenuSelection {
             .then(|| "Save and restart before adding more options".into())
     }
     /// First unused `menu_added_N` id at or after `serial`, with the serial it used.
-    fn fresh_choice_id(&self, presets: &MenuPresets, slot: PresetSlot, mut serial: usize) -> (String, usize) {
+    fn fresh_choice_id(
+        &self,
+        presets: &MenuPresets,
+        slot: PresetSlot,
+        mut serial: usize,
+    ) -> (String, usize) {
         let options = presets.list(slot).options;
         let slot_key = slot as usize;
         loop {
@@ -803,7 +813,12 @@ impl MenuSelection {
             };
         }
         let name = if copy {
-            let base: String = current.name.chars().filter(|c| c.is_ascii()).take(55).collect();
+            let base: String = current
+                .name
+                .chars()
+                .filter(|c| c.is_ascii())
+                .take(55)
+                .collect();
             format!("{base} copy")
         } else {
             format!("New option {}", serial + 1)

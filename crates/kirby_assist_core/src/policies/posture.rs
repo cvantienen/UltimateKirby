@@ -18,11 +18,11 @@ pub const AUTO_CROUCH_HEIGHT: f32 = 20.0;
 /// Runtime Smash data carried by `TiltSettings`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TiltSettings {
-/// Runtime down value used by TiltSettings..
+    /// Runtime down value used by TiltSettings..
     pub down: bool,
-/// Runtime forward value used by TiltSettings..
+    /// Runtime forward value used by TiltSettings..
     pub forward: bool,
-/// Runtime up value used by TiltSettings..
+    /// Runtime up value used by TiltSettings..
     pub up: bool,
 }
 impl TiltSettings {
@@ -35,7 +35,7 @@ impl TiltSettings {
 /// Keep the digital side aliases consistent with an angled physical C-stick.
 /// Preserve physical attack edges; a target change does not invent a press.
 pub struct TiltSideAliases {
-/// Runtime previous value used by TiltSideAliases..
+    /// Runtime previous value used by TiltSideAliases..
     previous: Option<u32>,
 }
 impl Default for TiltSideAliases {

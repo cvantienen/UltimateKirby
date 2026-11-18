@@ -33,9 +33,9 @@ fn eligible_for_positioning(settings: AssistSettings, ctx: GameplayContext) -> b
 /// Runtime Smash data carried by `LedgeSpot`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LedgeSpot {
-/// Runtime edge value used by LedgeSpot..
+    /// Runtime edge value used by LedgeSpot..
     pub edge: [f32; 2],
-/// Runtime inward value used by LedgeSpot..
+    /// Runtime inward value used by LedgeSpot..
     pub inward: f32,
 }
 
@@ -65,13 +65,13 @@ pub fn nearest_ground_ledge(
 /// Runtime Smash data carried by `LedgePosition`.
 #[derive(Default)]
 pub struct LedgePosition {
-/// Runtime spot value used by LedgePosition..
+    /// Runtime spot value used by LedgePosition..
     spot: Option<LedgeSpot>,
-/// Runtime settled value used by LedgePosition..
+    /// Runtime settled value used by LedgePosition..
     settled: bool,
-/// Runtime last tick value used by LedgePosition..
+    /// Runtime last tick value used by LedgePosition..
     last_tick: Option<i64>,
-/// controller input output.
+    /// controller input output.
     output: ControllerOutput,
 }
 impl LedgePosition {

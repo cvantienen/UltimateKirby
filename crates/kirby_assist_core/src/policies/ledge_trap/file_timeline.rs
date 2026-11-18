@@ -17,53 +17,53 @@ use crate::sequence_config::{
 
 /// Runtime Smash data carried by `Timeline`.
 pub struct Timeline {
-/// Runtime sequence value used by Timeline..
+    /// Runtime sequence value used by Timeline..
     sequence: Sequence,
-/// Runtime cursor value used by Timeline..
+    /// Runtime cursor value used by Timeline..
     cursor: u8,
-/// Runtime clock value used by Timeline..
+    /// Runtime clock value used by Timeline..
     clock: NativeAttempt,
-/// Runtime step start value used by Timeline..
+    /// Runtime step start value used by Timeline..
     step_start: f32,
-/// Runtime entered value used by Timeline..
+    /// Runtime entered value used by Timeline..
     entered: bool,
-/// Runtime direction value used by Timeline..
+    /// Runtime direction value used by Timeline..
     direction: f32,
-/// Runtime cstick direction value used by Timeline..
+    /// Runtime cstick direction value used by Timeline..
     cstick_direction: f32,
-/// Runtime origin value used by Timeline..
+    /// Runtime origin value used by Timeline..
     origin: f32,
-/// Runtime enemy value used by Timeline..
+    /// Runtime enemy value used by Timeline..
     enemy: Opponent,
-/// Runtime done value used by Timeline..
+    /// Runtime done value used by Timeline..
     done: bool,
-/// controller input output.
+    /// controller input output.
     output: ControllerOutput,
-/// Runtime spatial steps value used by Timeline..
+    /// Runtime spatial steps value used by Timeline..
     spatial_steps: u32,
-/// Runtime ground steps value used by Timeline..
+    /// Runtime ground steps value used by Timeline..
     ground_steps: u32,
-/// Runtime right stick value used by Timeline..
+    /// Runtime right stick value used by Timeline..
     right_stick: [f32; 2],
-/// Runtime blocked value used by Timeline..
+    /// Runtime blocked value used by Timeline..
     blocked: bool,
-/// Runtime ledge facing value used by Timeline..
+    /// Runtime ledge facing value used by Timeline..
     ledge_facing: Option<bool>,
-/// Runtime facing captured value used by Timeline..
+    /// Runtime facing captured value used by Timeline..
     facing_captured: bool,
-/// Runtime manual epoch value used by Timeline..
+    /// Runtime manual epoch value used by Timeline..
     manual_epoch: u64,
-/// Runtime shield handoff value used by Timeline..
+    /// Runtime shield handoff value used by Timeline..
     shield_handoff: bool,
-/// Runtime continuous progress value used by Timeline..
+    /// Runtime continuous progress value used by Timeline..
     continuous_progress: bool,
-/// Runtime grounded automatic actions value used by Timeline..
+    /// Runtime grounded automatic actions value used by Timeline..
     grounded_automatic_actions: bool,
-/// Runtime automatic ground steps value used by Timeline..
+    /// Runtime automatic ground steps value used by Timeline..
     automatic_ground_steps: u32,
-/// Runtime facing jumps value used by Timeline..
+    /// Runtime facing jumps value used by Timeline..
     facing_jumps: [u8; MAX_ACTIONS],
-/// Runtime end reason value used by Timeline..
+    /// Runtime end reason value used by Timeline..
     #[cfg(feature = "diagnostic-logging")]
     pub(super) end_reason: Option<&'static str>,
 }
@@ -71,17 +71,17 @@ pub struct Timeline {
 /// One observation shared by every step handler of a sample.
 #[derive(Clone, Copy)]
 struct Frame {
-/// Runtime ctx value used by Frame..
+    /// Runtime ctx value used by Frame..
     ctx: GameplayContext,
     /// Last known state of the tracked opponent.
     enemy: Opponent,
     /// The tracked opponent as observed on this very poll, if usable.
     fresh: Option<Opponent>,
-/// Runtime anchor value used by Frame..
+    /// Runtime anchor value used by Frame..
     anchor: Option<[f32; 2]>,
-/// Runtime inward value used by Frame..
+    /// Runtime inward value used by Frame..
     inward: f32,
-/// Runtime grab reach value used by Frame..
+    /// Runtime grab reach value used by Frame..
     grab_reach: f32,
     /// Native frames since the tape started (rebased by each `while_held` loop).
     now: f32,
@@ -119,12 +119,12 @@ enum Step {
         /// Carries the target step index in `Step`.
         u8,
     ),
-/// `Output` option in the `Step` Smash policy state.
+    /// `Output` option in the `Step` Smash policy state.
     Output(
         /// Carries the controller output to send in `Step`.
         ControllerOutput,
     ),
-/// `End` option in the `Step` Smash policy state.
+    /// `End` option in the `Step` Smash policy state.
     End(
         /// Carries the end marker label in `Step`.
         &'static str,
@@ -1130,11 +1130,11 @@ fn facing_satisfied(ctx: GameplayContext, desired: f32) -> bool {
 /// Literal controller content of an input action.
 #[derive(Clone, Copy)]
 struct Literal {
-/// Runtime buttons value used by Literal..
+    /// Runtime buttons value used by Literal..
     buttons: u32,
-/// Runtime stick value used by Literal..
+    /// Runtime stick value used by Literal..
     stick: [f32; 2],
-/// Runtime cstick value used by Literal..
+    /// Runtime cstick value used by Literal..
     cstick: [f32; 2],
     /// Frames (or tap pulse width) the content is held.
     hold: u16,

@@ -52,9 +52,9 @@ pub fn automatic_up_b_receipt_status(status: i32, situation: i32, assisted_dodge
 /// Runtime Smash data carried by `AutomaticObservationScope`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct AutomaticObservationScope {
-/// Runtime acquire value used by AutomaticObservationScope..
+    /// Runtime acquire value used by AutomaticObservationScope..
     pub acquire: bool,
-/// Runtime follow value used by AutomaticObservationScope..
+    /// Runtime follow value used by AutomaticObservationScope..
     pub follow: bool,
 }
 impl AutomaticObservationScope {

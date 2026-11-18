@@ -12,14 +12,16 @@ pub const SHORT_HOP_ATTACK: u32 = MAPPER_X | MAPPER_A;
 /// sequence owner alive while waiting, without holding Jump or delaying a
 /// follow-up once its native prerequisite is observed.
 pub const ACCEPTANCE_TIMEOUT: f32 = 24.0;
+/// Shared mapper-delivery limit for bounded input receipts.
+const MAX_DELIVERY_PACKETS: u8 = 24;
 /// Last-resort bound for automatic input delivery when native animation clocks
 /// remain frozen. A mapper receipt is not proof that the move started. This
 /// does not advance a recipe or shorten a confirmed move's tracking duration.
 #[derive(Default)]
 pub(crate) struct DeliveryBudget {
-/// Runtime attempts value used by DeliveryBudget..
+    /// Runtime attempts value used by DeliveryBudget..
     attempts: u8,
-/// Runtime last tick value used by DeliveryBudget..
+    /// Runtime last tick value used by DeliveryBudget..
     last_tick: Option<i64>,
 }
 impl DeliveryBudget {
@@ -39,18 +41,18 @@ impl DeliveryBudget {
     }
     /// Determines whether the `exhausted` condition holds.
     pub fn exhausted(&self) -> bool {
-        self.attempts >= 24
+        self.attempts >= MAX_DELIVERY_PACKETS
     }
 }
 /// A delivered automatic Up-B may appear in native status after shield hitstop
 /// or input delay. Remember receipt only; never emit/retry inputs while waiting.
 #[derive(Default)]
 pub(crate) struct UpBReceipt {
-/// Runtime sent value used by UpBReceipt..
+    /// Runtime sent value used by UpBReceipt..
     sent: bool,
-/// Runtime ticks value used by UpBReceipt..
+    /// Runtime ticks value used by UpBReceipt..
     ticks: u8,
-/// Runtime last tick value used by UpBReceipt..
+    /// Runtime last tick value used by UpBReceipt..
     last_tick: Option<i64>,
 }
 impl UpBReceipt {
@@ -85,19 +87,19 @@ impl UpBReceipt {
     }
     /// Determines whether the `expired` condition holds.
     pub fn expired(&self) -> bool {
-        self.ticks >= 24
+        self.ticks >= MAX_DELIVERY_PACKETS
     }
 }
 /// What an automatic direct Up-B tape must do after this sample's checks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum UpBVerdict {
-/// `Continue` option in the `UpBVerdict` Smash policy state.
+    /// `Continue` option in the `UpBVerdict` Smash policy state.
     Continue,
     /// Native startup was just observed: resume the tape after its initial B.
     Confirm,
     /// Input-free wait for the delivered B to appear in native status.
     Wait,
-/// `Cancel` option in the `UpBVerdict` Smash policy state.
+    /// `Cancel` option in the `UpBVerdict` Smash policy state.
     Cancel,
 }
 /// One automatic direct Up-B from delivery to native confirmation. Shared by
@@ -105,24 +107,24 @@ pub(crate) enum UpBVerdict {
 /// target and the plan-presence gate.
 #[derive(Default)]
 pub(crate) struct UpBFlow {
-/// Runtime armed value used by UpBFlow..
+    /// Runtime armed value used by UpBFlow..
     armed: bool,
     /// Configured-defense flow: may begin from, and tolerate, the actor's own
     /// spot dodge, and confirms native startup even without a mapper receipt.
     /// Auto-react instead delivers its whole critical B pulse until a receipt
     /// is pending.
     defense: bool,
-/// Runtime started from dodge value used by UpBFlow..
+    /// Runtime started from dodge value used by UpBFlow..
     started_from_dodge: bool,
-/// Runtime seen value used by UpBFlow..
+    /// Runtime seen value used by UpBFlow..
     seen: bool,
-/// Runtime waiting value used by UpBFlow..
+    /// Runtime waiting value used by UpBFlow..
     waiting: bool,
-/// Runtime epoch value used by UpBFlow..
+    /// Runtime epoch value used by UpBFlow..
     epoch: u64,
-/// Runtime delivery value used by UpBFlow..
+    /// Runtime delivery value used by UpBFlow..
     delivery: DeliveryBudget,
-/// Runtime receipt value used by UpBFlow..
+    /// Runtime receipt value used by UpBFlow..
     receipt: UpBReceipt,
 }
 impl UpBFlow {
@@ -195,7 +197,8 @@ impl UpBFlow {
     /// Native confirmation and lifecycle checks before the tape is sampled.
     pub fn advance(&mut self, c: crate::gameplay::GameplayContext, kind: i32) -> UpBVerdict {
         use crate::native_states::{status, ESCAPE, ESCAPE_AIR_SLIDE, ESCAPE_F, GUARD_DAMAGE};
-        let native = crate::reaction_rules::automatic_up_b_status(kind, c.status, c.previous_status);
+        let native =
+            crate::reaction_rules::automatic_up_b_status(kind, c.status, c.previous_status);
         let confirm = match crate::up_b_receipt::evaluate(
             self.seen,
             native,
@@ -300,27 +303,27 @@ pub fn output(stick: [f32; 2], requested: u32) -> crate::gameplay::ControllerOut
 /// Available `Aerial` choices for the Smash assistance menu.
 #[derive(Clone, Copy)]
 pub enum Aerial {
-/// `Neutral` option in the `Aerial` Smash policy state.
+    /// `Neutral` option in the `Aerial` Smash policy state.
     Neutral,
-/// `Forward` option in the `Aerial` Smash policy state.
+    /// `Forward` option in the `Aerial` Smash policy state.
     Forward,
-/// `Back` option in the `Aerial` Smash policy state.
+    /// `Back` option in the `Aerial` Smash policy state.
     Back,
-/// `Up` option in the `Aerial` Smash policy state.
+    /// `Up` option in the `Aerial` Smash policy state.
     Up,
-/// `Down` option in the `Aerial` Smash policy state.
+    /// `Down` option in the `Aerial` Smash policy state.
     Down,
 }
 /// Available `Smash` choices for the Smash assistance menu.
 #[derive(Clone, Copy)]
 pub enum Smash {
-/// `Forward` option in the `Smash` Smash policy state.
+    /// `Forward` option in the `Smash` Smash policy state.
     Forward,
-/// `ForwardUp` option in the `Smash` Smash policy state.
+    /// `ForwardUp` option in the `Smash` Smash policy state.
     ForwardUp,
-/// `Up` option in the `Smash` Smash policy state.
+    /// `Up` option in the `Smash` Smash policy state.
     Up,
-/// `Down` option in the `Smash` Smash policy state.
+    /// `Down` option in the `Smash` Smash policy state.
     Down,
 }
 /// Callers provide a neutral release before this flick, and release Attack on

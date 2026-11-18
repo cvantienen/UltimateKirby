@@ -85,9 +85,9 @@ fn input(buttons: u32, stick: [f32; 2], frames: u8, relative: bool) -> Action {
 /// One colon-separated action token after alias normalization. Every accessor
 /// reports failures against the author's original text.
 struct Args<'a> {
-/// Runtime token value used by Args..
+    /// Runtime token value used by Args..
     token: &'a str,
-/// Runtime parts value used by Args..
+    /// Runtime parts value used by Args..
     parts: Vec<&'a str>,
 }
 
@@ -380,7 +380,12 @@ fn press(args: &Args) -> Result<Action, String> {
     if args.len() != 2 && args.len() != 3 {
         return Err("use press:BUTTONS[:FRAMES] or hold:BUTTONS:FRAMES".into());
     }
-    Ok(input(args.buttons(1)?, [0.0; 2], args.duration(2, 1)?, false))
+    Ok(input(
+        args.buttons(1)?,
+        [0.0; 2],
+        args.duration(2, 1)?,
+        false,
+    ))
 }
 
 /// Returns the `controller_input` result.
@@ -590,7 +595,10 @@ fn named_move(args: &Args, sequence: &mut Sequence) -> Result<(), String> {
         return Err("full_hop requires an explicit hold duration, e.g. full_hop:4".into());
     }
     if paired && !pairs_with_short_hop(name) {
-        return Err(format!("{}: short_hop_ requires an aerial name", args.token));
+        return Err(format!(
+            "{}: short_hop_ requires an aerial name",
+            args.token
+        ));
     }
     let strength = args.float_or(2, 1.0, 0.0, 1.0)?;
     push(

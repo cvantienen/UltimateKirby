@@ -9,9 +9,9 @@ use crate::{
 /// Runtime Smash data carried by `Timing`.
 #[derive(Clone, Copy)]
 pub(super) struct Timing {
-/// Runtime delivery value used by Timing..
+    /// Runtime delivery value used by Timing..
     pub delivery: u8,
-/// Runtime timeout value used by Timing..
+    /// Runtime timeout value used by Timing..
     pub timeout: u16,
 }
 impl Timing {
@@ -26,17 +26,17 @@ impl Timing {
 /// Runtime Smash data carried by `ShieldUpB`.
 #[derive(Default)]
 pub(super) struct ShieldUpB {
-/// selected opponent/projectile target.
+    /// selected opponent/projectile target.
     target: Option<u32>,
-/// Runtime clock value used by ShieldUpB..
+    /// Runtime clock value used by ShieldUpB..
     clock: NativeAttempt,
-/// Runtime mapped value used by ShieldUpB..
+    /// Runtime mapped value used by ShieldUpB..
     mapped: u8,
-/// Runtime last mapped value used by ShieldUpB..
+    /// Runtime last mapped value used by ShieldUpB..
     last_mapped: Option<i64>,
-/// Runtime receipt value used by ShieldUpB..
+    /// Runtime receipt value used by ShieldUpB..
     receipt: crate::move_input::UpBReceipt,
-/// Runtime waiting value used by ShieldUpB..
+    /// Runtime waiting value used by ShieldUpB..
     waiting: bool,
 }
 impl ShieldUpB {

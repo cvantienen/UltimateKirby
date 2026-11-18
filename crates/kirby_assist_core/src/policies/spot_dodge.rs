@@ -12,25 +12,25 @@ pub const ESCAPE: i32 = crate::native_states::ESCAPE;
 /// Runtime Smash data carried by `Context`.
 #[derive(Clone, Copy)]
 pub struct Context {
-/// Runtime object value used by Context..
+    /// Runtime object value used by Context..
     pub object: u32,
-/// native fighter status.
+    /// native fighter status.
     pub status: i32,
-/// Runtime situation value used by Context..
+    /// Runtime situation value used by Context..
     pub situation: i32,
-/// native animation/motion ID.
+    /// native animation/motion ID.
     pub motion: u64,
-/// current native animation frame.
+    /// current native animation frame.
     pub frame: f32,
-/// native animation playback rate.
+    /// native animation playback rate.
     pub rate: f32,
-/// Runtime stopped value used by Context..
+    /// Runtime stopped value used by Context..
     pub stopped: bool,
-/// Runtime can spot dodge value used by Context..
+    /// Runtime can spot dodge value used by Context..
     pub can_spot_dodge: bool,
-/// world-space position.
+    /// world-space position.
     pub position: [f32; 2],
-/// world-space velocity.
+    /// world-space velocity.
     pub velocity: [f32; 2],
 }
 /// Determines whether the `ground_status` condition holds.
@@ -56,43 +56,43 @@ fn valid_clock_rate(c: Context) -> bool {
 /// Runtime Smash data carried by `Target`.
 #[derive(Clone, Copy)]
 pub struct Target {
-/// battle-object ID.
+    /// battle-object ID.
     pub id: u32,
-/// native fighter status.
+    /// native fighter status.
     pub status: i32,
-/// native animation/motion ID.
+    /// native animation/motion ID.
     pub motion: u64,
-/// current native animation frame.
+    /// current native animation frame.
     pub frame: f32,
-/// native animation playback rate.
+    /// native animation playback rate.
     pub rate: f32,
-/// world-space position.
+    /// world-space position.
     pub position: [f32; 2],
-/// world-space velocity.
+    /// world-space velocity.
     pub velocity: [f32; 2],
-/// left/right facing sign.
+    /// left/right facing sign.
     pub facing: f32,
-/// Runtime first value used by Target..
+    /// Runtime first value used by Target..
     pub first: u8,
-/// Runtime last value used by Target..
+    /// Runtime last value used by Target..
     pub last: u8,
-/// Runtime reach value used by Target..
+    /// Runtime reach value used by Target..
     pub reach: f32,
 }
 /// Runtime Smash data carried by `Track`.
 #[derive(Clone, Copy)]
 struct Track {
-/// battle-object ID.
+    /// battle-object ID.
     id: u32,
-/// native fighter status.
+    /// native fighter status.
     status: i32,
-/// native animation/motion ID.
+    /// native animation/motion ID.
     motion: u64,
-/// current native animation frame.
+    /// current native animation frame.
     frame: f32,
-/// native animation playback rate.
+    /// native animation playback rate.
     rate: f32,
-/// Runtime used value used by Track..
+    /// Runtime used value used by Track..
     used: bool,
 }
 
@@ -102,11 +102,11 @@ type Tracks = [Option<Track>; crate::battle_objects::FIGHTER_CAPACITY];
 /// Runtime Smash data carried by `ThreatWindow`.
 #[derive(Clone, Copy)]
 struct ThreatWindow {
-/// Runtime lookahead value used by ThreatWindow..
+    /// Runtime lookahead value used by ThreatWindow..
     lookahead: f32,
-/// Runtime padding value used by ThreatWindow..
+    /// Runtime padding value used by ThreatWindow..
     padding: f32,
-/// Runtime height value used by ThreatWindow..
+    /// Runtime height value used by ThreatWindow..
     height: f32,
 }
 
@@ -304,29 +304,29 @@ pub fn contact_with_shape(
 /// Runtime Smash data carried by `SpotDodge`.
 #[derive(Default)]
 pub struct SpotDodge {
-/// Runtime object value used by SpotDodge..
+    /// Runtime object value used by SpotDodge..
     object: Option<u32>,
-/// Runtime previous value used by SpotDodge..
+    /// Runtime previous value used by SpotDodge..
     previous: Option<(i32, u64, f32, f32)>,
-/// Runtime tracks value used by SpotDodge..
+    /// Runtime tracks value used by SpotDodge..
     tracks: [Option<Track>; crate::battle_objects::FIGHTER_CAPACITY],
-/// selected opponent/projectile target.
+    /// selected opponent/projectile target.
     target: Option<u32>,
-/// Runtime age value used by SpotDodge..
+    /// Runtime age value used by SpotDodge..
     age: f32,
-/// controller input output.
+    /// controller input output.
     output: ControllerOutput,
-/// Runtime response value used by SpotDodge..
+    /// Runtime response value used by SpotDodge..
     response: crate::defense_response::Response,
-/// Runtime punish target value used by SpotDodge..
+    /// Runtime punish target value used by SpotDodge..
     punish_target: Option<u32>,
-/// Runtime mapped value used by SpotDodge..
+    /// Runtime mapped value used by SpotDodge..
     mapped: u8,
-/// Runtime last mapped value used by SpotDodge..
+    /// Runtime last mapped value used by SpotDodge..
     last_mapped: Option<i64>,
-/// Runtime dodge delivered value used by SpotDodge..
+    /// Runtime dodge delivered value used by SpotDodge..
     dodge_delivered: bool,
-/// Runtime punish clock value used by SpotDodge..
+    /// Runtime punish clock value used by SpotDodge..
     punish_clock: crate::ledge_trap::NativeAttempt,
 }
 impl SpotDodge {
@@ -768,31 +768,31 @@ impl SpotDodge {
 pub mod roll_read {
     //! Shared copied opponent facts used by reaction and out-of-shield policies.
 
-/// `ESCAPE_F` is a configuration value used by the Smash runtime.
+    /// `ESCAPE_F` is a configuration value used by the Smash runtime.
     pub const ESCAPE_F: i32 = crate::native_states::ESCAPE_F;
-/// `ESCAPE_B` is a configuration value used by the Smash runtime.
+    /// `ESCAPE_B` is a configuration value used by the Smash runtime.
     pub const ESCAPE_B: i32 = crate::native_states::ESCAPE_B;
 
-/// Runtime Smash data carried by `Target`.
+    /// Runtime Smash data carried by `Target`.
     #[derive(Clone, Copy)]
     pub struct Target {
-/// battle-object ID.
+        /// battle-object ID.
         pub id: u32,
-/// native fighter status.
+        /// native fighter status.
         pub status: i32,
         /// Copied native motion identity for the configurable rule clock.
         pub motion: u64,
-/// current native animation frame.
+        /// current native animation frame.
         pub frame: f32,
-/// native animation playback rate.
+        /// native animation playback rate.
         pub rate: f32,
-/// world-space position.
+        /// world-space position.
         pub position: [f32; 2],
-/// Runtime velocity x value used by Target..
+        /// Runtime velocity x value used by Target..
         pub velocity_x: f32,
-/// Runtime vulnerable in value used by Target..
+        /// Runtime vulnerable in value used by Target..
         pub vulnerable_in: Option<f32>,
-/// Runtime actionable in value used by Target..
+        /// Runtime actionable in value used by Target..
         pub actionable_in: Option<f32>,
     }
     impl Target {

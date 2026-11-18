@@ -10,27 +10,27 @@ use crate::{
 /// Runtime Smash data carried by `AutomaticConfig`.
 #[derive(Clone, Copy, Default)]
 pub struct AutomaticConfig<'a> {
-/// Runtime grab value used by AutomaticConfig..
+    /// Runtime grab value used by AutomaticConfig..
     pub grab: Option<&'a Sequence>,
-/// Runtime shield grab value used by AutomaticConfig..
+    /// Runtime shield grab value used by AutomaticConfig..
     pub shield_grab: Option<&'a Sequence>,
-/// Runtime backup value used by AutomaticConfig..
+    /// Runtime backup value used by AutomaticConfig..
     pub backup: Option<&'a Sequence>,
 }
 /// Runtime Smash data carried by `AutomaticLimits`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AutomaticLimits {
-/// Runtime close value used by AutomaticLimits..
+    /// Runtime close value used by AutomaticLimits..
     pub close: f32,
-/// Runtime approach value used by AutomaticLimits..
+    /// Runtime approach value used by AutomaticLimits..
     pub approach: f32,
-/// Runtime grab height value used by AutomaticLimits..
+    /// Runtime grab height value used by AutomaticLimits..
     pub grab_height: f32,
-/// Runtime shield height value used by AutomaticLimits..
+    /// Runtime shield height value used by AutomaticLimits..
     pub shield_height: f32,
-/// Runtime backup value used by AutomaticLimits..
+    /// Runtime backup value used by AutomaticLimits..
     pub backup: f32,
-/// Runtime backup height value used by AutomaticLimits..
+    /// Runtime backup height value used by AutomaticLimits..
     pub backup_height: f32,
 }
 impl AutomaticLimits {
@@ -134,25 +134,25 @@ fn backup_timing(s: &Sequence) -> Option<super::shield_up_b::Timing> {
 /// One automatic sample's facts, shared by the steps below.
 #[derive(Clone, Copy)]
 struct Sample<'a> {
-/// Runtime allowed value used by Sample..
+    /// Runtime allowed value used by Sample..
     allowed: bool,
-/// Runtime c value used by Sample..
+    /// Runtime c value used by Sample..
     c: Context,
-/// Runtime context value used by Sample..
+    /// Runtime context value used by Sample..
     context: GameplayContext,
-/// Runtime targets value used by Sample..
+    /// Runtime targets value used by Sample..
     targets: [Option<crate::roll_read::Target>; 8],
-/// Runtime follow value used by Sample..
+    /// Runtime follow value used by Sample..
     follow: Option<Opponent>,
-/// Runtime shielded value used by Sample..
+    /// Runtime shielded value used by Sample..
     shielded: bool,
-/// Runtime limits value used by Sample..
+    /// Runtime limits value used by Sample..
     limits: AutomaticLimits,
-/// Runtime startup value used by Sample..
+    /// Runtime startup value used by Sample..
     startup: Option<f32>,
-/// Runtime settings value used by Sample..
+    /// Runtime settings value used by Sample..
     settings: AssistSettings,
-/// Runtime config value used by Sample..
+    /// Runtime config value used by Sample..
     config: AutomaticConfig<'a>,
 }
 impl Sample<'_> {
@@ -287,9 +287,7 @@ impl OutOfShield {
 
     /// Returns the `settle_grab` result.
     fn settle_grab(&mut self, f: &Sample) -> ControllerOutput {
-        let _ = self
-            .response
-            .sample(false, f.settings, f.context, f.follow);
+        let _ = self.response.sample(false, f.settings, f.context, f.follow);
         self.configured_response = self.response.grab_delivery_pending();
         let _ = self.sample_configured_grab(f);
         if !self.simple.delivery_pending() {

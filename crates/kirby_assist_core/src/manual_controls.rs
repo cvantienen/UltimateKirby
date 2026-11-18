@@ -19,13 +19,13 @@ mod assist_handoff {
     /// while the native fighter has not acknowledged the queued jump yet.
     #[derive(Default)]
     pub struct ManualJumpFence {
-/// Runtime owner value used by ManualJumpFence..
+        /// Runtime owner value used by ManualJumpFence..
         owner: Option<(u32, i32)>,
-/// Runtime held value used by ManualJumpFence..
+        /// Runtime held value used by ManualJumpFence..
         held: bool,
-/// Runtime pending value used by ManualJumpFence..
+        /// Runtime pending value used by ManualJumpFence..
         pending: bool,
-/// Runtime clock value used by ManualJumpFence..
+        /// Runtime clock value used by ManualJumpFence..
         clock: NativeAttempt,
     }
     impl ManualJumpFence {
@@ -75,14 +75,14 @@ mod assist_handoff {
         }
     }
 
-/// Runtime Smash data carried by `AssistGuardHandoff`.
+    /// Runtime Smash data carried by `AssistGuardHandoff`.
     #[derive(Default)]
     pub struct AssistGuardHandoff {
-/// Runtime blocked value used by AssistGuardHandoff..
+        /// Runtime blocked value used by AssistGuardHandoff..
         blocked: u32,
-/// Runtime previous value used by AssistGuardHandoff..
+        /// Runtime previous value used by AssistGuardHandoff..
         previous: Option<u32>,
-/// Runtime protected value used by AssistGuardHandoff..
+        /// Runtime protected value used by AssistGuardHandoff..
         protected: u32,
     }
     impl AssistGuardHandoff {
@@ -210,19 +210,19 @@ pub const STICK_CLICKS: u32 = crate::native_input::MAPPER_STICK_CLICKS;
 /// Runtime Smash data carried by `ManualContext`.
 #[derive(Clone, Copy, Debug)]
 pub struct ManualContext {
-/// native fighter status.
+    /// native fighter status.
     pub status: i32,
-/// Runtime situation value used by ManualContext..
+    /// Runtime situation value used by ManualContext..
     pub situation: i32,
-/// native animation/motion ID.
+    /// native animation/motion ID.
     pub motion: u64,
-/// current native animation frame.
+    /// current native animation frame.
     pub frame: f32,
-/// native animation playback rate.
+    /// native animation playback rate.
     pub rate: f32,
-/// Runtime stopped value used by ManualContext..
+    /// Runtime stopped value used by ManualContext..
     pub stopped: bool,
-/// left/right facing sign.
+    /// left/right facing sign.
     pub facing: f32,
 }
 
@@ -296,7 +296,7 @@ pub fn stop_walk_at_ledge(
 /// a diagonal or its release cannot turn into a different taunt.
 #[derive(Default)]
 pub struct DpadReservation {
-/// Runtime quarantined value used by DpadReservation..
+    /// Runtime quarantined value used by DpadReservation..
     quarantined: u32,
 }
 impl DpadReservation {
@@ -347,7 +347,7 @@ pub fn turbo_movement_allowed(status: i32, situation: i32, stopped: bool) -> boo
 /// Runtime Smash data carried by `TurboOutput`.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct TurboOutput {
-/// Runtime stick value used by TurboOutput..
+    /// Runtime stick value used by TurboOutput..
     pub stick: Option<[f32; 2]>,
 }
 
@@ -356,17 +356,17 @@ pub struct TurboOutput {
 /// online input sampling cannot shorten the pivot window.
 #[derive(Default)]
 pub struct DashPivotAssist {
-/// Runtime last direction value used by DashPivotAssist..
+    /// Runtime last direction value used by DashPivotAssist..
     last_direction: i8,
-/// Runtime active direction value used by DashPivotAssist..
+    /// Runtime active direction value used by DashPivotAssist..
     active_direction: i8,
-/// Runtime dash walk direction value used by DashPivotAssist..
+    /// Runtime dash walk direction value used by DashPivotAssist..
     dash_walk_direction: i8,
-/// Runtime updates left value used by DashPivotAssist..
+    /// Runtime updates left value used by DashPivotAssist..
     updates_left: u8,
-/// Runtime last tick value used by DashPivotAssist..
+    /// Runtime last tick value used by DashPivotAssist..
     last_tick: Option<i64>,
-/// Runtime last output value used by DashPivotAssist..
+    /// Runtime last output value used by DashPivotAssist..
     last_output: TurboOutput,
 }
 impl DashPivotAssist {
@@ -490,13 +490,13 @@ impl DashPivotAssist {
 /// Runtime Smash data carried by `TurboState`.
 #[derive(Default)]
 pub struct TurboState {
-/// Runtime direction value used by TurboState..
+    /// Runtime direction value used by TurboState..
     direction: i8,
-/// Runtime next phase value used by TurboState..
+    /// Runtime next phase value used by TurboState..
     next_phase: u32,
-/// Runtime last tick value used by TurboState..
+    /// Runtime last tick value used by TurboState..
     last_tick: Option<i64>,
-/// Runtime last output value used by TurboState..
+    /// Runtime last output value used by TurboState..
     last_output: TurboOutput,
 }
 impl TurboState {
@@ -561,21 +561,21 @@ impl TurboState {
 /// owning stick/attack/shield fields only while the active policy requests them.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ManualFrame {
-/// Runtime buttons value used by ManualFrame..
+    /// Runtime buttons value used by ManualFrame..
     pub buttons: ButtonTrace,
-/// Runtime stick value used by ManualFrame..
+    /// Runtime stick value used by ManualFrame..
     pub stick: [f32; 2],
-/// Runtime clear autorepeat value used by ManualFrame..
+    /// Runtime clear autorepeat value used by ManualFrame..
     pub clear_autorepeat: u32,
 }
 /// Runtime Smash data carried by `ManualOverlay`.
 #[derive(Default)]
 pub struct ManualOverlay {
-/// Runtime buttons value used by ManualOverlay..
+    /// Runtime buttons value used by ManualOverlay..
     buttons: MapperButtonOverlay,
-/// Runtime had stick override value used by ManualOverlay..
+    /// Runtime had stick override value used by ManualOverlay..
     had_stick_override: bool,
-/// Runtime reaction owned value used by ManualOverlay..
+    /// Runtime reaction owned value used by ManualOverlay..
     reaction_owned: bool,
 }
 impl ManualOverlay {
@@ -768,11 +768,11 @@ mod tests;
 /// Constant-size physical-input history for explicit sequence handback.
 #[derive(Clone, Copy, Default)]
 pub struct ManualTakeover {
-/// Runtime previous value used by ManualTakeover..
+    /// Runtime previous value used by ManualTakeover..
     previous: Option<(u32, [f32; 4])>,
-/// Runtime epoch value used by ManualTakeover..
+    /// Runtime epoch value used by ManualTakeover..
     epoch: u64,
-/// Runtime action epoch value used by ManualTakeover..
+    /// Runtime action epoch value used by ManualTakeover..
     action_epoch: u64,
 }
 impl ManualTakeover {

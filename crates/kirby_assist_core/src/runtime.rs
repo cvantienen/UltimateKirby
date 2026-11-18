@@ -7,9 +7,9 @@ use crate::{AssistConfig, AssistEngine, FrameDecision, GameAdapter, InputPermiss
 /// Runtime Smash data carried by `AssistRuntime`.
 #[derive(Clone, Debug, Default)]
 pub struct AssistRuntime {
-/// Runtime config value used by AssistRuntime..
+    /// Runtime config value used by AssistRuntime..
     pub config: AssistConfig,
-/// Runtime permissions value used by AssistRuntime..
+    /// Runtime permissions value used by AssistRuntime..
     pub permissions: InputPermissions,
 }
 
@@ -51,15 +51,15 @@ mod tests {
         GameObservationSource, InputBridge, RunContext, Scenario,
     };
 
-/// Runtime Smash data carried by `Adapter`.
+    /// Runtime Smash data carried by `Adapter`.
     struct Adapter {
-/// Runtime observation value used by Adapter..
+        /// Runtime observation value used by Adapter..
         observation: Option<FighterObservation>,
-/// Runtime human value used by Adapter..
+        /// Runtime human value used by Adapter..
         human: Option<ControllerFrame>,
-/// Runtime context value used by Adapter..
+        /// Runtime context value used by Adapter..
         context: Option<RunContext>,
-/// Runtime writes value used by Adapter..
+        /// Runtime writes value used by Adapter..
         writes: Vec<ControllerFrame>,
     }
 
@@ -146,19 +146,19 @@ mod tests {
 pub mod runtime_toggle {
     //! Deliberate master-switch gesture. Match detection is supplied by the adapter.
     use std::time::Duration;
-/// `CHORD` is a configuration value used by the Smash runtime.
+    /// `CHORD` is a configuration value used by the Smash runtime.
     pub const CHORD: u64 = (1 << 10) | (1 << 11);
-/// `HOLD` is a configuration value used by the Smash runtime.
+    /// `HOLD` is a configuration value used by the Smash runtime.
     const HOLD: Duration = Duration::from_millis(350);
-/// `RELEASE` is a configuration value used by the Smash runtime.
+    /// `RELEASE` is a configuration value used by the Smash runtime.
     const RELEASE: Duration = Duration::from_millis(150);
-/// Runtime Smash data carried by `RuntimeToggle`.
+    /// Runtime Smash data carried by `RuntimeToggle`.
     pub struct RuntimeToggle {
-/// Runtime armed value used by RuntimeToggle..
+        /// Runtime armed value used by RuntimeToggle..
         armed: bool,
-/// Runtime held since value used by RuntimeToggle..
+        /// Runtime held since value used by RuntimeToggle..
         held_since: Option<Duration>,
-/// Runtime released since value used by RuntimeToggle..
+        /// Runtime released since value used by RuntimeToggle..
         released_since: Option<Duration>,
     }
     impl RuntimeToggle {
@@ -269,7 +269,7 @@ pub mod session {
     /// local fighter callbacks stop. A mapper call alone never renews this lease.
     #[derive(Default)]
     pub struct MenuPresence {
-/// Runtime last fighter value used by MenuPresence..
+        /// Runtime last fighter value used by MenuPresence..
         last_fighter: Option<Instant>,
     }
     impl MenuPresence {
@@ -303,9 +303,9 @@ pub mod session {
     /// Represents the current match session, tracking readiness and epoch for session validation.
     #[derive(Clone, Copy, Debug, Default)]
     pub struct MatchSession {
-/// Runtime ready value used by MatchSession..
+        /// Runtime ready value used by MatchSession..
         ready: bool,
-/// Runtime epoch value used by MatchSession..
+        /// Runtime epoch value used by MatchSession..
         epoch: u64,
     }
     impl MatchSession {

@@ -9,23 +9,28 @@ use crate::{
 /// Reach and mode of one automatic grab admission.
 #[derive(Clone, Copy)]
 pub(super) struct Reach {
-/// Runtime range value used by Reach..
+    /// Runtime range value used by Reach..
     pub range: f32,
-/// Runtime height value used by Reach..
+    /// Runtime height value used by Reach..
     pub height: f32,
-/// Runtime startup value used by Reach..
+    /// Runtime startup value used by Reach..
     pub startup: Option<f32>,
     /// An idle approach farther than this must enter native dash before R.
     pub close: f32,
-/// Runtime approach value used by Reach..
+    /// Runtime approach value used by Reach..
     pub approach: bool,
-/// Runtime shielded value used by Reach..
+    /// Runtime shielded value used by Reach..
     pub shielded: bool,
 }
 
 /// Determines whether the `target_valid` condition holds.
 /// Checks whether target valid.
-pub(super) fn target_valid(c: super::Context, lc: GameplayContext, e: Opponent, reach: Reach) -> bool {
+pub(super) fn target_valid(
+    c: super::Context,
+    lc: GameplayContext,
+    e: Opponent,
+    reach: Reach,
+) -> bool {
     let Reach {
         range,
         height,
@@ -56,35 +61,35 @@ pub(super) fn target_valid(c: super::Context, lc: GameplayContext, e: Opponent, 
 /// Runtime Smash data carried by `Grab`.
 #[derive(Default)]
 pub(super) struct Grab {
-/// selected opponent/projectile target.
+    /// selected opponent/projectile target.
     target: Option<u32>,
-/// Runtime clock value used by Grab..
+    /// Runtime clock value used by Grab..
     clock: NativeAttempt,
-/// Runtime mapped value used by Grab..
+    /// Runtime mapped value used by Grab..
     mapped: u8,
-/// Runtime last mapped value used by Grab..
+    /// Runtime last mapped value used by Grab..
     last_mapped: Option<i64>,
-/// Runtime approach value used by Grab..
+    /// Runtime approach value used by Grab..
     approach: bool,
-/// Runtime dash sent value used by Grab..
+    /// Runtime dash sent value used by Grab..
     dash_sent: bool,
-/// Runtime direction value used by Grab..
+    /// Runtime direction value used by Grab..
     direction: f32,
-/// Runtime await dash value used by Grab..
+    /// Runtime await dash value used by Grab..
     await_dash: bool,
-/// Runtime assisted dash value used by Grab..
+    /// Runtime assisted dash value used by Grab..
     assisted_dash: bool,
-/// Runtime approach mapped value used by Grab..
+    /// Runtime approach mapped value used by Grab..
     approach_mapped: u8,
-/// Runtime delivery polls value used by Grab..
+    /// Runtime delivery polls value used by Grab..
     delivery_polls: u8,
-/// Runtime last delivery poll value used by Grab..
+    /// Runtime last delivery poll value used by Grab..
     last_delivery_poll: Option<i64>,
-/// Runtime approach polls value used by Grab..
+    /// Runtime approach polls value used by Grab..
     approach_polls: u8,
-/// Runtime last approach poll value used by Grab..
+    /// Runtime last approach poll value used by Grab..
     last_approach_poll: Option<i64>,
-/// Runtime failed approach value used by Grab..
+    /// Runtime failed approach value used by Grab..
     failed_approach: Option<(u32, u64)>,
 }
 impl Grab {

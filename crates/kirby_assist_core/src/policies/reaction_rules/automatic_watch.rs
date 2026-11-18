@@ -4,11 +4,11 @@ use super::*;
 /// Runtime Smash data carried by `SimpleStart`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SimpleStart {
-/// Runtime distance value used by SimpleStart..
+    /// Runtime distance value used by SimpleStart..
     pub distance: f32,
-/// Runtime height value used by SimpleStart..
+    /// Runtime height value used by SimpleStart..
     pub height: f32,
-/// Runtime up special value used by SimpleStart..
+    /// Runtime up special value used by SimpleStart..
     pub up_special: bool,
 }
 

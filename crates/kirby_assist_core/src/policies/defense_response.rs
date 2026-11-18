@@ -11,19 +11,19 @@ use crate::{
 /// Runtime Smash data carried by `Response`.
 #[derive(Default)]
 pub struct Response {
-/// Runtime plan value used by Response..
+    /// Runtime plan value used by Response..
     plan: Option<InputTimeline>,
-/// selected opponent/projectile target.
+    /// selected opponent/projectile target.
     target: Option<u32>,
-/// Runtime up b value used by Response..
+    /// Runtime up b value used by Response..
     up_b: UpBFlow,
-/// Runtime configured value used by Response..
+    /// Runtime configured value used by Response..
     configured: bool,
-/// Runtime grab sent value used by Response..
+    /// Runtime grab sent value used by Response..
     grab_sent: bool,
-/// Runtime grab settling value used by Response..
+    /// Runtime grab settling value used by Response..
     grab_settling: bool,
-/// Runtime grab delivery value used by Response..
+    /// Runtime grab delivery value used by Response..
     grab_delivery: crate::move_input::DeliveryBudget,
 }
 impl Response {

@@ -7,7 +7,7 @@ use crate::fighter_profiles::{presets::PresetSlot, FighterProfiles};
 pub mod layout {
     //! Bounded, save-time presentation only. Never used by input/frame processing.
     use super::MAX_FILE_BYTES;
-/// `BORDER` is a configuration value used by the Smash runtime.
+    /// `BORDER` is a configuration value used by the Smash runtime.
     const BORDER: &str =
         "# ========================================================================";
 
@@ -259,26 +259,26 @@ mod library {
     };
     use std::collections::BTreeMap;
 
-/// Runtime Smash data carried by `PackedSequence`.
+    /// Runtime Smash data carried by `PackedSequence`.
     #[derive(Debug)]
     struct PackedSequence {
-/// Runtime actions value used by PackedSequence..
+        /// Runtime actions value used by PackedSequence..
         actions: Box<[Action]>,
-/// Runtime start delay value used by PackedSequence..
+        /// Runtime start delay value used by PackedSequence..
         start_delay: u16,
-/// Runtime timeout value used by PackedSequence..
+        /// Runtime timeout value used by PackedSequence..
         timeout: u16,
-/// Runtime spatial timeout value used by PackedSequence..
+        /// Runtime spatial timeout value used by PackedSequence..
         spatial_timeout: u16,
-/// Runtime mode value used by PackedSequence..
+        /// Runtime mode value used by PackedSequence..
         mode: Option<ModeBinding>,
-/// Runtime builtin value used by PackedSequence..
+        /// Runtime builtin value used by PackedSequence..
         builtin: Option<Builtin>,
-/// Runtime while held value used by PackedSequence..
+        /// Runtime while held value used by PackedSequence..
         while_held: bool,
-/// Runtime ground only value used by PackedSequence..
+        /// Runtime ground only value used by PackedSequence..
         ground_only: bool,
-/// Runtime reaction value used by PackedSequence..
+        /// Runtime reaction value used by PackedSequence..
         reaction: Rule,
     }
     impl PackedSequence {
@@ -314,28 +314,28 @@ mod library {
             sequence
         }
     }
-/// Runtime Smash data carried by `PackedEntry`.
+    /// Runtime Smash data carried by `PackedEntry`.
     #[derive(Debug)]
     struct PackedEntry {
-/// Runtime slot value used by PackedEntry..
+        /// Runtime slot value used by PackedEntry..
         slot: PresetSlot,
-/// Runtime choice value used by PackedEntry..
+        /// Runtime choice value used by PackedEntry..
         choice: String,
-/// player-facing move/fighter name.
+        /// player-facing move/fighter name.
         name: Option<String>,
-/// Runtime default value used by PackedEntry..
+        /// Runtime default value used by PackedEntry..
         default: bool,
-/// Runtime explicit start value used by PackedEntry..
+        /// Runtime explicit start value used by PackedEntry..
         explicit_start: bool,
-/// Runtime sequence value used by PackedEntry..
+        /// Runtime sequence value used by PackedEntry..
         sequence: PackedSequence,
     }
-/// Runtime Smash data carried by `Fighter`.
+    /// Runtime Smash data carried by `Fighter`.
     #[derive(Debug, Default)]
     struct Fighter {
-/// player-facing move/fighter name.
+        /// player-facing move/fighter name.
         name: String,
-/// Runtime entries value used by Fighter..
+        /// Runtime entries value used by Fighter..
         entries: Vec<PackedEntry>,
     }
     /// Parsed once at startup/on the explicit save worker. Dormant fighters retain
@@ -343,13 +343,13 @@ mod library {
     /// Lookup is indexed by native fighter identity; it never falls back to Kirby.
     #[derive(Debug, Default)]
     pub struct SequenceLibrary {
-/// Runtime fighters value used by SequenceLibrary..
+        /// Runtime fighters value used by SequenceLibrary..
         fighters: BTreeMap<i32, Fighter>,
-/// Runtime entries value used by SequenceLibrary..
+        /// Runtime entries value used by SequenceLibrary..
         entries: usize,
-/// Runtime tuning value used by SequenceLibrary..
+        /// Runtime tuning value used by SequenceLibrary..
         pub tuning: BTreeMap<i32, Tuning>,
-/// Runtime templates value used by SequenceLibrary..
+        /// Runtime templates value used by SequenceLibrary..
         pub templates: Vec<Template>,
     }
     impl SequenceLibrary {
@@ -452,23 +452,23 @@ pub const MAX_ENTRIES: usize = 2112;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Direction {
     #[default]
-/// `Opponent` option in the `Direction` Smash policy state.
+    /// `Opponent` option in the `Direction` Smash policy state.
     Opponent,
-/// `AwayFromOpponent` option in the `Direction` Smash policy state.
+    /// `AwayFromOpponent` option in the `Direction` Smash policy state.
     AwayFromOpponent,
-/// `Ledge` option in the `Direction` Smash policy state.
+    /// `Ledge` option in the `Direction` Smash policy state.
     Ledge,
-/// `Inward` option in the `Direction` Smash policy state.
+    /// `Inward` option in the `Direction` Smash policy state.
     Inward,
-/// `Outward` option in the `Direction` Smash policy state.
+    /// `Outward` option in the `Direction` Smash policy state.
     Outward,
-/// `Facing` option in the `Direction` Smash policy state.
+    /// `Facing` option in the `Direction` Smash policy state.
     Facing,
-/// `Backward` option in the `Direction` Smash policy state.
+    /// `Backward` option in the `Direction` Smash policy state.
     Backward,
-/// `SavedLedge` option in the `Direction` Smash policy state.
+    /// `SavedLedge` option in the `Direction` Smash policy state.
     SavedLedge,
-/// `AwayFromLedge` option in the `Direction` Smash policy state.
+    /// `AwayFromLedge` option in the `Direction` Smash policy state.
     AwayFromLedge,
 }
 
@@ -545,14 +545,14 @@ impl Direction {
 /// Specifies how to check the range for an action or condition.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RangeCheck {
-/// `Ignore` option in the `RangeCheck` Smash policy state.
+    /// `Ignore` option in the `RangeCheck` Smash policy state.
     Ignore,
-/// `Verify` option in the `RangeCheck` Smash policy state.
+    /// `Verify` option in the `RangeCheck` Smash policy state.
     Verify(
         /// Carries the verification threshold in `RangeCheck`.
         f32,
     ),
-/// `FighterGrabRange` option in the `RangeCheck` Smash policy state.
+    /// `FighterGrabRange` option in the `RangeCheck` Smash policy state.
     FighterGrabRange,
     /// Check once on entry and cancel immediately when outside standing reach.
     FighterGrabRangeInstant,
@@ -561,29 +561,29 @@ pub enum RangeCheck {
 /// Represents a condition that must be satisfied for a sequence to be valid.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Condition {
-/// `SelfGrounded` option in the `Condition` Smash policy state.
+    /// `SelfGrounded` option in the `Condition` Smash policy state.
     SelfGrounded,
-/// `SelfAirborne` option in the `Condition` Smash policy state.
+    /// `SelfAirborne` option in the `Condition` Smash policy state.
     SelfAirborne,
-/// `EnemyGrounded` option in the `Condition` Smash policy state.
+    /// `EnemyGrounded` option in the `Condition` Smash policy state.
     EnemyGrounded,
-/// `EnemyAirborne` option in the `Condition` Smash policy state.
+    /// `EnemyAirborne` option in the `Condition` Smash policy state.
     EnemyAirborne,
-/// `EnemyShielding` option in the `Condition` Smash policy state.
+    /// `EnemyShielding` option in the `Condition` Smash policy state.
     EnemyShielding,
-/// `EnemyNotShielding` option in the `Condition` Smash policy state.
+    /// `EnemyNotShielding` option in the `Condition` Smash policy state.
     EnemyNotShielding,
-/// `EnemyInFront` option in the `Condition` Smash policy state.
+    /// `EnemyInFront` option in the `Condition` Smash policy state.
     EnemyInFront,
-/// `EnemyBehind` option in the `Condition` Smash policy state.
+    /// `EnemyBehind` option in the `Condition` Smash policy state.
     EnemyBehind,
-/// `EnemyWithin` option in the `Condition` Smash policy state.
+    /// `EnemyWithin` option in the `Condition` Smash policy state.
     EnemyWithin,
-/// `EnemyOutside` option in the `Condition` Smash policy state.
+    /// `EnemyOutside` option in the `Condition` Smash policy state.
     EnemyOutside,
 }
 impl Condition {
-/// `ALL` is a configuration value used by the Smash runtime.
+    /// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 10] = [
         Self::SelfGrounded,
         Self::SelfAirborne,
@@ -628,15 +628,15 @@ impl Condition {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum InputReference {
     #[default]
-/// `Screen` option in the `InputReference` Smash policy state.
+    /// `Screen` option in the `InputReference` Smash policy state.
     Screen,
-/// `Facing` option in the `InputReference` Smash policy state.
+    /// `Facing` option in the `InputReference` Smash policy state.
     Facing,
-/// `Opponent` option in the `InputReference` Smash policy state.
+    /// `Opponent` option in the `InputReference` Smash policy state.
     Opponent,
 }
 impl InputReference {
-/// `ALL` is a configuration value used by the Smash runtime.
+    /// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 3] = [Self::Screen, Self::Facing, Self::Opponent];
     /// Returns the serialized token for the value.
     pub fn token(self) -> &'static str {
@@ -670,154 +670,154 @@ const BUTTON_TOKENS: [(u32, &str); 8] = [
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum Action {
     #[default]
-/// `Empty` option in the `Action` Smash policy state.
+    /// `Empty` option in the `Action` Smash policy state.
     Empty,
     /// Literal canonical controller input, with no action-readiness gate.
     Input {
-/// Runtime buttons value used by Action..
+        /// Runtime buttons value used by Action..
         buttons: u32,
-/// Runtime stick value used by Action..
+        /// Runtime stick value used by Action..
         stick: [f32; 2],
-/// Runtime frames value used by Action..
+        /// Runtime frames value used by Action..
         frames: u8,
-/// Runtime relative value used by Action..
+        /// Runtime relative value used by Action..
         relative: bool,
     },
     /// Literal input with horizontal axis toward (+) / away from (-) the target.
     /// Direction is captured at step entry; requires a fresh observed target.
     OpponentInput {
-/// Runtime buttons value used by Action..
+        /// Runtime buttons value used by Action..
         buttons: u32,
-/// Runtime stick value used by Action..
+        /// Runtime stick value used by Action..
         stick: [f32; 2],
-/// Runtime frames value used by Action..
+        /// Runtime frames value used by Action..
         frames: u8,
     },
     /// Simultaneous gameplay buttons and both sticks; no readiness/move writes.
     Controller {
-/// Runtime buttons value used by Action..
+        /// Runtime buttons value used by Action..
         buttons: u32,
-/// Runtime stick value used by Action..
+        /// Runtime stick value used by Action..
         stick: [f32; 2],
-/// Runtime cstick value used by Action..
+        /// Runtime cstick value used by Action..
         cstick: [f32; 2],
-/// Runtime frames value used by Action..
+        /// Runtime frames value used by Action..
         frames: u8,
-/// Runtime reference value used by Action..
+        /// Runtime reference value used by Action..
         reference: InputReference,
-/// Runtime cstick reference value used by Action..
+        /// Runtime cstick reference value used by Action..
         cstick_reference: InputReference,
     },
     /// Repeated literal pulses; release stick/buttons between presses.
     Tap {
-/// Runtime buttons value used by Action..
+        /// Runtime buttons value used by Action..
         buttons: u32,
-/// Runtime stick value used by Action..
+        /// Runtime stick value used by Action..
         stick: [f32; 2],
-/// Runtime hold value used by Action..
+        /// Runtime hold value used by Action..
         hold: u8,
-/// Runtime gap value used by Action..
+        /// Runtime gap value used by Action..
         gap: u8,
-/// Runtime frames value used by Action..
+        /// Runtime frames value used by Action..
         frames: u16,
     },
-/// `CStick` option in the `Action` Smash policy state.
+    /// `CStick` option in the `Action` Smash policy state.
     CStick {
-/// Runtime stick value used by Action..
+        /// Runtime stick value used by Action..
         stick: [f32; 2],
-/// Runtime frames value used by Action..
+        /// Runtime frames value used by Action..
         frames: u8,
     },
     /// Skip when already near; otherwise chase for exactly frames before continuing.
     Chase {
-/// Runtime gap value used by Action..
+        /// Runtime gap value used by Action..
         gap: f32,
-/// Runtime strength value used by Action..
+        /// Runtime strength value used by Action..
         strength: f32,
-/// Runtime frames value used by Action..
+        /// Runtime frames value used by Action..
         frames: u8,
     },
-/// `Wait` option in the `Action` Smash policy state.
+    /// `Wait` option in the `Action` Smash policy state.
     Wait(
         /// Carries the number of frames to wait in `Action`.
         u8,
     ),
-/// `Face` option in the `Action` Smash policy state.
+    /// `Face` option in the `Action` Smash policy state.
     Face(
         /// Carries the facing direction in `Action`.
         Direction,
     ),
-/// `IfFacingLedge` option in the `Action` Smash policy state.
+    /// `IfFacingLedge` option in the `Action` Smash policy state.
     IfFacingLedge {
-/// Runtime away value used by Action..
+        /// Runtime away value used by Action..
         away: bool,
     },
     /// Instant current opponent-side branch; no turn or input is performed.
     IfFacingOpponent {
-/// Runtime away value used by Action..
+        /// Runtime away value used by Action..
         away: bool,
     },
-/// `ElseFacing` option in the `Action` Smash policy state.
+    /// `ElseFacing` option in the `Action` Smash policy state.
     ElseFacing,
-/// `EndFacing` option in the `Action` Smash policy state.
+    /// `EndFacing` option in the `Action` Smash policy state.
     EndFacing,
     /// Input-only positioning at a locked ledge's inward offset.
     LedgePosition {
-/// Runtime offset value used by Action..
+        /// Runtime offset value used by Action..
         offset: f32,
-/// Runtime strength value used by Action..
+        /// Runtime strength value used by Action..
         strength: f32,
-/// Runtime tolerance value used by Action..
+        /// Runtime tolerance value used by Action..
         tolerance: f32,
-/// Runtime brake value used by Action..
+        /// Runtime brake value used by Action..
         brake: f32,
-/// Runtime frames value used by Action..
+        /// Runtime frames value used by Action..
         frames: u16,
     },
-/// `Approach` option in the `Action` Smash policy state.
+    /// `Approach` option in the `Action` Smash policy state.
     Approach {
-/// Runtime airborne value used by Action..
+        /// Runtime airborne value used by Action..
         airborne: bool,
-/// Runtime strength value used by Action..
+        /// Runtime strength value used by Action..
         strength: f32,
-/// Runtime frames value used by Action..
+        /// Runtime frames value used by Action..
         frames: u8,
-/// Runtime gap value used by Action..
+        /// Runtime gap value used by Action..
         gap: f32,
     },
-/// `Walk` option in the `Action` Smash policy state.
+    /// `Walk` option in the `Action` Smash policy state.
     Walk {
-/// Runtime direction value used by Action..
+        /// Runtime direction value used by Action..
         direction: Direction,
-/// Runtime units value used by Action..
+        /// Runtime units value used by Action..
         units: f32,
-/// Runtime strength value used by Action..
+        /// Runtime strength value used by Action..
         strength: f32,
-/// Runtime min gap value used by Action..
+        /// Runtime min gap value used by Action..
         min_gap: Option<f32>,
     },
-/// `Run` option in the `Action` Smash policy state.
+    /// `Run` option in the `Action` Smash policy state.
     Run {
-/// Runtime direction value used by Action..
+        /// Runtime direction value used by Action..
         direction: Direction,
-/// Runtime units value used by Action..
+        /// Runtime units value used by Action..
         units: f32,
     },
     /// Timed horizontal stick; resolves its spatial direction each update.
     Drift {
-/// Runtime direction value used by Action..
+        /// Runtime direction value used by Action..
         direction: Direction,
-/// Runtime strength value used by Action..
+        /// Runtime strength value used by Action..
         strength: f32,
-/// Runtime frames value used by Action..
+        /// Runtime frames value used by Action..
         frames: u8,
     },
-/// `Range` option in the `Action` Smash policy state.
+    /// `Range` option in the `Action` Smash policy state.
     Range(
         /// Carries the range condition in `Action`.
         RangeCheck,
     ),
-/// `ShieldUntilBlock` option in the `Action` Smash policy state.
+    /// `ShieldUntilBlock` option in the `Action` Smash policy state.
     ShieldUntilBlock(
         /// Carries the maximum shield duration in `Action`.
         u8,
@@ -826,11 +826,11 @@ pub enum Action {
     ShieldUntilManual,
     /// Continue if true, else wait up to `wait` native frames, then end. Zero is immediate.
     Check {
-/// Runtime condition value used by Action..
+        /// Runtime condition value used by Action..
         condition: Condition,
-/// Runtime value value used by Action..
+        /// Runtime value value used by Action..
         value: f32,
-/// Runtime wait value used by Action..
+        /// Runtime wait value used by Action..
         wait: u8,
     },
 }
@@ -851,25 +851,25 @@ impl Action {
 /// A sequence of actions that can be executed by a fighter.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Sequence {
-/// Runtime actions value used by Sequence..
+    /// Runtime actions value used by Sequence..
     pub actions: [Action; MAX_ACTIONS],
-/// Runtime len value used by Sequence..
+    /// Runtime len value used by Sequence..
     pub len: u8,
-/// Runtime start delay value used by Sequence..
+    /// Runtime start delay value used by Sequence..
     pub start_delay: u16,
-/// Runtime timeout value used by Sequence..
+    /// Runtime timeout value used by Sequence..
     pub timeout: u16,
-/// Runtime spatial timeout value used by Sequence..
+    /// Runtime spatial timeout value used by Sequence..
     pub spatial_timeout: u16,
-/// Runtime mode value used by Sequence..
+    /// Runtime mode value used by Sequence..
     pub mode: Option<crate::button_bindings::ModeBinding>,
-/// Runtime builtin value used by Sequence..
+    /// Runtime builtin value used by Sequence..
     pub builtin: Option<crate::button_bindings::Builtin>,
-/// Runtime while held value used by Sequence..
+    /// Runtime while held value used by Sequence..
     pub while_held: bool,
     /// Opt-in: stop this tape if the fighter becomes airborne.
     pub ground_only: bool,
-/// Runtime reaction value used by Sequence..
+    /// Runtime reaction value used by Sequence..
     pub reaction: crate::reaction_rules::Rule,
 }
 impl Default for Sequence {
@@ -898,32 +898,32 @@ impl Sequence {
 /// Represents a single entry in the catalog, corresponding to a specific fighter and preset slot.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Entry {
-/// Runtime fighter kind value used by Entry..
+    /// Runtime fighter kind value used by Entry..
     pub fighter_kind: i32,
-/// Runtime fighter value used by Entry..
+    /// Runtime fighter value used by Entry..
     pub fighter: String,
-/// Runtime slot value used by Entry..
+    /// Runtime slot value used by Entry..
     pub slot: PresetSlot,
-/// Runtime choice value used by Entry..
+    /// Runtime choice value used by Entry..
     pub choice: String,
-/// player-facing move/fighter name.
+    /// player-facing move/fighter name.
     pub name: Option<String>,
-/// Runtime default value used by Entry..
+    /// Runtime default value used by Entry..
     pub default: bool,
-/// Runtime explicit start value used by Entry..
+    /// Runtime explicit start value used by Entry..
     explicit_start: bool,
-/// Runtime sequence value used by Entry..
+    /// Runtime sequence value used by Entry..
     pub sequence: Sequence,
 }
 
 /// Inert, fighter-independent Training editor starter; never a live response.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Template {
-/// battle-object ID.
+    /// battle-object ID.
     pub id: String,
-/// player-facing move/fighter name.
+    /// player-facing move/fighter name.
     pub name: String,
-/// Runtime sequence value used by Template..
+    /// Runtime sequence value used by Template..
     pub sequence: Sequence,
 }
 /// Sets the upper bound for templates.
@@ -933,13 +933,13 @@ pub const MAX_TEMPLATES: usize = 64;
 /// Runtime Smash data carried by `Catalog`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Catalog {
-/// Runtime entries value used by Catalog..
+    /// Runtime entries value used by Catalog..
     entries: Vec<Entry>,
-/// Runtime templates value used by Catalog..
+    /// Runtime templates value used by Catalog..
     pub templates: Vec<Template>,
-/// Runtime universal value used by Catalog..
+    /// Runtime universal value used by Catalog..
     pub universal: Option<String>,
-/// Runtime tuning value used by Catalog..
+    /// Runtime tuning value used by Catalog..
     pub tuning: std::collections::BTreeMap<i32, crate::fighter_tuning::Tuning>,
 }
 #[cfg(test)]
@@ -1274,9 +1274,9 @@ pub mod sequence {
     /// Hold a recipe for this many simulation frames. An empty recipe is a wait.
     #[derive(Clone, Copy, Debug)]
     pub struct InputStep {
-/// Runtime frames value used by InputStep..
+        /// Runtime frames value used by InputStep..
         pub frames: u16,
-/// Runtime recipe value used by InputStep..
+        /// Runtime recipe value used by InputStep..
         pub recipe: InputRecipe,
     }
 
@@ -1296,7 +1296,7 @@ pub mod sequence {
     /// Start at zero when the trigger fires. Cancel by stopping evaluation.
     /// Advance only once per simulation frame, never once per hook invocation.
     pub struct InputSequence<'a> {
-/// Runtime steps value used by InputSequence..
+        /// Runtime steps value used by InputSequence..
         pub steps: &'a [InputStep],
     }
 
@@ -1322,66 +1322,66 @@ pub mod sequence {
     /// action (and optionally its hit). A rejected input or whiff cannot advance it.
     #[derive(Clone, Copy, Debug)]
     pub struct ConfirmedStep {
-/// Runtime recipe value used by ConfirmedStep..
+        /// Runtime recipe value used by ConfirmedStep..
         pub recipe: InputRecipe,
-/// Runtime accepted status value used by ConfirmedStep..
+        /// Runtime accepted status value used by ConfirmedStep..
         pub accepted_status: i32,
-/// Runtime require hit value used by ConfirmedStep..
+        /// Runtime require hit value used by ConfirmedStep..
         pub require_hit: bool,
-/// Runtime timeout frames value used by ConfirmedStep..
+        /// Runtime timeout frames value used by ConfirmedStep..
         pub timeout_frames: u16,
     }
 
-/// Runtime Smash data carried by `SequenceObservation`.
+    /// Runtime Smash data carried by `SequenceObservation`.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct SequenceObservation {
         /// A real simulation-frame ID supplied by the adapter, never a hook count.
         pub frame: u64,
-/// selected opponent/projectile target.
+        /// selected opponent/projectile target.
         pub target: u32,
-/// native fighter status.
+        /// native fighter status.
         pub status: i32,
-/// Runtime can act value used by SequenceObservation..
+        /// Runtime can act value used by SequenceObservation..
         pub can_act: bool,
-/// Runtime hit confirmed value used by SequenceObservation..
+        /// Runtime hit confirmed value used by SequenceObservation..
         pub hit_confirmed: bool,
-/// Runtime stopped value used by SequenceObservation..
+        /// Runtime stopped value used by SequenceObservation..
         pub stopped: bool,
-/// Runtime interrupted value used by SequenceObservation..
+        /// Runtime interrupted value used by SequenceObservation..
         pub interrupted: bool,
     }
 
-/// Available `SequenceState` choices for the Smash assistance menu.
+    /// Available `SequenceState` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum SequenceState {
-/// `Ready` option in the `SequenceState` Smash policy state.
+        /// `Ready` option in the `SequenceState` Smash policy state.
         Ready,
-/// `WaitingForConfirmation` option in the `SequenceState` Smash policy state.
+        /// `WaitingForConfirmation` option in the `SequenceState` Smash policy state.
         WaitingForConfirmation,
-/// `Complete` option in the `SequenceState` Smash policy state.
+        /// `Complete` option in the `SequenceState` Smash policy state.
         Complete,
-/// `Cancelled` option in the `SequenceState` Smash policy state.
+        /// `Cancelled` option in the `SequenceState` Smash policy state.
         Cancelled,
     }
 
     /// Building block for measured combos. Not wired to live playback slots: each
     /// combo still needs a verified trigger, simulation clock and move/hit evidence.
     pub struct ConfirmedSequence<'a> {
-/// Runtime steps value used by ConfirmedSequence..
+        /// Runtime steps value used by ConfirmedSequence..
         steps: &'a [ConfirmedStep],
-/// selected opponent/projectile target.
+        /// selected opponent/projectile target.
         target: u32,
-/// Runtime index value used by ConfirmedSequence..
+        /// Runtime index value used by ConfirmedSequence..
         index: usize,
-/// Runtime issued value used by ConfirmedSequence..
+        /// Runtime issued value used by ConfirmedSequence..
         issued: bool,
-/// Runtime age value used by ConfirmedSequence..
+        /// Runtime age value used by ConfirmedSequence..
         age: u64,
-/// Runtime last frame value used by ConfirmedSequence..
+        /// Runtime last frame value used by ConfirmedSequence..
         last_frame: Option<u64>,
-/// Runtime state value used by ConfirmedSequence..
+        /// Runtime state value used by ConfirmedSequence..
         state: SequenceState,
-/// controller input output.
+        /// controller input output.
         output: InputRecipe,
     }
 

@@ -11,17 +11,17 @@ const UTF8_CONTINUATION_PREFIX: u8 = 0x80;
 /// Runtime Smash data carried by `Draft`.
 #[derive(Clone, Default)]
 pub(super) struct Draft {
-/// battle-object ID.
+    /// battle-object ID.
     pub id: String,
-/// player-facing move/fighter name.
+    /// player-facing move/fighter name.
     pub name: String,
-/// Runtime sequence value used by Draft..
+    /// Runtime sequence value used by Draft..
     pub sequence: Sequence,
-/// Runtime new value used by Draft..
+    /// Runtime new value used by Draft..
     pub new: bool,
-/// Runtime deleted value used by Draft..
+    /// Runtime deleted value used by Draft..
     pub deleted: bool,
-/// Runtime dirty value used by Draft..
+    /// Runtime dirty value used by Draft..
     pub dirty: bool,
 }
 impl Draft {
@@ -34,56 +34,56 @@ impl Draft {
 #[derive(Default)]
 pub(super) enum Mode {
     #[default]
-/// `Closed` option in the `Mode` Smash policy state.
+    /// `Closed` option in the `Mode` Smash policy state.
     Closed,
-/// `Actions` option in the `Mode` Smash policy state.
+    /// `Actions` option in the `Mode` Smash policy state.
     Actions(
         /// Carries the number of actions in the selected mode in `Mode`.
         usize,
     ),
-/// `Name` option in the `Mode` Smash policy state.
+    /// `Name` option in the `Mode` Smash policy state.
     Name {
-/// Runtime text value used by Mode..
+        /// Runtime text value used by Mode..
         text: Vec<u8>,
-/// Runtime cursor value used by Mode..
+        /// Runtime cursor value used by Mode..
         cursor: usize,
     },
-/// `Delete` option in the `Mode` Smash policy state.
+    /// `Delete` option in the `Mode` Smash policy state.
     Delete,
 }
 /// Runtime Smash data carried by `Catalog`.
 #[derive(Default)]
 pub(super) struct Catalog {
-/// Runtime drafts value used by Catalog..
+    /// Runtime drafts value used by Catalog..
     pub drafts: BTreeMap<(usize, usize), Draft>,
-/// Runtime mode value used by Catalog..
+    /// Runtime mode value used by Catalog..
     pub mode: Mode,
-/// Runtime revision value used by Catalog..
+    /// Runtime revision value used by Catalog..
     pub revision: u64,
-/// Runtime assist value used by Catalog..
+    /// Runtime assist value used by Catalog..
     pub assist: bool,
-/// Runtime held value used by Catalog..
+    /// Runtime held value used by Catalog..
     held: u32,
-/// Runtime ticks value used by Catalog..
+    /// Runtime ticks value used by Catalog..
     ticks: u16,
 }
 /// Available `Event` choices for the Smash assistance menu.
 pub(super) enum Event {
-/// `None` option in the `Event` Smash policy state.
+    /// `None` option in the `Event` Smash policy state.
     None,
-/// `Rename` option in the `Event` Smash policy state.
+    /// `Rename` option in the `Event` Smash policy state.
     Rename(
         /// Carries the replacement name in `Event`.
         String,
     ),
-/// `Add` option in the `Event` Smash policy state.
+    /// `Add` option in the `Event` Smash policy state.
     Add(
         /// Carries whether to add the entry in `Event`.
         bool,
     ),
-/// `Delete` option in the `Event` Smash policy state.
+    /// `Delete` option in the `Event` Smash policy state.
     Delete,
-/// `MakeDefault` option in the `Event` Smash policy state.
+    /// `MakeDefault` option in the `Event` Smash policy state.
     MakeDefault,
 }
 // Cursors are UTF-8 byte boundaries; saved recipe names allow 64 bytes.

@@ -7,20 +7,20 @@ use crate::native_input::MAPPER_L;
 mod attempt {
     //! Read-only native-progress clock; no fighter timing, retries or wall-clock input scheduling.
     use super::{GameplayContext, Opponent};
-/// Type alias for the `Stamp` data used by this policy.
+    /// Type alias for the `Stamp` data used by this policy.
     type Stamp = (i32, u64, f32, f32);
-/// Runtime Smash data carried by `NativeAttempt`.
+    /// Runtime Smash data carried by `NativeAttempt`.
     #[derive(Default)]
     pub(crate) struct NativeAttempt {
-/// Runtime previous value used by NativeAttempt..
+        /// Runtime previous value used by NativeAttempt..
         previous: Option<Stamp>,
-/// Runtime previous enemy value used by NativeAttempt..
+        /// Runtime previous enemy value used by NativeAttempt..
         previous_enemy: Option<(u32, Stamp)>,
-/// Runtime enemy was fresh value used by NativeAttempt..
+        /// Runtime enemy was fresh value used by NativeAttempt..
         enemy_was_fresh: bool,
-/// Runtime age value used by NativeAttempt..
+        /// Runtime age value used by NativeAttempt..
         age: f32,
-/// Runtime expired value used by NativeAttempt..
+        /// Runtime expired value used by NativeAttempt..
         pub expired: bool,
     }
     impl NativeAttempt {
@@ -244,48 +244,48 @@ mod diagnostics {
     //! Read-only file-timeline telemetry. No inferred fighter scheduling constants.
     use super::{AssistSettings, ControllerOutput, GameplayContext, LedgeTrap, Opponent};
     use crate::fighter_profiles::presets::PresetSlot;
-/// Available `CalibrationKind` choices for the Smash assistance menu.
+    /// Available `CalibrationKind` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum CalibrationKind {
-/// `Attack` option in the `CalibrationKind` Smash policy state.
+        /// `Attack` option in the `CalibrationKind` Smash policy state.
         Attack,
-/// `Special` option in the `CalibrationKind` Smash policy state.
+        /// `Special` option in the `CalibrationKind` Smash policy state.
         Special,
-/// `Grab` option in the `CalibrationKind` Smash policy state.
+        /// `Grab` option in the `CalibrationKind` Smash policy state.
         Grab,
-/// `Zair` option in the `CalibrationKind` Smash policy state.
+        /// `Zair` option in the `CalibrationKind` Smash policy state.
         Zair,
-/// `Shield` option in the `CalibrationKind` Smash policy state.
+        /// `Shield` option in the `CalibrationKind` Smash policy state.
         Shield,
-/// `Unknown` option in the `CalibrationKind` Smash policy state.
+        /// `Unknown` option in the `CalibrationKind` Smash policy state.
         Unknown,
     }
 
-/// Available `NativeRule` choices for the Smash assistance menu.
+    /// Available `NativeRule` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug)]
     pub enum NativeRule {
-/// `Unknown` option in the `NativeRule` Smash policy state.
+        /// `Unknown` option in the `NativeRule` Smash policy state.
         Unknown,
-/// `Ground` option in the `NativeRule` Smash policy state.
+        /// `Ground` option in the `NativeRule` Smash policy state.
         Ground {
-/// Runtime startup value used by NativeRule..
+            /// Runtime startup value used by NativeRule..
             startup: i32,
-/// Runtime attack value used by NativeRule..
+            /// Runtime attack value used by NativeRule..
             attack: i32,
         },
-/// `Aerial` option in the `NativeRule` Smash policy state.
+        /// `Aerial` option in the `NativeRule` Smash policy state.
         Aerial {
-/// native animation/motion ID.
+            /// native animation/motion ID.
             motion: u64,
-/// Runtime custom status value used by NativeRule..
+            /// Runtime custom status value used by NativeRule..
             custom_status: Option<i32>,
         },
-/// `Statuses` option in the `NativeRule` Smash policy state.
+        /// `Statuses` option in the `NativeRule` Smash policy state.
         Statuses(
             /// Carries the native status IDs that activate the rule in `NativeRule`.
             &'static [i32],
         ),
-/// `Inhale` option in the `NativeRule` Smash policy state.
+        /// `Inhale` option in the `NativeRule` Smash policy state.
         Inhale,
     }
     impl NativeRule {
@@ -313,24 +313,24 @@ mod diagnostics {
         }
     }
 
-/// Runtime Smash data carried by `CalibrationMove`.
+    /// Runtime Smash data carried by `CalibrationMove`.
     #[derive(Clone, Copy, Debug)]
     pub struct CalibrationMove {
-/// native fighter-kind ID.
+        /// native fighter-kind ID.
         pub kind: CalibrationKind,
-/// Runtime native value used by CalibrationMove..
+        /// Runtime native value used by CalibrationMove..
         pub native: NativeRule,
-/// Runtime first value used by CalibrationMove..
+        /// Runtime first value used by CalibrationMove..
         pub first: Option<u8>,
-/// Runtime last value used by CalibrationMove..
+        /// Runtime last value used by CalibrationMove..
         pub last: Option<u8>,
-/// Runtime full hop value used by CalibrationMove..
+        /// Runtime full hop value used by CalibrationMove..
         pub full_hop: Option<bool>,
-/// Runtime drift value used by CalibrationMove..
+        /// Runtime drift value used by CalibrationMove..
         pub drift: Option<f32>,
-/// Runtime drift until value used by CalibrationMove..
+        /// Runtime drift until value used by CalibrationMove..
         pub drift_until: Option<u8>,
-/// Runtime fast fall from value used by CalibrationMove..
+        /// Runtime fast fall from value used by CalibrationMove..
         pub fast_fall_from: Option<u8>,
     }
     impl CalibrationMove {
@@ -349,107 +349,107 @@ mod diagnostics {
         }
     }
 
-/// Runtime Smash data carried by `CalibrationFrame`.
+    /// Runtime Smash data carried by `CalibrationFrame`.
     #[derive(Clone, Copy, Debug)]
     pub struct CalibrationFrame {
-/// selected opponent/projectile target.
+        /// selected opponent/projectile target.
         pub target: u32,
-/// Runtime slot value used by CalibrationFrame..
+        /// Runtime slot value used by CalibrationFrame..
         pub slot: PresetSlot,
-/// Runtime expected value used by CalibrationFrame..
+        /// Runtime expected value used by CalibrationFrame..
         pub expected: CalibrationMove,
         /// Diagnostic-only native activity evidence; never a gameplay gate.
         pub native_attack_active: Option<bool>,
-/// Runtime timeline end value used by CalibrationFrame..
+        /// Runtime timeline end value used by CalibrationFrame..
         pub timeline_end: Option<&'static str>,
-/// Runtime context value used by CalibrationFrame..
+        /// Runtime context value used by CalibrationFrame..
         pub context: GameplayContext,
-/// Runtime enemy value used by CalibrationFrame..
+        /// Runtime enemy value used by CalibrationFrame..
         pub enemy: Option<Opponent>,
-/// controller input output.
+        /// controller input output.
         pub output: ControllerOutput,
-/// Runtime phase value used by CalibrationFrame..
+        /// Runtime phase value used by CalibrationFrame..
         pub phase: &'static str,
-/// Runtime complete value used by CalibrationFrame..
+        /// Runtime complete value used by CalibrationFrame..
         pub complete: bool,
-/// Runtime captured value used by CalibrationFrame..
+        /// Runtime captured value used by CalibrationFrame..
         pub captured: bool,
-/// Runtime blocked value used by CalibrationFrame..
+        /// Runtime blocked value used by CalibrationFrame..
         pub blocked: bool,
-/// Runtime endpoint value used by CalibrationFrame..
+        /// Runtime endpoint value used by CalibrationFrame..
         pub endpoint: Option<[f32; 3]>,
-/// Runtime configured range value used by CalibrationFrame..
+        /// Runtime configured range value used by CalibrationFrame..
         pub configured_range: Option<f32>,
-/// Runtime lead value used by CalibrationFrame..
+        /// Runtime lead value used by CalibrationFrame..
         pub lead: Option<f32>,
-/// Runtime distance agnostic value used by CalibrationFrame..
+        /// Runtime distance agnostic value used by CalibrationFrame..
         pub distance_agnostic: bool,
-/// Runtime grab button value used by CalibrationFrame..
+        /// Runtime grab button value used by CalibrationFrame..
         pub grab_button: u32,
     }
 
-/// Runtime Smash data carried by `RollGrabSnapshot`.
+    /// Runtime Smash data carried by `RollGrabSnapshot`.
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
     pub struct RollGrabSnapshot {
-/// selected opponent/projectile target.
+        /// selected opponent/projectile target.
         pub target: Option<u32>,
-/// Runtime phase value used by RollGrabSnapshot..
+        /// Runtime phase value used by RollGrabSnapshot..
         pub phase: &'static str,
-/// native fighter status.
+        /// native fighter status.
         pub status: i32,
-/// Runtime motion frame value used by RollGrabSnapshot..
+        /// Runtime motion frame value used by RollGrabSnapshot..
         pub motion_frame: f32,
-/// world-space position.
+        /// world-space position.
         pub position: [f32; 2],
-/// Runtime velocity x value used by RollGrabSnapshot..
+        /// Runtime velocity x value used by RollGrabSnapshot..
         pub velocity_x: f32,
-/// left/right facing sign.
+        /// left/right facing sign.
         pub facing: f32,
-/// Runtime endpoint value used by RollGrabSnapshot..
+        /// Runtime endpoint value used by RollGrabSnapshot..
         pub endpoint: Option<f32>,
-/// Runtime stand x value used by RollGrabSnapshot..
+        /// Runtime stand x value used by RollGrabSnapshot..
         pub stand_x: Option<f32>,
-/// Runtime usable reach value used by RollGrabSnapshot..
+        /// Runtime usable reach value used by RollGrabSnapshot..
         pub usable_reach: f32,
-/// Runtime grab range value used by RollGrabSnapshot..
+        /// Runtime grab range value used by RollGrabSnapshot..
         pub grab_range: f32,
-/// Runtime can control value used by RollGrabSnapshot..
+        /// Runtime can control value used by RollGrabSnapshot..
         pub can_control: bool,
-/// Runtime can act value used by RollGrabSnapshot..
+        /// Runtime can act value used by RollGrabSnapshot..
         pub can_act: bool,
-/// Runtime can grab value used by RollGrabSnapshot..
+        /// Runtime can grab value used by RollGrabSnapshot..
         pub can_grab: bool,
-/// Runtime stopped value used by RollGrabSnapshot..
+        /// Runtime stopped value used by RollGrabSnapshot..
         pub stopped: bool,
-/// Runtime safe ground value used by RollGrabSnapshot..
+        /// Runtime safe ground value used by RollGrabSnapshot..
         pub safe_ground: [bool; 2],
-/// Runtime enemy status value used by RollGrabSnapshot..
+        /// Runtime enemy status value used by RollGrabSnapshot..
         pub enemy_status: Option<i32>,
-/// Runtime enemy frame value used by RollGrabSnapshot..
+        /// Runtime enemy frame value used by RollGrabSnapshot..
         pub enemy_frame: Option<f32>,
-/// Runtime enemy position value used by RollGrabSnapshot..
+        /// Runtime enemy position value used by RollGrabSnapshot..
         pub enemy_position: Option<[f32; 2]>,
-/// Runtime vulnerable value used by RollGrabSnapshot..
+        /// Runtime vulnerable value used by RollGrabSnapshot..
         pub vulnerable: Option<bool>,
-/// Runtime vulnerable in value used by RollGrabSnapshot..
+        /// Runtime vulnerable in value used by RollGrabSnapshot..
         pub vulnerable_in: Option<f32>,
-/// Runtime adjusted opens in value used by RollGrabSnapshot..
+        /// Runtime adjusted opens in value used by RollGrabSnapshot..
         pub adjusted_opens_in: Option<f32>,
-/// Runtime actionable in value used by RollGrabSnapshot..
+        /// Runtime actionable in value used by RollGrabSnapshot..
         pub actionable_in: Option<f32>,
-/// active-frame or active-state data.
+        /// active-frame or active-state data.
         pub active: [u8; 2],
-/// Runtime requested value used by RollGrabSnapshot..
+        /// Runtime requested value used by RollGrabSnapshot..
         pub requested: u32,
-/// Runtime grab button value used by RollGrabSnapshot..
+        /// Runtime grab button value used by RollGrabSnapshot..
         pub grab_button: u32,
-/// Runtime attempts value used by RollGrabSnapshot..
+        /// Runtime attempts value used by RollGrabSnapshot..
         pub attempts: u8,
-/// Runtime animations value used by RollGrabSnapshot..
+        /// Runtime animations value used by RollGrabSnapshot..
         pub animations: u8,
-/// Runtime native grabbing value used by RollGrabSnapshot..
+        /// Runtime native grabbing value used by RollGrabSnapshot..
         pub native_grabbing: bool,
-/// Runtime captured value used by RollGrabSnapshot..
+        /// Runtime captured value used by RollGrabSnapshot..
         pub captured: bool,
     }
 
@@ -496,166 +496,166 @@ mod file_timeline;
 pub use file_timeline::Timeline as InputTimeline;
 mod identity {
     //! Fighter identities only; no option lists, move recipes or schedules.
-/// Available `ResponseImplementation` choices for the Smash assistance menu.
+    /// Available `ResponseImplementation` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum ResponseImplementation {
-/// `Kirby` option in the `ResponseImplementation` Smash policy state.
+        /// `Kirby` option in the `ResponseImplementation` Smash policy state.
         Kirby,
-/// `Luigi` option in the `ResponseImplementation` Smash policy state.
+        /// `Luigi` option in the `ResponseImplementation` Smash policy state.
         Luigi,
-/// `CaptainFalcon` option in the `ResponseImplementation` Smash policy state.
+        /// `CaptainFalcon` option in the `ResponseImplementation` Smash policy state.
         CaptainFalcon,
-/// `Mario` option in the `ResponseImplementation` Smash policy state.
+        /// `Mario` option in the `ResponseImplementation` Smash policy state.
         Mario,
-/// `DonkeyKong` option in the `ResponseImplementation` Smash policy state.
+        /// `DonkeyKong` option in the `ResponseImplementation` Smash policy state.
         DonkeyKong,
-/// `Link` option in the `ResponseImplementation` Smash policy state.
+        /// `Link` option in the `ResponseImplementation` Smash policy state.
         Link,
-/// `Samus` option in the `ResponseImplementation` Smash policy state.
+        /// `Samus` option in the `ResponseImplementation` Smash policy state.
         Samus,
-/// `Yoshi` option in the `ResponseImplementation` Smash policy state.
+        /// `Yoshi` option in the `ResponseImplementation` Smash policy state.
         Yoshi,
-/// `Fox` option in the `ResponseImplementation` Smash policy state.
+        /// `Fox` option in the `ResponseImplementation` Smash policy state.
         Fox,
-/// `Pikachu` option in the `ResponseImplementation` Smash policy state.
+        /// `Pikachu` option in the `ResponseImplementation` Smash policy state.
         Pikachu,
-/// `Sonic` option in the `ResponseImplementation` Smash policy state.
+        /// `Sonic` option in the `ResponseImplementation` Smash policy state.
         Sonic,
-/// `KingKRool` option in the `ResponseImplementation` Smash policy state.
+        /// `KingKRool` option in the `ResponseImplementation` Smash policy state.
         KingKRool,
-/// `Isabelle` option in the `ResponseImplementation` Smash policy state.
+        /// `Isabelle` option in the `ResponseImplementation` Smash policy state.
         Isabelle,
-/// `PacMan` option in the `ResponseImplementation` Smash policy state.
+        /// `PacMan` option in the `ResponseImplementation` Smash policy state.
         PacMan,
-/// `LittleMac` option in the `ResponseImplementation` Smash policy state.
+        /// `LittleMac` option in the `ResponseImplementation` Smash policy state.
         LittleMac,
-/// `DarkSamus` option in the `ResponseImplementation` Smash policy state.
+        /// `DarkSamus` option in the `ResponseImplementation` Smash policy state.
         DarkSamus,
-/// `Ness` option in the `ResponseImplementation` Smash policy state.
+        /// `Ness` option in the `ResponseImplementation` Smash policy state.
         Ness,
-/// `Jigglypuff` option in the `ResponseImplementation` Smash policy state.
+        /// `Jigglypuff` option in the `ResponseImplementation` Smash policy state.
         Jigglypuff,
-/// `Peach` option in the `ResponseImplementation` Smash policy state.
+        /// `Peach` option in the `ResponseImplementation` Smash policy state.
         Peach,
-/// `Daisy` option in the `ResponseImplementation` Smash policy state.
+        /// `Daisy` option in the `ResponseImplementation` Smash policy state.
         Daisy,
-/// `Bowser` option in the `ResponseImplementation` Smash policy state.
+        /// `Bowser` option in the `ResponseImplementation` Smash policy state.
         Bowser,
-/// `Sheik` option in the `ResponseImplementation` Smash policy state.
+        /// `Sheik` option in the `ResponseImplementation` Smash policy state.
         Sheik,
-/// `Zelda` option in the `ResponseImplementation` Smash policy state.
+        /// `Zelda` option in the `ResponseImplementation` Smash policy state.
         Zelda,
-/// `DrMario` option in the `ResponseImplementation` Smash policy state.
+        /// `DrMario` option in the `ResponseImplementation` Smash policy state.
         DrMario,
-/// `Pichu` option in the `ResponseImplementation` Smash policy state.
+        /// `Pichu` option in the `ResponseImplementation` Smash policy state.
         Pichu,
-/// `Falco` option in the `ResponseImplementation` Smash policy state.
+        /// `Falco` option in the `ResponseImplementation` Smash policy state.
         Falco,
-/// `Marth` option in the `ResponseImplementation` Smash policy state.
+        /// `Marth` option in the `ResponseImplementation` Smash policy state.
         Marth,
-/// `Lucina` option in the `ResponseImplementation` Smash policy state.
+        /// `Lucina` option in the `ResponseImplementation` Smash policy state.
         Lucina,
-/// `YoungLink` option in the `ResponseImplementation` Smash policy state.
+        /// `YoungLink` option in the `ResponseImplementation` Smash policy state.
         YoungLink,
-/// `Ganondorf` option in the `ResponseImplementation` Smash policy state.
+        /// `Ganondorf` option in the `ResponseImplementation` Smash policy state.
         Ganondorf,
-/// `Mewtwo` option in the `ResponseImplementation` Smash policy state.
+        /// `Mewtwo` option in the `ResponseImplementation` Smash policy state.
         Mewtwo,
-/// `Roy` option in the `ResponseImplementation` Smash policy state.
+        /// `Roy` option in the `ResponseImplementation` Smash policy state.
         Roy,
-/// `Chrom` option in the `ResponseImplementation` Smash policy state.
+        /// `Chrom` option in the `ResponseImplementation` Smash policy state.
         Chrom,
-/// `MrGameAndWatch` option in the `ResponseImplementation` Smash policy state.
+        /// `MrGameAndWatch` option in the `ResponseImplementation` Smash policy state.
         MrGameAndWatch,
-/// `MetaKnight` option in the `ResponseImplementation` Smash policy state.
+        /// `MetaKnight` option in the `ResponseImplementation` Smash policy state.
         MetaKnight,
-/// `Pit` option in the `ResponseImplementation` Smash policy state.
+        /// `Pit` option in the `ResponseImplementation` Smash policy state.
         Pit,
-/// `DarkPit` option in the `ResponseImplementation` Smash policy state.
+        /// `DarkPit` option in the `ResponseImplementation` Smash policy state.
         DarkPit,
-/// `ZeroSuitSamus` option in the `ResponseImplementation` Smash policy state.
+        /// `ZeroSuitSamus` option in the `ResponseImplementation` Smash policy state.
         ZeroSuitSamus,
-/// `Wario` option in the `ResponseImplementation` Smash policy state.
+        /// `Wario` option in the `ResponseImplementation` Smash policy state.
         Wario,
-/// `Snake` option in the `ResponseImplementation` Smash policy state.
+        /// `Snake` option in the `ResponseImplementation` Smash policy state.
         Snake,
-/// `Ike` option in the `ResponseImplementation` Smash policy state.
+        /// `Ike` option in the `ResponseImplementation` Smash policy state.
         Ike,
-/// `Squirtle` option in the `ResponseImplementation` Smash policy state.
+        /// `Squirtle` option in the `ResponseImplementation` Smash policy state.
         Squirtle,
-/// `Ivysaur` option in the `ResponseImplementation` Smash policy state.
+        /// `Ivysaur` option in the `ResponseImplementation` Smash policy state.
         Ivysaur,
-/// `Charizard` option in the `ResponseImplementation` Smash policy state.
+        /// `Charizard` option in the `ResponseImplementation` Smash policy state.
         Charizard,
-/// `DiddyKong` option in the `ResponseImplementation` Smash policy state.
+        /// `DiddyKong` option in the `ResponseImplementation` Smash policy state.
         DiddyKong,
-/// `Lucas` option in the `ResponseImplementation` Smash policy state.
+        /// `Lucas` option in the `ResponseImplementation` Smash policy state.
         Lucas,
-/// `KingDedede` option in the `ResponseImplementation` Smash policy state.
+        /// `KingDedede` option in the `ResponseImplementation` Smash policy state.
         KingDedede,
-/// `Olimar` option in the `ResponseImplementation` Smash policy state.
+        /// `Olimar` option in the `ResponseImplementation` Smash policy state.
         Olimar,
-/// `Lucario` option in the `ResponseImplementation` Smash policy state.
+        /// `Lucario` option in the `ResponseImplementation` Smash policy state.
         Lucario,
-/// `Rob` option in the `ResponseImplementation` Smash policy state.
+        /// `Rob` option in the `ResponseImplementation` Smash policy state.
         Rob,
-/// `ToonLink` option in the `ResponseImplementation` Smash policy state.
+        /// `ToonLink` option in the `ResponseImplementation` Smash policy state.
         ToonLink,
-/// `Wolf` option in the `ResponseImplementation` Smash policy state.
+        /// `Wolf` option in the `ResponseImplementation` Smash policy state.
         Wolf,
-/// `Villager` option in the `ResponseImplementation` Smash policy state.
+        /// `Villager` option in the `ResponseImplementation` Smash policy state.
         Villager,
-/// `MegaMan` option in the `ResponseImplementation` Smash policy state.
+        /// `MegaMan` option in the `ResponseImplementation` Smash policy state.
         MegaMan,
-/// `WiiFitTrainer` option in the `ResponseImplementation` Smash policy state.
+        /// `WiiFitTrainer` option in the `ResponseImplementation` Smash policy state.
         WiiFitTrainer,
-/// `RosalinaAndLuma` option in the `ResponseImplementation` Smash policy state.
+        /// `RosalinaAndLuma` option in the `ResponseImplementation` Smash policy state.
         RosalinaAndLuma,
-/// `Greninja` option in the `ResponseImplementation` Smash policy state.
+        /// `Greninja` option in the `ResponseImplementation` Smash policy state.
         Greninja,
-/// `Palutena` option in the `ResponseImplementation` Smash policy state.
+        /// `Palutena` option in the `ResponseImplementation` Smash policy state.
         Palutena,
-/// `Robin` option in the `ResponseImplementation` Smash policy state.
+        /// `Robin` option in the `ResponseImplementation` Smash policy state.
         Robin,
-/// `Shulk` option in the `ResponseImplementation` Smash policy state.
+        /// `Shulk` option in the `ResponseImplementation` Smash policy state.
         Shulk,
-/// `BowserJr` option in the `ResponseImplementation` Smash policy state.
+        /// `BowserJr` option in the `ResponseImplementation` Smash policy state.
         BowserJr,
-/// `DuckHunt` option in the `ResponseImplementation` Smash policy state.
+        /// `DuckHunt` option in the `ResponseImplementation` Smash policy state.
         DuckHunt,
-/// `Ryu` option in the `ResponseImplementation` Smash policy state.
+        /// `Ryu` option in the `ResponseImplementation` Smash policy state.
         Ryu,
-/// `Ken` option in the `ResponseImplementation` Smash policy state.
+        /// `Ken` option in the `ResponseImplementation` Smash policy state.
         Ken,
-/// `Cloud` option in the `ResponseImplementation` Smash policy state.
+        /// `Cloud` option in the `ResponseImplementation` Smash policy state.
         Cloud,
-/// `Corrin` option in the `ResponseImplementation` Smash policy state.
+        /// `Corrin` option in the `ResponseImplementation` Smash policy state.
         Corrin,
-/// `Bayonetta` option in the `ResponseImplementation` Smash policy state.
+        /// `Bayonetta` option in the `ResponseImplementation` Smash policy state.
         Bayonetta,
-/// `Inkling` option in the `ResponseImplementation` Smash policy state.
+        /// `Inkling` option in the `ResponseImplementation` Smash policy state.
         Inkling,
-/// `Ridley` option in the `ResponseImplementation` Smash policy state.
+        /// `Ridley` option in the `ResponseImplementation` Smash policy state.
         Ridley,
-/// `Simon` option in the `ResponseImplementation` Smash policy state.
+        /// `Simon` option in the `ResponseImplementation` Smash policy state.
         Simon,
-/// `Richter` option in the `ResponseImplementation` Smash policy state.
+        /// `Richter` option in the `ResponseImplementation` Smash policy state.
         Richter,
-/// `Incineroar` option in the `ResponseImplementation` Smash policy state.
+        /// `Incineroar` option in the `ResponseImplementation` Smash policy state.
         Incineroar,
-/// `MiiBrawler` option in the `ResponseImplementation` Smash policy state.
+        /// `MiiBrawler` option in the `ResponseImplementation` Smash policy state.
         MiiBrawler,
-/// `MiiSwordfighter` option in the `ResponseImplementation` Smash policy state.
+        /// `MiiSwordfighter` option in the `ResponseImplementation` Smash policy state.
         MiiSwordfighter,
-/// `MiiGunner` option in the `ResponseImplementation` Smash policy state.
+        /// `MiiGunner` option in the `ResponseImplementation` Smash policy state.
         MiiGunner,
-/// `IceClimbers` option in the `ResponseImplementation` Smash policy state.
+        /// `IceClimbers` option in the `ResponseImplementation` Smash policy state.
         IceClimbers,
-/// `IceClimbersNana` option in the `ResponseImplementation` Smash policy state.
+        /// `IceClimbersNana` option in the `ResponseImplementation` Smash policy state.
         IceClimbersNana,
-/// `Pyra` option in the `ResponseImplementation` Smash policy state.
+        /// `Pyra` option in the `ResponseImplementation` Smash policy state.
         Pyra,
-/// `Mythra` option in the `ResponseImplementation` Smash policy state.
+        /// `Mythra` option in the `ResponseImplementation` Smash policy state.
         Mythra,
     }
     impl ResponseImplementation {
@@ -884,34 +884,34 @@ pub fn in_tracking_range(
 /// Runtime Smash data carried by `LedgeTrap`.
 #[derive(Default)]
 pub struct LedgeTrap {
-/// selected opponent/projectile target.
+    /// selected opponent/projectile target.
     target: Option<u32>,
-/// Runtime preview value used by LedgeTrap..
+    /// Runtime preview value used by LedgeTrap..
     preview: Option<PresetSlot>,
-/// Runtime slot value used by LedgeTrap..
+    /// Runtime slot value used by LedgeTrap..
     slot: Option<PresetSlot>,
-/// Runtime anchor value used by LedgeTrap..
+    /// Runtime anchor value used by LedgeTrap..
     anchor: Option<[f32; 2]>,
-/// Runtime inward value used by LedgeTrap..
+    /// Runtime inward value used by LedgeTrap..
     inward: f32,
-/// Runtime last status value used by LedgeTrap..
+    /// Runtime last status value used by LedgeTrap..
     last_status: i32,
-/// Runtime observed velocity value used by LedgeTrap..
+    /// Runtime observed velocity value used by LedgeTrap..
     observed_velocity: [f32; 2],
-/// Runtime file timeline value used by LedgeTrap..
+    /// Runtime file timeline value used by LedgeTrap..
     file_timeline: Option<file_timeline::Timeline>,
     #[cfg(feature = "diagnostic-logging")]
-/// Runtime last timeline end value used by LedgeTrap..
+    /// Runtime last timeline end value used by LedgeTrap..
     last_timeline_end: Option<&'static str>,
-/// Runtime complete value used by LedgeTrap..
+    /// Runtime complete value used by LedgeTrap..
     complete: bool,
-/// Runtime visit consumed value used by LedgeTrap..
+    /// Runtime visit consumed value used by LedgeTrap..
     visit_consumed: bool,
-/// Runtime captured value used by LedgeTrap..
+    /// Runtime captured value used by LedgeTrap..
     captured: bool,
-/// Runtime last output value used by LedgeTrap..
+    /// Runtime last output value used by LedgeTrap..
     last_output: ControllerOutput,
-/// Runtime last tick value used by LedgeTrap..
+    /// Runtime last tick value used by LedgeTrap..
     last_tick: Option<i64>,
 }
 impl LedgeTrap {

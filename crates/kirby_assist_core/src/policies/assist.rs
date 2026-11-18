@@ -15,32 +15,32 @@ use crate::{
 // also keep the reason's context, which is useful in tests and diagnostics.
 ///
 pub enum DecisionStatus {
-/// `Disabled` option in the `DecisionStatus` Smash policy state.
+    /// `Disabled` option in the `DecisionStatus` Smash policy state.
     Disabled,
-/// `ScopeRejected` option in the `DecisionStatus` Smash policy state.
+    /// `ScopeRejected` option in the `DecisionStatus` Smash policy state.
     ScopeRejected,
-/// `NoActiveScenario` option in the `DecisionStatus` Smash policy state.
+    /// `NoActiveScenario` option in the `DecisionStatus` Smash policy state.
     NoActiveScenario,
-/// `NoRule` option in the `DecisionStatus` Smash policy state.
+    /// `NoRule` option in the `DecisionStatus` Smash policy state.
     NoRule(
         /// Carries the scenario with no enabled rule in `DecisionStatus`.
         Scenario,
     ),
-/// `WaitingForTiming` option in the `DecisionStatus` Smash policy state.
+    /// `WaitingForTiming` option in the `DecisionStatus` Smash policy state.
     WaitingForTiming(
         /// Carries the scenario waiting for its timing window in `DecisionStatus`.
         Scenario,
     ),
-/// `ProposedController` option in the `DecisionStatus` Smash policy state.
+    /// `ProposedController` option in the `DecisionStatus` Smash policy state.
     ProposedController(
         /// Carries the scenario producing a controller proposal in `DecisionStatus`.
         Scenario,
     ),
-/// `AwaitingPlaybackBackend` option in the `DecisionStatus` Smash policy state.
+    /// `AwaitingPlaybackBackend` option in the `DecisionStatus` Smash policy state.
     AwaitingPlaybackBackend {
-/// Runtime scenario value used by DecisionStatus..
+        /// Runtime scenario value used by DecisionStatus..
         scenario: Scenario,
-/// Runtime slot value used by DecisionStatus..
+        /// Runtime slot value used by DecisionStatus..
         slot: RecordingSlot,
     },
 }
@@ -50,15 +50,15 @@ pub enum DecisionStatus {
 /// policy consumes `recipe`, while generic examples consume `proposed`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FrameDecision {
-/// Runtime proposed value used by FrameDecision..
+    /// Runtime proposed value used by FrameDecision..
     pub proposed: ControllerFrame,
-/// Runtime recipe value used by FrameDecision..
+    /// Runtime recipe value used by FrameDecision..
     pub recipe: InputRecipe,
-/// Runtime arbitration value used by FrameDecision..
+    /// Runtime arbitration value used by FrameDecision..
     pub arbitration: Option<ArbitrationResult>,
-/// Runtime selected scenario value used by FrameDecision..
+    /// Runtime selected scenario value used by FrameDecision..
     pub selected_scenario: Option<Scenario>,
-/// native fighter status.
+    /// native fighter status.
     pub status: DecisionStatus,
 }
 
@@ -158,13 +158,13 @@ mod tests {
         state::{FighterKind, ScenarioSample},
     };
 
-/// `LOCAL_KIRBY` is a configuration value used by the Smash runtime.
+    /// `LOCAL_KIRBY` is a configuration value used by the Smash runtime.
     const LOCAL_KIRBY: RunContext = RunContext {
         is_locally_human_controlled: true,
         fighter: FighterKind::Kirby,
     };
 
-/// `PLAYER_INPUT` is a configuration value used by the Smash runtime.
+    /// `PLAYER_INPUT` is a configuration value used by the Smash runtime.
     const PLAYER_INPUT: ControllerFrame = ControllerFrame {
         buttons: ButtonSet::JUMP,
         left_stick: StickPosition {

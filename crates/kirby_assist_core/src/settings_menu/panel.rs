@@ -62,7 +62,11 @@ impl MenuSelection {
         let custom = self.tuning.0[i];
         let value = custom.unwrap_or(self.tuning_values[i]);
         let shown = if Tuning::is_bool(i) {
-            if value == 1.0 { "ON".into() } else { "OFF".into() }
+            if value == 1.0 {
+                "ON".into()
+            } else {
+                "OFF".into()
+            }
         } else if i == 0 || i == 7 {
             format!("{:.0}%", value * 100.0)
         } else if Tuning::frames(i) {

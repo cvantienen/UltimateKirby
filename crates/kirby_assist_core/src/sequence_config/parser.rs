@@ -16,15 +16,15 @@ pub use actions::validate_facing_blocks;
 /// Available `SectionHeader` choices for the Smash assistance menu.
 #[derive(Clone, Copy)]
 enum SectionHeader<'a> {
-/// `UniversalSettings` option in the `SectionHeader` Smash policy state.
+    /// `UniversalSettings` option in the `SectionHeader` Smash policy state.
     UniversalSettings,
-/// `Template` option in the `SectionHeader` Smash policy state.
+    /// `Template` option in the `SectionHeader` Smash policy state.
     Template { id: &'a str, countable: bool },
-/// `RetiredButtons` option in the `SectionHeader` Smash policy state.
+    /// `RetiredButtons` option in the `SectionHeader` Smash policy state.
     RetiredButtons,
-/// `Settings` option in the `SectionHeader` Smash policy state.
+    /// `Settings` option in the `SectionHeader` Smash policy state.
     Settings,
-/// `Entry` option in the `SectionHeader` Smash policy state.
+    /// `Entry` option in the `SectionHeader` Smash policy state.
     Entry,
 }
 
@@ -91,11 +91,11 @@ fn count_sections(source: &str) -> Result<usize, String> {
 enum Body {
     /// Recipe keys for `Parser::current`; before any header there is none.
     Recipe,
-/// `Retired` option in the `Body` Smash policy state.
+    /// `Retired` option in the `Body` Smash policy state.
     Retired,
-/// `Universal` option in the `Body` Smash policy state.
+    /// `Universal` option in the `Body` Smash policy state.
     Universal,
-/// `Tuning` option in the `Body` Smash policy state.
+    /// `Tuning` option in the `Body` Smash policy state.
     Tuning(
         /// Carries the numeric tuning value in `Body`.
         i32,
@@ -105,29 +105,29 @@ enum Body {
 /// Keys of a recipe section. Each may appear once per section.
 #[derive(Clone, Copy)]
 enum RecipeKey {
-/// `Name` option in the `RecipeKey` Smash policy state.
+    /// `Name` option in the `RecipeKey` Smash policy state.
     Name,
-/// `Builtin` option in the `RecipeKey` Smash policy state.
+    /// `Builtin` option in the `RecipeKey` Smash policy state.
     Builtin,
-/// `Mode` option in the `RecipeKey` Smash policy state.
+    /// `Mode` option in the `RecipeKey` Smash policy state.
     Mode,
-/// `Activation` option in the `RecipeKey` Smash policy state.
+    /// `Activation` option in the `RecipeKey` Smash policy state.
     Activation,
-/// `GroundOnly` option in the `RecipeKey` Smash policy state.
+    /// `GroundOnly` option in the `RecipeKey` Smash policy state.
     GroundOnly,
-/// `WhileHeld` option in the `RecipeKey` Smash policy state.
+    /// `WhileHeld` option in the `RecipeKey` Smash policy state.
     WhileHeld,
-/// `Reaction` option in the `RecipeKey` Smash policy state.
+    /// `Reaction` option in the `RecipeKey` Smash policy state.
     Reaction,
-/// `Actions` option in the `RecipeKey` Smash policy state.
+    /// `Actions` option in the `RecipeKey` Smash policy state.
     Actions,
-/// `Default` option in the `RecipeKey` Smash policy state.
+    /// `Default` option in the `RecipeKey` Smash policy state.
     Default,
-/// `StartDelay` option in the `RecipeKey` Smash policy state.
+    /// `StartDelay` option in the `RecipeKey` Smash policy state.
     StartDelay,
-/// `Timeout` option in the `RecipeKey` Smash policy state.
+    /// `Timeout` option in the `RecipeKey` Smash policy state.
     Timeout,
-/// `SpatialTimeout` option in the `RecipeKey` Smash policy state.
+    /// `SpatialTimeout` option in the `RecipeKey` Smash policy state.
     SpatialTimeout,
 }
 
@@ -188,19 +188,19 @@ fn new_entry(fighter_kind: i32, fighter: String, slot: PresetSlot, choice: Strin
 /// Line-by-line catalog reader. `current` is the recipe being filled in; it is
 /// validated and moved into `entries` when the next header (or EOF) arrives.
 struct Parser {
-/// Runtime entries value used by Parser..
+    /// Runtime entries value used by Parser..
     entries: Vec<Entry>,
-/// Runtime current value used by Parser..
+    /// Runtime current value used by Parser..
     current: Option<(Entry, usize)>,
     /// `RecipeKey` bits already used by `current`.
     seen: u16,
-/// Runtime body value used by Parser..
+    /// Runtime body value used by Parser..
     body: Body,
-/// Runtime universal value used by Parser..
+    /// Runtime universal value used by Parser..
     universal: Option<String>,
-/// Runtime universal keys value used by Parser..
+    /// Runtime universal keys value used by Parser..
     universal_keys: Vec<String>,
-/// Runtime tuning value used by Parser..
+    /// Runtime tuning value used by Parser..
     tuning: BTreeMap<i32, Tuning>,
     /// Built on first use: most fighters resolve through `fighter_data`.
     identities: Option<FighterProfiles>,
@@ -300,7 +300,11 @@ impl Parser {
             .fighter_kind(&fighter)
             .ok_or_else(|| format!("line {line_number}: unknown fighter {fighter}"))?;
         if slot == "settings" && choice.is_empty() {
-            if self.tuning.insert(fighter_kind, Tuning::default()).is_some() {
+            if self
+                .tuning
+                .insert(fighter_kind, Tuning::default())
+                .is_some()
+            {
                 return Err(format!("line {line_number}: duplicate fighter settings"));
             }
             return Ok(Body::Tuning(fighter_kind));
@@ -413,10 +417,7 @@ impl Parser {
                 return true;
             }
             let id = std::mem::take(&mut entry.choice);
-            let name = entry
-                .name
-                .take()
-                .unwrap_or_else(|| id.replace('_', " "));
+            let name = entry.name.take().unwrap_or_else(|| id.replace('_', " "));
             templates.push(Template {
                 id,
                 name,
@@ -450,15 +451,14 @@ fn apply_recipe_key(
     match key {
         RecipeKey::Name => entry.name = Some(parse_name(value, line_number)?),
         RecipeKey::Builtin => {
-            sequence.builtin = Some(
-                Builtin::parse(value)
-                    .ok_or_else(|| format!("line {line_number}: unknown built-in button action"))?,
-            );
+            sequence.builtin =
+                Some(Builtin::parse(value).ok_or_else(|| {
+                    format!("line {line_number}: unknown built-in button action")
+                })?);
         }
         RecipeKey::Mode => {
-            let mode = Mode::parse(&words_id(value)).ok_or_else(|| {
-                format!("line {line_number}: unknown/unimplemented mode {value}")
-            })?;
+            let mode = Mode::parse(&words_id(value))
+                .ok_or_else(|| format!("line {line_number}: unknown/unimplemented mode {value}"))?;
             sequence.mode = Some(ModeBinding {
                 mode,
                 activation: Activation::Hold,

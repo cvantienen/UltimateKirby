@@ -9,35 +9,35 @@ use crate::ledge_position::LedgeSpot;
 /// Runtime Smash data carried by `Visit`.
 #[derive(Clone, Copy)]
 struct Visit {
-/// battle-object ID.
+    /// battle-object ID.
     id: u32,
-/// Runtime last status value used by Visit..
+    /// Runtime last status value used by Visit..
     last_status: i32,
-/// Runtime armed value used by Visit..
+    /// Runtime armed value used by Visit..
     armed: bool,
-/// Runtime handled value used by Visit..
+    /// Runtime handled value used by Visit..
     handled: bool,
 }
 /// Runtime Smash data carried by `LedgeVisits`.
 #[derive(Default)]
 pub struct LedgeVisits {
-/// Runtime owner value used by LedgeVisits..
+    /// Runtime owner value used by LedgeVisits..
     owner: Option<(u32, i32)>,
-/// Runtime visits value used by LedgeVisits..
+    /// Runtime visits value used by LedgeVisits..
     visits: [Option<Visit>; 8],
-/// Runtime replace value used by LedgeVisits..
+    /// Runtime replace value used by LedgeVisits..
     replace: usize,
-/// Runtime ledge value used by LedgeVisits..
+    /// Runtime ledge value used by LedgeVisits..
     ledge: Option<LedgeSpot>,
-/// Runtime visit epoch value used by LedgeVisits..
+    /// Runtime visit epoch value used by LedgeVisits..
     visit_epoch: u64,
 }
 /// Runtime Smash data carried by `Observation`.
 #[derive(Clone, Copy)]
 struct Observation {
-/// Runtime new visit value used by Observation..
+    /// Runtime new visit value used by Observation..
     new_visit: bool,
-/// Runtime allowed value used by Observation..
+    /// Runtime allowed value used by Observation..
     allowed: bool,
 }
 impl LedgeVisits {

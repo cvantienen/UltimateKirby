@@ -915,12 +915,7 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
     }
     #[cfg(feature = "diagnostic-logging")]
     crate::performance::health::event(crate::performance::health::Event::FullObservation);
-    let tech_obs = observe_tech_state(
-        &reads,
-        object,
-        own.stopped,
-        &config,
-    );
+    let tech_obs = observe_tech_state(&reads, object, own.stopped, &config);
     let pass = Pass {
         reads: &reads,
         object,
@@ -2880,7 +2875,11 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
                 rate: p.own.motion_rate,
                 stopped,
                 remaining_stop: assessment.remaining_stop,
-                contact_in: if prepare_guard { assessment.contact_in } else { None },
+                contact_in: if prepare_guard {
+                    assessment.contact_in
+                } else {
+                    None
+                },
                 input_delay: tech::TECH_INPUT_DELAY_FRAMES,
                 previous_guard: guard_held,
                 prepare_guard,

@@ -17,31 +17,31 @@ pub mod action_owner {
     /// determining which gameplay source controls the input.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub enum Owner {
-/// `Safety` option in the `Owner` Smash policy state.
+        /// `Safety` option in the `Owner` Smash policy state.
         Safety,
-/// `GrabDodge` option in the `Owner` Smash policy state.
+        /// `GrabDodge` option in the `Owner` Smash policy state.
         GrabDodge,
-/// `OptionRead` option in the `Owner` Smash policy state.
+        /// `OptionRead` option in the `Owner` Smash policy state.
         OptionRead,
-/// `Trip` option in the `Owner` Smash policy state.
+        /// `Trip` option in the `Owner` Smash policy state.
         Trip,
-/// `Fair` option in the `Owner` Smash policy state.
+        /// `Fair` option in the `Owner` Smash policy state.
         Fair,
-/// `Trump` option in the `Owner` Smash policy state.
+        /// `Trump` option in the `Owner` Smash policy state.
         Trump,
-/// `Ledge` option in the `Owner` Smash policy state.
+        /// `Ledge` option in the `Owner` Smash policy state.
         Ledge,
-/// `RollRead` option in the `Owner` Smash policy state.
+        /// `RollRead` option in the `Owner` Smash policy state.
         RollRead,
-/// `Defense` option in the `Owner` Smash policy state.
+        /// `Defense` option in the `Owner` Smash policy state.
         Defense,
-/// `Turbo` option in the `Owner` Smash policy state.
+        /// `Turbo` option in the `Owner` Smash policy state.
         Turbo,
-/// `Posture` option in the `Owner` Smash policy state.
+        /// `Posture` option in the `Owner` Smash policy state.
         Posture,
-/// `OutOfShield` option in the `Owner` Smash policy state.
+        /// `OutOfShield` option in the `Owner` Smash policy state.
         OutOfShield,
-/// `Reflect` option in the `Owner` Smash policy state.
+        /// `Reflect` option in the `Owner` Smash policy state.
         Reflect,
     }
 
@@ -151,11 +151,11 @@ pub mod action_owner {
     /// Represents the intent of an action owner, including whether it is present and committed.
     #[derive(Clone, Copy)]
     pub struct Intent {
-/// Runtime owner value used by Intent..
+        /// Runtime owner value used by Intent..
         pub owner: Owner,
-/// Runtime present value used by Intent..
+        /// Runtime present value used by Intent..
         pub present: bool,
-/// Runtime committed value used by Intent..
+        /// Runtime committed value used by Intent..
         pub committed: bool,
     }
     impl Intent {
@@ -180,15 +180,15 @@ pub mod action_owner {
     /// Tracks the ownership status of various action sources, including ledge priority and manual takeover.
     #[derive(Default)]
     pub struct ActionOwnership {
-/// Runtime locked value used by ActionOwnership..
+        /// Runtime locked value used by ActionOwnership..
         locked: Option<Owner>,
-/// Runtime ledge priority value used by ActionOwnership..
+        /// Runtime ledge priority value used by ActionOwnership..
         ledge_priority: bool,
-/// Runtime automatic suspended value used by ActionOwnership..
+        /// Runtime automatic suspended value used by ActionOwnership..
         automatic_suspended: bool,
-/// Runtime manual value used by ActionOwnership..
+        /// Runtime manual value used by ActionOwnership..
         manual: crate::manual_controls::ManualTakeover,
-/// Runtime locked manual value used by ActionOwnership..
+        /// Runtime locked manual value used by ActionOwnership..
         locked_manual: Option<crate::manual_controls::ManualTakeover>,
     }
     impl ActionOwnership {
@@ -353,25 +353,25 @@ pub mod input {
     );
 
     impl ButtonSet {
-/// `EMPTY` is a configuration value used by the Smash runtime.
+        /// `EMPTY` is a configuration value used by the Smash runtime.
         pub const EMPTY: Self = Self(0);
-/// `ATTACK` is a configuration value used by the Smash runtime.
+        /// `ATTACK` is a configuration value used by the Smash runtime.
         pub const ATTACK: Self = Self(1 << 0);
-/// `SPECIAL` is a configuration value used by the Smash runtime.
+        /// `SPECIAL` is a configuration value used by the Smash runtime.
         pub const SPECIAL: Self = Self(1 << 1);
-/// `JUMP` is a configuration value used by the Smash runtime.
+        /// `JUMP` is a configuration value used by the Smash runtime.
         pub const JUMP: Self = Self(1 << 2);
-/// `SHIELD` is a configuration value used by the Smash runtime.
+        /// `SHIELD` is a configuration value used by the Smash runtime.
         pub const SHIELD: Self = Self(1 << 3);
-/// `GRAB` is a configuration value used by the Smash runtime.
+        /// `GRAB` is a configuration value used by the Smash runtime.
         pub const GRAB: Self = Self(1 << 4);
-/// `DPAD_UP` is a configuration value used by the Smash runtime.
+        /// `DPAD_UP` is a configuration value used by the Smash runtime.
         pub const DPAD_UP: Self = Self(1 << 5);
-/// `DPAD_DOWN` is a configuration value used by the Smash runtime.
+        /// `DPAD_DOWN` is a configuration value used by the Smash runtime.
         pub const DPAD_DOWN: Self = Self(1 << 6);
-/// `DPAD_LEFT` is a configuration value used by the Smash runtime.
+        /// `DPAD_LEFT` is a configuration value used by the Smash runtime.
         pub const DPAD_LEFT: Self = Self(1 << 7);
-/// `DPAD_RIGHT` is a configuration value used by the Smash runtime.
+        /// `DPAD_RIGHT` is a configuration value used by the Smash runtime.
         pub const DPAD_RIGHT: Self = Self(1 << 8);
 
         // & keeps bits shared by both masks. Comparing against `other` asks whether
@@ -401,22 +401,22 @@ pub mod input {
     /// A normalized logical stick position. Its numeric range is adapter-defined.
     #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub struct StickPosition {
-/// Runtime x value used by StickPosition..
+        /// Runtime x value used by StickPosition..
         pub x: i16,
-/// Runtime y value used by StickPosition..
+        /// Runtime y value used by StickPosition..
         pub y: i16,
     }
 
     impl StickPosition {
-/// `NEUTRAL` is a configuration value used by the Smash runtime.
+        /// `NEUTRAL` is a configuration value used by the Smash runtime.
         pub const NEUTRAL: Self = Self { x: 0, y: 0 };
-/// `LEFT` is a configuration value used by the Smash runtime.
+        /// `LEFT` is a configuration value used by the Smash runtime.
         pub const LEFT: Self = Self { x: -1, y: 0 };
-/// `RIGHT` is a configuration value used by the Smash runtime.
+        /// `RIGHT` is a configuration value used by the Smash runtime.
         pub const RIGHT: Self = Self { x: 1, y: 0 };
-/// `UP` is a configuration value used by the Smash runtime.
+        /// `UP` is a configuration value used by the Smash runtime.
         pub const UP: Self = Self { x: 0, y: 1 };
-/// `DOWN` is a configuration value used by the Smash runtime.
+        /// `DOWN` is a configuration value used by the Smash runtime.
         pub const DOWN: Self = Self { x: 0, y: -1 };
     }
 
@@ -424,15 +424,15 @@ pub mod input {
     /// It is NOT layout-compatible with the game's native Controller allocation.
     #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub struct ControllerFrame {
-/// Runtime buttons value used by ControllerFrame..
+        /// Runtime buttons value used by ControllerFrame..
         pub buttons: ButtonSet,
-/// Runtime left stick value used by ControllerFrame..
+        /// Runtime left stick value used by ControllerFrame..
         pub left_stick: StickPosition,
-/// Runtime right stick value used by ControllerFrame..
+        /// Runtime right stick value used by ControllerFrame..
         pub right_stick: StickPosition,
-/// Runtime left trigger value used by ControllerFrame..
+        /// Runtime left trigger value used by ControllerFrame..
         pub left_trigger: u8,
-/// Runtime right trigger value used by ControllerFrame..
+        /// Runtime right trigger value used by ControllerFrame..
         pub right_trigger: u8,
     }
 
@@ -455,14 +455,14 @@ pub mod input {
     /// A named, inspectable recipe for one logical controller frame.
     #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub struct InputRecipe {
-/// Runtime buttons to add value used by InputRecipe..
+        /// Runtime buttons to add value used by InputRecipe..
         pub buttons_to_add: ButtonSet,
-/// Runtime left stick value used by InputRecipe..
+        /// Runtime left stick value used by InputRecipe..
         pub left_stick: LeftStickIntent,
     }
 
     impl InputRecipe {
-/// `NONE` is a configuration value used by the Smash runtime.
+        /// `NONE` is a configuration value used by the Smash runtime.
         pub const NONE: Self = Self {
             buttons_to_add: ButtonSet::EMPTY,
             left_stick: LeftStickIntent::PreservePlayer,
@@ -492,18 +492,18 @@ pub mod input {
     /// until a directional input path is independently tested.
     #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub struct InputPermissions {
-/// Runtime allow left stick override value used by InputPermissions..
+        /// Runtime allow left stick override value used by InputPermissions..
         pub allow_left_stick_override: bool,
     }
 
     /// The non-destructive result of applying a recipe to player input.
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct ArbitrationResult {
-/// current native animation frame.
+        /// current native animation frame.
         pub frame: ControllerFrame,
-/// Runtime added buttons value used by ArbitrationResult..
+        /// Runtime added buttons value used by ArbitrationResult..
         pub added_buttons: ButtonSet,
-/// Runtime blocked left stick request value used by ArbitrationResult..
+        /// Runtime blocked left stick request value used by ArbitrationResult..
         pub blocked_left_stick_request: bool,
     }
 
@@ -550,7 +550,7 @@ pub mod input {
     mod tests {
         use super::*;
 
-/// `PLAYER` is a configuration value used by the Smash runtime.
+        /// `PLAYER` is a configuration value used by the Smash runtime.
         const PLAYER: ControllerFrame = ControllerFrame {
             buttons: ButtonSet::JUMP,
             left_stick: StickPosition {
@@ -585,7 +585,8 @@ pub mod input {
         /// Regression test for `stick_request_requires_explicit_permission`.
         #[test]
         fn stick_request_requires_explicit_permission() {
-            let recipe = InputRecipe::buttons_with_left_stick(ButtonSet::SHIELD, StickPosition::LEFT);
+            let recipe =
+                InputRecipe::buttons_with_left_stick(ButtonSet::SHIELD, StickPosition::LEFT);
 
             let blocked = arbitrate(PLAYER, recipe, InputPermissions::default());
             assert!(blocked.blocked_left_stick_request);
@@ -608,16 +609,16 @@ pub(crate) mod up_b_receipt {
     use crate::gameplay::GameplayContext;
     use crate::move_input::{DeliveryBudget, UpBReceipt};
 
-/// Available `ReceiptAction` choices for the Smash assistance menu.
+    /// Available `ReceiptAction` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub(crate) enum ReceiptAction {
-/// `Continue` option in the `ReceiptAction` Smash policy state.
+        /// `Continue` option in the `ReceiptAction` Smash policy state.
         Continue,
-/// `Confirm` option in the `ReceiptAction` Smash policy state.
+        /// `Confirm` option in the `ReceiptAction` Smash policy state.
         Confirm,
-/// `Wait` option in the `ReceiptAction` Smash policy state.
+        /// `Wait` option in the `ReceiptAction` Smash policy state.
         Wait,
-/// `Cancel` option in the `ReceiptAction` Smash policy state.
+        /// `Cancel` option in the `ReceiptAction` Smash policy state.
         Cancel,
     }
 

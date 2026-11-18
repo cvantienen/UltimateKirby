@@ -87,9 +87,9 @@ pub mod battle_objects {
     /// opposite sides. Preserve agreement; return no invented side on conflict.
     #[derive(Default)]
     pub struct EntryDirection {
-/// Runtime side value used by EntryDirection..
+        /// Runtime side value used by EntryDirection..
         side: Option<f32>,
-/// Runtime conflict value used by EntryDirection..
+        /// Runtime conflict value used by EntryDirection..
         conflict: bool,
     }
     impl EntryDirection {
@@ -153,9 +153,9 @@ pub mod gameplay {
     /// Validated native air kinetics for short movement forecasts.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub struct AirPhysics {
-/// Runtime gravity value used by AirPhysics..
+        /// Runtime gravity value used by AirPhysics..
         pub gravity: f32,
-/// Runtime terminal speed value used by AirPhysics..
+        /// Runtime terminal speed value used by AirPhysics..
         pub terminal_speed: f32,
     }
     impl AirPhysics {
@@ -191,29 +191,29 @@ pub mod gameplay {
     /// Read-only opponent facts copied by the platform adapter.
     #[derive(Clone, Copy, Debug, Default, PartialEq)]
     pub struct Opponent {
-/// battle-object ID.
+        /// battle-object ID.
         pub id: u32,
-/// native fighter status.
+        /// native fighter status.
         pub status: i32,
-/// Runtime previous status value used by Opponent..
+        /// Runtime previous status value used by Opponent..
         pub previous_status: i32,
-/// Runtime situation value used by Opponent..
+        /// Runtime situation value used by Opponent..
         pub situation: i32,
-/// world-space position.
+        /// world-space position.
         pub position: [f32; 2],
         /// Aggregate native hit status, not an individual hurtbox model.
         pub vulnerable: bool,
-/// world-space velocity.
+        /// world-space velocity.
         pub velocity: [f32; 2],
         /// Only ledge policies use this fallback anchor when the fighter hangs.
         pub cliff_position: Option<[f32; 2]>,
         /// Sanitized native motion metadata; None means prediction is unavailable.
         pub vulnerable_in: Option<f32>,
-/// native animation/motion ID.
+        /// native animation/motion ID.
         pub motion: Option<MotionTiming>,
         /// Present for get-up attacks; None preserves conservative block-only behavior.
         pub attack_active: Option<bool>,
-/// Runtime air physics value used by Opponent..
+        /// Runtime air physics value used by Opponent..
         pub air_physics: Option<AirPhysics>,
         /// Native cancel deadline, separate from intermediate jump animation ends.
         pub actionable_in: Option<f32>,
@@ -334,14 +334,15 @@ pub mod observation {
         captured_tick: i64,
         current_tick: i64,
     ) -> bool {
-        captured_sequence == current_sequence && input_update_current(Some(captured_tick), current_tick)
+        captured_sequence == current_sequence
+            && input_update_current(Some(captured_tick), current_tick)
     }
 
     /// A command callback may upgrade a mapper-only sample once, including when
     /// no policy needs a roster. Discovery capability is distinct from roster data.
     #[derive(Clone, Copy, Default)]
     pub struct ObservationSetup {
-/// Runtime discovered value used by ObservationSetup..
+        /// Runtime discovered value used by ObservationSetup..
         discovered: Option<i64>,
     }
     impl ObservationSetup {
@@ -370,12 +371,12 @@ pub mod observation {
     /// and later frames always get new collision queries.
     type GroundSupportCache = Option<(u32, [f32; 2], f32, [bool; 2])>;
 
-/// Runtime Smash data carried by `GroundSupportSnapshot`.
+    /// Runtime Smash data carried by `GroundSupportSnapshot`.
     #[derive(Default)]
     pub struct GroundSupportSnapshot {
         // `Cell` lets this synchronous snapshot cache copied results through a
         // shared reference; it is interior mutability, not cross-thread locking.
-/// Runtime last value used by GroundSupportSnapshot..
+        /// Runtime last value used by GroundSupportSnapshot..
         last: Cell<GroundSupportCache>,
     }
     impl GroundSupportSnapshot {
@@ -401,60 +402,60 @@ pub mod observation {
     #[derive(Clone, Copy)]
     #[repr(usize)]
     pub enum Field {
-/// `Status` option in the `Field` Smash policy state.
+        /// `Status` option in the `Field` Smash policy state.
         Status,
-/// `Situation` option in the `Field` Smash policy state.
+        /// `Situation` option in the `Field` Smash policy state.
         Situation,
-/// `Motion` option in the `Field` Smash policy state.
+        /// `Motion` option in the `Field` Smash policy state.
         Motion,
-/// `Frame` option in the `Field` Smash policy state.
+        /// `Frame` option in the `Field` Smash policy state.
         Frame,
-/// `Rate` option in the `Field` Smash policy state.
+        /// `Rate` option in the `Field` Smash policy state.
         Rate,
-/// `X` option in the `Field` Smash policy state.
+        /// `X` option in the `Field` Smash policy state.
         X,
-/// `Y` option in the `Field` Smash policy state.
+        /// `Y` option in the `Field` Smash policy state.
         Y,
-/// `Vx` option in the `Field` Smash policy state.
+        /// `Vx` option in the `Field` Smash policy state.
         Vx,
-/// `Vy` option in the `Field` Smash policy state.
+        /// `Vy` option in the `Field` Smash policy state.
         Vy,
-/// `Facing` option in the `Field` Smash policy state.
+        /// `Facing` option in the `Field` Smash policy state.
         Facing,
-/// `Team` option in the `Field` Smash policy state.
+        /// `Team` option in the `Field` Smash policy state.
         Team,
-/// `Stop` option in the `Field` Smash policy state.
+        /// `Stop` option in the `Field` Smash policy state.
         Stop,
-/// `PreviousStatus` option in the `Field` Smash policy state.
+        /// `PreviousStatus` option in the `Field` Smash policy state.
         PreviousStatus,
-/// `EndFrame` option in the `Field` Smash policy state.
+        /// `EndFrame` option in the `Field` Smash policy state.
         EndFrame,
-/// `CaptureLink` option in the `Field` Smash policy state.
+        /// `CaptureLink` option in the `Field` Smash policy state.
         CaptureLink,
-/// `Kind` option in the `Field` Smash policy state.
+        /// `Kind` option in the `Field` Smash policy state.
         Kind,
     }
-/// `FIELDS` is a configuration value used by the Smash runtime.
+    /// `FIELDS` is a configuration value used by the Smash runtime.
     const FIELDS: usize = Field::Kind as usize + 1;
-/// Available `Fact` choices for the Smash assistance menu.
+    /// Available `Fact` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug, PartialEq)]
     pub enum Fact {
-/// `Int` option in the `Fact` Smash policy state.
+        /// `Int` option in the `Fact` Smash policy state.
         Int(
             /// Carries the observed int fact value in `Fact`.
             i32,
         ),
-/// `Motion` option in the `Fact` Smash policy state.
+        /// `Motion` option in the `Fact` Smash policy state.
         Motion(
             /// Carries the observed motion fact value in `Fact`.
             u64,
         ),
-/// `Float` option in the `Fact` Smash policy state.
+        /// `Float` option in the `Fact` Smash policy state.
         Float(
             /// Carries the observed float fact value in `Fact`.
             f32,
         ),
-/// `Bool` option in the `Fact` Smash policy state.
+        /// `Bool` option in the `Fact` Smash policy state.
         Bool(
             /// Carries the observed bool fact value in `Fact`.
             bool,
@@ -487,9 +488,9 @@ pub mod observation {
     struct Fighter {
         // Cache facts lazily so sharing a snapshot does not force unrelated
         // policies to perform every possible native observation.
-/// battle-object ID.
+        /// battle-object ID.
         id: Cell<Option<u32>>,
-/// Runtime facts value used by Fighter..
+        /// Runtime facts value used by Fighter..
         facts: [Cell<Option<Fact>>; FIELDS],
     }
     /// At most eight fighter identities; an unexpected extra identity reads through.
@@ -497,9 +498,9 @@ pub mod observation {
     pub type ObservationSnapshot = ObservationSnapshotSized<8>;
     /// Observation snapshot for a fixed number of fighters. Stores copied facts and identities for passive analysis.
     pub struct ObservationSnapshotSized<const N: usize> {
-/// Runtime fighters value used by ObservationSnapshotSized..
+        /// Runtime fighters value used by ObservationSnapshotSized..
         fighters: [Fighter; N],
-/// Runtime last value used by ObservationSnapshotSized..
+        /// Runtime last value used by ObservationSnapshotSized..
         last: Cell<Option<usize>>,
     }
     impl<const N: usize> Default for ObservationSnapshotSized<N> {
@@ -577,7 +578,7 @@ pub mod observation {
     /// One synchronous observation's roster IDs. Empty/unavailable is cached too.
     /// No native pointers, allocation, frame throttling, or cross-frame lifetime.
     pub struct RosterSnapshot<const N: usize = 8> {
-/// Runtime value value used by RosterSnapshot..
+        /// Runtime value value used by RosterSnapshot..
         value: Cell<Option<Option<[Option<u32>; N]>>>,
     }
     impl<const N: usize> Default for RosterSnapshot<N> {
@@ -661,11 +662,11 @@ pub mod state {
     /// Need to analyse more, may be extended in the future to include other specific fighters and unique modes/modifiers.
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub enum FighterKind {
-/// `Kirby` option in the `FighterKind` Smash policy state.
+        /// `Kirby` option in the `FighterKind` Smash policy state.
         Kirby,
-/// `Other` option in the `FighterKind` Smash policy state.
+        /// `Other` option in the `FighterKind` Smash policy state.
         Other,
-/// `Unknown` option in the `FighterKind` Smash policy state.
+        /// `Unknown` option in the `FighterKind` Smash policy state.
         Unknown,
     }
 
@@ -674,29 +675,29 @@ pub mod state {
     /// flow: specific defensive situations win over broad grounded/airborne ones.
     #[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
     pub enum Scenario {
-/// `Tech` option in the `Scenario` Smash policy state.
+        /// `Tech` option in the `Scenario` Smash policy state.
         Tech,
-/// `Clatter` option in the `Scenario` Smash policy state.
+        /// `Clatter` option in the `Scenario` Smash policy state.
         Clatter,
-/// `Tumble` option in the `Scenario` Smash policy state.
+        /// `Tumble` option in the `Scenario` Smash policy state.
         Tumble,
-/// `Hitstun` option in the `Scenario` Smash policy state.
+        /// `Hitstun` option in the `Scenario` Smash policy state.
         Hitstun,
-/// `Parry` option in the `Scenario` Smash policy state.
+        /// `Parry` option in the `Scenario` Smash policy state.
         Parry,
-/// `Footstool` option in the `Scenario` Smash policy state.
+        /// `Footstool` option in the `Scenario` Smash policy state.
         Footstool,
-/// `Landing` option in the `Scenario` Smash policy state.
+        /// `Landing` option in the `Scenario` Smash policy state.
         Landing,
-/// `Ledge` option in the `Scenario` Smash policy state.
+        /// `Ledge` option in the `Scenario` Smash policy state.
         Ledge,
-/// `Grounded` option in the `Scenario` Smash policy state.
+        /// `Grounded` option in the `Scenario` Smash policy state.
         Grounded,
-/// `Airborne` option in the `Scenario` Smash policy state.
+        /// `Airborne` option in the `Scenario` Smash policy state.
         Airborne,
         // Sentinel for an unused observation/rule slot; it is not an active tool.
         #[default]
-/// `None` option in the `Scenario` Smash policy state.
+        /// `None` option in the `Scenario` Smash policy state.
         None,
     }
 
@@ -725,14 +726,14 @@ pub mod state {
     // -> active restarts at zero. The live ScenarioCounter implements that contract.
     ///
     pub struct ScenarioSample {
-/// Runtime scenario value used by ScenarioSample..
+        /// Runtime scenario value used by ScenarioSample..
         pub scenario: Scenario,
         /// Frame zero is the first frame in this scenario.
         pub frames_active: u32,
     }
 
     impl ScenarioSample {
-/// `EMPTY` is a configuration value used by the Smash runtime.
+        /// `EMPTY` is a configuration value used by the Smash runtime.
         pub const EMPTY: Self = Self {
             scenario: Scenario::None,
             frames_active: 0,
@@ -751,7 +752,7 @@ pub mod state {
     /// and hitstun). The engine chooses the highest-priority active scenario.
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct FighterObservation {
-/// active-frame or active-state data.
+        /// active-frame or active-state data.
         pub active: [ScenarioSample; Self::MAX_SAMPLES],
     }
 
@@ -759,7 +760,7 @@ pub mod state {
         /// Sets the upper bound for samples.
         pub const MAX_SAMPLES: usize = 3;
 
-/// `EMPTY` is a configuration value used by the Smash runtime.
+        /// `EMPTY` is a configuration value used by the Smash runtime.
         pub const EMPTY: Self = Self {
             active: [ScenarioSample::EMPTY; Self::MAX_SAMPLES],
         };
@@ -796,9 +797,9 @@ pub mod state {
     /// Facts that must be established before the engine may propose an action.
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct RunContext {
-/// Runtime is locally human controlled value used by RunContext..
+        /// Runtime is locally human controlled value used by RunContext..
         pub is_locally_human_controlled: bool,
-/// Runtime fighter value used by RunContext..
+        /// Runtime fighter value used by RunContext..
         pub fighter: FighterKind,
     }
 

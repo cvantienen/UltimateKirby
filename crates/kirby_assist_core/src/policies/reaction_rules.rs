@@ -151,63 +151,63 @@ impl AutomaticEvent {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Trigger {
     #[default]
-/// `Off` option in the `Trigger` Smash policy state.
+    /// `Off` option in the `Trigger` Smash policy state.
     Off,
-/// `Roll` option in the `Trigger` Smash policy state.
+    /// `Roll` option in the `Trigger` Smash policy state.
     Roll,
-/// `Crossed` option in the `Trigger` Smash policy state.
+    /// `Crossed` option in the `Trigger` Smash policy state.
     Crossed,
-/// `Vulnerable` option in the `Trigger` Smash policy state.
+    /// `Vulnerable` option in the `Trigger` Smash policy state.
     Vulnerable,
-/// `CrossVulnerable` option in the `Trigger` Smash policy state.
+    /// `CrossVulnerable` option in the `Trigger` Smash policy state.
     CrossVulnerable,
-/// `ShieldHit` option in the `Trigger` Smash policy state.
+    /// `ShieldHit` option in the `Trigger` Smash policy state.
     ShieldHit,
-/// `GrabDodged` option in the `Trigger` Smash policy state.
+    /// `GrabDodged` option in the `Trigger` Smash policy state.
     GrabDodged,
-/// `LedgeRegrab` option in the `Trigger` Smash policy state.
+    /// `LedgeRegrab` option in the `Trigger` Smash policy state.
     LedgeRegrab,
-/// `SpotDodge` option in the `Trigger` Smash policy state.
+    /// `SpotDodge` option in the `Trigger` Smash policy state.
     SpotDodge,
-/// `EnemyShield` option in the `Trigger` Smash policy state.
+    /// `EnemyShield` option in the `Trigger` Smash policy state.
     EnemyShield,
-/// `ShieldRoll` option in the `Trigger` Smash policy state.
+    /// `ShieldRoll` option in the `Trigger` Smash policy state.
     ShieldRoll,
-/// `ShieldCross` option in the `Trigger` Smash policy state.
+    /// `ShieldCross` option in the `Trigger` Smash policy state.
     ShieldCross,
-/// `ShieldVulnerable` option in the `Trigger` Smash policy state.
+    /// `ShieldVulnerable` option in the `Trigger` Smash policy state.
     ShieldVulnerable,
-/// `ShieldCrossVulnerable` option in the `Trigger` Smash policy state.
+    /// `ShieldCrossVulnerable` option in the `Trigger` Smash policy state.
     ShieldCrossVulnerable,
-/// `ShieldAway` option in the `Trigger` Smash policy state.
+    /// `ShieldAway` option in the `Trigger` Smash policy state.
     ShieldAway,
-/// `ShieldAwayVulnerable` option in the `Trigger` Smash policy state.
+    /// `ShieldAwayVulnerable` option in the `Trigger` Smash policy state.
     ShieldAwayVulnerable,
-/// `ShieldPressureVulnerable` option in the `Trigger` Smash policy state.
+    /// `ShieldPressureVulnerable` option in the `Trigger` Smash policy state.
     ShieldPressureVulnerable,
-/// `ShieldHitVulnerable` option in the `Trigger` Smash policy state.
+    /// `ShieldHitVulnerable` option in the `Trigger` Smash policy state.
     ShieldHitVulnerable,
-/// `GrabDodgedVulnerable` option in the `Trigger` Smash policy state.
+    /// `GrabDodgedVulnerable` option in the `Trigger` Smash policy state.
     GrabDodgedVulnerable,
-/// `SpotDodgeAny` option in the `Trigger` Smash policy state.
+    /// `SpotDodgeAny` option in the `Trigger` Smash policy state.
     SpotDodgeAny,
-/// `AutoRoll` option in the `Trigger` Smash policy state.
+    /// `AutoRoll` option in the `Trigger` Smash policy state.
     AutoRoll,
-/// `AutoSpot` option in the `Trigger` Smash policy state.
+    /// `AutoSpot` option in the `Trigger` Smash policy state.
     AutoSpot,
-/// `AutoAir` option in the `Trigger` Smash policy state.
+    /// `AutoAir` option in the `Trigger` Smash policy state.
     AutoAir,
-/// `AutoGrab` option in the `Trigger` Smash policy state.
+    /// `AutoGrab` option in the `Trigger` Smash policy state.
     AutoGrab,
-/// `AutoShieldGrab` option in the `Trigger` Smash policy state.
+    /// `AutoShieldGrab` option in the `Trigger` Smash policy state.
     AutoShieldGrab,
-/// `AutoGrabDodged` option in the `Trigger` Smash policy state.
+    /// `AutoGrabDodged` option in the `Trigger` Smash policy state.
     AutoGrabDodged,
-/// `AutoShieldBackup` option in the `Trigger` Smash policy state.
+    /// `AutoShieldBackup` option in the `Trigger` Smash policy state.
     AutoShieldBackup,
 }
 impl Trigger {
-/// `AUTO_EVENTS` is a configuration value used by the Smash runtime.
+    /// `AUTO_EVENTS` is a configuration value used by the Smash runtime.
     pub const AUTO_EVENTS: [Self; 7] = [
         AutomaticEvent::Roll.trigger(),
         AutomaticEvent::Spot.trigger(),
@@ -231,7 +231,7 @@ impl Trigger {
         }
     }
 
-/// `ALL` is a configuration value used by the Smash runtime.
+    /// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 27] = [
         Self::Off,
         Self::Roll,
@@ -291,7 +291,7 @@ impl Trigger {
                 | Self::ShieldPressureVulnerable
         )
     }
-/// `SHIELD_EVENTS` is a configuration value used by the Smash runtime.
+    /// `SHIELD_EVENTS` is a configuration value used by the Smash runtime.
     pub const SHIELD_EVENTS: [Self; 8] = [
         Self::EnemyShield,
         Self::ShieldRoll,
@@ -390,23 +390,23 @@ impl Trigger {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SelfState {
     #[default]
-/// `Any` option in the `SelfState` Smash policy state.
+    /// `Any` option in the `SelfState` Smash policy state.
     Any,
-/// `Grounded` option in the `SelfState` Smash policy state.
+    /// `Grounded` option in the `SelfState` Smash policy state.
     Grounded,
-/// `Airborne` option in the `SelfState` Smash policy state.
+    /// `Airborne` option in the `SelfState` Smash policy state.
     Airborne,
-/// `Standing` option in the `SelfState` Smash policy state.
+    /// `Standing` option in the `SelfState` Smash policy state.
     Standing,
-/// `Walking` option in the `SelfState` Smash policy state.
+    /// `Walking` option in the `SelfState` Smash policy state.
     Walking,
-/// `Running` option in the `SelfState` Smash policy state.
+    /// `Running` option in the `SelfState` Smash policy state.
     Running,
-/// `Shielding` option in the `SelfState` Smash policy state.
+    /// `Shielding` option in the `SelfState` Smash policy state.
     Shielding,
 }
 impl SelfState {
-/// `ALL` is a configuration value used by the Smash runtime.
+    /// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 7] = [
         Self::Any,
         Self::Grounded,
@@ -466,15 +466,15 @@ impl SelfState {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Side {
     #[default]
-/// `Any` option in the `Side` Smash policy state.
+    /// `Any` option in the `Side` Smash policy state.
     Any,
-/// `Front` option in the `Side` Smash policy state.
+    /// `Front` option in the `Side` Smash policy state.
     Front,
-/// `Behind` option in the `Side` Smash policy state.
+    /// `Behind` option in the `Side` Smash policy state.
     Behind,
 }
 impl Side {
-/// `ALL` is a configuration value used by the Smash runtime.
+    /// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 3] = [Self::Any, Self::Front, Self::Behind];
     /// Returns the serialized token for the value.
     pub fn token(self) -> &'static str {
@@ -489,23 +489,23 @@ impl Side {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Control {
     #[default]
-/// `Menu` option in the `Control` Smash policy state.
+    /// `Menu` option in the `Control` Smash policy state.
     Menu,
-/// `ToggleX` option in the `Control` Smash policy state.
+    /// `ToggleX` option in the `Control` Smash policy state.
     ToggleX,
-/// `ToggleY` option in the `Control` Smash policy state.
+    /// `ToggleY` option in the `Control` Smash policy state.
     ToggleY,
-/// `ToggleUp` option in the `Control` Smash policy state.
+    /// `ToggleUp` option in the `Control` Smash policy state.
     ToggleUp,
-/// `ToggleDown` option in the `Control` Smash policy state.
+    /// `ToggleDown` option in the `Control` Smash policy state.
     ToggleDown,
-/// `ToggleLeft` option in the `Control` Smash policy state.
+    /// `ToggleLeft` option in the `Control` Smash policy state.
     ToggleLeft,
-/// `ToggleRight` option in the `Control` Smash policy state.
+    /// `ToggleRight` option in the `Control` Smash policy state.
     ToggleRight,
 }
 impl Control {
-/// `ALL` is a configuration value used by the Smash runtime.
+    /// `ALL` is a configuration value used by the Smash runtime.
     pub const ALL: [Self; 7] = [
         Self::Menu,
         Self::ToggleX,
@@ -560,21 +560,21 @@ impl Control {
 /// Runtime Smash data carried by `Rule`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rule {
-/// Runtime trigger value used by Rule..
+    /// Runtime trigger value used by Rule..
     pub trigger: Trigger,
-/// Runtime state value used by Rule..
+    /// Runtime state value used by Rule..
     pub state: SelfState,
-/// Runtime min value used by Rule..
+    /// Runtime min value used by Rule..
     pub min: f32,
-/// Runtime max value used by Rule..
+    /// Runtime max value used by Rule..
     pub max: f32,
-/// Runtime height value used by Rule..
+    /// Runtime height value used by Rule..
     pub height: f32,
-/// Runtime side value used by Rule..
+    /// Runtime side value used by Rule..
     pub side: Side,
-/// Runtime priority value used by Rule..
+    /// Runtime priority value used by Rule..
     pub priority: u8,
-/// Runtime control value used by Rule..
+    /// Runtime control value used by Rule..
     pub control: Control,
 }
 impl Default for Rule {
@@ -837,32 +837,32 @@ pub fn validate_response(s: Sequence) -> Result<(), String> {
 /// Runtime Smash data carried by `Candidate`.
 #[derive(Clone, Copy)]
 pub struct Candidate {
-/// Runtime slot value used by Candidate..
+    /// Runtime slot value used by Candidate..
     pub slot: usize,
-/// Runtime index value used by Candidate..
+    /// Runtime index value used by Candidate..
     pub index: usize,
-/// Runtime sequence value used by Candidate..
+    /// Runtime sequence value used by Candidate..
     pub sequence: Sequence,
 }
 /// Runtime Smash data carried by `Resolved`.
 pub struct Resolved {
-/// Runtime rules value used by Resolved..
+    /// Runtime rules value used by Resolved..
     pub rules: Vec<Option<Candidate>>,
-/// Runtime len value used by Resolved..
+    /// Runtime len value used by Resolved..
     pub len: usize,
-/// Runtime controls value used by Resolved..
+    /// Runtime controls value used by Resolved..
     pub controls: u8,
-/// Runtime enabled controls value used by Resolved..
+    /// Runtime enabled controls value used by Resolved..
     pub enabled_controls: u8,
-/// Runtime defense mask value used by Resolved..
+    /// Runtime defense mask value used by Resolved..
     defense_mask: u32,
-/// Runtime simple value used by Resolved..
+    /// Runtime simple value used by Resolved..
     simple: Option<Box<[Option<Sequence>; 7]>>,
-/// Runtime simple starts value used by Resolved..
+    /// Runtime simple starts value used by Resolved..
     simple_starts: [Option<SimpleStart>; 3],
-/// Runtime automatic ground value used by Resolved..
+    /// Runtime automatic ground value used by Resolved..
     automatic_ground: [Option<(f32, f32)>; 7],
-/// Runtime automatic up special value used by Resolved..
+    /// Runtime automatic up special value used by Resolved..
     automatic_up_special: u8,
 }
 impl Default for Resolved {
@@ -975,30 +975,30 @@ impl Resolved {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Feedback {
     #[default]
-/// `Watching` option in the `Feedback` Smash policy state.
+    /// `Watching` option in the `Feedback` Smash policy state.
     Watching,
-/// `State` option in the `Feedback` Smash policy state.
+    /// `State` option in the `Feedback` Smash policy state.
     State,
-/// `Range` option in the `Feedback` Smash policy state.
+    /// `Range` option in the `Feedback` Smash policy state.
     Range,
-/// `Height` option in the `Feedback` Smash policy state.
+    /// `Height` option in the `Feedback` Smash policy state.
     Height,
-/// `Side` option in the `Feedback` Smash policy state.
+    /// `Side` option in the `Feedback` Smash policy state.
     Side,
-/// `Crossing` option in the `Feedback` Smash policy state.
+    /// `Crossing` option in the `Feedback` Smash policy state.
     Crossing,
-/// `Invulnerable` option in the `Feedback` Smash policy state.
+    /// `Invulnerable` option in the `Feedback` Smash policy state.
     Invulnerable,
-/// `Matched` option in the `Feedback` Smash policy state.
+    /// `Matched` option in the `Feedback` Smash policy state.
     Matched(
         /// Carries the index of the matched rule in `Feedback`.
         u8,
     ),
-/// `Cancelled` option in the `Feedback` Smash policy state.
+    /// `Cancelled` option in the `Feedback` Smash policy state.
     Cancelled,
-/// `MissingTarget` option in the `Feedback` Smash policy state.
+    /// `MissingTarget` option in the `Feedback` Smash policy state.
     MissingTarget,
-/// `Finished` option in the `Feedback` Smash policy state.
+    /// `Finished` option in the `Feedback` Smash policy state.
     Finished,
 }
 impl Feedback {
@@ -1022,19 +1022,19 @@ impl Feedback {
 /// Runtime Smash data carried by `Track`.
 #[derive(Clone, Copy)]
 struct Track {
-/// battle-object ID.
+    /// battle-object ID.
     id: u32,
-/// native fighter status.
+    /// native fighter status.
     status: i32,
-/// native animation/motion ID.
+    /// native animation/motion ID.
     motion: u64,
-/// current native animation frame.
+    /// current native animation frame.
     frame: f32,
-/// Runtime dx value used by Track..
+    /// Runtime dx value used by Track..
     dx: f32,
-/// Runtime crossed value used by Track..
+    /// Runtime crossed value used by Track..
     crossed: bool,
-/// Runtime used value used by Track..
+    /// Runtime used value used by Track..
     used: bool,
 }
 impl Track {
@@ -1059,19 +1059,19 @@ impl Tracked for Track {
 /// Runtime Smash data carried by `Engine`.
 #[derive(Default)]
 pub struct Engine {
-/// Runtime tracks value used by Engine..
+    /// Runtime tracks value used by Engine..
     tracks: [Option<Track>; crate::battle_objects::FIGHTER_CAPACITY],
-/// Runtime plan value used by Engine..
+    /// Runtime plan value used by Engine..
     plan: Option<InputTimeline>,
-/// selected opponent/projectile target.
+    /// selected opponent/projectile target.
     target: Option<u32>,
-/// Runtime feedback value used by Engine..
+    /// Runtime feedback value used by Engine..
     pub feedback: Feedback,
-/// Runtime last priority value used by Engine..
+    /// Runtime last priority value used by Engine..
     pub last_priority: Option<u8>,
-/// Runtime active control value used by Engine..
+    /// Runtime active control value used by Engine..
     active_control: Option<Control>,
-/// Runtime up b value used by Engine..
+    /// Runtime up b value used by Engine..
     up_b: crate::move_input::UpBFlow,
 }
 impl Engine {

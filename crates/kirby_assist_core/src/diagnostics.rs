@@ -6,19 +6,19 @@ const PERIODIC_DIAGNOSTIC_INTERVAL_MS: u64 = 500;
 /// Runtime Smash data carried by `DiagnosticEmission`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DiagnosticEmission {
-/// Runtime periodic value used by DiagnosticEmission..
+    /// Runtime periodic value used by DiagnosticEmission..
     pub periodic: bool,
-/// Runtime coalesced updates value used by DiagnosticEmission..
+    /// Runtime coalesced updates value used by DiagnosticEmission..
     pub coalesced_updates: u32,
 }
 
 /// Runtime Smash data carried by `DiagnosticGate`.
 pub struct DiagnosticGate<K> {
-/// Runtime last value used by DiagnosticGate..
+    /// Runtime last value used by DiagnosticGate..
     last: Option<K>,
-/// Runtime last emission ms value used by DiagnosticGate..
+    /// Runtime last emission ms value used by DiagnosticGate..
     last_emission_ms: Option<u64>,
-/// Runtime coalesced value used by DiagnosticGate..
+    /// Runtime coalesced value used by DiagnosticGate..
     coalesced: u32,
 }
 impl<K: PartialEq> DiagnosticGate<K> {
@@ -134,21 +134,21 @@ pub mod modes {
     use crate::{action_owner::Owner, native_input::*};
     use std::fmt::Write;
 
-/// `OWNER_COUNT` is a configuration value used by the Smash runtime.
+    /// `OWNER_COUNT` is a configuration value used by the Smash runtime.
     const OWNER_COUNT: usize = 13;
-/// `REPORT_TEXT_CAPACITY_BYTES` is a configuration value used by the Smash runtime.
+    /// `REPORT_TEXT_CAPACITY_BYTES` is a configuration value used by the Smash runtime.
     const REPORT_TEXT_CAPACITY_BYTES: usize = 1200;
     /// Sets the lower bound for report interval ms.
     const MIN_REPORT_INTERVAL_MS: u64 = 250;
-/// `LABEL_CAPACITY_BYTES` is a configuration value used by the Smash runtime.
+    /// `LABEL_CAPACITY_BYTES` is a configuration value used by the Smash runtime.
     const LABEL_CAPACITY_BYTES: usize = 64;
-/// `CONFIGURATION_ROW_COUNT` is a configuration value used by the Smash runtime.
+    /// `CONFIGURATION_ROW_COUNT` is a configuration value used by the Smash runtime.
     const CONFIGURATION_ROW_COUNT: usize = 25;
-/// `LEDGE_HELP` is a configuration value used by the Smash runtime.
+    /// `LEDGE_HELP` is a configuration value used by the Smash runtime.
     const LEDGE_HELP: &str = "Hold the ledge tool; waits for the matching ledge option, safe spacing and protection to end.";
-/// `RECIPE_HELP` is a configuration value used by the Smash runtime.
+    /// `RECIPE_HELP` is a configuration value used by the Smash runtime.
     const RECIPE_HELP: &str = "An assigned recipe runs once per fresh button press while the menu is closed; Native preserves the existing control.";
-/// `BINDING_HELP` is a configuration value used by the Smash runtime.
+    /// `BINDING_HELP` is a configuration value used by the Smash runtime.
     const BINDING_HELP: &str =
         "Binding for this D-pad direction; Normal keeps the existing control.";
     /// Row order must match the root menu's configuration rows. An empty label
@@ -180,22 +180,22 @@ pub mod modes {
         ("Out of shield", "Confirms shield contact, retains defense through stun/multihits and selects the fighter-specific in-range response; yields to ledge responses."),
         ("Shield pressure", "Watches enemy shields and shield-origin rolls; selects a configured pressure response without interrupting protected ledge actions."),
     ];
-/// `RESULT_TOP_MARGIN` is a configuration value used by the Smash runtime.
+    /// `RESULT_TOP_MARGIN` is a configuration value used by the Smash runtime.
     const RESULT_TOP_MARGIN: f32 = 14.0;
-/// `RESULT_BOTTOM_MARGIN` is a configuration value used by the Smash runtime.
+    /// `RESULT_BOTTOM_MARGIN` is a configuration value used by the Smash runtime.
     const RESULT_BOTTOM_MARGIN: f32 = 8.0;
     /// Sets the lower bound for result height.
     const MIN_RESULT_HEIGHT: f32 = 40.0;
-/// `SAFETY_TECH_GUARD` is a configuration value used by the Smash runtime.
+    /// `SAFETY_TECH_GUARD` is a configuration value used by the Smash runtime.
     pub const SAFETY_TECH_GUARD: u8 = 1 << 0;
-/// `SAFETY_MASH` is a configuration value used by the Smash runtime.
+    /// `SAFETY_MASH` is a configuration value used by the Smash runtime.
     pub const SAFETY_MASH: u8 = 1 << 1;
-/// `SAFETY_SDI` is a configuration value used by the Smash runtime.
+    /// `SAFETY_SDI` is a configuration value used by the Smash runtime.
     pub const SAFETY_SDI: u8 = 1 << 2;
-/// `SAFETY_DI` is a configuration value used by the Smash runtime.
+    /// `SAFETY_DI` is a configuration value used by the Smash runtime.
     pub const SAFETY_DI: u8 = 1 << 3;
 
-/// `OWNERS` is a configuration value used by the Smash runtime.
+    /// `OWNERS` is a configuration value used by the Smash runtime.
     pub const OWNERS: [Owner; OWNER_COUNT] = [
         Owner::Safety,
         Owner::OptionRead,
@@ -253,7 +253,7 @@ pub mod modes {
     }
     /// Returns the display name for the observed motion.
     pub fn motion_name(status: i32, motion: u64) -> &'static str {
-/// `ATTACK_AIR_NAMES` is a configuration value used by the Smash runtime.
+        /// `ATTACK_AIR_NAMES` is a configuration value used by the Smash runtime.
         const ATTACK_AIR_NAMES: [(u64, &str); 5] = [
             (crate::timing::motion_hash("attack_air_n"), "neutral air"),
             (crate::timing::motion_hash("attack_air_f"), "forward air"),
@@ -295,27 +295,27 @@ pub mod modes {
             _ => NATIVE_ACTION_NONE,
         }
     }
-/// `NATIVE_ACTION_NONE` is a configuration value used by the Smash runtime.
+    /// `NATIVE_ACTION_NONE` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_NONE: u16 = 0;
-/// `NATIVE_ACTION_AIRBORNE` is a configuration value used by the Smash runtime.
+    /// `NATIVE_ACTION_AIRBORNE` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_AIRBORNE: u16 = 1;
-/// `NATIVE_ACTION_SHIELD` is a configuration value used by the Smash runtime.
+    /// `NATIVE_ACTION_SHIELD` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_SHIELD: u16 = 2;
-/// `NATIVE_ACTION_SPOT_DODGE` is a configuration value used by the Smash runtime.
+    /// `NATIVE_ACTION_SPOT_DODGE` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_SPOT_DODGE: u16 = 4;
-/// `NATIVE_ACTION_ROLL_OR_AIR_DODGE` is a configuration value used by the Smash runtime.
+    /// `NATIVE_ACTION_ROLL_OR_AIR_DODGE` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_ROLL_OR_AIR_DODGE: u16 = 8;
-/// `NATIVE_ACTION_GROUND_ATTACK` is a configuration value used by the Smash runtime.
+    /// `NATIVE_ACTION_GROUND_ATTACK` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_GROUND_ATTACK: u16 = 16;
-/// `NATIVE_ACTION_AERIAL_ATTACK` is a configuration value used by the Smash runtime.
+    /// `NATIVE_ACTION_AERIAL_ATTACK` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_AERIAL_ATTACK: u16 = 32;
-/// `NATIVE_ACTION_GRAB` is a configuration value used by the Smash runtime.
+    /// `NATIVE_ACTION_GRAB` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_GRAB: u16 = 64;
-/// `NATIVE_ACTION_DAMAGE_OR_TECH` is a configuration value used by the Smash runtime.
+    /// `NATIVE_ACTION_DAMAGE_OR_TECH` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_DAMAGE_OR_TECH: u16 = 128;
-/// `NATIVE_ACTION_LEDGE_ACTION` is a configuration value used by the Smash runtime.
+    /// `NATIVE_ACTION_LEDGE_ACTION` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_LEDGE_ACTION: u16 = 256;
-/// `NATIVE_ACTION_LABELS` is a configuration value used by the Smash runtime.
+    /// `NATIVE_ACTION_LABELS` is a configuration value used by the Smash runtime.
     const NATIVE_ACTION_LABELS: [(u16, &str); 9] = [
         (NATIVE_ACTION_AIRBORNE, "jump/fall"),
         (NATIVE_ACTION_SHIELD, "shield"),
@@ -393,66 +393,66 @@ pub mod modes {
         }
     }
 
-/// Runtime Smash data carried by `Snapshot`.
+    /// Runtime Smash data carried by `Snapshot`.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct Snapshot {
-/// Runtime winner value used by Snapshot..
+        /// Runtime winner value used by Snapshot..
         pub winner: Option<Owner>,
-/// Runtime present value used by Snapshot..
+        /// Runtime present value used by Snapshot..
         pub present: u32,
-/// Runtime committed value used by Snapshot..
+        /// Runtime committed value used by Snapshot..
         pub committed: bool,
-/// Runtime requested value used by Snapshot..
+        /// Runtime requested value used by Snapshot..
         pub requested: u32,
         /// Quantized directions only; analog jitter must not create log spam.
         pub stick: Option<[i8; 2]>,
-/// native fighter status.
+        /// native fighter status.
         pub status: i32,
-/// native animation/motion ID.
+        /// native animation/motion ID.
         pub motion: u64,
-/// Runtime native frame value used by Snapshot..
+        /// Runtime native frame value used by Snapshot..
         pub native_frame: u16,
-/// Runtime stopped value used by Snapshot..
+        /// Runtime stopped value used by Snapshot..
         pub stopped: bool,
-/// Runtime can act value used by Snapshot..
+        /// Runtime can act value used by Snapshot..
         pub can_act: bool,
-/// Runtime hit value used by Snapshot..
+        /// Runtime hit value used by Snapshot..
         pub hit: Option<bool>,
-/// Runtime valid value used by Snapshot..
+        /// Runtime valid value used by Snapshot..
         pub valid: bool,
         /// Flags are the `SAFETY_*` constants in this module.
         pub safety: u8,
     }
-/// Runtime Smash data carried by `Evidence`.
+    /// Runtime Smash data carried by `Evidence`.
     #[derive(Clone, Copy, Default)]
     struct Evidence {
-/// Runtime proposed value used by Evidence..
+        /// Runtime proposed value used by Evidence..
         proposed: bool,
-/// Runtime selected value used by Evidence..
+        /// Runtime selected value used by Evidence..
         selected: u16,
-/// Runtime requests value used by Evidence..
+        /// Runtime requests value used by Evidence..
         requests: u32,
-/// Runtime stick value used by Evidence..
+        /// Runtime stick value used by Evidence..
         stick: Option<[i8; 2]>,
     }
-/// Runtime Smash data carried by `Report`.
+    /// Runtime Smash data carried by `Report`.
     #[derive(Clone, Copy)]
     pub struct Report {
-/// Runtime first value used by Report..
+        /// Runtime first value used by Report..
         pub first: Snapshot,
-/// Runtime last value used by Report..
+        /// Runtime last value used by Report..
         pub last: Snapshot,
-/// Runtime at ms value used by Report..
+        /// Runtime at ms value used by Report..
         pub at_ms: u64,
-/// Runtime changes value used by Report..
+        /// Runtime changes value used by Report..
         changes: u16,
-/// Runtime modes value used by Report..
+        /// Runtime modes value used by Report..
         modes: [Evidence; OWNERS.len()],
-/// Runtime hit seen value used by Report..
+        /// Runtime hit seen value used by Report..
         hit_seen: bool,
-/// Runtime hit sampled value used by Report..
+        /// Runtime hit sampled value used by Report..
         hit_sampled: bool,
-/// Runtime native actions value used by Report..
+        /// Runtime native actions value used by Report..
         native_actions: u16,
     }
     impl Report {
@@ -672,13 +672,13 @@ pub mod modes {
         let _ = writeln!(text, ".");
     }
 
-/// Runtime Smash data carried by `Recorder`.
+    /// Runtime Smash data carried by `Recorder`.
     pub struct Recorder {
-/// Runtime previous value used by Recorder..
+        /// Runtime previous value used by Recorder..
         previous: Option<Snapshot>,
-/// Runtime pending value used by Recorder..
+        /// Runtime pending value used by Recorder..
         pending: Option<Report>,
-/// Runtime last ms value used by Recorder..
+        /// Runtime last ms value used by Recorder..
         last_ms: Option<u64>,
     }
     impl Default for Recorder {
@@ -760,9 +760,9 @@ pub mod modes {
     /// strings. Configuration/report updates allocate no label storage on frames.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     pub struct Label {
-/// Runtime bytes value used by Label..
+        /// Runtime bytes value used by Label..
         bytes: [u8; LABEL_CAPACITY_BYTES],
-/// Runtime len value used by Label..
+        /// Runtime len value used by Label..
         len: usize,
     }
     impl Label {
@@ -794,14 +794,14 @@ pub mod modes {
             f.write_str(self.as_str())
         }
     }
-/// Runtime Smash data carried by `Configuration`.
+    /// Runtime Smash data carried by `Configuration`.
     #[derive(Clone, Copy, PartialEq, Eq)]
     pub struct Configuration {
-/// Runtime fighter value used by Configuration..
+        /// Runtime fighter value used by Configuration..
         pub fighter: &'static str,
-/// Runtime rows value used by Configuration..
+        /// Runtime rows value used by Configuration..
         pub rows: [Label; CONFIGURATION_ROW_COUNT],
-/// Runtime auto reflect value used by Configuration..
+        /// Runtime auto reflect value used by Configuration..
         pub auto_reflect: bool,
     }
     impl Configuration {

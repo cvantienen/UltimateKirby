@@ -9,13 +9,13 @@ use super::{is_new_hit, stick_engaged, LAUNCH_DI_FRAMES, MAX_DAMAGE_STOP_DI_FRAM
 /// Runtime Smash data carried by `SdiContext`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SdiContext {
-/// Runtime object value used by SdiContext..
+    /// Runtime object value used by SdiContext..
     pub object: u32,
-/// Runtime damage stop value used by SdiContext..
+    /// Runtime damage stop value used by SdiContext..
     pub damage_stop: bool,
-/// Runtime remaining value used by SdiContext..
+    /// Runtime remaining value used by SdiContext..
     pub remaining: u64,
-/// Runtime input delay value used by SdiContext..
+    /// Runtime input delay value used by SdiContext..
     pub input_delay: f32,
     /// Away from the attributed attacker (or sole opponent); zero if unknown.
     pub outward: f32,
@@ -23,13 +23,13 @@ pub struct SdiContext {
 /// Runtime Smash data carried by `SdiState`.
 #[derive(Default)]
 pub struct SdiState {
-/// Runtime last value used by SdiState..
+    /// Runtime last value used by SdiState..
     last: Option<(u32, u64)>,
-/// Runtime last flick value used by SdiState..
+    /// Runtime last flick value used by SdiState..
     last_flick: Option<u64>,
-/// controller input output.
+    /// controller input output.
     output: Option<[f32; 2]>,
-/// Runtime manual control value used by SdiState..
+    /// Runtime manual control value used by SdiState..
     manual_control: bool,
 }
 impl SdiState {

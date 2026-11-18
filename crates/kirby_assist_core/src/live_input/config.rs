@@ -25,9 +25,9 @@ const DEFAULT_COLLISION_LOOKAHEAD_FRAMES: f32 = 3.0;
 pub struct LiveSettings {
     /// Stores whether `LiveSettings` is enabled.
     pub enabled: bool,
-/// Runtime auto mash value used by LiveSettings..
+    /// Runtime auto mash value used by LiveSettings..
     pub auto_mash: bool,
-/// Runtime auto tech value used by LiveSettings..
+    /// Runtime auto tech value used by LiveSettings..
     pub auto_tech: bool,
     /// Enables extra diagnostic messages, not all logging in the plugin.
     pub tech_debug: bool,
@@ -59,23 +59,23 @@ impl Default for LiveSettings {
 pub struct LiveConfig {
     /// L-held approximate defense against nearby active fighter attacks.
     pub autopilot_shield: bool,
-/// Runtime down tilt trip smash value used by LiveConfig..
+    /// Runtime down tilt trip smash value used by LiveConfig..
     pub down_tilt_trip_smash: bool,
-/// Runtime kirby fair1 smash value used by LiveConfig..
+    /// Runtime kirby fair1 smash value used by LiveConfig..
     pub kirby_fair1_smash: bool,
-/// Runtime auto sdi value used by LiveConfig..
+    /// Runtime auto sdi value used by LiveConfig..
     pub auto_sdi: bool,
-/// Runtime auto di value used by LiveConfig..
+    /// Runtime auto di value used by LiveConfig..
     pub auto_di: crate::auto_di::Settings,
-/// Runtime auto spot dodge value used by LiveConfig..
+    /// Runtime auto spot dodge value used by LiveConfig..
     pub auto_spot_dodge: bool,
-/// Runtime controls value used by LiveConfig..
+    /// Runtime controls value used by LiveConfig..
     pub controls: LiveSettings,
-/// Runtime control layout value used by LiveConfig..
+    /// Runtime control layout value used by LiveConfig..
     pub control_layout: crate::native_input::ControlLayout,
     /// Facing-direction creep strength for the selected Turbo t-bag binding.
     pub turbo: TurboSettings,
-/// Runtime assist value used by LiveConfig..
+    /// Runtime assist value used by LiveConfig..
     pub assist: AssistSettings,
     /// Local physical controller number: 0 = Player 1. Its game mapper slot
     /// is discovered dynamically; battle participant position is irrelevant.
@@ -113,11 +113,11 @@ fn invalid_line(line_number: usize, line: &str) -> String {
 /// One `key = value` line. Every malformed value reports the same line-numbered
 /// message, so each key only names its destination field.
 struct Setting<'a> {
-/// Runtime line number value used by Setting..
+    /// Runtime line number value used by Setting..
     line_number: usize,
-/// Runtime line value used by Setting..
+    /// Runtime line value used by Setting..
     line: &'a str,
-/// Runtime value value used by Setting..
+    /// Runtime value value used by Setting..
     value: &'a str,
 }
 
@@ -164,19 +164,19 @@ impl Setting<'_> {
 /// remain loadable, but they no longer affect live policy.
 #[derive(Default)]
 struct RetiredSettings {
-/// Runtime roll range value used by RetiredSettings..
+    /// Runtime roll range value used by RetiredSettings..
     roll_range: Option<f32>,
     /// Outer `None`: key absent. Inner `None`: the literal `auto`.
     roll_distance: Option<Option<f32>>,
-/// Runtime tilt range value used by RetiredSettings..
+    /// Runtime tilt range value used by RetiredSettings..
     tilt_range: Option<f32>,
-/// Runtime grab range value used by RetiredSettings..
+    /// Runtime grab range value used by RetiredSettings..
     grab_range: Option<f32>,
-/// Runtime anti air range value used by RetiredSettings..
+    /// Runtime anti air range value used by RetiredSettings..
     anti_air_range: Option<f32>,
-/// Runtime anti air height value used by RetiredSettings..
+    /// Runtime anti air height value used by RetiredSettings..
     anti_air_height: Option<f32>,
-/// Runtime turbo phase frames value used by RetiredSettings..
+    /// Runtime turbo phase frames value used by RetiredSettings..
     turbo_phase_frames: Option<u16>,
 }
 

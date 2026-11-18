@@ -44,13 +44,13 @@ pub(crate) fn same_motion_event(
 /// No wall-clock delay, learned compensation or extra waiting is introduced.
 #[derive(Clone, Copy, Debug)]
 pub struct MotionStamp {
-/// native fighter status.
+    /// native fighter status.
     pub status: i32,
-/// native animation/motion ID.
+    /// native animation/motion ID.
     pub motion: u64,
-/// current native animation frame.
+    /// current native animation frame.
     pub frame: f32,
-/// native animation playback rate.
+    /// native animation playback rate.
     pub rate: f32,
 }
 
@@ -99,20 +99,20 @@ pub fn clock_known(motion: u64, frame: f32, rate: f32) -> bool {
 /// * `Invalid` - The motion is in an invalid state.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MotionProgress {
-/// `Initial` option in the `MotionProgress` Smash policy state.
+    /// `Initial` option in the `MotionProgress` Smash policy state.
     Initial,
-/// `Duplicate` option in the `MotionProgress` Smash policy state.
+    /// `Duplicate` option in the `MotionProgress` Smash policy state.
     Duplicate,
-/// `Advanced` option in the `MotionProgress` Smash policy state.
+    /// `Advanced` option in the `MotionProgress` Smash policy state.
     Advanced(
         /// Carries the amount of animation progress in `MotionProgress`.
         f32,
     ),
-/// `Transition` option in the `MotionProgress` Smash policy state.
+    /// `Transition` option in the `MotionProgress` Smash policy state.
     Transition,
-/// `Rewind` option in the `MotionProgress` Smash policy state.
+    /// `Rewind` option in the `MotionProgress` Smash policy state.
     Rewind,
-/// `Invalid` option in the `MotionProgress` Smash policy state.
+    /// `Invalid` option in the `MotionProgress` Smash policy state.
     Invalid,
 }
 
@@ -182,9 +182,9 @@ pub fn simulation_elapsed(previous: Option<u64>, current: u64) -> Option<u64> {
 /// Inclusive range of attack frames, counted from 1, whose hitbox is active.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActiveWindow {
-/// Runtime first value used by ActiveWindow..
+    /// Runtime first value used by ActiveWindow..
     pub first: u16,
-/// Runtime last value used by ActiveWindow..
+    /// Runtime last value used by ActiveWindow..
     pub last: u16,
 }
 
@@ -199,7 +199,7 @@ pub struct RecoveryWindow {
 /// Represents a predicted contact with the target.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PredictedContact {
-/// Runtime in frames value used by PredictedContact..
+    /// Runtime in frames value used by PredictedContact..
     pub in_frames: f32,
     /// None means that an inescapable recovery window was not established.
     pub recovery_margin: Option<f32>,
@@ -244,13 +244,13 @@ impl ActiveWindow {
 /// global simulation clock: missing/frozen animation data cannot prove a frame.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AnimationSample {
-/// Runtime object value used by AnimationSample..
+    /// Runtime object value used by AnimationSample..
     pub object: u32,
-/// native fighter status.
+    /// native fighter status.
     pub status: i32,
-/// native fighter-kind ID.
+    /// native fighter-kind ID.
     pub kind: u64,
-/// current native animation frame.
+    /// current native animation frame.
     pub frame: f32,
     /// A native advancing timer for frozen poses, e.g. remaining clatter time.
     pub auxiliary: f32,
@@ -262,9 +262,9 @@ pub struct AnimationSample {
 /// * `tick` - The current tick count representing the number of unique states observed.
 #[derive(Default)]
 pub struct AnimationClock {
-/// Runtime previous value used by AnimationClock..
+    /// Runtime previous value used by AnimationClock..
     previous: Option<AnimationSample>,
-/// Runtime tick value used by AnimationClock..
+    /// Runtime tick value used by AnimationClock..
     tick: i64,
 }
 

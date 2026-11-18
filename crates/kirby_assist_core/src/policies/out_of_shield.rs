@@ -175,79 +175,79 @@ pub(crate) fn direct_shield_input(
 /// Runtime Smash data carried by `Target`.
 #[derive(Clone, Copy)]
 pub struct Target {
-/// battle-object ID.
+    /// battle-object ID.
     pub id: u32,
-/// world-space position.
+    /// world-space position.
     pub position: [f32; 2],
-/// world-space velocity.
+    /// world-space velocity.
     pub velocity: [f32; 2],
-/// grounded-state observation.
+    /// grounded-state observation.
     pub grounded: bool,
-/// Runtime dangerous value used by Target..
+    /// Runtime dangerous value used by Target..
     pub dangerous: bool,
-/// Runtime recovery value used by Target..
+    /// Runtime recovery value used by Target..
     pub recovery: Option<f32>,
 }
 /// Runtime Smash data carried by `Context`.
 #[derive(Clone, Copy)]
 pub struct Context {
-/// Runtime object value used by Context..
+    /// Runtime object value used by Context..
     pub object: u32,
-/// native fighter-kind ID.
+    /// native fighter-kind ID.
     pub kind: i32,
-/// native fighter status.
+    /// native fighter status.
     pub status: i32,
-/// native animation/motion ID.
+    /// native animation/motion ID.
     pub motion: u64,
-/// current native animation frame.
+    /// current native animation frame.
     pub frame: f32,
-/// native animation playback rate.
+    /// native animation playback rate.
     pub rate: f32,
-/// Runtime stopped value used by Context..
+    /// Runtime stopped value used by Context..
     pub stopped: bool,
-/// grounded-state observation.
+    /// grounded-state observation.
     pub grounded: bool,
-/// world-space position.
+    /// world-space position.
     pub position: [f32; 2],
-/// left/right facing sign.
+    /// left/right facing sign.
     pub facing: f32,
-/// Runtime shield ready value used by Context..
+    /// Runtime shield ready value used by Context..
     pub shield_ready: bool,
-/// Runtime can grab value used by Context..
+    /// Runtime can grab value used by Context..
     pub can_grab: bool,
-/// Runtime can jump value used by Context..
+    /// Runtime can jump value used by Context..
     pub can_jump: bool,
-/// Runtime can up special value used by Context..
+    /// Runtime can up special value used by Context..
     pub can_up_special: bool,
-/// Runtime threatened value used by Context..
+    /// Runtime threatened value used by Context..
     pub threatened: bool,
 }
 /// Runtime Smash data carried by `OutOfShield`.
 #[derive(Default)]
 pub struct OutOfShield {
-/// Runtime object value used by OutOfShield..
+    /// Runtime object value used by OutOfShield..
     object: Option<u32>,
-/// native fighter-kind ID.
+    /// native fighter-kind ID.
     kind: Option<i32>,
-/// selected opponent/projectile target.
+    /// selected opponent/projectile target.
     target: Option<u32>,
-/// Runtime guarded value used by OutOfShield..
+    /// Runtime guarded value used by OutOfShield..
     guarded: bool,
-/// Runtime response value used by OutOfShield..
+    /// Runtime response value used by OutOfShield..
     response: crate::defense_response::Response,
-/// Runtime simple value used by OutOfShield..
+    /// Runtime simple value used by OutOfShield..
     simple: simple::Grab,
-/// Runtime shield up b value used by OutOfShield..
+    /// Runtime shield up b value used by OutOfShield..
     shield_up_b: shield_up_b::ShieldUpB,
-/// Runtime configured response value used by OutOfShield..
+    /// Runtime configured response value used by OutOfShield..
     configured_response: bool,
-/// Runtime configured backup value used by OutOfShield..
+    /// Runtime configured backup value used by OutOfShield..
     configured_backup: bool,
-/// Runtime configured shielded value used by OutOfShield..
+    /// Runtime configured shielded value used by OutOfShield..
     configured_shielded: bool,
-/// Runtime configured grab wait value used by OutOfShield..
+    /// Runtime configured grab wait value used by OutOfShield..
     configured_grab_wait: bool,
-/// Runtime configured settling value used by OutOfShield..
+    /// Runtime configured settling value used by OutOfShield..
     configured_settling: bool,
 }
 

@@ -78,7 +78,13 @@ impl MenuSelection {
         self.rule_button_mask | sequences | self.builtin_consumed
     }
     /// Explicitly assigned rule buttons toggle their reaction group on a clean press.
-    fn toggle_rule_buttons(&mut self, buttons: u32, pressed: u32, available: bool, quarantined: u32) {
+    fn toggle_rule_buttons(
+        &mut self,
+        buttons: u32,
+        pressed: u32,
+        available: bool,
+        quarantined: u32,
+    ) {
         if self.rule_button_mask == 0 {
             return;
         }
@@ -203,11 +209,7 @@ impl MenuSelection {
         actions
     }
     /// `None` when the selected choice is unavailable, `Some(None)` for a recipe.
-    fn selected_builtin(
-        &self,
-        p: &MenuPresets,
-        slot: PresetSlot,
-    ) -> Option<Option<Builtin>> {
+    fn selected_builtin(&self, p: &MenuPresets, slot: PresetSlot) -> Option<Option<Builtin>> {
         self.source(p, slot, self.choices[slot as usize])
             .map(|source| source.builtin())
     }

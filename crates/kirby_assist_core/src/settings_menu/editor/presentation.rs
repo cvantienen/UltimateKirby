@@ -6,115 +6,115 @@ use std::borrow::Cow;
 /// Available `Field` choices for the Smash assistance menu.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Field {
-/// `Reaction` option in the `Field` Smash policy state.
+    /// `Reaction` option in the `Field` Smash policy state.
     Reaction(
         /// Carries the reaction field index in `Field`.
         u8,
     ),
-/// `WhileHeld` option in the `Field` Smash policy state.
+    /// `WhileHeld` option in the `Field` Smash policy state.
     WhileHeld,
-/// `GroundOnly` option in the `Field` Smash policy state.
+    /// `GroundOnly` option in the `Field` Smash policy state.
     GroundOnly,
-/// `TapButtons` option in the `Field` Smash policy state.
+    /// `TapButtons` option in the `Field` Smash policy state.
     TapButtons(
         /// Carries the tap-button field index in `Field`.
         usize,
     ),
-/// `TapGap` option in the `Field` Smash policy state.
+    /// `TapGap` option in the `Field` Smash policy state.
     TapGap(
         /// Carries the tap-gap field index in `Field`.
         usize,
     ),
-/// `ShieldHold` option in the `Field` Smash policy state.
+    /// `ShieldHold` option in the `Field` Smash policy state.
     ShieldHold(
         /// Carries the shield-hold field index in `Field`.
         usize,
     ),
-/// `Start` option in the `Field` Smash policy state.
+    /// `Start` option in the `Field` Smash policy state.
     Start,
-/// `Slots` option in the `Field` Smash policy state.
+    /// `Slots` option in the `Field` Smash policy state.
     Slots,
-/// `Kind` option in the `Field` Smash policy state.
+    /// `Kind` option in the `Field` Smash policy state.
     Kind(
         /// Carries the action-kind field index in `Field`.
         usize,
     ),
-/// `Before` option in the `Field` Smash policy state.
+    /// `Before` option in the `Field` Smash policy state.
     Before(
         /// Carries the pre-action delay field index in `Field`.
         usize,
     ),
-/// `Duration` option in the `Field` Smash policy state.
+    /// `Duration` option in the `Field` Smash policy state.
     Duration(
         /// Carries the action-duration field index in `Field`.
         usize,
     ),
-/// `Buttons` option in the `Field` Smash policy state.
+    /// `Buttons` option in the `Field` Smash policy state.
     Buttons(
         /// Carries the button field index in `Field`.
         usize,
     ),
-/// `Reference` option in the `Field` Smash policy state.
+    /// `Reference` option in the `Field` Smash policy state.
     Reference(
         /// Carries the reference field index in `Field`.
         usize,
     ),
-/// `CReference` option in the `Field` Smash policy state.
+    /// `CReference` option in the `Field` Smash policy state.
     CReference(
         /// Carries the center-reference field index in `Field`.
         usize,
     ),
-/// `CX` option in the `Field` Smash policy state.
+    /// `CX` option in the `Field` Smash policy state.
     CX(
         /// Carries the center X-coordinate field index in `Field`.
         usize,
     ),
-/// `CY` option in the `Field` Smash policy state.
+    /// `CY` option in the `Field` Smash policy state.
     CY(
         /// Carries the center Y-coordinate field index in `Field`.
         usize,
     ),
-/// `X` option in the `Field` Smash policy state.
+    /// `X` option in the `Field` Smash policy state.
     X(
         /// Carries the X-coordinate field index in `Field`.
         usize,
     ),
-/// `Y` option in the `Field` Smash policy state.
+    /// `Y` option in the `Field` Smash policy state.
     Y(
         /// Carries the Y-coordinate field index in `Field`.
         usize,
     ),
-/// `Strength` option in the `Field` Smash policy state.
+    /// `Strength` option in the `Field` Smash policy state.
     Strength(
         /// Carries the input-strength field index in `Field`.
         usize,
     ),
-/// `Tolerance` option in the `Field` Smash policy state.
+    /// `Tolerance` option in the `Field` Smash policy state.
     Tolerance(
         /// Carries the tolerance field index in `Field`.
         usize,
     ),
-/// `Brake` option in the `Field` Smash policy state.
+    /// `Brake` option in the `Field` Smash policy state.
     Brake(
         /// Carries the braking field index in `Field`.
         usize,
     ),
-/// `PositionTimeout` option in the `Field` Smash policy state.
+    /// `PositionTimeout` option in the `Field` Smash policy state.
     PositionTimeout(
         /// Carries the position-timeout field index in `Field`.
         usize,
     ),
-/// `Distance` option in the `Field` Smash policy state.
+    /// `Distance` option in the `Field` Smash policy state.
     Distance(
         /// Carries the distance field index in `Field`.
         usize,
     ),
-/// `Gap` option in the `Field` Smash policy state.
+    /// `Gap` option in the `Field` Smash policy state.
     Gap(
         /// Carries the gap field index in `Field`.
         usize,
     ),
-/// `Direction` option in the `Field` Smash policy state.
+    /// `Direction` option in the `Field` Smash policy state.
     Direction(
         /// Carries the direction field index in `Field`.
         usize,
@@ -154,7 +154,9 @@ fn push_action_fields(out: &mut Vec<Field>, action: Action, i: usize) {
             Field::Y(i),
         ]),
         Action::CStick { .. } => out.extend([Field::Duration(i), Field::X(i), Field::Y(i)]),
-        Action::Tap { .. } => out.extend([Field::TapButtons(i), Field::TapGap(i), Field::Duration(i)]),
+        Action::Tap { .. } => {
+            out.extend([Field::TapButtons(i), Field::TapGap(i), Field::Duration(i)])
+        }
         Action::ShieldUntilManual => out.push(Field::ShieldHold(i)),
         Action::Wait(_) | Action::ShieldUntilBlock(_) => out.push(Field::Duration(i)),
         Action::Face(_) => out.push(Field::Direction(i)),
@@ -364,11 +366,7 @@ fn field_text(r: &Recipe, f: Field, short: bool) -> String {
                 _ => 0,
             }
         ),
-        Field::Strength(_) => format!(
-            "{}: {:.0}%",
-            pick("Stick strength", "Stick"),
-            percent(f)
-        ),
+        Field::Strength(_) => format!("{}: {:.0}%", pick("Stick strength", "Stick"), percent(f)),
         Field::Distance(_) => format!(
             "{}: {:.1}",
             match action {
@@ -397,7 +395,9 @@ fn field_text(r: &Recipe, f: Field, short: bool) -> String {
             let mut action = action;
             format!(
                 "Direction: {}",
-                direction_mut(&mut action).map_or(D::Opponent, |d| *d).label()
+                direction_mut(&mut action)
+                    .map_or(D::Opponent, |d| *d)
+                    .label()
             )
         }
     }
@@ -456,11 +456,11 @@ fn frame_label(start: u32, duration: Option<u32>, after_check: bool) -> String {
 /// How a panel row looks when plain and when focused.
 #[derive(Clone, Copy)]
 struct Row {
-/// Runtime plain value used by Row..
+    /// Runtime plain value used by Row..
     plain: &'static str,
-/// Runtime focused value used by Row..
+    /// Runtime focused value used by Row..
     focused: &'static str,
-/// Runtime bracket value used by Row..
+    /// Runtime bracket value used by Row..
     bracket: bool,
 }
 /// `FIELD_ROW` is a configuration value used by the Smash runtime.
