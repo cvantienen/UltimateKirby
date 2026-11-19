@@ -217,7 +217,7 @@ fn lightweight_production_pages_navigate_all_registered_fighters_without_editor_
             assert!(!m.save_requested && !m.delete_requested && !m.tuning_save_requested);
         }
     }
-    assert_eq!(checked, 79);
+    assert_eq!(checked, 90);
 }
 
 #[test]

@@ -399,43 +399,45 @@ pub mod observation {
         }
     }
     /// Field identifiers for fighter facts. Used as indices into the `facts` array of a `Fighter`.
+    ///
+    /// `Kind` must stay last: [`FIELDS`] sizes the array from its index.
     #[derive(Clone, Copy)]
     #[repr(usize)]
     pub enum Field {
-        /// `Status` option in the `Field` Smash policy state.
+        /// Native fighter status ID.
         Status,
-        /// `Situation` option in the `Field` Smash policy state.
+        /// Native ground/air situation ID.
         Situation,
-        /// `Motion` option in the `Field` Smash policy state.
+        /// Native motion hash of the current animation.
         Motion,
-        /// `Frame` option in the `Field` Smash policy state.
+        /// Fractional frame within the current motion.
         Frame,
-        /// `Rate` option in the `Field` Smash policy state.
+        /// Playback rate of the current motion.
         Rate,
-        /// `X` option in the `Field` Smash policy state.
+        /// Horizontal position.
         X,
-        /// `Y` option in the `Field` Smash policy state.
+        /// Vertical position.
         Y,
-        /// `Vx` option in the `Field` Smash policy state.
+        /// Horizontal speed across all kinetic reserves.
         Vx,
-        /// `Vy` option in the `Field` Smash policy state.
+        /// Vertical speed across all kinetic reserves.
         Vy,
-        /// `Facing` option in the `Field` Smash policy state.
+        /// Facing direction, natively +1 or -1.
         Facing,
-        /// `Team` option in the `Field` Smash policy state.
+        /// Native team identifier.
         Team,
-        /// `Stop` option in the `Field` Smash policy state.
+        /// Whether native game stop (hitstop) is active.
         Stop,
-        /// `PreviousStatus` option in the `Field` Smash policy state.
+        /// Most recent entry of the native previous-status history.
         PreviousStatus,
-        /// `EndFrame` option in the `Field` Smash policy state.
+        /// Final frame of the current motion.
         EndFrame,
-        /// `CaptureLink` option in the `Field` Smash policy state.
+        /// Whether either capture-related link slot is active.
         CaptureLink,
-        /// `Kind` option in the `Field` Smash policy state.
+        /// Native fighter kind. Must remain the last variant.
         Kind,
     }
-    /// `FIELDS` is a configuration value used by the Smash runtime.
+    /// Number of distinct [`Field`] values cached per fighter.
     const FIELDS: usize = Field::Kind as usize + 1;
     /// Available `Fact` choices for the Smash assistance menu.
     #[derive(Clone, Copy, Debug, PartialEq)]

@@ -27,6 +27,12 @@ python3 tools/sequence_sources.py
 python3 tools/sequence_sources.py --check
 ```
 
+To change one fighter without hand-editing files, use the Workbench **Edit
+fighter** tab (or item 5 in `--cli`). It reads a chosen file once, shows only
+that fighter's sections, diffs the proposed result and writes back through the
+split sources, so only `fighters/<fighter>.txt` changes. See
+[the workbench guide](WORKBENCH.md).
+
 Training saves still update the Switch's combined file. Download that file before
 rebuilding if it has newer edits. A Workbench transfer to the repository source
 path splits it back into fighter files with backups and readback checks. Or import
@@ -228,12 +234,18 @@ Section keys are independent of property order. `start_delay` is required; other
 | `timeout` | 3600 | Whole-timeline native-frame limit; 1–3600 |
 | `spatial_timeout` | 60 | Per-step limit for Face, distance Walk/Run and range checks; 1–3600 |
 
-There are at most 32 **expanded** steps, 2112 sections, and 32 ledge choices per
+There are at most 32 **expanded** steps, 2432 sections, and 32 ledge choices per
 fighter/situation. Dash Attack expands to two steps; a checked grab adds a range
 step; a turnaround prefix adds Face. Files are limited to 512 KiB. Duplicate
 normalized headers/properties, unknown inputs and invalid numbers are errors.
 Names normalize case, spaces and hyphens; labels keep their authored spelling.
 Comments start with `#`. IDs/labels marked `test` / `[TEST]` are diagnostic-only.
+
+The parser ignores everything from `#` onward, so assembly strips comments and
+blank lines from the copy written to the Switch and measures the 512 KiB limit
+against those uploaded bytes. Repository sources and `assembled/sequences.txt`
+keep their documentation; no option, value or ordering changes. Fighter-level
+transfers leave the destination's own text alone.
 
 ## Universal moves and raw controls
 

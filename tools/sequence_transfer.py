@@ -10,7 +10,7 @@ import stat
 import tempfile
 
 from sequence_validation import MAX_BYTES, validate_sequences
-from sequence_sources import assemble, is_split_source, canonical_bundle, replace_sources
+from sequence_sources import assemble, is_split_source, canonical_bundle, replace_sources, strip_comments
 from sync_sequences import ACTIVE, replace_fighter, store_verified
 from upload_all_switches import TARGETS
 from workbench_history import digest
@@ -123,6 +123,10 @@ def prepare(source: Endpoint, destination: Endpoint, fighter: str | None = None)
         description = "Replace the WHOLE file (all fighters/settings)"
     if destination.kind=="local" and is_split_source(Path(destination.path)):
         updated=canonical_bundle(updated)
+    elif destination.kind!="local" and not fighter:
+        # Switch-bound whole-file writes drop repo-only comments; the parser
+        # ignores them and fighter merges keep the destination's own text.
+        updated=strip_comments(updated)
     validate_sequences(updated)
     return Plan(source, destination, fighter, data, original, updated, description)
 

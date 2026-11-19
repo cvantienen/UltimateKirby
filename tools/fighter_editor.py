@@ -11,6 +11,7 @@ import difflib
 from pathlib import Path
 import re
 import secrets
+import shutil
 
 import sequence_transfer as transfer
 from sequence_validation import MAX_BYTES, validate_sequences
@@ -34,6 +35,20 @@ def fighter_sections(data: bytes, fighter: str):
     fighter = fighter_id(fighter)
     return [{'id': name, 'text': data[start:end].decode()}
             for owner, name, start, end in index(data) if owner == fighter]
+
+
+def fighter_text(data: bytes, fighter: str) -> str:
+    return ''.join(section['text'] for section in fighter_sections(data, fighter))
+
+
+def split_drafts(text: str) -> list:
+    """Turn one edited block of fighter text back into per-section drafts."""
+    raw = text.encode()
+    spans = index(raw) if raw.strip() else []
+    prefix = raw[:spans[0][2]] if spans else raw
+    if any(line.strip() and not line.lstrip().startswith(b'#') for line in prefix.splitlines()):
+        raise ValueError('Fields must appear under a section header')
+    return [{'text': raw[start:end].decode()} for _, _, start, end in spans]
 
 
 def merge(data: bytes, fighter: str, drafts: list):
@@ -113,7 +128,26 @@ class Session:
         self.original, self.destination = data, destination
         self.load_id = secrets.token_hex(16)
         self.loaded_at = datetime.now(timezone.utc).isoformat()
+        self.discard()
+
+    def load(self, endpoint):
+        """Read the endpoint once; later edits diff against this exact snapshot."""
+        data = transfer.read(endpoint)
+        if data is None:
+            raise ValueError(f'No sequence file to edit at {endpoint.label()}')
+        validate_sequences(data)
+        self.loaded(data, endpoint)
+        return self.metadata()
+
+    def discard(self):
         self.pending = self.preview = None
+        if self.directory.exists():
+            for folder in self.directory.iterdir():
+                if folder.is_dir() and folder.name != 'backups' and not folder.is_symlink():
+                    shutil.rmtree(folder, ignore_errors=True)
+
+    def requires_ready(self) -> bool:
+        return self.destination is not None and self.destination.kind != 'local'
 
     def metadata(self):
         if self.original is None:
@@ -121,18 +155,20 @@ class Session:
         return {'load_id': self.load_id, 'loaded_at': self.loaded_at,
                 'sha256': transfer.digest(self.original), 'bytes': len(self.original),
                 'source': self.destination.label(),
+                'requires_ready': self.requires_ready(),
                 'fighters': sorted({owner for owner, _, _, _ in index(self.original) if owner != 'universal'}),
                 'preview': self.preview}
 
     def get(self, fighter, load_id):
         if self.original is None or load_id != self.load_id:
-            raise ValueError('Read the current file from silent first')
+            raise ValueError('Read the current sequence file into the editor first')
         fighter = fighter_id(fighter)
-        return {'load_id': self.load_id, 'fighter': fighter,
-                'sections': fighter_sections(self.original, fighter)}
+        sections = fighter_sections(self.original, fighter)
+        return {'load_id': self.load_id, 'fighter': fighter, 'sections': sections,
+                'text': ''.join(section['text'] for section in sections)}
 
     def prepare(self, fighter, drafts, load_id, request_id):
-        self.pending = self.preview = None
+        self.discard()
         current = self.get(fighter, load_id)
         fighter = current['fighter']
         updated, changes = merge(self.original, fighter, drafts)
@@ -155,12 +191,22 @@ class Session:
                         'fighter': fighter, 'description': plan.description, 'changes': changes,
                         'diff': diff[:24000], 'diff_truncated': len(diff) > 24000,
                         'sha256': transfer.digest(updated), 'destination': self.destination.label(),
+                        'requires_ready': self.requires_ready(),
                         'delete_fighter': bool(current['sections']) and not drafts}
         return self.preview
 
+    def prepare_text(self, fighter, text, load_id, request_id):
+        """Preview one edited text block instead of a pre-split section list."""
+        if not isinstance(text, str):
+            raise ValueError('Provide the edited fighter text')
+        return self.prepare(fighter, split_drafts(text), load_id, request_id)
+
     def commit(self, plan_id, *, confirmed=False, ready=False):
-        if not confirmed or not ready:
-            raise ValueError('Confirm the fighter replacement with Smash closed and FTP open')
+        if not confirmed:
+            raise ValueError('Confirm the fighter replacement before writing')
+        # A Switch destination still needs the game closed; a local repo edit does not.
+        if self.requires_ready() and not ready:
+            raise ValueError('Close Smash on the destination Switch and open FTP first')
         if not self.pending or plan_id != self.pending[0]:
             raise ValueError('Preview the fighter edit first')
         plan = self.pending[1]

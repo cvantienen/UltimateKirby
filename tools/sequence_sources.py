@@ -69,10 +69,10 @@ def assemble(path: Path = SOURCE) -> bytes:
             raise RuntimeError(f'{file.name} must contain only [{owner}.*] sections')
         pieces.append(raw.rstrip() + b'\n\n')
         total+=len(pieces[-1])
-        if total > MAX_BYTES:
-            raise RuntimeError('Assembled sequence file exceeds 512 KiB')
     output = b''.join(pieces).rstrip() + b'\n'
-    if len(output)>MAX_BYTES:
+    # The 512 KiB cap applies to the bytes the Switch receives. Repo-only
+    # comments are stripped before upload, so they must not consume that budget.
+    if len(strip_comments(output)) > MAX_BYTES:
         raise RuntimeError('Assembled sequence file exceeds 512 KiB')
     for line in output.decode().splitlines():
         header = line.split('#', 1)[0].strip()
@@ -96,6 +96,32 @@ def write_generated(data: bytes, output: Path = GENERATED) -> None:
         Path(name).unlink(missing_ok=True)
 
 
+def strip_comments(data: bytes) -> bytes:
+    """Drop repo-only comments/blank lines for the Switch copy.
+
+    The mod's parser already ignores everything from '#' onward, so removing
+    them changes no option, value or ordering. Editable sources keep their
+    documentation; only the uploaded bytes shrink.
+    """
+    text = data.decode('utf-8')
+    out = []
+    for line in text.splitlines():
+        if not line.strip():
+            # Keep separation that already existed, collapsed to one blank line.
+            if out and out[-1]:
+                out.append('')
+            continue
+        kept = line.split('#', 1)[0].rstrip()
+        if kept:
+            out.append(kept)
+    while out and not out[-1]:
+        out.pop()
+    result = '\n'.join(out)
+    if result and text.endswith('\n'):
+        result += '\n'
+    return result.encode('utf-8')
+
+
 def canonical_bundle(data: bytes) -> bytes:
     blocks=split_bundle(data)
     if 'universal' not in blocks:
@@ -104,6 +130,54 @@ def canonical_bundle(data: bytes) -> bytes:
         blocks[name].rstrip() + b'\n\n'
         for name in ['universal'] + sorted(name for name in blocks if name != 'universal')
     ).rstrip() + b'\n'
+
+
+def plan_breakdown(source: Path, data: bytes) -> dict:
+    """Describe the per-file result of splitting a combined file; writes nothing."""
+    canonical = canonical_bundle(data)
+    if len(canonical) > MAX_BYTES:
+        raise RuntimeError('Sequence import exceeds 512 KiB')
+    blocks = split_bundle(canonical)
+    fighters = source.parent / 'fighters'
+    files = {source: blocks.pop('universal')}
+    files.update({fighters / (name + '.txt'): body for name, body in blocks.items()})
+    existing = {path for path in [source, *fighters.glob('*.txt')] if path.is_file()}
+    created, updated, unchanged = [], [], []
+    for path, body in sorted(files.items()):
+        name = 'universal' if path == source else path.stem
+        count = len(re.findall(rb'^\[', body, re.M))
+        entry = {'fighter': name, 'path': str(path), 'bytes': len(body), 'sections': count}
+        if path not in existing:
+            created.append(entry)
+        elif path.read_bytes() != body:
+            updated.append(entry)
+        else:
+            unchanged.append(entry)
+    removed = [{'fighter': path.stem, 'path': str(path),
+                'bytes': path.stat().st_size,
+                'sections': len(re.findall(rb'^\[', path.read_bytes(), re.M))}
+               for path in sorted(existing - set(files))]
+    return {'source': str(source), 'bytes': len(canonical),
+            'sections': len(re.findall(rb'^\[', canonical, re.M)),
+            'fighters': len(files) - 1, 'created': created, 'updated': updated,
+            'unchanged': unchanged, 'removed': removed, 'data': canonical}
+
+
+def describe_breakdown(plan: dict) -> str:
+    """One readable summary of a breakdown plan for previews and confirmations."""
+    lines = [f"Break down {plan['sections']} sections / {plan['bytes']} bytes "
+             f"into {plan['fighters']} fighter files plus universal settings:"]
+    for label, key in (('New', 'created'), ('Replaced', 'updated'), ('DELETED', 'removed')):
+        entries = plan[key]
+        if entries:
+            names = ', '.join(f"{e['fighter']} ({e['sections']})" for e in entries[:12])
+            more = f" … +{len(entries) - 12} more" if len(entries) > 12 else ''
+            lines.append(f"  {label} {len(entries)}: {names}{more}")
+    if plan['unchanged']:
+        lines.append(f"  Unchanged {len(plan['unchanged'])}")
+    if plan['removed']:
+        lines.append('  Files above marked DELETED are not present in the new file.')
+    return '\n'.join(lines)
 
 
 def replace_sources(source: Path, data: bytes, backup: Path, expected: bytes | None = None) -> None:
@@ -146,16 +220,24 @@ def main():
     parser.add_argument('--output', type=Path, default=GENERATED)
     parser.add_argument('--check', action='store_true', help='check the generated bundle is current without writing')
     parser.add_argument('--import-file', type=Path, help='split a downloaded combined file back into these source files')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='with --import-file, show the per-fighter breakdown without writing')
     args = parser.parse_args()
     try:
         if args.output.resolve() == args.source.resolve():
             raise RuntimeError('Output must not overwrite the universal source')
+        if args.dry_run and not args.import_file:
+            raise RuntimeError('--dry-run only applies to --import-file')
         if args.import_file:
             if args.check:
                 raise RuntimeError('--check cannot be combined with --import-file')
             from sequence_validation import validate_sequences
             raw = args.import_file.read_bytes()
             validate_sequences(raw)
+            plan = plan_breakdown(args.source, raw)
+            print(describe_breakdown(plan))
+            if args.dry_run:
+                parser.exit(0, 'Dry run: no source file was written.\n')
             backup_root=ROOT/'.sequence-sync-backups'/'source-imports'
             backup_root.mkdir(parents=True,exist_ok=True)
             backup=Path(tempfile.mkdtemp(prefix='import-',dir=backup_root))

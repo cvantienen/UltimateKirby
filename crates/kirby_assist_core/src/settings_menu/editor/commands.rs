@@ -242,8 +242,7 @@ impl RecipeEditor {
         self.modal = None;
         self.return_modal = None;
         self.manage_requested = false;
-        self.command_held = 0;
-        self.command_ticks = 0;
+        self.command_hold.reset();
         self.clear_copy();
     }
     /// Clears the copy.
@@ -432,8 +431,7 @@ impl RecipeEditor {
     /// Open a tool, restarting the d-pad repeat timer.
     fn open(&mut self, modal: Modal) {
         self.modal = Some(modal);
-        self.command_held = 0;
-        self.command_ticks = 0;
+        self.command_hold.reset();
     }
     /// Close the open tool and its parent; copy lists and repeat state are left alone.
     fn dismiss(&mut self) {
@@ -570,23 +568,9 @@ impl RecipeEditor {
         };
         self.commit_command(key, next, focus, TOOLS[item])
     }
-    /// Determines whether the `command_repeat` condition holds.
+    /// True when the held vertical d-pad direction is due to auto-repeat.
     fn command_repeat(&mut self, pad: u32) -> bool {
-        if vertical(pad) {
-            if self.command_held != pad {
-                self.command_held = pad;
-                self.command_ticks = 0;
-                false
-            } else {
-                self.command_ticks = self.command_ticks.saturating_add(1);
-                let t = self.command_ticks;
-                t >= 24 && (t - 24) % if t >= 90 { 2 } else { 6 } == 0
-            }
-        } else {
-            self.command_held = 0;
-            self.command_ticks = 0;
-            false
-        }
+        self.command_hold.step(if vertical(pad) { pad } else { 0 })
     }
     /// Some = input owned by editor tools, (rebuild UI, recipe changed).
     pub fn command_input(
@@ -683,7 +667,7 @@ impl RecipeEditor {
         if pressed & MAPPER_B != 0 {
             self.modal = self.return_modal.take();
             self.clear_copy();
-            self.command_held = 0;
+            self.command_hold.reset();
             return Some((true, false));
         }
         let pad = buttons & DPAD;

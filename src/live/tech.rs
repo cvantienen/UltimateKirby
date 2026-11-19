@@ -1,11 +1,10 @@
 //! Native collision-timed auto-tech eligibility.
 //!
 //! Guard is requested only for a bounded, imminent stage collision. Native
-//! transition flags remain diagnostics and a final eligibility check; they are
-//! not, by themselves, a reason to press Guard.
+//! transition flags act as an eligibility check; they are not, by themselves,
+//! a reason to press Guard.
 
 use crate::game_ffi as game;
-use kirby_assist_core::tech_input::{native_tech_state, NativeTechState};
 use kirby_assist_core::tech_prediction::{
     first_contact_in, late_damage_stop_prediction, prediction_velocity, tech_gate_with_floor,
     TechGate,
@@ -22,8 +21,6 @@ pub(super) struct TechAssessment {
     pub(super) status: i32,
     /// Native ground/air situation at assessment time.
     pub(super) situation: i32,
-    /// Authoritative native tech state.
-    pub(super) state: NativeTechState,
     /// First predicted floor, wall, or ceiling contact in frames.
     pub(super) contact_in: Option<f32>,
     /// Remaining native damage-stop frames.
@@ -50,7 +47,6 @@ pub(super) unsafe fn assess_tech(
         return TechAssessment {
             status,
             situation,
-            state: NativeTechState::Inactive,
             contact_in: None,
             remaining_stop: 0,
             reason: "auto_tech_disabled",
@@ -68,22 +64,6 @@ pub(super) unsafe fn assess_tech(
         object,
         kirby_assist_core::native_states::transition_terms::PASSIVE_FB,
     );
-    let wall_enabled = game::transition_enabled(
-        object,
-        kirby_assist_core::native_states::transition_terms::PASSIVE_WALL,
-    );
-    let ceiling_enabled = game::transition_enabled(
-        object,
-        kirby_assist_core::native_states::transition_terms::PASSIVE_CEIL,
-    );
-    let state = native_tech_state(
-        status,
-        situation,
-        passive_disabled,
-        floor_enabled,
-        wall_enabled,
-        ceiling_enabled,
-    );
     let remaining_stop = if stopped && game::is_damage_stop(object) {
         game::hitstop_remaining(object)
     } else {
@@ -96,7 +76,6 @@ pub(super) unsafe fn assess_tech(
         return TechAssessment {
             status,
             situation,
-            state: NativeTechState::Succeeded,
             contact_in: None,
             remaining_stop,
             reason: "tech_status_observed",
@@ -109,7 +88,6 @@ pub(super) unsafe fn assess_tech(
         return TechAssessment {
             status,
             situation,
-            state,
             contact_in: None,
             remaining_stop,
             reason: gate.label(),
@@ -147,7 +125,6 @@ pub(super) unsafe fn assess_tech(
     TechAssessment {
         status,
         situation,
-        state,
         contact_in,
         remaining_stop,
         reason,

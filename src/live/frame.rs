@@ -7,6 +7,32 @@ use crate::game_ffi as game;
 use kirby_assist_core::observation::{
     Fact, Field, GroundSupportSnapshot, ObservationSnapshotSized, RosterSnapshot,
 };
+/// Defines per-observation cached native readers.
+///
+/// Each entry names the method, the identifier bindings it needs (`id` is the
+/// battle-object ID, `object` the accessor), the returned type, and the
+/// [`Field`]/[`Fact`] pair used to memoize it. The generated body reads through
+/// the fact cache and unwraps the matching variant, which cannot fail because
+/// one field is only ever written with one variant.
+macro_rules! cached_reads {
+    ($(
+        $(#[$meta:meta])*
+        $name:ident($id:tt, $object:tt) -> $ret:ty = $field:ident: $variant:ident($read:expr);
+    )*) => {$(
+        $(#[$meta])*
+        /// # Safety
+        /// `object` must be a live native object for the duration of the read.
+        pub unsafe fn $name(&self, object: *mut game::Object) -> $ret {
+            let $id = game::battle_object_id(object);
+            let $object = object;
+            match self.facts.read($id, Field::$field, || Fact::$variant($read)) {
+                Fact::$variant(value) => value,
+                _ => unreachable!("snapshot field type"),
+            }
+        }
+    )*};
+}
+
 /// Holds short-lived caches shared by policies during one accepted
 /// native observation; never persists a native accessor pointer.
 #[derive(Default)]
@@ -23,19 +49,14 @@ pub(super) struct FrameReads {
     ground_brake: std::cell::Cell<Option<(u32, Option<f32>)>>,
 }
 impl FrameReads {
-    /// Caches whether either capture-related link slot is active.
-    /// # Safety
-    /// `object` must be a live native object for the duration of this read.
-    pub unsafe fn capture_link(&self, object: *mut game::Object) -> bool {
-        let id = game::battle_object_id(object);
-        // LINK_NO_CAPTURE and LINK_NO_CAPTURE_STOP. The latter also covers a
-        // captor-side stop link; IC partner/article links are different slots.
-        match self.facts.read(id, Field::CaptureLink, || {
-            Fact::Bool(game::is_link(object, 0) || game::is_link(object, 2))
-        }) {
-            Fact::Bool(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
+    cached_reads! {
+        /// Caches whether either capture-related link slot is active.
+        ///
+        /// Slots 0 and 2 are LINK_NO_CAPTURE and LINK_NO_CAPTURE_STOP. The
+        /// latter also covers a captor-side stop link; IC partner/article
+        /// links are different slots.
+        capture_link(_id, object) -> bool =
+            CaptureLink: Bool(game::is_link(object, 0) || game::is_link(object, 2));
     }
     /// Returns copied object/status pairs already present in the fact cache.
     pub fn known_statuses(&self) -> [Option<(u32, i32)>; 16] {
@@ -123,182 +144,37 @@ impl FrameReads {
             super::observations::ground_support(object, position, vx)
         })
     }
-    /// Reads or reuses the native fighter-kind fact for this object.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn fighter_kind(&self, object: *mut game::Object) -> i32 {
-        let id = game::battle_object_id(object);
-        match self
-            .facts
-            .read(id, Field::Kind, || Fact::Int(game::fighter_kind(id)))
-        {
-            Fact::Int(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses the object's native status ID.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn status_kind(&self, object: *mut game::Object) -> i32 {
-        let id = game::battle_object_id(object);
-        match self
-            .facts
-            .read(id, Field::Status, || Fact::Int(game::status_kind(object)))
-        {
-            Fact::Int(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses the object's native situation ID.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn situation_kind(&self, object: *mut game::Object) -> i32 {
-        let id = game::battle_object_id(object);
-        match self.facts.read(id, Field::Situation, || {
-            Fact::Int(game::situation_kind(object))
-        }) {
-            Fact::Int(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses the native motion hash.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn motion_kind(&self, object: *mut game::Object) -> u64 {
-        let id = game::battle_object_id(object);
-        match self.facts.read(id, Field::Motion, || {
-            Fact::Motion(game::motion_kind(object))
-        }) {
-            Fact::Motion(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses the fractional frame within the native motion.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn motion_frame(&self, object: *mut game::Object) -> f32 {
-        let id = game::battle_object_id(object);
-        match self
-            .facts
-            .read(id, Field::Frame, || Fact::Float(game::motion_frame(object)))
-        {
-            Fact::Float(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses the native motion playback rate.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn motion_rate(&self, object: *mut game::Object) -> f32 {
-        let id = game::battle_object_id(object);
-        match self
-            .facts
-            .read(id, Field::Rate, || Fact::Float(game::motion_rate(object)))
-        {
-            Fact::Float(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses the object's horizontal position.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn pos_x(&self, object: *mut game::Object) -> f32 {
-        let id = game::battle_object_id(object);
-        match self
-            .facts
-            .read(id, Field::X, || Fact::Float(game::pos_x(object)))
-        {
-            Fact::Float(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses the object's vertical position.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn pos_y(&self, object: *mut game::Object) -> f32 {
-        let id = game::battle_object_id(object);
-        match self
-            .facts
-            .read(id, Field::Y, || Fact::Float(game::pos_y(object)))
-        {
-            Fact::Float(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses the object's facing direction.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn facing(&self, object: *mut game::Object) -> f32 {
-        let id = game::battle_object_id(object);
-        match self
-            .facts
-            .read(id, Field::Facing, || Fact::Float(game::facing(object)))
-        {
-            Fact::Float(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses the object's native team identifier.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn team(&self, object: *mut game::Object) -> u64 {
-        let id = game::battle_object_id(object);
-        match self
-            .facts
-            .read(id, Field::Team, || Fact::Motion(game::team(object)))
-        {
-            Fact::Motion(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses the object's native stop flag.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn is_stop(&self, object: *mut game::Object) -> bool {
-        let id = game::battle_object_id(object);
-        match self
-            .facts
-            .read(id, Field::Stop, || Fact::Bool(game::is_stop(object)))
-        {
-            Fact::Bool(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses the native end frame for the current motion.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn motion_end_frame(&self, object: *mut game::Object) -> f32 {
-        let id = game::battle_object_id(object);
-        match self.facts.read(id, Field::EndFrame, || {
-            Fact::Float(game::motion_end_frame(object))
-        }) {
-            Fact::Float(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses horizontal speed across all kinetic reserves.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn speed_x(&self, object: *mut game::Object) -> f32 {
-        let id = game::battle_object_id(object);
-        match self.facts.read(id, Field::Vx, || {
-            Fact::Float(game::speed_x(object, game::ALL_KINETIC_ENERGY_RESERVES))
-        }) {
-            Fact::Float(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
-    }
-    /// Reads or reuses vertical speed across all kinetic reserves.
-    /// # Safety
-    /// `object` must be a live native object for the duration of the read.
-    pub unsafe fn speed_y(&self, object: *mut game::Object) -> f32 {
-        let id = game::battle_object_id(object);
-        match self.facts.read(id, Field::Vy, || {
-            Fact::Float(game::speed_y(object, game::ALL_KINETIC_ENERGY_RESERVES))
-        }) {
-            Fact::Float(value) => value,
-            _ => unreachable!("snapshot field type"),
-        }
+    cached_reads! {
+        /// Reads or reuses the native fighter-kind fact for this object.
+        fighter_kind(id, _object) -> i32 = Kind: Int(game::fighter_kind(id));
+        /// Reads or reuses the object's native status ID.
+        status_kind(_id, object) -> i32 = Status: Int(game::status_kind(object));
+        /// Reads or reuses the object's native situation ID.
+        situation_kind(_id, object) -> i32 = Situation: Int(game::situation_kind(object));
+        /// Reads or reuses the native motion hash.
+        motion_kind(_id, object) -> u64 = Motion: Motion(game::motion_kind(object));
+        /// Reads or reuses the fractional frame within the native motion.
+        motion_frame(_id, object) -> f32 = Frame: Float(game::motion_frame(object));
+        /// Reads or reuses the native motion playback rate.
+        motion_rate(_id, object) -> f32 = Rate: Float(game::motion_rate(object));
+        /// Reads or reuses the object's horizontal position.
+        pos_x(_id, object) -> f32 = X: Float(game::pos_x(object));
+        /// Reads or reuses the object's vertical position.
+        pos_y(_id, object) -> f32 = Y: Float(game::pos_y(object));
+        /// Reads or reuses the object's facing direction.
+        facing(_id, object) -> f32 = Facing: Float(game::facing(object));
+        /// Reads or reuses the object's native team identifier.
+        team(_id, object) -> u64 = Team: Motion(game::team(object));
+        /// Reads or reuses the object's native stop flag.
+        is_stop(_id, object) -> bool = Stop: Bool(game::is_stop(object));
+        /// Reads or reuses the native end frame for the current motion.
+        motion_end_frame(_id, object) -> f32 = EndFrame: Float(game::motion_end_frame(object));
+        /// Reads or reuses horizontal speed across all kinetic reserves.
+        speed_x(_id, object) -> f32 =
+            Vx: Float(game::speed_x(object, game::ALL_KINETIC_ENERGY_RESERVES));
+        /// Reads or reuses vertical speed across all kinetic reserves.
+        speed_y(_id, object) -> f32 =
+            Vy: Float(game::speed_y(object, game::ALL_KINETIC_ENERGY_RESERVES));
     }
     /// Reads a requested previous status, caching the latest-history entry.
     /// # Safety

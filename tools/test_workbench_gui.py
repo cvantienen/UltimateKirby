@@ -104,6 +104,165 @@ class GuiTests(unittest.TestCase):
         self.assertEqual(len(snapshot['history']), 30)
         self.assertEqual(snapshot['shipped']['silent']['details']['version'], '2.2.5')
 
+    def test_sequence_source_import_needs_confirmation_but_check_does_not(self):
+        with patch.object(self.app, 'run') as run:
+            with self.assertRaisesRegex(ValueError, 'Confirm sequence'):
+                self.gui.perform({'action': 'helper', 'helper': 'sequence_sources.py',
+                                  'arguments': '--import-file /tmp/downloaded.txt'})
+            run.assert_not_called()
+            self.gui.perform({'action': 'helper', 'helper': 'sequence_sources.py', 'arguments': '--check'})
+            run.assert_called_once()
+
+
+EDITED = b"[universal.settings]\nx=1\n[kirby.neutral.a]\nstart_delay=0\nactions=a:4\n[yoshi.roll.p]\nstart_delay=0\nactions=b:4\n"
+
+
+class BreakdownTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.source = self.root / 'kirby_assist' / 'sequences.txt'
+        (self.source.parent / 'fighters').mkdir(parents=True)
+        self.source.write_bytes(b'[universal.settings]\nx=1\n')
+        (self.source.parent / 'fighters' / 'yoshi.txt').write_bytes(b'[yoshi.roll.p]\nstart_delay=0\nactions=b:4\n')
+        (self.source.parent / 'fighters' / 'retired.txt').write_bytes(b'[retired.neutral.a]\nactions=wait:0\n')
+        self.app = workbench.Workbench(History(self.root / 'state'))
+        self.gui = gui.Controller(self.app)
+        validator = patch.object(gui.transfer, 'validate_sequences')
+        validator.start()
+        self.addCleanup(validator.stop)
+
+    def preview(self, combined):
+        with patch.object(gui.transfer, 'read', return_value=combined), contextlib.redirect_stdout(io.StringIO()):
+            return self.gui.perform({'action': 'breakdown-preview', 'breakdown_endpoint': 'silent',
+                                     'breakdown_file': '', 'breakdown_destination': str(self.source)})
+
+    def test_preview_classifies_new_replaced_and_removed_files_without_writing(self):
+        plan = self.preview(EDITED)
+        self.assertEqual([e['fighter'] for e in plan['created']], ['kirby'])
+        self.assertEqual([e['fighter'] for e in plan['removed']], ['retired'])
+        # Identical fighter bodies are reported as unchanged rather than rewritten.
+        self.assertEqual([e['fighter'] for e in plan['unchanged']], ['yoshi'])
+        self.assertFalse((self.source.parent / 'fighters' / 'kirby.txt').exists())
+        self.assertTrue((self.source.parent / 'fighters' / 'retired.txt').exists())
+
+    def test_commit_writes_sources_only_after_a_matching_confirmed_plan(self):
+        plan = self.preview(EDITED)
+        with contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(ValueError, 'Preview the breakdown'):
+                self.gui.perform({'action': 'breakdown-commit', 'plan_id': 'stale', 'confirmed': True})
+            with self.assertRaisesRegex(ValueError, 'Confirm replacing'):
+                self.gui.perform({'action': 'breakdown-commit', 'plan_id': plan['plan_id']})
+            self.assertTrue((self.source.parent / 'fighters' / 'retired.txt').exists())
+            result = self.gui.perform({'action': 'breakdown-commit', 'plan_id': plan['plan_id'], 'confirmed': True})
+        self.assertEqual(result['created'], ['kirby'])
+        self.assertEqual(result['removed'], ['retired'])
+        self.assertFalse((self.source.parent / 'fighters' / 'retired.txt').exists())
+        self.assertIn(b'actions=a:4', (self.source.parent / 'fighters' / 'kirby.txt').read_bytes())
+        self.assertEqual(gui.sources.assemble(self.source), gui.sources.canonical_bundle(EDITED))
+        self.assertTrue(Path(result['backup']).is_dir())
+
+    def test_breakdown_requires_a_split_source_destination(self):
+        plain = self.root / 'loose.txt'
+        plain.write_bytes(EDITED)
+        with patch.object(gui.transfer, 'read', return_value=EDITED), contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, 'fighters/ directory|deployment/ultimate'):
+                self.gui.perform({'action': 'breakdown-preview', 'breakdown_endpoint': 'silent',
+                                  'breakdown_file': '', 'breakdown_destination': str(plain)})
+
+
+class FighterEditorTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.file = self.root / 'sequences.txt'
+        self.file.write_bytes(EDITED)
+        self.app = workbench.Workbench(History(self.root / 'state'))
+        self.gui = gui.Controller(self.app)
+        for module in (gui.fighter_editor, gui.transfer):
+            validator = patch.object(module, 'validate_sequences')
+            validator.start()
+            self.addCleanup(validator.stop)
+
+    def load(self, endpoint='local'):
+        with contextlib.redirect_stdout(io.StringIO()):
+            return self.gui.perform({'action': 'editor-load', 'editor_endpoint': endpoint,
+                                     'editor_file': str(self.file)})
+
+    def edit(self, text, fighter='kirby'):
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.gui.perform({'action': 'editor-fighter', 'fighter': fighter})
+            return self.gui.perform({'action': 'editor-preview', 'fighter': fighter, 'text': text})
+
+    def test_local_edit_saves_one_fighter_without_the_switch_ready_flag(self):
+        metadata = self.load()
+        self.assertEqual(metadata['fighters'], ['kirby', 'yoshi'])
+        self.assertFalse(metadata['requires_ready'])
+        preview = self.edit('[kirby.neutral.a]\nstart_delay=0\nactions=a:12\n')
+        self.assertEqual(preview['changes']['changed'], ['kirby.neutral.a'])
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = self.gui.perform({'action': 'editor-commit', 'plan_id': preview['plan_id'], 'confirmed': True})
+        self.assertTrue(result['verified'])
+        self.assertEqual(self.file.read_bytes(), EDITED.replace(b'a:4', b'a:12'))
+
+    def test_switch_destination_still_requires_closed_game_and_confirmation(self):
+        with patch.object(gui.transfer, 'read', return_value=EDITED):
+            self.assertTrue(self.load('silent')['requires_ready'])
+            preview = self.edit('[kirby.neutral.a]\nstart_delay=0\nactions=a:12\n')
+            self.assertTrue(preview['requires_ready'])
+            with contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaisesRegex(ValueError, 'Close Smash'):
+                    self.gui.perform({'action': 'editor-commit', 'plan_id': preview['plan_id'], 'confirmed': True})
+                with self.assertRaisesRegex(ValueError, 'Confirm the fighter'):
+                    self.gui.perform({'action': 'editor-commit', 'plan_id': preview['plan_id'], 'ready': True})
+
+    def test_edits_cannot_touch_another_fighter_or_orphan_fields(self):
+        self.load()
+        for text in ('[yoshi.roll.p]\nstart_delay=0\nactions=b:9\n', 'actions=a:1\n'):
+            with self.assertRaises(ValueError):
+                self.edit(text)
+        self.assertEqual(self.file.read_bytes(), EDITED)
+
+    def test_commit_rejects_a_stale_plan_and_requires_a_loaded_file(self):
+        with self.assertRaisesRegex(ValueError, 'Load a sequence file'):
+            self.gui.perform({'action': 'editor-fighter', 'fighter': 'kirby'})
+        self.load()
+        preview = self.edit('[kirby.neutral.a]\nstart_delay=0\nactions=a:12\n')
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.gui.perform({'action': 'editor-discard'})
+            with self.assertRaisesRegex(ValueError, 'Preview the fighter edit'):
+                self.gui.perform({'action': 'editor-commit', 'plan_id': preview['plan_id'], 'confirmed': True})
+        self.assertEqual(self.file.read_bytes(), EDITED)
+
+    def test_emptying_a_fighter_deletes_only_their_sections(self):
+        self.load()
+        preview = self.edit('')
+        self.assertTrue(preview['delete_fighter'])
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.gui.perform({'action': 'editor-commit', 'plan_id': preview['plan_id'], 'confirmed': True})
+        data = self.file.read_bytes()
+        self.assertNotIn(b'kirby', data)
+        self.assertIn(b'[yoshi.roll.p]\nstart_delay=0\nactions=b:4', data)
+        self.assertIn(b'[universal.settings]', data)
+
+    def test_split_repository_sources_are_edited_per_fighter_file(self):
+        source = self.root / 'kirby_assist'
+        (source / 'fighters').mkdir(parents=True)
+        universal = source / 'sequences.txt'
+        universal.write_bytes(b'[universal.settings]\nx=1\n')
+        (source / 'fighters' / 'kirby.txt').write_bytes(b'[kirby.neutral.a]\nstart_delay=0\nactions=a:4\n')
+        (source / 'fighters' / 'yoshi.txt').write_bytes(b'[yoshi.roll.p]\nstart_delay=0\nactions=b:4\n')
+        self.file = universal
+        self.load()
+        preview = self.edit('[kirby.neutral.a]\nstart_delay=0\nactions=a:12\n')
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.gui.perform({'action': 'editor-commit', 'plan_id': preview['plan_id'], 'confirmed': True})
+        self.assertIn(b'actions=a:12', (source / 'fighters' / 'kirby.txt').read_bytes())
+        self.assertEqual((source / 'fighters' / 'yoshi.txt').read_bytes(),
+                         b'[yoshi.roll.p]\nstart_delay=0\nactions=b:4\n')
+
 
 if __name__ == '__main__':
     with contextlib.redirect_stdout(io.StringIO()):

@@ -6,6 +6,15 @@ initial input delays, ordered actions and waits. Rust contains no fighter option
 tables or fallback response routines. Removing a section removes that option;
 a missing file leaves the ledge menus empty and ledge assist inactive.
 
+All 90 registered identities now have a `fighters/<name>.txt` source. The DLC
+files (Piranha Plant through Sora) are starting baselines: leads are computed
+from the [Fighter Data catalog](FIGHTER_DATA.md) so each move's first active
+frame meets the normal-getup (F34), ledge-jump (F14) or ledge-roll (F31) target,
+and automatic-grab ranges use each fighter's native reach. They are not
+match-up-verified optimal timings; confirm and retune them in Training. Where
+the catalog records a compound window the leading startup frame is used, and
+moves a fighter does not have, such as Min Min's forward air, are omitted.
+
 <a id="recipes-and-variants"></a>
 
 ```ini

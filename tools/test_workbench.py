@@ -192,6 +192,52 @@ class HistoryAndLauncherTests(unittest.TestCase):
             workbench.helper("../bad.py")
         self.assertEqual(dict(workbench.TARGETS)["192.168.1.105"], "silent")
 
+    def test_cli_fighter_edit_writes_only_that_fighter_after_confirmation(self):
+        data = b"[universal.settings]\nx=1\n[kirby.neutral.a]\nstart_delay=0\nactions=a:4\n[yoshi.roll.p]\nstart_delay=0\nactions=b:4\n"
+        for confirmed in (False, True):
+            with tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                file = root / "sequences.txt"
+                file.write_bytes(data)
+                app = workbench.Workbench(History(root / "state"))
+
+                def edit(argv, **kwargs):
+                    scratch = Path(argv[-1])
+                    scratch.write_text(scratch.read_text().replace("a:4", "a:12"))
+                    return {}
+
+                with patch.object(workbench.fighter_editor, "validate_sequences"), \
+                     patch.object(transfer, "validate_sequences"), \
+                     patch.object(workbench, "choose", side_effect=[0]), \
+                     patch.object(workbench, "ask", side_effect=[str(file), "kirby"]), \
+                     patch.object(workbench, "confirm", return_value=confirmed), \
+                     patch.object(workbench, "command", side_effect=edit), \
+                     patch.dict(workbench.os.environ, {"EDITOR": "fake-editor"}), \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    app.edit_fighter()
+                expected = data.replace(b"a:4", b"a:12") if confirmed else data
+                self.assertEqual(file.read_bytes(), expected)
+
+    def test_cli_breakdown_splits_a_combined_file_only_after_confirmation(self):
+        combined = (b"[universal.settings]\nx=1\n[kirby.neutral.a]\nstart_delay=0\nactions=a:4\n"
+                    b"[yoshi.roll.p]\nstart_delay=0\nactions=b:4\n")
+        for confirmed in (False, True):
+            with tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                source = root / "ka" / "sequences.txt"
+                (source.parent / "fighters").mkdir(parents=True)
+                source.write_bytes(b"[universal.settings]\nx=1\n")
+                app = workbench.Workbench(History(root / "state"))
+                with patch.object(transfer, "validate_sequences"), \
+                     patch.object(transfer, "read", return_value=combined), \
+                     patch.object(workbench, "choose", side_effect=[1, 0]), \
+                     patch.object(workbench, "ask", side_effect=[str(source)]), \
+                     patch.object(workbench, "confirm", return_value=confirmed), \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    app.breakdown()
+                written = (source.parent / "fighters" / "kirby.txt").exists()
+                self.assertEqual(written, confirmed)
+
     def test_build_back_cancels_and_build_failure_cannot_upload(self):
         with tempfile.TemporaryDirectory() as folder:
             app = workbench.Workbench(History(Path(folder)))
@@ -199,18 +245,35 @@ class HistoryAndLauncherTests(unittest.TestCase):
                 self.assertFalse(app.build())
                 run.assert_not_called()
 
+    @staticmethod
+    def menu_index(app, needle):
+        """Select by label so adding menu entries cannot silently retarget a test."""
+        matches = [i for i, (label, _) in enumerate(app.menu()) if needle in label.lower()]
+        if len(matches) != 1:
+            raise AssertionError(f"{needle!r} matched {len(matches)} menu entries")
+        return matches[0]
+
     def test_loop_survives_ftp_denial(self):
         with tempfile.TemporaryDirectory() as folder:
             app = workbench.Workbench(History(Path(folder)))
-            with patch.object(workbench, "choose", side_effect=[4, None]), patch.object(app, "sequences", side_effect=ftplib.error_perm("550 denied")), contextlib.redirect_stdout(io.StringIO()):
+            item = self.menu_index(app, "transfer / replace")
+            with patch.object(workbench, "choose", side_effect=[item, None]), patch.object(app, "sequences", side_effect=ftplib.error_perm("550 denied")), contextlib.redirect_stdout(io.StringIO()):
                 app.loop()  # Returns to menu and exits instead of crashing.
 
     def test_build_failure_does_not_fall_through_to_upload(self):
         with tempfile.TemporaryDirectory() as folder:
             app = workbench.Workbench(History(Path(folder)))
-            with patch.object(workbench, "choose", side_effect=[2, None]), patch.object(app, "build", side_effect=RuntimeError("build failed")), patch.object(app, "upload") as upload, contextlib.redirect_stdout(io.StringIO()):
+            item = self.menu_index(app, "ship: build")
+            with patch.object(workbench, "choose", side_effect=[item, None]), patch.object(app, "build", side_effect=RuntimeError("build failed")), patch.object(app, "upload") as upload, contextlib.redirect_stdout(io.StringIO()):
                 app.loop()
             upload.assert_not_called()
+
+    def test_every_menu_entry_is_callable_and_uniquely_labelled(self):
+        with tempfile.TemporaryDirectory() as folder:
+            app = workbench.Workbench(History(Path(folder)))
+            labels = [label for label, _ in app.menu()]
+            self.assertEqual(len(labels), len(set(labels)))
+            self.assertTrue(all(callable(action) for _, action in app.menu()))
 
     def test_build_delegates_original_flags_and_archives_local_output(self):
         with tempfile.TemporaryDirectory() as folder:

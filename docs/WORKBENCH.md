@@ -6,14 +6,30 @@ From the project directory, run:
 python3 tools/workbench.py
 ```
 
-This opens a small browser GUI served only on your computer, using Python's
-standard library. Keep the terminal open; **Close workbench** stops the launcher.
+This opens a small dark-themed browser GUI served only on your computer, using
+Python's standard library. Keep the terminal open; **Close** stops the launcher.
 No build or FTP connection happens merely by opening it. All original helper
 commands still work independently. This adds no Switch runtime work.
 
+Six tabs cover the whole workflow, and the window reopens on the tab you used
+last:
+
+| Tab | Use it to |
+| --- | --- |
+| **Ship** | Set the version and build/upload to either or both Switches |
+| **Edit fighter** | Change one fighter's sections with a diff preview |
+| **Break down** | Split a combined `sequences.txt` into `fighters/*.txt` |
+| **Transfer** | Copy a whole file or one fighter between computer and Switches |
+| **History** | Review shipped versions, past runs and their logs |
+| **Helpers** | Run the original scripts with their own arguments |
+
+The header shows the current `Cargo.toml` version, the **Ship** tab shows the
+last verified upload for each Switch, and the output console stays visible at
+the bottom of every tab.
+
 ## Quick build and upload
 
-1. On **Ship a version**, enter the version or click **+1** to increase its last
+1. On **Ship**, enter the version or click **+1** to increase its last
    number. Select **Both switches** (default), **Silent only**, or **Diagnostic only**.
 2. Close Smash and open FTP on the selected Switches. Check the ready box once
    for this GUI session.
@@ -23,7 +39,7 @@ commands still work independently. This adds no Switch runtime work.
 
 The default Cargo home is `/private/tmp/kirby-assist-build-cargo`; expand
 **Build & connection settings** to change it or the FTP ports. Settings are
-remembered. **Build only**, **Upload built version** and **Verify installed**
+remembered. **Build only**, **Upload built** and **Verify installed**
 are available without the terminal prompt sequence. Upload/verify actions use
 the entered built version without changing the source version. A source version
 selected before a failed build stays selected for retry; it is not marked shipped.
@@ -33,7 +49,65 @@ Regular release uploads preserve active `sequences.txt`, staging a separate
 upload for each Switch. A partial upload is reported as a failure with individual
 target results; the other Switch is still attempted.
 
-On **Sequences**, choose source and destination, optionally enter a fighter ID,
+## Editing one fighter
+
+**Edit fighter** changes a single fighter's recipes and settings without copying
+whole files. Choose the file — the repository source, or a Switch active/staged
+file — and click **Read file**. That one read becomes the snapshot every later
+step compares against; the fighter list is filled from it.
+
+Pick a fighter, click **Open fighter**, and its sections appear in the text box.
+**Preview changes** validates the result with the current parser and shows a
+unified diff of only that fighter. **Save fighter…** then writes it. Other
+fighters and `[universal.settings]` are preserved and checked independently; an
+edit that would alter another fighter is rejected before any write.
+
+Editing the repository `sequences.txt` writes back through the split sources, so
+the edit itself lands only in `fighters/<fighter>.txt`. As with any source
+import, a few other fighter files can pick up trailing-blank-line normalization;
+recipe content and section order are unchanged. Clearing the text box entirely
+deletes that fighter from the file. **Revert edits** restores the loaded text
+and drops any pending preview. Changing the file, fighter or text invalidates
+a preview.
+
+A local repository edit does not need the ready checkbox. A Switch destination
+still requires Smash closed, FTP open and the ready box on **Ship**.
+Saving keeps a recovery backup and verifies the written bytes, and `fighter-load`,
+`fighter-preview` and `fighter-save` are recorded in History.
+
+The same flow is item 5 in `--cli`, which opens `$VISUAL`/`$EDITOR` on a scratch
+copy (or waits while you edit it) and asks for `SAVE` after showing the diff.
+
+## Breaking a combined file into fighter sources
+
+**Break down** splits one combined `sequences.txt` into the individual
+`fighters/<fighter>.txt` files the build assembles from. Use it after
+downloading Training edits from a Switch, or to import any new sequence file
+into the repository sources.
+
+Choose the combined file (a Switch active/staged file or a file on this
+computer), confirm the repository universal source to write beside, then click
+**Preview split**. The preview lists each fighter file as new, replaced,
+deleted or unchanged, with its section count — nothing is written yet.
+**Write source files…** then applies it after a confirmation that names the
+deletions.
+
+Fighters present in `fighters/` but absent from the combined file are deleted,
+so the sources always match the file you split. Every replaced file is copied
+to `.mod-workbench/source-breakdowns/<timestamp>/` first, and the sources are
+re-assembled and compared against the imported bytes afterwards; a mismatch
+rolls the whole import back.
+
+The same flow is **Break down a combined file into fighter sources** in `--cli`,
+which prints the summary and asks for `BREAKDOWN`. The standalone helper also
+previews without writing:
+
+```sh
+python3 tools/sequence_sources.py --import-file /path/to/downloaded.txt --dry-run
+python3 tools/sequence_sources.py --import-file /path/to/downloaded.txt
+```
+
+On **Transfer**, choose source and destination, optionally enter a fighter ID,
 then **Preview transfer**. **Confirm replacement…** shows the actual destination
 and scope before replacing anything. Changing a transfer field invalidates that
 preview. Whole-file replacement overwrites every fighter; one-fighter transfer
@@ -42,8 +116,11 @@ concurrent-edit checks and readback verification use the existing transfer helpe
 
 **Helpers** runs the original helper scripts with entered arguments; start with
 `--help`. Switch writes require the ready checkbox, and sequence writes also
-require confirmation. Helpers that need interactive terminal input can still be
-used through the original terminal interface:
+require confirmation. `sequence_sources.py` is available here for assembling and
+checking the split sources; its `--import-file` rewrites the repository fighter
+files, so it is confirmed like other sequence writes while `--check` is not.
+Helpers that need interactive terminal input can still be used through the
+original terminal interface:
 
 ```sh
 python3 tools/workbench.py --cli
@@ -61,18 +138,24 @@ finish rather than interrupting a transfer. `--gui` explicitly selects the GUI;
 - **Upload a built release** previews the existing uploader plan for each chosen
   Switch. Type `UPLOAD` only with Smash fully closed and FTP open. Each target
   has a separate result, so one failure cannot be mistaken for success on both.
-- **Build, then review/upload** offers upload only after a successful build.
+- **Ship: build, then review/upload** offers upload only after a successful build.
 - **Validate** runs the existing sequences validator against your selected file.
+- **Edit one fighter's sequences** reads a chosen file once, opens that fighter's
+  sections in `$VISUAL`/`$EDITOR`, shows a diff and asks for `SAVE` before writing.
+- **Break down a combined file into fighter sources** splits one `sequences.txt`
+  into `fighters/*.txt`, prints the per-file summary and asks for `BREAKDOWN`.
 - **Transfer / replace sequences** copies one fighter or a whole file between computer,
   silent and diagnostic endpoints in either direction.
 - **Verify installed release** uses the existing read-only verification command.
 - **History** shows recent runs, logs and the last verified guided upload per
   Switch. **Original helpers** exposes their existing advanced arguments.
 
-Preferences remember the local sequences path, FTP ports, cargo cache and last
-successfully built version. Enter keeps a displayed default; `-` clears the
-custom cargo cache. The fixed Switch addresses remain silent `192.168.1.105`
-and diagnostic `192.168.1.142`; the default FTP port is `5000`.
+Preferences remember the local sequences path, edited file/fighter, FTP ports,
+cargo cache and last successfully built version. Enter keeps a displayed default;
+`-` clears the custom cargo cache. File fields default to the repository source
+`deployment/ultimate/kirby_assist/sequences.txt`. The fixed Switch addresses
+remain silent `192.168.1.105` and diagnostic `192.168.1.142`; the default FTP
+port is `5000`.
 
 ## Sequence transfers
 
@@ -113,6 +196,8 @@ Local state lives in `.mod-workbench/`:
 - `logs/`: original helper output, including failures.
 - `artifacts/`: content-addressed copies of build/upload payloads.
 - `sequence-backups/`: source, prior destination and proposed transfer bytes.
+- `fighter-edits/`: validated single-fighter results and their recovery backups.
+- `source-breakdowns/`: the fighter sources replaced by each breakdown import.
 - Preferences and a lock preventing concurrent workbenches using this directory.
 
 Guided uploads are marked shipped only after the original uploader reports full

@@ -8,6 +8,7 @@ use crate::{
     native_input::MAPPER_B,
     timing::{AnimationClock, AnimationSample},
 };
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 
 /// Extra frames added to Oil Panic startup when predicting projectile contact.
 const REFLECT_CONTACT_SAFETY_MARGIN_FRAMES: f32 = 2.0;
@@ -452,5 +453,111 @@ impl Reflector {
             && (facing || c.situation == crate::native_states::situation::GROUND)
             && (config.startup + extra_startup..=config.startup + config.margin + extra_margin)
                 .contains(&threat.in_frames)
+    }
+}
+
+/// Fixed number of projectile source entries retained by [`Sources`].
+pub const SOURCE_CAPACITY: usize = 32;
+/// Sentinel marking a vacant slot in the packed atomic record array.
+const EMPTY_SOURCE: u64 = u64::MAX;
+
+/// Bounded, allocation-free tracker of projectile identities that have
+/// attacked, pairing each battle-object ID with the generation of its attack.
+///
+/// Records are packed into atomics so a concurrent snapshot always observes a
+/// coherent ID/generation pair. Only copied IDs are retained, never native
+/// pointers; callers revalidate identity and team before reading geometry.
+pub struct Sources {
+    /// Packed `generation << 32 | id` records; `EMPTY_SOURCE` marks vacancy.
+    records: [AtomicU64; SOURCE_CAPACITY],
+    /// Round-robin replacement cursor used once every record is occupied.
+    next: AtomicUsize,
+    /// Monotonic wrapping counter assigned to each observed attack.
+    generation: AtomicU32,
+}
+
+impl Default for Sources {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Sources {
+    /// Constructs an empty tracker with generation zero.
+    pub const fn new() -> Self {
+        Self {
+            records: [const { AtomicU64::new(EMPTY_SOURCE) }; SOURCE_CAPACITY],
+            next: AtomicUsize::new(0),
+            generation: AtomicU32::new(0),
+        }
+    }
+
+    /// Records a weapon/item attack, advancing its generation. Non-projectile
+    /// categories are ignored. An already tracked object is refreshed in place
+    /// so a reused article or a fresh attack phase is not suppressed.
+    pub fn remember(&self, id: u32) {
+        if !matches!(
+            id >> 28,
+            crate::battle_objects::OBJECT_CATEGORY_WEAPON
+                | crate::battle_objects::OBJECT_CATEGORY_ITEM
+        ) {
+            return;
+        }
+        let generation = self
+            .generation
+            .fetch_add(1, Ordering::Relaxed)
+            .wrapping_add(1);
+        let record = (u64::from(generation) << 32) | u64::from(id);
+        let mut vacant = None;
+        for (index, slot) in self.records.iter().enumerate() {
+            let old = slot.load(Ordering::Relaxed);
+            if old != EMPTY_SOURCE && old as u32 == id {
+                slot.store(record, Ordering::Relaxed);
+                return;
+            }
+            if old == EMPTY_SOURCE {
+                vacant.get_or_insert(index);
+            }
+        }
+        // Reuse a vacant slot before evicting a live projectile.
+        let index =
+            vacant.unwrap_or_else(|| self.next.fetch_add(1, Ordering::Relaxed) % SOURCE_CAPACITY);
+        self.records[index].store(record, Ordering::Relaxed);
+    }
+
+    /// Copies every occupied record into an owned optional key array.
+    pub fn snapshot(&self) -> [Option<ProjectileKey>; SOURCE_CAPACITY] {
+        std::array::from_fn(|index| {
+            let record = self.records[index].load(Ordering::Relaxed);
+            (record != EMPTY_SOURCE).then_some(ProjectileKey {
+                id: record as u32,
+                generation: (record >> 32) as u32,
+            })
+        })
+    }
+
+    /// Clears the first record matching `id` without erasing a record that a
+    /// concurrent `remember` has already replaced.
+    pub fn forget(&self, id: u32) {
+        for slot in &self.records {
+            let old = slot.load(Ordering::Relaxed);
+            if old != EMPTY_SOURCE
+                && old as u32 == id
+                && slot
+                    .compare_exchange(old, EMPTY_SOURCE, Ordering::Relaxed, Ordering::Relaxed)
+                    .is_ok()
+            {
+                break;
+            }
+        }
+    }
+
+    /// Empties every slot and resets the cursor. The generation counter is
+    /// deliberately retained so reused IDs cannot collide with stale history.
+    pub fn clear(&self) {
+        for slot in &self.records {
+            slot.store(EMPTY_SOURCE, Ordering::Relaxed);
+        }
+        self.next.store(0, Ordering::Relaxed);
     }
 }

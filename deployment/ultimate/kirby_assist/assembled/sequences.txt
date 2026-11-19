@@ -5,24 +5,33 @@ control_layout = default
 auto_mash = false
 auto_tech = true
 autopilot_shield = true
+kirby_auto_duck = false
 tech_debug = true
 player_index = 0
 takeover = true
 tech_lookahead_frames = 5
 tech_cooldown_frames = 40
 dpad_b_reverse = false
+r3_turbo = true
+turbo_phase_frames = 1
 turbo_walk_strength = 0.35
 ledge_trap = true
 ledge_manual_spacing = true
 ledge_distance_agnostic = true
 ledge_walk_strength = 0.35
+ledge_roll_dash_range = 10.0
 ledge_drop_defense = true
+ledge_anti_air_range = 12.0
+ledge_anti_air_height = 18.0
 ledge_trap_range = 20.0
 ledge_trap_vertical_range = 10.0
+ledge_tilt_range = 15.0
+ledge_grab_range = 9.0
 ledge_follow_range = 40.0
 ledge_follow_vertical_range = 48.0
 ledge_auto_position = false
 ledge_stand_distance = 10.0
+ledge_roll_distance = 25.0
 ledge_move_strength = 0.65
 ledge_grab_button = R
 ledge_throw_outward = false
@@ -57,14 +66,269 @@ start_delay = 0
 timeout = 240
 actions = run_to_ledge:10:1:1:2:120
 
-# BAYONETTA
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+# ======================================================================
+#                            BANJO & KAZOOIE
+# ======================================================================
+
+# ---- NEUTRAL ----
+
+[banjo_and_kazooie.neutral.nair]
+# F34 target; Neutral Air active 10-11; includes 3f jump squat
+name = Nair
+start_delay = 21
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[banjo_and_kazooie.neutral.down_tilt]
+# F34 target; Down Tilt active 12-17
+name = Down tilt
+start_delay = 21
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[banjo_and_kazooie.neutral.forward_tilt]
+# F34 target; Forward Tilt active 7-9
+name = Forward tilt
+start_delay = 26
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[banjo_and_kazooie.neutral.up_tilt]
+# F34 target; Up Tilt active 11-14
+name = Up tilt
+start_delay = 22
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+[banjo_and_kazooie.neutral.forward_smash]
+# F34 target; Forward Smash active 19-21; charge point 9, hold 23
+name = Forward smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:1:0:23, release:1
+
+# ---- JUMP ----
+
+[banjo_and_kazooie.jump.nair]
+# F14 target; Neutral Air active 10-11; includes 3f jump squat
+name = Nair
+start_delay = 1
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[banjo_and_kazooie.jump.forward_air]
+# F14 target; Forward Air active 15-17; includes 3f jump squat
+name = Forward air
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[banjo_and_kazooie.jump.up_air]
+# F14 target; Up Air active 7-8; includes 3f jump squat
+name = Up air
+start_delay = 4
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[banjo_and_kazooie.jump.up_tilt]
+# F14 target; Up Tilt active 11-14
+name = Grounded up tilt
+start_delay = 2
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+
+[banjo_and_kazooie.roll.down_smash]
+# F31 target; Down Smash active 13-17; charge point 2, hold 20
+name = Down smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0:-1:20, release:1
+
+[banjo_and_kazooie.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[banjo_and_kazooie.roll.down_tilt]
+# F31 target; Down Tilt active 12-17
+name = Down tilt
+start_delay = 19
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+
+[banjo_and_kazooie.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[banjo_and_kazooie.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[banjo_and_kazooie.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[banjo_and_kazooie.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+
+[banjo_and_kazooie.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[banjo_and_kazooie.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[banjo_and_kazooie.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[banjo_and_kazooie.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[banjo_and_kazooie.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+
+[banjo_and_kazooie.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:21.2:24
+actions = input:r:0:0:4
+
+[banjo_and_kazooie.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:13.2:24
+actions = input:r:0:0:4
+
+[banjo_and_kazooie.roll.auto_shield_backup]
+name = Shield backup > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:13:12
+actions = opponent_input:a+x:0:1:1
+
+[banjo_and_kazooie.roll.auto_roll]
+name = Roll > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:13:12
+actions = opponent_input:a+x:0:1:1
+
+[banjo_and_kazooie.roll.auto_spot_dodge]
+name = Spot dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:13:12
+actions = opponent_input:a+x:0:1:1
+
+[banjo_and_kazooie.roll.auto_air_dodge]
+name = Air dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:13:24
+actions = opponent_input:a+x:0:1:1
+
+[banjo_and_kazooie.roll.auto_grab_dodged]
+name = Dodged grab > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:13:12
+actions = opponent_input:a+x:0:1:1
 
 # ---- NEUTRAL ----
 [bayonetta.neutral.nair]
@@ -317,26 +581,6 @@ actions = input:b:0:1:4
 # ========================================================================
 
 # ---- FIGHTER SETTINGS ----
-[bowser.settings]
-walk_strength = 0.49999985
-grab_range = 22
-vertical_range = 20
-follow_vertical_range = 45
-stand_distance = 15
-manual_spacing = true
-auto_position = true
-grab_dodge_default = true
-out_of_shield_default = true
-grab_dodge_lookahead = 8
-shield_body_half_width = 7
-shield_body_height = 18
-shield_hold = 2
-grab_dodge_padding = 15
-grab_dodge_height = 10
-tech_ceiling_origin = 5
-
-# ---- LEDGE TRAPS: NEUTRAL ----
-# ---- FIRE BREATH | bowser.neutral.down_tilt ----
 [bowser.neutral.down_tilt]
 default = false
 start_delay = 0
@@ -347,12 +591,12 @@ name = FIRE BREATH
 
 # ---- F TILT | bowser.neutral.forward_tilt ----
 [bowser.neutral.forward_tilt]
-default = false
-start_delay = 18
+name = DWN B
+start_delay = 30
 timeout = 3600
 spatial_timeout = 60
-actions = opponent_input:a:0.6:0:4
-name = F TILT
+actions = opponent_input:b:0:-1:4
+default = false
 
 # ---- UP B | bowser.neutral.up_tilt ----
 [bowser.neutral.up_tilt]
@@ -406,17 +650,17 @@ actions = opponent_input:a:0:0.6:1
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = facing_input:a:0:1:25
+actions = drift:away_from_opponent:1:1, facing_input:a:0:1:20
 default = false
 name = UP SMASH
 
 # ---- GRAB | bowser.roll.grab ----
 [bowser.roll.grab]
-default = false
-start_delay = 5
+start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = walk:away_from_opponent:5:0.8, range:fighter_range, input:r:0:0:1
+default = false
 name = GRAB
 
 # ---- UP B | bowser.roll.down_tilt ----
@@ -433,7 +677,7 @@ name = UP B
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = opponent_input:a:-1:0:10
+actions = wait:1, opponent_input:none:1:0:4, opponent_input:a:-1:0:5
 default = true
 name = F SMASH
 
@@ -449,11 +693,11 @@ name = Shield DSMASH
 
 # ---- Grab | bowser.attack.shield_grab ----
 [bowser.attack.shield_grab]
+default = true
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = shield_until_block:90, if_facing_opponent, range:25, facing_input:r:0:0:4, else_facing, opponent_input:b:1:0:4, end_facing
-default = true
 name = Grab
 
 # ---- Shield > Up-B | bowser.attack.shield_up_b ----
@@ -477,56 +721,56 @@ name = SIDE B
 # ---- LEDGE TRAPS: DROP ----
 # ---- Shield | bowser.drop.shield ----
 [bowser.drop.shield]
+default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = facing_hold_until_manual:zr:0:0
 name = Shield
-default = false
 
 # ---- FADE AWAY NAIR | bowser.drop.drop_nair ----
 [bowser.drop.drop_nair]
+default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = facing_input:a+x:0:0:4, drift:away_from_opponent:0.4:20
 name =FADE AWAY NAIR
-default = false
 
 # ---- FADE AWAY FAIR | bowser.drop.forward_air ----
 [bowser.drop.forward_air]
+default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = face:opponent, wait:1, facing_input:x:0:0:1, facing_input:a:1:0:1, drift:away_from_opponent:0.3:10
 name = FADE AWAY FAIR 
-default = false
 
 # ---- DOWN SMASH | bowser.drop.down_smash ----
 [bowser.drop.down_smash]
+default = true
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = wait:2, opponent_input:a:0:-1:1
+actions = opponent_input:a:0:-1:1
 name = DOWN SMASH
-default = false
 
 # ---- Dair | bowser.drop.menu_added_6 ----
 [bowser.drop.menu_added_6]
+default = false
 name = Dair
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = facing_input:x:0:0:1, facing_input:a:0:-1:4
-default = true
 
 # ---- UP B | bowser.drop.menu_added_7 ----
 [bowser.drop.menu_added_7]
-name = UP B
+name = DWN B
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = facing_input:b:0:1:4, drift:opponent:1:70
+actions = facing_input:b:0:-1:4
 default = false
 
 # ---- BUTTON SEQUENCES: X ----
@@ -535,6 +779,12 @@ default = false
 default = false
 name = Built-in: Ledge assist / walk
 builtin = ledge_assist
+
+# ---- Built-in: Short hop | bowser.x.__builtin_short_hop ----
+[bowser.x.__builtin_short_hop]
+default = true
+name = Built-in: Short hop
+builtin = short_hop
 
 # ---- BUTTON SEQUENCES: Y ----
 # ---- Grab | bowser.y.airdodge ----
@@ -590,31 +840,31 @@ name = Flying Slam reverse toward enemy
 default = true
 
 # ---- BUTTON SEQUENCES: L ----
+# ---- Built-in: Short hop | bowser.l.__builtin_short_hop ----
+[bowser.l.__builtin_short_hop]
+default = false
+name = Built-in: Short hop
+builtin = short_hop
+
 # ---- BUTTON SEQUENCES: L3 ----
 # ---- Built-in: Turbo t-bag | bowser.l3.__builtin_turbo_teabag ----
 [bowser.l3.__builtin_turbo_teabag]
-default = true
+default = false
 name = Built-in: Turbo t-bag
 builtin = turbo_teabag
 
 # ---- Normal button | bowser.l3.__normal_button ----
 [bowser.l3.__normal_button]
-default = false
+default = true
 name = Normal button
 builtin = normal
 
 # ---- BUTTON SEQUENCES: R3 ----
 # ---- Built-in: Turbo t-bag | bowser.r3.__builtin_turbo_teabag ----
 [bowser.r3.__builtin_turbo_teabag]
-default = false
+default = true
 name = Built-in: Turbo t-bag
 builtin = turbo_teabag
-
-# ---- Normal button | bowser.r3.__normal_button ----
-[bowser.r3.__normal_button]
-default = true
-name = Normal button
-builtin = normal
 
 # ---- ASSIST RULES: AUTO REACT ----
 # ---- Roll - Up-B chase | bowser.roll.auto_roll ----
@@ -622,9 +872,9 @@ builtin = normal
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions =  facing_input:b:0:1:4, drift:opponent:1:69
+actions = facing_input:b:0:1:4, drift:opponent:1:50
 ground_only = true
-reaction = auto_roll:30:12
+reaction = auto_roll:25:12
 name = Roll - Up-B chase
 default = false
 
@@ -635,7 +885,7 @@ timeout = 240
 spatial_timeout = 60
 actions = facing_input:b:0:1:4, drift:opponent:1:69
 ground_only = true
-reaction = auto_spot_dodge:10:10
+reaction = auto_spot_dodge:25:10
 name = Spot dodge - Up-B chase
 default = false
 
@@ -652,53 +902,67 @@ default = false
 
 # ---- Automatic grab (unshielded) | bowser.roll.auto_grab ----
 [bowser.roll.auto_grab]
-name = Automatic grab (unshielded)
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
+actions = drift:opponent:1:1, input:r:0:0:4
+reaction = auto_grab:30:8
+name = Automatic grab (unshielded)
 default = false
-reaction = auto_grab:35:20
-actions = drift:opponent:1:69, input:r:0:0:4
 
 # ---- Automatic grab (shielded) | bowser.roll.auto_shield_grab ----
 [bowser.roll.auto_shield_grab]
-name = Automatic grab (shielded)
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-default = false
-reaction = auto_shield_grab:22:15
 actions = input:r:0:0:4
+reaction = auto_shield_grab:22:10
+name = Automatic grab (shielded)
+default = false
 
 # ---- Shield grab backup | bowser.roll.auto_shield_backup ----
 [bowser.roll.auto_shield_backup]
-name = Shield grab backup
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
+actions = facing_input:b:0:1:4, drift:opponent:1:20, drift:opponent:1:20, drift:opponent:1:20
+reaction = auto_shield_backup:20:12
+name = Shield grab backup
 default = false
-reaction = auto_shield_backup:22:15
-actions = up_b:4, drift:opponent:1:69
 
 # ---- After dodging enemy grab | bowser.roll.auto_grab_dodged ----
 [bowser.roll.auto_grab_dodged]
-name = After dodging enemy grab
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-default = false
-reaction = auto_grab_dodged:30:10
+actions = facing_input:b:0:1:4, drift:opponent:1:69
 ground_only = true
-actions = up_b:4, drift:opponent:1:69
+reaction = auto_grab_dodged:25:10
+name = After dodging enemy grab
+default = false
 
-# BOWSER JR
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+
+[bowser.settings]
+walk_strength = 0.49999985
+grab_range = 22
+vertical_range = 20
+follow_range = 45
+follow_vertical_range = 45
+stand_distance = 15
+manual_spacing = true
+auto_position = true
+grab_dodge_default = true
+out_of_shield_default = true
+grab_dodge_lookahead = 8
+shield_body_half_width = 10
+shield_body_height = 20
+shield_body_half_depth = 10
+shield_forecast = 10
+shield_hold = 2
+grab_dodge_padding = 15
+grab_dodge_height = 10
+tech_ceiling_origin = 5
+tech_floor_padding = 2
 
 # ---- NEUTRAL ----
 [bowser_jr.neutral.nair]
@@ -962,14 +1226,269 @@ ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a:0:1:1
 
-# CAPTAIN FALCON
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+# ======================================================================
+#                                BYLETH
+# ======================================================================
+
+# ---- NEUTRAL ----
+
+[byleth.neutral.nair]
+# F34 target; Neutral Air active 6-26; includes 3f jump squat
+name = Nair
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[byleth.neutral.down_tilt]
+# F34 target; Down Tilt active 13-15
+name = Down tilt
+start_delay = 20
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[byleth.neutral.forward_tilt]
+# F34 target; Forward Tilt active 8-10
+name = Forward tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[byleth.neutral.up_tilt]
+# F34 target; Up Tilt active 9-15
+name = Up tilt
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+[byleth.neutral.forward_smash]
+# F34 target; Forward Smash active 23-25; charge point 14, hold 24
+name = Forward smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:1:0:24, release:1
+
+# ---- JUMP ----
+
+[byleth.jump.nair]
+# F14 target; Neutral Air active 6-26; includes 3f jump squat
+name = Nair
+start_delay = 5
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[byleth.jump.forward_air]
+# F14 target; Forward Air active 12-13; includes 3f jump squat
+name = Forward air
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[byleth.jump.up_air]
+# F14 target; Up Air active 10-19; includes 3f jump squat
+name = Up air
+start_delay = 1
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[byleth.jump.up_tilt]
+# F14 target; Up Tilt active 9-15
+name = Grounded up tilt
+start_delay = 4
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+
+[byleth.roll.down_smash]
+# F31 target; Down Smash active 19-21; charge point 3, hold 15; rear phase 29-31 aligned separately
+name = Down smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = if_facing_opponent, opponent_input:a:0:-1:15, release:1, else_facing, opponent_input:a:0:-1:5, release:1, end_facing
+
+[byleth.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[byleth.roll.down_tilt]
+# F31 target; Down Tilt active 13-15
+name = Down tilt
+start_delay = 18
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+
+[byleth.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[byleth.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[byleth.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[byleth.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+
+[byleth.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[byleth.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[byleth.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[byleth.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[byleth.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+
+[byleth.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:20.3:24
+actions = input:r:0:0:4
+
+[byleth.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:12.3:24
+actions = input:r:0:0:4
+
+[byleth.roll.auto_shield_backup]
+name = Shield backup > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:12:12
+actions = opponent_input:a+x:0:0:1
+
+[byleth.roll.auto_roll]
+name = Roll > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:12:12
+actions = opponent_input:a+x:0:0:1
+
+[byleth.roll.auto_spot_dodge]
+name = Spot dodge > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:12:12
+actions = opponent_input:a+x:0:0:1
+
+[byleth.roll.auto_air_dodge]
+name = Air dodge > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:12:24
+actions = opponent_input:a+x:0:0:1
+
+[byleth.roll.auto_grab_dodged]
+name = Dodged grab > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:12:12
+actions = opponent_input:a+x:0:0:1
 
 # ---- NEUTRAL ----
 [captain_falcon.neutral.forward_tilt]
@@ -1121,15 +1640,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# CHARIZARD
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [charizard.neutral.nair]
@@ -1383,15 +1893,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:14:12
 actions = input:b:0:1:4
-
-# CHROM
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [chrom.neutral.nair]
@@ -1647,15 +2148,6 @@ ground_only = false
 reaction = auto_grab_dodged:16:12
 actions = opponent_input:a+x:0:1:1
 
-# CLOUD
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [cloud.neutral.nair]
 # F34 target; Neutral Air active 5-15; includes 3f jump squat
@@ -1900,15 +2392,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:14:12
 actions = input:b:0:1:4
-
-# CORRIN
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [corrin.neutral.nair]
@@ -2164,15 +2647,6 @@ ground_only = false
 reaction = auto_grab_dodged:16:12
 actions = opponent_input:a+x:0:0:1
 
-# DAISY
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [daisy.neutral.nair]
 # F34 target; Neutral Air active 5-19; includes 3f jump squat
@@ -2408,15 +2882,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# DARK PIT
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [dark_pit.neutral.nair]
@@ -2679,15 +3144,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a:0:1:1
-
-# DARK SAMUS
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [dark_samus.neutral.nair]
@@ -3029,15 +3485,6 @@ ground_only = true
 reaction = auto_grab_dodged:14:12
 actions = input:b:0:1:4
 
-# DIDDY KONG
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [diddy_kong.neutral.nair]
 # F34 target; Neutral Air active 8-20; includes 3f jump squat
@@ -3300,15 +3747,6 @@ ground_only = true
 reaction = auto_grab_dodged:10:12
 actions = opponent_input:a:0:1:1
 
-# DONKEY KONG
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [donkey_kong.neutral.nair]
 # F34 target; Neutral Air active 10-26; includes 3f jump squat
@@ -3459,15 +3897,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:14:12
 actions = opponent_input:a+x:0:0:1
-
-# DR MARIO
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [dr_mario.neutral.nair]
@@ -3730,15 +4159,6 @@ ground_only = true
 reaction = auto_grab_dodged:9:12
 actions = input:b:0:1:4
 
-# DUCK HUNT
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [duck_hunt.neutral.nair]
 # F34 target; Neutral Air active 6-37; includes 3f jump squat
@@ -3992,15 +4412,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# FALCO
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [falco.neutral.nair]
@@ -4264,15 +4675,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# FOX
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [fox.neutral.nair]
 # F34 target; Neutral Air active 4-23; includes 3f jump squat
@@ -4423,15 +4825,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# GANONDORF
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [ganondorf.neutral.nair]
@@ -4667,15 +5060,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# GRENINJA
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [greninja.neutral.nair]
@@ -4913,14 +5297,251 @@ ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a:0:1:1
 
-# ICE CLIMBERS
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+# ======================================================================
+#                                 HERO
+# ======================================================================
+
+# ---- NEUTRAL ----
+
+[hero.neutral.nair]
+# F34 target; Neutral Air active 8-16; includes 3f jump squat
+name = Nair
+start_delay = 23
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[hero.neutral.down_tilt]
+# F34 target; Down Tilt active 6-10
+name = Down tilt
+start_delay = 27
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[hero.neutral.forward_tilt]
+# F34 target; Forward Tilt active 9-11
+name = Forward tilt
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[hero.neutral.up_tilt]
+# F34 target; Up Tilt active 8-9
+name = Up tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- JUMP ----
+
+[hero.jump.nair]
+# F14 target; Neutral Air active 8-16; includes 3f jump squat
+name = Nair
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[hero.jump.forward_air]
+# F14 target; Forward Air active 14-17; includes 3f jump squat
+name = Forward air
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[hero.jump.up_air]
+# F14 target; Up Air active 6-10; includes 3f jump squat
+name = Up air
+start_delay = 5
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[hero.jump.up_tilt]
+# F14 target; Up Tilt active 8-9
+name = Grounded up tilt
+start_delay = 5
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+
+[hero.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[hero.roll.down_tilt]
+# F31 target; Down Tilt active 6-10
+name = Down tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+
+[hero.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[hero.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[hero.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[hero.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+
+[hero.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[hero.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[hero.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[hero.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[hero.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+
+[hero.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:18.3:24
+actions = input:r:0:0:4
+
+[hero.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:10.3:24
+actions = input:r:0:0:4
+
+[hero.roll.auto_shield_backup]
+name = Shield backup > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:10:12
+actions = opponent_input:a+x:0:1:1
+
+[hero.roll.auto_roll]
+name = Roll > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:10:12
+actions = opponent_input:a+x:0:1:1
+
+[hero.roll.auto_spot_dodge]
+name = Spot dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:10:12
+actions = opponent_input:a+x:0:1:1
+
+[hero.roll.auto_air_dodge]
+name = Air dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:10:24
+actions = opponent_input:a+x:0:1:1
+
+[hero.roll.auto_grab_dodged]
+name = Dodged grab > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:10:12
+actions = opponent_input:a+x:0:1:1
 
 # ---- NEUTRAL ----
 [ice_climbers.neutral.nair]
@@ -5158,15 +5779,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# ICE CLIMBERS NANA
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [ice_climbers_nana.neutral.nair]
 # F34 target; Neutral Air active 6-23; includes 3f jump squat
@@ -5403,20 +6015,11 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# IKE
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [ike.neutral.nair]
 # F34 target; Neutral Air active 10-22; includes 3f jump squat
 name = Nair
-start_delay = 15
+start_delay = 12
 timeout = 3600
 spatial_timeout = 60
 default = false
@@ -5425,7 +6028,7 @@ actions = opponent_input:a+x:0:0:1
 [ike.neutral.down_tilt]
 # F34 target; Down Tilt active 7-8
 name = Down tilt
-start_delay = 26
+start_delay = 25
 timeout = 3600
 spatial_timeout = 60
 default = true
@@ -5434,7 +6037,7 @@ actions = opponent_input:a:0:-0.6:1
 [ike.neutral.forward_tilt]
 # F34 target; Forward Tilt active 12-13
 name = Forward tilt
-start_delay = 21
+start_delay = 20
 timeout = 3600
 spatial_timeout = 60
 default = false
@@ -5447,7 +6050,7 @@ start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = false
-actions = opponent_input:a:1:0:25, release:1
+actions = opponent_input:a:1:0:21, release:1
 
 # ---- JUMP ----
 [ike.jump.nair]
@@ -5485,7 +6088,7 @@ start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = true
-actions = opponent_input:a:0:-1:22, release:1
+actions = opponent_input:a:0:-1:4, release:1
 
 [ike.roll.grab]
 # F31 standing-grab target; front and standing range required; no approach wait
@@ -5647,15 +6250,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:16:12
 actions = opponent_input:a+x:0:0:1
-
-# INCINEROAR
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [incineroar.neutral.nair]
@@ -5911,15 +6505,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# INKLING
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [inkling.neutral.nair]
 # F34 target; Neutral Air active 6-9; includes 3f jump squat
@@ -6174,15 +6759,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# ISABELLE
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [isabelle.neutral.nair]
 # F34 target; Neutral Air active 5-25; includes 3f jump squat
@@ -6419,15 +6995,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# IVYSAUR
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [ivysaur.neutral.nair]
@@ -6682,15 +7249,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# JIGGLYPUFF
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [jigglypuff.neutral.nair]
 # F34 target; Neutral Air active 6-30; includes 3f jump squat
@@ -6944,14 +7502,515 @@ ground_only = false
 reaction = auto_grab_dodged:10:12
 actions = opponent_input:a+x:0:0:1
 
-# KEN
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+# ======================================================================
+#                                 JOKER
+# ======================================================================
+
+# ---- NEUTRAL ----
+
+[joker.neutral.nair]
+# F34 target; Neutral Air active 12-27; includes 3f jump squat
+name = Nair
+start_delay = 19
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[joker.neutral.down_tilt]
+# F34 target; Down Tilt active 8-9
+name = Down tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[joker.neutral.forward_tilt]
+# F34 target; Forward Tilt active 8-9
+name = Forward tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[joker.neutral.up_tilt]
+# F34 target; Up Tilt active 8-8
+name = Up tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+[joker.neutral.forward_smash]
+# F34 target; Forward Smash active 16-18; charge point 5, hold 22
+name = Forward smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:1:0:22, release:1
+
+# ---- JUMP ----
+
+[joker.jump.nair]
+# F14 target; Neutral Air active 12-27; includes 3f jump squat
+name = Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[joker.jump.forward_air]
+# F14 target; Forward Air active 7-8; includes 3f jump squat
+name = Forward air
+start_delay = 4
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[joker.jump.up_air]
+# F14 target; Up Air active 5-18; includes 3f jump squat
+name = Up air
+start_delay = 6
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[joker.jump.up_tilt]
+# F14 target; Up Tilt active 8-8
+name = Grounded up tilt
+start_delay = 5
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+
+[joker.roll.down_smash]
+# F31 target; Down Smash active 12-13; charge point 5, hold 24; rear phase 16-17 aligned separately
+name = Down smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = if_facing_opponent, opponent_input:a:0:-1:24, release:1, else_facing, opponent_input:a:0:-1:20, release:1, end_facing
+
+[joker.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[joker.roll.down_tilt]
+# F31 target; Down Tilt active 8-9
+name = Down tilt
+start_delay = 23
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+
+[joker.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[joker.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[joker.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[joker.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+
+[joker.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[joker.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[joker.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[joker.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[joker.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+
+[joker.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:20.3:24
+actions = input:r:0:0:4
+
+[joker.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:12.3:24
+actions = input:r:0:0:4
+
+[joker.roll.auto_shield_backup]
+name = Shield backup > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:12:12
+actions = opponent_input:a+x:0:1:1
+
+[joker.roll.auto_roll]
+name = Roll > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:12:12
+actions = opponent_input:a+x:0:1:1
+
+[joker.roll.auto_spot_dodge]
+name = Spot dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:12:12
+actions = opponent_input:a+x:0:1:1
+
+[joker.roll.auto_air_dodge]
+name = Air dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:12:24
+actions = opponent_input:a+x:0:1:1
+
+[joker.roll.auto_grab_dodged]
+name = Dodged grab > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:12:12
+actions = opponent_input:a+x:0:1:1
+
+# ======================================================================
+#                                KAZUYA
+# ======================================================================
+
+# ---- NEUTRAL ----
+
+[kazuya.neutral.nair]
+# F34 target; Neutral Air active 8-9; includes 3f jump squat
+name = Nair
+start_delay = 23
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[kazuya.neutral.down_tilt]
+# F34 target; Down Tilt active 16-18
+name = Down tilt
+start_delay = 17
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[kazuya.neutral.forward_tilt]
+# F34 target; Forward Tilt active 12-16
+name = Forward tilt
+start_delay = 21
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[kazuya.neutral.up_tilt]
+# F34 target; Up Tilt active 9-10
+name = Up tilt
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- JUMP ----
+
+[kazuya.jump.nair]
+# F14 target; Neutral Air active 8-9; includes 3f jump squat
+name = Nair
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[kazuya.jump.forward_air]
+# F14 target; Forward Air active 8-9; includes 3f jump squat
+name = Forward air
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[kazuya.jump.up_air]
+# F14 target; Up Air active 4-6; includes 3f jump squat
+name = Up air
+start_delay = 7
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[kazuya.jump.up_tilt]
+# F14 target; Up Tilt active 9-10
+name = Grounded up tilt
+start_delay = 4
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+
+[kazuya.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[kazuya.roll.down_tilt]
+# F31 target; Down Tilt active 16-18
+name = Down tilt
+start_delay = 15
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+
+[kazuya.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[kazuya.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[kazuya.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[kazuya.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+
+[kazuya.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[kazuya.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[kazuya.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[kazuya.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[kazuya.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+
+[kazuya.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:23.2:24
+actions = input:r:0:0:4
+
+[kazuya.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:15.2:24
+actions = input:r:0:0:4
+
+[kazuya.roll.auto_shield_backup]
+name = Shield backup > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:15:12
+actions = opponent_input:a+x:0:1:1
+
+[kazuya.roll.auto_roll]
+name = Roll > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:15:12
+actions = opponent_input:a+x:0:1:1
+
+[kazuya.roll.auto_spot_dodge]
+name = Spot dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:15:12
+actions = opponent_input:a+x:0:1:1
+
+[kazuya.roll.auto_air_dodge]
+name = Air dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:15:24
+actions = opponent_input:a+x:0:1:1
+
+[kazuya.roll.auto_grab_dodged]
+name = Dodged grab > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:15:12
+actions = opponent_input:a+x:0:1:1
 
 # ---- NEUTRAL ----
 [ken.neutral.forward_smash]
@@ -7153,15 +8212,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:10:12
 actions = input:b:0:1:4
-
-# KING DEDEDE
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [king_dedede.neutral.nair]
@@ -7753,15 +8803,6 @@ default = false
 reaction = auto_shield_backup:12.5:24
 actions = up_b:4
 
-# KROOL
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [krool.neutral.nair]
 # F34 target; Neutral Air active 7-30; includes 3f jump squat
@@ -8016,15 +9057,6 @@ ground_only = false
 reaction = auto_grab_dodged:14:12
 actions = opponent_input:a+x:0:0:1
 
-# LINK
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [link.neutral.nair]
 # F34 target; Neutral Air active 7-31; includes 3f jump squat
@@ -8183,15 +9215,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:18:12
 actions = input:b:0:1:4
-
-# LITTLEMAC
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [littlemac.neutral.up_tilt]
@@ -8421,15 +9444,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:8:12
 actions = input:b:0:1:4
-
-# LUCARIO
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [lucario.neutral.nair]
@@ -8693,15 +9707,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# LUCAS
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [lucas.neutral.nair]
 # F34 target; Neutral Air active 7-7; includes 3f jump squat
@@ -8948,20 +9953,11 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# LUCINA
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [lucina.neutral.nair]
 # F34 target; Neutral Air active 15-21; includes 3f jump squat
 name = Nair
-start_delay = 13
+start_delay = 10
 timeout = 3600
 spatial_timeout = 60
 default = false
@@ -8970,16 +9966,16 @@ actions = opponent_input:a+x:0:0:1
 [lucina.neutral.down_tilt]
 # F34 target; Down Tilt active 7-8
 name = Down tilt
-start_delay = 26
+start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = false
-actions = opponent_input:a:0:-0.6:1
+actions = opponent_input:b:0:0:26
 
 [lucina.neutral.forward_tilt]
 # F34 target; Forward Tilt active 8-11
 name = Forward tilt
-start_delay = 24
+start_delay = 22
 timeout = 3600
 spatial_timeout = 60
 default = true
@@ -8987,27 +9983,27 @@ actions = opponent_input:a:0.6:0:1
 
 [lucina.neutral.up_tilt]
 # F34 target; Up Tilt active 6-12
-name = Up tilt
-start_delay = 25
+name = F-tilt
+start_delay = 20
 timeout = 3600
 spatial_timeout = 60
 default = false
-actions = opponent_input:a:0:0.6:1
+actions = opponent_input:a:0.6:0:1
 
 [lucina.neutral.forward_smash]
 # F34 target; Forward Smash active 10-13; charge point 3, hold 25
-name = Sword f-smash
+name = f-smash
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = false
-actions = opponent_input:a:1:0:25, release:1
+actions = opponent_input:a:1:0:22, release:1
 
 # ---- JUMP ----
 [lucina.jump.nair]
 # F14 target; Neutral Air active 6-7; includes 3f jump squat
-name = Nair
-start_delay = 5
+name = N-air
+start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = false
@@ -9015,8 +10011,8 @@ actions = opponent_input:a+x:0:0:1
 
 [lucina.jump.forward_air]
 # F14 target; Forward Air active 6-8; includes 3f jump squat
-name = Forward air
-start_delay = 4
+name = F-air
+start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = false
@@ -9024,21 +10020,21 @@ actions = opponent_input:a+x:1:0:1
 
 [lucina.jump.up_air]
 # F14 target; Up Air active 5-9; includes 3f jump squat
-name = Up air
-start_delay = 4
+name = F-TILT
+start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = true
-actions = opponent_input:a+x:0:1:1
+actions = opponent_input:a:0.6:0:1
 
-[lucina.jump.up_tilt]
+[lucina.jump.f_smash]
 # F14 target; Up Tilt active 6-12
-name = Grounded up tilt
-start_delay = 5
+name = F SMASH
+start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = false
-actions = opponent_input:a:0:0.6:1
+actions = opponent_input:a:1:0:1
 
 # ---- ROLL ----
 [lucina.roll.down_smash]
@@ -9048,34 +10044,34 @@ start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = true
-actions = if_facing_opponent, opponent_input:a:0:-1:29, release:1, else_facing, opponent_input:a:0:-1:13, release:1, end_facing
+actions = drift:away_from_opponent:0.5:4, facing_input:a:0:-1:20
 
 [lucina.roll.grab]
 # F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
-start_delay = 25
-timeout = 3600
-spatial_timeout = 60
-default = false
-actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
-
-[lucina.roll.down_tilt]
-# F31 target; Down Tilt active 7-8
-name = Down tilt
-start_delay = 24
-timeout = 3600
-spatial_timeout = 60
-default = false
-actions = opponent_input:a:0:-0.6:1
-
-# ---- ATTACK ----
-[lucina.attack.shield_nair]
-name = Shield > Nair
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = false
-actions = shield_until_block:90, opponent_input:a+x:0:0:1
+actions = drift:away_from_opponent:0.5:8, range:fighter_range, input:r:0:0:1
+
+[lucina.roll.f_smash]
+# F14 target; Up Tilt active 6-12
+name = F SMASH
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = drift:away_from_opponent:0.5:8, facing_input:a:1:0:15
+
+# ---- ATTACK ----
+[lucina.attack.shield_nair]
+name = Shield > f Tilt 
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a:0.6:0:1
 
 [lucina.attack.shield_grab]
 name = Shield > range-checked grab
@@ -9195,7 +10191,7 @@ spatial_timeout = 60
 default = false
 ground_only = true
 reaction = auto_roll:14:12
-actions = input:b:0:1:4
+actions = input:a:0:-1:4
 
 [lucina.roll.auto_spot_dodge]
 name = Spot dodge > Up B
@@ -9205,7 +10201,7 @@ spatial_timeout = 60
 default = false
 ground_only = true
 reaction = auto_spot_dodge:14:12
-actions = input:b:0:1:4
+actions = input:a:0:-1:4
 
 [lucina.roll.auto_air_dodge]
 name = Air dodge > Up B
@@ -9215,7 +10211,7 @@ spatial_timeout = 60
 default = false
 ground_only = true
 reaction = auto_air_dodge:14:24
-actions = input:b:0:1:4
+actions = input:a:0:-1:4
 
 [lucina.roll.auto_grab_dodged]
 name = Dodged grab > Up B
@@ -9225,16 +10221,7 @@ spatial_timeout = 60
 default = false
 ground_only = true
 reaction = auto_grab_dodged:14:12
-actions = input:b:0:1:4
-
-# LUIGI
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+actions = input:a:0:-1:4
 
 # ---- NEUTRAL ----
 [luigi.neutral.nair]
@@ -9386,15 +10373,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# MARIO
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [mario.neutral.nair]
@@ -9554,15 +10532,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:10:12
 actions = input:b:0:1:4
-
-# MARTH
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [marth.neutral.nair]
@@ -9834,15 +10803,6 @@ ground_only = true
 reaction = auto_grab_dodged:14:12
 actions = input:b:0:1:4
 
-# MEGA MAN
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [mega_man.neutral.down_tilt]
 # F34 target; Down Tilt active 5-21
@@ -10028,15 +10988,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a:0:1:1
-
-# META KNIGHT
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [meta_knight.neutral.nair]
@@ -10247,15 +11198,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = input:b:0:1:4
-
-# MEWTWO
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [mewtwo.neutral.nair]
@@ -10501,15 +11443,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:14:12
 actions = opponent_input:a+x:0:0:1
-
-# MII BRAWLER
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [mii_brawler.neutral.nair]
@@ -10773,15 +11706,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# MII GUNNER
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [mii_gunner.neutral.nair]
 # F34 target; Neutral Air active 8-21; includes 3f jump squat
@@ -11017,15 +11941,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# MII SWORDFIGHTER
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [mii_swordfighter.neutral.nair]
@@ -11280,70 +12195,265 @@ ground_only = false
 reaction = auto_grab_dodged:16:12
 actions = opponent_input:a+x:0:0:1
 
-# MR GAME AND WATCH
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+# ======================================================================
+#                                MIN MIN
+# ======================================================================
 
 # ---- NEUTRAL ----
-[mr_game_and_watch.neutral.nair]
+
+[min_min.neutral.nair]
+# F34 target; Neutral Air active 10-23; includes 3f jump squat
+name = Nair
+start_delay = 21
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[min_min.neutral.down_tilt]
+# F34 target; Down Tilt active 10-14
+name = Down tilt
+start_delay = 23
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[min_min.neutral.forward_tilt]
+# F34 target; Forward Tilt active 14-14
+name = Forward tilt
+start_delay = 19
+timeout = 3600
+spatial_timeout = 60
 default = true
+actions = opponent_input:a:0.6:0:1
+
+[min_min.neutral.up_tilt]
+# F34 target; Up Tilt active 5-6
+name = Up tilt
+start_delay = 28
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- JUMP ----
+
+[min_min.jump.nair]
+# F14 target; Neutral Air active 10-23; includes 3f jump squat
+name = Nair
+start_delay = 1
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[min_min.jump.up_air]
+# F14 target; Up Air active 7-13; includes 3f jump squat
+name = Up air
+start_delay = 4
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[min_min.jump.up_tilt]
+# F14 target; Up Tilt active 5-6
+name = Grounded up tilt
+start_delay = 8
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+
+[min_min.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 13
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[min_min.roll.down_tilt]
+# F31 target; Down Tilt active 10-14
+name = Down tilt
+start_delay = 21
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+
+[min_min.attack.shield_nair]
+name = Shield > Nair
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = facing_input:x:0:0:2, wait:8, opponent_input:a:0.3:0:4, wait:13, facing_input:none:0.15:-1:1
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[min_min.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[min_min.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+# ---- DROP ----
+
+[min_min.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[min_min.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[min_min.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[min_min.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+
+[min_min.roll.auto_shield_backup]
+name = Shield backup > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:12:12
+actions = opponent_input:a+x:0:1:1
+
+[min_min.roll.auto_roll]
+name = Roll > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:12:12
+actions = opponent_input:a+x:0:1:1
+
+[min_min.roll.auto_spot_dodge]
+name = Spot dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:12:12
+actions = opponent_input:a+x:0:1:1
+
+[min_min.roll.auto_air_dodge]
+name = Air dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:12:24
+actions = opponent_input:a+x:0:1:1
+
+[min_min.roll.auto_grab_dodged]
+name = Dodged grab > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:12:12
+actions = opponent_input:a+x:0:1:1
+
+# ---- NEUTRAL ----
+[mr_game_and_watch.neutral.nair]
+name = HAM
+start_delay = 12
+timeout = 3600
+spatial_timeout = 60
+actions = opponent_input:b:1:0:4
 # F34 target; Neutral Air active 7-10; includes 3f jump squat
-name = Nair
+default = false
 
 # F34 target; Down Tilt active 6-8
 
 [mr_game_and_watch.neutral.forward_tilt]
-default = false
-start_delay = 18
+start_delay = 16
 timeout = 3600
 spatial_timeout = 60
 actions = opponent_input:a:0.6:0:1
 # F34 target; Forward Tilt active 8-20
 name = Forward tilt
+default = true
 
 [mr_game_and_watch.neutral.up_tilt]
-default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = face:away_from_opponent, opponent_input:a:0:1:24, wait:1
+actions = walk_to_opponent:0.8:10:0, face:away_from_opponent, opponent_input:a:0:1:10, wait:1
 # F34 target; Up Smash active 21-25; charge point 15, hold 26
 name = Up Smash
+default = false
 
 [mr_game_and_watch.neutral.forward_smash]
-default = false
-# F34 target; Forward Smash active 17-18; charge point 7, hold 23
-name = Torch f-smash
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = opponent_input:a:1:0:23, release:1
+actions = opponent_input:a:1:0:22, wait:1
+# F34 target; Forward Smash active 17-18; charge point 7, hold 23
+name = Torch f-smash
+default = false
 
 # ---- JUMP ----
 [mr_game_and_watch.jump.nair]
-# F14 target; Neutral Air active 7-10; includes 3f jump squat
-name = Nair
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+actions = opponent_input:x:0:0:1, facing_input:a:0:0:1, drift:opponent:0.8:4
+# F14 target; Neutral Air active 7-10; includes 3f jump squat
+name = Nair
 default = true
-actions = opponent_input:a+x:0:0:1, drift:opponent:0.8:10
 
 [mr_game_and_watch.jump.up_tilt]
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = drift:opponent:1:2, opponent_input:a:1:0:4
-name = Dash attacke
+actions = opponent_input:a:0.6:0:1
+# F14 target; Up Tilt active 10-12
+name = Foward tilt
 default = false
 
 # ---- ROLL ----
@@ -11351,7 +12461,7 @@ default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = opponent_input:a:0:-1:28, wait:1
+actions = walk:away_from_opponent:5:0.85, opponent_input:a:0:-1:16, wait:1
 # F31 target; Down Smash active 12-16; charge point 6, hold 23
 name = Bury hammers
 default = true
@@ -11360,7 +12470,7 @@ default = true
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = drift:away_from_opponent:0.8:10, wait:15, range:fighter_range_instant, facing_input:r:0:0:1
+actions = wait:10, drift:away_from_opponent:0.75:10, range:fighter_range, input:r:0:0:1
 # F31 standing-grab target; front and standing range required; no approach wait
 name = Grab
 default = false
@@ -11370,8 +12480,8 @@ default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = shield_until_block:90, facing_input:a:0:-1:4
-name = Shield > Nair
+actions = wait:10, facing_input:zr:0:0:30, facing_input:r:0:0:4
+name = Shield GRAB
 default = false
 
 [mr_game_and_watch.attack.shield_up_b]
@@ -11432,7 +12542,7 @@ timeout = 240
 spatial_timeout = 60
 actions = input:b:0:1:4
 ground_only = true
-reaction = auto_shield_backup:30:20
+reaction = auto_shield_backup:20:20
 name = Shield backup > Up B
 default = false
 
@@ -11442,7 +12552,7 @@ timeout = 240
 spatial_timeout = 60
 actions = facing_input:a:0:-1:4
 ground_only = true
-reaction = auto_roll:30:20
+reaction = auto_roll:25:12
 name = Roll > Up B
 default = false
 
@@ -11452,7 +12562,7 @@ timeout = 240
 spatial_timeout = 60
 actions = facing_input:a:0:-1:4
 ground_only = true
-reaction = auto_spot_dodge:30:20
+reaction = auto_spot_dodge:25:12
 name = Spot dodge > Up B
 default = false
 
@@ -11462,7 +12572,7 @@ timeout = 240
 spatial_timeout = 60
 actions = input:b:0:1:4
 ground_only = true
-reaction = auto_air_dodge:30:30
+reaction = auto_air_dodge:20:20
 name = Air dodge > Up B
 default = false
 
@@ -11472,7 +12582,7 @@ timeout = 240
 spatial_timeout = 60
 actions = facing_input:a:0:-1:4
 ground_only = true
-reaction = auto_grab_dodged:30:10
+reaction = auto_grab_dodged:25:12
 name = Dodged grab > Up B
 default = false
 
@@ -11485,15 +12595,6 @@ reflect_max_hold = 45
 reflect_half_width = 5
 reflect_height = 16
 reflect_half_depth = 5
-
-# NESS
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # MYTHRA — separate form, separate saved menu
 # Editable starter slots; no default attack, swap or reflector is injected.
@@ -11839,15 +12940,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# OLIMAR
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [olimar.neutral.nair]
 # F34 target; Neutral Air active 7-8; includes 3f jump squat
@@ -12102,15 +13194,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# PACMAN
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [pacman.neutral.nair]
 # F34 target; Neutral Air active 3-19; includes 3f jump squat
@@ -12339,15 +13422,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# PALUTENA
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [palutena.neutral.nair]
@@ -12602,15 +13676,6 @@ ground_only = false
 reaction = auto_grab_dodged:14:12
 actions = opponent_input:a+x:0:0:1
 
-# PEACH
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [peach.neutral.nair]
 # F34 target; Neutral Air active 5-19; includes 3f jump squat
@@ -12846,15 +13911,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# PICHU
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [pichu.neutral.nair]
@@ -13118,15 +14174,6 @@ ground_only = false
 reaction = auto_grab_dodged:10:12
 actions = opponent_input:a+x:0:0:1
 
-# PIKACHU
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [pikachu.neutral.nair]
 # F34 target; Neutral Air active 3-6; includes 3f jump squat
@@ -13278,14 +14325,269 @@ ground_only = false
 reaction = auto_grab_dodged:10:12
 actions = opponent_input:a+x:0:0:1
 
-# PIT
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+# ======================================================================
+#                             PIRANHA PLANT
+# ======================================================================
+
+# ---- NEUTRAL ----
+
+[piranha_plant.neutral.nair]
+# F34 target; Neutral Air active 8-17; includes 3f jump squat
+name = Nair
+start_delay = 23
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[piranha_plant.neutral.down_tilt]
+# F34 target; Down Tilt active 9-11
+name = Down tilt
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[piranha_plant.neutral.forward_tilt]
+# F34 target; Forward Tilt active 7-8
+name = Forward tilt
+start_delay = 26
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[piranha_plant.neutral.up_tilt]
+# F34 target; Up Tilt active 6-13
+name = Up tilt
+start_delay = 27
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+[piranha_plant.neutral.forward_smash]
+# F34 target; Forward Smash active 16-17; charge point 5, hold 22
+name = Forward smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:1:0:22, release:1
+
+# ---- JUMP ----
+
+[piranha_plant.jump.nair]
+# F14 target; Neutral Air active 8-17; includes 3f jump squat
+name = Nair
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[piranha_plant.jump.forward_air]
+# F14 target; Forward Air active 7-9; includes 3f jump squat
+name = Forward air
+start_delay = 4
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[piranha_plant.jump.up_air]
+# F14 target; Up Air active 7-9; includes 3f jump squat
+name = Up air
+start_delay = 4
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[piranha_plant.jump.up_tilt]
+# F14 target; Up Tilt active 6-13
+name = Grounded up tilt
+start_delay = 7
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+
+[piranha_plant.roll.down_smash]
+# F31 target; Down Smash active 10-11; charge point 5, hold 26; rear phase 14-15 aligned separately
+name = Down smash
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = if_facing_opponent, opponent_input:a:0:-1:26, release:1, else_facing, opponent_input:a:0:-1:22, release:1, end_facing
+
+[piranha_plant.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[piranha_plant.roll.down_tilt]
+# F31 target; Down Tilt active 9-11
+name = Down tilt
+start_delay = 22
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+
+[piranha_plant.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[piranha_plant.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[piranha_plant.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[piranha_plant.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+
+[piranha_plant.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[piranha_plant.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[piranha_plant.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[piranha_plant.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[piranha_plant.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+
+[piranha_plant.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:22.3:24
+actions = input:r:0:0:4
+
+[piranha_plant.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:14.3:24
+actions = input:r:0:0:4
+
+[piranha_plant.roll.auto_shield_backup]
+name = Shield backup > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:14:12
+actions = opponent_input:a+x:0:1:1
+
+[piranha_plant.roll.auto_roll]
+name = Roll > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:14:12
+actions = opponent_input:a+x:0:1:1
+
+[piranha_plant.roll.auto_spot_dodge]
+name = Spot dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:14:12
+actions = opponent_input:a+x:0:1:1
+
+[piranha_plant.roll.auto_air_dodge]
+name = Air dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:14:24
+actions = opponent_input:a+x:0:1:1
+
+[piranha_plant.roll.auto_grab_dodged]
+name = Dodged grab > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:14:12
+actions = opponent_input:a+x:0:1:1
 
 # ---- NEUTRAL ----
 [pit.neutral.nair]
@@ -13548,15 +14850,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a:0:1:1
-
-# RICHTER
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # PYRA — separate form, separate saved menu
 # Editable starter slots; no default attack, swap or reflector is injected.
@@ -13831,15 +15124,6 @@ ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = input:b:0:1:4
 
-# RIDLEY
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [ridley.neutral.nair]
 # F34 target; Neutral Air active 8-20; includes 3f jump squat
@@ -14084,15 +15368,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:14:12
 actions = opponent_input:a+x:0:0:1
-
-# ROB
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [rob.neutral.nair]
@@ -14347,15 +15622,6 @@ ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a:0:1:1
 
-# ROBIN
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [robin.neutral.nair]
 # F34 target; Neutral Air active 7-10; includes 3f jump squat
@@ -14609,15 +15875,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# ROSALINA AND LUMA
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [rosalina_and_luma.neutral.nair]
@@ -14881,15 +16138,6 @@ ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a:0:1:1
 
-# ROY
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [roy.neutral.nair]
 # F34 target; Neutral Air active 15-21; includes 3f jump squat
@@ -15144,15 +16392,6 @@ ground_only = false
 reaction = auto_grab_dodged:16:12
 actions = opponent_input:a+x:0:0:1
 
-# RYU
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [ryu.neutral.forward_smash]
 # F34 target; Forward Smash active 15-17; charge point 5, hold 23
@@ -15353,15 +16592,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:10:12
 actions = input:b:0:1:4
-
-# SAMUS
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [samus.neutral.nair]
@@ -15703,14 +16933,251 @@ ground_only = true
 reaction = auto_grab_dodged:14:12
 actions = input:b:0:1:4
 
-# SHEIK
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+# ======================================================================
+#                               SEPHIROTH
+# ======================================================================
+
+# ---- NEUTRAL ----
+
+[sephiroth.neutral.nair]
+# F34 target; Neutral Air active 9-10; includes 3f jump squat
+name = Nair
+start_delay = 22
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[sephiroth.neutral.down_tilt]
+# F34 target; Down Tilt active 9-15
+name = Down tilt
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[sephiroth.neutral.forward_tilt]
+# F34 target; Forward Tilt active 14-16
+name = Forward tilt
+start_delay = 19
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[sephiroth.neutral.up_tilt]
+# F34 target; Up Tilt active 10-10
+name = Up tilt
+start_delay = 23
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- JUMP ----
+
+[sephiroth.jump.nair]
+# F14 target; Neutral Air active 9-10; includes 3f jump squat
+name = Nair
+start_delay = 2
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[sephiroth.jump.forward_air]
+# F14 target; Forward Air active 13-14; includes 3f jump squat
+name = Forward air
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[sephiroth.jump.up_air]
+# F14 target; Up Air active 16-21; includes 3f jump squat
+name = Up air
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[sephiroth.jump.up_tilt]
+# F14 target; Up Tilt active 10-10
+name = Grounded up tilt
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+
+[sephiroth.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[sephiroth.roll.down_tilt]
+# F31 target; Down Tilt active 9-15
+name = Down tilt
+start_delay = 22
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+
+[sephiroth.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[sephiroth.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[sephiroth.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[sephiroth.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+
+[sephiroth.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[sephiroth.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[sephiroth.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[sephiroth.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[sephiroth.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+
+[sephiroth.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:20:24
+actions = input:r:0:0:4
+
+[sephiroth.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:12:24
+actions = input:r:0:0:4
+
+[sephiroth.roll.auto_shield_backup]
+name = Shield backup > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:12:12
+actions = opponent_input:a+x:0:0:1
+
+[sephiroth.roll.auto_roll]
+name = Roll > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:12:12
+actions = opponent_input:a+x:0:0:1
+
+[sephiroth.roll.auto_spot_dodge]
+name = Spot dodge > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:12:12
+actions = opponent_input:a+x:0:0:1
+
+[sephiroth.roll.auto_air_dodge]
+name = Air dodge > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:12:24
+actions = opponent_input:a+x:0:0:1
+
+[sephiroth.roll.auto_grab_dodged]
+name = Dodged grab > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:12:12
+actions = opponent_input:a+x:0:0:1
 
 # ---- NEUTRAL ----
 [sheik.neutral.nair]
@@ -15966,15 +17433,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# SHULK
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [shulk.neutral.nair]
 # F34 target; Neutral Air active 13-30; includes 3f jump squat
@@ -16200,15 +17658,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:18:12
 actions = input:b:0:1:4
-
-# SIMON
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [simon.neutral.nair]
@@ -16436,15 +17885,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = input:b:0:1:4
-
-# SNAKE
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [snake.neutral.nair]
@@ -16682,15 +18122,6 @@ ground_only = false
 reaction = auto_grab_dodged:8:12
 actions = input:x:0:0:1, wait:2, input:a:0:-1:1
 
-# SONIC
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [sonic.neutral.nair]
 # F34 target; Neutral Air active 6-38; includes 3f jump squat
@@ -16851,14 +18282,251 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# SQUIRTLE
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+# ======================================================================
+#                                 SORA
+# ======================================================================
+
+# ---- NEUTRAL ----
+
+[sora.neutral.nair]
+# F34 target; Neutral Air active 8-20; includes 3f jump squat
+name = Nair
+start_delay = 23
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[sora.neutral.down_tilt]
+# F34 target; Down Tilt active 9-10
+name = Down tilt
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[sora.neutral.forward_tilt]
+# F34 target; Forward Tilt active 13-17
+name = Forward tilt
+start_delay = 20
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[sora.neutral.up_tilt]
+# F34 target; Up Tilt active 8-9
+name = Up tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- JUMP ----
+
+[sora.jump.nair]
+# F14 target; Neutral Air active 8-20; includes 3f jump squat
+name = Nair
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[sora.jump.forward_air]
+# F14 target; Forward Air active 10-15; includes 3f jump squat
+name = Forward air
+start_delay = 1
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[sora.jump.up_air]
+# F14 target; Up Air active 10-18; includes 3f jump squat
+name = Up air
+start_delay = 1
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[sora.jump.up_tilt]
+# F14 target; Up Tilt active 8-9
+name = Grounded up tilt
+start_delay = 5
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+
+[sora.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 24
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[sora.roll.down_tilt]
+# F31 target; Down Tilt active 9-10
+name = Down tilt
+start_delay = 22
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+
+[sora.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[sora.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[sora.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[sora.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+
+[sora.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[sora.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[sora.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[sora.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[sora.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+
+[sora.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:19.9:24
+actions = input:r:0:0:4
+
+[sora.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:11.9:24
+actions = input:r:0:0:4
+
+[sora.roll.auto_shield_backup]
+name = Shield backup > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:12:12
+actions = opponent_input:a+x:0:0:1
+
+[sora.roll.auto_roll]
+name = Roll > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:12:12
+actions = opponent_input:a+x:0:0:1
+
+[sora.roll.auto_spot_dodge]
+name = Spot dodge > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:12:12
+actions = opponent_input:a+x:0:0:1
+
+[sora.roll.auto_air_dodge]
+name = Air dodge > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:12:24
+actions = opponent_input:a+x:0:0:1
+
+[sora.roll.auto_grab_dodged]
+name = Dodged grab > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:12:12
+actions = opponent_input:a+x:0:0:1
 
 # ---- NEUTRAL ----
 [squirtle.neutral.nair]
@@ -17122,14 +18790,497 @@ ground_only = false
 reaction = auto_grab_dodged:10:12
 actions = opponent_input:a+x:0:0:1
 
-# TOON LINK
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+# ======================================================================
+#                                 STEVE
+# ======================================================================
+
+# ---- NEUTRAL ----
+
+[steve.neutral.nair]
+# F34 target; Neutral Air active 4-6; includes 3f jump squat
+name = Nair
+start_delay = 27
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[steve.neutral.down_tilt]
+# F34 target; Down Tilt active 12-35
+name = Down tilt
+start_delay = 21
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[steve.neutral.forward_tilt]
+# F34 target; Forward Tilt active 4-6
+name = Forward tilt
+start_delay = 29
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[steve.neutral.up_tilt]
+# F34 target; Up Tilt active 6-9
+name = Up tilt
+start_delay = 27
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- JUMP ----
+
+[steve.jump.nair]
+# F14 target; Neutral Air active 4-6; includes 3f jump squat
+name = Nair
+start_delay = 7
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[steve.jump.forward_air]
+# F14 target; Forward Air active 8-9; includes 3f jump squat
+name = Forward air
+start_delay = 3
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[steve.jump.up_air]
+# F14 target; Up Air active 4-8; includes 3f jump squat
+name = Up air
+start_delay = 7
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[steve.jump.up_tilt]
+# F14 target; Up Tilt active 6-9
+name = Grounded up tilt
+start_delay = 7
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+
+[steve.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 18
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[steve.roll.down_tilt]
+# F31 target; Down Tilt active 12-35
+name = Down tilt
+start_delay = 19
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+
+[steve.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[steve.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[steve.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[steve.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+
+[steve.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[steve.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[steve.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[steve.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[steve.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+
+[steve.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:39.9:24
+actions = input:r:0:0:4
+
+[steve.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:31.9:24
+actions = input:r:0:0:4
+
+[steve.roll.auto_shield_backup]
+name = Shield backup > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:32:12
+actions = opponent_input:a+x:0:1:1
+
+[steve.roll.auto_roll]
+name = Roll > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:32:12
+actions = opponent_input:a+x:0:1:1
+
+[steve.roll.auto_spot_dodge]
+name = Spot dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:32:12
+actions = opponent_input:a+x:0:1:1
+
+[steve.roll.auto_air_dodge]
+name = Air dodge > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:32:24
+actions = opponent_input:a+x:0:1:1
+
+[steve.roll.auto_grab_dodged]
+name = Dodged grab > Up Air
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:32:12
+actions = opponent_input:a+x:0:1:1
+
+# ======================================================================
+#                                 TERRY
+# ======================================================================
+
+# ---- NEUTRAL ----
+
+[terry.neutral.nair]
+# F34 target; Neutral Air active 4-8; includes 3f jump squat
+name = Nair
+start_delay = 27
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[terry.neutral.down_tilt]
+# F34 target; Down Tilt active 6-8
+name = Down tilt
+start_delay = 27
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+[terry.neutral.forward_tilt]
+# F34 target; Forward Tilt active 8-13
+name = Forward tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a:0.6:0:1
+
+[terry.neutral.up_tilt]
+# F34 target; Up Tilt active 7-11
+name = Up tilt
+start_delay = 26
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- JUMP ----
+
+[terry.jump.nair]
+# F14 target; Neutral Air active 4-8; includes 3f jump squat
+name = Nair
+start_delay = 7
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:0:0:1
+
+[terry.jump.forward_air]
+# F14 target; Forward Air active 7-10; includes 3f jump squat
+name = Forward air
+start_delay = 4
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a+x:1:0:1
+
+[terry.jump.up_air]
+# F14 target; Up Air active 7-9; includes 3f jump squat
+name = Up air
+start_delay = 4
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = opponent_input:a+x:0:1:1
+
+[terry.jump.up_tilt]
+# F14 target; Up Tilt active 7-11
+name = Grounded up tilt
+start_delay = 6
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:0.6:1
+
+# ---- ROLL ----
+
+[terry.roll.grab]
+# F31 standing-grab target; front and standing range required; no approach wait
+name = Grab
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[terry.roll.down_tilt]
+# F31 target; Down Tilt active 6-8
+name = Down tilt
+start_delay = 25
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = opponent_input:a:0:-0.6:1
+
+# ---- ATTACK ----
+
+[terry.attack.shield_nair]
+name = Shield > Nair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield_until_block:90, opponent_input:a+x:0:0:1
+
+[terry.attack.shield_grab]
+name = Shield > range-checked grab
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
+
+[terry.attack.shield_up_air]
+name = Shield > Uair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:0:1:1
+
+[terry.attack.shield_fair]
+name = Shield > Fair
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = shield_until_block:90, opponent_input:a+x:1:0:1
+
+# ---- DROP ----
+
+[terry.drop.shield]
+name = Shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = true
+actions = shield:255
+
+[terry.drop.down_tilt_shield]
+name = Down tilt > shield
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = down_tilt:1, wait:30, shield:255
+
+[terry.drop.drop_nair]
+name = Hop nair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = short_hop_nair:4
+
+[terry.drop.forward_air]
+name = Hop fair (near)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, short_hop_fair:1
+
+[terry.drop.down_smash]
+name = Low smash (spacing)
+start_delay = 0
+timeout = 3600
+spatial_timeout = 60
+default = false
+actions = face:opponent, down_smash:1
+
+# ---- AUTO REACT ----
+
+[terry.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:21.7:24
+actions = input:r:0:0:4
+
+[terry.roll.auto_shield_grab]
+name = Automatic grab (shielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_shield_grab:13.7:24
+actions = input:r:0:0:4
+
+[terry.roll.auto_shield_backup]
+name = Shield backup > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_shield_backup:14:12
+actions = opponent_input:a+x:0:0:1
+
+[terry.roll.auto_roll]
+name = Roll > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_roll:14:12
+actions = opponent_input:a+x:0:0:1
+
+[terry.roll.auto_spot_dodge]
+name = Spot dodge > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_spot_dodge:14:12
+actions = opponent_input:a+x:0:0:1
+
+[terry.roll.auto_air_dodge]
+name = Air dodge > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_air_dodge:14:24
+actions = opponent_input:a+x:0:0:1
+
+[terry.roll.auto_grab_dodged]
+name = Dodged grab > Nair
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+ground_only = false
+reaction = auto_grab_dodged:14:12
+actions = opponent_input:a+x:0:0:1
 
 # ---- NEUTRAL ----
 [toon_link.neutral.nair]
@@ -17366,15 +19517,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:14:12
 actions = input:b:0:1:4
-
-# VILLAGER
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [villager.neutral.nair]
@@ -17621,15 +19763,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# WARIO
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [wario.neutral.nair]
 # F34 target; Neutral Air active 4-17; includes 3f jump squat
@@ -17874,15 +20007,6 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:10:12
 actions = input:b:0:1:4
-
-# WII FIT TRAINER
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [wii_fit_trainer.neutral.nair]
@@ -18145,15 +20269,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# WOLF
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [wolf.neutral.nair]
@@ -18427,7 +20542,7 @@ actions = opponent_input:a+x:0:0:1
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = drift:opponent:0.1:25, facing_input:a+x:0:0:4, drift:opponent:0.5:1
+actions = opponent_input:x:0:0:1, drift_to_opponent:0.4:10:10, wait:8, facing_input:a:0:0:4, wait:10, facing_input:none:0:-1:4
 name = Nair
 default = true
 
@@ -18506,7 +20621,7 @@ actions = drift:ledge:100%:4, short_hop_nair, drift:opponent:1:5
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = drift:away_from_opponent:0.4:20, wait:10, range:30, facing_input:r:0:0:4
+actions = drift:away_from_opponent:0.61:10, wait:8, range:30, facing_input:r:0:0:4
 name = Tongue grab
 default = true
 
@@ -18584,6 +20699,12 @@ spatial_timeout = 60
 actions = drift:away_from_opponent:1:1, facing_input:b:1:0:1, drift:opponent:1:1
 name = B-Reverse 
 
+# ---- Built-in: Short hop | yoshi.y.__builtin_short_hop ----
+[yoshi.x.__builtin_short_hop]
+default = true
+name = Built-in: Short hop
+builtin = short_hop
+
 # ---- ASSIST RULES: OUT OF SHIELD ----
 # ---- AUTO OOS Front grab | yoshi.attack.auto_oos_grab ----
 [yoshi.attack.auto_oos_grab]
@@ -18635,15 +20756,6 @@ spatial_timeout = 60
 default = false
 reaction = auto_shield_backup:19:24
 actions = short_hop_nair:4
-
-# YOUNG LINK
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [young_link.neutral.nair]
@@ -18881,15 +20993,6 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
-# ZELDA
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-
 # ---- NEUTRAL ----
 [zelda.neutral.nair]
 # F34 target; Neutral Air active 6-7; includes 3f jump squat
@@ -19125,15 +21228,6 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
-
-# ZERO SUIT SAMUS
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
 
 # ---- NEUTRAL ----
 [zero_suit_samus.neutral.nair]

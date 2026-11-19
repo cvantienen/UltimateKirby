@@ -5,6 +5,10 @@ use crate::settings::AssistSettings;
 
 /// Default close/approach automatic-grab ranges: the standing range, and that
 /// range scaled by the fighter's dash-grab/standing-grab reach ratio.
+///
+/// The approach range is never shorter than the close range. A dash grab whose
+/// reach rounds to the standing reach would otherwise produce an approach range
+/// a float ulp below it, which disagrees with [`Tuning::auto_grab_ranges`].
 fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
     if !standing.is_finite() || standing <= 0. {
         return (0., 0.);
@@ -19,7 +23,7 @@ fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
     else {
         return (0., 0.);
     };
-    (standing, standing * dash / base)
+    (standing, (standing * dash / base).max(standing))
 }
 
 /// Whether this fighter should turn down tilt toward the opponent by default.

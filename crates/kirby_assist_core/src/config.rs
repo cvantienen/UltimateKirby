@@ -1,6 +1,6 @@
 //! Declarative rules: what situation activates a tool, when it fires, and what
 //! logical input it requests. These types neither detect game state nor install
-//! hooks. Shared text settings are parsed in live_input/config.rs; fighter
+//! hooks. Shared text settings are parsed in live_input.rs; fighter
 //! response functions are compiled Rust registrations.
 //!
 //! Extending the Scenario enum also requires updating its priority and this
@@ -437,7 +437,7 @@ pub mod button_bindings {
         pub fn at(index: usize) -> Option<Self> {
             Some(Self {
                 mode: *Mode::ALL.get(index / 2)?,
-                activation: if index % 2 == 0 {
+                activation: if index.is_multiple_of(2) {
                     Activation::Hold
                 } else {
                     Activation::Toggle

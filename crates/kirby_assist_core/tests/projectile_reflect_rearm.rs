@@ -1,13 +1,10 @@
 //! Real native source-cache + reflector lifecycle regressions. No game writes.
-#[path = "../../../src/live/projectile_sources.rs"]
-mod projectile_sources;
 use kirby_assist_core::{
     fighter_tuning::Tuning,
     native_input::MAPPER_B,
-    projectile_reflect::{Config, Context, ProjectileKey, Reflector, Threat},
+    projectile_reflect::{Config, Context, ProjectileKey, Reflector, Sources, Threat},
     timing::AnimationSample,
 };
-use projectile_sources::Sources;
 const SHOT: u32 = 0x10000021;
 fn config() -> Config {
     let mut tuning = Tuning::default();

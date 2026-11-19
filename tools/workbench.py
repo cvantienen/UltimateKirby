@@ -10,8 +10,10 @@ Default opens a local browser GUI: enter a version (or +1), select Switches,
 confirm Smash closed/FTP open once, then click Build + Upload. The build version
 is written to Cargo.toml before building. Existing build/upload helpers perform
 the work and retain their validation/backups. GUI opening never builds/uploads.
-Sequences has a preview and explicit confirmation before replacement; Helpers
-exposes original scripts. --cli keeps the original numbered prompt below.
+Edit fighter changes one fighter's sections against a single snapshot, with a
+diff preview before writing; Sequences has a preview and explicit confirmation
+before replacement; Helpers exposes original scripts. --cli keeps the original
+numbered prompt below.
 
 In --cli, replace the active sequences.txt on a Switch:
     Choose "Transfer / replace sequences", select the local source file,
@@ -34,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import fcntl
 import ftplib
 import json
@@ -41,7 +44,10 @@ import os
 from pathlib import Path
 import shlex
 import sys
+import tempfile
 
+import fighter_editor
+import sequence_sources as sources
 import sequence_transfer as transfer
 from toml_compat import tomllib
 import upload_switch
@@ -49,10 +55,12 @@ from upload_all_switches import TARGETS
 from workbench_history import History, ROOT, STATE, command
 
 HELPERS = ("build_variants.py", "upload_all_switches.py", "upload_switch.py",
-           "upload_sequences.py", "sync_sequences.py", "sequence_validation.py")
-DEFAULT_FILE = ROOT.parent / "sequences.txt"
+           "upload_sequences.py", "sync_sequences.py", "sequence_validation.py",
+           "sequence_sources.py")
+# The repository split source is canonical; an adjacent download is only a fallback.
+DEFAULT_FILE = ROOT / "deployment/ultimate/kirby_assist/sequences.txt"
 if not DEFAULT_FILE.is_file():
-    DEFAULT_FILE = ROOT / "deployment/ultimate/kirby_assist/sequences.txt"
+    DEFAULT_FILE = ROOT.parent / "sequences.txt"
 
 
 def choose(title, items, *, back=True, back_label="Back"):
@@ -259,6 +267,103 @@ class Workbench:
         self.history.perform("sequence-transfer", plan.details(),
             lambda: transfer.commit(plan, self.history.directory / "sequence-backups"))
 
+    def breakdown_plan(self, endpoint, source=None):
+        """Read a combined file and describe the fighter files it would produce."""
+        source = Path(source or sources.SOURCE)
+        if not sources.is_split_source(source):
+            raise RuntimeError(
+                "Choose the repository deployment/ultimate/kirby_assist/sequences.txt; "
+                "its fighters/ directory receives the individual files")
+        data = transfer.read(endpoint)
+        if data is None:
+            raise RuntimeError(f"No sequence file to break down at {endpoint.label()}")
+        transfer.validate_sequences(data)
+        plan = sources.plan_breakdown(source, data)
+        plan["origin"] = endpoint.label()
+        return plan
+
+    def breakdown_commit(self, plan):
+        """Replace the split sources from a reviewed plan, with backups and readback."""
+        source = Path(plan["source"])
+        backup_root = self.history.directory / "source-breakdowns"
+        backup_root.mkdir(parents=True, exist_ok=True)
+        backup = Path(tempfile.mkdtemp(
+            prefix=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S-"), dir=backup_root))
+        sources.replace_sources(source, plan["data"], backup)
+        written = len(plan["created"]) + len(plan["updated"])
+        print(f"Wrote {written} source files; {len(plan['removed'])} removed. Backup: {backup}")
+        return {"source": str(source), "origin": plan.get("origin"), "backup": str(backup),
+                "created": [e["fighter"] for e in plan["created"]],
+                "updated": [e["fighter"] for e in plan["updated"]],
+                "removed": [e["fighter"] for e in plan["removed"]],
+                "sections": plan["sections"], "bytes": plan["bytes"]}
+
+    def breakdown(self):
+        """Terminal flow: pick a combined file, review the split, then confirm."""
+        endpoint = self.endpoint("Break down WHICH combined sequence file")
+        if endpoint is None:
+            return
+        destination = Path(ask("Repository universal source", str(sources.SOURCE))).expanduser().resolve()
+        plans = []
+        def preview():
+            plan = self.breakdown_plan(endpoint, destination)
+            plans.append(plan)
+            print("\n" + sources.describe_breakdown(plan))
+            return {k: v for k, v in plan.items() if k != "data"}
+        self.history.perform("breakdown-preview",
+                             {"source": endpoint.label(), "destination": str(destination)}, preview)
+        plan = plans[0]
+        if not confirm("Replace the repository fighter sources with this breakdown?\n"
+                       "Existing files are backed up first.", "BREAKDOWN"):
+            return
+        self.history.perform("breakdown", {"source": endpoint.label(), "destination": str(destination)},
+                             lambda: self.breakdown_commit(plan))
+
+    def edit_fighter(self):
+        """Edit one fighter's sections in $EDITOR against a single read snapshot."""
+        endpoint = self.endpoint("Edit which sequence file")
+        if endpoint is None:
+            return
+        session = fighter_editor.Session(self.history.directory / "fighter-edits")
+        metadata = self.history.perform("fighter-load", {"source": endpoint.label()},
+                                        lambda: session.load(endpoint))
+        print(f"Loaded {metadata['bytes']} bytes; {len(metadata['fighters'])} fighters: "
+              + ", ".join(metadata["fighters"]))
+        fighter = ask("Fighter ID to edit", self.preferences.get("fighter", ""))
+        if not fighter:
+            print("No fighter selected; cancelled.")
+            return
+        current = session.get(fighter, session.load_id)
+        self.preferences["fighter"] = current["fighter"]
+        self.save_preferences()
+        if not current["sections"]:
+            print(f"{current['fighter']} has no sections in this file; new sections may be added.")
+        scratch = session.directory / f"{current['fighter']}.edit.txt"
+        scratch.parent.mkdir(parents=True, exist_ok=True)
+        scratch.write_text(current["text"])
+        editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
+        if editor:
+            command([*shlex.split(editor), str(scratch)])
+        else:
+            print(f"\nSet $EDITOR to open this automatically. Edit then save:\n  {scratch}")
+            input("Press Enter when the file is saved: ")
+        preview = self.history.perform(
+            "fighter-preview", {"source": endpoint.label(), "fighter": current["fighter"]},
+            lambda: session.prepare_text(current["fighter"], scratch.read_text(),
+                                         session.load_id, "cli"))
+        print(f"\n{preview['description']}")
+        print(preview["diff"] or "No textual change in this fighter.")
+        if preview["diff_truncated"]:
+            print("(diff truncated)")
+        if not confirm(f"Write only {current['fighter']} to {endpoint.label()}?"
+                       + ("\nClose Smash on that Switch and leave FTP open first." if session.requires_ready() else ""),
+                       "SAVE"):
+            session.discard()
+            return
+        self.history.perform("fighter-save",
+            {"destination": endpoint.label(), "fighter": current["fighter"], "sha256": preview["sha256"]},
+            lambda: session.commit(preview["plan_id"], confirmed=True, ready=True))
+
     def show_history(self):
         rows = self.history.rows()
         if not rows:
@@ -287,11 +392,18 @@ class Workbench:
             return
         name = HELPERS[item]
         args = shlex.split(ask("Arguments (use --help to see original options)", "--help"))
-        readonly = any(flag in args for flag in ("--help", "-h", "--dry-run", "--verify-only", "--check-only")) or name == "sequence_validation.py"
+        readonly = any(flag in args for flag in ("--help", "-h", "--dry-run", "--verify-only", "--check-only", "--check")) or name == "sequence_validation.py"
         writes = not readonly and (name.startswith("upload") or name == "sync_sequences.py" or any(flag in args for flag in ("--upload", "-upload")))
+        imports = not readonly and name == "sequence_sources.py" and any(a.startswith("--import-file") for a in args)
         argv = helper(name, *args)
         print(shlex.join(argv))
-        if not confirm("Confirm Smash CLOSED before any Switch write. Original helper confirmations remain enabled." if writes else "Run this original helper?", "WRITE" if writes else "RUN"):
+        if writes:
+            prompt, token = "Confirm Smash CLOSED before any Switch write. Original helper confirmations remain enabled.", "WRITE"
+        elif imports:
+            prompt, token = "This replaces the repository fighter sources from the given file; backups are kept.", "IMPORT"
+        else:
+            prompt, token = "Run this original helper?", "RUN"
+        if not confirm(prompt, token):
             return
         self.run("advanced", argv)
 
@@ -307,32 +419,38 @@ class Workbench:
             self.preferences[name + "_port"] = port
         self.save_preferences()
 
+    def build_then_upload(self):
+        if self.build():
+            self.upload()
+
+    def validate(self):
+        self.run("validate", helper("sequence_validation.py", self.local_path("File to validate")))
+
+    def menu(self):
+        """Named menu so adding an operation cannot renumber the others."""
+        return (
+            ("Ship: build, then review/upload", self.build_then_upload),
+            ("Build only", self.build),
+            ("Upload a built release", self.upload),
+            ("Verify installed release (read-only)", lambda: self.upload(verify=True)),
+            ("Edit one fighter's sequences", self.edit_fighter),
+            ("Break down a combined file into fighter sources", self.breakdown),
+            ("Transfer / replace sequences (computer / Switches)", self.sequences),
+            ("Validate a sequences file", self.validate),
+            ("History / shipped versions / file logs", self.show_history),
+            ("Preferences", self.settings),
+            ("Original helpers / advanced options", self.advanced),
+        )
+
     def loop(self):
         while True:
             try:
                 print(f"\nKIRBY ASSIST WORKBENCH | source {version()}")
-                item = choose("Choose an operation", ["Build", "Upload a built release", "Build, then review/upload", "Validate a sequences file", "Transfer / replace sequences (computer / Switches)", "Verify installed release (read-only)", "History / shipped versions / file logs", "Preferences", "Original helpers / advanced options"], back_label="Exit")
+                entries = self.menu()
+                item = choose("Choose an operation", [label for label, _ in entries], back_label="Exit")
                 if item is None:
                     return
-                if item == 0:
-                    self.build()
-                elif item == 1:
-                    self.upload()
-                elif item == 2:
-                    if self.build():
-                        self.upload()
-                elif item == 3:
-                    self.run("validate", helper("sequence_validation.py", self.local_path("File to validate")))
-                elif item == 4:
-                    self.sequences()
-                elif item == 5:
-                    self.upload(verify=True)
-                elif item == 6:
-                    self.show_history()
-                elif item == 7:
-                    self.settings()
-                else:
-                    self.advanced()
+                entries[item][1]()
             except EOFError:
                 return
             except KeyboardInterrupt:

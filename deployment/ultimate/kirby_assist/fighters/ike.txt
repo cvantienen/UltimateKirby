@@ -2,7 +2,7 @@
 [ike.neutral.nair]
 # F34 target; Neutral Air active 10-22; includes 3f jump squat
 name = Nair
-start_delay = 15
+start_delay = 12
 timeout = 3600
 spatial_timeout = 60
 default = false
@@ -11,7 +11,7 @@ actions = opponent_input:a+x:0:0:1
 [ike.neutral.down_tilt]
 # F34 target; Down Tilt active 7-8
 name = Down tilt
-start_delay = 26
+start_delay = 25
 timeout = 3600
 spatial_timeout = 60
 default = true
@@ -20,7 +20,7 @@ actions = opponent_input:a:0:-0.6:1
 [ike.neutral.forward_tilt]
 # F34 target; Forward Tilt active 12-13
 name = Forward tilt
-start_delay = 21
+start_delay = 20
 timeout = 3600
 spatial_timeout = 60
 default = false
@@ -33,7 +33,7 @@ start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = false
-actions = opponent_input:a:1:0:25, release:1
+actions = opponent_input:a:1:0:21, release:1
 
 # ---- JUMP ----
 [ike.jump.nair]
@@ -71,7 +71,7 @@ start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = true
-actions = opponent_input:a:0:-1:22, release:1
+actions = opponent_input:a:0:-1:4, release:1
 
 [ike.roll.grab]
 # F31 standing-grab target; front and standing range required; no approach wait
@@ -233,13 +233,3 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:16:12
 actions = opponent_input:a+x:0:0:1
-
-# INCINEROAR
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-

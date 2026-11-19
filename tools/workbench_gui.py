@@ -21,6 +21,8 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs
 
+import fighter_editor
+import sequence_sources as sources
 import sequence_transfer as transfer
 from toml_compat import tomllib
 import upload_switch
@@ -94,6 +96,13 @@ class Controller:
         self.preview = None
         self.rows = app.history.rows()
         self.result = None
+        self.editor = fighter_editor.Session(app.history.directory / 'fighter-edits')
+        self.editor_fighter = None
+        self.breakdown = None
+        self.breakdown_id = None
+        self.breakdown_preview = None
+        self.result_id = None
+        self.action = None
 
     def snapshot(self):
         with self.lock:
@@ -107,19 +116,24 @@ class Controller:
                 if row.get('action') == 'upload' and row.get('status') == 'success' and row.get('receipt', {}).get('verified_deployment'):
                     shipped[row['details']['target']] = compact(row)
             return {"busy": self.busy, "status": self.status, "output": self.output.value(),
-                    "result": self.result, "preview": self.preview, "plan_id": self.plan_id,
+                    "result": self.result, "result_id": self.result_id, "action": self.action,
+                    "preview": self.preview, "plan_id": self.plan_id,
+                    "editor": self.editor.metadata(), "editor_fighter": self.editor_fighter,
+                    "breakdown": self.breakdown_preview,
                     "history": [compact(r) for r in self.rows[-30:]], "shipped": shipped}
 
     def start(self, data):
         if not isinstance(data, dict) or data.get('action') not in {
-            'ship', 'build', 'upload', 'verify', 'validate', 'preview', 'commit', 'helper'}:
+            'ship', 'build', 'upload', 'verify', 'validate', 'preview', 'commit', 'helper',
+            'editor-load', 'editor-fighter', 'editor-preview', 'editor-commit', 'editor-discard',
+            'breakdown-preview', 'breakdown-commit'}:
             raise ValueError('Unknown operation')
         with self.lock:
             if self.busy:
                 raise RuntimeError('An operation is already running')
             self.busy = True
             self.status = 'Running: ' + data['action']
-            self.result = None
+            self.result, self.result_id, self.action = None, None, data['action']
             self.output = Output()
             # Prevent a previous preview being mistaken for a newly failed one.
             if data['action'] == 'preview':
@@ -143,6 +157,8 @@ class Controller:
                 self.output.write(f'\nCould not refresh history: {error}\n')
             with self.lock:
                 self.rows, self.result, self.status, self.busy = rows, result, status, False
+                # Let the browser load a completed result exactly once.
+                self.result_id = secrets.token_hex(8) if result is not None else None
 
     def endpoint(self, kind, path):
         if kind == 'local':
@@ -221,21 +237,107 @@ class Controller:
                 lambda: transfer.commit(self.plan, self.app.history.directory / 'sequence-backups'))
             self.plan = self.plan_id = self.preview = None
             return result
+        if action.startswith('editor-'):
+            return self.edit(action, data)
+        if action.startswith('breakdown-'):
+            return self.split(action, data)
         if action == 'helper':
             name = data.get('helper')
             if name not in HELPERS:
                 raise ValueError('Unknown original helper')
             args = shlex.split(str(data.get('arguments', '--help')))
-            readonly = any(a in args for a in ('-h', '--help', '--dry-run', '--verify-only'))
+            readonly = any(a in args for a in ('-h', '--help', '--dry-run', '--verify-only', '--check'))
             writes = not readonly and (name.startswith('upload') or name == 'sync_sequences.py'
                 or name == 'build_variants.py' and any(a in args for a in ('--upload', '-upload')))
-            sequence_write = writes and name in {'sync_sequences.py', 'upload_sequences.py'}
+            # --import-file rewrites the repository fighter sources, so it is confirmed too.
+            imports = not readonly and name == 'sequence_sources.py' and any(a.startswith('--import-file') for a in args)
+            sequence_write = writes and name in {'sync_sequences.py', 'upload_sequences.py'} or imports
             if writes and data.get('ready') is not True:
                 raise ValueError('Close Smash and open FTP first')
             if sequence_write and data.get('confirmed') is not True:
                 raise ValueError('Confirm sequence transfer/replacement before running this helper')
             return self.app.run('advanced', helper(name, *args), {'helper': name})
         raise ValueError('Unknown action')
+
+    def split(self, action, data):
+        """Break a combined sequence file into the repository's per-fighter sources."""
+        if action == 'breakdown-preview':
+            endpoint = self.endpoint(data.get('breakdown_endpoint'), data.get('breakdown_file'))
+            destination = str(data.get('breakdown_destination', '')).strip() or str(sources.SOURCE)
+            for key in ('breakdown_endpoint', 'breakdown_file', 'breakdown_destination'):
+                self.app.preferences['gui_' + key] = data.get(key, '')
+            self.app.save_preferences()
+            plans = []
+            def prepare():
+                plan = self.app.breakdown_plan(endpoint, destination)
+                plans.append(plan)
+                print(sources.describe_breakdown(plan))
+                return {k: v for k, v in plan.items() if k != 'data'}
+            summary = self.app.history.perform(
+                'breakdown-preview', {'source': endpoint.label(), 'destination': destination}, prepare)
+            self.breakdown = plans[0]
+            self.breakdown_id = secrets.token_hex(16)
+            self.breakdown_preview = {**summary, 'plan_id': self.breakdown_id,
+                                      'description': sources.describe_breakdown(plans[0]),
+                                      'form': {k: data.get(k, '') for k in
+                                               ('breakdown_endpoint', 'breakdown_file', 'breakdown_destination')}}
+            return self.breakdown_preview
+        if not self.breakdown or data.get('plan_id') != self.breakdown_id:
+            raise ValueError('Preview the breakdown before writing source files')
+        if data.get('confirmed') is not True:
+            raise ValueError('Confirm replacing the repository fighter sources')
+        plan = self.breakdown
+        result = self.app.history.perform(
+            'breakdown', {'source': plan.get('origin'), 'destination': plan['source']},
+            lambda: self.app.breakdown_commit(plan))
+        self.breakdown = self.breakdown_id = self.breakdown_preview = None
+        return result
+
+    def edit(self, action, data):
+        """Single-fighter editing against one immutable snapshot of the chosen file."""
+        if action == 'editor-discard':
+            self.editor.discard()
+            self.editor_fighter = None
+            print('Pending fighter edit discarded; the loaded file is unchanged.')
+            return {'discarded': True}
+        if action == 'editor-load':
+            endpoint = self.endpoint(data.get('editor_endpoint'), data.get('editor_file'))
+            for key in ('editor_endpoint', 'editor_file'):
+                self.app.preferences['gui_' + key] = data.get(key, '')
+            self.app.save_preferences()
+            self.editor_fighter = None
+            metadata = self.app.history.perform('fighter-load', {'source': endpoint.label()},
+                                                lambda: self.editor.load(endpoint))
+            print(f"Loaded {metadata['bytes']} bytes from {metadata['source']}; "
+                  f"{len(metadata['fighters'])} fighters available to edit.")
+            return metadata
+        if self.editor.original is None:
+            raise ValueError('Load a sequence file into the editor first')
+        load_id = self.editor.load_id
+        if action == 'editor-fighter':
+            current = self.editor.get(data.get('fighter', ''), load_id)
+            self.editor_fighter = current['fighter']
+            self.app.preferences['gui_editor_fighter'] = current['fighter']
+            self.app.save_preferences()
+            print(f"{current['fighter']}: {len(current['sections'])} sections loaded for editing.")
+            return current
+        if action == 'editor-preview':
+            fighter = str(data.get('fighter', '')).strip()
+            preview = self.app.history.perform(
+                'fighter-preview', {'source': self.editor.destination.label(), 'fighter': fighter},
+                lambda: self.editor.prepare_text(fighter, data.get('text', ''), load_id, secrets.token_hex(8)))
+            print(preview['description'])
+            print(preview['diff'] or 'No textual change in this fighter.')
+            return preview
+        if action == 'editor-commit':
+            if not self.editor.preview:
+                raise ValueError('Preview the fighter edit before confirming')
+            details = {'destination': self.editor.destination.label(),
+                       'fighter': self.editor.preview['fighter'],
+                       'sha256': self.editor.preview['sha256']}
+            return self.app.history.perform('fighter-save', details, lambda: self.editor.commit(
+                data.get('plan_id'), confirmed=data.get('confirmed') is True, ready=data.get('ready') is True))
+        raise ValueError('Unknown editor action')
 
 
 def launch(app):
@@ -248,6 +350,12 @@ def launch(app):
                'source_file': app.preferences.get('gui_source_file', app.preferences.get('sequences', str(DEFAULT_FILE))),
                'destination_file': app.preferences.get('gui_destination_file', app.preferences.get('sequences', str(DEFAULT_FILE))),
                'fighter': app.preferences.get('gui_fighter', ''),
+               'editor_endpoint': app.preferences.get('gui_editor_endpoint', 'local'),
+               'editor_file': app.preferences.get('gui_editor_file', str(DEFAULT_FILE)),
+               'editor_fighter': app.preferences.get('gui_editor_fighter', ''),
+               'breakdown_endpoint': app.preferences.get('gui_breakdown_endpoint', 'silent'),
+               'breakdown_file': app.preferences.get('gui_breakdown_file', str(DEFAULT_FILE)),
+               'breakdown_destination': app.preferences.get('gui_breakdown_destination', str(sources.SOURCE)),
                'silent_port': app.port('silent'), 'diagnostic_port': app.port('diagnostic'), 'helpers': list(HELPERS)}
     html = html.replace('__INITIAL__', json.dumps(initial).replace('<', '\\u003c'))
 

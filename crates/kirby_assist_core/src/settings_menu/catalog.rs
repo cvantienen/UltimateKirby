@@ -73,9 +73,9 @@ pub(super) struct Catalog {
     pub revision: u64,
     /// Runtime assist value used by Catalog..
     pub assist: bool,
-    /// Runtime held value used by Catalog..
+    /// Direction currently held while renaming, or zero when released.
     held: u32,
-    /// Runtime ticks value used by Catalog..
+    /// Consecutive ticks the current rename direction has been held.
     ticks: u16,
 }
 /// Available `Event` choices for the Smash assistance menu.
@@ -135,7 +135,11 @@ impl Catalog {
         if matches!(self.mode, Mode::Name { .. }) && pad.count_ones() == 1 {
             if self.held == pad {
                 self.ticks = self.ticks.saturating_add(1);
-                repeat = self.ticks >= 24 && (self.ticks - 24) % 6 == 0;
+                // Renaming keeps the steady slow cadence; a fast mode would
+                // overshoot single characters and predefined terms.
+                repeat = self.ticks >= super::MENU_REPEAT_INITIAL_DELAY_TICKS
+                    && (self.ticks - super::MENU_REPEAT_INITIAL_DELAY_TICKS)
+                        .is_multiple_of(super::MENU_REPEAT_SLOW_INTERVAL_TICKS);
             } else {
                 self.held = pad;
                 self.ticks = 0;
@@ -777,11 +781,11 @@ mod rename_regressions {
         c.input(MAPPER_ZL, MAPPER_ZL, "");
         assert!(c.lines()[2].contains("predefined term"));
         c.input(DPAD_DOWN, DPAD_DOWN, "");
-        assert_eq!(accepted(&mut c), "F-TILT");
+        assert_eq!(accepted(&mut c), NAME_TERMS[0]);
 
-        let mut c = rename("F-TILT");
+        let mut c = rename(NAME_TERMS[0]);
         c.input(MAPPER_ZL, MAPPER_ZL, "");
         c.input(DPAD_UP, DPAD_UP, "");
-        assert_eq!(accepted(&mut c), "WALK");
+        assert_eq!(accepted(&mut c), *NAME_TERMS.last().unwrap());
     }
 }

@@ -446,7 +446,7 @@ pub const MAX_SEQUENCE_FRAME_COUNT: u16 = 3600;
 // Admission bound only: parser allocation uses the actual header count, and
 // without removing any saved choices; the 512 KiB file limit remains unchanged.
 /// Maximum number of entries in the sequence library.
-pub const MAX_ENTRIES: usize = 2112;
+pub const MAX_ENTRIES: usize = 2432;
 
 /// Specifies the possible directions relative to the fighter or the stage.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

@@ -983,10 +983,8 @@ pub(super) struct RecipeEditor {
     copy_requested: bool,
     /// Runtime copy apply value used by RecipeEditor..
     copy_apply: Option<(super::PresetSlot, usize)>,
-    /// Runtime command held value used by RecipeEditor..
-    command_held: u32,
-    /// Runtime command ticks value used by RecipeEditor..
-    command_ticks: u16,
+    /// D-pad auto-repeat state for the open command tool.
+    command_hold: super::HoldRepeat,
     /// Runtime undo value used by RecipeEditor..
     undo: Option<Box<((usize, usize), Recipe)>>,
     /// Runtime recipes value used by RecipeEditor..

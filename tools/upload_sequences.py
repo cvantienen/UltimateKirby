@@ -25,7 +25,7 @@ from pathlib import Path
 
 from upload_all_switches import TARGETS
 from sequence_validation import MAX_BYTES, validate_sequences
-from sequence_sources import assemble
+from sequence_sources import assemble, strip_comments
 
 SOURCE = Path(__file__).resolve().parents[1] / "deployment/ultimate/kirby_assist/sequences.txt"
 REMOTE = "/ultimate/kirby_assist/sequences.upload.txt"
@@ -101,7 +101,7 @@ def main() -> None:
     try:
         if not 0 < args.file.stat().st_size <= MAX_BYTES:
             parser.error("sequences.txt must be nonempty and at most 512 KiB")
-        data = assemble(args.file)
+        data = strip_comments(assemble(args.file))
         validate_sequences(data)
     except (OSError, RuntimeError) as error:
         parser.error(str(error))

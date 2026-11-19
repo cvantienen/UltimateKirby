@@ -1,9 +1,9 @@
 # Fighter profile and data catalogs
 
-The runtime has 79 registered fighter-profile identities for menu/configuration
-behavior. Fighter statistics and move-frame facts are a separate catalog:
-`data/Ultimate_stats.json` contains 90 exact
-native-kind records across the roster, including DLC fighters.
+The runtime has 90 registered fighter-profile identities for menu/configuration
+behavior, each with a `fighters/<name>.txt` option file. Fighter statistics and
+move-frame facts are a separate catalog: `data/Ultimate_stats.json` contains 90
+exact native-kind records across the roster, including DLC fighters.
 
 ## One canonical stats source
 

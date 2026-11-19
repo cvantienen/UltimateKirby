@@ -942,7 +942,7 @@ pub mod modes {
             let mut count = 1;
             for ms in 250..=1250 {
                 let s = Snapshot {
-                    requested: if ms % 2 == 0 { MAPPER_A } else { 0 },
+                    requested: if ms.is_multiple_of(2) { MAPPER_A } else { 0 },
                     ..snapshot()
                 };
                 count += usize::from(recorder.sample(s, ms).is_some());

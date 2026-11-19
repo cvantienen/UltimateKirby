@@ -8,7 +8,7 @@
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = drift:opponent:0.1:25, facing_input:a+x:0:0:4, drift:opponent:0.5:1
+actions = opponent_input:x:0:0:1, drift_to_opponent:0.4:10:10, wait:8, facing_input:a:0:0:4, wait:10, facing_input:none:0:-1:4
 name = Nair
 default = true
 
@@ -87,7 +87,7 @@ actions = drift:ledge:100%:4, short_hop_nair, drift:opponent:1:5
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = drift:away_from_opponent:0.4:20, wait:10, range:30, facing_input:r:0:0:4
+actions = drift:away_from_opponent:0.61:10, wait:8, range:30, facing_input:r:0:0:4
 name = Tongue grab
 default = true
 
@@ -165,6 +165,12 @@ spatial_timeout = 60
 actions = drift:away_from_opponent:1:1, facing_input:b:1:0:1, drift:opponent:1:1
 name = B-Reverse 
 
+# ---- Built-in: Short hop | yoshi.y.__builtin_short_hop ----
+[yoshi.x.__builtin_short_hop]
+default = true
+name = Built-in: Short hop
+builtin = short_hop
+
 # ---- ASSIST RULES: OUT OF SHIELD ----
 # ---- AUTO OOS Front grab | yoshi.attack.auto_oos_grab ----
 [yoshi.attack.auto_oos_grab]
@@ -216,12 +222,3 @@ spatial_timeout = 60
 default = false
 reaction = auto_shield_backup:19:24
 actions = short_hop_nair:4
-
-# YOUNG LINK
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.

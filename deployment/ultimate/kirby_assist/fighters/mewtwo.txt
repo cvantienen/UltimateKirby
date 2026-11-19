@@ -242,13 +242,3 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:14:12
 actions = opponent_input:a+x:0:0:1
-
-# MII BRAWLER
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
-

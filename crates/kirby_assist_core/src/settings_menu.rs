@@ -39,31 +39,36 @@ pub const MENU_L3: u32 = 1 << 16; // L3 is a menu control only while the menu is
 /// `MENU_TOGGLE_CHORD` is a configuration value used by the Smash runtime.
 pub const MENU_TOGGLE_CHORD: u32 = MAPPER_MINUS;
 
-/// `MENU_REPEAT_INITIAL_DELAY_TICKS` is a configuration value used by the Smash runtime.
+/// Ticks a direction must be held before auto-repeat begins.
 const MENU_REPEAT_INITIAL_DELAY_TICKS: u16 = 24;
-/// `MENU_REPEAT_FAST_MODE_TICKS` is a configuration value used by the Smash runtime.
+/// Held ticks after which auto-repeat switches to the fast cadence.
 const MENU_REPEAT_FAST_MODE_TICKS: u16 = 90;
-/// `MENU_REPEAT_FAST_INTERVAL_TICKS` is a configuration value used by the Smash runtime.
+/// Repeat interval, in ticks, once the fast cadence is active.
 const MENU_REPEAT_FAST_INTERVAL_TICKS: u16 = 2;
-/// `MENU_REPEAT_SLOW_INTERVAL_TICKS` is a configuration value used by the Smash runtime.
+/// Repeat interval, in ticks, before the fast cadence is reached.
 const MENU_REPEAT_SLOW_INTERVAL_TICKS: u16 = 6;
 
 /// Auto-repeat of one held direction: a delay, then a slow and later a fast cadence.
+///
+/// Shared by every menu surface so the editor, catalog and selector all repeat
+/// at the same cadence.
 #[derive(Default)]
-struct HoldRepeat {
-    /// Runtime direction value used by HoldRepeat..
+pub(crate) struct HoldRepeat {
+    /// Direction mask currently being held, or zero when released.
     direction: u32,
-    /// Runtime ticks value used by HoldRepeat..
+    /// Consecutive ticks the current direction has been held.
     ticks: u16,
 }
 impl HoldRepeat {
     /// Restores the state to its initial configuration.
-    fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         *self = Self::default();
     }
     /// Track the held direction; true when a repeat is due this sample.
-    fn step(&mut self, direction: u32) -> bool {
-        if self.direction != direction {
+    ///
+    /// A zero or changed direction restarts the delay and never repeats.
+    pub(crate) fn step(&mut self, direction: u32) -> bool {
+        if direction == 0 || self.direction != direction {
             *self = Self {
                 direction,
                 ticks: 0,
@@ -78,7 +83,7 @@ impl HoldRepeat {
             MENU_REPEAT_SLOW_INTERVAL_TICKS
         };
         ticks >= MENU_REPEAT_INITIAL_DELAY_TICKS
-            && (ticks - MENU_REPEAT_INITIAL_DELAY_TICKS) % interval == 0
+            && (ticks - MENU_REPEAT_INITIAL_DELAY_TICKS).is_multiple_of(interval)
     }
 }
 

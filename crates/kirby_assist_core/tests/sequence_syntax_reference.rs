@@ -58,7 +58,7 @@ fn every_copyable_action_reaction_and_ini_example_passes_both_build_filters() {
 
 #[test]
 fn action_aliases_directions_buttons_and_conditions_from_the_parser_are_covered() {
-    let parser = include_str!("../src/sequence_config/parser/actions.rs");
+    let parser = include_str!("../src/sequence_config/parser.rs");
     let action_source = parser
         .split("fn parse_action(")
         .nth(1)
@@ -161,7 +161,7 @@ fn all_fighter_keys_and_their_exact_parser_bounds_are_documented() {
 
 #[test]
 fn all_recognized_universal_keys_including_compatibility_aliases_are_documented() {
-    let source = include_str!("../src/live_input/config.rs");
+    let source = include_str!("../src/live_input.rs");
     let source = source
         .split("match key {")
         .nth(1)

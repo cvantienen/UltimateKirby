@@ -24,16 +24,35 @@ def fixture(root):
 
 
 class SequenceSourceTests(unittest.TestCase):
-    def test_current_bundle_matches_all_79_owned_sources_and_keeps_templates_universal(self):
+    def test_current_bundle_matches_all_90_owned_sources_and_keeps_templates_universal(self):
         data=sources.assemble()
         self.assertEqual(data,sources.GENERATED.read_bytes())
         self.assertTrue(data.endswith(b'\n'))
         self.assertFalse(data.endswith(b'\n\n'))
-        self.assertEqual(len(list((sources.SOURCE.parent/'fighters').glob('*.txt'))),79)
+        self.assertEqual(len(list((sources.SOURCE.parent/'fighters').glob('*.txt'))),90)
         self.assertEqual(set(sources.split_bundle(sources.SOURCE.read_bytes())),{'universal'})
         for file in (sources.SOURCE.parent/'fighters').glob('*.txt'):
             self.assertEqual(set(sources.split_bundle(file.read_bytes())),{file.stem})
         self.assertIn(b'[template.up_b_chase]',data)
+
+    def test_strip_comments_keeps_every_parsed_value_and_shrinks_the_switch_copy(self):
+        data=sources.assemble()
+        stripped=sources.strip_comments(data)
+        def parsed(raw):
+            out={};section=None
+            for line in raw.decode().splitlines():
+                text=line.split('#',1)[0].strip()
+                if not text: continue
+                if text.startswith('[') and text.endswith(']'): section=text;out[section]=[]
+                elif section is not None: out[section].append(text)
+            return out
+        self.assertEqual(parsed(stripped),parsed(data))
+        self.assertNotIn(b'#',stripped)
+        self.assertLess(len(stripped),len(data))
+        # Must not invent separators or a trailing newline the input lacked.
+        self.assertEqual(sources.strip_comments(b'[a.settings]\n[a.roll.x]\nk=1\n'),
+                         b'[a.settings]\n[a.roll.x]\nk=1\n')
+        self.assertEqual(sources.strip_comments(b'raw bytes'),b'raw bytes')
 
     def test_assembly_reads_live_fighter_edits_in_sorted_order_without_altering_properties(self):
         with tempfile.TemporaryDirectory() as tmp:

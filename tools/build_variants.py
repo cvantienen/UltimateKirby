@@ -21,7 +21,7 @@ from pathlib import Path
 import subprocess
 from typing import BinaryIO
 import zipfile
-from sequence_sources import assemble, write_generated
+from sequence_sources import assemble, strip_comments, write_generated
 from toml_compat import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -111,8 +111,11 @@ def build_variant(name: str, env: dict[str, str]) -> Path:
     # Assemble current editable sources before compiling or packaging either variant.
     sequences = assemble(ROOT / "deployment" / SEQUENCES)
     from sequence_validation import validate_sequences
-    validate_sequences(sequences)
     write_generated(sequences, ROOT / "deployment" / SEQUENCES.parent / "assembled/sequences.txt")
+    # Ship the parser-equivalent copy without repo-only comments; the readable
+    # assembled artifact above keeps them for review.
+    sequences = strip_comments(sequences)
+    validate_sequences(sequences)
     diagnostic = name == "diagnostic"
     summary = variant_release_summary(name)
     command = ["cargo", "skyline", "build", "--release", "--no-default-features"]

@@ -3,26 +3,6 @@
 # ========================================================================
 
 # ---- FIGHTER SETTINGS ----
-[bowser.settings]
-walk_strength = 0.49999985
-grab_range = 22
-vertical_range = 20
-follow_vertical_range = 45
-stand_distance = 15
-manual_spacing = true
-auto_position = true
-grab_dodge_default = true
-out_of_shield_default = true
-grab_dodge_lookahead = 8
-shield_body_half_width = 7
-shield_body_height = 18
-shield_hold = 2
-grab_dodge_padding = 15
-grab_dodge_height = 10
-tech_ceiling_origin = 5
-
-# ---- LEDGE TRAPS: NEUTRAL ----
-# ---- FIRE BREATH | bowser.neutral.down_tilt ----
 [bowser.neutral.down_tilt]
 default = false
 start_delay = 0
@@ -33,12 +13,12 @@ name = FIRE BREATH
 
 # ---- F TILT | bowser.neutral.forward_tilt ----
 [bowser.neutral.forward_tilt]
-default = false
-start_delay = 18
+name = DWN B
+start_delay = 30
 timeout = 3600
 spatial_timeout = 60
-actions = opponent_input:a:0.6:0:4
-name = F TILT
+actions = opponent_input:b:0:-1:4
+default = false
 
 # ---- UP B | bowser.neutral.up_tilt ----
 [bowser.neutral.up_tilt]
@@ -92,17 +72,17 @@ actions = opponent_input:a:0:0.6:1
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = facing_input:a:0:1:25
+actions = drift:away_from_opponent:1:1, facing_input:a:0:1:20
 default = false
 name = UP SMASH
 
 # ---- GRAB | bowser.roll.grab ----
 [bowser.roll.grab]
-default = false
-start_delay = 5
+start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = walk:away_from_opponent:5:0.8, range:fighter_range, input:r:0:0:1
+default = false
 name = GRAB
 
 # ---- UP B | bowser.roll.down_tilt ----
@@ -119,7 +99,7 @@ name = UP B
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = opponent_input:a:-1:0:10
+actions = wait:1, opponent_input:none:1:0:4, opponent_input:a:-1:0:5
 default = true
 name = F SMASH
 
@@ -135,11 +115,11 @@ name = Shield DSMASH
 
 # ---- Grab | bowser.attack.shield_grab ----
 [bowser.attack.shield_grab]
+default = true
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = shield_until_block:90, if_facing_opponent, range:25, facing_input:r:0:0:4, else_facing, opponent_input:b:1:0:4, end_facing
-default = true
 name = Grab
 
 # ---- Shield > Up-B | bowser.attack.shield_up_b ----
@@ -163,56 +143,56 @@ name = SIDE B
 # ---- LEDGE TRAPS: DROP ----
 # ---- Shield | bowser.drop.shield ----
 [bowser.drop.shield]
+default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = facing_hold_until_manual:zr:0:0
 name = Shield
-default = false
 
 # ---- FADE AWAY NAIR | bowser.drop.drop_nair ----
 [bowser.drop.drop_nair]
+default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = facing_input:a+x:0:0:4, drift:away_from_opponent:0.4:20
 name =FADE AWAY NAIR
-default = false
 
 # ---- FADE AWAY FAIR | bowser.drop.forward_air ----
 [bowser.drop.forward_air]
+default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = face:opponent, wait:1, facing_input:x:0:0:1, facing_input:a:1:0:1, drift:away_from_opponent:0.3:10
 name = FADE AWAY FAIR 
-default = false
 
 # ---- DOWN SMASH | bowser.drop.down_smash ----
 [bowser.drop.down_smash]
+default = true
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = wait:2, opponent_input:a:0:-1:1
+actions = opponent_input:a:0:-1:1
 name = DOWN SMASH
-default = false
 
 # ---- Dair | bowser.drop.menu_added_6 ----
 [bowser.drop.menu_added_6]
+default = false
 name = Dair
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 actions = facing_input:x:0:0:1, facing_input:a:0:-1:4
-default = true
 
 # ---- UP B | bowser.drop.menu_added_7 ----
 [bowser.drop.menu_added_7]
-name = UP B
+name = DWN B
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = facing_input:b:0:1:4, drift:opponent:1:70
+actions = facing_input:b:0:-1:4
 default = false
 
 # ---- BUTTON SEQUENCES: X ----
@@ -221,6 +201,12 @@ default = false
 default = false
 name = Built-in: Ledge assist / walk
 builtin = ledge_assist
+
+# ---- Built-in: Short hop | bowser.x.__builtin_short_hop ----
+[bowser.x.__builtin_short_hop]
+default = true
+name = Built-in: Short hop
+builtin = short_hop
 
 # ---- BUTTON SEQUENCES: Y ----
 # ---- Grab | bowser.y.airdodge ----
@@ -276,31 +262,31 @@ name = Flying Slam reverse toward enemy
 default = true
 
 # ---- BUTTON SEQUENCES: L ----
+# ---- Built-in: Short hop | bowser.l.__builtin_short_hop ----
+[bowser.l.__builtin_short_hop]
+default = false
+name = Built-in: Short hop
+builtin = short_hop
+
 # ---- BUTTON SEQUENCES: L3 ----
 # ---- Built-in: Turbo t-bag | bowser.l3.__builtin_turbo_teabag ----
 [bowser.l3.__builtin_turbo_teabag]
-default = true
+default = false
 name = Built-in: Turbo t-bag
 builtin = turbo_teabag
 
 # ---- Normal button | bowser.l3.__normal_button ----
 [bowser.l3.__normal_button]
-default = false
+default = true
 name = Normal button
 builtin = normal
 
 # ---- BUTTON SEQUENCES: R3 ----
 # ---- Built-in: Turbo t-bag | bowser.r3.__builtin_turbo_teabag ----
 [bowser.r3.__builtin_turbo_teabag]
-default = false
+default = true
 name = Built-in: Turbo t-bag
 builtin = turbo_teabag
-
-# ---- Normal button | bowser.r3.__normal_button ----
-[bowser.r3.__normal_button]
-default = true
-name = Normal button
-builtin = normal
 
 # ---- ASSIST RULES: AUTO REACT ----
 # ---- Roll - Up-B chase | bowser.roll.auto_roll ----
@@ -308,9 +294,9 @@ builtin = normal
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions =  facing_input:b:0:1:4, drift:opponent:1:69
+actions = facing_input:b:0:1:4, drift:opponent:1:50
 ground_only = true
-reaction = auto_roll:30:12
+reaction = auto_roll:25:12
 name = Roll - Up-B chase
 default = false
 
@@ -321,7 +307,7 @@ timeout = 240
 spatial_timeout = 60
 actions = facing_input:b:0:1:4, drift:opponent:1:69
 ground_only = true
-reaction = auto_spot_dodge:10:10
+reaction = auto_spot_dodge:25:10
 name = Spot dodge - Up-B chase
 default = false
 
@@ -338,50 +324,64 @@ default = false
 
 # ---- Automatic grab (unshielded) | bowser.roll.auto_grab ----
 [bowser.roll.auto_grab]
-name = Automatic grab (unshielded)
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
+actions = drift:opponent:1:1, input:r:0:0:4
+reaction = auto_grab:30:8
+name = Automatic grab (unshielded)
 default = false
-reaction = auto_grab:35:20
-actions = drift:opponent:1:69, input:r:0:0:4
 
 # ---- Automatic grab (shielded) | bowser.roll.auto_shield_grab ----
 [bowser.roll.auto_shield_grab]
-name = Automatic grab (shielded)
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-default = false
-reaction = auto_shield_grab:22:15
 actions = input:r:0:0:4
+reaction = auto_shield_grab:22:10
+name = Automatic grab (shielded)
+default = false
 
 # ---- Shield grab backup | bowser.roll.auto_shield_backup ----
 [bowser.roll.auto_shield_backup]
-name = Shield grab backup
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
+actions = facing_input:b:0:1:4, drift:opponent:1:20, drift:opponent:1:20, drift:opponent:1:20
+reaction = auto_shield_backup:20:12
+name = Shield grab backup
 default = false
-reaction = auto_shield_backup:22:15
-actions = up_b:4, drift:opponent:1:69
 
 # ---- After dodging enemy grab | bowser.roll.auto_grab_dodged ----
 [bowser.roll.auto_grab_dodged]
-name = After dodging enemy grab
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-default = false
-reaction = auto_grab_dodged:30:10
+actions = facing_input:b:0:1:4, drift:opponent:1:69
 ground_only = true
-actions = up_b:4, drift:opponent:1:69
+reaction = auto_grab_dodged:25:10
+name = After dodging enemy grab
+default = false
 
-# BOWSER JR
-# Chart baselines: normal F34; jump F14 (F13-15); ledge roll F31.
-# Assumes recognition at option F1, grounded/ready, correct facing and spacing.
-# Ground attacks assume shield is already released; OOS uses the block helper.
-# Charged smash release and hitbox contact require in-game calibration.
-# Down-smash branches choose front/rear at entry; position for the roll endpoint.
-# Auto-react is immediate; ordinary dodges do not use the ledge timings.
-# Automatic admission is grounded; aerial tapes may finish after takeoff.
+
+[bowser.settings]
+walk_strength = 0.49999985
+grab_range = 22
+vertical_range = 20
+follow_range = 45
+follow_vertical_range = 45
+stand_distance = 15
+manual_spacing = true
+auto_position = true
+grab_dodge_default = true
+out_of_shield_default = true
+grab_dodge_lookahead = 8
+shield_body_half_width = 10
+shield_body_height = 20
+shield_body_half_depth = 10
+shield_forecast = 10
+shield_hold = 2
+grab_dodge_padding = 15
+grab_dodge_height = 10
+tech_ceiling_origin = 5
+tech_floor_padding = 2
