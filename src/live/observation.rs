@@ -2374,10 +2374,29 @@ fn sample_reactions(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
     sample_fair(state, p, c, a);
     sample_spot_dodge(state, p, c, a);
     sample_spot_punish(state, p, c, a);
-    // OOS is one shield-hit sequence. It no longer runs a competing grab,
-    // dash-approach, or shield-backup policy.
-    sample_out_of_shield(state, p, c, a);
+    preempt_grab(state, p, c, a);
+    // Sample remaining pending grabs once so accepted/failed attempts
+    // release before fallback. New reactions precede NEW grabs.
+    let shield_fallback_pending = state.oos.shield_up_b_pending();
+    let grab_pending = state.oos.target().is_some();
+    if grab_pending {
+        sample_grab(state, p, c, a);
+    }
+    // A cancelled shield fallback may have selected a fresh front grab.
+    // Apply the same roll priority before either new packet is emitted.
+    if shield_fallback_pending
+        && !state.oos.shield_up_b_pending()
+        && state.oos.automatic_grab_pending()
+    {
+        // The old fallback ended; the replacement is a new proposal and
+        // must compete under current admission priority, not inherit a lock.
+        state.action_owner.release(Owner::OutOfShield);
+        preempt_grab(state, p, c, a);
+    }
     sample_roll_read(state, p, c, a);
+    if !grab_pending {
+        sample_grab(state, p, c, a);
+    }
 }
 
 /// Advances Kirby's fair follow-up policy using admitted hit observations.
@@ -2626,6 +2645,158 @@ fn sample_out_of_shield(state: &mut State, p: &Pass, c: &Collected, a: &Admissio
             lc,
             target,
             oos_follow,
+        )
+    } else {
+        state.oos = Default::default();
+        ControllerOutput::default()
+    };
+    if state.oos.target().is_none() && state.oos_output.owned == 0 {
+        state.action_owner.release(Owner::OutOfShield);
+    }
+}
+
+// An immediately usable Up-B may replace an unaccepted automatic grab.
+// Admission and this handoff share the core selector; cached Grab input
+// is cleared before the winning reaction can reach the mapper.
+/// Applies higher-priority ownership and safety gates before grab automation.
+fn preempt_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
+    let Pass {
+        needs: ObservationNeeds {
+            file_ledge_timeline,
+            ..
+        },
+        policy: ObservationPolicySnapshot { rules_on, .. },
+        tech_obs: TechObservation { clatter, tech, .. },
+        ..
+    } = *p;
+    let rule_observation = c.rule_observation;
+    let Admission {
+        automatic_suspended,
+        ledge_priority,
+        ..
+    } = *a;
+    let prioritize_up_b = (state.action_owner.allows(Owner::RollRead)
+        || state.oos.approach_active()
+            && state
+                .action_owner
+                .allows_after_release(Owner::RollRead, Owner::OutOfShield))
+        && rules_on
+        && !automatic_suspended
+        && !clatter
+        && !tech
+        && !file_ledge_timeline
+        && !ledge_priority
+        && state.spot_output.owned == 0;
+    if prioritize_up_b && state.oos.automatic_grab_pending() && !state.oos.grab_delivery_pending() {
+        if let Some((context, targets, follow)) = rule_observation {
+            let yielded = {
+                let State {
+                    rule_engine,
+                    settings_menu,
+                    oos,
+                    action_owner,
+                    ..
+                } = state;
+                if let Some(rules) = settings_menu.as_ref().and_then(|m| m.rule_config()) {
+                    let engine = rule_engine.get_or_insert_with(Box::default);
+                    engine.preempt_automatic_grab(
+                        true,
+                        rules,
+                        context,
+                        &targets,
+                        follow,
+                        oos,
+                        action_owner,
+                    )
+                } else {
+                    false
+                }
+            };
+            if yielded {
+                state.oos_output = ControllerOutput::default();
+            }
+        }
+    }
+}
+
+/// Samples grab eligibility and handoff state using the current admitted facts.
+fn sample_grab(state: &mut State, p: &Pass, c: &Collected, a: &Admission) {
+    let Pass {
+        config,
+        needs: ObservationNeeds {
+            file_ledge_timeline,
+            ..
+        },
+        policy: ObservationPolicySnapshot { oos_enabled, .. },
+        flags:
+            AutomaticFlags {
+                capture_link: own_capture_link,
+                scope: automatic_scope,
+                limits:
+                    AutoGrabLimits {
+                        legacy_close: legacy_grab_close,
+                        legacy_approach: legacy_grab_approach,
+                        ..
+                    },
+                ..
+            },
+        tech_obs: TechObservation { clatter, tech, .. },
+        ..
+    } = *p;
+    let Collected {
+        rule_observation,
+        oos_context,
+        oos_follow,
+        ..
+    } = *c;
+    let Admission {
+        automatic_suspended,
+        grab_intent,
+        self_shielded,
+        ledge_priority,
+        ..
+    } = *a;
+    let oos_reserved = automatic_suspended
+        || state.action_owner.current_owner() != Some(Owner::OutOfShield)
+            && (ledge_priority || file_ledge_timeline);
+    let protected_up_b = state.action_owner.current_owner() == Some(Owner::OutOfShield);
+    let oos_allowed = oos_enabled
+        && !own_capture_link
+        && (automatic_scope.acquire || automatic_scope.follow || state.oos.configured_committed())
+        && (grab_intent || state.oos.configured_committed() || protected_up_b)
+        && !oos_reserved
+        && state.spot_output.owned == 0
+        && state.roll_read_output.owned == 0
+        && !clatter
+        && !tech
+        && state.action_owner.allows(Owner::OutOfShield)
+        && !state.rule_engine.as_ref().is_some_and(|r| r.committed());
+    state.oos_output = if let Some(context) = oos_context {
+        let (lc, targets) = rule_observation
+            .map(|(c, t, _)| (c, t))
+            .unwrap_or((GameplayContext::default(), [None; 8]));
+        let State {
+            oos, settings_menu, ..
+        } = state;
+        let sequences = settings_menu
+            .as_ref()
+            .map_or(Default::default(), |m| m.automatic_sequences());
+        oos.sample_automatic_configured(
+            oos_allowed,
+            context,
+            lc,
+            targets,
+            oos_follow,
+            self_shielded,
+            legacy_grab_close,
+            legacy_grab_approach,
+            Some(f32::from(if self_shielded {
+                config.assist.fighter.grab.shield_startup
+            } else {
+                config.assist.fighter.grab.dash_startup
+            })),
+            config.assist,
+            sequences,
         )
     } else {
         state.oos = Default::default();
