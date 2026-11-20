@@ -15,13 +15,13 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | Nair; **Dtilt**; Ftilt; Utilt; Pikmin f-smash |
-| Jump | **Nair**; Fair (Pikmin); Up air (Pikmin); Ground Utilt |
-| Roll | **Down smash (Pikmin)**; Pikmin grab; Dtilt |
+| Neutral | Nair; **Down tilt**; Forward tilt; Up tilt; Pikmin f-smash |
+| Jump | **Nair**; Fair (Pikmin); Up air (Pikmin); Grounded up tilt |
+| Roll | **Down smash (Pikmin)**; Pikmin grab; Down tilt |
 | Attack | **Shield > Nair**; Shield > range-checked grab; Shield > Uair; Shield > Fair |
-| Drop | **Shield**; Dtilt > Shield; Near Nair; Pikmin Fair; Pikmin Dair |
+| Drop | **Shield**; Down tilt > shield; Hop nair (near); Hop fair (Pikmin); Hop dair (Pikmin) |
 
-These are the compact UI names; SH means short hop and Msl means missile.
+These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
 Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 

@@ -119,15 +119,6 @@ def title(module):
     return NAMES.get(module, module.replace("_", " ").title())
 
 
-@lru_cache(None)
-def menu_names():
-    text = source(FIGHTERS / "fighter_profiles.rs")
-    body = text[text.index("pub fn menu_name"):text.index("pub fn hint")]
-    strings = r'"(?:\\.|[^"\\])*"'
-    return {json.loads(left): json.loads(right) for left, right in
-            re.findall(r"(" + strings + r")\s*=>\s*(" + strings + r")", body)}
-
-
 def render(module):
     source_name, kind = profile_catalog()[module]
     kind = str(kind)
@@ -146,11 +137,11 @@ def render(module):
              "choices. Hold **L** to run the selected responses. Defaults are bold.", "",
              "| Row | Saved choices, in menu order |", "| --- | --- |"]
     for name, row in zip(ROWS, menu):
-        names = [menu_names().get(choice['name'], choice['name']) for choice in row['options']]
+        names = [choice['name'] for choice in row['options']]
         choices = ["**%s**" % name if index == row['selected'] else name
                    for index, name in enumerate(names)]
         lines.append("| %s | %s |" % (name, "; ".join(choices)))
-    lines += ["", "These are the compact UI names; SH means short hop and Msl means missile.",
+    lines += ["", "These names are shown in the menu exactly as authored in the sequence file.",
               "Input timelines hand back control after their last step; the game decides acceptance.",
               "Selecting a choice never changes native moves, hitboxes, physics or animation speed.", "",
               "## Native move reference (not scheduling)", "",

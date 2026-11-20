@@ -15,13 +15,13 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | Nair; **Dtilt**; Ftilt 1; Utilt; Wicked fist |
-| Jump | Nair; Fair 1; **Uair**; Ground Utilt |
-| Roll | **Dsmash**; Grab; Dtilt |
-| Attack | **Shield Up-B**; Shield > range-checked grab; Shield > Uair; Shield > Fair |
-| Drop | **Shield**; Dtilt > Shield; Near Nair; Near Fair 1 |
+| Neutral | Nair; **Down tilt**; Forward tilt 1; Up tilt; Wicked fist |
+| Jump | Nair; Forward air 1; **Up air**; Grounded up tilt |
+| Roll | **Down smash**; Grab; Down tilt |
+| Attack | **Shield > Up-B**; Shield > range-checked grab; Shield > Uair; Shield > Fair |
+| Drop | **Shield**; Down tilt > shield; Hop nair (near); Hop fair 1 (near) |
 
-These are the compact UI names; SH means short hop and Msl means missile.
+These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
 Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 

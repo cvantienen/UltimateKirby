@@ -51,11 +51,11 @@ timing, menu text caching and health counters are grouped with their parents.
 | `src/live/settings_menu.rs` and `src/live/settings_menu/` | Live menu settings, rendering, and serialized save-result handling. |
 | `src/live/training.rs` / Core `runtime.rs` | Training passthrough lifecycle / generic portable adapter loop. |
 | `src/live/tech.rs` / `src/live/kirby_followups.rs` / `src/live/reflect.rs` | Native observations and adapters for collision-timed tech, Kirby follow-ups, and reflection. `tech.rs` supplies the bounded contact forecast; core `shared/survival/tech_input.rs` schedules acknowledged Guard delivery. |
-| `src/live/attack_sources.rs` / `src/live/projectile_sources.rs` | Bounded read-only attack-source tracking for ledge defense and projectile reflection. |
+| `src/live/attack_sources.rs` | Skyline attack-callback hook over the portable `projectile_reflect::Sources` tracker, for ledge defense and projectile reflection. |
 | `src/game_ffi.rs` | Native Smash function declarations and ABI boundary. |
 | `src/diagnostics.rs` and `src/diagnostics/` | Diagnostic-build-only logging, calibration, grab recording, and performance tools. |
 | `crates/kirby_assist_core/src/lib.rs` | Portable core modules and compatibility re-exports. |
-| Core `config.rs`, `live_input.rs` (`live_input/config.rs` holds `LiveConfig`), and `sequence_config.rs` | Settings and recipe data models, startup parsing, validation, and persistence. |
+| Core `config.rs`, `live_input.rs` (also holds `LiveConfig`), and `sequence_config.rs` | Settings and recipe data models, startup parsing, validation, and persistence. |
 | Core `settings_menu.rs` and `settings_menu/` | Portable menu state, choice navigation (`input.rs` input state machine, `panel.rs` recipe panel), recipe editor, commands, and presentation. |
 | Core `shared/controller.rs` / `shared/native_input.rs` | Logical controller actions, ownership, arbitration, and native-independent button translations. |
 | Core `shared/observations.rs` / `shared/timing.rs` / `shared/survival/` | Copied gameplay facts, timing contracts, and reusable survival policies. |

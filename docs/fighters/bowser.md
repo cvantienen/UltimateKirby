@@ -72,13 +72,13 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | FIRE BREATH; F TILT; UP B; **F SMASH** |
+| Neutral | FIRE BREATH; DWN B; UP B; **F SMASH** |
 | Jump | BAIR; F TILT; **UP-TILT** |
 | Roll | UP SMASH; GRAB; UP B; **F SMASH** |
-| Attack | Shield DSMASH; **Grab**; Shield Up-B; SIDE B |
-| Drop | Shield; FADE AWAY NAIR; FADE AWAY FAIR; DOWN SMASH; **Dair**; UP B |
+| Attack | Shield DSMASH; **Grab**; Shield > Up-B; SIDE B |
+| Drop | Shield; FADE AWAY NAIR; FADE AWAY FAIR; **DOWN SMASH**; Dair; DWN B |
 
-These are the compact UI names; SH means short hop and Msl means missile.
+These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
 Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 
@@ -160,16 +160,16 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 | Situation / ID | Start delay | Ordered inputs |
 | --- | --- | --- |
 | Neutral / `down_tilt` | 0 | `face:opponent, facing_hold_until_manual:b:0:0` |
-| Neutral / `forward_tilt` | 18 | `opponent_input:a:0.6:0:4` |
+| Neutral / `forward_tilt` | 30 | `opponent_input:b:0:-1:4` |
 | Neutral / `up_tilt` | 10 | `facing_input:b:0:1:4, drift:opponent:1:70` |
 | Neutral / `forward_smash` | 0 | `opponent_input:a:1:0:5` |
 | Jump / `nair2` | 0 | `face:away_from_opponent, wait:1, facing_input:x:0:0:1, facing_input:a:-1:0:4` |
 | Jump / `up_air` | 0 | `opponent_input:a:0.6:0:1` |
 | Jump / `up_tilt` | 0 | `opponent_input:a:0:0.6:1` |
-| Roll / `down_smash` | 0 | `facing_input:a:0:1:25` |
-| Roll / `grab` | 5 | `walk:away_from_opponent:5:0.8, range:fighter_range, input:r:0:0:1` |
+| Roll / `down_smash` | 0 | `drift:away_from_opponent:1:1, facing_input:a:0:1:20` |
+| Roll / `grab` | 0 | `walk:away_from_opponent:5:0.8, range:fighter_range, input:r:0:0:1` |
 | Roll / `down_tilt` | 0 | `walk:away_from_opponent:5:0.8, facing_input:b:0:1:4, drift:opponent:1:70` |
-| Roll / `menu_added_4` | 0 | `opponent_input:a:-1:0:10` |
+| Roll / `menu_added_4` | 0 | `wait:1, opponent_input:none:1:0:4, opponent_input:a:-1:0:5` |
 | Attack / `shield_nair` | 0 | `shield_until_block:90, opponent_input:a:0.6:-1:1` |
 | Attack / `shield_grab` | 0 | `shield_until_block:90, if_facing_opponent, range:25, facing_input:r:0:0:4, else_facing, opponent_input:b:1:0:4, end_facing` |
 | Attack / `shield_up_b` | 0 | `shield_until_block:90, facing_input:b:0:1:1, drift:opponent:1:70` |
@@ -177,9 +177,9 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 | Drop / `shield` | 0 | `facing_hold_until_manual:zr:0:0` |
 | Drop / `drop_nair` | 0 | `facing_input:a+x:0:0:4, drift:away_from_opponent:0.4:20` |
 | Drop / `forward_air` | 0 | `face:opponent, wait:1, facing_input:x:0:0:1, facing_input:a:1:0:1, drift:away_from_opponent:0.3:10` |
-| Drop / `down_smash` | 0 | `wait:2, opponent_input:a:0:-1:1` |
+| Drop / `down_smash` | 0 | `opponent_input:a:0:-1:1` |
 | Drop / `menu_added_6` | 0 | `facing_input:x:0:0:1, facing_input:a:0:-1:4` |
-| Drop / `menu_added_7` | 0 | `facing_input:b:0:1:4, drift:opponent:1:70` |
+| Drop / `menu_added_7` | 0 | `facing_input:b:0:-1:4` |
 
 Spacing, resource requirements, opponent steering, stage geometry and online
 input arrival still affect contact. There is no learned-delay compensation.

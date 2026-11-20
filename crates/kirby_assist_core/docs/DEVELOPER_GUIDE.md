@@ -64,7 +64,7 @@ hold.
 | `policies/` | Independent gameplay decisions: ledge, reactions, out-of-shield, defensive responses, posture, and grabs. | You are changing when the assist should respond. |
 | `fighters/` | Fighter IDs and data, status tables, profile selection, tuning, plus Kirby and Game & Watch rules. | Behavior depends on the controlled character. |
 | `sequence_config/` | The validated sequence catalog, action language, parser, persistence, and playback model. | A saved recipe, template, or `sequences.txt` field changes. |
-| `live_input/` | Portable parsing and scheduling for live auto-mash and auto-tech settings. | A shared live input setting or its per-update timing changes. |
+| `live_input.rs` | Portable parsing and scheduling for live auto-mash and auto-tech settings, including `LiveConfig`/`LiveSettings`. | A shared live input setting or its per-update timing changes. |
 | `settings_menu/` | Menu state, bindings, choice lists, editor commands, and display data. | A player-facing menu option or edit flow changes. |
 | `manual_controls.rs` | Physical-input history, manual takeover, turbo, and reservation helpers. | A feature must coexist with player input. |
 | `config.rs` | Generic scenario rules and the mode/builtin identifiers used by bindings. | You are extending the small, host-testable rule engine. |
@@ -149,8 +149,8 @@ These terms describe different things:
   `out_of_shield` or `defense_response`. They are separate from a physical
   button binding.
 
-The catalog parser lives in `sequence_config/parser.rs`; action-token parsing
-lives in `sequence_config/parser/actions.rs`; `Sequence` and `Action` are in
+The catalog parser and its action-token parsing both live in
+`sequence_config/parser.rs`; `Sequence` and `Action` are in
 `sequence_config.rs`. Parse and validate at startup or save time, never in a
 per-frame callback. The parser already bounds file size, entry count, action
 count, and sequence duration. Extend the existing grammar through its parser,

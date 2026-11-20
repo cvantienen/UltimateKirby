@@ -21,7 +21,7 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 | Attack | **Custom (edit in Training)** |
 | Drop | **Custom (edit in Training)** |
 
-These are the compact UI names; SH means short hop and Msl means missile.
+These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
 Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 

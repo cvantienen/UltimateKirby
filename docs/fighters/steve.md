@@ -1,0 +1,138 @@
+# Steve
+
+<!-- BEGIN GENERATED FIGHTER REFERENCE -->
+
+[All fighters](../FIGHTERS.md) · [Controls](../CONTROLS.md)
+
+Native fighter kind **88** (`steve`). This reference follows the canonical fighter data;
+it is not a device-calibration result. No fighter-specific file loads during a match.
+
+## Saved ledge responses
+
+The lightweight selector starts visible; **Minus** hides/shows it. Training opens with **Minus**.
+Up/Down selects a row; Left/Right cycles its
+choices. Hold **L** to run the selected responses. Defaults are bold.
+
+| Row | Saved choices, in menu order |
+| --- | --- |
+| Neutral | Nair; Down tilt; **Forward tilt**; Up tilt |
+| Jump | Nair; Forward air; **Up air**; Grounded up tilt |
+| Roll | **Grab**; Down tilt |
+| Attack | Shield > Nair; Shield > range-checked grab; **Shield > Uair**; Shield > Fair |
+| Drop | **Shield**; Down tilt > shield; Hop nair (near); Hop fair (near); Low smash (spacing) |
+
+These names are shown in the menu exactly as authored in the sequence file.
+Input timelines hand back control after their last step; the game decides acceptance.
+Selecting a choice never changes native moves, hitboxes, physics or animation speed.
+
+## Saved assist rules
+
+These rules have separate ON/OFF assists and Training L3/R3 rule lists;
+they are not selected ledge/button recipes. Auto react has one sequence per event;
+priority numbers apply only to legacy rule lists. Vulnerable-ledge punishment is retired.
+
+| Assist trigger | Priority | Saved rule | Section |
+| --- | --- | --- | --- |
+| `auto_air_dodge` | — | Air dodge > Up Air | `steve.roll.auto_air_dodge` |
+| `auto_grab` | — | Automatic grab (unshielded) | `steve.roll.auto_grab` |
+| `auto_grab_dodged` | — | Dodged grab > Up Air | `steve.roll.auto_grab_dodged` |
+| `auto_roll` | — | Roll > Up Air | `steve.roll.auto_roll` |
+| `auto_shield_backup` | — | Shield backup > Up Air | `steve.roll.auto_shield_backup` |
+| `auto_shield_grab` | — | Automatic grab (shielded) | `steve.roll.auto_shield_grab` |
+| `auto_spot_dodge` | — | Spot dodge > Up Air | `steve.roll.auto_spot_dodge` |
+
+## Native move reference (not scheduling)
+
+These independent game facts do not schedule file inputs. They are inclusive animation-frame spans, not input-to-hit
+delays or proof that every phase of a multihit move stays active.
+
+| Move | Stored frames |
+| --- | --- |
+| Back Air | 12 start; active 12–13 / 14–16; 47/41 total; 12 landing |
+| Up Air | 4 (Gold: 4) start; active 4–8; 13 (Gold: 11) total; 10 landing |
+| Dash Attack | 8 (Gold: 8) start; active 8–10 / 11–13; 31 (Gold: 28) total; -- landing |
+| Forward Smash | 13 (Gold: 10) start; active 13–15; 43 (Gold: 35) total; -- landing |
+| Up Smash | 8... start; active 8–9 / 8–48 / 49–50; 76 total; -- landing |
+
+### Grab data
+
+| Setting | Fighter data |
+| --- | --- |
+| Standing grab | frames 13–27 |
+| Dash grab | frames 16–30 |
+| Pivot grab | frames 17–31 |
+| Standing reach reference | 31.9 world units |
+| Shield-grab startup | 17 |
+
+Reach is an approximate root-based reference, not an animated grab/hurtbox model.
+The file decides whether to request an explicit range check. No native timing gate
+is inferred from this table; input delivery and the game's buffering rules still matter.
+
+## Baseline fighter stats
+
+From the canonical [Fighter Data catalog](../FIGHTER_DATA.md); baseline facts,
+not instance modifiers or a replacement for live observations.
+
+| Stat | Fighter data |
+| --- | --- |
+| Weight | 92 |
+| Walk speed | 0.85 |
+| Initial dash | 1.45 |
+| Run speed | 1.45 |
+| Air speed | 0.86 |
+| Gravity | 0.07 |
+| Fall speed | 1.42 |
+| Fast fall | 2.272 |
+| Short-hop height | 10 |
+| Full-hop height | 16.5 |
+
+## Execution and calibration
+
+Option definitions and input delays come from `fighters/steve.txt`, assembled into the Switch’s `sequences.txt`. Each option
+has an explicit `start_delay`; waits between actions are literal native frames.
+No compiled fighter recipe, adaptive-hop policy or native move window schedules them.
+
+| Situation / ID | Start delay | Ordered inputs |
+| --- | --- | --- |
+| Neutral / `nair` | 27 | `opponent_input:a+x:0:0:1` |
+| Neutral / `down_tilt` | 21 | `opponent_input:a:0:-0.6:1` |
+| Neutral / `forward_tilt` | 29 | `opponent_input:a:0.6:0:1` |
+| Neutral / `up_tilt` | 27 | `opponent_input:a:0:0.6:1` |
+| Jump / `nair` | 7 | `opponent_input:a+x:0:0:1` |
+| Jump / `forward_air` | 3 | `opponent_input:a+x:1:0:1` |
+| Jump / `up_air` | 7 | `opponent_input:a+x:0:1:1` |
+| Jump / `up_tilt` | 7 | `opponent_input:a:0:0.6:1` |
+| Roll / `grab` | 18 | `check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1` |
+| Roll / `down_tilt` | 19 | `opponent_input:a:0:-0.6:1` |
+| Attack / `shield_nair` | 0 | `shield_until_block:90, opponent_input:a+x:0:0:1` |
+| Attack / `shield_grab` | 0 | `shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1` |
+| Attack / `shield_up_air` | 0 | `shield_until_block:90, opponent_input:a+x:0:1:1` |
+| Attack / `shield_fair` | 0 | `shield_until_block:90, opponent_input:a+x:1:0:1` |
+| Drop / `shield` | 0 | `shield:255` |
+| Drop / `down_tilt_shield` | 0 | `down_tilt:1, wait:30, shield:255` |
+| Drop / `drop_nair` | 0 | `short_hop_nair:4` |
+| Drop / `forward_air` | 0 | `face:opponent, short_hop_fair:1` |
+| Drop / `down_smash` | 0 | `face:opponent, down_smash:1` |
+
+Spacing, resource requirements, opponent steering, stage geometry and online
+input arrival still affect contact. There is no learned-delay compensation.
+Use the [diagnostic result card](../CALIBRATION_CARD.md),
+[execution/calibration](../FIGHTER_EXECUTION.md) and the
+[roster/data catalog notes](../NON_DLC_ROSTER.md)
+before treating an option as reliable in a particular setup.
+
+## Source and edits
+
+Paths are relative to the repository root:
+
+- Registration: `crates/kirby_assist_core/src/fighters/fighter_profiles.rs`.
+- Stats and move frames: `data/Ultimate_stats.json`.
+- Recipes and overrides: `deployment/ultimate/kirby_assist/fighters/<fighter>.txt`; universal settings/templates: `deployment/ultimate/kirby_assist/sequences.txt`.
+- Shared input runner: `crates/kirby_assist_core/src/policies/ledge_trap.rs`.
+
+[Adding a response](../FIGHTER_CONFIGS.md) explains registration and shared helpers.
+Recipes are saved file configuration. External file edits need a Smash restart;
+Rust/reference-data changes need a separately authorized build/install.
+Refresh this reference with `python3 tools/update_fighter_docs.py` after catalog edits.
+
+<!-- END GENERATED FIGHTER REFERENCE -->

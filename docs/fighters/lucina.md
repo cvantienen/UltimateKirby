@@ -15,13 +15,13 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | Nair; Dtilt; **Ftilt**; Utilt; Sword f-smash |
-| Jump | Nair; Fair; **Uair**; Ground Utilt |
-| Roll | **Dsmash**; Grab; Dtilt |
-| Attack | Shield > Nair; Shield > range-checked grab; **Shield Up-B**; Shield > Uair; Shield > Fair |
-| Drop | **Shield**; Dtilt > Shield; Near Nair; Near Fair; Near Dair; Low smash (spacing) |
+| Neutral | Nair; Down tilt; **Forward tilt**; F-tilt; f-smash |
+| Jump | N-air; F-air; **F-TILT**; F SMASH |
+| Roll | **Down smash**; Grab; F SMASH |
+| Attack | Shield > f Tilt; Shield > range-checked grab; **Shield > Up-B**; Shield > Uair; Shield > Fair |
+| Drop | **Shield**; Down tilt > shield; Hop nair (near); Hop fair (near); Hop dair (near); Low smash (spacing) |
 
-These are the compact UI names; SH means short hop and Msl means missile.
+These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
 Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 
@@ -102,19 +102,19 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 
 | Situation / ID | Start delay | Ordered inputs |
 | --- | --- | --- |
-| Neutral / `nair` | 13 | `opponent_input:a+x:0:0:1` |
-| Neutral / `down_tilt` | 26 | `opponent_input:a:0:-0.6:1` |
-| Neutral / `forward_tilt` | 24 | `opponent_input:a:0.6:0:1` |
-| Neutral / `up_tilt` | 25 | `opponent_input:a:0:0.6:1` |
-| Neutral / `forward_smash` | 0 | `opponent_input:a:1:0:25, release:1` |
-| Jump / `nair` | 5 | `opponent_input:a+x:0:0:1` |
-| Jump / `forward_air` | 4 | `opponent_input:a+x:1:0:1` |
-| Jump / `up_air` | 4 | `opponent_input:a+x:0:1:1` |
-| Jump / `up_tilt` | 5 | `opponent_input:a:0:0.6:1` |
-| Roll / `down_smash` | 0 | `if_facing_opponent, opponent_input:a:0:-1:29, release:1, else_facing, opponent_input:a:0:-1:13, release:1, end_facing` |
-| Roll / `grab` | 25 | `check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1` |
-| Roll / `down_tilt` | 24 | `opponent_input:a:0:-0.6:1` |
-| Attack / `shield_nair` | 0 | `shield_until_block:90, opponent_input:a+x:0:0:1` |
+| Neutral / `nair` | 10 | `opponent_input:a+x:0:0:1` |
+| Neutral / `down_tilt` | 0 | `opponent_input:b:0:0:26` |
+| Neutral / `forward_tilt` | 22 | `opponent_input:a:0.6:0:1` |
+| Neutral / `up_tilt` | 20 | `opponent_input:a:0.6:0:1` |
+| Neutral / `forward_smash` | 0 | `opponent_input:a:1:0:22, release:1` |
+| Jump / `nair` | 0 | `opponent_input:a+x:0:0:1` |
+| Jump / `forward_air` | 0 | `opponent_input:a+x:1:0:1` |
+| Jump / `up_air` | 0 | `opponent_input:a:0.6:0:1` |
+| Jump / `f_smash` | 0 | `opponent_input:a:1:0:1` |
+| Roll / `down_smash` | 0 | `drift:away_from_opponent:0.5:4, facing_input:a:0:-1:20` |
+| Roll / `grab` | 0 | `drift:away_from_opponent:0.5:8, range:fighter_range, input:r:0:0:1` |
+| Roll / `f_smash` | 0 | `drift:away_from_opponent:0.5:8, facing_input:a:1:0:15` |
+| Attack / `shield_nair` | 0 | `shield_until_block:90, opponent_input:a:0.6:0:1` |
 | Attack / `shield_grab` | 0 | `shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1` |
 | Attack / `shield_up_b` | 0 | `shield_until_block:90, input:b:0:1:1` |
 | Attack / `shield_up_air` | 0 | `shield_until_block:90, opponent_input:a+x:0:1:1` |

@@ -15,13 +15,13 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | Nair; **Dtilt**; Ftilt; SH Zair; Homing Msl; Super Msl; Cannon f-smash |
-| Jump | **Nair**; SH Zair; Flame fair; Uair; Homing Msl; Super Msl |
-| Roll | **Dsmash**; Grab; Move > zair; Homing (stay); Super (stay) |
-| Attack | Shield > Nair; Shield > range-checked grab; **Shield Up-B**; Shield > Zair; Shield > Fair; Shield > Uair |
-| Drop | **Shield**; Dtilt > Shield; Bomb (now); SH Zair; Homing Msl; Super Msl; Flame Fair (stay) |
+| Neutral | Nair; **Down tilt**; Forward tilt; Short-hop zair; Homing missile; Super missile; Cannon f-smash |
+| Jump | **Nair**; Short-hop zair; Flame fair; Up air; Homing missile; Super missile |
+| Roll | **Down smash**; Grab; Move > zair; Homing (stay back); Super (stay back) |
+| Attack | Shield > Nair; Shield > range-checked grab; **Shield > Up-B**; Shield > Zair; Shield > Fair; Shield > Uair |
+| Drop | **Shield**; Down tilt > shield; Immediate down-B; Short-hop zair; Homing missile; Super missile; Flame fair (stay back) |
 
-These are the compact UI names; SH means short hop and Msl means missile.
+These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
 Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 

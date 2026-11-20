@@ -6,7 +6,7 @@ name = "kirby_assist"
 # Required by the source syntax, dependency imports, and array iteration rules.
 edition = "2021"
 # Single release-version source: logger and release builder read this value.
-version = "2.8.6"
+version = "2.8.7"
 description = """ menu update for preformance; simplified
 chatgpt fixes
 Allows leading Wait actions to hold a true neutral standstill before any supported recipe, including short_hop_nair, instead of rejecting Wait plus paired Nair. Adds paired short_hop_fair/bair/uair/dair actions that send Jump+Attack+direction together, with one jump pulse and native acceptance/retries. Preserves the explicit after-hop Nair Attack delay and separate C-stick aerial path. Uses bounded native-progress pause clocks with hitstop/duplicate protection and idle-loop handling, cleared on plan reset; no new rays, scans or file reads in play.
@@ -29,7 +29,7 @@ Removes inactive ledge-policy compatibility fields and no-op methods while conti
 
 Hardens menu option changes against stale recipe publication: clears pending output/evaluation state, rejects observations from an older settings epoch and removes inherited file overrides before resolving selected IDs. Filters file choice IDs starting with test and labels containing [TEST] from silent startup catalogs only. Enlarges the top-menu font and gaps, keeping the selected setting in view with hidden horizontal scrolling when needed.
 
-Restores the previous sequences.txt layout at the user's request, undoing the all-character heading reorganization while preserving every existing recipe, timing edit and dynamic file-option feature.
+Restores the previous sequences.txt layout at the user's request, undoing the all-character heading reorganizat`ion while preserving every existing recipe, timing edit and dynamic file-option feature.
 
 Restores recipe jump timing so one-frame jumps request short-hop handling while four-frame holds remain full hops, and preserves horizontal drift through grounded grab handoff so drift-then-grab recipes do not lose their grab input.
 
@@ -1743,6 +1743,8 @@ Adds a Workbench breakdown operation that splits one combined sequences.txt into
 Removes the boilerplate trailing comment block from every deployment/ultimate/kirby_assist/fighters/*.txt source, including the stale headings that named a different fighter than the file they appeared in. Sequence data, section order and uploaded bytes are unchanged; the removed lines were repo-only comments already stripped before upload.
 
 Rust cleanup pass over src/. Removes the dead sample_out_of_shield sampler and the unread TechAssessment state field, which also drops two per-observation native transition reads that only fed it. Collapses the fifteen repetitive cached native accessors in src/live/frame.rs into one cached_reads! macro, and reduces src/live/attack_sources.rs to the Skyline hook over the portable tracker now owned by kirby_assist_core. No input, physics or sequence behavior changes.
+
+Documentation refresh for the cleanup pass. Repairs stale source references in CODE_MAP, the core DEVELOPER_GUIDE and the Kirby fighter page, corrects the FrameReads cache description to sixteen identity slots and documents the cached_reads! extension path. Repairs tools/update_fighter_docs.py, which had crashed since the compact menu-name aliases were removed, and regenerates all 90 fighter pages plus the overview so saved choices read as authored; LEDGE_MENU no longer documents the removed abbreviations. Docs and host tooling only; no runtime, input or sequence behavior changes.
 """
 
 

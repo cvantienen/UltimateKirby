@@ -28,33 +28,36 @@ all five file-authored lists, selected defaults, input schedules and canonical f
 
 | Fighter | Fighter | Fighter |
 | --- | --- | --- |
-| [Bayonetta](fighters/bayonetta.md) | [Bowser](fighters/bowser.md) | [Bowser Jr.](fighters/bowser_jr.md) |
-| [Captain Falcon](fighters/captain.md) | [Charizard](fighters/charizard.md) | [Chrom](fighters/chrom.md) |
-| [Cloud](fighters/cloud.md) | [Corrin](fighters/corrin.md) | [Daisy](fighters/daisy.md) |
-| [Dark Pit](fighters/dark_pit.md) | [Dark Samus](fighters/dark_samus.md) | [Diddy Kong](fighters/diddy_kong.md) |
-| [Donkey Kong](fighters/donkey.md) | [Dr. Mario](fighters/dr_mario.md) | [Duck Hunt](fighters/duck_hunt.md) |
-| [Falco](fighters/falco.md) | [Fox](fighters/fox.md) | [Ganondorf](fighters/ganondorf.md) |
-| [Greninja](fighters/greninja.md) | [Ice Climbers (Nana)](fighters/ice_climbers_nana.md) | [Ice Climbers (Popo)](fighters/ice_climbers.md) |
+| [Banjo And Kazooie](fighters/banjo_and_kazooie.md) | [Bayonetta](fighters/bayonetta.md) | [Bowser](fighters/bowser.md) |
+| [Bowser Jr.](fighters/bowser_jr.md) | [Byleth](fighters/byleth.md) | [Captain Falcon](fighters/captain.md) |
+| [Charizard](fighters/charizard.md) | [Chrom](fighters/chrom.md) | [Cloud](fighters/cloud.md) |
+| [Corrin](fighters/corrin.md) | [Daisy](fighters/daisy.md) | [Dark Pit](fighters/dark_pit.md) |
+| [Dark Samus](fighters/dark_samus.md) | [Diddy Kong](fighters/diddy_kong.md) | [Donkey Kong](fighters/donkey.md) |
+| [Dr. Mario](fighters/dr_mario.md) | [Duck Hunt](fighters/duck_hunt.md) | [Falco](fighters/falco.md) |
+| [Fox](fighters/fox.md) | [Ganondorf](fighters/ganondorf.md) | [Greninja](fighters/greninja.md) |
+| [Hero](fighters/hero.md) | [Ice Climbers (Nana)](fighters/ice_climbers_nana.md) | [Ice Climbers (Popo)](fighters/ice_climbers.md) |
 | [Ike](fighters/ike.md) | [Incineroar](fighters/incineroar.md) | [Inkling](fighters/inkling.md) |
 | [Isabelle](fighters/isabelle.md) | [Ivysaur](fighters/ivysaur.md) | [Jigglypuff](fighters/jigglypuff.md) |
-| [Ken](fighters/ken.md) | [King Dedede](fighters/king_dedede.md) | [King K. Rool](fighters/krool.md) |
-| [Kirby](fighters/kirby.md) | [Link](fighters/link.md) | [Little Mac](fighters/littlemac.md) |
-| [Lucario](fighters/lucario.md) | [Lucas](fighters/lucas.md) | [Lucina](fighters/lucina.md) |
-| [Luigi](fighters/luigi.md) | [Mario](fighters/mario.md) | [Marth](fighters/marth.md) |
-| [Mega Man](fighters/mega_man.md) | [Meta Knight](fighters/meta_knight.md) | [Mewtwo](fighters/mewtwo.md) |
-| [Mii Brawler](fighters/mii_brawler.md) | [Mii Gunner](fighters/mii_gunner.md) | [Mii Swordfighter](fighters/mii_swordfighter.md) |
+| [Joker](fighters/joker.md) | [Kazuya](fighters/kazuya.md) | [Ken](fighters/ken.md) |
+| [King Dedede](fighters/king_dedede.md) | [King K. Rool](fighters/krool.md) | [Kirby](fighters/kirby.md) |
+| [Link](fighters/link.md) | [Little Mac](fighters/littlemac.md) | [Lucario](fighters/lucario.md) |
+| [Lucas](fighters/lucas.md) | [Lucina](fighters/lucina.md) | [Luigi](fighters/luigi.md) |
+| [Mario](fighters/mario.md) | [Marth](fighters/marth.md) | [Mega Man](fighters/mega_man.md) |
+| [Meta Knight](fighters/meta_knight.md) | [Mewtwo](fighters/mewtwo.md) | [Mii Brawler](fighters/mii_brawler.md) |
+| [Mii Gunner](fighters/mii_gunner.md) | [Mii Swordfighter](fighters/mii_swordfighter.md) | [Min Min](fighters/min_min.md) |
 | [Mr. Game & Watch](fighters/mr_game_and_watch.md) | [Mythra](fighters/mythra.md) | [Ness](fighters/ness.md) |
 | [Olimar](fighters/olimar.md) | [Pac-Man](fighters/pacman.md) | [Palutena](fighters/palutena.md) |
 | [Peach](fighters/peach.md) | [Pichu](fighters/pichu.md) | [Pikachu](fighters/pikachu.md) |
-| [Pit](fighters/pit.md) | [Pyra](fighters/pyra.md) | [R.O.B.](fighters/rob.md) |
-| [Richter](fighters/richter.md) | [Ridley](fighters/ridley.md) | [Robin](fighters/robin.md) |
-| [Rosalina & Luma](fighters/rosalina_and_luma.md) | [Roy](fighters/roy.md) | [Ryu](fighters/ryu.md) |
-| [Samus](fighters/samus.md) | [Sheik](fighters/sheik.md) | [Shulk](fighters/shulk.md) |
-| [Simon](fighters/simon.md) | [Snake](fighters/snake.md) | [Sonic](fighters/sonic.md) |
-| [Squirtle](fighters/squirtle.md) | [Toon Link](fighters/toon_link.md) | [Villager](fighters/villager.md) |
-| [Wario](fighters/wario.md) | [Wii Fit Trainer](fighters/wii_fit_trainer.md) | [Wolf](fighters/wolf.md) |
-| [Yoshi](fighters/yoshi.md) | [Young Link](fighters/young_link.md) | [Zelda](fighters/zelda.md) |
-| [Zero Suit Samus](fighters/zero_suit_samus.md) |  |  |
+| [Piranha Plant](fighters/piranha_plant.md) | [Pit](fighters/pit.md) | [Pyra](fighters/pyra.md) |
+| [R.O.B.](fighters/rob.md) | [Richter](fighters/richter.md) | [Ridley](fighters/ridley.md) |
+| [Robin](fighters/robin.md) | [Rosalina & Luma](fighters/rosalina_and_luma.md) | [Roy](fighters/roy.md) |
+| [Ryu](fighters/ryu.md) | [Samus](fighters/samus.md) | [Sephiroth](fighters/sephiroth.md) |
+| [Sheik](fighters/sheik.md) | [Shulk](fighters/shulk.md) | [Simon](fighters/simon.md) |
+| [Snake](fighters/snake.md) | [Sonic](fighters/sonic.md) | [Sora](fighters/sora.md) |
+| [Squirtle](fighters/squirtle.md) | [Steve](fighters/steve.md) | [Terry](fighters/terry.md) |
+| [Toon Link](fighters/toon_link.md) | [Villager](fighters/villager.md) | [Wario](fighters/wario.md) |
+| [Wii Fit Trainer](fighters/wii_fit_trainer.md) | [Wolf](fighters/wolf.md) | [Yoshi](fighters/yoshi.md) |
+| [Young Link](fighters/young_link.md) | [Zelda](fighters/zelda.md) | [Zero Suit Samus](fighters/zero_suit_samus.md) |
 
 <!-- END INDIVIDUAL FIGHTER LINKS -->
 

@@ -15,13 +15,13 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | **Dtilt**; Utilt; Arm cannon (travel) |
-| Jump | **Fair**; Ground Utilt |
-| Roll | **Dsmash**; Grab; Dtilt |
+| Neutral | **Down tilt**; Up tilt; Arm cannon (travel) |
+| Jump | **Forward air**; Grounded up tilt |
+| Roll | **Down smash**; Grab; Down tilt |
 | Attack | **Shield > Up-smash**; Shield > Fair |
-| Drop | **Shield**; Dtilt > Shield; Near Fair |
+| Drop | **Shield**; Down tilt > shield; Hop fair (near) |
 
-These are the compact UI names; SH means short hop and Msl means missile.
+These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
 Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 

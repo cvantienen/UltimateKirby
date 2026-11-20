@@ -72,17 +72,17 @@ asset loading, animation or live gameplay read was added; actual rendering cost
 still needs device measurement. The diagnostic result card retains its own dark
 backdrop for detailed calibration text.
 
-Common move labels are abbreviated: `Dtilt`, `Ftilt`, `Utilt`, `Dsmash`, `Fsmash`,
-`Fair`, `Uair`, `SH Zair` (short-hop zair), and `Homing Msl` (homing missile).
-`Shield Nair` means shield then nair; `Dtilt > Shield` keeps the opposite order.
-Near/stay/resource/risky recipe labels retain their meaning. Display-only
-aliases are resolved when the cached snapshot
-changes; move IDs, functions, selection order and timing are unaffected.
+Move labels are shown exactly as authored in the fighter's sequence file, for
+example `Down tilt`, `Forward smash` and `Shield > Up-B`. The former compact
+display aliases (`Dtilt`, `SH Zair`, `Homing Msl` and similar) were removed, so
+a name now reads the same in the menu, in the sequence file and in these docs.
+Renaming a choice therefore changes only its label; move IDs, functions,
+selection order and timing are unaffected.
 
-Move names show the compact saved action without appended coverage estimates,
-for example `Nair`, `Dtilt` and `SH Zair`. The old spacing-hint helper remains
-available in source but is no longer called by the menu. This display change
-does not alter response timing, selection order or input behavior.
+Move names show the saved action without appended coverage estimates. The old
+spacing-hint helper remains available in source but is no longer called by the
+menu. This display behavior does not alter response timing, selection order or
+input behavior.
 
 The five ledge lists remain fighter-specific. Onstage
 [roll reactions](ROLL_READ.md) use saved sequences and do not change the ledge

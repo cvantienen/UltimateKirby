@@ -22,13 +22,13 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | **Nair**; Rapid Jab; Dsmash; Stone; Inhale; Bair; Cross-up grab; NAIR LATE; Immediate Nair; Immediate Nair Max Drift; Dash Attack; [TEST] Face ledge > walk 5 > grab; [TEST] Face foe > run 10 > grab; [TEST] Full-hop Bair + drift; [TEST] Short-hop Nair + delay/drift; [TEST] Turnaround short-hop Bair; [TEST] Grab (verify profile range); [TEST] Grab (ignore range); [TEST] Grab (verify 20 units); [TEST] Grounded down smash; [TEST] Grounded down special |
+| Neutral | **Nair**; Rapid Jab; Down smash; Down-B / Stone; Inhale; Bair; Cross-up grab; NAIR LATE; Immediate Nair; Immediate Nair Max Drift; Dash Attack; [TEST] Face ledge > walk 5 > grab; [TEST] Face foe > run 10 > grab; [TEST] Full-hop Bair + drift; [TEST] Short-hop Nair + delay/drift; [TEST] Turnaround short-hop Bair; [TEST] Grab (verify profile range); [TEST] Grab (ignore range); [TEST] Grab (verify 20 units); [TEST] Grounded down smash; [TEST] Grounded down special |
 | Jump | **Nair**; Inhale; MAX NAIR; HALF NAIR |
-| Roll | **Dsmash**; Grab; Dash Attack |
-| Attack | **Grab/rear Nair**; Grab/rear Guard |
-| Drop | **Shield**; Dtilt > Shield; SH Dair; jump UP B; UP B |
+| Roll | **Down smash**; Grab; Dash Attack |
+| Attack | **Grab / rear nair**; Grab / rear shield |
+| Drop | **Shield**; Down tilt > shield; Short-hop dair; jump UP B; UP B |
 
-These are the compact UI names; SH means short hop and Msl means missile.
+These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
 Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 
@@ -218,7 +218,9 @@ sequence file; reference facts remain in the canonical
 Jump nair also opts into the shared movement helper while its existing timing
 checks are waiting. Immediate jump cues still launch immediately, leaving no
 grounded walking time. Horizontal digital flick aliases are suppressed during
-these walk preparations; other response movement remains independently configured. Shared movement lives in `fighters/common.rs`.
+these walk preparations; other response movement remains independently configured.
+Shared ledge movement is now part of the file-authored timeline in
+`crates/kirby_assist_core/src/policies/ledge_trap/file_timeline.rs`.
 See the
 [fighter-specific sequence example](../FIGHTER_EXECUTION.md#initial-and-per-action-delays).
 

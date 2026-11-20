@@ -15,13 +15,13 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | Nair; **Dtilt**; Ftilt; Fsmash |
-| Jump | Nair; Fair; **Ground Utilt** |
-| Roll | **Dsmash**; Grab; Dtilt |
+| Neutral | Nair; **Down tilt**; Forward tilt; Forward smash |
+| Jump | Nair; Forward air; **Grounded up tilt** |
+| Roll | **Down smash**; Grab; Down tilt |
 | Attack | **Shield > Nair**; Shield > range-checked grab; Shield > Uair; Shield > Fair |
-| Drop | **Shield**; Dtilt > Shield; Near Nair; Near Fair; Low smash (spacing) |
+| Drop | **Shield**; Down tilt > shield; Hop nair (near); Hop fair (near); Low smash (spacing) |
 
-These are the compact UI names; SH means short hop and Msl means missile.
+These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
 Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 
@@ -102,14 +102,14 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 
 | Situation / ID | Start delay | Ordered inputs |
 | --- | --- | --- |
-| Neutral / `nair` | 15 | `opponent_input:a+x:0:0:1` |
-| Neutral / `down_tilt` | 26 | `opponent_input:a:0:-0.6:1` |
-| Neutral / `forward_tilt` | 21 | `opponent_input:a:0.6:0:1` |
-| Neutral / `forward_smash` | 0 | `opponent_input:a:1:0:25, release:1` |
+| Neutral / `nair` | 12 | `opponent_input:a+x:0:0:1` |
+| Neutral / `down_tilt` | 25 | `opponent_input:a:0:-0.6:1` |
+| Neutral / `forward_tilt` | 20 | `opponent_input:a:0.6:0:1` |
+| Neutral / `forward_smash` | 0 | `opponent_input:a:1:0:21, release:1` |
 | Jump / `nair` | 0 | `opponent_input:a+x:0:0:1` |
 | Jump / `forward_air` | 0 | `opponent_input:a+x:1:0:1` |
 | Jump / `up_tilt` | 0 | `opponent_input:a:0:0.6:1` |
-| Roll / `down_smash` | 0 | `opponent_input:a:0:-1:22, release:1` |
+| Roll / `down_smash` | 0 | `opponent_input:a:0:-1:4, release:1` |
 | Roll / `grab` | 24 | `check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1` |
 | Roll / `down_tilt` | 24 | `opponent_input:a:0:-0.6:1` |
 | Attack / `shield_nair` | 0 | `shield_until_block:90, opponent_input:a+x:0:0:1` |

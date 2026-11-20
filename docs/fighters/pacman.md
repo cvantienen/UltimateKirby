@@ -15,13 +15,13 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | Nair; Dtilt; **Ftilt**; Ghost f-smash; Fruit (stored) |
-| Jump | **Nair**; Uair; Fair; Fruit (stored) |
+| Neutral | Nair; Down tilt; **Forward tilt**; Ghost f-smash; Fruit (stored) |
+| Jump | **Nair**; Up air; Forward air; Fruit (stored) |
 | Roll | **Lingering ghosts**; Long grab |
-| Attack | **Shield > Nair**; Shield > range-checked grab; Shield Up-B |
-| Drop | **Shield**; Dtilt > Shield; SH Bite; Low ghosts (spacing) |
+| Attack | **Shield > Nair**; Shield > range-checked grab; Shield > Up-B |
+| Drop | **Shield**; Down tilt > shield; Short-hop bite; Low ghosts (spacing) |
 
-These are the compact UI names; SH means short hop and Msl means missile.
+These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
 Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 

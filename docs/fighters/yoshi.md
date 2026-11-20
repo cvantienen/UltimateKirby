@@ -40,10 +40,10 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 | Neutral | **Nair**; Nair2; Fsmash |
 | Jump | **Nair (instant nair, max drift)**; Fw air; Meteor fair (spacing); SHNAIR 1/2 DRIFT; SHNAIR MAX DRIFT; runs SHNAIR |
 | Roll | **Tongue grab**; grab shuffle |
-| Attack | Shield Nair; **Grab/rear Nair** |
-| Drop | **Shield**; Dtilt > Shield; D AIR; Fw AIR |
+| Attack | Shield > nair; **Grab / rear nair** |
+| Drop | **Shield**; Down tilt > shield; D AIR; Fw AIR |
 
-These are the compact UI names; SH means short hop and Msl means missile.
+These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
 Selecting a choice never changes native moves, hitboxes, physics or animation speed.
 
@@ -122,7 +122,7 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 
 | Situation / ID | Start delay | Ordered inputs |
 | --- | --- | --- |
-| Neutral / `nair_ledge` | 0 | `drift:opponent:0.1:25, facing_input:a+x:0:0:4, drift:opponent:0.5:1` |
+| Neutral / `nair_ledge` | 0 | `opponent_input:x:0:0:1, drift_to_opponent:0.4:10:10, wait:8, facing_input:a:0:0:4, wait:10, facing_input:none:0:-1:4` |
 | Neutral / `nair_oppenent` | 0 | `facing_input:x:0:0:1, drift:away_from_opponent:0.61:4, facing_input:a:0:0:2, wait:1, drift:opponent:1:10, wait:3, facing_input:none:0:-1:4` |
 | Neutral / `nair_v2` | 0 | `facing_input:a:0:0:19` |
 | Jump / `nair` | 0 | `facing_input:a+x:0.35:0:4, drift:opponent:1:20` |
@@ -131,7 +131,7 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 | Jump / `nair_fast` | 0 | `short_hop_nair, drift:opponent:0.50:10` |
 | Jump / `nair_fas-2` | 0 | `short_hop, nair, drift:opponent:1:10` |
 | Jump / `nair_fas-3` | 0 | `drift:ledge:100%:4, short_hop_nair, drift:opponent:1:5` |
-| Roll / `grab` | 0 | `drift:away_from_opponent:0.4:20, wait:10, range:30, facing_input:r:0:0:4` |
+| Roll / `grab` | 0 | `drift:away_from_opponent:0.61:10, wait:8, range:30, facing_input:r:0:0:4` |
 | Roll / `grab_shuffle` | 0 | `wait:1, face:away, wait:1, face:opponent, walk:opponent:10:0.4, grab:fighter_range` |
 | Attack / `shield_nair` | 0 | `shield_until_block:90, short_hop_nair:4` |
 | Attack / `shield_grab` | 0 | `shield_until_block:90, facing_input:r:0:0:4` |

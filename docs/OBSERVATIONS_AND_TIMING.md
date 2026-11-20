@@ -3,7 +3,8 @@
 The live adapter creates one `FrameReads` inside each validated local-fighter
 observation. All assistance policies share this instance. It lazily copies
 status, situation, motion/frame/rate, position, total velocity, facing, team,
-stop, previous-status, animation-end and fighter-kind facts into eight fixed identity slots.
+stop, previous-status, animation-end, capture-link and fighter-kind facts into
+sixteen fixed identity slots.
 Repeated field reads reuse their first value. A last-identity cursor avoids
 rescanning the slot table for consecutive fields of the same fighter. No heap allocation, new hook,
 worker, network activity or eager full-roster read is added. Unexpected extra
@@ -98,6 +99,13 @@ necessary to measure processing cost and actual online input acceptance.
 
 1. Pass the current `&FrameReads` to new native observers, rather than creating
    an independent cache. Reacquire and validate accessors as usual.
+   To cache a new native fact, add a `Field` variant in
+   `crates/kirby_assist_core/src/shared/observations.rs` (keeping `Kind` last,
+   because `FIELDS` sizes the array from its index) and one line to the
+   `cached_reads!` block in `src/live/frame.rs`. The macro generates the
+   read-through accessor, so a field and its `Fact` variant cannot drift apart.
+   Reads needing extra arguments or their own cell, such as `ground_support`,
+   `ground_brake`, `damage_launch` and `previous_status`, stay hand-written.
 2. Keep readiness/contact checks live; publish copied portable contexts.
 3. Use `motion_progress` / `motion_elapsed` for motion-relative time and define
    stopped, initial, transition and rewind behavior explicitly.
