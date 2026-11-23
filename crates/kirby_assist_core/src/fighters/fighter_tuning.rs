@@ -42,7 +42,7 @@ mod schema {
     //! The index order is shared by saved configuration, menu rendering, and
     //! runtime policy values. Keep each key, label, and hint at the same index.
     /// Number of stable per-fighter tuning fields.
-    pub const COUNT: usize = 54;
+    pub const COUNT: usize = 60;
     /// Persistent configuration keys in stable tuning-field order.
     pub const KEYS: [&str; COUNT] = [
         "walk_strength",
@@ -99,6 +99,12 @@ mod schema {
         "tilt_turn_down",
         "tilt_turn_forward",
         "tilt_turn_up",
+        "counter_default",
+        "counter_startup",
+        "counter_margin",
+        "counter_half_width",
+        "counter_height",
+        "counter_half_depth",
     ];
 
     /// Menu labels aligned with the stable tuning-field order.
@@ -157,6 +163,12 @@ mod schema {
         "Tilt face: down",
         "Tilt face: forward",
         "Tilt face: up",
+        "Auto-counter at startup",
+        "Counter: startup frames",
+        "Counter: early margin",
+        "Counter: body half-width",
+        "Counter: body height",
+        "Counter: body half-depth",
     ];
 
     /// Player-facing behavior descriptions aligned with each tuning field.
@@ -215,6 +227,12 @@ mod schema {
         "Prepare down tilt toward the opponent. Kirby and Yoshi default ON.",
         "Aim physical forward C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.",
         "Aim physical up C-stick tilts toward the opponent. Requires Tilt Attack C-stick mapping.",
+        "Explicit fighter counter configuration; only verified down-special counters are supported.",
+        "Frames before the counter becomes active; tune to the fighter's native move startup.",
+        "Additional frames ahead of predicted melee contact to begin the counter.",
+        "Estimated horizontal body half-width for active melee hitbox prediction.",
+        "Estimated body height above root for active melee hitbox prediction.",
+        "Estimated body half-depth for active melee hitbox prediction.",
     ];
 
     /// Stable tuning-array index for tilt turn down.
@@ -223,6 +241,18 @@ mod schema {
     pub const TILT_TURN_FORWARD: usize = 52;
     /// Stable tuning-array index for tilt turn up.
     pub const TILT_TURN_UP: usize = 53;
+    /// Explicit counter setup flag.
+    pub const COUNTER_DEFAULT: usize = 54;
+    /// Counter native startup estimate.
+    pub const COUNTER_STARTUP: usize = 55;
+    /// Early activation margin.
+    pub const COUNTER_MARGIN: usize = 56;
+    /// Body half-width for melee prediction.
+    pub const COUNTER_HALF_WIDTH: usize = 57;
+    /// Body height for melee prediction.
+    pub const COUNTER_HEIGHT: usize = 58;
+    /// Body half-depth for melee prediction.
+    pub const COUNTER_HALF_DEPTH: usize = 59;
     /// Stable tuning-array index for reflect default.
     pub const REFLECT_DEFAULT: usize = 44;
     /// Stable tuning-array index for reflect startup.
@@ -393,6 +423,11 @@ const DEFAULTS: [f32; COUNT] = {
     d[REFLECT_HALF_WIDTH] = DEFAULT_REFLECT_HALF_WIDTH;
     d[REFLECT_HEIGHT] = DEFAULT_REFLECT_HEIGHT;
     d[REFLECT_HALF_DEPTH] = DEFAULT_REFLECT_HALF_DEPTH;
+    d[COUNTER_STARTUP] = 5.;
+    d[COUNTER_MARGIN] = 2.;
+    d[COUNTER_HALF_WIDTH] = 5.;
+    d[COUNTER_HEIGHT] = 16.;
+    d[COUNTER_HALF_DEPTH] = 5.;
     d
 };
 
@@ -453,6 +488,8 @@ impl Tuning {
                 | REFLECT_STARTUP
                 | REFLECT_MARGIN
                 | REFLECT_MAX_HOLD
+                | COUNTER_STARTUP
+                | COUNTER_MARGIN
         )
     }
     /// Menu rows shown for this fighter: reflect rows need a supported reflector,
@@ -460,6 +497,7 @@ impl Tuning {
     pub fn visible(kind: i32, i: usize) -> bool {
         match i {
             REFLECT_DEFAULT..=REFLECT_HALF_DEPTH => crate::projectile_reflect::supports(kind),
+            COUNTER_DEFAULT..=COUNTER_HALF_DEPTH => crate::auto_counter::supports(kind),
             PUNISH_DOWN_REACH..=ROLL_GRAB_WATCH => false,
             CROUCH_RANGE..=CROUCH_HEIGHT => kind == crate::fighter_kinds::KIRBY,
             TILT_TURN_DOWN..=TILT_TURN_UP => matches!(
@@ -475,6 +513,7 @@ impl Tuning {
     pub fn is_bool(i: usize) -> bool {
         (MANUAL_SPACING..=OUT_OF_SHIELD_DEFAULT).contains(&i)
             || i == REFLECT_DEFAULT
+            || i == COUNTER_DEFAULT
             || (TILT_TURN_DOWN..=TILT_TURN_UP).contains(&i)
     }
     /// Resolves which physical C-stick tilts should face the opponent.
@@ -549,6 +588,10 @@ impl Tuning {
             REFLECT_STARTUP => (6., 30., 1.),
             REFLECT_MARGIN => (0., 8., 1.),
             REFLECT_MAX_HOLD => (6., 120., 1.),
+            COUNTER_STARTUP => (1., 30., 1.),
+            COUNTER_MARGIN => (0., 10., 1.),
+            COUNTER_HALF_WIDTH | COUNTER_HALF_DEPTH => (1., 30., 0.5),
+            COUNTER_HEIGHT => (1., 60., 0.5),
             GRAB_DODGE_LOOKAHEAD => (
                 MIN_GRAB_DODGE_LOOKAHEAD_FRAMES,
                 MAX_GRAB_DODGE_LOOKAHEAD_FRAMES,

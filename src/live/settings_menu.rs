@@ -483,6 +483,14 @@ impl SettingsMenu {
         }
         kirby_assist_core::projectile_reflect::Config::for_fighter(kind, selection.tuning)
     }
+    /// Builds an enabled counter from this fighter's saved settings.
+    pub fn counter_config(&self, kind: i32) -> Option<kirby_assist_core::auto_counter::Config> {
+        let selection = self.for_fighter(kind)?.live()?;
+        if !selection.auto_counter {
+            return None;
+        }
+        kirby_assist_core::auto_counter::Config::for_fighter(kind, selection.tuning)
+    }
     /// Returns configured dodge lookahead or the core default.
     pub fn dodge_lookahead(&self) -> f32 {
         self.current()
@@ -780,6 +788,7 @@ fn new_selection(
     s.grab_dodge = s.tuning.grab_dodge_default(grab_default);
     s.out_of_shield = s.tuning.oos_default();
     s.auto_reflect = s.tuning.0[kirby_assist_core::fighter_tuning::REFLECT_DEFAULT] == Some(1.);
+    s.auto_counter = s.tuning.0[kirby_assist_core::fighter_tuning::COUNTER_DEFAULT] == Some(1.);
     s.auto_tech = tech_default;
     s
 }

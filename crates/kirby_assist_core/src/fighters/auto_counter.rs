@@ -1,0 +1,291 @@
+//! Input-only counter policy for explicitly configured fighters.
+use crate::{
+    autopilot_guard::Hitbox,
+    fighter_tuning::{self as tuning, Tuning},
+    gameplay::ControllerOutput,
+    ledge_trap::SEQUENCE_BUTTONS,
+    native_input::MAPPER_B,
+    timing::{AnimationClock, AnimationSample},
+};
+
+/// Register verified down-special counter adapters here. Settings still opt in per fighter.
+pub fn supports(kind: i32) -> bool {
+    kind == crate::fighter_kinds::LUCINA
+}
+
+#[derive(Clone, Copy)]
+pub struct Config {
+    pub startup: f32,
+    pub margin: f32,
+    pub half_width: f32,
+    pub height: f32,
+    pub half_depth: f32,
+}
+impl Config {
+    pub fn for_fighter(kind: i32, values: Tuning) -> Option<Self> {
+        if !supports(kind) || values.0[tuning::COUNTER_DEFAULT].is_none() {
+            return None;
+        }
+        Some(Self {
+            startup: values.get(tuning::COUNTER_STARTUP),
+            margin: values.get(tuning::COUNTER_MARGIN),
+            half_width: values.get(tuning::COUNTER_HALF_WIDTH),
+            height: values.get(tuning::COUNTER_HEIGHT),
+            half_depth: values.get(tuning::COUNTER_HALF_DEPTH),
+        })
+    }
+    pub fn horizon(self) -> f32 {
+        self.startup + self.margin
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Threat {
+    pub id: u32,
+    pub motion: u64,
+    pub status: i32,
+    pub frame: f32,
+    pub in_frames: f32,
+}
+
+/// Only active, direct melee hitboxes are eligible. There is no assumed startup
+/// attack for a fighter without observable geometry.
+pub fn predict(
+    config: Config,
+    origin: [f32; 3],
+    velocity: [f32; 2],
+    id: u32,
+    motion: u64,
+    status: i32,
+    frame: f32,
+    hit: Hitbox,
+) -> Option<Threat> {
+    let values = origin
+        .iter()
+        .chain(velocity.iter())
+        .chain(hit.start.iter())
+        .chain(hit.end.iter())
+        .chain(hit.velocity.iter())
+        .chain([
+            &hit.radius,
+            &config.startup,
+            &config.margin,
+            &config.half_width,
+            &config.height,
+            &config.half_depth,
+        ]);
+    if !values.into_iter().all(|v| v.is_finite())
+        || !frame.is_finite()
+        || !(1.0..=30.0).contains(&config.startup)
+        || !(0.0..=10.0).contains(&config.margin)
+        || !(0.0..=40.0).contains(&config.horizon())
+        || config.half_width <= 0.0
+        || config.height <= 0.0
+        || config.half_depth <= 0.0
+        || hit.radius <= 0.0
+        || hit.radius > 100.0
+    {
+        return None;
+    }
+    let enter = crate::projectile_geometry::swept_capsule_aabb(
+        hit,
+        [
+            origin[0] - config.half_width,
+            origin[1],
+            origin[2] - config.half_depth,
+        ],
+        [
+            origin[0] + config.half_width,
+            origin[1] + config.height,
+            origin[2] + config.half_depth,
+        ],
+        velocity,
+        config.horizon(),
+    )?;
+    Some(Threat {
+        id,
+        motion,
+        status,
+        frame,
+        in_frames: enter,
+    })
+}
+
+pub fn ready(status: i32, situation: i32) -> bool {
+    match situation {
+        crate::native_states::situation::GROUND => matches!(status,
+            crate::native_states::status::WAIT..=crate::native_states::status::TURN_RUN_BRAKE
+            | crate::native_states::status::SQUAT..=crate::native_states::status::LANDING_LIGHT
+            | crate::native_states::status::OTTOTTO | crate::native_states::status::OTTOTTO_WAIT),
+        crate::native_states::situation::AIR => crate::native_states::jump_or_fall(status),
+        _ => false,
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Context {
+    pub kind: i32,
+    pub situation: i32,
+    pub can_special: bool,
+    pub stopped: bool,
+    pub animation: AnimationSample,
+}
+
+/// One delivered pulse per attacker motion; failed mapper deliveries may retry
+/// while the observed threat remains valid.
+pub struct Counter {
+    clock: AnimationClock,
+    target: Option<(u32, u64)>,
+    began: i64,
+    last: Option<(u32, u64)>,
+    /// Final mapped counter delivery waits for native startup or a short deadline.
+    receipt: bool,
+    last_frame: f32,
+    last_status: i32,
+    last_motion: u64,
+    last_object: u32,
+    receipt_polls: u8,
+    last_poll: Option<i64>,
+}
+impl Counter {
+    pub const fn new() -> Self {
+        Self {
+            clock: AnimationClock::new(),
+            target: None,
+            began: 0,
+            last: None,
+            receipt: false,
+            last_frame: 0.0,
+            last_status: -1,
+            last_motion: 0,
+            last_object: 0,
+            receipt_polls: 0,
+            last_poll: None,
+        }
+    }
+    pub fn active(&self) -> bool {
+        self.target.is_some()
+    }
+    pub fn awaiting_receipt(&self) -> bool {
+        self.receipt
+    }
+    /// Discard a previously consumed attack after it ceases to be observable.
+    pub fn clear_stale_attack(&mut self) {
+        self.last = None;
+        self.last_object = 0;
+    }
+    pub fn cancel(&mut self) {
+        self.target = None;
+        self.receipt = false;
+        self.receipt_polls = 0;
+        self.last_poll = None;
+    }
+    /// Mapper-poll fallback for a frozen native animation during online delivery.
+    pub fn poll_receipt(&mut self, tick: i64) {
+        if self.receipt && self.last_poll != Some(tick) {
+            self.last_poll = Some(tick);
+            self.receipt_polls = self.receipt_polls.saturating_add(1);
+            if self.receipt_polls >= 24 {
+                self.cancel();
+            }
+        }
+    }
+    /// A completed special relinquishes ownership before the next mapper poll.
+    pub fn finished(&mut self, status: i32, frame: f32) -> bool {
+        if self.receipt
+            && status == crate::native_states::status::SPECIAL_LW
+            && frame.is_finite()
+            && frame >= 1.0
+        {
+            self.cancel();
+            return true;
+        }
+        false
+    }
+    /// Reset the attack key when the observed attacker starts a new animation.
+    pub fn observe_attacker(&mut self, threat: Threat) {
+        if self.last_object != threat.id
+            || self.last_motion != threat.motion
+            || self.last_status != threat.status
+            || threat.frame < self.last_frame
+        {
+            self.last = None;
+        }
+        self.last_object = threat.id;
+        self.last_motion = threat.motion;
+        self.last_status = threat.status;
+        self.last_frame = threat.frame;
+    }
+    pub fn mapped(&mut self) {
+        if let Some(target) = self.target {
+            self.last = Some(target);
+            self.receipt = true;
+        }
+    }
+    pub fn sample(
+        &mut self,
+        allowed: bool,
+        config: Option<Config>,
+        c: Context,
+        threat: Option<Threat>,
+    ) -> ControllerOutput {
+        let Some(config) = config.filter(|_| allowed && supports(c.kind)) else {
+            self.cancel();
+            return ControllerOutput::default();
+        };
+        if c.stopped {
+            return ControllerOutput::default();
+        }
+        let Some(now) = self.clock.observe(c.animation, false) else {
+            self.cancel();
+            return ControllerOutput::default();
+        };
+        if self.receipt {
+            if self.finished(c.animation.status, c.animation.frame)
+                || now.saturating_sub(self.began) > 12
+            {
+                self.cancel();
+            }
+            return ControllerOutput::default();
+        }
+        let Some(threat) = threat.filter(|t| t.in_frames.is_finite() && t.in_frames >= 0.0) else {
+            self.cancel();
+            self.clear_stale_attack();
+            return ControllerOutput::default();
+        };
+        self.observe_attacker(threat);
+        let key = (threat.id, threat.motion);
+        if self.target.is_some() && self.target != Some(key) {
+            self.cancel();
+        }
+        if self.target.is_none() {
+            if !ready(c.animation.status, c.situation)
+                || !c.can_special
+                || self.last == Some(key)
+                || !(config.startup..=config.horizon()).contains(&threat.in_frames)
+            {
+                return ControllerOutput::default();
+            }
+            self.target = Some(key);
+            self.began = now;
+        }
+        if now.saturating_sub(self.began) > 12
+            || !ready(c.animation.status, c.situation)
+            || !c.can_special
+        {
+            self.cancel();
+            return ControllerOutput::default();
+        }
+        ControllerOutput {
+            requested: MAPPER_B,
+            owned: SEQUENCE_BUTTONS,
+            stick: Some([0.0, -1.0]),
+            ..Default::default()
+        }
+    }
+}
+impl Default for Counter {
+    fn default() -> Self {
+        Self::new()
+    }
+}

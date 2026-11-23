@@ -276,6 +276,7 @@ fn row_value(
         }
         MenuRow::TiltTurn => selection.effective_mode(Mode::TiltTurn, selection.tilt_turn),
         MenuRow::AutoReflect => selection.auto_reflect,
+        MenuRow::AutoCounter => selection.auto_counter,
         MenuRow::OutOfShield => {
             selection.effective_mode(Mode::OutOfShield, selection.out_of_shield)
         }

@@ -43,6 +43,8 @@ pub mod action_owner {
         OutOfShield,
         /// `Reflect` option in the `Owner` Smash policy state.
         Reflect,
+        /// Configured melee counter.
+        Counter,
     }
 
     /// Select the base physical escape request for automatic special owners.
@@ -77,6 +79,7 @@ pub mod action_owner {
                 Self::Posture => 5,
                 Self::OutOfShield => 92,
                 Self::Reflect => 35,
+                Self::Counter => 36,
             }
         }
         /// Determines whether the `exclusive` condition holds.
@@ -260,6 +263,7 @@ pub mod action_owner {
                     | Owner::Trip
                     | Owner::Fair
                     | Owner::Reflect
+                    | Owner::Counter
             )
         }
         /// Determines whether the `automatic_active` condition holds.

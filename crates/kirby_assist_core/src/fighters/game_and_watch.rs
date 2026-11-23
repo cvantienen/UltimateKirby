@@ -279,6 +279,10 @@ impl Reflector {
     pub fn target(&self) -> Option<u32> {
         self.target.map(|key| key.id)
     }
+    /// Exact projectile attack generation currently reserved.
+    pub fn target_key(&self) -> Option<ProjectileKey> {
+        self.target
+    }
     /// Remembers the current projectile generation so it is not retried.
     fn remember_target(&mut self) {
         if let Some(id) = self
@@ -381,7 +385,7 @@ impl Reflector {
         }) else {
             return self.abort();
         };
-        if self.target.is_some() && self.target() != Some(threat.id) {
+        if self.target.is_some() && self.target != Some(threat.key()) {
             return self.abort();
         }
         let facing = threat.direction * c.facing > 0.;

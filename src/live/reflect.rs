@@ -20,7 +20,7 @@ pub(super) unsafe fn observe(
     own_id: u32,
     kind: i32,
     config: Option<Config>,
-    tracked: Option<u32>,
+    tracked: Option<policy::ProjectileKey>,
     allowed: bool,
 ) -> Option<(Config, Context, Option<Threat>)> {
     let config = config.filter(|_| allowed && policy::supports(kind))?;
@@ -101,6 +101,9 @@ pub(super) unsafe fn observe(
         // `attack_sources` admits only weapon and item IDs, so each snapshot
         // already satisfies the tracker category invariant.
         if id == own_id {
+            continue;
+        }
+        if tracked.is_some_and(|key| key.id == id && key != source) {
             continue;
         }
         if !game::is_active(id) {
@@ -216,7 +219,7 @@ pub(super) unsafe fn observe(
             );
             if let Some(mut threat) = candidate {
                 threat.generation = source.generation;
-                if tracked == Some(threat.id) {
+                if tracked == Some(source) {
                     best = Some(threat);
                     break 'sources;
                 }

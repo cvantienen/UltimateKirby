@@ -135,7 +135,7 @@ pub mod modes {
     use std::fmt::Write;
 
     /// `OWNER_COUNT` is a configuration value used by the Smash runtime.
-    const OWNER_COUNT: usize = 13;
+    const OWNER_COUNT: usize = 14;
     /// `REPORT_TEXT_CAPACITY_BYTES` is a configuration value used by the Smash runtime.
     const REPORT_TEXT_CAPACITY_BYTES: usize = 1200;
     /// Sets the lower bound for report interval ms.
@@ -210,6 +210,7 @@ pub mod modes {
         Owner::OutOfShield,
         Owner::GrabDodge,
         Owner::Reflect,
+        Owner::Counter,
     ];
     /// Tests whether the requested bit is set in the value.
     pub fn bit(owner: Owner) -> u32 {
@@ -220,6 +221,7 @@ pub mod modes {
         match owner {
             Owner::Safety => "Tech / mash / SDI / DI",
             Owner::Reflect => "Projectile reflect / absorb",
+            Owner::Counter => "Melee counter",
             Owner::GrabDodge => "Incoming grab dodge",
             Owner::OptionRead => "Configured dodge follow-up / recovery punish",
             Owner::Ledge => "Ledge trapping",
@@ -237,7 +239,8 @@ pub mod modes {
     pub fn purpose(owner: Owner) -> &'static str {
         match owner {
             Owner::OutOfShield => "Confirms shield contact, retains defense through stun/multihits and selects the fighter-specific in-range response; yields to ledge responses.",
-            Owner::Reflect => "Uses the configured native reflector for an incoming eligible projectile; yields to ledge, safety, manual attacks and committed punish/grab input. A full bucket is never discharged automatically.",
+            Owner::Reflect => "Uses the configured native reflector for an incoming eligible projectile; yields to ledge, safety and committed input. A full bucket is never discharged automatically.",
+            Owner::Counter => "Requests a configured down-special counter against an active direct melee hitbox; yields to ledge, safety and committed input.",
             Owner::Safety => "Handles native tech windows, capture escape, hitstop SDI and launch DI; physical stick override can cancel DI.",
             Owner::GrabDodge => "Requests a native-ready spot dodge for an incoming ordinary grab; may preempt general punishes, but yields to protected ledge responses and safety.",
             Owner::OptionRead => "Runs configured spot-dodge/grab-dodge follow-ups and retained recovery punishes; yields to incoming grab defense.",

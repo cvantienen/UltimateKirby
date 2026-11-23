@@ -88,6 +88,8 @@ struct ObservationNeeds {
 struct ObservationPolicySnapshot {
     /// Whether automatic policy actions are currently suspended.
     automatic_suspended: bool,
+    /// Whether this fighter has an enabled melee counter.
+    counter_enabled: bool,
     /// Whether a trip follow-up is queued.
     trip_queued: bool,
     /// Whether grab dodge is enabled.
@@ -391,6 +393,7 @@ fn snapshot_observation_policy(
                 },
                 posture_down: state.posture_down,
                 roster_missing: state.ledge_roster.is_none(),
+                counter_enabled: menu.is_some_and(|menu| menu.counter_config(fighter_kind).is_some()),
                 oos_enabled: grabs_enabled,
                 oos_target: if automatic_suspended {
                     None
@@ -496,14 +499,15 @@ unsafe fn refresh_observation_roster(
     let requested = discover_roster
         || needs.preview_start
         || policy.roster_missing
-            && (policy.rules_on || defense || policy.posture_modes.1);
+            && (policy.rules_on || defense || policy.posture_modes.1 || policy.counter_enabled);
     let active_consumer = needs.observe_ledge
         || flags.trip_watch
         || own.damage_stop
         || roll_read
         || policy.posture_modes.1
         || policy.posture_modes.0
-        || defense && flags.scope.acquire;
+        || defense && flags.scope.acquire
+        || policy.counter_enabled;
     if !requested || !active_consumer {
         return;
     }
@@ -1084,6 +1088,8 @@ struct Collected {
     oos_follow: Option<kirby_assist_core::gameplay::Opponent>,
     /// Optional projectile-reflection mode, context, and threat.
     reflect_observation: Option<ReflectObservation>,
+    /// Optional configured melee counter.
+    counter_observation: Option<CounterObservation>,
     #[cfg(feature = "diagnostic-logging")]
     /// Optional native activity flag used only by diagnostic reporting.
     neutral_native_activity: Option<bool>,
@@ -1101,6 +1107,11 @@ type ReflectObservation = (
     kirby_assist_core::projectile_reflect::Config,
     kirby_assist_core::projectile_reflect::Context,
     Option<kirby_assist_core::projectile_reflect::Threat>,
+);
+type CounterObservation = (
+    kirby_assist_core::auto_counter::Config,
+    kirby_assist_core::auto_counter::Context,
+    Option<kirby_assist_core::auto_counter::Threat>,
 );
 
 /// Collects every native fact the policies need, in the order the native reads
@@ -1167,6 +1178,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
     #[cfg(feature = "diagnostic-logging")]
     let neutral_native_activity = collect_neutral_native_activity(p, ledge.opponent);
     let reflect_observation = collect_reflect(p);
+    let counter_observation = collect_counter(p);
     Collected {
         rule_observation,
         simple_readiness,
@@ -1181,6 +1193,7 @@ unsafe fn collect_observations(p: &Pass) -> Collected {
         oos_context,
         oos_follow,
         reflect_observation,
+        counter_observation,
         #[cfg(feature = "diagnostic-logging")]
         neutral_native_activity,
     }
@@ -2081,22 +2094,14 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
         ..
     } = *p;
     let (configured, target, allowed) = STATE.lock().ok().map_or((None, None, false), |s| {
-        let manual = s.raw_buttons
-            & (kirby_assist_core::native_input::MAPPER_A
-                | kirby_assist_core::native_input::MAPPER_B
-                | kirby_assist_core::native_input::MAPPER_R
-                | kirby_assist_core::native_input::SEQUENCE_JUMP_BUTTONS
-                | kirby_assist_core::native_input::SEQUENCE_GUARD_INPUTS)
-            != 0;
         (
             s.settings_menu
                 .as_ref()
                 .and_then(|m| m.reflect_config(fighter_kind)),
-            s.reflector.target(),
+            s.reflector.target_key(),
             !automatic_suspended
                 && !clatter
                 && !tech
-                && (!manual || s.action_owner.current_owner() == Some(Owner::Reflect))
                 && s.action_owner.allows(Owner::Reflect),
         )
     });
@@ -2109,6 +2114,16 @@ unsafe fn collect_reflect(p: &Pass) -> Option<ReflectObservation> {
         target,
         allowed,
     )
+}
+
+unsafe fn collect_counter(p: &Pass) -> Option<CounterObservation> {
+    let (configured, allowed) = STATE.lock().ok().map_or((None, false), |s| {
+        (s.settings_menu.as_ref().and_then(|menu| menu.counter_config(p.fighter_kind)),
+            !p.policy.automatic_suspended
+                && !p.tech_obs.clatter && !p.tech_obs.tech
+                && s.action_owner.allows(Owner::Counter))
+    });
+    counter::observe(p.reads, p.object, p.object_id, p.fighter_kind, configured, allowed)
 }
 
 /// Facts only the diagnostic log needs; empty in silent builds.
@@ -2199,6 +2214,10 @@ fn publish_observation(
     if state.oos.target().is_none() {
         state.action_owner.release(Owner::OutOfShield);
     }
+    if state.counter.finished(p.tech_obs.assessment.status, p.own.motion_frame) {
+        state.counter_output = ControllerOutput::default();
+        state.action_owner.release(Owner::Counter);
+    }
     let admission = admit_automatic(state, p, c);
     #[cfg(feature = "diagnostic-logging")]
     let first_button_write = state.buttons_modified && !state.button_mod_logged;
@@ -2215,6 +2234,7 @@ fn publish_observation(
     publish_manual_context(state, p, c);
     sample_ledge(state, p, c, tick, policy_tick, now);
     sample_reflect(state, p, c);
+    sample_counter(state, p, c);
     state.mash_stick = if policy_tick.is_none() {
         None
     } else {
@@ -3578,6 +3598,24 @@ fn publish_ledge_diagnostics(
     }
 }
 
+fn sample_counter(state: &mut State, p: &Pass, c: &Collected) {
+    let allowed = (!state.ledge_active || state.action_owner.current_owner() == Some(Owner::Counter))
+        && state.action_owner.allows(Owner::Counter)
+        && !p.tech_obs.clatter && !p.tech_obs.tech
+        && state.oos_output.owned == 0 && !state.oos.grab_delivery_pending()
+        && state.roll_read_output.owned == 0 && state.spot_output.owned == 0
+        && state.trip_output.owned == 0 && state.fair_output.owned == 0
+        && state.trump_output.owned == 0 && state.reflect_output.owned == 0;
+    state.counter_output = if let Some((config, context, threat)) = c.counter_observation {
+        state.counter.sample(allowed, Some(config), context, threat)
+    } else {
+        if !state.counter.awaiting_receipt() {
+            state.counter.cancel();
+        }
+        ControllerOutput::default()
+    };
+}
+
 /// Advances the reflector policy from the copied projectile threat result.
 fn sample_reflect(state: &mut State, p: &Pass, c: &Collected) {
     let Pass {
@@ -3599,7 +3637,8 @@ fn sample_reflect(state: &mut State, p: &Pass, c: &Collected) {
             && state.spot_output.owned == 0
             && state.trip_output.owned == 0
             && state.fair_output.owned == 0
-            && state.trump_output.owned == 0;
+            && state.trump_output.owned == 0
+            && state.counter_output.owned == 0;
         state
             .reflector
             .sample(allowed, Some(configured), context, threat)

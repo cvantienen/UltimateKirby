@@ -21,6 +21,7 @@ pub mod config;
 pub mod diagnostics;
 /// Fighter reference facts, profiles, native state tables and fighter-specific policies.
 pub mod fighters {
+    pub mod auto_counter;
     pub mod fighter_data;
     pub mod fighter_kinds;
     pub mod fighter_profiles;
@@ -121,6 +122,7 @@ pub mod shared {
 }
 
 pub use config::{button_bindings, option_read, settings};
+pub use fighters::auto_counter;
 pub use fighters::game_and_watch as projectile_reflect;
 pub(crate) use fighters::ganondorf as flame_choke;
 pub use fighters::{

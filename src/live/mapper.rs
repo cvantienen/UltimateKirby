@@ -42,7 +42,7 @@ struct Arbitration {
     mash_takeover: bool,
     #[cfg(feature = "diagnostic-logging")]
     /// Per-owner arbitration intent snapshot.
-    intents: [Intent; 13],
+    intents: [Intent; 14],
 }
 /// Result of admitting a mapper callback: the immutable startup config, the
 /// selected physical controller, and the match session this callback belongs to.
@@ -88,6 +88,8 @@ struct MapperDeliveryFeedback {
     manual_jump: bool,
     /// Whether a reflect action was delivered.
     reflect: bool,
+    /// Whether a counter special was delivered.
+    counter: bool,
     /// Raw input tick associated with a reflector receipt.
     reflector_tick: Option<i64>,
     /// Automatic-grab target and completion status for delivery tracking.
@@ -429,6 +431,19 @@ unsafe fn record_mapped_delivery(
         feedback.reflect,
         feedback.reflector_tick,
     );
+    if feedback.counter && mapped.buttons & kirby_assist_core::native_input::MAPPED_SPECIAL != 0
+        && mapped.left_y < -63
+    {
+        state.counter.mapped();
+        state.counter_output = ControllerOutput::default();
+    }
+    if state.action_owner.current_owner() == Some(Owner::Counter) {
+        let tick = state.raw_tick;
+        state.counter.poll_receipt(tick);
+        if !state.counter.active() {
+            state.action_owner.release(Owner::Counter);
+        }
+    }
     record_mapped_grabs(
         &mut state,
         mapped,
@@ -883,7 +898,7 @@ struct MapperIntentInputs {
     posture_active: bool,
 }
 /// Computes the action intents for the mapper based on the current state and input flags. Returns an array of `Intent` for each possible action.
-fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Intent; 13] {
+fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Intent; 14] {
     let ledge_priority = state.action_owner.ledge_priority()
         && state.ledge_active
         && inputs.fresh
@@ -916,6 +931,10 @@ fn mapper_action_intents(state: &mut State, inputs: MapperIntentInputs) -> [Inte
         committed_intent(
             Owner::Reflect,
             state.reflect_output.owned != 0 || state.reflector.active(),
+        ),
+        committed_intent(
+            Owner::Counter,
+            state.counter_output.owned != 0 || state.counter.active(),
         ),
         // Preserve the automation reservation while R may be queued; a
         // neutral output still leaves movement manual.
@@ -1002,6 +1021,7 @@ fn selected_owner_output(
 ) -> ControllerOutput {
     let mut selected = match winner {
         Some(Owner::Reflect) => state.reflect_output,
+        Some(Owner::Counter) => state.counter_output,
         Some(Owner::Trip) => state.trip_output,
         Some(Owner::Fair) => state.fair_output,
         Some(Owner::Trump) => state.trump_output,
@@ -2324,6 +2344,7 @@ fn plan_delivery_feedback(
         feedback.reflector_tick = Some(state.raw_tick);
     }
     feedback.reflect = winner == Some(Owner::Reflect) && b_delivered;
+    feedback.counter = winner == Some(Owner::Counter) && b_delivered;
     if winner == Some(Owner::OutOfShield) && r_delivered {
         feedback.auto_grab = state
             .oos

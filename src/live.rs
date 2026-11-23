@@ -36,6 +36,7 @@ macro_rules! log {
 // visible before its imports and runtime implementation.
 /// Tracks bounded copied IDs for attacks that may be projectiles.
 mod attack_sources;
+mod counter;
 /// Loads and validates startup configuration before hook installation.
 mod config;
 /// Defines the native controller layout and mapper restoration helpers.

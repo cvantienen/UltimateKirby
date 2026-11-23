@@ -171,10 +171,12 @@ pub enum MenuRow {
     R3Sequence,
     /// `AutoReflect` option in the `MenuRow` Smash policy state.
     AutoReflect,
+    /// Configured fighter counter.
+    AutoCounter,
 }
 impl MenuRow {
     /// `ALL` is a configuration value used by the Smash runtime.
-    pub const ALL: [Self; 31] = [
+    pub const ALL: [Self; 32] = [
         Self::Neutral,
         Self::Jump,
         Self::Roll,
@@ -206,6 +208,7 @@ impl MenuRow {
         Self::L3Sequence,
         Self::R3Sequence,
         Self::AutoReflect,
+        Self::AutoCounter,
     ];
     /// Returns the selected recipe slot.
     pub fn slot(self) -> Option<PresetSlot> {
@@ -234,6 +237,7 @@ impl MenuRow {
             | Self::AutoLedge
             | Self::OutOfShield
             | Self::AutoReflect
+            | Self::AutoCounter
             | Self::TestLatency
             | Self::ButtonsPage
             | Self::ModesPage
@@ -273,6 +277,7 @@ impl MenuRow {
             Self::AutoLedge => "Ledge trap mode",
             Self::OutOfShield => "Automatic grabs",
             Self::AutoReflect => "Auto-reflect",
+            Self::AutoCounter => "Auto-counter",
             Self::TestLatency => "Test delay label",
             Self::ButtonsPage => "Button recipes",
             Self::ModesPage => "Assist modes",
@@ -447,6 +452,8 @@ pub struct MenuSelection {
     pub auto_tech: bool,
     /// Runtime auto reflect value used by MenuSelection..
     pub auto_reflect: bool,
+    /// Runtime auto-counter toggle.
+    pub auto_counter: bool,
     /// Runtime performance value used by MenuSelection..
     pub performance: bool,
     /// Diagnostic annotation only: 0=unset, 1..=31 label external delay 0..=30f.
@@ -538,13 +545,14 @@ impl MenuSelection {
         MenuRow::ModesPage,
     ];
     /// `ASSIST_ROWS` is a configuration value used by the Smash runtime.
-    pub const ASSIST_ROWS: [MenuRow; 18] = [
+    pub const ASSIST_ROWS: [MenuRow; 19] = [
         MenuRow::RollRules,
         MenuRow::ShieldPressure,
         MenuRow::SpotPunish,
         MenuRow::OutOfShield,
         MenuRow::GrabDodge,
         MenuRow::AutoReflect,
+        MenuRow::AutoCounter,
         MenuRow::AutoLedge,
         MenuRow::AutoTech,
         MenuRow::AutoMash,
@@ -685,6 +693,9 @@ impl MenuSelection {
             && !(row == MenuRow::AutoReflect
                 && crate::projectile_reflect::Config::for_fighter(self.y_fighter_kind, self.tuning)
                     .is_none())
+            && !(row == MenuRow::AutoCounter
+                && crate::auto_counter::Config::for_fighter(self.y_fighter_kind, self.tuning)
+                    .is_none())
     }
     /// Constructs a new value with the type’s initial state.
     pub fn new(presets: &MenuPresets) -> Self {
@@ -717,6 +728,7 @@ impl MenuSelection {
             MenuRow::RollRules => &mut self.roll_rules,
             MenuRow::AutoTech => &mut self.auto_tech,
             MenuRow::AutoReflect => &mut self.auto_reflect,
+            MenuRow::AutoCounter => &mut self.auto_counter,
             MenuRow::AutoLedge => &mut self.auto_ledge,
             MenuRow::Performance => &mut self.performance,
             MenuRow::IdleCrouch => &mut self.idle_crouch,

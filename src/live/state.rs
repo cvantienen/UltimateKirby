@@ -147,6 +147,9 @@ pub(super) struct State {
     pub(super) reflector: kirby_assist_core::projectile_reflect::Reflector,
     /// Current reflector controller proposal.
     pub(super) reflect_output: ControllerOutput,
+    /// Counter policy and current controller proposal.
+    pub(super) counter: kirby_assist_core::auto_counter::Counter,
+    pub(super) counter_output: ControllerOutput,
     /// Optional spot-dodge policy and target state.
     pub(super) spot_dodge: Option<kirby_assist_core::spot_dodge::SpotDodge>,
     /// Current spot-dodge controller proposal.
@@ -242,6 +245,10 @@ impl State {
     pub(super) fn suspend_automatic_punishes(&mut self) {
         self.reflector.cancel();
         self.reflect_output = ControllerOutput::default();
+        if !self.counter.awaiting_receipt() {
+            self.counter.cancel();
+            self.counter_output = ControllerOutput::default();
+        }
         if let Some(engine) = self.rule_engine.as_mut() {
             engine.cancel();
         }
@@ -273,6 +280,10 @@ impl State {
         if keep != Some(Owner::Reflect) {
             self.reflector.cancel();
             self.reflect_output = ControllerOutput::default();
+        }
+        if keep != Some(Owner::Counter) {
+            self.counter.cancel();
+            self.counter_output = ControllerOutput::default();
         }
         if keep.is_some_and(|owner| owner != Owner::Turbo) {
             self.turbo = None;
@@ -368,6 +379,8 @@ impl State {
         Self {
             reflector: kirby_assist_core::projectile_reflect::Reflector::new(),
             reflect_output: ControllerOutput::NONE,
+            counter: kirby_assist_core::auto_counter::Counter::new(),
+            counter_output: ControllerOutput::NONE,
             settings_menu: None,
             menu_fighter_kind: None,
             menu_battle_active: false,
@@ -487,6 +500,8 @@ impl State {
     /// cancellation does not.
     fn clear_tool_proposals(&mut self) {
         self.reflect_output = ControllerOutput::default();
+        self.counter.cancel();
+        self.counter_output = ControllerOutput::default();
         // Native facts/settings already being read are no longer current, so the
         // old observation must not publish after the new state takes effect.
         self.observation_sequence = self.observation_sequence.wrapping_add(1);
@@ -531,6 +546,7 @@ impl State {
     /// Clears manual-control overlays and their pending ownership/outputs.
     pub(super) fn cancel_manual_tools(&mut self) {
         self.reflector.cancel();
+        self.counter.cancel();
         self.clear_tool_proposals();
         // Clear the current pulse; the next observation reapplies native state.
         if let Some(tech) = self.tech_input.as_mut() {
@@ -573,6 +589,7 @@ impl State {
     /// Cancels all pending tool proposals and resets transient assistance state.
     pub(super) fn cancel(&mut self) {
         self.reflector = kirby_assist_core::projectile_reflect::Reflector::new();
+        self.counter = kirby_assist_core::auto_counter::Counter::new();
         self.clear_tool_proposals();
         #[cfg(feature = "diagnostic-logging")]
         {
