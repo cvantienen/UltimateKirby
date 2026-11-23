@@ -168,15 +168,11 @@ pub(super) unsafe fn observe(
                     velocity: speed,
                 },
             ) {
-                if best.is_none_or(|old| threat.in_frames < old.in_frames) {
-                    best = Some(threat);
-                }
+                best = policy::prefer_actionable(config, best, threat);
             }
         }
         if let Some(threat) = startup {
-            if best.is_none_or(|old| threat.in_frames < old.in_frames) {
-                best = Some(threat);
-            }
+            best = policy::prefer_actionable(config, best, threat);
         }
     }
     Some((config, context, best))
