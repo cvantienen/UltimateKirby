@@ -37,6 +37,7 @@ fn sdi_context(remaining: u64) -> SdiContext {
     SdiContext {
         object: 1,
         damage_stop: true,
+        damage_percent: 0.0,
         remaining,
         input_delay: 0.,
         outward: 1.,

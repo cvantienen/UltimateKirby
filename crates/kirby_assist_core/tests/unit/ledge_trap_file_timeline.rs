@@ -1126,6 +1126,60 @@ fn timeline_clock_gaps_invalid_data_damage_and_release_cancel_without_bursting()
     }
 }
 #[test]
+fn sequence_queue_compensation_preserves_holds_and_release_gaps() {
+    for delay in [0.0, 2.0, 20.0] {
+        let mut s = sequence("side_special:2,wait:2,side_special:2");
+        s.start_delay = 4;
+        let mut t = Timeline::new(s, enemy(CLIFF_CLIMB, false));
+        let start = (4.0_f32 - delay).max(0.0) as usize;
+        for frame in 0..start + 7 {
+            let out = sample(
+                &mut t,
+                GameplayContext {
+                    sequence_input_delay: if frame == 0 { delay } else { 0.0 },
+                    ..ctx(frame as f32)
+                },
+            );
+            let expected =
+                if (start..start + 2).contains(&frame) || (start + 4..start + 6).contains(&frame) {
+                    MAPPER_B
+                } else {
+                    0
+                };
+            assert_eq!(out.requested, expected, "delay {delay}, frame {frame}");
+        }
+        assert!(t.finished());
+    }
+}
+#[test]
+fn special_rate_changes_keep_every_side_special_pulse() {
+    let mut t = timeline("side_special:1,wait:1,side_special:1,wait:1,side_special:1");
+    let mut frame = 0.0;
+    for (tick, rate) in [0.5, 2.0, 1.0, 0.5, 2.0, 1.0].into_iter().enumerate() {
+        if tick > 0 {
+            frame += rate;
+        }
+        let c = GameplayContext {
+            status: crate::native_states::status::SPECIAL_S,
+            motion_kind: 123,
+            motion_frame: frame,
+            motion_rate: rate,
+            ..ctx(0.0)
+        };
+        let out = sample(&mut t, c);
+        assert_eq!(
+            out.requested,
+            if tick < 5 && tick % 2 == 0 {
+                MAPPER_B
+            } else {
+                0
+            }
+        );
+        assert_eq!(sample(&mut t, c), out);
+    }
+    assert!(t.finished());
+}
+#[test]
 fn timeline_start_delay_and_repeated_buttons_have_explicit_release_frames() {
     let mut s = sequence("jab, release, jab");
     s.start_delay = 2;

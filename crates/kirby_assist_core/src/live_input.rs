@@ -571,6 +571,8 @@ impl Default for LiveSettings {
 pub struct LiveConfig {
     /// L-held approximate defense against nearby active fighter attacks.
     pub autopilot_shield: bool,
+    /// Explicit sequence queue compensation; zero offline, opt in for online play.
+    pub sequence_input_delay_frames: u8,
     /// Runtime down tilt trip smash value used by LiveConfig..
     pub down_tilt_trip_smash: bool,
     /// Runtime kirby fair1 smash value used by LiveConfig..
@@ -601,6 +603,7 @@ impl Default for LiveConfig {
     fn default() -> Self {
         Self {
             autopilot_shield: true,
+            sequence_input_delay_frames: 0,
             down_tilt_trip_smash: true,
             kirby_fair1_smash: true,
             auto_sdi: true,
@@ -745,6 +748,7 @@ impl LiveConfig {
     ) -> Result<(), String> {
         match key {
             "autopilot_shield" => setting.set(&mut self.autopilot_shield)?,
+            "sequence_input_delay_frames" => setting.set(&mut self.sequence_input_delay_frames)?,
             "kirby_auto_duck" => setting.accept::<bool>()?,
             "down_tilt_trip_smash" => setting.set(&mut self.down_tilt_trip_smash)?,
             "kirby_fair1_smash" => setting.set(&mut self.kirby_fair1_smash)?,
@@ -856,6 +860,9 @@ impl LiveConfig {
 
     /// Returns the `validate` result.
     fn validate(&self, retired: &RetiredSettings) -> Result<(), String> {
+        if self.sequence_input_delay_frames > 120 {
+            return Err("sequence_input_delay_frames must be 0..120".into());
+        }
         let assist = &self.assist;
         if !finite_in(assist.walk_strength, 0.1, 0.45) || !retired_in(retired.roll_range, 1.0, 20.0)
         {

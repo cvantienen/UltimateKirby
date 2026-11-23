@@ -683,6 +683,8 @@ struct NativeObservationBasics {
     motion_kind: u64,
     /// Current native motion rate.
     motion_rate: f32,
+    /// Explicit queue compensation for file sequence playback.
+    sequence_input_delay: f32,
     /// Whether current inputs block automatic actions.
     manual_automatic_blocked: bool,
     /// Whether damage-stop state is active.
@@ -699,6 +701,7 @@ impl NativeObservationBasics {
             motion_kind: self.motion_kind,
             motion_frame: self.motion_frame,
             motion_rate: self.motion_rate,
+            sequence_input_delay: self.sequence_input_delay,
             ..GameplayContext::default()
         }
     }
@@ -718,6 +721,7 @@ unsafe fn observe_native_basics(
         motion_frame: reads.motion_frame(object),
         motion_kind: reads.motion_kind(object),
         motion_rate: reads.motion_rate(object),
+        sequence_input_delay: f32::from(config.sequence_input_delay_frames),
         ..NativeObservationBasics::default()
     };
     basics.manual_automatic_blocked =
@@ -1929,6 +1933,11 @@ unsafe fn collect_damage(p: &Pass, outward: f32) -> DamageFacts {
     let sdi_context = SdiContext {
         object: object_id,
         damage_stop,
+        damage_percent: if damage_stop {
+            game::damage_percent(object, 0)
+        } else {
+            0.0
+        },
         input_delay: 0.0,
         remaining: if damage_stop {
             game::hitstop_remaining(object)
@@ -2958,7 +2967,7 @@ fn sample_tech_and_mash(state: &mut State, p: &Pass, tick: i64) -> Option<i64> {
         .get_or_insert_with(TechInput::default)
         .sample(
             config.controls.enabled && auto_tech_enabled,
-            config.controls.takeover,
+            true,
             config.controls.tech_cooldown,
             TechContext {
                 object: object_id,

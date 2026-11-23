@@ -13,6 +13,8 @@ pub struct SdiContext {
     pub object: u32,
     /// Runtime damage stop value used by SdiContext..
     pub damage_stop: bool,
+    /// Current victim damage percentage; automatic SDI stops above 60%.
+    pub damage_percent: f32,
     /// Runtime remaining value used by SdiContext..
     pub remaining: u64,
     /// Runtime input delay value used by SdiContext..
@@ -98,6 +100,7 @@ impl SdiState {
         // None means leave the player's stick alone. Some([0, 0]) deliberately
         // owns a neutral sample between flicks; those outputs are different.
         if !enabled
+            || !(0.0..=60.0).contains(&ctx.damage_percent)
             || !ctx.damage_stop
             || ctx.remaining <= LAUNCH_DI_FRAMES
             || ctx.remaining > MAX_DAMAGE_STOP_DI_FRAMES

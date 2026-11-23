@@ -265,6 +265,9 @@ extern "C" {
     #[link_name = "\u{1}_ZN3app8lua_bind26StopModule__is_damage_implEPNS_26BattleObjectModuleAccessorE"]
     /// Checks whether this object is in damage stop.
     pub fn is_damage_stop(module_accessor: *mut Object) -> bool;
+    #[link_name = "\u{1}_ZN3app8lua_bind25DamageModule__damage_implEPNS_26BattleObjectModuleAccessorEi"]
+    /// Reads current damage percentage from the specified damage slot.
+    pub fn damage_percent(module_accessor: *mut Object, damage_slot: i32) -> f32;
     #[link_name = "\u{1}_ZN3app8lua_bind40StopModule__get_hit_stop_real_frame_implEPNS_26BattleObjectModuleAccessorE"]
     /// Reads remaining native hitstop frames for the object.
     pub fn hitstop_remaining(module_accessor: *mut Object) -> u64;

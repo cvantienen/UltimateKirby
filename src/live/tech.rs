@@ -53,6 +53,19 @@ pub(super) unsafe fn assess_tech(
         };
     }
 
+    // A collision forecast alone cannot make Guard safe during native air escape.
+    if game::transition_enabled(
+        object,
+        kirby_assist_core::native_states::transition_terms::CONT_ESCAPE_AIR,
+    ) {
+        return TechAssessment {
+            status,
+            situation,
+            contact_in: None,
+            remaining_stop: 0,
+            reason: "air_escape_enabled",
+        };
+    }
     let passive_disabled = game::is_flag(
         object,
         kirby_assist_core::native_states::work_ids::FIGHTER_STATUS_DAMAGE_FLAG_FLY_DISABLE_PASSIVE,

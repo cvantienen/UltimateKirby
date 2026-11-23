@@ -115,7 +115,7 @@ pub mod action_owner {
         safety_output_with_deadline(tech, mash, di, sdi, false)
     }
     /// A native tech opportunity may displace launch DI for a Guard press.
-    /// The alternating release packet keeps Guard ownership while DI resumes.
+    /// Preparation, press and release keep both sticks neutral until tech hands back.
     pub fn safety_output_with_deadline(
         tech: crate::tech_input::TechOutput,
         mash: Option<[f32; 2]>,
@@ -137,10 +137,10 @@ pub mod action_owner {
                 0
             },
             stick: mash.or_else(|| {
-                if tech.is_none_or(|output| !output.press) {
-                    di.or(sdi)
+                if tech.is_some() {
+                    Some([0.; 2])
                 } else {
-                    None
+                    di.or(sdi)
                 }
             }),
             ..Default::default()
@@ -625,16 +625,6 @@ pub(crate) mod up_b_receipt {
     /// Checks whether a pending operation is stored.
     pub(crate) fn pending(seen: bool, sent: bool) -> bool {
         !seen && sent
-    }
-
-    /// Determines whether the `manual_handback` condition holds.
-    pub(crate) fn manual_handback(
-        automatic: bool,
-        seen: bool,
-        context: GameplayContext,
-        epoch: u64,
-    ) -> bool {
-        automatic && seen && context.manual_input_epoch != epoch
     }
 
     /// Returns the `evaluate` result.

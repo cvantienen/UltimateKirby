@@ -24,6 +24,7 @@ fn context() -> GameplayContext {
         can_down_special: true,
         can_dash_attack: true,
         input_delay: 0.0,
+        sequence_input_delay: 0.0,
         can_down_smash: true,
         can_jump: true,
         can_air_attack: true,

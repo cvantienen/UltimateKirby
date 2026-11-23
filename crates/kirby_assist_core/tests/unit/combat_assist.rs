@@ -1,11 +1,52 @@
 //! Regression cases for damage-hitstop SDI.
 use super::*;
+
+#[test]
+fn sdi_damage_cutoff_releases_stick_and_rearms_after_damage_drops() {
+    let ctx = SdiContext {
+        object: 1,
+        damage_stop: true,
+        damage_percent: 60.0,
+        remaining: 8,
+        outward: -1.0,
+        input_delay: 0.0,
+    };
+    for damage_percent in [60.01, 100.0, f32::NAN, f32::INFINITY, -1.0] {
+        let mut sdi = SdiState::default();
+        assert_eq!(sdi.sample(true, ctx, [0.; 2]), Some([-1., 0.]));
+        let blocked = SdiContext {
+            damage_percent,
+            ..ctx
+        };
+        assert_eq!(sdi.sample(true, blocked, [0.; 2]), None);
+        assert_eq!(sdi.sample_exclusive(true, blocked), None);
+        assert_eq!(
+            sdi.sample_exclusive_with_previous(true, blocked, None, [1., 0.]),
+            None
+        );
+        assert_eq!(sdi.sample_exclusive(true, ctx), Some([-1., 0.]));
+        assert_eq!(
+            sdi.sample_exclusive(
+                true,
+                SdiContext {
+                    remaining: 7,
+                    ..ctx
+                }
+            ),
+            Some([0.; 2])
+        );
+        assert_eq!(sdi.sample_exclusive(true, blocked), None);
+        assert_eq!(sdi.sample_exclusive(true, ctx), Some([-1., 0.]));
+    }
+}
+
 #[test]
 fn sdi_flicks_follow_native_hitstop_and_hands_back_on_new_manual_input() {
     let mut sdi = SdiState::default();
     let ctx = SdiContext {
         object: 1,
         damage_stop: true,
+        damage_percent: 0.0,
         remaining: 8,
         outward: -1.0,
         input_delay: 0.0,
@@ -63,6 +104,7 @@ fn sdi_uses_shared_stick_overlay_without_changing_buttons_and_restores_physical_
     let context = SdiContext {
         object: 1,
         damage_stop: true,
+        damage_percent: 0.0,
         remaining: 8,
         outward: -1.0,
         input_delay: 0.0,
@@ -90,6 +132,7 @@ fn sdi_stops_early_enough_for_known_delayed_inputs_to_clear_hitstop() {
     let ctx = SdiContext {
         object: 1,
         damage_stop: true,
+        damage_percent: 0.0,
         remaining: 8,
         outward: -1.0,
         input_delay: 5.0,
@@ -114,6 +157,7 @@ fn sdi_respects_preheld_stick_and_keeps_manual_control_for_the_hit() {
     let ctx = SdiContext {
         object: 1,
         damage_stop: true,
+        damage_percent: 0.0,
         remaining: 8,
         input_delay: 0.0,
         outward: -1.0,
@@ -175,6 +219,7 @@ fn sdi_does_not_guess_a_direction_when_attacker_is_unknown() {
     let ctx = SdiContext {
         object: 1,
         damage_stop: true,
+        damage_percent: 0.0,
         remaining: 8,
         input_delay: 0.0,
         outward: 0.0,

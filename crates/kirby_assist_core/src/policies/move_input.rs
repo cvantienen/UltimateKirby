@@ -120,8 +120,6 @@ pub(crate) struct UpBFlow {
     seen: bool,
     /// Runtime waiting value used by UpBFlow..
     waiting: bool,
-    /// Runtime epoch value used by UpBFlow..
-    epoch: u64,
     /// Runtime delivery value used by UpBFlow..
     delivery: DeliveryBudget,
     /// Runtime receipt value used by UpBFlow..
@@ -136,7 +134,6 @@ impl UpBFlow {
             started_from_dodge: false,
             seen: false,
             waiting: false,
-            epoch: 0,
             delivery: DeliveryBudget::new(),
             receipt: UpBReceipt::new(),
         }
@@ -147,7 +144,6 @@ impl UpBFlow {
             armed: true,
             defense,
             started_from_dodge: defense && c.status == crate::native_states::ESCAPE,
-            epoch: c.manual_input_epoch,
             ..Self::new()
         };
     }
@@ -189,10 +185,6 @@ impl UpBFlow {
         if self.receipt_pending() {
             self.receipt.tick(tick);
         }
-    }
-    /// Determines whether the `manual_handback` condition holds.
-    pub fn manual_handback(&self, c: crate::gameplay::GameplayContext) -> bool {
-        crate::up_b_receipt::manual_handback(self.armed, self.seen, c, self.epoch)
     }
     /// Native confirmation and lifecycle checks before the tape is sampled.
     pub fn advance(&mut self, c: crate::gameplay::GameplayContext, kind: i32) -> UpBVerdict {

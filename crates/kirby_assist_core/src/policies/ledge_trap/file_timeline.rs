@@ -25,6 +25,7 @@ pub struct Timeline {
     clock: NativeAttempt,
     /// Runtime step start value used by Timeline..
     step_start: f32,
+    timing_initialized: bool,
     /// Runtime entered value used by Timeline..
     entered: bool,
     /// Runtime direction value used by Timeline..
@@ -159,6 +160,7 @@ impl Timeline {
         self.clock
             .advance_pause(ctx, Some(enemy), self.sequence.timeout);
         self.goto(1, self.clock.elapsed());
+        self.timing_initialized = true;
         self.done = false;
         self.output = ControllerOutput::default();
         self.right_stick = [0.; 2];
@@ -171,6 +173,7 @@ impl Timeline {
             cursor: 0,
             clock: NativeAttempt::default(),
             step_start: f32::from(sequence.start_delay),
+            timing_initialized: false,
             right_stick: [0.0; 2],
             blocked: false,
             ledge_facing: None,
@@ -329,6 +332,21 @@ impl Timeline {
     ) -> ControllerOutput {
         if let Some(out) = self.gate(settings.fighter_kind, ctx) {
             return out;
+        }
+        if !self.timing_initialized {
+            if !ctx.sequence_input_delay.is_finite()
+                || !(0.0..=120.0).contains(&ctx.sequence_input_delay)
+            {
+                return self.finish("invalid_input_delay");
+            }
+            // Shift acquisition only. Every emitted hold/release keeps its full
+            // duration, including when the queue exceeds the configured delay.
+            self.sequence.start_delay = self
+                .sequence
+                .start_delay
+                .saturating_sub(ctx.sequence_input_delay as u16);
+            self.step_start = f32::from(self.sequence.start_delay);
+            self.timing_initialized = true;
         }
         if !self.facing_captured {
             self.ledge_facing = facing_saved_ledge(ctx, anchor);

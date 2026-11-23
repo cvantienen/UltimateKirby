@@ -270,6 +270,8 @@ pub mod gameplay {
         pub can_down_smash: bool,
         /// Explicit additional delay in game frames; live observations supply zero.
         pub input_delay: f32,
+        /// Opt-in file-sequence queue compensation; captured once at acquisition.
+        pub sequence_input_delay: f32,
         /// Whether the controlled fighter can currently perform a jump.
         pub can_jump: bool,
         /// Whether the controlled fighter can currently perform an air attack.

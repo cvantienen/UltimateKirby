@@ -319,6 +319,7 @@ fn sdi_never_falls_back_to_outward_input_in_final_di_frames() {
             SdiContext {
                 object: 1,
                 damage_stop: true,
+                damage_percent: 0.0,
                 remaining,
                 input_delay: 0.,
                 outward: 1.,
@@ -344,6 +345,7 @@ fn a_partially_held_manual_stick_also_overrides_di_and_sdi() {
     let c = SdiContext {
         object: 1,
         damage_stop: true,
+        damage_percent: 0.0,
         remaining: 8,
         input_delay: 0.,
         outward: 1.,

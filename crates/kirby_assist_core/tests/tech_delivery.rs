@@ -38,7 +38,7 @@ fn native_held_guard_must_release_even_when_the_last_mapped_packet_was_neutral()
     assert_eq!(input.cooldown_remaining(), 0.);
 }
 #[test]
-fn mapped_press_remains_owned_until_the_fighter_consumes_guard_then_di_receives_the_release() {
+fn mapped_press_and_consumed_guard_release_remain_neutral_and_owned() {
     let mut input = TechInput::default();
     let c = context();
     let first = sample(&mut input, c, false);
@@ -73,7 +73,7 @@ fn mapped_press_remains_owned_until_the_fighter_consumes_guard_then_di_receives_
         input.urgent_press(),
     );
     assert_eq!(packet.requested, 0);
-    assert_eq!(packet.stick, Some([-1., 0.]));
+    assert_eq!(packet.stick, Some([0.; 2]));
     assert_eq!(ack, Some(release));
 }
 #[test]
@@ -103,7 +103,7 @@ fn an_unconsumed_mapped_press_expires_on_native_progress_instead_of_mapper_poll_
     assert_eq!(input.cooldown_remaining(), 25.);
 }
 #[test]
-fn a_deadline_displaces_di_only_for_a_press_and_applies_release_ownership_with_di() {
+fn a_deadline_displaces_di_and_keeps_tech_release_neutral() {
     let mut input = TechInput::default();
     let c = context();
     for (contact, urgent) in [(7., false), (3.25, true)] {
@@ -123,7 +123,7 @@ fn a_deadline_displaces_di_only_for_a_press_and_applies_release_ownership_with_d
             safety_output_with_deadline(out, None, Some([-1., 0.]), Some([1., 0.]), urgent);
         if urgent {
             assert_eq!(packet.requested, MAPPER_ZR);
-            assert_eq!(packet.stick, None);
+            assert_eq!(packet.stick, Some([0.; 2]));
             assert_eq!(ack, Some(out));
         } else {
             assert_eq!(packet.requested, 0);
@@ -142,7 +142,7 @@ fn a_deadline_displaces_di_only_for_a_press_and_applies_release_ownership_with_d
         true,
     );
     assert_eq!(packet.requested, 0);
-    assert_eq!(packet.stick, Some([-1., 0.]));
+    assert_eq!(packet.stick, Some([0.; 2]));
     assert_eq!(
         ack,
         Some(TechOutput {

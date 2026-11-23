@@ -340,23 +340,13 @@ impl Engine {
             self.cancel();
             return ControllerOutput::default();
         };
-        let manual_drift = self.up_b.manual_handback(c);
-        if manual_drift && plan.drifting() {
-            self.cancel();
-            return ControllerOutput::default();
-        }
         c.held = true;
         // Admission required immediate native Up-B readiness. Never reserve
         // or neutralize controls waiting for our own dodge/shield recovery.
         let sampled = plan.sample(settings, c, enemy, None, 0.);
         let output =
             crate::out_of_shield::direct_shield_input(c.status, sampled, plan.right_stick());
-        // Other fighters keep manual handback on the first drift observation.
-        // Bowser retains the entire tail; never cut the critical B pulse.
-        match self
-            .up_b
-            .after_sample(manual_drift && plan.drifting(), output.requested)
-        {
+        match self.up_b.after_sample(false, output.requested) {
             UpBVerdict::Wait => return ControllerOutput::default(),
             UpBVerdict::Cancel => {
                 self.cancel();

@@ -263,11 +263,6 @@ impl Response {
             self.cancel();
             return ControllerOutput::default();
         }
-        let manual = self.up_b.manual_handback(c);
-        if manual && plan.drifting() {
-            self.cancel();
-            return ControllerOutput::default();
-        }
         c.held = true;
         let output = plan.sample(settings, c, enemy, None, 0.0);
         let output = if self.up_b.armed() || self.configured {
@@ -275,10 +270,7 @@ impl Response {
         } else {
             output
         };
-        match self
-            .up_b
-            .after_sample(manual && plan.drifting(), output.requested)
-        {
+        match self.up_b.after_sample(false, output.requested) {
             UpBVerdict::Wait => return ControllerOutput::default(),
             UpBVerdict::Cancel => {
                 self.cancel();

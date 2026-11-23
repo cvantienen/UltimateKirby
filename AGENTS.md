@@ -2,6 +2,7 @@
 
 ## Project Scope
 - Primary development: `crates/kirby_assist_core/`.
+
 - Default source reads/searches: only task-relevant `crates/kirby_assist_core/src/**/*.rs`. Do not read root `src/` or other crates.
 - Scope glob/grep explicitly to that directory and `*.rs`; use bounded line ranges, not whole large files or recursive repository listings. Read immediate dependencies only as needed.
 - Non-Rust files, tests outside `src/`, documentation, logs, and configuration require explicit task authorization or permission before access. These instructions are exempt. Do not read or update Cargo descriptions for unrelated code changes.

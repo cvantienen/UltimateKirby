@@ -140,14 +140,13 @@ mod attempt {
         if current.2 == p.2 {
             return 0.0;
         }
-        // Grounded locomotion adjusts its animation rate as stick strength/speed
-        // changes. A step advanced at the NEW rate must not be divided by the old
-        // rate: e.g. 0.5 / 0.25 falsely reports two game frames and aborts a walk.
-        // Accept the new-rate interpretation only when it describes exactly one
-        // update. Duplicate poses and genuinely skipped stable-rate frames retain
-        // their existing handling; attack animation clocks are unchanged.
+        // Locomotion and special phases can change rate within one motion.
+        // Dividing a new-rate update by the old rate can invent a missed frame.
+        // Normalize only an exact single update; real gaps still abort.
         let advance = current.2 - p.2;
-        if (1..=8).contains(&current.0)
+        if ((1..=8).contains(&current.0)
+            || current.0 >= crate::native_states::status::SPECIAL_N)
+            && !super::sequence_interrupted(current.0)
             && p.3 > 0.0
             && current.3 > 0.0
             && (p.3 - current.3).abs() > 0.0001

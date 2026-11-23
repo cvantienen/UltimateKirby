@@ -11,6 +11,22 @@ fn active_settings() -> LiveSettings {
 }
 
 #[test]
+fn sequence_input_delay_config_is_opt_in_and_bounded() {
+    assert_eq!(
+        LiveConfig::parse("").unwrap().sequence_input_delay_frames,
+        0
+    );
+    assert_eq!(
+        LiveConfig::parse("sequence_input_delay_frames=6")
+            .unwrap()
+            .sequence_input_delay_frames,
+        6
+    );
+    for value in ["-1", "121", "NaN", "2.5"] {
+        assert!(LiveConfig::parse(&format!("sequence_input_delay_frames={value}")).is_err());
+    }
+}
+#[test]
 fn direct_config_selects_one_controller_and_takeover_tools() {
     let config = LiveConfig::parse(include_str!(
         "../../../../deployment/ultimate/kirby_assist/config.txt"

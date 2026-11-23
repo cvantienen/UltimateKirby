@@ -376,6 +376,7 @@ fn exclusive_sdi_hands_the_stick_to_di_without_a_manual_gap_then_releases_on_hit
             SdiContext {
                 object: 1,
                 damage_stop: true,
+                damage_percent: 0.0,
                 remaining,
                 input_delay: 0.,
                 outward: 1.,
@@ -463,6 +464,7 @@ fn exclusive_damage_control_does_not_inherit_a_previous_manual_veto() {
     let c = SdiContext {
         object: 1,
         damage_stop: true,
+        damage_percent: 0.0,
         remaining: 8,
         input_delay: 0.,
         outward: 1.,

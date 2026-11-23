@@ -152,8 +152,10 @@ impl LedgeTrap {
             .map(|e| (e, visits.observe(e, ctx.position)));
         if settings.enabled && ctx.held && ctx.gameplay {
             if let Some((e, visit)) = observed {
-                if visit.new_visit && (self.target == Some(e.id) || self.file_timeline.is_none())
-                    || self.complete && visit.allowed
+                // A regrab updates visit memory, but cannot replace inputs
+                // already committed by the previous response.
+                if self.file_timeline.is_none()
+                    && (visit.new_visit || self.complete && visit.allowed)
                 {
                     *self = Self::default();
                 }
@@ -366,6 +368,46 @@ mod tests {
         assert!(v.walking_ledge().is_some());
         v.set_owner(4, 5);
         assert!(v.walking_ledge().is_none());
+    }
+    #[test]
+    fn opponent_regrab_does_not_restart_committed_side_special_sequence() {
+        let mut visits = LedgeVisits::default();
+        let mut trap = LedgeTrap::default();
+        let mut settings = settings();
+        settings.sequence_overrides[PresetSlot::Neutral as usize] = Some(
+            Catalog::parse(
+                "[kirby.neutral.test]\nstart_delay=0\nactions=side_special:1,wait:2,side_special:1",
+            )
+            .unwrap()
+            .entries()[0]
+                .sequence,
+        );
+        let getup = enemy(CLIFF_CLIMB, true);
+        let statuses = [
+            getup,
+            enemy(0, true),
+            enemy(CLIFF_WAIT, false),
+            getup,
+            getup,
+        ];
+        for (tick, opponent) in statuses.into_iter().enumerate() {
+            let out = trap.sample_with_visits(
+                &mut visits,
+                settings,
+                tick as i64,
+                ctx(tick as f32),
+                Some(opponent),
+            );
+            assert_eq!(
+                out.requested,
+                if tick == 0 || tick == 3 {
+                    crate::native_input::MAPPER_B
+                } else {
+                    0
+                }
+            );
+        }
+        assert!(trap.complete);
     }
     /// Regression test for `completed_engine_rearms_for_next_observed_hang_without_releasing_l`.
     #[test]

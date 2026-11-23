@@ -340,7 +340,7 @@ fn authored_shield_backup_runs_its_configured_drift() {
     );
 }
 #[test]
-fn other_fighters_keep_movement_handback_and_literal_manual_actions_keep_the_original_clock() {
+fn other_fighters_keep_authored_drift_despite_manual_stick_changes() {
     let mut h = history();
     let start = h.action_epoch();
     h.sample(0, [1., 0., 0., 0.]);
@@ -387,7 +387,7 @@ fn other_fighters_keep_movement_handback_and_literal_manual_actions_keep_the_ori
             Some(enemy(1))
         )
         .owned,
-        0
+        kirby_assist_core::ledge_trap::SEQUENCE_BUTTONS
     );
 }
 #[test]

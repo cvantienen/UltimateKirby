@@ -695,29 +695,33 @@ fn apply_menu_modes(state: &mut State, frame: &OverlayFrame, kind: Option<i32>) 
         config, physical, ..
     } = *frame;
     let menu = state.settings_menu.as_ref();
-    let ledge_held =
-        menu.is_some_and(|p| p.sequence_enabled(config.assist.enabled) && p.ledge_held);
+    let ledge_held = menu
+        .is_some_and(|p| p.sequence_enabled(config.assist.enabled) && p.ledge_held)
+        || state
+            .ledge
+            .as_ref()
+            .is_some_and(LedgeTrap::committed_input_pending);
     attack_sources::tracking(
         config.autopilot_shield && ledge_held
             || !ledge_held && menu.is_some_and(|m| m.reflect_config(kind.unwrap_or(-1)).is_some()),
     );
     let manual_actions = menu.map_or(0, |m| m.manual_native_actions());
     let ledge_inputs_reserved = ledge_held || menu.is_some_and(|m| m.reserves_automatic_modes());
-    // Ledge is a hard mode boundary. Suspend every automatic reaction as
-    // soon as L is held, including a reaction that currently owns inputs.
-    let suspend_auto = ledge_inputs_reserved
-        || (state.action_owner.current_owner().is_none()
-            && (manual_actions != 0
-                || kirby_assist_core::native_input::automatic_escape(
-                    config.control_layout,
-                    physical.held,
-                    physical.pressed,
-                    false,
-                    state.manual_context.is_some_and(|c| {
-                        c.situation == kirby_assist_core::native_states::situation::GROUND
-                    }),
-                    0,
-                )));
+    // Mode buttons may block acquisition, never replace a committed tape.
+    let suspend_auto = !state.action_owner.automatic_active()
+        && (ledge_inputs_reserved
+            || (state.action_owner.current_owner().is_none()
+                && (manual_actions != 0
+                    || kirby_assist_core::native_input::automatic_escape(
+                        config.control_layout,
+                        physical.held,
+                        physical.pressed,
+                        false,
+                        state.manual_context.is_some_and(|c| {
+                            c.situation == kirby_assist_core::native_states::situation::GROUND
+                        }),
+                        0,
+                    ))));
     state.action_owner.set_automatic_suspended(suspend_auto);
     if suspend_auto {
         state.suspend_automatic_punishes();

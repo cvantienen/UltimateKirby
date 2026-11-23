@@ -83,7 +83,7 @@ fn held_guard_is_released_before_the_first_automatic_press() {
 }
 
 #[test]
-fn release_phase_keeps_guard_ownership_without_blocking_di() {
+fn release_phase_keeps_full_neutral_ownership_instead_of_di() {
     let release = TechOutput {
         press: false,
         owns_guard: true,
@@ -91,6 +91,6 @@ fn release_phase_keeps_guard_ownership_without_blocking_di() {
     let (packet, applied) =
         safety_output_with_deadline(release, None, Some([0.5, 1.0]), None, false);
     assert_eq!(applied, Some(release));
-    assert_eq!(packet.stick, Some([0.5, 1.0]));
+    assert_eq!(packet.stick, Some([0.; 2]));
     assert_eq!(packet.requested, 0);
 }
