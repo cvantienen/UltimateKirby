@@ -132,6 +132,10 @@ impl ShieldUpB {
         }
         let valid = |e: Opponent| {
             e.vulnerable
+                && !matches!(
+                    e.status,
+                    crate::native_states::GUARD_ON | crate::native_states::GUARD
+                )
                 && super::automatic_shield_target_status(e.status)
                 && super::target_within_range(c.position, e.position, range, height)
         };

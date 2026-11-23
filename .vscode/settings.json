@@ -1,4 +1,18 @@
 {
+    // ---------------------------------------------------------------
+    // Microsoft Foundry AI models -- see docs/AGENT_README.md
+    //
+    // Resource: gsanerds-resource (eastus2) / project: gsanerds
+    // Deployments: claude-opus-5, claude-fable-5-2, gpt-6.1-sol
+    //
+    // Settings below are AI Toolkit keys that DO take effect here.
+    // Model token limits and thinking/effort level are NOT settable
+    // in any settings.json -- see the reference block at the end of
+    // this file for where those actually live.
+    // ---------------------------------------------------------------
+    "windowsaistudio.foundry.logLevel": "info",
+    "windowsaistudio.autoCheckFoundrySkill": true,
+
     "cmake.sourceDirectory": "/Users/bidoof/Documents/Development/AutoSmashMod/kirby_assist 2/firmware/esp32_wroom",
     "[rust]": {
         "editor.defaultFormatter": "rust-lang.rust-analyzer",
@@ -11,6 +25,44 @@
         "**/target/**": true
     }
 }
+
+// =====================================================================
+// REFERENCE ONLY -- these values are NOT read from this file.
+// VS Code ignores everything below; it documents where each AI model
+// setting actually lives. Verified 2026-11-22. See docs/AGENT_README.md
+//
+// CONTEXT WINDOW (measured against the live endpoint)
+//   claude-opus-5     1,000,000 tokens hard limit
+//   claude-fable-5-2  1,000,000 tokens hard limit
+//   Clients advertise less (872,000) as a deliberate safety margin.
+//   Not configurable -- it is a property of the model.
+//
+// MAX OUTPUT TOKENS -- sent per request by the client, not stored here.
+//   AI Toolkit : auto-discovered, cached in globalStorage/state.vscdb
+//                (128,000). Change by re-selecting the model in the UI.
+//
+// THINKING / EFFORT -- per request. These models use adaptive thinking;
+//   "thinking.type.enabled" + budget_tokens is REJECTED. Correct form:
+//       "thinking":      { "type": "adaptive" },
+//       "output_config": { "effort": "low|medium|high|xhigh" }
+//   Thinking cannot be disabled; "low" is the floor.
+//   Measured cost on claude-opus-5 (thinking tokens):
+//       low 38 | medium 90 | high 103 | xhigh 117
+//   Thinking bills against max_tokens -- a small budget plus high
+//   effort yields an empty response (HTTP 422).
+//
+// AZURE-SIDE (az CLI only, never in settings.json)
+//   claude-opus-5     capacity 5000  (5k req/min, 5M tok/min)
+//   claude-fable-5-2  capacity 2000
+//   gpt-6.1-sol       capacity  250
+//   az cognitiveservices account deployment list \
+//     -n gsanerds-resource -g development_group -o table
+//
+// ENDPOINTS -- vendors are not interchangeable (wrong route = 404)
+//   Claude          /anthropic/v1/messages   (+ anthropic-version hdr)
+//   GPT plain chat  /openai/v1/chat/completions
+//   GPT with tools  /openai/v1/responses     (REQUIRED for gpt-6.1-sol)
+// =====================================================================
 
 // Installed extensions in the default VS Code profile, captured 2026-11-09.
 // "enabled" means not disabled in that profile; "disabled" means installed but disabled.

@@ -60,6 +60,7 @@ nav:
       - Fighter data: FIGHTER_DATA.md
       - Diagnostics and calibration: CALIBRATION_CARD.md
       - Maintaining the docs: MAINTAINING.md
+      - Foundry AI coding agents: AGENT_README.md
       - Development backlog: TODO.md
 
 # Generated profiles remain linked from the roster rather than listed individually.
