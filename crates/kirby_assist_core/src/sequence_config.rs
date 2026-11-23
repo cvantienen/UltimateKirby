@@ -1183,6 +1183,25 @@ mod tests {
             "/../../deployment/ultimate/kirby_assist/assembled/sequences.txt"
         )))
         .unwrap();
+        let lucina = catalog.tuning.get(&crate::fighter_kinds::LUCINA).unwrap();
+        assert_eq!(lucina.0[crate::fighter_tuning::COUNTER_DEFAULT], Some(1.0));
+        assert!(
+            crate::auto_counter::Config::for_fighter(crate::fighter_kinds::LUCINA, *lucina)
+                .is_some()
+        );
+        let gamewatch = catalog
+            .tuning
+            .get(&crate::fighter_kinds::MR_GAME_AND_WATCH)
+            .unwrap();
+        assert_eq!(
+            gamewatch.0[crate::fighter_tuning::REFLECT_DEFAULT],
+            Some(1.0)
+        );
+        assert!(crate::projectile_reflect::Config::for_fighter(
+            crate::fighter_kinds::MR_GAME_AND_WATCH,
+            *gamewatch
+        )
+        .is_some());
         for diagnostic in [false, true] {
             let mut profiles = FighterProfiles::default();
             profiles

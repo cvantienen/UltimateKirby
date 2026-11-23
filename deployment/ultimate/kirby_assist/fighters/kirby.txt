@@ -2,19 +2,13 @@
 #                                 KIRBY
 # ========================================================================
 
-# ---- FIGHTER TILT-TURN SETTINGS ----
-[kirby.settings]
-tilt_turn_down = true
-tilt_turn_forward = true
-tilt_turn_up = true
-
 # ---- LEDGE TRAPS: NEUTRAL ----
 # ---- Nair | kirby.neutral.nair ----
 [kirby.neutral.nair]
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = facing_input:x:0:0:1, wait:10, drift:opponent:0.99:5, wait:4, facing_input:a:0:0:4
+actions = facing_input:x:0:0:1, drift:opponent:0.6:5, controller_input:a:0:0:0:0:4:screen:screen, wait:21, facing_input:none:0:-1:4
 name = Nair
 default = true
 
@@ -199,17 +193,17 @@ default = true
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = face:opponent, facing_input:b:0:0:4
+actions = opponent_input:b:0.36:0:4
 name = Inhale
 default = false
 
 # ---- MAX NAIR | kirby.jump.nair_max_drift ----
 [kirby.jump.nair_max_drift]
+name = BAIR
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-name = MAX NAIR
-actions = Short Hop, Nair, Drift:Opponent:100%:10
+actions = facing_input:x:0:0:1, facing_input:a:-1:0:2, drift:opponent:1:5
 
 # ---- HALF NAIR | kirby.jump.nair_half_drift ----
 [kirby.jump.nair_half_drift]
@@ -225,7 +219,7 @@ actions = Short Hop, Nair, Drift:Opponent:50%:10
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = walk:away_from_opponent:14:0.9, wait:5, facing_input:a:0:-1:1
+actions = walk:away_from_opponent:5:0.9, facing_input:a:0:-1:10
 name = Down smash
 default = true
 
@@ -258,12 +252,12 @@ actions = shield_until_block:90, grab
 
 # ---- Grab / rear shield | kirby.attack.shield_rear ----
 [kirby.attack.shield_rear]
-name = Grab / rear shield
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+actions = shield_until_block:70, controller_input:a:0:0.7:0:0:30:screen:screen
+name = Grab / rear shield
 default = false
-actions = shield_until_block:90, shield:255
 
 # ---- LEDGE TRAPS: DROP ----
 # ---- Shield | kirby.drop.shield ----

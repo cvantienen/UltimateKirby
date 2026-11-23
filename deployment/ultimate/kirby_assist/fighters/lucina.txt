@@ -1,22 +1,24 @@
-# ---- FIGHTER TILT-TURN SETTINGS ----
-[lucina.settings]
-tilt_turn_down = true
-tilt_turn_forward = true
-tilt_turn_up = true
-
 # ---- NEUTRAL ----
+[lucina.settings]
+counter_default = true
+counter_startup = 5
+counter_margin = 4
+counter_half_width = 5
+counter_height = 16
+counter_half_depth = 5
+
 [lucina.neutral.nair]
-# F34 target; Neutral Air active 15-21; includes 3f jump squat
-name = Nair
-start_delay = 10
+name = SIDE B
+start_delay = 18
 timeout = 3600
 spatial_timeout = 60
+actions = controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:0:-1:0:0:1:opponent:opponent
+# F34 target; Neutral Air active 15-21; includes 3f jump squat
 default = false
-actions = opponent_input:a+x:0:0:1
 
 [lucina.neutral.down_tilt]
+name = B
 # F34 target; Down Tilt active 7-8
-name = Down tilt
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
@@ -24,13 +26,13 @@ default = false
 actions = opponent_input:b:0:0:26
 
 [lucina.neutral.forward_tilt]
-# F34 target; Forward Tilt active 8-11
-name = Forward tilt
-start_delay = 22
+start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+actions = wait:21, opponent_input:a:0.6:0:1
+# F34 target; Forward Tilt active 8-11
+name = Forward tilt
 default = true
-actions = opponent_input:a:0.6:0:1
 
 [lucina.neutral.up_tilt]
 # F34 target; Up Tilt active 6-12
@@ -42,13 +44,13 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [lucina.neutral.forward_smash]
-# F34 target; Forward Smash active 10-13; charge point 3, hold 25
-name = f-smash
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+actions = opponent_input:a:1:0:20, wait:1
+# F34 target; Forward Smash active 10-13; charge point 3, hold 25
+name = f-smash
 default = false
-actions = opponent_input:a:1:0:22, release:1
 
 # ---- JUMP ----
 [lucina.jump.nair]
@@ -61,13 +63,13 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [lucina.jump.forward_air]
-# F14 target; Forward Air active 6-8; includes 3f jump squat
-name = F-air
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+actions = opponent_input:a+x:1:0:4
+# F14 target; Forward Air active 6-8; includes 3f jump squat
+name = F-air
 default = false
-actions = opponent_input:a+x:1:0:1
 
 [lucina.jump.up_air]
 # F14 target; Up Air active 5-9; includes 3f jump squat
@@ -79,13 +81,13 @@ default = true
 actions = opponent_input:a:0.6:0:1
 
 [lucina.jump.f_smash]
-# F14 target; Up Tilt active 6-12
-name = F SMASH
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-default = false
 actions = opponent_input:a:1:0:1
+# F14 target; Up Tilt active 6-12
+name = F SMASH
+default = false
 
 # ---- ROLL ----
 [lucina.roll.down_smash]
@@ -133,12 +135,12 @@ default = false
 actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [lucina.attack.shield_up_b]
-name = Shield > Up-B
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+actions = shield_until_block:90, opponent_input:b:0.3:0.7:1
+name = Shield > Up-B
 default = true
-actions = shield_until_block:90, input:b:0:1:1
 
 [lucina.attack.shield_up_air]
 name = Shield > Uair
@@ -158,51 +160,51 @@ actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
 # ---- DROP ----
 [lucina.drop.shield]
+default = false
 name = Shield
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-default = true
 actions = shield:255
 
 [lucina.drop.down_tilt_shield]
+default = true
 name = Down tilt > shield
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-default = false
 actions = down_tilt:1, wait:30, shield:255
 
 [lucina.drop.drop_nair]
+default = false
 name = Hop nair (near)
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-default = false
 actions = short_hop_nair:4
 
 [lucina.drop.forward_air]
+default = false
 name = Hop fair (near)
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-default = false
 actions = face:opponent, short_hop_fair:1
 
 [lucina.drop.short_hop_dair]
+default = false
 name = Hop dair (near)
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-default = false
 actions = short_hop_dair:1
 
 [lucina.drop.down_smash]
+default = false
 name = Low smash (spacing)
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-default = false
 actions = face:opponent, down_smash:1
 
 # ---- AUTO REACT ----
@@ -225,52 +227,52 @@ reaction = auto_shield_grab:14.5:24
 actions = input:r:0:0:4
 
 [lucina.roll.auto_shield_backup]
-name = Shield backup > Up B
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-default = false
+actions = opponent_input:b:0.3:0.7:4
 ground_only = true
-reaction = auto_shield_backup:14:12
-actions = input:b:0:1:4
+reaction = auto_shield_backup:10:12
+name = Shield backup > Up B
+default = false
 
 [lucina.roll.auto_roll]
-name = Roll > Up B
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-default = false
+actions = opponent_input:a:0:-1:4
 ground_only = true
-reaction = auto_roll:14:12
-actions = input:a:0:-1:4
+reaction = auto_roll:10:12
+name = Roll > Up B
+default = false
 
 [lucina.roll.auto_spot_dodge]
-name = Spot dodge > Up B
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-default = false
+actions = opponent_input:b:0.3:0.7:4
 ground_only = true
-reaction = auto_spot_dodge:14:12
-actions = input:a:0:-1:4
+reaction = auto_spot_dodge:10:12
+name = Spot dodge > Up B
+default = false
 
 [lucina.roll.auto_air_dodge]
-name = Air dodge > Up B
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-default = false
+actions = opponent_input:a:0:0.6:4
 ground_only = true
-reaction = auto_air_dodge:14:24
-actions = input:a:0:-1:4
+reaction = auto_air_dodge:15:24
+name = Air dodge > Up B
+default = false
 
 [lucina.roll.auto_grab_dodged]
-name = Dodged grab > Up B
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-default = false
+actions = opponent_input:b:0.3:0.7:4
 ground_only = true
-reaction = auto_grab_dodged:14:12
-actions = input:a:0:-1:4
+reaction = auto_grab_dodged:10:12
+name = Dodged grab > Up B
+default = false
 

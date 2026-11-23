@@ -3643,7 +3643,9 @@ fn sample_reflect(state: &mut State, p: &Pass, c: &Collected) {
             .reflector
             .sample(allowed, Some(configured), context, threat)
     } else {
-        state.reflector.cancel();
+        if !state.reflector.awaiting_receipt() {
+            state.reflector.cancel();
+        }
         ControllerOutput::default()
     };
 }

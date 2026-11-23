@@ -20,8 +20,6 @@ const MAX_REFLECTOR_HORIZON_FRAMES: f32 = 40.0;
 const MAX_RECEIPT_POLL_COUNT: u8 = 24;
 /// Time limit for native state to confirm Oil Panic startup.
 const MAX_UNCONFIRMED_REFLECT_FRAMES: f32 = 24.0;
-/// Minimum native-frame gap before another Oil Panic delivery attempt.
-const MIN_REFLECT_RETRY_INTERVAL_FRAMES: f32 = 2.0;
 /// Maximum time allowed for the pre-reflector turnaround.
 const MAX_TURNING_FRAMES: f32 = 2.0;
 /// Maximum native frames allowed to deliver the Oil Panic input.
@@ -96,6 +94,8 @@ pub fn bucket(status: i32) -> bool {
         crate::native_states::status::SPECIAL_LW
             | crate::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT_START
             | crate::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_WAIT
+            | crate::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_CATCH
+            | crate::native_states::fighter_status::GAMEWATCH_SPECIAL_LW_REFLECT
     )
 }
 
@@ -235,8 +235,6 @@ pub struct Reflector {
     turning: bool,
     /// Whether the Oil Panic input has been delivered.
     sent: bool,
-    /// Whether native state confirmed Oil Panic startup.
-    confirmed: bool,
     /// Bounded retry budget for delivering the Oil Panic input.
     delivery: crate::move_input::DeliveryBudget,
     /// Mapper polls spent waiting for delivery acknowledgement.
@@ -263,7 +261,6 @@ impl Reflector {
             began: 0,
             turning: false,
             sent: false,
-            confirmed: false,
             delivery: crate::move_input::DeliveryBudget::new(),
             receipt_polls: 0,
             last_poll: None,
@@ -274,6 +271,10 @@ impl Reflector {
     /// Whether Oil Panic currently owns a projectile target.
     pub fn active(&self) -> bool {
         self.target.is_some()
+    }
+    /// Whether the mapped down-special was delivered but native startup is pending.
+    pub fn awaiting_receipt(&self) -> bool {
+        self.target.is_some() && self.sent
     }
     /// Battle-object ID of the projectile currently assigned to Oil Panic.
     pub fn target(&self) -> Option<u32> {
@@ -298,7 +299,6 @@ impl Reflector {
         self.target = None;
         self.turning = false;
         self.sent = false;
-        self.confirmed = false;
         self.delivery = crate::move_input::DeliveryBudget::new();
         self.receipt_polls = 0;
         self.last_poll = None;
@@ -318,7 +318,7 @@ impl Reflector {
     /// Last-resort receipt fence when BOTH native animation and projectile
     /// clocks are unavailable/frozen. This never advances a move or adds input.
     pub fn poll_receipt(&mut self, tick: i64) {
-        if self.target.is_some() && !self.confirmed && self.last_poll != Some(tick) {
+        if self.awaiting_receipt() && self.last_poll != Some(tick) {
             self.last_poll = Some(tick);
             self.receipt_polls = self.receipt_polls.saturating_add(1);
             if self.receipt_polls >= MAX_RECEIPT_POLL_COUNT {
@@ -362,18 +362,18 @@ impl Reflector {
         };
         let status = c.animation.status;
         let elapsed = now.saturating_sub(self.began) as f32;
-        if self.sent && !self.confirmed {
+        if self.sent {
             if bucket(status) {
-                self.confirmed = true;
+                self.cancel();
+                return Default::default();
             } else if !movable(status, c.situation)
                 || elapsed >= MAX_UNCONFIRMED_REFLECT_FRAMES
                 || self.delivery.exhausted()
             {
                 return self.abort();
-            } else if elapsed >= MIN_REFLECT_RETRY_INTERVAL_FRAMES || threat.is_none() {
-                // An online-delayed packet is a receipt reservation, not a
-                // neutral-stick hold or a stream of repeated special inputs.
-                // Physical movement stays free while other auto punishes yield.
+            } else {
+                // Keep the mapped input's receipt reservation while the
+                // projectile disappears or native startup is delayed online.
                 return Default::default();
             }
         }
@@ -419,16 +419,11 @@ impl Reflector {
             }
             self.turning = false;
         }
-        if bucket(status) && self.sent {
-            self.confirmed = true;
-        }
         if !facing
-            || !self.confirmed
-                && (!movable(status, c.situation)
-                    || !c.can_special
-                    || !self.sent && elapsed >= MAX_UNSENT_REFLECT_FRAMES
-                    || self.delivery.exhausted())
-            || self.confirmed && !bucket(status)
+            || !movable(status, c.situation)
+            || !c.can_special
+            || elapsed >= MAX_UNSENT_REFLECT_FRAMES
+            || self.delivery.exhausted()
         {
             return self.abort_polled();
         }
@@ -563,5 +558,146 @@ impl Sources {
             slot.store(EMPTY_SOURCE, Ordering::Relaxed);
         }
         self.next.store(0, Ordering::Relaxed);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn context(status: i32, frame: f32) -> Context {
+        Context {
+            kind: GAMEWATCH,
+            situation: crate::native_states::situation::GROUND,
+            facing: 1.0,
+            can_special: status == crate::native_states::status::WAIT,
+            gauge: 0.0,
+            stopped: false,
+            animation: AnimationSample {
+                object: 1,
+                status,
+                kind: if status == crate::native_states::status::WAIT {
+                    1
+                } else {
+                    2
+                },
+                frame,
+                auxiliary: 0.0,
+            },
+        }
+    }
+
+    fn config() -> Config {
+        Config {
+            startup: 6.0,
+            margin: 4.0,
+            max_hold: 45.0,
+            half_width: 5.0,
+            height: 16.0,
+            half_depth: 5.0,
+        }
+    }
+
+    #[test]
+    fn projectile_requests_down_special_and_keeps_receipt_when_it_disappears() {
+        let mut reflector = Reflector::new();
+        let threat = Threat {
+            id: 0x10000005,
+            generation: 1,
+            in_frames: 8.0,
+            direction: 1.0,
+        };
+        let initial = reflector.sample(
+            true,
+            Some(config()),
+            context(crate::native_states::status::WAIT, 1.0),
+            Some(threat),
+        );
+        assert_eq!(initial.requested & MAPPER_B, MAPPER_B);
+        assert_eq!(initial.stick, Some([0.0, -1.0]));
+        reflector.mapped(1);
+        assert!(reflector.awaiting_receipt());
+        let pending = reflector.sample(
+            true,
+            Some(config()),
+            context(crate::native_states::status::WAIT, 2.0),
+            None,
+        );
+        assert_eq!(pending.requested, 0);
+        assert!(reflector.awaiting_receipt());
+        reflector.sample(
+            true,
+            Some(config()),
+            context(crate::native_states::status::SPECIAL_LW, 1.0),
+            None,
+        );
+        assert!(!reflector.active());
+    }
+
+    #[test]
+    fn approaching_projectile_geometry_requests_oil_panic() {
+        let projectile = Hitbox {
+            start: [28.0, 8.0, 0.0],
+            end: [28.0, 8.0, 0.0],
+            radius: 2.0,
+            velocity: [-3.0, 0.0],
+        };
+        let threat = predict(
+            config(),
+            [0.0; 3],
+            [0.0; 2],
+            1.0,
+            0x10000005,
+            projectile,
+            true,
+            false,
+        )
+        .unwrap();
+        assert!((config().startup..=config().startup + config().margin).contains(&threat.in_frames));
+        let output = Reflector::new().sample(
+            true,
+            Some(config()),
+            context(crate::native_states::status::WAIT, 1.0),
+            Some(threat),
+        );
+        assert_eq!(output.requested & MAPPER_B, MAPPER_B);
+    }
+
+    #[test]
+    fn full_bucket_and_late_projectile_do_not_request_input() {
+        let threat = Threat {
+            id: 0x10000005,
+            generation: 1,
+            in_frames: 2.0,
+            direction: 1.0,
+        };
+        let mut reflector = Reflector::new();
+        assert_eq!(
+            reflector
+                .sample(
+                    true,
+                    Some(config()),
+                    context(crate::native_states::status::WAIT, 1.0),
+                    Some(threat)
+                )
+                .requested,
+            0
+        );
+        let mut full = context(crate::native_states::status::WAIT, 1.0);
+        full.gauge = 3.0;
+        assert_eq!(
+            reflector
+                .sample(
+                    true,
+                    Some(config()),
+                    full,
+                    Some(Threat {
+                        in_frames: 8.0,
+                        ..threat
+                    })
+                )
+                .requested,
+            0
+        );
     }
 }

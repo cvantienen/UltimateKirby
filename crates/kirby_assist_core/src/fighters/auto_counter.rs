@@ -111,6 +111,71 @@ pub fn predict(
     })
 }
 
+/// Forecast a catalogued attack before its hitbox appears. Only a nearby
+/// opponent with a verified damaging motion and active window is eligible.
+pub fn predict_startup(
+    config: Config,
+    origin: [f32; 3],
+    velocity: [f32; 2],
+    enemy_position: [f32; 3],
+    enemy_velocity: [f32; 2],
+    id: u32,
+    kind: i32,
+    motion: u64,
+    status: i32,
+    frame: f32,
+    rate: f32,
+) -> Option<Threat> {
+    if !origin
+        .iter()
+        .chain(velocity.iter())
+        .chain(enemy_position.iter())
+        .chain(enemy_velocity.iter())
+        .all(|v| v.is_finite())
+        || !frame.is_finite()
+        || frame < 0.0
+        || !rate.is_finite()
+        || rate <= 0.0
+        || !(1.0..=30.0).contains(&config.startup)
+        || !(0.0..=10.0).contains(&config.margin)
+        || !(0.0..=40.0).contains(&config.horizon())
+        || config.half_width <= 0.0
+        || config.height <= 0.0
+        || config.half_depth <= 0.0
+    {
+        return None;
+    }
+    let move_data = crate::fighter_data::fighter(kind)?.move_for_motion(motion)?;
+    if !move_data.has_damage_data() {
+        return None;
+    }
+    let in_frames = move_data
+        .active
+        .iter()
+        .filter(|window| frame <= window.first as f32)
+        .map(|window| (window.first as f32 - frame) / rate)
+        .filter(|t| (config.startup..=config.horizon()).contains(t))
+        .min_by(|a, b| a.total_cmp(b))?;
+    let dx = enemy_position[0] - origin[0] + (enemy_velocity[0] - velocity[0]) * in_frames;
+    let dy = enemy_position[1] - origin[1] + (enemy_velocity[1] - velocity[1]) * in_frames;
+    // The catalog has move timing but no hitbox reach. Limit startup
+    // predictions to nearby opponents; active geometry remains the fallback.
+    if dx.abs() > config.half_width + 18.0
+        || dy < -8.0
+        || dy > config.height + 8.0
+        || (enemy_position[2] - origin[2]).abs() > config.half_depth + 4.0
+    {
+        return None;
+    }
+    Some(Threat {
+        id,
+        motion,
+        status,
+        frame,
+        in_frames,
+    })
+}
+
 pub fn ready(status: i32, situation: i32) -> bool {
     match situation {
         crate::native_states::situation::GROUND => matches!(status,
@@ -287,5 +352,97 @@ impl Counter {
 impl Default for Counter {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config() -> Config {
+        Config {
+            startup: 5.0,
+            margin: 2.0,
+            half_width: 5.0,
+            height: 16.0,
+            half_depth: 5.0,
+        }
+    }
+
+    #[test]
+    fn known_nearby_startup_requests_counter_before_hitbox_exists() {
+        let kind = 5;
+        let motion = crate::timing::motion_hash("attack_air_f");
+        let first = crate::fighter_data::fighter(kind)
+            .unwrap()
+            .move_for_motion(motion)
+            .unwrap()
+            .active[0]
+            .first as f32;
+        let threat = predict_startup(
+            config(),
+            [0.0; 3],
+            [0.0; 2],
+            [12.0, 0.0, 0.0],
+            [0.0; 2],
+            7,
+            kind,
+            motion,
+            crate::native_states::status::ATTACK_AIR,
+            first - 6.0,
+            1.0,
+        )
+        .unwrap();
+        let mut counter = Counter::new();
+        let output = counter.sample(
+            true,
+            Some(config()),
+            Context {
+                kind: crate::fighter_kinds::LUCINA,
+                situation: crate::native_states::situation::GROUND,
+                can_special: true,
+                stopped: false,
+                animation: AnimationSample {
+                    object: 1,
+                    status: crate::native_states::status::WAIT,
+                    kind: 1,
+                    frame: 1.0,
+                    auxiliary: 0.0,
+                },
+            },
+            Some(threat),
+        );
+        assert_eq!(output.requested & MAPPER_B, MAPPER_B);
+        assert_eq!(output.stick, Some([0.0, -1.0]));
+    }
+
+    #[test]
+    fn startup_rejects_unknown_far_or_too_late_attacks() {
+        let kind = 5;
+        let motion = crate::timing::motion_hash("attack_air_f");
+        let first = crate::fighter_data::fighter(kind)
+            .unwrap()
+            .move_for_motion(motion)
+            .unwrap()
+            .active[0]
+            .first as f32;
+        let predict = |position, motion, frame| {
+            predict_startup(
+                config(),
+                [0.0; 3],
+                [0.0; 2],
+                position,
+                [0.0; 2],
+                7,
+                kind,
+                motion,
+                crate::native_states::status::ATTACK_AIR,
+                frame,
+                1.0,
+            )
+        };
+        assert!(predict([40.0, 0.0, 0.0], motion, first - 6.0).is_none());
+        assert!(predict([12.0, 0.0, 0.0], 0, first - 6.0).is_none());
+        assert!(predict([12.0, 0.0, 0.0], motion, first - 2.0).is_none());
     }
 }

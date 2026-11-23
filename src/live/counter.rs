@@ -71,7 +71,7 @@ pub(super) unsafe fn observe(
         {
             continue;
         }
-        let position = [reads.pos_x(enemy), reads.pos_y(enemy)];
+        let position = [reads.pos_x(enemy), reads.pos_y(enemy), game::pos_z(enemy)];
         let speed = [reads.speed_x(enemy), reads.speed_y(enemy)];
         if !position.iter().chain(speed.iter()).all(|v| v.is_finite())
             || (position[0] - origin[0]).abs()
@@ -85,6 +85,22 @@ pub(super) unsafe fn observe(
         if !scale.is_finite() || !(0.01..=10.0).contains(&scale) {
             continue;
         }
+        let enemy_motion = reads.motion_kind(enemy);
+        let enemy_status = reads.status_kind(enemy);
+        let enemy_frame = reads.motion_frame(enemy);
+        let startup = policy::predict_startup(
+            config,
+            origin,
+            velocity,
+            position,
+            speed,
+            id,
+            reads.fighter_kind(enemy),
+            enemy_motion,
+            enemy_status,
+            enemy_frame,
+            reads.motion_rate(enemy),
+        );
         for slot in 0..8 {
             if !game::attack_active(enemy, slot, false) {
                 continue;
@@ -142,9 +158,9 @@ pub(super) unsafe fn observe(
                 origin,
                 velocity,
                 id,
-                reads.motion_kind(enemy),
-                reads.status_kind(enemy),
-                reads.motion_frame(enemy),
+                enemy_motion,
+                enemy_status,
+                enemy_frame,
                 Hitbox {
                     start: [start.x, start.y, start.z],
                     end: [end.x, end.y, end.z],
@@ -155,6 +171,11 @@ pub(super) unsafe fn observe(
                 if best.is_none_or(|old| threat.in_frames < old.in_frames) {
                     best = Some(threat);
                 }
+            }
+        }
+        if let Some(threat) = startup {
+            if best.is_none_or(|old| threat.in_frames < old.in_frames) {
+                best = Some(threat);
             }
         }
     }

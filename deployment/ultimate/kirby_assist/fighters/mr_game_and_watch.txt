@@ -190,7 +190,7 @@ default = false
 [mr_game_and_watch.settings]
 reflect_default = true
 reflect_startup = 6
-reflect_margin = 2
+reflect_margin = 4
 reflect_max_hold = 45
 reflect_half_width = 5
 reflect_height = 16
