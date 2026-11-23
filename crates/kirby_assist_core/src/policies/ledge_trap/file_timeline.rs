@@ -8,7 +8,7 @@ use super::{
 use crate::native_input::{
     MAPPER_A, MAPPER_B, MAPPER_R, MAPPER_RIGHT_STICK_DOWN, MAPPER_RIGHT_STICK_LEFT,
     MAPPER_RIGHT_STICK_RIGHT, MAPPER_RIGHT_STICK_UP, MAPPER_ZR, SEQUENCE_GUARD_BUTTONS,
-    SEQUENCE_JUMP_BUTTONS,
+    SEQUENCE_GUARD_INPUTS, SEQUENCE_JUMP_BUTTONS,
 };
 use crate::native_states::{situation, GUARD, GUARD_DAMAGE, GUARD_OFF, GUARD_ON};
 use crate::sequence_config::{
@@ -349,10 +349,16 @@ impl Timeline {
         }
         // The first observation is frame zero. Later duplicate polls reuse the
         // output even if the mapper tick or opponent metadata changes.
-        if self.entered && now == before && !self.current().is_some_and(is_predicate) {
+        if self.entered
+            && !self.shield_handoff
+            && now == before
+            && !self.current().is_some_and(is_predicate)
+        {
             return self.output;
         }
-        self.right_stick = [0.0; 2];
+        if !self.shield_handoff || !self.entered {
+            self.right_stick = [0.0; 2];
+        }
         let fresh = enemy.filter(|e| e.id == self.enemy.id && finite2(e.position));
         if let Some(enemy) = fresh {
             self.enemy = enemy;
@@ -474,6 +480,11 @@ impl Timeline {
     }
     /// Returns the `stopped_output` result.
     fn stopped_output(&mut self, ctx: GameplayContext, now: f32) -> ControllerOutput {
+        if self.shield_handoff && matches!(ctx.status, GUARD_ON | GUARD | GUARD_DAMAGE) {
+            self.entered = false;
+            self.right_stick = [0.; 2];
+            return self.hold_neutral();
+        }
         if now >= f32::from(self.sequence.start_delay)
             && matches!(self.current(), Some(Action::ShieldUntilBlock(_)))
         {
@@ -503,6 +514,22 @@ impl Timeline {
             if let Some(reason) = self.invalid_step(action, &f) {
                 return self.finish(reason);
             }
+            let handoff = shield_handoff_needed(action, f.ctx.status, f.ctx.situation);
+            if self.shield_handoff && self.entered {
+                if handoff {
+                    if self.continuous_progress
+                        && f.ctx.status == GUARD_OFF
+                        && buffers_after_shield_release(action)
+                    {
+                        return self.output;
+                    }
+                    self.right_stick = [0.; 2];
+                    self.entered = false;
+                    return self.hold_neutral();
+                }
+                self.shield_handoff = false;
+                self.step_start = f.now;
+            }
             if !self.entered {
                 // Satisfied spatial checks do not perform an input. Resolve them
                 // before shield handoff so a no-op cannot pay shield-drop recovery.
@@ -511,14 +538,20 @@ impl Timeline {
                     self.next(f.now);
                     continue;
                 }
-                // Drop shield with neutral controls before ordinary attacks/movement.
-                // The action's own duration starts only after native guard-off ends.
-                // This shared tape path covers ledge/button recipes and all assists.
-                if shield_handoff_needed(action, f.ctx.status, f.ctx.situation) {
+                // Release shield neutrally first. Automatic attack tapes may then
+                // hold a buffer during guard-off, but keep their full authored
+                // duration for when recovery ends. Movement/ledge tapes stay strict.
+                let buffer = handoff
+                    && self.continuous_progress
+                    && f.ctx.status == GUARD_OFF
+                    && buffers_after_shield_release(action);
+                if handoff {
                     self.shield_handoff = true;
-                    return self.hold_neutral();
-                }
-                if self.shield_handoff {
+                    if !buffer {
+                        return self.hold_neutral();
+                    }
+                    self.step_start = f.now;
+                } else if self.shield_handoff {
                     self.shield_handoff = false;
                     self.step_start = f.now;
                 }
@@ -1304,6 +1337,13 @@ fn condition_met(
         _ => false,
     }
 }
+fn buffers_after_shield_release(action: Action) -> bool {
+    literal(action).is_some_and(|input| {
+        input.buttons & SEQUENCE_GUARD_INPUTS == 0
+            && (input.buttons & (MAPPER_A | MAPPER_B) != 0 || input.cstick != [0.; 2])
+    })
+}
+
 // Native statuses: guard-on, guard, guard-off, guard-damage. No new queries.
 /// Determines whether the `shield_handoff_needed` condition holds.
 /// Checks whether shield handoff needed.

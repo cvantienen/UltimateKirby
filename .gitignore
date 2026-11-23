@@ -17,3 +17,7 @@ venv/
 
 /.mod-workbench/
 .kilo
+data/
+deployment/
+deployment
+data

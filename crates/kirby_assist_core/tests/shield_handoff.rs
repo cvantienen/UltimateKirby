@@ -103,6 +103,151 @@ fn direct_oos_inputs_do_not_gain_an_extra_release_frame() {
     }
 }
 #[test]
+fn automatic_attacks_buffer_after_shield_release_without_spending_their_hold() {
+    for action in ["down_smash:4", "side_b:4", "cstick:0:-1:4"] {
+        let mut t = InputTimeline::new(sequence(action), Opponent::default());
+        t.allow_continuous_progress();
+        let sample = |t: &mut InputTimeline, status, frame| {
+            t.sample(
+                AssistSettings::default(),
+                context(status, frame),
+                None,
+                None,
+                0.,
+            )
+        };
+        let released = sample(&mut t, kirby_assist_core::native_states::GUARD, 0.);
+        assert_eq!(released.requested, 0, "{action}");
+        assert_eq!(released.stick, Some([0.; 2]));
+        let buffered = sample(&mut t, kirby_assist_core::native_states::GUARD_OFF, 1.);
+        assert_ne!(buffered.requested, 0, "{action}");
+        assert_eq!(buffered.requested & SEQUENCE_GUARD_INPUTS, 0, "{action}");
+        for frame in [1., 2., 5., 10.] {
+            assert_eq!(
+                sample(&mut t, kirby_assist_core::native_states::GUARD_OFF, frame),
+                buffered,
+                "{action}: recovery and duplicate polls preserve the buffered input"
+            );
+            assert!(!t.finished());
+        }
+        for frame in 11..15 {
+            assert_eq!(sample(&mut t, 0, frame as f32), buffered, "{action}");
+        }
+        assert_eq!(sample(&mut t, 0, 15.).requested, 0, "{action}");
+        assert!(t.finished());
+    }
+}
+
+#[test]
+fn every_auto_react_event_buffers_down_smash_but_keeps_up_smash_immediate() {
+    use kirby_assist_core::{reaction_rules::Engine, roll_read::Target};
+    for (event, status) in [
+        ("auto_roll", kirby_assist_core::native_states::ESCAPE_F),
+        ("auto_spot_dodge", kirby_assist_core::native_states::ESCAPE),
+        (
+            "auto_air_dodge",
+            kirby_assist_core::native_states::ESCAPE_AIR,
+        ),
+    ] {
+        for (action, first) in [("down_smash:1", 0), ("up_smash:1", MAPPER_A | MAPPER_ZR)] {
+            let mut s = sequence(action);
+            s.reaction =
+                kirby_assist_core::reaction_rules::Rule::parse(&format!("{event}:30:12")).unwrap();
+            let mut rules = Resolved::default();
+            rules
+                .add(Candidate {
+                    slot: 0,
+                    index: 0,
+                    sequence: s,
+                })
+                .unwrap();
+            let target = Target {
+                id: 2,
+                status,
+                motion: 2,
+                frame: 0.,
+                rate: 1.,
+                position: [10., 0.],
+                velocity_x: 0.,
+                vulnerable_in: None,
+                actionable_in: None,
+            };
+            let mut engine = Engine::default();
+            let out = engine.sample_simple_ready(
+                true,
+                &rules,
+                AssistSettings::default(),
+                context(kirby_assist_core::native_states::GUARD, 0.),
+                [Some(target), None, None, None, None, None, None, None],
+                None,
+                [true; 3],
+            );
+            assert_eq!(out.requested, first, "{event}, {action}");
+            if first == 0 {
+                let out = engine.sample_simple_ready(
+                    true,
+                    &rules,
+                    AssistSettings::default(),
+                    context(kirby_assist_core::native_states::GUARD_OFF, 1.),
+                    [None; 8],
+                    Some(Opponent {
+                        id: 2,
+                        status,
+                        position: [10., 0.],
+                        ..Default::default()
+                    }),
+                    [false; 3],
+                );
+                assert_eq!(out.requested, MAPPER_A, "{event}");
+                assert_eq!(out.stick, Some([0., -1.]));
+                assert!(engine.committed());
+            }
+        }
+    }
+}
+
+#[test]
+fn automatic_buffer_does_not_feed_attacks_into_shieldstun_or_shield_hold() {
+    let mut t = InputTimeline::new(sequence("down_smash:1"), Opponent::default());
+    t.allow_continuous_progress();
+    for (status, frame, requested) in [
+        (kirby_assist_core::native_states::GUARD, 0., 0),
+        (kirby_assist_core::native_states::GUARD_OFF, 1., MAPPER_A),
+        (kirby_assist_core::native_states::GUARD_DAMAGE, 2., 0),
+        (kirby_assist_core::native_states::GUARD, 3., 0),
+        (kirby_assist_core::native_states::GUARD_OFF, 4., MAPPER_A),
+        (0, 5., MAPPER_A),
+        (0, 6., 0),
+    ] {
+        let out = t.sample(
+            AssistSettings::default(),
+            context(status, frame),
+            None,
+            None,
+            0.,
+        );
+        assert_eq!(out.requested, requested, "status {status}, frame {frame}");
+        assert_eq!(out.requested & SEQUENCE_GUARD_INPUTS, 0);
+        if status == kirby_assist_core::native_states::GUARD_OFF {
+            let stopped = t.sample(
+                AssistSettings::default(),
+                GameplayContext {
+                    stopped: true,
+                    status: kirby_assist_core::native_states::GUARD_DAMAGE,
+                    ..context(status, frame)
+                },
+                None,
+                None,
+                0.,
+            );
+            assert_eq!(stopped.requested, 0);
+            assert_eq!(stopped.stick, Some([0.; 2]));
+        }
+    }
+    assert!(t.finished());
+}
+
+#[test]
 fn shared_response_and_movement_cannot_feed_directions_into_shield() {
     for action in [
         "down_smash:4",
