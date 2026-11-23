@@ -1090,17 +1090,24 @@ fn sample_mapper_posture(
         policy_buttons,
         ..
     } = *gate;
-    let (idle_crouch, tilt_turn) = state
+    let (idle_crouch, menu_tilt_turn) = state
         .settings_menu
         .as_ref()
         .map_or((false, false), |m| m.posture_modes());
-    let tilt_settings = state.fighter_kind.map_or(Default::default(), |kind| {
-        state.settings_menu.as_ref().map_or(Default::default(), |menu| {
-            menu.settings(Some(kind), &frame.config.assist)
-                .sequence_auto_tilt()
-                .unwrap_or_else(|| menu.fighter_tuning(kind).tilt_turn(kind))
+    let configured_turn = frame.config.auto_turn_tilts_active
+        && frame.config.auto_turn_tilts.any();
+    let tilt_turn = configured_turn || menu_tilt_turn;
+    let tilt_settings = if configured_turn {
+        frame.config.auto_turn_tilts
+    } else {
+        state.fighter_kind.map_or(Default::default(), |kind| {
+            state.settings_menu.as_ref().map_or(Default::default(), |menu| {
+                menu.settings(Some(kind), &frame.config.assist)
+                    .sequence_auto_tilt(kind)
+                    .unwrap_or_default()
+            })
         })
-    });
+    };
     let posture_target = state.posture_target;
     let posture_floor_safe = state.posture_floor_safe;
     let configured_c_stick = manual_context.and_then(|context| {

@@ -136,6 +136,7 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = down_tilt:1, wait:30, shield:255
+auto_tilt = down, forward, up
 
 # ---- D AIR | yoshi.drop.menu_added_4 ----
 [yoshi.drop.menu_added_4]
@@ -222,3 +223,4 @@ spatial_timeout = 60
 default = false
 reaction = auto_shield_backup:19:24
 actions = short_hop_nair:4
+

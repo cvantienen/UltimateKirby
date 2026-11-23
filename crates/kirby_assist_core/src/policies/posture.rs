@@ -33,9 +33,9 @@ impl TiltSettings {
         for word in value.split([',', ' ', '|']).filter(|word| !word.is_empty()) {
             match word.to_ascii_lowercase().as_str() {
                 "none" | "off" => return Ok(None),
-                "down" | "dtilt" => settings.down = true,
-                "forward" | "side" | "ftilt" => settings.forward = true,
-                "up" | "utilt" => settings.up = true,
+                "down" | "d" | "dtilt" => settings.down = true,
+                "forward" | "side" | "f" | "ftilt" => settings.forward = true,
+                "up" | "u" | "utilt" => settings.up = true,
                 _ => return Err(format!("unknown auto tilt direction {word}")),
             }
             any = true;

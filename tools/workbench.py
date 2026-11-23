@@ -57,10 +57,9 @@ from workbench_history import History, ROOT, STATE, command
 HELPERS = ("build_variants.py", "upload_all_switches.py", "upload_switch.py",
            "upload_sequences.py", "sync_sequences.py", "sequence_validation.py",
            "sequence_sources.py")
-# The repository split source is canonical; an adjacent download is only a fallback.
-DEFAULT_FILE = ROOT / "deployment/ultimate/kirby_assist/sequences.txt"
-if not DEFAULT_FILE.is_file():
-    DEFAULT_FILE = ROOT.parent / "sequences.txt"
+# The assembled bundle is the default transfer file. It is the exact file that
+# is deployed and is regenerated from the canonical fighter sources.
+DEFAULT_FILE = ROOT / "deployment/ultimate/kirby_assist/assembled/sequences.txt"
 
 
 def choose(title, items, *, back=True, back_label="Back"):
@@ -122,8 +121,10 @@ class Workbench:
             os.fsync(handle.fileno())
         os.replace(temp, self.preferences_path)
 
-    def local_path(self, label):
-        path = Path(ask(label, self.preferences.get("sequences", str(DEFAULT_FILE)))).expanduser().resolve()
+    def local_path(self, label, default=None, *, force_default=False):
+        default = str(default or DEFAULT_FILE)
+        saved = default if force_default else self.preferences.get("sequences", default)
+        path = Path(ask(label, saved)).expanduser().resolve()
         self.preferences["sequences"] = str(path)
         self.save_preferences()
         return path
@@ -229,7 +230,9 @@ class Workbench:
         if item is None:
             return None
         if item == 0:
-            return transfer.Endpoint("local", str(self.local_path("Local file")))
+            # Transfers always start from the deployed assembled bundle; a
+            # different path can still be entered explicitly at the prompt.
+            return transfer.Endpoint("local", str(self.local_path("Local file", DEFAULT_FILE, force_default=True)))
         name = "silent" if item == 1 else "diagnostic"
         file = choose("Which sequence file?", ["ACTIVE sequences.txt (in-game saves)", "STAGED sequences.upload.txt (not active)"])
         if file is None:

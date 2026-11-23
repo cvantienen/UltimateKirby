@@ -529,6 +529,24 @@ fn trip_and_sdi_defaults_disable_independently_and_reject_bad_values() {
 }
 
 #[test]
+fn standalone_turn_tilts_parse_selected_directions_without_a_recipe() {
+    for (directions, expected) in [
+        ("f", [false, true, false]),
+        ("u,d", [true, false, true]),
+        ("f,u,d", [true, true, true]),
+    ] {
+        let config = LiveConfig::parse(&format!(
+            "auto_turn_tilts_active = true\nauto_turn_tilts = {directions}"
+        )).unwrap();
+        assert!(config.auto_turn_tilts_active);
+        assert_eq!([config.auto_turn_tilts.down, config.auto_turn_tilts.forward, config.auto_turn_tilts.up], expected);
+    }
+    assert!(!LiveConfig::default().auto_turn_tilts_active);
+    assert!(LiveConfig::parse("auto_turn_tilit_active = true").unwrap().auto_turn_tilts_active);
+    assert!(LiveConfig::parse("auto_turn_tilts_active = true\nauto_turn_tilts = sideways").is_err());
+}
+
+#[test]
 fn legacy_roll_window_is_not_a_move_scheduler_anymore() {
     for value in ["0", "1", "13", "99", "retired"] {
         assert!(LiveConfig::parse(&format!("ledge_roll_hit_window_frames={value}")).is_ok());

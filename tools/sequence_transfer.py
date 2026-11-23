@@ -10,7 +10,9 @@ import stat
 import tempfile
 
 from sequence_validation import MAX_BYTES, validate_sequences
-from sequence_sources import assemble, is_split_source, canonical_bundle, replace_sources, strip_comments
+from sequence_sources import (SOURCE, GENERATED, assemble, is_split_source,
+                              canonical_bundle, replace_sources, strip_comments,
+                              write_generated)
 from sync_sequences import ACTIVE, replace_fighter, store_verified
 from upload_all_switches import TARGETS
 from workbench_history import digest
@@ -104,6 +106,10 @@ class Plan:
                 "original_sha256": digest(self.original) if self.original is not None else None}
 
 
+def is_generated_destination(endpoint: Endpoint) -> bool:
+    return endpoint.kind == "local" and Path(endpoint.path).resolve() == GENERATED.resolve()
+
+
 def prepare(source: Endpoint, destination: Endpoint, fighter: str | None = None) -> Plan:
     if source == destination:
         raise RuntimeError("Source and destination are identical")
@@ -152,7 +158,22 @@ def commit(plan: Plan, backup_root: Path) -> dict:
                 os.fsync(handle.fileno())
     print(f"Recovery snapshots: {snapshot}")
     endpoint = plan.destination
-    if endpoint.kind == "local" and is_split_source(Path(endpoint.path)):
+    if endpoint.kind == "local" and is_generated_destination(endpoint):
+        # The assembled bundle and the split fighter sources are one logical
+        # file. Keep both in sync whenever the computer copy is replaced.
+        split_source = SOURCE.resolve()
+        current_sources = assemble(split_source)
+        if current_sources != plan.original:
+            raise RuntimeError("Split fighter sources changed before replacement")
+        replace_sources(split_source, plan.updated, snapshot / 'sources', expected=plan.original)
+        try:
+            write_generated(plan.updated, GENERATED)
+        except BaseException:
+            replace_sources(split_source, current_sources, snapshot / 'sources-rollback')
+            raise
+        if read(endpoint) != plan.updated:
+            raise RuntimeError(f"Local verification failed; recovery copy: {snapshot}")
+    elif endpoint.kind == "local" and is_split_source(Path(endpoint.path)):
         replace_sources(Path(endpoint.path),plan.updated,snapshot/'sources',expected=plan.original)
     elif endpoint.kind == "local":
         path = Path(endpoint.path)

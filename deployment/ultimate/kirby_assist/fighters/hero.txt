@@ -1,7 +1,3 @@
-# ======================================================================
-#                                 HERO
-# ======================================================================
-
 # ---- NEUTRAL ----
 
 [hero.neutral.nair]
@@ -243,3 +239,4 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:10:12
 actions = opponent_input:a+x:0:1:1
+

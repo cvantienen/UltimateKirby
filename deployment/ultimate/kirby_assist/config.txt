@@ -130,6 +130,10 @@ ledge_throw_outward = false
 # Independent of held Y. No attribution, range, or smash-readiness gates.
 down_tilt_trip_smash = true
 # Kirby fair first-hit landing confirm -> upward-angled forward smash.
+# Automatically turn physical forward, up, and down tilts toward the opponent.
+# This is immediate input correction; it adds no action, delay, or wait.
+auto_turn_tilts_active = true
+auto_turn_tilts = f,u,d
 kirby_fair1_smash = true
 
 # During damage hitstop, alternate neutral/full stick at native hitstop cadence.

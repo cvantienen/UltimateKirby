@@ -575,6 +575,10 @@ pub struct LiveConfig {
     pub sequence_input_delay_frames: u8,
     /// Runtime down tilt trip smash value used by LiveConfig..
     pub down_tilt_trip_smash: bool,
+    /// Enable immediate physical tilt facing correction without a recipe.
+    pub auto_turn_tilts_active: bool,
+    /// Physical tilt directions eligible for facing correction.
+    pub auto_turn_tilts: crate::posture::TiltSettings,
     /// Runtime kirby fair1 smash value used by LiveConfig..
     pub kirby_fair1_smash: bool,
     /// Runtime auto sdi value used by LiveConfig..
@@ -605,6 +609,8 @@ impl Default for LiveConfig {
             autopilot_shield: true,
             sequence_input_delay_frames: 0,
             down_tilt_trip_smash: true,
+            auto_turn_tilts_active: false,
+            auto_turn_tilts: crate::posture::TiltSettings::default(),
             kirby_fair1_smash: true,
             auto_sdi: true,
             auto_di: crate::auto_di::Settings::default(),
@@ -751,6 +757,14 @@ impl LiveConfig {
             "sequence_input_delay_frames" => setting.set(&mut self.sequence_input_delay_frames)?,
             "kirby_auto_duck" => setting.accept::<bool>()?,
             "down_tilt_trip_smash" => setting.set(&mut self.down_tilt_trip_smash)?,
+            "auto_turn_tilts_active" | "auto_turn_tilit_active" => {
+                setting.set(&mut self.auto_turn_tilts_active)?
+            },
+            "auto_turn_tilts" => {
+                self.auto_turn_tilts = crate::posture::TiltSettings::parse(setting.value)
+                    .map_err(|e| format!("line {}: {e}", setting.line_number))?
+                    .unwrap_or_default();
+            }
             "kirby_fair1_smash" => setting.set(&mut self.kirby_fair1_smash)?,
             "auto_sdi" => setting.set(&mut self.auto_sdi)?,
             "auto_spot_dodge" => setting.set(&mut self.auto_spot_dodge)?,

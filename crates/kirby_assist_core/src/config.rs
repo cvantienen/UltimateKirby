@@ -1064,8 +1064,26 @@ pub mod settings {
 
     impl AssistSettings {
         /// Returns the sequence-declared tilt directions, if the selected fighter recipe declares them.
-        pub fn sequence_auto_tilt(&self) -> Option<crate::posture::TiltSettings> {
-            self.sequence_overrides.iter().flatten().find_map(|sequence| sequence.auto_tilt)
+        pub fn sequence_auto_tilt(&self, fighter_kind: i32) -> Option<crate::posture::TiltSettings> {
+            if !matches!(
+                fighter_kind,
+                crate::fighter_kinds::KIRBY
+                    | crate::fighter_kinds::YOSHI
+                    | crate::fighter_kinds::LUCINA
+            ) {
+                return None;
+            }
+            let mut configured = crate::posture::TiltSettings::default();
+            let mut found = false;
+            for sequence in self.sequence_overrides.iter().flatten() {
+                if let Some(settings) = sequence.auto_tilt {
+                    configured.down |= settings.down;
+                    configured.forward |= settings.forward;
+                    configured.up |= settings.up;
+                    found = true;
+                }
+            }
+            found.then_some(configured)
         }
     }
 

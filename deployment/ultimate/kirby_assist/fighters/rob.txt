@@ -250,3 +250,4 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a:0:1:1
+

@@ -18,6 +18,7 @@ start_delay = 1
 timeout = 3600
 spatial_timeout = 60
 actions = walk_to_opponent:0.8:1:10, facing_input:a:0:0:50
+auto_tilt = down, forward, up
 name = Rapid Jab
 default = false
 
@@ -343,3 +344,4 @@ spatial_timeout = 60
 default = false
 reaction = auto_shield_backup:12.5:24
 actions = up_b:4
+

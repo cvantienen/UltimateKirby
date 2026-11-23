@@ -277,6 +277,7 @@ fn snapshot_observation_policy(
     fighter_kind: i32,
     manual_automatic_blocked: bool,
     native_status: i32,
+    config: &Config,
 ) -> ObservationPolicySnapshot {
     STATE
         .lock()
@@ -380,7 +381,11 @@ fn snapshot_observation_policy(
                     && kirby_followups::watching(&state.trip_followup),
                 grab_dodge_enabled: dodge_enabled,
                 posture_modes: if !automatic_suspended {
-                    menu.map_or((false, false), |menu| menu.posture_modes())
+                    let (crouch, menu_turn) = menu.map_or((false, false), |menu| menu.posture_modes());
+                    (
+                        crouch,
+                        menu_turn || config.auto_turn_tilts_active && config.auto_turn_tilts.any(),
+                    )
                 } else {
                     (false, false)
                 },
@@ -485,24 +490,18 @@ unsafe fn refresh_observation_roster(
     flags: &AutomaticFlags,
     publication: &ObservationPublication,
 ) {
-    let tilt = matches!(
-        own.status,
-        kirby_assist_core::native_states::status::ATTACK_LW3
-            | kirby_assist_core::native_states::status::ATTACK_S3
-            | kirby_assist_core::native_states::status::ATTACK_HI3
-    );
     let defense = policy.grab_dodge_enabled || policy.oos_enabled;
     let roll_read =
         flags.scope.acquire && (policy.rules_on || policy.oos_enabled) || flags.scope.follow;
     let requested = discover_roster
         || needs.preview_start
         || policy.roster_missing
-            && (policy.rules_on || defense || policy.posture_modes.1 && policy.posture_down);
+            && (policy.rules_on || defense || policy.posture_modes.1);
     let active_consumer = needs.observe_ledge
         || flags.trip_watch
         || own.damage_stop
         || roll_read
-        || policy.posture_modes.1 && (policy.posture_down || tilt)
+        || policy.posture_modes.1
         || policy.posture_modes.0
         || defense && flags.scope.acquire;
     if !requested || !active_consumer {
@@ -893,7 +892,7 @@ pub(super) unsafe fn observe_fighter(object: *mut game::Object, discover_roster:
     // Copy saved-mode flags once; no native queries happen while holding this
     // lock. All readers in this observation use the same configuration snapshot.
     let policy =
-        snapshot_observation_policy(fighter_kind, own.manual_automatic_blocked, own.status);
+        snapshot_observation_policy(fighter_kind, own.manual_automatic_blocked, own.status, &config);
     let flags = derive_automatic_flags(&reads, object, &config, fighter_kind, &own, &policy);
     // A first Down input can need facing before any other assist discovered
     // opponents. Seed once here; ordinary refreshes stay on the existing path.

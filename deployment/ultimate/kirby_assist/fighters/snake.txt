@@ -233,3 +233,4 @@ default = false
 ground_only = false
 reaction = auto_grab_dodged:8:12
 actions = input:x:0:0:1, wait:2, input:a:0:-1:1
+

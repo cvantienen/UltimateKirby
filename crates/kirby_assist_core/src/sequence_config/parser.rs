@@ -490,6 +490,18 @@ fn apply_recipe_key(
             sequence.len = parsed.len;
         }
         RecipeKey::AutoTilt => {
+            if !matches!(
+                entry.fighter_kind,
+                crate::fighter_kinds::KIRBY
+                    | crate::fighter_kinds::YOSHI
+                    | crate::fighter_kinds::LUCINA
+                    | crate::fighter_kinds::LUIGI
+                    | -1
+            ) {
+                return Err(format!(
+                    "line {line_number}: auto_tilt is supported only for Kirby, Yoshi, and Lucina"
+                ));
+            }
             sequence.auto_tilt = crate::posture::TiltSettings::parse(value)
                 .map_err(|e| format!("line {line_number}: {e}"))?;
         }

@@ -16,6 +16,7 @@ timeout = 3600
 spatial_timeout = 60
 default = true
 actions = opponent_input:b:0:0:4, wait:15, grab:4
+auto_tilt = down, forward, up
 
 [luigi.neutral.forward_tilt]
 name = dash
@@ -24,6 +25,7 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = drift:opponent:1:4, opponent_input:a:.06:0:1
+auto_tilt = down, forward, up
 
 # ---- JUMP ----
 [luigi.jump.nair]
@@ -194,3 +196,4 @@ spatial_timeout = 60
 actions = drift:away_from_opponent:1:3, opponent_input:b:1:0:1, opponent_input:none:1:0:2
 name = zero death
 default = true
+

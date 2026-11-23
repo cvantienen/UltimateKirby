@@ -27,7 +27,15 @@ fn context() -> ManualContext {
 fn defaults_and_settings_round_trip_for_each_fighter() {
     for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
         let defaults = Tuning::default().tilt_turn(kind);
-        assert_eq!(defaults.down, matches!(kind, 5 | 6));
+        assert_eq!(
+            defaults.down,
+            matches!(
+                kind,
+                kirby_assist_core::fighter_kinds::KIRBY
+                    | kirby_assist_core::fighter_kinds::YOSHI
+                    | kirby_assist_core::fighter_kinds::LUCINA
+            )
+        );
         assert!(!defaults.up && !defaults.forward);
         let values = Tuning::values(AssistSettings {
             fighter_kind: kind,
@@ -35,7 +43,15 @@ fn defaults_and_settings_round_trip_for_each_fighter() {
         });
         assert_eq!(values[TILT_TURN_DOWN] == 1.0, defaults.down);
         for i in [TILT_TURN_DOWN, TILT_TURN_FORWARD, TILT_TURN_UP] {
-            assert!(Tuning::visible(kind, i));
+            assert_eq!(
+                Tuning::visible(kind, i),
+                matches!(
+                    kind,
+                    kirby_assist_core::fighter_kinds::KIRBY
+                        | kirby_assist_core::fighter_kinds::YOSHI
+                        | kirby_assist_core::fighter_kinds::LUCINA
+                )
+            );
             assert!(Tuning::is_bool(i));
         }
     }
