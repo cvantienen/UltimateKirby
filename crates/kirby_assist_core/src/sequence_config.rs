@@ -872,7 +872,7 @@ pub struct Sequence {
     pub while_held: bool,
     /// Opt-in: stop this tape if the fighter becomes airborne.
     pub ground_only: bool,
-    /// Optional physical tilt directions to aim toward the opponent while this sequence is active.
+    /// Retired recipe field accepted for compatibility; fighter tilt directions use `[fighter.settings]`.
     pub auto_tilt: Option<crate::posture::TiltSettings>,
     /// Runtime reaction value used by Sequence..
     pub reaction: crate::reaction_rules::Rule,

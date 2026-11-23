@@ -722,11 +722,9 @@ impl Timeline {
                 // online shield-recovery status, which may be skipped or held
                 // across polls and can otherwise retain guard until break.
                 self.blocked |= f.ctx.status == GUARD_DAMAGE;
-                if f.ctx.status == GUARD_DAMAGE
-                    || self.blocked && matches!(f.ctx.status, GUARD_ON | GUARD)
-                {
+                if self.blocked && matches!(f.ctx.status, GUARD_ON | GUARD) {
                     Step::Advance(f.now)
-                } else if f.elapsed >= f32::from(frames) {
+                } else if !self.blocked && f.elapsed >= f32::from(frames) {
                     Step::End("shield_wait_timeout")
                 } else {
                     Step::Output(guard_hold())

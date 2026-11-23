@@ -72,6 +72,30 @@ fn defaults_and_settings_round_trip_for_each_fighter() {
 }
 
 #[test]
+fn fighter_tilt_settings_are_independent_of_ledge_recipes() {
+    let catalog = Catalog::parse(
+        "[kirby.settings]\ntilt_turn_down=true\ntilt_turn_forward=true\ntilt_turn_up=true\n\
+         [kirby.neutral.down_tilt]\nstart_delay=1\nactions=walk_to_opponent:0.8:1:10, facing_input:a:0:0:50\nauto_tilt=down\n\
+         [kirby.neutral.nair]\nstart_delay=0\nactions=short_hop_nair:4\ndefault=true\n",
+    )
+    .unwrap();
+    let kind = kirby_assist_core::fighter_kinds::KIRBY;
+    let expected = TiltSettings {
+        down: true,
+        forward: true,
+        up: true,
+    };
+    assert_eq!(catalog.tuning[&kind].tilt_turn(kind), expected);
+    let recipe = catalog.entries().iter().find(|entry| entry.choice == "down_tilt").unwrap();
+    assert_eq!(recipe.sequence.auto_tilt, Some(TiltSettings { down: true, ..Default::default() }));
+    assert_eq!(catalog.tuning[&kind].tilt_turn(kind), expected);
+    let neutral = catalog.entries().iter().find(|entry| entry.choice == "nair").unwrap();
+    assert_eq!(neutral.sequence.auto_tilt, None);
+    assert!(neutral.default);
+    assert_eq!(neutral.sequence.actions().len(), 1);
+}
+
+#[test]
 fn selected_c_stick_tilts_aim_without_creating_attack_buttons() {
     for facing in [-1.0, 1.0] {
         let c = ManualContext {

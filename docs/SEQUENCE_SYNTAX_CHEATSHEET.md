@@ -71,6 +71,7 @@ actions = shield:4, grab:fighter_range_instant
 | `spatial_timeout` | Integer 1–3600; 60 | Timeout for supported spatial/range steps |
 | `ground_only` | `true` / `false`; false | Stop when airborne; automatic direct Up-B has its existing tracking exception |
 | `while_held` | `true` / `false`; false | Supported held-button playback; Auto-react responses are one committed execution |
+| `auto_tilt` | Legacy recipe compatibility key; ignored for tilt-turn behavior | Move tilt directions to `[fighter.settings]` instead of a ledge response |
 | `reaction` | Short or long form below; omit for no automatic trigger | Observation trigger and distance limits |
 | `builtin` | `normal`, `short_hop`, `ledge_assist`, `turbo_teabag` | Built-in button role; no actions, reaction, loop, ground-only flag or nonzero delay |
 | `mode`, `activation` | Compatibility-only; see final section | Not a current way to bind automatic helpers to gameplay buttons |
@@ -407,9 +408,19 @@ out_of_shield_default = true
 | `reflect_half_width` | 1–30 | Estimated body half-width used by projectile contact prediction |
 | `reflect_height` | 1–60 | Estimated body height above the root used by prediction |
 | `reflect_half_depth` | 1–30 | Estimated depth allowance used by prediction |
-| `tilt_turn_down` | `true` / `false` | Aim down tilts; defaults ON for Kirby/Yoshi, OFF for others |
+| `tilt_turn_down` | `true` / `false` | Aim down tilts; defaults ON for Kirby/Yoshi/Lucina, OFF for others |
 | `tilt_turn_forward` | `true` / `false` | Aim side C-stick tilts; requires Tilt Attack mapping; defaults OFF |
 | `tilt_turn_up` | `true` / `false` | Aim up C-stick tilts; requires Tilt Attack mapping; defaults OFF |
+
+Put tilt directions in the fighter's settings section, independently of the selected
+ledge response. The existing Tilt Turn menu toggle still controls activation:
+
+```ini
+[kirby.settings]
+tilt_turn_down = true
+tilt_turn_forward = true
+tilt_turn_up = true
+```
 
 ## Universal startup keys
 
@@ -436,6 +447,9 @@ auto_tech = true
 | `player_index`, `npad_id` | Integer 0–7; aliases for selected physical controller |
 | `tech_lookahead_frames` | Finite 1–5 |
 | `tech_cooldown_frames` | Integer 0–65535 |
+| `sequence_input_delay_frames` | Integer 0–120; subtract from sequence acquisition delay without shortening input holds |
+| `auto_turn_tilts_active`, `auto_turn_tilit_active` | `true` / `false`; second spelling is a compatibility alias |
+| `auto_turn_tilts` | Comma-separated `down`, `forward`, `up` (or `none`); selects active tilt directions |
 | `ledge_trap`, `ledge_drop_defense`, `ledge_distance_agnostic`, `ledge_manual_spacing`, `ledge_auto_position`, `ledge_throw_outward` | `true` / `false` |
 | `ledge_trap_range`, `ledge_trap_vertical_range` | Finite 1–20 |
 | `ledge_follow_range`, `ledge_follow_vertical_range` | Finite 1–100 |

@@ -366,7 +366,17 @@ impl Grab {
         let own_ready = super::ground_grab_state(c.status)
             && !c.stopped
             && (self.approach_active() || c.can_grab && c.shield_ready);
-        if self.active() && self.approach != approach || !own_ready {
+        let native_movement_replaces_approach = self.approach
+            && !approach
+            && c.status != crate::native_states::status::WAIT
+            && super::ground_grab_state(c.status)
+            && !matches!(
+                c.status,
+                crate::native_states::GUARD_ON..=crate::native_states::GUARD_DAMAGE
+            );
+        if self.active() && self.approach != approach && !native_movement_replaces_approach
+            || !own_ready
+        {
             self.release_unless_delivered();
             return true;
         }
@@ -392,11 +402,12 @@ impl Grab {
         }
         if self.approach
             && !self.dash_sent
-            && !self.await_dash
+            && (!self.await_dash || c.status != crate::native_states::status::WAIT)
             && !super::automatic_grab_needs_approach(c.status, lc.velocity[0])
         {
             // Native movement already exists; do not replay an unnecessary
             // approach pulse or wait for its mapper acknowledgment.
+            self.await_dash = false;
             self.dash_sent = true;
             self.clock = NativeAttempt::default();
         }

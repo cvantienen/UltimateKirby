@@ -1102,9 +1102,7 @@ fn sample_mapper_posture(
     } else {
         state.fighter_kind.map_or(Default::default(), |kind| {
             state.settings_menu.as_ref().map_or(Default::default(), |menu| {
-                menu.settings(Some(kind), &frame.config.assist)
-                    .sequence_auto_tilt(kind)
-                    .unwrap_or_default()
+                menu.fighter_tuning(kind).tilt_turn(kind)
             })
         })
     };

@@ -1,3 +1,9 @@
+# ---- FIGHTER TILT-TURN SETTINGS ----
+[luigi.settings]
+tilt_turn_down = true
+tilt_turn_forward = true
+tilt_turn_up = true
+
 # ---- NEUTRAL ----
 [luigi.neutral.nair]
 # F34 target; Neutral Air active 3-31; includes 3f jump squat
@@ -16,7 +22,6 @@ timeout = 3600
 spatial_timeout = 60
 default = true
 actions = opponent_input:b:0:0:4, wait:15, grab:4
-auto_tilt = down, forward, up
 
 [luigi.neutral.forward_tilt]
 name = dash
@@ -25,7 +30,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = drift:opponent:1:4, opponent_input:a:.06:0:1
-auto_tilt = down, forward, up
 
 # ---- JUMP ----
 [luigi.jump.nair]

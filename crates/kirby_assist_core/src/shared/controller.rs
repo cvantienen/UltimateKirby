@@ -112,7 +112,11 @@ pub mod action_owner {
         crate::gameplay::ControllerOutput,
         Option<crate::tech_input::TechOutput>,
     ) {
-        safety_output_with_deadline(tech, mash, di, sdi, false)
+        let (mut output, acknowledged) = safety_output_with_deadline(tech, mash, di, sdi, false);
+        if acknowledged.is_some_and(|tech| tech.press) {
+            output.stick = None;
+        }
+        (output, acknowledged)
     }
     /// A native tech opportunity may displace launch DI for a Guard press.
     /// Preparation, press and release keep both sticks neutral until tech hands back.

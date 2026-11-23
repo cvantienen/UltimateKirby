@@ -152,10 +152,17 @@ impl LedgeTrap {
             .map(|e| (e, visits.observe(e, ctx.position)));
         if settings.enabled && ctx.held && ctx.gameplay {
             if let Some((e, visit)) = observed {
-                // A regrab updates visit memory, but cannot replace inputs
-                // already committed by the previous response.
-                if self.file_timeline.is_none()
-                    && (visit.new_visit || self.complete && visit.allowed)
+                // A fresh grab or a landing ends a drop response, including a
+                // long shield hold. Other committed responses keep their inputs.
+                let drop_ended = self.file_timeline.is_some()
+                    && self.slot == Some(crate::fighter_profiles::presets::PresetSlot::Drop)
+                    && self.target == Some(e.id)
+                    && (visit.new_visit
+                        || (e.situation == crate::native_states::situation::GROUND
+                            && !is_ledge_option(e.status)));
+                if drop_ended
+                    || (self.file_timeline.is_none()
+                        && (visit.new_visit || self.complete && visit.allowed))
                 {
                     *self = Self::default();
                 }

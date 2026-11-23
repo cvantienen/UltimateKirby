@@ -564,11 +564,13 @@ fn supplied_catalog_exposes_native_grab_defaults_for_all_fighters_without_enabli
     let p = FighterProfiles::default();
     c.validate(&p).unwrap();
     for kind in 0..kirby_assist_core::fighter_kinds::PLAYABLE_KIND_COUNT {
-        // New editable-only Aegis profiles intentionally have no auto recipes.
-        // Their generic native grab admission does not require a text recipe.
+        // Min Min has a shield backup but no auto-grab recipes; editable-only
+        // Aegis profiles have neither. Native admission needs no text recipe.
         if matches!(
             kind,
-            kirby_assist_core::fighter_kinds::PYRA | kirby_assist_core::fighter_kinds::MYTHRA
+            kirby_assist_core::fighter_kinds::MIN_MIN
+                | kirby_assist_core::fighter_kinds::PYRA
+                | kirby_assist_core::fighter_kinds::MYTHRA
         ) {
             assert!(c
                 .entries()
@@ -576,8 +578,9 @@ fn supplied_catalog_exposes_native_grab_defaults_for_all_fighters_without_enabli
                 .filter(|e| e.fighter_kind == kind)
                 .all(|e| !matches!(
                     e.sequence.reaction.trigger,
-                    Trigger::AutoGrab | Trigger::AutoShieldGrab | Trigger::AutoShieldBackup
-                )));
+                    Trigger::AutoGrab | Trigger::AutoShieldGrab
+                ) && (kind == kirby_assist_core::fighter_kinds::MIN_MIN
+                    || e.sequence.reaction.trigger != Trigger::AutoShieldBackup)));
             continue;
         }
         if p.profile(kind).is_some() {

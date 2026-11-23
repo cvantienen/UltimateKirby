@@ -376,7 +376,7 @@ fn every_configured_fighter_renders_both_lightweight_pages_without_headers_hints
             }
         }
     }
-    assert_eq!(count, 79);
+    assert_eq!(count, 90);
 }
 
 // Compile the native publisher itself, including the logging-only branches.

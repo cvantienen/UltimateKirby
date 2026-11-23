@@ -872,7 +872,7 @@ builtin = turbo_teabag
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = facing_input:b:0:1:4, drift:opponent:1:50
+actions = facing_input:b:0:1:4, drift:opponent:1:69
 ground_only = true
 reaction = auto_roll:25:12
 name = Roll - Up-B chase
@@ -8461,13 +8461,19 @@ actions = opponent_input:a+x:0:0:1
 #                                 KIRBY
 # ========================================================================
 
+# ---- FIGHTER TILT-TURN SETTINGS ----
+[kirby.settings]
+tilt_turn_down = true
+tilt_turn_forward = true
+tilt_turn_up = true
+
 # ---- LEDGE TRAPS: NEUTRAL ----
 # ---- Nair | kirby.neutral.nair ----
 [kirby.neutral.nair]
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = facing_input:x:0:0:1, drift:opponent:0.6:5, controller_input:a:0:0:0:0:4:screen:screen, wait:21, facing_input:none:0:-1:4
+actions = facing_input:x:0:0:1, wait:10, drift:opponent:0.99:5, wait:4, facing_input:a:0:0:4
 name = Nair
 default = true
 
@@ -8652,17 +8658,17 @@ default = true
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = opponent_input:b:0.36:0:4
+actions = face:opponent, facing_input:b:0:0:4
 name = Inhale
 default = false
 
 # ---- MAX NAIR | kirby.jump.nair_max_drift ----
 [kirby.jump.nair_max_drift]
-name = BAIR
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = facing_input:x:0:0:1, facing_input:a:-1:0:2, drift:opponent:1:5
+name = MAX NAIR
+actions = Short Hop, Nair, Drift:Opponent:100%:10
 
 # ---- HALF NAIR | kirby.jump.nair_half_drift ----
 [kirby.jump.nair_half_drift]
@@ -8678,7 +8684,7 @@ actions = Short Hop, Nair, Drift:Opponent:50%:10
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = walk:away_from_opponent:5:0.9, facing_input:a:0:-1:10
+actions = walk:away_from_opponent:14:0.9, wait:5, facing_input:a:0:-1:1
 name = Down smash
 default = true
 
@@ -8711,12 +8717,12 @@ actions = shield_until_block:90, grab
 
 # ---- Grab / rear shield | kirby.attack.shield_rear ----
 [kirby.attack.shield_rear]
+name = Grab / rear shield
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = shield_until_block:70, controller_input:a:0:0.7:0:0:30:screen:screen
-name = Grab / rear shield
 default = false
+actions = shield_until_block:90, shield:255
 
 # ---- LEDGE TRAPS: DROP ----
 # ---- Shield | kirby.drop.shield ----
@@ -9953,19 +9959,25 @@ ground_only = false
 reaction = auto_grab_dodged:12:12
 actions = opponent_input:a+x:0:0:1
 
+# ---- FIGHTER TILT-TURN SETTINGS ----
+[lucina.settings]
+tilt_turn_down = true
+tilt_turn_forward = true
+tilt_turn_up = true
+
 # ---- NEUTRAL ----
 [lucina.neutral.nair]
-name = SIDE B
-start_delay = 18
+# F34 target; Neutral Air active 15-21; includes 3f jump squat
+name = Nair
+start_delay = 10
 timeout = 3600
 spatial_timeout = 60
-actions = controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:0:-1:0:0:1:opponent:opponent
-# F34 target; Neutral Air active 15-21; includes 3f jump squat
 default = false
+actions = opponent_input:a+x:0:0:1
 
 [lucina.neutral.down_tilt]
-name = B
 # F34 target; Down Tilt active 7-8
+name = Down tilt
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
@@ -9973,13 +9985,13 @@ default = false
 actions = opponent_input:b:0:0:26
 
 [lucina.neutral.forward_tilt]
-start_delay = 0
-timeout = 3600
-spatial_timeout = 60
-actions = wait:21, opponent_input:a:0.6:0:1
 # F34 target; Forward Tilt active 8-11
 name = Forward tilt
+start_delay = 22
+timeout = 3600
+spatial_timeout = 60
 default = true
+actions = opponent_input:a:0.6:0:1
 
 [lucina.neutral.up_tilt]
 # F34 target; Up Tilt active 6-12
@@ -9991,13 +10003,13 @@ default = false
 actions = opponent_input:a:0.6:0:1
 
 [lucina.neutral.forward_smash]
+# F34 target; Forward Smash active 10-13; charge point 3, hold 25
+name = f-smash
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = opponent_input:a:1:0:20, wait:1
-# F34 target; Forward Smash active 10-13; charge point 3, hold 25
-name = f-smash
 default = false
+actions = opponent_input:a:1:0:22, release:1
 
 # ---- JUMP ----
 [lucina.jump.nair]
@@ -10010,13 +10022,13 @@ default = false
 actions = opponent_input:a+x:0:0:1
 
 [lucina.jump.forward_air]
+# F14 target; Forward Air active 6-8; includes 3f jump squat
+name = F-air
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = opponent_input:a+x:1:0:4
-# F14 target; Forward Air active 6-8; includes 3f jump squat
-name = F-air
 default = false
+actions = opponent_input:a+x:1:0:1
 
 [lucina.jump.up_air]
 # F14 target; Up Air active 5-9; includes 3f jump squat
@@ -10028,13 +10040,13 @@ default = true
 actions = opponent_input:a:0.6:0:1
 
 [lucina.jump.f_smash]
+# F14 target; Up Tilt active 6-12
+name = F SMASH
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = opponent_input:a:1:0:1
-# F14 target; Up Tilt active 6-12
-name = F SMASH
 default = false
+actions = opponent_input:a:1:0:1
 
 # ---- ROLL ----
 [lucina.roll.down_smash]
@@ -10082,12 +10094,12 @@ default = false
 actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 [lucina.attack.shield_up_b]
+name = Shield > Up-B
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = shield_until_block:90, opponent_input:b:0.3:0.7:1
-name = Shield > Up-B
 default = true
+actions = shield_until_block:90, input:b:0:1:1
 
 [lucina.attack.shield_up_air]
 name = Shield > Uair
@@ -10107,51 +10119,51 @@ actions = shield_until_block:90, opponent_input:a+x:1:0:1
 
 # ---- DROP ----
 [lucina.drop.shield]
-default = false
 name = Shield
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+default = true
 actions = shield:255
 
 [lucina.drop.down_tilt_shield]
-default = true
 name = Down tilt > shield
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+default = false
 actions = down_tilt:1, wait:30, shield:255
 
 [lucina.drop.drop_nair]
-default = false
 name = Hop nair (near)
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+default = false
 actions = short_hop_nair:4
 
 [lucina.drop.forward_air]
-default = false
 name = Hop fair (near)
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+default = false
 actions = face:opponent, short_hop_fair:1
 
 [lucina.drop.short_hop_dair]
-default = false
 name = Hop dair (near)
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+default = false
 actions = short_hop_dair:1
 
 [lucina.drop.down_smash]
-default = false
 name = Low smash (spacing)
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+default = false
 actions = face:opponent, down_smash:1
 
 # ---- AUTO REACT ----
@@ -10174,109 +10186,115 @@ reaction = auto_shield_grab:14.5:24
 actions = input:r:0:0:4
 
 [lucina.roll.auto_shield_backup]
+name = Shield backup > Up B
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = opponent_input:b:0.3:0.7:4
-ground_only = true
-reaction = auto_shield_backup:10:12
-name = Shield backup > Up B
 default = false
+ground_only = true
+reaction = auto_shield_backup:14:12
+actions = input:b:0:1:4
 
 [lucina.roll.auto_roll]
+name = Roll > Up B
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = opponent_input:b:0.3:0.7:4
-ground_only = true
-reaction = auto_roll:10:12
-name = Roll > Up B
 default = false
+ground_only = true
+reaction = auto_roll:14:12
+actions = input:a:0:-1:4
 
 [lucina.roll.auto_spot_dodge]
+name = Spot dodge > Up B
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = opponent_input:b:0.3:0.7:4
-ground_only = true
-reaction = auto_spot_dodge:10:12
-name = Spot dodge > Up B
 default = false
+ground_only = true
+reaction = auto_spot_dodge:14:12
+actions = input:a:0:-1:4
 
 [lucina.roll.auto_air_dodge]
+name = Air dodge > Up B
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = opponent_input:b:0.3:0.7:4
+default = false
 ground_only = true
 reaction = auto_air_dodge:14:24
-name = Air dodge > Up B
-default = false
+actions = input:a:0:-1:4
 
 [lucina.roll.auto_grab_dodged]
+name = Dodged grab > Up B
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = opponent_input:b:0.3:0.7:4
+default = false
 ground_only = true
 reaction = auto_grab_dodged:14:12
-name = Dodged grab > Up B
-default = false
+actions = input:a:0:-1:4
+
+# ---- FIGHTER TILT-TURN SETTINGS ----
+[luigi.settings]
+tilt_turn_down = true
+tilt_turn_forward = true
+tilt_turn_up = true
 
 # ---- NEUTRAL ----
 [luigi.neutral.nair]
-default = false
 # F34 target; Neutral Air active 3-31; includes 3f jump squat
 name = Nair
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+default = false
 actions = short_hop:1, drift:opponent:0.5:10, opponent_input:a:0:0:1
 
 [luigi.neutral.down_tilt]
-default = false
+# F34 target; Down Tilt active 5-8
+name = F ball Grab
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = opponent_input:b:0:0:4, range:fighter_range, wait:30, input:r:0:0:1
-# F34 target; Down Tilt active 5-8
-name = F ball Grab
+default = true
+actions = opponent_input:b:0:0:4, wait:15, grab:4
 
 [luigi.neutral.forward_tilt]
-default = true
-start_delay = 20
+name = dash
+start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = drift:opponent:1:4, opponent_input:a:0.6:0:4
-name = dash
+default = false
+actions = drift:opponent:1:4, opponent_input:a:.06:0:1
 
 # ---- JUMP ----
 [luigi.jump.nair]
-default = false
 # F14 target; Neutral Air active 3-31; includes 3f jump squat
 name = Nair
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+default = true
 actions = short_hop:1, opponent_input:a:0:0:1, drift:opponent:1:10
 
 [luigi.jump.dash]
-default = true
+name = dash
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = drift:opponent:1:4, opponent_input:a:0.6:0:1
-name = dash
+default = false
+actions = drift:opponent:1:4, opponent_input:a:.06:0:1
 
 # ---- ROLL ----
 [luigi.roll.down_smash]
+# F31 target; Down Smash active 6-7; charge point 2, hold 27; rear phase 14-15 aligned separately
+name = Down smash
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = drift:away_from_opponent:1:4, opponent_input:a:0:-1:20, wait:1
-# F31 target; Down Smash active 6-7; charge point 2, hold 27; rear phase 14-15 aligned separately
-name = Down smash
 default = false
+actions = drift:away_from_opponent:1:4, opponent_input:a:0:-1:10, release:1
 
 # ---- ROLL ----
 [luigi.roll.grab]
@@ -10289,20 +10307,20 @@ actions = drift:away_from_opponent:0.5:4, wait:10, range:fighter_range, press:r:
 
 # ---- ATTACK ----
 [luigi.attack.shield_nair]
-default = false
 name = Shield > Nair
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
+default = true
 actions = shield_until_block:90, opponent_input:a+x:0:0:1
 
 [luigi.attack.shield_grab]
-default = true
+name = Shield > range-checked grab
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = shield_until_block:90, range:fighter_range, input:r:0:0:4
-name = Shield > range-checked grab
+default = false
+actions = shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1
 
 # ---- DROP ----
 [luigi.drop.shield]
@@ -10322,60 +10340,73 @@ default = false
 actions = down_tilt:1, wait:30, shield:255
 
 # ---- AUTO REACT ----
+[luigi.roll.auto_grab]
+name = Automatic grab (unshielded)
+start_delay = 0
+timeout = 240
+spatial_timeout = 60
+default = false
+reaction = auto_grab:25:12
+actions = input:r:0:0:4
 
 [luigi.roll.auto_shield_grab]
+name = Automatic grab (shielded)
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = facing_input:b:0:1:4
-reaction = auto_shield_grab:12:12
-name = Automatic grab (shielded)
 default = false
+reaction = auto_shield_grab:25:12
+actions = input:r:0:0:4
 
 [luigi.roll.auto_shield_backup]
+name = Shield backup > Neutral Air
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = drift:opponent:0.7:1, controller_input:b:0.6:0.8:0:0:1:opponent:opponent
-reaction = auto_shield_backup:12:12
-name = Shield backup > Neutral Air
 default = false
+ground_only = false
+reaction = auto_shield_backup:12:15
+actions = opponent_input:b:0:1:4
 
 [luigi.roll.auto_roll]
+name = Roll > Neutral Air
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = opponent_input:b:0:-1:4, drift:opponent:1:30
-reaction = auto_roll:20:20
-name = Roll > Neutral Air
 default = false
+ground_only = false
+reaction = auto_roll:12:12
+actions = opponent_input:b:0:1:4
 
 [luigi.roll.auto_spot_dodge]
+name = Spot dodge > Neutral Air
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = opponent_input:b:0:-1:4, drift:opponent:1:30
-reaction = auto_spot_dodge:20:20
-name = Spot dodge > Neutral Air
 default = false
+ground_only = false
+reaction = auto_spot_dodge:12:12
+actions = opponent_input:b:0:1:4
 
 [luigi.roll.auto_air_dodge]
+name = Air dodge > Neutral Air
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = opponent_input:b:0:-1:4, drift:opponent:1:30
-reaction = auto_air_dodge:20:24
-name = Air dodge > Neutral Air
 default = false
+ground_only = false
+reaction = auto_air_dodge:12:24
+actions = opponent_input:b:0:1:4
 
 [luigi.roll.auto_grab_dodged]
+name = Dodged grab > Neutral Air
 start_delay = 0
 timeout = 240
 spatial_timeout = 60
-actions = opponent_input:b:0:-1:4, drift:opponent:1:30
-reaction = auto_grab_dodged:20:10
-name = Dodged grab > Neutral Air
 default = false
+ground_only = false
+reaction = auto_grab_dodged:12:12
+actions = opponent_input:b:0:1:4
 
 # ---- BUTTON SEQUENCES: Y ----
 # ---- Grab | luigi.y.airdodge ----
@@ -10383,7 +10414,7 @@ default = false
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-actions = drift:facing:1:2, opponent_input:b:-0.3:0:2, drift:backward:1:4
+actions = drift:facing:0.5:3, opponent_input:b:-0.3:0:2, drift:away:0.5:3
 default = true
 name = b reverse
 
@@ -10393,19 +10424,20 @@ name = b reverse
 start_delay = 0
 timeout = 120
 spatial_timeout = 60
-actions = facing_input:x:0:0:1, wait:25, facing_input:none:0:-1:1, input:r:0:0:1
+actions = drift:opponent:0.5:3, short_hop:1, wait:10, crouch:1, grab:1
 name = Plunger
 default = true
 
 # ---- BUTTON SEQUENCES: DPAD_RIGHT ----
 # ---- Flying Slam reverse toward enemy | luigi.dpad_right.reverse_flying_slam ----
 [luigi.dpad_right.reverse_flying_slam]
-default = false
 start_delay = 0
 timeout = 120
 spatial_timeout = 60
-actions = facing_input:x:0:0:1, wait:4, facing_input:a:0:-1:1, wait:18, facing_input:a:0:0:4, facing_input:none:0:-1:1, wait:10, facing_input:x:0:0:1, wait:10, facing_input:a:0:-0.74:4, wait:17, facing_input:none:0:-1:4, controller_input:r:0:0:0:0:4:screen:screen, wait:16, facing_input:b:0:1:4
+actions = drift:away_from_opponent:1:3, opponent_input:b:1:0:1, opponent_input:none:1:0:2
 name = zero death
+default = true
+
 # ---- NEUTRAL ----
 [mario.neutral.nair]
 # F34 target; Neutral Air active 3-27; includes 3f jump squat
@@ -20568,6 +20600,12 @@ actions = opponent_input:a+x:0:0:1
 #                                 YOSHI
 # ========================================================================
 
+# ---- FIGHTER TILT-TURN SETTINGS ----
+[yoshi.settings]
+tilt_turn_down = true
+tilt_turn_forward = true
+tilt_turn_up = true
+
 # ---- LEDGE TRAPS: NEUTRAL ----
 # ---- Nair | yoshi.neutral.nair_ledge ----
 [yoshi.neutral.nair_ledge]
@@ -21514,14 +21552,3 @@ default = false
 ground_only = true
 reaction = auto_grab_dodged:12:12
 actions = input:b:0:1:4
-
-[luigi.settings]
-walk_strength = 0.49999985
-
-[luigi.dpad_right.menu_added_6]
-default = true
-name = New option 7
-start_delay = 0
-timeout = 3600
-spatial_timeout = 60
-actions = facing_input:x:0:0:1

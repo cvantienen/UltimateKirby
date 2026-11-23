@@ -1,3 +1,9 @@
+# ---- FIGHTER TILT-TURN SETTINGS ----
+[lucina.settings]
+tilt_turn_down = true
+tilt_turn_forward = true
+tilt_turn_up = true
+
 # ---- NEUTRAL ----
 [lucina.neutral.nair]
 # F34 target; Neutral Air active 15-21; includes 3f jump squat
@@ -16,7 +22,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = opponent_input:b:0:0:26
-auto_tilt = down, forward, up
 
 [lucina.neutral.forward_tilt]
 # F34 target; Forward Tilt active 8-11
@@ -26,7 +31,6 @@ timeout = 3600
 spatial_timeout = 60
 default = true
 actions = opponent_input:a:0.6:0:1
-auto_tilt = down, forward, up
 
 [lucina.neutral.up_tilt]
 # F34 target; Up Tilt active 6-12

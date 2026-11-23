@@ -2,6 +2,12 @@
 #                                 YOSHI
 # ========================================================================
 
+# ---- FIGHTER TILT-TURN SETTINGS ----
+[yoshi.settings]
+tilt_turn_down = true
+tilt_turn_forward = true
+tilt_turn_up = true
+
 # ---- LEDGE TRAPS: NEUTRAL ----
 # ---- Nair | yoshi.neutral.nair_ledge ----
 [yoshi.neutral.nair_ledge]
@@ -136,7 +142,6 @@ timeout = 3600
 spatial_timeout = 60
 default = false
 actions = down_tilt:1, wait:30, shield:255
-auto_tilt = down, forward, up
 
 # ---- D AIR | yoshi.drop.menu_added_4 ----
 [yoshi.drop.menu_added_4]

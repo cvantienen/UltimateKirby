@@ -110,7 +110,7 @@ mod tests {
                 .all(|list| list.options.is_empty()));
             assert_eq!(profile.menu_options.templates.len(), 1);
         }
-        assert_eq!(count, 79);
+        assert_eq!(count, 90);
         assert_eq!(library.fighter_entries(15), 1);
         assert_eq!(library.fighter_entries(22), 1);
         assert_eq!(library.for_fighter(5).len(), 0);

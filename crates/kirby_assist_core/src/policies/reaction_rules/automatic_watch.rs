@@ -197,9 +197,6 @@ impl Engine {
             else {
                 continue;
             };
-            if !t.vulnerable_now() {
-                continue;
-            }
             let d = (t.position[0] - c.position[0]).abs();
             let r = sequence.reaction;
             // Moving admission is reserved for a direct Up-B input. A
@@ -357,6 +354,13 @@ impl Engine {
             }
             UpBVerdict::Continue | UpBVerdict::Confirm => {}
         }
+        if self.up_b.armed()
+            && plan.drifting()
+            && c.manual_input_epoch != self.start_epoch
+        {
+            self.cancel();
+            return ControllerOutput::default();
+        }
         if plan.finished() {
             self.up_b.disarm();
             self.plan = None;
@@ -407,6 +411,7 @@ impl Engine {
         };
         let enemy = t.opponent(situation, None);
         self.target = Some(t.id);
+        self.start_epoch = c.manual_input_epoch;
         self.plan = Some(automatic_plan(sequence, enemy));
         Some(enemy)
     }

@@ -499,7 +499,7 @@ fn apply_recipe_key(
                     | -1
             ) {
                 return Err(format!(
-                    "line {line_number}: auto_tilt is supported only for Kirby, Yoshi, and Lucina"
+                    "line {line_number}: auto_tilt compatibility key is supported only for Kirby, Yoshi, Lucina, and Luigi"
                 ));
             }
             sequence.auto_tilt = crate::posture::TiltSettings::parse(value)

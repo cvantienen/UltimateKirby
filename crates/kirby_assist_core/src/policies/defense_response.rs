@@ -17,6 +17,8 @@ pub struct Response {
     target: Option<u32>,
     /// Runtime up b value used by Response..
     up_b: UpBFlow,
+    /// Physical-input epoch when the configured response began.
+    start_epoch: u64,
     /// Runtime configured value used by Response..
     configured: bool,
     /// Runtime grab sent value used by Response..
@@ -33,6 +35,7 @@ impl Response {
             plan: None,
             target: None,
             up_b: UpBFlow::new(),
+            start_epoch: 0,
             configured: false,
             grab_sent: false,
             grab_settling: false,
@@ -155,6 +158,7 @@ impl Response {
         sequence.ground_only = false;
         self.plan = Some(automatic_plan(sequence, enemy));
         self.target = Some(enemy.id);
+        self.start_epoch = c.manual_input_epoch;
         self.up_b.arm(c, true);
         self.configured = true;
         true
@@ -177,6 +181,7 @@ impl Response {
         sequence.while_held = false;
         self.plan = Some(automatic_plan(sequence, enemy));
         self.target = Some(enemy.id);
+        self.start_epoch = c.manual_input_epoch;
         self.configured = true;
         true
     }
@@ -277,6 +282,14 @@ impl Response {
                 return ControllerOutput::default();
             }
             UpBVerdict::Continue | UpBVerdict::Confirm => {}
+        }
+        if self.up_b.armed()
+            && plan.drifting()
+            && settings.fighter_kind == crate::fighter_kinds::BOWSER
+            && c.manual_input_epoch != self.start_epoch
+        {
+            self.cancel();
+            return ControllerOutput::default();
         }
         if self.grab_sent && output.requested & crate::native_input::MAPPER_R == 0 {
             self.plan = None;

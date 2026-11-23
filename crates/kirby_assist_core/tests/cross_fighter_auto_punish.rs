@@ -121,7 +121,7 @@ fn custom_attacks_do_not_require_up_b_and_up_b_keeps_its_own_gate_for_every_figh
             0
         );
     }
-    assert_eq!(checked, 79);
+    assert_eq!(checked, 90);
 }
 
 #[test]

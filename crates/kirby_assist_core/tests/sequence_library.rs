@@ -47,7 +47,7 @@ fn whole_roster_round_trips_one_fighter_at_a_time_without_static_menu_publicatio
             assert_eq!(active.tuning.get(&kind), catalog.tuning.get(&kind));
             assert!(active.tuning.keys().all(|k| *k == kind));
         }
-        assert_eq!(fighters, 79);
+        assert_eq!(fighters, 90);
         for kind in [-1, 0x7fff] {
             assert_eq!(library.for_fighter(kind).len(), 0);
             assert_eq!(library.fighter_entries(kind), 0);
