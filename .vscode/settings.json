@@ -11,7 +11,7 @@
     // this file for where those actually live.
     // ---------------------------------------------------------------
     "windowsaistudio.foundry.logLevel": "info",
-    "windowsaistudio.autoCheckFoundrySkill": true,
+    "windowsaistudio.autoCheckFoundrySkill": false,
 
     // Local Rust work does not need MCP tool schemas. Reload VS Code and
     // start a fresh chat after changing these; re-enable for MCP tasks.

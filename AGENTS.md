@@ -20,7 +20,9 @@
 - Start with named files or a scoped filename glob. Use content searches only within the relevant files/directory, capped at 30 matching lines. Read roughly 40–100 lines around a match; expand only when needed.
 - Do not use workspace-wide semantic searches, recursive listings, whole-file dumps, or raw log dumps. Request file paths/counts instead of contents when locating code; inspect only the relevant part of oversized tool output.
 - Handle ordinary tasks directly. Do not launch subagents unless explicitly requested or substantial independent work requires separate context; never delegate a small lookup, edit, or check.
-- No GitHub, remote-repository, web, or cloud operations unless explicitly requested or essential to the task. Never create repositories, branches, commits, pull requests, or issues, or push changes, unless requested.
+- Work on the current code task only. Do not query session history, previous chats, memories, GitHub, remote repositories, web, or cloud services unless explicitly requested. Use only current-chat evidence and task-relevant local files.
+- Never create repositories, branches, commits, pull requests, or issues, or push changes, unless requested.
+- Do not invoke MCP tools, custom skills, toolboxes, or extension-provided AI tools for routine local edits unless required by higher-priority instructions. Prefer scoped local file tools and the smallest necessary terminal check.
 - Batch independent lookups/checks and keep outputs bounded. Before expanding scope, identify the specific missing evidence; ask permission where required.
 - Project instructions cannot remove tool-schema overhead. Keep unnecessary MCP tools disabled in this workspace; re-enable only when needed, then start a fresh session.
 - Reuse existing implementations, documentation, and established patterns instead of rediscovering them.
