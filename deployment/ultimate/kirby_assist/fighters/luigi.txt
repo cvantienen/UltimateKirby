@@ -19,7 +19,7 @@ actions = opponent_input:b:0:0:4, wait:15, grab:4
 
 [luigi.neutral.forward_tilt]
 name = dash
-start_delay = 0=
+start_delay = 0
 timeout = 3600
 spatial_timeout = 60
 default = false
@@ -50,7 +50,7 @@ name = Down smash
 start_delay = 0
 timeout = 3600
 spatial_timeout = 60
-default = true
+default = false
 actions = drift:away_from_opponent:1:4, opponent_input:a:0:-1:10, release:1
 
 # ---- ROLL ----

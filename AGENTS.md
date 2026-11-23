@@ -4,7 +4,7 @@
 - Primary development: `crates/kirby_assist_core/`.
 - Default source reads/searches: only task-relevant `crates/kirby_assist_core/src/**/*.rs`. Do not read root `src/` or other crates.
 - Scope glob/grep explicitly to that directory and `*.rs`; use bounded line ranges, not whole large files or recursive repository listings. Read immediate dependencies only as needed.
-- Non-Rust files, tests outside `src/`, documentation, logs, and configuration require explicit task authorization or permission before access. Exceptions: these instructions and the crate `Cargo.toml` for the required description update.
+- Non-Rust files, tests outside `src/`, documentation, logs, and configuration require explicit task authorization or permission before access. These instructions are exempt. Do not read or update Cargo descriptions for unrelated code changes.
 - Documentation, when authorized: `crates/kirby_assist_core/docs/`. Ask before expanding scope.
 - These are agent workflow restrictions, not a filesystem sandbox; search exclusions do not enforce access control.
 
@@ -15,9 +15,13 @@
 - Do not build, deploy, or upload to the Switch unless requested.
 
 ## Efficient Workflow
-- Minimize token usage: solve locally with the smallest relevant evidence. No speculative exploration, repeated reads, or raw log/output dumps.
-- Handle ordinary Rust tasks directly; do not launch subagents unless requested or substantial independent work requires them. Give delegated tasks the same read scope and bounded output.
-- Batch independent lookups/checks; reuse results. Broaden searches only when targeted evidence is insufficient.
+- Default to a small-task workflow: locate the relevant code, read the smallest necessary ranges, make the change, and run one focused check when needed. No repository tours, architecture audits, or speculative exploration.
+- Reuse evidence already in the conversation. Do not reread files or repeat searches unless an edit or new evidence makes it necessary.
+- Start with named files or a scoped filename glob. Use content searches only within the relevant files/directory, capped at 30 matching lines. Read roughly 40–100 lines around a match; expand only when needed.
+- Do not use workspace-wide semantic searches, recursive listings, whole-file dumps, or raw log dumps. Request file paths/counts instead of contents when locating code; inspect only the relevant part of oversized tool output.
+- Handle ordinary tasks directly. Do not launch subagents unless explicitly requested or substantial independent work requires separate context; never delegate a small lookup, edit, or check.
+- No GitHub, remote-repository, web, or cloud operations unless explicitly requested or essential to the task. Never create repositories, branches, commits, pull requests, or issues, or push changes, unless requested.
+- Batch independent lookups/checks and keep outputs bounded. Before expanding scope, identify the specific missing evidence; ask permission where required.
 - Project instructions cannot remove tool-schema overhead. Keep unnecessary MCP tools disabled in this workspace; re-enable only when needed, then start a fresh session.
 - Reuse existing implementations, documentation, and established patterns instead of rediscovering them.
 - Make targeted changes. Avoid unnecessary refactoring, rewriting, or expanding scope.
