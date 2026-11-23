@@ -635,6 +635,39 @@ mod tests {
     }
 
     #[test]
+    fn movement_requests_oil_panic_when_transition_term_lags() {
+        let threat = Threat {
+            id: 0x10000005,
+            generation: 1,
+            in_frames: 8.0,
+            direction: 1.0,
+        };
+        for status in [
+            crate::native_states::status::WALK,
+            crate::native_states::status::RUN,
+            crate::native_states::status::TURN_RUN_BRAKE,
+            crate::native_states::status::SQUAT_WAIT,
+        ] {
+            let mut reflector = Reflector::new();
+            let mut moving = context(status, 2.0);
+            moving.can_special =
+                crate::native_states::moving_down_special_input(status, moving.situation);
+            let output = reflector.sample(true, Some(config()), moving, Some(threat));
+            assert_eq!(output.requested & MAPPER_B, MAPPER_B, "status {status}");
+            assert_eq!(output.stick, Some([0.0, -1.0]));
+            reflector.mapped(1);
+            assert!(reflector.awaiting_receipt());
+            reflector.sample(
+                true,
+                Some(config()),
+                context(crate::native_states::status::SPECIAL_LW, 1.0),
+                None,
+            );
+            assert!(!reflector.active());
+        }
+    }
+
+    #[test]
     fn approaching_projectile_geometry_requests_oil_panic() {
         let projectile = Hitbox {
             start: [28.0, 8.0, 0.0],

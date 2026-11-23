@@ -47,14 +47,14 @@ pub(super) unsafe fn observe(
         return None;
     }
     let stopped = reads.is_stop(own);
-    // CONT_SPECIAL_LW from pinned lua_const.rs. Shield is excluded by movable;
-    // this mode never drops guard to queue an unavailable down special.
+    // Shield stays excluded by movable. Ground movement can accept manual
+    // Down+B even when CONT_SPECIAL_LW has not yet become enabled.
     let can_special = !stopped
         && policy::movable(status, situation)
-        && game::transition_enabled(
+        && (game::transition_enabled(
             own,
             kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_LW,
-        );
+        ) || kirby_assist_core::native_states::moving_down_special_input(status, situation));
     if !active && !can_special {
         return None;
     }

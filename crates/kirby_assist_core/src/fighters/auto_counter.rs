@@ -176,6 +176,21 @@ pub fn predict_startup(
     })
 }
 
+/// Keep the earliest counterable contact, rather than letting an already
+/// unavoidable hitbox hide a second attack with enough startup remaining.
+pub fn prefer_actionable(config: Config, best: Option<Threat>, candidate: Threat) -> Option<Threat> {
+    if !candidate.in_frames.is_finite()
+        || !(config.startup..=config.horizon()).contains(&candidate.in_frames)
+    {
+        return best;
+    }
+    if best.is_none_or(|old| candidate.in_frames < old.in_frames) {
+        Some(candidate)
+    } else {
+        best
+    }
+}
+
 pub fn ready(status: i32, situation: i32) -> bool {
     match situation {
         crate::native_states::situation::GROUND => matches!(status,
@@ -196,8 +211,8 @@ pub struct Context {
     pub animation: AnimationSample,
 }
 
-/// One delivered pulse per attacker motion; failed mapper deliveries may retry
-/// while the observed threat remains valid.
+/// At most two mapped pulses per attacker motion when the first fails to
+/// start counter; unacknowledged mapper deliveries may retry while threatened.
 pub struct Counter {
     clock: AnimationClock,
     target: Option<(u32, u64)>,
@@ -211,6 +226,7 @@ pub struct Counter {
     last_object: u32,
     receipt_polls: u8,
     last_poll: Option<i64>,
+    attempts: u8,
 }
 impl Counter {
     pub const fn new() -> Self {
@@ -226,6 +242,7 @@ impl Counter {
             last_object: 0,
             receipt_polls: 0,
             last_poll: None,
+            attempts: 0,
         }
     }
     pub fn active(&self) -> bool {
@@ -238,6 +255,7 @@ impl Counter {
     pub fn clear_stale_attack(&mut self) {
         self.last = None;
         self.last_object = 0;
+        self.attempts = 0;
     }
     pub fn cancel(&mut self) {
         self.target = None;
@@ -275,6 +293,7 @@ impl Counter {
             || threat.frame < self.last_frame
         {
             self.last = None;
+            self.attempts = 0;
         }
         self.last_object = threat.id;
         self.last_motion = threat.motion;
@@ -285,6 +304,7 @@ impl Counter {
         if let Some(target) = self.target {
             self.last = Some(target);
             self.receipt = true;
+            self.attempts = self.attempts.saturating_add(1);
         }
     }
     pub fn sample(
@@ -306,12 +326,25 @@ impl Counter {
             return ControllerOutput::default();
         };
         if self.receipt {
-            if self.finished(c.animation.status, c.animation.frame)
-                || now.saturating_sub(self.began) > 12
-            {
-                self.cancel();
+            if self.finished(c.animation.status, c.animation.frame) {
+                return ControllerOutput::default();
             }
-            return ControllerOutput::default();
+            if c.animation.status == crate::native_states::status::SPECIAL_LW {
+                return ControllerOutput::default();
+            }
+            if self.receipt_polls >= 2 && now.saturating_sub(self.began) >= 2 && self.attempts < 2 {
+                // The mapped pulse did not start the special. Release B before
+                // another attempt against the still-observable attack.
+                self.target = None;
+                self.receipt = false;
+                self.receipt_polls = 0;
+                return ControllerOutput::default();
+            } else {
+                if now.saturating_sub(self.began) > 12 {
+                    self.cancel();
+                }
+                return ControllerOutput::default();
+            }
         }
         let Some(threat) = threat.filter(|t| t.in_frames.is_finite() && t.in_frames >= 0.0) else {
             self.cancel();
@@ -326,7 +359,7 @@ impl Counter {
         if self.target.is_none() {
             if !ready(c.animation.status, c.situation)
                 || !c.can_special
-                || self.last == Some(key)
+                || (self.last == Some(key) && self.attempts >= 2)
                 || !(config.startup..=config.horizon()).contains(&threat.in_frames)
             {
                 return ControllerOutput::default();
@@ -414,6 +447,149 @@ mod tests {
         );
         assert_eq!(output.requested & MAPPER_B, MAPPER_B);
         assert_eq!(output.stick, Some([0.0, -1.0]));
+    }
+
+    #[test]
+    fn moving_with_direction_requests_down_special_and_releases_on_receipt() {
+        let threat = Threat {
+            id: 7,
+            motion: 9,
+            status: crate::native_states::status::ATTACK,
+            frame: 3.0,
+            in_frames: 6.0,
+        };
+        for status in [
+            crate::native_states::status::WALK,
+            crate::native_states::status::RUN,
+            crate::native_states::status::TURN_RUN_BRAKE,
+            crate::native_states::status::SQUAT_WAIT,
+        ] {
+            let mut counter = Counter::new();
+            let output = counter.sample(
+                true,
+                Some(config()),
+                Context {
+                    kind: crate::fighter_kinds::LUCINA,
+                    situation: crate::native_states::situation::GROUND,
+                    can_special: crate::native_states::moving_down_special_input(
+                        status,
+                        crate::native_states::situation::GROUND,
+                    ),
+                    stopped: false,
+                    animation: AnimationSample {
+                        object: 1,
+                        status,
+                        kind: 1,
+                        frame: 3.0,
+                        auxiliary: 0.0,
+                    },
+                },
+                Some(threat),
+            );
+            assert_eq!(output.requested & MAPPER_B, MAPPER_B, "status {status}");
+            assert_eq!(output.stick, Some([0.0, -1.0]));
+            counter.mapped();
+            assert!(counter.finished(crate::native_states::status::SPECIAL_LW, 1.0));
+        }
+    }
+
+    #[test]
+    fn selects_actionable_hit_over_earlier_unavoidable_contact() {
+        let threat = |id, in_frames| Threat {
+            id,
+            motion: 9,
+            status: crate::native_states::status::ATTACK,
+            frame: 3.0,
+            in_frames,
+        };
+        let best = prefer_actionable(config(), None, threat(1, 0.0));
+        let best = prefer_actionable(config(), best, threat(2, 6.0));
+        assert_eq!(best, Some(threat(2, 6.0)));
+        assert_eq!(prefer_actionable(config(), best, threat(3, 8.0)), best);
+        assert_eq!(
+            prefer_actionable(config(), best, threat(4, 5.0)),
+            Some(threat(4, 5.0))
+        );
+    }
+
+    #[test]
+    fn retries_once_after_mapped_input_fails_to_start_counter() {
+        let mut counter = Counter::new();
+        let threat = Threat {
+            id: 7,
+            motion: 9,
+            status: crate::native_states::status::ATTACK,
+            frame: 3.0,
+            in_frames: 7.0,
+        };
+        let mut context = Context {
+            kind: crate::fighter_kinds::LUCINA,
+            situation: crate::native_states::situation::GROUND,
+            can_special: true,
+            stopped: false,
+            animation: AnimationSample {
+                object: 1,
+                status: crate::native_states::status::RUN,
+                kind: 1,
+                frame: 1.0,
+                auxiliary: 0.0,
+            },
+        };
+        assert_ne!(
+            counter.sample(true, Some(config()), context, Some(threat)).requested & MAPPER_B,
+            0
+        );
+        counter.mapped();
+        counter.poll_receipt(1);
+        context.animation.frame = 2.0;
+        assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
+        counter.poll_receipt(2);
+        context.animation.frame = 3.0;
+        assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
+        context.animation.frame = 4.0;
+        assert_ne!(
+            counter.sample(true, Some(config()), context, Some(threat)).requested & MAPPER_B,
+            0
+        );
+        counter.mapped();
+        context.animation.frame = 4.0;
+        assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
+        context.animation.frame = 20.0;
+        assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
+        assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
+    }
+
+    #[test]
+    fn never_retries_when_native_counter_has_started() {
+        let mut counter = Counter::new();
+        let threat = Threat {
+            id: 7,
+            motion: 9,
+            status: crate::native_states::status::ATTACK,
+            frame: 3.0,
+            in_frames: 7.0,
+        };
+        let mut context = Context {
+            kind: crate::fighter_kinds::LUCINA,
+            situation: crate::native_states::situation::GROUND,
+            can_special: true,
+            stopped: false,
+            animation: AnimationSample {
+                object: 1,
+                status: crate::native_states::status::RUN,
+                kind: 1,
+                frame: 1.0,
+                auxiliary: 0.0,
+            },
+        };
+        counter.sample(true, Some(config()), context, Some(threat));
+        counter.mapped();
+        context.animation.status = crate::native_states::status::SPECIAL_LW;
+        for frame in 1..=4 {
+            context.animation.frame = frame as f32;
+            assert_eq!(counter.sample(true, Some(config()), context, Some(threat)).requested, 0);
+        }
+        assert!(!counter.active());
     }
 
     #[test]

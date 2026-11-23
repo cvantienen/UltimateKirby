@@ -28,10 +28,10 @@ pub(super) unsafe fn observe(
     let stopped = reads.is_stop(own);
     let can_special = !stopped
         && status != kirby_assist_core::native_states::status::SPECIAL_LW
-        && game::transition_enabled(
+        && (game::transition_enabled(
             own,
             kirby_assist_core::native_states::transition_terms::CONT_SPECIAL_LW,
-        );
+        ) || kirby_assist_core::native_states::moving_down_special_input(status, situation));
     let context = Context {
         kind,
         situation,
@@ -168,15 +168,11 @@ pub(super) unsafe fn observe(
                     velocity: speed,
                 },
             ) {
-                if best.is_none_or(|old| threat.in_frames < old.in_frames) {
-                    best = Some(threat);
-                }
+                best = policy::prefer_actionable(config, best, threat);
             }
         }
         if let Some(threat) = startup {
-            if best.is_none_or(|old| threat.in_frames < old.in_frames) {
-                best = Some(threat);
-            }
+            best = policy::prefer_actionable(config, best, threat);
         }
     }
     Some((config, context, best))
