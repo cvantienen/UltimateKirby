@@ -459,8 +459,7 @@ impl SettingsMenu {
             kind == kirby_assist_core::fighter_kinds::KIRBY
                 && s.effective_mode(Mode::IdleCrouch, s.idle_crouch),
             s.effective_mode(Mode::TiltTurn, s.tilt_turn)
-                && (s.sequence_auto_tilt(kind).is_some_and(crate::posture::TiltSettings::any)
-                    || s.tuning.tilt_turn(kind).any()),
+                && s.tuning.tilt_turn(kind).any(),
         )
     }
     /// Schedules the quick menu to open on the next input update.
