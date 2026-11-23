@@ -114,6 +114,39 @@ Native tech eligibility, lockout and air-dodge safety checks still apply.
 | Tech probes: floor extra reach | `tech_floor_padding` | Extra downward distance added to the predicted floor sweep. Higher can notice a nearby floor earlier, but may warn before real contact. |
 | Tech probes: ceiling extra reach | `tech_ceiling_padding` | Extra upward distance added to ceiling prediction. Higher can notice a ceiling earlier, but may warn before real contact. |
 
+## Auto-counter (Lucina)
+
+Auto-counter is currently supported only for **Lucina**, and it must be enabled
+in the fighter settings for the current match. In Training, **Minus → Fighter
+settings → Auto-counter** edits Lucina's saved startup default. The setting is
+input-only: when an eligible incoming melee hit is forecast, the assist requests
+down-special input; it does not change the counter move or its native behavior.
+
+The predictor uses either observed active direct-melee hitbox geometry or
+verified damaging move timing from the fighter catalog. Startup-only forecasts
+are limited to nearby opponents because the catalog does not provide hitbox
+reach. Invalid observations, unsupported attacks, unavailable geometry, or
+out-of-range timing produce no request. Shielding, capture, unsafe status or
+situation, and inability to use down-special prevent activation. A failed mapped
+pulse may be retried at most once for the same attacker motion; a successful
+counter relinquishes the request when its move completes. This is a forecast,
+not a guarantee against online delay, opponent movement, or native game
+eligibility.
+
+| Menu name | Text key | Default | Purpose |
+| --- | --- | --- | --- |
+| Auto-counter at startup | `counter_default` | ON for configured Lucina profile | Saved startup switch; enable/disable the assist for the match. |
+| Counter: startup frames | `counter_startup` | 5 | Estimated native counter startup and minimum actionable lead time, in frames. |
+| Counter: early margin | `counter_margin` | 2 in the generic tuning defaults; Lucina's supplied file sets 4 | Additional forecast lead time, in frames. |
+| Counter: body half-width | `counter_half_width` | 5 | Estimated half-width used for active-hitbox overlap, in world units. |
+| Counter: body height | `counter_height` | 16 | Estimated body height used for active-hitbox overlap, in world units. |
+| Counter: body half-depth | `counter_half_depth` | 5 | Estimated depth half-extent used for active-hitbox overlap, in world units. |
+
+The body dimensions are prediction estimates, not native hurtbox edits. The
+configured input settings are stored in the fighter's `[lucina.settings]`
+section; omitted values use defaults. See [Lucina's fighter reference](fighters/lucina.md)
+for her authored choices and canonical fighter data.
+
 ## Retired fixed-punish settings
 
 These seven keys are still accepted in old files, but are **hidden from Fighter

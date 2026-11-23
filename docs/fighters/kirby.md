@@ -23,7 +23,7 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 | Row | Saved choices, in menu order |
 | --- | --- |
 | Neutral | **Nair**; Rapid Jab; Down smash; Down-B / Stone; Inhale; Bair; Cross-up grab; NAIR LATE; Immediate Nair; Immediate Nair Max Drift; Dash Attack; [TEST] Face ledge > walk 5 > grab; [TEST] Face foe > run 10 > grab; [TEST] Full-hop Bair + drift; [TEST] Short-hop Nair + delay/drift; [TEST] Turnaround short-hop Bair; [TEST] Grab (verify profile range); [TEST] Grab (ignore range); [TEST] Grab (verify 20 units); [TEST] Grounded down smash; [TEST] Grounded down special |
-| Jump | **Nair**; Inhale; MAX NAIR; HALF NAIR |
+| Jump | **Nair**; Inhale; BAIR; HALF NAIR |
 | Roll | **Down smash**; Grab; Dash Attack |
 | Attack | **Grab / rear nair**; Grab / rear shield |
 | Drop | **Shield**; Down tilt > shield; Short-hop dair; jump UP B; UP B |
@@ -105,7 +105,7 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 
 | Situation / ID | Start delay | Ordered inputs |
 | --- | --- | --- |
-| Neutral / `nair` | 0 | `facing_input:x:0:0:1, wait:10, drift:opponent:0.99:5, wait:4, facing_input:a:0:0:4` |
+| Neutral / `nair` | 0 | `facing_input:x:0:0:1, drift:opponent:0.6:5, controller_input:a:0:0:0:0:4:screen:screen, wait:21, facing_input:none:0:-1:4` |
 | Neutral / `down_tilt` | 1 | `walk_to_opponent:0.8:1:10, facing_input:a:0:0:50` |
 | Neutral / `down_smash` | 15 | `wait:1, face:opponent, facing_input:a:-0.02:-1:1` |
 | Neutral / `stone` | 15 | `face:opponent, facing_input:b:0:-1:1` |
@@ -127,14 +127,14 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 | Neutral / `test_down_smash` | 0 | `Down Smash` |
 | Neutral / `test_down_special` | 0 | `Down Special` |
 | Jump / `nair` | 0 | `facing_input:x+zl:0:0:1, facing_input:a:0:0:1, drift:opponent:1:4` |
-| Jump / `bair` | 0 | `face:opponent, facing_input:b:0:0:4` |
-| Jump / `nair_max_drift` | 0 | `Short Hop, Nair, Drift:Opponent:100%:10` |
+| Jump / `bair` | 0 | `opponent_input:b:0.36:0:4` |
+| Jump / `nair_max_drift` | 0 | `facing_input:x:0:0:1, facing_input:a:-1:0:2, drift:opponent:1:5` |
 | Jump / `nair_half_drift` | 0 | `Short Hop, Nair, Drift:Opponent:50%:10` |
-| Roll / `down_smash` | 0 | `walk:away_from_opponent:14:0.9, wait:5, facing_input:a:0:-1:1` |
+| Roll / `down_smash` | 0 | `walk:away_from_opponent:5:0.9, facing_input:a:0:-1:10` |
 | Roll / `grab` | 10 | `walk:away_from_opponent:12:0.8, range:fighter_range, wait:1, input:r:0:0:4` |
 | Roll / `dash_attack` | 20 | `face:opponent, wait:1, facing_input:none:1:0:4, facing_input:a:0.79:0:1` |
 | Attack / `shield_grab` | 0 | `shield_until_block:90, grab` |
-| Attack / `shield_rear` | 0 | `shield_until_block:90, shield:255` |
+| Attack / `shield_rear` | 0 | `shield_until_block:70, controller_input:a:0:0.7:0:0:30:screen:screen` |
 | Drop / `shield` | 0 | `shield:255` |
 | Drop / `down_tilt_shield` | 0 | `down_tilt:1, wait:30, shield:255` |
 | Drop / `short_hop_dair` | 0 | `short_hop_dair:1` |

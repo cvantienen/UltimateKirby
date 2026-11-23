@@ -52,7 +52,8 @@ tools/                       Validation, documentation, build, and workbench too
 
 The [source map](CODE_MAP.md) lists the main modules. The
 [build and release guide](BUILD_VARIANTS.md) covers packaging; the
-[interactive workbench](WORKBENCH.md) covers its local tooling.
+[interactive workbench](WORKBENCH.md) covers its local tooling. To contribute,
+see the [GitHub push, PR, merge, and local-main update workflow](GITHUB_WORKFLOW.md).
 
 ## Validation and support caveats
 

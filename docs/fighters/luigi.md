@@ -15,10 +15,10 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | Nair; **Down tilt**; Forward tilt |
-| Jump | **Nair** |
-| Roll | **Down smash** |
-| Attack | **Shield > Nair**; Shield > range-checked grab |
+| Neutral | Nair; F ball Grab; **dash** |
+| Jump | Nair; **dash** |
+| Roll | Down smash; **Grab** |
+| Attack | Shield > Nair; **Shield > range-checked grab** |
 | Drop | **Shield**; Down tilt > shield |
 
 These names are shown in the menu exactly as authored in the sequence file.
@@ -34,7 +34,6 @@ priority numbers apply only to legacy rule lists. Vulnerable-ledge punishment is
 | Assist trigger | Priority | Saved rule | Section |
 | --- | --- | --- | --- |
 | `auto_air_dodge` | — | Air dodge > Neutral Air | `luigi.roll.auto_air_dodge` |
-| `auto_grab` | — | Automatic grab (unshielded) | `luigi.roll.auto_grab` |
 | `auto_grab_dodged` | — | Dodged grab > Neutral Air | `luigi.roll.auto_grab_dodged` |
 | `auto_roll` | — | Roll > Neutral Air | `luigi.roll.auto_roll` |
 | `auto_shield_backup` | — | Shield backup > Neutral Air | `luigi.roll.auto_shield_backup` |
@@ -102,13 +101,15 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 
 | Situation / ID | Start delay | Ordered inputs |
 | --- | --- | --- |
-| Neutral / `nair` | 14 | `opponent_input:a+x:0:0:1` |
-| Neutral / `down_tilt` | 27 | `opponent_input:a:0:-0.6:1` |
-| Neutral / `forward_tilt` | 28 | `opponent_input:a:0.6:0:1` |
-| Jump / `nair` | 0 | `opponent_input:a+x:0:0:1` |
-| Roll / `down_smash` | 0 | `if_facing_opponent, opponent_input:a:0:-1:27, release:1, else_facing, opponent_input:a:0:-1:19, release:1, end_facing` |
+| Neutral / `nair` | 0 | `short_hop:1, drift:opponent:0.5:10, opponent_input:a:0:0:1` |
+| Neutral / `down_tilt` | 0 | `opponent_input:b:0:0:4, range:fighter_range, wait:30, input:r:0:0:1` |
+| Neutral / `forward_tilt` | 20 | `drift:opponent:1:4, opponent_input:a:0.6:0:4` |
+| Jump / `nair` | 0 | `short_hop:1, opponent_input:a:0:0:1, drift:opponent:1:10` |
+| Jump / `dash` | 0 | `drift:opponent:1:4, opponent_input:a:0.6:0:1` |
+| Roll / `down_smash` | 0 | `drift:away_from_opponent:1:4, opponent_input:a:0:-1:20, wait:1` |
+| Roll / `grab` | 0 | `drift:away_from_opponent:0.5:4, wait:10, range:fighter_range, press:r:4` |
 | Attack / `shield_nair` | 0 | `shield_until_block:90, opponent_input:a+x:0:0:1` |
-| Attack / `shield_grab` | 0 | `shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1` |
+| Attack / `shield_grab` | 0 | `shield_until_block:90, range:fighter_range, input:r:0:0:4` |
 | Drop / `shield` | 0 | `shield:255` |
 | Drop / `down_tilt_shield` | 0 | `down_tilt:1, wait:30, shield:255` |
 

@@ -75,6 +75,8 @@ all five file-authored lists, selected defaults, input schedules and canonical f
 | Every configured fighter | [Full non-DLC roster, defaults and data audit](NON_DLC_ROSTER.md) |
 
 Kirby also has a [forward-air first-hit landing follow-up](KIRBY_FAIR_CONFIRM.md).
+Lucina's configured [automatic down-special counter](FIGHTER_SETTINGS.md#auto-counter-lucina)
+is described with the other fighter-specific settings.
 
 ## Configure or add responses
 
