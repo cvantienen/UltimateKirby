@@ -15,11 +15,11 @@ choices. Hold **L** to run the selected responses. Defaults are bold.
 
 | Row | Saved choices, in menu order |
 | --- | --- |
-| Neutral | Nair; Down tilt; **Forward tilt**; F-tilt; f-smash |
+| Neutral | SIDE B; B; **Forward tilt**; F-tilt; f-smash |
 | Jump | N-air; F-air; **F-TILT**; F SMASH |
 | Roll | **Down smash**; Grab; F SMASH |
 | Attack | Shield > f Tilt; Shield > range-checked grab; **Shield > Up-B**; Shield > Uair; Shield > Fair |
-| Drop | **Shield**; Down tilt > shield; Hop nair (near); Hop fair (near); Hop dair (near); Low smash (spacing) |
+| Drop | Shield; **Down tilt > shield**; Hop nair (near); Hop fair (near); Hop dair (near); Low smash (spacing) |
 
 These names are shown in the menu exactly as authored in the sequence file.
 Input timelines hand back control after their last step; the game decides acceptance.
@@ -102,13 +102,13 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 
 | Situation / ID | Start delay | Ordered inputs |
 | --- | --- | --- |
-| Neutral / `nair` | 10 | `opponent_input:a+x:0:0:1` |
+| Neutral / `nair` | 18 | `controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:1:0:0:0:1:opponent:opponent, wait:10, controller_input:b:0:-1:0:0:1:opponent:opponent` |
 | Neutral / `down_tilt` | 0 | `opponent_input:b:0:0:26` |
-| Neutral / `forward_tilt` | 22 | `opponent_input:a:0.6:0:1` |
+| Neutral / `forward_tilt` | 0 | `wait:21, opponent_input:a:0.6:0:1` |
 | Neutral / `up_tilt` | 20 | `opponent_input:a:0.6:0:1` |
-| Neutral / `forward_smash` | 0 | `opponent_input:a:1:0:22, release:1` |
+| Neutral / `forward_smash` | 0 | `opponent_input:a:1:0:20, wait:1` |
 | Jump / `nair` | 0 | `opponent_input:a+x:0:0:1` |
-| Jump / `forward_air` | 0 | `opponent_input:a+x:1:0:1` |
+| Jump / `forward_air` | 0 | `opponent_input:a+x:1:0:4` |
 | Jump / `up_air` | 0 | `opponent_input:a:0.6:0:1` |
 | Jump / `f_smash` | 0 | `opponent_input:a:1:0:1` |
 | Roll / `down_smash` | 0 | `drift:away_from_opponent:0.5:4, facing_input:a:0:-1:20` |
@@ -116,7 +116,7 @@ No compiled fighter recipe, adaptive-hop policy or native move window schedules 
 | Roll / `f_smash` | 0 | `drift:away_from_opponent:0.5:8, facing_input:a:1:0:15` |
 | Attack / `shield_nair` | 0 | `shield_until_block:90, opponent_input:a:0.6:0:1` |
 | Attack / `shield_grab` | 0 | `shield_until_block:90, check:enemy_in_front:0, range:fighter_range_instant, input:r:0:0:1` |
-| Attack / `shield_up_b` | 0 | `shield_until_block:90, input:b:0:1:1` |
+| Attack / `shield_up_b` | 0 | `shield_until_block:90, opponent_input:b:0.3:0.7:1` |
 | Attack / `shield_up_air` | 0 | `shield_until_block:90, opponent_input:a+x:0:1:1` |
 | Attack / `shield_fair` | 0 | `shield_until_block:90, opponent_input:a+x:1:0:1` |
 | Drop / `shield` | 0 | `shield:255` |

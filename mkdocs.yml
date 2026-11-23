@@ -48,6 +48,7 @@ nav:
   - Build and release:
       - Build variants: BUILD_VARIANTS.md
       - Interactive workbench: WORKBENCH.md
+      - GitHub PR workflow: GITHUB_WORKFLOW.md
   - Developer guide:
       - Runtime architecture: ARCHITECTURE.md
       - Runtime safety and feature limits: RUNTIME_SAFETY.md

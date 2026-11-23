@@ -170,6 +170,11 @@ actions = shield:4, grab:fighter_range_instant
 <td>Supported held-button playback; Auto-react responses are one committed execution</td>
 </tr>
 <tr>
+<td><code>auto_tilt</code></td>
+<td>Legacy recipe compatibility key; ignored for tilt-turn behavior</td>
+<td>Move tilt directions to <code>[fighter.settings]</code> instead of a ledge response</td>
+</tr>
+<tr>
 <td><code>reaction</code></td>
 <td>Short or long form below; omit for no automatic trigger</td>
 <td>Observation trigger and distance limits</td>
@@ -1105,7 +1110,7 @@ out_of_shield_default = true
 <tr>
 <td><code>tilt_turn_down</code></td>
 <td><code>true</code> / <code>false</code></td>
-<td>Aim down tilts; defaults ON for Kirby/Yoshi, OFF for others</td>
+<td>Aim down tilts; defaults ON for Kirby/Yoshi/Lucina, OFF for others</td>
 </tr>
 <tr>
 <td><code>tilt_turn_forward</code></td>
@@ -1119,6 +1124,13 @@ out_of_shield_default = true
 </tr>
 </tbody>
 </table>
+<p>Put tilt directions in the fighter's settings section, independently of the selected
+ledge response. The existing Tilt Turn menu toggle still controls activation:</p>
+<pre><code class="language-ini">[kirby.settings]
+tilt_turn_down = true
+tilt_turn_forward = true
+tilt_turn_up = true
+</code></pre>
 <h2>Universal startup keys</h2>
 <p>Place these under <code>[universal.settings]</code> in the main source file. These are
 startup policy settings; they do not define fighter sequences or replace the
@@ -1172,6 +1184,18 @@ auto_tech = true
 <tr>
 <td><code>tech_cooldown_frames</code></td>
 <td>Integer 0–65535</td>
+</tr>
+<tr>
+<td><code>sequence_input_delay_frames</code></td>
+<td>Integer 0–120; subtract from sequence acquisition delay without shortening input holds</td>
+</tr>
+<tr>
+<td><code>auto_turn_tilts_active</code>, <code>auto_turn_tilit_active</code></td>
+<td><code>true</code> / <code>false</code>; second spelling is a compatibility alias</td>
+</tr>
+<tr>
+<td><code>auto_turn_tilts</code></td>
+<td>Comma-separated <code>down</code>, <code>forward</code>, <code>up</code> (or <code>none</code>); selects active tilt directions</td>
 </tr>
 <tr>
 <td><code>ledge_trap</code>, <code>ledge_drop_defense</code>, <code>ledge_distance_agnostic</code>, <code>ledge_manual_spacing</code>, <code>ledge_auto_position</code>, <code>ledge_throw_outward</code></td>
