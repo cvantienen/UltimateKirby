@@ -134,6 +134,19 @@ struct Worker {
 }
 /// Owns the sole current save worker until its join completes.
 static WORKER: Mutex<Option<Worker>> = Mutex::new(None);
+/// Keeps replaced libraries alive until the menu/input thread can drop them.
+/// Large catalog destruction on the save worker caused post-save pauses/crashes.
+static RETIRED_LIBRARIES: Mutex<Vec<kirby_assist_core::sequence_config::SequenceLibrary>> =
+    Mutex::new(Vec::new());
+/// Drops replaced catalogs outside the save worker.
+pub(super) fn reap_retired_libraries() {
+    let retired = std::mem::take(
+        &mut *RETIRED_LIBRARIES
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()),
+    );
+    drop(retired);
+}
 // Only explicit saves and cached-text replacement use this gate; never inputs,
 // detection or drawing. Check BUSY under the gate to close the start/rebuild race.
 /// Serializes explicit saves with cached-view replacement.
@@ -366,7 +379,10 @@ fn write(job: &Job) -> Result<bool, String> {
             std::mem::replace(&mut *saved, library)
         };
         super::super::SEQUENCES_UPDATED.store(true, Ordering::Release);
-        drop(old);
+        RETIRED_LIBRARIES
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .push(old);
     }
     Ok(true)
 }

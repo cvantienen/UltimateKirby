@@ -197,6 +197,9 @@ impl Engine {
             else {
                 continue;
             };
+            if !t.vulnerable_now() {
+                continue;
+            }
             let d = (t.position[0] - c.position[0]).abs();
             let r = sequence.reaction;
             // Moving admission is reserved for a direct Up-B input. A

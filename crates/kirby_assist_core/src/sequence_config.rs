@@ -279,6 +279,7 @@ mod library {
         /// Runtime ground only value used by PackedSequence..
         ground_only: bool,
         /// Runtime reaction value used by PackedSequence..
+        auto_tilt: Option<crate::posture::TiltSettings>,
         reaction: Rule,
     }
     impl PackedSequence {
@@ -293,6 +294,7 @@ mod library {
                 builtin: sequence.builtin,
                 while_held: sequence.while_held,
                 ground_only: sequence.ground_only,
+                auto_tilt: sequence.auto_tilt,
                 reaction: sequence.reaction,
             }
         }
@@ -307,6 +309,7 @@ mod library {
                 builtin: self.builtin,
                 while_held: self.while_held,
                 ground_only: self.ground_only,
+                auto_tilt: self.auto_tilt,
                 reaction: self.reaction,
                 ..Sequence::default()
             };
@@ -869,6 +872,8 @@ pub struct Sequence {
     pub while_held: bool,
     /// Opt-in: stop this tape if the fighter becomes airborne.
     pub ground_only: bool,
+    /// Optional physical tilt directions to aim toward the opponent while this sequence is active.
+    pub auto_tilt: Option<crate::posture::TiltSettings>,
     /// Runtime reaction value used by Sequence..
     pub reaction: crate::reaction_rules::Rule,
 }
@@ -885,6 +890,7 @@ impl Default for Sequence {
             builtin: None,
             while_held: false,
             ground_only: false,
+            auto_tilt: None,
             reaction: crate::reaction_rules::Rule::default(),
         }
     }
@@ -965,6 +971,16 @@ mod tests {
         .entries()[0]
             .sequence
     }
+    /// Regression test for sequence-declared auto-tilt directions.
+    #[test]
+    fn sequence_auto_tilt_parses_and_round_trips() {
+        let sequence = Catalog::parse("[lucina.neutral.custom]\nstart_delay=0\nactions=down_tilt\nauto_tilt=down,side,up")
+            .unwrap()
+            .entries()[0]
+            .sequence;
+        assert_eq!(sequence.auto_tilt, Some(crate::posture::TiltSettings { down: true, forward: true, up: true }));
+    }
+
     /// Regression test for `direction_spellings_are_unique_and_the_canonical_one_round_trips`.
     #[test]
     fn direction_spellings_are_unique_and_the_canonical_one_round_trips() {

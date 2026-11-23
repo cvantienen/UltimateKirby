@@ -680,6 +680,13 @@ impl MenuSelection {
             && !(self.simplified_reactions
                 && matches!(row, MenuRow::ShieldPressure | MenuRow::SpotPunish))
             && !(row == MenuRow::IdleCrouch && self.y_fighter_kind != crate::fighter_kinds::KIRBY)
+            && !(row == MenuRow::TiltTurn
+                && !matches!(
+                    self.y_fighter_kind,
+                    crate::fighter_kinds::KIRBY
+                        | crate::fighter_kinds::YOSHI
+                        | crate::fighter_kinds::LUCINA
+                ))
             && !(row == MenuRow::AutoReflect
                 && crate::projectile_reflect::Config::for_fighter(self.y_fighter_kind, self.tuning)
                     .is_none())

@@ -26,6 +26,22 @@ pub struct TiltSettings {
     pub up: bool,
 }
 impl TiltSettings {
+    /// Parses configured tilt directions such as `down`, `forward,up`, or `none`.
+    pub fn parse(value: &str) -> Result<Option<Self>, String> {
+        let mut settings = Self::default();
+        let mut any = false;
+        for word in value.split([',', ' ', '|']).filter(|word| !word.is_empty()) {
+            match word.to_ascii_lowercase().as_str() {
+                "none" | "off" => return Ok(None),
+                "down" | "dtilt" => settings.down = true,
+                "forward" | "side" | "ftilt" => settings.forward = true,
+                "up" | "utilt" => settings.up = true,
+                _ => return Err(format!("unknown auto tilt direction {word}")),
+            }
+            any = true;
+        }
+        if any { Ok(Some(settings)) } else { Err("auto_tilt requires at least one direction".into()) }
+    }
     /// Determines whether the `any` condition holds.
     pub fn any(self) -> bool {
         self.down || self.forward || self.up
@@ -145,8 +161,38 @@ impl Posture {
         };
         if settings.up && right[1] > 0.5 && right[1].abs() > right[0].abs() {
             Some(([x, 0.0], [x, 1.0]))
+        } else if settings.down && right[1] < -0.5 && right[1].abs() > right[0].abs() {
+            Some(([x, 0.0], [x, -1.0]))
         } else if settings.forward && right[0].abs() > 0.5 && right[0].abs() > right[1].abs() {
             Some(([x, 0.0], [toward, 0.0]))
+        } else {
+            None
+        }
+    }
+    /// Aims an A-button tilt without changing its requested tilt direction or adding frames.
+    fn configured_a_tilt(
+        settings: TiltSettings,
+        buttons: u32,
+        stick: [f32; 2],
+        target: Option<f32>,
+        c: ManualContext,
+    ) -> Option<[f32; 2]> {
+        if !Self::needs_configured_target(c.status, c.situation, c.stopped)
+            || buttons & MAPPER_A == 0
+            || !stick.iter().all(|v| v.is_finite())
+            || !c.facing.is_finite()
+            || c.facing.abs() < 0.5
+        {
+            return None;
+        }
+        let toward = target.filter(|v| v.is_finite() && v.abs() > 0.5)?.signum();
+        let x = if c.facing * toward < 0.0 { toward * 0.8 } else { 0.0 };
+        if settings.down && stick[1] < -0.5 && stick[1].abs() > stick[0].abs() {
+            Some([x, -1.0])
+        } else if settings.up && stick[1] > 0.5 && stick[1].abs() > stick[0].abs() {
+            Some([x, 1.0])
+        } else if settings.forward && stick[0].abs() > 0.5 && stick[0].abs() > stick[1].abs() {
+            Some([toward, 0.0])
         } else {
             None
         }
@@ -165,6 +211,12 @@ impl Posture {
         c: ManualContext,
     ) -> ControllerOutput {
         if enabled && turn {
+            if let Some(left) = Self::configured_a_tilt(settings, buttons, stick, target, c) {
+                return ControllerOutput {
+                    stick: Some(left),
+                    ..ControllerOutput::default()
+                };
+            }
             if let Some((left, _)) =
                 Self::configured_c_stick(settings, buttons, stick, right, target, c)
             {

@@ -718,8 +718,13 @@ impl Timeline {
             Action::ShieldUntilManual if !f.grounded() => Step::Release("shield_requires_ground"),
             Action::ShieldUntilManual => Step::Output(guard_hold()),
             Action::ShieldUntilBlock(frames) => {
+                // A shield hit is the completion event. Do not wait for the
+                // online shield-recovery status, which may be skipped or held
+                // across polls and can otherwise retain guard until break.
                 self.blocked |= f.ctx.status == GUARD_DAMAGE;
-                if self.blocked && matches!(f.ctx.status, GUARD_ON | GUARD) {
+                if f.ctx.status == GUARD_DAMAGE
+                    || self.blocked && matches!(f.ctx.status, GUARD_ON | GUARD)
+                {
                     Step::Advance(f.now)
                 } else if f.elapsed >= f32::from(frames) {
                     Step::End("shield_wait_timeout")

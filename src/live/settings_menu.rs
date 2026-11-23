@@ -84,6 +84,7 @@ pub(super) fn cleanup_pending() -> bool {
 /// Applies completed save results and eligible cleanup outside shared callbacks.
 pub(super) fn poll_maintenance() {
     use std::sync::atomic::Ordering;
+    save::reap_retired_libraries();
     #[cfg(feature = "imgui-menu")]
     menu::finish_deferred_clear();
     let cleanup = cleanup_pending() && !super::MASTER_IN_MATCH.load(Ordering::Acquire);

@@ -30,7 +30,9 @@ fn default_auto_grab_ranges(kind: i32, standing: f32) -> (f32, f32) {
 fn tilt_turn_down_default(kind: i32) -> bool {
     matches!(
         kind,
-        crate::fighter_kinds::KIRBY | crate::fighter_kinds::YOSHI
+        crate::fighter_kinds::KIRBY
+            | crate::fighter_kinds::YOSHI
+            | crate::fighter_kinds::LUCINA
     )
 }
 
@@ -460,6 +462,12 @@ impl Tuning {
             REFLECT_DEFAULT..=REFLECT_HALF_DEPTH => crate::projectile_reflect::supports(kind),
             PUNISH_DOWN_REACH..=ROLL_GRAB_WATCH => false,
             CROUCH_RANGE..=CROUCH_HEIGHT => kind == crate::fighter_kinds::KIRBY,
+            TILT_TURN_DOWN..=TILT_TURN_UP => matches!(
+                kind,
+                crate::fighter_kinds::KIRBY
+                    | crate::fighter_kinds::YOSHI
+                    | crate::fighter_kinds::LUCINA
+            ),
             _ => i < COUNT,
         }
     }

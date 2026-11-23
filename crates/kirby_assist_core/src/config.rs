@@ -1062,6 +1062,13 @@ pub mod settings {
         pub grab_button: u32,
     }
 
+    impl AssistSettings {
+        /// Returns the sequence-declared tilt directions, if the selected fighter recipe declares them.
+        pub fn sequence_auto_tilt(&self) -> Option<crate::posture::TiltSettings> {
+            self.sequence_overrides.iter().flatten().find_map(|sequence| sequence.auto_tilt)
+        }
+    }
+
     impl Default for AssistSettings {
         /// Returns the default value for this type.
         fn default() -> Self {

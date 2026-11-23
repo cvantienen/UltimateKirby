@@ -117,6 +117,8 @@ enum RecipeKey {
     Reaction,
     /// `Actions` option in the `RecipeKey` Smash policy state.
     Actions,
+    /// `Auto tilt directions` option in the `RecipeKey` Smash policy state.
+    AutoTilt,
     /// `Default` option in the `RecipeKey` Smash policy state.
     Default,
     /// `StartDelay` option in the `RecipeKey` Smash policy state.
@@ -139,6 +141,7 @@ impl RecipeKey {
             "while_held" => Self::WhileHeld,
             "reaction" => Self::Reaction,
             "actions" => Self::Actions,
+            "auto_tilt" | "auto_tilts" | "tilt_turn" => Self::AutoTilt,
             "default" => Self::Default,
             "start_delay" => Self::StartDelay,
             "timeout" => Self::Timeout,
@@ -158,6 +161,7 @@ impl RecipeKey {
             Self::WhileHeld => "while_held",
             Self::Reaction => "reaction",
             Self::Actions => "actions",
+            Self::AutoTilt => "auto_tilt",
             Self::Default => "default",
             Self::StartDelay => "start_delay",
             Self::Timeout => "timeout",
@@ -389,7 +393,7 @@ impl Parser {
         };
         let Some(key) = RecipeKey::parse(&key.trim().to_ascii_lowercase()) else {
             return Err(format!(
-                "line {line_number}: supported keys are name, actions, builtin, default, start_delay, timeout, spatial_timeout, while_held, ground_only and reaction"
+                "line {line_number}: supported keys are name, actions, builtin, default, start_delay, timeout, spatial_timeout, while_held, ground_only, auto_tilt and reaction"
             ));
         };
         let bit = 1 << key as u16;
@@ -484,6 +488,10 @@ fn apply_recipe_key(
             let parsed = parse_actions(value, line_number)?;
             sequence.actions = parsed.actions;
             sequence.len = parsed.len;
+        }
+        RecipeKey::AutoTilt => {
+            sequence.auto_tilt = crate::posture::TiltSettings::parse(value)
+                .map_err(|e| format!("line {line_number}: {e}"))?;
         }
         RecipeKey::StartDelay | RecipeKey::Timeout | RecipeKey::SpatialTimeout => {
             let frames = parse_frame_count(key, value, line_number)?;

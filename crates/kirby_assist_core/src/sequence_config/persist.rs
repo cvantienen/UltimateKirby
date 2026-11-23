@@ -242,6 +242,7 @@ pub fn update(
             || sequence.reaction.active()
             || sequence.while_held
             || sequence.ground_only
+            || sequence.auto_tilt.is_some()
         {
             return Err("Built-in helpers cannot include recipe actions or conditions".into());
         }
@@ -274,6 +275,14 @@ pub fn update(
     };
     if sequence.ground_only {
         properties.push_str("ground_only = true\n");
+    }
+    if let Some(tilts) = sequence.auto_tilt {
+        let mut directions = String::new();
+        if tilts.down { directions.push_str("down,"); }
+        if tilts.forward { directions.push_str("forward,"); }
+        if tilts.up { directions.push_str("up,"); }
+        directions.pop();
+        properties.push_str(&format!("auto_tilt = {directions}\n"));
     }
     if sequence.reaction != crate::reaction_rules::Rule::default() {
         properties.push_str(&format!("reaction = {}\n", sequence.reaction.token()));
@@ -311,6 +320,7 @@ pub fn update(
                     key,
                     "while_held"
                         | "ground_only"
+                        | "auto_tilt"
                         | "reaction"
                         | "actions"
                         | "start_delay"
@@ -351,6 +361,7 @@ pub fn update(
         || saved.sequence.start_delay != sequence.start_delay
         || saved.sequence.timeout != sequence.timeout
         || saved.sequence.spatial_timeout != sequence.spatial_timeout
+        || saved.sequence.auto_tilt != sequence.auto_tilt
     {
         return Err("Saved recipe did not round-trip exactly".into());
     }
