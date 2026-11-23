@@ -416,6 +416,43 @@ pub mod situation {
     pub const ATTACK_AIR_MASK: u16 = 2;
 }
 
+/// Ordinary grounded movement can start down-special from controller input
+/// even when the transition term is not yet enabled for the current status.
+/// Native input handling still decides whether the move actually starts.
+pub fn moving_down_special_input(status: i32, situation: i32) -> bool {
+    situation == situation::GROUND
+        && matches!(status,
+            status::WALK..=status::TURN_RUN_BRAKE
+            | status::SQUAT..=status::SQUAT_RV)
+}
+
+#[cfg(test)]
+mod moving_special_tests {
+    use super::*;
+
+    #[test]
+    fn permits_ground_movement_but_not_guard_landing_or_airborne_lockout() {
+        for status in [
+            status::WALK,
+            status::DASH,
+            status::RUN,
+            status::TURN_RUN_BRAKE,
+            status::SQUAT_WAIT,
+        ] {
+            assert!(moving_down_special_input(status, situation::GROUND));
+        }
+        for status in [
+            status::WAIT,
+            status::LANDING,
+            status::GUARD,
+            status::SPECIAL_LW,
+        ] {
+            assert!(!moving_down_special_input(status, situation::GROUND));
+        }
+        assert!(!moving_down_special_input(status::FALL, situation::AIR));
+    }
+}
+
 /// Native transition-term IDs from the pinned `skyline-smash` constant table.
 pub mod transition_terms {
     /// Native transition permission for a neutral floor tech.

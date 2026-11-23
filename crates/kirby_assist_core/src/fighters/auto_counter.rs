@@ -417,6 +417,50 @@ mod tests {
     }
 
     #[test]
+    fn moving_with_direction_requests_down_special_and_releases_on_receipt() {
+        let threat = Threat {
+            id: 7,
+            motion: 9,
+            status: crate::native_states::status::ATTACK,
+            frame: 3.0,
+            in_frames: 6.0,
+        };
+        for status in [
+            crate::native_states::status::WALK,
+            crate::native_states::status::RUN,
+            crate::native_states::status::TURN_RUN_BRAKE,
+            crate::native_states::status::SQUAT_WAIT,
+        ] {
+            let mut counter = Counter::new();
+            let output = counter.sample(
+                true,
+                Some(config()),
+                Context {
+                    kind: crate::fighter_kinds::LUCINA,
+                    situation: crate::native_states::situation::GROUND,
+                    can_special: crate::native_states::moving_down_special_input(
+                        status,
+                        crate::native_states::situation::GROUND,
+                    ),
+                    stopped: false,
+                    animation: AnimationSample {
+                        object: 1,
+                        status,
+                        kind: 1,
+                        frame: 3.0,
+                        auxiliary: 0.0,
+                    },
+                },
+                Some(threat),
+            );
+            assert_eq!(output.requested & MAPPER_B, MAPPER_B, "status {status}");
+            assert_eq!(output.stick, Some([0.0, -1.0]));
+            counter.mapped();
+            assert!(counter.finished(crate::native_states::status::SPECIAL_LW, 1.0));
+        }
+    }
+
+    #[test]
     fn startup_rejects_unknown_far_or_too_late_attacks() {
         let kind = 5;
         let motion = crate::timing::motion_hash("attack_air_f");
